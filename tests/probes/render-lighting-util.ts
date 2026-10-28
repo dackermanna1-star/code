@@ -66,3 +66,16 @@ export function lumAt(fb: { data: Uint8Array; w: number; h: number }, x: number,
   }
   return acc / n;
 }
+
+/**
+ * Capture the canvas from inside the page (needs preserveDrawingBuffer) as a downscaled JPEG data URL.
+ * Kept small (< ~60 KB) because the harness stdout is truncated around 64 KB.
+ */
+export function captureCanvas(engine: Engine, width = 800, quality = 0.72): string {
+  const src = engine.getRenderingCanvas() as HTMLCanvasElement;
+  const c = document.createElement("canvas");
+  c.width = width;
+  c.height = Math.round((src.height / src.width) * width);
+  c.getContext("2d")!.drawImage(src, 0, 0, c.width, c.height);
+  return c.toDataURL("image/jpeg", quality);
+}

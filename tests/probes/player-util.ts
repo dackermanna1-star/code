@@ -1,0 +1,357 @@
+// Shared harness for the player-* probes: a real Babylon scene + Havok (fixed 1/60 s steps), the
+// real Input / Player / Hud, and small stand-ins for the systems the player consumes (physics
+// queries, destruction, render camera/shake, audio, vfx, world). The stand-ins implement exactly
+// the contract methods the player uses and record calls for assertions.
+import {
+  Engine,
+  Scene,
+  Vector3,
+  Quaternion,
+  Color3,
+  Color4,
+  HavokPlugin,
+  HemisphericLight,
+  DirectionalLight,
+  MeshBuilder,
+  StandardMaterial,
+  TransformNode,
+  UniversalCamera,
+  PhysicsBody,
+  PhysicsMotionType,
+  PhysicsShapeBox,
+  PhysicsShapeSphere,
+  PhysicsShapeContainer,
+  PhysicsRaycastResult,
+  ShapeCastResult,
+  type PhysicsEngineV2,
+  type PhysicsShape,
+  type Mesh,
+} from "@babylonjs/core";
+import HavokPhysics from "@babylonjs/havok";
+import havokWasmUrl from "@babylonjs/havok/lib/esm/HavokPhysics.wasm?url";
+import { Layer, type GameContext, type RayHit, type SweepHit, type StrikeInput, type TargetInfo } from "../../src/core/context.ts";
+import { EventBus, type GameEvents } from "../../src/core/events.ts";
+import { Settings } from "../../src/core/settings.ts";
+import { Time, FIXED_DT } from "../../src/core/time.ts";
+import { Rng } from "../../src/core/rng.ts";
+import type { MaterialId } from "../../src/destruction/model/materials.ts";
+import { Input } from "../../src/player/input.ts";
+
+export const ALL = 0xffffffff;
+export const r3 = (x: number) => Math.round(x * 1000) / 1000;
+export const r2 = (x: number) => Math.round(x * 100) / 100;
+export const v3 = (v: { x: number; y: number; z: number }) => [r3(v.x), r3(v.y), r3(v.z)];
+
+export function defaultCollide(layer: number): number {
+  switch (layer) {
+    case Layer.STATIC:
+      return ALL;
+    case Layer.DYNAMIC:
+      return Layer.STATIC | Layer.DYNAMIC | Layer.DEBRIS | Layer.PLAYER | Layer.HELD;
+    case Layer.DEBRIS:
+      return Layer.STATIC | Layer.DYNAMIC | Layer.DEBRIS | Layer.HELD;
+    case Layer.PLAYER:
+      return Layer.STATIC | Layer.DYNAMIC;
+    case Layer.HELD:
+      return Layer.STATIC | Layer.DYNAMIC | Layer.DEBRIS;
+    default:
+      return ALL;
+  }
+}
+
+// ------------------------------------------------------------------ physics stand-in
+export class ProbePhysics {
+  readonly plugin: HavokPlugin;
+  readonly scene: Scene;
+  readonly pe: PhysicsEngineV2;
+  minImpulse = 0.5;
+  worldBody: PhysicsBody;
+  private res = new PhysicsRaycastResult();
+  private castIn = new ShapeCastResult();
+  private castHit = new ShapeCastResult();
+  private sphere: PhysicsShapeSphere;
+  constructor(scene: Scene, plugin: HavokPlugin) {
+    this.scene = scene;
+    this.plugin = plugin;
+    this.pe = scene.getPhysicsEngine() as PhysicsEngineV2;
+    const n = new TransformNode("worldBody", scene);
+    this.worldBody = new PhysicsBody(n, PhysicsMotionType.STATIC, false, scene);
+    this.sphere = new PhysicsShapeSphere(Vector3.Zero(), 0.05, scene);
+  }
+  step(dt: number) {
+    this.scene._advancePhysicsEngineStep(dt * 1000);
+  }
+  onImpact() {}
+  raycast(from: Vector3, to: Vector3, collideWith = ALL, ignore: PhysicsBody | null = null): RayHit | null {
+    this.pe.raycastToRef(from, to, this.res, { membership: ALL, collideWith, ignoreBody: ignore ?? undefined });
+    if (!this.res.hasHit || !this.res.body) return null;
+    return { body: this.res.body, point: this.res.hitPointWorld.clone(), normal: this.res.hitNormalWorld.clone(), distance: this.res.hitDistance, childIndex: -1 };
+  }
+  sphereSweep(from: Vector3, to: Vector3, radius: number, collideWith = ALL, ignore: PhysicsBody | null = null): SweepHit | null {
+    this.sphere.dispose();
+    this.sphere = new PhysicsShapeSphere(Vector3.Zero(), radius, this.scene);
+    this.sphere.filterMembershipMask = ALL;
+    this.sphere.filterCollideMask = collideWith;
+    this.plugin.shapeCast({ shape: this.sphere, rotation: Quaternion.Identity(), startPosition: from, endPosition: to, shouldHitTriggers: false, ignoreBody: ignore ?? undefined }, this.castIn, this.castHit);
+    if (!this.castHit.hasHit || !this.castHit.body) return null;
+    return { body: this.castHit.body, point: this.castHit.hitPoint.clone(), normal: this.castHit.hitNormal.clone(), distance: Vector3.Distance(from, to) * this.castHit.hitFraction, childIndex: -1, fraction: this.castHit.hitFraction };
+  }
+  setLayer(shape: PhysicsShape, layer: number, collideWith?: number) {
+    shape.filterMembershipMask = layer;
+    shape.filterCollideMask = collideWith ?? defaultCollide(layer);
+  }
+  wake() {}
+  isAwake() {
+    return true;
+  }
+  stats() {
+    return { bodies: this.pe.getBodies().length, awake: this.pe.getBodies().length, stepMs: 0, constraints: 0 };
+  }
+}
+
+// ------------------------------------------------------------------ destruction stand-in
+export interface BodyInfo {
+  name: string;
+  mat: MaterialId;
+  isStatic: boolean;
+  grabbable: boolean;
+  usable: TargetInfo["usable"];
+  damage?: number;
+}
+
+export class ProbeDestruction {
+  strikes: Array<StrikeInput & { step: number }> = [];
+  pulls: Array<{ body: PhysicsBody; point: Vector3; force: Vector3; dt: number; step: number }> = [];
+  uses: Array<{ body: PhysicsBody; point: Vector3 }> = [];
+  info = new Map<PhysicsBody, BodyInfo>();
+  step = 0;
+  register(body: PhysicsBody, i: BodyInfo) {
+    this.info.set(body, i);
+  }
+  spawn() {
+    return 0;
+  }
+  strike(s: StrikeInput) {
+    this.strikes.push({ ...s, point: s.point.clone(), dir: s.dir.clone(), step: this.step });
+    const i = this.info.get(s.body);
+    return { energy: 0.5 * s.mass * s.speed * s.speed, impulse: s.mass * s.speed, hardness: 0.5, targetMat: i?.mat ?? null, partName: i?.name ?? null, assemblyName: i?.name ?? null, broke: false };
+  }
+  pry() {
+    return 0;
+  }
+  pull(body: PhysicsBody, point: Vector3, force: Vector3, dt: number) {
+    this.pulls.push({ body, point: point.clone(), force: force.clone(), dt, step: this.step });
+  }
+  use(body: PhysicsBody, point: Vector3) {
+    this.uses.push({ body, point: point.clone() });
+    return true;
+  }
+  target(body: PhysicsBody, _point: Vector3, _child: number): TargetInfo | null {
+    const i = this.info.get(body);
+    if (!i) return null;
+    return {
+      assemblyId: 1,
+      assemblyType: i.name.toLowerCase(),
+      assemblyName: i.name,
+      partName: "body",
+      mat: i.mat,
+      damage: i.damage ?? 0,
+      mass: this.massOf(body) ?? 0,
+      isStatic: i.isStatic,
+      grabbable: i.grabbable,
+      usable: i.usable,
+    };
+  }
+  massOf(body: PhysicsBody): number | null {
+    if (!this.info.has(body)) return null;
+    try {
+      return body.getMassProperties().mass ?? null;
+    } catch {
+      return null;
+    }
+  }
+  isStatic(body: PhysicsBody) {
+    const i = this.info.get(body);
+    return i ? i.isStatic : body.getMotionType() !== PhysicsMotionType.DYNAMIC;
+  }
+  materialAt(body: PhysicsBody): MaterialId | null {
+    return this.info.get(body)?.mat ?? null;
+  }
+  beforePhysics() {}
+  afterPhysics() {}
+  update() {}
+  stats() {
+    return { assemblies: 12, islands: 40, dynamicIslands: 9, parts: 380, fractures: 23, bondsBroken: 57, debrisIslands: 31, consolidated: 4, valueDestroyed: 1234, totalValue: 48000, msLastStep: 0.4 };
+  }
+  list() {
+    return [];
+  }
+  positionOf() {
+    return null;
+  }
+}
+
+// ------------------------------------------------------------------ world
+export interface ProbeWorld {
+  engine: Engine;
+  scene: Scene;
+  plugin: HavokPlugin;
+  ctx: GameContext;
+  physics: ProbePhysics;
+  destruction: ProbeDestruction;
+  input: Input;
+  events: EventBus<GameEvents>;
+  log: Record<string, Array<unknown>>;
+  shakes: number[];
+  /** One full fixed step in game order (input → player → physics). */
+  step(n?: number, render?: boolean): void;
+  box(name: string, size: [number, number, number], pos: [number, number, number], o?: BoxOpts): PhysicsBody;
+}
+
+export interface BoxOpts {
+  motion?: PhysicsMotionType;
+  mass?: number;
+  layer?: number;
+  color?: Color3;
+  rot?: Quaternion;
+  container?: boolean; // wrap the box in a 2-child container (tests leaf-mask handling)
+  friction?: number;
+}
+
+export async function makeWorld(opts: { gravity?: number } = {}): Promise<ProbeWorld> {
+  const canvas = document.getElementById("renderCanvas") as HTMLCanvasElement;
+  const engine = new Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true });
+  const scene = new Scene(engine);
+  scene.clearColor = new Color4(0.55, 0.62, 0.7, 1);
+  const hemi = new HemisphericLight("hemi", new Vector3(0.2, 1, 0.1), scene);
+  hemi.intensity = 0.75;
+  hemi.groundColor = new Color3(0.25, 0.22, 0.2);
+  const sun = new DirectionalLight("sun", new Vector3(-0.4, -1, 0.3), scene);
+  sun.intensity = 0.6;
+  const hk = await HavokPhysics({ locateFile: () => havokWasmUrl });
+  const plugin = new HavokPlugin(false, hk); // every step = exactly 1/60 s
+  scene.enablePhysics(new Vector3(0, -(opts.gravity ?? 9.81), 0), plugin);
+  scene.physicsEnabled = false; // scene.render() must not step physics; we step explicitly
+  const camera = new UniversalCamera("cam", new Vector3(0, 1.65, 0), scene);
+  camera.minZ = 0.03;
+  camera.maxZ = 500;
+  camera.inertia = 0;
+  scene.activeCamera = camera;
+
+  const settings = new Settings();
+  settings.data.showHints = false;
+  const time = new Time();
+  const events = new EventBus<GameEvents>();
+  const physics = new ProbePhysics(scene, plugin);
+  const destruction = new ProbeDestruction();
+  const input = new Input(canvas, settings);
+  const shakes: number[] = [];
+  const log: Record<string, Array<unknown>> = {};
+  for (const k of ["footstep", "land", "grab", "throw", "drop"] as const) {
+    log[k] = [];
+    events.on(k, (e) => log[k].push(e));
+  }
+  const render = {
+    camera,
+    worldMaterial: null,
+    glassMaterial: null,
+    getShake: () => ({ pos: { x: 0, y: 0, z: 0 }, rot: { x: 0, y: 0, z: 0 } }),
+    shake: (t: number) => shakes.push(t),
+    flash: () => {},
+    applyQuality: () => {},
+    setPS2Mode: () => {},
+    setPower: () => {},
+    addLight: () => {},
+    removeLight: () => {},
+    setShadowCaster: () => {},
+    captureEnvironment: () => {},
+    buildIsland: () => ({ opaque: null, glass: null }),
+    disposeIsland: () => {},
+    update: () => {},
+  };
+  const audio = { resume: async () => {}, setListener: () => {}, play: () => {}, loop: () => ({ setPosition() {}, setGain() {}, stop() {} }), setMasterVolume: () => {}, update: () => {}, activeVoices: 3 };
+  const vfx = { burst: () => {}, emitter: () => ({ setPosition() {}, setDirection() {}, setRate() {}, stop() {} }), micro: () => {}, decal: () => {}, fixedUpdate: () => {}, update: () => {}, particleCount: 120, microCount: 45 };
+  const world = { build: async () => {}, roomAt: () => null, rooms: [], spawn: { pos: { x: 0, y: 1.65, z: 0 }, yaw: 0, pitch: 0 } };
+  const hud = { update: () => {}, toast: (t: string) => (log.toast ??= []).push(t), setLoading: () => {}, hideLoading: () => {}, menuOpen: false };
+  const ctx = {
+    engine,
+    scene,
+    canvas,
+    time,
+    settings,
+    rng: new Rng(7),
+    events,
+    physics,
+    render,
+    destruction,
+    audio,
+    vfx,
+    input,
+    world,
+    hud,
+    debug: { update: () => {} },
+  } as unknown as GameContext;
+
+  const w: ProbeWorld = {
+    engine,
+    scene,
+    plugin,
+    ctx,
+    physics,
+    destruction,
+    input,
+    events,
+    log,
+    shakes,
+    step(n = 1, render = false) {
+      for (let i = 0; i < n; i++) {
+        input.update();
+        ctx.player?.fixedUpdate(FIXED_DT);
+        physics.step(FIXED_DT);
+        time.tick();
+        destruction.step++;
+        if (render) {
+          ctx.player?.update(FIXED_DT);
+        }
+      }
+    },
+    box(name, size, pos, o = {}) {
+      const node = new TransformNode(name, scene);
+      node.position.set(pos[0], pos[1], pos[2]);
+      node.rotationQuaternion = o.rot ? o.rot.clone() : Quaternion.Identity();
+      node.computeWorldMatrix(true);
+      const motion = o.motion ?? PhysicsMotionType.STATIC;
+      const body = new PhysicsBody(node, motion, false, scene);
+      const layer = o.layer ?? (motion === PhysicsMotionType.STATIC ? Layer.STATIC : Layer.DYNAMIC);
+      const mk = (sz: Vector3, c: Vector3) => {
+        const s = new PhysicsShapeBox(c, Quaternion.Identity(), sz, scene);
+        s.material = { friction: o.friction ?? 0.6, restitution: 0.05 };
+        s.filterMembershipMask = layer;
+        s.filterCollideMask = defaultCollide(layer);
+        if (o.mass !== undefined) s.density = o.mass / (sz.x * sz.y * sz.z) / (o.container ? 1 : 1);
+        return s;
+      };
+      if (o.container) {
+        const cont = new PhysicsShapeContainer(scene);
+        const half = new Vector3(size[0] / 2, size[1], size[2]);
+        cont.addChild(mk(half, Vector3.Zero()), new Vector3(-size[0] / 4, 0, 0));
+        cont.addChild(mk(half, Vector3.Zero()), new Vector3(size[0] / 4, 0, 0));
+        body.shape = cont;
+      } else body.shape = mk(new Vector3(size[0], size[1], size[2]), Vector3.Zero());
+      if (o.mass !== undefined && motion !== PhysicsMotionType.STATIC) body.setMassProperties({ mass: o.mass });
+      const mesh: Mesh = MeshBuilder.CreateBox(name + "_m", { width: size[0], height: size[1], depth: size[2] }, scene);
+      const mat = new StandardMaterial(name + "_mat", scene);
+      mat.diffuseColor = o.color ?? (motion === PhysicsMotionType.STATIC ? new Color3(0.62, 0.6, 0.56) : new Color3(0.8, 0.45, 0.2));
+      mat.specularColor = new Color3(0.05, 0.05, 0.05);
+      mesh.material = mat;
+      mesh.parent = node;
+      return body;
+    },
+  };
+  return w;
+}
+
+/** Simulate a physical key press/release on window (Input listens there). */
+export function key(code: string, down: boolean) {
+  window.dispatchEvent(new KeyboardEvent(down ? "keydown" : "keyup", { code, bubbles: true }));
+}

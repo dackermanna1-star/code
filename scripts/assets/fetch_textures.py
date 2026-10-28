@@ -10,6 +10,9 @@ and public/assets/textures/manifest.json.
 Usage (run from the repo root; downloads are untrusted data and live outside the repo):
     python3 -I scripts/assets/fetch_textures.py [--work /tmp/claude-0/assets-work]
                                                 [--only name1,name2] [--probe out.png]
+                                                [--try '{"name": "x", "src": "Wood095", "size": 1}']
+--probe writes a preview sheet (albedo, 2x2 tiling, lit preview, normal, roughness) instead
+of the output files; --try adds ad-hoc candidate entries to a probe.
 
 Steps: download <ID>_1K-JPG.zip from ambientcg.com (cached in <work>/dl), extract only
 the expected map images into a fresh <work>/src/<ID>/ directory, downscale with a
@@ -53,18 +56,22 @@ ACG_LICENSE = "CC0 1.0 Universal (public domain)"
 #   nstr       normal-map strength multiplier
 #   rough      (lo, hi) percentile remap of roughness, or a float for a constant
 #   metal      metallic hint (extra manifest field, 0 or 1)
-#   gen        procedural generator (P.<name>) used instead of / on top of the photo
+#   gen        src=None: generator P.<gen>(size); with a src: post-process P.post_<gen>()
+#   ndetail    extra fine normal relief derived from the (high-passed) albedo luminance
+#   sigma      flattening scale in px (default SIZE/10)
+#   from_height  rebuild the albedo from the height map: color * (v + (1-v) * height)
+#   note       free text copied into the manifest
 # --------------------------------------------------------------------------------------
 SPEC = [
     # ---- wood -------------------------------------------------------------------------
     dict(name="wood_oak", src="Wood095", size=1.0, color=(0.52, 0.36, 0.21), flat=0.6, nstr=2.0, ndetail=1.5,
          rough=(0.4, 0.65), note="light oak-like straight grain board (laminate floor / furniture), grain along U"),
-    dict(name="wood_walnut", src="Wood067", size=1.0, flat=0.5, nstr=1.4, ndetail=1.0, rough=(0.4, 0.65),
-         note="dark walnut-like hardwood, grain along U"),
+    dict(name="wood_walnut", src="Wood067", size=1.0, color=(0.085, 0.04, 0.018), flat=0.5, nstr=1.4, ndetail=1.0,
+         rough=(0.4, 0.65), note="dark walnut-like hardwood, grain along U"),
     dict(name="wood_pine", src="Wood046", rot=1, size=0.8, color=(0.62, 0.45, 0.24), flat=0.6, nstr=2.0,
          ndetail=1.5, rough=(0.65, 0.9), note="raw softwood lumber (pine/spruce), rotated so grain runs along U"),
-    dict(name="wood_fiber", src="Wood061", size=0.4, flat=0.6, nstr=2.5, contrast=1.3, rough=(0.75, 0.95),
-         note="rough split light wood surface, fibres along U (fracture faces)"),
+    dict(name="wood_fiber", src="Wood061", size=0.4, color=(0.62, 0.48, 0.32), flat=0.6, nstr=2.5, contrast=1.3,
+         rough=(0.75, 0.95), note="rough split light wood surface, fibres along U (fracture faces)"),
     dict(name="plywood", src="Wood094", size=1.2, color=(0.68, 0.52, 0.33), flat=0.6, nstr=1.5, ndetail=1.0, rough=(0.55, 0.8),
          note="light rotary-cut veneer face used as birch plywood"),
     dict(name="mdf", src=None, gen="mdf", size=0.5, note="procedural MDF fibreboard"),
@@ -72,62 +79,65 @@ SPEC = [
          note="chipboard flakes"),
     # ---- walls / ceilings -------------------------------------------------------------
     dict(name="paint_wall", src="PaintedPlaster017", tint=True, size=1.5, desat=1.0, luma=0.74, flat=0.9,
-         contrast=0.6, nstr=1.0, rough=(0.75, 0.9), note="painted plaster photo, neutralised for tinting"),
-    dict(name="gypsum", src="Paper002", size=0.3, desat=0.7, luma=0.66, flat=0.6, nstr=1.5, rough=(0.85, 1.0),
-         note="porous off-white cartonage photo used as broken gypsum core"),
-    dict(name="plaster_ceiling", src="Plaster003", size=1.5, desat=1.0, luma=0.78, flat=0.9, contrast=0.6,
-         nstr=1.0, rough=(0.8, 0.95), note="knock-down plaster photo, white"),
+         contrast=0.6, nstr=1.0, rough=(0.8, 0.88), gen="orange_peel",
+         note="painted plaster photo, neutralised for tinting, plus fine orange-peel roller relief"),
+    dict(name="gypsum", src="Concrete003", size=0.3, desat=0.85, luma=0.62, color=None, flat=0.6, nstr=1.0,
+         rough=(0.85, 1.0), gen="warm_white", note="porous chalky surface (photo of fine concrete, brightened) for broken drywall core"),
+    dict(name="plaster_ceiling", src="Styrofoam005", size=0.8, desat=1.0, luma=0.78, flat=0.9, contrast=0.6,
+         nstr=1.0, rough=(0.82, 0.95), note="fine bumpy white surface photo used as lightly stippled ceiling plaster"),
     # ---- concrete ---------------------------------------------------------------------
-    dict(name="concrete", src="Concrete002", size=1.5, flat=0.6, nstr=1.0, rough=(0.65, 0.9),
-         note="smooth cast concrete with small bug holes"),
-    dict(name="concrete_broken", src="Concrete018", size=0.6, desat=0.6, flat=0.4, nstr=1.5, rough=(0.8, 1.0),
-         note="rough concrete with exposed aggregate"),
+    dict(name="concrete", src="Concrete006", size=1.5, flat=0.7, nstr=0.6, rough=(0.7, 0.9),
+         note="smooth cast-in-place concrete"),
+    dict(name="concrete_broken", src="Concrete025", size=0.4, flat=0.4, nstr=2.0, rough=(0.8, 1.0),
+         note="rough concrete with aggregate, for fracture faces"),
     # ---- tiles / ceramics -------------------------------------------------------------
-    dict(name="tile_porcelain", src="Concrete025", size=0.6, flat=0.7, nstr=0.25, rough=(0.3, 0.45),
-         note="speckled light grey stone-like surface, flattened & smoothed for porcelain"),
-    dict(name="tile_glazed_white", src="Porcelain001", size=0.3, flat=0.0, nstr=1.0, rough=(0.05, 0.15),
-         note="glossy white glaze"),
-    dict(name="grout", src="Concrete003", size=0.3, desat=0.5, flat=0.6, nstr=1.0, rough=(0.85, 1.0),
-         note="fine cementitious surface"),
-    dict(name="ceramic_glaze", src="Porcelain002", size=0.5, flat=0.0, nstr=0.6, rough=(0.04, 0.12),
+    dict(name="tile_porcelain", src="Granite005A", size=0.6, desat=1.0, color=(0.5, 0.47, 0.42), flat=0.8,
+         contrast=0.8, nstr=0.25, rough=(0.25, 0.4), note="fine speckled stone-look surface, neutral light grey/beige"),
+    dict(name="tile_glazed_white", src="Porcelain001", size=0.3, flat=0.0, luma=0.78, nstr=1.0, rough=(0.04, 0.1),
+         gen="glaze", note="glossy white glaze with very subtle tonal variation and waviness"),
+    dict(name="grout", src="Concrete037", size=0.25, desat=0.7, luma=0.24, flat=0.6, nstr=1.5, rough=(0.85, 1.0),
+         note="fine sanded cementitious grout"),
+    dict(name="ceramic_glaze", src="Porcelain002", size=0.5, flat=0.0, luma=0.8, nstr=0.6, rough=(0.03, 0.08),
          note="smooth white porcelain glaze"),
-    dict(name="ceramic_bisque", src="Plaster002", size=0.2, desat=0.8, luma=0.68, flat=0.7, nstr=1.5,
-         rough=(0.8, 0.95), note="matte grainy off-white (unglazed ceramic body)"),
+    dict(name="ceramic_bisque", src="Paper002", size=0.2, desat=0.8, luma=0.66, flat=0.7, nstr=3.0,
+         rough=(0.8, 0.95), gen="grain", note="porous off-white photo + sugary grain, unglazed ceramic body"),
     dict(name="granite", src="Granite002A", size=0.8, flat=0.5, nstr=0.3, rough=(0.15, 0.3), gen="granite_dark",
          note="salt-and-pepper granite photo inverted/darkened into dark speckled granite"),
     dict(name="marble", src="Marble001", size=1.0, flat=0.3, nstr=0.3, rough=(0.08, 0.2),
          note="white veined marble"),
     # ---- metals -----------------------------------------------------------------------
-    dict(name="steel_brushed", src="Metal009", size=0.5, metal=1, flat=0.5, nstr=1.0, rough=(0.25, 0.4),
-         note="brushed stainless, brushing along U"),
+    dict(name="steel_brushed", src="Metal009", size=0.5, metal=1, luma=0.45, flat=0.5, nstr=1.0, rough=(0.25, 0.4),
+         note="brushed stainless steel, brushing along U"),
     dict(name="metal_painted", src=None, gen="enamel", size=0.5, note="procedural white enamel paint"),
-    dict(name="metal_raw", src="Metal055A", size=0.6, metal=1, flat=0.6, nstr=1.0, rough=(0.35, 0.6),
-         note="mottled raw/galvanised steel"),
-    dict(name="aluminum", src="Metal050B", size=0.5, metal=1, flat=0.6, nstr=1.0, rough=(0.3, 0.45),
-         note="light satin aluminium"),
-    dict(name="copper", src="Metal035", size=0.3, metal=1, flat=0.5, nstr=1.0, rough=(0.25, 0.45),
-         note="copper"),
+    dict(name="metal_raw", src="Metal041A", size=0.6, metal=1, luma=0.42, flat=0.6, nstr=1.0, rough=(0.35, 0.55),
+         gen="spangle", note="raw steel photo + procedural galvanised zinc spangle"),
+    dict(name="aluminum", src="Metal050B", size=0.5, metal=1, luma=0.6, flat=0.6, nstr=1.0, rough=(0.3, 0.42),
+         gen="brushed", note="satin/anodised aluminium (photo + fine brushing along U)"),
+    dict(name="copper", src="Metal035", rot=1, size=0.3, metal=1, color=(0.62, 0.3, 0.16), flat=0.5, nstr=1.0,
+         rough=(0.25, 0.45), note="slightly tarnished copper, drawing streaks along U (pipe length)"),
     # ---- soft / misc ------------------------------------------------------------------
     dict(name="plastic", src="Plastic013A", tint=True, size=0.5, desat=1.0, luma=0.62, flat=0.8, nstr=1.0,
-         rough=(0.45, 0.6), note="slightly textured matte plastic, neutral"),
+         rough=(0.45, 0.58), gen="stipple", note="matte moulded plastic with fine stipple, neutral"),
     dict(name="fabric_upholstery", src="Fabric031", tint=True, size=0.3, desat=1.0, luma=0.55, flat=0.8,
-         nstr=1.5, rough=(0.85, 1.0), note="woven upholstery fabric, neutral"),
+         nstr=1.5, rough=(0.85, 1.0), gen="weave", note="upholstery fabric photo + plain-weave thread relief, neutral"),
     dict(name="fabric_cotton", src="Fabric032", tint=True, size=0.3, desat=1.0, luma=0.7, flat=0.8,
          nstr=1.5, rough=(0.8, 0.95), note="cotton/wool cloth, neutral"),
-    dict(name="carpet", src="Carpet016", tint=True, size=0.5, desat=1.0, luma=0.55, flat=0.8, nstr=1.5,
-         rough=(0.9, 1.0), note="short-pile wool carpet, neutral"),
-    dict(name="leather", src="Leather037", size=0.4, flat=0.5, nstr=1.5, rough=(0.4, 0.6), note="brown leather"),
-    dict(name="foam", src="Sponge001", size=0.15, flat=0.7, nstr=1.0, rough=(0.85, 1.0),
-         color=(0.75, 0.55, 0.16), note="yellow PU foam/sponge"),
+    dict(name="carpet", src="Carpet016", tint=True, size=0.5, desat=1.0, luma=0.55, flat=0.8, nstr=2.2,
+         ndetail=1.0, rough=(0.9, 1.0), note="short-pile wool carpet, neutral"),
+    dict(name="leather", src="Leather037", size=0.4, flat=0.5, nstr=3.0, ndetail=1.5, rough=(0.4, 0.6),
+         note="brown leather"),
+    dict(name="foam", src="Sponge001", size=0.15, from_height=0.55, color=(0.78, 0.6, 0.2), flat=0.0, nstr=1.2,
+         rough=(0.88, 1.0), note="yellow polyurethane foam: sponge pore relief, albedo rebuilt from its height map"),
     dict(name="insulation", src=None, gen="insulation", size=0.4, note="procedural pink fibreglass batt"),
-    dict(name="paper", src="Paper001", size=0.3, flat=0.7, nstr=1.0, rough=(0.75, 0.9), note="white paper"),
+    dict(name="paper", src="Paper001", size=0.3, luma=0.78, flat=0.7, nstr=1.0, rough=(0.75, 0.9), note="white paper"),
     dict(name="cardboard", src="Paper005", size=0.4, flat=0.6, nstr=1.0, rough=(0.8, 0.95), gen="flutes",
          note="kraft cardboard photo + faint corrugation flutes"),
     dict(name="rubber", src="Rubber004", size=0.4, desat=0.8, flat=0.5, nstr=0.8, rough=(0.75, 0.9),
          note="black rubber"),
     dict(name="soil", src="Ground048", size=0.6, flat=0.5, nstr=1.2, rough=(0.85, 1.0), note="dark potting soil"),
     dict(name="foliage", src=None, gen="foliage", size=0.15, note="procedural leaf surface with veins"),
-    dict(name="wallpaper", src=None, gen="wallpaper", size=0.6, note="procedural classic damask wallpaper"),
+    dict(name="wallpaper", src=None, gen="wallpaper", tint=True, size=0.6,
+         note="procedural tone-on-tone damask (fleur + ogee trellis) on embossed paper; light, can be tinted"),
     dict(name="asphalt", src="Asphalt015", size=2.0, flat=0.5, nstr=1.0, rough=(0.8, 0.95), note="road asphalt"),
 ]
 
@@ -171,6 +181,23 @@ def safe_extract_maps(zpath, out_dir, asset_id):
     return out_dir
 
 
+def asset_info(work, asset_id):
+    """ambientCG metadata (creation method, link) for the manifest; cached in <work>/info."""
+    path = os.path.join(work, "info", asset_id + ".json")
+    if not os.path.exists(path):
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        url = "https://ambientcg.com/api/v2/full_json?id=%s&include=displayData" % asset_id
+        req = urllib.request.Request(url, headers={"User-Agent": "asset-fetch/1.0"})
+        with urllib.request.urlopen(req, timeout=60) as r:
+            data = json.loads(r.read())
+        found = [a for a in data.get("foundAssets", []) if a.get("assetId") == asset_id]
+        info = {"creationMethod": found[0].get("creationMethod") if found else None,
+                "displayName": found[0].get("displayName") if found else asset_id}
+        with open(path, "w") as f:
+            json.dump(info, f)
+    return json.load(open(path))
+
+
 def fetch_asset(work, asset_id):
     url = "https://ambientcg.com/get?file=%s_1K-JPG.zip" % asset_id
     z = download(url, os.path.join(work, "dl", asset_id + ".zip"))
@@ -206,7 +233,15 @@ def process_photo(d, e):
     if rough is not None:
         rough = T.rot90_rgb(rough, k)
 
-    col = T.resize_rgb_linear(col, SIZE)
+    if e.get("from_height"):  # rebuild a clean albedo from the height map (source colour is unusable)
+        ph = find_map(d, "Displacement")
+        hgt = T.resize_wrap(T.rot90_rgb(T.tile_near_square(T.load_gray(ph)), k), SIZE)
+        hgt = T.norm01(T.flatten_gray(hgt, SIZE / 10.0, 1.0))
+        lo = e["from_height"]
+        lin = np.asarray(e["color"], np.float32)[None, None, :] * (lo + (1 - lo) * hgt)[..., None]
+        col = T.linear_to_srgb(np.clip(lin, 0, 1))
+    else:
+        col = T.resize_rgb_linear(col, SIZE)
     nrm = T.resize_normal(nrm, SIZE)
     rough = T.resize_wrap(rough, SIZE) if rough is not None else np.full((SIZE, SIZE), 0.7, np.float32)
     # clean up residual wrap-around discontinuities, only where the source actually has them
@@ -257,8 +292,9 @@ def build_entry(work, e):
     return col, nrm, rough
 
 
-def manifest_row(e, col_srgb):
-    lin = T.srgb_to_linear(col_srgb).reshape(-1, 3).mean(0)
+def manifest_row(e, albedo_path, work):
+    # average colour of the albedo as actually saved (decoded JPG), in linear light
+    lin = T.srgb_to_linear(T.load_rgb(albedo_path)).reshape(-1, 3).mean(0)
     n = e["name"]
     row = dict(
         name=n,
@@ -270,16 +306,24 @@ def manifest_row(e, col_srgb):
         worldSizeMeters=e["size"],
         procedural=not bool(e.get("src")),
         metallic=float(e.get("metal", 0)),
-        notes=e.get("note", ""),
     )
     if e.get("src"):
-        row.update(source="ambientCG %s" % e["src"], license=ACG_LICENSE,
+        info = asset_info(work, e["src"])
+        method = info.get("creationMethod") or "unknown"
+        row.update(source="ambientCG %s (%s)" % (e["src"], info.get("displayName") or e["src"]),
+                   sourceMethod=method, license=ACG_LICENSE,
                    url="https://ambientcg.com/view?id=%s" % e["src"])
+        note = e.get("note", "")
         if e.get("gen"):
-            row["notes"] += " (procedural post-process: %s)" % e["gen"]
+            note += " (+ procedural post-process '%s')" % e["gen"]
     else:
-        row.update(source="procedural (scripts/assets/procedural_textures.py:%s)" % e["gen"],
-                   license="CC0 1.0 Universal (generated for this project)", url="")
+        row.update(source="procedural: scripts/assets/procedural_textures.py %s()" % e["gen"],
+                   sourceMethod="numpy procedural", license="CC0 1.0 Universal (generated for this project)",
+                   url="")
+        note = e.get("note", "")
+    if row["metallic"]:
+        note += "; albedo is the metal base colour (use metallic=1)"
+    row["notes"] = note
     return row
 
 
@@ -344,7 +388,7 @@ def main():
         T.save_rgb(os.path.join(OUT_DIR, n + "_albedo.jpg"), col)
         T.save_rgb(os.path.join(OUT_DIR, n + "_normal.jpg"), T.encode_normal(nrm))
         T.save_gray(os.path.join(OUT_DIR, n + "_rough.jpg"), rough)
-        rows.append(manifest_row(e, col))
+        rows.append(manifest_row(e, os.path.join(OUT_DIR, n + "_albedo.jpg"), args.work))
     if args.probe:
         probe_sheet(results, args.probe)
         return

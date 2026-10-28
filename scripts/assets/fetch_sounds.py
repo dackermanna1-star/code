@@ -2,14 +2,16 @@
 """Fetch CC0 sound packs (Kenney + OpenGameArt) and convert them for the game.
 
 Every kept file becomes public/assets/sounds/<pack>/<name>.ogg :
-OGG Vorbis, mono, 44.1 kHz, quality 5, leading silence trimmed, peak-normalised to -1 dBFS.
+OGG Vorbis, mono, 44.1 kHz, quality 5, leading (and trailing) silence trimmed relative to the
+peak, optionally capped in length with a short fade-out, peak-normalised to -1 dBFS (checked on
+the decoded result and re-encoded if the codec overshoots).
 public/assets/sounds/manifest.json lists {file, pack, category, durationSec, source, license, url}.
 
 Usage (from the repo root; archives are untrusted data and stay outside the repo):
-    python3 -I scripts/assets/fetch_sounds.py [--work /tmp/claude-0/assets-work] [--list]
---list only downloads/extracts and prints what each pack contains (with ffprobe stats).
+    python3 -I scripts/assets/fetch_sounds.py [--work /tmp/claude-0/assets-work] [--list] [--only p1,p2]
+--list only downloads/extracts and prints what each pack contains (ffprobe stats + category).
 
-Requirements: ffmpeg/ffprobe on PATH; `py7zr` (pip) for the .7z packs.
+Requirements: ffmpeg/ffprobe (with libvorbis) on PATH, numpy, and `py7zr` (pip) for the .7z packs.
 """
 import argparse
 import http.cookiejar
@@ -147,12 +149,17 @@ def max_volume_db(path, pre_filter):
 
 
 def convert(src, dst, max_len=None):
-    """Mono 44.1k, trim leading (and trailing) silence, optional length cap with fade-out,
-    peak-normalise to -1 dBFS, Vorbis q5."""
-    pre = ("aformat=channel_layouts=mono,aresample=44100,"
-           "silenceremove=start_periods=1:start_threshold=-55dB:start_silence=0.005,"
-           # also drop trailing near-silence (reverse, trim, reverse back)
-           "areverse,silenceremove=start_periods=1:start_threshold=-65dB:start_silence=0.05,areverse")
+    """Mono 44.1k, trim leading (and trailing) silence relative to the peak, optional length
+    cap with fade-out, peak-normalise to -1 dBFS (verified on the decoded result), Vorbis q5."""
+    base = "aformat=channel_layouts=mono,aresample=44100"
+    src_peak = max_volume_db(src, base)
+    if src_peak is None:
+        return False
+    start_thr = min(-40.0, src_peak - 40.0)  # onset = first sound within 40 dB of the peak
+    end_thr = src_peak - 55.0
+    pre = (base + ",silenceremove=start_periods=1:start_threshold=%.1fdB:start_silence=0.005"
+           ",areverse,silenceremove=start_periods=1:start_threshold=%.1fdB:start_silence=0.05,areverse"
+           % (start_thr, end_thr))
     if max_len:
         pre += ",atrim=0:%g,afade=t=out:st=%g:d=%g" % (max_len, max(max_len - 0.3, 0), 0.3)
     peak = max_volume_db(src, pre)
@@ -160,13 +167,28 @@ def convert(src, dst, max_len=None):
         return False
     gain = -1.0 - peak
     os.makedirs(os.path.dirname(dst), exist_ok=True)
-    r = subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", src, "-af",
-                        pre + ",volume=%.2fdB" % gain, "-ac", "1", "-ar", "44100", "-c:a", "libvorbis",
-                        "-q:a", "5", "-map_metadata", "-1", dst], capture_output=True, text=True)
-    if r.returncode:
-        print("ffmpeg failed:", src, r.stderr[-300:])
-        return False
+    for _ in range(4):  # lossy coding shifts transient peaks: re-encode until the decoded peak is ~-1 dBFS
+        r = subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", src, "-af",
+                            pre + ",volume=%.2fdB" % gain, "-ac", "1", "-ar", "44100", "-c:a", "libvorbis",
+                            "-q:a", "5", "-map_metadata", "-1", dst], capture_output=True, text=True)
+        if r.returncode:
+            print("ffmpeg failed:", src, r.stderr[-300:])
+            return False
+        p = decoded_peak_db(dst)
+        if p is None or abs(p + 1.0) <= 0.3:
+            break
+        gain -= p + 1.0
     return True
+
+
+def decoded_peak_db(path):
+    import numpy as np
+    r = subprocess.run(["ffmpeg", "-v", "error", "-i", path, "-ac", "1", "-f", "f32le", "-"], capture_output=True)
+    x = np.frombuffer(r.stdout, np.float32)
+    if not len(x):
+        return None
+    m = float(np.abs(x).max())
+    return 20 * np.log10(m) if m > 0 else None
 
 
 def out_name(pack_id, src_name, rename):
@@ -320,7 +342,8 @@ pack(id="oga_breaker", title="SFX - Circuit breaker", author="CleytonKauffman", 
      files=[FILES + "Circuit%20Breaker.zip"], rename=[(r"^.*__", "")], rules=[(r".", "electric")])
 pack(id="oga_electricity", title="Electricity Game Sound Pack", author="faxcorp",
      url=OGA + "electricity-game-sound-pack",
-     files=[FILES + "crackleelectricityloop.wav", FILES + "snaploop.wav"], rules=[(r".", "electric")])
+     files=[FILES + "crackleelectricityloop.wav", FILES + "snaploop.wav"],
+     rules=[(r"crackle|snaploop", "electric")])
 pack(id="oga_cave_in", title="Cave In", author="StarNinjas", url=OGA + "cave-in",
      files=[FILES + "cave_in_-_starninjas_0.ogg"], rules=[(r".", "debris")])
 pack(id="oga_crunch", title="5 break, crunch impacts", author="qubodup", url=OGA + "5-break-crunch-impacts",

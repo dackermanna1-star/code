@@ -1,0 +1,509 @@
+// Joint groups → physics constraints (docs/ARCHITECTURE.md §4.4).
+//
+// A group's hinge/slider bonds between the same two islands form one constraint: hinges with
+// ≥ 2 intact bonds → hinge along the group axis, 1 → ball-and-socket at that hinge (the door
+// hangs and sags), 0 → free; sliders → prismatic joint while ≥ 1 runner is intact. A `latch`
+// bond holds the joint closed: hinge = position motor at the closed angle with a torque
+// derived from the latch strength; slider = limits pinned at the closed position. The use key
+// releases the latch temporarily; swinging back near the closed pose re-latches. Self-closing
+// springs and velocity motors (ceiling fans) are applied as torques before each physics step.
+//
+// Frames: pivots/axes are in the shared assembly frame, which is the local frame of every
+// island node of the assembly (and of the per-assembly anchor body used for joints bonded to
+// "world"), so constraints can be re-created exactly after splits. The physics contract
+// states hinge/slider limits are "relative to the creation pose"; when a joint is re-created
+// away from its built pose the current angle/offset is subtracted (`zeroAtCreation`).
+
+import { TransformNode, Quaternion, Vector3, type PhysicsBody } from "@babylonjs/core";
+import type { HingeOpts, SliderOpts } from "../../core/context.ts";
+import type { Vec3 } from "../../geom/vec.ts";
+import { planJointConstraints, type JointBondView } from "./graph.ts";
+import type { Assembly, Bond, Island, JointConstraint, JointGroup } from "./types.ts";
+import { rotate, type World } from "./world.ts";
+
+const TWO_PI = Math.PI * 2;
+/** Latch torque (N·m) per joule of latch strength. */
+const LATCH_TORQUE_PER_J = 30;
+/** Hinge counts as closed within this angle (rad) for use/latching. */
+const CLOSED_ANGLE = 0.05;
+/** Opening beyond this angle (rad) arms automatic re-latching. */
+const ARM_ANGLE = 0.14;
+const CLOSED_SLIDE = 0.012;
+const ARM_SLIDE = 0.04;
+
+interface PhysicsJointExt {
+  setHingeMotor?(c: unknown, target: number, maxForce: number): void;
+}
+
+const tV = new Vector3();
+const tW = new Vector3();
+const tW2 = new Vector3();
+const tP = new Vector3();
+
+export class JointSystem {
+  private readonly w: World;
+  readonly dirty = new Set<JointGroup>();
+  readonly springs = new Set<JointGroup>();
+  readonly released = new Set<JointGroup>();
+  readonly motors = new Set<JointGroup>();
+  /** Limits/motor targets are relative to the pose at constraint creation (see header). */
+  zeroAtCreation = true;
+  /** +1 when the physics hinge angle grows like qaxisAngle(axis, +θ) of moving vs fixed. */
+  angleSign = 1;
+  /** +1 when the physics slider position grows when the moving body moves along +axis. */
+  slideSign = 1;
+  constraintCount = 0;
+
+  constructor(w: World) {
+    this.w = w;
+  }
+
+  register(asm: Assembly): void {
+    for (const g of asm.groups.values()) {
+      if ((g.def.spring ?? 0) > 0) this.springs.add(g);
+      this.dirty.add(g);
+    }
+  }
+
+  markDirty(g: JointGroup): void {
+    if (g.asm.alive) this.dirty.add(g);
+  }
+
+  onBondBroken(b: Bond): void {
+    const g = b.group;
+    if (!g) return;
+    if (b === g.latch) {
+      g.released = false;
+      this.released.delete(g);
+    }
+    this.dirty.add(g);
+  }
+
+  /** Groups touching an island (via its parts' bonds). */
+  groupsOf(island: Island, out: Set<JointGroup> = new Set()): Set<JointGroup> {
+    for (const p of island.parts) for (const b of p.bonds) if (b.group) out.add(b.group);
+    return out;
+  }
+
+  markIsland(island: Island): void {
+    for (const g of this.groupsOf(island)) this.dirty.add(g);
+  }
+
+  /** Remove every constraint attached to an island (before its body is disposed). */
+  detachIsland(island: Island): void {
+    const groups = this.groupsOf(island);
+    // constraints may also reference the island after its parts left (keeper bookkeeping)
+    for (const asmG of island.asm.groups.values()) groups.add(asmG);
+    for (const g of groups) {
+      let changed = false;
+      for (let i = g.constraints.length - 1; i >= 0; i--) {
+        const jc = g.constraints[i];
+        if (jc.moving !== island && jc.fixed !== island) continue;
+        this.removeConstraint(jc);
+        g.constraints.splice(i, 1);
+        changed = true;
+      }
+      if (changed) this.dirty.add(g);
+    }
+  }
+
+  removeGroup(g: JointGroup): void {
+    for (const jc of g.constraints) this.removeConstraint(jc);
+    g.constraints.length = 0;
+    this.dirty.delete(g);
+    this.springs.delete(g);
+    this.released.delete(g);
+    this.motors.delete(g);
+  }
+
+  private removeConstraint(jc: JointConstraint): void {
+    try {
+      this.w.physics.removeConstraint(jc.c);
+    } catch (e) {
+      this.w.warnOnce("rmc", `removeConstraint failed: ${(e as Error).message}`);
+    }
+    this.constraintCount--;
+  }
+
+  refreshDirty(): void {
+    if (!this.dirty.size) return;
+    const list = [...this.dirty];
+    this.dirty.clear();
+    for (const g of list) {
+      if (!g.asm.alive) continue;
+      try {
+        this.refresh(g);
+      } catch (e) {
+        this.w.warnOnce(`joint:${(e as Error).message}`, `joint refresh failed: ${(e as Error).stack ?? e}`);
+      }
+    }
+  }
+
+  /** Is the latch currently holding this group's joint closed? */
+  latched(g: JointGroup): boolean {
+    return g.latchIntact && !g.released;
+  }
+
+  private refresh(g: JointGroup): void {
+    const views: JointBondView[] = [];
+    const islands = new Map<number, Island>();
+    for (const b of g.bonds) {
+      const mi = b.a.island;
+      const fi = b.b ? b.b.island : null;
+      const alive = b.alive && !!mi && mi.alive && (!b.b || (!!fi && fi.alive));
+      if (mi) islands.set(mi.id, mi);
+      if (fi) islands.set(fi.id, fi);
+      views.push({ alive, moving: mi ? mi.id : -2, fixed: b.b ? (fi ? fi.id : -3) : -1, anchor: b.anchor });
+    }
+    const plans = planJointConstraints(g.kind, views);
+    const latch = g.latch;
+    const keep: JointConstraint[] = [];
+    const wanted: Array<{ plan: (typeof plans)[number]; sig: string; latched: boolean }> = [];
+    for (const plan of plans) {
+      const latchedHere =
+        this.latched(g) &&
+        !!latch &&
+        plan.kind !== "ball" &&
+        latch.a.island?.id === plan.moving &&
+        (latch.b ? latch.b.island?.id === plan.fixed : plan.fixed === -1);
+      const moving = islands.get(plan.moving);
+      const fixed = plan.fixed >= 0 ? islands.get(plan.fixed) : null;
+      // both sides static: nothing to constrain (re-evaluated when one becomes dynamic)
+      if (!moving || moving.isStatic) {
+        if (!fixed || fixed.isStatic || plan.fixed === -1) continue;
+      }
+      const sig = `${plan.kind}|${plan.moving}|${plan.fixed}|${plan.bonds.join(",")}|${latchedHere ? 1 : 0}`;
+      wanted.push({ plan, sig, latched: latchedHere });
+    }
+    for (const jc of g.constraints) {
+      const idx = wanted.findIndex((x) => x.sig === jc.sig);
+      if (idx >= 0 && jc.moving.alive && (!jc.fixed || jc.fixed.alive)) {
+        keep.push(jc);
+        wanted.splice(idx, 1);
+      } else this.removeConstraint(jc);
+    }
+    g.constraints = keep;
+    for (const wnt of wanted) {
+      const moving = islands.get(wnt.plan.moving)!;
+      const fixed = wnt.plan.fixed >= 0 ? islands.get(wnt.plan.fixed)! : null;
+      const bonds = wnt.plan.bonds.map((i) => g.bonds[i]);
+      const jc = this.create(g, wnt.plan.kind, moving, fixed, wnt.plan.pivot, bonds, wnt.latched, wnt.sig);
+      if (jc) g.constraints.push(jc);
+    }
+    if (g.motorSpeed !== 0) this.motors.add(g);
+  }
+
+  private anchorBody(asm: Assembly): PhysicsBody {
+    if (asm.anchorBody) return asm.anchorBody;
+    const node = new TransformNode(`d${asm.id}.anchor`, this.w.scene);
+    node.position.set(asm.xf.p.x, asm.xf.p.y, asm.xf.p.z);
+    node.rotationQuaternion = new Quaternion(asm.xf.q.x, asm.xf.q.y, asm.xf.q.z, asm.xf.q.w);
+    node.rotationQuaternion.normalize();
+    node.computeWorldMatrix(true);
+    asm.anchorNode = node;
+    asm.anchorBody = this.w.physics.createBody(node, "static", false);
+    return asm.anchorBody;
+  }
+
+  private create(g: JointGroup, kind: "hinge" | "ball" | "slider", moving: Island, fixed: Island | null, pivot: Vec3, bonds: Bond[], latched: boolean, sig: string): JointConstraint | null {
+    const w = this.w;
+    if (!moving.body) return null;
+    const fixedBody = fixed ? fixed.body : this.anchorBody(g.asm);
+    if (!fixedBody) return null;
+    const axis = unit(g.def.axis);
+    const piv = new Vector3(pivot.x, pivot.y, pivot.z);
+    const ax = new Vector3(axis.x, axis.y, axis.z);
+    let offset = 0;
+    let c;
+    if (kind === "ball") {
+      c = w.physics.ball(fixedBody, moving.body, piv, piv.clone(), false);
+    } else if (kind === "hinge") {
+      if (this.zeroAtCreation) offset = this.hingeAngleOf(moving, fixed, g.asm, axis);
+      const o: HingeOpts = { pivotA: piv, pivotB: piv.clone(), axisA: ax, axisB: ax.clone(), collideConnected: false };
+      const min = g.def.min,
+        max = g.def.max;
+      const free = !Number.isFinite(min) || !Number.isFinite(max) || max - min >= TWO_PI - 1e-6 || !(max > min);
+      if (!free) {
+        const a = this.angleSign * (min - offset),
+          b = this.angleSign * (max - offset);
+        o.min = Math.min(a, b);
+        o.max = Math.max(a, b);
+      }
+      if (g.def.friction && g.def.friction > 0) o.friction = g.def.friction;
+      if (latched && g.latch) o.motor = { target: this.angleSign * (0 - offset), maxForce: latchTorque(g.latch.max) };
+      c = w.physics.hinge(fixedBody, moving.body, o);
+    } else {
+      if (this.zeroAtCreation) offset = this.slideOf(moving, fixed, g.asm, axis);
+      let min = Number.isFinite(g.def.min) ? g.def.min : 0;
+      let max = Number.isFinite(g.def.max) ? g.def.max : 0;
+      if (latched) min = max = 0; // pinned closed
+      const a = this.slideSign * (min - offset),
+        b = this.slideSign * (max - offset);
+      const o: SliderOpts = { pivotA: piv, pivotB: piv.clone(), axisA: ax, axisB: ax.clone(), min: Math.min(a, b), max: Math.max(a, b), collideConnected: false };
+      if (g.def.friction && g.def.friction > 0) o.friction = g.def.friction;
+      c = w.physics.slider(fixedBody, moving.body, o);
+    }
+    this.constraintCount++;
+    w.physics.wake(moving.body);
+    return { c, kind, moving, fixed, bonds, pivot: { ...pivot }, latched, offset, sig };
+  }
+
+  // ------------------------------------------------------------------ joint coordinates
+
+  private fixedPose(fixed: Island | null, asm: Assembly): { p: Vec3; q: { x: number; y: number; z: number; w: number } } {
+    if (fixed) return { p: fixed.node.position, q: fixed.node.rotationQuaternion ?? { x: 0, y: 0, z: 0, w: 1 } };
+    return { p: asm.xf.p, q: asm.xf.q };
+  }
+
+  /** Hinge angle of `moving` relative to `fixed` about `axis` (assembly frame), 0 = built pose. */
+  hingeAngleOf(moving: Island, fixed: Island | null, asm: Assembly, axis: Vec3): number {
+    const qM = moving.node.rotationQuaternion ?? { x: 0, y: 0, z: 0, w: 1 };
+    const qF = this.fixedPose(fixed, asm).q;
+    // q_rel = conj(qF) ⊗ qM
+    const fx = -qF.x,
+      fy = -qF.y,
+      fz = -qF.z,
+      fw = qF.w;
+    const rw = fw * qM.w - fx * qM.x - fy * qM.y - fz * qM.z;
+    const rx = fw * qM.x + fx * qM.w + fy * qM.z - fz * qM.y;
+    const ry = fw * qM.y - fx * qM.z + fy * qM.w + fz * qM.x;
+    const rz = fw * qM.z + fx * qM.y - fy * qM.x + fz * qM.w;
+    let a = 2 * Math.atan2(rx * axis.x + ry * axis.y + rz * axis.z, rw);
+    if (a > Math.PI) a -= TWO_PI;
+    else if (a <= -Math.PI) a += TWO_PI;
+    return a;
+  }
+
+  /** Slider displacement of `moving` relative to `fixed` along `axis` (assembly frame), 0 = built pose. */
+  slideOf(moving: Island, fixed: Island | null, asm: Assembly, axis: Vec3): number {
+    const f = this.fixedPose(fixed, asm);
+    const d = { x: moving.node.position.x - f.p.x, y: moving.node.position.y - f.p.y, z: moving.node.position.z - f.p.z };
+    const l = rotate(f.q, d, { x: 0, y: 0, z: 0 }, true);
+    return l.x * axis.x + l.y * axis.y + l.z * axis.z;
+  }
+
+  /** Current joint coordinate of a group (angle or slide), using its first constraint. */
+  coordinate(g: JointGroup): number | null {
+    const jc = g.constraints[0];
+    if (!jc) return null;
+    const axis = unit(g.def.axis);
+    return g.kind === "hinge" ? this.hingeAngleOf(jc.moving, jc.fixed, g.asm, axis) : this.slideOf(jc.moving, jc.fixed, g.asm, axis);
+  }
+
+  /** World axis and pivot of a constraint (axis fixed to the fixed side). */
+  worldAxis(g: JointGroup, jc: JointConstraint): { axis: Vec3; pivot: Vec3 } {
+    const f = this.fixedPose(jc.fixed, g.asm);
+    const axis = rotate(f.q, unit(g.def.axis), { x: 0, y: 0, z: 0 }, false);
+    const pv = rotate(f.q, jc.pivot, { x: 0, y: 0, z: 0 }, false);
+    return { axis, pivot: { x: pv.x + f.p.x, y: pv.y + f.p.y, z: pv.z + f.p.z } };
+  }
+
+  /** The joint group in which `island` is the moving side (door/drawer), if any. */
+  movingGroupOf(island: Island): JointGroup | null {
+    for (const p of island.parts) {
+      for (const b of p.bonds) {
+        const g = b.group;
+        if (!g || b.a !== p || !b.alive || b === g.latch) continue;
+        if (g.constraints.some((c) => c.moving === island)) return g;
+      }
+    }
+    return null;
+  }
+
+  // ------------------------------------------------------------------------- latches
+
+  release(g: JointGroup): void {
+    if (!g.latchIntact || g.released) return;
+    g.released = true;
+    g.armed = false;
+    g.releaseTime = this.w.now;
+    this.released.add(g);
+    const ext = this.w.physics as unknown as PhysicsJointExt;
+    let done = false;
+    if (typeof ext.setHingeMotor === "function" && g.kind === "hinge") {
+      for (const jc of g.constraints) {
+        if (!jc.latched) continue;
+        ext.setHingeMotor(jc.c, this.angleSign * (0 - jc.offset), 0);
+        jc.latched = false;
+        jc.sig = jc.sig.replace(/\|1$/, "|0");
+        done = true;
+      }
+    }
+    if (!done) this.dirty.add(g);
+    this.refreshDirty();
+  }
+
+  // ---------------------------------------------------------------------------- use
+
+  /** E on a door/drawer island: open (releasing the latch) or close. */
+  use(g: JointGroup, island: Island, point: Vec3, from: Vec3): boolean {
+    const jc = g.constraints.find((c) => c.moving === island) ?? g.constraints[0];
+    if (!jc || !island.body || island.isStatic) return false;
+    const { axis, pivot } = this.worldAxis(g, jc);
+    const m = island.mass;
+    if (g.kind === "hinge" && jc.kind !== "slider") {
+      const theta = this.hingeAngleOf(jc.moving, jc.fixed, g.asm, unit(g.def.axis));
+      const r = { x: point.x - pivot.x, y: point.y - pivot.y, z: point.z - pivot.z };
+      const t = cross(axis, r);
+      const tl = Math.hypot(t.x, t.y, t.z);
+      if (tl < 1e-4) return false;
+      const lo = Number.isFinite(g.def.min) ? g.def.min : -Math.PI,
+        hi = Number.isFinite(g.def.max) ? g.def.max : Math.PI;
+      let sign: number;
+      if (Math.abs(theta) < 0.08 || this.latched(g)) {
+        this.release(g);
+        const canPos = hi > 0.05,
+          canNeg = lo < -0.05;
+        if (canPos && !canNeg) sign = 1;
+        else if (canNeg && !canPos) sign = -1;
+        else {
+          // two-way door: push away from the player
+          const away = { x: point.x - from.x, y: point.y - from.y, z: point.z - from.z };
+          sign = t.x * away.x + t.y * away.y + t.z * away.z >= 0 ? 1 : -1;
+        }
+      } else {
+        sign = theta > 0 ? -1 : 1;
+        if (g.released) g.armed = true;
+      }
+      const J = Math.min(60, Math.max(2, m * 1.5));
+      const k = (sign * J) / tl;
+      tV.set(t.x * k, t.y * k, t.z * k);
+      tP.set(point.x, point.y, point.z);
+      island.body.applyImpulse(tV, tP);
+      this.w.physics.wake(island.body);
+      return true;
+    }
+    if (g.kind === "slider") {
+      const s = this.slideOf(jc.moving, jc.fixed, g.asm, unit(g.def.axis));
+      const lo = Number.isFinite(g.def.min) ? g.def.min : 0,
+        hi = Number.isFinite(g.def.max) ? g.def.max : 0;
+      const openDir = hi > Math.abs(lo) ? 1 : -1;
+      const span = Math.max(Math.abs(hi), Math.abs(lo), 1e-3);
+      const isOpen = Math.abs(s) > span * 0.4;
+      if (!isOpen) this.release(g);
+      else if (g.released) g.armed = true;
+      const sign = isOpen ? -Math.sign(s || openDir) : openDir;
+      const J = Math.min(40, Math.max(1, m * 1.1));
+      tV.set(axis.x * sign * J, axis.y * sign * J, axis.z * sign * J);
+      tP.set(point.x, point.y, point.z);
+      island.body.applyImpulse(tV, tP);
+      this.w.physics.wake(island.body);
+      return true;
+    }
+    return false;
+  }
+
+  // ------------------------------------------------------------------- before physics
+
+  beforePhysics(dt: number): void {
+    if (this.released.size) this.checkRelatch();
+    if (this.springs.size) for (const g of this.springs) this.applySpring(g, dt);
+    if (this.motors.size) for (const g of this.motors) this.applyMotor(g, dt);
+  }
+
+  private checkRelatch(): void {
+    const now = this.w.now;
+    for (const g of [...this.released]) {
+      if (!g.latchIntact || !g.asm.alive) {
+        g.released = false;
+        this.released.delete(g);
+        continue;
+      }
+      const x = this.coordinate(g);
+      if (x === null) continue;
+      const ax = Math.abs(x);
+      const arm = g.kind === "hinge" ? ARM_ANGLE : ARM_SLIDE;
+      const closed = g.kind === "hinge" ? CLOSED_ANGLE : CLOSED_SLIDE;
+      if (!g.armed && ax > arm) g.armed = true;
+      if ((g.armed || now - g.releaseTime > 8) && ax < closed) {
+        g.released = false;
+        this.released.delete(g);
+        this.dirty.add(g);
+      }
+    }
+    if (this.dirty.size) this.refreshDirty();
+  }
+
+  private relAngVel(jc: JointConstraint, axis: Vec3): number {
+    let wx = 0,
+      wy = 0,
+      wz = 0;
+    if (jc.moving.body && !jc.moving.isStatic) {
+      jc.moving.body.getAngularVelocityToRef(tW);
+      wx = tW.x;
+      wy = tW.y;
+      wz = tW.z;
+    }
+    if (jc.fixed && jc.fixed.body && !jc.fixed.isStatic) {
+      jc.fixed.body.getAngularVelocityToRef(tW2);
+      wx -= tW2.x;
+      wy -= tW2.y;
+      wz -= tW2.z;
+    }
+    return wx * axis.x + wy * axis.y + wz * axis.z;
+  }
+
+  private applyTorque(jc: JointConstraint, axis: Vec3, tau: number, dt: number): void {
+    const imp = tau * dt;
+    if (!(Math.abs(imp) > 1e-7) || !Number.isFinite(imp)) return;
+    if (jc.moving.body && !jc.moving.isStatic) {
+      tW.set(axis.x * imp, axis.y * imp, axis.z * imp);
+      jc.moving.body.applyAngularImpulse(tW);
+    }
+    if (jc.fixed && jc.fixed.body && !jc.fixed.isStatic) {
+      tW.set(-axis.x * imp, -axis.y * imp, -axis.z * imp);
+      jc.fixed.body.applyAngularImpulse(tW);
+    }
+  }
+
+  /** Self-closing spring (+ light damping) towards the built pose. */
+  private applySpring(g: JointGroup, dt: number): void {
+    const jc = g.constraints[0];
+    const k = g.def.spring ?? 0;
+    if (!jc || !(k > 0) || !jc.moving.body || jc.moving.isStatic || jc.latched) return;
+    const { axis } = this.worldAxis(g, jc);
+    if (g.kind === "hinge") {
+      const theta = this.hingeAngleOf(jc.moving, jc.fixed, g.asm, unit(g.def.axis));
+      if (Math.abs(theta) < 0.01) return;
+      const tau = -k * theta - 0.15 * k * this.relAngVel(jc, axis);
+      this.applyTorque(jc, axis, tau, dt);
+    } else {
+      const s = this.slideOf(jc.moving, jc.fixed, g.asm, unit(g.def.axis));
+      if (Math.abs(s) < 0.002) return;
+      jc.moving.body.getLinearVelocityToRef(tV);
+      const v = tV.x * axis.x + tV.y * axis.y + tV.z * axis.z;
+      const F = -k * s - 0.15 * k * v;
+      const imp = F * dt;
+      tV.set(axis.x * imp, axis.y * imp, axis.z * imp);
+      const c = this.w.toWorldVec(jc.moving, jc.moving.com);
+      tP.set(c.x, c.y, c.z);
+      jc.moving.body.applyImpulse(tV, tP);
+    }
+  }
+
+  /** Velocity motor (fan): torque-limited drive towards the target spin. */
+  private applyMotor(g: JointGroup, dt: number): void {
+    if (!g.motorOn || g.kind !== "hinge") return;
+    const jc = g.constraints.find((c) => c.kind === "hinge");
+    if (!jc || !jc.moving.body || jc.moving.isStatic) return;
+    const { axis } = this.worldAxis(g, jc);
+    const wRel = this.relAngVel(jc, axis);
+    const tmax = Math.max(0.05, g.motorTorque);
+    const tau = Math.max(-tmax, Math.min(tmax, (tmax / 1.5) * (g.motorSpeed - wRel)));
+    this.applyTorque(jc, axis, tau, dt);
+    if (Math.abs(g.motorSpeed - wRel) > 0.2) this.w.physics.wake(jc.moving.body);
+  }
+}
+
+export function latchTorque(strength: number): number {
+  return Math.max(150, Math.min(15000, strength * LATCH_TORQUE_PER_J));
+}
+
+function unit(v: Vec3): Vec3 {
+  const l = Math.hypot(v.x, v.y, v.z);
+  return l > 1e-12 ? { x: v.x / l, y: v.y / l, z: v.z / l } : { x: 0, y: 1, z: 0 };
+}
+
+function cross(a: Vec3, b: Vec3): Vec3 {
+  return { x: a.y * b.z - a.z * b.y, y: a.z * b.x - a.x * b.z, z: a.x * b.y - a.y * b.x };
+}

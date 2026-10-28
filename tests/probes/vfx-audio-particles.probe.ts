@@ -2,6 +2,7 @@
 import {
   ParticleSystem,
   GPUParticleSystem,
+  CustomParticleEmitter,
   DynamicTexture,
   Vector3,
   Color4,
@@ -82,6 +83,8 @@ export class BurstPool {
   private active: Burst | null = null;
   emitted = 0;
   dropped = 0;
+  /** scaleY multiplier (streak length for BILLBOARDMODE_STRETCHED). */
+  stretch = 1;
 
   constructor(name: string, capacity: number, scene: Scene, texture: BaseTexture) {
     const ps = new ParticleSystem(name, capacity, scene);
@@ -106,7 +109,8 @@ export class BurstPool {
       ps.color1.set(b.r, b.g, b.b, b.a);
       ps.color2.set(b.r * 0.85, b.g * 0.85, b.b * 0.85, b.a);
       ps.colorDead.set(b.r, b.g, b.b, 0);
-      ps.minScaleX = ps.maxScaleX = ps.minScaleY = ps.maxScaleY = b.sizeMul;
+      ps.minScaleX = ps.maxScaleX = b.sizeMul;
+      ps.minScaleY = ps.maxScaleY = b.sizeMul * this.stretch;
       p.metadata = b; // copied by recycleParticle's swap (Particle.copyTo copies metadata)
     };
     ps.startDirectionFunction = (_wm: Matrix, dir: Vector3) => {
@@ -246,6 +250,7 @@ export async function probe(): Promise<any> {
   const sparks = new BurstPool("sparkPool", 1000, scene, streak);
   sparks.ps.blendMode = ParticleSystem.BLENDMODE_ADD;
   sparks.ps.billboardMode = ParticleSystem.BILLBOARDMODE_STRETCHED;
+  sparks.stretch = 6;
   sparks.ps.minLifeTime = 0.25;
   sparks.ps.maxLifeTime = 0.6;
   sparks.ps.minSize = 0.03;
@@ -317,7 +322,24 @@ export async function probe(): Promise<any> {
     wrapAnimateTimer(stress.ps, sink);
     const tR: number[] = [];
     for (let i = 0; i < 60; i++) tR.push(frame());
-    perf["n" + n] = { active: stress.ps.getActiveCount(), animateMs: stats(sink), renderFrameMs: stats(tR), emitFrameMs: r3(createMs) };
+    // kill all, then emit again: particles now come from the recycled stock (no allocation)
+    stress.ps.minLifeTime = stress.ps.maxLifeTime = 0.001;
+    for (const p of stress.ps.particles) p.lifeTime = 0.001;
+    frame();
+    const deadCount = stress.ps.getActiveCount();
+    stress.ps.minLifeTime = stress.ps.maxLifeTime = 100;
+    stress.burst({ ...base, x: 0, y: -50, z: 0, nx: 0, ny: 1, nz: 0, count: n, r: 1, g: 1, b: 1 });
+    const nBefore = sink.length;
+    frame();
+    const recycledEmitAnimateMs = sink[nBefore];
+    perf["n" + n] = {
+      active: stress.ps.getActiveCount(),
+      animateMs: stats(sink.slice(0, 60)),
+      renderFrameMs: stats(tR),
+      firstEmitFrameMs_freshAlloc: r3(createMs),
+      deadCountBeforeReemit: deadCount,
+      reEmitAnimateMs_recycled: r3(recycledEmitAnimateMs),
+    };
     stress.ps.dispose(false);
     clocked.splice(clocked.indexOf(stress.ps), 1);
   }
@@ -488,6 +510,88 @@ export async function probe(): Promise<any> {
       gps.emitRate = 2000;
     }
     out.gpu = info;
+  }
+
+  // ------------------------------------------------ 7) built-in emitter types + CustomParticleEmitter + wrapped updateFunction
+  {
+    const E = new Vector3(0, -30, 0);
+    const mk = (name: string, setup: (ps: ParticleSystem) => void): ParticleSystem => {
+      const ps = new ParticleSystem(name, 200, scene);
+      ps.particleTexture = puff;
+      ps.emitter = E.clone();
+      ps.manualEmitCount = 200;
+      ps.minLifeTime = ps.maxLifeTime = 10;
+      ps.minEmitPower = ps.maxEmitPower = 2;
+      setup(ps);
+      ps.start();
+      clocked.push(ps);
+      return ps;
+    };
+    const point = mk("ePoint", (ps) => ps.createPointEmitter(new Vector3(-0.1, 1, -0.1), new Vector3(0.1, 1, 0.1)));
+    const box = mk("eBox", (ps) => ps.createBoxEmitter(new Vector3(0, 1, 0), new Vector3(0, 1, 0), new Vector3(-0.5, -0.1, -0.2), new Vector3(0.5, 0.1, 0.2)));
+    const sphere = mk("eSphere", (ps) => ps.createSphereEmitter(0.5, 1));
+    const cone = mk("eCone", (ps) => ps.createConeEmitter(0.3, Math.PI / 4));
+    const ce = new CustomParticleEmitter();
+    ce.particlePositionGenerator = (index: number, _p: Particle | null, outP: Vector3) => outP.set(index * 0.01, 0, 0);
+    ce.particleDirectionGenerator = (_i: number, _p: Particle | null, outD: Vector3) => outD.set(0, 0, 1);
+    const custom = mk("eCustom", (ps) => (ps.particleEmitterType = ce));
+    const all = [point, box, sphere, cone, custom];
+    await renderUntil(scene, () => all.every((ps) => ps.isReady()) && all.every((ps) => ps.getActiveCount() > 0));
+    const rel = (ps: ParticleSystem) => ps.particles.map((p) => p.position.subtract(E));
+    const maxAbs = (vs: Vector3[]) => vs.reduce((m, v) => new Vector3(Math.max(m.x, Math.abs(v.x)), Math.max(m.y, Math.abs(v.y)), Math.max(m.z, Math.abs(v.z))), Vector3.Zero());
+    const coneAngles = cone.particles.map((p) => Math.acos(Math.min(1, p.direction.normalizeToNew().y)));
+    out.emitterTypes = {
+      pointMaxOffset: r3(maxAbs(rel(point)).length()),
+      pointDirSpeed: r3(point.particles[0].direction.length()),
+      boxMaxAbs: maxAbs(rel(box)).asArray().map(r3),
+      sphereMaxRadius: r3(Math.max(...rel(sphere).map((v) => v.length()))),
+      coneMaxAngleDeg: r3((Math.max(...coneAngles) * 180) / Math.PI),
+      coneMaxRadialOffset: r3(Math.max(...rel(cone).map((v) => Math.hypot(v.x, v.z)))),
+      customFirst3: rel(custom).slice(0, 3).map((v) => v.asArray().map(r3)),
+      customDir: custom.particles[0].direction.asArray().map(r3),
+      activeEach: all.map((ps) => ps.getActiveCount()),
+    };
+    for (const ps of all) {
+      ps.dispose(false);
+      clocked.splice(clocked.indexOf(ps), 1);
+    }
+
+    // wrapped updateFunction: keep the default aging/recycling, add a floor bounce afterwards
+    const bouncy = new ParticleSystem("bouncy", 400, scene);
+    bouncy.particleTexture = puff;
+    bouncy.emitter = new Vector3(0, 0.5, -10);
+    bouncy.createPointEmitter(new Vector3(-1, -3, -1), new Vector3(1, -1, 1));
+    bouncy.minEmitPower = bouncy.maxEmitPower = 1;
+    bouncy.minLifeTime = bouncy.maxLifeTime = 1.5;
+    bouncy.gravity = new Vector3(0, -9.81, 0);
+    bouncy.manualEmitCount = 300;
+    const baseUpdate = bouncy.updateFunction;
+    let bounces = 0;
+    bouncy.updateFunction = (particles: Particle[]) => {
+      baseUpdate(particles); // ages, moves, applies gravity, recycles dead particles (array shrinks)
+      for (const p of particles) {
+        if (p.position.y < 0) {
+          p.position.y = 0;
+          if (p.direction.y < 0) {
+            p.direction.y *= -0.4;
+            bounces++;
+          }
+        }
+      }
+    };
+    bouncy.start();
+    clocked.push(bouncy);
+    await renderUntil(scene, () => bouncy.isReady());
+    let minY = Infinity;
+    let fr = 0;
+    while (fr < 120 && (fr < 2 || bouncy.getActiveCount() > 0)) {
+      frame();
+      fr++;
+      for (const p of bouncy.particles) minY = Math.min(minY, p.position.y);
+    }
+    out.updateFunctionWrap = { minY: r3(minY), bounces, allDeadAfterFrames: fr, activeAtEnd: bouncy.getActiveCount() };
+    bouncy.dispose(false);
+    clocked.splice(clocked.indexOf(bouncy), 1);
   }
 
   // final frames for the screenshot: re-burst so all effects are visible together

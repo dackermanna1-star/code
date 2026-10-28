@@ -9,7 +9,10 @@ Conventions
   seamless.
 """
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageFile
+
+# optimize=True needs the whole encoded image in one buffer; the default can be too small
+ImageFile.MAXBLOCK = max(ImageFile.MAXBLOCK, 1 << 22)
 
 # --------------------------------------------------------------------------- io
 
