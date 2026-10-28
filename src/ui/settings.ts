@@ -26,6 +26,14 @@ export interface Settings {
   fxaa: boolean;
   cinematic: boolean;      // stronger glare/vignette, cinematic audio
   motionEffects: boolean;  // FTL streaks, camera shake
+  // lens & camera
+  dof: 'off' | 'auto' | 'manual';
+  fNumber: number;
+  focusDistance: number;   // m (manual focus)
+  motionBlur: number;      // exposure as a fraction of 1/24 s (0 = off)
+  chromaticAberration: number;
+  filmGrain: number;
+  screenshotScale: '1' | '2' | '4';
   // interface & accessibility
   uiScale: number;
   uiOpacity: number;
@@ -65,6 +73,7 @@ export const DEFAULT_SETTINGS: Settings = {
   renderScale: 1, terrainDetail: 3.6, atmosphereSteps: 22, cloudSteps: 44, galaxySteps: 48, surfaceDetail: 1, scatterDensity: 0.85,
   fov: 60, bloom: 0.012, exposureComp: 0, autoExposure: true, maxExposureLog: 6.5, starBrightness: 1, vignette: 0.18, fxaa: true,
   cinematic: false, motionEffects: true,
+  dof: 'off', fNumber: 2.8, focusDistance: 10, motionBlur: 0, chromaticAberration: 0, filmGrain: 0, screenshotScale: '2',
   uiScale: 1, uiOpacity: 0.92, highContrast: false, colorblind: false, showLabels: true, showOrbits: false, invertY: false, mouseSensitivity: 1, reduceMotion: false,
   lifeFrequency: 1, realisticFuel: false, shipDamage: false, ftlLimits: false, defaultShip: 'scout', universeSeed: 20261027, knownUniverse: true,
   masterVolume: 0.7, ambienceVolume: 0.8, effectsVolume: 0.8, cinematicAudio: false,

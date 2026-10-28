@@ -64,6 +64,7 @@ export class App {
   readonly info: InfoPanel;
   readonly field: FieldPanel;
   private lastCave: number | null = null;
+  private shotPending = false;
   readonly scanner = new Scanner();
   readonly search: SearchBox;
   readonly map: StarMap;
@@ -402,6 +403,12 @@ export class App {
     ps.bloomStrength = s.bloom * (s.cinematic ? 2.2 : 1);
     ps.vignette = s.vignette + (s.cinematic ? 0.15 : 0);
     ps.fxaa = s.fxaa;
+    ps.chromaticAberration = s.chromaticAberration;
+    ps.filmGrain = s.filmGrain;
+    Object.assign(r.lens.settings, {
+      dof: s.dof, fNumber: s.fNumber, focusDistance: Math.max(0.1, s.focusDistance || 10),
+      motionBlur: s.reduceMotion ? 0 : s.motionBlur,
+    });
     ps.exposureComp = s.exposureComp;
     ps.autoExposure = s.autoExposure;
     ps.maxExposure = Math.pow(10, s.maxExposureLog);
@@ -904,6 +911,7 @@ export class App {
     const draw = this.frameNo % this.drawEvery === 0;
     if (this.frameNo % 3 === 0) this.updateEvents();
     this.renderer.render(this.world, dt, draw);
+    if (this.shotPending && draw) { this.shotPending = false; this.captureShot(); }
     if (draw) this.captureThumbs();
     if (!blocking && this.input.clicked) this.clickSelect();
     if (this.frameNo % 20 === 0) this.autoDiscover();
@@ -1002,7 +1010,24 @@ export class App {
     };
   }
 
+  /** Take a screenshot after the next frame is drawn (supersampled per settings). */
   screenshot() {
+    this.shotPending = true;
+  }
+
+  /** Render the current view at a higher resolution and save it as PNG. Returns the size captured. */
+  captureShot(scale = +this.settings.screenshotScale || 1): { width: number; height: number } {
+    const r = this.renderer;
+    const ps = r.pipeline.settings;
+    const base = ps.renderScale;
+    const max = r.renderer.capabilities.maxTextureSize;
+    const k = Math.max(1, Math.min(scale, max / Math.max(r.pipeline.width / base, r.pipeline.height / base) / base));
+    if (k > 1) {
+      ps.renderScale = base * k;
+      this.resize();
+      r.render(this.world, 0, true); // dt = 0: exposure and motion state as they were
+    }
+    const size = { width: this.canvas.width, height: this.canvas.height };
     const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
     this.canvas.toBlob((b) => {
       if (!b) return;
@@ -1012,7 +1037,12 @@ export class App {
       a.click();
       setTimeout(() => URL.revokeObjectURL(a.href), 2000);
     }, 'image/png');
-    this.hud.toast('Screenshot saved');
+    if (k > 1) {
+      ps.renderScale = base;
+      this.resize();
+    }
+    this.hud.toast(`Screenshot saved (${size.width}×${size.height})`);
+    return size;
   }
 
   private handleGlobalKeys() {

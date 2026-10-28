@@ -219,15 +219,25 @@ accessibility, simulation, audio, key rebinding).
 **Presentation**
 - The HDR pipeline has GPU auto-exposure (log-average metering, eye-like adaptation), bloom, AgX tone mapping, FXAA
   and white balance toward sunlight.
+- Camera and lens options (Settings → Graphics), applied to the HDR image before exposure and bloom so highlights
+  turn into bokeh and streaks:
+  - **Depth of field** uses a thin lens on a full-frame sensor. The focal length follows the field of view and the
+    aperture runs from f/0.95 to f/22. It can autofocus on the centre of the view, smoothed over time, or use a
+    manual focus distance. Foreground blur spreads over sharp subjects behind it, but not the reverse.
+  - **Motion blur** reprojects each pixel's depth into the previous frame, relative to the body the camera moves
+    with, so the ground you stand on stays sharp while you turn. The shutter is set as a fraction of 1/24 s
+    (180° is the film standard). Reduce motion turns it off.
+  - **Lens effects:** chromatic aberration, film grain and vignette.
+  - **Screenshots** (F9 or P) are supersampled at 2× or 4×.
 - Procedural WebAudio respects the medium. Vacuum is silent apart from hull-borne engine and RCS sounds and your own
   steps. Thin air is quiet and muffled. Wind ∝ ρv². There is thunder, liquids, fauna calls and an optional cinematic
   mode.
 - Interface: labels, orbits, selection reticle, info panel with provenance (catalogued, procedural or hypothetical),
   scan-gated details, search (including procedural designations such as `ICS 3p12-m4-p7-15`), a 3D map at four
   scales, a discovery catalogue with thumbnails, bookmarks, autosave and continue, cinematic camera paths with
-  time-lapse and letterbox, and screenshots.
-- Accessibility: UI scale and opacity, high-contrast and colour-blind palettes, reduce-motion, remappable controls,
-  invert-Y and mouse sensitivity.
+  time-lapse and letterbox, and supersampled screenshots.
+- Accessibility: UI scale and opacity, high-contrast and colour-blind palettes, reduce-motion (also disables motion
+  blur), remappable controls, invert-Y and mouse sensitivity.
 
 ## Architecture
 
@@ -277,8 +287,7 @@ of use.
   of exoplanets) are modelled, and the info panel says so.
 - **Stations.** Only real stations exist (the ISS and Tiangong). The procedural universe has no inhabited outposts.
   Station orbits ignore drag and J2 nodal precession. Station models are simplified, and you cannot go inside.
-- **Not yet implemented.** Survival mode (omitted by design for walking), depth of field,
-  motion blur, and video export. The Oort cloud is shown only as an inferred shell in the
+- **Not yet implemented.** Survival mode (omitted by design for walking) and video export. The Oort cloud is shown only as an inferred shell in the
   map.
 - **Performance** has been verified only in headless Chromium with software rendering (SwiftShader), where it is
   functional at reduced frame rates. Real GPUs have not been profiled yet, so no frame rate is promised.
@@ -317,6 +326,7 @@ of use.
   - an inward-facing mesh
   - walking from the skylight into the tunnel with walls and floor holding
   - the field instruments' shelter reading
+- thin-lens optics for depth of field (circles of confusion, focal length from the field of view)
 
 `npm run test:e2e` drives the real application in headless Chromium:
 

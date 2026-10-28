@@ -686,3 +686,18 @@ describe('caves', () => {
     expect(dose(inside)).toBeLessThan(dose(outside) / 50);
   });
 });
+
+describe('camera lens', () => {
+  it('follows thin-lens optics on a full-frame sensor', async () => {
+    const { circleOfConfusion, focalLength } = await import('../../src/render/lens');
+    // a 50 mm lens covers about 27° vertically on 36×24 mm
+    expect(focalLength(27)).toBeCloseTo(0.05, 3);
+    // 50 mm f/2 focused at 3 m: the background blurs into ≈0.42 mm discs; stopping down to f/8 cuts that 4×
+    const inf = 1e9;
+    expect(circleOfConfusion(0.05, 2, 3, inf) * 1000).toBeCloseTo(0.424, 2);
+    expect(circleOfConfusion(0.05, 2, 3, inf) / circleOfConfusion(0.05, 8, 3, inf)).toBeCloseTo(4, 5);
+    // sharp at the focus distance; a wide lens at 3 m keeps more in focus than a telephoto
+    expect(circleOfConfusion(0.05, 2, 3, 3)).toBe(0);
+    expect(circleOfConfusion(focalLength(80), 2, 3, inf)).toBeLessThan(circleOfConfusion(focalLength(20), 2, 3, inf) / 10);
+  });
+});

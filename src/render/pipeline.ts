@@ -23,6 +23,9 @@ export interface PipelineSettings {
   adaptSpeed: number;
   vignette: number;
   fxaa: boolean;
+  /** lateral chromatic aberration 0..1 and film grain 0..1 (lens effects) */
+  chromaticAberration: number;
+  filmGrain: number;
 }
 
 export const defaultPipelineSettings: PipelineSettings = {
@@ -36,6 +39,8 @@ export const defaultPipelineSettings: PipelineSettings = {
   adaptSpeed: 1.6,
   vignette: 0.18,
   fxaa: true,
+  chromaticAberration: 0,
+  filmGrain: 0,
 };
 
 const LUM_FRAG = /* glsl */ `
@@ -141,6 +146,8 @@ uniform float uTime;
 uniform float uStreak;   // warp: radial star streaks 0..1
 uniform float uTunnel;   // hyperspace tunnel 0..1
 uniform vec3 uWhite;     // white balance (eye adapted to sunlight)
+uniform float uCA;       // lateral chromatic aberration
+uniform float uGrain;    // film grain
 ${PRE_EXPOSURE_GLSL}
 varying vec2 vUv;
 
@@ -173,6 +180,12 @@ vec3 toSRGB(vec3 c) {
 vec3 hdr(vec2 uv) {
   float e = texture(tAdapt, vec2(0.5)).r / uPreExposure;
   vec3 c = texture(tColor, uv).rgb + texture(tBloom, uv).rgb * uBloom;
+  if (uCA > 0.0) {
+    // lateral colour: red and blue magnified differently toward the edges
+    vec2 off = (uv - 0.5) * uCA * 0.006;
+    c.r = texture(tColor, uv + off).r + texture(tBloom, uv + off).r * uBloom;
+    c.b = texture(tColor, uv - off).b + texture(tBloom, uv - off).b * uBloom;
+  }
   if (uStreak > 0.001) {
     // radial streaks (speculative warp drive): integrate the image toward the centre
     vec2 d = uv - 0.5;
@@ -223,6 +236,12 @@ void main() {
   vec2 d = vUv - 0.5;
   col *= 1.0 - uVignette * dot(d, d) * 2.0;
   col = toSRGB(col);
+  if (uGrain > 0.0) {
+    // film grain, strongest in the mid-tones
+    float g = fract(sin(dot(gl_FragCoord.xy * 0.73 + fract(uTime * 7.31) * 113.0, vec2(12.9898, 78.233))) * 43758.5453) - 0.5;
+    float l = luma(col);
+    col += g * uGrain * 0.12 * (1.0 - abs(l * 2.0 - 1.0) * 0.7);
+  }
   // triangular dither against banding
   float n = fract(sin(dot(gl_FragCoord.xy + uTime, vec2(12.9898, 78.233))) * 43758.5453);
   float n2 = fract(sin(dot(gl_FragCoord.xy + uTime * 1.3, vec2(39.3468, 11.135))) * 24634.6345);
@@ -285,7 +304,7 @@ export class RenderPipeline {
     this.compMat = mk(COMPOSITE_FRAG, {
       tColor: { value: null }, tBloom: { value: null }, tAdapt: { value: null }, uBloom: { value: 0.05 }, uVignette: { value: 0.2 },
       uTexel: { value: new THREE.Vector2() }, uFxaa: { value: 1 }, uTime: { value: 0 }, uStreak: { value: 0 }, uTunnel: { value: 0 }, tPreExposure: PRE_EXPOSURE_TEX,
-      uWhite: { value: new THREE.Vector3(1, 1, 1) },
+      uWhite: { value: new THREE.Vector3(1, 1, 1) }, uCA: { value: 0 }, uGrain: { value: 0 },
     });
     this.setWhiteBalance(5772, 0.7);
     this.copyMat = mk(COPY_FRAG, { tSrc: { value: null } });
@@ -490,6 +509,8 @@ export class RenderPipeline {
     cu.tAdapt.value = next.texture;
     cu.uBloom.value = s.bloomStrength;
     cu.uVignette.value = s.vignette;
+    cu.uCA.value = s.chromaticAberration;
+    cu.uGrain.value = s.filmGrain;
     cu.uTexel.value.set(1 / this.width, 1 / this.height);
     cu.uFxaa.value = s.fxaa ? 1 : 0;
     cu.uTime.value = this.time % 100;

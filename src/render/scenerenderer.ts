@@ -5,6 +5,7 @@
  */
 import * as THREE from 'three';
 import { RenderPipeline } from './pipeline';
+import { LensEffects } from './lens';
 import { PlanetRenderer, type FrameContext, type SunLight } from './planetrenderer';
 import { flareAt, StarRenderer } from './star';
 import { PointSprites } from './points';
@@ -87,6 +88,7 @@ export class SceneRenderer {
   frame = 0;
   /** camera-relative positions of bodies computed this frame */
   readonly bodyRel = new Map<string, THREE.Vector3>();
+  readonly lens = new LensEffects();
   readonly ctx: FrameContext;
   camUPos = new UPos();
   /** transient point sources this frame (set by the app from the event system) */
@@ -375,6 +377,16 @@ export class SceneRenderer {
     if (!this.debug.noAtmosphere) for (const p of atm) this.pipeline.composite(p.atmPass!.material);
     for (const bh of this.blackHoles.values()) if (bh.visible) this.pipeline.composite(bh.material);
     if (this.overlayScene.children.length) this.pipeline.overlay(this.overlayScene, cam);
+    // lens: motion blur relative to what the camera moves with, then depth of field
+    {
+      const vb = view.body && this.bodyRel.has(view.body.id) ? view.body : null;
+      const rot = vb && view.kind === 'rotating' && sys ? sys.bodyRotation(vb, new THREE.Quaternion()) : new THREE.Quaternion();
+      const origin = vb ? this.bodyRel.get(vb.id)!.clone() : new THREE.Vector3();
+      const rinv = rot.clone().invert();
+      this.lens.apply(this.pipeline, cam, dt, cam.fov, {
+        key: vb ? `${vb.id}:${view.kind}` : 'universe', pos: origin.clone().negate().applyQuaternion(rinv), q: rinv.clone().multiply(cam.quaternion), origin, rot,
+      });
+    }
     this.pipeline.endFrame(dt);
   }
 
