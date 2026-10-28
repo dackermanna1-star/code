@@ -15,6 +15,7 @@ import { GalaxyRenderer } from './galaxyrenderer';
 import type { Cosmos } from '../sim/cosmos';
 import { ShipRenderer, VesselLights } from './shipmodels';
 import { StationRenderer } from './stations';
+import { MeteorSky } from './meteors';
 import { BlackHoleRenderer, type AccretionDisk } from './blackhole';
 import { NebulaRenderer } from './nebula';
 import { CometTail } from './comet';
@@ -75,6 +76,8 @@ export class SceneRenderer {
   private fleetRenderers = new Map<Ship, ShipRenderer>();
   readonly stations = new Map<string, StationRenderer>();
   readonly vesselLights = new VesselLights();
+  /** meteors in the atmosphere of the body the observer is at */
+  readonly meteors = new MeteorSky();
   readonly bodyPoints: PointSprites;
   quality: QualitySettings = { ...QUALITY_PRESETS.high };
   private system: StarSystem | null = null;
@@ -106,7 +109,7 @@ export class SceneRenderer {
     this.camera.position.set(0, 0, 0);
     this.pipeline = new RenderPipeline(this.renderer);
     this.pool = new TerrainWorkerPool();
-    this.bodyPoints = new PointSprites(512, () => this.pipeline.exposureTexture);
+    this.bodyPoints = new PointSprites(4096, () => this.pipeline.exposureTexture);
     this.scene.add(this.bodyPoints.points);
     this.scene.add(this.vesselLights.group);
     this.starField = new StarField(() => this.pipeline.exposureTexture);
@@ -312,6 +315,14 @@ export class SceneRenderer {
         const vel = _v2.copy(b.velSys).applyQuaternion(sys.q);
         c.update(rel, toStar.clone(), vel.clone(), r / 1.495978707e11, E, ctx.pixelAngle);
       }
+    }
+    // meteors burning up in the atmosphere around the observer
+    {
+      const vb = view.body;
+      const ok = !!sys && !!vb && vb.system === sys && !!vb.planet?.atmosphere && suns.length > 0;
+      const camB = ok ? view.offsetBodyFixed(new THREE.Vector3()) : _v;
+      this.meteors.update(ok ? sys : null, ok ? vb : null, ok ? suns[0].body : null, camB, ok ? sys!.bodyRotation(vb!, new THREE.Quaternion()) : _q, world.time,
+        (rel, col, flux) => this.bodyPoints.add(rel, col, flux), ctx.pixelAngle);
     }
     // transient events (supernovae, novae, …) as unresolved points
     for (const tr of this.transients) {

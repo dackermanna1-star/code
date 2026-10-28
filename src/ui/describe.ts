@@ -15,6 +15,7 @@ import {
   AU, EARTH_G, EARTH_MASS, EARTH_RADIUS, JUPITER_MASS, SOLAR_LUMINOSITY, SOLAR_MASS, SOLAR_RADIUS,
 } from '../core/constants';
 import { formatDistance, formatDuration, sci } from '../core/mathutil';
+import { meteorAltitude, showersFor } from '../render/meteors';
 
 export interface InfoSection {
   title: string;
@@ -201,6 +202,16 @@ function describePlanet(b: Body, distance: number, scanned: boolean): Descriptio
       : [['Atmosphere', 'none (exposed surface)']];
     if (atm?.hazes.length) atmRows.push(['Hazes / clouds', atm.hazes.join(', ')]);
     sections.push({ title: 'Atmosphere', rows: atmRows, locked: !full });
+    const showers = showersFor(b);
+    const hM = meteorAltitude(b);
+    if (showers.length && hM !== null) {
+      sections.push({
+        title: 'Meteor showers',
+        rows: showers.map((m) => [m.name, `ZHR ${m.zhr.toFixed(0)} · ${(m.speed / 1000).toFixed(0)} km/s · peak at λ☉ ${((m.peak * 180) / Math.PI).toFixed(1)}°`] as [string, string]),
+        text: `Meteors burn up about ${(hM / 1000).toFixed(0)} km up; a sporadic background of ~6 per hour adds to the annual showers.`,
+        locked: !full,
+      });
+    }
     if (p.type !== 'gas-giant' && p.type !== 'ice-giant') {
       const geo: [string, string][] = [
         ['Surface liquid', p.liquid === 'none' ? 'none' : `${p.liquid} — ${pct(p.liquidCoverage)} of surface`],

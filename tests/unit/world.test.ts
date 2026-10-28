@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { InstancedMesh, Matrix4, ShaderMaterial, Vector3 } from 'three';
+import { InstancedMesh, Matrix4, Quaternion, ShaderMaterial, Vector3 } from 'three';
 import { Floaters, Fliers } from '../../src/render/aerial';
+import { activeShowers, meteorAltitude, MeteorSky, solarLongitude } from '../../src/render/meteors';
 import { SurfaceGenerator } from '../../src/terrain/surface';
 import { buildNode, GRID } from '../../src/terrain/meshbuilder';
 import { earthlikeSurface } from '../../src/astro/testworlds';
@@ -360,3 +361,51 @@ describe('floaters', () => {
     expect(new Fliers(buildSolarSystem(new UPos(), { x: 0, y: 0, z: 0, w: 1 }).bodies.find((b) => b.name === 'Mars')!, mat).hasFliers).toBe(false);
   });
 });
+
+describe('meteors', () => {
+  const sol = buildSolarSystem(new UPos(), { x: 0, y: 0, z: 0, w: 1 });
+  const earth = sol.bodies.find((b) => b.name === 'Earth')!;
+  const sun = sol.bodies.find((b) => b.name === 'Sun')!;
+  const J2000 = Date.UTC(2000, 0, 1, 12);
+  const at = (y: number, m: number, d: number, h = 0) => (Date.UTC(y, m - 1, d, h) - J2000) / 1000;
+
+  it('burn up in the upper atmosphere of worlds with air', () => {
+    const h = meteorAltitude(earth)!;
+    expect(h).toBeGreaterThan(80e3);
+    expect(h).toBeLessThan(135e3);
+    expect(meteorAltitude(sol.bodies.find((b) => b.name === 'Mars')!)).toBeGreaterThan(40e3);
+    expect(meteorAltitude(sol.bodies.find((b) => b.name === 'Moon')!)).toBeNull();
+  });
+
+  it("follow Earth's real shower calendar", () => {
+    sol.update(at(2026, 8, 12, 22));
+    expect((solarLongitude(earth, sun) * 180) / Math.PI).toBeCloseTo(140, 0);
+    const aug = activeShowers(earth, sun);
+    const per = aug.find((a) => a.shower?.name === 'Perseids');
+    expect(per!.zhr).toBeGreaterThan(80);
+    sol.update(at(2026, 12, 14, 12));
+    const dec = activeShowers(earth, sun);
+    expect(dec.find((a) => a.shower?.name === 'Geminids')!.zhr).toBeGreaterThan(100);
+    expect(dec.find((a) => a.shower?.name === 'Perseids')).toBeUndefined();
+  });
+
+  it('are much more frequent during a shower', () => {
+    // an observer where the Perseid radiant is high in the sky
+    const count = (t0: number) => {
+      sol.update(t0);
+      const sky = new MeteorSky();
+      const q = sol.bodyRotation(earth, new Quaternion());
+      const rad = activeShowers(earth, sun).find((a) => a.shower?.name === 'Perseids')?.shower?.radiant
+        ?? new Vector3(0, 1, 0);
+      const up = rad.clone().applyQuaternion(q.clone().invert()).normalize();
+      const cam = up.multiplyScalar(earth.radius + 2);
+      let n = 0;
+      for (let t = t0; t < t0 + 1800; t += 0.5) sky.update(sol, earth, sun, cam, q, t, () => { n++; });
+      return n;
+    };
+    const peak = count(at(2026, 8, 12, 22)), quiet = count(at(2026, 3, 1, 0));
+    expect(quiet).toBeGreaterThan(0);
+    expect(peak).toBeGreaterThan(quiet * 3);
+  });
+});
+

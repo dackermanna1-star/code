@@ -94,6 +94,16 @@ accessibility, simulation, audio, key rebinding).
 - Volumetric clouds come from a GPU weather cubemap (cyclones with the correct Coriolis sense, zonal flow), a
   Worley/Perlin detail texture, two-stream diffuse lighting, lightning and cloud shadows. The surface below goes grey
   and diffuse under overcast.
+- Meteors burn up where the air density reaches about 5×10⁻⁷ kg/m³ (about 100 km on Earth).
+  - Every world with air has a sporadic background and annual showers.
+  - A shower's activity is Gaussian in solar longitude. Its meteors share a radiant and speed, and the observed
+    rate follows the radiant's altitude.
+  - Earth has its real major showers: Quadrantids, Lyrids, η-Aquariids, Perseids, Orionids, Leonids and Geminids.
+  - Magnitudes follow a population index of 2.5, and meteors are drawn through the same photometric pipeline as
+    stars.
+  - Each meteor has a sin^1.5 light curve and a streak the length of the eye's persistence. Fireballs leave
+    persistent trains, and colour follows speed.
+  - You are notified when a strong shower is active where you are.
 - Aurorae appear in magnetic local time. Their colour comes from composition and their brightness is calibrated to
   terrestrial kR values.
 - Rain, snow, dust and ash fall only under thick cloud read from the same weather map. Fall speed ∝ √(g/ρ).

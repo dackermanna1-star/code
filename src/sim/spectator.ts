@@ -137,15 +137,16 @@ export class SpectatorController {
       view.rebase('universe', null);
       return;
     }
-    const d = w.distanceToBody(view.toUPos(_u), b);
-    const R = b.radius;
-    if (b.isStarLike) {
-      view.rebase(d < R * 200 ? 'inertial' : 'inertial', w.system.root);
-      return;
+    // the nearest surface may belong to a small moon whose range we are
+    // outside of: then anchor to its parent (e.g. Saturn), not the star
+    const p = view.toUPos(_u);
+    for (let c: Body | null = b; c && !c.isStarLike && c.kind !== 'barycenter'; c = c.parent) {
+      const d = w.distanceToBody(p, c);
+      const R = c.radius;
+      if (d < R * 3.5) { view.rebase('rotating', c); return; }
+      if (d < Math.max(R * 50, Math.min(c.soi, R * 2000))) { view.rebase('inertial', c); return; }
     }
-    if (d < R * 3.5) view.rebase('rotating', b);
-    else if (d < Math.max(R * 50, Math.min(b.soi, R * 2000))) view.rebase('inertial', b);
-    else view.rebase('inertial', w.system.root);
+    view.rebase('inertial', w.system.root);
   }
 
   /** Smooth logarithmic travel toward a target (no FTL needed in spectator mode). */

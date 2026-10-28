@@ -357,7 +357,7 @@ export class Ship {
     this.docked = null;
     if (g) {
       this.velocity.copy(g.portVel).addScaledVector(g.portAxis, 0.25);
-      this.dock = { target: d.target, port: d.port, geo: g, phase: 'approach' };
+      this.dock = { target: d.target, port: d.port, geo: dockGeometry(this, d.target, d.port, world, _ts), phase: 'approach' };
     }
     this.message = `Undocked from ${d.target.name}`;
   }

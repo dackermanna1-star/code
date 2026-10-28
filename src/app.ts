@@ -461,7 +461,16 @@ export class App {
       upos: galaxyToUPos(e.galaxy, e.local.x, e.local.y, e.local.z),
       lumV, color: blackbodyRGB(e.temp), name: e.name,
     }));
+    // meteor showers where the observer is (once per shower and orbit)
+    for (const m of this.renderer.meteors.current) {
+      if (m.zhr < 15) continue;
+      const key = `${m.name}|${Math.floor(t / (300 * 86400))}`;
+      if (this.showerAnnounced.has(key)) continue;
+      this.showerAnnounced.add(key);
+      this.hud.toast(`${m.name} meteor shower active · about ${Math.round(m.zhr)} per hour under a dark sky`, 6);
+    }
   }
+  private showerAnnounced = new Set<string>();
 
   // ---------------------------------------------------------------- audio
   private footstep() {
