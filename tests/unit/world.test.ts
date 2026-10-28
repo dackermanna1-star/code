@@ -188,3 +188,28 @@ describe('nebulae', () => {
     expect(orion.center.distanceTo(u.sunLocal)).toBeCloseTo(1344, 0);
   });
 });
+
+describe('cosmic events', () => {
+  it('are deterministic and occur at physical rates', async () => {
+    const { EventSystem, eventLumV } = await import('../../src/sim/events');
+    const u = new Universe({ seed: 20261027, knownLocalGroup: true });
+    const a = new EventSystem(), b = new EventSystem();
+    let sn = 0, novae = 0;
+    for (let y = 0; y < 2000; y++) {
+      const ea = a.eventsInYear(u.home, y), eb = b.eventsInYear(u.home, y);
+      expect(ea.map((e) => e.id + e.t0)).toEqual(eb.map((e) => e.id + e.t0));
+      sn += ea.filter((e) => e.kind.startsWith('supernova')).length;
+      if (y < 20) novae += ea.filter((e) => e.kind === 'nova').length;
+    }
+    // Milky Way: ~1–3 supernovae per century, ~20–60 novae per year
+    expect(sn / 20).toBeGreaterThan(0.8);
+    expect(sn / 20).toBeLessThan(4);
+    expect(novae / 20).toBeGreaterThan(15);
+    expect(novae / 20).toBeLessThan(80);
+    // a supernova peaks near M ≈ −17…−19.5 (≈ 1e9 L☉) and fades
+    const e = a.eventsInYear(u.home, 0).concat(...Array.from({ length: 300 }, (_, y) => a.eventsInYear(u.home, y + 1))).find((x) => x.kind.startsWith('supernova'))!;
+    const peak = Math.max(...Array.from({ length: 60 }, (_, d) => eventLumV(e, e.t0 + d * 86400)));
+    expect(peak).toBeGreaterThan(2e8);
+    expect(eventLumV(e, e.t0 + 3 * 365 * 86400)).toBeLessThan(peak * 1e-2);
+  });
+});

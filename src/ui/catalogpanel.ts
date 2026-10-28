@@ -51,7 +51,7 @@ export class CatalogPanel {
           <span><b>${st.system ?? 0}</b> systems</span><span><b>${(st.planet ?? 0) + (st.moon ?? 0) + (st.dwarf ?? 0)}</b> worlds</span>
           <span><b>${st.life}</b> with life</span><span><b>${st.galaxy ?? 0}</b> galaxies</span></div>
         <div class="cat-filter"><input name="filter" type="search" placeholder="Filter…" value="${esc(this.filter)}" />
-          <select name="kind">${['all', 'system', 'star', 'planet', 'moon', 'dwarf', 'small', 'nebula', 'galaxy', 'life'].map((k) => `<option ${k === this.kind ? 'selected' : ''}>${k}</option>`).join('')}</select></div>`
+          <select name="kind">${['all', 'system', 'star', 'planet', 'moon', 'dwarf', 'small', 'nebula', 'galaxy', 'event', 'life'].map((k) => `<option ${k === this.kind ? 'selected' : ''}>${k}</option>`).join('')}</select></div>`
       : `<div class="cat-stats"><span><b>${this.data.bookmarks.length}</b> bookmarks</span><span class="dim">Press F5 anywhere to bookmark your location.</span></div>`;
     this.modal.content.innerHTML = `${head}<div class="cat-list"></div>`;
     this.renderList();
@@ -75,7 +75,7 @@ export class CatalogPanel {
     else if (this.kind !== 'all') items = items.filter((d) => d.kind === this.kind);
     if (f) items = items.filter((d) => d.name.toLowerCase().includes(f) || d.subtitle.toLowerCase().includes(f) || d.place.toLowerCase().includes(f));
     list.innerHTML = items.slice(0, 400).map((d) => `<div class="cat-item">
-        ${d.thumb ? `<img src="${d.thumb}" alt="" />` : `<div class="thumb-ph">${d.kind === 'galaxy' ? '✺' : d.kind === 'nebula' ? '☁' : d.kind === 'system' || d.kind === 'star' ? '✷' : '●'}</div>`}
+        ${d.thumb ? `<img src="${d.thumb}" alt="" />` : `<div class="thumb-ph">${d.kind === 'galaxy' ? '✺' : d.kind === 'nebula' ? '☁' : d.kind === 'event' ? '✸' : d.kind === 'system' || d.kind === 'star' ? '✷' : '●'}</div>`}
         <div class="ci-main"><div class="ci-name">${esc(d.name)} ${d.scanned ? '<span class="badge ok">scanned</span>' : ''}${d.life && d.life !== 'none' ? `<span class="badge life">${esc(d.life)} life</span>` : ''}</div>
           <div class="ci-sub dim">${esc(d.subtitle)} · ${esc(d.place)}</div>
           <div class="ci-sub dim">${new Date(d.firstSeen).toLocaleString()}</div></div>

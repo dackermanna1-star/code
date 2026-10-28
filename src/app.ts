@@ -30,6 +30,8 @@ import { loadRaw, save } from './ui/storage';
 import { SOLAR_SYSTEM_ID } from './astro/known/solarsystem';
 import { Rng } from './core/rng';
 import { AudioEngine, type AudioState, type Surface } from './audio/audio';
+import { EventSystem, eventLabel, type CosmicEvent } from './sim/events';
+import { blackbodyRGB } from './astro/stellar';
 
 const _tv = new THREE.Vector3();
 
@@ -61,6 +63,8 @@ export class App {
   readonly help: HelpOverlay;
   readonly startScreen: StartScreen;
   readonly audio = new AudioEngine();
+  readonly events = new EventSystem();
+  private lastSimTime = NaN;
   selected: Target | null = null;
   private last = performance.now();
   private fps = 60;
@@ -134,6 +138,7 @@ export class App {
     window.addEventListener('pointerdown', unlock);
     window.addEventListener('keydown', unlock);
     this.player.walker.onStep = () => this.footstep();
+    this.events.onEvent = (e) => this.announceEvent(e);
     window.addEventListener('resize', () => this.resize());
     window.addEventListener('beforeunload', () => { this.autosave(); this.discoveries.flush(); });
     this.resize();
@@ -396,6 +401,37 @@ export class App {
     this.audio.volumes = { master: s.masterVolume, ambience: s.ambienceVolume, effects: s.effectsVolume };
     this.audio.cinematic = s.cinematicAudio;
     this.audio.applyVolumes();
+  }
+
+  // --------------------------------------------------------------- events
+  private announceEvent(e: CosmicEvent) {
+    const here = this.cosmos.current === e.galaxy;
+    const d = this.discoveries.discover({
+      id: e.id, name: e.name, kind: 'event', subtitle: eventLabel(e.kind), systemId: null, place: e.galaxy.name,
+      simTime: this.world.time, location: captureLocation(this.world, this.cosmos),
+    });
+    if (d && (here || e.kind !== 'nova')) {
+      this.hud.toast(`${eventLabel(e.kind)}: ${e.name}`, 5);
+      this.audio.blip('discovery');
+    }
+  }
+
+  private updateEvents() {
+    const t = this.world.time;
+    const gal = [...this.cosmos.galaxies]
+      .map((g) => ({ g, d: g.upos.distanceTo(this.renderer.camUPos) }))
+      .sort((a, b) => a.d - b.d)
+      .slice(0, 12)
+      .map((x) => x.g);
+    // after a jump in time (not ordinary time flow) don't announce old events
+    const expected = this.world.paused ? 0 : this.world.timeScale * 0.2 + 86400;
+    if (!isFinite(this.lastSimTime) || Math.abs(t - this.lastSimTime) > expected * 10) this.events.silence(gal, t);
+    this.lastSimTime = t;
+    const vis = this.events.visible(gal, this.cosmos.current, t);
+    this.renderer.transients = vis.map(({ e, lumV }) => ({
+      upos: galaxyToUPos(e.galaxy, e.local.x, e.local.y, e.local.z),
+      lumV, color: blackbodyRGB(e.temp), name: e.name,
+    }));
   }
 
   // ---------------------------------------------------------------- audio
@@ -767,6 +803,7 @@ export class App {
     if (this.player.message) this.hud.toast(this.player.message, 2.5);
     this.frameNo++;
     const draw = this.frameNo % this.drawEvery === 0;
+    if (this.frameNo % 3 === 0) this.updateEvents();
     this.renderer.render(this.world, dt, draw);
     if (draw) this.captureThumbs();
     if (!blocking && this.input.clicked) this.clickSelect();

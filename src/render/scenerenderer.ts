@@ -6,7 +6,7 @@
 import * as THREE from 'three';
 import { RenderPipeline } from './pipeline';
 import { PlanetRenderer, type FrameContext, type SunLight } from './planetrenderer';
-import { StarRenderer } from './star';
+import { flareAt, StarRenderer } from './star';
 import { PointSprites } from './points';
 import { GasGiantRenderer } from './gasgiant';
 import { BeltRenderer } from './belts';
@@ -16,6 +16,7 @@ import type { Cosmos } from '../sim/cosmos';
 import { ShipRenderer } from './shipmodels';
 import { BlackHoleRenderer, type AccretionDisk } from './blackhole';
 import { NebulaRenderer } from './nebula';
+import { CometTail } from './comet';
 import type { Ship } from '../sim/ship';
 import { TerrainWorkerPool } from '../terrain/workerpool';
 import type { World } from '../sim/world';
@@ -57,6 +58,7 @@ export class SceneRenderer {
   readonly stars = new Map<string, StarRenderer>();
   readonly giants = new Map<string, GasGiantRenderer>();
   readonly blackHoles = new Map<string, BlackHoleRenderer>();
+  readonly comets = new Map<string, CometTail>();
   readonly belts: BeltRenderer[] = [];
   readonly starField: StarField;
   readonly galaxies: GalaxyRenderer;
@@ -73,6 +75,8 @@ export class SceneRenderer {
   readonly bodyRel = new Map<string, THREE.Vector3>();
   readonly ctx: FrameContext;
   camUPos = new UPos();
+  /** transient point sources this frame (set by the app from the event system) */
+  transients: { upos: UPos; lumV: number; color: [number, number, number]; name: string }[] = [];
   /** debugging switches (tests) */
   debug = { noAtmosphere: false };
   /** accessibility: tone down FTL streak / tunnel effects */
@@ -133,6 +137,8 @@ export class SceneRenderer {
     }
     for (const bh of this.blackHoles.values()) bh.dispose();
     this.blackHoles.clear();
+    for (const c of this.comets.values()) { this.scene.remove(c.mesh); c.dispose(); }
+    this.comets.clear();
     this.planets.clear();
     this.stars.clear();
     this.giants.clear();
@@ -140,6 +146,11 @@ export class SceneRenderer {
     this.system = sys;
     if (!sys) return;
     for (const b of sys.bodies) {
+      if (b.kind === 'comet') {
+        const c = new CometTail(b);
+        this.comets.set(b.id, c);
+        this.scene.add(c.mesh);
+      }
       if (b.kind === 'black-hole') {
         this.blackHoles.set(b.id, new BlackHoleRenderer(b, accretionDiskFor(b, sys)));
         continue;
@@ -205,7 +216,8 @@ export class SceneRenderer {
       }
       for (const b of sys.stars) {
         const rel = this.bodyRel.get(b.id)!;
-        suns.push({ body: b, rel, color: b.star!.color, luminosity: b.star!.luminosity, radius: b.radius });
+        const flare = flareAt(b, world.time).amp;
+        suns.push({ body: b, rel, color: b.star!.color, luminosity: b.star!.luminosity * (1 + flare), radius: b.radius });
         const sr = this.stars.get(b.id);
         if (sr) sr.update(rel, sys.bodyRotation(b, _q), world.time, ctx.pixelAngle);
         const bh = this.blackHoles.get(b.id);
@@ -213,7 +225,7 @@ export class SceneRenderer {
         const d = rel.length();
         const ang = b.radius / d;
         if (ang < ctx.pixelAngle * 1.5) {
-          const flux = b.star!.luminosity / (4 * Math.PI * d * d) / SOLAR_CONSTANT;
+          const flux = (b.star!.luminosity * (1 + flare)) / (4 * Math.PI * d * d) / SOLAR_CONSTANT;
           this.bodyPoints.add(rel, b.star!.color, flux * Math.min(1, (ctx.pixelAngle * 1.5 - ang) / (ctx.pixelAngle * 0.75)));
         }
       }
@@ -269,6 +281,26 @@ export class SceneRenderer {
         const flux = (k.lumV * 3.828e26) / (4 * Math.PI * d * d) / SOLAR_CONSTANT;
         this.bodyPoints.add(rel, k.color!, flux);
       }
+    }
+    if (sys && suns.length) {
+      for (const [id, c] of this.comets) {
+        const b = sys.byId.get(id);
+        const rel = this.bodyRel.get(id);
+        if (!b || !rel) continue;
+        const toStar = _v.copy(suns[0].rel).sub(rel);
+        const r = toStar.length();
+        toStar.divideScalar(r);
+        const Esc = suns[0].luminosity / (4 * Math.PI * r * r) / SOLAR_CONSTANT;
+        const E = new THREE.Vector3(suns[0].color[0] * Esc, suns[0].color[1] * Esc, suns[0].color[2] * Esc);
+        const vel = _v2.copy(b.velSys).applyQuaternion(sys.q);
+        c.update(rel, toStar.clone(), vel.clone(), r / 1.495978707e11, E, ctx.pixelAngle);
+      }
+    }
+    // transient events (supernovae, novae, …) as unresolved points
+    for (const tr of this.transients) {
+      const rel = tr.upos.sub(this.camUPos, _v);
+      const d = rel.length();
+      this.bodyPoints.add(rel, tr.color, (tr.lumV * 3.828e26) / (4 * Math.PI * d * d) / SOLAR_CONSTANT);
     }
     this.bodyPoints.end();
     if (sys && suns.length) {

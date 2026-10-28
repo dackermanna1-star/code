@@ -131,6 +131,7 @@ export class Overlay {
     if (sys && s.showOrbits) this.drawOrbits(s, sys);
     if (s.showLabels) {
       if (sys) this.drawBodyLabels(s, sys);
+      this.drawTransientLabels(s);
       this.drawStarLabels(s);
       this.drawNebulaLabels(s);
       this.drawGalaxyLabels(s);
@@ -314,6 +315,19 @@ export class Overlay {
       const p = this.project(rel, scr);
       if (!p || this.occluded(p.x, p.y, rel.length())) continue;
       this.label(p.x, p.y, b.name, 'rgba(220,228,240,0.7)', 'none', 5);
+    }
+  }
+
+  private drawTransientLabels(s: OverlayState) {
+    const camU = s.renderer.camUPos;
+    const scr = { x: 0, y: 0, depth: 0 };
+    for (const tr of s.renderer.transients) {
+      const rel = tr.upos.sub(camU, new THREE.Vector3());
+      const m = apparentMag(tr.lumV, rel.length());
+      if (m > 7) continue;
+      const p = this.project(rel, scr);
+      if (!p || this.occluded(p.x, p.y, rel.length())) continue;
+      this.label(p.x, p.y, `${tr.name}  m ${m.toFixed(1)}`, '#ffd27a', 'ring', 6);
     }
   }
 

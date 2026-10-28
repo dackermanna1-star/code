@@ -5,6 +5,7 @@
  * the solar-constant unit, so exposure handles the brightness range.
  */
 import * as THREE from 'three';
+import { Rng, seedOf } from '../core/rng';
 import { NOISE_GLSL } from './shaders/noise.glsl';
 import { SIGMA_SB, SOLAR_CONSTANT } from '../core/constants';
 import type { Body } from '../astro/body';
@@ -38,6 +39,8 @@ uniform float uActivity;
 uniform float uGranScale;
 uniform float uLimb;
 uniform float uSeed;
+uniform float uFlare;      // flare kernel brightness relative to the photosphere
+uniform vec3 uFlareDir;    // flare site (object space)
 ${PRE_EXPOSURE_GLSL}
 varying vec3 vObjN;
 varying vec3 vWorldN;
@@ -63,6 +66,13 @@ void main() {
   float fac = smoothstep(0.5, 0.62, sp + 0.35) * belt * uActivity * (1.0 - mu) * 0.4;
   float b = gran * limb * (1.0 - 0.45 * spot - 0.45 * umbra) * (1.0 + fac);
   vec3 col = uColor * uRadiance * b;
+  if (uFlare > 0.0) {
+    // white-light flare kernel with a ribbon-like elongation along latitude
+    vec3 fd = normalize(uFlareDir);
+    float cd = 1.0 - dot(vObjN, fd);
+    float ribbon = exp(-cd / 0.0012) + 0.4 * exp(-cd / 0.006) * smoothstep(0.02, 0.0, abs(vObjN.y - fd.y));
+    col += vec3(0.85, 0.92, 1.15) * uRadiance * uFlare * ribbon;
+  }
   // cooler limb is redder
   col *= mix(vec3(1.0), vec3(1.08, 0.95, 0.85), (1.0 - mu) * 0.6);
   gl_FragColor = vec4(min(col * uPreExposure, vec3(6e4)), 1.0);
@@ -130,6 +140,8 @@ export class StarRenderer {
         uGranScale: { value: gscale },
         uLimb: { value: THREE.MathUtils.clamp(0.95 - (s.temperature - 3000) / 30000, 0.35, 0.85) },
         uSeed: { value: (body.id.length * 13.7) % 50 },
+        uFlare: { value: 0 },
+        uFlareDir: { value: new THREE.Vector3(0, 0, 1) },
         tPreExposure: PRE_EXPOSURE_TEX,
       },
     });
@@ -159,6 +171,10 @@ export class StarRenderer {
     this.group.position.copy(rel);
     this.sphere.quaternion.copy(rot);
     this.mat.uniforms.uTime.value = time % 1e6;
+    const f = flareAt(this.body, time);
+    // kernel covers ~0.1 % of the disc: its brightness carries the flare energy
+    this.mat.uniforms.uFlare.value = f.amp / 0.0015;
+    this.mat.uniforms.uFlareDir.value.copy(f.dir);
     const ang = this.body.radius / Math.max(rel.length(), 1);
     // hide when sub-pixel (point sprite takes over)
     this.group.visible = ang > pixelAngle * 0.75;
@@ -170,4 +186,35 @@ export class StarRenderer {
     this.mat.dispose();
     this.haloMat.dispose();
   }
+}
+
+/**
+ * Stellar flares (deterministic in time). Rate ∝ activity²; red dwarfs flare
+ * often and strongly (white-light flares can briefly rival the whole star),
+ * Sun-like stars rarely and weakly. Returns the extra luminosity fraction
+ * and the flare site (object space).
+ */
+export function flareAt(b: Body, t: number): { amp: number; dir: THREE.Vector3 } {
+  const s = b.star;
+  const out = { amp: 0, dir: new THREE.Vector3(0, 0, 1) };
+  if (!s || s.activity < 0.05 || b.kind !== 'star') return out;
+  const cool = s.temperature < 4000;
+  const rate = s.activity * s.activity * (cool ? 0.6 : 0.03); // flares per hour
+  const slot = Math.floor(t / 3600);
+  for (let k = slot - 2; k <= slot; k++) {
+    const rng = new Rng(seedOf(b.id, 'flare', k));
+    if (rng.next() > rate) continue;
+    const start = k * 3600 + rng.next() * 3600;
+    const tau = rng.range(200, 1500);
+    const peak = (cool ? rng.logUniform(0.05, 1.5) : rng.logUniform(1e-4, 5e-3)) * s.activity;
+    const dt = t - start;
+    if (dt < 0) continue;
+    const a = dt < 40 ? (peak * dt) / 40 : peak * Math.exp(-(dt - 40) / tau);
+    if (a > out.amp) {
+      out.amp = a;
+      const lat = rng.range(0.1, 0.5) * (rng.chance(0.5) ? 1 : -1), lon = rng.range(0, Math.PI * 2);
+      out.dir.set(Math.cos(lat) * Math.cos(lon), Math.sin(lat), Math.cos(lat) * Math.sin(lon));
+    }
+  }
+  return out;
 }
