@@ -37,6 +37,10 @@ uniform vec2 uResolution;
 ${PRE_EXPOSURE_GLSL}
 uniform float uDebug;
 uniform vec3 uAxis;    // planet spin axis (world)
+uniform float uAurora;         // aurora intensity (0 = none)
+uniform vec3 uAuroraLow, uAuroraHigh; // emission colours: lower curtain (O 557.7 nm / H) and upper (O 630 nm)
+uniform float uAuroraTime;
+uniform float uStorm;          // lightning activity
 uniform float uOblate; // 1/(1-f) - 1 : stretch along the axis that maps the oblate body onto a sphere
 #ifdef CLOUDS
 uniform samplerCube uWeather;
@@ -92,6 +96,8 @@ void integrate(vec3 ro, vec3 rd, float ta, float tb, int n, float jit, inout vec
 
 #ifdef CLOUDS
 vec3 rotY(vec3 v, float a) { float c = cos(a), s = sin(a); return vec3(c * v.x + s * v.z, v.y, -s * v.x + c * v.z); }
+float gStorm;   // set by cloudDensity: tall, dense convective cloud (0..1)
+vec3 gCell;     // weather-map cell of the last sample (for lightning)
 float cloudDensity(vec3 pw, float lodFine, float stepLen, bool primary) {
   float r = length(pw);
   float hf = (r - uCloudBottom) / (uCloudTop - uCloudBottom);
@@ -102,6 +108,8 @@ float cloudDensity(vec3 pw, float lodFine, float stepLen, bool primary) {
   vec3 wd = rotY(d, uCloudDrift);
   vec4 w = texture(uWeather, wd);
   float cov = w.r;
+  gStorm = cov * smoothstep(0.65, 0.95, w.g);
+  gCell = floor(wd * 60.0);
   if (cov < 0.02) return 0.0;
   float topH = mix(0.35, 1.0, w.g);
   // vertical profile: flat bases, rounded tops (cumulus) or uniform deck (overcast)
@@ -236,6 +244,16 @@ void main() {
         float powder = 1.0 - exp(-od * 2.0 - dens * 60.0);
         vec3 amb = (uSunIllum[0] * skyIrradiance(h, muS)) / PI * (0.6 + 0.4 * (h - uCloudBottom) / (uCloudTop - uCloudBottom));
         vec3 S = uCloudAlbedo * (sunE * (msum * mix(1.0, powder, 0.5) * 1.6 + diffuse) + amb);
+        if (uStorm > 0.0 && gStorm > 0.05) {
+          // lightning: random cells in tall convective cloud flash for ~0.1 s
+          float slot = floor(uCloudTime * 6.0);
+          float hsh = hash31(gCell + vec3(slot * 1.37, slot * 0.71, 0.0));
+          if (hsh > 1.0 - 0.012 * uStorm * gStorm) {
+            float ph = fract(uCloudTime * 6.0);
+            float pulse = exp(-ph * 9.0) * (0.6 + 0.4 * sin(ph * 60.0));
+            S += vec3(0.75, 0.82, 1.0) * 0.02 * pulse * (0.5 + hsh);
+          }
+        }
         float Ts = exp(-dens * dtc);
         Lc += Tc * S * (1.0 - Ts);
         Tc *= Ts;
@@ -257,6 +275,49 @@ void main() {
 #else
   integrate(ro, rd, t0, t1, uSteps, jit, L, T);
 #endif
+  if (uAurora > 0.0) {
+    // auroral ovals around the magnetic poles (≈ spin axis), 95–320 km,
+    // shifted toward the night side; folded curtains with fine vertical rays
+    float rA0 = uRg + 95000.0, rA1 = uRg + 320000.0;
+    vec2 a1 = raySphereG(ro, rd, rA1);
+    if (a1.x < a1.y && a1.y > 0.0) {
+      vec2 a0 = raySphereG(ro, rd, rA0);
+      float ta = max(a1.x, 0.0), tb = a1.y;
+      // stop at the planet / the inner shell on the near side
+      if (a0.x < a0.y && a0.x > 0.0) tb = min(tb, a0.x);
+      tb = min(tb, t1 > t0 ? max(t1, ta) : tb);
+      vec3 Lau = vec3(0.0);
+      float dta = (tb - ta) / 32.0;
+      for (int i = 0; i < 32; i++) {
+        vec3 p = ro + rd * (ta + (float(i) + jit) * dta);
+        float r = length(p);
+        float hA = (r - uRg) / 1000.0;
+        if (hA < 95.0 || hA > 320.0) continue;
+        vec3 n = p / r;
+        float mlat = asin(clamp(dot(n, uAxis), -1.0, 1.0));
+        float night = clamp(-dot(n, uSunDir[0]) * 0.5 + 0.5, 0.0, 1.0);
+        float ovalLat = 1.17 - 0.08 * night;            // ≈ 67° (lower toward midnight)
+        // longitude in magnetic local time: measured from the anti-sun meridian,
+        // so the oval stays fixed relative to the star while the planet turns
+        vec3 e1 = -uSunDir[0] + uAxis * dot(uSunDir[0], uAxis);
+        e1 = dot(e1, e1) > 1e-8 ? normalize(e1) : normalize(cross(uAxis, vec3(0.31, 0.95, 0.07)));
+        vec3 e2 = cross(uAxis, e1);
+        float lon = atan(dot(n, e2), dot(n, e1));
+        float wob = gnoise(vec3(lon * 3.0, uAuroraTime * 0.02, 0.0)) * 0.05;
+        float dl = abs(abs(mlat) - ovalLat - wob);
+        float oval = exp(-dl * dl / (0.035 * 0.035));
+        if (oval < 0.01) continue;
+        float curtain = smoothstep(0.35, 0.9, gnoise(vec3(lon * 26.0, abs(mlat) * 40.0, uAuroraTime * 0.05)) * 0.5 + 0.5);
+        float rays = 0.6 + 0.4 * gnoise(vec3(lon * 260.0, uAuroraTime * 0.3, 0.0));
+        float lowP = exp(-pow((hA - 115.0) / 25.0, 2.0));
+        float highP = exp(-pow((hA - 230.0) / 60.0, 2.0)) * 0.4;
+        Lau += (uAuroraLow * lowP + uAuroraHigh * highP) * oval * curtain * rays * (0.4 + 0.6 * night);
+      }
+      // seen from above, nothing lies between the observer and the emitting
+      // layer; from below, the whole atmosphere (and clouds) attenuate it
+      L += (length(ro) > rA0 ? vec3(1.0) : T) * Lau * dta * uAurora;
+    }
+  }
   gl_FragColor = vec4(min(scene * T + L * uPreExposure, vec3(6e4)), 1.0);
 }
 `;
@@ -280,6 +341,11 @@ export class AtmospherePass {
       uDebug: { value: 0 },
       uAxis: { value: new THREE.Vector3(0, 1, 0) },
       uOblate: { value: 0 },
+      uAurora: { value: 0 },
+      uAuroraLow: { value: new THREE.Vector3(0.2, 1, 0.35) },
+      uAuroraHigh: { value: new THREE.Vector3(1, 0.15, 0.1) },
+      uAuroraTime: { value: 0 },
+      uStorm: { value: clouds ? clouds.params.storminess : 0 },
     };
     luts.bind(u);
     const defines: Record<string, number> = {};
@@ -311,4 +377,27 @@ export class AtmospherePass {
       depthWrite: false,
     });
   }
+}
+
+/**
+ * Aurora parameters from planet physics: needs a magnetosphere and an
+ * atmosphere; colour from composition (atomic oxygen: green 557.7 nm and red
+ * 630 nm; hydrogen-dominated giants: pink/purple Balmer + H₂ bands; N₂/CO₂:
+ * blue–violet).
+ */
+export function auroraFor(field: number, composition: Record<string, number>, starActivity: number, distAU: number, giant: boolean) {
+  if (field < 0.05) return null;
+  const o2 = (composition.O2 ?? 0) + (composition.O ?? 0) + (composition.CO2 ?? 0) * 0.3;
+  const h2 = (composition.H2 ?? 0) + (composition.He ?? 0) * 0.2;
+  let low: [number, number, number], high: [number, number, number];
+  if (h2 > 0.5) { low = [0.9, 0.3, 0.8]; high = [0.6, 0.2, 1.0]; }
+  else if (o2 > 0.05) { low = [0.2, 1.0, 0.35]; high = [1.0, 0.12, 0.08]; }
+  else { low = [0.4, 0.35, 1.0]; high = [0.7, 0.3, 0.9]; }
+  // Calibration: an active terrestrial aurora is ~10–100 kR in the 557.7 nm
+  // line ≈ 3e-6–3e-5 W m⁻² sr⁻¹, i.e. 1e-8–1e-7 in visual radiance units
+  // (solar constant per sr, photopic-weighted) through ~100 km of emitting
+  // layer. Solar-wind pressure falls with distance; stronger fields capture more.
+  const wind = (0.4 + starActivity) / Math.max(distAU, 0.05);
+  const I = 3e-10 * Math.min(4, Math.sqrt(field)) * Math.min(3, Math.sqrt(wind)) * (giant ? 2 : 1);
+  return { intensity: I, low, high };
 }

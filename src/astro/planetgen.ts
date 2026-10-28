@@ -285,7 +285,16 @@ export function generatePlanet(inp: PlanetInput, ov?: PlanetOverrides): PlanetPh
     life.biochemistry = 'water / carbon';
     life.oxygenated = life.kind !== 'microbial' || rng.chance(0.3);
     const T = inp.starTemp;
-    life.pigment = T < 3800 ? 'near-black (broadband absorber, red-dwarf light)' : T < 5000 ? 'red–orange (K-dwarf optimised)' : T < 6200 ? 'green (chlorophyll-like)' : 'blue–violet reflecting (F-star UV/blue rich)';
+    // photosynthetic pigments tuned to the host star's spectrum (Kiang et al.
+    // 2007; Lehmer et al. 2018); several hypotheses are allowed per class
+    const pig = rng.next();
+    life.pigment = T < 3800
+      ? (pig < 0.45 ? 'near-black (broadband absorber, red-dwarf light)' : pig < 0.75 ? 'deep purple (far-red / near-IR harvesting)' : 'dark crimson (reflects excess red)')
+      : T < 5000
+        ? (pig < 0.6 ? 'red–orange (K-dwarf optimised)' : 'golden yellow (carotenoid-like)')
+        : T < 6200
+          ? (pig < 0.75 ? 'green (chlorophyll-like)' : 'purple (retinal-like, Archaean-Earth analogue)')
+          : (pig < 0.6 ? 'blue–violet reflecting (F-star UV/blue rich)' : 'pale teal (UV-screening)');
     life.coverage = life.kind === 'microbial' ? rng.range(0.05, 0.3) : life.kind === 'simple' ? rng.range(0.2, 0.6) : rng.range(0.4, 0.95);
     life.bioluminescence = rng.chance(T < 4000 ? 0.5 : 0.15) ? rng.range(0.3, 1) : 0;
     life.notes = life.kind === 'microbial' ? 'Microbial mats tint shallow seas and wet lowlands.' : life.kind === 'simple' ? 'Colonial organisms and low ground cover.' : 'Complex multicellular ecosystems with mobile fauna.';
@@ -531,10 +540,17 @@ function palette(rng: Rng, p: PlanetPhysics, inp: PlanetInput, Ts: number, icy: 
   // vegetation pigment follows the star's spectrum (Kiang et al. 2007)
   const T = inp.starTemp;
   let veg1: RGB, veg2: RGB;
-  if (T < 3800) { veg1 = srgb(0.06, 0.05, 0.07); veg2 = srgb(0.16, 0.08, 0.2); }
-  else if (T < 5000) { veg1 = srgb(0.36, 0.14, 0.06); veg2 = srgb(0.55, 0.3, 0.08); }
-  else if (T < 6200) { veg1 = srgb(0.12, 0.24, 0.08); veg2 = srgb(0.28, 0.32, 0.1); }
-  else { veg1 = srgb(0.12, 0.22, 0.38); veg2 = srgb(0.38, 0.3, 0.12); }
+  const pg = p.life.pigment;
+  if (pg.startsWith('near-black')) { veg1 = srgb(0.06, 0.05, 0.07); veg2 = srgb(0.16, 0.08, 0.2); }
+  else if (pg.startsWith('deep purple')) { veg1 = srgb(0.16, 0.06, 0.22); veg2 = srgb(0.3, 0.12, 0.36); }
+  else if (pg.startsWith('dark crimson')) { veg1 = srgb(0.22, 0.04, 0.05); veg2 = srgb(0.38, 0.1, 0.08); }
+  else if (pg.startsWith('red–orange')) { veg1 = srgb(0.36, 0.14, 0.06); veg2 = srgb(0.55, 0.3, 0.08); }
+  else if (pg.startsWith('golden')) { veg1 = srgb(0.45, 0.34, 0.06); veg2 = srgb(0.6, 0.48, 0.12); }
+  else if (pg.startsWith('purple')) { veg1 = srgb(0.28, 0.12, 0.3); veg2 = srgb(0.42, 0.2, 0.35); }
+  else if (pg.startsWith('blue')) { veg1 = srgb(0.12, 0.22, 0.38); veg2 = srgb(0.38, 0.3, 0.12); }
+  else if (pg.startsWith('pale teal')) { veg1 = srgb(0.16, 0.34, 0.32); veg2 = srgb(0.3, 0.42, 0.36); }
+  else if (T < 3800) { veg1 = srgb(0.06, 0.05, 0.07); veg2 = srgb(0.16, 0.08, 0.2); }
+  else { veg1 = srgb(0.12, 0.24, 0.08); veg2 = srgb(0.28, 0.32, 0.1); }
   veg1 = jitter(rng, veg1, 0.2); veg2 = jitter(rng, veg2, 0.2);
   if (p.life.bioluminescence > 0) veg2 = mixRGB(veg2, srgb(0.2, 0.9, 0.8), 0.5);
   // liquids

@@ -10,7 +10,7 @@ import { NOISE_GLSL } from './shaders/noise.glsl';
 import { LIGHTING_GLSL, ECLIPSE_GLSL } from './shaders/lighting.glsl';
 import type { Body } from '../astro/body';
 import type { FrameContext } from './planetrenderer';
-import { sunIlluminanceAt } from './planetrenderer';
+import { sunIlluminanceAt, updateAurora } from './planetrenderer';
 import { AtmosphereLUTs } from './atmosphere';
 import { AtmospherePass } from './atmospherepass';
 import { RING_SHADOW_GLSL, RingSystem } from './rings';
@@ -237,6 +237,7 @@ export class GasGiantRenderer {
         au.uFar.value = ctx.camera.far;
         au.uFrame.value = ctx.frame % 64;
         au.uSteps.value = Math.max(8, ctx.quality.atmSteps >> 1);
+        updateAurora(au, this.body, ctx, rel);
         au.uAxis.value.set(0, 1, 0).applyQuaternion(rot);
         au.uOblate.value = 1 / (1 - this.flattening) - 1;
         for (let k = 0; k < 2; k++) {

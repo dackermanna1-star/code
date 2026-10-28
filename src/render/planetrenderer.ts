@@ -11,7 +11,7 @@ import { SurfaceScatter } from './scatter';
 import { Fauna } from './fauna';
 import { SurfaceGenerator } from '../terrain/surface';
 import { AtmosphereLUTs } from './atmosphere';
-import { AtmospherePass } from './atmospherepass';
+import { AtmospherePass, auroraFor } from './atmospherepass';
 import { CloudLayer } from './clouds';
 
 export interface SunLight {
@@ -166,6 +166,8 @@ export class PlanetRenderer {
       au.uFar.value = ctx.camera.far;
       au.uFrame.value = ctx.frame % 64;
       au.uSteps.value = ctx.quality.atmSteps;
+      au.uAxis.value.set(0, 1, 0).applyQuaternion(rot); // spherical: no oblateness stretch (uOblate = 0)
+      updateAurora(au, this.body, ctx, rel);
       for (let k = 0; k < 2; k++) {
         au.uSunDir.value[k].copy(u.uSunDir.value[k]);
         au.uSunIllum.value[k].copy(u.uSunIllum.value[k]);
@@ -201,3 +203,19 @@ export class PlanetRenderer {
 }
 
 export { _v, _v2, _m3 };
+
+/** Set aurora uniforms on an atmosphere pass from the body's magnetosphere and the host star. */
+export function updateAurora(au: Record<string, THREE.IUniform>, body: Body, ctx: FrameContext, rel: THREE.Vector3) {
+  const p = body.planet;
+  const s = ctx.suns[0];
+  if (!p || !p.atmosphere || !s || !au.uAurora) return;
+  const distAU = s.rel.distanceTo(rel) / 1.495978707e11;
+  const giant = p.type === 'gas-giant' || p.type === 'ice-giant';
+  const a = auroraFor(giant ? Math.max(p.magneticField, 5) : p.magneticField, p.atmosphere.composition, s.body.star?.activity ?? 0.3, distAU, giant);
+  au.uAurora.value = a ? a.intensity : 0;
+  if (a) {
+    (au.uAuroraLow.value as THREE.Vector3).set(...a.low);
+    (au.uAuroraHigh.value as THREE.Vector3).set(...a.high);
+  }
+  au.uAuroraTime.value = ctx.time % 1e5;
+}
