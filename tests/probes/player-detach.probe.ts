@@ -5,6 +5,7 @@ import { FIXED_DT } from "../../src/core/time.ts";
 import { Destruction } from "../../src/destruction/destructionSystem.ts";
 import { buildObject } from "../../src/objects/registry.ts";
 import { PlayerCore } from "../../src/player/playerCore.ts";
+import { Layer } from "../../src/core/context.ts";
 import { makeWorld, r2 } from "./player-util.ts";
 
 export async function probe() {
@@ -51,11 +52,15 @@ export async function probe() {
   const chairBody = p.holding;
   out.grabbed = chairBody !== null;
   step(10);
+  // break the part that was actually grabbed
+  const grabbedName = out.target ? (out.target as { part: string }).part : "leg_fl";
+  const gp = [...asm.parts].find((q) => q.name === grabbedName) ?? leg;
+  out.grabbedPart = gp.name;
   // rip the leg off: break all of its bonds (topology is flushed in the destruction step)
-  for (const b of leg.bonds.slice()) world.breakBond(b);
+  for (const b of gp.bonds.slice()) world.breakBond(b);
   step(3);
   const heldAfter = p.holding;
-  const legBody = leg.island?.body ?? null;
+  const legBody = gp.island?.body ?? null;
   out.afterBreak = {
     stillHolding: heldAfter !== null,
     holdingLeg: heldAfter !== null && heldAfter === legBody,
@@ -63,6 +68,8 @@ export async function probe() {
     legSeparate: legBody !== chairBody,
     chairIslands: destruction.list().find((a) => a.id === chairId)?.islands ?? null,
   };
+  const legLayer = () => (legBody?.shape ? legBody.shape.filterMembershipMask : -1);
+  out.legOnHeldLayer = legLayer() === Layer.HELD;
   // the leg comes with the hand: look up, it rises
   const y0 = legBody ? legBody.transformNode.position.y : 0;
   w.input.addLook(0, -250);
@@ -80,6 +87,8 @@ export async function probe() {
   p.debugAction("grab"); // drop
   step(5);
   out.staleUseAfterDrop = uses;
+  step(30);
+  out.legLayerRestored = legLayer() !== Layer.HELD;
   out.nan = [p.position.x, p.position.y, p.position.z].some((x) => !Number.isFinite(x));
   return out;
 }

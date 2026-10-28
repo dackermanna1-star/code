@@ -17,7 +17,7 @@
 // Frame: origin on the floor at the centre of the footprint, door +Z, back −Z.
 
 import { buttonGrid, pcb } from "../lib/kit.ts";
-import { boxR, bondTouching, finish, mk, type BaseOpts, type Range } from "./helpers.ts";
+import { boxR, bondTouching, finish, mk, polygonSurfaceY, type BaseOpts, type Range } from "./helpers.ts";
 import type { Builder, V3 } from "../lib/builder.ts";
 import type { AssemblyDef } from "../../destruction/model/types.ts";
 
@@ -75,9 +75,10 @@ function cabinet(b: Builder, o: CabinetOpts): CabinetParts {
   // feet: rubber pads + threaded studs
   const feet: string[] = [];
   const rails: string[] = [];
+  const xr = W / 2 - o.t - 0.015; // base rails run along the inside of the side panels
   for (const [k, x] of [
-    ["l", -0.27],
-    ["r", 0.27],
+    ["l", -xr],
+    ["r", xr],
   ] as Array<[string, number]>) {
     rails.push(boxR(b, `rail_${k}`, "steel", "metal_raw", [x - 0.015, x + 0.015], [Y0, Y0 + 0.03], [-D / 2 + o.t, D / 2 - 0.03], { tess: 0, mass: 0.7 }));
     for (const z of [-0.24, 0.24]) {
@@ -89,10 +90,10 @@ function cabinet(b: Builder, o: CabinetOpts): CabinetParts {
     }
   }
   for (let i = 0; i < 4; i++) b.bolt(feet[2 * i + 1], rails[i < 2 ? 0 : 1], 80);
-  const cross = boxR(b, "rail_cross", "steel", "metal_raw", [-0.255, 0.255], [Y0, Y0 + 0.03], [-0.065, -0.035], { tess: 0, mass: 0.5 });
+  const cross = boxR(b, "rail_cross", "steel", "metal_raw", [-xr + 0.015, xr - 0.015], [Y0, Y0 + 0.03], [-0.065, -0.035], { tess: 0, mass: 0.5 });
   b.weld(cross, rails[0], 120);
   b.weld(cross, rails[1], 120);
-  const crossFront = boxR(b, "rail_front", "steel", "metal_raw", [-0.255, 0.255], [Y0, Y0 + 0.03], [0.15, 0.18], { tess: 0, mass: 0.5 });
+  const crossFront = boxR(b, "rail_front", "steel", "metal_raw", [-xr + 0.015, xr - 0.015], [Y0, Y0 + 0.03], [0.15, 0.18], { tess: 0, mass: 0.5 });
   b.weld(crossFront, rails[0], 120);
   b.weld(crossFront, rails[1], 120);
 
@@ -247,7 +248,8 @@ export function buildWasher(o: WasherOpts = {}): AssemblyDef {
   const tubBottom = nearestTile(b, tub, [0, YC - 0.25, -0.1]);
 
   // concrete counterweights (bolted on)
-  const wTop = boxR(b, "weight_top", "concrete", "concrete", [-0.21, 0.21], [YC + 0.25 * COS_HALF, 0.74], [0.05, 0.21], { tint: 0xb9b4aa });
+  // (SEG = 8: the tub's top and bottom are tile vertices — ridges along the tub)
+  const wTop = boxR(b, "weight_top", "concrete", "concrete", [-0.21, 0.21], [YC + 0.25 + 0.0005, 0.745], [0.05, 0.21], { tint: 0xb9b4aa });
   b.bolt(wTop, tubTop, 220);
   const wFront = boxR(b, "weight_front", "concrete", "concrete", [-0.17, 0.17], [YC - 0.25, YC - 0.18], [zt1, zt1 + 0.04], { tint: 0xb9b4aa });
   b.bolt(wFront, nearestTile(b, tub, [0, YC - 0.21, zt1]), 180);
@@ -258,17 +260,17 @@ export function buildWasher(o: WasherOpts = {}): AssemblyDef {
 
   // suspension: two springs up to the worktop frame, two dampers down to the base frame
   for (const sx of [-1, 1]) {
-    const y0 = YC + Math.sqrt(0.25 * 0.25 - 0.2 * 0.2) + 0.006;
+    const y0 = YC + polygonSurfaceY(SEG, 0.25, 0, 0.2, true) + 0.0005;
     const spring = b.cyl(`spring_${sx < 0 ? "l" : "r"}`, "steel", "metal_raw", 0.01, H - 0.02 - y0 - 0.001, [sx * 0.2, (y0 + H - 0.021) / 2, -0.12], { segments: 8, mass: 0.15 });
     b.clip(spring, c.top, 45);
     b.clip(spring, nearestTile(b, tub, [sx * 0.2, YC + 0.15, -0.12]), 45);
-    const dy1 = YC - Math.sqrt(0.25 * 0.25 - 0.15 * 0.15) - 0.004;
+    const dy1 = YC + polygonSurfaceY(SEG, 0.25, 0, 0.15, false) - 0.0005;
     const damper = b.cyl(`damper_${sx < 0 ? "l" : "r"}`, "steel", "metal_painted", 0.012, dy1 - (Y0 + 0.03), [sx * 0.15, (dy1 + Y0 + 0.03) / 2, -0.05], { segments: 8, tint: 0x3a3a3a, mass: 0.35 });
     b.clip(damper, c.cross, 45);
     b.clip(damper, nearestTile(b, tub, [sx * 0.15, YC - 0.2, -0.05]), 45);
   }
   // motor hanging under the tub, drain pump behind the kick panel
-  const motor = b.cyl("motor", "steel", "metal_raw", 0.055, 0.15, [0, YC - 0.25 - 0.017 - 0.055 + 0.012, -0.14], { axis: "x", segments: 12, mass: 4.5, tint: 0x8d8f91 });
+  const motor = b.cyl("motor", "steel", "metal_raw", 0.055, 0.15, [0, YC - 0.25 - 0.055 - 0.0005, -0.14], { axis: "x", segments: 12, mass: 4.5, tint: 0x8d8f91 });
   b.bolt(motor, tubBottom, 150);
   b.sparks(motor, 0.4);
   const pump = boxR(b, "pump", "plastic", "plastic", [0.12, 0.22], [Y0 + 0.012, 0.11], [0.2, D / 2 - t], { tint: 0x2f2f31, mass: 0.6 });
@@ -483,8 +485,9 @@ function door(b: Builder, c: CabinetParts, o: { ring: number; inner: number; gla
     seam: "fused",
     seamStrength: 60,
   });
-  const rIn = o.inner * Math.cos(Math.PI / RING_SEG) - 0.001; // inscribed radius of the ring's opening
-  const glass = b.cyl("door_glass", "glass", "glass", rIn, 0.012, [0, YC, z0 + depth - 0.006 - 0.002], { axis: "z", segments: 12, capSurf: "glass", smooth: 0 });
+  // glass disc: a 12-gon turned half a step so its corners sit against the middle of the ring's inner faces
+  const rIn = o.inner * Math.cos(Math.PI / RING_SEG) - 0.0005;
+  const glass = b.cyl("door_glass", "glass", "glass", rIn, 0.012, [0, YC, z0 + depth - 0.006 - 0.002], { axis: "z", segments: RING_SEG, capSurf: "glass", smooth: 0, rot: [0, 0, 180 / RING_SEG] });
   for (const t of ring) b.glue(glass, t, 8);
   let inner: string;
   if (o.glassBowl) {

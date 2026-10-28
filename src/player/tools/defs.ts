@@ -102,8 +102,10 @@ export const TOOL_RIGS: Readonly<Record<ToolId, Rig>> = {
     wound: { head: v(0.42, 0.32, 0.0), axis: v(0.2, 0.8, -0.55) },
     woundCharged: { head: v(0.55, 0.15, -0.45), axis: v(0.45, 0.45, -0.77) },
     launch: v(-0.4, -0.35, 0.85),
-    end: { head: v(-0.75, -0.05, 0.1), axis: v(-0.8, 0.1, -0.6) },
-    endDir: v(-0.4, 0.1, -0.9),
+    // follow-through ends wrapped to the left; the end axis stays < 180° from the contact handle
+    // (rotating through "barrel forward") so the bat keeps rotating the right way round
+    end: { head: v(-0.8, -0.05, 0.3), axis: v(-0.95, 0.1, -0.15) },
+    endDir: v(-0.45, 0.05, -0.9),
     offhand: 0.085,
     idle: F(v(0.23, -0.25, 0.36), v(0.29, 0.88, 0.32), v(-0.2, 0.3, 0.93)),
   },
