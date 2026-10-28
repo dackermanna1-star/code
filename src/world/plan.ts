@@ -4,7 +4,7 @@
 import type { MaterialId } from "../destruction/model/materials.ts";
 
 export const CEILING_H = 2.7;
-export const SLAB_T = 0.25; // concrete slab thickness (floor slab y ∈ [-SLAB_T, 0) under the finish)
+export const SLAB_T = 0.25; // concrete slab thickness; the finished floor surface is y = 0 (finish layers sit in y ∈ [-t, 0], slab below them)
 export const CONCRETE_T = 0.2; // exterior/party wall thickness
 export const PARTITION_T = 0.115; // 12.5 mm drywall + 90 mm stud + 12.5 mm drywall
 export const STUD_SPACING = 0.4;

@@ -61,3 +61,17 @@ openings free of studs/sheets (a ray through each door opening hits no structura
 every room enclosed (sample points near walls are covered), floor finishes cover each room's
 footprint (sample grid), and a probe (once render + destruction runtime exist) that spawns the
 structure and screenshots several rooms.
+
+## Addendum (orchestrator) — reference levels other agents rely on
+- The FINISHED floor surface is exactly y = 0 everywhere indoors: floor finishes occupy
+  y ∈ [−t, 0] (laminate t = 0.012, tile + mortar ≈ 0.02, carpet ≈ 0.012), the concrete slab is
+  below them. The balcony slab top is y = −0.02 (a small step down). Furniture is placed with its
+  base at y = 0.
+- The finished ceiling surface is exactly y = CEILING_H (2.7): ceiling sheets occupy
+  y ∈ [2.7, 2.7125], furring above, slab above that.
+- Wall faces: partition finished faces at centre line ± PARTITION_T/2 (±0.0575). Concrete walls'
+  finished interior faces stay ON the plan boundary (e.g. z = 8.8 for the north wall): put the
+  gypsum finish layer INSIDE the concrete thickness envelope (e.g. concrete cells from z = 8.8125
+  to 9.0 and a 12.5 mm finish sheet z ∈ [8.8, 8.8125]), so rooms keep their plan dimensions.
+- Export these as constants from `src/world/structure/levels.ts` (FLOOR_Y, CEILING_Y,
+  WALL_FINISH_T, …) for the furnishing agents.

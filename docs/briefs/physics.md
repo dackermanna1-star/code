@@ -62,3 +62,35 @@ removing a child: raycast through removed child misses; mass changes), layer fil
 (DEBRIS vs PLAYER), raycast childIndex, sphere sweep hit point/normal/fraction, hinge door with
 limits on a static frame, slider drawer with limits and removal, ball socket, static→dynamic
 switch, motor-held latch released, 1000-body pile perf (ms/step) and 3000 sleeping bodies cost.
+
+## Addendum (orchestrator, after reading the verified notes) — mandatory
+The notes revealed performance/semantics traps that this module must solve for everyone:
+1. **Impact detection cost vs accuracy.** Collision callbacks on every body produce ~10k
+   CONTINUED events/step for big piles (+4–10 ms), but the real impact impulse often arrives on
+   the CONTINUED after a speculative STARTED. Design a scheme that is both cheap and correct, e.g.:
+   STARTED-only masks for slow/sleeping bodies, STARTED|CONTINUED only while a body is fast
+   (|v| above ~1.5 m/s; change masks only on already-awake bodies since setEventMask wakes), plus
+   impulse ESTIMATION from cached pre-step velocities (J ≈ (1+e)·μ·v_n at the contact point using
+   the bodies' previous-step linear/angular velocities and masses) when the measured impulse is
+   missing or speculative. Aggregate per pair per step (sum of per-point impulses; max with the
+   estimate). Document the scheme and its measured cost at the top of physics.ts.
+2. **Sleeping piles.** Large piles never sleep (15–18 ms/step at 1000 bodies). Implement a
+   force-sleep policy: dynamic bodies whose linear speed < ~0.08 m/s and angular < ~0.2 rad/s for
+   ~0.5 s are put to sleep via the activation control API (they still wake on impact) — expose
+   `setAutoSleep(enabled, thresholds)`; on by default.
+3. **Sync cost.** Babylon's per-body transform sync costs ~1.5 µs per body per step even when
+   asleep. Provide a cheaper sync path for many bodies (e.g. disable Babylon's sync for our bodies
+   and copy transforms yourself only for awake bodies by reading the body buffer as the notes
+   describe) — keep `TransformNode` poses correct for awake bodies after each step and after
+   teleports; expose a flag per body if needed. Measure with 3000 sleeping + 200 awake bodies.
+4. **Hull cost.** ~0.5–0.9 ms per 30-point hull. Decimate hull inputs to ≤ 16 well-spread extreme
+   points (k-DOP-style support points) before creating the shape (tiny visual mismatch is fine),
+   use box shapes for box-like polys, and expose `hullShape` timing in stats. Also measure the
+   resting gap (convex radius) of hull/box shapes on a static floor and minimise it so small
+   debris does not visibly float.
+5. **Layer masks live on LEAF shapes** (container masks are ignored): `setLayer` on a container
+   must update every child; containers must copy the layer onto children at creation.
+6. **Never create/dispose bodies inside Havok callbacks** (ids are reused immediately): buffer
+   everything and dispatch impacts after the step (already in the brief).
+7. Raycast `result.shape` is the hit child for containers (undefined for single shapes): map it to
+   the child index via a per-container Map.

@@ -93,3 +93,19 @@ with hand-made box polys; runtime probes once dependencies exist: spawn a hand-b
 (top + 4 legs glued) and a glass pane in a static frame on a static floor; strike them; verify
 fracture, splits, static→dynamic, joint door ripping via pull, consolidation and restore,
 fell-out removal, no leaks (bodies/meshes count back to baseline after disposal), screenshots.
+
+## Addendum (orchestrator, after reading the verified physics notes) — mandatory
+- Mass/COM/inertia are recomputed only when a body's shape is re-assigned; container edits change
+  collision immediately but not mass → always go through `physics.setShape(body, container)` after
+  changing an island's parts.
+- Hull creation is expensive (~0.5–0.9 ms per 30-pt hull, cheaper when the physics module
+  decimates): create fragment shapes inside the time-budgeted fracture queue; reuse part shapes
+  across island rebuilds (the caller owns child shapes; `container.dispose()` does not dispose
+  children; `body.dispose()` nulls body.shape — keep your own references).
+- Collision events carry no child-shape info: locate parts geometrically from the contact point;
+  raycasts/sweeps do provide `childIndex`.
+- Bodies created with startAsleep hang in mid-air until woken — the integrator will run a settle
+  phase at load; don't rely on startAsleep for correctness.
+- Never create/dispose bodies inside collision callbacks; process in `afterPhysics`.
+- Large debris counts: use the physics module's auto-sleep + cheap sync; consolidated islands
+  should have Babylon sync disabled while consolidated.
