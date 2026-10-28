@@ -148,3 +148,19 @@ test("the shell is closed: slabs above and below every interior point", () => {
     }
   }
 });
+
+test("the front door opens onto a walkable, enclosed corridor stub", () => {
+  const down = grid.hits([10.9, 0.5, 9.6], [0, -1, 0], 1);
+  assert.ok(down.length > 0 && down[0].ref.asm.type === "corridor", "corridor floor outside the front door");
+  assert.ok(Math.abs(0.5 - down[0].t - 0.005) < 1e-6, "carpet top 5 mm above the apartment floor");
+  for (const [d, max] of [
+    [[-1, 0, 0], 3.2],
+    [[1, 0, 0], 2.0],
+    [[0, 0, 1], 1.2],
+  ] as Array<[[number, number, number], number]>) {
+    const h = grid.hits([10.9, 1.2, 9.6], d, max);
+    assert.ok(h.length > 0, `corridor open towards ${d}`);
+  }
+  const up = grid.hits([10.9, 1.2, 9.6], [0, 1, 0], 2);
+  assert.ok(up.length > 0 && up[0].ref.asm.type === "corridor", "corridor ceiling");
+});

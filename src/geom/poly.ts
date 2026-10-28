@@ -195,6 +195,33 @@ export function polyBox(size: Vec3, attrs: FaceAttr | FaceAttr[], xf?: Xform): C
   const hx = Math.abs(fin(size.x)) / 2,
     hy = Math.abs(fin(size.y)) / 2,
     hz = Math.abs(fin(size.z)) / 2;
+  // degenerate sizes (zero / NaN / below the weld tolerance): one flat axis → two-sided flat
+  // rectangle (volume 0), two or three → empty; never 8 coincident corners.
+  const hmax = Math.max(hx, hy, hz);
+  const tiny = REL_WELD_EPS * hmax;
+  const flat = (hx <= tiny ? 1 : 0) + (hy <= tiny ? 1 : 0) + (hz <= tiny ? 1 : 0);
+  if (!(hmax > 0) || flat >= 2) return EMPTY();
+  if (flat === 1) {
+    const ex = hx <= tiny ? 0 : hx,
+      ey = hy <= tiny ? 0 : hy,
+      ez = hz <= tiny ? 0 : hz;
+    const pts: Vec3[] = [];
+    for (let i = 0; i < 8; i++) pts.push(vx(i & 1 ? ex : -ex, i & 2 ? ey : -ey, i & 4 ? ez : -ez));
+    const axes = [vx(1, 0, 0), vx(-1, 0, 0), vx(0, 1, 0), vx(0, -1, 0), vx(0, 0, 1), vx(0, 0, -1)];
+    const poly = hullPoly(pts, (n) => {
+      let bk = 0,
+        bd = -Infinity;
+      for (let k = 0; k < 6; k++) {
+        const d = dot(n, axes[k]);
+        if (d > bd) {
+          bd = d;
+          bk = k;
+        }
+      }
+      return attrFor(Array.isArray(attrs) ? (attrs[bk] ?? attrs[0]) : attrs, axes[bk]);
+    });
+    return xf && poly.faces.length ? polyTransform(poly, xf) : poly;
+  }
   const verts: Vec3[] = [];
   for (let i = 0; i < 8; i++) verts.push(vx(i & 1 ? hx : -hx, i & 2 ? hy : -hy, i & 4 ? hz : -hz));
   const loops = [

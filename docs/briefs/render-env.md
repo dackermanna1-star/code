@@ -50,3 +50,13 @@ Implement:
    sun angle/shadows/shafts, the exterior view through the window, PS2 mode on/off, SSAO on/off.
    Look at the screenshots critically and iterate until it reads as a warm, cinematic golden-hour
    interior (not overexposed, readable shadows, visible shafts).
+
+## Addendum (lighting notes landed: docs/api-notes/rendering-lighting-post.md) — mandatory
+- Use ClusteredLightContainer for interior lights (verified with Standard+PBR, 15 lights, 1 slot):
+  set `range` on every light, PBR needs `useGLTFLightFalloff = true`, turn lights off with
+  intensity = 0 (setEnabled(false) is ignored). Raising maxSimultaneousLights fails to compile.
+  The open-plan kitchen/living/foyer has ~12+ lights — room-masking with a 4–6 cap is NOT enough.
+- Sun: single ShadowGenerator (CSM doubles caster draws) with normalBias ~0.02.
+- SSAO2 before DRP, HALF_FLOAT; keep custom post-processes last via onBuildObservable.
+- Light shafts: fake additive geometry (not VLS). Env: ReflectionProbe once (no CDN env).
+- Grab highlight: renderOverlay (renderOutline breaks under SSAO2).

@@ -29,6 +29,7 @@ import {
   type FaceAttr,
 } from "../../src/geom/poly.ts";
 import { quickHull } from "../../src/geom/hull.ts";
+import { polyValidate } from "../../src/geom/validate.ts";
 import { jacobiEigenSym3 } from "../../src/geom/util.ts";
 import { qeuler, qaxisAngle, xapply, type Xform } from "../../src/geom/vec.ts";
 import { latheTiles } from "../../src/geom/primitives.ts";
@@ -113,6 +114,25 @@ test("polyBox: volume, faces in +X,-X,+Y,-Y,+Z,-Z order, explicit uv kept, trans
   const bb = polyBounds(b);
   nearVec(bb.min, v(-0.5, -1, -1.5), 1e-12);
   nearVec(bb.max, v(0.5, 1, 1.5), 1e-12);
+});
+
+test("polyBox / polyBeveledBox degenerate sizes: flat two-sided rectangle or empty, never coincident corners", () => {
+  const attrs = [0, 1, 2, 3, 4, 5].map((s) => faceAttr(s));
+  for (const make of [(s: { x: number; y: number; z: number }) => polyBox(s, attrs), (s: { x: number; y: number; z: number }) => polyBeveledBox(s, 0.01, attrs)]) {
+    for (const s of [v(0, 0.1, 0.2), v(NaN, 0.1, 0.2), v(1e-12, 0.1, 0.2), v(-0, 0.1, 0.2)]) {
+      const p = make(s);
+      assert.equal(p.verts.length, 4, `flat ${JSON.stringify(s)}`);
+      assert.equal(p.faces.length, 2);
+      assert.equal(polyVolume(p), 0);
+      assert.deepEqual(p.faces.map((f) => f.attr.surf).sort(), [0, 1], "±X attrs on the two sides");
+      for (const f of p.faces) assert.ok(Math.abs(Math.abs(f.n.x) - 1) < 1e-12);
+      const errs = polyValidate(p).filter((e) => !e.startsWith("only"));
+      assert.deepEqual(errs, [], "no coincident vertices / bad faces");
+    }
+    const t = polyBox(v(0.3, 0, 0.2), A, { p: v(1, 2, 3), q: qeuler(0.2, 0.4, 0.1) });
+    assert.equal(t.faces.length, 2, "flat box transformed");
+    for (const s of [v(0, 0, 0.2), v(0, 0, 0), v(NaN, NaN, NaN), v(Infinity, 0, 0)]) assert.equal(make(s).faces.length, 0, `empty ${JSON.stringify(s)}`);
+  }
 });
 
 test("polyBeveledBox: analytic volume, 26 faces, dominant-axis attrs", () => {
@@ -340,6 +360,32 @@ test("polyClip exactly through vertices and edges, on faces, no-cut and all-cut"
   // non-unit normals are normalised (d scaled accordingly)
   const s2 = polyClip(b, v(0, 0, 2), 0.2, faceAttr(4))!;
   near(polyVolume(s2), 0.6, 1e-12);
+});
+
+test("polyClip within ~1e-8..1e-6 × scale of a vertex stays strictly valid (no sub-weld slivers / reflex corners)", () => {
+  const rng = new Rng(7);
+  let clips = 0;
+  for (let it = 0; it < 120; it++) {
+    const scale = Math.exp(rng.range(Math.log(0.002), Math.log(5)));
+    const P = polyFromHull(Array.from({ length: 12 }, () => { const p = rng.inSphere(); return v(p.x * scale, p.y * scale, p.z * scale); }), A);
+    const V0 = polyVolume(P);
+    const vtx = P.verts[Math.floor(rng.next() * P.verts.length)];
+    const n = rng.onSphere();
+    for (const off of [0, 1e-12, 1e-8, -1e-8, 3e-8, 6e-8, 1.5e-7, -1.5e-7, 2e-7, -3e-7, 1e-6]) {
+      const d = dot(n, vtx) + off * scale;
+      const a = polyClip(P, n, d, A),
+        b = polyClip(P, v(-n.x, -n.y, -n.z), -d, A);
+      let sum = 0;
+      for (const q of [a, b]) {
+        if (!q) continue;
+        clips++;
+        assertValid(q, `clip off ${off} it ${it}`);
+        sum += polyVolume(q);
+      }
+      if (a && b) near(sum, V0, 1e-6 * V0, "complementary volumes");
+    }
+  }
+  assert.ok(clips > 2000);
 });
 
 test("polyClip interpolates per-vertex normals and stays valid under repeated clipping", () => {

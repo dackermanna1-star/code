@@ -8,7 +8,7 @@
 // `${name}_*` in a local frame and returns FULL part names. PURE MODULE (no Babylon).
 
 import { Builder, vec, type PartOpts, type Rot, type TiledOpts, type V3 } from "../lib/builder.ts";
-import { v3, vnorm, vdot, type Vec3 } from "../../geom/vec.ts";
+import { v3, vnorm, vdot, xapply, xinv, type Vec3 } from "../../geom/vec.ts";
 import { polyFromHull, type ConvexPoly, type PolyFace } from "../../geom/poly.ts";
 import { latheTiles, type Tile } from "../../geom/primitives.ts";
 import { seedFrom } from "../../core/rng.ts";
@@ -90,17 +90,19 @@ export function rhsKg(w: number, h: number, t: number, len: number, density: num
  * `minCount` candidates touch. Returns the number of bonds made.
  */
 export function bondTouching(b: Builder, part: string, candidates: string[], kind: BondKind, total: number, tol = 0.0015, minCount = 1): number {
-  const hits: string[] = [];
+  const hits: Array<{ name: string; at: Vec3 }> = [];
   const self = b.resolve(part);
   for (const c of candidates) {
     if (b.resolve(c) === self) continue;
     const ct = b.contact(part, c, tol);
-    if (ct && (ct.kind === "face" || ct.penetrating || ct.length > 0.004)) hits.push(c);
+    if (ct && (ct.kind === "face" || ct.penetrating || ct.length > 0.004)) hits.push({ name: c, at: ct.point });
   }
   if (hits.length < minCount) b.warn(`bondTouching: '${self}' touches ${hits.length} of the expected parts`);
   if (!hits.length) return 0;
   const each = Math.max(1, total / hits.length);
-  for (const h of hits) b.bond(part, h, kind, { strength: each });
+  // anchor at the measured contact patch (b.bond takes current-frame coordinates)
+  const toLocal = xinv(b.frameXf());
+  for (const h of hits) b.bond(part, h.name, kind, { strength: each, anchor: xapply(toLocal, h.at) });
   return hits.length;
 }
 

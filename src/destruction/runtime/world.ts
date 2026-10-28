@@ -141,6 +141,8 @@ export class World {
   readonly topoDirty = new Set<Island>();
   /** Islands with dirty render chunks. */
   readonly meshDirty = new Set<Island>();
+  /** Islands with pending container edits (pendingAdd / pendingRemove / rebuildContainer). */
+  readonly containerDirty = new Set<Island>();
   /** Child shapes to release after containers are synced. */
   private deadShapes: PhysicsShape[] = [];
   private warned = new Set<string>();
@@ -555,6 +557,7 @@ export class World {
       // swap the child (in place for static islands, rebuild for dynamic ones)
       island.pendingRemove.add(part);
       island.pendingAdd.push(part);
+      this.containerDirty.add(island);
     }
     this.syncContainer(island);
     this.releaseDeadShapes();
@@ -567,6 +570,7 @@ export class World {
     part.island = island;
     island.parts.push(part);
     island.pendingAdd.push(part);
+    this.containerDirty.add(island);
     island.metricsDirty = true;
     island.gridDirty = true;
     this.chunkAdd(island, part);
@@ -577,8 +581,10 @@ export class World {
     const island = part.island;
     if (!island) return;
     removeFrom(island.parts, part);
-    if (part.inContainer) island.pendingRemove.add(part);
-    else removeFrom(island.pendingAdd, part);
+    if (part.inContainer) {
+      island.pendingRemove.add(part);
+      this.containerDirty.add(island);
+    } else removeFrom(island.pendingAdd, part);
     this.chunkRemove(island, part);
     island.metricsDirty = true;
     island.gridDirty = true;
@@ -660,6 +666,7 @@ export class World {
     island.pendingAdd.length = 0;
     island.pendingRemove.clear();
     island.rebuildContainer = false;
+    this.containerDirty.delete(island);
   }
 
   // ------------------------------------------------------------------------- topology
@@ -676,8 +683,9 @@ export class World {
       this.topoDirty.clear();
       for (const isl of list) if (isl.alive) this.splitIsland(isl);
     }
-    for (const isl of this.islands) {
-      if (isl.pendingAdd.length || isl.pendingRemove.size || isl.rebuildContainer) this.syncContainer(isl);
+    if (this.containerDirty.size) {
+      for (const isl of [...this.containerDirty]) this.syncContainer(isl);
+      this.containerDirty.clear();
     }
     this.releaseDeadShapes();
   }
@@ -812,6 +820,7 @@ export class World {
     if (layer === island.layer) return;
     island.layer = layer;
     island.rebuildContainer = true;
+    this.containerDirty.add(island);
     this.hooks.islandMotionChanged(island);
   }
 
@@ -922,6 +931,7 @@ export class World {
     this.islands.delete(island);
     this.topoDirty.delete(island);
     this.meshDirty.delete(island);
+    this.containerDirty.delete(island);
   }
 
   /**

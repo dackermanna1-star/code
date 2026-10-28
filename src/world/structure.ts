@@ -18,6 +18,7 @@ import { buildCeiling } from "./structure/ceilings.ts";
 import { buildFrontDoor, buildInteriorDoor } from "./structure/doors.ts";
 import { buildSlidingDoor, buildWindow } from "./structure/windows.ts";
 import { buildBalcony } from "./structure/balcony.ts";
+import { buildCorridor } from "./structure/corridor.ts";
 
 export type { OpeningInfo, WallSegmentInfo };
 export * from "./structure/levels.ts";
@@ -48,6 +49,7 @@ export function buildStructure(): StructurePiece[] {
     }
   }
   defs.push(buildBalcony());
+  defs.push(buildCorridor());
   return defs.map((def) => ({ def, xf: xident() }));
 }
 

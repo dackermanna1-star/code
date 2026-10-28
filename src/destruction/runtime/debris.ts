@@ -245,6 +245,15 @@ export class DebrisSystem {
     if (!geoms.length) {
       if (b.meshes) this.w.render.disposeIsland(b.meshes);
       b.meshes = null;
+      // the whole cell emptied: release its node (cells are recreated on demand)
+      if (cell.batches.every((x) => x.islands.size === 0 && !x.meshes)) {
+        for (const x of cell.batches) {
+          this.dirtyBatches.delete(x);
+          this.cellOf.delete(x);
+        }
+        cell.node.dispose();
+        this.cells.delete(cell.key);
+      }
     } else {
       b.meshes = this.w.render.buildIsland(cell.node, geoms, b.meshes, `debris:${cell.key}/${b.index}`);
     }

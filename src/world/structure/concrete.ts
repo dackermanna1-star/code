@@ -25,6 +25,7 @@ import { splitEven } from "./rects.ts";
 import { addBaseboards, addPlate, addWallTiles, plateFits, visibleIntervals, type FaceCtx, type FaceRect } from "./walldeco.ts";
 import { ELECTRICAL } from "./services.ts";
 import { casingRectFront } from "./openings.ts";
+import { CORRIDOR_PAINT, CORRIDOR_STUB } from "./corridor.ts";
 
 /** Max concrete cell size in walls (m). */
 const CELL_MAX = 0.95;
@@ -45,8 +46,15 @@ export function inFrame(b: Builder, run: { frame: { ox: number; oz: number; yawD
   b.group([run.frame.ox, 0, run.frame.oz], [0, run.frame.yawDeg, 0], "", fn);
 }
 
+/** Back (outer) faces painted over a u-range (the corridor side of the party wall). */
+interface BackPaint {
+  lo: number;
+  hi: number;
+  tint: number;
+}
+
 /** Concrete cells of one wall segment: columns split at opening edges, rows per column skipping openings. */
-function addCells(b: Builder, idx: BoxIndex, run: ConcreteRun, seg: ConcreteSegment, w: [number, number]): LBox[] {
+function addCells(b: Builder, idx: BoxIndex, run: ConcreteRun, seg: ConcreteSegment, w: [number, number], back: BackPaint | null): LBox[] {
   const ops = run.openings.filter((o) => o.r1 > seg.u0 + 1e-6 && o.r0 < seg.u1 - 1e-6);
   const brk = new Set<number>([seg.u0, seg.u1]);
   for (const o of ops) {
@@ -75,7 +83,12 @@ function addCells(b: Builder, idx: BoxIndex, run: ConcreteRun, seg: ConcreteSegm
       const ys = splitEven(y0, y1, CELL_MAX);
       for (let k = 0; k + 1 < ys.length; k++) {
         const name = `cell_c${ci}_r${col.length}`;
-        boxR(b, name, "concrete", "concrete", [c0, c1], [ys[k], ys[k + 1]], w, { tags: ["concrete"], uvOffset: [run.frame.ox + c0, ys[k]] });
+        const painted = back && c1 > back.lo + 1e-6 && c0 < back.hi - 1e-6;
+        boxR(b, name, "concrete", "concrete", [c0, c1], [ys[k], ys[k + 1]], w, {
+          tags: ["concrete"],
+          uvOffset: [run.frame.ox + c0, ys[k]],
+          faces: painted ? { nz: { surf: "paint_wall", tint: back!.tint } } : undefined,
+        });
         const box = idx.add({ name, u0: c0, u1: c1, y0: ys[k], y1: ys[k + 1], w0: w[0], w1: w[1], role: "cell" });
         col.push(box);
         // anchored at the back face (craters on the struck face keep the back attached)
@@ -220,8 +233,15 @@ export function buildConcreteSegment(run: ConcreteRun, seg: ConcreteSegment): As
   const half = run.half;
   const cw: [number, number] = [-half, half - WALL_FINISH_T];
   const fw: [number, number] = [half - WALL_FINISH_T, half];
+  // the party wall's corridor side is painted where the corridor stub runs along it
+  let back: BackPaint | null = null;
+  if (run.wall.id === "north") {
+    const a = run.frame.u(CORRIDOR_STUB.x0, 0),
+      c = run.frame.u(CORRIDOR_STUB.x1, 0);
+    back = { lo: Math.min(a, c), hi: Math.max(a, c), tint: CORRIDOR_PAINT };
+  }
   inFrame(b, run, () => {
-    addCells(b, idx, run, seg, cw);
+    addCells(b, idx, run, seg, cw, back);
     addFinish(b, idx, run, seg, fw);
     const obstacles: FaceRect[] = [];
     for (const o of run.openings) {

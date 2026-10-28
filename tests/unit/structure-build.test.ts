@@ -161,3 +161,23 @@ test("realistic masses of key components", () => {
   const tile = defs.flatMap((d) => d.parts).filter((p) => p.tags?.includes("tile")).sort((a, b) => massOf(b) - massOf(a))[0];
   assert.ok(massOf(tile) > 1.8 && massOf(tile) < 2.2, `tile ${massOf(tile)}`);
 });
+
+test("rigid islands: static assemblies stay one island (a hidden underlay may be a second)", () => {
+  let total = 0;
+  for (const d of defs) {
+    const idx = new Map(d.parts.map((p, i) => [p.name, i]));
+    const parent = d.parts.map((_, i) => i);
+    const find = (i: number): number => (parent[i] === i ? i : (parent[i] = find(parent[i])));
+    for (const b of d.bonds) {
+      if (b.b === "world" || JOINT_KINDS.has(b.kind) || b.kind === "latch") continue;
+      parent[find(idx.get(b.a)!)] = find(idx.get(b.b)!);
+    }
+    const roots = new Set(d.parts.map((_, i) => find(i)));
+    total += roots.size;
+    const jointed = d.bonds.some((b) => JOINT_KINDS.has(b.kind));
+    const allowed = jointed ? 2 : d.type === "floor_laminate" || d.type === "floor_carpet" ? 2 : 1;
+    assert.ok(roots.size <= allowed, `${d.name}: ${roots.size} rigid islands`);
+  }
+  console.log(`  rigid islands at spawn: ${total}`);
+  assert.ok(total <= 70, `${total} islands`);
+});
