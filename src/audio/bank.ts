@@ -24,13 +24,15 @@
 // tear.cloth|paper          rips (sharp tools on soft materials)
 // creak.hinge|wood|metal    one-shot creaks / groans (prying, settling)
 // strain.wood|metal|drywall|hinge   LOOPS: strain creak while prying/pulling (gain/pitch by stress)
-// scrape.wood|metal|stone   LOOPS: dragging/sliding friction (gain by speed)
+// scrape.wood|metal|stone   LOOPS, loop()-only: dragging/sliding friction (gain by speed);
+//                           no event carries sliding contacts yet, the integrator drives them
 // swing.light|medium|heavy  tool/fist swing whooshes (heavier = lower, slower)
 // punch.thud kick.thud ouch stomp jump land   body sounds
 // step.wood|tile|carpet|concrete   footsteps per floor (laminate/hardwood, tile, carpet, concrete)
 // step.debris               crunch layer when walking over broken glass / crumbs
 // cloth.grab|throw|drop     cloth whooshes/rustles
-// door.creak|latch|slam
+// door.creak|latch|slam     play()-only: no gameplay event maps to them yet (doors emit
+//                           impact / bondBreak / strain); kept for the integrator / interact code
 // bulb.pop spark.crackle elec.clunk   electrical one-shots;  elec.buzz  LOOP (mains)
 // water.spray LOOP, water.drip
 // fridge.hum LOOP (mains), motor.hum LOOP (mains, ceiling fan), motor.stop

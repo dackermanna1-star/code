@@ -23,7 +23,9 @@ import type { TextureLibrary } from "./textures.ts";
 
 const VERTEX_DEFS = /* glsl */ `
 #ifdef WORLDMAT
+#ifdef WORLDMAT_SURF
 attribute vec4 surf;
+#endif
 #ifndef UV1
 attribute vec2 uv;
 #endif
@@ -36,6 +38,7 @@ flat varying float vWmEmit;
 const VERTEX_MAIN_END = /* glsl */ `
 #ifdef WORLDMAT
 vWmUV = uv;
+#ifdef WORLDMAT_SURF
 {
   float wmRM = floor(surf.z + 0.5);
   float wmMet = floor(wmRM / 256.0);
@@ -43,6 +46,11 @@ vWmUV = uv;
   vWmSurf = vec4(floor(surf.x + 0.5), floor(surf.y + 0.5), wmRgh / 255.0, wmMet / 255.0);
   vWmEmit = surf.w;
 }
+#else
+// mesh without a surf attribute (WebGL would feed (0,0,0,1) = glowing): plain tinted material
+vWmSurf = vec4(0.0, 0.0, 0.8, 0.0);
+vWmEmit = 0.0;
+#endif
 #endif
 `;
 
@@ -82,8 +90,13 @@ vec3 wmPerturbNormal(vec3 N, vec3 P, vec2 tuv, vec3 tn) {
 
 const FRAGMENT_MAIN_BEGIN = /* glsl */ `
 #ifdef WORLDMAT
+#ifdef WORLDMAT_SURF
 wmAlb = texture(wmAlbedoArr, vec3(vWmUV, vWmSurf.x));
 wmNrm = texture(wmNormalArr, vec3(vWmUV, vWmSurf.y));
+#else
+wmAlb = vec4(1.0, 1.0, 1.0, 0.5);
+wmNrm = vec4(0.5, 0.5, 1.0, 0.0);
+#endif
 wmRough = clamp(vWmSurf.z * wmAlb.a * 2.0, 0.03, 1.0);
 wmMetal = vWmSurf.w;
 {
@@ -148,7 +161,7 @@ export class WorldMaterialPlugin extends MaterialPluginBase {
   emissiveScale = 1;
 
   constructor(material: PBRMaterial, lib: TextureLibrary, glass: boolean) {
-    super(material, glass ? "WorldGlass" : "WorldMaterial", 210, { WORLDMAT: false, WORLDMAT_GLASS: false }, true, true);
+    super(material, glass ? "WorldGlass" : "WorldMaterial", 210, { WORLDMAT: false, WORLDMAT_GLASS: false, WORLDMAT_SURF: false }, true, true);
     this.lib = lib;
     this.glass = glass;
   }
@@ -162,9 +175,11 @@ export class WorldMaterialPlugin extends MaterialPluginBase {
     this.lib = lib;
   }
 
-  override prepareDefines(defines: MaterialDefines, _scene: Scene, _mesh: AbstractMesh): void {
+  override prepareDefines(defines: MaterialDefines, _scene: Scene, mesh: AbstractMesh): void {
     defines["WORLDMAT"] = true;
     defines["WORLDMAT_GLASS"] = this.glass;
+    // per-vertex or per-thin-instance `surf` present? (missing attributes read as (0,0,0,1))
+    defines["WORLDMAT_SURF"] = mesh.isVerticesDataPresent("surf");
   }
 
   override getAttributes(attributes: string[], _scene: Scene, _mesh: AbstractMesh): void {
@@ -179,6 +194,7 @@ export class WorldMaterialPlugin extends MaterialPluginBase {
   override getUniforms(): { ubo: Array<{ name: string; size: number; type: string }>; fragment: string } {
     return {
       ubo: [{ name: "wmParams", size: 4, type: "vec4" }],
+      // non-UBO fallback declaration (WebGL2 uses the material UBO)
       fragment: "#ifdef WORLDMAT\nuniform vec4 wmParams;\n#endif",
     };
   }
@@ -237,6 +253,9 @@ export function createWorldMaterial(scene: Scene, lib: TextureLibrary, name = "w
   // per-pixel irradiance so environment diffuse uses the perturbed normal
   m.forceIrradianceInFragment = true;
   m.backFaceCulling = true;
+  // the IBL is an interior capture (walls included), but the sky fill light also lights the
+  // room: keep the environment slightly below 1 to avoid double-counting the ambient
+  m.environmentIntensity = 0.85;
   const plugin = new WorldMaterialPlugin(m, lib, false);
   lib.onRebuild(() => m.markAsDirty(1 /* Material.TextureDirtyFlag */));
   return { material: m, plugin };

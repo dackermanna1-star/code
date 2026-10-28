@@ -63,7 +63,9 @@ varying vec2 vWmUV;
 varying float vWmMetal;
 vec4 wmAlbedoTex;
 vec3 wmBaseColor;
-// Same maths as Babylon's cotangent_frame (bumpFragmentMainFunctions), renamed to avoid clashes.
+// Babylon's cotangent_frame (bumpFragmentMainFunctions) maths, renamed. That formula assumes a right-handed
+// (screen x, screen y, towards viewer) frame; Babylon's LH view is left-handed, so it yields T = -dP/du and
+// B = -dP/dv. We negate both so OpenGL-style normal maps (+x = +u, +y = +v) come out RAISED (verified).
 mat3 wmCotangentFrame(vec3 normal, vec3 p, vec2 uv) {
   vec3 dp1 = dFdx(p);
   vec3 dp2 = dFdy(p);
@@ -75,7 +77,7 @@ mat3 wmCotangentFrame(vec3 normal, vec3 p, vec2 uv) {
   vec3 bitangent = dp2perp * duv1.y + dp1perp * duv2.y;
   float det = max(dot(tangent, tangent), dot(bitangent, bitangent));
   float invmax = det == 0.0 ? 0.0 : inversesqrt(det);
-  return mat3(tangent * invmax, bitangent * invmax, normal);
+  return mat3(-tangent * invmax, -bitangent * invmax, normal);
 }
 `;
 

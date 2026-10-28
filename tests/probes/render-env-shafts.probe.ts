@@ -39,8 +39,10 @@ export async function probe(): Promise<unknown> {
   const sl = atm.shafts.find((s) => s.id === "slider_living")!;
   const p = { x: sl.origin.x + sl.U.x * 0.5 + sl.D.x * 0.3, y: sl.origin.y + sl.V.y * 0.6 + sl.D.y * 0.3, z: sl.origin.z + sl.D.z * 0.3 };
   look(cam, [p.x, p.y, p.z], [p.x + sl.D.x, p.y + sl.D.y, p.z + sl.D.z]);
-  atm.update(0.016);
-  await frames(scene, 3);
+  for (let i = 0; i < 3; i++) {
+    atm.update(0.016);
+    await frames(scene, 1);
+  }
   out.insideLum = await centreLum(scene);
   shots.inside = shot(canvas);
   return { ...out, shots };

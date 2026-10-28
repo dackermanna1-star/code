@@ -107,7 +107,9 @@ void main(void) {
   // Dust streaks along the beam, drifting slowly.
   vec2 q = vec2(s.x * uLens.x, s.y * uLens.y) * 2.6;
   float n = 0.72 + 0.4 * vnoise(q + vec2(uTime * 0.06, -uTime * 0.035)) + 0.18 * vnoise(q * 3.1 - vec2(uTime * 0.11, 0.0));
-  vec3 col = uColor * (uDensity * thick * edge * fade * phase * n);
+  // Optical-depth saturation: long looks down a beam glow but never blow out.
+  float a = uDensity * thick * edge * fade * phase * n;
+  vec3 col = uColor * (0.4 * (1.0 - exp(-a / 0.4)));
   gl_FragColor = vec4(col, 1.0);
 }
 `;
@@ -119,7 +121,7 @@ export interface AtmosphereTuning {
   motes: number;
 }
 
-export const DEFAULT_ATMOSPHERE: AtmosphereTuning = { density: 0.2, motes: 260 };
+export const DEFAULT_ATMOSPHERE: AtmosphereTuning = { density: 0.32, motes: 260 };
 
 interface ShaftRender {
   vol: ShaftVolume;

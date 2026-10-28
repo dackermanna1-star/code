@@ -234,6 +234,7 @@ export class TextureLibrary {
   private surfNormal: number[] = [];
   private photoRows = new Map<string, ManifestRow>();
   private anisotropy: number;
+  private retro = false;
   private listeners: Array<() => void> = [];
   private gpuDirty = true;
   readonly report: TextureReport = { photo: [], procedural: [], fallback: [], unknown: [], layers: { albedo: 0, normal: 0 }, ms: 0 };
@@ -285,6 +286,17 @@ export class TextureLibrary {
   /** Number of surfaces currently mapped (SURFACES may grow via registerSurface). */
   get mappedSurfaces(): number {
     return this.surfAlbedo.length;
+  }
+
+  /**
+   * PS2-style filtering: bilinear with a visible mip band (LINEAR_LINEAR_MIPNEAREST) instead of
+   * smooth trilinear. Anisotropy stays allowed for both modes.
+   */
+  setRetroFiltering(on: boolean): void {
+    this.retro = on;
+    const mode = on ? Texture.LINEAR_LINEAR_MIPNEAREST : Texture.TRILINEAR_SAMPLINGMODE;
+    this.albedoTex?.updateSamplingMode(mode);
+    this.normalTex?.updateSamplingMode(mode);
   }
 
   setAnisotropy(level: number): void {
@@ -500,8 +512,8 @@ export class TextureLibrary {
         Constants.TEXTUREFORMAT_RGBA,
         this.scene,
         true, // mipmaps (generated on the GPU)
-        false, // rows already upright
-        Texture.TRILINEAR_SAMPLINGMODE,
+        false, // rows already upright (invertY must be false for ArrayBufferView array uploads)
+        this.retro ? Texture.LINEAR_LINEAR_MIPNEAREST : Texture.TRILINEAR_SAMPLINGMODE,
         Constants.TEXTURETYPE_UNSIGNED_BYTE,
       );
       t.name = name;

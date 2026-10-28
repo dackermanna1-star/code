@@ -24,6 +24,9 @@ export interface ImpactEv {
   /** Stable ids of the two islands (for per-body rate limiting); -1 = world/unknown. */
   idA: number;
   idB: number;
+  /** True when that side is a static/anchored island (floor, wall, fixed structure). */
+  staticA?: boolean;
+  staticB?: boolean;
 }
 
 export interface FractureEv {

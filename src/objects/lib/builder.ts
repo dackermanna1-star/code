@@ -33,6 +33,7 @@ import {
   polyTransform,
   polyVolume,
   polyExtents,
+  polyClip,
   autoUV,
   type ConvexPoly,
   type FaceAttr,
@@ -1325,13 +1326,56 @@ export class Builder {
       }
     }
 
-    // ---- geometry relations (containment, overlap) — full validation only
-    if (full && this.parts.length > 1 && !errors.length) {
-      const pairs = overlappingPairs(boxes, 0);
-      const rng = new Rng(0x5eed);
-      for (const [i, j] of pairs) {
-        const A = this.parts[i],
-          B = this.parts[j];
+    // ---- geometry relations (containment, interpenetration, overlap)
+    if (this.parts.length > 1 && !errors.length) this.validateOverlaps(full, boxes, vols, warnings);
+    return { errors, warnings };
+  }
+
+  /**
+   * Interpenetration checks over every pair of parts whose bounds overlap.
+   *
+   * Parts on DIFFERENT rigid islands (separated by hinge/slider/latch joints, or loose) are
+   * separate physics bodies: any interpenetration deeper than CROSS_ISLAND_TOL makes Havok push
+   * them apart (or jitter) at spawn, so it is always reported — in basic validation too — using
+   * the exact separating-axis penetration depth with no volume gate.
+   *
+   * Parts on the SAME rigid island share one body, so shallow embeddings (a stem pushed into
+   * soil, a spindle through a clock hand) are harmless; full validation reports a part completely
+   * inside another, and overlaps deeper than max(0.5 mm, ¼ of the thinner part's thickness) whose
+   * exact shared volume exceeds 10 % of either part or 10 cm³ (e.g. a shelf running through a
+   * cabinet side, or two boards sunk into each other across a large face).
+   */
+  private validateOverlaps(full: boolean, boxes: Aabb[], vols: number[], warnings: string[]): void {
+    const CROSS_ISLAND_TOL = 0.0005;
+    // Rigid islands: union-find over non-joint, non-world bonds; loose parts stay alone.
+    const parent = this.parts.map((_, i) => i);
+    const find = (i: number): number => {
+      while (parent[i] !== i) {
+        parent[i] = parent[parent[i]];
+        i = parent[i];
+      }
+      return i;
+    };
+    const idx = new Map<string, number>(this.parts.map((p, i) => [p.name, i]));
+    const isLoose = this.parts.map((p) => !!p.tags?.includes("loose"));
+    for (const b of this.bonds) {
+      if (b.kind === "hinge" || b.kind === "slider" || b.kind === "latch" || b.b === "world") continue;
+      const ia = idx.get(b.a),
+        ib = idx.get(b.b);
+      if (ia === undefined || ib === undefined || isLoose[ia] || isLoose[ib]) continue;
+      const ra = find(ia),
+        rb = find(ib);
+      if (ra !== rb) parent[ra] = rb;
+    }
+    const thin: number[] = full ? this.parts.map((p) => polyExtents(p.poly).ext[2]) : [];
+    const rng = new Rng(0x5eed);
+    const mm = (d: number): string => (d * 1000).toFixed(1);
+    for (const [i, j] of overlappingPairs(boxes, 0)) {
+      const A = this.parts[i],
+        B = this.parts[j];
+      const cross = find(i) !== find(j);
+      if (!cross && !full) continue;
+      if (full) {
         if (aabbContains(boxes[j], boxes[i], 1e-5) && polyInside(A.poly, B.poly, 1e-5)) {
           warnings.push(`part '${A.name}' is completely inside '${B.name}'`);
           continue;
@@ -1340,18 +1384,38 @@ export class Builder {
           warnings.push(`part '${B.name}' is completely inside '${A.name}'`);
           continue;
         }
-        const c = polyContact(A.poly, B.poly, 0);
-        if (!c || c.sep > -0.002) continue;
-        const [small, big] = vols[i] <= vols[j] ? [A, B] : [B, A];
-        const pts = samplePoly(small.poly, 96, rng);
-        let inside = 0;
-        for (const q of pts) if (polySd(big.poly, q) < -5e-4) inside++;
-        const frac = pts.length ? inside / pts.length : 0;
-        if (frac > 0.1) warnings.push(`parts '${small.name}' and '${big.name}' overlap (~${Math.round(frac * 100)}% of '${small.name}')`);
+      }
+      // Face axes alone give a lower bound of the separation: a cheap reject before the exact test.
+      const gate = cross ? CROSS_ISLAND_TOL : Math.max(0.0005, 0.25 * Math.min(thin[i], thin[j]));
+      const c0 = polyContact(A.poly, B.poly, 0, true);
+      if (!c0 || c0.sep > -gate) continue;
+      const c = polyContact(A.poly, B.poly, 0);
+      if (!c || c.sep > -gate) continue;
+      const depth = -c.sep;
+      if (cross) {
+        warnings.push(
+          `parts '${A.name}' and '${B.name}' interpenetrate by ${mm(depth)} mm but are on different rigid bodies (joint/loose) — physics will shove them apart at spawn`,
+        );
+        continue;
+      }
+      const ov = overlapVolume(A.poly, B.poly);
+      const frac = ov / Math.max(1e-12, Math.min(vols[i], vols[j]));
+      if (frac > 0.1 || ov > 1e-5) {
+        const who = vols[i] <= vols[j] ? A.name : B.name;
+        warnings.push(`parts '${A.name}' and '${B.name}' overlap ${mm(depth)} mm deep (${(ov * 1e6).toFixed(1)} cm³, ~${Math.round(frac * 100)}% of '${who}')`);
       }
     }
-    return { errors, warnings };
   }
+}
+
+/** Exact volume shared by two convex polyhedra (A clipped by every face plane of B). */
+function overlapVolume(A: ConvexPoly, B: ConvexPoly): number {
+  let P: ConvexPoly | null = A;
+  for (const f of B.faces) {
+    P = polyClip(P, f.n, f.d, null);
+    if (!P) return 0;
+  }
+  return polyVolume(P);
 }
 
 function pairKey(a: string, b: string): string {

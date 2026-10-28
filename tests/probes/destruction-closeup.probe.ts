@@ -150,8 +150,19 @@ export async function probe() {
   step(5);
   out.sledge = strike(wallId, "sheet", { x: -0.15, y: 0.45, z: -0.00625 }, new Vector3(0, 0, 1), 6, 7, 0.03);
   step(60);
-  await shoot([3.9, 1.5, -1.3], [3.0, 0.3, 0.1]);
-  await shoot([-0.5, 1.3, 2.4], [0, 0.6, 4]);
+  // microwave door: use (open) before the shots
+  const mwA = d.assembly(mwId)!;
+  const doorG = [...mwA.groups.values()][0];
+  out.mwGroups = [...mwA.groups.values()].map((g) => ({ id: g.id, kind: g.kind, c: g.constraints.map((c) => c.kind + (c.latched ? "+latch" : "")), latch: g.latch ? round(g.latch.health, 10) : null }));
+  if (doorG && doorG.constraints[0]) {
+    const di = doorG.constraints[0].moving;
+    const dc = d.world.toWorldVec(di, di.com);
+    out.mwDoorUse = d.use(di.body!, new Vector3(dc.x, dc.y, dc.z), new Vector3(dc.x, dc.y + 0.5, dc.z + 1));
+    step(30);
+    out.mwDoorAngle = round(((d.joints.coordinate(doorG) ?? 0) * 180) / Math.PI, 10);
+  }
+  await shoot([-2.3, 0.9, -0.9], [-3, 0.2, 0.1]);
+  await shoot([-0.2, 0.95, 3.35], [0, 0.65, 4]);
   out.wall = { parts: d.assembly(wallId)!.parts.size, islands: d.assembly(wallId)!.islands.size };
   out.microwave = { parts: d.assembly(mwId)!.parts.size, islands: d.assembly(mwId)!.islands.size, damage: round(d.assembly(mwId)!.fraction, 100) };
   out.stats = d.stats();

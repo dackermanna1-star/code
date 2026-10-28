@@ -8,8 +8,9 @@
 //   - fresnel term that thickens alpha and adds the green "edge" tint at grazing angles
 //   - surface texture (faint streaks / frosting) and normal map from the texture arrays
 // Glass meshes do not cast shadows (the batcher registers them as receivers only), so sunlight
-// enters through windows. Transparent meshes are depth-sorted per mesh by Babylon; each shard
-// island has its own glass mesh, which keeps sorting correct enough even with many shards.
+// enters through windows. Transparent meshes are depth-sorted per mesh by Babylon; all shards of
+// an island share one glass mesh (one draw, no per-shard sorting cost) and depth writes are off
+// so overlapping shards inside that mesh blend instead of punching holes.
 
 import { PBRMaterial, Color3, Material, type Scene } from "@babylonjs/core";
 import type { TextureLibrary } from "./textures.ts";
@@ -25,7 +26,11 @@ export function createGlassMaterial(scene: Scene, lib: TextureLibrary, name = "g
   g.useRadianceOverAlpha = true;
   g.useSpecularOverAlpha = true;
   g.backFaceCulling = true;
+  // all shards of an island live in one mesh: without depth writes every layer blends (no holes
+  // from a near shard drawn first); tinted glass blends order-independently enough
+  g.disableDepthWrite = true;
   g.forceIrradianceInFragment = true;
+  g.environmentIntensity = 1;
   g.maxSimultaneousLights = 8;
   // glass is thin: a little extra direct specular helps sun glints read
   g.specularIntensity = 1.2;

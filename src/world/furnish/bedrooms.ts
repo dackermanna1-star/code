@@ -190,10 +190,11 @@ function furnishMaster(add: Add): void {
   add("m_lamp_n", buildTableLamp({ seed: 24, tint: 0x5d7f8f }), onParent(nsN, -0.094, nd.h, -0.035), R, { on: "m_nightstand_n" }, { restY: nd.h });
   add("m_clock", buildAlarmClock({ seed: 25 }), onParent(nsS, -0.15, nd.h, -0.06, 0.3 - P2), R, { on: "m_nightstand_s" }, { restY: nd.h });
   add("m_water", buildWaterGlass({ seed: 26 }), onParent(nsS, -0.17, nd.h, 0.15), R, { on: "m_nightstand_s" }, { restY: nd.h });
-  add("m_phone", buildSmartphone({ seed: 27 }), onParent(nsN, 0.15, nd.h, 0.12, 0.25), R, { on: "m_nightstand_n" }, { restY: nd.h });
+  add("m_phone", buildSmartphone({ seed: 27 }), onParent(nsN, 0.15, nd.h, 0.135, 0.1), R, { on: "m_nightstand_n" }, { restY: nd.h });
   const b1 = { seed: 28, lying: true, detail: true } as const;
   const b1d = bookDims(b1);
-  const bk1 = add("m_book_n0", buildBook(b1), onParent(nsN, 0.155, nd.h, -0.085, P2), R, { on: "m_nightstand_n" }, { restY: nd.h });
+  // turned 90°: the book's height runs front-to-back, its tail 5 mm inside the top's back edge
+  const bk1 = add("m_book_n0", buildBook(b1), onParent(nsN, 0.155, nd.h, nd.top.z0 + 0.005 + b1d.h / 2, P2), R, { on: "m_nightstand_n" }, { restY: nd.h });
   const b2 = { seed: 29, lying: true, detail: true, h: 0.2, w: 0.13 } as const;
   add("m_book_n1", buildBook(b2), onParent(bk1, 0.004, b1d.t, 0.0, 0.08), R, { on: "m_book_n0" }, { restY: nd.h + b1d.t, overlaps: ["m_nightstand_n"] });
   // books lying on the open shelves inside both nightstands
@@ -227,7 +228,7 @@ function furnishMaster(add: Add): void {
   // ---- wardrobe on the east wall north of the dresser, clear of the door swing / door stop
   const wd = wardrobeDims();
   const wrDef = buildWardrobe({ seed: 51 });
-  const wr = add("m_wardrobe", wrDef, floorXf(wrDef, -P2, { maxX: F.x1 - WALL_GAP, maxZ: 3.35 }), R, "floor");
+  const wr = add("m_wardrobe", wrDef, floorXf(wrDef, -P2, { maxX: F.x1 - WALL_GAP, maxZ: 3.33 }), R, "floor");
   for (const [k, x] of [
     [0, -0.27],
     [1, 0.08],
@@ -239,7 +240,7 @@ function furnishMaster(add: Add): void {
     [1, 0.17],
   ] as Array<[number, number]>) {
     const lo = add(`m_folded${k}a`, buildClothes({ seed: 54 + 2 * k, style: "folded" }), onParent(wr, x, wd.shelfY, -0.02, 0), R, { in: "m_wardrobe" }, { restY: wd.shelfY, overlaps: ["m_wardrobe"] });
-    add(`m_folded${k}b`, buildClothes({ seed: 55 + 2 * k, style: "folded", size: [0.28, 0.06, 0.24] }), onParent(lo, 0.005, 0.06, 0.004, 0.04), R, { in: "m_wardrobe" }, { restY: wd.shelfY + 0.06, overlaps: ["m_wardrobe", `m_folded${k}a`] });
+    add(`m_folded${k}b`, buildClothes({ seed: 55 + 2 * k, style: "folded", size: [0.28, 0.06, 0.24] }), onParent(lo, 0.005, 0.06, 0.004, 0.04), R, { on: `m_folded${k}a` }, { restY: wd.shelfY + 0.06, overlaps: ["m_wardrobe"] });
   }
 
   // ---- laundry basket in the south-east corner with laundry in it
@@ -320,7 +321,7 @@ function furnishBed2(add: Add): void {
   // ---- bookshelf on the west wall, full of books
   const sd = bookshelfDims();
   const shDef = buildBookshelf({ seed: 141 });
-  const shelf = add("b_bookshelf", shDef, floorXf(shDef, P2, { minX: F.x0 + WALL_GAP, cz: 1.3 }), R, "floor");
+  const shelf = add("b_bookshelf", shDef, floorXf(shDef, P2, { minX: F.x0 + WALL_GAP, cz: 1.45 }), R, "floor");
   let seed = 150;
   const shelfFront = sd.inner.z1 - 0.01;
   sd.levels.forEach((lev, li) => {
@@ -359,12 +360,17 @@ function furnishBed2(add: Add): void {
 
   // ---- guitar on its stand beside the bookshelf
   const gs = guitarOnStand({ seed: 161 });
-  const standXf = add("b_guitar_stand", gs.stand, floorXf(gs.stand, P2, { minX: F.x0 + WALL_GAP + 0.03, cz: 2.2 }), R, "floor");
+  // the leaning guitar's headstock reaches further back than the stand: use both for the wall gap
+  let backZ = localBox(gs.stand).min.z;
+  for (const part of gs.guitar.parts)
+    for (const v of part.poly.verts) backZ = Math.min(backZ, qrot(gs.guitarPose.q, v).z + gs.guitarPose.p.z);
+  // yaw π/2: world x = X + local z
+  const standXf = add("b_guitar_stand", gs.stand, xfAt(F.x0 + WALL_GAP + 0.005 - backZ, 0, 2.2, P2), R, "floor");
   add("b_guitar", gs.guitar, compose(standXf, gs.guitarPose), R, { on: "b_guitar_stand" }, { restY: 0.047, overlaps: ["b_guitar_stand"] });
 
   // ---- beanbag in the south-west reading corner
   const bbDef = buildBeanbag({ seed: 171 });
-  add("b_beanbag", bbDef, floorXf(bbDef, 0.4, { minX: F.x0 + WALL_GAP + 0.02, minZ: F.z0 + WALL_GAP + 0.02 }), R, "floor");
+  add("b_beanbag", bbDef, floorXf(bbDef, 0.2, { minX: F.x0 + WALL_GAP + 0.02, minZ: F.z0 + WALL_GAP + 0.02 }), R, "floor");
 
   // ---- posters (tape / pins)
   add("b_poster_n", buildPoster({ seed: 181, art: "poster_0" }), xfAt(11.85, 1.25, F.z1 - HANG_GAP, Math.PI), R, "wall");

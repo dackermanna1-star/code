@@ -150,6 +150,8 @@ export class Render implements RenderSystem {
 
   setPS2Mode(on: boolean): void {
     this.postfx.setPS2(on);
+    // PS2 look: bilinear texels with a visible mip band
+    this.textures.setRetroFiltering(on);
   }
 
   /**

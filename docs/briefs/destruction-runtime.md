@@ -114,3 +114,6 @@ fell-out removal, no leaks (bodies/meshes count back to baseline after disposal)
 - Hinge reaction forces are readable (physics `appliedImpulse`): drive hinge/slider bond damage
   from the measured joint load each step (plus pull/pry), not only from estimates.
 - Constraints leak — recreate joint constraints only when islands actually change.
+
+## Addendum 3
+- Fill `staticA`/`staticB` in every `impact` event (audio uses them to pick floor/wall surface sounds).

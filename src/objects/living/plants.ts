@@ -66,12 +66,12 @@ export function buildFiddleLeafFig(o: { potTint?: number; seed?: number } = {}):
     for (let i = 0; i + 1 < path.length; i++) if (y <= path[i + 1][1]) return trunk[i];
     return trunk[trunk.length - 1];
   };
-  const n = 12;
+  const n = 16;
   for (let k = 0; k < n; k++) {
-    const y = 0.86 + k * 0.058;
+    const y = 0.8 + k * 0.048;
     const yaw = k * 137.5;
-    const len = 0.22 + 0.06 * Math.sin(k * 1.7) ** 2;
-    const tilt = 18 - k * 1.5; // younger leaves at the top point upwards less
+    const len = 0.27 + 0.07 * Math.sin(k * 1.7) ** 2;
+    const tilt = 22 - k * 1.2; // older (lower) leaves splay out more
     const p = at(y);
     const a = (yaw * Math.PI) / 180;
     const base: V3 = [p[0] + 0.008 * Math.cos(a), y, p[2] - 0.008 * Math.sin(a)];

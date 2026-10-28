@@ -92,7 +92,11 @@ export class Settings {
     for (const l of this.listeners) l(this.data);
   }
 
-  onChange(fn: (s: SettingsData) => void): void {
+  onChange(fn: (s: SettingsData) => void): () => void {
     this.listeners.push(fn);
+    return () => {
+      const i = this.listeners.indexOf(fn);
+      if (i >= 0) this.listeners.splice(i, 1);
+    };
   }
 }

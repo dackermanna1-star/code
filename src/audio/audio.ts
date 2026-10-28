@@ -483,7 +483,12 @@ export class Audio implements AudioSystem {
     this.roomFn = typeof fn === "function" ? fn : null;
   }
 
-  /** Integrator hook: 0 = fully blocked … 1 = clear line between two points (physics raycasts). */
+  /**
+   * Integrator hook: 0 = fully blocked … 1 = clear line between two points (physics raycasts
+   * against static structure; a fraction per wall crossed works best). The engine already ends
+   * each ray 8 cm in front of the sounding contact point; still cast with a small end tolerance
+   * (ignore hits within ~2 cm of `to`) so a source sitting on a surface never occludes itself.
+   */
   setOcclusion(fn: (from: Vec3, to: Vec3) => number): void {
     this.occFn = typeof fn === "function" ? fn : null;
     this.occCache.clear();

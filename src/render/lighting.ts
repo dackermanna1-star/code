@@ -62,8 +62,8 @@ export interface LightingTuning {
 }
 
 export const DEFAULT_TUNING: LightingTuning = {
-  sunIntensity: 5.5,
-  skyIntensity: 0.95,
+  sunIntensity: 5.0,
+  skyIntensity: 1.35,
   skyColor: [0.48, 0.56, 0.74],
   groundColor: [0.5, 0.39, 0.3],
   shadowBias: 0.0005,
