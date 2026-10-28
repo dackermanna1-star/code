@@ -80,8 +80,13 @@ export async function probe() {
   const N = { x: 0, y: 1, z: 0 };
   let maxVoices = 0;
   let maxOneShot = 0;
+  let cpuTotal = 0;
+  let cpuMax = 0;
+  const frameMs: number[] = [];
+  const split: Array<[number, number, number]> = [];
   const frames = 300;
   for (let f = 0; f < frames; f++) {
+    const t0 = performance.now();
     // Continuous background: a few impacts every frame from many islands.
     for (let i = 0; i < 6; i++) {
       const m = rng.pick(mats);
@@ -132,8 +137,15 @@ export async function probe() {
       audio.play("impact.wood", P(), { gain: NaN, size: -1, pitch: Infinity });
       audio.loop("nope", null).stop();
     }
+    const tU = performance.now();
     audio.setListener(lis as never, { x: Math.sin(f * 0.02), y: 0, z: Math.cos(f * 0.02) } as never, { x: 0, y: 1, z: 0 } as never);
     audio.update(1 / 60);
+    await Promise.resolve(); // include the microtask flush in the measurement
+    const dt = performance.now() - t0;
+    if (f !== 20) cpuMax = Math.max(cpuMax, dt);
+    if (dt > 20) split.push([f, +(tU - t0).toFixed(1), +(performance.now() - tU).toFixed(1)]);
+    frameMs.push(dt);
+    cpuTotal += dt;
     const st = audio.stats();
     maxVoices = Math.max(maxVoices, st.voices);
     maxOneShot = Math.max(maxOneShot, st.voices - st.realLoops);
@@ -159,6 +171,11 @@ export async function probe() {
     afterResume: { humState: humStateAfter, state: end.state },
     maxVoices,
     maxOneShotVoices: maxOneShot,
+    audioMsPerFrameAvg: +(cpuTotal / frames).toFixed(3),
+    audioMsPerFrameMaxExclShower: +cpuMax.toFixed(2),
+    slowSplit_frame_emitMs_updateMs: split,
+    audioMsMedian: +[...frameMs].sort((a, b) => a - b)[frameMs.length >> 1].toFixed(3),
+    slowestFrames: frameMs.map((v, i) => [i, +v.toFixed(1)] as [number, number]).sort((a, b) => b[1] - a[1]).slice(0, 8),
     played: end.played,
     dropped: end.dropped,
     stolen: end.stolen,

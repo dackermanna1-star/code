@@ -7,6 +7,8 @@
 // FULL part names.
 
 import { Builder, type V3, type Rot } from "../lib/builder.ts";
+import { xapply, xinv } from "../../geom/vec.ts";
+import type { Contact } from "../lib/contact.ts";
 import type { BondKind } from "../../destruction/model/types.ts";
 import type { MaterialId } from "../../destruction/model/materials.ts";
 import type { SurfaceName } from "../../render/surfaces.ts";
@@ -32,18 +34,20 @@ export function scoped<T>(b: Builder, name: string, pos: V3, rot: Rot | undefine
  * nothing touches (an unattached part would fall off the object).
  */
 export function bondTouching(b: Builder, part: string, candidates: string[], kind: BondKind, total: number, tol = 0.0015, minCount = 1): number {
-  const hits: string[] = [];
+  const hits: Array<[string, Contact]> = [];
   for (const c of candidates) {
     if (b.resolve(c) === b.resolve(part)) continue;
     const ct = b.contact(part, c, tol);
-    if (ct && (ct.kind === "face" || ct.penetrating || ct.length > 0.004)) hits.push(c);
+    if (ct && (ct.kind === "face" || ct.penetrating || ct.length > 0.004)) hits.push([c, ct]);
   }
   if (hits.length < minCount) {
     b.warn(`bondTouching: '${b.resolve(part)}' touches ${hits.length} of the expected parts`);
     return hits.length;
   }
   const each = total / hits.length;
-  for (const h of hits) b.bond(part, h, kind, { strength: Math.max(1, each) });
+  // anchor at the contact patch (bond() takes anchors in the current group frame)
+  const toLocal = xinv(b.frameXf());
+  for (const [h, ct] of hits) b.bond(part, h, kind, { strength: Math.max(1, each), anchor: xapply(toLocal, ct.point) });
   return hits.length;
 }
 

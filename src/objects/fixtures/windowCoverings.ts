@@ -7,6 +7,8 @@ import { hingeAxis } from "../lib/kit.ts";
 import type { AssemblyDef } from "../../destruction/model/types.ts";
 import { ringX } from "./parts.ts";
 
+const clamp = (x: number, lo: number, hi: number): number => (Number.isFinite(x) ? Math.min(hi, Math.max(lo, x)) : lo);
+
 // ============================================================================================
 // Venetian blind
 // ============================================================================================
@@ -36,10 +38,13 @@ export const BLIND_Z = 0.033;
  * the whole slat stack swings away from the window when bumped. ~2–2.5 kg.
  */
 export function buildVenetianBlind(opts: BlindOpts = {}): AssemblyDef {
-  const W = opts.w ?? 1.7;
-  const drop = opts.drop ?? 1.35;
-  const sw = opts.slat ?? 0.05;
-  const tilt = opts.tilt ?? 35;
+  // clamp to what the construction supports: ≥ 0.4 m wide/drop (brackets, wand, a real slat
+  // stack), slat 25–90 mm, tilt 5–80° (at ~0° the ladder strings sit too close together to
+  // meet the bottom rail; above 80° the slats overlap)
+  const W = clamp(opts.w ?? 1.7, 0.4, 3.5);
+  const drop = clamp(opts.drop ?? 1.35, 0.4, 3);
+  const sw = clamp(opts.slat ?? 0.05, 0.025, 0.09);
+  const tilt = clamp(opts.tilt ?? 35, 5, 80);
   const tint = opts.tint ?? 0xeeeeea;
   const b = new Builder("venetianBlind", "Venetian Blind", "fixture", 60, opts.seed);
   const zc = BLIND_Z;
@@ -101,7 +106,8 @@ export function buildVenetianBlind(opts: BlindOpts = {}): AssemblyDef {
   const wx = slatL / 2 - 0.05;
   const wz = zc + hrD / 2 + 0.016;
   const wand = b.cyl("wand", "acrylic", "plastic_glossy", 0.0045, wandL, [wx, hrBot - 0.004 - wandL / 2, wz], { segments: 8, tint: 0xdfe8ea });
-  b.hinge(wand, head, { pivots: [[wx, hrBot - 0.002, wz]], axis: [1, 0, 0], min: -90, max: 90, strength: 10, friction: 0.02 });
+  // single pivot = ball joint (the joint system applies no limits to it; nominal ±180)
+  b.hinge(wand, head, { pivots: [[wx, hrBot - 0.002, wz]], axis: [1, 0, 0], min: -180, max: 180, strength: 10, friction: 0.02 });
   return b.build({ validate: opts.validate });
 }
 
@@ -151,6 +157,8 @@ export const RING_SPACING = STRIP_W * Math.cos((PLEAT * Math.PI) / 180);
  * to their rings, so the panels swing when brushed. ~1.2 kg per panel.
  */
 export function buildCurtains(o: CurtainOpts): AssemblyDef {
+  if (!(o.rodLen > 0.3) || !(o.rodHeight > 0.5)) throw new Error(`curtains: rodLen (${o.rodLen}) must be > 0.3 m and rodHeight (${o.rodHeight}) > 0.5 m`);
+  if (!o.brackets.length) throw new Error("curtains: at least one rod bracket is required");
   const b = new Builder("curtains", "Curtains & Rod", "soft", 150, o.seed);
   const zr = ROD_Z;
   const L = o.rodLen;
@@ -185,7 +193,8 @@ export function buildCurtains(o: CurtainOpts): AssemblyDef {
   o.panels.forEach((p, pi) => {
     let prev: string | null = null;
     let group: string | undefined;
-    for (let k = 0; k < p.strips; k++) {
+    const strips = Math.max(1, Math.floor(p.strips));
+    for (let k = 0; k < strips; k++) {
       const x = p.x0 + p.dir * k * RING_SPACING;
       const ring = ringX(b, `ring${pi}_${k}`, { R, r, segs, mat: "steel", surf: "metal_black", seam: 80 }, [x, yc, zr]);
       b.friction(ring[0], rod, 3);
@@ -193,7 +202,7 @@ export function buildCurtains(o: CurtainOpts): AssemblyDef {
       const yaw = (k % 2 === 0 ? 1 : -1) * PLEAT;
       const strip = b.box(`strip${pi}_${k}`, "fabric", "fabric_upholstery", [STRIP_W, len, 0.006], [x, (yTop + yBot) / 2, zr], {
         rot: [0, yaw, 0],
-        mass: panelKg / p.strips,
+        mass: panelKg / strips,
         tint,
       });
       if (prev) b.glue(prev, strip, 12);

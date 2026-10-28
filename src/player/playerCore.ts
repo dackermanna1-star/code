@@ -10,8 +10,9 @@
 // too (plan.ts SPAWN.pos.y = 1.65 = standing eye height). Pitch > 0 looks down (see camera.ts).
 //
 // Per fixed step (called by the game loop before destruction.beforePhysics and the physics step):
-//   look → crouch → support query → desired velocity → controller integrate → landing / stomp →
-//   footsteps → actions (grab, throw, slam, kick, stomp, use, tools) → hold servo → tools.
+//   look → crouch → support query → desired velocity → controller integrate (+ own step-up) →
+//   landing / stomp → footsteps → actions (grab, throw, slam, kick, stomp, use, slots) → hand joint
+//   / pull (interaction.ts) → tools.
 // Per render frame: look (so the view turns at display rate even with 0 fixed steps), camera
 // bob/dip/shake/FOV, tool viewmodel.
 

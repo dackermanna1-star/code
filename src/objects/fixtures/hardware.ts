@@ -12,11 +12,22 @@ interface Common {
 }
 
 /**
+ * Printed hands of the `clock_face` texture (src/render/proctex/printed.ts): 10:09:36, lengths
+ * and tails in texture pixels on its 256 px / 0.3 m tile. The 3D hands are laid exactly over
+ * them so the clock shows ONE set of hands that can still be knocked off (the printed ones stay
+ * underneath — a hands-free dial variant has been requested from render-core).
+ */
+const PRINTED_TIME: [number, number, number] = [10, 9, 36];
+const FACE_PX = 0.3 / 256;
+
+/**
  * Wall clock Ø 0.3 m: eight-segment plastic case ring, hardboard back, quartz movement (plastic
  * box), printed paper dial, aluminium hour/minute hands and a steel second hand on a spindle,
  * glass cover clipped into the ring. Hangs on a nail (weak world bond at the top). ~0.5 kg.
+ * The dial texture is centred on the dial and reads upright from the front (u along −X, the
+ * viewer's right in this left-handed frame, v up).
  */
-export function buildWallClock(o: Common & { r?: number; tint?: number; time?: [number, number, number] } = {}): AssemblyDef {
+export function buildWallClock(o: Common & { r?: number; tint?: number } = {}): AssemblyDef {
   const b = new Builder("wallClock", "Wall Clock", "decor", 25, o.seed);
   const R = o.r ?? 0.15;
   const depth = 0.042;
@@ -26,24 +37,38 @@ export function buildWallClock(o: Common & { r?: number; tint?: number; time?: [
   for (const t of ring) b.bond(back, t, "clip", { strength: 4 });
   const mv = b.box("movement", "plastic", "plastic", [0.056, 0.056, 0.016], [0, 0, 0.004 + 0.008], { tint: 0x202020 });
   b.glue(mv, back, 10);
-  const dial = b.cyl("dial", "paper", "paper", ri, 0.0012, [0, 0, 0.02 + 0.0006], { axis: "z", segments: 16, capSurf: "clock_face" });
+  const dial = b.cyl("dial", "paper", "paper", ri, 0.0012, [0, 0, 0.02 + 0.0006], {
+    axis: "z",
+    segments: 16,
+    capSurf: "clock_face",
+    // the cylinder's +Z cap maps u = +x, v = −y (texture upside down from the front); a 180°
+    // roll about Z turns that into u = −x (viewer's right), v = +y, and u0 = v0 = 0.15 (half the
+    // 0.3 m tile) puts the printed face's centre on the dial centre
+    rot: [0, 0, 180],
+    uvOffset: [0.15, 0.15],
+  });
   b.glue(dial, mv, 4);
   bondNear(b, dial, ring, "glue", 3, 0.004, 4);
   const spindle = b.cyl("spindle", "steel", "metal_raw", 0.0028, 0.008, [0, 0, 0.0212 + 0.004], { axis: "z", segments: 8 });
   b.press(spindle, mv, 6);
-  const [hh, mm, ss] = o.time ?? [10, 9, 32];
-  const hands: Array<[string, number, number, number, "aluminum" | "steel", number]> = [
-    // name, angle (deg clockwise from 12), length, width, material, z
-    ["hour", ((hh % 12) + mm / 60) * 30, 0.075, 0.007, "aluminum", 0.0232],
-    ["minute", (mm + ss / 60) * 6, 0.11, 0.005, "aluminum", 0.0246],
-    ["second", ss * 6, 0.118, 0.0016, "steel", 0.026],
+  const [hh, mm, ss] = PRINTED_TIME;
+  const hands: Array<[string, number, number, number, number, "aluminum" | "steel", number]> = [
+    // name, angle (deg clockwise from 12), tip, tail, width (texture px), material, z
+    ["hour", ((hh % 12) + mm / 60) * 30, 58, 14, 7, "aluminum", 0.0232],
+    ["minute", (mm + ss / 60) * 6, 88, 14, 5, "aluminum", 0.0246],
+    ["second", ss * 6, 96, 22, 1.6, "steel", 0.026],
   ];
-  for (const [nm, ang, len, w, mat, z] of hands) {
-    const phi = 90 - ang; // build along +X, rotate about Z
+  for (const [nm, ang, tipPx, tailPx, wPx, mat, z] of hands) {
+    // Clockwise seen from the front (+Z) = from +Y towards −X (the viewer's right): the hand
+    // points along (−sin a, cos a), i.e. local +X rotated by φ = 90° + a about Z.
+    const phi = 90 + ang;
     const c = Math.cos((phi * Math.PI) / 180),
       s = Math.sin((phi * Math.PI) / 180);
-    const off = len / 2 - 0.015;
-    const hand = b.box(`hand_${nm}`, mat, mat === "steel" ? "metal_black" : "metal_black", [len, w, 0.0012], [off * c, off * s, z], { rot: [0, 0, phi], tess: 0, tint: nm === "second" ? 0xb02020 : 0x111111 });
+    const tip = tipPx * FACE_PX,
+      tail = tailPx * FACE_PX;
+    const len = tip + tail,
+      off = (tip - tail) / 2;
+    const hand = b.box(`hand_${nm}`, mat, "metal_black", [len, Math.max(0.0016, wPx * FACE_PX), 0.0012], [off * c, off * s, z], { rot: [0, 0, phi], tess: 0, tint: nm === "second" ? 0xb02020 : 0x111111 });
     b.press(hand, spindle, 1.5);
   }
   const glass = b.cyl("glass", "glass", "glass", ri, 0.002, [0, 0, depth - 0.006], { axis: "z", segments: 16, capSurf: "glass", capTint: 0xf2f8f6 });

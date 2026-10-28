@@ -4,7 +4,8 @@
 // CONVENTIONS (read before writing an object; see also the guide at the top of kit.ts):
 //  * Assembly frame: origin at the object's base centre (floor contact point), +Y up,
 //    the object's FRONT (doors, screen, controls) faces +Z. The furnisher rotates it into place.
-//    Babylon is LEFT-handed: seen from the front, the object's left side is +X, its right -X.
+//    Babylon is LEFT-handed: seen from the front, the object's -X side is on the viewer's
+//    RIGHT (kit names such as side_l/side_r are axis-based: l = -X, r = +X).
 //  * Units: metres / kg / joules. Rotations: Euler DEGREES [x, y, z] applied like Babylon's
 //    RotationYawPitchRoll (roll Z first, then pitch X, then yaw Y — i.e. yaw is outermost),
 //    or a Quat. Positions/rotations passed to part methods are in the CURRENT GROUP FRAME
@@ -647,24 +648,73 @@ export class Builder {
       const po: PartOpts = { ...o, mass, uvOffset: [ou, ov] };
       names.push(this.finishPart(nm, mat, poly, pos, po, grain));
     });
-    this.fuseTouching(names, o.seam ?? "fused", o.seamStrength);
+    this.fuseTileGrid(tiles, names, o.seam ?? "fused", o.seamStrength);
     return names;
+  }
+
+  /**
+   * Fuse tiles that share a face. Fast path: grid neighbours (i±1 incl. ring wrap-around, j±1)
+   * verified with a face-axis contact; any tile left without a seam falls back to the full
+   * geometric search, so unusual tile layouts still fuse correctly.
+   */
+  private fuseTileGrid(tiles: Tile[], names: string[], kind: BondKind, strength?: number): void {
+    const key = (i: number, j: number) => `${i},${j}`;
+    const byIJ = new Map<string, number>();
+    let unique = true;
+    let maxI = -Infinity,
+      minI = Infinity;
+    tiles.forEach((t, k) => {
+      if (byIJ.has(key(t.i, t.j))) unique = false;
+      byIJ.set(key(t.i, t.j), k);
+      maxI = Math.max(maxI, t.i);
+      minI = Math.min(minI, t.i);
+    });
+    if (!unique) {
+      this.fuseTouching(names, kind, strength);
+      return;
+    }
+    const polys = names.map((n) => this.partIndex.get(n)!.poly);
+    const vols = polys.map((p) => Math.max(1e-12, polyVolume(p)));
+    const fusedCount = new Array<number>(tiles.length).fill(0);
+    const tryPair = (a: number, c: number): void => {
+      const size = Math.min(boxSizeOf(polys[a]), boxSizeOf(polys[c]));
+      const ct = polyContact(polys[a], polys[c], Math.max(1e-5, 2e-3 * size), true);
+      if (!ct || ct.kind !== "face" || ct.area < 0.02 * Math.pow(Math.min(vols[a], vols[c]), 2 / 3)) return;
+      const def: BondDef = { a: names[a], b: names[c], kind, anchor: ct.point };
+      if (strength !== undefined) def.strength = strength;
+      this.bonds.push(def);
+      fusedCount[a]++;
+      fusedCount[c]++;
+    };
+    tiles.forEach((t, k) => {
+      const right = byIJ.get(key(t.i + 1, t.j)) ?? (t.i === maxI && maxI > minI + 1 ? byIJ.get(key(minI, t.j)) : undefined);
+      const up = byIJ.get(key(t.i, t.j + 1));
+      if (right !== undefined && right !== k) tryPair(k, right);
+      if (up !== undefined) tryPair(k, up);
+    });
+    const orphans = names.filter((_, k) => fusedCount[k] === 0);
+    if (orphans.length && names.length > 1) {
+      // e.g. a single cap tile touching a whole ring: search geometrically around the orphans
+      for (const o of orphans) this.fuseTouching(names, kind, strength, undefined, o);
+    }
   }
 
   /**
    * Bond every pair of the given parts that share a real face (not just an edge/corner). Used for
    * tile sets: works for any tile indexing (ring wrap-around, cap tiles, partial lathes).
    */
-  fuseTouching(names: string[], kind: BondKind = "fused", strength?: number, tol?: number): number {
+  fuseTouching(names: string[], kind: BondKind = "fused", strength?: number, tol?: number, only?: string): number {
     const defs = names.map((n) => this.get(n));
     const polys = defs.map((d) => d.poly);
     const boxes = polys.map(aabbOf);
     const vols = polys.map((p) => Math.max(1e-12, polyVolume(p)));
     const bonded = new Set(this.bonds.map((b) => pairKey(b.a, b.b)));
+    const onlyName = only !== undefined ? this.resolve(only) : undefined;
     let count = 0;
     for (const [i, j] of overlappingPairs(boxes, tol ?? 1e-4)) {
       const A = defs[i].name,
         B = defs[j].name;
+      if (onlyName !== undefined && A !== onlyName && B !== onlyName) continue;
       if (bonded.has(pairKey(A, B))) continue;
       const size = Math.min(boxSize(boxes[i]), boxSize(boxes[j]));
       const c = polyContact(polys[i], polys[j], tol ?? Math.max(1e-5, 2e-3 * size));
@@ -1310,6 +1360,10 @@ function pairKey(a: string, b: string): string {
 
 function boxSize(b: Aabb): number {
   return Math.max(b.max.x - b.min.x, b.max.y - b.min.y, b.max.z - b.min.z);
+}
+
+function boxSizeOf(p: ConvexPoly): number {
+  return boxSize(aabbOf(p));
 }
 
 /** Structural sanity of a polyhedron (finite data, valid indices, unit normals). */

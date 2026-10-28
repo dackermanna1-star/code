@@ -15,7 +15,7 @@
 
 import { Builder } from "../lib/builder.ts";
 import type { AssemblyDef } from "../../destruction/model/types.ts";
-import { bondNear, bulb, bulbLength, extremeTiles, K2700, NICKEL, radialYaw, yawPitch, type LightSpec } from "./parts.ts";
+import { bondNear, bulb, bulbLength, extremeTiles, I_CEILING, K2700, NICKEL, radialYaw, yawPitch, type LightSpec } from "./parts.ts";
 
 export interface CeilingFanOpts {
   seed?: number;
@@ -112,7 +112,10 @@ export function buildCeilingFan(opts: CeilingFanOpts = {}): AssemblyDef {
     const s = b.cyl(`socket${sx < 0 ? "L" : "R"}`, "plastic", "plastic", 0.011, 0.025, [sx, ySock - 0.0125, 0], { segments: 8, tint: 0xf3f0e8 });
     b.screw(s, kitPan, 1, 12);
     sockets.push(s);
-    const lamp = bulb(b, `bulb${sx < 0 ? "L" : "R"}`, "candle", { color: K2700, intensity: 2.2, range: 6, ...opts.light }, [sx, ySock - 0.025, 0], [180, 0, 0]);
+    // one light feature for the whole kit (interior-light cap shared with the open kitchen),
+    // the second candle bulb only glows
+    const spec = { color: K2700, intensity: I_CEILING, range: 6, ...opts.light, feature: sx < 0 };
+    const lamp = bulb(b, `bulb${sx < 0 ? "L" : "R"}`, "candle", spec, [sx, ySock - 0.025, 0], [180, 0, 0]);
     b.screw(lamp.cap, s, 1, 8);
   }
   const bowlH = bulbLength("candle") + 0.025 + 0.02;

@@ -17,6 +17,7 @@ const MAX_LEVEL = 1.15;
 
 interface LightLike {
   intensity: number;
+  includeOnlyWithLayerMask?: number;
   diffuse?: { r: number; g: number; b: number };
   groundColor?: { r: number; g: number; b: number };
   range?: number;
@@ -35,6 +36,13 @@ function lum(c: { r: number; g: number; b: number } | undefined): number {
 export class LightSampler {
   /** Optional exact sampler from the integrator (returns a level ~0..1.2). */
   override: ((x: number, y: number, z: number) => number) | null = null;
+  /**
+   * Optional room mask at a point (layer-mask bits, same scheme as the Lighting system's
+   * receiver masks). Lights with `includeOnlyWithLayerMask` that does not intersect it are
+   * skipped, so a lamp behind a wall does not light dust in the next room.
+   */
+  roomMaskAt: ((x: number, z: number) => number) | null = null;
+  private mask = 0;
   private cacheKeys = new Int32Array(256);
   private cacheVals = new Float32Array(256);
   private cacheTime = new Float32Array(256).fill(-1);
@@ -76,6 +84,14 @@ export class LightSampler {
       }
     }
     let b = 0;
+    this.mask = 0;
+    if (this.roomMaskAt) {
+      try {
+        this.mask = this.roomMaskAt(x, z) | 0;
+      } catch {
+        this.mask = 0;
+      }
+    }
     const lights = this.scene.lights as unknown as LightLike[];
     for (let i = 0; i < lights.length; i++) b += this.contrib(lights[i], x, y, z, 0);
     return Math.min(MAX_LEVEL, Math.max(MIN_LEVEL, (b / (b + 0.45)) * 1.45));
@@ -89,6 +105,7 @@ export class LightSampler {
       return s;
     }
     const cls = l.getClassName();
+    if (this.mask && l.includeOnlyWithLayerMask && (l.includeOnlyWithLayerMask & this.mask) === 0) return 0;
     const I = l.intensity * lum(l.diffuse);
     if (cls === "HemisphericLight") return l.intensity * (lum(l.diffuse) + lum(l.groundColor)) * 0.5;
     if (cls === "DirectionalLight") return I * SUN_INDOOR;

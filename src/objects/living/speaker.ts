@@ -12,6 +12,7 @@ import { Builder } from "../lib/builder.ts";
 import { frameBars, pcb } from "../lib/kit.ts";
 import type { AssemblyDef } from "../../destruction/model/types.ts";
 import type { SurfaceName } from "../../render/surfaces.ts";
+import { bondTouching } from "./lib.ts";
 
 export interface SpeakerOpts {
   wrap?: SurfaceName;
@@ -102,7 +103,7 @@ export function buildBookshelfSpeaker(o: SpeakerOpts = {}): AssemblyDef {
   if (o.grille !== false) {
     const gd = SPEAKER_DIMS.grilleDepth - 0.0015;
     const fr = frameBars(b, "grille", { w: W, h: H, bar: 0.012, depth: gd, mat: "mdf", surf: "metal_black" }, [0, y0 + H / 2, zF]);
-    for (const bar of fr.all) b.press(bar, baffle, 3);
+    for (const bar of fr.all) bondTouching(b, bar, [baffle, sideL, sideR, top, bottom], "press", 3, 0.001);
     const cloth = b.box("grille_cloth", "fabric", "speaker_grille", [W, H, 0.0015], [0, y0 + H / 2, zF + gd + 0.00075], { mass: 0.02 });
     for (const bar of fr.all) b.glue(cloth, bar, 4);
   }

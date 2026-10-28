@@ -6,6 +6,20 @@
 //   global failure  E >= u · V / clamp(aspect/6, 0.5, 4)
 //   local breakout  E  = G · 2π r · min(t, r)   → breakout radius r (fracture if r >= rMin)
 //   ductile dents   r_d = dentRadius · (E/100)^(1/3),  depth = E / (yieldY · π r_d²)
+// The damage model adds a separation term to the global energy (tuning.ts gSep: size effect),
+// a contact-radius dependent breakout depth, fatigue and per-part strength scatter.
+//
+// Tuning notes (values verified by tests/unit/damage-gameplay.test.ts):
+//  * stiffness only partitions contact energy (softer side absorbs more): gypsum/plaster are
+//    low (crushable boards absorb), flesh = 2 so punches break drywall but not wood or concrete.
+//  * u ≈ 4·σ_f²/(18E) (3-point-bending strain energy of a slender beam; the aspect divisor is
+//    4 for slender parts) × an assembly factor; plastics/PCB are resilient (high u), wood is
+//    lowered because boards split along the grain before they snap.
+//  * G is the effective toughness of a local breakout (punch-out plug / crater). Glass, LCD and
+//    tempered glass have a very high G so they fail globally (shatter/dice) rather than getting
+//    small holes; plastics/PCB too (they crack rather than perforate).
+//  * steelSheet yieldY/maxDent: a 15 kg appliance dropped corner-first at 5 m/s gets a ~2 cm
+//    dent; maxDent × sheet thickness caps the accumulated depth (≈3.6 cm for 0.8 mm sheet).
 
 import type { SurfaceName } from "../../render/surfaces.ts";
 

@@ -4,6 +4,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { Builder } from "../../src/objects/lib/builder.ts";
 import { FIXTURES_OBJECTS, buildCurtains, buildVenetianBlind, buildBaseboardHeater } from "../../src/objects/fixtures/index.ts";
+import { buildWallClock } from "../../src/objects/fixtures/hardware.ts";
 import { MATERIALS } from "../../src/destruction/model/materials.ts";
 import { polyVolume } from "../../src/geom/poly.ts";
 import type { AssemblyDef, PartDef } from "../../src/destruction/model/types.ts";
@@ -72,11 +73,72 @@ test("every light is a mains bulb part made of glass with a warm 2700–3000 K c
       assert.equal(part.mat, "glass", `${type}: light part is glass`);
       assert.equal(l.mains, true);
       assert.ok([0xffa957, 0xffb46b].includes(l.color), `${type}: warm colour`);
-      assert.ok(l.intensity > 0.5 && l.intensity < 8 && l.range >= 4 && l.range <= 8, `${type}: intensity/range`);
+      // shared photometric scale: ceiling fixtures ~1.5–2× a table lamp (lamps ~0.7–1.0)
+      assert.ok(l.intensity >= 1 && l.intensity <= 2 && l.range >= 4 && l.range <= 8, `${type}: intensity/range`);
     }
+    // one light feature per fixture (interior-light cap per material is shared with other areas)
+    assert.equal(lights.length, 1, `${type}: one light feature`);
   }
   const track = FIXTURES_OBJECTS.trackLight();
-  assert.equal(track.features!.filter((f) => f.type === "light" && f.kind === "spot").length, 3, "3 spot heads");
+  const spot = track.features!.find((f) => f.type === "light");
+  assert.ok(spot && spot.type === "light" && spot.kind === "spot" && spot.part.endsWith("lens1"), "one wide spot on the middle head");
+  assert.equal(track.parts.filter((p) => /lens\d$/.test(p.name) && p.mat === "glass").length, 3, "three glowing lenses");
+  // the fan's second candle bulb glows without its own light
+  const fan = FIXTURES_OBJECTS.ceilingFan();
+  assert.equal(fan.parts.filter((p) => p.name.endsWith("_glass") && p.name.startsWith("bulb")).length, 2);
+});
+
+test("glass bowl and globe are held by exactly three thumbscrews spread around the rim", () => {
+  for (const [type, fixed] of [
+    ["flushMountLight", "pan"],
+    ["schoolhouseLight", "fitter"],
+  ] as const) {
+    const d = FIXTURES_OBJECTS[type]();
+    const screws = d.bonds.filter((b) => b.kind === "screw" && b.b === fixed && /^(bowl|globe)_/.test(b.a));
+    assert.equal(screws.length, 3, `${type}: three thumbscrews`);
+  }
+});
+
+test("wall clock: one set of hands matching the printed dial, clockwise from the front, centred texture", () => {
+  const d = buildWallClock({ validate: "full" });
+  // hands at the printed 10:09:36; from the front (+Z) the viewer's right is −X
+  // the hand's centroid lies on its axis, past the spindle (tip longer than tail)
+  const tip = (name: string): { x: number; y: number } => {
+    const vs = d.parts.find((p) => p.name === name)!.poly.verts;
+    return { x: vs.reduce((s, v) => s + v.x, 0) / vs.length, y: vs.reduce((s, v) => s + v.y, 0) / vs.length };
+  };
+  const ang = (name: string): number => ((Math.atan2(-tip(name).x, tip(name).y) * 180) / Math.PI + 360) % 360;
+  const near = (a: number, b: number): boolean => Math.abs(((a - b + 540) % 360) - 180) < 1;
+  assert.ok(near(ang("hand_hour"), (10 + 9.6 / 60) * 30), `hour ${ang("hand_hour")}`);
+  assert.ok(near(ang("hand_minute"), 9.6 * 6), `minute ${ang("hand_minute")}`);
+  assert.ok(near(ang("hand_second"), 216), `second ${ang("hand_second")}`);
+  const dial = d.parts.find((p) => p.name === "dial")!;
+  const cap = dial.poly.faces.find((f) => f.n.z > 0.9)!;
+  assert.ok(cap.attr.uv.u.x < -0.99 && cap.attr.uv.v.y > 0.99, "upright, unmirrored dial");
+  assert.ok(Math.abs(cap.attr.uv.u0 - 0.15) < 1e-9 && Math.abs(cap.attr.uv.v0 - 0.15) < 1e-9, "texture centred on the dial");
+});
+
+test("mini-split blower is rigid (no motor) and the thermostat has no microwave screen", () => {
+  const ac = FIXTURES_OBJECTS.miniSplitAC();
+  assert.equal((ac.features ?? []).filter((f) => f.type === "motor").length, 0);
+  assert.ok(!ac.bonds.some((b) => b.kind === "hinge" && (b.a === "blower" || b.b === "blower")));
+  const th = FIXTURES_OBJECTS.thermostat();
+  assert.equal((th.features ?? []).filter((f) => f.type === "screen").length, 0);
+});
+
+test("builder options are clamped to buildable ranges (no warnings at the edges)", () => {
+  for (const len of [0.3, 0, Number.NaN, 5]) {
+    const d = buildBaseboardHeater({ len, validate: "full" });
+    assert.ok(finite(d));
+  }
+  for (const o of [{ tilt: 0 }, { tilt: 90 }, { drop: 0.15 }, { w: 0.1 }, { slat: 0.2 }]) {
+    const d = buildVenetianBlind({ ...o, validate: "full" });
+    assert.ok(finite(d));
+    assert.ok(d.parts.filter((p) => p.name.startsWith("slat")).length >= 5, JSON.stringify(o));
+  }
+  const d = buildCurtains({ rodLen: 1.5, brackets: [0], panels: [{ x0: -0.6, dir: 1, strips: 0 }], rodHeight: 2.2, validate: "full" });
+  assert.equal(d.parts.filter((p) => p.name.startsWith("strip")).length, 1);
+  assert.throws(() => buildCurtains({ rodLen: 0, brackets: [0], panels: [], rodHeight: 2.2 }));
 });
 
 test("ceiling fan: free-spinning hinged rotor driven by a mains motor, 5 blades screwed to irons", () => {

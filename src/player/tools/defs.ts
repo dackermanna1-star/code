@@ -51,7 +51,7 @@ export const TOOL_RIGS: Readonly<Record<ToolId, Rig>> = {
     travel: v(-0.3, -0.5, 0.8),
     handle: v(-0.3, 1, 0.1),
     wound: { head: v(0.33, 0.28, 0.22), axis: v(0.1, 0.55, -0.83) },
-    woundCharged: { head: v(0.4, 0.38, 0.05), axis: v(0.15, 0.4, -0.9) },
+    woundCharged: { head: v(0.42, 0.33, 0.12), axis: v(0.15, 0.45, -0.88) },
     launch: v(-0.25, 0.35, 0.9),
     end: { head: v(-0.28, -0.55, 0.55), axis: v(-0.3, -0.5, 0.8) },
     endDir: v(-0.35, -0.85, -0.2),
@@ -65,8 +65,8 @@ export const TOOL_RIGS: Readonly<Record<ToolId, Rig>> = {
     contact: v(0, -0.04, 0.95),
     travel: v(0, -0.7, 0.7),
     handle: v(0, 1, 0),
-    wound: { head: v(0.1, 0.8, -0.15), axis: v(0.03, 0.75, -0.66) },
-    woundCharged: { head: v(0.12, 0.55, -0.62), axis: v(0.03, 0.3, -0.95) },
+    wound: { head: v(0.1, 0.55, 0.1), axis: v(0.03, 0.85, -0.53) },
+    woundCharged: { head: v(0.12, 0.62, -0.45), axis: v(0.03, 0.4, -0.92) },
     launch: v(0, 0.5, 0.86),
     end: { head: v(0.02, -0.95, 0.72), axis: v(0, -0.55, 0.83) },
     endDir: v(0, -0.85, -0.5),
@@ -96,7 +96,7 @@ export const TOOL_RIGS: Readonly<Record<ToolId, Rig>> = {
     contact: v(0, -0.08, 0.95),
     travel: v(-0.866, -0.03, 0.5),
     handle: v(1, 0, 0),
-    wound: { head: v(0.42, 0.3, -0.18), axis: v(0.25, 0.75, -0.6) },
+    wound: { head: v(0.42, 0.32, 0.0), axis: v(0.2, 0.8, -0.55) },
     woundCharged: { head: v(0.55, 0.15, -0.45), axis: v(0.45, 0.45, -0.77) },
     launch: v(-0.4, -0.35, 0.85),
     end: { head: v(-0.75, -0.05, 0.1), axis: v(-0.8, 0.1, -0.6) },
@@ -111,8 +111,8 @@ export const TOOL_RIGS: Readonly<Record<ToolId, Rig>> = {
     contact: v(0, -0.04, 0.9),
     travel: v(0, -0.7, 0.7),
     handle: v(0, 1, 0),
-    wound: { head: v(0.1, 0.76, -0.14), axis: v(0.03, 0.75, -0.66) },
-    woundCharged: { head: v(0.12, 0.52, -0.58), axis: v(0.03, 0.3, -0.95) },
+    wound: { head: v(0.1, 0.52, 0.1), axis: v(0.03, 0.85, -0.53) },
+    woundCharged: { head: v(0.12, 0.58, -0.42), axis: v(0.03, 0.4, -0.92) },
     launch: v(0, 0.5, 0.86),
     end: { head: v(0.02, -0.9, 0.68), axis: v(0, -0.55, 0.83) },
     endDir: v(0, -0.85, -0.5),
@@ -128,8 +128,8 @@ export const TOOL_RIGS: Readonly<Record<ToolId, Rig>> = {
     contact: v(0, -0.08, 0.62),
     travel: v(0, -0.7, 0.7),
     handle: v(-1, 0, 0),
-    wound: { head: v(0.02, 0.4, 0.26), axis: v(-1, 0.05, 0) },
-    woundCharged: { head: v(0.03, 0.48, 0.04), axis: v(-1, 0.1, -0.05) },
+    wound: { head: v(0.02, 0.22, 0.38), axis: v(-1, 0.05, 0) },
+    woundCharged: { head: v(0.03, 0.42, 0.12), axis: v(-1, 0.1, -0.05) },
     launch: v(0, 0.3, 1),
     end: { head: v(0.02, -0.6, 0.5), axis: v(-1, -0.1, 0) },
     endDir: v(0, -0.9, -0.4),
@@ -383,15 +383,21 @@ export const SPRAY_POSE: { right: FrameDef; left: FrameDef } = {
   left: F(v(0.05, -0.16, 0.42), v(0, 1, 0.08), v(-0.03, 0.08, 1)),
 };
 
-/** Fire extinguisher (6 kg dry powder): ~12 s of discharge, ~9 N jet thrust. */
+/**
+ * Fire extinguisher (6 kg dry powder): ~12 s of discharge, ~9 N jet thrust. The jet's momentum
+ * flux is (nearly) conserved but spreads over a ~7° cone, so an object intercepts the share of the
+ * rays that hit it: a plastic cup is blown off a table at ~1 m, a chair does not budge.
+ */
 export const SPRAY = {
   duration: 12,
   thrust: 9,
   range: 4.5,
-  coneHalfAngle: deg(12),
-  raysPerStep: 6,
-  /** Distance scale (m) of the jet's momentum falloff: F(d) = F·1/(1+(d/s)²). */
-  falloff: 1.6,
+  coneHalfAngle: deg(7),
+  raysPerStep: 8,
+  /** Jet momentum decay length (m): F(d) = F·exp(−d/decay) (drag on the powder cloud). */
+  decay: 5,
+  /** Radial ray distribution exponent (< 1 = denser core, like a real jet profile). */
+  coreExp: 0.75,
   /** Particle rate of the vfx emitter (particles/s at full pressure). */
   rate: 220,
 } as const;

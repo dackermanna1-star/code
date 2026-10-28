@@ -21,12 +21,14 @@ export interface IrSpec {
   early: { count: number; spread: number; gain: number };
   /** Optional flutter echo (period s, first-tap gain, per-tap decay). */
   flutter?: { period: number; gain: number; decay: number };
+  /** Level trim after energy normalisation (dark IRs pack their energy into the mids). */
+  trim?: number;
 }
 
 export const IR_SPECS: readonly IrSpec[] = [
   { id: "tiled", rt60: 1.1, hfRatio: 0.85, lfRatio: 1.05, preDelay: 0.002, early: { count: 16, spread: 0.022, gain: 0.8 }, flutter: { period: 0.0146, gain: 0.3, decay: 0.8 } },
   { id: "living", rt60: 0.55, hfRatio: 0.6, lfRatio: 1.15, preDelay: 0.005, early: { count: 10, spread: 0.035, gain: 0.55 } },
-  { id: "dead", rt60: 0.3, hfRatio: 0.4, lfRatio: 1.2, preDelay: 0.004, early: { count: 6, spread: 0.025, gain: 0.35 } },
+  { id: "dead", rt60: 0.3, hfRatio: 0.4, lfRatio: 1.2, preDelay: 0.004, early: { count: 6, spread: 0.025, gain: 0.35 }, trim: 0.8 },
 ];
 
 /** Render a stereo impulse response for a spec at sample rate sr. */
@@ -94,10 +96,17 @@ export function generateIR(spec: IrSpec, sr: number, seed = 1234): Float32Array[
     }
     chans.push(out);
   }
-  // Energy normalisation across both channels.
+  // Normalise the MID-BAND (≈250–2500 Hz) energy across both channels: most impact energy
+  // lives there, so equal send levels give comparable reverb loudness whatever the IR's tilt.
   let e = 0;
-  for (const ch of chans) for (let i = 0; i < ch.length; i++) e += ch[i] * ch[i];
-  const g = e > 0 ? 1 / Math.sqrt(e) : 1;
+  for (const ch of chans) {
+    const bp = new Biquad().bandpass(sr, 800, 0.35);
+    for (let i = 0; i < ch.length; i++) {
+      const y = bp.process(ch[i]);
+      e += y * y;
+    }
+  }
+  const g = (e > 0 ? 1 / Math.sqrt(e) : 1) * (spec.trim ?? 1);
   for (const ch of chans) for (let i = 0; i < ch.length; i++) ch[i] *= g;
   return chans;
 }

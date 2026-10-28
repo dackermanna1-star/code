@@ -29,14 +29,20 @@ import {
 } from "@babylonjs/core";
 
 const VERTEX_DEFS = /* glsl */ `
+#ifdef WORLDMAT_SURF
 attribute vec4 surf;
+#endif
 varying vec4 vWmSurf;
 varying vec2 vWmUV;
 varying float vWmMetal;
 `;
 
 const VERTEX_MAIN_END = /* glsl */ `
+#ifdef WORLDMAT_SURF
 vWmSurf = surf;
+#else
+vWmSurf = vec4(0.0, 0.0, 1.0, 0.0); // mesh without "surf": layer 0, flat normal, rough 1, not emissive
+#endif
 vWmUV = uvUpdated;
 #ifdef VERTEXCOLOR
 vWmMetal = color.a;
@@ -131,7 +137,7 @@ export class WorldMaterialPlugin extends MaterialPluginBase {
 
   constructor(material: Material) {
     // name, priority, defines (+default values), addToPluginList, enable
-    super(material, "WorldMaterial", 200, { WORLDMAT_NORMALMAP: false }, true, true);
+    super(material, "WorldMaterial", 200, { WORLDMAT_NORMALMAP: false, WORLDMAT_SURF: false }, true, true);
   }
 
   /** Assign textures; marks defines dirty (needed when the normal map is added/removed). */
@@ -155,8 +161,10 @@ export class WorldMaterialPlugin extends MaterialPluginBase {
     defines._needUVs = true;
   }
 
-  override prepareDefines(defines: MaterialDefines, _scene: Scene, _mesh: AbstractMesh): void {
+  override prepareDefines(defines: MaterialDefines, _scene: Scene, mesh: AbstractMesh): void {
     defines["WORLDMAT_NORMALMAP"] = !!this.normalArray;
+    // without the attribute, WebGL feeds the default (0,0,0,1) => surf.w = 1 => everything would glow
+    defines["WORLDMAT_SURF"] = mesh.isVerticesDataPresent("surf");
   }
 
   override getAttributes(attributes: string[], _scene: Scene, _mesh: AbstractMesh): void {

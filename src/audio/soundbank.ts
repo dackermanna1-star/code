@@ -99,7 +99,12 @@ export class SoundBank {
       e = { def, buffers: [], last: -1 };
       this.entries.set(def.id, e);
     }
-    e.buffers.push(make(r.chans, r.sr));
+    // Keep variants in index order whatever order the workers deliver them (determinism).
+    const buf = make(r.chans, r.sr) as AudioBuffer & { __v?: number };
+    buf.__v = v;
+    let i = e.buffers.length;
+    while (i > 0 && ((e.buffers[i - 1] as AudioBuffer & { __v?: number }).__v ?? 0) > v) i--;
+    e.buffers.splice(i, 0, buf);
     this.stats.buffers++;
     for (const c of r.chans) this.stats.bytes += c.length * 4;
   }

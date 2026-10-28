@@ -16,12 +16,17 @@
 //                                        dust; 5–8 = a shattered window / sledged wall.
 //   emitter(kind, pos, dir, rate)        rate is a strength multiplier, 1 = nominal (burst mains
 //                                        pipe ≈ 0.25 L/s spray, extinguisher at full blast);
-//                                        0 pauses; water/liquid emitters grow puddles where
-//                                        their spray lands.
+//                                        0 pauses; values > 8 are read as particles/s of the
+//                                        kind's main layer; capped at 2.5× nominal. Water/liquid
+//                                        emitters grow puddles where their spray lands.
 //   micro(kind, pos, vel, size, surf, tint) size = largest extent (m), surf = surface index of
 //                                        the parent part, tint = 0xRRGGBB face tint.
 //   decal(kind, pos, normal, size)       size = diameter (m); world-static (use on static
 //                                        surfaces); puddles near an existing one enlarge it.
+// Optional createVfx hooks: `lightLevel(x,y,z)` (exact light level for unlit sprites),
+// `roomMaskAt(x,z)` (room layer bits so lights of other rooms are ignored by the estimate),
+// `registerMesh/unregisterMesh` (Lighting receiver registration). `vfx.stats()` feeds the
+// debug overlay (particles, budget, micro moving/settled, decals, timings).
 
 import type { AbstractMesh, Material, Scene } from "@babylonjs/core";
 import type { EmitterHandle, VfxKind, VfxSystem } from "../core/context.ts";
@@ -50,6 +55,12 @@ export interface CreateVfxOptions {
   worldMaterial?: Material;
   /** Optional exact local light level (~0..1.2); default: estimated from the scene lights. */
   lightLevel?: (x: number, y: number, z: number) => number;
+  /**
+   * Optional room layer mask at (x, z) — e.g. `(x, z) => roomMaskForBox(x, x, z, z)` from
+   * src/render/env/roomGraph.ts — so the light estimate ignores lights of other rooms
+   * (lights restricted with includeOnlyWithLayerMask, as the Lighting system does).
+   */
+  roomMaskAt?: (x: number, z: number) => number;
   /** Called for every opaque mesh VFX creates (e.g. Lighting.registerReceiver). */
   registerMesh?: (mesh: AbstractMesh) => void;
   unregisterMesh?: (mesh: AbstractMesh) => void;
@@ -140,6 +151,7 @@ export class Vfx implements VfxSystem {
     this.groundProbe = opts.groundProbe;
     this.light = new LightSampler(scene);
     if (opts.lightLevel) this.light.override = opts.lightLevel;
+    if (opts.roomMaskAt) this.light.roomMaskAt = opts.roomMaskAt;
     const puff = createPuffAtlas(scene);
     const bits = createBitsAtlas(scene);
     this.atlases = [puff, bits];

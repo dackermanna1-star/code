@@ -394,19 +394,20 @@ function emitFace(
     cn[3 * k + 1] = y;
     cn[3 * k + 2] = z;
   }
-  // does this face need the general path?
-  let maxEdge2 = 0;
+  // does this face need the general path? The split test MUST be bit-identical to the one used
+  // for edge subdivision below (segs = ceil(len/tess - 1e-9) > 1, len via Math.hypot, which is
+  // symmetric in edge direction), otherwise a face taking the fast path leaves an edge whole that
+  // its neighbour splits -> T-junction hole.
+  let doTess = false;
   let hasTJ = false;
   for (let k = 0; k < m; k++) {
     const a = idx[k],
       b = idx[(k + 1) % m];
     const A = V[a],
       B = V[b];
-    const l2 = (B.x - A.x) ** 2 + (B.y - A.y) ** 2 + (B.z - A.z) ** 2;
-    if (l2 > maxEdge2) maxEdge2 = l2;
+    if (tess > 0 && !doTess && Math.ceil(Math.hypot(B.x - A.x, B.y - A.y, B.z - A.z) / tess - 1e-9) > 1) doTess = true;
     if (tj && tj.has(a * nV + b)) hasTJ = true;
   }
-  const doTess = tess > 0 && maxEdge2 > tess * tess * 1.0002;
 
   if (!doTess && !hasTJ) {
     // ---- fast path: one vertex per corner, fan triangulation

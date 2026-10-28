@@ -164,6 +164,21 @@ test("lathe tiles: fused to ring neighbours incl. wrap-around and cap, never dia
   b.build();
 });
 
+test("torus and arc panel tiles: ring wrap-around fused, open arcs not", () => {
+  const b = mk();
+  const ring = b.torus("seat", "plastic", "plastic", 0.2, 0.025, 10, 6, [0, 0.4, 0]);
+  assert.equal(ring.length, 10);
+  for (const t of ring) assert.equal(b.bondsOf(t).filter((x) => x.kind === "fused").length, 2, `${t} fused to both ring neighbours`);
+  const elbow = b.torus("elbow", "copper", "copper", 0.05, 0.008, 4, 8, [1, 0.4, 0], { arc: 90 });
+  assert.equal(elbow.length, 4);
+  assert.equal(elbow.filter((t) => b.bondsOf(t).length === 1).length, 2, "a 90° elbow has two free ends");
+  const panel = b.arcPanel("tub", "acrylic", "acrylic_white", "acrylic_white", 0.5, 120, 0.4, 0.006, 6, [2, 0.2, 0]);
+  assert.equal(panel.length, 6);
+  assert.equal(panel.filter((t) => b.bondsOf(t).length === 1).length, 2, "open arc: only the end strips have one neighbour");
+  b.build(); // three separate shells: valid (only an "unconnected groups" warning)
+  assert.ok(b.warnings.some((w) => /unconnected groups/.test(w)));
+});
+
 test("tube: fused mitred segments with per-metre mass", () => {
   const b = mk();
   const segs = b.tube("pipe", "copper", "copper", [[0, 0.1, 0], [0.5, 0.1, 0], [0.5, 0.6, 0]], 0.0075, { kgPerM: 0.46 });

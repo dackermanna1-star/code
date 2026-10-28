@@ -3,16 +3,24 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { IR_SPECS, generateIR, irWeights } from "../../src/audio/reverb.ts";
 import { schroederRT60, spectralCentroid } from "../../src/audio/analysis.ts";
+import { Biquad } from "../../src/audio/synth/dsp.ts";
 
 const SR = 48000;
 
-test("IRs decay with the specified RT60 (±20 %) and are energy-normalised", () => {
+test("IRs decay with the specified RT60 (±20 %) and are mid-band normalised", () => {
   for (const spec of IR_SPECS) {
     const [l, r] = generateIR(spec, SR);
     assert.equal(l.length, r.length);
     let e = 0;
-    for (const ch of [l, r]) for (let i = 0; i < ch.length; i++) e += ch[i] * ch[i];
-    assert.ok(Math.abs(e - 1) < 1e-3, `${spec.id} energy ${e}`);
+    for (const ch of [l, r]) {
+      const bp = new Biquad().bandpass(SR, 800, 0.35);
+      for (let i = 0; i < ch.length; i++) {
+        const y = bp.process(ch[i]);
+        e += y * y;
+      }
+    }
+    const t = (spec.trim ?? 1) ** 2;
+    assert.ok(Math.abs(e - t) < 1e-3 * t, `${spec.id} mid-band energy ${e}`);
     const rt = schroederRT60(l, SR);
     assert.ok(Math.abs(rt - spec.rt60) / spec.rt60 < 0.2, `${spec.id}: RT60 ${rt.toFixed(2)} vs ${spec.rt60}`);
     assert.ok(l.every(Number.isFinite) && r.every(Number.isFinite));

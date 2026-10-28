@@ -120,6 +120,7 @@ export class Hud implements HudSystem {
   private popupAcc = 0;
   private popupTimer = 0;
   private statsTimer = 0;
+  private statsShown = true;
   private debugTimer = 0;
   private debugOn = false;
   private instr: SceneInstrumentation | null = null;
@@ -568,8 +569,11 @@ export class Hud implements HudSystem {
 
   private updateStats(dt: number): void {
     const show = this.ctx.settings.data.showStats;
-    this.stats.style.display = show ? "" : "none";
-    this.popups.style.display = show ? "" : "none";
+    if (show !== this.statsShown) {
+      this.statsShown = show;
+      this.stats.style.display = show ? "" : "none";
+      this.popups.style.display = show ? "" : "none";
+    }
     // animated bill count-up
     if (this.billShown !== this.billTotal) {
       const diff = this.billTotal - this.billShown;

@@ -138,6 +138,14 @@ export function buildCeiling(id: RoomId): AssemblyDef {
     const top = CEILING_SLAB_Y - 0.0025;
     boxW(b, jb, "steelSheet", "metal_raw", bx, [BOARD_Y1, top], bz, { tint: PAL.galvanised, mass: 0.25, tess: 0, tags: ["electrical", "junction-box"] });
     worldAt(b, jb, "screw", 60, [lx, top, mid(bz[0], bz[1])]);
+    // the fixture's screws pass through the board into the box
+    for (const bd of boards) {
+      const ox0 = Math.max(bd.x0, bx[0]),
+        ox1 = Math.min(bd.x1, bx[1]),
+        oz0 = Math.max(bd.z0, bz[0]),
+        oz1 = Math.min(bd.z1, bz[1]);
+      if (ox1 - ox0 > 0.005 && oz1 - oz0 > 0.005) bondAt(b, jb, bd.name, "screw", 20, [mid(ox0, ox1), BOARD_Y1, mid(oz0, oz1)]);
+    }
     const cable = `jbox_${i}_cable`;
     const cz = mid(bz[0], bz[1]);
     boxW(b, cable, "copper", "plastic", [bx[1], bx[1] + 0.45], [top - 0.0085, top - 0.0025], [cz - 0.004, cz + 0.004], { tint: PAL.cable, mass: 0.06, tess: 0, tags: ["cable", "electrical"] });

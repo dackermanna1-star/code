@@ -36,7 +36,9 @@ export async function probe(): Promise<unknown> {
   const engine = new Engine(canvas, true, { stencil: true, preserveDrawingBuffer: true });
   const scene = new Scene(engine);
   const settings = new Settings();
+  settings.data.quality = "medium"; // keep SwiftShader frame times sane (shadows on, no SSAO)
   const physics = await createPhysics(scene, {});
+  const log = (m: string) => console.log(`[structure-spawn] ${m}`);
   const t0 = performance.now();
   let texMode = "photo";
   let render;
@@ -53,6 +55,7 @@ export async function probe(): Promise<unknown> {
     render = await createRender({ engine, scene, settings, skipAtmosphere: true, textures: { proceduralOnly: true } });
   }
   const renderMs = performance.now() - t0;
+  log(`render ready (${texMode}) in ${renderMs.toFixed(0)} ms`);
   const events = new EventBus<GameEvents>();
   const time = new Time();
   const d = new Destruction({ physics, render, vfx: new MockVfx(), events, time, settings, rng: new Rng(7), scene });
@@ -65,6 +68,7 @@ export async function probe(): Promise<unknown> {
   const ids: number[] = [];
   for (const p of pieces) ids.push(d.spawn(p.def, p.xf));
   const spawnMs = performance.now() - ts;
+  log(`spawned ${ids.length} assemblies in ${spawnMs.toFixed(0)} ms`);
   const before = ids.map((id) => d.positionOf(id));
   const afterSpawn = { destruction: d.stats(), physics: physics.stats() };
 
@@ -78,6 +82,7 @@ export async function probe(): Promise<unknown> {
     d.update(FIXED_DT);
   }
   const stepMs = (performance.now() - tStep) / 120;
+  log(`settled (${stepMs.toFixed(1)} ms/step)`);
   const moved: Array<{ name: string; dist: number }> = [];
   ids.forEach((id, i) => {
     const a = before[i],
@@ -105,13 +110,14 @@ export async function probe(): Promise<unknown> {
   for (const [, pos, target] of VIEWS) {
     cam.position.set(pos[0], pos[1], pos[2]);
     cam.setTarget(new Vector3(target[0], target[1], target[2]));
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < 2; i++) {
       render.update(1 / 60);
       scene.render();
     }
     shots.push(canvas.toDataURL("image/jpeg", 0.88));
+    log(`view ${shots.length}/${VIEWS.length}`);
   }
-  const frameMs = (performance.now() - tr) / (VIEWS.length * 3);
+  const frameMs = (performance.now() - tr) / (VIEWS.length * 2);
   const drawInfo = { meshes: scene.meshes.length, activeMeshes: scene.getActiveMeshes().length, activeTris: Math.round(scene.getActiveIndices() / 3) };
 
   // ---- contact sheet overlay for the runner's screenshot

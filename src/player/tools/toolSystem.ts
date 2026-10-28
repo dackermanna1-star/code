@@ -191,6 +191,8 @@ export class ToolSystem implements IToolSystem {
   private readonly w2 = new Vector3();
   private readonly w3 = new Vector3();
   private readonly m0 = new Matrix();
+  private readonly sprayDir = new Vector3(0, 0, 1);
+  private readonly nozzleOut = v3();
   private readonly unsubs: Array<() => void> = [];
 
   constructor(ctx: GameContext) {
@@ -251,12 +253,10 @@ export class ToolSystem implements IToolSystem {
     return this.machine.busy || this.leg.busy;
   }
 
-  /** HUD charge meter: 0..1 while winding up / charging a swing (0 otherwise). */
+  /** HUD charge meter: 0..1 while charging a swing (hold fire after the wind-up), 0 otherwise. */
   get charge(): number {
     const m = this.machine;
-    if (m.phase === "charge") return m.charge;
-    if (m.phase === "windup") return 0.001;
-    return 0;
+    return m.phase === "charge" ? m.charge : 0;
   }
 
   /** Remaining extinguisher contents 0..1 (HUD). */
@@ -275,6 +275,8 @@ export class ToolSystem implements IToolSystem {
     this.endPry(false);
     this.stopSpray();
     this._current = id;
+    // strike ids are per machine: re-sync so the new tool's counter is not mistaken for a new strike
+    this.lastStrikeId = this.machines[id].strikeId;
     // lower → swap model → raise (resumes from the current lowering point if switching again)
     if (this.switchPhase === "raise") this.switchT = SWITCH_LOWER * (1 - this.switchT / SWITCH_RAISE);
     else if (this.switchPhase === "none") this.switchT = 0;
@@ -621,8 +623,11 @@ export class ToolSystem implements IToolSystem {
       // broke through (drywall, glass, a mug…): keep swinging with the energy that is left
       return legOrMachineHit("continue", Math.sqrt(Math.max(0.12, 1 - energy / Math.max(ke, 1e-3))));
     }
-    if (!isStatic && targetMass < 3 * mass && vnAfter > 0.25 * speed) {
-      return legOrMachineHit("continue", Math.max(0.3, vnAfter / Math.max(speed, 1e-3)));
+    if (!isStatic && targetMass < Infinity) {
+      // a movable target took the momentum: follow through with what is left, or stop with it
+      // (the head only bounces off things that do not give way)
+      if (vnAfter > 0.25 * speed) return legOrMachineHit("continue", Math.max(0.3, vnAfter / Math.max(speed, 1e-3)));
+      if (vnAfter > -0.1 * speed) return legOrMachineHit("stop");
     }
     if (vn < 0.35 * speedTotal) return legOrMachineHit("continue", 0.7); // glancing blow
     const rel = clamp01(speed / Math.max(def ? def.speed : 6, 1e-3));
@@ -925,11 +930,13 @@ export class ToolSystem implements IToolSystem {
       return;
     }
     const nozzle = this.nozzleWorld(this.w0);
+    // the nozzle is aimed at what the crosshair is on (the jet converges on it)
+    const aim = this.sprayAim(tc, nozzle);
     if (!s.active) {
       s.active = true;
       s.k = 0;
       try {
-        s.emitter = this.ctx.vfx?.emitter("extinguisher", { x: nozzle.x, y: nozzle.y, z: nozzle.z }, { x: this.fwd.x, y: this.fwd.y, z: this.fwd.z }, SPRAY.rate) ?? null;
+        s.emitter = this.ctx.vfx?.emitter("extinguisher", { x: nozzle.x, y: nozzle.y, z: nozzle.z }, { x: aim.x, y: aim.y, z: aim.z }, SPRAY.rate) ?? null;
       } catch {
         s.emitter = null;
       }
@@ -943,22 +950,37 @@ export class ToolSystem implements IToolSystem {
     s.contents = Math.max(0, s.contents - dt);
     // pressure sags during the last ~15 % of the charge
     s.pressure = Math.max(0.2, Math.min(1, s.contents / (0.15 * SPRAY.duration)));
-    const np = { x: nozzle.x, y: nozzle.y, z: nozzle.z };
+    const np = this.nozzleOut;
+    np.x = nozzle.x;
+    np.y = nozzle.y;
+    np.z = nozzle.z;
     try {
       s.emitter?.setPosition(np);
-      s.emitter?.setDirection({ x: this.fwd.x, y: this.fwd.y, z: this.fwd.z });
+      s.emitter?.setDirection({ x: aim.x, y: aim.y, z: aim.z });
       s.emitter?.setRate(SPRAY.rate * s.pressure);
       s.loop?.setPosition(np);
       s.loop?.setGain(0.4 + 0.6 * s.pressure);
     } catch {
       /* ignore presentation failures */
     }
-    this.sprayPush(dt, nozzle, tc, s.pressure);
+    this.sprayPush(dt, nozzle, aim, tc, s.pressure);
     if (s.contents <= 0) this.stopSpray();
   }
 
-  /** The jet pushes light dynamic bodies inside a cone along the view (momentum flux of the jet). */
-  private sprayPush(dt: number, nozzle: Vector3, tc: ToolContext, pressure: number): void {
+  /** Unit spray direction from the nozzle towards the crosshair target (≤ spray range). */
+  private sprayAim(tc: ToolContext, nozzle: Vector3): Vector3 {
+    this.w2.copyFrom(this.fwd).scaleInPlace(SPRAY.range).addInPlace(this.eye);
+    const hit = this.safeRay(this.eye, this.w2, tc.ignore);
+    const d = hit ? Math.max(0.4, hit.distance) : SPRAY.range;
+    const a = this.sprayDir.set(this.eye.x + this.fwd.x * d - nozzle.x, this.eye.y + this.fwd.y * d - nozzle.y, this.eye.z + this.fwd.z * d - nozzle.z);
+    const l = a.length();
+    if (l > 1e-6) a.scaleInPlace(1 / l);
+    else a.copyFrom(this.fwd);
+    return a;
+  }
+
+  /** The jet pushes light dynamic bodies inside a cone around the aim direction (momentum flux of the jet). */
+  private sprayPush(dt: number, nozzle: Vector3, aim: Vector3, tc: ToolContext, pressure: number): void {
     const s = this.spray;
     const n = SPRAY.raysPerStep;
     const fPerRay = (SPRAY.thrust * pressure) / n;
@@ -967,14 +989,14 @@ export class ToolSystem implements IToolSystem {
       // golden-angle spiral over the cone, rotating every step
       const k = s.k++;
       const a = k * 2.399963 + i * 0.37;
-      const r = SPRAY.coneHalfAngle * Math.sqrt(((k % 17) + 0.5) / 17);
+      const r = SPRAY.coneHalfAngle * Math.pow(((k % 17) + 0.5) / 17, SPRAY.coreExp);
       const sr = Math.sin(r),
         cr = Math.cos(r),
         ca = Math.cos(a),
         sa = Math.sin(a);
-      const dx = this.fwd.x * cr + (this.right.x * ca + this.up.x * sa) * sr;
-      const dy = this.fwd.y * cr + (this.right.y * ca + this.up.y * sa) * sr;
-      const dz = this.fwd.z * cr + (this.right.z * ca + this.up.z * sa) * sr;
+      const dx = aim.x * cr + (this.right.x * ca + this.up.x * sa) * sr;
+      const dy = aim.y * cr + (this.right.y * ca + this.up.y * sa) * sr;
+      const dz = aim.z * cr + (this.right.z * ca + this.up.z * sa) * sr;
       const to = this.w2.set(from.x + dx * SPRAY.range, from.y + dy * SPRAY.range, from.z + dz * SPRAY.range);
       const hit = this.safeRay(from, to, tc.ignore);
       if (!hit) continue;
@@ -986,8 +1008,7 @@ export class ToolSystem implements IToolSystem {
         dynamic = false;
       }
       if (!dynamic) continue;
-      const falloff = 1 / (1 + (hit.distance / SPRAY.falloff) ** 2);
-      const j = fPerRay * dt * falloff;
+      const j = fPerRay * dt * Math.exp(-hit.distance / SPRAY.decay);
       try {
         body.applyImpulse(this.w3.set(dx * j, dy * j, dz * j), hit.point);
       } catch {

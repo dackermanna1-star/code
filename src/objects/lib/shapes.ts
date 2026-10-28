@@ -151,6 +151,8 @@ export interface BarWidths {
  * Hull points of the 4 mitred bars of a rectangular frame lying in the XY plane, centred on the
  * origin, outer size w × h, spanning z0..z1. Bars may have different widths (a door frame with a
  * wide lock stile); mitres run from each outer corner to the matching inner corner.
+ * Names are AXIS-based: "left" = the -X bar, "right" = the +X bar (Babylon is left-handed, so seen
+ * from the front the -X bar is on the viewer's right).
  */
 export function frameBarPoints(
   w: number,

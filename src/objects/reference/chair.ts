@@ -61,7 +61,7 @@ export function buildChair(o: ChairOpts = {}): AssemblyDef {
     for (const y of [0, 0.88]) for (const x of [sx * XO, sx * (XO - L)]) for (const z of [zRearFront(y), zRearFront(y) - L]) pts.push([x, y, z]);
     return b.hull(nm, mat, surf, pts, [0, 0, 0], { ...po, grain: "y" });
   };
-  const legFL = frontLeg(-1, "leg_fl");
+  const legFL = frontLeg(-1, "leg_fl"); // axis-based names: left = -X
   const legFR = frontLeg(1, "leg_fr");
   const legBL = rearLeg(-1, "leg_bl");
   const legBR = rearLeg(1, "leg_br");

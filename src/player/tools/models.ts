@@ -650,42 +650,47 @@ function buildNozzle(k: MeshKit): void {
 
 /**
  * Right fist around a handle through the origin along +Y (index finger at +Y); knuckles towards
- * +Z, back of the hand +X, palm/curled fingertips −X, wrist −Z. ~9 × 7 × 8.5 cm.
+ * +Z, back of the hand +X, palm/curled fingertips −X, wrist −Z. ~9 × 7 × 8.5 cm. Fingers are
+ * rounded hexagonal phalanges (proximal across the front, middle along the palm side) so the
+ * silhouette reads as knuckles rather than a box.
  */
 function buildFist(k: MeshKit): void {
-  // back of the hand + palm: chamfered octagon in X/Z extruded along Y
+  // back of the hand + palm: chamfered octagon in X/Z, slightly tapered towards the knuckles
   const prof: Array<[number, number]> = [
-    [-0.022, -0.046],
-    [0.026, -0.046],
-    [0.038, -0.032],
-    [0.038, 0.02],
-    [0.028, 0.032],
-    [-0.014, 0.032],
-    [-0.026, 0.02],
-    [-0.026, -0.032],
+    [-0.02, -0.046],
+    [0.024, -0.046],
+    [0.036, -0.032],
+    [0.036, 0.012],
+    [0.026, 0.024],
+    [-0.012, 0.024],
+    [-0.024, 0.012],
+    [-0.024, -0.032],
   ];
-  k.slab("skin", vv(0, 0, 0), vv(1, 0, 0), vv(0, 0, 1), vv(0, 1, 0), prof, prof.map(() => 0.082), 0.06);
-  // four fingers wrapping the grip: proximal phalanges across the front, middle phalanges along
-  // the palm side, a knuckle bump each (pinky slightly smaller)
+  k.slab("skin", vv(0, 0, 0), vv(1, 0, 0), vv(0, 0, 1), vv(0, 1, 0), prof, [0.078, 0.078, 0.08, 0.084, 0.084, 0.084, 0.08, 0.078], 0.06);
   for (let i = 0; i < 4; i++) {
-    const sz = i === 0 ? 0.86 : 1;
-    const h = 0.0185 * sz;
+    const sz = i === 0 ? 0.84 : i === 3 ? 0.96 : 1; // pinky smaller, index slightly smaller
+    const r = 0.0095 * sz;
     const yc = -0.0315 + i * 0.021;
-    k.box("skin", vv(0.007, yc, 0.037), vv(0.046 * sz, h, 0.013), undefined, 0.05);
-    k.box("skin", vv(-0.03, yc, 0.005), vv(0.013, h, 0.05 * sz), undefined, 0.05);
-    k.box("skin", vv(0.033, yc, 0.031), vv(0.013, h * 0.85, 0.013), undefined, 0.05);
+    // proximal phalanx across the front (from the knuckle at the back of the hand towards the palm side)
+    k.cyl("skin", vv(0.032, yc, 0.03), vv(-0.016, yc, 0.034), r * 1.08, r, 6, { phase: Math.PI / 6, uvScale: 0.05 });
+    // middle phalanx curling back along the palm side, fingertip tucked into the palm
+    k.cyl("skin", vv(-0.022, yc, 0.032), vv(-0.028, yc, -0.012), r, r * 0.9, 6, { phase: Math.PI / 6, uvScale: 0.05 });
+    // knuckle bump
+    k.cyl("skin", vv(0.036, yc, 0.026), vv(0.04, yc, 0.026), r * 0.95, r * 0.8, 6, { phase: Math.PI / 6, uvScale: 0.05 });
   }
   // thumb lying across the index/middle fingers on the palm side, thenar pad behind it
-  k.box("skin", vv(-0.039, 0.023, 0.012), vv(0.014, 0.021, 0.052), undefined, 0.05);
-  k.box("skin", vv(-0.017, 0.028, -0.03), vv(0.024, 0.026, 0.03), undefined, 0.05);
+  k.cyl("skin", vv(-0.018, 0.034, -0.028), vv(-0.037, 0.026, 0.006), 0.012, 0.0105, 6, { phase: Math.PI / 6, uvScale: 0.05 });
+  k.cyl("skin", vv(-0.037, 0.026, 0.006), vv(-0.037, 0.016, 0.03), 0.0105, 0.0095, 6, { phase: Math.PI / 6, uvScale: 0.05 });
+  k.box("skin", vv(-0.012, 0.028, -0.032), vv(0.022, 0.026, 0.026), undefined, 0.05);
   // wrist towards the forearm
-  k.cyl("skin", vv(0.012, 0, -0.04), vv(0.016, 0, -0.076), 0.027, 0.025, 8, { uvScale: 0.06, capA: false });
+  k.cyl("skin", vv(0.01, 0, -0.04), vv(0.014, 0, -0.076), 0.026, 0.024, 8, { uvScale: 0.06, capA: false });
 }
 
-/** Forearm along +Z from the wrist (origin) to the elbow (length 1 → scaled at runtime). */
+/** Forearm along +Z from the wrist (origin) towards the elbow; FOREARM_LEN long (scaled shorter at runtime near the lens). */
+export const FOREARM_LEN = 0.3;
 function buildForearm(k: MeshKit): void {
-  k.cyl("cuff", vv(0, 0, 0.0), vv(0, 0, 0.035), 0.036, 0.038, 10, { uvScale: 0.06, capMat: "cuff" });
-  k.cyl("sleeve", vv(0, 0, 0.035), vv(0, 0, 0.3), 0.041, 0.052, 10, { uvScale: 0.12, capA: false });
+  k.cyl("cuff", vv(0, 0, 0.0), vv(0, 0, 0.03), 0.033, 0.035, 10, { uvScale: 0.06, capMat: "cuff" });
+  k.cyl("sleeve", vv(0, 0, 0.03), vv(0, 0, FOREARM_LEN), 0.037, 0.042, 10, { uvScale: 0.12, capA: false });
 }
 
 /** Boot + lower leg: origin = sole centre, +Y up the leg, +Z = toes. */

@@ -79,6 +79,20 @@ export interface LightSpec {
   on?: boolean;
 }
 
+// ------------------------------------------------------------------ photometric scale
+// Shared with the other content areas, which use the same `light` feature at ~0.7–1.0 for table
+// and floor lamps (living/lamps.ts, bedroom/lamps.ts) and ~0.3 for LED strips. A ceiling fixture
+// reads about 1.5–2× a table lamp, so fixtures sit at 1.2–1.8 — bright enough to light the room,
+// soft enough not to swamp the lamps and the golden-hour sun. Tune in-engine against these.
+/** Single-bulb ceiling fixture behind a diffuser (flush dome, schoolhouse globe, fan kit). */
+export const I_CEILING = 1.5;
+/** Bare bulb (laundry batten) — no diffuser, but a utility room: same order. */
+export const I_BARE = 1.3;
+/** Fabric drum pendant (the shade absorbs some light). */
+export const I_PENDANT = 1.6;
+/** One wide spot standing in for a whole 3-head track bar. */
+export const I_TRACK = 1.8;
+
 /** Overall length (screw base + envelope) of a bulb kind. */
 export function bulbLength(kind: BulbKind): number {
   const s = BULBS[kind];
@@ -87,10 +101,13 @@ export function bulbLength(kind: BulbKind): number {
 
 /**
  * Light bulb: aluminium screw base on the local origin, glass envelope along +Y (rotate 180°
- * about X for a bulb hanging from a socket). The envelope carries the `light` feature (mains)
- * and the emissive `bulb_on` surface; it is glued into the base. Returns full part names.
+ * about X for a bulb hanging from a socket). The envelope carries the emissive `bulb_on`
+ * surface and, unless `light.feature` is false, the `light` feature (mains); it is glued into
+ * the base. Pass `feature: false` for the extra bulbs of a multi-bulb fixture: the renderer caps the interior
+ * lights per material, so one light feature stands in for the whole fixture while the other
+ * bulbs only glow. Returns full part names.
  */
-export function bulb(b: Builder, name: string, kind: BulbKind, light: LightSpec = {}, pos: V3 = [0, 0, 0], rot?: [number, number, number]): { glass: string; cap: string; tip: number } {
+export function bulb(b: Builder, name: string, kind: BulbKind, light: LightSpec & { feature?: boolean } = {}, pos: V3 = [0, 0, 0], rot?: [number, number, number]): { glass: string; cap: string; tip: number } {
   const s = BULBS[kind];
   return scope(b, name, pos, rot, () => {
     const cap = b.cyl("cap", "aluminum", "aluminum", s.baseR, s.baseH, [0, s.baseH / 2, 0], { segments: 10, tess: 0 });
@@ -118,11 +135,12 @@ export function bulb(b: Builder, name: string, kind: BulbKind, light: LightSpec 
     const on = light.on ?? true;
     const glass = b.hull("glass", "glass", on ? "bulb_on" : "bulb_off", pts, [0, 0, 0], { smooth: 1, mass: s.kg });
     b.glue(glass, cap, 6);
+    if (light.feature === false) return { glass, cap, tip: s.baseH + s.len };
     b.light({
       part: glass,
       pos: [0, yc, 0],
       color: light.color ?? K2700,
-      intensity: light.intensity ?? 2.5,
+      intensity: light.intensity ?? I_CEILING,
       range: light.range ?? 5.5,
       castShadows: light.castShadows,
       mains: true,
@@ -222,4 +240,12 @@ export function extremeTiles(b: Builder, tiles: string[], which: "top" | "bottom
   });
   const best = which === "top" ? Math.max(...ys) : Math.min(...ys);
   return tiles.filter((_, i) => Math.abs(ys[i] - best) <= eps);
+}
+
+/** `count` indices spread evenly over 0..n−1 (e.g. three thumbscrews around an n-tile rim). */
+export function spreadIndices(n: number, count: number): number[] {
+  const out: number[] = [];
+  const m = Math.min(Math.max(0, Math.floor(count)), n);
+  for (let k = 0; k < m; k++) out.push(Math.round((k * n) / m) % n);
+  return out;
 }

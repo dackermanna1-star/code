@@ -870,7 +870,8 @@ export class World {
     tmpV.z += k.z;
     isl.body.setLinearVelocity(tmpV);
     // fracture forces are never perfectly central: a little tumble proportional to the kick
-    const spin = Math.min(25, (kl / Math.max(isl.extent, 0.02)) * 0.6);
+    // (kept moderate: fast-spinning thin shards tunnel through thin static parts)
+    const spin = Math.min(12, (kl / Math.max(isl.extent, 0.02)) * 0.3);
     const r = this.rng.onSphere();
     isl.body.getAngularVelocityToRef(tmpW);
     tmpW.x += r.x * spin;

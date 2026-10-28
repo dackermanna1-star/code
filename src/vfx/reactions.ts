@@ -154,6 +154,10 @@ export class Reactions {
       events.on("footstep", (e) => this.footstep(e)),
       events.on("split", (e) => this.split(e)),
       events.on("strain", (e) => this.strain(e)),
+      // debris resting on something the player picks up / throws / drops must re-check its support
+      events.on("grab", (e) => this.moved(e.pos)),
+      events.on("throw", (e) => this.moved(e.pos)),
+      events.on("drop", (e) => this.moved(e.pos)),
     ];
     return () => offs.forEach((f) => f());
   }
@@ -377,6 +381,11 @@ export class Reactions {
     if (!m) return;
     if (m.splinters) this.sink.burst("woodChips", ev.pos, UP, 0.15 + ev.stress * 0.2, { tint: m.chipTint });
     else if (m.dust) this.sink.burst(m.dust, ev.pos, UP, 0.15 + ev.stress * 0.25, { tint: m.dustTint });
+  }
+
+  /** Something was moved by the player near `pos`: settled debris there may have lost its support. */
+  moved(pos: Vec3): void {
+    if (fin(pos)) this.sink.disturb(pos, 1.2);
   }
 
   private nearRecentHit(p: Vec3, now: number): boolean {

@@ -270,6 +270,28 @@ test("generateSeeds chunks / splinter / crumble / crack distributions", () => {
   assert.ok(minD > 0.04, "crack seeds spread across the part");
 });
 
+test("generateSeeds: corner/edge impacts and oversize radii never produce duplicate seeds", () => {
+  const pane = polyBox(v(0.9, 1.2, 0.006), A);
+  const button = polyBox(v(0.002, 0.002, 0.002), A);
+  const cases: Array<[ConvexPoly, Vec3, SeedPattern, number]> = [
+    [pane, v(0.45, 0.6, 0), "radial", 0.2],
+    [pane, v(0.45, 0, 0), "radial", 0.2],
+    ...(["chunks", "splinter", "crumble", "radial", "crack"] as SeedPattern[]).map((pat): [ConvexPoly, Vec3, SeedPattern, number] => [button, v(0, 0, 0.001), pat, 0.15]),
+  ];
+  for (const [p, impact, pattern, radius] of cases) {
+    for (let i = 0; i < 4; i++) {
+      const s = generateSeeds(p, { pattern, impact, dir: v(0, 0, -1), radius, count: 30, rng: new Rng(100 + i) });
+      assert.equal(s.length, 30);
+      const sep = 1e-3 * Math.min(radius, polyExtents(p).ext[0]);
+      for (let a = 0; a < s.length; a++) {
+        assert.ok(polySignedDist(p, s[a]) < 0, `${pattern}: seed inside`);
+        for (let b = a + 1; b < s.length; b++) assert.ok(Math.hypot(s[a].x - s[b].x, s[a].y - s[b].y, s[a].z - s[b].z) > sep, `${pattern}: seeds ${a},${b} distinct`);
+      }
+      if (p === pane) assert.equal(voronoiFracture(p, s, { interiorAttr: INT }).length, 30, "corner/edge web keeps every fragment");
+    }
+  }
+});
+
 test("fracture performance: 30 seeds in a box < 5 ms, 300-seed dice < 60 ms", () => {
   const rng = new Rng(42);
   const box = polyBox(v(0.6, 0.4, 0.3), A);

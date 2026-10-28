@@ -91,7 +91,7 @@ export const K = {
   maxDmgPoints: 16,
   /** Max seeds of one (non-dice) fracture, coarse dice cells, and expanded dice micro cubes. */
   maxSeeds: 40,
-  maxDiceCoarse: 100,
+  maxDiceCoarse: 64,
   maxDiceMicro: 900,
   /** Crumple metric threshold (Σ depth·r² / (ext0·ext1·ext2)). */
   crumple: 1,

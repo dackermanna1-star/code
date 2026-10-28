@@ -91,14 +91,14 @@ export function buildCoffeeTable(o: CoffeeTableOpts = {}): AssemblyDef {
   // ---- legs under the frame corners
   const legs: string[] = [];
   for (const [sx, sz, nm] of [
-    [-1, 1, "fl"],
+    [-1, 1, "fl"], // axis-based names: left = -X, front = +Z
     [1, 1, "fr"],
     [-1, -1, "bl"],
     [1, -1, "br"],
   ] as Array<[number, number, string]>) {
     const leg = b.box(`leg_${nm}`, "hardwood", surf, [legS, legH, legS], [sx * (W / 2 - legS / 2), legH / 2, sz * (D / 2 - legS / 2)], { tint, grain: "y" });
     b.dowel(leg, sz > 0 ? railFront : railBack, 2, 45);
-    b.dowel(leg, sx > 0 ? railR : railL, 2, 45);
+    b.dowel(leg, sx > 0 ? railR : railL, 2, 45); // left rail = -X side
     legs.push(leg);
   }
   const [legFL, legFR, legBL, legBR] = legs;

@@ -60,8 +60,10 @@ test("arcPoints and frameBarPoints", () => {
   const pts = arcPoints(v3(1, 2, 3), 0.5, 0, 90, 4, "xz");
   assert.equal(pts.length, 5);
   assert.ok(same(pts[0], v3(1.5, 2, 3), 1e-12) && same(pts[4], v3(1, 2, 3.5), 1e-12));
+  // axis-based names: left bar = -X side, right bar = +X side
   const fb = frameBarPoints(1, 0.6, { top: 0.03, bottom: 0.03, left: 0.03, right: 0.05 }, 0, 0.02);
   assert.ok(Math.abs(fb.inner.x0 + 0.47) < 1e-12 && Math.abs(fb.inner.x1 - 0.45) < 1e-12);
+  assert.ok(fb.left.every((p) => p.x < -0.46) && fb.right.every((p) => p.x > 0.44));
   assert.equal(fb.top.length, 8);
   assert.throws(() => frameBarPoints(0.1, 0.1, 0.06, 0, 0.01), /no opening/);
 });

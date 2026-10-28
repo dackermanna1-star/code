@@ -35,7 +35,7 @@ export async function probe() {
       label += s ? ` ${s.speed}m/s ${s.energy}J y=${r(s.point[1] - 1.65, 2)}` : " NO HIT";
     } else if (mode === "kick") {
       h.addBox("crate", new Vector3(0, 0.3, 0.95), new Vector3(0.6, 0.6, 0.4), { mat: "softwood", color: new Color3(0.6, 0.45, 0.3) });
-      h.setView(new Vector3(0, 1.65, 0), 0, 0.35);
+      h.setView(new Vector3(0, 1.65, 0), 0, 0.62);
       h.tools.kick(h.tc);
       for (let k = 0; k < 40 && h.strikes.length === 0; k++) h.step(1);
       const s = h.strikes[0];

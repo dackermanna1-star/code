@@ -210,7 +210,7 @@ export const PROFILES: Readonly<Record<string, ParticleProfile>> = Object.fromEn
     }),
     // ---------------------------------------------------------------- sparks & glints
     P("sparkStreaks", "spark", BITS_CELLS.streak, {
-      count: 20, countExp: 0.7, maxCount: 240, life: [0.22, 0.6], size: [0.008, 0.014], sizeExp: 0, speed: [3, 10], speedExp: 0.3,
+      count: 20, countExp: 0.7, maxCount: 240, life: [0.22, 0.6], size: [0.012, 0.02], sizeExp: 0, speed: [3, 10], speedExp: 0.3,
       spread: 0.8, radius: 0.01, radiusExp: 0.3, offset: 0.01, quadDrag: 1.2, collide: 2, bounce: 0.45, friction: 4,
       color: [1, 0.62, 0.22], colorVar: 0.05, tintMix: 0, fadeOut: 0.3, stretch: 1 / 55, lit: 0, hdr: 3, cool: 1,
     }),

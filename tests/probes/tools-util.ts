@@ -355,9 +355,6 @@ export async function makeHarness(canvas: HTMLCanvasElement, opts: { floor?: boo
     eventsLog,
     bodies,
     pryScript: [] as number[],
-    get stepCount() {
-      return stepCount;
-    },
     setView(eye: Vector3, yaw: number, pitch: number) {
       tc.eye.copyFrom(eye);
       tc.forward.set(Math.sin(yaw) * Math.cos(pitch), -Math.sin(pitch), Math.cos(yaw) * Math.cos(pitch));
@@ -409,6 +406,8 @@ export async function makeHarness(canvas: HTMLCanvasElement, opts: { floor?: boo
       }
     },
   });
+  // live getter (Object.assign would have copied a snapshot of the value)
+  Object.defineProperty(harness, "stepCount", { get: () => stepCount, enumerable: true });
   harness.tools = new ToolSystem(ctx);
   harness.setView(new Vector3(0, 1.65, 0), 0, 0);
   return harness;

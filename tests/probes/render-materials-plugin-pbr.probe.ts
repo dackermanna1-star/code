@@ -95,6 +95,10 @@ export async function runWorldMatScene(kind: "pbr" | "std", opts: { bloom: boole
   propMesh.receiveShadows = true;
   sg.addShadowCaster(propMesh);
 
+  // a mesh WITHOUT the custom "surf" attribute (and without colours) using the same material
+  const noSurf = MeshBuilder.CreateBox("noSurf", { size: 0.5 }, scene);
+  noSurf.position.set(-3.2, 0.25, -1.6);
+  noSurf.material = mat;
   let envInfo: Record<string, unknown> | null = null;
   if (opts.env) {
     // Network-free IBL: gradient sky dome + scene geometry captured once into a cube RT, used as the scene
@@ -171,6 +175,13 @@ export async function runWorldMatScene(kind: "pbr" | "std", opts: { bloom: boole
     msPerFrameCPU: +msPerFrame.toFixed(2),
     activeMeshes: scene.getActiveMeshes().length,
     shadowRenderList: sg.getShadowMap()?.renderList?.length,
+    noSurfMesh: {
+      ready: mat.isReady(noSurf),
+      WORLDMAT_SURF: !!noSurf.subMeshes[0].materialDefines?.["WORLDMAT_SURF"],
+      VERTEXCOLOR: !!noSurf.subMeshes[0].materialDefines?.["VERTEXCOLOR"],
+      pixel: await readWorld([-3.2, 0.25, -1.86]),
+      propMesh_WORLDMAT_SURF: !!propMesh.subMeshes[0].materialDefines?.["WORLDMAT_SURF"],
+    },
     envInfo,
     metalCubeFront: await readWorld([0, 0.45, -0.41]),
   };

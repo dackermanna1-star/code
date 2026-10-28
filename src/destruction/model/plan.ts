@@ -4,11 +4,9 @@
 
 import type { Vec3 } from "../../geom/vec.ts";
 import {
-  polyBox,
   polyChord,
   polyClip,
   polyClosestPoint,
-  polyFaceArea,
   polyFaceAreaOnPlane,
   polySignedDist,
   polyVolume,
@@ -78,21 +76,6 @@ const norm = (a: Vec3): Vec3 => {
 export function interiorAttr(part: PartState): FaceAttr {
   const surf = (S as Record<string, number>)[part.mat.interiorSurf] ?? 0;
   return { surf, tint: 0xffffff, uv: zeroUV(), interior: true, smooth: 0 };
-}
-
-/** Largest exterior face attribute (appearance of micro cubes). */
-function exteriorAttr(poly: ConvexPoly, fallback: FaceAttr): FaceAttr {
-  let best: FaceAttr | null = null,
-    ba = -1;
-  for (const f of poly.faces) {
-    if (f.attr.interior) continue;
-    const a = polyFaceArea(poly, f);
-    if (a > ba) {
-      ba = a;
-      best = f.attr;
-    }
-  }
-  return best ?? fallback;
 }
 
 function lerp(a: number, b: number, t: number): number {
@@ -359,7 +342,6 @@ function ringSeeds(region: ConvexPoly, seeds: Vec3[], center: Vec3, n: Vec3, r: 
  */
 function diceShower(part: PartState, cells: WorkCell[], diceCell: number, req: PlanRequest, rng: Rng): PlannedCell[] {
   const out: PlannedCell[] = [];
-  const attr = exteriorAttr(part.poly, interiorAttr(part));
   const t = Math.max(1e-3, Math.min(part.ext[2], req.t));
   const n = req.faceN;
   const e1 = norm(Math.abs(n.x) < 0.9 ? V(0, -n.z, n.y) : V(n.z, 0, -n.x));
@@ -384,8 +366,10 @@ function diceShower(part: PartState, cells: WorkCell[], diceCell: number, req: P
         v = rng.range(-sp, sp);
       const p = V(c.centroid.x + e1.x * u + e2.x * v, c.centroid.y + e1.y * u + e2.y * v, c.centroid.z + e1.z * u + e2.z * v);
       const s = size * rng.range(0.75, 1.15);
-      const poly = polyBox(V(s, s, Math.min(s, t)), attr, { p, q: { x: 0, y: 0, z: 0, w: 1 } });
-      out.push({ poly, volume: c.volume / m, centroid: p, maxExtent: s, role: "micro", kick: V(0, 0, 0) });
+      // Micro cells become particles (position = centroid, size = maxExtent, look = largest
+      // face of the poly): the cubes share their coarse cell's poly read-only instead of
+      // allocating hundreds of tiny polyhedra.
+      out.push({ poly: c.poly, volume: c.volume / m, centroid: p, maxExtent: s, role: "micro", kick: V(0, 0, 0) });
     }
   }
   return out;

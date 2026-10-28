@@ -10,7 +10,7 @@
 import { Builder, type V3 } from "../lib/builder.ts";
 import { lowestPart, vessel } from "../lib/kit.ts";
 import type { AssemblyDef } from "../../destruction/model/types.ts";
-import { leaf, PALETTE } from "./lib.ts";
+import { leaf } from "./lib.ts";
 
 interface PotResult {
   tiles: string[];
@@ -75,7 +75,7 @@ export function buildFiddleLeafFig(o: { potTint?: number; seed?: number } = {}):
     const p = at(y);
     const a = (yaw * Math.PI) / 180;
     const base: V3 = [p[0] + 0.008 * Math.cos(a), y, p[2] - 0.008 * Math.sin(a)];
-    const lf = leaf(b, `leaf${k}`, { len, wid: len * 0.55, thick: 0.004, tint: PALETTE.ceramic[0] === 0 ? 0 : k % 3 === 0 ? 0x5b8a3c : 0x46733a }, base, [0, yaw, tilt]);
+    const lf = leaf(b, `leaf${k}`, { len, wid: len * 0.55, thick: 0.004, tint: k % 3 === 0 ? 0x5b8a3c : 0x46733a }, base, [0, yaw, tilt]);
     b.glue(lf, segOf(y), 3);
   }
   return b.build();

@@ -16,13 +16,19 @@ function bx(x0: number, y0: number, z0: number, x1: number, y1: number, z1: numb
 
 export async function probe(): Promise<unknown> {
   const canvas = document.getElementById("renderCanvas") as HTMLCanvasElement;
-  const engine = new Engine(canvas, true, { stencil: true, preserveDrawingBuffer: true });
+  const engine = new Engine(canvas, false, { stencil: true, preserveDrawingBuffer: true, antialias: false });
   const scene = new Scene(engine);
   const settings = new Settings();
+  // SwiftShader is far too slow for the high preset (CSM + SSAO + bloom); low keeps the probe
+  // inside the harness timeout while still exercising every integration path
+  const q = new URLSearchParams(location.search).get("quality") ?? (globalThis as { __quality?: string }).__quality ?? "low";
+  settings.data.quality = q as "low";
   const progress: string[] = [];
   const t0 = performance.now();
+  const log = (m: string): void => console.log(`[sys] ${m} @${Math.round(performance.now() - t0)}ms`);
   const render = await createRender({ engine, scene, settings, textures: { proceduralOnly: true }, onProgress: (p, l) => progress.push(`${Math.round(p * 100)}%:${l}`) });
   const createMs = performance.now() - t0;
+  log("created");
   const paint = 0xeee7da;
   // ---- structure island (static): floor, ceiling, walls with the south openings
   const shell: RenderGeom[] = [
@@ -77,13 +83,16 @@ export async function probe(): Promise<unknown> {
   render.addLight(bulb, "living", true);
 
   const cam = render.camera;
+  log("built");
   await scene.whenReadyAsync();
+  log("ready");
   for (let i = 0; i < 3; i++) {
     render.update(1 / 60);
     scene.render();
   }
   const sheets: string[] = [];
   sheets.push(snap(scene, 2));
+  log("snap0");
   const tc = performance.now();
   const capP = render.captureEnvironmentAsync();
   let captured = false;
@@ -94,6 +103,7 @@ export async function probe(): Promise<unknown> {
     await new Promise((r) => setTimeout(r, 30));
   }
   const captureMs = performance.now() - tc;
+  log("captured " + captured);
   sheets.push(snap(scene, 2));
   // view towards the windows (exterior, shafts, glass)
   cam.position.set(7.0, 1.6, 3.8);

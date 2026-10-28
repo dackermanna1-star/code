@@ -107,8 +107,9 @@ function plankTint(rng: Rng): number {
 }
 
 function addLaminate(b: Builder, id: RoomId, cov: Rect2[]): void {
-  // 8 mm acoustic underlay sheets, floating (friction)
-  addPanels(b, "underlay_", cov, 1.25, [SLAB_TOP_Y, FLOOR_Y - LAMINATE_T], "foam", "foam", { tint: PAL.underlay, tags: ["underlay"] }, { kind: "friction", perM2: 6, min: 3 });
+  // 8 mm acoustic underlay sheets, floating (friction), seams taped
+  const under = addPanels(b, "underlay_", cov, 1.25, [SLAB_TOP_Y, FLOOR_Y - LAMINATE_T], "foam", "foam", { tint: PAL.underlay, tags: ["underlay"] }, { kind: "friction", perM2: 6, min: 3 });
+  bondAdjacent(b, under, SLAB_TOP_Y + 0.004, "glue", 3, 2, 2);
   const rng = new Rng(seedOf(`laminate:${id}`));
   const bb = rectsBounds(cov);
   const main = [...cov].sort((p, q) => rectArea(q) - rectArea(p))[0];
@@ -161,6 +162,7 @@ function addLaminate(b: Builder, id: RoomId, cov: Rect2[]): void {
         });
         worldAt(b, name, "friction", 8 + 10 * (p.x1 - p.x0), [mid(p.x0, p.x1), y0, mid(p.z0, p.z1)]);
         pieces.push({ ...p, name, row: k });
+        finishPieces.push({ ...p, name, row: k });
       }
     }
   }
@@ -205,6 +207,7 @@ function addTiles(b: Builder, id: RoomId, cov: Rect2[]): void {
           e = Math.min(p.z1, cz + FLOOR_TILE - hj);
         if (c - a < 0.02 || e - d < 0.02) continue;
         const name = `tile_${n++}`;
+        finishPieces.push({ name, x0: a, x1: c, z0: d, z1: e, row: 0 });
         boxW(b, name, "tile", "tile_porcelain", [a, c], [y0, FLOOR_Y], [d, e], {
           tint: PAL.porcelain,
           supported: true,
@@ -227,7 +230,8 @@ function addTiles(b: Builder, id: RoomId, cov: Rect2[]): void {
 }
 
 function addCarpet(b: Builder, id: RoomId, cov: Rect2[]): void {
-  addPanels(b, "pad_", cov, 1.25, [SLAB_TOP_Y, FLOOR_Y - CARPET_T], "foam", "foam", { tint: PAL.carpetPad, tags: ["carpet-pad"] }, { kind: "glue", perM2: 8, min: 4 });
+  const pads = addPanels(b, "pad_", cov, 1.25, [SLAB_TOP_Y, FLOOR_Y - CARPET_T], "foam", "foam", { tint: PAL.carpetPad, tags: ["carpet-pad"] }, { kind: "glue", perM2: 8, min: 4 });
+  bondAdjacent(b, pads, SLAB_TOP_Y + 0.005, "glue", 3, 2, 2);
   const faces = roomFaces(id);
   const pieces: Piece[] = [];
   let k = 0;
@@ -252,12 +256,16 @@ function addCarpet(b: Builder, id: RoomId, cov: Rect2[]): void {
         if (Math.abs(z[1] - faces.z1) < 0.01) fx.world(name, "nail", 25, [mid(x[0], x[1]), FLOOR_Y - CARPET_T, z[1]]);
         fx.flush(b);
         pieces.push({ name, x0: x[0], x1: x[1], z0: z[0], z1: z[1], row: j });
+        finishPieces.push({ name, x0: x[0], x1: x[1], z0: z[0], z1: z[1], row: j });
       }
     }
   }
   // seam tape
   bondAdjacent(b, pieces, FLOOR_Y - CARPET_T / 2, "glue", 8, 6, 4);
 }
+
+/** Finish pieces (planks / tiles / carpet) of this floor, for edge bonds to thresholds. */
+const finishPieces: Piece[] = [];
 
 function addThresholds(b: Builder, id: RoomId): void {
   for (const t of thresholds()) {
@@ -270,6 +278,15 @@ function addThresholds(b: Builder, id: RoomId): void {
     // glued and nailed down every ~0.6 m (one bond with the summed strength)
     const n = Math.max(1, Math.round(len / 0.6));
     worldAt(b, name, "nail", 40 * n, [mid(r.x0, r.x1), SLAB_TOP_Y, mid(r.z0, r.z1)]);
+    // edge-glued to the finish it meets (transition strip)
+    for (const p of finishPieces) {
+      const tx = Math.abs(p.x1 - r.x0) < 1e-5 || Math.abs(p.x0 - r.x1) < 1e-5;
+      const tz = Math.abs(p.z1 - r.z0) < 1e-5 || Math.abs(p.z0 - r.z1) < 1e-5;
+      const oz = Math.min(p.z1, r.z1) - Math.max(p.z0, r.z0),
+        ox = Math.min(p.x1, r.x1) - Math.max(p.x0, r.x0);
+      if (tx && oz > 0.01) bondAt(b, name, p.name, "glue", 6, [Math.abs(p.x1 - r.x0) < 1e-5 ? r.x0 : r.x1, FLOOR_Y - 0.005, mid(Math.max(p.z0, r.z0), Math.min(p.z1, r.z1))]);
+      else if (tz && ox > 0.01) bondAt(b, name, p.name, "glue", 6, [mid(Math.max(p.x0, r.x0), Math.min(p.x1, r.x1)), FLOOR_Y - 0.005, Math.abs(p.z1 - r.z0) < 1e-5 ? r.z0 : r.z1]);
+    }
   }
 }
 
@@ -281,6 +298,7 @@ export function buildFloor(id: RoomId): AssemblyDef {
   const cov = floorCoverage(id);
   const area = cov.reduce((s, r) => s + rectArea(r), 0);
   const b = newBuilder(`floor_${room.floor}`, `${FINISH_NAMES[room.floor]} — ${room.name}`, "structure", Math.round(area * (FINISH_VALUE[room.floor] ?? 40)));
+  finishPieces.length = 0;
   if (room.floor === "laminate") addLaminate(b, id, cov);
   else if (room.floor === "tile") addTiles(b, id, cov);
   else if (room.floor === "carpet") addCarpet(b, id, cov);

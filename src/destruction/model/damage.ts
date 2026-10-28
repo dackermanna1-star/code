@@ -288,7 +288,7 @@ export function effectiveEnergy(part: PartState, p: Vec3, E: number): number {
   if (!(D > 0)) return e;
   const Eref = referenceEnergy(part, rc, Math.max(1e-4, fin(part.ext[2], 0.01)));
   if (!(Eref > 0) || !Number.isFinite(Eref)) return e;
-  return e * (1 + (part.mat.fatigue * D) / Eref);
+  return e + Math.min((e * part.mat.fatigue * D) / Eref, part.mat.fatigue * Eref);
 }
 
 // ============================================================================ bonds
@@ -540,7 +540,9 @@ function respondBrittle(c: Ctx): number {
   const alpha = Math.min(2.5, Math.max(0.5, Math.sqrt(K.contactRef / rc)));
   const G = mat.G * str;
   const El = dice || !(G > 0) ? Infinity : localEnergy(G, rNeed, geom.t, alpha);
-  const amp = (ref: number): number => (Number.isFinite(ref) && ref > 0 ? 1 + (mat.fatigue * D) / ref : 1);
+  // Fatigue amplification, saturating: remembered damage can add at most fatigue × threshold
+  // (it lets sub-threshold hits accumulate to failure without inflating big hits without bound).
+  const amp = (ref: number): number => (Number.isFinite(ref) && ref > 0 ? 1 + Math.min((mat.fatigue * D) / ref, (mat.fatigue * ref) / E) : 1);
   const EeffG = (E * amp(Eg)) / Math.max(1, sharp);
   const EeffL = E * amp(El) * sharp;
   const conc = sharp * Math.min(2, Math.max(0.7, Math.sqrt(K.contactRef / rc)));
@@ -554,8 +556,10 @@ function respondBrittle(c: Ctx): number {
   if (rG >= 1) {
     fp = plan(c, { global: true, mode: mat.mode, pattern, radius: 0, depth: geom.t, through: true, overload: rG });
   } else if (rL >= 1) {
-    const rE = solveRadius(G, EeffL, geom.t, alpha);
-    if (rE >= rNeed * 0.999) {
+    // Sharpness lowers the threshold (concentration) but does not make the hole larger: the
+    // radius comes from the energy itself, at least the minimum breakout.
+    const rE = Math.max(rNeed, solveRadius(G, EeffL / Math.max(1, sharp), geom.t, alpha));
+    {
       let r = sharp < 1.5 ? Math.sqrt(rE * rE + 0.25 * rc * rc) : rE;
       const rMax = K.globalFrac * geom.inPlaneMin;
       if (r > rMax && globalAllowed && Number.isFinite(Eg)) {

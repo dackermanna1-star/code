@@ -231,6 +231,19 @@ export async function probe() {
   key("KeyW", false);
   out.pushSofa120kg = { sofaMoved: r2(Vector3.Distance(sofaStart, sofa.transformNode.position)), playerZ: r2(p.foot.z) };
 
+  // ---------------------------------------------------------------- the capsule body follows the player
+  // (dynamic bodies collide with the controller's kinematic capsule: a box dropped on the head rests on it)
+  p.teleport({ x: -8, y: 1.65, z: -8 }, 0, 0);
+  w.step(20);
+  key("KeyW", true);
+  w.step(30); // walk somewhere first: the kinematic body must have moved along
+  key("KeyW", false);
+  w.step(20);
+  const hx = p.foot.x, hz = p.foot.z;
+  const headBox = w.box("headBox", [0.3, 0.3, 0.3], [hx, 2.6, hz], { motion: PhysicsMotionType.DYNAMIC, mass: 3 });
+  w.step(90);
+  out.boxOnHead = { boxY: r2(headBox.transformNode.position.y), restsOnHead: headBox.transformNode.position.y > 1.75 };
+
   // ---------------------------------------------------------------- look & camera
   p.teleport({ x: 0, y: 1.65, z: 0 }, 0, 0);
   w.step(5);

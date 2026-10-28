@@ -12,8 +12,9 @@
 //  2. Frame: origin at the base centre on the floor, +Y up, front faces +Z. Real dimensions in
 //     metres. Hollow things are hollow: thin panels with their real thickness, not solid blocks.
 //     HANDEDNESS: Babylon is LEFT-handed. Standing in front of the object (looking at its +Z
-//     face) its LEFT side is +X and its RIGHT side is -X — so a microwave's controls (right) sit
-//     at -X and its hinges (left) at +X; check with a probe screenshot if unsure.
+//     face) you see its -X side on YOUR RIGHT and its +X side on your left. So a microwave's
+//     controls (on the user's right) sit at -X and its door hinges at +X — see the reference
+//     microwave, and check with a probe screenshot when handedness matters.
 //  3. Every part is convex. Curved shells = tiles (b.lathe / b.arcPanel / b.torus), rings and
 //     handles = b.tube along a path, frames = mitred bars (frameBars below).
 //  4. The material decides the behaviour: glass shatters, tempered glass dices, wood splinters
@@ -44,7 +45,9 @@
 // Helper conventions: helper(b, name, opts, pos?, rot?) builds parts named `${name}_*` in a
 // local frame placed at pos/rot (relative to the current group frame) and returns FULL part
 // names you can bond to from anywhere. Part references passed in options (`on`, `fixed`...) may
-// be local names of the CALLER's frame or full names.
+// be local names of the CALLER's frame or full names. Left/right names in the kit (`_l`/`_r`,
+// `left`/`right`, hinge sides, corners fl/fr/bl/br) are AXIS-based: left = -X, right = +X,
+// front = +Z (remember: seen from the front, -X is the viewer's right).
 //
 // PURE MODULE (no Babylon imports).
 
@@ -55,6 +58,7 @@ import type { BondKind } from "../../destruction/model/types.ts";
 import { S, type SurfaceName } from "../../render/surfaces.ts";
 import { Builder, vec, type V3, type Rot } from "./builder.ts";
 import { frameBarPoints, arcPoints, type BarWidths } from "./shapes.ts";
+import { polyPointDist } from "./contact.ts";
 
 export { frameBarPoints, arcPoints, tubeSegments } from "./shapes.ts";
 export type { BarWidths } from "./shapes.ts";
@@ -407,8 +411,8 @@ export type BoxFace = "top" | "bottom" | "left" | "right" | "back" | "front";
 
 /**
  * Box of sheet-metal panels (appliance casings, cabinets, ducts) joined by spot welds or screws
- * along every seam. Local frame: x ∈ ±w/2, y ∈ [0, h], z ∈ ±d/2. Panels never overlap: sides
- * are full size, top/bottom fit between the sides, back/front fit inside the rest.
+ * along every seam. Local frame: x ∈ ±w/2, y ∈ [0, h], z ∈ ±d/2; left = -X, right = +X. Panels
+ * never overlap: sides are full size, top/bottom fit between the sides, back/front fit inside.
  */
 export function sheetMetalBox(
   b: Builder,
@@ -426,8 +430,8 @@ export function sheetMetalBox(
   need(w > 4 * t && h > 4 * t && d > 4 * t, "sheetMetalBox: too small for the sheet thickness");
   return scoped(b, name, pos, rot, () => {
     const out: Partial<Record<BoxFace, string>> = {};
-    const sx0 = f.left ? -w / 2 + t : -w / 2,
-      sx1 = f.right ? w / 2 - t : w / 2;
+    const sx0 = f.left ? -w / 2 + t : -w / 2, // left panel at -X
+      sx1 = f.right ? w / 2 - t : w / 2; // right panel at +X
     const ty0 = f.bottom ? t : 0,
       ty1 = f.top ? h - t : h;
     const sf = (face: BoxFace): SurfaceName => o.faceSurf?.[face] ?? surf;
@@ -493,7 +497,7 @@ export interface CarcassResult {
 /**
  * Cabinet carcass (kitchen base/wall cabinet, wardrobe, bookcase body): two sides, bottom, top
  * panel or rails, 3 mm hardboard back stapled on, optional recessed toe kick and shelves.
- * Local frame: x ∈ ±w/2, y ∈ [0, h], z ∈ ±d/2, front +Z.
+ * Local frame: x ∈ ±w/2, y ∈ [0, h], z ∈ ±d/2, front +Z; `left` side at -X, `right` at +X.
  */
 export function cabinetCarcass(b: Builder, name: string, o: CarcassOpts, pos: V3 = [0, 0, 0], rot?: Rot): CarcassResult {
   const t = o.t ?? 0.018;
@@ -512,8 +516,8 @@ export function cabinetCarcass(b: Builder, name: string, o: CarcassOpts, pos: V3
       zc = (zb + zf) / 2;
     const toeH = toe ? toe.h : 0;
     const iw = w - 2 * t;
-    const left = b.box("side_l", mat, surf, [t, h, dz], [-w / 2 + t / 2, h / 2, zc], { tint });
-    const right = b.box("side_r", mat, surf, [t, h, dz], [w / 2 - t / 2, h / 2, zc], { tint });
+    const left = b.box("side_l", mat, surf, [t, h, dz], [-w / 2 + t / 2, h / 2, zc], { tint }); // -X
+    const right = b.box("side_r", mat, surf, [t, h, dz], [w / 2 - t / 2, h / 2, zc], { tint }); // +X
     const bottom = b.box("bottom", mat, surf, [iw, t, dz], [0, toeH + t / 2, zc], { tint });
     const tops: string[] = [];
     if (topMode === "full") tops.push(b.box("top", mat, surf, [iw, t, dz], [0, h - t / 2, zc], { tint }));
@@ -617,7 +621,7 @@ export interface DrawerOpts {
   mat?: MaterialId;
   surf?: SurfaceName;
   tint?: number;
-  /** Carcass part(s) the runners are screwed to: one part or [left, right]. */
+  /** Carcass part(s) the runners are screwed to: one part or [left (-X), right (+X)]. */
   fixed: string | [string, string];
   /** Max extension (m), default 0.85·d. */
   travel?: number;
@@ -646,8 +650,8 @@ export function drawer(b: Builder, name: string, o: DrawerOpts, pos: V3 = [0, 0,
   const { w, h, d } = o;
   need(w > 2 * sideT + 0.02 && h > bottomT + 0.02 && d > backT + 0.05, `drawer '${name}': dimensions too small`);
   return scoped(b, name, pos, rot, () => {
-    const left = b.box("side_l", mat, surf, [sideT, h, d], [-w / 2 + sideT / 2, h / 2, -d / 2], { tint });
-    const right = b.box("side_r", mat, surf, [sideT, h, d], [w / 2 - sideT / 2, h / 2, -d / 2], { tint });
+    const left = b.box("side_l", mat, surf, [sideT, h, d], [-w / 2 + sideT / 2, h / 2, -d / 2], { tint }); // -X
+    const right = b.box("side_r", mat, surf, [sideT, h, d], [w / 2 - sideT / 2, h / 2, -d / 2], { tint }); // +X
     const iw = w - 2 * sideT;
     const bottom = b.box("bottom", "mdf", "mdf", [iw, bottomT, d], [0, bottomT / 2, -d / 2]);
     const back = b.box("back", mat, surf, [iw, h - bottomT, backT], [0, bottomT + (h - bottomT) / 2, -d + backT / 2], { tint });
@@ -678,8 +682,9 @@ export interface DoorPanelOpts {
   surf?: SurfaceName;
   tint?: number;
   /**
-   * Hinge side as seen by someone standing in front of the +Z face. Babylon is LEFT-handed, so
-   * "left" puts the hinges at +X and "right" at -X.
+   * Hinge edge by axis: "left" = the -X edge, "right" = the +X edge (seen from the front, -X is
+   * the viewer's right in Babylon's left-handed world). `fixed` must be on that side — a warning
+   * flags hinges far from their fixed part.
    */
   hinge: "left" | "right";
   /** Opens towards +Z (front, default) or -Z (back). */
@@ -733,7 +738,7 @@ export function hingedDoorPanel(b: Builder, name: string, o: DoorPanelOpts, pos:
   const mat = o.mat ?? "mdf";
   const surf = o.surf ?? (kind === "hollow" ? "wood_painted" : "laminate_white");
   const tint = o.tint ?? 0xffffff;
-  const hx = o.hinge === "left" ? 1 : -1; // hinge edge side in x (viewer's left = +X, left-handed)
+  const hx = o.hinge === "left" ? -1 : 1; // hinge edge side in x (axis-based: left = -X)
   const sz = (o.swing ?? "front") === "front" ? 1 : -1;
   const fixed = o.fixed === "world" ? "world" : b.resolve(o.fixed);
   const latchSpec = o.latch === undefined ? (tall ? { strength: 40 } : { strength: 3 }) : o.latch === false ? null : typeof o.latch === "number" ? { strength: o.latch } : o.latch;
@@ -824,6 +829,12 @@ export function hingedDoorPanel(b: Builder, name: string, o: DoorPanelOpts, pos:
         moving.push(leaf);
       } else moving.push(hingeMember);
     });
+    if (fixed !== "world") {
+      // the hinge pins must sit at the fixed part (jamb / carcass side): catches wrong hinge sides
+      const fp = b.get(fixed).poly;
+      const far = Math.max(...ys.map((y) => polyPointDist(fp, b.p([pivotX, y, pivotZ]))));
+      if (far > 0.05) b.warn(`hingedDoorPanel '${name}': hinges (${o.hinge} edge) are ${(far * 100).toFixed(0)} cm from the fixed part '${fixed}' — wrong hinge side? (left = -X edge)`);
+    }
     const strength = o.hingeStrength ?? (tall ? 90 : 30);
     const openDeg = o.openDeg ?? (tall ? 100 : 110);
     let group = "";
@@ -935,7 +946,7 @@ export function tableBase(b: Builder, name: string, o: TableBaseOpts, pos: V3 = 
   return scoped(b, name, pos, rot, () => {
     const legs: string[] = [];
     const corners: Array<[number, number, string]> = [
-      [-1, 1, "fl"],
+      [-1, 1, "fl"], // axis-based: left = -X, front = +Z
       [1, 1, "fr"],
       [-1, -1, "bl"],
       [1, -1, "br"],
@@ -1040,7 +1051,7 @@ export function legs4(
   return scoped(b, name, pos, rot, () => {
     const out: string[] = [];
     for (const [sx, sz, nm] of [
-      [-1, 1, "fl"],
+      [-1, 1, "fl"], // axis-based: left = -X, front = +Z
       [1, 1, "fr"],
       [-1, -1, "bl"],
       [1, -1, "br"],

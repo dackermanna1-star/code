@@ -149,7 +149,7 @@ export function buildMediaConsole(o: MediaConsoleOpts = {}): AssemblyDef {
     });
     knob(b, `${nm}_knob`, { on: door, r: 0.011, len: 0.02, mat: "aluminum", surf: BRASS.surf, tint: BRASS.tint, kind: "bolt", strength: 15 }, [hingeSide < 0 ? x1 - 0.035 : x0 + 0.035, (dy0 + dy1) / 2, zf + gap + doorT]);
   };
-  glassDoor("door_l", -W / 2 + 0.003, -dX - 0.003 - t / 2 + t / 2, -1, sideL, divL);
+  glassDoor("door_l", -W / 2 + 0.003, -dX - 0.003, -1, sideL, divL);
   glassDoor("door_r", dX + 0.003, W / 2 - 0.003, 1, sideR, divR);
 
   return b.build();

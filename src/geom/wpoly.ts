@@ -52,10 +52,28 @@ function ensureScratch(n: number): void {
 let cp: number[] = [];
 let cnv = 0;
 let cWeld2 = 0;
+let cDup2 = 0; // crossing-to-crossing weld radius² (true duplicates only, see wpolyClip)
 const edgeKey: number[] = [];
 const edgeVert: number[] = [];
 const newVerts: number[] = [];
+const newA: number[] = []; // edge endpoints of each new vertex (parallel to newVerts)
+const newB: number[] = [];
 const onVerts: number[] = [];
+let cFaces: WFace[] = [];
+
+/**
+ * True when some face of the poly being clipped contains all the given (pre-clip) vertices.
+ * Welding is only allowed between points that share a face: such points are consecutive on
+ * the cap loop, so merging them is a plain edge collapse. Welding two crossing points of
+ * edges that share no face would pinch the cap (non-manifold vertex, open edges).
+ */
+function shareFace(a: number, b: number, c: number, d: number): boolean {
+  for (const f of cFaces) {
+    const v = f.v;
+    if (v.indexOf(a) >= 0 && v.indexOf(b) >= 0 && v.indexOf(c) >= 0 && (d < 0 || v.indexOf(d) >= 0)) return true;
+  }
+  return false;
+}
 // cap-construction scratch (reused between calls; lengths reset per call)
 const EU: number[] = [];
 const EV: number[] = [];
@@ -86,7 +104,7 @@ function edgeVertex(a: number, b: number): number {
   if (near2(inV, x, y, z) <= cWeld2) idx = inV;
   if (idx < 0) {
     for (let k = 0; k < newVerts.length; k++) {
-      if (near2(newVerts[k], x, y, z) <= cWeld2) {
+      if (near2(newVerts[k], x, y, z) <= cDup2 && shareFace(lo, hi, newA[k], newB[k])) {
         idx = newVerts[k];
         break;
       }
@@ -94,7 +112,7 @@ function edgeVertex(a: number, b: number): number {
   }
   if (idx < 0) {
     for (let k = 0; k < onVerts.length; k++) {
-      if (near2(onVerts[k], x, y, z) <= cWeld2) {
+      if (near2(onVerts[k], x, y, z) <= cWeld2 && shareFace(lo, hi, onVerts[k], -1)) {
         idx = onVerts[k];
         break;
       }
@@ -104,6 +122,8 @@ function edgeVertex(a: number, b: number): number {
     idx = cp.length / 3;
     cp.push(x, y, z);
     newVerts.push(idx);
+    newA.push(lo);
+    newB.push(hi);
   }
   ON[idx] = 1;
   edgeKey.push(key);
@@ -122,15 +142,21 @@ export function wpolyClip(w: WPoly, nx: number, ny: number, nz: number, d: numbe
   let totalIdx = 0;
   for (const f of w.faces) totalIdx += f.v.length;
   ensureScratch(nv + totalIdx + 16);
+  // Vertices closer to the plane than the weld distance are snapped "on" the plane (kept, not
+  // split). Otherwise a cut passing ~1e-8×scale beside a vertex creates crossing points just
+  // beyond the weld distance on its edges: sub-micron edges whose rounded/welded corners come
+  // out slightly reflex (breaks the convex-face invariant). The snapped vertex stays where it is,
+  // at most weldEps off the cap plane, and both complementary halves share it (volume exact).
+  const onEps = Math.max(planeEps, weldEps);
   let nOut = 0,
     nIn = 0;
   for (let i = 0; i < nv; i++) {
     const s = nx * p[3 * i] + ny * p[3 * i + 1] + nz * p[3 * i + 2] - d;
     S[i] = s;
-    if (s > planeEps) {
+    if (s > onEps) {
       C[i] = 1;
       nOut++;
-    } else if (s < -planeEps) {
+    } else if (s < -onEps) {
       C[i] = -1;
       nIn++;
     } else C[i] = 0;
@@ -141,10 +167,18 @@ export function wpolyClip(w: WPoly, nx: number, ny: number, nz: number, d: numbe
   cp = p;
   cnv = nv;
   cWeld2 = weldEps * weldEps;
+  // Two crossings are merged only when they are numerically the same point (planeEps): with
+  // vertices within weldEps snapped on-plane, distinct crossings can only be close on nearly
+  // collinear edges, and pulling one onto the other by up to weldEps would bend the faces they
+  // sit on (reflex corners ~weldEps deep). Left apart they form an exact, tiny but convex edge.
+  cDup2 = planeEps * planeEps;
   edgeKey.length = 0;
   edgeVert.length = 0;
   newVerts.length = 0;
+  newA.length = 0;
+  newB.length = 0;
   onVerts.length = 0;
+  cFaces = w.faces;
   for (let i = 0; i < nv; i++) {
     const on = C[i] === 0 ? 1 : 0;
     ON[i] = on;
@@ -276,6 +310,7 @@ export function wpolyClip(w: WPoly, nx: number, ny: number, nz: number, d: numbe
   if (out.length < 4) {
     p.length = nv * 3; // drop the vertices appended by edgeVertex; w stays as it was
     cp = [];
+    cFaces = [];
     return CLIP_EMPTY;
   }
 
@@ -299,6 +334,7 @@ export function wpolyClip(w: WPoly, nx: number, ny: number, nz: number, d: numbe
   w.p = np;
   w.faces = out;
   cp = [];
+  cFaces = [];
   return CLIP_CUT;
 }
 

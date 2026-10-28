@@ -220,7 +220,7 @@ export interface ShowcaseOptions {
 }
 
 /** Run a staggered set of effects and stop on the screenshot frame. Returns stats. */
-export async function runShowcase(o: ShowcaseOptions): Promise<any> {
+export async function runShowcase(o: ShowcaseOptions): Promise<{ out: any; vfx: Vfx; fxs: FxScene }> {
   const fxs = makeFxScene({ wallZ: o.wallZ ?? 2.6, cam: o.cam, target: o.target, dark: o.dark });
   const { engine, scene } = fxs;
   for (const l of o.lights ?? []) addPointLight(scene, l[0], l[1], l[2], l[3]);

@@ -671,6 +671,35 @@ export class Decals {
     this.uploadTimer = 0.1;
   }
 
+  // scratch for the 4 strongest lights (no per-frame allocation)
+  private readonly bestS = new Float32Array(4);
+  private readonly bestL: Array<Light | null> = [null, null, null, null];
+
+  private consider(l: Light, cx: number, cy: number, cz: number): void {
+    if (!l.isEnabled() || !(l.intensity > 0)) return;
+    const cls = l.getClassName();
+    if (cls === "DirectionalLight") {
+      if (!this.sun || l.intensity > this.sun.intensity) this.sun = l;
+      return;
+    }
+    if (cls !== "PointLight" && cls !== "SpotLight") return;
+    const p = (l as unknown as { getAbsolutePosition(): { x: number; y: number; z: number } }).getAbsolutePosition();
+    const s = l.intensity / (1 + (p.x - cx) ** 2 + (p.y - cy) ** 2 + (p.z - cz) ** 2);
+    // insertion into the top-4 list
+    for (let k = 0; k < 4; k++) {
+      if (this.bestL[k] === null || s > this.bestS[k]) {
+        for (let j = 3; j > k; j--) {
+          this.bestS[j] = this.bestS[j - 1];
+          this.bestL[j] = this.bestL[j - 1];
+        }
+        this.bestS[k] = s;
+        this.bestL[k] = l;
+        return;
+      }
+    }
+  }
+  private sun: Light | null = null;
+
   /** Reflection/specular inputs for puddles: sun + the 4 strongest point/spot lights near the camera. */
   private updateUniforms(): void {
     const mat = this.material;
@@ -681,41 +710,32 @@ export class Decals {
     const cx = cam?.globalPosition.x ?? 0,
       cy = cam?.globalPosition.y ?? 1.6,
       cz = cam?.globalPosition.z ?? 0;
-    const best: Array<{ s: number; l: Light; x: number; y: number; z: number }> = [];
-    let sun: Light | null = null;
-    const visit = (l: Light) => {
-      if (!l.isEnabled() || !(l.intensity > 0)) return;
-      const cls = l.getClassName();
-      if (cls === "DirectionalLight") {
-        if (!sun || l.intensity > sun.intensity) sun = l;
-        return;
-      }
-      if (cls !== "PointLight" && cls !== "SpotLight") return;
-      const p = (l as unknown as { getAbsolutePosition(): { x: number; y: number; z: number } }).getAbsolutePosition();
-      const s = l.intensity / (1 + (p.x - cx) ** 2 + (p.y - cy) ** 2 + (p.z - cz) ** 2);
-      best.push({ s, l, x: p.x, y: p.y, z: p.z });
-    };
+    this.sun = null;
+    for (let k = 0; k < 4; k++) {
+      this.bestL[k] = null;
+      this.bestS[k] = 0;
+    }
     for (const l of this.scene.lights) {
       const kids = (l as unknown as { lights?: Light[] }).lights;
-      if (Array.isArray(kids)) kids.forEach(visit);
-      else visit(l);
+      if (Array.isArray(kids)) for (const c of kids) this.consider(c, cx, cy, cz);
+      else this.consider(l, cx, cy, cz);
     }
-    best.sort((a, b) => b.s - a.s);
-    this.lightPos.fill(0);
-    this.lightCol.fill(0);
-    best.length = Math.min(best.length, 4);
-    for (let k = 0; k < Math.min(4, best.length); k++) {
-      const b = best[k];
-      const c = b.l.diffuse;
-      const I = Math.min(4, b.l.intensity);
-      this.lightPos[k * 3] = b.x;
-      this.lightPos[k * 3 + 1] = b.y;
-      this.lightPos[k * 3 + 2] = b.z;
-      this.lightCol[k * 3] = c.r * I;
-      this.lightCol[k * 3 + 1] = c.g * I;
-      this.lightCol[k * 3 + 2] = c.b * I;
+    for (let k = 0; k < 4; k++) {
+      const l = this.bestL[k];
+      if (!l) {
+        for (let j = 0; j < 3; j++) this.lightPos[k * 3 + j] = this.lightCol[k * 3 + j] = 0;
+        continue;
+      }
+      const p = (l as unknown as { getAbsolutePosition(): { x: number; y: number; z: number } }).getAbsolutePosition();
+      const I = Math.min(4, l.intensity);
+      this.lightPos[k * 3] = p.x;
+      this.lightPos[k * 3 + 1] = p.y;
+      this.lightPos[k * 3 + 2] = p.z;
+      this.lightCol[k * 3] = l.diffuse.r * I;
+      this.lightCol[k * 3 + 1] = l.diffuse.g * I;
+      this.lightCol[k * 3 + 2] = l.diffuse.b * I;
     }
-    const s = sun as Light | null;
+    const s = this.sun as Light | null; // set by consider() (TS cannot see through the call)
     if (s) {
       const d = (s as unknown as { direction: { x: number; y: number; z: number } }).direction;
       const l = Math.hypot(d.x, d.y, d.z) || 1;

@@ -6,7 +6,7 @@
 
 import { Builder } from "../lib/builder.ts";
 import type { AssemblyDef } from "../../destruction/model/types.ts";
-import { bondNear, bulb, bulbLength, extremeTiles, K2700, K3000, NICKEL, radialYaw, WHITE_PAINT, type LightSpec } from "./parts.ts";
+import { bondNear, bulb, bulbLength, extremeTiles, I_BARE, I_CEILING, I_PENDANT, I_TRACK, K2700, K3000, NICKEL, radialYaw, spreadIndices, WHITE_PAINT, type LightSpec } from "./parts.ts";
 
 export interface CeilingLightOpts {
   seed?: number;
@@ -29,7 +29,7 @@ export function buildFlushMount(opts: CeilingLightOpts & { r?: number } = {}): A
   const socket = b.cyl("socket", "ceramic", "ceramic_glaze", 0.02, 0.03, [0, -panH - 0.015, 0], { segments: 10, tint: 0xf3efe6 });
   b.screw(socket, pan, 2, 15);
   const yb = -panH - 0.03;
-  const lamp = bulb(b, "bulb", "a15", { color: K3000, intensity: 3.2, range: 5.5, ...opts.light }, [0, yb, 0], [180, 0, 0]);
+  const lamp = bulb(b, "bulb", "a15", { color: K3000, intensity: I_CEILING, range: 5.5, ...opts.light }, [0, yb, 0], [180, 0, 0]);
   b.screw(lamp.cap, socket, 1, 10);
   // frosted glass bowl, rim against the pan
   const depth = Math.max(0.12, bulbLength("a15") + 0.03 + 0.012);
@@ -49,9 +49,7 @@ export function buildFlushMount(opts: CeilingLightOpts & { r?: number } = {}): A
   });
   // three thumbscrews into the bowl's rim
   const rim = extremeTiles(b, bowl, "top", 1e-3);
-  rim.forEach((t, k) => {
-    if (k % Math.max(1, Math.floor(rim.length / 3)) === 0) b.bond(t, pan, "screw", { strength: 10 });
-  });
+  for (const k of spreadIndices(rim.length, 3)) b.bond(rim[k], pan, "screw", { strength: 10 });
   return b.build({ validate: opts.validate });
 }
 
@@ -68,8 +66,10 @@ export function buildPendant(opts: CeilingLightOpts & { cord?: number; shadeTint
   const yc0 = -0.03,
     yc1 = yc0 - cordLen;
   const cord = b.cyl("cord", "copper", "fabric_cotton", 0.0035, cordLen, [0, (yc0 + yc1) / 2, 0], { segments: 6, mass: 0.035, tint: 0x2b2722, tess: 0 });
-  // cord grip in the canopy: one pivot → ball-and-socket, so the shade swings freely
-  b.hinge(cord, canopy, { pivots: [[0, yc0, 0]], axis: [1, 0, 0], min: -60, max: 60, strength: 80, friction: 0.02 });
+  // cord grip in the canopy: one pivot → ball-and-socket, so the shade swings freely. The joint
+  // system has no limits for single-pivot (ball) joints, so the limits are nominal: the swing is
+  // only bounded by collisions with the ceiling and the room.
+  b.hinge(cord, canopy, { pivots: [[0, yc0, 0]], axis: [1, 0, 0], min: -180, max: 180, strength: 80, friction: 0.02 });
   const sockH = 0.06;
   const socket = b.cyl("socket", "plastic", "plastic", 0.02, sockH, [0, yc1 - sockH / 2, 0], { segments: 10, tint: 0x2a2a2a });
   b.bond(socket, cord, "clip", { strength: 50 });
@@ -110,15 +110,18 @@ export function buildPendant(opts: CeilingLightOpts & { cord?: number; shadeTint
   const yDif = yTop - Hs + 0.02;
   const dif = b.cyl("diffuser", "acrylic", "glass_frosted", apothem - 0.002, 0.003, [0, yDif, 0], { segments: 16, tint: 0xfffaf0 });
   bondNear(b, dif, shade, "clip", 3, 0.01);
-  const lamp = bulb(b, "bulb", "a19", { color: K2700, intensity: 3.6, range: 6, ...opts.light }, [0, yc1 - sockH, 0], [180, 0, 0]);
+  const lamp = bulb(b, "bulb", "a19", { color: K2700, intensity: I_PENDANT, range: 6, ...opts.light }, [0, yc1 - sockH, 0], [180, 0, 0]);
   b.screw(lamp.cap, socket, 1, 10);
   return b.build({ validate: opts.validate });
 }
 
 /**
  * Three-head track bar (kitchen): an aluminium track screwed to the ceiling along local Z with
- * three adjustable spot heads (steel cans with a glass lens = the light part, `spot` lights
- * aimed at the counter, the floor and the peninsula). ~1.0 kg, 1.1 m long.
+ * three adjustable spot heads (steel cans with a glowing glass lens, end heads aimed at the
+ * counter and the peninsula). Only the MIDDLE lens carries a light feature — one wide spot aimed
+ * straight down standing in for all three heads — because the open kitchen/living/foyer area
+ * shares the renderer's per-material interior-light cap (6) with the other areas' lamps; the end
+ * lenses are emissive only. Smash the middle head and the bar goes dark. ~1.0 kg, 1.1 m long.
  */
 export function buildTrackLight(opts: CeilingLightOpts & { len?: number; tilt?: number } = {}): AssemblyDef {
   const b = new Builder("trackLight", "Kitchen Track Light", "fixture", 90, opts.seed);
@@ -151,19 +154,20 @@ export function buildTrackLight(opts: CeilingLightOpts & { len?: number; tilt?: 
     const lc = { x: cc.x + d.x * (canH / 2 + 0.002), y: cc.y + d.y * (canH / 2 + 0.002), z: cc.z + d.z * (canH / 2 + 0.002) };
     const lens = b.cyl(`lens${k}`, "glass", "bulb_on", canR * 0.85, 0.004, [lc.x, lc.y, lc.z], { segments: 12, rot: [t, 0, 0], smooth: 0 });
     b.glue(lens, can, 6);
-    b.light({
-      part: lens,
-      pos: [lc.x, lc.y, lc.z],
-      kind: "spot",
-      dir: [d.x, d.y, d.z],
-      angle: 1.05,
-      color: opts.light?.color ?? K3000,
-      intensity: opts.light?.intensity ?? 2.6,
-      range: opts.light?.range ?? 5,
-      castShadows: opts.light?.castShadows,
-      mains: true,
-      on: opts.light?.on ?? true,
-    });
+    if (k === 1)
+      b.light({
+        part: lens,
+        pos: [lc.x, lc.y, lc.z],
+        kind: "spot",
+        dir: [0, -1, 0],
+        angle: 2.0, // ~115° cone: covers the pools of all three heads
+        color: opts.light?.color ?? K3000,
+        intensity: opts.light?.intensity ?? I_TRACK,
+        range: opts.light?.range ?? 5,
+        castShadows: opts.light?.castShadows,
+        mains: true,
+        on: opts.light?.on ?? true,
+      });
     b.sparks(can, 0.3);
   });
   return b.build({ validate: opts.validate });
@@ -183,7 +187,7 @@ export function buildSchoolhouse(opts: CeilingLightOpts = {}): AssemblyDef {
   b.bolt(fitter, stem, 100);
   const socket = b.cyl("socket", "plastic", "plastic", 0.02, 0.03, [0, -0.19, 0], { segments: 10, tint: 0x2a2a2a });
   b.screw(socket, fitter, 2, 12);
-  const lamp = bulb(b, "bulb", "a19", { color: K2700, intensity: 3.4, range: 5.5, ...opts.light }, [0, -0.205, 0], [180, 0, 0]);
+  const lamp = bulb(b, "bulb", "a19", { color: K2700, intensity: I_CEILING, range: 5.5, ...opts.light }, [0, -0.205, 0], [180, 0, 0]);
   b.screw(lamp.cap, socket, 1, 10);
   const H = 0.225;
   const globe = b.lathe("globe", "glass", "glass_frosted", "glass_frosted", {
@@ -202,9 +206,7 @@ export function buildSchoolhouse(opts: CeilingLightOpts = {}): AssemblyDef {
     seamStrength: 8,
   });
   const neck = extremeTiles(b, globe, "top", 1e-3);
-  neck.forEach((t, k) => {
-    if (k % Math.max(1, Math.floor(neck.length / 3)) === 0) b.bond(t, fitter, "screw", { strength: 10 });
-  });
+  for (const k of spreadIndices(neck.length, 3)) b.bond(neck[k], fitter, "screw", { strength: 10 });
   return b.build({ validate: opts.validate });
 }
 
@@ -218,7 +220,7 @@ export function buildBatten(opts: CeilingLightOpts = {}): AssemblyDef {
   b.world(base, "screw", 60, [0, 0, 0]);
   const neck = b.cyl("neck", "ceramic", "ceramic_glaze", 0.024, 0.035, [0, -0.028 - 0.0175, 0], { segments: 12, rTop: 0.03, tint: 0xf5f2ea, mass: 0.07 });
   b.fuse(neck, base, 60);
-  const lamp = bulb(b, "bulb", "st64", { color: K2700, intensity: 3.0, range: 5, ...opts.light }, [0, -0.063, 0], [180, 0, 0]);
+  const lamp = bulb(b, "bulb", "st64", { color: K2700, intensity: I_BARE, range: 5, ...opts.light }, [0, -0.063, 0], [180, 0, 0]);
   b.screw(lamp.cap, neck, 1, 10);
   return b.build({ validate: opts.validate });
 }

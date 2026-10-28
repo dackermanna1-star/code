@@ -233,11 +233,19 @@ export class Interaction {
 
     // crosshair target (or the held object)
     if (this.hold) {
-      if (--this.targetAge <= 0 && this.alive(this.hold.body)) {
+      const hd = this.hold;
+      if (--this.targetAge <= 0 && this.alive(hd.body)) {
         this.targetAge = 10;
-        this.target = this.safeTarget(this.hold.body, this.grabPointWorld(this.hold, this.P), -1);
+        this.target = this.safeTarget(hd.body, this.grabPointWorld(hd, this.P), -1);
+        // a door/drawer ripped off its joints is now just a heavy board in your hands
+        if (hd.jointed && hd.mode === "dynamic" && this.target && !this.target.usable) {
+          hd.jointed = false;
+          hd.minDist = this.minHoldDistance(hd.body, this.P);
+          this.applyHeldLayer(hd);
+          this.wake(hd.body);
+        }
       }
-      this.targetDistance = this.hold.dist;
+      this.targetDistance = hd.dist;
     } else {
       this.updateTarget(view);
     }

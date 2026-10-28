@@ -218,13 +218,11 @@ export function buildWifiRouter(o: { seed?: number } = {}): AssemblyDef {
   b.sparks(board, 0.5);
   const led = b.box("led", "plastic", "led_green", [0.11, 0.004, 0.003], [0, feet + hb + pt + ht * 0.45, D / 2 + 0.0015]);
   b.glue(led, top, 3);
-  const yTop = feet + hb + pt + ht;
   for (const [k, x] of [-0.08, -0.027, 0.027, 0.08].entries()) {
     const ant = b.bevelBox(`ant${k}`, "plastic", "plastic", [0.012, 0.11, 0.007], 0.002, [x, feet + 0.004 + 0.055, -D / 2 - 0.0035], { tint, mass: 0.009 });
     b.press(ant, top, 3);
     b.press(ant, bot, 2);
   }
-  void yTop;
   return b.build();
 }
 

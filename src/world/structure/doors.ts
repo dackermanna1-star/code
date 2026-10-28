@@ -474,6 +474,6 @@ export function buildFrontDoor(run: ConcreteRun, o: RunOpening): AssemblyDef {
     );
   });
   const def = b.build();
-  def.room = "foyer";
+  def.room = o.op.into ?? "foyer";
   return def;
 }

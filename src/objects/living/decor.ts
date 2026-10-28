@@ -17,7 +17,7 @@ import { book, bowl, frameBars, lowestPart, pictureFrame, pillow, plate, vase, v
 import { qeuler, qrot, v3, vadd } from "../../geom/vec.ts";
 import type { AssemblyDef } from "../../destruction/model/types.ts";
 import type { SurfaceName } from "../../render/surfaces.ts";
-import { bondTouching, PALETTE, SOFT_SEAM } from "./lib.ts";
+import { bondTouching, PALETTE } from "./lib.ts";
 
 const COVERS: SurfaceName[] = ["book_cover_0", "book_cover_1", "book_cover_2", "book_cover_3"];
 
@@ -284,6 +284,5 @@ export function buildThrowPillow(o: { tint?: number; size?: number; seed?: numbe
   const b = new Builder("throwPillow", "Throw Pillow", "soft", 35, o.seed);
   const s = o.size ?? 0.45;
   pillow(b, "pillow", { size: [s, 0.14, s], tint: o.tint ?? 0xd9b45a, surf: "fabric_cotton", kg: 0.55, fill: "feathers" });
-  void SOFT_SEAM;
   return b.build();
 }

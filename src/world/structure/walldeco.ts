@@ -166,7 +166,7 @@ export function addBaseboards(ctx: FaceCtx): Array<{ lo: number; hi: number; roo
       if (c - a < 0.03) continue;
       const cuts = splitEven(a, c, 2.4);
       for (let i = 0; i + 1 < cuts.length; i++) {
-        addBaseboardPiece(ctx, cuts[i], cuts[i + 1], w0, w1, v.room);
+        addBaseboardPiece(ctx, cuts[i], cuts[i + 1], w0, w1);
       }
       covered.push({ lo: a, hi: c, room: v.room });
     }
@@ -174,7 +174,7 @@ export function addBaseboards(ctx: FaceCtx): Array<{ lo: number; hi: number; roo
   return covered;
 }
 
-export function addBaseboardPiece(ctx: FaceCtx, a: number, c: number, w0: number, w1: number, room: Room): string {
+export function addBaseboardPiece(ctx: FaceCtx, a: number, c: number, w0: number, w1: number): string {
   const { b, idx, side } = ctx;
   const name = `${ctx.prefix}base_${Math.round(a * 1000)}`;
   const wl = Math.min(w0, w1),
@@ -199,7 +199,6 @@ export function addBaseboardPiece(ctx: FaceCtx, a: number, c: number, w0: number
     bonded++;
   }
   if (bonded === 0) b.world(name, "nail", 20, [mid(a, c), BASEBOARD_H / 2, wl]);
-  void room;
   return name;
 }
 

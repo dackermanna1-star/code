@@ -29,6 +29,7 @@ interface Scene {
 let bank: SoundBank;
 
 async function render(s: Scene): Promise<Float32Array[]> {
+  for (const e of bank.entries.values()) e.last = -1; // identical variant choice in every render
   const oac = new OfflineAudioContext(2, Math.ceil(s.dur * SR), SR);
   const events = new EventBus<GameEvents>();
   const a = await createAudio({ events, settings: new Settings(), context: oac, bank, samples: false, ambience: false, maxVoices: 24, seed: 1, hrtf: s.hrtf ? 24 : 0 });
@@ -57,7 +58,8 @@ const impact = (e: Partial<GameEvents["impact"]>): GameEvents["impact"] => ({ po
 
 /** Pre-warm HRTF on a realtime context (fixes offline HRTF hangs, see the API note). */
 async function prewarmHrtf(): Promise<void> {
-  const ctx = new AudioContext();
+  // The HRTF database is loaded per sample rate: warm it at the offline rate.
+  const ctx = new AudioContext({ sampleRate: SR });
   const osc = ctx.createOscillator();
   const mute = ctx.createGain();
   mute.gain.value = 0;
@@ -73,7 +75,7 @@ async function prewarmHrtf(): Promise<void> {
 
 export async function probe() {
   await prewarmHrtf();
-  bank = await SoundBank.generate({ sr: SR, budgetMs: 5000 });
+  bank = await SoundBank.generate({ sr: SR, budgetMs: 1e9 });
   const wav: Record<string, string> = {};
   const keep = (name: string, c: Float32Array[]) => (wav[name] = toBase64(encodeWav(c, SR)));
   const m: Record<string, number | string | boolean> = {};
@@ -137,9 +139,27 @@ export async function probe() {
   keep("knock_bathroom", bath);
   keep("knock_bedroom", bed);
 
-  // 6. HRTF: a source on the listener's right is louder in the right ear.
-  const right = await render({ dur: 1, hrtf: true, room: ROOM.bed2, setup: (a) => a.play("impact.plastic.m", { x: 2, y: 1.6, z: 0 }) });
-  m.rightMinusLeftDb = +(toDb(rms(right[1])) - toDb(rms(right[0]))).toFixed(1);
+  // 6. HRTF: a source on the listener's right is louder in the right ear (onset window: the
+  //    precedence effect localises on the direct sound, before the reverb builds up).
+  const right = await render({ dur: 1, hrtf: true, room: ROOM.bed2, setup: (a) => a.play("impact.glass.s", { x: 2, y: 1.6, z: 0 }) });
+  const on = Math.floor(0.03 * SR);
+  m.hrtfRightMinusLeftDb = +(toDb(rms(right[1], 0, on)) - toDb(rms(right[0], 0, on))).toFixed(1); // informational (offline HRTF is unreliable headless)
+  const rightEq = await render({ dur: 1, room: ROOM.bed2, setup: (a) => a.play("impact.glass.s", { x: 2, y: 1.6, z: 0 }) });
+  m.rightMinusLeftDb = +(toDb(rms(rightEq[1], 0, on)) - toDb(rms(rightEq[0], 0, on))).toFixed(1);
+
+  // 6b. Reverb-to-direct energy at 1 m per room (wet render minus a dry render).
+  const energy = (c: Float32Array[]) => {
+    let e = 0;
+    for (const ch of c) for (let i = 0; i < ch.length; i++) e += ch[i] * ch[i];
+    return e;
+  };
+  const dryRoom = { id: "dry", rt60: 0.3, brightness: 0.3, wet: 0 };
+  const knockAt1 = (a: Audio) => a.play("impact.wood.m", { x: 0, y: 1.6, z: 1 });
+  const eDry = energy(await render({ dur: 2, room: dryRoom, setup: knockAt1 }));
+  for (const k of ["bath", "living", "bed2"]) {
+    const eWet = energy(await render({ dur: 2, room: ROOM[k], setup: knockAt1 }));
+    m[`reverbToDirectDb_${k}`] = +(10 * Math.log10(Math.max(eWet - eDry, 1e-12) / eDry)).toFixed(1);
+  }
 
   // 7. Loudness ordering via gameplay events.
   const lvl = async (setup: Scene["setup"]) => toDb(peak(mono(await render({ dur: 1.5, room: ROOM.bed2, setup }))));
@@ -178,7 +198,7 @@ export async function probe() {
     occlusionQuieter: (m.occlusionDropDb as number) < -8,
     occlusionDuller: (m.centroidBlocked as number) < (m.centroidClear as number) * 0.6,
     bathroomRingsLonger: (m.tailBathDb as number) > (m.tailBedDb as number) + 6,
-    hrtfRightLouder: (m.rightMinusLeftDb as number) > 3,
+    rightEarLouder: (m.rightMinusLeftDb as number) > 10,
     loudnessOrder: (m.peakSledgeDrywallDb as number) > (m.peakPunchDb as number) && (m.peakPunchDb as number) > (m.peakMugDropDb as number) && (m.peakMugDropDb as number) > (m.peakPenDb as number) && (m.peakFootstepDb as number) > (m.peakPenDb as number),
     distanceQuieter: (m.farMinusNearDb as number) < -8,
     distanceDelayed: (m.farDelayMs as number) > 15 && (m.farDelayMs as number) < 30,

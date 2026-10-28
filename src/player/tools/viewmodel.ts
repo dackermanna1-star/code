@@ -13,7 +13,7 @@ import { Quaternion, TransformNode, type AbstractMesh, type Scene, type Standard
 import type { ToolId } from "../../core/context.ts";
 import { TOOL_ORDER, TOOL_RIGS } from "./defs.ts";
 import type { LegKind } from "./legs.ts";
-import { HOSE_REST, HOSE_START, buildFistModel, buildForearmModel, buildLegModel, buildToolModel, createViewmodelMaterials, type ToolModelParts } from "./models.ts";
+import { FOREARM_LEN, HOSE_REST, HOSE_START, buildFistModel, buildForearmModel, buildLegModel, buildToolModel, createViewmodelMaterials, type ToolModelParts } from "./models.ts";
 import { blendFrame, clamp01, q4, quatFromAxisFace, rotateQ, smoothstep01, v3, type Frame, type Pose, type V3 } from "./swing.ts";
 
 /** Rendering group of the viewmodel (depth is cleared before it renders). */
@@ -51,8 +51,13 @@ export interface ViewState {
 const SHOULDER: readonly [V3, V3] = [v3(0.2, -0.25, -0.06), v3(-0.2, -0.25, -0.06)];
 const UPPER_ARM = 0.3;
 const FOREARM = 0.27;
-/** Elbow pole directions (elbows point down and out). */
-const POLE: readonly [V3, V3] = [v3(0.55, -1, -0.25), v3(-0.55, -1, -0.25)];
+/**
+ * Elbow pole directions, blended by wrist height: hands low (guard, idle) → elbows down and a bit
+ * out (forearms run to the bottom corners); hands raised (overhead swings) → elbows out to the
+ * sides so the forearms never cross in front of the lens.
+ */
+const POLE_LOW: readonly [V3, V3] = [v3(0.45, -1, -0.2), v3(-0.45, -1, -0.2)];
+const POLE_HIGH: readonly [V3, V3] = [v3(1, -0.2, -0.25), v3(-1, -0.2, -0.25)];
 /** Wrist point in the (right) hand frame; mirrored in x for the left hand. */
 const WRIST_LOCAL: V3 = v3(0.018, 0, -0.066);
 /** Thigh/shin lengths for the leg IK. */
@@ -224,7 +229,7 @@ export class Viewmodel {
     const isFists = vs.tool === "hands";
     if (!isFists) this.applyFrame(tool.root, pose.right);
     const rig = TOOL_RIGS[vs.tool];
-    const twoHanded = isFists || (rig.kind === "curve" && rig.offhand > 0) || vs.tool === "extinguisher";
+    const twoHanded = isFists || (rig.kind === "curve" && rig.offhand !== 0) || vs.tool === "extinguisher";
     this.applyFrame(this.fists[0].root, pose.right);
     this.applyArm(0, pose.right);
     this.fists[1].root.setEnabled(twoHanded);
@@ -272,14 +277,24 @@ export class Viewmodel {
     w.x += hand.p.x;
     w.y += hand.p.y;
     w.z += hand.p.z;
-    const elbow = twoBoneElbow(SHOULDER[side], w, UPPER_ARM, FOREARM, POLE[side], this.t2);
+    const lift = smoothstep01((w.y - SHOULDER[side].y + 0.02) / 0.28);
+    const pl = POLE_LOW[side],
+      ph = POLE_HIGH[side];
+    const pole = setV(this.t3, pl.x + (ph.x - pl.x) * lift, pl.y + (ph.y - pl.y) * lift, pl.z + (ph.z - pl.z) * lift);
+    const elbow = twoBoneElbow(SHOULDER[side], w, UPPER_ARM, FOREARM, pole, this.t2);
     // forearm root at the wrist, local +Z towards the elbow, local +Y roughly up
     const dir = setV(this.t3, elbow.x - w.x, elbow.y - w.y, elbow.z - w.z);
     const node = this.arms[side].root;
-    // hide a forearm whose segment passes right in front of the lens (hands raised overhead / behind)
-    const near = segmentDistToOrigin(w, elbow) < ARM_NEAR || w.z < 0.04;
+    // hide a forearm whose wrist is beside/behind the lens (hands raised overhead / behind)
+    const wd = Math.hypot(w.x, w.y, w.z);
+    const near = wd < ARM_NEAR + 0.05 || w.z < 0.04;
     node.setEnabled(!near && this.fists[side].root.isEnabled());
     if (near) return;
+    // shorten it where it would come closer to the eye than ARM_CLEAR (a sleeve filling the
+    // screen reads as a black cone); the hidden part is off-screen anyway
+    const dl = Math.hypot(dir.x, dir.y, dir.z) || 1;
+    const len = Math.min(FOREARM_LEN, clearLength(w, dir.x / dl, dir.y / dl, dir.z / dl, ARM_CLEAR, FOREARM_LEN));
+    node.scaling.z = Math.max(0.05, len / FOREARM_LEN);
     node.position.set(w.x, w.y, w.z);
     quatFromFaceUp(this.qTmp, dir, UP);
     node.rotationQuaternion!.set(this.qTmp.x, this.qTmp.y, this.qTmp.z, this.qTmp.w);
@@ -360,20 +375,25 @@ export class Viewmodel {
 
 const UP: V3 = { x: 0, y: 1, z: 0 };
 const BACK: V3 = { x: 0, y: 0, z: -1 };
-/** Forearms closer than this to the eye are hidden (they would fill the screen). */
+/** Forearms whose wrist is closer than this to the eye are hidden; others are cut ARM_CLEAR from it. */
 const ARM_NEAR = 0.15;
+const ARM_CLEAR = 0.15;
 /** Hose attachment on the nozzle (left-hand frame). */
 const NOZZLE_TAIL: V3 = { x: 0, y: 0, z: -0.03 };
 const DEFAULT_HIP: V3 = { x: 0.1, y: -0.9, z: 0.05 };
 
-/** Distance from the eye (origin) to segment a–b. */
-function segmentDistToOrigin(a: V3, b: V3): number {
-  const dx = b.x - a.x,
-    dy = b.y - a.y,
-    dz = b.z - a.z;
-  const l2 = dx * dx + dy * dy + dz * dz;
-  const t = l2 > 1e-12 ? Math.max(0, Math.min(1, -(a.x * dx + a.y * dy + a.z * dz) / l2)) : 0;
-  return Math.hypot(a.x + dx * t, a.y + dy * t, a.z + dz * t);
+/**
+ * Length (≤ maxLen) one can travel from p along unit d before coming within `clear` of the eye
+ * (origin): first root of |p + d·s| = clear, or maxLen if the ray never gets that close.
+ */
+function clearLength(p: V3, dx: number, dy: number, dz: number, clear: number, maxLen: number): number {
+  const b = p.x * dx + p.y * dy + p.z * dz;
+  const c = p.x * p.x + p.y * p.y + p.z * p.z - clear * clear;
+  if (c <= 0) return 0;
+  const disc = b * b - c;
+  if (disc < 0 || b >= 0) return maxLen; // never that close, or moving away
+  const s = -b - Math.sqrt(disc);
+  return s > 0 ? Math.min(maxLen, s) : maxLen;
 }
 
 function setV(o: V3, x: number, y: number, z: number): V3 {

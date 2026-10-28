@@ -81,8 +81,8 @@ test("hingedDoorPanel: hollow-core interior door and solid cabinet door", () => 
   b.world(jamb, "nail", 200, [-0.43, 1, 0]);
   const strike = b.box("strike", "softwood", "wood_pine", [0.03, 2.05, 0.1], [0.43, 1.025, 0]);
   b.world(strike, "nail", 200, [0.43, 1, 0]);
-  // jamb at -X = the viewer's right (left-handed world) → "right" hinges
-  const d = K.hingedDoorPanel(b, "door", { w: 0.82, h: 2.04, hinge: "right", fixed: jamb, latch: { strength: 40, fixed: strike } }, [0, 0.005, 0]);
+  // hinge sides are axis-based: "left" = the -X edge, where the jamb is
+  const d = K.hingedDoorPanel(b, "door", { w: 0.82, h: 2.04, hinge: "left", fixed: jamb, latch: { strength: 40, fixed: strike } }, [0, 0.005, 0]);
   const info = b.info();
   inRange("hollow door kg", info.mass - b.mass(jamb) - b.mass(strike), 9, 16);
   const def = done(b);
@@ -99,16 +99,22 @@ test("hingedDoorPanel: hollow-core interior door and solid cabinet door", () => 
   const ax = hinges[0].joint!.axis;
   const r = qrot(qaxisAngle(ax, 1), v3(1, 0, 0));
   assert.ok(r.z > 0.8);
-  // "left" (viewer's left) = +X
-  const bl = mk("lefty");
+  // "right" = the +X edge; hinging on the side away from the fixed part is flagged
+  const bl = mk("righty");
   const j2 = bl.box("jamb", "softwood", "wood_pine", [0.03, 2.05, 0.1], [0.43, 1.025, 0]);
   bl.world(j2, "nail", 200, [0.43, 1, 0]);
-  K.hingedDoorPanel(bl, "door", { w: 0.82, h: 2.04, hinge: "left", fixed: j2, latch: false }, [0, 0.005, 0]);
+  K.hingedDoorPanel(bl, "door", { w: 0.82, h: 2.04, hinge: "right", fixed: j2, latch: false }, [0, 0.005, 0]);
   assert.ok(bl.build().bonds.filter((x) => x.kind === "hinge").every((h) => h.joint!.pivot.x > 0.4));
+  assert.deepEqual(bl.warnings, []);
+  const bw = mk("wrongside");
+  const j3 = bw.box("jamb", "softwood", "wood_pine", [0.03, 2.05, 0.1], [0.43, 1.025, 0]);
+  bw.world(j3, "nail", 200, [0.43, 1, 0]);
+  K.hingedDoorPanel(bw, "door", { w: 0.82, h: 2.04, hinge: "left", fixed: j3, latch: false }, [0, 0.005, 0]);
+  assert.match(bw.warnings.join("\n"), /wrong hinge side/);
 
   const b2 = mk("cabdoor");
   const side = b2.box("side", "particleboard", "laminate_white", [0.018, 0.72, 0.56], [-0.309, 0.36, 0]);
-  const cd = K.hingedDoorPanel(b2, "cd", { w: 0.596, h: 0.7, hinge: "right", fixed: side }, [0, 0.01, 0.289]);
+  const cd = K.hingedDoorPanel(b2, "cd", { w: 0.596, h: 0.7, hinge: "left", fixed: side }, [0, 0.01, 0.289]);
   const def2 = done(b2);
   assert.equal(def2.bonds.filter((x) => x.kind === "hinge").length, 2);
   const catchB = def2.bonds.find((x) => x.kind === "latch")!;

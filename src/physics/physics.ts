@@ -25,8 +25,9 @@
 //    detection so sleeping bodies cost almost nothing and their world matrices stay clean); parented/foreign
 //    bodies use Babylon's sync. World matrices of moved nodes are refreshed so fixed-step code never sees stale
 //    matrices.
-//  * SLEEP ASSIST: large touching piles never deactivate in Havok (1000 hulls: 15–18 ms/step forever). Dynamic
-//    bodies that stay slow for `sleepAssist.seconds` are put to sleep; they still wake on contact.
+//  * SLEEP ASSIST: large touching piles never deactivate in Havok (1000 hulls: 15–18 ms/step forever, far more with
+//    collision events). Dynamic bodies that stay slow (0.1 m/s, 0.5 rad/s) for 1.5 s are put to sleep; they still
+//    wake on contact (the 1000-hull pile is asleep after ~6–9 s and costs < 0.1 ms/step).
 //  * FILTERS: a filter change on a body's root leaf shape is ignored by Havok until the body's shape is re-set
 //    (HP_Body_SetShape(0) then the shape); setLayer() does that for every body using the shape and restores
 //    the sleep state.
@@ -137,7 +138,7 @@ export interface PhysicsDebugStats extends PhysicsStats {
   eventsLastStep: number;
   impactsLastStep: number;
   forcedSleeps: number;
-  substeps: number;
+  minSubsteps: number;
   /** Substeps actually used by the last step (adaptive). */
   substepsLast: number;
   /** Fastest thin dynamic body seen in the last step (m/s, incl. corner speed). */
@@ -201,7 +202,9 @@ class BodyRec implements ImpactSide {
   joints: Set<JointRec> | null = null;
   keepAwake = false;
   heldAwake = false;
+  /** We overrode mass (min-mass clamp) / inertia (degenerate shape): undone on the next setShape. */
   massClamped = false;
+  inertiaFixed = false;
   slow = 0;
   moved = false;
   awakePoll = false;
@@ -267,8 +270,8 @@ export class Physics implements PhysicsSystem {
   readonly engine: PhysicsEngineV2;
   /** Static, shape-less body at the origin with identity transform: anchor for world-fixed joints. */
   readonly worldBody: PhysicsBody;
-  /** Minimum Havok world steps per fixed step. */
-  substeps: number;
+  /** Minimum Havok world steps per fixed step (adaptive substepping may add more). */
+  minSubsteps: number;
   adaptiveSubsteps: boolean;
   maxSubsteps: number;
   fastThinSpeed: number;
@@ -344,7 +347,8 @@ export class Physics implements PhysicsSystem {
     if ((scene as unknown as { floatingOriginMode?: boolean }).floatingOriginMode) throw new Error("Physics: floating-origin mode is not supported");
     this.scene = scene;
     this.hk = hk;
-    this.substeps = clampInt(opts.substeps ?? 1, 1, 8);
+    this.minSubsteps = clampInt(opts.substeps ?? 1, 1, 8);
+    this.substepsLast = this.minSubsteps;
     this.adaptiveSubsteps = opts.adaptiveSubsteps ?? true;
     this.maxSubsteps = clampInt(opts.maxSubsteps ?? 4, 1, 8);
     this.fastThinSpeed = opts.fastThinSpeed && opts.fastThinSpeed > 0 ? opts.fastThinSpeed : 15;
@@ -384,6 +388,18 @@ export class Physics implements PhysicsSystem {
     return this._stepIndex;
   }
 
+  /**
+   * Substeps used by the most recent step (per-substep quantities such as Havok's constraint impulses divide by
+   * dt / substeps). Assigning sets the minimum (`minSubsteps`).
+   */
+  get substeps(): number {
+    return this.substepsLast;
+  }
+
+  set substeps(n: number) {
+    this.minSubsteps = clampInt(n, 1, 8);
+  }
+
   get minImpulse(): number {
     return this.agg.cfg.minImpulse;
   }
@@ -392,7 +408,10 @@ export class Physics implements PhysicsSystem {
     if (v >= 0) this.agg.cfg.minImpulse = v;
   }
 
-  /** Advance exactly one fixed step of dt seconds (split into `substeps` Havok steps), then dispatch impacts. */
+  /**
+   * Advance exactly one fixed step of dt seconds (split into 1..maxSubsteps Havok steps, see header), sync nodes,
+   * then dispatch the step's impacts. dt ≤ 0, NaN or > 0.5 s is ignored.
+   */
   step(dt: number): void {
     if (this._disposed || !(dt > 0) || dt > 0.5) return;
     const t0 = now();
@@ -485,7 +504,7 @@ export class Physics implements PhysicsSystem {
 
   /** Substeps for this step: minimum, plus enough that no thin body moves more than fastThinSpeed·dt per substep. */
   private chooseSubsteps(): number {
-    const lo = clampInt(this.substeps, 1, 8);
+    const lo = clampInt(this.minSubsteps, 1, 8);
     if (!this.adaptiveSubsteps) {
       this.watch.length = 0;
       return lo;
@@ -902,10 +921,14 @@ export class Physics implements PhysicsSystem {
     const rec = this.req(body);
     if (!shape || shape._pluginData === undefined) throw new Error("setShape: shape is null or disposed");
     const prev = rec.shape;
+    // our own mass/inertia overrides must not stick to the new shape (Babylon's overrides are sticky)
     if (rec.massClamped) {
-      // our min-mass override must not stick to the new shape
       body._pluginData.userMassProps.mass = undefined;
       rec.massClamped = false;
+    }
+    if (rec.inertiaFixed) {
+      body._pluginData.userMassProps.inertia = undefined;
+      rec.inertiaFixed = false;
     }
     const info = this.shapes.get(shape);
     if (info?.children) this.syncChildren(shape, info);
@@ -1034,6 +1057,7 @@ export class Physics implements PhysicsSystem {
   private req(body: PhysicsBody): BodyRec {
     const rec = this.recs.get(body);
     if (rec === undefined || rec.foreign) throw new Error("physics: body was not created by this physics system");
+    if (rec === this.worldRec) throw new Error("physics: the world body cannot be modified");
     if (rec.disposed || body.isDisposed) throw new Error("physics: body is disposed");
     return rec;
   }
@@ -1120,6 +1144,7 @@ export class Physics implements PhysicsSystem {
       }
       const I = 0.4 * r * r;
       user.inertia = new Vector3(I, I, I);
+      rec.inertiaFixed = true;
       rec.body.setMassProperties(user);
     }
     rec.mass = m;
@@ -1544,13 +1569,17 @@ export class Physics implements PhysicsSystem {
     if (pd && pd.length > 0) {
       const hk = this.hk;
       const map = this.P._constraintToBodyIdPair;
+      // never touch a Havok body that was released behind our back (direct body.dispose())
+      const bodiesAlive = !j || (j.a.body._pluginData != null && j.b.body._pluginData != null);
       for (const id of pd) {
         map?.delete(id[0]);
         // HP_Constraint_Release alone keeps the constraint alive (inert) as long as its bodies live — forever
         // for world-anchored joints. Detaching both bodies first lets Havok free it (verified: counts drop).
         hk.HP_Constraint_SetEnabled(id, false as unknown as number); // embind bool (Babylon passes a boolean too)
-        hk.HP_Constraint_SetParentBody(id, NULL_ID);
-        hk.HP_Constraint_SetChildBody(id, NULL_ID);
+        if (bodiesAlive) {
+          hk.HP_Constraint_SetParentBody(id, NULL_ID);
+          hk.HP_Constraint_SetChildBody(id, NULL_ID);
+        }
       }
       c.dispose(); // release + empties _pluginData (a second release would trap in WASM)
     }
@@ -1759,7 +1788,7 @@ export class Physics implements PhysicsSystem {
       eventsLastStep: this.eventsLast,
       impactsLastStep: this.impactsLast,
       forcedSleeps: this.forcedSleeps,
-      substeps: this.substeps,
+      minSubsteps: this.minSubsteps,
       substepsLast: this.substepsLast,
       thinSpeedLast: this.thinSpeed,
       stepIndex: this._stepIndex,

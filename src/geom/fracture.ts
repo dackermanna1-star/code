@@ -532,7 +532,51 @@ class SeedGen {
     return vx(c.x, c.y, c.z);
   }
 
-  /** Try `gen` up to `tries` times; clamp the last candidate if all fail. */
+  /**
+   * Minimum spacing for a clamped seed: clamping maps every outside candidate in a region onto
+   * the same closest-point/centroid path, so without this check corner/edge impacts (or a
+   * breakout radius larger than the part) pile seeds up as exact duplicates, which
+   * voronoiFracture then silently drops (fewer fragments than requested).
+   */
+  private sepCache = -1;
+  minSep(): number {
+    if (this.sepCache < 0) {
+      const n = Math.max(1, this.opts.count);
+      const s = Math.min(0.1 * this.radius, 0.1 * this.ext[0]) / Math.sqrt(n);
+      this.sepCache = Math.max(4 * this.margin, s);
+    }
+    return this.sepCache;
+  }
+
+  /** True when p is within `sep` of an existing seed. */
+  crowded(p: Vec3, sep: number): boolean {
+    const s2 = sep * sep;
+    for (const s of this.seeds) {
+      const dx = s.x - p.x,
+        dy = s.y - p.y,
+        dz = s.z - p.z;
+      if (dx * dx + dy * dy + dz * dz < s2) return true;
+    }
+    return false;
+  }
+
+  /**
+   * A clamped fallback seed that is not a (near-)duplicate: try the clamped point, then random
+   * candidates around it in growing balls/discs, then a best-candidate point anywhere.
+   */
+  placeClamped(p: Vec3): Vec3 {
+    const q = this.clampInside(p);
+    const sep = this.minSep();
+    if (!this.crowded(q, sep)) return q;
+    for (let t = 0; t < 24; t++) {
+      const r = sep * (1.5 + t * 0.5);
+      const c = this.accept(this.ballPoint(q, r, 0));
+      if (c && !this.crowded(c, sep)) return c;
+    }
+    return this.spreadPoint(0);
+  }
+
+  /** Try `gen` up to `tries` times; clamp the last candidate (de-duplicated) if all fail. */
   sample(gen: () => Vec3, tries = 30): Vec3 {
     let last = gen();
     for (let t = 0; t < tries; t++) {
@@ -540,7 +584,7 @@ class SeedGen {
       if (q) return q;
       last = gen();
     }
-    return this.clampInside(last);
+    return this.placeClamped(last);
   }
 
   push(p: Vec3): void {
@@ -612,11 +656,16 @@ class SeedGen {
         const a = base + ((j + 0.5 + ringJ * 0.35 + rng.range(-0.15, 0.15)) * Math.PI * 2) / R;
         const r = rk * rng.range(0.8, 1.2);
         const c = this.impact;
-        // in the pattern plane (pane mid-surface for planar parts, ⟂ dir otherwise)
+        // in the pattern plane (pane mid-surface for planar parts, ⟂ dir otherwise). The first
+        // tries keep the ray angle; if the ray leaves the part (edge/corner impacts) the angle
+        // is resampled too, so the seed lands in the in-part sector instead of being clamped.
+        let tryNo = 0;
         this.push(this.sample(() => {
-          const rr = r * rng.range(0.9, 1.1);
-          return this.inPlane(c, rr * Math.cos(a), rr * Math.sin(a));
-        }, 6));
+          const t = tryNo++;
+          const rr = r * rng.range(0.9, 1.1) * (t < 3 ? 1 : rng.range(0.5, 1));
+          const aa = t < 3 ? a : rng.range(0, Math.PI * 2);
+          return this.inPlane(c, rr * Math.cos(aa), rr * Math.sin(aa));
+        }, 12));
         made++;
       }
     }

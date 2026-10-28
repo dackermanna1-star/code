@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { faceAttr, polyBox, polyBeveledBox, polyCylinder, polyFromHull, polyClip, polyTransform, type ConvexPoly } from "../../src/geom/poly.ts";
+import { faceAttr, polyPrism, polyBox, polyBeveledBox, polyCylinder, polyFromHull, polyClip, polyTransform, type ConvexPoly } from "../../src/geom/poly.ts";
 import { polyToRenderGeom, mergeRenderGeoms, applyDents, growCracks, CRACK_OFFSET, type Dent, type RenderGeom } from "../../src/geom/meshgen.ts";
 import { latheTiles, polyPillow } from "../../src/geom/primitives.ts";
 import { voronoiFracture, generateSeeds } from "../../src/geom/fracture.ts";
@@ -274,6 +274,18 @@ test("degenerate and T-junction inputs", () => {
     const g = polyToRenderGeom(tj, { tessCell: tess, dents: [{ p: v(0.5, 0.5, 0), dir: v(-1, -1, 0), r: 0.4, depth: 0.05 }] });
     finiteGeom(g);
     assert.equal(watertight(g).bad, 0, `T-junction repaired (tess ${tess})`);
+  }
+});
+
+test("regression: edges barely longer than tessCell split identically on both faces (no T-junction)", () => {
+  // the short triangle caps take the fast path unless their split test matches the edge split test
+  for (const k of [1.00005, 1.0000001, 1 + 1e-8, 1.0002]) {
+    const prism = polyPrism([[0, 0], [0.04 * k, 0], [0.02 * k, 0.0346]], 0.4, A, A);
+    for (const dents of [undefined, [{ p: v(0.02, 0, 0), dir: v(0, 1, 0), r: 0.05, depth: 0.003 }]]) {
+      const g = polyToRenderGeom(prism, { tessCell: 0.04, dents });
+      finiteGeom(g);
+      assert.equal(watertight(g).bad, 0, `prism scale ${k} dents ${!!dents}`);
+    }
   }
 });
 

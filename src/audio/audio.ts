@@ -42,7 +42,7 @@ const SPEED_OF_SOUND = 343;
 const MAX_NEW_PER_FLUSH = 20;
 const MAX_REAL_LOOPS = 14;
 const RAY_BUDGET = 48;
-const WET_SCALE = 1.1;
+const WET_SCALE = 0.35;
 /** Mix pre-gain into the bus compressor/limiter (+6 dB): loud events peak near −3 dBFS. */
 const MIX_GAIN = 2;
 const STREET_Y = -FLOOR_LEVEL * STOREY_H;

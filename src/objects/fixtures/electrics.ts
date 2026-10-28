@@ -41,8 +41,9 @@ export function buildSmokeDetector(o: Common = {}): AssemblyDef {
 
 /**
  * Programmable thermostat: back plate screwed to the wall, control PCB (sparks), clip-on cover,
- * backlit LCD (`screen` feature, cracks and dies) and three press-fit buttons. 12 × 9 cm,
- * ~0.2 kg.
+ * backlit seven-segment LCD (breakable `lcd` part with the printed `display_blue` readout — no
+ * `screen` feature: the screen contents available are TV/phone/microwave UIs, none of which
+ * reads as a thermostat) and three press-fit buttons. 12 × 9 cm, ~0.2 kg.
  */
 export function buildThermostat(o: Common = {}): AssemblyDef {
   const b = new Builder("thermostat", "Thermostat", "electronics", 60, o.seed);
@@ -53,11 +54,13 @@ export function buildThermostat(o: Common = {}): AssemblyDef {
   const cover = b.bevelBox("cover", "plastic", "plastic", [0.124, 0.094, 0.018], 0.004, [0, 0, 0.0096 + 0.009], { mass: 0.06, tint: 0xf6f6f2 });
   b.clip(cover, back, 8);
   b.clip(cover, pcb, 2);
-  const lcd = b.box("lcd", "lcd", "display_blue", [0.055, 0.032, 0.002], [0, 0.012, 0.0276 + 0.001], {
+  // display_blue tiles every 0.08 m; the +Z face maps u = −x + u0, v = y + v0, so this offset
+  // puts the texture centre (the digits) on the LCD centre (0, 0.012).
+  const lcd = b.box("lcd", "lcd", "display_blue", [0.064, 0.032, 0.002], [0, 0.012, 0.0276 + 0.001], {
     faces: { px: { surf: "plastic" }, nx: { surf: "plastic" }, py: { surf: "plastic" }, ny: { surf: "plastic" }, nz: { surf: "plastic" } },
+    uvOffset: [0.04, 0.04 - 0.012],
   });
   b.glue(lcd, cover, 4);
-  b.screen(lcd, "microwave", { mains: true });
   [-0.025, 0, 0.025].forEach((x, k) => {
     const btn = b.bevelBox(`btn${k}`, "plastic", "plastic_glossy", [0.016, 0.009, 0.003], 0.001, [x, -0.026, 0.0276 + 0.0015], { tint: 0xdadad4 });
     b.press(btn, cover, 2);
@@ -107,7 +110,8 @@ export interface HeaterOpts extends Common {
  * thermostat with knob. Mounted 25 mm above the floor, 0.175 m tall, 0.09 m deep. 4–6 kg.
  */
 export function buildBaseboardHeater(o: HeaterOpts = {}): AssemblyDef {
-  const L = o.len ?? 1.2;
+  // spacers sit 0.15 m in from each end, fins/junction box/thermostat need ~0.6 m: clamp
+  const L = Number.isFinite(o.len) ? Math.min(3, Math.max(0.6, o.len as number)) : 1.2;
   const b = new Builder("baseboardHeater", "Baseboard Heater", "appliance", 90, o.seed);
   const y0 = 0.025,
     H = 0.175,
@@ -175,7 +179,9 @@ export function buildBaseboardHeater(o: HeaterOpts = {}): AssemblyDef {
 /**
  * Ductless mini-split indoor unit (9–12 kBTU): steel mounting plate screwed to the wall, plastic
  * chassis hooked on it, evaporator coil (aluminium fins + copper, 2.8 kg), drain pan, cross-flow
- * blower wheel hinged to its motor (spins via a mains `motor` feature), control box + PCB
+ * blower wheel press-fitted on its motor shaft (rigid: the wheel's inertia is far too small for
+ * the motor feature's fixed-gain speed loop, which would jitter it every step and keep it awake
+ * inside a casing where nobody sees it spin), control box + PCB
  * (sparks), end caps, top intake grille, filters, a front panel that lifts on hinges (magnetic
  * catch), a motorised-style louvre on a hinge and a blue status display. 0.8 × 0.28 × 0.2 m,
  * ~10 kg.
@@ -219,17 +225,8 @@ export function buildMiniSplit(o: Common = {}): AssemblyDef {
   const motor = b.cyl("blowermotor", "steel", "metal_raw", 0.04, 0.055, [0.3575, 0.07, 0.11], { axis: "x", segments: 12, mass: 0.8 });
   b.screw(motor, caps[1], 2, 25);
   const wheel = b.cyl("blower", "plastic", "vent_grille", 0.045, 0.66, [0, 0.07, 0.11], { axis: "x", segments: 12, mass: 0.4, tint: 0x9aa0a4 });
-  const g = b.hinge(wheel, motor, {
-    pivots: [
-      [-0.3, 0.07, 0.11],
-      [0.33, 0.07, 0.11],
-    ],
-    axis: [1, 0, 0],
-    min: -180,
-    max: 180,
-    strength: 60,
-  });
-  b.motor(motor, g, 40, true);
+  b.press(wheel, motor, 40);
+  b.sparks(motor, 0.4);
   // control box + PCB
   const ctrl = b.box("ctrlbox", "plastic", "plastic", [0.06, 0.09, 0.05], [0.355, 0.18, 0.1], { tint: 0xdedcd6 });
   b.screw(ctrl, caps[1], 2, 12);

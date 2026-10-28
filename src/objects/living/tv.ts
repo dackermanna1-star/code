@@ -67,7 +67,7 @@ export function buildTv(o: TvOpts = {}): AssemblyDef {
 
   // ---- electronics on the back of the chassis (components face the back cover)
   const zMount = zCh - 0.0005; // chassis back face
-  const power = pcb(
+  pcb(
     b,
     "psu",
     {
@@ -86,7 +86,7 @@ export function buildTv(o: TvOpts = {}): AssemblyDef {
     [cx - 0.3, cy - 0.12, zMount - 0.0016],
     [0, 180, 0],
   );
-  const main = pcb(
+  pcb(
     b,
     "main",
     {
@@ -134,7 +134,5 @@ export function buildTv(o: TvOpts = {}): AssemblyDef {
   const base = b.box("base", "aluminum", "aluminum", [TV_DIMS.baseW, 0.008, TV_DIMS.baseD], [0, 0.004, 0], { tint: 0x3a3b3e, tess: 0 });
   b.bolt(neck, back, 160);
   b.bolt(neck, base, 220);
-  void power;
-  void main;
   return b.build();
 }

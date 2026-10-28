@@ -193,6 +193,18 @@ export async function probe() {
     w.dispose();
   }
 
+  // ---- J6b: constraint load is still a force (not a per-substep impulse sum) at 3 fixed substeps
+  {
+    const w = await makeWorld({ substeps: 3, adaptiveSubsteps: false });
+    const P = w.physics;
+    const hang = body(w, "hanging", new Vector3(0, 1.0, 0), "dynamic", P.boxShape(ZERO, IDQ, { x: 0.9, y: 2.0, z: 0.04 }, { density: 18 / (0.9 * 2 * 0.04) }));
+    const c2 = P.ball(P.worldBody, hang, new Vector3(0, 2.0, 0), new Vector3(0, 1.0, 0));
+    steps(w, 120);
+    const load = P.constraintLoad(c2);
+    check(out, "J6b_constraintLoad_3substeps", Math.abs(load.force - 18 * 9.81) / (18 * 9.81) < 0.05, { force: r(load.force, 2), expected: r(18 * 9.81, 2) });
+    w.dispose();
+  }
+
   // ---- J7: runtime limit changes; hinge between two dynamic bodies (lid on a box, overlapping, no self-collision)
   {
     const w = await makeWorld();

@@ -146,7 +146,9 @@ class ParticleGroup {
   }
 
   enqueue(rec: BurstRecord): void {
-    if (rec.count <= 0) {
+    // (the cap only matters if the system never becomes ready, e.g. a lost texture)
+    if (rec.count <= 0 || this.queue.length + this.deferred.length >= 2048) {
+      if (rec.count > 0) this.dropped += rec.count;
       this.fx.release(rec);
       return;
     }
@@ -440,6 +442,24 @@ class ParticleGroup {
   }
 }
 
+/** Strength cap for continuous emitters (fill-rate/budget safety). */
+export const MAX_EMITTER_STRENGTH = 2.5;
+
+/**
+ * Emitter rate → strength multiplier. Callers may pass either a strength (1 = nominal, the
+ * documented convention) or a particle rate (particles/s, e.g. 220): values above 8 are taken
+ * as particles per second of the kind's primary layer. Clamped to [0, MAX_EMITTER_STRENGTH].
+ */
+export function emitterStrength(kind: VfxKind, rate: number): number {
+  if (!Number.isFinite(rate) || rate <= 0) return 0;
+  let s = rate;
+  if (rate > 8) {
+    const primary = EMITTER_LAYERS[kind]?.[0];
+    s = primary ? rate / primary.rate : 1;
+  }
+  return Math.min(MAX_EMITTER_STRENGTH, s);
+}
+
 export class FxEmitter implements EmitterHandle {
   readonly kind: VfxKind;
   x: number;
@@ -467,9 +487,9 @@ export class FxEmitter implements EmitterHandle {
     this.y = Number.isFinite(pos.y) ? pos.y : 0;
     this.z = Number.isFinite(pos.z) ? pos.z : 0;
     this.setDirection(dir);
-    this.rate = Number.isFinite(rate) ? Math.max(0, rate) : 0;
+    this.rate = emitterStrength(kind, rate);
     this.tint = tint;
-    this.acc = EMITTER_LAYERS[kind].map(() => Math.random());
+    this.acc = (EMITTER_LAYERS[kind] ?? []).map(() => Math.random());
   }
 
   setPosition(p: Vec3): void {
@@ -488,7 +508,7 @@ export class FxEmitter implements EmitterHandle {
   }
 
   setRate(r: number): void {
-    this.rate = Number.isFinite(r) ? Math.max(0, r) : 0;
+    this.rate = emitterStrength(this.kind, r);
   }
 
   stop(): void {

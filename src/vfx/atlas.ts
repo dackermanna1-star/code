@@ -441,12 +441,12 @@ function bitsPixelCells(img: Uint8ClampedArray): void {
     const core = Math.exp(-((u * u) / 0.02 + ((v + 0.3) * (v + 0.3)) / 0.08));
     return [0.82 + 0.18 * core, a * (0.65 + 0.35 * core)];
   });
-  // 13 spark streak: thin bright line, soft along its length
+  // 13 spark streak: thin white-hot core + faint glow halo, soft along its length
   shadeCell(img, S, 13, C, (u, v) => {
-    const across = Math.exp(-(u * u) / 0.012);
+    const core = Math.exp(-(u * u) / 0.01);
+    const halo = Math.exp(-(u * u) / 0.12) * 0.28;
     const along = Math.max(0, 1 - v * v);
-    const a = across * Math.pow(along, 0.7);
-    return [1, a];
+    return [1, Math.min(1, (core + halo) * Math.pow(along, 0.7))];
   });
   // 14 star glint: 4-point star + soft core
   shadeCell(img, S, 14, C, (u, v) => {

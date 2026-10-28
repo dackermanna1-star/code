@@ -246,12 +246,12 @@ new SelectionOutlineLayer(name, scene?, options?)  sol.addSelection(meshOrMeshes
 | `GlowLayer` (all meshes) | **+20** | re-renders **every** active mesh (black if not emissive) + blur passes |
 | `GlowLayer` + `addIncludedOnlyMesh(screen)` | +6 | **glow shows through walls**: wall in front of a hidden bulb went 115 → 255 lum; all-meshes mode stayed 115 |
 | `HighlightLayer`, 1 mesh | **+20** | renders all active meshes as occluders [SRC `_shouldRenderMesh`] |
-| `SelectionOutlineLayer`, 1 mesh | +17 | enables a depth renderer by default |
+| `SelectionOutlineLayer`, 1 mesh | +16/+17 | `useDepthOcclusion` defaults to true and calls `scene.enableDepthRenderer()`, a full geometry pass. **`dispose()` leaves that depth renderer running** (+14 draws until `scene.disableDepthRenderer()`). With `{ useDepthOcclusion: false }` it costs only **+2** (`render-lighting-soldispose.probe.ts`) |
 | `renderOutline` on 1 mesh | **+2** | inflated back-face pass; uses the stencil only for alpha-blended meshes, so create the engine with `{ stencil: true }` if those get outlines [SRC] |
 | `renderOverlay` on 1 mesh | **+1** | |
 
 GlowLayer works with SSAO2 prepass active (glow luminance above the quad went 0 → 163) [RT].
-**Recommendation:** use bloom (`bloomThreshold 1.0`, `bloomWeight 0.3–0.4`) with HDR emissive values for screens and bulbs. For the grab highlight use `renderOverlay` (subtle tint) or `renderOutline`.
+**Recommendation:** use bloom (`bloomThreshold 1.0`, `bloomWeight 0.3–0.4`) with HDR emissive values for screens and bulbs. For the grab highlight use `renderOverlay` (subtle tint), `renderOutline`, or `SelectionOutlineLayer` with `{ useDepthOcclusion: false }` (+2 draws measured; its look was not checked visually).
 
 ---
 ## 6. Light shafts [RT] (`render-lighting-vls.probe.ts`, `render-lighting-shafts.probe.ts`)
@@ -373,7 +373,7 @@ const ps2 = createPs2PostProcess(camera, engine); drp.onBuildObservable.add(() =
 6. **Point-light shadows** are 6× caster draws, and PCF silently becomes Poisson. Use them only for 1–2 key lights, or refresh-once.
 7. **The DRP re-appends its post-processes on every rebuild**, which reorders custom post-processes (hook `onBuildObservable`). `drp.imageProcessing` is recreated, so use `scene.imageProcessingConfiguration`.
 8. **SSAO2:** the default `textureType` clamps HDR (pass HALF_FLOAT); `drp.samples` is ignored with prepass (use `ssao.textureSamples`); re-attaching appends after the DRP (`drp.prepare()`).
-9. **GlowLayer `includedOnly`** leaks glow through walls; GlowLayer, HighlightLayer, SelectionOutlineLayer and VLS all re-render the scene.
+9. **GlowLayer `includedOnly`** leaks glow through walls; GlowLayer, HighlightLayer, SelectionOutlineLayer (default options) and VLS all re-render the scene. Disposing a `SelectionOutlineLayer` leaves `scene.enableDepthRenderer()` active (+1 geometry pass): call `scene.disableDepthRenderer()`, or create it with `{ useDepthOcclusion: false }` (+2 draws).
 10. **VLS** does nothing when the sun is off-screen.
 11. `createDefaultEnvironment()` needs the CDN. A `ReflectionProbe`'s irradiance appears a few frames late (async readback).
 12. **`PostProcess` creation:** register the shader in `Effect.ShadersStore` **before** constructing, or Babylon fetches `<name>.fragment.fx`. In the options-object form, use `size`, not `width`/`height`.
