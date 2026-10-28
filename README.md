@@ -56,9 +56,11 @@ accessibility, simulation, audio, key rebinding).
 - Stars are generated lazily in hierarchical, magnitude-banded sectors (12 levels) in a worker. Populations (young
   arm stars, old disk, bulge, halo) come from population libraries built with a Kroupa IMF and stellar-evolution
   tracks.
+- Rogue planets (~0.3 per star) drift between the stars. They are star-less worlds warmed only by internal heat.
 - Star systems are generated only when you approach them. They have binaries with Holman–Wiegert stability limits
   (S- and P-type planets), a snow line, metallicity-dependent giant planets, hot Jupiters, moons on equatorial orbits,
-  resonance-forced eccentricities, asteroid and Kuiper belts, and comets.
+  resonance-forced eccentricities, asteroid and Kuiper belts, Trojan swarms at L4/L5 of giant planets, and comets.
+  Active comets show a coma, an ion tail pointing away from the star, and a curved dust tail.
 - Nebulae are catalogued plus procedural (per 1500-ly cell, following star formation and dust). Types are H II
   regions, planetary nebulae, supernova remnants, reflection and dark nebulae. All are volumetric, and dark clouds
   absorb background light.
@@ -95,6 +97,9 @@ accessibility, simulation, audio, key rebinding).
 - Aurorae appear in magnetic local time. Their colour comes from composition and their brightness is calibrated to
   terrestrial kR values.
 - Rain, snow, dust and ash fall only under thick cloud read from the same weather map. Fall speed ∝ √(g/ρ).
+- Rivers cut valleys in wet lowlands with a surface liquid. You can swim in them, and vegetation and animals avoid
+  them.
+- Sun shadows: two cascades around the observer.
 
 **Life (rare)**
 - Life is possible only on worlds with stable liquid water, suitable temperature, pressure and radiation, and enough
@@ -159,10 +164,13 @@ of use.
   evolution between planets. Ships do feel all bodies through restricted n-body gravity.
 - **Relativity.** Black holes are non-rotating (Schwarzschild). Lensing beyond the strong-field region uses the
   weak-field angle, and background lensing is screen-space. Light-travel time is ignored for transient events.
-- **Light.** Planets have no shadow maps. Surfaces get star occlusion by eclipses, horizon and cloud shadows, and
-  macro-normal self-shadowing, but mountains cast no long shadows. Clouds receive no shadows from terrain.
-- **Terrain.** There are no explicit river networks or caves, and no footprints or vehicle tracks. Erosion is
-  procedural (derivative-damped noise), not a simulation. Terrain streaming speed depends on CPU cores; it is fast
+- **Light.** Sun shadow maps cover about 4 km around the observer (terrain, plants, rocks, animals, ship). Beyond that,
+  surfaces get eclipses, horizon and cloud shadows and macro-normal self-shadowing, but distant mountains cast no long
+  shadows. Clouds receive no shadows from terrain.
+- **Terrain.** Rivers are channels carved along the zero set of a warped noise field. They are wide near the sea,
+  narrow upstream, and absent where it is dry, frozen or without a surface liquid. They are not a drainage
+  simulation, so they do not merge into trees of tributaries. There are no caves, footprints or vehicle tracks.
+  Erosion is procedural (derivative-damped noise), not a simulation. Terrain streaming speed depends on CPU cores; it is fast
   on desktop hardware and slow under software rendering.
 - **Climate.** Temperature varies with latitude, altitude, and tidal locking. Seasons are not simulated, and the
   weather map drifts but does not evolve dynamically.
@@ -170,8 +178,9 @@ of use.
   ecological simulation. Alien biology is speculative by nature.
 - **Known data.** Catalogue values are rounded literature estimates. Unknown properties (for example the surfaces
   of exoplanets) are modelled, and the info panel says so.
-- **Not yet implemented.** Rogue planets, Trojans, Oort clouds, binary black holes, docking, survival mode (omitted by
-  design for walking), depth of field and motion blur, and video export.
+- **Not yet implemented.** Binary black holes, docking (there are no stations), survival mode (omitted by design for
+  walking), depth of field, motion blur, and video export. The Oort cloud is shown only as an inferred shell in the
+  map.
 - **Performance** has been verified only in headless Chromium with software rendering (SwiftShader), where it is
   functional at reduced frame rates. Real GPUs have not been profiled yet, so no frame rate is promised.
 

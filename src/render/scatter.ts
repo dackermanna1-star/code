@@ -259,6 +259,7 @@ export class SurfaceScatter {
       // drawn right now, so items sit on the visible surface
       const s = gen.sample(dir[0], dir[1], dir[2], Math.min(80, Math.max(0.25, dist / 55, this.meshLambda)));
       if (sea > -Infinity && s.height < sea + 0.05) continue;
+      if (s.water > s.height - 0.3) continue; // in or right at the edge of a river
       if (s.temp > 650) continue; // molten / vent
       const roll = rng.next();
       let species = 0, size = 1, col: [number, number, number];

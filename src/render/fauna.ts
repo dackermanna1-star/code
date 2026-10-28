@@ -188,8 +188,9 @@ export class Fauna {
       an.pos.addScaledVector(fwd, an.speed * dt);
       const g = gen.sample(up.x, up.y, up.z, Math.max(0.5, dCam / 55));
       const sea = gen.liquidLevel();
-      if (sea > -Infinity && g.height < sea + 0.3) { an.heading += Math.PI * 0.8; an.pos.addScaledVector(fwd, -an.speed * dt * 2); }
-      an.pos.copy(up).multiplyScalar(R + Math.max(g.height, sea > -Infinity ? sea : g.height));
+      const wl = Math.max(sea, g.water);
+      if (wl > -Infinity && g.height < wl + 0.3) { an.heading += Math.PI * 0.8; an.pos.addScaledVector(fwd, -an.speed * dt * 2); }
+      an.pos.copy(up).multiplyScalar(R + Math.max(g.height, wl > -Infinity ? wl : g.height));
       an.phase += dt * (1.5 + an.speed * 2.2 / Math.max(sp.height, 0.2));
     }
     this.rebuild(camBody);

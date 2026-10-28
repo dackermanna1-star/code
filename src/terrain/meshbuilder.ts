@@ -90,7 +90,8 @@ export function buildNode(gen: SurfaceGenerator, face: number, level: number, ix
       const s = gen.sample(dir[0], dir[1], dir[2], lambdaMin);
       let h = s.height;
       let depth = 0;
-      if (hasSea && h < sea) { depth = sea - h; h = sea; }
+      const liq = Math.max(hasSea ? sea : -Infinity, s.water);
+      if (h < liq) { depth = liq - h; h = liq; }
       const k = j * P + i;
       sh[k] = h;
       const r = R + h;

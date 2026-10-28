@@ -232,3 +232,26 @@ describe('rogue planets', () => {
     expect(sys.root.planet!.classLabel.startsWith('Rogue')).toBe(true);
   });
 });
+
+describe('rivers', () => {
+  it('flow on wet worlds with surface liquids only, carved below their banks', () => {
+    const sys = buildSolarSystem(new UPos(), { x: 0, y: 0, z: 0, w: 1 });
+    const frac = (name: string) => {
+      const g = new SurfaceGenerator(sys.bodies.find((b) => b.name === name)!.planet!.surface!);
+      let land = 0, river = 0, carved = 0;
+      const N = 60000;
+      for (let i = 0; i < N; i++) {
+        const y = 1 - (2 * (i + 0.5)) / N, r = Math.sqrt(1 - y * y), t = 2.39996 * i;
+        const s = g.sample(Math.cos(t) * r, y, Math.sin(t) * r, 5);
+        if (s.height > g.liquidLevel()) land++;
+        if (s.water > s.height) { river++; if (s.water > g.liquidLevel()) carved++; }
+      }
+      return { f: river / Math.max(land, 1), carved };
+    };
+    const earth = frac('Earth'), mars = frac('Mars');
+    expect(earth.f).toBeGreaterThan(0.001);
+    expect(earth.f).toBeLessThan(0.03);
+    expect(earth.carved).toBeGreaterThan(0);
+    expect(mars.f).toBe(0);
+  });
+});

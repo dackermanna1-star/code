@@ -42,9 +42,9 @@ export class World {
     const g = this.generator(b);
     if (!g) return b.radius * (b.planet?.type === 'gas-giant' || b.planet?.type === 'ice-giant' ? 1 : 1);
     const d = _v.copy(dirBody).normalize();
-    const h = g.sample(d.x, d.y, d.z, lambda).height;
+    const smp = g.sample(d.x, d.y, d.z, lambda);
     const sea = g.liquidLevel();
-    return b.radius + Math.max(h, sea);
+    return b.radius + Math.max(smp.height, sea, smp.water);
   }
 
   /** Ground height (solid, ignoring liquid) and liquid level under a direction. */
@@ -52,9 +52,9 @@ export class World {
     const g = this.generator(b);
     if (!g) return { ground: b.radius, liquid: -Infinity };
     const d = _v.copy(dirBody).normalize();
-    const h = g.sample(d.x, d.y, d.z, lambda).height;
-    const sea = g.liquidLevel();
-    return { ground: b.radius + h, liquid: sea > -Infinity ? b.radius + sea : -Infinity };
+    const smp = g.sample(d.x, d.y, d.z, lambda);
+    const liq = Math.max(g.liquidLevel(), smp.water);
+    return { ground: b.radius + smp.height, liquid: liq > -Infinity ? b.radius + liq : -Infinity };
   }
 
   /** Distance (m) from a universe position to a body's centre. */
