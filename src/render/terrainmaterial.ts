@@ -11,6 +11,7 @@ import { LIGHTING_GLSL, ECLIPSE_GLSL } from './shaders/lighting.glsl';
 import type { SurfaceParams, LiquidKind } from '../terrain/surface';
 import { DETAIL_PERIOD } from '../terrain/meshbuilder';
 import { CLOUD_SHADOW_GLSL } from './shaders/cloudshadow.glsl';
+import { SUN_SHADOW_GLSL, shadowUniforms } from './shadows';
 import { PRE_EXPOSURE, PRE_EXPOSURE_TEX, PRE_EXPOSURE_GLSL } from './exposure';
 
 
@@ -78,6 +79,7 @@ uniform float uPixelAngle;
 uniform float uDetail;
 uniform float uAmbient;
 ${CLOUD_SHADOW_GLSL}
+${SUN_SHADOW_GLSL}
 uniform vec3 uPlanetShine;
 ${PRE_EXPOSURE_GLSL}
 varying vec3 vWorldPos;
@@ -261,6 +263,7 @@ void main() {
 #endif
     float ecl = eclipseFactor(P, k);
     applyCloudShade(P, L, muS, sunT, sky);
+    if (k == 0) sunT *= sunShadow(P, Ng);
     vec3 Ein = E * sunT * ecl;
     float NdotL = max(dot(Nshade, L), 0.0);
     // geometric self-shadowing of the macro normal (mountain back-faces)
@@ -349,6 +352,7 @@ export function createTerrainMaterial(sp: SurfaceParams, opts: TerrainMaterialOp
     uShadowDrift: { value: 0 },
     uCloudMidR: { value: 0 },
     uShadowStrength: { value: 0 },
+    ...shadowUniforms(),
     uReliefScale: { value: sp.reliefScale },
     uTime: { value: 0 },
     uPixelAngle: { value: 0.001 },

@@ -17,6 +17,7 @@ import { NOISE_GLSL } from './shaders/noise.glsl';
 import { LIGHTING_GLSL, ECLIPSE_GLSL } from './shaders/lighting.glsl';
 import { ATMOSPHERE_UNIFORMS, ATMOSPHERE_FUNCS, ATMOSPHERE_LUT_FUNCS } from './shaders/atmosphere.glsl';
 import { CLOUD_SHADOW_GLSL } from './shaders/cloudshadow.glsl';
+import { SUN_SHADOW_GLSL } from './shadows';
 import { PRE_EXPOSURE_GLSL } from './exposure';
 import { floraFor, rockGeometries, type Species } from './flora';
 
@@ -83,6 +84,7 @@ uniform vec3 uSunDir[2];
 uniform vec3 uSunIllum[2];
 uniform float uAmbient;
 ${CLOUD_SHADOW_GLSL}
+${SUN_SHADOW_GLSL}
 uniform vec3 uPlanetShine;
 uniform vec3 uStem;
 uniform float uFoliage;   // 1 = translucent foliage shading for part 1
@@ -122,6 +124,7 @@ void main() {
 #endif
     float ecl = eclipseFactor(P, k);
     applyCloudShade(P, L, muS, sunT, sky);
+    if (k == 0) sunT *= sunShadow(P, N);
     float NdotL = dot(N, L);
     float diff = leaf ? max((NdotL + 0.45) / 1.45, 0.0) : max(NdotL, 0.0);
     // light through thin leaves (forward scattering toward the viewer)
@@ -144,6 +147,8 @@ interface Layer {
   meshes: THREE.InstancedMesh[];
   kinds: number;      // geometry variants (rocks) or species count
   cells: Map<string, Item[]>;
+  /** surface wavelength each cell was placed on (re-placed when the mesh refines) */
+  cellLam: Map<string, number>;
   dirty: boolean;
   capacity: number;
 }
@@ -208,15 +213,16 @@ export class SurfaceScatter {
         m.count = 0;
         m.frustumCulled = false;
         m.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(cap * 3), 3);
+        m.userData.nearShadowOnly = name === 'rocks' || name === 'plants';
         this.group.add(m);
         return m;
       });
-      return { name, cell, radius, meshes, kinds: geos.length, cells: new Map(), dirty: true, capacity: cap };
+      return { name, cell, radius, meshes, kinds: geos.length, cells: new Map(), cellLam: new Map(), dirty: true, capacity: cap };
     };
-    this.layers.push(mkLayer('rocks', 24, 170, rocks, this.rockMat, 6000));
+    if (largeSp.length) this.layers.push(mkLayer('trees', 64, 650, largeSp.map((s) => s.geometry), this.plantMat, 8000));
     this.layers.push(mkLayer('boulders', 96, 700, rocks, this.rockMat, 3000));
     if (smallSp.length) this.layers.push(mkLayer('plants', 24, 150, smallSp.map((s) => s.geometry), this.plantMat, 6000));
-    if (largeSp.length) this.layers.push(mkLayer('trees', 64, 650, largeSp.map((s) => s.geometry), this.plantMat, 8000));
+    this.layers.push(mkLayer('rocks', 24, 170, rocks, this.rockMat, 6000));
     this.group.visible = false;
   }
 
@@ -304,17 +310,14 @@ export class SurfaceScatter {
     if (want !== this.active) {
       this.active = want;
       this.group.visible = want;
-      if (!want) for (const l of this.layers) { l.cells.clear(); l.dirty = true; }
+      if (!want) for (const l of this.layers) { l.cells.clear(); l.cellLam.clear(); l.dirty = true; }
     }
     if (!want || !gen) return;
-    const lam = terrainSpacing > 3 ? Math.pow(2, Math.round(Math.log2(terrainSpacing * 2))) : 0;
-    if (lam !== this.meshLambda) {
-      this.meshLambda = lam;
-      for (const l of this.layers) l.cells.clear();
-    }
+    // stale cells are re-placed gradually (nearest first) when the mesh refines
+    this.meshLambda = terrainSpacing > 3 ? Math.pow(2, Math.round(Math.log2(terrainSpacing * 2))) : 0;
     if (density !== this.density) {
       this.density = density;
-      for (const l of this.layers) { l.cells.clear(); l.dirty = true; }
+      for (const l of this.layers) { l.cells.clear(); l.cellLam.clear(); l.dirty = true; }
     }
     this.rockMat.uniforms.uTime.value = time % 1000;
     this.rockMat.uniforms.uFade.value = 260;
@@ -327,25 +330,32 @@ export class SurfaceScatter {
       this.hasAnchor = true;
       for (const l of this.layers) l.dirty = true;
     }
-    let budget = 24;
     for (const layer of this.layers) {
+      let budget = 10; // cells per layer per frame
       const da = layer.cell / (R * QPI);
       const ci = Math.floor(f.a / da), cj = Math.floor(f.b / da);
       const rc = Math.ceil(layer.radius / layer.cell);
       const needed = new Set<string>();
+      const todo: { key: string; di: number; dj: number; d2: number }[] = [];
       for (let dj = -rc; dj <= rc; dj++)
         for (let di = -rc; di <= rc; di++) {
-          if ((di * di + dj * dj) * layer.cell * layer.cell > (layer.radius + layer.cell) ** 2) continue;
+          const d2 = (di * di + dj * dj) * layer.cell * layer.cell;
+          if (d2 > (layer.radius + layer.cell) ** 2) continue;
           const key = `${f.face}:${ci + di}:${cj + dj}`;
           needed.add(key);
-          if (!layer.cells.has(key) && budget > 0) {
-            const dist = Math.sqrt(di * di + dj * dj) * layer.cell;
-            layer.cells.set(key, this.generate(layer, gen, f.face, ci + di, cj + dj, dist));
-            layer.dirty = true;
-            budget--;
-          }
+          const dist = Math.sqrt(d2);
+          const lamWanted = Math.min(80, Math.max(0.25, dist / 55, this.meshLambda));
+          if (!layer.cells.has(key) || layer.cellLam.get(key) !== lamWanted) todo.push({ key, di, dj, d2 });
         }
-      for (const k of layer.cells.keys()) if (!needed.has(k)) { layer.cells.delete(k); layer.dirty = true; }
+      todo.sort((a, b) => (layer.cells.has(a.key) ? 1 : 0) - (layer.cells.has(b.key) ? 1 : 0) || a.d2 - b.d2);
+      for (const t of todo) {
+        if (budget-- <= 0) break;
+        const dist = Math.sqrt(t.d2);
+        layer.cells.set(t.key, this.generate(layer, gen, f.face, ci + t.di, cj + t.dj, dist));
+        layer.cellLam.set(t.key, Math.min(80, Math.max(0.25, dist / 55, this.meshLambda)));
+        layer.dirty = true;
+      }
+      for (const k of layer.cells.keys()) if (!needed.has(k)) { layer.cells.delete(k); layer.cellLam.delete(k); layer.dirty = true; }
       if (layer.dirty) this.rebuild(layer);
     }
     this.stats.cells = this.layers.reduce((a, l) => a + l.cells.size, 0);

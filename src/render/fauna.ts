@@ -95,6 +95,7 @@ export class Fauna {
       m.count = 0;
       m.frustumCulled = false;
       m.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(cap * 3), 3);
+      m.userData.nearShadowOnly = true;
       this.group.add(m);
       return m;
     };

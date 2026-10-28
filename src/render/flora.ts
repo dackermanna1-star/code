@@ -105,7 +105,8 @@ function plantGeometry(form: PlantForm, rng: Rng): THREE.BufferGeometry {
     }
     case 'broadleaf': {
       stems.push(cyl(0.05, 0.03, 0.55, 0));
-      for (let i = 0; i < 3; i++) stems.push(cyl(0.025, 0.012, 0.3, 0.45).rotateZ((i - 1) * 0.5).rotateY(i * 2.1));
+      // branches start on the trunk and end inside the crown
+      for (let i = 0; i < 3; i++) stems.push(cyl(0.025, 0.012, 0.22, 0).rotateZ(0.55).rotateY(i * 2.1 + 0.4).translate(0, 0.5, 0));
       const n = rng.int(4, 7);
       for (let i = 0; i < n; i++) {
         const a = (i / n) * Math.PI * 2 + rng.range(0, 0.6);

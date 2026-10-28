@@ -21,7 +21,7 @@ for (const sc of scenes) {
   if (sc.settle) await page.evaluate(`window.__cosmos.settle && window.__cosmos.settle(${sc.settle})`);
   await page.waitForTimeout(sc.wait ?? 6000);
   const perf = await page.evaluate(() => document.querySelector('#hud-perf')?.textContent);
-  await page.screenshot({ path: `${outDir}/${sc.name}.png`, timeout: 180000 });
+  await page.screenshot({ path: `${outDir}/${sc.name}.png`, timeout: 180000, animations: "allow", caret: "initial" }).catch(async (e) => { console.log("screenshot via canvas fallback:", e.message.split("\n")[0]); const url = await page.evaluate(() => document.querySelector("canvas").toDataURL("image/png")); fs.writeFileSync(`${outDir}/${sc.name}.png`, Buffer.from(url.split(",")[1], "base64")); });
   console.log(sc.name, ((Date.now() - t0) / 1000).toFixed(1) + 's', perf);
 }
 for (const e of [...new Set(errors)].slice(0, 20)) console.log('ERR', e);

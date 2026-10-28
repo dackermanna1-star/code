@@ -17,6 +17,7 @@ import { ShipRenderer } from './shipmodels';
 import { BlackHoleRenderer, type AccretionDisk } from './blackhole';
 import { NebulaRenderer } from './nebula';
 import { CometTail } from './comet';
+import { SunShadows } from './shadows';
 import type { Ship } from '../sim/ship';
 import { TerrainWorkerPool } from '../terrain/workerpool';
 import type { World } from '../sim/world';
@@ -64,6 +65,7 @@ export class SceneRenderer {
   readonly galaxies: GalaxyRenderer;
   readonly galaxyScene = new THREE.Scene();
   readonly nebulae = new NebulaRenderer();
+  readonly shadows = new SunShadows();
   cosmos: Cosmos | null = null;
   shipRenderer: ShipRenderer | null = null;
   ship: Ship | null = null;
@@ -324,6 +326,7 @@ export class SceneRenderer {
     }
     this.updateShip(world, suns);
     if (!draw) return;
+    this.renderShadows(suns);
     this.pipeline.beginFrame(this.scene, cam);
     if (this.galaxies.group.children.length) this.pipeline.overlayHalfRes(this.galaxyScene, cam);
     if (this.nebulae.drawn) this.pipeline.overlayHalfResOver(this.nebulae.scene, cam);
@@ -336,6 +339,24 @@ export class SceneRenderer {
     for (const bh of this.blackHoles.values()) if (bh.visible) this.pipeline.composite(bh.material);
     if (this.overlayScene.children.length) this.pipeline.overlay(this.overlayScene, cam);
     this.pipeline.endFrame(dt);
+  }
+
+  /** Sun shadow cascades on the planet under the camera (when close to its surface). */
+  private renderShadows(suns: SunLight[]) {
+    let best: PlanetRenderer | null = null;
+    for (const p of this.planets.values()) {
+      if (p.terrainActive && p.camAltitude < 12000 && (!best || p.camAltitude < best.camAltitude)) best = p;
+    }
+    for (const p of this.planets.values()) if (p !== best) p.material.uniforms.uShadowOn.value = 0;
+    if (!best || !suns.length || !this.shadows.enabled || this.quality.scatter <= 0.05) return;
+    const L = suns[0].rel.clone().sub(best.lastRel).normalize();
+    const up = best.lastCamBody.clone().normalize().applyQuaternion(best.lastRot);
+    if (L.dot(up) < -0.05) { best.material.uniforms.uShadowOn.value = 0; return; } // night
+    const casters: THREE.Object3D[] = [best.group];
+    if (this.shipRenderer) casters.push(this.shipRenderer.model.group);
+    const fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(this.camera.quaternion);
+    this.shadows.render(this.renderer, this.scene, casters, best.material, this.quality.lodK,
+      best.lastRel, best.lastRot, best.lastCamBody, L, fwd, best.material.uniforms, best.body.id);
   }
 
   private updateShip(world: World, suns: SunLight[]) {

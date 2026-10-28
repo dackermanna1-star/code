@@ -64,6 +64,12 @@ export class PlanetRenderer {
   scatter: SurfaceScatter | null = null;
   fauna: Fauna | null = null;
   precip: Precipitation | null = null;
+  /** camera altitude above this planet's surface (m), from the last update */
+  camAltitude = Infinity;
+  /** planet orientation and camera-relative centre used this frame */
+  readonly lastRel = new THREE.Vector3();
+  readonly lastRot = new THREE.Quaternion();
+  readonly lastCamBody = new THREE.Vector3();
   private weatherHere: { coverage: number; height: number } | null = null;
   private lastTime = NaN;
   private gen: SurfaceGenerator | null = null;
@@ -120,6 +126,10 @@ export class PlanetRenderer {
 
     // ground scatter (created on first approach; shares this material's uniforms)
     const altCam = camBody.length() - R;
+    this.camAltitude = altCam;
+    this.lastRel.copy(rel);
+    this.lastRot.copy(rot);
+    this.lastCamBody.copy(camBody);
     if (!this.scatter && altCam < 4000) {
       this.gen = new SurfaceGenerator(this.body.planet!.surface!);
       this.scatter = new SurfaceScatter(this.body, this.material.uniforms, !!this.luts);
