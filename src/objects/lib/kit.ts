@@ -47,7 +47,7 @@
 
 import { v3, vcross, vnorm, vlen, vsub, vadd, vscale, vdot, vperp, qaxisAngle, qmul, type Vec3 } from "../../geom/vec.ts";
 import { polyCentroid } from "../../geom/poly.ts";
-import type { MaterialId } from "../../destruction/model/materials.ts";
+import { MATERIALS, type MaterialId } from "../../destruction/model/materials.ts";
 import type { BondKind } from "../../destruction/model/types.ts";
 import type { SurfaceName } from "../../render/surfaces.ts";
 import { Builder, vec, type V3, type Rot } from "./builder.ts";
@@ -193,9 +193,9 @@ export function pullHandle(
   const depth = o.depth ?? 0.02;
   const width = o.width ?? 0.02;
   const size: V3 = o.vertical ? [width, len, depth] : [len, width, depth];
-  const part = b.bevelBox(name, o.mat ?? "plastic", o.surf ?? "plastic", size, Math.min(width, depth) * 0.25, [vec(pos).x, vec(pos).y, vec(pos).z + depth / 2], {
-    rot,
-    tint: o.tint ?? 0x202020,
+  let part = "";
+  b.group(pos, rot, "", () => {
+    part = b.bevelBox(name, o.mat ?? "plastic", o.surf ?? "plastic", size, Math.min(width, depth) * 0.25, [0, 0, depth / 2], { tint: o.tint ?? 0x202020 });
   });
   b.screw(part, on, o.screws ?? 2, 30);
   return part;
@@ -206,8 +206,10 @@ export function knob(b: Builder, name: string, o: HardwareLook & { on: string; r
   const on = b.resolve(o.on);
   const r = o.r ?? 0.015;
   const len = o.len ?? 0.025;
-  const p = vec(pos);
-  const part = b.cyl(name, o.mat ?? "aluminum", o.surf ?? "aluminum", r * 0.6, len, [p.x, p.y, p.z + len / 2], { axis: "z", rTop: r, segments: 10, tint: o.tint, rot });
+  let part = "";
+  b.group(pos, rot, "", () => {
+    part = b.cyl(name, o.mat ?? "aluminum", o.surf ?? "aluminum", r * 0.6, len, [0, 0, len / 2], { axis: "z", rTop: r, segments: 10, tint: o.tint });
+  });
   b.bond(part, on, o.kind ?? "screw", { strength: o.strength ?? 25 });
   return part;
 }
@@ -425,17 +427,14 @@ export function sheetMetalBox(
       sx1 = f.right ? w / 2 - t : w / 2;
     const ty0 = f.bottom ? t : 0,
       ty1 = f.top ? h - t : h;
-    const po = (face: BoxFace) => ({ tint, tess: o.tess, surf: o.faceSurf?.[face] ?? surf });
-    if (f.left) out.left = b.box("left", mat, po("left").surf, [t, h, d], [-w / 2 + t / 2, h / 2, 0], po("left"));
-    if (f.right) out.right = b.box("right", mat, po("right").surf, [t, h, d], [w / 2 - t / 2, h / 2, 0], po("right"));
-    if (f.top) out.top = b.box("top", mat, po("top").surf, [sx1 - sx0, t, d], [(sx0 + sx1) / 2, h - t / 2, 0], po("top"));
-    if (f.bottom) out.bottom = b.box("bottom", mat, po("bottom").surf, [sx1 - sx0, t, d], [(sx0 + sx1) / 2, t / 2, 0], po("bottom"));
-    const zIn0 = f.back ? -d / 2 + t : -d / 2;
-    const zIn1 = f.front ? d / 2 - t : d / 2;
-    void zIn0;
-    void zIn1;
-    if (f.back) out.back = b.box("back", mat, po("back").surf, [sx1 - sx0, ty1 - ty0, t], [(sx0 + sx1) / 2, (ty0 + ty1) / 2, -d / 2 + t / 2], po("back"));
-    if (f.front) out.front = b.box("front", mat, po("front").surf, [sx1 - sx0, ty1 - ty0, t], [(sx0 + sx1) / 2, (ty0 + ty1) / 2, d / 2 - t / 2], po("front"));
+    const sf = (face: BoxFace): SurfaceName => o.faceSurf?.[face] ?? surf;
+    const po = { tint, tess: o.tess };
+    if (f.left) out.left = b.box("left", mat, sf("left"), [t, h, d], [-w / 2 + t / 2, h / 2, 0], po);
+    if (f.right) out.right = b.box("right", mat, sf("right"), [t, h, d], [w / 2 - t / 2, h / 2, 0], po);
+    if (f.top) out.top = b.box("top", mat, sf("top"), [sx1 - sx0, t, d], [(sx0 + sx1) / 2, h - t / 2, 0], po);
+    if (f.bottom) out.bottom = b.box("bottom", mat, sf("bottom"), [sx1 - sx0, t, d], [(sx0 + sx1) / 2, t / 2, 0], po);
+    if (f.back) out.back = b.box("back", mat, sf("back"), [sx1 - sx0, ty1 - ty0, t], [(sx0 + sx1) / 2, (ty0 + ty1) / 2, -d / 2 + t / 2], po);
+    if (f.front) out.front = b.box("front", mat, sf("front"), [sx1 - sx0, ty1 - ty0, t], [(sx0 + sx1) / 2, (ty0 + ty1) / 2, d / 2 - t / 2], po);
     const names = Object.values(out) as string[];
     const join = o.join ?? "weld";
     for (let i = 0; i < names.length; i++)
@@ -1054,7 +1053,7 @@ export function frameBars(b: Builder, name: string, o: FrameOpts, pos: V3 = [0, 
     const bottom = b.hull("bottom", mat, surf, P.bottom, [0, 0, 0], { tint, grain: "x" });
     const left = b.hull("left", mat, surf, P.left, [0, 0, 0], { tint, grain: "y" });
     const right = b.hull("right", mat, surf, P.right, [0, 0, 0], { tint, grain: "y" });
-    const mode = MATERIALS_MODE(mat);
+    const mode = MATERIALS[mat].mode;
     const corner = o.corner ?? (mat === "aluminum" || mat === "steel" ? { kind: "screw" as BondKind, strength: 60 } : mode === "splinter" || mat === "mdf" ? { kind: "glue" as BondKind, strength: 45 } : { kind: "fused" as BondKind });
     for (const [a, c] of [
       [top, left],
@@ -1067,11 +1066,6 @@ export function frameBars(b: Builder, name: string, o: FrameOpts, pos: V3 = [0, 
   });
 }
 
-// tiny local lookup to avoid importing the whole material table here
-import { MATERIALS } from "../../destruction/model/materials.ts";
-function MATERIALS_MODE(m: MaterialId): string {
-  return MATERIALS[m].mode;
-}
 
 export interface GlassPaneOpts extends FrameOpts {
   glassT?: number;
@@ -1466,8 +1460,8 @@ export function lightBulb(
       const a = (2 * Math.PI * k) / 10;
       pts.push([neckR * Math.cos(a), baseH, neckR * Math.sin(a)]);
     }
-    for (let ring = 0; ring <= 6; ring++) {
-      const phi = -Math.PI / 2 + 0.35 + ((Math.PI / 2 - 0.35 + Math.PI / 2) * ring) / 6;
+    for (let ring = 0; ring < 6; ring++) {
+      const phi = -Math.PI / 2 + 0.35 + ((Math.PI - 0.35) * ring) / 6;
       const rr = R * Math.cos(phi),
         yy = yc + R * stretch * Math.sin(phi);
       for (let k = 0; k < 10; k++) {
@@ -1580,9 +1574,12 @@ export function pipe(
 // Misc geometry helpers for content builders
 // =============================================================================================
 
-/** Quaternion rotating about local axis `axis` by `deg` then about Y by `yawDeg` (blades, spokes). */
-export function spokeRot(yawAxis: "x" | "y" | "z", spokeDeg: number, pitchDeg = 0): Rot {
-  const ax = yawAxis === "x" ? v3(1, 0, 0) : yawAxis === "y" ? v3(0, 1, 0) : v3(0, 0, 1);
+/**
+ * Rotation for radial parts (fan blades, spokes) built along local +X: first pitch about local X by
+ * `pitchDeg`, then spin about the hub `axis` by `spokeDeg`.
+ */
+export function spokeRot(axis: "x" | "y" | "z", spokeDeg: number, pitchDeg = 0): Rot {
+  const ax = axis === "x" ? v3(1, 0, 0) : axis === "y" ? v3(0, 1, 0) : v3(0, 0, 1);
   const q1 = qaxisAngle(ax, (spokeDeg * Math.PI) / 180);
   const q2 = qaxisAngle(v3(1, 0, 0), (pitchDeg * Math.PI) / 180);
   return qmul(q1, q2);
