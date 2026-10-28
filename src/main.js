@@ -66,7 +66,7 @@ const state = {
   tracers: true,
   gore: true,
   throwPower: 1,
-  shoveImpulse: 90,
+  shoveImpulse: 60,
   firing: false,
   lastShot: -1,
   selected: null,

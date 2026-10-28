@@ -120,7 +120,7 @@ export class UI {
     };
     slider('assist', 'Balance assist', 0, 1, 0.05, 1, (v) => `${Math.round(v * 100)}%`);
     slider('throwPower', 'Throw power', 0.4, 1.6, 0.05, 1, (v) => `${v.toFixed(2)}×`);
-    slider('shove', 'Shove impulse', 20, 300, 5, 90, (v) => `${v} N·s`);
+    slider('shove', 'Shove impulse', 20, 300, 5, 60, (v) => `${v} N·s`);
     slider('force', 'Bullet momentum', 1, 6, 0.5, 1, (v) => (v === 1 ? 'real' : `${v}×`));
     slider('bleed', 'Bleeding rate', 0.25, 4, 0.25, 1, (v) => `${v}×`);
     slider('volume', 'Sound', 0, 1, 0.05, 0.7, (v) => `${Math.round(v * 100)}%`);

@@ -1148,8 +1148,10 @@ export class HumanController {
       this.step.duration = clamp(0.3 + 0.35 * dist, 0.32, 0.5);
       this.step.lift = clamp(0.035 + 0.08 * dist, 0.04, 0.08);
     } else {
-      this.step.duration = clamp(0.22 + 0.2 * dist, 0.24, 0.38);
-      this.step.lift = clamp(0.05 + 0.1 * dist, 0.06, 0.12);
+      const P = this.stepParams || {};
+      // quick, low reactive steps: a fast placement matters more than foot clearance
+      this.step.duration = clamp((P.t0 ?? 0.18) + (P.t1 ?? 0.15) * dist, P.tmin ?? 0.2, 0.36);
+      this.step.lift = clamp(0.05 + 0.1 * dist, P.liftMin ?? 0.06, P.liftMax ?? 0.09);
     }
     // crossover: route the swing foot around the front (or back) of the stance foot
     const sc = this.soleCenter(stance, _v1);
@@ -1211,7 +1213,7 @@ export class HumanController {
     let fwd = (out.x - sc.x) * hx + (out.z - sc.z) * hz;
     let left = (out.x - sc.x) * lx + (out.z - sc.z) * lz;
     const side = foot === 'L' ? 1 : -1;
-    const minW = 0.13, maxW = 0.55;
+    const minW = 0.13, maxW = (this.stepParams && this.stepParams.maxW) ?? 0.7;
     let penalty = 0;
     if (side * left < minW) {
       if (side * left < 0.02) {
@@ -1225,9 +1227,10 @@ export class HumanController {
     } else if (side * left > maxW) left = side * maxW;
     fwd = clamp(fwd, -0.5, 0.75);
     const len = Math.hypot(fwd, left);
-    if (len > 0.8) {
-      fwd *= 0.8 / len;
-      left *= 0.8 / len;
+    const maxL = (this.stepParams && this.stepParams.maxL) ?? 0.8;
+    if (len > maxL) {
+      fwd *= maxL / len;
+      left *= maxL / len;
     }
     out.x = sc.x + hx * fwd + lx * left - hx * 0.058;
     out.z = sc.z + hz * fwd + lz * left - hz * 0.058;

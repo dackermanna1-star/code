@@ -121,7 +121,7 @@ export class Arena {
           // blood: thin films are bright red and soaked into the pores, thick pools dark and glossy
           float bt = dec.r;
           float bcov = smoothstep(0.03, 0.12, bt);
-          vec3 bcol = mix(vec3(0.24, 0.014, 0.012), vec3(0.07, 0.004, 0.003), smoothstep(0.2, 0.75, bt));
+          vec3 bcol = mix(vec3(0.2, 0.011, 0.009), vec3(0.045, 0.0025, 0.002), smoothstep(0.15, 0.6, bt));
           diffuseColor.rgb = mix(diffuseColor.rgb, bcol, bcov);
           float floorWet = smoothstep(0.15, 0.45, bt) + smoothstep(0.1, 0.4, dec.b) * 0.6;`,
         )
