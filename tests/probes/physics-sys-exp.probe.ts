@@ -5,7 +5,6 @@ import { makeWorld, body, floor, staticBox, steps, r, randomPoints } from "./phy
 async function pile(n: number, assist: { linear: number; angular: number; seconds: number } | false, local = false) {
   const w = await makeWorld({ sleepAssist: assist === false ? false : assist });
   const P = w.physics;
-  P.sleepLocal = local;
   floor(w, 0, 60);
   const half = n > 200 ? 3 : 1;
   staticBox(w, new Vector3(half + 0.25, 3, 0), new Vector3(0.5, 6, half * 2 + 1));
@@ -31,6 +30,10 @@ async function pile(n: number, assist: { linear: number; angular: number; second
   const speeds = bodies.filter((b) => P.isAwake(b)).map((b) => [b.getLinearVelocity().length(), b.getAngularVelocity().length()]);
   speeds.sort((a, b) => b[1] - a[1]);
   const fs = P.debugStats().forcedSleeps;
+  const recs = (P as unknown as { recs: WeakMap<object, { slow: number; movedStep: number; boundR: number; radius: number; keepAwake: boolean; joints: unknown }> }).recs;
+  const rs = bodies.map((b) => recs.get(b)!);
+  const slowVals = rs.map((x) => x.slow).sort((a, b) => a - b);
+  const dbg = { stepIndex: P.stepIndex, slowMin: slowVals[0], slowMed: slowVals[slowVals.length >> 1], slowMax: slowVals[slowVals.length - 1], recentMovers: rs.filter((x) => x.movedStep >= P.stepIndex - 8).length, boundR: rs.slice(0, 3).map((x) => r(x.boundR, 3)), radius: rs.slice(0, 3).map((x) => r(x.radius, 3)), lowSlow: slowVals.slice(0, 8) };
   // tap: wake everything with a block drop, count awake over time
   const blk = body(w, "block", new Vector3(0, 6, 0), "dynamic", P.boxShape({ x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: 0, w: 1 }, { x: 0.4, y: 0.4, z: 0.4 }, { density: 400 }));
   const after: number[] = [];
@@ -39,14 +42,10 @@ async function pile(n: number, assist: { linear: number; angular: number; second
     after.push(bodies.filter((b) => P.isAwake(b)).length);
   }
   w.dispose();
-  return { awakePerSecond: trace, msPerStepPerSecond: ms, forcedSleeps: fs, topAwakeSpeeds: speeds.slice(0, 5).map((s) => [r(s[0], 3), r(s[1], 3)]), awakeEveryHalfSecondAfterBlock: after };
+  return { dbg, awakePerSecond: trace, msPerStepPerSecond: ms, forcedSleeps: fs, topAwakeSpeeds: speeds.slice(0, 5).map((s) => [r(s[0], 3), r(s[1], 3)]), awakeEveryHalfSecondAfterBlock: after };
 }
 export async function probe() {
   const out: Record<string, unknown> = {};
   out.comp120 = await pile(120, { linear: 0.08, angular: 0.2, seconds: 0.6 });
-  out.local120 = await pile(120, { linear: 0.08, angular: 0.2, seconds: 0.6 }, true);
-  out.off120 = await pile(120, false);
-  out.comp1000 = await pile(1000, { linear: 0.08, angular: 0.2, seconds: 0.6 });
-  out.local1000 = await pile(1000, { linear: 0.08, angular: 0.2, seconds: 0.6 }, true);
   return out;
 }

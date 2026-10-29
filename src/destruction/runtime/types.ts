@@ -75,6 +75,12 @@ export class Part implements PartState {
   colliderTime = -1;
   /** The part's shape is currently a child of its island's container. */
   inContainer = false;
+  /** `shape` is a cheap oriented-box stand-in, queued for a hull refinement (World.refineShapes). */
+  approxShape = false;
+  /** Detached by a split whose island creation is deferred (World.pendingGroups): no island yet. */
+  limbo = false;
+  /** Volume already counted as broken in the assembly's damage accounting. */
+  counted = false;
   /** Scratch index for graph algorithms (valid only inside one call). */
   tmp = 0;
 
@@ -143,9 +149,11 @@ export class Bond implements BondState {
   group: JointGroup | null = null;
   /** Rigid bonds merge parts into one island (all kinds except hinge/slider/latch). */
   readonly rigid: boolean;
+  /** Blueprint bond (counted by the damage accounting) vs one created by a fracture at runtime. */
+  readonly original: boolean;
   alive = true;
 
-  constructor(id: number, asm: Assembly, kind: BondKind, a: Part, b: Part | null, max: number, anchor: Vec3, joint: JointDef | null) {
+  constructor(id: number, asm: Assembly, kind: BondKind, a: Part, b: Part | null, max: number, anchor: Vec3, joint: JointDef | null, original = false) {
     this.id = id;
     this.asm = asm;
     this.kind = kind;
@@ -157,6 +165,7 @@ export class Bond implements BondState {
     this.anchor = anchor;
     this.joint = joint;
     this.rigid = kind !== "hinge" && kind !== "slider" && kind !== "latch";
+    this.original = original;
   }
 
   other(p: Part): Part | null {
@@ -351,5 +360,33 @@ export interface FractureRequest {
   /** World impact position / direction (for events). */
   pos: Vec3;
   dir: Vec3;
+  /** Caused by a deliberate strike (tool/fist) rather than a passive collision. */
+  strike: boolean;
   seq: number;
+}
+
+/**
+ * A component detached by a split whose island is created in a later step (World budget): its
+ * parts wait in limbo (no body, no mesh) and appear at the pose and velocity they had when they
+ * broke off.
+ */
+export interface PendingGroup {
+  asm: Assembly;
+  parts: Part[];
+  anchored: boolean;
+  mass: number;
+  birth: number;
+  birthTime: number;
+  /** World pose of the parent island node at the split (assembly frame → world). */
+  px: number;
+  py: number;
+  pz: number;
+  qx: number;
+  qy: number;
+  qz: number;
+  qw: number;
+  /** Parent velocity / angular velocity / world COM at the split. */
+  v: Vec3;
+  w: Vec3;
+  com: Vec3;
 }

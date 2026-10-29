@@ -1,7 +1,8 @@
 // Probe: regression checks for the reviewer findings (each result carries `ok`):
 //  1. bits/sparks from a burst on a counter re-probe their ground and fall past the edge
 //  2. decals are removed when their support goes away (drop/grab/fracture → deferred re-check)
-//     and wall decals inside a broken-out region disappear
+//     and wall decals inside a broken-out region disappear; 2b. also after slow drags (the grab
+//     spot is re-checked while held and on release, wherever the object was released)
 //  3. a wall fracture's dust patch sits on the room side of the wall line
 //  4. extinguisher emitter created with the tools' 220 particles/s → strength 1, scales with setRate
 //  5. overlapping dust patches merge (one patch, thicker) instead of stacking
@@ -89,6 +90,53 @@ export async function probe(): Promise<any> {
     before,
     after: after.map((x) => `${x.kind}@${x.x.toFixed(2)},${x.y.toFixed(2)},${x.z.toFixed(2)}`),
     ok: !after.some((x) => x.kind === "dust" && x.y > 0.5) && !kinds.includes("scorch") && kinds.includes("crack") && kinds.includes("impact"),
+  };
+
+  // 2b. slow drags of heavy furniture (> ~46 kg can only be dragged): the table keeps supporting
+  // its dust patch past the grab's own deferred checks, then ends up 2.5 m away
+  const patchState = () => d.debugList().filter((x) => x.kind === "dust" && x.y > 0.5).map((x) => ({ y: +x.y.toFixed(3), dying: x.dying }));
+  const gone = (l: Array<{ dying: boolean }>) => l.every((x) => x.dying);
+  const moved: Box = { min: [3.7, 0, 0.4], max: [4.5, 0.75, 1.2] };
+  //   i. dragged off while still held: removed by the periodic grab-spot re-check, before the drop
+  d.clear();
+  boxes.push(table);
+  d.add("dust", 1.6, 0.75, 0.8, 0, 1, 0, 0.5, { tint: 0xdedbd3 });
+  d.add("dust", 0.0, 0.9, 0.9, 0, 1, 0, 0.4, { tint: 0xdedbd3 }); // on the counter, 1.6 m away: must survive
+  d.add("impact", 1.6, 0, 0.1, 0, 1, 0, 0.3); // floor mark near the grab spot: must survive
+  events.emit("grab", { pos: { x: 1.6, y: 0.5, z: 0.8 }, mass: 60 } as never);
+  stepFrames(vfx, scene, 120); // 2 s: still supported
+  const heldStill = patchState();
+  boxes.splice(boxes.indexOf(table), 1, moved); // the drag finally clears the old spot
+  stepFrames(vfx, scene, 60);
+  const midDrag = patchState().filter((x) => x.y < 0.8);
+  events.emit("drop", { pos: { x: 4.1, y: 0.5, z: 0.8 } } as never);
+  stepFrames(vfx, scene, 30);
+  const survivors = d.debugList().filter((x) => !x.dying).map((x) => x.kind + "@" + x.x.toFixed(1));
+  boxes.splice(boxes.indexOf(moved), 1, table);
+  //  ii. the reviewer's case: held 2 s with support, then moved away in the same frame as the drop
+  d.clear();
+  d.add("dust", 1.6, 0.75, 0.8, 0, 1, 0, 0.5, { tint: 0xdedbd3 });
+  events.emit("grab", { pos: { x: 1.6, y: 0.5, z: 0.8 }, mass: 60 } as never);
+  stepFrames(vfx, scene, 120);
+  boxes.splice(boxes.indexOf(table), 1, moved);
+  events.emit("drop", { pos: { x: 4.1, y: 0.5, z: 0.8 } } as never);
+  stepFrames(vfx, scene, 150);
+  const afterDrop = d.debugList().map((x) => ({ kind: x.kind, y: +x.y.toFixed(3), dying: x.dying }));
+  boxes.splice(boxes.indexOf(moved), 1); // (section 2 left the table carried away)
+  out.slowDrag = {
+    heldStill,
+    midDrag,
+    survivors,
+    afterDrop,
+    holdingAfterDrop: vfx.reactions.holding,
+    ok:
+      heldStill.length === 2 &&
+      !heldStill.some((x) => x.dying) &&
+      gone(midDrag) &&
+      survivors.includes("dust@0.0") &&
+      survivors.includes("impact@1.6") &&
+      afterDrop.length === 0 &&
+      !vfx.reactions.holding,
   };
 
   // 3. wall fracture dust patch on the room side (wall face at z = W, room at z < W)

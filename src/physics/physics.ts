@@ -198,7 +198,7 @@ const SLEEP_MARGIN = 0.03;
  *  slow for SLEEP_FALLBACK × `seconds` sleep on their own. */
 const SLEEP_RECENT_STEPS = 8;
 const SLEEP_BIG_COMPONENT = 32;
-const SLEEP_FALLBACK = 4;
+const SLEEP_FALLBACK = 1e6;
 /** STARTED events within this many steps of a body's mask change are echoes of existing contacts (see queueHeat). */
 const MASK_ECHO_STEPS = 4;
 /** Impulse estimator: a body slower than this (m/s) before the step counts as resting (supported) — see pointTerms. */

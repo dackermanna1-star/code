@@ -15,6 +15,15 @@
 //    split into 2 m spatial chunks so a dent or a hole only rebuilds the touched chunk.
 //  * Structural changes (membership) rebuild meshes in the same step; cosmetic changes
 //    (dents/cracks) are rebuilt under a per-step time budget.
+//
+// Break work is spread over fixed steps under one shared budget (`work`, default 4 ms per step,
+// also used by the fracture queue): hull colliders (the dominant cost) fall back to cheap
+// oriented boxes once the budget is spent and are refined to hulls in later steps
+// (refineShapes); islands of pieces detached by a split are created up to the budget (at least
+// MIN_ISLANDS_PER_STEP per step) and the rest wait in `pendingGroups` (no body, no mesh) until
+// a later step, appearing with the pose and velocity they had when they broke off. Engine
+// resource creation is exception-safe: hull failures degrade to boxes, and island creation /
+// spawning roll back everything they created when the engine throws.
 
 import { AbstractMesh, Quaternion, TransformNode, Vector3, type PhysicsBody, type PhysicsShape, type Scene } from "@babylonjs/core";
 import { Layer, type IslandMeshes, type PhysicsSystem, type RenderSystem, type ShapeOpts, type VfxSystem } from "../../core/context.ts";
@@ -32,7 +41,7 @@ import type { AssemblyDef, BondDef, BondKind, JointDef, PartDef } from "../model
 import { planSplit, type GraphBond } from "./graph.ts";
 import { PartGrid } from "./partGrid.ts";
 import { detectBox, quatFromBasis, sharedFaceArea, signedDistance } from "./polyUtil.ts";
-import { Assembly, Bond, Chunk, Island, JointGroup, Part } from "./types.ts";
+import { Assembly, Bond, Chunk, Island, JointGroup, Part, type PendingGroup } from "./types.ts";
 
 // ------------------------------------------------------------------------------ constants
 /** Debris layer: lighter than this (kg)… */
@@ -52,6 +61,18 @@ export const CHUNK_SIZE = 2.0;
 export const SMALL_FRAGMENT_BOX = 0.05;
 /** In-place container edits beyond this many removals fall back to a rebuild. */
 const MAX_INPLACE_REMOVALS = 32;
+/** Default per-step budget (ms) for break work: fracture application, colliders, new islands. */
+export const WORK_BUDGET_MS = 4;
+/** Islands created per step from deferred split pieces even when the budget is spent. */
+export const MIN_ISLANDS_PER_STEP = 4;
+/** Hull refinements per step even when the budget is spent (so stand-in boxes never linger). */
+const MIN_REFINES_PER_STEP = 1;
+/**
+ * Below these sizes the physics module builds boxes as 8-point hulls (as expensive as a real
+ * hull) instead of native boxes — physics.ts boxShape: largest < 10 cm or middle < 5 cm.
+ */
+const NATIVE_BOX_MIN_LARGEST = 0.1;
+const NATIVE_BOX_MIN_MIDDLE = 0.05;
 
 export interface WorldServices {
   physics: PhysicsSystem;
@@ -89,6 +110,12 @@ const NOOP_HOOKS: WorldHooks = {
   partKilled() {},
 };
 
+/** World pose of an island node (the assembly frame). */
+export interface IslandPose {
+  p: Vec3;
+  q: { x: number; y: number; z: number; w: number };
+}
+
 export interface PartInit {
   name: string;
   matId: PartDef["mat"];
@@ -110,6 +137,7 @@ export interface PartInit {
 const tmpV = new Vector3();
 const tmpW = new Vector3();
 const tmpV2 = new Vector3();
+const sCom: Vec3 = { x: 0, y: 0, z: 0 };
 const EMPTY_TAGS: readonly string[] = Object.freeze([]);
 
 export class World {
@@ -133,8 +161,14 @@ export class World {
   partCount = 0;
   fractures = 0;
   bondsBroken = 0;
-  /** Fixed-step counter (advanced by Destruction.afterPhysics). */
+  /** Fixed-step counter (advanced by endStep). */
   stepIndex = 0;
+  /** Break-work budget of the current fixed step (ms spent / allowed). */
+  readonly work = { used: 0, budgetMs: WORK_BUDGET_MS, islands: 0, refines: 0 };
+  /** Split pieces waiting for their island (created under the work budget, oldest first). */
+  readonly pendingGroups: PendingGroup[] = [];
+  /** Parts with a stand-in box collider waiting for their hull. */
+  readonly refineQueue = new Set<Part>();
   /** Edit static containers in place (disabled automatically if the physics shapes don't support it). */
   inPlaceEdits = true;
   private nextBirth = 1;
@@ -177,9 +211,24 @@ export class World {
 
   // =================================================================================== spawn
 
+  /**
+   * Build an assembly: parts, bonds, joint groups, islands with bodies. If the engine throws
+   * part-way, everything created so far is released and the error is rethrown (no half-built
+   * assembly stays registered).
+   */
   spawn(def: AssemblyDef, xf: Xform): Assembly {
     const asm = new Assembly(this.nextAsmId++, def, { p: { ...xf.p }, q: { ...xf.q } });
     this.assemblies.set(asm.id, asm);
+    try {
+      this.buildAssembly(asm, def);
+    } catch (e) {
+      this.despawn(asm);
+      throw e;
+    }
+    return asm;
+  }
+
+  private buildAssembly(asm: Assembly, def: AssemblyDef): void {
     for (const pd of def.parts) {
       if (asm.byName.has(pd.name)) {
         this.warnOnce(`dup:${def.type}:${pd.name}`, `${def.type}: duplicate part '${pd.name}' ignored`);
@@ -222,7 +271,7 @@ export class World {
         this.warnOnce(`joint:${def.type}:${bd.a}`, `${def.type}: ${bd.kind} bond ${bd.a}–${bd.b} lacks a joint def`);
         continue;
       }
-      const bond = this.createBond(asm, bd.kind, a, b ?? null, strength, anchor, bd.joint ?? null);
+      const bond = this.createBond(asm, bd.kind, a, b ?? null, strength, anchor, bd.joint ?? null, true);
       if (isJoint) {
         const gid = bd.joint!.group ?? `${a.name}#${bd.kind}${autoGroup++}`;
         let g = asm.groups.get(gid);
@@ -270,12 +319,11 @@ export class World {
       const members = plan.members[c].map((i) => parts[i]);
       this.createIsland(asm, members, plan.anchored[c], null, !plan.anchored[c] && startAsleep);
     }
-    // accounting baseline
+    // accounting baseline (only blueprint bonds exist yet: all `original`)
     let vol = 0;
     for (const p of asm.parts) vol += p.volume;
     asm.initialVolume = Math.max(vol, 1e-9);
     asm.initialBonds = asm.bonds.size;
-    return asm;
   }
 
   private bondStrength(bd: BondDef, a: Part, b: Part | null): number {
@@ -319,7 +367,21 @@ export class World {
 
   // ============================================================================ parts/bonds
 
+  /** Create and register a part (spawn). */
   createPart(asm: Assembly, init: PartInit): Part {
+    const part = this.newPart(asm, init);
+    this.adoptPart(part);
+    return part;
+  }
+
+  /** Register a part made by newPart() with its assembly. */
+  adoptPart(part: Part): void {
+    part.asm.parts.add(part);
+    this.partCount++;
+  }
+
+  /** A part object (geometry/mass derived) that is NOT registered yet — see adoptPart(). */
+  newPart(asm: Assembly, init: PartInit): Part {
     const mat = MATERIALS[init.matId] ?? material(init.matId);
     const volume = init.volume ?? polyVolume(init.poly);
     if (!(volume > 1e-12) || !Number.isFinite(volume)) throw new Error(`degenerate volume ${volume}`);
@@ -349,13 +411,12 @@ export class World {
       gen: init.gen ?? 0,
       box: detectBox(init.poly),
     });
-    asm.parts.add(part);
-    this.partCount++;
     return part;
   }
 
-  createBond(asm: Assembly, kind: BondKind, a: Part, b: Part | null, strength: number, anchor: Vec3, joint: JointDef | null): Bond {
-    const bond = new Bond(this.nextBondId++, asm, kind, a, b, strength, anchor, joint);
+  /** `original` = blueprint bond (spawn); fracture-made bonds don't count in the damage share. */
+  createBond(asm: Assembly, kind: BondKind, a: Part, b: Part | null, strength: number, anchor: Vec3, joint: JointDef | null, original = false): Bond {
+    const bond = new Bond(this.nextBondId++, asm, kind, a, b, strength, anchor, joint, original);
     a.bonds.push(bond);
     if (b) b.bonds.push(bond);
     asm.bonds.add(bond);
@@ -383,7 +444,7 @@ export class World {
     removeFrom(bond.a.bonds, bond);
     if (bond.b) removeFrom(bond.b.bonds, bond);
     bond.asm.bonds.delete(bond);
-    bond.asm.brokenBonds++;
+    if (bond.original) bond.asm.brokenBonds++;
     this.bondsBroken++;
     const isl = bond.a.island ?? bond.b?.island ?? null;
     const pos = isl ? this.toWorldVec(isl, bond.anchor) : { ...bond.anchor };
@@ -409,40 +470,66 @@ export class World {
 
   /**
    * Create an island for `parts` (already created, not in any island). Its node starts at the
-   * assembly spawn transform, or at `poseFrom`'s current world pose (split pieces).
+   * assembly spawn transform, or at `pose` (world pose of the assembly frame — split pieces).
+   * `approx`: colliders may be stand-in boxes once the step's work budget is spent (refined
+   * later). Exception-safe: if the engine throws, the node/container/body made here are
+   * released, the parts are left island-less and the error is rethrown.
    */
-  createIsland(asm: Assembly, parts: Part[], isStatic: boolean, poseFrom: TransformNode | null, startAsleep: boolean): Island {
+  createIsland(asm: Assembly, parts: Part[], isStatic: boolean, pose: IslandPose | null, startAsleep: boolean, approx = false): Island {
     const node = new TransformNode(`d${asm.id}.i${this.nextIslandId}`, this.scene);
     node.rotationQuaternion = new Quaternion();
-    if (poseFrom) {
-      node.position.copyFrom(poseFrom.position);
-      if (poseFrom.rotationQuaternion) node.rotationQuaternion.copyFrom(poseFrom.rotationQuaternion);
+    if (pose) {
+      node.position.set(pose.p.x, pose.p.y, pose.p.z);
+      node.rotationQuaternion.set(pose.q.x, pose.q.y, pose.q.z, pose.q.w);
     } else {
       node.position.set(asm.xf.p.x, asm.xf.p.y, asm.xf.p.z);
       node.rotationQuaternion.set(asm.xf.q.x, asm.xf.q.y, asm.xf.q.z, asm.xf.q.w);
-      node.rotationQuaternion.normalize();
     }
+    node.rotationQuaternion.normalize();
     node.computeWorldMatrix(true);
     const island = new Island(this.nextIslandId++, asm, node, isStatic);
     for (const p of parts) {
       p.island = island;
+      p.limbo = false;
       island.parts.push(p);
     }
-    this.updateMetrics(island);
-    island.layer = this.classifyLayer(island);
-    const coll = this.collidable(island);
-    for (const p of coll) this.ensureShape(p, island.layer);
-    island.childParts = coll.slice();
-    for (const p of coll) p.inContainer = true;
-    island.container = this.physics.containerShape(
-      coll.map((p) => p.shape!),
-      { layer: island.layer },
-    );
-    const body = this.physics.createBody(node, isStatic ? "static" : "dynamic", startAsleep);
-    this.physics.setShape(body, island.container);
-    island.body = body;
-    this.bodyMap.set(body, island);
-    if (!isStatic) this.applyMass(island);
+    let body: PhysicsBody | null = null;
+    let container: PhysicsShape | null = null;
+    try {
+      this.updateMetrics(island);
+      island.layer = this.classifyLayer(island);
+      const coll = this.collidable(island);
+      for (const p of coll) this.ensureShape(p, island.layer, approx);
+      container = this.physics.containerShape(
+        coll.map((p) => p.shape!),
+        { layer: island.layer },
+      );
+      body = this.physics.createBody(node, isStatic ? "static" : "dynamic", startAsleep);
+      this.physics.setShape(body, container);
+      island.container = container;
+      island.body = body;
+      island.childParts = coll.slice();
+      for (const p of coll) p.inContainer = true;
+      this.bodyMap.set(body, island);
+      if (!isStatic) this.applyMass(island);
+    } catch (e) {
+      if (body) {
+        this.bodyMap.delete(body);
+        try {
+          this.physics.disposeBody(body);
+        } catch {
+          /* already gone */
+        }
+      }
+      if (container) container.dispose(); // children belong to the parts
+      for (const p of parts) {
+        if (p.island === island) p.island = null;
+        p.inContainer = false;
+      }
+      island.alive = false;
+      node.dispose();
+      throw e;
+    }
     island.awake = !startAsleep && !isStatic;
     this.setupChunks(island);
     asm.islands.add(island);
@@ -508,8 +595,14 @@ export class World {
     (this.physics as PhysicsSystem & { refreshMass?(b: PhysicsBody): void }).refreshMass?.(island.body);
   }
 
-  /** Create (or re-layer) a part's child collision shape. */
-  ensureShape(part: Part, layer: number): PhysicsShape {
+  /**
+   * Create (or re-layer) a part's child collision shape. Box parts get exact boxes, tiny
+   * fragments oriented boxes; everything else a convex hull — or, with `approx` once the step's
+   * work budget is spent, a stand-in oriented box queued for refinement (refineShapes). A hull
+   * the engine fails to build degrades to the oriented box (then to a sphere) instead of
+   * throwing, so a physics error never leaves a part without a collider.
+   */
+  ensureShape(part: Part, layer: number, approx = false): PhysicsShape {
     if (part.shape) {
       if (part.shapeLayer !== layer) {
         this.physics.setLayer(part.shape, layer);
@@ -517,29 +610,127 @@ export class World {
       }
       return part.shape;
     }
-    const opts: ShapeOpts = {
-      density: Math.max(part.mass / part.volume, 1),
-      friction: part.mat.friction,
-      restitution: part.mat.restitution,
-      layer,
-    };
+    const opts = this.shapeOpts(part, layer);
     let shape: PhysicsShape;
-    if (part.box) shape = this.physics.boxShape(part.box.center, part.box.rot, part.box.size, opts);
-    else if (part.gen > 0 && part.ext[0] < SMALL_FRAGMENT_BOX) shape = this.obbShape(part, opts);
-    else shape = this.physics.hullShape(polyPoints(part.poly), opts);
+    if (part.box) shape = this.safeShape(part, opts, () => this.physics.boxShape(part.box!.center, part.box!.rot, part.box!.size, opts));
+    else if (part.gen > 0 && part.ext[0] < SMALL_FRAGMENT_BOX) shape = this.safeShape(part, opts, () => this.obbShape(part, opts));
+    else if (approx && this.overBudget()) {
+      shape = this.safeShape(part, opts, () => this.obbShape(part, opts));
+      part.approxShape = true;
+      this.refineQueue.add(part);
+    } else {
+      const t0 = performance.now();
+      shape = this.safeShape(part, opts, () => this.physics.hullShape(polyPoints(part.poly), opts));
+      this.work.used += performance.now() - t0;
+    }
     part.shape = shape;
     part.shapeLayer = layer;
     return shape;
   }
 
-  /** Oriented box from principal axes with the shard's volume (tiny fragments: no hull cost). */
+  private shapeOpts(part: Part, layer: number): ShapeOpts {
+    return {
+      density: Math.max(part.mass / part.volume, 1),
+      friction: part.mat.friction,
+      restitution: part.mat.restitution,
+      layer,
+    };
+  }
+
+  /** Build a shape; on an engine error fall back to the oriented box, then to a sphere. */
+  private safeShape(part: Part, opts: ShapeOpts, make: () => PhysicsShape): PhysicsShape {
+    try {
+      return make();
+    } catch (e) {
+      this.warnOnce(`shape:${(e as Error).message}`, `collider for '${part.name}' failed (${(e as Error).message}); using a box`);
+    }
+    try {
+      return this.obbShape(part, opts);
+    } catch {
+      /* fall through */
+    }
+    const r = Math.max(0.005, Math.cbrt((3 * part.volume) / (4 * Math.PI)));
+    return this.physics.sphereShape(part.centroid, r, opts);
+  }
+
+  /** The per-step break-work budget is used up. */
+  overBudget(): boolean {
+    return this.work.used >= this.work.budgetMs;
+  }
+
+  /**
+   * Oriented box from principal axes standing in for the part's hull. Flat cells (sheet
+   * fragments) keep their full thickness and shrink in-plane to the cell's area; chunky ones
+   * shrink uniformly to its volume. Sizes the physics module builds natively are ~100× cheaper
+   * than a hull (smaller ones become 8-point hulls, still about half the cost).
+   */
   private obbShape(part: Part, opts: ShapeOpts): PhysicsShape {
     const { ext, axes } = polyExtents(part.poly);
     const w = cross3(axes[0], axes[1]);
     const boxVol = Math.max(ext[0] * ext[1] * ext[2], 1e-12);
-    const k = Math.min(1, Math.max(0.6, Math.cbrt(part.volume / boxVol)));
-    const size = { x: Math.max(ext[0] * k, 0.004), y: Math.max(ext[1] * k, 0.004), z: Math.max(ext[2] * k, 0.004) };
+    const fill = Math.min(1, part.volume / boxVol);
+    let k0: number, k2: number;
+    if (ext[2] < 0.3 * ext[1]) {
+      k0 = Math.min(1, Math.max(0.65, Math.sqrt(fill)));
+      k2 = 1;
+    } else k0 = k2 = Math.min(1, Math.max(0.6, Math.cbrt(fill)));
+    const size = { x: Math.max(ext[0] * k0, 0.004), y: Math.max(ext[1] * k0, 0.004), z: Math.max(ext[2] * k2, 0.004) };
     return this.physics.boxShape(part.centroid, quatFromBasis(axes[0], axes[1], w), size, opts);
+  }
+
+  /** Would the stand-in box of this part be a native (cheap) physics box? */
+  static nativeBox(part: Part): boolean {
+    return part.ext[0] >= NATIVE_BOX_MIN_LARGEST && part.ext[1] >= NATIVE_BOX_MIN_MIDDLE;
+  }
+
+  /**
+   * Replace stand-in boxes by hulls while the step's work budget lasts (at least
+   * MIN_REFINES_PER_STEP). Static islands first (they define holes the player sees and walks
+   * past), then pieces heavy enough to matter; small debris keeps its box. The container swaps
+   * happen in the next syncContainer (flushTopology).
+   */
+  refineShapes(): void {
+    if (!this.refineQueue.size) return;
+    let pass = 0;
+    while (pass < 2 && this.refineQueue.size) {
+      for (const p of this.refineQueue) {
+        if (this.work.refines >= MIN_REFINES_PER_STEP && this.overBudget()) return;
+        const isl = p.island;
+        if (!p.alive || !p.approxShape || !p.shape) {
+          this.refineQueue.delete(p);
+          p.approxShape = false;
+          continue;
+        }
+        if (!isl) continue; // in limbo: refined once it has an island again
+        if (pass === 0 && !isl.isStatic) continue;
+        if (!isl.isStatic && isl.layer === Layer.DEBRIS) {
+          this.refineQueue.delete(p); // debris keeps its box (cost saving, visually equivalent)
+          p.approxShape = false;
+          continue;
+        }
+        this.refineQueue.delete(p);
+        p.approxShape = false;
+        const t0 = performance.now();
+        let hull: PhysicsShape;
+        try {
+          hull = this.physics.hullShape(polyPoints(p.poly), this.shapeOpts(p, p.shapeLayer));
+        } catch (e) {
+          this.warnOnce(`refine:${(e as Error).message}`, `hull refinement for '${p.name}' failed: ${(e as Error).message}`);
+          continue; // keep the box
+        } finally {
+          this.work.used += performance.now() - t0;
+          this.work.refines++;
+        }
+        this.deadShapes.push(p.shape);
+        p.shape = hull;
+        if (p.inContainer) {
+          isl.pendingRemove.add(p);
+          isl.pendingAdd.push(p);
+          this.containerDirty.add(isl);
+        }
+      }
+      pass++;
+    }
   }
 
   /** Recreate a part's collider from its (dented) render vertices after a big crumple. */
@@ -547,13 +738,11 @@ export class World {
     const island = part.island;
     if (!island) return;
     const old = part.shape;
-    part.shape = this.physics.hullShape(points, {
-      density: Math.max(part.mass / part.volume, 1),
-      friction: part.mat.friction,
-      restitution: part.mat.restitution,
-      layer: island.layer,
-    });
+    const opts = this.shapeOpts(part, island.layer);
+    part.shape = this.safeShape(part, opts, () => this.physics.hullShape(points, opts));
     part.shapeLayer = island.layer;
+    part.approxShape = false;
+    this.refineQueue.delete(part);
     if (old) this.deadShapes.push(old);
     if (part.inContainer) {
       // swap the child (in place for static islands, rebuild for dynamic ones)
@@ -628,10 +817,13 @@ export class World {
       island.pendingRemove.size < island.childParts.length &&
       island.parts.some((p) => !p.noCollide);
     if (inPlace) {
-      // Re-assigning the same container after each phase keeps the physics module's child list
-      // (raycast childIndex) in sync — it re-reads the children when their count changed.
+      // Re-assigning the container makes the physics module re-read its child list (raycast
+      // childIndex) — it does so when the child COUNT changed. Each assignment also recomputes
+      // mass properties over all children (~1 hull build for a wall of hundreds of parts, wasted
+      // on a static body), so assign once, plus once in between only when the removals and
+      // additions cancel out (the count would look unchanged).
+      let removed = 0;
       if (island.pendingRemove.size) {
-        let removed = 0;
         for (let i = island.childParts.length - 1; i >= 0; i--) {
           const p = island.childParts[i];
           if (!island.pendingRemove.has(p)) continue;
@@ -640,26 +832,35 @@ export class World {
           p.inContainer = false;
           removed++;
         }
-        if (removed) this.physics.setShape(island.body, c!);
       }
+      let addable = 0;
+      for (const p of island.pendingAdd) if (p.alive && p.island === island && !p.inContainer && !p.noCollide) addable++;
+      if (removed > 0 && addable === removed) this.physics.setShape(island.body, c!);
       let added = 0;
       for (const p of island.pendingAdd) {
         if (!p.alive || p.island !== island || p.inContainer || p.noCollide) continue;
-        c!.addChild!(this.ensureShape(p, island.layer));
+        c!.addChild!(this.ensureShape(p, island.layer, true));
         island.childParts.push(p);
         p.inContainer = true;
         added++;
       }
-      if (added) this.physics.setShape(island.body, c!);
+      if (added > 0 || (removed > 0 && addable !== removed)) this.physics.setShape(island.body, c!);
     } else {
-      for (const p of island.childParts) p.inContainer = false;
       const coll = this.collidable(island);
-      for (const p of coll) this.ensureShape(p, island.layer);
+      for (const p of coll) this.ensureShape(p, island.layer, true);
+      // build + assign before touching the bookkeeping: an engine error leaves the old
+      // container in place and the pending edits queued for a retry
       const container = this.physics.containerShape(
         coll.map((p) => p.shape!),
         { layer: island.layer },
       );
-      this.physics.setShape(island.body, container);
+      try {
+        this.physics.setShape(island.body, container);
+      } catch (e) {
+        container.dispose();
+        throw e;
+      }
+      for (const p of island.childParts) p.inContainer = false;
       island.container = container;
       island.childParts = coll;
       for (const p of coll) p.inContainer = true;
@@ -685,6 +886,7 @@ export class World {
       this.topoDirty.clear();
       for (const isl of list) if (isl.alive) this.splitIsland(isl);
     }
+    if (this.pendingGroups.length) this.createPendingIslands();
     if (this.containerDirty.size) {
       for (const isl of [...this.containerDirty]) this.syncContainer(isl);
       this.containerDirty.clear();
@@ -765,17 +967,60 @@ export class World {
     }
     if (island.metricsDirty) this.updateMetrics(island);
     const comOld = this.toWorldVec(island, island.com);
+    const asm = island.asm;
 
     // detach the non-keeper components first so the old container no longer holds their shapes
-    const groups: Part[][] = [];
+    const groups: Array<{ parts: Part[]; anchored: boolean; mass: number }> = [];
+    let newMass = 0;
+    let cx = 0,
+      cy = 0,
+      cz = 0;
     for (let c = 0; c < plan.count; c++) {
       if (c === plan.keeper) continue;
       const g = plan.members[c].map((i) => parts[i]);
-      for (const p of g) this.detachPart(p);
-      groups.push(g);
+      for (const p of g) {
+        this.detachPart(p);
+        newMass += p.mass;
+        cx += p.centroid.x * p.mass;
+        cy += p.centroid.y * p.mass;
+        cz += p.centroid.z * p.mass;
+        // fragments of a fractured part that break away count as broken volume
+        if (p.gen > 0 && !p.counted) {
+          asm.brokenVolume += p.volume;
+          p.counted = true;
+        }
+      }
+      groups.push({ parts: g, anchored: plan.anchored[c], mass: plan.mass[c] });
     }
-    const anchoredOf: boolean[] = [];
-    for (let c = 0; c < plan.count; c++) if (c !== plan.keeper) anchoredOf.push(plan.anchored[c]);
+    groups.sort((a, b) => b.mass - a.mass); // heaviest pieces get their islands first
+    // the break happens now, whenever the pieces' islands get created: announce it now
+    if (newMass > 0) {
+      const c = this.toWorldVec(island, { x: cx / newMass, y: cy / newMass, z: cz / newMass });
+      this.events.emit("split", { pos: c, mass: newMass, pieces: groups.length });
+    }
+    // snapshot of the parent pose/motion: deferred pieces appear where and how they broke off
+    const node = island.node;
+    const q = node.rotationQuaternion;
+    const birth = this.nextBirth++;
+    const snap = (g: { parts: Part[]; anchored: boolean; mass: number }): PendingGroup => ({
+      asm,
+      parts: g.parts,
+      anchored: g.anchored,
+      mass: g.mass,
+      birth,
+      birthTime: this.now,
+      px: node.position.x,
+      py: node.position.y,
+      pz: node.position.z,
+      qx: q ? q.x : 0,
+      qy: q ? q.y : 0,
+      qz: q ? q.z : 0,
+      qw: q ? q.w : 1,
+      v: vOld,
+      w: wOld,
+      com: comOld,
+    });
+    const pending = groups.map(snap);
 
     this.updateMetrics(island);
     if (island.isStatic && !plan.anchored[plan.keeper]) this.makeDynamic(island, false);
@@ -784,37 +1029,98 @@ export class World {
       this.syncContainer(island);
     }
     if (!island.isStatic) this.setPieceVelocity(island, vOld, wOld, comOld);
-
-    let newMass = 0;
-    let cx = 0,
-      cy = 0,
-      cz = 0;
-    const created: Island[] = [];
     // siblings of one split start in contact: their mutual impacts are ignored briefly
-    const birth = this.nextBirth++;
     island.birth = birth;
     island.birthTime = this.now;
-    for (let k = 0; k < groups.length; k++) {
-      const isl = this.createIsland(island.asm, groups[k], anchoredOf[k], island.node, false);
-      isl.birth = birth;
-      isl.birthTime = this.now;
-      created.push(isl);
-      if (!isl.isStatic) this.setPieceVelocity(isl, vOld, wOld, comOld);
-      for (const p of groups[k]) this.hooks.partMoved(p, isl);
-      const c = this.toWorldVec(isl, isl.com);
-      newMass += isl.mass;
-      cx += c.x * isl.mass;
-      cy += c.y * isl.mass;
-      cz += c.z * isl.mass;
-    }
     this.applyKicks(island);
-    for (const isl of created) this.applyKicks(isl);
-    if (newMass > 0) {
-      this.events.emit("split", { pos: { x: cx / newMass, y: cy / newMass, z: cz / newMass }, mass: newMass, pieces: created.length });
-    }
-    // joints touching any of these islands need re-evaluation
     this.markJointsOf(island);
-    for (const isl of created) this.markJointsOf(isl);
+
+    // islands for the detached pieces: now while the step's budget lasts, the rest later.
+    // Anchored pieces (wall remnants) and pieces carrying features (lights, screens, water)
+    // never wait.
+    for (const g of pending) {
+      if (g.anchored || this.canCreateIsland() || g.parts.some((p) => p.features && p.features.length)) this.realizeGroup(g);
+      else {
+        for (const p of g.parts) p.limbo = true;
+        this.pendingGroups.push(g);
+      }
+    }
+  }
+
+  /** Another island may be created this step (budget left, or below the per-step minimum). */
+  canCreateIsland(): boolean {
+    return this.work.islands < MIN_ISLANDS_PER_STEP || !this.overBudget();
+  }
+
+  /** Create islands for deferred split pieces, oldest first, while the step's budget lasts. */
+  createPendingIslands(): void {
+    const q = this.pendingGroups;
+    let i = 0;
+    for (; i < q.length; i++) {
+      if (!this.canCreateIsland()) break;
+      const g = q[i];
+      if (g.asm.alive) this.realizeGroup(g);
+    }
+    if (i > 0) q.splice(0, i);
+  }
+
+  /** Pieces still waiting for their island (debug / probes). */
+  get pendingPieces(): number {
+    let n = 0;
+    for (const g of this.pendingGroups) n += g.parts.length;
+    return n;
+  }
+
+  /**
+   * Give a detached group its island at the pose / velocity of the split (+ fragment kicks).
+   * If the engine fails, the pieces are removed (they cannot exist without a body).
+   */
+  private realizeGroup(g: PendingGroup): Island | null {
+    const parts: Part[] = [];
+    for (const p of g.parts) {
+      p.limbo = false;
+      if (p.alive && !p.island) parts.push(p);
+    }
+    if (!parts.length) return null;
+    const t0 = performance.now();
+    let isl: Island;
+    try {
+      isl = this.createIsland(g.asm, parts, g.anchored, { p: { x: g.px, y: g.py, z: g.pz }, q: { x: g.qx, y: g.qy, z: g.qz, w: g.qw } }, false, true);
+    } catch (e) {
+      this.warnOnce(`island:${(e as Error).message}`, `island for ${parts.length} split piece(s) of ${g.asm.type} failed: ${(e as Error).stack ?? e}`);
+      for (const p of parts) this.killPart(p, false);
+      return null;
+    } finally {
+      this.work.used += performance.now() - t0;
+      this.work.islands++;
+    }
+    isl.birth = g.birth;
+    isl.birthTime = g.birthTime;
+    if (!isl.isStatic) this.setPieceVelocity(isl, g.v, g.w, g.com);
+    for (const p of parts) this.hooks.partMoved(p, isl);
+    this.applyKicks(isl);
+    this.markJointsOf(isl);
+    return isl;
+  }
+
+  /** Forget deferred pieces of an assembly being torn down. */
+  private purgePending(asm: Assembly): void {
+    const q = this.pendingGroups;
+    let j = 0;
+    for (let i = 0; i < q.length; i++) {
+      if (q[i].asm === asm) {
+        for (const p of q[i].parts) p.limbo = false;
+      } else q[j++] = q[i];
+    }
+    q.length = j;
+  }
+
+  /** End of a fixed step: reset the work budget. */
+  endStep(): void {
+    this.work.used = 0;
+    this.work.islands = 0;
+    this.work.refines = 0;
+    this.stepIndex++;
   }
 
   /** Re-evaluate the collision layer of a dynamic island after its mass/extent changed. */
@@ -959,7 +1265,10 @@ export class World {
         if (o) removeFrom(o.bonds, b);
       }
       p.bonds.length = 0;
-      island.asm.brokenVolume += p.volume;
+      if (!p.counted) {
+        island.asm.brokenVolume += p.volume;
+        p.counted = true;
+      }
     }
     // parts first (features release their lights/emitters while the node still exists)
     for (const p of parts) this.killPart(p, false);
@@ -971,6 +1280,7 @@ export class World {
   despawn(asm: Assembly): void {
     if (!asm.alive) return;
     asm.alive = false;
+    this.purgePending(asm);
     // silent teardown: no bondBreak / split events
     for (const b of asm.bonds) b.alive = false;
     asm.bonds.clear();
@@ -1167,8 +1477,10 @@ export class World {
   /** World point → island frame into `out`. */
   toLocal(island: Island, p: Vec3, out: Vec3): Vec3 {
     const t = island.node.position;
-    const d = { x: p.x - t.x, y: p.y - t.y, z: p.z - t.z };
-    rotate(island.node.rotationQuaternion, d, out, true);
+    out.x = p.x - t.x;
+    out.y = p.y - t.y;
+    out.z = p.z - t.z;
+    rotate(island.node.rotationQuaternion, out, out, true); // rotate() reads v before writing out
     return out;
   }
 
@@ -1183,7 +1495,7 @@ export class World {
     if (island.isStatic || !island.body) return out;
     island.body.getLinearVelocityToRef(tmpV);
     island.body.getAngularVelocityToRef(tmpW);
-    const c = this.toWorldVec(island, island.com);
+    const c = nodeToWorld(island.node, island.com, sCom);
     const rx = worldP.x - c.x,
       ry = worldP.y - c.y,
       rz = worldP.z - c.z;
