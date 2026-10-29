@@ -78,9 +78,10 @@ export class Destruction implements DestructionSystem {
     this.fracture = new FractureSystem(w, {
       onFracture: (old, frags, info) => this.features.onFracture(old, frags, info),
       markDamage: (p) => this.accounting.markDirty(p.asm),
+      dynamicCount: () => this.debris.tracked,
     });
     this.impacts = new ImpactSystem(w, {
-      enqueueFracture: (part, plan, energy, pos, dir) => this.fracture.enqueue(part, plan, energy, pos, dir),
+      enqueueFracture: (part, plan, energy, pos, dir, strike) => this.fracture.enqueue(part, plan, energy, pos, dir, strike),
       settleNow: () => {
         this.fracture.process(true);
         this.settle();
@@ -129,13 +130,22 @@ export class Destruction implements DestructionSystem {
 
   // ============================================================================= spawn
 
+  /**
+   * Spawn an assembly. An engine failure part-way releases everything already created for it
+   * (bodies, shapes, meshes, constraints, features) and rethrows — nothing half-built stays.
+   */
   spawn(def: AssemblyDef, xf: Xform): number {
-    const asm = this.world.spawn(def, xf);
-    this.joints.register(asm);
-    this.joints.refreshDirty();
-    this.features.attach(asm);
-    this.accounting.register(asm);
-    this.world.rebuildMeshes(0);
+    const asm = this.world.spawn(def, xf); // rolls itself back on failure
+    try {
+      this.accounting.register(asm);
+      this.joints.register(asm);
+      this.joints.refreshDirty();
+      this.features.attach(asm);
+      this.world.rebuildMeshes(0);
+    } catch (e) {
+      this.despawn(asm.id);
+      throw e;
+    }
     return asm.id;
   }
 
@@ -149,6 +159,7 @@ export class Destruction implements DestructionSystem {
     this.world.despawn(asm);
     this.fracture.purge();
     for (const p of [...this.crumpleQueue]) if (!p.alive) this.crumpleQueue.delete(p);
+    this.debris.rebuildBatches(0); // drop its consolidated geometry now (may run outside a step)
     return true;
   }
 
@@ -228,11 +239,15 @@ export class Destruction implements DestructionSystem {
     try {
       this.impacts.process();
       this.joints.jointLoads(dt);
+      // break work under the shared step budget: islands of pieces that broke off in earlier
+      // steps first (they are invisible until created), then queued fractures, then splits
+      w.createPendingIslands();
       this.fracture.process(true);
       this.settle();
       this.refreshCrumpled();
       this.features.fixedUpdate(dt);
       this.debris.fixedUpdate();
+      w.refineShapes(); // leftover budget: stand-in boxes → hulls
       this.settle();
       w.rebuildMeshes(MESH_BUDGET_STEP);
       this.debris.rebuildBatches(BATCH_BUDGET);
@@ -240,7 +255,7 @@ export class Destruction implements DestructionSystem {
     } catch (e) {
       w.warnOnce(`after:${(e as Error).message}`, `afterPhysics failed: ${(e as Error).stack ?? e}`);
     }
-    this.fracture.budgetUsed = 0;
+    w.endStep();
     this.msLastStep = performance.now() - t0;
   }
 

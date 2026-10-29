@@ -20,11 +20,12 @@
 
 import { Layer } from "../../core/context.ts";
 import type { Vec3 } from "../../geom/vec.ts";
+import type { ConvexPoly } from "../../geom/poly.ts";
 import { S } from "../../render/surfaces.ts";
 import type { FracturePlan, PlannedCell } from "../model/damage.ts";
 import { resolveBondTransfers } from "./graph.ts";
 import { filterCracks, largestFace } from "./polyUtil.ts";
-import { DEBRIS_EXTENT, DEBRIS_EXTENT_MAX_MASS, DEBRIS_MASS, WORK_BUDGET_MS, type World } from "./world.ts";
+import { DEBRIS_MASS, WORK_BUDGET_MS, type World } from "./world.ts";
 import type { FractureRequest, Island, Part } from "./types.ts";
 import type { FractureInfo } from "../features/feature.ts";
 
@@ -84,7 +85,6 @@ export class FractureSystem {
     const q = this.queue;
     if (!q.length) return 0;
     if (q.length > 1) q.sort((a, b) => b.energy - a.energy || a.seq - b.seq);
-    const work = this.w.work;
     let applied = 0;
     let j = 0;
     let i = 0;
@@ -94,15 +94,16 @@ export class FractureSystem {
         q[j++] = req; // retry once the part has an island again
         continue;
       }
-      if ((applied > 0 || !atLeastOne) && work.used >= work.budgetMs) break;
-      const t0 = performance.now();
+      if ((applied > 0 || !atLeastOne) && this.w.overBudget()) break;
+      this.w.beginWork();
       try {
         this.apply(req);
       } catch (e) {
         req.part.pendingFracture = false;
         this.w.warnOnce(`fracture:${(e as Error).message}`, `fracture failed: ${(e as Error).stack ?? e}`);
+      } finally {
+        this.w.endWork();
       }
-      work.used += performance.now() - t0;
       applied++;
     }
     for (; i < q.length; i++) q[j++] = q[i];
@@ -159,6 +160,7 @@ export class FractureSystem {
 
     // ---- phase 1: fragment parts (geometry only, nothing registered)
     const fragments: Part[] = [];
+    const remainFrags: Part[] = [];
     let loose = 0;
     let remainVol = 0;
     for (let i = 0; i < n; i++) {
@@ -179,6 +181,7 @@ export class FractureSystem {
       } else {
         np.counted = P.counted;
         remainVol += np.volume;
+        remainFrags.push(np);
       }
       cellParts[i] = np;
       fragments.push(np);
@@ -188,10 +191,7 @@ export class FractureSystem {
     // islands). ensureShape degrades hull failures to boxes; anything still thrown aborts the
     // whole fracture with every collider made here released.
     try {
-      for (const np of fragments) {
-        if (np.pendingKick !== null || np.counted !== P.counted || isLooseRole(roles, cellParts, np)) continue;
-        w.ensureShape(np, island.layer, true);
-      }
+      for (const np of remainFrags) w.ensureShape(np, island.layer, true);
     } catch (e) {
       for (const np of fragments) {
         if (np.shape) w.releaseShape(np.shape);
@@ -257,12 +257,10 @@ export class FractureSystem {
     const w = this.w;
     const remain = role === "remain";
     const tags = remain ? P.tags : P.tags.filter((t) => !t.startsWith("switch:"));
-    // a shattered bulb / lamp lens never glows again
-    for (const f of cell.poly.faces) if (f.attr.surf === S.bulb_on) f.attr.surf = S.bulb_off;
     const np = w.newPart(P.asm, {
       name: `${P.name}#${P.gen + 1}.${idx}`,
       matId: P.matId,
-      poly: cell.poly,
+      poly: unlit(cell.poly),
       grain: P.grain,
       tessCell: P.tessCell,
       supported: remain && P.supported,
@@ -324,15 +322,10 @@ export class FractureSystem {
   }
 }
 
-/** Is this fragment one of the plan's loose cells (it gets its collider with its own island)? */
-function isLooseRole(roles: readonly Role[], cellParts: ReadonlyArray<Part | null>, np: Part): boolean {
-  for (let i = 0; i < cellParts.length; i++) if (cellParts[i] === np) return roles[i] === "loose";
-  return false;
-}
-
-/** Collision layer a loose fragment will most likely get as its own island. */
-export function looseLayer(np: Part): number {
-  return np.mass < DEBRIS_MASS || (np.ext[0] < DEBRIS_EXTENT && np.mass < DEBRIS_EXTENT_MAX_MASS) ? Layer.DEBRIS : Layer.DYNAMIC;
+/** A shattered bulb or lamp lens never glows again: emissive bulb faces → unlit (copy-on-write). */
+function unlit(poly: ConvexPoly): ConvexPoly {
+  if (!poly.faces.some((f) => f.attr.surf === S.bulb_on)) return poly;
+  return { verts: poly.verts, faces: poly.faces.map((f) => (f.attr.surf === S.bulb_on ? { ...f, attr: { ...f.attr, surf: S.bulb_off } } : f)) };
 }
 
 function isFinite3(v: Vec3 | undefined | null): v is Vec3 {

@@ -65,7 +65,7 @@ function minYRotated(def: AssemblyDef, q: Quat): number {
  * found by bisection on the exact convex separation of every part pair. Real stacks rest foot-on-
  * slope, so the pitch is set by the geometry, never guessed.
  */
-function nestPitch(def: AssemblyDef, gap = REST_GAP): number {
+export function nestPitch(def: AssemblyDef, gap = REST_GAP): number {
   const polys = def.parts.map((p) => p.poly);
   const boxes = polys.map(aabbOf);
   let y0 = Infinity,

@@ -17,7 +17,7 @@ import { S } from "../../render/surfaces.ts";
 import { hardness, impactEnergy, inertialBondDamage, respond, type ImpactOnPart, type PartOutcome } from "../model/damage.ts";
 import { MATERIALS } from "../model/materials.ts";
 import type { BondKind } from "../model/types.ts";
-import { farMasses, type GraphBond } from "./graph.ts";
+import { FarMassScratch, farMasses, type GraphBond } from "./graph.ts";
 import { mergeDents, nearestFace } from "./polyUtil.ts";
 import type { Bond, Island, Part } from "./types.ts";
 import type { World } from "./world.ts";
@@ -34,6 +34,16 @@ export const SIBLING_GRACE = 0.15;
 export const DAMAGE_DECAY_TAU = 120;
 /** Inertial bond loading is skipped when the island's kinetic energy change is below this (J). */
 const INERTIAL_MIN_ENERGY = 0.05;
+/**
+ * Damage planning budget for passive collisions per step (ms; at least RESPOND_MIN_COUNT
+ * impacts): after a big break, fragment showers produce hundreds of contacts per step. Impacts
+ * are handled most energetic first; once the budget is spent the rest still make their sound
+ * (impact events) but cause no damage this step.
+ */
+export const RESPOND_BUDGET_MS = 3;
+const RESPOND_MIN_COUNT = 24;
+/** Below this many buffered impacts they are processed in arrival order (no sorting). */
+const SORT_MIN = 16;
 const MAX_DENTS = 48;
 const MAX_CRACKS = 64;
 
@@ -52,7 +62,7 @@ interface ImpactRec {
 
 /** Services the impact system needs from the other subsystems. */
 export interface ImpactDeps {
-  enqueueFracture(part: Part, plan: NonNullable<PartOutcome["fracture"]>, energy: number, pos: Vec3, dir: Vec3): void;
+  enqueueFracture(part: Part, plan: NonNullable<PartOutcome["fracture"]>, energy: number, pos: Vec3, dir: Vec3, strike: boolean): void;
   /** Apply queued fractures now (strikes) and settle topology. */
   settleNow(): void;
   restore(island: Island): void;
@@ -73,9 +83,30 @@ export class ImpactSystem {
   private pairTime = new Map<number, number>();
   private lastPrune = 0;
   private readonly lp: Vec3 = { x: 0, y: 0, z: 0 };
-  private readonly ld: Vec3 = { x: 0, y: 0, z: 0 };
   /** Impacts processed in the last step (debug). */
   processed = 0;
+  /** Impacts whose damage was skipped in the last step (respond budget spent; debug). */
+  skipped = 0;
+  // respond budget of the current process() call
+  private respondMs = 0;
+  private responds = 0;
+  private budgeted = false;
+  // processing order (pooled)
+  private order: number[] = [];
+  private keys = new Float64Array(64);
+  private readonly byKey = (a: number, b: number): number => this.keys[b] - this.keys[a];
+  /** Damage-model RNG, re-seeded per hit (deterministic per part/point/energy, no allocation). */
+  private readonly rng = new Rng(1);
+  // inertial loading scratch
+  private readonly gbs: GraphBond[] = [];
+  private gbsUsed = 0;
+  private readonly iBonds: Bond[] = [];
+  private readonly iJoints: Bond[] = [];
+  private readonly iPool: Array<{ id: number; farMass: number; kind: BondKind }> = [];
+  private readonly iList: Array<{ id: number; farMass: number; kind: BondKind }> = [];
+  private iListUsed = 0;
+  private iMasses = new Float64Array(64);
+  private readonly farScratch = new FarMassScratch();
 
   constructor(w: World, deps: ImpactDeps) {
     this.w = w;
@@ -103,27 +134,61 @@ export class ImpactSystem {
     this.count++;
   }
 
-  /** Process every buffered impact of the last physics step. */
+  /**
+   * Process every buffered impact of the last physics step: most energetic first when there
+   * are many (cheap J²/2μ estimate), damage planning under RESPOND_BUDGET_MS.
+   */
   process(): void {
     const n = this.count;
     this.processed = n;
-    for (let i = 0; i < n; i++) {
-      const r = this.buf[i];
+    this.skipped = 0;
+    this.respondMs = 0;
+    this.responds = 0;
+    this.budgeted = true;
+    const order = this.order;
+    order.length = n;
+    for (let i = 0; i < n; i++) order[i] = i;
+    if (n > SORT_MIN) {
+      if (this.keys.length < n) this.keys = new Float64Array(Math.max(n, this.keys.length * 2));
+      for (let i = 0; i < n; i++) this.keys[i] = this.priority(this.buf[i]);
+      order.sort(this.byKey);
+    }
+    for (let k = 0; k < n; k++) {
+      const r = this.buf[order[k]];
       try {
         this.processOne(r);
       } catch (e) {
         this.w.warnOnce(`impact:${(e as Error).message}`, `impact processing failed: ${(e as Error).stack ?? e}`);
       }
+    }
+    for (let i = 0; i < n; i++) {
       // drop body references so disposed bodies can be collected
+      const r = this.buf[i];
       r.a = null as unknown as ImpactRec["a"];
       r.b = null as unknown as ImpactRec["b"];
     }
+    this.budgeted = false;
     this.count = 0;
     const now = this.w.now;
     if (now - this.lastPrune > 2) {
       this.lastPrune = now;
       for (const [k, t] of this.pairTime) if (now - t > 1) this.pairTime.delete(k);
     }
+  }
+
+  /** Cheap ordering key: kinetic energy J²/(2μ) the contact can dissipate (no part lookup). */
+  private priority(r: ImpactRec): number {
+    const A = this.w.islandOf(r.a),
+      B = this.w.islandOf(r.b);
+    const mA = A && A.alive ? this.w.physMass(A) : Infinity;
+    const mB = B && B.alive ? this.w.physMass(B) : Infinity;
+    const mu = Number.isFinite(mA) && Number.isFinite(mB) ? (mA * mB) / (mA + mB) : Math.min(mA, mB);
+    return Number.isFinite(mu) && mu > 0 ? (r.impulse * r.impulse) / (2 * mu) : 0;
+  }
+
+  /** May the next passive impact still be given damage this step? */
+  private damageAllowed(): boolean {
+    return !this.budgeted || this.responds < RESPOND_MIN_COUNT || this.respondMs < RESPOND_BUDGET_MS;
   }
 
   private processOne(r: ImpactRec): void {
@@ -171,10 +236,16 @@ export class ImpactSystem {
     // A is pushed along -n (into A), B along +n
     const eA = E * shareA,
       eB = E * (1 - shareA);
-    if (eA >= RESPOND_MIN_ENERGY) this.hitPart(islA, pA, P, { x: -nx, y: -ny, z: -nz }, eA, J, mA, 0, 1, false);
-    if (B && pB && pB.alive && B.alive && eB >= RESPOND_MIN_ENERGY) this.hitPart(B, pB, P, { x: nx, y: ny, z: nz }, eB, J, mB, 0, 1, false);
-    if (islA.alive) this.inertial(islA, pA, J);
-    if (B && pB && B.alive) this.inertial(B, pB, J);
+    const wantsDamage = eA >= RESPOND_MIN_ENERGY || eB >= RESPOND_MIN_ENERGY || (J * J) / (2 * Math.min(mA, mB)) >= INERTIAL_MIN_ENERGY;
+    if (wantsDamage && this.damageAllowed()) {
+      const t0 = performance.now();
+      if (eA >= RESPOND_MIN_ENERGY) this.hitPart(islA, pA, P, { x: -nx, y: -ny, z: -nz }, eA, J, mA, 0, 1, false);
+      if (B && pB && pB.alive && B.alive && eB >= RESPOND_MIN_ENERGY) this.hitPart(B, pB, P, { x: nx, y: ny, z: nz }, eB, J, mB, 0, 1, false);
+      if (islA.alive) this.inertial(islA, pA, J);
+      if (B && pB && B.alive) this.inertial(B, pB, J);
+      this.respondMs += performance.now() - t0;
+      this.responds++;
+    } else if (wantsDamage) this.skipped++;
     if (E >= IMPACT_EVENT_MIN_ENERGY && this.pairOk(islA.id, B ? B.id : -1)) {
       const mu = ie.mu > 0 && Number.isFinite(ie.mu) ? ie.mu : Math.min(mA, mB);
       this.w.events.emit("impact", {
@@ -230,8 +301,8 @@ export class ImpactSystem {
       sharpness: sharpness > 0 ? sharpness : 1,
       strike,
     };
-    const rng = new Rng(seedFrom(part.id, point.x, point.y, point.z, energy));
-    const out = respond(part, imp, rng);
+    reseed(this.rng, seedFrom(part.id, point.x, point.y, point.z, energy));
+    const out = respond(part, imp, this.rng);
     this.apply(island, part, out, imp, P, dirIn);
     return out;
   }
@@ -301,7 +372,7 @@ export class ImpactSystem {
     if (out.chips && out.chips.length && part.alive && part.island) this.spawnChips(part.island, part, out.chips, P, normal, imp.energy);
     if (out.fracture && part.alive && !part.pendingFracture && out.fracture.cells.length) {
       part.pendingFracture = true;
-      this.deps.enqueueFracture(part, out.fracture, imp.energy, { ...P }, { ...dirIn });
+      this.deps.enqueueFracture(part, out.fracture, imp.energy, { ...P }, { ...dirIn }, imp.strike);
     }
     if (out.crumpled) this.deps.crumpled(part);
     this.deps.onDamage(part, {
@@ -349,10 +420,15 @@ export class ImpactSystem {
     if (!(M > 0) || (J * J) / (2 * M) < INERTIAL_MIN_ENERGY) return;
     const parts = island.parts;
     const n = parts.length;
+    // a lone part with no joint bonds has nothing to load (respond did its own bonds)
+    if (n === 1 && parts[0].bonds.length === 0) return;
     for (let i = 0; i < n; i++) parts[i].tmp = i;
-    const gbs: GraphBond[] = [];
-    const bonds: Bond[] = [];
-    const joints: Bond[] = [];
+    const bonds = this.iBonds;
+    const joints = this.iJoints;
+    bonds.length = 0;
+    joints.length = 0;
+    this.gbsUsed = 0;
+    this.iListUsed = 0;
     for (let i = 0; i < n; i++) {
       const p = parts[i];
       for (const b of p.bonds) {
@@ -366,38 +442,56 @@ export class ImpactSystem {
         }
         if (!o || o.island !== island) continue;
         if (o.id < p.id) continue;
-        gbs.push({ a: i, b: o.tmp, rigid: true, alive: true });
+        const g = this.gbs[this.gbsUsed] ?? (this.gbs[this.gbsUsed] = { a: 0, b: 0, rigid: true, alive: true });
+        g.a = i;
+        g.b = o.tmp;
+        this.gbsUsed++;
         bonds.push(b);
       }
     }
-    const list: Array<{ id: number; farMass: number; kind: BondKind }> = [];
     if (bonds.length) {
-      const masses = new Float64Array(n);
+      if (this.iMasses.length < n) this.iMasses = new Float64Array(Math.max(n, this.iMasses.length * 2));
+      const masses = this.iMasses;
       for (let i = 0; i < n; i++) masses[i] = parts[i].mass;
-      const fm = farMasses(n, masses, gbs, hit.tmp);
+      const fm = farMasses(n, masses, this.gbs, hit.tmp, this.farScratch, this.gbsUsed);
       for (let k = 0; k < bonds.length; k++) {
         const b = bonds[k];
         if (b.a === hit || b.b === hit) continue; // direct damage already applied by respond
         b.farMass = fm[k];
-        list.push({ id: b.id, farMass: fm[k], kind: b.kind });
+        this.pushLoad(b);
       }
     }
     for (const b of joints) {
       if (b.a === hit || b.b === hit) continue;
       const o = b.a.island === island ? b.b : b.a;
       const otherDyn = o && o.island && o.island !== island && !o.island.isStatic;
-      let share = 1;
-      if (b.group) share = Math.max(1, b.group.bonds.filter((x) => x.alive).length);
-      b.farMass = (otherDyn ? Math.min(M, o!.island!.mass) : M) / share;
-      list.push({ id: b.id, farMass: b.farMass, kind: b.kind });
+      let share = 0;
+      if (b.group) for (const x of b.group.bonds) if (x.alive) share++;
+      b.farMass = (otherDyn ? Math.min(M, o!.island!.mass) : M) / Math.max(1, share);
+      this.pushLoad(b);
     }
-    if (!list.length) return;
+    if (!this.iListUsed) return;
+    const list = this.iList;
+    list.length = 0;
+    for (let i = 0; i < this.iListUsed; i++) list.push(this.iPool[i]);
     const dmg = inertialBondDamage(J, M, list);
     for (const d of dmg) {
       if (!(d.amount > 0)) continue;
-      const b = bonds.find((x) => x.id === d.bondId) ?? joints.find((x) => x.id === d.bondId);
+      const b = findIn(bonds, d.bondId) ?? findIn(joints, d.bondId);
       if (b) this.w.damageBond(b, d.amount);
     }
+  }
+
+  private pushLoad(b: Bond): void {
+    let e = this.iPool[this.iListUsed];
+    if (!e) {
+      e = { id: 0, farMass: 0, kind: b.kind };
+      this.iPool[this.iListUsed] = e;
+    }
+    e.id = b.id;
+    e.farMass = b.farMass;
+    e.kind = b.kind;
+    this.iListUsed++;
   }
 
   // ================================================================================ strike
@@ -469,6 +563,19 @@ export class ImpactSystem {
 }
 
 // =============================================================================== helpers
+
+function findIn(list: readonly Bond[], id: number): Bond | undefined {
+  for (let i = 0; i < list.length; i++) if (list[i].id === id) return list[i];
+  return undefined;
+}
+
+/**
+ * Re-seed a pooled Rng in place. Rng keeps its mulberry32 state in a (TypeScript-)private
+ * field `s`; this mirrors its constructor so the damage model sees exactly `new Rng(seed)`.
+ */
+function reseed(rng: Rng, seed: number): void {
+  (rng as unknown as { s: number }).s = seed >>> 0;
+}
 
 function findBond(part: Part, id: number): Bond | undefined {
   for (const b of part.bonds) if (b.id === id) return b;

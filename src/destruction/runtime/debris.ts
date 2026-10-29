@@ -225,10 +225,12 @@ export class DebrisSystem {
     isl.awake = true;
     isl.lastCheck = this.w.now;
     if (rebuildOwn && ref.inBatch && isl.alive) this.w.rebuildAllChunks(isl);
-    if (batch && batch.urgent) this.rebuildBatch(batch);
+    // The batch still shows the island until it is rebuilt. Urgent batches are rebuilt by
+    // rebuildBatches() at the end of this fixed step (before anything renders) — once per
+    // batch, however many of its islands a heavy hit restores in the same step.
   }
 
-  /** Rebuild dirty batches: removals immediately, additions within the budget (ms). */
+  /** Rebuild dirty batches: removals (urgent) always, additions within the budget (ms). */
   rebuildBatches(budgetMs: number): void {
     if (!this.dirtyBatches.size) return;
     const t0 = performance.now();

@@ -67,12 +67,6 @@ export const WORK_BUDGET_MS = 4;
 export const MIN_ISLANDS_PER_STEP = 4;
 /** Hull refinements per step even when the budget is spent (so stand-in boxes never linger). */
 const MIN_REFINES_PER_STEP = 1;
-/**
- * Below these sizes the physics module builds boxes as 8-point hulls (as expensive as a real
- * hull) instead of native boxes — physics.ts boxShape: largest < 10 cm or middle < 5 cm.
- */
-const NATIVE_BOX_MIN_LARGEST = 0.1;
-const NATIVE_BOX_MIN_MIDDLE = 0.05;
 
 export interface WorldServices {
   physics: PhysicsSystem;
@@ -165,6 +159,9 @@ export class World {
   stepIndex = 0;
   /** Break-work budget of the current fixed step (ms spent / allowed). */
   readonly work = { used: 0, budgetMs: WORK_BUDGET_MS, islands: 0, refines: 0 };
+  /** Nesting depth of beginWork()/endWork() (only the outermost scope is timed). */
+  private workScope = 0;
+  private workT0 = 0;
   /** Split pieces waiting for their island (created under the work budget, oldest first). */
   readonly pendingGroups: PendingGroup[] = [];
   /** Parts with a stand-in box collider waiting for their hull. */
@@ -618,11 +615,14 @@ export class World {
       shape = this.safeShape(part, opts, () => this.obbShape(part, opts));
       part.approxShape = true;
       this.refineQueue.add(part);
-    } else {
-      const t0 = performance.now();
-      shape = this.safeShape(part, opts, () => this.physics.hullShape(polyPoints(part.poly), opts));
-      this.work.used += performance.now() - t0;
-    }
+    } else if (approx) {
+      this.beginWork();
+      try {
+        shape = this.safeShape(part, opts, () => this.physics.hullShape(polyPoints(part.poly), opts));
+      } finally {
+        this.endWork();
+      }
+    } else shape = this.safeShape(part, opts, () => this.physics.hullShape(polyPoints(part.poly), opts));
     part.shape = shape;
     part.shapeLayer = layer;
     return shape;
@@ -653,9 +653,19 @@ export class World {
     return this.physics.sphereShape(part.centroid, r, opts);
   }
 
-  /** The per-step break-work budget is used up. */
+  /** The per-step break-work budget is used up (including the operation in progress). */
   overBudget(): boolean {
-    return this.work.used >= this.work.budgetMs;
+    const inflight = this.workScope > 0 ? performance.now() - this.workT0 : 0;
+    return this.work.used + inflight >= this.work.budgetMs;
+  }
+
+  /** Measure budgeted work (nestable: only the outermost scope is timed). */
+  beginWork(): void {
+    if (this.workScope++ === 0) this.workT0 = performance.now();
+  }
+
+  endWork(): void {
+    if (this.workScope > 0 && --this.workScope === 0) this.work.used += performance.now() - this.workT0;
   }
 
   /**
@@ -676,11 +686,6 @@ export class World {
     } else k0 = k2 = Math.min(1, Math.max(0.6, Math.cbrt(fill)));
     const size = { x: Math.max(ext[0] * k0, 0.004), y: Math.max(ext[1] * k0, 0.004), z: Math.max(ext[2] * k2, 0.004) };
     return this.physics.boxShape(part.centroid, quatFromBasis(axes[0], axes[1], w), size, opts);
-  }
-
-  /** Would the stand-in box of this part be a native (cheap) physics box? */
-  static nativeBox(part: Part): boolean {
-    return part.ext[0] >= NATIVE_BOX_MIN_LARGEST && part.ext[1] >= NATIVE_BOX_MIN_MIDDLE;
   }
 
   /**
@@ -710,15 +715,15 @@ export class World {
         }
         this.refineQueue.delete(p);
         p.approxShape = false;
-        const t0 = performance.now();
         let hull: PhysicsShape;
+        this.beginWork();
         try {
           hull = this.physics.hullShape(polyPoints(p.poly), this.shapeOpts(p, p.shapeLayer));
         } catch (e) {
           this.warnOnce(`refine:${(e as Error).message}`, `hull refinement for '${p.name}' failed: ${(e as Error).message}`);
           continue; // keep the box
         } finally {
-          this.work.used += performance.now() - t0;
+          this.endWork();
           this.work.refines++;
         }
         this.deadShapes.push(p.shape);
@@ -795,6 +800,11 @@ export class World {
       this.deadShapes.push(part.shape);
       part.shape = null;
     }
+    if (part.approxShape) {
+      part.approxShape = false;
+      this.refineQueue.delete(part);
+    }
+    part.limbo = false;
     part.geom = null;
   }
 
@@ -896,12 +906,19 @@ export class World {
 
   releaseDeadShapes(): void {
     if (!this.deadShapes.length) return;
+    for (const s of this.deadShapes) this.releaseShape(s);
+    this.deadShapes.length = 0;
+  }
+
+  /** Dispose a child shape now (it must not be in any container any more). */
+  releaseShape(s: PhysicsShape): void {
     const ext = this.physics as PhysicsSystem & { disposeShape?(s: PhysicsShape): void };
-    for (const s of this.deadShapes) {
+    try {
       if (typeof ext.disposeShape === "function") ext.disposeShape(s);
       else s.dispose();
+    } catch (e) {
+      this.warnOnce(`dispose:${(e as Error).message}`, `shape dispose failed: ${(e as Error).message}`);
     }
-    this.deadShapes.length = 0;
   }
 
   /**
@@ -1064,11 +1081,11 @@ export class World {
     if (i > 0) q.splice(0, i);
   }
 
-  /** Pieces still waiting for their island (debug / probes). */
-  get pendingPieces(): number {
+  /** Deferred break work (debug / probes): islands and pieces waiting, colliders to refine. */
+  pendingWork(): { islands: number; pieces: number; refine: number } {
     let n = 0;
     for (const g of this.pendingGroups) n += g.parts.length;
-    return n;
+    return { islands: this.pendingGroups.length, pieces: n, refine: this.refineQueue.size };
   }
 
   /**
@@ -1082,8 +1099,8 @@ export class World {
       if (p.alive && !p.island) parts.push(p);
     }
     if (!parts.length) return null;
-    const t0 = performance.now();
     let isl: Island;
+    this.beginWork();
     try {
       isl = this.createIsland(g.asm, parts, g.anchored, { p: { x: g.px, y: g.py, z: g.pz }, q: { x: g.qx, y: g.qy, z: g.qz, w: g.qw } }, false, true);
     } catch (e) {
@@ -1091,7 +1108,7 @@ export class World {
       for (const p of parts) this.killPart(p, false);
       return null;
     } finally {
-      this.work.used += performance.now() - t0;
+      this.endWork();
       this.work.islands++;
     }
     isl.birth = g.birth;
@@ -1117,6 +1134,7 @@ export class World {
 
   /** End of a fixed step: reset the work budget. */
   endStep(): void {
+    this.workScope = 0;
     this.work.used = 0;
     this.work.islands = 0;
     this.work.refines = 0;

@@ -2,6 +2,10 @@
 // Per assembly: fraction = clamp(brokenVolume/initialVolume + 0.8·brokenBonds/initialBonds
 // + 0.5·min(1, 4·dentVolume/initialVolume), 0, 1). Increases are converted to dollars
 // (value × Δfraction) and emitted as `damage` events.
+// brokenVolume counts every bit of material once (Part.counted): what a fracture breaks out of
+// a part, fracture fragments breaking away, pieces lost off the balcony — debris breaking again
+// adds nothing. brokenBonds counts blueprint bonds only (Bond.original), matching initialBonds;
+// bonds created between fracture cells at runtime don't inflate the share.
 
 import type { Assembly } from "./types.ts";
 import type { World } from "./world.ts";

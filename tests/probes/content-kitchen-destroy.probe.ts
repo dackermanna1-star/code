@@ -46,7 +46,15 @@ export async function probe(): Promise<unknown> {
   };
   const start = ids.map((id) => d.positionOf(id));
   const ev0 = { ...sim.ev };
+  const l0 = sim.log.length;
   sim.step(150);
+  const fmt = (l: { t: number; type: string; ev: unknown }): string => {
+    const e = l.ev as Record<string, unknown>;
+    const pos = e.pos as Vec3 | undefined;
+    const en = typeof e.energy === "number" ? (e.energy as number).toFixed(2) : "?";
+    return `${l.t.toFixed(2)} ${l.type} ${e.mat ?? `${e.matA ?? ""}/${e.matB ?? ""}`} ${e.kind ?? ""} E=${en}${pos ? ` @${pos.x.toFixed(2)},${pos.y.toFixed(2)},${pos.z.toFixed(2)}` : ""}`;
+  };
+  const restLog = sim.log.slice(l0).filter((l) => l.type === "impact" || l.type === "fracture" || l.type === "bondBreak").slice(0, 30).map(fmt);
   const drift: Record<string, number> = {};
   ids.forEach((id, j) => {
     const a = start[j],
@@ -109,5 +117,5 @@ export async function probe(): Promise<unknown> {
     .map((a) => ({ name: a.type, islands: a.islands, parts: a.parts, damage: round(a.damage) }));
   sim.render.camera.position.set(6.0, 1.75, 6.2);
   await sim.renderReady(3);
-  return { spawned: ids.length, drift, evAtRest, log, damaged: list, stats: d.stats() };
+  return { spawned: ids.length, drift, evAtRest, restLog, log, damaged: list, stats: d.stats() };
 }

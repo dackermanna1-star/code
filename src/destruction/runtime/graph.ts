@@ -110,6 +110,9 @@ export function planSplit(n: number, masses: ArrayLike<number>, bonds: readonly 
 }
 
 /**
+ * With `scratch`, the result is `scratch.out` (first `bondCount` entries valid, no allocation);
+ * otherwise a fresh array of exactly `bondCount` entries.
+ *
  * Mass on the far side of every bond as seen from part `root` (the impacted part), used for
  * inertial bond loading E_b = J² m_far / (2 M²). Exact for trees (subtree masses of a BFS tree
  * rooted at `root`); for cycles the non-tree edge gets the smaller of its endpoints' subtree
@@ -118,22 +121,29 @@ export function planSplit(n: number, masses: ArrayLike<number>, bonds: readonly 
  * would have to stop everything). Only rigid live bonds are traversed; joint bonds get their
  * far endpoint's subtree like any other edge when both ends are parts of the set.
  */
-export function farMasses(n: number, masses: ArrayLike<number>, bonds: readonly GraphBond[], root: number): Float64Array {
-  const out = new Float64Array(bonds.length);
-  if (n === 0) return out;
+export function farMasses(n: number, masses: ArrayLike<number>, bonds: readonly GraphBond[], root: number, scratch?: FarMassScratch, bondCount = bonds.length): Float64Array {
+  const nb = Math.min(bondCount, bonds.length);
+  const S = scratch ?? new FarMassScratch();
+  S.reserve(n, nb);
+  const out = S.out;
+  out.fill(0, 0, nb);
+  if (n === 0) return scratch ? out : out.slice(0, nb);
   // adjacency (CSR) over live bonds with both endpoints in range
-  const deg = new Int32Array(n + 1);
-  for (let i = 0; i < bonds.length; i++) {
+  const deg = S.deg;
+  deg.fill(0, 0, n + 1);
+  for (let i = 0; i < nb; i++) {
     const b = bonds[i];
     if (!b.alive || b.a < 0 || b.a >= n || b.b < 0 || b.b >= n || b.a === b.b) continue;
     deg[b.a + 1]++;
     deg[b.b + 1]++;
   }
   for (let i = 0; i < n; i++) deg[i + 1] += deg[i];
-  const adjNode = new Int32Array(deg[n]);
-  const adjBond = new Int32Array(deg[n]);
-  const fill = deg.slice(0, n);
-  for (let i = 0; i < bonds.length; i++) {
+  S.reserveAdj(deg[n]);
+  const adjNode = S.adjNode;
+  const adjBond = S.adjBond;
+  const fill = S.fill;
+  for (let i = 0; i < n; i++) fill[i] = deg[i];
+  for (let i = 0; i < nb; i++) {
     const b = bonds[i];
     if (!b.alive || b.a < 0 || b.a >= n || b.b < 0 || b.b >= n || b.a === b.b) continue;
     adjNode[fill[b.a]] = b.b;
@@ -142,9 +152,11 @@ export function farMasses(n: number, masses: ArrayLike<number>, bonds: readonly 
     adjBond[fill[b.b]++] = i;
   }
   // BFS from root
-  const order = new Int32Array(n);
-  const parentBond = new Int32Array(n).fill(-1);
-  const visited = new Uint8Array(n);
+  const order = S.order;
+  const parentBond = S.parentBond;
+  parentBond.fill(-1, 0, n);
+  const visited = S.visited;
+  visited.fill(0, 0, n);
   let head = 0;
   let tail = 0;
   const r = root >= 0 && root < n ? root : 0;
@@ -161,7 +173,7 @@ export function farMasses(n: number, masses: ArrayLike<number>, bonds: readonly 
     }
   }
   // subtree masses in reverse BFS order
-  const sub = new Float64Array(n);
+  const sub = S.sub;
   let total = 0;
   for (let i = 0; i < n; i++) {
     const m = masses[i];
@@ -174,7 +186,7 @@ export function farMasses(n: number, masses: ArrayLike<number>, bonds: readonly 
     const p = pb.a === v ? pb.b : pb.a;
     sub[p] += sub[v];
   }
-  for (let i = 0; i < bonds.length; i++) {
+  for (let i = 0; i < nb; i++) {
     const b = bonds[i];
     if (!b.alive) continue;
     if (b.b === -1) {
@@ -191,7 +203,50 @@ export function farMasses(n: number, masses: ArrayLike<number>, bonds: readonly 
     else if (parentBond[b.a] === i) out[i] = sub[b.a];
     else out[i] = Math.min(sub[b.a], sub[b.b]);
   }
-  return out;
+  return scratch ? out : out.slice(0, nb);
+}
+
+/**
+ * Reusable work arrays for farMasses (allocation-free inertial loading in the impact hot path).
+ * Results live in `out` (valid until the next call; length may exceed the bond count).
+ */
+export class FarMassScratch {
+  out = new Float64Array(16);
+  deg = new Int32Array(17);
+  fill = new Int32Array(16);
+  order = new Int32Array(16);
+  parentBond = new Int32Array(16);
+  visited = new Uint8Array(16);
+  sub = new Float64Array(16);
+  adjNode = new Int32Array(32);
+  adjBond = new Int32Array(32);
+
+  reserve(n: number, nb: number): void {
+    if (this.out.length < nb) this.out = new Float64Array(grow(this.out.length, nb));
+    if (this.order.length < n) {
+      const m = grow(this.order.length, n);
+      this.deg = new Int32Array(m + 1);
+      this.fill = new Int32Array(m);
+      this.order = new Int32Array(m);
+      this.parentBond = new Int32Array(m);
+      this.visited = new Uint8Array(m);
+      this.sub = new Float64Array(m);
+    }
+  }
+
+  reserveAdj(k: number): void {
+    if (this.adjNode.length < k) {
+      const m = grow(this.adjNode.length, k);
+      this.adjNode = new Int32Array(m);
+      this.adjBond = new Int32Array(m);
+    }
+  }
+}
+
+function grow(cur: number, need: number): number {
+  let m = Math.max(cur, 16);
+  while (m < need) m *= 2;
+  return m;
 }
 
 // ---------------------------------------------------------------------------------- joints

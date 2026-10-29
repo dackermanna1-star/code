@@ -198,7 +198,11 @@ const SLEEP_MARGIN = 0.03;
  *  slow for SLEEP_FALLBACK × `seconds` sleep on their own. */
 const SLEEP_RECENT_STEPS = 8;
 const SLEEP_BIG_COMPONENT = 32;
-const SLEEP_FALLBACK = 1e6;
+const SLEEP_FALLBACK = 4;
+/** Sleep assist: drift is judged over at least JITTER_STEPS steps; a single step faster than √JITTER_FACTOR2 × the
+ *  thresholds is real motion. */
+const JITTER_STEPS = 8;
+const JITTER_FACTOR2 = 16;
 /** STARTED events within this many steps of a body's mask change are echoes of existing contacts (see queueHeat). */
 const MASK_ECHO_STEPS = 4;
 /** Impulse estimator: a body slower than this (m/s) before the step counts as resting (supported) — see pointTerms. */
@@ -267,6 +271,8 @@ class BodyRec implements ImpactSide {
   boundR = 0;
   /** Last step in which the body moved (sleep pass membership). */
   movedStep = -1e9;
+  /** Step at which the sleep-assist anchor pose was taken. */
+  anchorStep = 0;
   /** Step index until which the body's velocity is polled before stepping (fresh / expectFast). */
   watchUntil = -1;
   // ---- velocity cache (impulse estimation, adaptive substeps, adaptive event masks)
@@ -420,6 +426,8 @@ export class Physics implements PhysicsSystem {
   // body-buffer sync
   private fast: BodyRec[] = [];
   private fastPrev = new Float32Array(12 * 256);
+  /** Sleep-assist anchor pose per fast slot (x, y, z, qx, qy, qz, qw, –): drift since `rec.anchorStep`. */
+  private fastAnchor = new Float32Array(8 * 256);
   private heapBuf: ArrayBufferLike | null = null;
   private f32: Float32Array<ArrayBufferLike> = new Float32Array(0);
   private i32: Int32Array<ArrayBufferLike> = new Int32Array(0);
@@ -1201,14 +1209,34 @@ export class Physics implements PhysicsSystem {
               else if (rec.mask === EVENT_MASK && rec.hotUntil < step) this.cool(rec, true);
             }
           }
-          // ---- sleep assist: count steps with per-step displacement and rotation angle below the thresholds;
-          // practically still bodies (woken pile neighbours) count STILL_WEIGHT per step. sleepPass() decides.
+          // ---- sleep assist: "slow" = AVERAGE speed since an anchor pose below the thresholds. Per-step
+          // displacement alone is useless in piles: Havok's position correction makes resting bodies jump by more
+          // than 0.08 m/s·dt now and then (measured: a calm 120-hull pile never qualified). Per-step speeds above
+          // JITTER_FACTOR× the thresholds (real motion) and drift beyond the thresholds × elapsed time re-anchor;
+          // practically still bodies count STILL_WEIGHT steps per step. sleepPass() decides.
           if (assist && rec.motion === DYNAMIC) {
             const d2 = dx * dx + dy * dy + dz * dz;
             const a2 = theta * theta;
-            if (d2 < linLim2 && a2 < angLim2) {
-              if (rec.slow < slowCap) rec.slow += d2 < stillLin2 && a2 < stillAng2 ? STILL_WEIGHT : 1;
-            } else rec.slow = 0;
+            const an = this.fastAnchor;
+            const ai = i * 8;
+            const elapsed = step - rec.anchorStep;
+            const span = elapsed < JITTER_STEPS ? JITTER_STEPS : elapsed;
+            const s2 = span * span;
+            const ex = tx - an[ai], ey = ty - an[ai + 1], ez = tz - an[ai + 2];
+            const drift2 = ex * ex + ey * ey + ez * ez;
+            const qd = Math.min(1, Math.abs(qx * an[ai + 3] + qy * an[ai + 4] + qz * an[ai + 5] + qw * an[ai + 6]));
+            const rot2 = 4 * (1 - qd * qd); // (2·sin(θ/2))² ≈ θ²
+            if (d2 > linLim2 * JITTER_FACTOR2 || a2 > angLim2 * JITTER_FACTOR2 || drift2 > linLim2 * s2 || rot2 > angLim2 * s2 || elapsed > 2 * slowCap) {
+              an[ai] = tx;
+              an[ai + 1] = ty;
+              an[ai + 2] = tz;
+              an[ai + 3] = qx;
+              an[ai + 4] = qy;
+              an[ai + 5] = qz;
+              an[ai + 6] = qw;
+              rec.anchorStep = step;
+              if (elapsed <= 2 * slowCap) rec.slow = 0; // (a long-calm body just re-anchors)
+            } else if (rec.slow < slowCap) rec.slow += drift2 < stillLin2 * s2 && rot2 < stillAng2 * s2 ? STILL_WEIGHT : 1;
           }
         }
         prev[p] = r0;
@@ -1269,6 +1297,7 @@ export class Physics implements PhysicsSystem {
       this.sleepParent = new Int32Array(n * 2);
       this.sleepBlocked = new Uint8Array(n * 2);
       this.sleepSize = new Int32Array(n * 2);
+      this.sleepSlowN = new Int32Array(n * 2);
     }
     const pos = this.sleepPos, order = this.sleepOrder, parent = this.sleepParent, blocked = this.sleepBlocked;
     let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity, minZ = Infinity, maxZ = -Infinity;
@@ -1320,15 +1349,23 @@ export class Physics implements PhysicsSystem {
       }
     }
     const size = this.sleepSize;
-    for (let i = 0; i < n; i++) size[i] = 0;
+    const slowN = this.sleepSlowN;
+    for (let i = 0; i < n; i++) size[i] = slowN[i] = 0;
     for (let i = 0; i < n; i++) {
       const root = find(i);
       size[root]++;
-      if (!this.sleepOk(mem[i], sleepSteps)) blocked[root] = 1;
+      const rec = mem[i];
+      if (rec.keepAwake || rec.joints !== null) blocked[root] = 2; // hard block
+      else if (rec.slow >= sleepSteps) slowN[root]++;
+    }
+    for (let i = 0; i < n; i++) {
+      if (find(i) !== i || blocked[i] === 2) continue;
+      const need = size[i] > SLEEP_BIG_COMPONENT ? Math.ceil(size[i] * this.sleepMajorityTmp) : size[i];
+      if (slowN[i] < need) blocked[i] = 1;
     }
     const hk = this.hk;
     const INACTIVE = hk.ActivationState.INACTIVE;
-    const fallback = SLEEP_FALLBACK * sleepSteps;
+    const fallback = this.sleepFallbackTmp * sleepSteps;
     for (let i = 0; i < n; i++) {
       const rec = mem[i];
       const root = find(i);
@@ -1343,6 +1380,8 @@ export class Physics implements PhysicsSystem {
     mem.length = 0;
   }
 
+  sleepFallbackTmp = SLEEP_FALLBACK;
+  sleepMajorityTmp = 1;
   private sleepOk(rec: BodyRec, sleepSteps: number): boolean {
     return rec.slow >= sleepSteps && !rec.keepAwake && rec.joints === null;
   }
@@ -1353,6 +1392,7 @@ export class Physics implements PhysicsSystem {
   private sleepParent = new Int32Array(0);
   private sleepBlocked = new Uint8Array(0);
   private sleepSize = new Int32Array(0);
+  private sleepSlowN = new Int32Array(0);
 
   private addFast(rec: BodyRec): void {
     const hk = this.hk;
@@ -1365,6 +1405,9 @@ export class Physics implements PhysicsSystem {
       const grown = new Float32Array(this.fastPrev.length * 2);
       grown.set(this.fastPrev);
       this.fastPrev = grown;
+      const ga = new Float32Array(this.fastAnchor.length * 2);
+      ga.set(this.fastAnchor);
+      this.fastAnchor = ga;
     }
     this.seedPrev(rec);
   }
@@ -1389,6 +1432,19 @@ export class Physics implements PhysicsSystem {
     prev[p + 9] = f32[o + 12];
     prev[p + 10] = f32[o + 13];
     prev[p + 11] = f32[o + 14];
+    const node = rec.body.transformNode;
+    const q = node.rotationQuaternion ?? IDENTITY_Q;
+    const an = this.fastAnchor;
+    const a = rec.fastSlot * 8;
+    an[a] = f32[o + 12];
+    an[a + 1] = f32[o + 13];
+    an[a + 2] = f32[o + 14];
+    an[a + 3] = q.x;
+    an[a + 4] = q.y;
+    an[a + 5] = q.z;
+    an[a + 6] = q.w;
+    rec.anchorStep = this._stepIndex;
+    rec.slow = 0;
   }
 
   private removeFast(rec: BodyRec): void {
@@ -1400,6 +1456,7 @@ export class Physics implements PhysicsSystem {
       this.fast[slot] = last;
       last.fastSlot = slot;
       this.fastPrev.copyWithin(slot * 12, lastIdx * 12, lastIdx * 12 + 12);
+      this.fastAnchor.copyWithin(slot * 8, lastIdx * 8, lastIdx * 8 + 8);
     }
     this.fast.pop();
     rec.fastSlot = -1;

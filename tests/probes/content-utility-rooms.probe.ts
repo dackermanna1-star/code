@@ -4,7 +4,8 @@
 // assemblies moved (things that slide, tip or fall) and unexpected splits, timings, and render a
 // 4×4 contact sheet of the four rooms.
 // Run: node tests/probe.mjs tests/probes/content-utility-rooms.probe.ts --timeout 600000 --screenshot /tmp/claude-0/content-utility-sheet.png
-// Set globalThis.__utilityLight = true (see content-utility-light.probe.ts) for the light shell.
+// Default: a light stand-in shell (fast). content-utility-full.probe.ts sets
+// globalThis.__utilityFull for the real apartment structure + fixtures (slow on SwiftShader).
 
 import { Engine, Scene, Vector3, PointLight, Color3 } from "@babylonjs/core";
 import { createPhysics } from "../../src/physics/physics.ts";
@@ -45,7 +46,9 @@ const VIEWS: Array<[string, [number, number, number], [number, number, number]]>
 ];
 
 export async function probe(): Promise<unknown> {
-  const LIGHT = !!(globalThis as { __utilityLight?: boolean }).__utilityLight;
+  const LIGHT = !(globalThis as { __utilityFull?: boolean }).__utilityFull;
+  const SETTLE = (globalThis as { __utilitySettle?: number }).__utilitySettle ?? 120;
+  const log = (m: string) => console.log(`[content-utility probe] ${m}`);
   const canvas = document.getElementById("renderCanvas") as HTMLCanvasElement;
   const engine = new Engine(canvas, true, { stencil: true, preserveDrawingBuffer: true });
   const scene = new Scene(engine);
@@ -87,6 +90,7 @@ export async function probe(): Promise<unknown> {
     d.spawn(b.build(), { p: { x: 0, y: 0, z: 0 }, q: { x: 0, y: 0, z: 0, w: 1 } });
   }
   const structureMs = performance.now() - t0;
+  log(`structure ${Math.round(structureMs)} ms`);
   let fixtures = 0;
   if (!LIGHT)
     try {
@@ -107,11 +111,12 @@ export async function probe(): Promise<unknown> {
   // spawn AWAKE so the settle shows anything that slides, tips or falls
   const ids = items.map((it) => d.spawn({ ...it.def, startAsleep: false }, it.xf));
   const spawnMs = performance.now() - ts;
+  log(`build ${Math.round(buildMs)} ms, spawn ${Math.round(spawnMs)} ms`);
   const before = ids.map((id) => d.positionOf(id));
   const stats0 = { destruction: d.stats(), physics: physics.stats() };
 
   const tStep = performance.now();
-  const N = 150;
+  const N = SETTLE;
   let steps = 0;
   let stepError: string | null = null;
   try {
@@ -126,6 +131,7 @@ export async function probe(): Promise<unknown> {
     stepError = String(e);
   }
   const stepMs = (performance.now() - tStep) / Math.max(1, steps);
+  log(`settled ${steps} steps, ${Math.round(stepMs)} ms/step`);
   const moved: Array<{ id: string; dist: number; dy: number }> = [];
   ids.forEach((id, i) => {
     const a = before[i],
@@ -163,6 +169,7 @@ export async function probe(): Promise<unknown> {
     }
     shots.push(canvas.toDataURL("image/jpeg", 0.88));
   }
+  log("rendered views");
   const W = canvas.clientWidth || 1280,
     H = canvas.clientHeight || 720;
   const sheet = document.createElement("canvas");

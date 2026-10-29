@@ -2,9 +2,11 @@
 import { Vector3, Quaternion, type PhysicsBody } from "@babylonjs/core";
 import { Layer } from "../../src/core/context.ts";
 import { makeWorld, body, floor, staticBox, steps, r, randomPoints } from "./physics-sys-util.ts";
-async function pile(n: number, assist: { linear: number; angular: number; seconds: number } | false, local = false) {
+async function pile(n: number, assist: { linear: number; angular: number; seconds: number } | false, fallback = 4, majority = 1) {
   const w = await makeWorld({ sleepAssist: assist === false ? false : assist });
   const P = w.physics;
+  (P as unknown as { sleepFallbackTmp: number }).sleepFallbackTmp = fallback;
+  (P as unknown as { sleepMajorityTmp: number }).sleepMajorityTmp = majority;
   floor(w, 0, 60);
   const half = n > 200 ? 3 : 1;
   staticBox(w, new Vector3(half + 0.25, 3, 0), new Vector3(0.5, 6, half * 2 + 1));
@@ -46,6 +48,7 @@ async function pile(n: number, assist: { linear: number; angular: number; second
 }
 export async function probe() {
   const out: Record<string, unknown> = {};
-  out.comp120 = await pile(120, { linear: 0.08, angular: 0.2, seconds: 0.6 });
+  out.V1_120 = await pile(120, { linear: 0.08, angular: 0.2, seconds: 0.6 }, 1, 1);
+  out.V1_1000 = await pile(1000, { linear: 0.08, angular: 0.2, seconds: 0.6 }, 1, 1);
   return out;
 }

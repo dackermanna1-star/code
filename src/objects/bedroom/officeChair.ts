@@ -89,8 +89,10 @@ export function buildOfficeChair(o: OfficeChairOpts = {}): AssemblyDef {
         b.hinge(wheel, hood, { pivots: [[-wheelW / 2, wheelR, tr], [wheelW / 2, wheelR, tr]], axis: [1, 0, 0], min: -180, max: 180, friction: 0.03, strength: 40 });
       } else b.bond(wheel, hood, "press", { strength: 40 });
     });
-    // swivel: two bearing points on the vertical stem axis (a single pivot would be a ball joint)
-    if (jointed) b.hinge(hood, legs[k], { pivots: [[sx, tipY, sz], [sx, tipY - 0.015, sz]], axis: [0, 1, 0], min: -180, max: 180, friction: 0.02, strength: 60 });
+    // swivel: two bearing points on the vertical stem axis (a single pivot would be a ball joint),
+    // spread over the stem's real length (hood top bearing → top of the 22 mm stem in the leg's
+    // socket) so the trail moment of the loaded wheel does not make the joint sag
+    if (jointed) b.hinge(hood, legs[k], { pivots: [[sx, 2 * wheelR + 0.002, sz], [sx, tipY + 0.022, sz]], axis: [0, 1, 0], min: -180, max: 180, friction: 0.02, strength: 60 });
     else b.bond(hood, legs[k], "press", { strength: 60 });
     void wheel;
   }
@@ -104,7 +106,9 @@ export function buildOfficeChair(o: OfficeChairOpts = {}): AssemblyDef {
   b.press(piston, outer, 160);
   const mechY0 = pistonY0 + 0.12;
   const mech = boxR(b, "mechanism", "steel", "metal_black", [-0.1, 0.1], [mechY0, mechY0 + 0.03], [-0.1, 0.1], { mass: 1.6, tess: 0 });
-  if (jointed) b.hinge(mech, piston, { pivots: [[0, mechY0, 0], [0, mechY0 - 0.06, 0]], axis: [0, 1, 0], min: -180, max: 180, friction: 0.25, strength: 120 });
+  // seat swivel: bearings at the top and bottom of the piston (11.5 cm apart) so the seat and its
+  // backrest lever do not tilt the joint
+  if (jointed) b.hinge(mech, piston, { pivots: [[0, mechY0, 0], [0, mechY0 - 0.115, 0]], axis: [0, 1, 0], min: -180, max: 180, friction: 0.25, strength: 120 });
   else b.press(mech, piston, 120);
   // ---- seat
   const panY0 = mechY0 + 0.03;
