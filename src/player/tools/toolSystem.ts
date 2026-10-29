@@ -99,6 +99,8 @@ const APPROACH_MAX_SEGS = 10;
  * contact — e.g. the head skimming a corner — looks for a squarer way to swing).
  */
 const GOOD_SHARE = 0.35;
+/** Punches: a slightly raised punch line is barely a different motion, so they look for a square one harder. */
+const GOOD_SHARE_PUNCH = 0.7;
 /** An obstacle the wound-back tool starts in is ignored for this fraction of the contact time. */
 const START_IGNORE = 0.45;
 /** Seconds before the crowbar tries to wedge in again after slipping off. */
@@ -517,6 +519,7 @@ export class ToolSystem implements IToolSystem {
     this.c1.y = -this.up.y;
     this.c1.z = -this.fwd.y;
     const n = aimVariants(m.rig, this.aim, this.c1, this.variants);
+    const good = 1 + (m.rig.kind === "jab" ? GOOD_SHARE_PUNCH : GOOD_SHARE);
     let best = -1,
       bestScore = -Infinity,
       built = -1;
@@ -530,7 +533,7 @@ export class ToolSystem implements IToolSystem {
         best = i;
       }
       // reaches the target first, squarely enough: take it (else keep looking for a squarer one)
-      if (score >= 1 + GOOD_SHARE) break;
+      if (score >= good) break;
     }
     if (best >= 0 && best !== built) m.aimStrike(this.aim, this.variants[best]);
   }

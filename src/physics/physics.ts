@@ -194,6 +194,11 @@ const STILL_WEIGHT = 4;
 /** Sleep assist: the island-coherent sleep pass runs every this many steps; bounding spheres within SLEEP_MARGIN (m) touch. */
 const SLEEP_PASS_STEPS = 4;
 const SLEEP_MARGIN = 0.03;
+/** Sleep pass members: moved within this many steps. Components larger than SLEEP_BIG_COMPONENT let members that were
+ *  slow for SLEEP_FALLBACK × `seconds` sleep on their own. */
+const SLEEP_RECENT_STEPS = 8;
+const SLEEP_BIG_COMPONENT = 32;
+const SLEEP_FALLBACK = 4;
 /** STARTED events within this many steps of a body's mask change are echoes of existing contacts (see queueHeat). */
 const MASK_ECHO_STEPS = 4;
 /** Impulse estimator: a body slower than this (m/s) before the step counts as resting (supported) — see pointTerms. */
@@ -260,6 +265,8 @@ class BodyRec implements ImpactSide {
   radius = 0;
   /** Bounding radius about the COM (m, from the shape's AABB): proximity grouping of the sleep pass. */
   boundR = 0;
+  /** Last step in which the body moved (sleep pass membership). */
+  movedStep = -1e9;
   /** Step index until which the body's velocity is polled before stepping (fresh / expectFast). */
   watchUntil = -1;
   // ---- velocity cache (impulse estimation, adaptive substeps, adaptive event masks)
@@ -1065,7 +1072,7 @@ export class Physics implements PhysicsSystem {
       const angLim2 = sa.angular * dt * (sa.angular * dt);
       const stillLin2 = linLim2 * STILL_FRACTION * STILL_FRACTION;
       const stillAng2 = angLim2 * STILL_FRACTION * STILL_FRACTION;
-      const sleepSteps = Math.max(1, Math.round(sa.seconds / dt));
+      const slowCap = SLEEP_FALLBACK * Math.max(1, Math.round(sa.seconds / dt));
       const wm = this.syncWorldMatrices;
       const invDt = 1 / dt;
       const step = this._stepIndex;
@@ -1101,9 +1108,10 @@ export class Physics implements PhysicsSystem {
           r4 === prev[p + 3] && r5 === prev[p + 4] && r6 === prev[p + 5] &&
           r8 === prev[p + 6] && r9 === prev[p + 7] && r10 === prev[p + 8]
         ) {
-          // not moved (asleep, static, or perfectly still): velocity 0 (vStep goes stale), no work
+          // not moved (asleep, static, or perfectly still): velocity 0 (vStep goes stale), no work; perfectly still
+          // counts as very slow (resting pile bodies are bit-identical now and then)
           rec.moved = false;
-          rec.slow = 0;
+          if (rec.slow < slowCap) rec.slow += STILL_WEIGHT;
           if (adaptive && rec.mask === EVENT_MASK && rec.hotUntil < step) this.cool(rec, true);
           continue;
         }
@@ -1199,7 +1207,7 @@ export class Physics implements PhysicsSystem {
             const d2 = dx * dx + dy * dy + dz * dz;
             const a2 = theta * theta;
             if (d2 < linLim2 && a2 < angLim2) {
-              if (rec.slow < sleepSteps) rec.slow += d2 < stillLin2 && a2 < stillAng2 ? STILL_WEIGHT : 1;
+              if (rec.slow < slowCap) rec.slow += d2 < stillLin2 && a2 < stillAng2 ? STILL_WEIGHT : 1;
             } else rec.slow = 0;
           }
         }
@@ -1216,6 +1224,7 @@ export class Physics implements PhysicsSystem {
         prev[p + 10] = ty;
         prev[p + 11] = tz;
         rec.moved = true;
+        rec.movedStep = step;
         moved++;
         node.position.set(tx, ty, tz);
         q.set(qx, qy, qz, qw);
@@ -1246,9 +1255,11 @@ export class Physics implements PhysicsSystem {
     const list = this.fast;
     const mem = this.sleepMem;
     mem.length = 0;
+    // members: dynamic bodies that moved recently (awake; a resting body is bit-identical now and then)
+    const recent = this._stepIndex - SLEEP_RECENT_STEPS;
     for (let i = 0; i < list.length; i++) {
       const rec = list[i];
-      if (rec.moved && rec.motion === DYNAMIC && !rec.disposed) mem.push(rec);
+      if (rec.movedStep >= recent && rec.motion === DYNAMIC && !rec.disposed) mem.push(rec);
     }
     const n = mem.length;
     if (n === 0) return;
@@ -1257,6 +1268,7 @@ export class Physics implements PhysicsSystem {
       this.sleepOrder = new Int32Array(n * 2);
       this.sleepParent = new Int32Array(n * 2);
       this.sleepBlocked = new Uint8Array(n * 2);
+      this.sleepSize = new Int32Array(n * 2);
     }
     const pos = this.sleepPos, order = this.sleepOrder, parent = this.sleepParent, blocked = this.sleepBlocked;
     let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity, minZ = Infinity, maxZ = -Infinity;
@@ -1302,22 +1314,27 @@ export class Physics implements PhysicsSystem {
         const dx = pos[i * 4] - pos[j * 4], dy = pos[i * 4 + 1] - pos[j * 4 + 1], dz = pos[i * 4 + 2] - pos[j * 4 + 2];
         const rr = ri + rj;
         if (dx * dx + dy * dy + dz * dz <= rr * rr) {
-          if (this.sleepLocal) {
-            if (!this.sleepOk(mem[j], sleepSteps)) blocked[i] = 1;
-            if (!this.sleepOk(mem[i], sleepSteps)) blocked[j] = 1;
-          } else {
-            const a = find(i), b = find(j);
-            if (a !== b) parent[a] = b;
-          }
+          const a = find(i), b = find(j);
+          if (a !== b) parent[a] = b;
         }
       }
     }
-    for (let i = 0; i < n; i++) if (!this.sleepOk(mem[i], sleepSteps)) blocked[find(i)] = 1;
+    const size = this.sleepSize;
+    for (let i = 0; i < n; i++) size[i] = 0;
+    for (let i = 0; i < n; i++) {
+      const root = find(i);
+      size[root]++;
+      if (!this.sleepOk(mem[i], sleepSteps)) blocked[root] = 1;
+    }
     const hk = this.hk;
     const INACTIVE = hk.ActivationState.INACTIVE;
+    const fallback = SLEEP_FALLBACK * sleepSteps;
     for (let i = 0; i < n; i++) {
-      if (blocked[find(i)]) continue;
       const rec = mem[i];
+      const root = find(i);
+      // big piles are rarely calm everywhere at once: their members that stayed slow SLEEP_FALLBACK× longer freeze
+      // individually (the calm bulk of a pile sleeps while a few bodies on top still jitter)
+      if (blocked[root] && !(size[root] > SLEEP_BIG_COMPONENT && rec.slow >= fallback && this.sleepOk(rec, sleepSteps))) continue;
       if (rec.mask === EVENT_MASK) this.setMask(rec, COLD_MASK); // (setting a mask wakes: before sleeping)
       hk.HP_Body_SetActivationState(rec.hpId, INACTIVE);
       rec.slow = 0;
@@ -1326,7 +1343,6 @@ export class Physics implements PhysicsSystem {
     mem.length = 0;
   }
 
-  sleepLocal = false;
   private sleepOk(rec: BodyRec, sleepSteps: number): boolean {
     return rec.slow >= sleepSteps && !rec.keepAwake && rec.joints === null;
   }
@@ -1336,6 +1352,7 @@ export class Physics implements PhysicsSystem {
   private sleepOrder = new Int32Array(0);
   private sleepParent = new Int32Array(0);
   private sleepBlocked = new Uint8Array(0);
+  private sleepSize = new Int32Array(0);
 
   private addFast(rec: BodyRec): void {
     const hk = this.hk;
