@@ -702,6 +702,13 @@ export class Hud implements HudSystem {
     }
     const time = c.time;
     if (time) L.push(`<b>TIME</b>    sim ${f1(time.simTime)} s  steps ${time.step}  scale ${f2(time.scale)}`);
+    // integration-provided lines (src/debug/api.ts DebugApi.overlay: loop timings, world stats)
+    try {
+      const extra = (c.debug as unknown as { overlay?: () => string[] } | undefined)?.overlay?.();
+      if (Array.isArray(extra)) L.push(...extra);
+    } catch {
+      /* ignore */
+    }
     this.debugBox.innerHTML = L.join("\n");
   }
 }

@@ -101,8 +101,10 @@ function checkOverlap(def: AssemblyDef): void {
 
 test("every registered object builds clean, validates and reports its size", () => {
   const rows: string[] = [];
-  for (const type of objectTypes()) {
-    const def = buildChecked(type);
+  // reference objects only (area registries merged into OBJECT_REGISTRY have their own tests);
+  // `reference:<type>` because the living-room chair / coffee table take the plain ids
+  for (const type of Object.keys(MASS)) {
+    const def = buildChecked(`reference:${type}`);
     checkDef(def);
     const m = massOf(def);
     if (MASS[type]) assert.ok(m >= MASS[type][0] && m <= MASS[type][1], `${type} mass ${m.toFixed(2)} kg outside ${MASS[type]}`);
@@ -112,11 +114,11 @@ test("every registered object builds clean, validates and reports its size", () 
 });
 
 test("reference objects: no substantial overlaps (sample-based)", () => {
-  for (const type of Object.keys(MASS)) checkOverlap(buildObject(type));
+  for (const type of Object.keys(MASS)) checkOverlap(buildObject(`reference:${type}`));
 });
 
 test("reference objects are deterministic", () => {
-  for (const type of Object.keys(MASS)) assert.equal(JSON.stringify(buildObject(type)), JSON.stringify(buildObject(type)), type);
+  for (const type of Object.keys(MASS)) assert.equal(JSON.stringify(buildObject(`reference:${type}`)), JSON.stringify(buildObject(`reference:${type}`)), type);
 });
 
 test("microwave: the showcase is built like the real thing", () => {

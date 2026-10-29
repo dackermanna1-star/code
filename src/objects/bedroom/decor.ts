@@ -115,87 +115,38 @@ export const BEANBAG = { w: 0.85, h: 0.55, d: 0.8 } as const;
 
 /**
  * Beanbag chair: a fabric sack of EPS beads (soft; tears and spills foam beads) slumped into a
- * wide base cushion, a raised back lobe and a low front seat lobe. Each lobe is its own soft hull
- * of at most 16 points (the physics keeps such hulls exactly; a decimated hull sank ~6 cm into the
- * floor), and the three overlapping lobes give a rounded, sagging silhouette instead of one hard
- * faceted dome. The lobes are let into the base (inset) and seamed to it: a hard hit rips the
- * sack apart at the seams.
+ * wide base cushion, a raised back lobe and a low front seat lobe. Each lobe is a soft ellipsoidal
+ * blob of exactly 16 points spread evenly on a Fibonacci spiral (the physics keeps hulls of ≤ 16
+ * points exactly; a decimated hull sank ~6 cm into the floor) — round on every side instead of one
+ * hard faceted dome. The base blob is flattened where it meets the floor. The lobes overlap (inset)
+ * and are seamed together: a hard hit rips the sack apart at the seams.
  */
 export function buildBeanbag(o: BeanbagOpts = {}): AssemblyDef {
   const b = mk("beanbag", "Beanbag", "soft", 70, o);
   const { w, h, d } = BEANBAG;
   const tint = o.tint ?? 0x8c3b3b;
-  /** Soft lobe: stacked elliptical rings [count, radius fraction, y, phase] + optional crown. */
-  const lobe = (
-    name: string,
-    cx: number,
-    cz: number,
-    hx: number,
-    hz: number,
-    rings: Array<[number, number, number, number]>,
-    crown: number | null,
-    kg: number,
-    tags?: string[],
-  ): string => {
+  const N = 16,
+    ga = Math.PI * (3 - Math.sqrt(5));
+  /** 16-point ellipsoidal blob; points below `floorY` are flattened onto it (resting face). */
+  const blob = (name: string, c: [number, number, number], r: [number, number, number], kg: number, floorY: number | null, tags?: string[]): string => {
     const pts: Array<[number, number, number]> = [];
-    for (const [n, rf, y, ph] of rings)
-      for (let k = 0; k < n; k++) {
-        const a = (2 * Math.PI * (k + ph)) / n;
-        pts.push([cx + hx * rf * Math.cos(a), y, cz + hz * rf * Math.sin(a)]);
-      }
-    if (crown !== null) pts.push([cx, crown, cz]);
+    for (let i = 0; i < N; i++) {
+      const y = 1 - (2 * (i + 0.5)) / N;
+      const rr = Math.sqrt(Math.max(0, 1 - y * y));
+      let py = c[1] + r[1] * y;
+      if (floorY !== null && py < floorY) py = floorY;
+      pts.push([c[0] + r[0] * rr * Math.cos(ga * i), py, c[2] + r[2] * rr * Math.sin(ga * i)]);
+    }
     const p = b.hull(name, "fabric", "fabric_upholstery", pts, [0, 0, 0], { tint, mass: kg, smooth: 1, ...(tags ? { tags } : {}) });
     b.stuffing(p, "foam");
     return p;
   };
-  const yB = 0.25; // top of the base cushion
-  // base cushion: flat bottom, bulging belly, rounded shoulder (5 + 6 + 5 = 16 points)
-  const base = lobe(
-    "bag",
-    0,
-    0,
-    w / 2,
-    d / 2,
-    [
-      [5, 0.8, 0, 0.1],
-      [6, 1, 0.12, 0.6],
-      [5, 0.74, yB, 0.35],
-    ],
-    null,
-    2.5,
-  );
-  // back lobe: slumped towards the back (-Z), rises to the full height (6 + 6 + 3 + crown)
-  const back = lobe(
-    "bag_back",
-    0,
-    -d * 0.17,
-    w * 0.4,
-    d * 0.26,
-    [
-      [6, 0.9, yB - 0.05, 0],
-      [6, 1, 0.42, 0.5],
-      [3, 0.55, h - 0.03, 0.25],
-    ],
-    h,
-    1.4,
-    ["inset"],
-  );
-  // front seat lobe: a low pillow of beads in front of the back (6 + 6 + 4)
-  const seat = lobe(
-    "bag_seat",
-    0,
-    d * 0.14,
-    w * 0.34,
-    d * 0.22,
-    [
-      [6, 0.9, yB - 0.04, 0.25],
-      [6, 1, yB + 0.04, 0.75],
-      [4, 0.55, yB + 0.09, 0],
-    ],
-    null,
-    0.6,
-    ["inset"],
-  );
+  // base cushion: wide and low, flat where it sits on the floor
+  const base = blob("bag", [0, 0.1, 0], [w / 2, 0.21, d / 2], 2.5, 0); // lower 4 points form the floor face
+  // back lobe: slumped towards the back (-Z), reaching the full height
+  const back = blob("bag_back", [0, h - 0.17, -d * 0.18], [w * 0.38, 0.17, d * 0.25], 1.4, null, ["inset"]);
+  // seat lobe: a low pillow of beads in front of the back
+  const seat = blob("bag_seat", [0, 0.3, d * 0.12], [w * 0.33, 0.08, d * 0.24], 0.6, null, ["inset"]);
   b.bond(back, base, "fused", { strength: 40 });
   b.bond(seat, base, "fused", { strength: 30 });
   b.bond(seat, back, "fused", { strength: 25 });

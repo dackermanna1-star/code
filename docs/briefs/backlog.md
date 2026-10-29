@@ -23,3 +23,8 @@
 - addLight(light, room, mains, opts?: { castShadows }) so FeatureDef.light.castShadows is honoured.
 - render-core: set useGLTFLightFalloff at material creation; env-capture feedback-loop warning seen in
   render-env integration probe (re-check after render-core's double-buffer fix).
+- Paintings/mirrors: nail bonds to the wall should be linked to the wall part behind them (fall when the
+  wall is hit hard / destroyed). Part of the cross-assembly item above.
+- Physics: 16-point hull decimation makes rounded soft parts (pillows, cushions) sink/tip; allow more hull
+  points or exact handling for soft/rounded parts.
+- Integration: assert unique type ids when merging area registries.

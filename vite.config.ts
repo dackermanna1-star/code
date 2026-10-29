@@ -8,7 +8,7 @@ export default defineConfig({
   build: {
     target: "es2022",
     sourcemap: false,
-    chunkSizeWarningLimit: 8000,
+    chunkSizeWarningLimit: 12000,
     assetsInlineLimit: 0,
   },
   server: {

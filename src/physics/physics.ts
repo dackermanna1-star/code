@@ -2677,11 +2677,14 @@ export class Physics implements PhysicsSystem {
     this.wakeJoint(c);
   }
 
-  /** Havok ignores motor type NONE (the type stays POSITION/VELOCITY): a motor is only off with zero max force. */
+  /**
+   * Havok ignores motor type NONE (the type stays POSITION/VELOCITY): a motor is only off with zero
+   * max force. Setting the type to NONE on a live constraint also crashes the WASM page (seen when a
+   * latched door's catch breaks), so only the max force is cleared.
+   */
   private disableMotor(c: PhysicsConstraint, ax: PhysicsConstraintAxis): void {
     if (!c._pluginData || c._pluginData.length === 0) return;
     this.plugin.setAxisMotorMaxForce(c, ax, 0);
-    this.plugin.setAxisMotorType(c, ax, PhysicsConstraintMotorType.NONE);
     this.wakeJoint(c);
   }
 
