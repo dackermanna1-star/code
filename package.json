@@ -13,7 +13,8 @@
     "test:smoke": "node tests/smoke.mjs",
     "test:scenarios": "node tests/scenarios.mjs",
     "test:e2e": "vite build && node tests/smoke.mjs && node tests/scenarios.mjs",
-    "check": "tsc --noEmit -p tsconfig.json && node --test tests/unit/*.test.ts"
+    "check": "tsc --noEmit -p tsconfig.json && node --test tests/unit/*.test.ts",
+    "build:single": "vite build -c scripts/single/vite.config.mjs --outDir dist-single --emptyOutDir && node scripts/single/inline.mjs dist-single apartment-destruction-sim.html"
   },
   "dependencies": {
     "@babylonjs/core": "9.30.0",

@@ -3,3 +3,5 @@ dist/
 test-results/
 *.log
 .DS_Store
+dist-single/
+apartment-destruction-sim.html
