@@ -9,7 +9,7 @@
 //  * cold-in / hot-out steel nipples through the top, copper supply pipes soldered to the wall
 //    valves (water features; they are what holds the heater in place), a brass T&P relief valve
 //    with its copper discharge pipe, a plastic drain valve, two element/thermostat access covers
-//    (sparks), a rating label and the power cable to the wall box.
+//    (sparks), a rating label and the hardwired power cable into the wall.
 //
 // Frame: origin on the floor at the tank axis, access covers +Z, wall side −Z. Empty ~55 kg.
 
@@ -22,7 +22,7 @@ export interface WaterHeaterOpts extends BaseOpts {
   tint?: number;
   /** Wall valve outlets the supply pipes run to (local); default straight back to the wall. */
   supply?: { cold: V3; hot: V3 };
-  /** Wall box the power cable runs into (local). */
+  /** Wall box the power cable runs into (local); default: straight into the wall behind the tank. */
   power?: V3;
   litres?: number;
 }
@@ -205,8 +205,11 @@ export function buildWaterHeater(o: WaterHeaterOpts = {}): AssemblyDef {
   const label = boxR(b, "label", "paper", "paper_printed", [-0.08, 0.08], [0.66, 0.78], [zf, zf + 0.0006], { mass: 0.003 });
   bondTouching(b, label, jacket, "glue", 4, 0.002);
 
-  // ------------------------------------------------------------------ power cable to the wall box
-  const pw = o.power ? v(o.power) : ([0.0, 1.6, -R - WATER_HEATER.wallGap + 0.01] as [number, number, number]);
+  // ------------------------------------------------------------------ power cable into the wall
+  // Hardwired: by default the cable's last segment ends 6 mm INSIDE the wall plane behind the
+  // tank (through a hole in the drywall, like the panel cables), so its world clip is in the wall,
+  // not in mid-air. Pass `power` to end it in a junction box instead.
+  const pw = o.power ? v(o.power) : ([0.0, 1.6, -R - WATER_HEATER.wallGap - 0.006] as [number, number, number]);
   const gland = b.cyl("cable_gland", "plastic", "plastic", 0.01, 0.02, [0, yTop + 0.011, -0.16], { segments: 8, tint: 0x2a2a2a, mass: 0.01 });
   b.screw(gland, cover, 1, 20);
   const cab = cable(

@@ -18,9 +18,9 @@ export async function probe(): Promise<unknown> {
   const variants: Record<string, (def: any) => void> = {
     cur: () => {},
     turretWeld: (def) => { for (const b of def.bonds) if (b.a === "turret" && b.joint) { b.kind = "weld"; delete b.joint; b.strength = 60; } },
-    fric0: (def) => { for (const b of def.bonds) if (b.joint) delete b.joint.friction; },
-    fricX4: (def) => { for (const b of def.bonds) if (b.joint && b.joint.friction) b.joint.friction *= 4; },
-    allWeld: (def) => { for (const b of def.bonds) if (b.joint) { b.kind = "weld"; delete b.joint; b.strength = 60; } },
+    //fric0: (def) => { for (const b of def.bonds) if (b.joint) delete b.joint.friction; },
+    //fricX4: (def) => { for (const b of def.bonds) if (b.joint && b.joint.friction) b.joint.friction *= 4; },
+    //allWeld: (def) => { for (const b of def.bonds) if (b.joint) { b.kind = "weld"; delete b.joint; b.strength = 60; } },
   };
   for (const [name, patch] of Object.entries(variants)) {
     const scene = new Scene(engine);
@@ -51,7 +51,11 @@ export async function probe(): Promise<unknown> {
         trace.push(`s${s} awake=${physics.stats().awake}${info}`);
       }
     }
-    out[name] = trace;
+    const a = d.world.assemblies.get(id)!;
+    const gs: string[] = [];
+    for (const g of a.groups.values()) gs.push(`${(g as any).id ?? ""}:${g.constraints.map((c) => c.kind + "(" + c.moving.parts[0].name + "->" + (c.fixed?.parts[0].name ?? "anchor") + ")").join(",")}`);
+    let dead = 0; for (const b of a.bonds) if (!b.alive) dead++;
+    out[name] = { trace, gs, dead };
     scene.dispose();
   }
   return out;
