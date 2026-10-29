@@ -101,6 +101,8 @@ export async function probe(): Promise<unknown> {
     [[-1.6, 1.4, -2.9], [-1.6, 0.5, -4.4]],
     // top-down on the smartphone (row 2, col 5 → x = 3.2) and alarm clock (x = 1.6)
     [[2.4, 0.8, -3.85], [2.45, 0.0, -4.4]],
+    // close-up on the microwave front (row 0, col 0 → x = −4.8): printed keypad fitted once
+    [[-4.65, 0.2, 0.75], [-4.7, 0.15, 0]],
   ];
   for (const [p, t] of views) {
     camera.position = new Vector3(p[0], p[1], p[2]);

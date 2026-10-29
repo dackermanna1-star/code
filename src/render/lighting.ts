@@ -138,6 +138,10 @@ interface LightRec {
   clustered: boolean;
   /** Point/spot shadow generator while promoted. */
   shadow: ShadowGenerator | null;
+  /** Casters in that generator's render list, and the light position / reach it was built for. */
+  shadowSet: Set<AbstractMesh>;
+  shadowPos: Vector3;
+  shadowReach: number;
   /** Fallback mode: shaded by the nearest-light selection (else masked out of every mesh). */
   selected: boolean;
   /** The owner's `excludeWithLayerMask`, saved while the fallback selection masks the light. */
@@ -187,6 +191,8 @@ export class Lighting implements ILighting {
   private slotsNeeded = DEFAULT_SLOTS;
   private slotSweepCount = -1;
   private materialObs: Nullable<Observer<Material>> = null;
+  /** Materials added since the last update (raised once their constructor has finished). */
+  private readonly pendingMaterials: Material[] = [];
   /** Round-robin cursor of the shadow safety refresh (0 = sun, i = pointGens[i - 1]). */
   private refreshCursor = 0;
   /** Lights handed back by removeLight(): re-added to the scene if their owner keeps them. */
@@ -324,6 +330,9 @@ export class Lighting implements ILighting {
       effective: light.intensity,
       clustered: false,
       shadow: null,
+      shadowSet: new Set(),
+      shadowPos: new Vector3(),
+      shadowReach: 0,
       selected: true,
       savedExcludeMask: 0,
       disposeObs: null,
@@ -380,6 +389,11 @@ export class Lighting implements ILighting {
     if (this.released.length) {
       for (const l of this.released) if (!l.isDisposed() && this.scene.lights.indexOf(l) < 0) this.scene.addLight(l);
       this.released.length = 0;
+    }
+    // New materials: give them the light slots the current light set needs.
+    if (this.pendingMaterials.length) {
+      for (const m of this.pendingMaterials) this.raiseSlots(m);
+      this.pendingMaterials.length = 0;
     }
     // Interior lights: power, flicker, external intensity changes.
     for (const rec of this.lights.values()) this.applyPowerAndFlicker(rec, step);
@@ -617,7 +631,6 @@ export class Lighting implements ILighting {
       rec.flickerTime += dt;
       f = rec.flickerLeft > 0 ? flickerLevel(rec.flickerTime, rec.seed) : 1;
     }
-    if (!this.cluster && !rec.selected) f = 0;
     // Clustered shading ignores setEnabled(false): honour an owner's disable through intensity.
     if (rec.clustered && !l.isEnabled()) f = 0;
     const eff = Math.max(0, rec.base * this.tuning.interiorGain * f);
@@ -677,7 +690,7 @@ export class Lighting implements ILighting {
       // Hand the light back in its nominal state; it rejoins the scene as an ordinary light
       // at the next update unless the owner disposes it first (the usual case).
       light.intensity = rec.base;
-      if (!this.cluster && !rec.selected) light.setEnabled(true); // undo the fallback selection
+      if (!rec.selected) light.excludeWithLayerMask = rec.savedExcludeMask; // undo the fallback mask
       if (wasClustered) this.released.push(light);
     }
   }
@@ -685,7 +698,7 @@ export class Lighting implements ILighting {
   // ---- point-light shadows
 
   private updatePointShadows(): void {
-    const want = Math.max(0, Math.min(4, Math.floor(this._quality.pointShadows)));
+    const want = this.pointShadowCount();
     const cam = this.scene.activeCamera;
     const chosen = new Set<LightRec>();
     if (want > 0 && cam) {
@@ -694,6 +707,7 @@ export class Lighting implements ILighting {
       for (const rec of this.lights.values()) {
         const l = rec.light;
         if (!(l instanceof PointLight || l instanceof SpotLight)) continue;
+        if (!l.isEnabled() || (!this.cluster && !rec.selected)) continue; // owner-disabled / not shaded
         if (rec.effective <= 0.02 || !(l.range >= this.tuning.pointShadowMinRange)) continue;
         if (rec.flickerLeft > 0 && !rec.shadow) continue; // do not promote a dying fixture
         let d = Vector3.Distance(this.lightPosition(l), cp);
@@ -730,7 +744,9 @@ export class Lighting implements ILighting {
     const sm = g.getShadowMap();
     if (sm) sm.refreshRate = this.tuning.staticShadowCache ? RenderTargetTexture.REFRESHRATE_RENDER_ONCE : 1;
     rec.shadow = g;
+    rec.shadowSet.clear();
     this.pointGens.push(g);
+    this.pointRecs.push(rec);
   }
 
   private demote(rec: LightRec): void {
@@ -744,7 +760,97 @@ export class Lighting implements ILighting {
 
   private dropPointGen(g: ShadowGenerator): void {
     const i = this.pointGens.indexOf(g);
-    if (i >= 0) this.pointGens.splice(i, 1);
+    if (i < 0) return;
+    this.pointGens.splice(i, 1);
+    const rec = this.pointRecs.splice(i, 1)[0];
+    rec?.shadowSet.clear();
+  }
+
+  /** Shadowed point lights wanted: quality, capped so sun + sky + cluster + N fits the slot cap. */
+  private pointShadowCount(): number {
+    const q = Math.floor(this._quality.pointShadows);
+    return Number.isFinite(q) ? Math.max(0, Math.min(MAX_SLOTS - BASE_SLOTS, q)) : 0;
+  }
+
+  /** Is this caster something point light `rec` must render (within reach, not its own fixture)? */
+  private pointCasterWanted(rec: LightRec, m: AbstractMesh): boolean {
+    const bs = m.getBoundingInfo().boundingSphere;
+    const r = bs.radiusWorld;
+    const d = Vector3.Distance(bs.centerWorld, rec.shadowPos);
+    if (d - r > rec.shadowReach) return false;
+    if (r < 0.6 && d < r + 0.05) return false; // lamp shade / fixture enclosing the bulb
+    return r >= 0.02;
+  }
+
+  /**
+   * Cached-shadow invalidation for one mesh that moved / changed / was (un)registered: the sun
+   * map always, a point-light cube map only when the mesh is (or now should be) in its list.
+   */
+  private invalidateNear(mesh: AbstractMesh | null | undefined): void {
+    if (!this.tuning.staticShadowCache) return;
+    this._sunShadows?.getShadowMap()?.resetRefreshCounter();
+    if (this.pointGens.length === 0) return;
+    if (!mesh || mesh.isDisposed()) {
+      for (const g of this.pointGens) g.getShadowMap()?.resetRefreshCounter();
+      return;
+    }
+    const caster = this.casters.has(mesh);
+    for (let i = 0; i < this.pointRecs.length; i++) {
+      const rec = this.pointRecs[i];
+      const sm = this.pointGens[i].getShadowMap();
+      if (!sm) continue;
+      const listed = rec.shadowSet.has(mesh);
+      if (!caster) {
+        if (listed) {
+          // No longer a caster (setShadowCaster(false) already removed it from the list).
+          rec.shadowSet.delete(mesh);
+          sm.resetRefreshCounter();
+        }
+        continue;
+      }
+      if (listed) {
+        sm.resetRefreshCounter();
+      } else if (this.pointCasterWanted(rec, mesh)) {
+        // Moved into reach: render it now instead of at the next list rebuild.
+        rec.shadowSet.add(mesh);
+        if (sm.renderList) sm.renderList.push(mesh);
+        else sm.renderList = [mesh];
+        sm.resetRefreshCounter();
+      }
+    }
+  }
+
+  // ---- material light slots
+
+  /** Slots every lit material needs for the current quality / mode; raises them if needed. */
+  private updateLightSlots(): void {
+    const extra = this.cluster ? this.pointShadowCount() : FALLBACK_MAX_LIGHTS;
+    const need = Math.min(MAX_SLOTS, (this.cluster ? BASE_SLOTS : BASE_SLOTS - 1) + extra);
+    if (need <= this.slotsNeeded) return; // never lowered: spare slots cost nothing, recompiles do
+    this.slotsNeeded = need;
+    if (!this.materialObs) {
+      this.materialObs = this.scene.onNewMaterialAddedObservable.add((m) => {
+        if (!this.disposed) this.pendingMaterials.push(m);
+      });
+    }
+    this.sweepMaterialSlots();
+  }
+
+  private sweepMaterialSlots(): void {
+    this.slotSweepCount = this.scene.materials.length;
+    for (const m of this.scene.materials) this.raiseSlots(m);
+  }
+
+  /** Raise one lit Standard/PBR(-like) material to the required light slots. */
+  private raiseSlots(mat: Material | null | undefined): void {
+    if (!mat || this.slotsNeeded <= DEFAULT_SLOTS) return;
+    const m = mat as Material & { maxSimultaneousLights?: number; disableLighting?: boolean; unlit?: boolean };
+    if (typeof m.maxSimultaneousLights !== "number" || m.disableLighting === true || m.unlit === true) return;
+    if (m.maxSimultaneousLights >= this.slotsNeeded) return;
+    const frozen = m.isFrozen;
+    if (frozen) m.unfreeze();
+    m.maxSimultaneousLights = this.slotsNeeded;
+    if (frozen) m.freeze();
   }
 
   /** Point shadows: casters within reach of the light, minus the fixture around the bulb. */
@@ -752,29 +858,22 @@ export class Lighting implements ILighting {
     const gen = rec.shadow;
     const sm = gen?.getShadowMap();
     if (!gen || !sm) return;
-    const p = this.lightPosition(rec.light).clone();
-    const range = Math.min((rec.light as PointLight).range || 8, 10);
+    rec.shadowPos.copyFrom(this.lightPosition(rec.light));
+    rec.shadowReach = Math.min((rec.light as PointLight).range || 8, 10);
     const list: AbstractMesh[] = [];
-    for (const m of this.casters.keys()) {
-      if (m.isDisposed()) continue;
-      const bs = m.getBoundingInfo().boundingSphere;
-      const r = bs.radiusWorld;
-      const d = Vector3.Distance(bs.centerWorld, p);
-      if (d - r > range) continue;
-      if (r < 0.6 && d < r + 0.05) continue; // lamp shade / fixture enclosing the bulb
-      if (r < 0.02) continue;
-      list.push(m);
-    }
+    for (const m of this.casters.keys()) if (!m.isDisposed() && this.pointCasterWanted(rec, m)) list.push(m);
     const old = sm.renderList;
     let same = !!old && old.length === list.length;
     if (same && old) for (let i = 0; i < list.length; i++) if (old[i] !== list[i]) same = false;
     if (!same) {
       sm.renderList = list;
+      rec.shadowSet.clear();
+      for (const m of list) rec.shadowSet.add(m);
       sm.resetRefreshCounter();
     }
   }
 
-  // ---- fallback (no clustering): only the nearest lights are enabled
+  // ---- fallback (no clustering): only the nearest lights are shaded
 
   private updateFallbackSelection(): void {
     const cam = this.scene.activeCamera;
@@ -782,7 +881,8 @@ export class Lighting implements ILighting {
     const cp = cam.globalPosition;
     const cands: Array<{ rec: LightRec; d: number }> = [];
     for (const rec of this.lights.values()) {
-      const lit = rec.base > 0 && !(rec.mains && !this._powered);
+      // Owner-disabled, dimmed-to-zero and powered-off lights never take a slot.
+      const lit = rec.base > 0 && rec.light.isEnabled() && !(rec.mains && !this._powered);
       cands.push({ rec, d: lit ? Vector3.Distance(this.lightPosition(rec.light), cp) - (rec.selected ? 0.8 : 0) : Infinity });
     }
     cands.sort((a, b) => a.d - b.d);
@@ -790,8 +890,15 @@ export class Lighting implements ILighting {
       const sel = i < FALLBACK_MAX_LIGHTS && d < Infinity;
       if (sel === rec.selected) return;
       rec.selected = sel;
-      rec.light.setEnabled(sel); // ordinary lights: disabled ones free their material slot
-      this.applyPowerAndFlicker(rec, 0);
+      // Masked lights leave every mesh's light list (freeing the material slot) while the
+      // owner's enable flag stays untouched.
+      const l = rec.light;
+      if (sel) {
+        l.excludeWithLayerMask = rec.savedExcludeMask;
+      } else {
+        rec.savedExcludeMask = l.excludeWithLayerMask;
+        l.excludeWithLayerMask = EXCLUDE_ALL;
+      }
     });
   }
 }
