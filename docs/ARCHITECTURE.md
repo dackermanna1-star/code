@@ -325,9 +325,12 @@ surface id. Initial values (gameplay-tuned, physically ordered):
   wallpaper patterns).
 * **Batching** (`src/render/batch.ts`): builds an island mesh from its parts' render
   geometry (positions, normals, uvs, colour, surf); incremental rebuild on change.
-* **Lighting** (`src/render/lighting.ts`): golden-hour sun (directional, cascaded shadows
-  through windows), sky hemisphere fill, interior lights owned by `light` features (room
-  assignment to respect per-material light limits), flicker, global power state.
+* **Lighting** (`src/render/lighting.ts`): golden-hour sun (directional, one fitted shadow
+  map through the windows), sky hemisphere fill, interior lights owned by `light` features
+  (clustered; the nearest cast cube shadows), flicker, global power state. Shadow maps are
+  layered caches (`src/render/shadowCache.ts`): resting casters live in a static layer that is
+  only redrawn where it changed; the sampled map is rebuilt from it by a GPU copy plus the
+  moving casters, per dirty texel rectangle / cube face.
 * **Post** (`src/render/postfx.ts`): ACES tone mapping, bloom, SSAO, FXAA, subtle grain
   and vignette, camera shake/impact flash, optional PS2 mode.
 * **Exterior** (`src/render/exterior.ts`): gradient sky + sun disc + clouds, low-poly

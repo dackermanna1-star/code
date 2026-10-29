@@ -219,7 +219,8 @@ function installPerf() {
   };
   const rttName = (t) => {
     const o = shadowOwner.get(t);
-    if (o) return `shadow:${o.light}`;
+    // static layers of the layered shadow caches (src/render/shadowCache.ts) are keyed by a marker object
+    if (o) return o.gen && o.gen._camera && o.gen._camera.id === "staticShadowLayer" ? `shadow:${o.light}:static` : `shadow:${o.light}`;
     return `rtt:${t.name || t.constructor?.name || "?"}`;
   };
   const sunMap = ctx.render.lighting.sunShadows.getShadowMap();

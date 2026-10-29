@@ -32,7 +32,7 @@
 //    boxes and spheres (F4). Count / EMA time / point counts are in debugStats().
 //  * EVENTS AND IMPACTS (Addendum 1): callbacks on every body cost ~10k CONTINUED events per step on a 1000-body
 //    pile. Adaptive masks: bodies are cold (STARTED|FINISHED) and become hot (STARTED|CONTINUED|FINISHED) for
-//    hotSteps (30) while their corner speed exceeds hotSpeed (0.5 m/s), after a contact START and after taking part
+//    hotSteps (10) while their corner speed exceeds hotSpeed (0.5 m/s), after a contact START and after taking part
 //    in an emitted impact; static bodies are always cold (a pair reports an event type if EITHER mask has it).
 //    Sleeping bodies are never heated (a mask change would wake them) and the STARTED echoes Havok sends after a
 //    mask change are ignored. A settled 200-box scene (all kept awake): 0 events/step vs 800 (F8).
@@ -149,7 +149,11 @@ export interface PhysicsOptions {
   adaptiveEvents?: boolean;
   /** Body speed (m/s, incl. corner speed) above which its contacts report CONTINUED events. Default 0.5. */
   hotSpeed?: number;
-  /** Fixed steps a body stays "hot" after being fast or in an impact. Default 30. */
+  /**
+   * Fixed steps a body stays "hot" after being fast, a contact start or an impact. Default 10: covers an impact episode
+   * (≤ maxEpisodeSteps 8) and the rebound; a fast body re-heats every step anyway. (30 kept jittering debris piles —
+   * whose contacts restart constantly — reporting CONTINUED events for every resting contact: ~10–20k events/step.)
+   */
   hotSteps?: number;
   /** Same-step `started` impacts from pre-step velocities (see impacts.ts). Default true. */
   estimateImpacts?: boolean;
@@ -237,16 +241,40 @@ const DYNAMIC = PhysicsMotionType.DYNAMIC;
  */
 const STILL_FRACTION = 0.25;
 const STILL_WEIGHT = 4;
-/** Sleep assist: the island-coherent sleep pass runs every this many steps; world AABBs closer than SLEEP_MARGIN (m) touch. */
+/**
+ * Sleep assist: the island-coherent sleep pass runs every this many steps; world AABBs closer than SLEEP_MARGIN (m) are
+ * grouped. Havok links resting bodies into one island (deactivated / woken together) up to an AABB gap of ~0.1 m even
+ * if they never touch (physics-sys-islands I2: 9 cm linked, 11 cm separate): with the former 3 cm, sub-groups of a
+ * debris field were put to sleep while a linked neighbour was awake and Havok re-woke them in the next step (~1500
+ * forced sleeps per 2 s, slow timers reset each time), so a wrecked room never slept.
+ */
 const SLEEP_PASS_STEPS = 4;
-const SLEEP_MARGIN = 0.03;
+const SLEEP_MARGIN = 0.12;
 /** Components larger than SLEEP_BIG_COMPONENT sleep when SLEEP_MAJORITY of their members are slow and the others merely
  *  jitter (see sleepPass). */
 const SLEEP_BIG_COMPONENT = 32;
 const SLEEP_MAJORITY = 0.9;
+/** …of which at least this fraction must really be slow (the rest may be jittering crumbs, see PILE_CRUMB_MASS). */
+const SLEEP_PILE_SLOW = 0.6;
 /** …provided no non-slow member is faster than this (m/s, corner speed): measured pile jitter peaks at 0.16–0.27 m/s,
  *  while anything genuinely moving (a block landing on the pile) is far faster and keeps its pile awake. */
 const FREEZE_SAFE_SPEED = 0.3;
+/**
+ * Pile members lighter than this (kg) — crumbs, chips, small shards — count towards a pile's SLEEP_MAJORITY even while
+ * they still jitter or creep; only a crumb that travels (net drift, see fastSync) faster than FREEZE_SAFE_SPEED or falls
+ * (CRUMB_FALL_SPEED) holds its pile awake. In
+ * wrecked rooms these light, mostly thin pieces lying among heavier debris are the ones the solver never calms (measured
+ * after a heavy wreck: one 500–900-body component, 70–80 % of it slow, the rest almost entirely 10–50 g gypsum /
+ * ceramic crumbs jittering at < 0.05 m/s with spin spikes, or creeping at ~0.2 m/s): the pile stayed awake for tens of
+ * seconds (40–60 ms/step). Freezing a crumb that moves a few mm/s is invisible.
+ */
+const PILE_CRUMB_MASS = 0.05;
+/** Smoothing factor of BodyRec.spEma per step. */
+const SPEED_EMA = 0.25;
+/** A non-slow crumb falling faster than this (m/s, downwards) holds its pile awake (it would freeze in mid-air). */
+const CRUMB_FALL_SPEED = 0.15;
+/** A pile that stays calm (see sleepPass) this many steps sleeps even if its majority never qualifies. */
+const PILE_STALL_STEPS = 120;
 /** A sleeping body ignores impulses changing its (corner) speed by less than this (m/s) — see wrapVelocityChanges. */
 const IMPULSE_IGNORE_DV = 0.003;
 /** Sleeping dynamic bodies within this distance (m) of a vanished support (disposed body, removed container child) are
@@ -358,6 +386,11 @@ class BodyRec implements ImpactSide {
   travelStep = -1_000_000;
   /** Woken by its island (asleep before, no net travel since): counts slow steps REWAKE_SECONDS-fast (fastSync). */
   rewoken = false;
+  /** Smoothed speed (m/s, |v| + |ω|·radius, EMA over ~4 steps; decays while still): the pile rule's "how fast is it
+   *  really" — instantaneous velocities of resting pile bodies spike with solver jitter (sleepPass). */
+  spEma = 0;
+  /** Steps this body's sleep-pass component has been a calm pile without falling asleep (see sleepPass). */
+  pileCalm = 0;
   /** Step index until which the body's velocity is polled before stepping (fresh / expectFast). */
   watchUntil = -1;
   // ---- velocity cache (impulse estimation, adaptive substeps, adaptive event masks)
@@ -538,6 +571,8 @@ export class Physics implements PhysicsSystem {
   private readonly hullSel = new Int32Array(128);
   private readonly hullOut = new Float32Array(3 * 128);
   private thinSpeed = 0;
+  /** Sweep spheres of staticWithinReach() (a few quantised radii). */
+  private readonly reachShapes = new Map<number, PhysicsShape>();
   private substepsLast = 1;
   // hull scratch memory in the WASM heap
   private scratchPtr = 0;
@@ -587,7 +622,7 @@ export class Physics implements PhysicsSystem {
     this.minDynamicMass = opts.minDynamicMass ?? 0.005;
     this.adaptiveEvents = opts.adaptiveEvents ?? true;
     this.hotSpeed = opts.hotSpeed !== undefined && opts.hotSpeed >= 0 ? opts.hotSpeed : 0.5;
-    this.hotSteps = clampInt(opts.hotSteps ?? 30, 1, 100000);
+    this.hotSteps = clampInt(opts.hotSteps ?? 10, 1, 100000);
     this.maxHullPoints = clampInt(opts.maxHullPoints ?? 16, 4, 64);
     this.minHullThickness = opts.minHullThickness !== undefined && opts.minHullThickness >= 0 ? opts.minHullThickness : 0.001;
     this.gravityY = opts.gravity ?? -9.81;
@@ -921,9 +956,16 @@ export class Physics implements PhysicsSystem {
    */
   private estimateImpulse(a: BodyRec, b: BodyRec, px: number, py: number, pz: number, nx: number, ny: number, nz: number): number {
     this.estVn = 0;
-    const ea = this.pointTerms(a, px, py, pz, nx, ny, nz, 1);
+    const c = this.estBuf;
+    c[0] = px;
+    c[1] = py;
+    c[2] = pz;
+    c[3] = nx;
+    c[4] = ny;
+    c[5] = nz;
+    const ea = this.pointTerms(a, c, 0, 3, 1);
     if (ea !== ea) return NaN;
-    const eb = this.pointTerms(b, px, py, pz, nx, ny, nz, -1);
+    const eb = this.pointTerms(b, c, 0, 3, -1);
     if (eb !== eb) return NaN;
     const vn = this.estVn;
     const inv = ea + eb;
@@ -936,14 +978,19 @@ export class Physics implements PhysicsSystem {
 
   /** Approach speed accumulator of estimateImpulse() (avoids returning tuples). */
   private estVn = 0;
+  /** Contact point + normal handed to pointTerms() (doubles passed as call arguments get boxed when not inlined). */
+  private readonly estBuf = new Float64Array(6);
 
   /**
    * One side of estimateImpulse(): adds sign·(point velocity · n) to estVn and returns the side's inverse effective
-   * mass along n (0 for static/animated), or NaN when its velocity is unknown.
+   * mass along n (0 for static/animated), or NaN when its velocity is unknown. Contact point at buf[ip..ip+2], unit
+   * normal (a → b) at buf[inrm..inrm+2].
    */
-  private pointTerms(rec: BodyRec, px: number, py: number, pz: number, nx: number, ny: number, nz: number, sign: number): number {
+  private pointTerms(rec: BodyRec, buf: ArrayLike<number>, ip: number, inrm: number, sign: number): number {
     if (rec.motion === STATIC || rec === this.worldRec) return 0;
     if (rec.fastSlot < 0 || rec.disposed) return NaN;
+    const px = buf[ip], py = buf[ip + 1], pz = buf[ip + 2];
+    const nx = buf[inrm], ny = buf[inrm + 1], nz = buf[inrm + 2];
     const node = rec.body.transformNode;
     const q = node.rotationQuaternion;
     if (q === null) return NaN;
@@ -982,6 +1029,37 @@ export class Physics implements PhysicsSystem {
       if (c > 0) inv *= 1 - Math.min(1, c * c);
     }
     return inv;
+  }
+
+  /**
+   * Can a fast thin body hit static geometry in its next step? A sphere of its bounding radius (which contains it in
+   * any orientation) swept from its COM along v·dt (×1.5 + 2 cm) against the STATIC layer. Only such bodies drive
+   * adaptive substeps: thin shards of a smashed window falling 30 floors down the facade spun at > 15 m/s for ~2.5 s
+   * with nothing to tunnel through, and doubled every step of the wreck that long (substeps 1.9 on average).
+   * Dynamic bodies are not considered (thin-against-thin tunnelling is harmless); ~10–30 µs per fast thin body.
+   */
+  private staticWithinReach(rec: BodyRec, vx: number, vy: number, vz: number, dt: number): boolean {
+    const node = rec.body.transformNode;
+    const q = node.rotationQuaternion;
+    if (!q) return true;
+    const c = this.tv2.set(rec.comX, rec.comY, rec.comZ).applyRotationQuaternionInPlace(q).addInPlace(node.position);
+    const v = Math.sqrt(vx * vx + vy * vy + vz * vz);
+    if (!Number.isFinite(v) || !Number.isFinite(c.x + c.y + c.z)) return true;
+    const reach = v * dt * 1.5 + 0.02;
+    const k = reach / Math.max(v, 1e-6);
+    const to = this.tv3.set(c.x + vx * k, c.y + vy * k, c.z + vz * k);
+    // quantised radius (≥ the bounding radius): 2, 4, 8 … cm — a handful of cached query shapes
+    let r = 0.02;
+    while (r < rec.boundR && r < 2.56) r *= 2;
+    let shape = this.reachShapes.get(r);
+    if (!shape) {
+      shape = new PhysicsShapeSphere(Vector3.Zero(), r, this.scene);
+      this.hk.HP_Shape_SetFilterInfo(shape._pluginData, [ALL_LAYERS, Layer.STATIC]);
+      this.reachShapes.set(r, shape);
+    }
+    const hit = this.castHit;
+    this.plugin.shapeCast({ shape, rotation: IDENTITY_Q, startPosition: c, endPosition: to, shouldHitTriggers: false, ignoreBody: rec.body }, this.castIn, hit);
+    return hit.hasHit;
   }
 
   /** Substeps for this step: minimum, plus enough that no thin body moves more than fastThinSpeed·dt per substep. */
@@ -1085,18 +1163,19 @@ export class Physics implements PhysicsSystem {
       const rb = this.recFromId(i32[w + 18]);
       if (ra !== null && rb !== null) {
         const type = i32[w];
-        if (type === EV_FINISHED) agg.add(ra, rb, EV_FINISHED, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+        // contact A: position f32[w+10..12], normal f32[w+13..15] (A→B); contact B: position f32[w+26..28]; impulse
+        // f32[w+34]. The geometry is read by the callees (passing it as doubles boxed ~10 numbers per event).
+        if (type === EV_FINISHED) agg.addFrom(ra, rb, EV_FINISHED, f32, w + 10, w + 26, w + 13, w + 34);
         else {
           let t = type === EV_STARTED ? EV_STARTED : EV_CONTINUED;
           if (t === EV_STARTED) {
-            if (this.wakeEcho(ra, rb, f32[w + 10], f32[w + 11], f32[w + 12], f32[w + 13], f32[w + 14], f32[w + 15])) t = EV_CONTINUED;
+            if (this.wakeEcho(ra, rb, f32, w + 10, w + 13)) t = EV_CONTINUED;
             else {
               this.queueHeat(ra);
               this.queueHeat(rb);
             }
           }
-          // contact A: position f32[w+10..12], normal f32[w+13..15] (A→B); contact B: position f32[w+26..28]; impulse f32[w+34]
-          agg.add(ra, rb, t, f32[w + 10], f32[w + 11], f32[w + 12], f32[w + 26], f32[w + 27], f32[w + 28], f32[w + 13], f32[w + 14], f32[w + 15], f32[w + 34]);
+          agg.addFrom(ra, rb, t, f32, w + 10, w + 26, w + 13, w + 34);
         }
       }
       count++;
@@ -1117,11 +1196,11 @@ export class Physics implements PhysicsSystem {
    * always involves an approach (the projectile, the struck part with its new velocity, a body falling since its
    * support vanished: it moved in the previous step).
    */
-  private wakeEcho(a: BodyRec, b: BodyRec, px: number, py: number, pz: number, nx: number, ny: number, nz: number): boolean {
+  private wakeEcho(a: BodyRec, b: BodyRec, buf: ArrayLike<number>, ip: number, inrm: number): boolean {
     if (!this.restedLastStep(a) || !this.restedLastStep(b)) return false;
     this.estVn = 0;
-    const ea = this.pointTerms(a, px, py, pz, nx, ny, nz, 1);
-    const eb = this.pointTerms(b, px, py, pz, nx, ny, nz, -1);
+    const ea = this.pointTerms(a, buf, ip, inrm, 1);
+    const eb = this.pointTerms(b, buf, ip, inrm, -1);
     return ea === ea && eb === eb && this.estVn <= RESTING_SPEED;
   }
 
@@ -1176,7 +1255,14 @@ export class Physics implements PhysicsSystem {
       const d = Number.isFinite(e.distance) ? e.distance : 0; // contact B ≈ A + n·distance
       let type = e.type === PhysicsEventType.COLLISION_STARTED ? EV_STARTED : EV_CONTINUED;
       if (type === EV_STARTED) {
-        if (this.wakeEcho(ra, rb, p.x, p.y, p.z, nrm.x, nrm.y, nrm.z)) type = EV_CONTINUED;
+        const c = this.estBuf;
+        c[0] = p.x;
+        c[1] = p.y;
+        c[2] = p.z;
+        c[3] = nrm.x;
+        c[4] = nrm.y;
+        c[5] = nrm.z;
+        if (this.wakeEcho(ra, rb, c, 0, 3)) type = EV_CONTINUED;
         else {
           this.queueHeat(ra);
           this.queueHeat(rb);
@@ -1215,9 +1301,7 @@ export class Physics implements PhysicsSystem {
       const sa = this.sleepAssist;
       const assist = sa.enabled;
       const linLim2 = sa.linear * dt * (sa.linear * dt);
-      const angLim2 = sa.angular * dt * (sa.angular * dt);
       const stillLin2 = linLim2 * STILL_FRACTION * STILL_FRACTION;
-      const stillAng2 = angLim2 * STILL_FRACTION * STILL_FRACTION;
       const slowCap = 4 * Math.max(1, Math.round(sa.seconds / dt));
       // bodies woken by their island (asleep before, not travelling since) prove calm within REWAKE_SECONDS
       const rewakeW = Math.max(1, sa.seconds / Math.max(REWAKE_SECONDS, dt));
@@ -1230,6 +1314,7 @@ export class Physics implements PhysicsSystem {
       for (let i = 0; i < list.length; i++) {
         const rec = list[i];
         const body = rec.body;
+        let fastThin = 0;
         if (body._pluginData == null) {
           // disposed behind our back (body.dispose()): forget it; the swap moved another body into slot i
           this.forget(rec);
@@ -1259,6 +1344,7 @@ export class Physics implements PhysicsSystem {
           // not moved (asleep, static, or perfectly still): velocity 0 (vStep goes stale), no work; perfectly still
           // counts as very slow (resting pile bodies are bit-identical now and then)
           rec.moved = false;
+          rec.spEma *= 1 - SPEED_EMA;
           if (rec.slow < slowCap) rec.slow += STILL_WEIGHT;
           if (adaptive && rec.mask === EVENT_MASK && rec.hotUntil < step) this.cool(rec, true);
           continue;
@@ -1343,7 +1429,8 @@ export class Physics implements PhysicsSystem {
             rec.wz = wz;
             rec.vStep = step + 1;
             const sp = Math.sqrt(vx * vx + vy * vy + vz * vz) + Math.sqrt(wx * wx + wy * wy + wz * wz) * rec.radius;
-            if (rec.thin && rec.motion === DYNAMIC && sp > thinSpeed) thinSpeed = sp;
+            rec.spEma += (Math.min(sp, 100) - rec.spEma) * SPEED_EMA;
+            if (rec.thin && rec.motion === DYNAMIC && sp > this.fastThinSpeed && sp > thinSpeed) fastThin = sp; // (checked below, at the new pose)
             if (adaptive) {
               if (sp > hotSpeed) this.heat(rec);
               else if (rec.mask === EVENT_MASK && rec.hotUntil < step) this.cool(rec, true);
@@ -1357,6 +1444,12 @@ export class Physics implements PhysicsSystem {
           if (assist && rec.motion === DYNAMIC) {
             const d2 = dx * dx + dy * dy + dz * dz;
             const a2 = theta * theta;
+            // rotation is judged by the speed of the body's corners (ω·radius) against the linear threshold, but never
+            // more strictly than the angular threshold: a 3 cm chip jittering at 1–2 rad/s moves its corners by less
+            // than a resting pile body's position correction (with the absolute 0.2 rad/s, small debris never qualified)
+            const angLim = angularLimit(sa.angular, sa.linear, rec.radius);
+            const angLim2 = angLim * dt * (angLim * dt);
+            const stillAng2 = angLim2 * STILL_FRACTION * STILL_FRACTION;
             const an = this.fastAnchor;
             const ai = i * 8;
             if (rec.asleepKnown) {
@@ -1437,6 +1530,7 @@ export class Physics implements PhysicsSystem {
         node.position.set(tx, ty, tz);
         q.set(qx, qy, qz, qw);
         if (wm) node.computeWorldMatrix(true);
+        if (fastThin > thinSpeed && this.staticWithinReach(rec, rec.vx, rec.vy, rec.vz, dt)) thinSpeed = fastThin;
       }
       this.thinSpeed = thinSpeed;
       // round-robin activation polling (stats only; isAwake() always asks Havok)
@@ -1457,7 +1551,7 @@ export class Physics implements PhysicsSystem {
    * Island-coherent force-sleep (header "SLEEP ASSIST"). Havok deactivates whole islands: putting single bodies of an
    * active island to sleep is undone by their neighbours next step and the wake/sleep churn agitates the pile (measured:
    * 120-hull pile never slept, 3000 forced sleeps, spin up to 1.2 rad/s). So the awake dynamic bodies are grouped into
-   * components that cover Havok's islands — world AABBs overlapping within SLEEP_MARGIN (a superset of the contacts;
+   * components that cover Havok's islands — world AABBs overlapping within SLEEP_MARGIN (a superset of Havok's island links;
    * sweep-and-prune + union-find) joined through constraints between awake dynamic bodies — and a component is put to
    * sleep as a whole: when every member has been slow for `seconds`, or — for piles of more than SLEEP_BIG_COMPONENT
    * bodies, whose solver jitter never stops everywhere at once — when SLEEP_MAJORITY of them have and no other member
@@ -1491,6 +1585,11 @@ export class Physics implements PhysicsSystem {
       this.sleepSize = new Int32Array(n * 2);
       this.sleepSlowN = new Int32Array(n * 2);
       this.sleepFastest = new Float64Array(n * 2);
+      this.sleepCrumbN = new Int32Array(n * 2);
+      this.sleepCrumbFastest = new Float64Array(n * 2);
+      this.sleepCalm = new Uint8Array(n * 2);
+      this.sleepCreep = new Float64Array(n * 2);
+      this.sleepCalmMin = new Int32Array(n * 2);
     }
     const box = this.sleepBox, order = this.sleepOrder, parent = this.sleepParent, blocked = this.sleepBlocked;
     let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity, minZ = Infinity, maxZ = -Infinity;
@@ -1568,15 +1667,20 @@ export class Physics implements PhysicsSystem {
         if (a !== b) parent[a] = b;
       }
     }
-    // per component: size, slow members, fastest non-slow member (corner speed from the velocity cache)
+    // per component: size, slow members, fastest non-slow member (corner speed from the velocity cache); non-slow crumbs
+    // (lighter than PILE_CRUMB_MASS) are counted apart, with their own fastest speed (travel does not count for them)
     const size = this.sleepSize;
     const slowN = this.sleepSlowN;
     const fastest = this.sleepFastest;
+    const crumbN = this.sleepCrumbN;
+    const crumbFastest = this.sleepCrumbFastest;
+    // fastest smoothed speed of the non-slow, non-crumb members, travelling or not (the stall rule below)
+    const creep = this.sleepCreep;
     const next = this._stepIndex + 1;
     const linear = this.sleepAssist.linear;
     for (let i = 0; i < n; i++) {
-      size[i] = slowN[i] = 0;
-      fastest[i] = 0;
+      size[i] = slowN[i] = crumbN[i] = 0;
+      fastest[i] = crumbFastest[i] = creep[i] = 0;
     }
     for (let i = 0; i < n; i++) {
       const root = find(i);
@@ -1584,20 +1688,53 @@ export class Physics implements PhysicsSystem {
       const rec = mem[i];
       if (rec.keepAwake) blocked[root] = 1;
       else if (rec.slow >= sleepSteps) slowN[root]++;
-      else if (rec.vStep === next) {
-        const lin = Math.sqrt(rec.vx * rec.vx + rec.vy * rec.vy + rec.vz * rec.vz);
-        // travelling (net drift recently above the linear threshold and still moving that fast), not jitter: blocks
-        // the majority rule. (A body nudged a centimetre by an impact that has stopped again does not.)
-        const sp = this._stepIndex - rec.driftStep <= DRIFT_RECENT_STEPS && lin > linear ? Infinity : lin + Math.sqrt(rec.wx * rec.wx + rec.wy * rec.wy + rec.wz * rec.wz) * rec.radius;
-        if (sp > fastest[root]) fastest[root] = sp;
+      else if (rec.mass < PILE_CRUMB_MASS) {
+        // a crumb only counts as moving when it travels (falls, flies, slides away): one jittering in place — or stuck
+        // in static geometry, pushed around by the solver — would hold the whole pile awake for nothing
+        crumbN[root]++;
+        if (this._stepIndex - rec.driftStep <= DRIFT_RECENT_STEPS) {
+          const sp = rec.vStep === next && rec.vy < -CRUMB_FALL_SPEED ? Infinity : rec.spEma;
+          if (sp > crumbFastest[root]) crumbFastest[root] = sp;
+        }
+      } else {
+        if (rec.spEma > creep[root]) creep[root] = rec.spEma;
+        if (rec.vStep === next) {
+          const lin = Math.sqrt(rec.vx * rec.vx + rec.vy * rec.vy + rec.vz * rec.vz);
+          // travelling (net drift recently above the linear threshold and still moving that fast), not jitter: blocks
+          // the majority rule. (A body nudged a centimetre by an impact that has stopped again does not.) Otherwise its
+          // smoothed speed counts: single-step jitter spikes (a thin shard flipping between contacts) do not.
+          const sp = this._stepIndex - rec.driftStep <= DRIFT_RECENT_STEPS && lin > linear ? Infinity : rec.spEma;
+          if (sp > fastest[root]) fastest[root] = sp;
+        }
       }
     }
     // a component sleeps when all members are slow; a big one (a pile: the solver never calms it everywhere at once)
-    // when SLEEP_MAJORITY of them are and the rest only jitter (slower than FREEZE_SAFE_SPEED: nothing real in flight)
+    // when at least SLEEP_PILE_SLOW of it is slow and either
+    //  * SLEEP_MAJORITY of it is slow or merely crumbs, nobody travels and every other member only jitters (smoothed
+    //    speed below FREEZE_SAFE_SPEED: nothing real in flight), or
+    //  * it has stayed CALM for PILE_STALL_STEPS: no member's smoothed speed reached FREEZE_SAFE_SPEED meanwhile, even
+    //    the creeping ones (measured: 257 cabinet panels and chips, 74 % slow, panels leaning in the wreck creeping at
+    //    0.1–0.25 m/s through solver jitter, awake for 25+ s at ~15 ms/step).
+    const calm = this.sleepCalm;
+    const calmMin = this.sleepCalmMin;
+    for (let i = 0; i < n; i++) {
+      if (find(i) !== i) continue;
+      const sz = size[i];
+      calm[i] = !blocked[i] && sz > SLEEP_BIG_COMPONENT && slowN[i] >= Math.ceil(sz * SLEEP_PILE_SLOW) && creep[i] < FREEZE_SAFE_SPEED && crumbFastest[i] < FREEZE_SAFE_SPEED ? 1 : 0;
+      calmMin[i] = 0x7fffffff;
+    }
+    for (let i = 0; i < n; i++) {
+      const root = find(i);
+      const rec = mem[i];
+      if (calm[root]) {
+        rec.pileCalm += SLEEP_PASS_STEPS;
+        if (rec.pileCalm < calmMin[root]) calmMin[root] = rec.pileCalm;
+      } else rec.pileCalm = 0;
+    }
     for (let i = 0; i < n; i++) {
       if (find(i) !== i || blocked[i]) continue;
       if (slowN[i] === size[i]) continue;
-      if (size[i] > SLEEP_BIG_COMPONENT && slowN[i] >= Math.ceil(size[i] * SLEEP_MAJORITY) && fastest[i] < FREEZE_SAFE_SPEED) continue;
+      if (calm[i] && ((slowN[i] + crumbN[i] >= Math.ceil(size[i] * SLEEP_MAJORITY) && fastest[i] < FREEZE_SAFE_SPEED) || calmMin[i] >= PILE_STALL_STEPS)) continue;
       blocked[i] = 1;
     }
     // last check with Havok's own velocities (displacement-based slowness can lag an acceleration from rest — a box
@@ -1616,9 +1753,22 @@ export class Physics implements PhysicsSystem {
       if (size[root] > SLEEP_BIG_COMPONENT) {
         // pile (majority rule): solver jitter spins bodies at up to ~1.5 rad/s, so only linear motion counts
         // (plus the travelling check again with Havok's velocity: a member drifting recently that moves faster than the
-        // linear threshold is rolling / sliding over the pile, and Havok would wake the pile around it anyway)
-        if (!(l < FREEZE_SAFE_SPEED) || (rec.slow < sleepSteps && this._stepIndex - rec.driftStep <= DRIFT_RECENT_STEPS && l > sa.linear)) blocked[root] = 1;
-      } else if (!(l <= linMax && a <= angMax)) {
+        // linear threshold is rolling / sliding over the pile, and Havok would wake the pile around it anyway; crumbs
+        // excepted, see PILE_CRUMB_MASS, unless falling). A member slow for `seconds` already proved calm on average:
+        // a single-step velocity spike below 2× FREEZE_SAFE_SPEED is solver jitter (measured 0.3–0.35 m/s on resting
+        // books in a pile), real motion resets its slow timer within a step or two.
+        // In a pile calm for PILE_STALL_STEPS every member's smoothed speed has stayed low that long: same tolerance,
+        // and its creepers are frozen deliberately.
+        const slowM = rec.slow >= sleepSteps;
+        const crumb = rec.mass < PILE_CRUMB_MASS;
+        const stalled = calmMin[root] >= PILE_STALL_STEPS;
+        if (
+          !(l < (slowM || stalled ? 2 * FREEZE_SAFE_SPEED : FREEZE_SAFE_SPEED)) ||
+          (!slowM && !crumb && !stalled && this._stepIndex - rec.driftStep <= DRIFT_RECENT_STEPS && l > sa.linear) ||
+          (!slowM && crumb && this._stepIndex - rec.driftStep <= DRIFT_RECENT_STEPS && lv[1] < -CRUMB_FALL_SPEED)
+        )
+          blocked[root] = 1;
+      } else if (!(l <= linMax && a <= angularLimit(angMax, linMax, rec.radius))) {
         blocked[root] = 1;
         rec.slow = 0;
       }
@@ -1640,6 +1790,7 @@ export class Physics implements PhysicsSystem {
       if (rec.mask === EVENT_MASK) this.setMask(rec, COLD_MASK); // (setting a mask wakes: before sleeping)
       hk.HP_Body_SetActivationState(rec.hpId, INACTIVE);
       rec.slow = 0;
+      rec.pileCalm = 0;
       rec.asleepKnown = true;
       rec.awakePoll = false; // (stats().awake must not wait for the round-robin poll)
       this.forcedSleeps++;
@@ -1725,6 +1876,11 @@ export class Physics implements PhysicsSystem {
   private sleepSize = new Int32Array(0);
   private sleepSlowN = new Int32Array(0);
   private sleepFastest = new Float64Array(0);
+  private sleepCrumbN = new Int32Array(0);
+  private sleepCrumbFastest = new Float64Array(0);
+  private sleepCalm = new Uint8Array(0);
+  private sleepCreep = new Float64Array(0);
+  private sleepCalmMin = new Int32Array(0);
 
   private addFast(rec: BodyRec): void {
     const hk = this.hk;
@@ -3125,6 +3281,8 @@ export class Physics implements PhysicsSystem {
     this.subscribers = [];
     for (const s of this.sweepShapes.values()) s.shape.dispose();
     this.sweepShapes.clear();
+    for (const s of this.reachShapes.values()) s.dispose();
+    this.reachShapes.clear();
     if (this.scratchPtr) {
       this.hk._free(this.scratchPtr);
       this.scratchPtr = 0;
@@ -3356,6 +3514,14 @@ function boxCornersPresent(pts: Float32Array | ArrayLike<number>, n: number, ax:
     }
   }
   return found === 255;
+}
+
+/**
+ * Angular sleep threshold of a body (rad/s): `angular`, or — for small bodies — the rotation rate at which its corners
+ * (`radius` = half diagonal of its equivalent box) move at the `linear` threshold, whichever is larger.
+ */
+function angularLimit(angular: number, linear: number, radius: number): number {
+  return radius > 0 && linear / radius > angular ? linear / radius : angular;
 }
 
 function clampInt(v: number, lo: number, hi: number): number {

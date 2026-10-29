@@ -42,10 +42,12 @@ const INERTIAL_MIN_ENERGY = 0.05;
  * Damage planning budget for passive collisions per step (ms; at least RESPOND_MIN_COUNT
  * impacts): after a big break, fragment showers produce hundreds of contacts per step. Impacts
  * are handled most energetic first; once the budget is spent the rest still make their sound
- * (impact events) but cause no damage this step.
+ * (impact events) but cause no damage this step. The minimum is small because one response
+ * that breaks a big part plans its whole fracture (Voronoi cells) right away: 8 forced
+ * responses cost 100–450 ms in single steps of a heavy wreck (≈ 25 ms each on this VM).
  */
 export const RESPOND_BUDGET_MS = 2.5;
-const RESPOND_MIN_COUNT = 8;
+const RESPOND_MIN_COUNT = 3;
 /** Below this many buffered impacts they are processed in arrival order (no sorting). */
 const SORT_MIN = 16;
 const MAX_DENTS = 48;

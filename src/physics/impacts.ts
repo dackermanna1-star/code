@@ -220,6 +220,8 @@ export class ImpactAggregator<S extends ImpactSide> {
   estimator: ImpactEstimator<S> | null = null;
   /** Same-step `started` impacts emitted so far (stats). */
   earlyEmitted = 0;
+  /** add()'s geometry, handed to addFrom(). */
+  private readonly scratch = new Float64Array(10);
 
   constructor(cfg: Partial<ImpactConfig> = {}) {
     this.cfg = { ...DEFAULT_IMPACT_CONFIG, ...cfg };
@@ -256,6 +258,27 @@ export class ImpactAggregator<S extends ImpactSide> {
     nz: number,
     impulse: number,
   ): void {
+    const s = this.scratch;
+    s[0] = pax;
+    s[1] = pay;
+    s[2] = paz;
+    s[3] = pbx;
+    s[4] = pby;
+    s[5] = pbz;
+    s[6] = nx;
+    s[7] = ny;
+    s[8] = nz;
+    s[9] = impulse;
+    this.addFrom(sa, sb, type, s, 0, 3, 6, 9);
+  }
+
+  /**
+   * add() with the event geometry read from a float array: contact point A at buf[ia..ia+2], point B at
+   * buf[ib..ib+2], normal at buf[inrm..inrm+2], impulse at buf[iimp] (the raw Havok event record in WASM memory).
+   * Hot path — tens of thousands of events per step during heavy destruction: passing the ten doubles as call
+   * arguments boxed each one into a heap number whenever the call was not inlined (≈ 1 MB of garbage per frame).
+   */
+  addFrom(sa: S, sb: S, type: number, buf: ArrayLike<number>, ia: number, ib: number, inrm: number, iimp: number): void {
     if (sa === sb) return;
     this.events++;
     let p: Pair<S>;
@@ -275,21 +298,25 @@ export class ImpactAggregator<S extends ImpactSide> {
       this.touched.push(p);
     }
     if (type === EV_FINISHED) return;
+    let impulse = buf[iimp];
     if (!(impulse >= 0)) impulse = 0; // NaN / negative guard
     // orient so the normal points from pair.a to pair.b
     const s = sa === p.a ? 1 : -1;
     const w = impulse > 1e-6 ? impulse : 1e-6;
+    const nx = buf[inrm] * s,
+      ny = buf[inrm + 1] * s,
+      nz = buf[inrm + 2] * s;
     p.sImp += impulse;
     p.sW += w;
-    p.sPx += (pax + pbx) * 0.5 * w;
-    p.sPy += (pay + pby) * 0.5 * w;
-    p.sPz += (paz + pbz) * 0.5 * w;
-    p.sNx += nx * s * w;
-    p.sNy += ny * s * w;
-    p.sNz += nz * s * w;
-    p.lnx = nx * s;
-    p.lny = ny * s;
-    p.lnz = nz * s;
+    p.sPx += (buf[ia] + buf[ib]) * 0.5 * w;
+    p.sPy += (buf[ia + 1] + buf[ib + 1]) * 0.5 * w;
+    p.sPz += (buf[ia + 2] + buf[ib + 2]) * 0.5 * w;
+    p.sNx += nx * w;
+    p.sNy += ny * w;
+    p.sNz += nz * w;
+    p.lnx = nx;
+    p.lny = ny;
+    p.lnz = nz;
     p.sContacts++;
     p.sHasContact = true;
     if (type === EV_STARTED) p.sStarted = true;

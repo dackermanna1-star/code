@@ -3,7 +3,7 @@
 // point-shadow promotion/demotion, the cached sun shadow map (draw calls only when casters
 // move) and quality changes.
 // Run: node tests/probe.mjs tests/probes/render-env-lights.probe.ts
-import { ClusteredLightContainer, Color3, MeshBuilder, PointLight, Scene, SceneInstrumentation, SpotLight, StandardMaterial, UniversalCamera, Vector3, type Light, type RenderTargetTexture } from "@babylonjs/core";
+import { ClusteredLightContainer, Color3, MeshBuilder, PointLight, Scene, SceneInstrumentation, SpotLight, StandardMaterial, UniversalCamera, Vector3, type Light } from "@babylonjs/core";
 import { QUALITY, Settings } from "../../src/core/settings.ts";
 import { Lighting } from "../../src/render/lighting.ts";
 import { makeEngine, makeCamera, pbr, frames, whenReady } from "./render-env-util.ts";
@@ -172,28 +172,54 @@ export async function probe(): Promise<unknown> {
   // Shadows of the crates darken a little; a lost bulb would drop the frame far more.
   check("ultraNoLostBulb", lumUltra > lumMedium * 0.85, { lumMedium, lumUltra });
 
-  // ---- point cube maps only re-render for casters within reach
-  const isPending = (rt: RenderTargetTexture | null | undefined) => (rt as unknown as { _objectRenderer?: { _currentRefreshId: number } } | null)?._objectRenderer?._currentRefreshId === -1;
+  // ---- layered shadow caches: a move redraws only the maps (and cube faces) it can touch
+  const stats = () => lighting.shadowCacheStats;
+  const settle = async () => {
+    // moving casters fold back into the static layers after shadowSettleTime
+    for (let i = 0; i < 4; i++) {
+      lighting.update(0.25);
+      await frames(scene, 1);
+    }
+    await frames(scene, 2);
+  };
   // A caster well out of reach of both shadowed bulbs (range + its radius).
   const farBox = MeshBuilder.CreateBox("farBox", { size: 0.4 }, scene);
   farBox.position.set(12.4, 0.2, 8.4);
   farBox.material = floor.material;
   lighting.setShadowCaster(farBox, true);
   await frames(scene, 2);
+  await settle();
   const shadowedNow = lighting.shadowedLights;
-  const pointMaps = shadowedNow.map((l) => l.getShadowGenerator()?.getShadowMap());
   const best = Math.min(...shadowedNow.map((l) => Vector3.Distance((l as PointLight).position, farBox.position) - (l as PointLight).range));
-  const far = farBox;
-  const settledBefore = pointMaps.every((m) => !isPending(m));
-  far.position.y += 0.001;
-  far.computeWorldMatrix(true);
-  const sunPending = isPending(lighting.sunShadows.getShadowMap());
-  const farPending = pointMaps.map((m) => isPending(m));
-  check("casterMoveLocal", settledBefore && sunPending && best > 0.4 && farPending.every((p) => !p), { settledBefore, sunPending, farPending, best });
-  // ... while a crate inside a bulb's reach does re-render that cube map.
-  boxes[2].position.y += 0.001;
+  const liveDelta = (a: ReturnType<typeof stats>, b: ReturnType<typeof stats>) => ({
+    sun: b.sun.liveRenders - a.sun.liveRenders,
+    sunStatic: b.sun.staticRenders - a.sun.staticRenders,
+    points: b.points.map((p, i) => p.stats.liveRenders - (a.points[i]?.stats.liveRenders ?? 0)),
+  });
+  const s0 = stats();
+  await frames(scene, 2);
+  const idleDelta = liveDelta(s0, stats());
+  check("cachesIdle", idleDelta.sun === 0 && idleDelta.points.every((d) => d === 0), idleDelta);
+  const s1 = stats();
+  farBox.position.y += 0.05; // beyond shadowMoveEpsilon
+  await frames(scene, 1);
+  const farDelta = liveDelta(s1, stats());
+  check("casterMoveLocal", farDelta.sun === 1 && farDelta.sunStatic === 1 && best > 0.4 && farDelta.points.every((d) => d === 0), { farDelta, best, staticCasters: s1.staticCasters });
+  // ... while a crate inside a bulb's reach does redraw that cube map
+  const s2 = stats();
+  boxes[2].position.y += 0.05;
+  await frames(scene, 1);
+  const nearDelta = liveDelta(s2, stats());
+  check("casterMoveNear", nearDelta.points.some((d) => d > 0), nearDelta);
+  // sub-epsilon jitter (a resting body's solver noise) redraws nothing
+  await settle();
+  const s3 = stats();
+  boxes[2].position.y += 0.0005;
   boxes[2].computeWorldMatrix(true);
-  check("casterMoveNear", pointMaps.some((m) => isPending(m)));
+  await frames(scene, 1);
+  const jitterDelta = liveDelta(s3, stats());
+  check("jitterIgnored", jitterDelta.sun === 0 && jitterDelta.points.every((d) => d === 0), jitterDelta);
+  check("layered", stats().layered === true);
   lighting.setShadowCaster(farBox, false);
   farBox.dispose();
   await frames(scene, 2);

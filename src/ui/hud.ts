@@ -454,6 +454,11 @@ export class Hud implements HudSystem {
       } catch {
         this.instr = null;
       }
+    } else if (!on && this.instr) {
+      // a live instrumentation resets the engine's draw-call counter every frame (and costs a
+      // few observers per frame): only keep it while the overlay shows its numbers
+      this.instr.dispose();
+      this.instr = null;
     }
     this.debugTimer = 0;
   }

@@ -7,7 +7,12 @@
 //    consolidation). Bodies stay in Havok (asleep, Babylon sync disabled) so they still
 //    collide and wake; any impact/strike or a wake detected by the round-robin restores them;
 //  * fell-out removal — islands whose centre of mass drops below y = −30 m (thrown off the
-//    balcony) are removed completely (`fellOut` event).
+//    balcony) are removed completely (`fellOut` event);
+//  * air drag — light, large dynamic islands (curtain panels, cushions, paper, cardboard, lamp
+//    shades) get Havok linear/angular damping from their area-to-mass ratio (see airDamping):
+//    without it a torn curtain strip swung like a rigid pendulum for 10+ s, and because Havok
+//    links everything within ~10 cm into one island it kept the whole wrecked room's debris
+//    awake with it (≈ 900 bodies, 60–100 ms per step).
 
 import { TransformNode, type PhysicsBody } from "@babylonjs/core";
 import type { IslandMeshes } from "../../core/context.ts";
@@ -23,6 +28,23 @@ export const DEBRIS_CELL = 2.0;
 const BATCH_MAX_VERTS = 30000;
 /** Each tracked island is checked about every this many steps. */
 const CHECK_PERIOD_STEPS = 30;
+/**
+ * A consolidated island is restored (own meshes back) once its body moved further than this (m) from the pose it was
+ * consolidated at — translation, or rotation × half its extent. Smaller solver corrections are invisible in the batch:
+ * Havok wakes a whole debris field (everything within ~10 cm, transitively) when one piece is touched, and restoring
+ * every island that merely got a sub-millimetre correction cost ~700 mesh builds (≈ 100 ms) in one step.
+ */
+const RESTORE_MOVE = 0.002;
+/** ½·ρ_air·C_d (kg/m³): quadratic air drag F = AIR_DRAG_K·A·v² (flat plate broadside, C_d ≈ 1.2). */
+const AIR_DRAG_K = 0.5 * 1.2 * 1.2;
+/** Speed (m/s) at which the quadratic drag is linearised into Havok's linear damping (c = K·A·v_ref / m). */
+const AIR_DRAG_VREF = 1;
+/** Below this damping (1/s) an island is left alone: ordinary objects (a book: ≈ 0.03–0.09/s). */
+const AIR_DAMPING_MIN = 0.1;
+const AIR_DAMPING_MAX_LINEAR = 1.5;
+/** A swinging / tumbling plate's rotational drag relative to its linear one (a hanging strip: ≈ 1.3–1.5). */
+const AIR_DAMPING_ANGULAR = 1.5;
+const AIR_DAMPING_MAX_ANGULAR = 2;
 
 interface Batch {
   index: number;
@@ -81,7 +103,10 @@ export class DebrisSystem {
   // ------------------------------------------------------------------ tracking
 
   onIslandCreated(isl: Island): void {
-    if (!isl.isStatic) this.track(isl);
+    if (!isl.isStatic) {
+      this.track(isl);
+      this.applyAirDrag(isl);
+    }
   }
 
   onIslandDisposing(isl: Island): void {
@@ -91,7 +116,22 @@ export class DebrisSystem {
 
   onIslandMotionChanged(isl: Island): void {
     if (isl.isStatic) this.untrack(isl);
-    else this.track(isl);
+    else {
+      this.track(isl);
+      this.applyAirDrag(isl);
+    }
+  }
+
+  /** Air drag as Havok damping for light, large dynamic islands (see airDamping). */
+  private applyAirDrag(isl: Island): void {
+    const body = isl.body;
+    if (!body || isl.isStatic || body.isDisposed) return;
+    const c = airDamping(isl);
+    if (c < AIR_DAMPING_MIN) return;
+    const lin = Math.min(c, AIR_DAMPING_MAX_LINEAR);
+    const ang = Math.min(c * AIR_DAMPING_ANGULAR, AIR_DAMPING_MAX_ANGULAR);
+    if (body.getLinearDamping() < lin) body.setLinearDamping(lin);
+    if (body.getAngularDamping() < ang) body.setAngularDamping(ang);
   }
 
   private track(isl: Island): void {
@@ -145,9 +185,9 @@ export class DebrisSystem {
     }
     const awake = w.physics.isAwake(isl.body);
     if (awake) {
+      // (a consolidated island stays in its batch until it actually moves: restoreMoved)
       isl.awake = true;
       isl.sleepTime = 0;
-      if (isl.consolidated) this.restore(isl);
       return;
     }
     isl.awake = false;
@@ -156,11 +196,12 @@ export class DebrisSystem {
   }
 
   /**
-   * Consolidated islands whose body moved this step (woken by Havok through a touching island or a
+   * Consolidated islands whose body moved (woken by Havok through a touching island or a
    * constraint, by its support vanishing, by the player's capsule — none of which raise an impact)
    * get their own meshes back now, not when the round-robin check comes by (up to 0.5 s later, with
-   * the mesh frozen in the batch while the body falls). A sleeping body's pose is bit-identical from
-   * step to step, so any change is motion. ~7 compares per consolidated island and step.
+   * the mesh frozen in the batch while the body falls) — once the motion since consolidation exceeds
+   * RESTORE_MOVE (a sleeping body's pose is bit-identical from step to step: the exact compare is
+   * the cheap common case).
    */
   private restoreMoved(): void {
     const list = this.consolidatedList;
@@ -170,7 +211,14 @@ export class DebrisSystem {
       if (!ref) continue;
       const p = isl.node.position;
       const q = isl.node.rotationQuaternion;
-      if (p.x !== ref.px || p.y !== ref.py || p.z !== ref.pz || (q && (q.x !== ref.qx || q.y !== ref.qy || q.z !== ref.qz || q.w !== ref.qw))) this.restore(isl);
+      if (p.x === ref.px && p.y === ref.py && p.z === ref.pz && (!q || (q.x === ref.qx && q.y === ref.qy && q.z === ref.qz && q.w === ref.qw))) continue;
+      const dx = p.x - ref.px,
+        dy = p.y - ref.py,
+        dz = p.z - ref.pz;
+      // rotation angle between the poses (2·acos|q·q_ref|), times half the island's extent: the motion of its ends
+      const dot = q ? Math.min(1, Math.abs(q.x * ref.qx + q.y * ref.qy + q.z * ref.qz + q.w * ref.qw)) : 1;
+      const tip = 2 * Math.acos(dot) * 0.5 * isl.extent;
+      if (dx * dx + dy * dy + dz * dz > RESTORE_MOVE * RESTORE_MOVE || !(tip <= RESTORE_MOVE)) this.restore(isl);
     }
   }
 
@@ -332,6 +380,24 @@ export class DebrisSystem {
     this.dirtyBatches.clear();
     this.rr.length = 0;
   }
+}
+
+/**
+ * Linearised air-drag damping (1/s) of an island: K·A·v_ref / m with A = the two largest dimensions of its bounds (the
+ * broadside area of a plate; a box tumbles through the same order). A torn 0.24 kg × 2.4 m curtain strip: ≈ 0.7–1/s
+ * (its swing dies within ~1–2 s, as real fabric does); a throw pillow ≈ 0.3/s; a paperback ≈ 0.09/s (unaffected).
+ */
+export function airDamping(isl: Island): number {
+  const b = isl.bounds;
+  const m = isl.mass;
+  if (!b || !(m > 0)) return 0;
+  const dx = Math.max(0, b.max.x - b.min.x),
+    dy = Math.max(0, b.max.y - b.min.y),
+    dz = Math.max(0, b.max.z - b.min.z);
+  // product of the two largest dimensions
+  const area = Math.max(dx * dy, dy * dz, dx * dz);
+  const c = (AIR_DRAG_K * area * AIR_DRAG_VREF) / m;
+  return Number.isFinite(c) ? c : 0;
 }
 
 /** Copy of a geom with positions/normals transformed into world space by an unparented node. */

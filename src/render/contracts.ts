@@ -16,6 +16,8 @@ export interface ILighting {
   readonly sunShadows: ShadowGenerator;
   /** Register/unregister a mesh as sun shadow caster; `large` meshes also render into far cascades. */
   setShadowCaster(mesh: AbstractMesh, cast: boolean, large?: boolean): void;
+  /** A registered caster's geometry was rebuilt in place: cached shadow maps redraw it. */
+  casterGeometryChanged?(mesh: AbstractMesh): void;
   /** Every opaque world mesh must call this so it receives shadows and gets the right light set. */
   registerReceiver(mesh: AbstractMesh): void;
   unregisterReceiver(mesh: AbstractMesh): void;

@@ -4,7 +4,11 @@
 // nearest-neighbour upscaling, 15-bit colour + 4×4 Bayer dithering, faint interlace),
 // trauma-based camera shake and full-screen flashes, and the quality resolution scale.
 //
-// Pass order on the camera: [SSAO2 …] → [bloom, image processing, grain, CA, FXAA] → composite.
+// Pass order on the camera: [SSAO2 …] → [bloom, image processing, FXAA] → composite (grain,
+// chromatic aberration, PS2, flash). Grain and aberration live in the composite pass rather
+// than as two more full-resolution half-float pipeline passes; the 16-sample SSAO pass renders
+// at half resolution (Babylon hard-codes it to full size; its first blur halves it anyway, and
+// the full-resolution bilateral blur upsamples with depth awareness).
 // The DefaultRenderingPipeline re-appends its post-processes whenever it rebuilds, so the
 // composite pass is moved back to the end from the pipeline's onBuildObservable.
 
@@ -90,7 +94,19 @@ export class PostFX implements IPostFX {
     this.quality = settings.quality;
     this.ps2 = !!settings.data.ps2Mode;
     this.shakeOut = { pos: this.shakeModel.pos, rot: this.shakeModel.rot };
-    this.compositeState = { ps2: this.ps2, levels: 31, interlace: this.tuning.ps2Interlace, flashR: 1, flashG: 1, flashB: 1, flashA: 0 };
+    this.compositeState = {
+      ps2: this.ps2,
+      levels: 31,
+      interlace: this.tuning.ps2Interlace,
+      flashR: 1,
+      flashG: 1,
+      flashB: 1,
+      flashA: 0,
+      grain: 0,
+      grainAnimated: true,
+      aberration: 0,
+      aberrationRadial: 1.2,
+    };
 
     this.configureImageProcessing();
     this.buildStack();
@@ -209,6 +225,7 @@ export class PostFX implements IPostFX {
       ssao.bilateralSamples = 16;
       ssao.bilateralSoften = 0.08;
       ssao.bilateralTolerance = 0.002;
+      halveSSAOPass(ssao);
       this.ssao = ssao;
     }
 
@@ -233,12 +250,14 @@ export class PostFX implements IPostFX {
     p.bloomKernel = t.bloomKernel;
     p.bloomScale = t.bloomScale;
     p.fxaaEnabled = q.fxaa && !this.ps2;
-    p.grainEnabled = !this.ps2 && t.grainIntensity > 0;
-    p.grain.intensity = t.grainIntensity;
-    p.grain.animated = true;
-    p.chromaticAberrationEnabled = !this.ps2 && t.chromaticAberration > 0;
-    p.chromaticAberration.aberrationAmount = t.chromaticAberration;
-    p.chromaticAberration.radialIntensity = 1.2;
+    // grain + chromatic aberration are applied by the composite pass (two passes fewer)
+    p.grainEnabled = false;
+    p.chromaticAberrationEnabled = false;
+    const cs = this.compositeState;
+    cs.grain = this.ps2 ? 0 : Math.max(0, t.grainIntensity);
+    cs.grainAnimated = true;
+    cs.aberration = this.ps2 ? 0 : Math.max(0, t.chromaticAberration);
+    cs.aberrationRadial = 1.2;
     p.sharpenEnabled = false;
     p.depthOfFieldEnabled = false;
     p.prepare();
@@ -284,4 +303,15 @@ export class PostFX implements IPostFX {
       this.canvasStyleBackup = null;
     }
   }
+}
+
+/**
+ * Render SSAO2's sampling pass at half resolution. Babylon 9 creates it at ratio 1.0 whatever
+ * `ssaoRatio` says, while its horizontal blur already runs at `ssaoRatio` (0.5) and the vertical
+ * bilateral blur upsamples to full size against full-resolution depth, so the full-size AO was
+ * mostly averaged away: a quarter of the fragments for practically the same occlusion.
+ */
+function halveSSAOPass(ssao: SSAO2RenderingPipeline): void {
+  const pp = (ssao as unknown as { _ssaoPostProcess?: { _options?: unknown } })._ssaoPostProcess;
+  if (pp && typeof pp._options === "number") pp._options = 0.5;
 }

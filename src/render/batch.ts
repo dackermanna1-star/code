@@ -150,6 +150,8 @@ export interface BatchHooks {
   registerReceiver?(mesh: AbstractMesh): void;
   unregisterReceiver?(mesh: AbstractMesh): void;
   setShadowCaster?(mesh: AbstractMesh, cast: boolean, large?: boolean): void;
+  /** A shadow-casting mesh was rebuilt in place (cached shadow maps must redraw it). */
+  casterGeometryChanged?(mesh: AbstractMesh): void;
 }
 
 /** GPU/CPU buffers behind one batched mesh. */
@@ -729,6 +731,9 @@ export class IslandBatcher {
       this.hooks.setShadowCaster?.(mesh, true, large);
       r.castsShadow = true;
       r.large = large;
+    } else if (r.castsShadow) {
+      // same mesh, new geometry (dents, cracks, chunks broken off, merged debris)
+      this.hooks.casterGeometryChanged?.(mesh);
     }
   }
 

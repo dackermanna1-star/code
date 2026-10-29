@@ -55,6 +55,8 @@ export class Destruction implements DestructionSystem {
   readonly accounting: Accounting;
   private msLastStep = 0;
   private readonly crumpleQueue = new Set<Part>();
+  /** Awake physics bodies, counted at most once per fixed step (fracture awake-body budget). */
+  private readonly awake = { step: -1, n: 0 };
 
   constructor(ctx: DestructionContext) {
     const w = (this.world = new World({
@@ -79,6 +81,7 @@ export class Destruction implements DestructionSystem {
       onFracture: (old, frags, info) => this.features.onFracture(old, frags, info),
       markDamage: (p) => this.accounting.markDirty(p.asm),
       dynamicCount: () => this.debris.tracked,
+      awakeCount: () => this.awakeBodies(),
     });
     this.impacts = new ImpactSystem(w, {
       enqueueFracture: (part, plan, energy, pos, dir, strike) => this.fracture.enqueue(part, plan, energy, pos, dir, strike),
@@ -218,6 +221,17 @@ export class Destruction implements DestructionSystem {
   }
 
   // ============================================================================ ticks
+
+  /** Awake bodies in the physics simulation (cached per fixed step: an O(bodies) count). */
+  private awakeBodies(): number {
+    const a = this.awake;
+    const step = this.world.stepIndex;
+    if (a.step !== step) {
+      a.step = step;
+      a.n = this.world.physics.stats().awake;
+    }
+    return a.n;
+  }
 
   /** Splits, static→dynamic transitions, container syncs, joint re-creation. */
   private settle(): void {

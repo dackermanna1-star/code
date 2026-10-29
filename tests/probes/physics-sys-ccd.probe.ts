@@ -87,7 +87,9 @@ export async function probe() {
     out.C3_fixed1Substep_noAdaptive_v30_spin100 = res;
   }
 
-  // ---- C4: a resting stack stays calm while flying shards switch the step to 2–4 substeps
+  // ---- C4: a resting stack stays calm while flying shards switch the step to 2–4 substeps. Once the shards fly in
+  // open space (nothing static within a step's reach: staticWithinReach) the step drops back to 1 substep while they
+  // still fly — they cannot tunnel through anything (C1/C2 cover shards approaching a slab).
   {
     const w = await makeWorld();
     staticBox(w, new Vector3(0, -0.1, 0), new Vector3(20, 0.2, 20));
@@ -106,14 +108,14 @@ export async function probe() {
         maxSub = Math.max(maxSub, w.physics.debugStats().substepsLast);
       }
     }
-    // shards still fly at 45 m/s (substeps stay raised meanwhile); remove them, then the step must drop back to 1
+    // shards still fly at 45 m/s, 1 m above the floor with nothing ahead: 1 substep; remove them, still 1
     const flyingSub = w.physics.debugStats().substepsLast;
     for (const s of shards) s.transformNode.dispose();
     steps(w, 30);
     let drift = 0;
     stack.forEach((b, i) => (drift = Math.max(drift, Vector3.Distance(b.transformNode.position, before[i]))));
     const idleSub = w.physics.debugStats().substepsLast;
-    check(out, "C4_stackStableAcrossSubstepChanges", drift < 0.002 && maxSub >= 3 && flyingSub >= 3 && idleSub === 1, { maxDriftM: r(drift, 5), maxSubstepsUsed: maxSub, whileShardsFly: flyingSub, substepsWhenIdle: idleSub });
+    check(out, "C4_stackStableAcrossSubstepChanges", drift < 0.002 && maxSub >= 3 && flyingSub === 1 && idleSub === 1, { maxDriftM: r(drift, 5), maxSubstepsUsed: maxSub, whileShardsFlyInOpenSpace: flyingSub, substepsWhenIdle: idleSub });
     w.dispose();
   }
   void ZERO;

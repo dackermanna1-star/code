@@ -358,6 +358,7 @@ export async function createRender(opts: CreateRenderOptions): Promise<Render> {
     registerReceiver: (m) => lighting.registerReceiver(m),
     unregisterReceiver: (m) => lighting.unregisterReceiver(m),
     setShadowCaster: (m, cast, large) => lighting.setShadowCaster(m, cast, large),
+    casterGeometryChanged: (m) => lighting.casterGeometryChanged(m),
   });
   // runtime islands (fracture splits) take pool hits instead of creating meshes mid-game
   batcher.prewarm();

@@ -26,11 +26,18 @@
 // fixed orthographic frustum fitted to the apartment in light space (shadowOrthoScale 0: no
 // hidden 20 % padding): no per-frame refit, no shimmer, 9 × 4 mm texels at 2048. Its
 // depth range extends upstream so the balconies and slab edges of the tower outside the
-// windows still occlude. The map is cached: it only
-// re-renders when a caster moved, was added/removed, or `invalidateShadows()` was called;
-// point-light cube maps only re-render for casters within that light's reach. A slow
-// round-robin safety refresh (one map per tick) catches in-place geometry edits, so a
-// settled room costs at most one shadow map every couple of seconds.
+// windows still occlude.
+//
+// Shadow caching (shadowCache.ts): every shadow map is LAYERED. Casters at rest live in a
+// cached static layer; the sampled live map is rebuilt from it by a GPU copy plus only the
+// casters that are moving. A caster that moves more than `shadowMoveEpsilon` (sub-texel jitter
+// of resting bodies is ignored) becomes dynamic; after `shadowSettleTime` without moving it is
+// folded back into the static layer. Only the region that changed is redrawn: a texel
+// rectangle of the sun map (the caster's light-space footprint, old and new), and the cube
+// faces of a point-light map whose frustum the caster's bounding sphere touches (casters are
+// culled per face as well). In-place geometry edits arrive through casterGeometryChanged()
+// (island rebuilds), so the spinning ceiling fan costs a copy and a couple of draws per frame
+// instead of re-rendering every caster of both maps.
 
 import {
   ClusteredLightContainer,
@@ -39,12 +46,12 @@ import {
   HemisphericLight,
   Matrix,
   PointLight,
-  RenderTargetTexture,
   ShadowGenerator,
   ShadowLight,
   SpotLight,
   Vector3,
   type AbstractMesh,
+  type Engine,
   type Light,
   type Material,
   type Nullable,
@@ -58,6 +65,8 @@ import { ROOMS, type RoomId } from "../world/plan.ts";
 import { nearestRoom } from "./env/roomGraph.ts";
 import { SUN_COLOR_HEX, SUN_LIGHT_DIR, TO_SUN, hexToLinear } from "./env/sunModel.ts";
 import { noise1 } from "./env/noise.ts";
+import { addCircleTexels, boxDisplacement, cubeFaceMask, emptyRect, projectBoxToFace, type RectSet, type TexelRect } from "./env/shadowMath.ts";
+import { LayeredShadowMap, type CasterKind, type LayerStats } from "./shadowCache.ts";
 
 /** Receiver bounds the sun shadow map must cover (apartment + balcony, furniture up to ~2 m). */
 export const SHADOW_BOUNDS = { min: { x: -1.5, y: -0.3, z: -2.0 }, max: { x: 14.3, y: 3.4, z: 10.2 } } as const;
@@ -81,13 +90,25 @@ export interface LightingTuning {
   interiorGain: number;
   /** Range (m) given to interior lights created without a finite range. */
   defaultRange: number;
-  /** Cache the sun shadow map between caster movements (false = re-render every frame). */
+  /** Cache the shadow maps between caster movements (false = re-render every frame). */
   staticShadowCache: boolean;
   /**
-   * Safety refresh period (s) of the cached shadow maps (catches in-place geometry edits).
-   * Each tick re-renders ONE map, round-robin over the sun and the point-light cube maps.
+   * Split every cached map into a static layer + live map (shadowCache.ts). False: a cached
+   * map is redrawn with every caster whenever anything in it changed (the old behaviour).
+   */
+  layeredShadows: boolean;
+  /**
+   * Safety refresh period (s) of the cached shadow maps, 0 = off. Each tick fully redraws ONE
+   * map, round-robin over the sun and the point-light cube maps. Island rebuilds report in-place
+   * geometry edits (casterGeometryChanged), so this is only a net for foreign edits.
    */
   maxShadowAge: number;
+  /** A caster whose bounds moved less than this (m) since it was last drawn is not redrawn. */
+  shadowMoveEpsilon: number;
+  /** Seconds a moving caster must stay still before it is folded into the static layer. */
+  shadowSettleTime: number;
+  /** Sun casters with a bounding radius below this many (coarser-axis) texels are skipped (unless `large`). */
+  sunCasterMinTexels: number;
   /** Interior lights with a smaller range never cast point shadows (LED strips, hood lamps). */
   pointShadowMinRange: number;
 }
@@ -103,7 +124,11 @@ export const DEFAULT_TUNING: LightingTuning = {
   interiorGain: 1,
   defaultRange: 6,
   staticShadowCache: true,
-  maxShadowAge: 1.5,
+  layeredShadows: true,
+  maxShadowAge: 0,
+  shadowMoveEpsilon: 0.002,
+  shadowSettleTime: 0.5,
+  sunCasterMinTexels: 0.75,
   pointShadowMinRange: 3,
 };
 
@@ -137,12 +162,15 @@ interface LightRec {
   effective: number;
   /** Currently a member of the clustered container. */
   clustered: boolean;
-  /** Point/spot shadow generator while promoted. */
+  /** Point/spot shadow generator (the sampled live map) while promoted. */
   shadow: ShadowGenerator | null;
-  /** Casters in that generator's render list, and the light position / reach it was built for. */
-  shadowSet: Set<AbstractMesh>;
+  /** Its layered cache (static layer + live map). */
+  layer: LayeredShadowMap | null;
+  /** Light position / reach the cached map is drawn for. */
   shadowPos: Vector3;
   shadowReach: number;
+  /** View matrices of the six cube faces at `shadowPos` (the generator's own LookAtLH per face). */
+  faceViews: Matrix[];
   /** Fallback mode: shaded by the nearest-light selection (else masked out of every mesh). */
   selected: boolean;
   /** The owner's `excludeWithLayerMask`, saved while the fallback selection masks the light. */
@@ -151,9 +179,41 @@ interface LightRec {
 }
 
 interface CasterRec {
+  mesh: AbstractMesh;
   large: boolean;
   obs: Observer<unknown> | null;
+  /** Mesh disposal observer (a disposed caster leaves the cached maps at once). */
+  disp: Observer<unknown> | null;
+  /** Drawn into the live maps (moving) instead of the cached static layers. */
+  dynamic: boolean;
+  /** Clock (s) of the last move beyond the epsilon, geometry edit or registration. */
+  changedAt: number;
+  /** Pending changes (Q_* bits) for the next processShadows(). */
+  queued: number;
+  /** Unregistered while queued. */
+  removed: boolean;
+  /** World matrix when last flagged as moved: sub-epsilon motion relative to it is ignored. */
+  readonly ref: Float32Array;
+  /**
+   * World bounds the maps were last told about (valid when hasSphere): bounding sphere
+   * (cx, cy, cz, r) then the world AABB (x0, y0, z0, x1, y1, z1).
+   */
+  readonly b: Float64Array;
+  hasSphere: boolean;
 }
+
+/** CasterRec.queued bits. */
+const Q_ADDED = 1,
+  Q_MOVED = 2,
+  Q_GEOMETRY = 4;
+/** Seconds between scans that fold settled moving casters back into the static layers. */
+const PROMOTE_INTERVAL = 0.25;
+/** Texels of padding around a caster's sun-map footprint (rasterisation, normal bias). */
+const SUN_RECT_PAD = 2;
+/** Texels of padding around a caster's footprint on a cube face. */
+const CUBE_RECT_PAD = 2;
+/** Near plane of the point-light cube maps (shadowMinZ). */
+const POINT_NEAR = 0.05;
 
 const TMP_V = new Vector3();
 const TMP_C = new Vector3();
@@ -175,24 +235,38 @@ export class Lighting implements ILighting {
 
   private readonly scene: Scene;
   private _quality: QualityPreset;
-  private _sunShadows!: ShadowGenerator;
+  private readonly engine: Engine;
+  /** Layered sun shadow cache (its live generator is `sunShadows`). */
+  private _sunLayer!: LayeredShadowMap;
   /** Light view matrix + ortho extents of the fitted sun frustum (static: the sun never moves). */
   private readonly sunView = new Matrix();
-  private readonly sunBox = { minX: 0, maxX: 0, minY: 0, maxY: 0, minZ: 0, maxZ: 0, texel: 0.01 };
+  /** (texelX / texelY: light-space metres per sun-map texel; the fitted box is not square.) */
+  private readonly sunBox = { minX: 0, maxX: 0, minY: 0, maxY: 0, minZ: 0, maxZ: 0, texelX: 0.01, texelY: 0.01 };
 
   private readonly casters = new Map<AbstractMesh, CasterRec>();
+  /** Casters at rest (drawn into the static layers) / moving (drawn into the live maps). */
+  private readonly staticList: AbstractMesh[] = [];
+  private readonly dynamicList: AbstractMesh[] = [];
+  private listsDirty = true;
+  /** Casters with pending changes (CasterRec.queued). */
+  private readonly queue: CasterRec[] = [];
+  /** Seconds of lighting time (update dt), for the settle timers. */
+  private clock = 0;
+  private promoteTimer = 0;
+  private evalObs: Nullable<Observer<Scene>> = null;
+  private readonly tmpRect: TexelRect = emptyRect();
+  private readonly tmpRect2: TexelRect = emptyRect();
+  private readonly oldBounds = new Float64Array(10);
   private readonly receivers = new Set<AbstractMesh>();
   private readonly preparedMaterials = new WeakSet<Material>();
   private readonly lights = new Map<Light, LightRec>();
-  /** Shadow generators of the promoted (shadow-casting) interior lights. */
-  private readonly pointGens: ShadowGenerator[] = [];
-  /** Promoted light records (parallel to their generators; for per-light invalidation). */
+  /** Promoted (shadow-casting) interior lights, in promotion order. */
   private readonly pointRecs: LightRec[] = [];
   /** Material light slots currently required of every lit material (see header). */
   private slotsNeeded = DEFAULT_SLOTS;
   private slotSweepCount = -1;
   private materialObs: Nullable<Observer<Material>> = null;
-  /** Round-robin cursor of the shadow safety refresh (0 = sun, i = pointGens[i - 1]). */
+  /** Round-robin cursor of the shadow safety refresh (0 = sun, i = pointRecs[i - 1]). */
   private refreshCursor = 0;
   /** Lights handed back by removeLight(): re-added to the scene if their owner keeps them. */
   private readonly released: Light[] = [];
@@ -203,10 +277,12 @@ export class Lighting implements ILighting {
   private pointTimer = 0;
   private pruneTimer = 0;
   private disposed = false;
-  private readonly onCasterMoved = (mesh: unknown): void => this.invalidateNear(mesh as AbstractMesh);
+  private readonly onCasterMoved = (mesh: unknown): void => this.casterMoved(mesh as AbstractMesh);
+  private readonly sunProvider = (kind: CasterKind, _face: number, rects: RectSet | null, out: AbstractMesh[]): void => this.fillSun(kind, rects, out);
 
   constructor(scene: Scene, settings: Settings, tuning: Partial<LightingTuning> = {}) {
     this.scene = scene;
+    this.engine = scene.getEngine() as Engine;
     this.settings = settings;
     this.tuning = { ...DEFAULT_TUNING, ...tuning };
     this._quality = settings.quality;
@@ -247,12 +323,15 @@ export class Lighting implements ILighting {
 
     this.createSunShadows(this._quality);
     this.updateLightSlots();
+    // Moves are detected while the frame evaluates its meshes (world matrices); the caches are
+    // updated and armed right after, before the render targets of the same frame.
+    this.evalObs = scene.onAfterActiveMeshesEvaluationObservable.add(() => this.processShadows());
   }
 
   // ------------------------------------------------------------------ ILighting
 
   get sunShadows(): ShadowGenerator {
-    return this._sunShadows;
+    return this._sunLayer.gen;
   }
 
   get powered(): boolean {
@@ -270,20 +349,32 @@ export class Lighting implements ILighting {
       const rec = this.casters.get(mesh);
       if (rec) {
         rec.large = large;
-      } else {
-        const obs = mesh.onAfterWorldMatrixUpdateObservable.add(this.onCasterMoved) as Observer<unknown>;
-        this.casters.set(mesh, { large, obs });
-        this._sunShadows.addShadowCaster(mesh, false);
+        this.queueCaster(rec, Q_GEOMETRY); // re-registration = rebuilt geometry
+        return;
       }
+      const obs = mesh.onAfterWorldMatrixUpdateObservable.add(this.onCasterMoved) as Observer<unknown>;
+      const c: CasterRec = { mesh, large, obs, disp: null, dynamic: true, changedAt: this.clock, queued: 0, removed: false, ref: new Float32Array(16), b: new Float64Array(10), hasSphere: false };
+      c.disp = mesh.onDisposeObservable.add(() => this.dropCaster(c)) as Observer<unknown>;
+      c.ref.set(mesh.worldMatrixFromCache.m);
+      this.casters.set(mesh, c);
+      // the live sun map's render list mirrors the casters (introspection; drawing uses the layers)
+      this._sunLayer.gen.addShadowCaster(mesh, false);
+      this.listsDirty = true;
+      this.queueCaster(c, Q_ADDED);
     } else {
       const rec = this.casters.get(mesh);
       if (!rec) return;
-      this.casters.delete(mesh);
-      if (rec.obs) mesh.onAfterWorldMatrixUpdateObservable.remove(rec.obs as never);
-      this._sunShadows.removeShadowCaster(mesh, false);
-      for (const g of this.pointGens) g.removeShadowCaster(mesh, false);
+      this.dropCaster(rec);
     }
-    this.invalidateNear(mesh);
+  }
+
+  /**
+   * A caster's geometry was rebuilt in place (same mesh, new vertices / bounds): redraw the
+   * cached shadow maps where it was and where it is now. Island batching calls this.
+   */
+  casterGeometryChanged(mesh: AbstractMesh): void {
+    const rec = this.casters.get(mesh);
+    if (rec && !this.disposed) this.queueCaster(rec, Q_GEOMETRY);
   }
 
   registerReceiver(mesh: AbstractMesh): void {
@@ -291,12 +382,11 @@ export class Lighting implements ILighting {
     mesh.receiveShadows = true;
     this.receivers.add(mesh);
     this.prepareMaterial(mesh.material);
-    // A (re)built receiver usually means new geometry: refresh the cached shadows around it.
-    this.invalidateNear(mesh);
+    // (receivers never change the shadow maps: only casters do)
   }
 
   unregisterReceiver(mesh: AbstractMesh): void {
-    if (this.receivers.delete(mesh)) this.invalidateNear(mesh);
+    this.receivers.delete(mesh);
   }
 
   addLight(light: Light, roomId: string | null, mains: boolean): void {
@@ -329,9 +419,10 @@ export class Lighting implements ILighting {
       effective: light.intensity,
       clustered: false,
       shadow: null,
-      shadowSet: new Set(),
+      layer: null,
       shadowPos: new Vector3(),
       shadowReach: 0,
+      faceViews: [],
       selected: true,
       savedExcludeMask: 0,
       disposeObs: null,
@@ -371,7 +462,11 @@ export class Lighting implements ILighting {
     const prev = this._quality;
     this._quality = q;
     if (prev.shadowMapSize !== q.shadowMapSize) this.createSunShadows(q);
-    else this._sunShadows.filteringQuality = this.filterQuality(q);
+    else {
+      const fq = this.filterQuality(q);
+      this._sunLayer.gen.filteringQuality = fq;
+      if (this._sunLayer.staticGen) this._sunLayer.staticGen.filteringQuality = fq;
+    }
     // Point shadow resolution or count changed: rebuild the shadowed set.
     if (q.pointShadows !== prev.pointShadows) {
       for (const rec of this.lights.values()) if (rec.shadow) this.demote(rec);
@@ -404,26 +499,24 @@ export class Lighting implements ILighting {
       this.updatePointShadows();
       if (!this.cluster) this.updateFallbackSelection();
     }
-    // Cached shadow maps: slow round-robin safety refresh, one map per tick.
-    if (this.tuning.staticShadowCache) {
+    this.clock += step;
+    this.promoteTimer -= step;
+    // Cached shadow maps: optional slow round-robin safety refresh, one map per tick.
+    if (this.tuning.staticShadowCache && this.tuning.maxShadowAge > 0) {
       this.shadowAge += step;
       if (this.shadowAge >= this.tuning.maxShadowAge) {
         this.shadowAge = 0;
-        const n = this.pointGens.length + 1;
+        const n = this.pointRecs.length + 1;
         this.refreshCursor = (this.refreshCursor + 1) % n;
-        const g = this.refreshCursor === 0 ? this._sunShadows : this.pointGens[this.refreshCursor - 1];
-        g?.getShadowMap()?.resetRefreshCounter();
+        const layer = this.refreshCursor === 0 ? this._sunLayer : this.pointRecs[this.refreshCursor - 1]?.layer;
+        layer?.markAll();
       }
     }
-    // Drop disposed casters / receivers now and then (Babylon already removed them from the maps).
+    // Drop disposed casters / receivers now and then.
     this.pruneTimer -= step;
     if (this.pruneTimer <= 0) {
       this.pruneTimer = 2;
-      for (const [m, rec] of this.casters) {
-        if (!m.isDisposed()) continue;
-        if (rec.obs) m.onAfterWorldMatrixUpdateObservable.remove(rec.obs as never);
-        this.casters.delete(m);
-      }
+      for (const rec of this.casters.values()) if (rec.mesh.isDisposed()) this.dropCaster(rec);
       for (const m of this.receivers) {
         if (m.isDisposed()) this.receivers.delete(m);
         else this.prepareMaterial(m.material); // material assigned after registration
@@ -436,15 +529,25 @@ export class Lighting implements ILighting {
   // ------------------------------------------------------------------ extras
 
   /**
-   * Re-render the cached shadow maps on the next frame. Called automatically when a caster
-   * moves (world matrix update), is added/removed, or a receiver is (re)registered; call it
-   * after editing caster geometry in place.
+   * Fully redraw every cached shadow map (both layers) on the next frame. Moves, caster
+   * (un)registration and casterGeometryChanged() are handled incrementally; call this after
+   * changes the lighting cannot see (e.g. editing a caster's vertices behind its back).
    */
   invalidateShadows(): void {
     this.shadowAge = 0;
-    if (!this.tuning.staticShadowCache) return;
-    this._sunShadows?.getShadowMap()?.resetRefreshCounter();
-    for (const g of this.pointGens) g.getShadowMap()?.resetRefreshCounter();
+    this._sunLayer?.markAll();
+    for (const rec of this.pointRecs) rec.layer?.markAll();
+  }
+
+  /** Shadow-cache counters (debug / perf tooling). */
+  get shadowCacheStats(): { staticCasters: number; dynamicCasters: number; layered: boolean; sun: LayerStats; points: Array<{ light: string; stats: LayerStats }> } {
+    return {
+      staticCasters: this.staticList.length,
+      dynamicCasters: this.dynamicList.length,
+      layered: this._sunLayer.layered,
+      sun: { ...this._sunLayer.stats },
+      points: this.pointRecs.map((r) => ({ light: r.light.name, stats: { ...(r.layer?.stats ?? { staticRenders: 0, liveRenders: 0, copies: 0, retries: 0 }) } })),
+    };
   }
 
   /** Material light slots currently required of every lit material (debug). */
@@ -508,12 +611,20 @@ export class Lighting implements ILighting {
     this.disposed = true;
     for (const rec of [...this.lights.values()]) this.forget(rec.light, false);
     this.released.length = 0;
-    for (const [m, rec] of this.casters) if (rec.obs) m.onAfterWorldMatrixUpdateObservable.remove(rec.obs as never);
+    for (const [m, rec] of this.casters) {
+      if (rec.obs) m.onAfterWorldMatrixUpdateObservable.remove(rec.obs as never);
+      if (rec.disp) m.onDisposeObservable.remove(rec.disp as never);
+    }
     this.casters.clear();
+    this.staticList.length = 0;
+    this.dynamicList.length = 0;
+    this.queue.length = 0;
     this.receivers.clear();
     if (this.materialObs) this.scene.onNewMaterialAddedObservable.remove(this.materialObs);
     this.materialObs = null;
-    this._sunShadows.dispose();
+    if (this.evalObs) this.scene.onAfterActiveMeshesEvaluationObservable.remove(this.evalObs);
+    this.evalObs = null;
+    this._sunLayer.dispose();
     this.cluster?.dispose();
     this.sun.dispose();
     this.sky.dispose();
@@ -526,24 +637,29 @@ export class Lighting implements ILighting {
   }
 
   private createSunShadows(q: QualityPreset): void {
-    const old = this._sunShadows as ShadowGenerator | undefined;
+    const old = this._sunLayer as LayeredShadowMap | undefined;
     if (old) old.dispose();
     const size = Math.max(512, Math.min(8192, q.shadowMapSize | 0 || 2048));
+    this.sunBox.texelX = (this.sunBox.maxX - this.sunBox.minX) / size;
+    this.sunBox.texelY = (this.sunBox.maxY - this.sunBox.minY) / size;
     // 32-bit float depth: the light-space depth range is ~30 m (upstream casters included).
-    const gen = new ShadowGenerator(size, this.sun, true);
-    gen.usePercentageCloserFiltering = true;
-    gen.filteringQuality = this.filterQuality(q);
-    gen.bias = this.tuning.shadowBias;
-    gen.normalBias = this.tuning.shadowNormalBias;
-    gen.darkness = 0;
-    gen.transparencyShadow = false;
-    gen.frustumEdgeFalloff = 0;
-    this.sunBox.texel = (this.sunBox.maxX - this.sunBox.minX) / size;
-    gen.customAllowRendering = (sm: SubMesh) => this.allowSunCaster(sm);
-    const map = gen.getShadowMap();
-    if (map) map.refreshRate = this.tuning.staticShadowCache ? RenderTargetTexture.REFRESHRATE_RENDER_ONCE : 1;
-    this._sunShadows = gen;
-    for (const m of this.casters.keys()) if (!m.isDisposed()) gen.addShadowCaster(m, false);
+    const layer = new LayeredShadowMap(this.sun, this.engine, {
+      size,
+      layered: this.tuning.staticShadowCache && this.tuning.layeredShadows,
+      provider: this.sunProvider,
+      configure: (gen) => {
+        gen.usePercentageCloserFiltering = true;
+        gen.filteringQuality = this.filterQuality(q);
+        gen.bias = this.tuning.shadowBias;
+        gen.normalBias = this.tuning.shadowNormalBias;
+        gen.darkness = 0;
+        gen.transparencyShadow = false;
+        gen.frustumEdgeFalloff = 0;
+        gen.customAllowRendering = (sm: SubMesh) => this.allowSunCaster(sm);
+      },
+    });
+    this._sunLayer = layer;
+    for (const m of this.casters.keys()) if (!m.isDisposed()) layer.gen.addShadowCaster(m, false);
     this.invalidateShadows();
   }
 
@@ -585,17 +701,252 @@ export class Lighting implements ILighting {
     Object.assign(this.sunBox, { minX, maxX, minY, maxY, minZ: s.shadowMinZ, maxZ: s.shadowMaxZ });
   }
 
-  /** Sun caster culling: skip meshes outside the fitted light box, and specks below ~1.5 texels. */
+  /** Sun caster culling: skip meshes outside the fitted light box, and specks below `sunCasterMinTexels`. */
   private allowSunCaster(subMesh: SubMesh): boolean {
     const mesh = subMesh.getMesh();
     const bs = mesh.getBoundingInfo().boundingSphere;
-    const r = bs.radiusWorld;
-    Vector3.TransformCoordinatesToRef(bs.centerWorld, this.sunView, TMP_C);
+    const c = bs.centerWorld;
+    return this.sunWants(c.x, c.y, c.z, bs.radiusWorld, !!this.casters.get(mesh as AbstractMesh)?.large);
+  }
+
+  /** Does a caster with this world bounding sphere render into the sun map? (TMP_C = its light-space centre) */
+  private sunWants(x: number, y: number, z: number, r: number, large: boolean): boolean {
+    Vector3.TransformCoordinatesFromFloatsToRef(x, y, z, this.sunView, TMP_C);
     const b = this.sunBox;
     if (TMP_C.x + r < b.minX || TMP_C.x - r > b.maxX || TMP_C.y + r < b.minY || TMP_C.y - r > b.maxY) return false;
     if (TMP_C.z + r < b.minZ || TMP_C.z - r > b.maxZ) return false;
-    if (r < b.texel * 0.75 && !this.casters.get(mesh as AbstractMesh)?.large) return false;
+    if (r < Math.max(b.texelX, b.texelY) * this.tuning.sunCasterMinTexels && !large) return false;
     return true;
+  }
+
+  /** Sun-map casters of one pass: `kind` from the static/moving lists, footprint overlapping `rects`. */
+  private fillSun(kind: CasterKind, rects: RectSet | null, out: AbstractMesh[]): void {
+    const b = this.sunBox;
+    const add = (m: AbstractMesh): void => {
+      if (m.isDisposed() || !m.isEnabled()) return;
+      const bs = m.getBoundingInfo().boundingSphere;
+      const c = bs.centerWorld;
+      const r = bs.radiusWorld;
+      if (!this.sunWants(c.x, c.y, c.z, r, !!this.casters.get(m)?.large)) return;
+      if (rects && !rects.hitsCircle(TMP_C.x, TMP_C.y, r, b.minX, b.minY, b.texelX, b.texelY)) return;
+      out.push(m);
+    };
+    this.forKind(kind, add);
+  }
+
+  /** Visit the casters of a kind (static layer / moving / every caster). */
+  private forKind(kind: CasterKind, fn: (m: AbstractMesh) => void): void {
+    if (this.listsDirty) this.rebuildLists();
+    if (kind !== "dynamic") for (const m of this.staticList) fn(m);
+    if (kind !== "static") for (const m of this.dynamicList) fn(m);
+  }
+
+  // ------------------------------------------------------------------ shadow cache bookkeeping
+
+  /** World matrix of a caster changed: queue it unless it moved less than the epsilon since it was last drawn. */
+  private casterMoved(mesh: AbstractMesh): void {
+    const rec = this.casters.get(mesh);
+    if (!rec || rec.queued & (Q_MOVED | Q_ADDED)) return;
+    const wm = mesh.worldMatrixFromCache.m;
+    const bb = mesh.getBoundingInfo().boundingBox;
+    const lo = bb.minimum,
+      hi = bb.maximum;
+    const d = boxDisplacement(rec.ref, wm, (lo.x + hi.x) * 0.5, (lo.y + hi.y) * 0.5, (lo.z + hi.z) * 0.5, (hi.x - lo.x) * 0.5, (hi.y - lo.y) * 0.5, (hi.z - lo.z) * 0.5);
+    if (d < this.tuning.shadowMoveEpsilon) return;
+    rec.ref.set(wm);
+    this.queueCaster(rec, Q_MOVED);
+  }
+
+  private queueCaster(rec: CasterRec, flag: number): void {
+    if (rec.queued === 0) this.queue.push(rec);
+    rec.queued |= flag;
+  }
+
+  /** Unregister a caster: its last drawn footprint is redrawn without it. */
+  private dropCaster(rec: CasterRec): void {
+    const mesh = rec.mesh;
+    if (this.casters.get(mesh) !== rec) return;
+    this.casters.delete(mesh);
+    rec.removed = true;
+    if (rec.obs) mesh.onAfterWorldMatrixUpdateObservable.remove(rec.obs as never);
+    if (rec.disp) mesh.onDisposeObservable.remove(rec.disp as never);
+    rec.obs = rec.disp = null;
+    this._sunLayer.gen.removeShadowCaster(mesh, false);
+    for (const lr of this.pointRecs) lr.shadow?.removeShadowCaster(mesh, false);
+    if (rec.hasSphere) this.markBounds(!rec.dynamic, rec.b, rec.large);
+    this.listsDirty = true;
+  }
+
+  /** Refresh a caster's cached world bounds from its mesh. */
+  private readSphere(rec: CasterRec): void {
+    const bi = rec.mesh.getBoundingInfo();
+    const bs = bi.boundingSphere;
+    const c = bs.centerWorld;
+    const lo = bi.boundingBox.minimumWorld,
+      hi = bi.boundingBox.maximumWorld;
+    const b = rec.b;
+    b[0] = c.x;
+    b[1] = c.y;
+    b[2] = c.z;
+    b[3] = bs.radiusWorld;
+    b[4] = lo.x;
+    b[5] = lo.y;
+    b[6] = lo.z;
+    b[7] = hi.x;
+    b[8] = hi.y;
+    b[9] = hi.z;
+    let ok = true;
+    for (let i = 0; i < 10; i++) if (!Number.isFinite(b[i])) ok = false;
+    rec.hasSphere = ok;
+  }
+
+  /**
+   * A caster's bounds changed in the static layers (`stat`: both layers redraw the region) or
+   * only among the moving casters (live maps only), in every cached map it can touch: its
+   * light-space footprint on the sun map, its AABB's footprint on each cube face it reaches.
+   */
+  private markBounds(stat: boolean, bb: Float64Array, large: boolean): void {
+    const x = bb[0],
+      y = bb[1],
+      z = bb[2],
+      r = bb[3];
+    const sun = this._sunLayer;
+    if (this.sunWants(x, y, z, r, large)) {
+      const b = this.sunBox;
+      const rect = this.tmpRect;
+      rect.x0 = rect.y0 = rect.x1 = rect.y1 = 0;
+      if (addCircleTexels(rect, TMP_C.x, TMP_C.y, r, b.minX, b.minY, b.texelX, b.texelY, sun.size, SUN_RECT_PAD)) {
+        if (stat) sun.markStaticRect(0, rect);
+        else sun.markLiveRect(0, rect);
+      }
+    }
+    for (const lr of this.pointRecs) {
+      const layer = lr.layer;
+      if (!layer) continue;
+      const p = lr.shadowPos;
+      const dx = x - p.x,
+        dy = y - p.y,
+        dz = z - p.z;
+      if (Math.sqrt(dx * dx + dy * dy + dz * dz) - r > lr.shadowReach) continue;
+      if (!layer.cube) {
+        // spot light: one perspective map, redrawn whole
+        if (stat) layer.markStaticFaces(1);
+        else layer.markLiveFaces(1);
+        continue;
+      }
+      const faces = cubeFaceMask(dx, dy, dz, r);
+      const rect = this.tmpRect;
+      for (let f = 0; f < 6; f++) {
+        if (!(faces & (1 << f)) || !lr.faceViews[f]) continue;
+        if (!projectBoxToFace(lr.faceViews[f].m, bb[4], bb[5], bb[6], bb[7], bb[8], bb[9], layer.size, POINT_NEAR, CUBE_RECT_PAD, rect)) continue;
+        if (stat) layer.markStaticRect(f, rect);
+        else layer.markLiveRect(f, rect);
+      }
+    }
+  }
+
+  /** The six cube-face view matrices of a promoted point light at its `shadowPos` (as its generator builds them). */
+  private updateFaceViews(rec: LightRec): void {
+    const l = rec.light;
+    if (!(l instanceof PointLight)) {
+      rec.faceViews.length = 0;
+      return;
+    }
+    const p = rec.shadowPos;
+    for (let f = 0; f < 6; f++) {
+      const m = rec.faceViews[f] ?? (rec.faceViews[f] = new Matrix());
+      const d = TMP_V.copyFrom(l.getShadowDirection(f)).normalize();
+      if (Math.abs(Vector3.Dot(d, Vector3.UpReadOnly)) === 1) d.z = 0.0000000000001; // (as ShadowGenerator.getTransformMatrix)
+      Matrix.LookAtLHToRef(p, p.add(d), Vector3.UpReadOnly, m);
+    }
+  }
+
+  private rebuildLists(): void {
+    this.listsDirty = false;
+    this.staticList.length = 0;
+    this.dynamicList.length = 0;
+    for (const rec of this.casters.values()) (rec.dynamic ? this.dynamicList : this.staticList).push(rec.mesh);
+  }
+
+  /**
+   * Per frame, after the meshes were evaluated (world matrices up to date) and before the render
+   * targets: apply queued caster changes to the layers, fold settled casters into the static
+   * layers, follow moving point lights, and arm the maps with dirty regions.
+   */
+  private processShadows(): void {
+    if (this.disposed) return;
+    const t = this.tuning;
+    if (!t.staticShadowCache) {
+      // uncached: every map redrawn every frame with every caster
+      this.queue.length = 0;
+      for (const rec of this.casters.values()) rec.queued = 0;
+      this._sunLayer.markAll();
+      this._sunLayer.arm();
+      for (const lr of this.pointRecs) {
+        lr.layer?.markAll();
+        lr.layer?.arm();
+      }
+      return;
+    }
+    const now = this.clock;
+    // promoted lights that moved (lamps knocked over, a swinging fixture): redraw their maps
+    for (const lr of this.pointRecs) {
+      const layer = lr.layer;
+      if (!layer) continue;
+      const p = this.lightPosition(lr.light);
+      if (Vector3.DistanceSquared(p, lr.shadowPos) > 1e-6) {
+        lr.shadowPos.copyFrom(p);
+        this.updateFaceViews(lr);
+        layer.markAll();
+      }
+    }
+    // queued caster changes
+    for (let i = 0; i < this.queue.length; i++) {
+      const rec = this.queue[i];
+      const flags = rec.queued;
+      rec.queued = 0;
+      if (rec.removed || rec.mesh.isDisposed()) continue;
+      const had = rec.hasSphere;
+      const old = this.oldBounds;
+      old.set(rec.b);
+      this.readSphere(rec);
+      if (flags & Q_ADDED) {
+        // new casters start moving (fragments, rebuilt islands); they settle into the static layer
+        rec.dynamic = true;
+        rec.changedAt = now;
+        rec.ref.set(rec.mesh.worldMatrixFromCache.m);
+        this.listsDirty = true;
+        if (had) this.markBounds(false, old, rec.large);
+      } else {
+        if (flags & Q_MOVED) {
+          rec.changedAt = now;
+          if (!rec.dynamic) {
+            // leaves the static layer: redraw it there without the caster
+            rec.dynamic = true;
+            this.listsDirty = true;
+            if (had) this.markBounds(true, old, rec.large);
+          } else if (had) this.markBounds(false, old, rec.large);
+        }
+        if (flags & Q_GEOMETRY && had) this.markBounds(!rec.dynamic, old, rec.large);
+      }
+      if (rec.hasSphere) this.markBounds(!rec.dynamic && !(flags & Q_ADDED), rec.b, rec.large);
+    }
+    this.queue.length = 0;
+    // settled moving casters → static layers (batched: one static redraw per scan at most)
+    if (this.promoteTimer <= 0) {
+      this.promoteTimer = PROMOTE_INTERVAL;
+      if (this.listsDirty) this.rebuildLists();
+      for (const m of this.dynamicList) {
+        const rec = this.casters.get(m);
+        if (!rec || now - rec.changedAt < t.shadowSettleTime) continue;
+        rec.dynamic = false;
+        this.listsDirty = true;
+        if (rec.hasSphere) this.markBounds(true, rec.b, rec.large);
+      }
+    }
+    if (this.listsDirty) this.rebuildLists();
+    this._sunLayer.arm();
+    for (const lr of this.pointRecs) lr.layer?.arm();
   }
 
   // ------------------------------------------------------------------ interior lights
@@ -673,10 +1024,8 @@ export class Lighting implements ILighting {
     rec.disposeObs = null;
     if (rec.shadow) {
       // Light.dispose() already disposed its generators before notifying observers.
-      if (!disposing) rec.shadow.dispose();
-      this.dropPointGen(rec.shadow);
-      rec.shadow = null;
-      this.invalidateShadows();
+      if (!disposing) rec.layer?.dispose();
+      this.dropPointRec(rec);
     }
     const wasClustered = rec.clustered;
     this.leaveCluster(rec, false);
@@ -721,43 +1070,45 @@ export class Lighting implements ILighting {
   private promote(rec: LightRec): void {
     const l = rec.light as PointLight | SpotLight;
     this.leaveCluster(rec, true);
-    l.shadowMinZ = 0.05;
+    l.shadowMinZ = POINT_NEAR;
     l.shadowMaxZ = Math.min(l.range, 10);
+    rec.shadowPos.copyFrom(this.lightPosition(l));
+    rec.shadowReach = Math.min(l.range || 8, 10);
+    this.updateFaceViews(rec);
     const ultra = this._quality.pointShadows >= 2;
-    const g = new ShadowGenerator(ultra ? 1024 : 512, l, true);
-    if (l instanceof SpotLight) {
-      g.usePercentageCloserFiltering = true;
-      g.filteringQuality = ShadowGenerator.QUALITY_MEDIUM;
-    } else {
-      g.usePoissonSampling = true; // PCF silently becomes Poisson on cube maps (notes §1.3)
-    }
-    g.bias = 0.0015;
-    g.normalBias = 0.012;
-    g.darkness = 0;
-    g.transparencyShadow = false;
-    const sm = g.getShadowMap();
-    if (sm) sm.refreshRate = this.tuning.staticShadowCache ? RenderTargetTexture.REFRESHRATE_RENDER_ONCE : 1;
-    rec.shadow = g;
-    rec.shadowSet.clear();
-    this.pointGens.push(g);
+    const layer = new LayeredShadowMap(l, this.engine, {
+      size: ultra ? 1024 : 512,
+      layered: this.tuning.staticShadowCache && this.tuning.layeredShadows,
+      provider: (kind, face, rects, out) => this.fillPoint(rec, kind, face, rects, out),
+      configure: (g) => {
+        if (l instanceof SpotLight) {
+          g.usePercentageCloserFiltering = true;
+          g.filteringQuality = ShadowGenerator.QUALITY_MEDIUM;
+        } else {
+          g.usePoissonSampling = true; // PCF silently becomes Poisson on cube maps (notes §1.3)
+        }
+        g.bias = 0.0015;
+        g.normalBias = 0.012;
+        g.darkness = 0;
+        g.transparencyShadow = false;
+      },
+    });
+    rec.layer = layer;
+    rec.shadow = layer.gen;
     this.pointRecs.push(rec);
   }
 
   private demote(rec: LightRec): void {
-    if (rec.shadow) {
-      rec.shadow.dispose();
-      this.dropPointGen(rec.shadow);
-    }
-    rec.shadow = null;
+    rec.layer?.dispose();
+    this.dropPointRec(rec);
     if (!rec.light.isDisposed()) this.joinCluster(rec);
   }
 
-  private dropPointGen(g: ShadowGenerator): void {
-    const i = this.pointGens.indexOf(g);
-    if (i < 0) return;
-    this.pointGens.splice(i, 1);
-    const rec = this.pointRecs.splice(i, 1)[0];
-    rec?.shadowSet.clear();
+  private dropPointRec(rec: LightRec): void {
+    rec.shadow = null;
+    rec.layer = null;
+    const i = this.pointRecs.indexOf(rec);
+    if (i >= 0) this.pointRecs.splice(i, 1);
   }
 
   /** Shadowed point lights wanted: quality, capped so sun + sky + cluster + N fits the slot cap. */
@@ -776,42 +1127,32 @@ export class Lighting implements ILighting {
     return r >= 0.02;
   }
 
-  /**
-   * Cached-shadow invalidation for one mesh that moved / changed / was (un)registered: the sun
-   * map always, a point-light cube map only when the mesh is (or now should be) in its list.
-   */
-  private invalidateNear(mesh: AbstractMesh | null | undefined): void {
-    if (!this.tuning.staticShadowCache) return;
-    this._sunShadows?.getShadowMap()?.resetRefreshCounter();
-    if (this.pointGens.length === 0) return;
-    if (!mesh || mesh.isDisposed()) {
-      for (const g of this.pointGens) g.getShadowMap()?.resetRefreshCounter();
-      return;
-    }
-    const caster = this.casters.has(mesh);
-    for (let i = 0; i < this.pointRecs.length; i++) {
-      const rec = this.pointRecs[i];
-      const sm = this.pointGens[i].getShadowMap();
-      if (!sm) continue;
-      const listed = rec.shadowSet.has(mesh);
-      if (!caster) {
-        if (listed) {
-          // No longer a caster (setShadowCaster(false) already removed it from the list).
-          rec.shadowSet.delete(mesh);
-          sm.resetRefreshCounter();
-        }
-        continue;
+  /** Casters of one cube face (or of the whole map of a spot light) of promoted light `rec`, overlapping `rects`. */
+  private fillPoint(rec: LightRec, kind: CasterKind, face: number, rects: RectSet | null, out: AbstractMesh[]): void {
+    const layer = rec.layer;
+    const cube = !!layer?.cube;
+    const p = rec.shadowPos;
+    const view = cube ? rec.faceViews[face] : undefined;
+    const rect = this.tmpRect2;
+    const size = layer?.size ?? 0;
+    this.forKind(kind, (m) => {
+      if (m.isDisposed() || !m.isEnabled() || !this.pointCasterWanted(rec, m)) return;
+      if (!cube) {
+        out.push(m);
+        return;
       }
-      if (listed) {
-        sm.resetRefreshCounter();
-      } else if (this.pointCasterWanted(rec, mesh)) {
-        // Moved into reach: render it now instead of at the next list rebuild.
-        rec.shadowSet.add(mesh);
-        if (sm.renderList) sm.renderList.push(mesh);
-        else sm.renderList = [mesh];
-        sm.resetRefreshCounter();
+      const bi = m.getBoundingInfo();
+      const bs = bi.boundingSphere;
+      const c = bs.centerWorld;
+      if (!(cubeFaceMask(c.x - p.x, c.y - p.y, c.z - p.z, bs.radiusWorld) & (1 << face))) return;
+      if (rects && view) {
+        const lo = bi.boundingBox.minimumWorld,
+          hi = bi.boundingBox.maximumWorld;
+        if (!projectBoxToFace(view.m, lo.x, lo.y, lo.z, hi.x, hi.y, hi.z, size, POINT_NEAR, 0, rect)) return;
+        if (!rects.hitsRect(rect.x0, rect.y0, rect.x1, rect.y1)) return;
       }
-    }
+      out.push(m);
+    });
   }
 
   // ---- material light slots
@@ -849,24 +1190,16 @@ export class Lighting implements ILighting {
     if (frozen) m.freeze();
   }
 
-  /** Point shadows: casters within reach of the light, minus the fixture around the bulb. */
+  /**
+   * Point shadows: the live map's render list mirrors the casters within reach (introspection and
+   * Babylon's readiness checks; drawing uses the per-face layer lists).
+   */
   private fillPointCasters(rec: LightRec): void {
-    const gen = rec.shadow;
-    const sm = gen?.getShadowMap();
-    if (!gen || !sm) return;
-    rec.shadowPos.copyFrom(this.lightPosition(rec.light));
-    rec.shadowReach = Math.min((rec.light as PointLight).range || 8, 10);
+    const sm = rec.shadow?.getShadowMap();
+    if (!sm) return;
     const list: AbstractMesh[] = [];
     for (const m of this.casters.keys()) if (!m.isDisposed() && this.pointCasterWanted(rec, m)) list.push(m);
-    const old = sm.renderList;
-    let same = !!old && old.length === list.length;
-    if (same && old) for (let i = 0; i < list.length; i++) if (old[i] !== list[i]) same = false;
-    if (!same) {
-      sm.renderList = list;
-      rec.shadowSet.clear();
-      for (const m of list) rec.shadowSet.add(m);
-      sm.resetRefreshCounter();
-    }
+    sm.renderList = list;
   }
 
   // ---- fallback (no clustering): only the nearest lights are shaded

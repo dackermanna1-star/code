@@ -1,5 +1,5 @@
 // Simulation perf harness: boots the full furnished game in headless Chromium (?test=1&hold=1), wrecks the
-// living room / kitchen (the same sequence as tests/perf.mjs "destruction": sledgehammer + axe on the ~40 nearest
+// living room / kitchen (the sequence of tests/perf.mjs "destruction", from a clear spot: sledgehammer + axe on the ~40 nearest
 // furniture assemblies and 4 partitions/windows, then 12 thrown mugs/plates) and measures the SIMULATION per fixed
 // step while the debris flies and settles — without rendering (SwiftShader shadow re-renders would dominate wall
 // time and add nothing to the simulation numbers). Each measured frame = 1 fixed step + the per-frame updates
@@ -13,10 +13,18 @@
 //
 // Usage:
 //   node tests/simperf.mjs [--quality high] [--seconds 12] [--out test-results/perf/sim.json] [--alloc] [--profile]
-//        [--shots dir] [--dist dir | --keep-dist dir] [--seed N] [--timeout 300000] [--url-extra "&x=1"] [--pre f.js] [--diag f.js]
+//        [--shots dir] [--dist dir | --keep-dist dir] [--deterministic] [--seed N] [--timeout 300000] [--url-extra "&x=1"] [--pre f.js] [--diag f.js] [--no-wreck]
 // --dist serves an existing build; --keep-dist builds into that directory and keeps it (reuse with --dist).
 import { createRequire } from "node:module";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, extname, join, resolve } from "node:path";
 import http from "node:http";
@@ -44,8 +52,17 @@ const seed = arg("--seed", "");
 const diagFile = arg("--diag", "");
 /** --pre file: a JS function body evaluated in the page right before the destruction sequence (A/B experiments). */
 const preFile = arg("--pre", "");
+/**
+ * --deterministic: unlimited wall-clock budgets in the destruction (break work: every queued fracture / island is
+ * processed in the step it is queued; passive-impact damage planning), so two runs of the same build wreck the room
+ * (nearly) identically — use it for physics A/B; leave it off to measure destruction hitches.
+ */
+const DETERMINISTIC = flag("--deterministic");
+/** --no-wreck: skip the destruction sequence and its measurement (only --pre / --diag experiments). */
+const NO_WRECK = flag("--no-wreck");
 const t0 = Date.now();
-const log = (...a) => console.log(`[simperf ${((Date.now() - t0) / 1000).toFixed(0)}s]`, ...a);
+const log = (...a) =>
+  console.log(`[simperf ${((Date.now() - t0) / 1000).toFixed(0)}s]`, ...a);
 
 // ------------------------------------------------------------------ build (or reuse)
 let distDir = arg("--dist", "") ? resolve(arg("--dist", "")) : "";
@@ -59,14 +76,39 @@ if (!distDir) {
     distDir = join(tempDir, "dist");
   }
   log(`building into ${distDir}`);
-  await build({ root: repo, configFile: join(repo, "vite.config.ts"), logLevel: "error", build: { outDir: distDir, emptyOutDir: true, minify: false, reportCompressedSize: false } });
+  await build({
+    root: repo,
+    configFile: join(repo, "vite.config.ts"),
+    logLevel: "error",
+    build: {
+      outDir: distDir,
+      emptyOutDir: true,
+      minify: false,
+      reportCompressedSize: false,
+    },
+  });
 }
 if (!existsSync(join(distDir, "index.html"))) {
   console.error(`SIMPERF: ${distDir}/index.html missing`);
   process.exit(2);
 }
 
-const MIME = { ".html": "text/html", ".js": "text/javascript", ".mjs": "text/javascript", ".wasm": "application/wasm", ".css": "text/css", ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".ogg": "audio/ogg", ".wav": "audio/wav", ".mp3": "audio/mpeg", ".json": "application/json", ".svg": "image/svg+xml", ".webp": "image/webp" };
+const MIME = {
+  ".html": "text/html",
+  ".js": "text/javascript",
+  ".mjs": "text/javascript",
+  ".wasm": "application/wasm",
+  ".css": "text/css",
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".ogg": "audio/ogg",
+  ".wav": "audio/wav",
+  ".mp3": "audio/mpeg",
+  ".json": "application/json",
+  ".svg": "image/svg+xml",
+  ".webp": "image/webp",
+};
 const server = http.createServer((req, res) => {
   const url = decodeURIComponent((req.url || "/").split("?")[0]);
   const p = join(distDir, url === "/" ? "index.html" : url);
@@ -75,12 +117,23 @@ const server = http.createServer((req, res) => {
     res.end();
     return;
   }
-  res.writeHead(200, { "Content-Type": MIME[extname(p).toLowerCase()] || "application/octet-stream" });
+  res.writeHead(200, {
+    "Content-Type":
+      MIME[extname(p).toLowerCase()] || "application/octet-stream",
+  });
   res.end(readFileSync(p));
 });
 await new Promise((r) => server.listen(0, "127.0.0.1", r));
 const port = server.address().port;
-const browser = await chromium.launch({ args: ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist", "--autoplay-policy=no-user-gesture-required", "--enable-precise-memory-info"] });
+const browser = await chromium.launch({
+  args: [
+    "--use-angle=swiftshader",
+    "--enable-unsafe-swiftshader",
+    "--ignore-gpu-blocklist",
+    "--autoplay-policy=no-user-gesture-required",
+    "--enable-precise-memory-info",
+  ],
+});
 const page = await browser.newPage({ viewport: { width: 960, height: 540 } });
 const consoleErrors = [];
 page.on("console", (m) => {
@@ -113,6 +166,19 @@ function install() {
   wrap(ctx.physics, "step", "physics");
   wrap(ctx.destruction, "afterPhysics", "dAfter");
   wrap(ctx.vfx, "fixedUpdate", "vfx");
+  // destruction.afterPhysics breakdown (worst steps are reported with it)
+  const d = ctx.destruction;
+  wrap(d.impacts, "process", "d.impacts");
+  wrap(d.joints, "jointLoads", "d.joints");
+  wrap(d.world, "createPendingIslands", "d.pending");
+  wrap(d.fracture, "process", "d.fracture");
+  wrap(d.world, "flushTopology", "d.topology");
+  wrap(d.features, "fixedUpdate", "d.features");
+  wrap(d.debris, "fixedUpdate", "d.debris");
+  wrap(d.world, "refineShapes", "d.refine");
+  wrap(d.world, "rebuildMeshes", "d.meshes");
+  wrap(d.debris, "rebuildBatches", "d.batches");
+  wrap(d.accounting, "update", "d.accounting");
   const ph = ctx.physics;
   const dest = ctx.destruction;
   const FIXED = 1 / 60;
@@ -155,6 +221,11 @@ function install() {
         islands: ds.islands,
         parts: ds.parts,
         micro: ctx.vfx.microCount ?? 0,
+        dParts: Object.fromEntries(
+          Object.entries(r)
+            .filter(([k, v]) => k.startsWith("d.") && v >= 0.5)
+            .map(([k, v]) => [k.slice(2), Math.round(v * 10) / 10]),
+        ),
       });
     }
     return out;
@@ -174,10 +245,26 @@ function wreck() {
   };
   const me = s.player().pos;
   const all = s.listAssemblies();
-  const isStructure = (a) => /wall|partition|slab|floor|ceiling|concrete|stud|joist|baseboard|trim|frame|door|window/i.test(`${a.type} ${a.name}`);
-  const furn = all.filter((a) => ["living", "kitchen"].includes(a.room) && a.parts >= 2 && !isStructure(a));
-  furn.sort((a, b) => Math.hypot(a.pos.x - me.x, a.pos.z - me.z) - Math.hypot(b.pos.x - me.x, b.pos.z - me.z));
-  const structure = all.filter((a) => ["living", "kitchen", null].includes(a.room) && /partition|window/i.test(`${a.type} ${a.name}`)).slice(0, 4);
+  const isStructure = (a) =>
+    /wall|partition|slab|floor|ceiling|concrete|stud|joist|baseboard|trim|frame|door|window/i.test(
+      `${a.type} ${a.name}`,
+    );
+  const furn = all.filter(
+    (a) =>
+      ["living", "kitchen"].includes(a.room) && a.parts >= 2 && !isStructure(a),
+  );
+  furn.sort(
+    (a, b) =>
+      Math.hypot(a.pos.x - me.x, a.pos.z - me.z) -
+      Math.hypot(b.pos.x - me.x, b.pos.z - me.z),
+  );
+  const structure = all
+    .filter(
+      (a) =>
+        ["living", "kitchen", null].includes(a.room) &&
+        /partition|window/i.test(`${a.type} ${a.name}`),
+    )
+    .slice(0, 4);
   const targets = [...furn.slice(0, 40), ...structure];
   const e0 = s.eventCount();
   let hits = 0,
@@ -199,7 +286,15 @@ function wreck() {
   }
   const ev = {};
   for (const e of s.events(e0)) ev[e.type] = (ev[e.type] ?? 0) + 1;
-  return { targets: targets.length, hits, errors, thrown, ms: Math.round(performance.now() - t), events: ev, stats: s.stats().destruction };
+  return {
+    targets: targets.length,
+    hits,
+    errors,
+    thrown,
+    ms: Math.round(performance.now() - t),
+    events: ev,
+    stats: s.stats().destruction,
+  };
 }
 
 // ------------------------------------------------------------------ helpers
@@ -209,7 +304,12 @@ function stat(xs) {
   if (!xs.length) return { mean: 0, p50: 0, p95: 0, max: 0 };
   const s = [...xs].sort((a, b) => a - b);
   const q = (f) => s[Math.min(s.length - 1, Math.floor(f * s.length))];
-  return { mean: r2(xs.reduce((a, b) => a + b, 0) / xs.length), p50: r2(q(0.5)), p95: r2(q(0.95)), max: r2(s[s.length - 1]) };
+  return {
+    mean: r2(xs.reduce((a, b) => a + b, 0) / xs.length),
+    p50: r2(q(0.5)),
+    p95: r2(q(0.95)),
+    max: r2(s[s.length - 1]),
+  };
 }
 /**
  * What the real loop would do with these step costs: Time.beginFrame runs floor(acc / dt) steps per frame (capped),
@@ -240,12 +340,18 @@ function accumulatorModel(stepMs, renderMs, maxSteps) {
     frames++;
     last = ms;
   }
-  return { frameMs: r1(real / Math.max(frames, 1)), stepsPerFrame: r2(steps / Math.max(frames, 1)), simSpeed: r2(sim / Math.max(real, 1)) };
+  return {
+    frameMs: r1(real / Math.max(frames, 1)),
+    stepsPerFrame: r2(steps / Math.max(frames, 1)),
+    simSpeed: r2(sim / Math.max(real, 1)),
+  };
 }
 function window_(name, recs) {
   const pick = (k) => recs.map((r) => r[k]);
   const last = recs[recs.length - 1] ?? {};
-  const physOther = recs.map((r) => Math.max(0, r.physics - r.havok - r.events - r.sync - r.impactsMs));
+  const physOther = recs.map((r) =>
+    Math.max(0, r.physics - r.havok - r.events - r.sync - r.impactsMs),
+  );
   return {
     name,
     steps: recs.length,
@@ -266,7 +372,16 @@ function window_(name, recs) {
     impactsPerStep: stat(pick("imp")),
     hotBodies: stat(pick("hot")),
     substeps: stat(pick("subs")),
-    end: { awake: last.awake, bodies: last.bodies, dynamic: last.dyn, debris: last.debris, consolidated: last.consolidated, islands: last.islands, parts: last.parts, micro: last.micro },
+    end: {
+      awake: last.awake,
+      bodies: last.bodies,
+      dynamic: last.dyn,
+      debris: last.debris,
+      consolidated: last.consolidated,
+      islands: last.islands,
+      parts: last.parts,
+      micro: last.micro,
+    },
   };
 }
 function line(w) {
@@ -282,7 +397,11 @@ async function allocStart() {
   if (!ALLOC) return;
   const c = await session();
   await c.send("HeapProfiler.enable");
-  await c.send("HeapProfiler.startSampling", { samplingInterval: 8192, includeObjectsCollectedByMajorGC: true, includeObjectsCollectedByMinorGC: true });
+  await c.send("HeapProfiler.startSampling", {
+    samplingInterval: 8192,
+    includeObjectsCollectedByMajorGC: true,
+    includeObjectsCollectedByMinorGC: true,
+  });
 }
 async function allocStop(frames) {
   if (!ALLOC) return null;
@@ -299,7 +418,13 @@ async function allocStop(frames) {
     for (const ch of nd.children || []) walk(ch);
   };
   walk(profile.head);
-  return { sampledMBPerFrame: r2(total / 1048576 / frames), top: [...self.entries()].sort((a, b) => b[1] - a[1]).slice(0, 25).map(([name, b]) => ({ name, kbPerFrame: r1(b / 1024 / frames) })) };
+  return {
+    sampledMBPerFrame: r2(total / 1048576 / frames),
+    top: [...self.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 25)
+      .map(([name, b]) => ({ name, kbPerFrame: r1(b / 1024 / frames) })),
+  };
 }
 async function profileStart() {
   if (!PROFILE) return;
@@ -316,7 +441,11 @@ async function profileStop(name) {
   writeFileSync(join(dir, `sim-${name}.cpuprofile`), JSON.stringify(profile));
   const dt = new Map();
   const byId = new Map(profile.nodes.map((nd) => [nd.id, nd]));
-  for (let i = 0; i < profile.samples.length; i++) dt.set(profile.samples[i], (dt.get(profile.samples[i]) ?? 0) + (profile.timeDeltas[i] ?? 0));
+  for (let i = 0; i < profile.samples.length; i++)
+    dt.set(
+      profile.samples[i],
+      (dt.get(profile.samples[i]) ?? 0) + (profile.timeDeltas[i] ?? 0),
+    );
   const fn = new Map();
   let total = 0;
   for (const [id, us] of dt) {
@@ -327,21 +456,46 @@ async function profileStop(name) {
     const k = `${cf.functionName || "(anonymous)"} ${(cf.url || "").split("/").pop() || "(native)"}:${cf.lineNumber + 1}`;
     fn.set(k, (fn.get(k) ?? 0) + us);
   }
-  return { totalMs: r1(total / 1000), top: [...fn.entries()].sort((a, b) => b[1] - a[1]).slice(0, 30).map(([name, us]) => ({ name, ms: r1(us / 1000), pct: r1((100 * us) / Math.max(1, total)) })) };
+  return {
+    totalMs: r1(total / 1000),
+    top: [...fn.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 30)
+      .map(([name, us]) => ({
+        name,
+        ms: r1(us / 1000),
+        pct: r1((100 * us) / Math.max(1, total)),
+      })),
+  };
 }
 async function frames(n) {
   const out = [];
-  for (let left = n; left > 0; left -= 30) out.push(...(await page.evaluate((k) => window.__simperf.frames(k), Math.min(30, left))));
+  for (let left = n; left > 0; left -= 30)
+    out.push(
+      ...(await page.evaluate(
+        (k) => window.__simperf.frames(k),
+        Math.min(30, left),
+      )),
+    );
   return out;
 }
 async function shot(name, pos, target) {
   if (!shotsDir) return;
   mkdirSync(shotsDir, { recursive: true });
   const yaw = Math.atan2(target.x - pos.x, target.z - pos.z);
-  const pitch = Math.atan2(-(target.y - pos.y), Math.hypot(target.x - pos.x, target.z - pos.z));
-  await page.evaluate(({ pos, yaw, pitch }) => window.__sim.setPose({ pos, yaw, pitch }), { pos, yaw, pitch });
+  const pitch = Math.atan2(
+    -(target.y - pos.y),
+    Math.hypot(target.x - pos.x, target.z - pos.z),
+  );
+  await page.evaluate(
+    ({ pos, yaw, pitch }) => window.__sim.setPose({ pos, yaw, pitch }),
+    { pos, yaw, pitch },
+  );
   const url = await page.evaluate(() => window.__sim.capture(3));
-  writeFileSync(join(shotsDir, `${name}.png`), Buffer.from(String(url).split(",")[1], "base64"));
+  writeFileSync(
+    join(shotsDir, `${name}.png`),
+    Buffer.from(String(url).split(",")[1], "base64"),
+  );
   await page.evaluate(() => window.__sim.setPose(null));
 }
 
@@ -352,64 +506,140 @@ try {
   const url = `http://127.0.0.1:${port}/?test=1&hold=1${quality ? `&quality=${quality}` : ""}${seed ? `&seed=${seed}` : ""}${urlExtra}`;
   log("booting", url.replace(/^http:\/\/[^/]+/, ""));
   await page.goto(url, { waitUntil: "load" });
-  await page.waitForFunction(() => window.__sim?.ready || window.__sim?.error || window.__simError, null, { timeout: bootTimeout, polling: 500 });
-  const boot = await page.evaluate(() => ({ error: window.__sim?.error ?? window.__simError ?? null, world: window.__sim?.world?.() ?? null, quality: window.__sim?.boot?.quality }));
+  await page.waitForFunction(
+    () => window.__sim?.ready || window.__sim?.error || window.__simError,
+    null,
+    { timeout: bootTimeout, polling: 500 },
+  );
+  const boot = await page.evaluate(() => ({
+    error: window.__sim?.error ?? window.__simError ?? null,
+    world: window.__sim?.world?.() ?? null,
+    quality: window.__sim?.boot?.quality,
+  }));
   if (boot.error) throw new Error("boot error: " + boot.error);
-  report.boot = { quality: boot.quality, bodies: boot.world?.bodies, parts: boot.world?.parts, awakeAfterSettle: boot.world?.awakeAfterSettle };
+  report.boot = {
+    quality: boot.quality,
+    bodies: boot.world?.bodies,
+    parts: boot.world?.parts,
+    awakeAfterSettle: boot.world?.awakeAfterSettle,
+  };
   log("booted", JSON.stringify(report.boot));
   await page.evaluate(() => window.__sim.loop(false));
   await page.evaluate(install);
-  await page.evaluate(({ pos, yaw, pitch }) => window.__sim.teleport(pos, yaw, pitch), { pos: { x: 6.6, y: 1.65, z: 2.2 }, yaw: 0, pitch: 0.35 });
+  if (DETERMINISTIC)
+    await page.evaluate(() => {
+      const d = window.__game.ctx.destruction;
+      d.world.work.budgetMs = 1e9; // break work (fractures, islands, colliders)
+      d.impacts.damageAllowed = () => true; // passive-impact damage planning budget
+    });
+  // living room by the balcony door, facing the kitchen (clear floor: perf.mjs's destruction pose stands the capsule
+  // in the glass coffee table, which shatters it before the sequence starts)
+  await page.evaluate(
+    ({ pos, yaw, pitch }) =>
+      window.__sim.teleport(pos, yaw, pitch, { strict: true }),
+    { pos: { x: 6.9, y: 1.65, z: 0.95 }, yaw: 0, pitch: 0.35 },
+  );
   await frames(240); // settle after the teleport
   const idle = await frames(120);
   report.windows.idle = window_("idle", idle);
   console.log(line(report.windows.idle));
-  if (shotsDir) await shot("before-kitchen", { x: 6.6, y: 1.65, z: 2.2 }, { x: 6.6, y: 0.9, z: 6.5 });
+  if (shotsDir)
+    await shot(
+      "before-kitchen",
+      { x: 6.9, y: 1.65, z: 0.95 },
+      { x: 6.6, y: 0.9, z: 6.5 },
+    );
 
-  if (preFile) report.pre = await page.evaluate((b) => new Function(b)(), readFileSync(resolve(preFile), "utf8"));
-  await allocStart();
-  await profileStart();
-  const seq = await page.evaluate(wreck);
-  report.sequence = seq;
-  log("sequence", JSON.stringify(seq));
-  const total = Math.round(SECONDS * 60);
-  const recs = await frames(total);
-  const prof = await profileStop("destruction");
-  const alloc = await allocStop(total + 100);
-  report.profile = prof;
-  report.allocations = alloc;
-  const cuts = [
-    ["0-1s", 0, 60],
-    ["1-3s", 60, 180],
-    ["3-6s", 180, 360],
-    [`6-${SECONDS}s`, 360, total],
-  ];
-  for (const [name, a, b] of cuts) {
-    if (a >= recs.length) continue;
-    const w = window_(name, recs.slice(a, b));
-    report.windows[name] = w;
-    console.log(line(w));
+  if (preFile)
+    report.pre = await page.evaluate(
+      (b) => new Function(b)(),
+      readFileSync(resolve(preFile), "utf8"),
+    );
+  if (!NO_WRECK) {
+    await allocStart();
+    await profileStart();
+    const seq = await page.evaluate(wreck);
+    report.sequence = seq;
+    log("sequence", JSON.stringify(seq));
+    const total = Math.round(SECONDS * 60);
+    const recs = await frames(total);
+    const prof = await profileStop("destruction");
+    const alloc = await allocStop(total + 100);
+    report.profile = prof;
+    report.allocations = alloc;
+    const cuts = [
+      ["0-1s", 0, 60],
+      ["1-3s", 60, 180],
+      ["3-6s", 180, 360],
+      [`6-${SECONDS}s`, 360, total],
+    ];
+    for (const [name, a, b] of cuts) {
+      if (a >= recs.length) continue;
+      const w = window_(name, recs.slice(a, b));
+      report.windows[name] = w;
+      console.log(line(w));
+    }
+    const stepMs = recs.map((r) => r.step);
+    report.accumulator = {
+      note: "real loop model: measured step costs + renderMs per frame, Time.beginFrame accumulator (vsync 16.7 ms)",
+      render8ms_cap4: accumulatorModel(stepMs, 8, 4),
+      render8ms_cap2: accumulatorModel(stepMs, 8, 2),
+      render8ms_cap1: accumulatorModel(stepMs, 8, 1),
+    };
+    console.log(
+      "accumulator model (first",
+      SECONDS,
+      "s after the sequence):",
+      JSON.stringify(report.accumulator),
+    );
+    report.perStep = recs.map((r) => ({
+      s: r1(r.step),
+      p: r1(r.physics),
+      d: r1(r.dAfter),
+      a: r.awake,
+      e: r.ev,
+    }));
+    // the worst destruction steps (hitches) with their breakdown (includes the frame update's mesh / batch rebuilds)
+    report.worstDestructionSteps = recs
+      .map((r, i) => ({
+        i,
+        t: r1(i / 60),
+        d: r1(r.dAfter),
+        upd: r1(r.update),
+        parts: r.dParts,
+      }))
+      .sort((a, b) => b.d + b.upd - (a.d + a.upd))
+      .slice(0, 8);
+    console.log(
+      "worst destruction steps:",
+      JSON.stringify(report.worstDestructionSteps),
+    );
+    if (alloc)
+      console.log("allocations:", JSON.stringify(alloc.top.slice(0, 12)));
+    if (prof)
+      console.log("profile top:", JSON.stringify(prof.top.slice(0, 15)));
   }
-  const stepMs = recs.map((r) => r.step);
-  report.accumulator = {
-    note: "real loop model: measured step costs + renderMs per frame, Time.beginFrame accumulator (vsync 16.7 ms)",
-    render8ms_cap4: accumulatorModel(stepMs, 8, 4),
-    render8ms_cap2: accumulatorModel(stepMs, 8, 2),
-    render8ms_cap1: accumulatorModel(stepMs, 8, 1),
-  };
-  console.log("accumulator model (first", SECONDS, "s after the sequence):", JSON.stringify(report.accumulator));
-  report.perStep = recs.map((r) => ({ s: r1(r.step), p: r1(r.physics), d: r1(r.dAfter), a: r.awake, e: r.ev }));
-  if (alloc) console.log("allocations:", JSON.stringify(alloc.top.slice(0, 12)));
-  if (prof) console.log("profile top:", JSON.stringify(prof.top.slice(0, 15)));
   if (diagFile) {
     const body = readFileSync(resolve(diagFile), "utf8");
     report.diag = await page.evaluate((b) => new Function(b)(), body);
     console.log("diag:", JSON.stringify(report.diag, null, 1).slice(0, 20000));
   }
   if (shotsDir) {
-    await shot("after-kitchen", { x: 6.6, y: 1.65, z: 2.2 }, { x: 6.6, y: 0.9, z: 6.5 });
-    await shot("after-floor", { x: 6.0, y: 1.4, z: 2.6 }, { x: 6.4, y: 0.0, z: 4.6 });
-    await shot("after-living", { x: 8.6, y: 1.65, z: 4.4 }, { x: 4.6, y: 0.6, z: 1.6 });
+    await shot(
+      "after-kitchen",
+      { x: 6.9, y: 1.65, z: 0.95 },
+      { x: 6.6, y: 0.9, z: 6.5 },
+    );
+    await shot(
+      "after-floor",
+      { x: 6.0, y: 1.4, z: 2.6 },
+      { x: 6.4, y: 0.0, z: 4.6 },
+    );
+    await shot(
+      "after-living",
+      { x: 8.6, y: 1.65, z: 4.4 },
+      { x: 4.6, y: 0.6, z: 1.6 },
+    );
   }
 } catch (e) {
   console.error("SIMPERF FAILED:", e);

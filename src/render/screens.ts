@@ -110,12 +110,15 @@ class ScreenManager {
   private acc = 0;
   /** Screen animation clock (s): the timebase of every tick and immediate redraw. */
   t = 0;
+  /** Frames seen (screens not drawn in the last couple of frames skip their animation ticks). */
+  frameNo = 0;
   powered = true;
   constructor(scene: Scene) {
     this.scene = scene;
     this.obs = scene.onBeforeRenderObservable.add(() => this.frame());
   }
   private frame(): void {
+    this.frameNo++;
     const dt = Math.min(0.25, this.scene.getEngine().getDeltaTime() / 1000);
     this.t += dt;
     this.acc += dt;
@@ -798,6 +801,13 @@ export function createScreen(scene: Scene, target: Mesh | ScreenPlacement, kind:
   let wasCracked = state === "cracked";
   let flicker = 1;
   let disposed = false;
+  // Animation ticks (canvas redraw + texture upload) only while the screen is actually drawn:
+  // a TV behind the player or in another room costs nothing. It catches up on the next tick
+  // (≤ 1/15 s) when it comes into view again.
+  let drawnFrame = mgr.frameNo;
+  const drawnObs = mesh.onBeforeRenderObservable.add(() => {
+    drawnFrame = mgr.frameNo;
+  });
 
   const lit = (): boolean => (state === "on" || state === "cracked") && (powered || !mains);
 
@@ -901,6 +911,7 @@ export function createScreen(scene: Scene, target: Mesh | ScreenPlacement, kind:
       if (disposed) return;
       disposed = true;
       mgr.screens.delete(handle);
+      mesh.onBeforeRenderObservable.remove(drawnObs);
       if (ownsMesh) {
         screenHooks.unregisterReceiver?.(mesh);
         mesh.dispose(false, false);
@@ -912,7 +923,7 @@ export function createScreen(scene: Scene, target: Mesh | ScreenPlacement, kind:
       draw(t);
     },
     needsAnimation(): boolean {
-      return !disposed && lit();
+      return !disposed && lit() && mgr.frameNo - drawnFrame <= 2;
     },
   };
   mgr.screens.add(handle);

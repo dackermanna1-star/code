@@ -17,6 +17,11 @@
 // (each piece a body). Loose cells of passive debris fractures that are tiny, or any while the
 // scene already holds more dynamic bodies than the quality preset affords, become micro-debris
 // particles instead of new bodies — bounded body counts, same visual outcome.
+// Awake-body budget: loose cells smaller than LOOSE_MIN_EXTENT become micro-debris for every
+// fracture (strikes too), and while the simulation already has more awake bodies than the
+// quality preset affords (awakeCap) so do small, light ones (BUSY_MICRO_*): the cost of a step
+// grows with the awake bodies (heavy wreck: ~1100 awake, 100–200 ms per step here), and a 3–6 cm
+// chip reads the same as a micro-debris chunk with the cell's surface and size.
 
 import { Layer } from "../../core/context.ts";
 import type { Vec3 } from "../../geom/vec.ts";
@@ -30,17 +35,25 @@ import type { FractureRequest, Island, Part } from "./types.ts";
 import type { FractureInfo } from "../features/feature.ts";
 
 export const FRACTURE_BUDGET_MS = WORK_BUDGET_MS;
-/** Loose cells of passive debris fractures smaller than this (m) become micro-debris. */
+/** Loose cells smaller than this (m, largest extent) become micro-debris. */
 export const LOOSE_MIN_EXTENT = 0.03;
 /** Dynamic body budget per micro-debris capacity unit of the quality preset (see bodyCap). */
 const BODIES_PER_MICRO = 0.1;
 const MIN_BODY_CAP = 150;
+/** Awake body budget per micro-debris capacity unit of the quality preset (high: 400, medium 200; see awakeCap). */
+const AWAKE_PER_MICRO = 1 / 15;
+const MIN_AWAKE_CAP = 100;
+/** Over the awake budget, loose cells smaller (m) and lighter (kg) than these become micro-debris. */
+export const BUSY_MICRO_EXTENT = 0.06;
+export const BUSY_MICRO_MASS = 0.05;
 
 export interface FractureDeps {
   onFracture(old: Part, fragments: Part[], info: FractureInfo): void;
   markDamage(part: Part): void;
   /** Dynamic islands currently simulated (debris saturation valve). */
   dynamicCount(): number;
+  /** Bodies awake in the physics simulation (awake-body budget). */
+  awakeCount(): number;
 }
 
 type Role = PlannedCell["role"];
@@ -128,6 +141,12 @@ export class FractureSystem {
     return Math.max(MIN_BODY_CAP, (Number.isFinite(m) ? m : 3000) * BODIES_PER_MICRO);
   }
 
+  /** Awake body budget derived from the quality preset's micro-debris capacity. */
+  private awakeCap(): number {
+    const m = this.w.settings.quality.microDebrisMax;
+    return Math.max(MIN_AWAKE_CAP, (Number.isFinite(m) ? m : 3000) * AWAKE_PER_MICRO);
+  }
+
   private apply(req: FractureRequest): void {
     const P = req.part;
     P.pendingFracture = false;
@@ -144,15 +163,27 @@ export class FractureSystem {
     const roles = this.roles;
     cellParts.length = n;
     roles.length = n;
-    // ---- valve: passive breaks of debris don't multiply bodies without bound
+    // ---- valve: passive breaks of debris don't multiply bodies without bound; tiny cells, and small
+    // light ones while the simulation is busy, are micro-debris (only for materials that have any)
     const passiveDebris = !req.strike && !island.isStatic && (P.gen > 0 || island.layer === Layer.DEBRIS);
     const saturated = passiveDebris && this.deps.dynamicCount() >= this.bodyCap();
+    const canMicro = P.mat.micro !== "none";
+    let busy: boolean | null = null; // (asked lazily: only fractures with small loose cells need it)
     for (let i = 0; i < n; i++) {
       const c = cells[i];
       let role: Role = c.role === "micro" || !(c.volume > 1e-12) ? "micro" : c.role;
-      if (role === "loose" && passiveDebris) {
+      if (role === "loose") {
         const ext = Number.isFinite(c.maxExtent) ? c.maxExtent : 0;
-        if (ext < LOOSE_MIN_EXTENT || (saturated && c.volume * density < DEBRIS_MASS)) role = "micro";
+        const m = c.volume * density;
+        if (passiveDebris) {
+          if (ext < LOOSE_MIN_EXTENT || (saturated && m < DEBRIS_MASS)) role = "micro";
+        } else if (canMicro && ext < BUSY_MICRO_EXTENT && m < BUSY_MICRO_MASS) {
+          if (ext < LOOSE_MIN_EXTENT) role = "micro";
+          else {
+            if (busy === null) busy = this.deps.awakeCount() >= this.awakeCap();
+            if (busy) role = "micro";
+          }
+        }
       }
       roles[i] = role;
       cellParts[i] = null;
