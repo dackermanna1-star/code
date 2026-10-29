@@ -9,7 +9,14 @@
 // when looking along the beam), fades with distance from the window, uses a forward-
 // scattering phase (brighter when looking towards the sun) and drifting dust noise.
 // When the camera stands inside a beam the volume is drawn from its back faces instead.
-// Cost: ~5 small meshes + one ~250-particle CPU system.
+//
+// Occlusion: the volumes are static, but every integration sample is also tested against
+// the sun's (PCF depth) shadow map, so blinds, curtains, furniture against the glass and the
+// tower outside cut the beam exactly where they cut the sunlit floor patch. The visibility
+// taps are jittered per pixel along the ray (interleaved gradient noise) so slatted blinds
+// read as soft striations instead of view-dependent bands; the film grain hides the dither.
+// Cost: ~5 small meshes (6 beam + 6 shadow taps per covered pixel) + one ~250-particle
+// CPU system.
 
 import {
   Color4,
@@ -58,6 +65,23 @@ uniform vec3 uLightDir;
 uniform vec2 uPanes;
 uniform float uDensity;
 uniform float uTime;
+#ifdef SUN_SHADOW
+uniform highp sampler2DShadow sunShadowMap;
+uniform mat4 uSunMatrix;
+// Sun visibility (0 = occluded) of a world point: hardware 2x2 PCF compare against the sun
+// shadow map; points outside the map's frustum count as lit.
+float sunVis(vec3 p) {
+  vec4 c = uSunMatrix * vec4(p, 1.0);
+  vec3 n = c.xyz / c.w;
+#ifdef NDC_HALF_Z
+  vec3 q = vec3(0.5 * n.xy + 0.5, n.z);
+#else
+  vec3 q = 0.5 * n + 0.5;
+#endif
+  if (q.x <= 0.0 || q.x >= 1.0 || q.y <= 0.0 || q.y >= 1.0 || q.z <= 0.0 || q.z >= 1.0) return 1.0;
+  return texture(sunShadowMap, q);
+}
+#endif
 
 float hash12(vec2 p) { vec3 p3 = fract(vec3(p.xyx) * 0.1031); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y) * p3.z); }
 float vnoise(vec2 p) {
@@ -110,13 +134,21 @@ void main(void) {
   tn = max(tn, 0.0);
   float thick = tf - tn;
   if (thick <= 1e-4) discard;
-  // Integrate the beam along the ray segment (4 midpoint samples).
+  // Integrate the beam along the ray segment (6 midpoint samples), each attenuated by the
+  // sun's visibility at a per-pixel jittered point of its sub-segment.
   float acc = 0.0;
-  for (int i = 0; i < 4; i++) {
-    float t = tn + thick * (float(i) + 0.5) * 0.25;
-    acc += beam(o + d * t);
+#ifdef SUN_SHADOW
+  float jit = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
+#endif
+  for (int i = 0; i < 6; i++) {
+    float t = tn + thick * (float(i) + 0.5) / 6.0;
+    float bm = beam(o + d * t);
+#ifdef SUN_SHADOW
+    if (bm > 0.0) bm *= sunVis(ro + rd * (tn + thick * (float(i) + jit) / 6.0));
+#endif
+    acc += bm;
   }
-  acc *= 0.25;
+  acc /= 6.0;
   // Henyey-Greenstein (g = 0.45) normalised to 1 looking straight into the light, with an
   // isotropic floor so beams stay readable from the side.
   float ct = dot(uLightDir, -rd);
@@ -239,17 +271,45 @@ export class Atmosphere implements IAtmosphere {
 
   // ------------------------------------------------------------------ internals
 
+  /**
+   * The sun shadow map can be sampled when it is a PCF depth texture (comparison sampler) on
+   * WebGL2; otherwise the shafts fall back to their unoccluded analytic volume.
+   */
+  private sunShadowUsable(): boolean {
+    const engine = this.scene.getEngine();
+    const gen = this.lighting.sunShadows;
+    const map = gen?.getShadowMapForRendering();
+    return engine.version >= 2 && engine.name !== "WebGPU" && !!gen && gen.usePercentageCloserFiltering && !!map?.depthStencilTexture;
+  }
+
   private makeMaterial(vol: ShaftVolume, color: Vector3, L: Vector3): ShaderMaterial {
+    const occlude = this.sunShadowUsable();
+    const defines: string[] = [];
+    if (occlude) defines.push("#define SUN_SHADOW");
+    if (occlude && this.scene.getEngine().isNDCHalfZRange) defines.push("#define NDC_HALF_Z");
     const m = new ShaderMaterial(
       `shaftMat_${vol.id}`,
       this.scene,
       { vertexSource: SHAFT_VERTEX, fragmentSource: SHAFT_FRAGMENT },
       {
         attributes: ["position"],
-        uniforms: ["world", "viewProjection", "cameraPosition", "uRow0", "uRow1", "uRow2", "uClipMin", "uClipMax", "uLens", "uColor", "uLightDir", "uPanes", "uDensity", "uTime"],
+        uniforms: ["world", "viewProjection", "cameraPosition", "uRow0", "uRow1", "uRow2", "uClipMin", "uClipMax", "uLens", "uColor", "uLightDir", "uPanes", "uDensity", "uTime", "uSunMatrix"],
+        samplers: occlude ? ["sunShadowMap"] : [],
+        defines,
         needAlphaBlending: true,
       },
     );
+    if (occlude) {
+      // The generator is looked up per bind: Lighting recreates it when the map size changes.
+      m.onBindObservable.add(() => {
+        const effect = m.getEffect();
+        const gen = this.lighting.sunShadows;
+        const map = gen?.getShadowMapForRendering();
+        if (!effect || !gen || !map?.depthStencilTexture) return;
+        effect.setMatrix("uSunMatrix", gen.getTransformMatrix());
+        effect.setDepthStencilTexture("sunShadowMap", map);
+      });
+    }
     m.alphaMode = Constants.ALPHA_ADD;
     m.disableDepthWrite = true;
     m.backFaceCulling = true;

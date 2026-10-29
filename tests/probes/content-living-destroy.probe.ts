@@ -92,8 +92,9 @@ export async function probe(): Promise<unknown> {
     sim.step(settle);
     log.push({ name, r, events: evDelta(ev0), features: features().slice(f0) });
   };
-  // hammer into the middle of the TV screen (front glass faces +Z)
-  run("hammer TV screen", () => strike("tv", "glass", null, new Vector3(0, 0, -1), 0.9, 11, 0.015));
+  // hammer into the middle of the TV screen (the LCD cell is the front, faces +Z): one hit must
+  // break the screen
+  run("hammer TV screen", () => strike("tv", "lcd", null, new Vector3(0, 0, -1), 0.9, 11, 0.015));
   // bat swing into the top of the TV from behind: it topples forward off the console and lands
   // face-down on the floor (glass/LCD/boards break on landing)
   run("bat TV top from behind", () => strike("tv", "bezel_top", null, new Vector3(0, -0.2, 1).normalize(), 1.0, 16, 0.03), 150);
@@ -117,5 +118,9 @@ export async function probe(): Promise<unknown> {
     const q = d.positionOf(ids[k]);
     return q ? { x: round(q.x), y: round(q.y), z: round(q.z) } : null;
   };
-  return { drift, evAtRest: evBefore, log, endPos: { tv: pos("tv"), lamp: pos("lamp") }, list: list.filter((a) => a.damage > 0 || a.islands > 1), stats: d.stats() };
+  // assertions (reported as `fail` rather than thrown so the rest of the report survives)
+  const fail: string[] = [];
+  const first = log[0] as { features: string[] };
+  if (!first.features.includes("screenBroken")) fail.push("one hammer hit on the TV screen did not fire screenBroken");
+  return { ok: fail.length === 0, fail, drift, evAtRest: evBefore, log, endPos: { tv: pos("tv"), lamp: pos("lamp") }, list: list.filter((a) => a.damage > 0 || a.islands > 1), stats: d.stats() };
 }

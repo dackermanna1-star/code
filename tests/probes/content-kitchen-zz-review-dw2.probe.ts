@@ -16,13 +16,14 @@ export async function probe(): Promise<unknown> {
   const shift = (def: any, pred: (n: string) => boolean, dz: number) => ({ ...def, parts: def.parts.map((p: any) => (pred(p.name) ? { ...p, poly: { ...p.poly, verts: p.poly.verts.map((v: any) => ({ x: v.x, y: v.y, z: Math.min(v.z, 0.215 + dz) })) } } : p)) });
   const variants: Record<string, any> = {
     orig: base,
-    sidesShort: shift(base, (n) => n === "side_l" || n === "side_r", -0.01),
     elevated: base,
+    elevatedFull: base,
+    lowFloor: base,
   };
   const out: Record<string, unknown> = {};
   let x = -3;
   const runs: Array<[string, number]> = [];
-  for (const [n, def] of Object.entries(variants)) { runs.push([n, d.spawn({ ...def, startAsleep: false }, { p: { x, y: n === "elevated" ? 0.3 : 0, z: 0 }, q: I })]); if (n === "elevated") d.spawn(floorDef(0.8), { p: { x, y: 0.3, z: -0.2 }, q: I }); x += 1.2; }
+  for (const [n, def] of Object.entries(variants)) { const y = n.startsWith("elevated") ? 0.3 : 0; runs.push([n, d.spawn({ ...def, startAsleep: false }, { p: { x, y, z: 0 }, q: I })]); if (n === "elevated") d.spawn(floorDef(0.8), { p: { x, y: 0.3, z: -0.2 }, q: I }); if (n === "elevatedFull") d.spawn(floorDef(1.0), { p: { x, y: 0.3, z: 0.3 }, q: I }); x += 1.2; }
   sim.step(30);
   const gs = runs.map(([n, id]) => {
     const asm = d.assembly(id)!;

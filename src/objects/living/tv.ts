@@ -1,17 +1,17 @@
 // 55" LED flat-screen TV on a pedestal stand, built for destruction like the real layer stack:
-//  * 1.6 mm front glass (shatters first, radial web) over a 1.2 mm LCD cell (`screen` feature,
-//    lcd material → spiderweb cracks, glitch, death) over a 2 mm acrylic diffuser,
+//  * a 1.6 mm LCD cell as the glass front (`screen` feature, lcd material → spiderweb cracks,
+//    glitch, death; no separate cover glass, as on real LED TVs) over a 1.5 mm acrylic diffuser,
 //  * a steel middle frame (two side rails) and a 0.5 mm steel backlight chassis (dents, folds)
 //    carrying three aluminium LED strips on the front and the power + main boards (PCBs with
 //    soldered parts, `sparks`) and two speaker modules on the back,
 //  * a mitred plastic bezel that doubles as the side walls, clipped to a thin plastic back cover,
 //  * an aluminium pedestal: neck bolted through the back cover into a pressed-steel VESA bracket
 //    screwed to the chassis, base plate bolted to the neck.
-// Knock it off the console and the glass/LCD shatter on impact, the cover cracks open and the
+// Knock it off the console and the LCD shatters on impact, the cover cracks open and the
 // boards spark; club it and the bezel clips pop and the chassis dents.
 //
 // Frame: origin at the centre of the stand's base plate (rests on y = 0), screen faces +Z.
-// Panel 1.235 × 0.715 × 0.055 m (diagonal 55"), overall height ~0.79 m, ~17 kg, ~30 parts.
+// Panel 1.235 × 0.715 × 0.055 m (diagonal 55"), overall height ~0.79 m, ~17.3 kg, 29 parts.
 
 import { Builder } from "../lib/builder.ts";
 import { frameBars, pcb } from "../lib/kit.ts";
@@ -47,14 +47,15 @@ export function buildTv(o: TvOpts = {}): AssemblyDef {
   const edge = { px: { surf: "glass_edge" as const }, nx: { surf: "glass_edge" as const }, py: { surf: "glass_edge" as const }, ny: { surf: "glass_edge" as const } };
 
   // ---- optical stack (front to back)
-  const glass = b.box("glass", "glass", "glass", [iw, ih, 0.0014], [cx, cy, zf - 0.0007], { tint: 0xc9d4d2, faces: edge });
-  const lcd = b.box("lcd", "lcd", "lcd_off", [iw, ih, 0.0012], [cx, cy, zf - 0.002], {
-    faces: { px: { surf: "plastic", tint }, nx: { surf: "plastic", tint }, py: { surf: "plastic", tint }, ny: { surf: "plastic", tint } },
-  });
-  const diffuser = b.box("diffuser", "acrylic", "acrylic_white", [iw, ih, 0.002], [cx, cy, zf - 0.0038], { tint: 0xf2f2ef });
+  // Like a real LED TV there is no separate cover glass: the LCD cell (two thin glass sheets with
+  // the polarizer films, modelled as one 1.6 mm lcd-material part) IS the thin glass front, so a
+  // strike on the screen lands on the part carrying the `screen` feature and kills the picture.
+  const lcd = b.box("lcd", "lcd", "lcd_off", [iw, ih, 0.0016], [cx, cy, zf - 0.0008], { faces: edge });
+  // 1.5 mm acrylic light-guide/diffuser plate 0.2 mm behind the cell
+  const diffuser = b.box("diffuser", "acrylic", "acrylic_white", [iw, ih, 0.0015], [cx, cy, zf - 0.00255], { tint: 0xf2f2ef });
   const zCh = zf - 0.0198; // chassis front face
   const railZ0 = zCh,
-    railZ1 = zf - 0.0048;
+    railZ1 = zf - 0.0033;
   const rail = (nm: string, x: number): string => b.box(nm, "steel", "metal_raw", [0.01, ih, railZ1 - railZ0], [x, cy, (railZ0 + railZ1) / 2], { tint: 0xb8bcc0, tess: 0 });
   const railL = rail("rail_l", x0 + 0.005);
   const railR = rail("rail_r", x1 - 0.005);
@@ -114,12 +115,10 @@ export function buildTv(o: TvOpts = {}): AssemblyDef {
 
   // ---- joinery
   for (const bar of bars) {
-    b.clip(glass, bar, 4);
-    b.clip(lcd, bar, 3);
+    b.clip(lcd, bar, 5);
     b.clip(back, bar, 8);
     b.screw(chassis, bar, 2, 15);
   }
-  b.glue(glass, lcd, 15);
   b.glue(lcd, diffuser, 8);
   for (const r of [railL, railR]) {
     b.clip(diffuser, r, 6);

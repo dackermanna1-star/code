@@ -16,18 +16,8 @@ export async function probe(): Promise<unknown> {
   const gw = [...asm.groups.values()].find((g: any) => g.constraints.some((c: any) => c.moving === drw)) as any;
   d.joints.release(gd);
   const tr: Array<[number, number]> = [];
-  for (let i = 0; i < 180; i++) {
-    const jc = gd.constraints[0];
-    const { axis, pivot } = d.joints.worldAxis(gd, jc);
-    const c = d.world.toWorldVec(door, door.com);
-    const r = { x: c.x - pivot.x, y: c.y - pivot.y, z: c.z - pivot.z };
-    const t = { x: axis.y * r.z - axis.z * r.y, y: axis.z * r.x - axis.x * r.z, z: axis.x * r.y - axis.y * r.x };
-    const l = Math.hypot(t.x, t.y, t.z) || 1;
-    const F = door.mass * 6;
-    door.body!.applyForce(new Vector3((t.x / l) * F, (t.y / l) * F, (t.z / l) * F), new Vector3(c.x, c.y, c.z));
-    sim.step(1);
-    if (i % 20 === 0) tr.push([round(((d.joints.coordinate(gd) ?? 0) * 180) / Math.PI, 10), round(d.joints.coordinate(gw) ?? 0, 1000)]);
-  }
+  { const c = d.world.toWorldVec(door, door.com); d.use(door.body!, new Vector3(c.x, c.y + 0.2, c.z), new Vector3(c.x, 1.6, 1.5)); }
+  for (let i = 0; i < 300; i++) { sim.step(1); if (i % 30 === 0) tr.push([round(((d.joints.coordinate(gd) ?? 0) * 180) / Math.PI, 10), round(d.joints.coordinate(gw) ?? 0, 1000)]); }
   await sim.renderReady(3);
-  return { doorDeg_drawerSlide: tr, ev: sim.ev };
+  return { doorDeg_drawerSlide: tr, ev: sim.ev, log: sim.log.filter((l) => l.type !== 'damage').map((l) => ({ t: round(l.t, 100), type: l.type, ev: JSON.stringify(l.ev, (k, v) => (typeof v === 'object' && v && ('scene' in v || 'body' in v || 'parts' in v) ? '[obj]' : v)).slice(0, 400) })) };
 }
