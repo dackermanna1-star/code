@@ -180,6 +180,12 @@ export interface ShellOpts {
   innerTint?: number;
   /** Mass override of the base disc (a hollow foot ring / recessed base). */
   baseKg?: number;
+  /**
+   * Inset (m) of the base's bottom edge: the disc becomes a chamfered foot (frustum) whose
+   * underside fits inside the wall of an identical piece below, so stacked dishes seat face-on-
+   * face (foot on the lower base, or wall on wall) instead of on a rim edge. Default 0.
+   */
+  foot?: number;
   /** Total mass of the wall tiles (default: material density). */
   wallKg?: number;
   /** Seam bond kind between wall tiles (default fused). */
@@ -211,7 +217,8 @@ export function shell(b: Builder, name: string, o: ShellOpts, pos: V3 = [0, 0, 0
   }
   const prof: Array<[number, number]> = [[r0, yw], ...o.profile.slice(1)];
   return scoped(b, name, pos, rot, () => {
-    const base = b.cyl("base", mat, o.baseSurf ?? surf, r0, o.base, [0, o.base / 2, 0], {
+    const base = b.cyl("base", mat, o.baseSurf ?? surf, r0 - Math.max(0, Math.min(o.foot ?? 0, r0 * 0.5)), o.base, [0, o.base / 2, 0], {
+      rTop: r0,
       segments: o.segments,
       tint: o.tint,
       capSurf: o.baseSurf ?? surf,

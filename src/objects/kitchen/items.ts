@@ -118,8 +118,12 @@ export function buildCuttingBoard(o: ItemOpts = {}): AssemblyDef {
   return finish(b);
 }
 
-/** Dish-rack geometry (rack frame): tine row the plates lean on, grid top height. */
-export const DISH_RACK = { gridY: 0.032, tineZ: -0.07, w: 0.44, d: 0.32 } as const;
+/**
+ * Dish-rack geometry (rack frame): tine row the plates lean on, grid top height, and the offset of
+ * the low stop wires either side of the tines that catch the feet of 26 cm plates leaning 12° on
+ * them (so a plate cannot skid out and fall flat).
+ */
+export const DISH_RACK = { gridY: 0.032, tineZ: -0.07, stop: 0.0737, w: 0.44, d: 0.32 } as const;
 
 /** Steel wire dish rack on a plastic drip tray (plates are separate assemblies leaning on the tines). */
 export function buildDishRack(o: ItemOpts = {}): AssemblyDef {
@@ -139,6 +143,10 @@ export function buildDishRack(o: ItemOpts = {}): AssemblyDef {
   const wallL = b.box("wall_l", "steel", "vent_grille", [0.006, 0.09, D], [-W / 2 + 0.003, DISH_RACK.gridY + 0.045, 0], { mass: 0.12, tint: 0xd8d8d8, tess: 0 });
   const wallR = b.box("wall_r", "steel", "vent_grille", [0.006, 0.09, D], [W / 2 - 0.003, DISH_RACK.gridY + 0.045, 0], { mass: 0.12, tint: 0xd8d8d8, tess: 0 });
   const tines = b.box("tines", "steel", "vent_grille", [W - 0.012, 0.12, 0.006], [0, DISH_RACK.gridY + 0.06, DISH_RACK.tineZ], { mass: 0.15, tint: 0xd8d8d8, tess: 0 });
+  for (const sz of [-1, 1]) {
+    const stop = b.box(sz < 0 ? "stop_b" : "stop_f", "steel", "vent_grille", [W - 0.012, 0.02, 0.006], [0, DISH_RACK.gridY + 0.01, DISH_RACK.tineZ + sz * DISH_RACK.stop], { mass: 0.05, tint: 0xd8d8d8, tess: 0 });
+    b.weld(stop, grid, 15);
+  }
   for (const l of legs) {
     b.weld(l, grid, 30);
     b.friction(l, tray, 3);

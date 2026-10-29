@@ -281,7 +281,7 @@ export function kitchenLayout(seed = 1): KitchenLayout {
 
   // ------------------------------------------------------------------ dishwasher contents
   {
-    leanPlates(dw, DW_RACKS.lowerY, -0.07);
+    leanPlates(dw, DW_RACKS.lowerY, DW_RACKS.tineZ);
     const flip = qaxisAngle(v3(1, 0, 0), Math.PI);
     const bowl = K.bowl({ seed: nextSeed() });
     putIn(dw, "bowl", bowl, { p: v3(0.0, DW_RACKS.lowerY - minYRotated(bowl, flip) + REST_GAP, 0.1), q: flip });

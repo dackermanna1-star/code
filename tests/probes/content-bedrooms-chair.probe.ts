@@ -63,7 +63,13 @@ export async function probe(): Promise<unknown> {
       for (const b of asm.bonds) if (!b.alive) broken++;
       let maxV = 0;
       for (const isl of asm.islands) if (isl.body) maxV = Math.max(maxV, isl.body.getLinearVelocity().length());
-      return { v: variants[k].name, x: +p.x.toFixed(3), y: +p.y.toFixed(3), z: +p.z.toFixed(3), tiltDeg: +((Math.acos(Math.min(1, up.y)) * 180) / Math.PI).toFixed(1), islands: asm.islands.size, broken, maxV: +maxV.toFixed(2) };
+      // per-island drop (island frames start at the spawn frame): shows which joint sags
+      const drops: Record<string, number> = {};
+      for (const isl of asm.islands) {
+        const nm = isl.parts.find((q) => q.name === "hub" || q.name === "mechanism" || q.name.endsWith("_hood") || q.name.endsWith("_wheel"))?.name ?? isl.parts[0].name;
+        if (nm === "hub" || nm === "mechanism" || nm === "caster0_hood" || nm === "caster0_wheel") drops[nm] = +(isl.node.position.y - variants[k].y).toFixed(3);
+      }
+      return { v: variants[k].name, x: +p.x.toFixed(3), y: +p.y.toFixed(3), z: +p.z.toFixed(3), tiltDeg: +((Math.acos(Math.min(1, up.y)) * 180) / Math.PI).toFixed(1), islands: asm.islands.size, broken, maxV: +maxV.toFixed(2), drops };
     });
   run(2);
   const s0 = snapshot();

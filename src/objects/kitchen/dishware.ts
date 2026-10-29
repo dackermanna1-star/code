@@ -1,6 +1,7 @@
 // Dishware: dinner/side plates, bowls, tumblers, wine glasses, mugs and a cutlery tray. Every
 // vessel is a flat base disc + an open ring of thick-walled lathe tiles fused together (see
-// lib.shell), so plates stack disc-on-disc, glass is real glass, and a dropped piece breaks along
+// lib.shell) with a chamfered foot, so plates stack foot-on-base and bowls nest wall-on-wall
+// (face contacts, stable piles), glass is real glass, and a dropped piece breaks along
 // its seams and through its tiles. Each item is its own assembly (grab it, throw it).
 // Origins: centre of the base on the surface (y = 0). PURE MODULE (no Babylon).
 
@@ -20,21 +21,21 @@ const GLAZE = 0xf5f3ee;
 export function buildPlate(o: DishOpts = {}): AssemblyDef {
   const b = new Builder("plate", "Dinner Plate", "kitchenware", 12, o.seed);
   // the 8 mm disc stands for the foot ring + well (hollow underneath): real ceramic mass
-  shell(b, "", { profile: [[0.085, 0], [0.13, 0.022]], t: 0.004, base: 0.008, segments: 10, tint: o.tint ?? GLAZE, baseKg: 0.22 });
+  shell(b, "", { profile: [[0.085, 0], [0.13, 0.022]], t: 0.004, base: 0.008, foot: 0.006, segments: 10, tint: o.tint ?? GLAZE, baseKg: 0.22 });
   return finish(b);
 }
 
 /** Side plate Ø 20 cm (~0.3 kg). */
 export function buildSidePlate(o: DishOpts = {}): AssemblyDef {
   const b = new Builder("sidePlate", "Side Plate", "kitchenware", 8, o.seed);
-  shell(b, "", { profile: [[0.065, 0], [0.1, 0.018]], t: 0.0038, base: 0.007, segments: 10, tint: o.tint ?? GLAZE, baseKg: 0.12 });
+  shell(b, "", { profile: [[0.065, 0], [0.1, 0.018]], t: 0.0038, base: 0.007, foot: 0.0055, segments: 10, tint: o.tint ?? GLAZE, baseKg: 0.12 });
   return finish(b);
 }
 
 /** Cereal bowl Ø 15.6 cm (~0.33 kg). */
 export function buildBowl(o: DishOpts = {}): AssemblyDef {
   const b = new Builder("bowl", "Bowl", "kitchenware", 9, o.seed);
-  shell(b, "", { profile: [[0.045, 0], [0.078, 0.068]], t: 0.0045, base: 0.007, segments: 8, tint: o.tint ?? GLAZE });
+  shell(b, "", { profile: [[0.045, 0], [0.078, 0.068]], t: 0.0045, base: 0.007, foot: 0.005, segments: 8, tint: o.tint ?? GLAZE });
   return finish(b);
 }
 

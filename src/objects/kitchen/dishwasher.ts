@@ -20,8 +20,11 @@ export interface DishwasherOpts {
 }
 
 export const DW_DIM = { w: 0.596, h: 0.86, zBack: -0.275, zFront: 0.275, doorBack: 0.215 } as const;
-/** Rack bottom heights (top faces) and their z extent in the dishwasher frame. */
-export const DW_RACKS = { lowerY: 0.138, upperY: 0.468, z0: -0.235, z1: 0.195, x: 0.255 } as const;
+/**
+ * Rack bottom heights (top faces) and their z extent in the dishwasher frame; the lower rack's tine
+ * row (plates lean on it) and the stop wires either side of it that catch the plate feet.
+ */
+export const DW_RACKS = { lowerY: 0.138, upperY: 0.468, z0: -0.235, z1: 0.195, x: 0.255, tineZ: -0.07, stop: 0.0737 } as const;
 
 export function buildDishwasher(o: DishwasherOpts = {}): AssemblyDef {
   const b = new Builder("dishwasher", "Dishwasher", "appliance", 650, o.seed);
@@ -105,8 +108,12 @@ export function buildDishwasher(o: DishwasherOpts = {}): AssemblyDef {
     b.weld(wl, bot, 40);
     b.weld(wr, bot, 40);
     if (tines) {
-      const tr = b.box(`${nm}_tines`, "steel", "vent_grille", [2 * R.x - 0.012, 0.11, 0.006], [0, y + 0.055, -0.07], { mass: 0.2, tint: 0x9aa4ad, tess: 0 });
+      const tr = b.box(`${nm}_tines`, "steel", "vent_grille", [2 * R.x - 0.012, 0.11, 0.006], [0, y + 0.055, R.tineZ], { mass: 0.2, tint: 0x9aa4ad, tess: 0 });
       b.weld(tr, bot, 30);
+      for (const sz of [-1, 1]) {
+        const st = b.box(`${nm}_stop_${sz < 0 ? "b" : "f"}`, "steel", "vent_grille", [2 * R.x - 0.012, 0.02, 0.006], [0, y + 0.01, R.tineZ + sz * R.stop], { mass: 0.05, tint: 0x9aa4ad, tess: 0 });
+        b.weld(st, bot, 15);
+      }
     }
     const g = b.slider(wl, tub.l, { pivots: [[-R.x, y + 0.03, (R.z0 + R.z1) / 2]], axis: [0, 0, 1], min: 0, max: 0.4, strength: 45, friction: 0.25 });
     b.slider(wr, tub.r, { pivots: [[R.x, y + 0.03, (R.z0 + R.z1) / 2]], axis: [0, 0, 1], min: 0, max: 0.4, strength: 45, friction: 0.25, group: g });
