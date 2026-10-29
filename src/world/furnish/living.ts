@@ -83,6 +83,12 @@ const EAST_FACE = 9.2 - PARTITION_FACE;
 const WALL_GAP = 0.003;
 /** Gap between free-standing furniture and the wall face. */
 const WALL_CLEAR = 0.02;
+/**
+ * Lean (degrees back from vertical) of the throw pillows against the back cushions: their rest
+ * angle (a pillow stood up at 10° rolls back on its rounded edge to ~25–30° and pushes the loose
+ * back cushions), so they spawn at rest.
+ */
+const PILLOW_LEAN = 27;
 /** Tiny lift so stacked items start in contact without interpenetration. */
 const LIFT = 0.0005;
 
@@ -328,7 +334,7 @@ export function furnishLivingItems(): LivingItem[] {
   {
     // throw pillows leaning on the back cushions near the arms
     const lay = seatLayout(SOFA_PARAMS);
-    const lean = qeuler(-100 * D2R, 0, 0);
+    const lean = qeuler(-(90 + PILLOW_LEAN) * D2R, 0, 0);
     for (const [k, lx] of [-0.6, 0.6].entries()) {
       const def = buildThrowPillow({ seed: 3131 + k, tint: k ? 0xc9a24a : 0xb5523b });
       const qLocal = qmul(yawQ(k ? -8 : 8), lean);
@@ -362,7 +368,7 @@ export function furnishLivingItems(): LivingItem[] {
   {
     const lay = seatLayout(ARMCHAIR_PARAMS);
     const def = buildThrowPillow({ seed: 3151, size: 0.4, tint: 0x5c6b5a });
-    const qLocal = qeuler(-100 * D2R, 0, 0);
+    const qLocal = qeuler(-(90 + PILLOW_LEAN) * D2R, 0, 0);
     const loc = worldAabb(def, { p: v3(0, 0, 0), q: qLocal });
     const lz = lay.backZ1 + 0.02 + (loc.max.z - loc.min.z) / 2 - (loc.min.z + loc.max.z) / 2;
     const w = localToWorld(arm, 0, ARMCHAIR_PARAMS.seatTop + 0.05 - loc.min.y, lz);
