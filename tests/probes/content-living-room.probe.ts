@@ -104,7 +104,12 @@ export async function probe(): Promise<unknown> {
     for (const { it, id } of watch) {
       const asm = d.assembly(id);
       if (!asm) continue;
-      for (const pt of asm.parts) if (pt.island) out.set(`${it.id}.${pt.name}`, d.world.toWorldVec(pt.island, pt.centroid));
+      for (const pt of asm.parts)
+        if (pt.island) {
+          out.set(`${it.id}.${pt.name}`, d.world.toWorldVec(pt.island, pt.centroid));
+          // a second point 0.1 m along the part's local +Y measures its tilt change
+          out.set(`${it.id}.${pt.name}^`, d.world.toWorldVec(pt.island, { x: pt.centroid.x, y: pt.centroid.y + 0.1, z: pt.centroid.z }));
+        }
     }
     return out;
   };
@@ -137,12 +142,18 @@ export async function probe(): Promise<unknown> {
     const dist = Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
     if (dist > 0.005) moved.push({ id: items[i].id, dist: Math.round(dist * 1000) / 1000, dy: Math.round((b.y - a.y) * 1000) / 1000 });
   });
-  const partsMoved: Array<{ part: string; dist: number; dy: number }> = [];
-  for (const [k, b] of partPos()) {
+  const partsMoved: Array<{ part: string; dist: number; dy: number; tiltDeg: number }> = [];
+  const parts1 = partPos();
+  for (const [k, b] of parts1) {
     const a = parts0.get(k);
-    if (!a) continue;
+    if (!a || k.endsWith("^")) continue;
     const dist = Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
-    if (dist > 0.005) partsMoved.push({ part: k, dist: Math.round(dist * 1000) / 1000, dy: Math.round((b.y - a.y) * 1000) / 1000 });
+    const a2 = parts0.get(k + "^")!,
+      b2 = parts1.get(k + "^")!;
+    const u = { x: a2.x - a.x, y: a2.y - a.y, z: a2.z - a.z },
+      v = { x: b2.x - b.x, y: b2.y - b.y, z: b2.z - b.z };
+    const tilt = (Math.acos(Math.max(-1, Math.min(1, (u.x * v.x + u.y * v.y + u.z * v.z) / 0.01))) * 180) / Math.PI;
+    if (dist > 0.005 || tilt > 2) partsMoved.push({ part: k, dist: Math.round(dist * 1000) / 1000, dy: Math.round((b.y - a.y) * 1000) / 1000, tiltDeg: Math.round(tilt * 10) / 10 });
   }
   const brokenIslands = d
     .list()

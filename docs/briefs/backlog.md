@@ -18,3 +18,8 @@
 - Light features: opt-out flag so a room switch skips appliance lamps (oven/fridge interior lights).
 - Destruction: stacked loads — impact energy uses only the struck body's mass.
 - Physics: nested compound bodies settle ~1 mm per level lower than shapes allow.
+- Sun azimuth: decided to keep the west-south-west evening sun (south openings get sun patches/shafts;
+  east windows get sky light only).
+- addLight(light, room, mains, opts?: { castShadows }) so FeatureDef.light.castShadows is honoured.
+- render-core: set useGLTFLightFalloff at material creation; env-capture feedback-loop warning seen in
+  render-env integration probe (re-check after render-core's double-buffer fix).

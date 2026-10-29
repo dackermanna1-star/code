@@ -1,5 +1,5 @@
 // Settling checks for the bedroom-2 desk and two jointed objects (reviewer findings):
-//  * desk + desk lamp (bed2 structure + fixtures): everything must fall asleep and the desk must
+//  * desk + desk lamp (bed2 structure + fixtures): everything must fall asleep within 5 s and the desk must
 //    not creep (the old spring-loaded lamp shoulder never slept and walked the desk ~1.8 mm/s);
 //  * the full desk set (desk + PC + monitor + laptop + lamp + smalls): asleep, desk drift < 2 mm;
 //  * laptop alone on a slab: the lid must hold its built 115° (within 2°);
@@ -72,6 +72,7 @@ export async function probe(): Promise<unknown> {
 
   // ---- desk variants in the real bedroom 2
   for (const [name, only] of [
+    ["deskOnly", ["b_desk"]],
     ["deskLamp", ["b_desk", "b_lamp"]],
     ["deskFull", ["b_desk", "b_pc", "b_monitor", "b_speaker", "b_keyboard", "b_mouse", "b_mug", "b_laptop", "b_lamp", "b_papers"]],
   ] as Array<[string, string[]]>) {
@@ -82,13 +83,19 @@ export async function probe(): Promise<unknown> {
     const items = bedroomItems().filter((it) => only.some((o) => it.id === o || it.id.startsWith(o + "_") || (o === "b_speaker" && it.id.startsWith(o))));
     const ids = items.map((it) => c.d.spawn(it.placement.def, it.placement.xf));
     const deskK = items.findIndex((it) => it.id === "b_desk");
-    const lampK = items.findIndex((it) => it.id === "b_lamp");
+    const lampK = Math.max(0, items.findIndex((it) => it.id === "b_lamp"));
     const pos = (k: number): Vector3 => {
       const p = c.d.positionOf(ids[k])!;
       return new Vector3(p.x, p.y, p.z);
     };
     const trace: string[] = [];
-    c.run(180); // 3 s settle
+    const desk0 = pos(deskK);
+    const early: string[] = [];
+    for (let s = 0; s < 300; s += 30) {
+      c.run(30); // 5 s settle (the lamp drops onto its stops)
+      const dd = pos(deskK).subtract(desk0);
+      early.push(`s${s + 30} awake=${c.physics.stats().awake} desk=(${(dd.x * 1000).toFixed(2)},${(dd.y * 1000).toFixed(2)},${(dd.z * 1000).toFixed(2)})mm`);
+    }
     const desk3 = pos(deskK),
       lamp3 = pos(lampK);
     let awakeEnd = 0;
@@ -96,19 +103,28 @@ export async function probe(): Promise<unknown> {
       c.run(60);
       awakeEnd = c.physics.stats().awake;
       const dd = pos(deskK).subtract(desk3);
-      trace.push(`t=${(3 + (s + 60) / 60).toFixed(0)}s awake=${awakeEnd} desk=(${(dd.x * 1000).toFixed(2)},${(dd.z * 1000).toFixed(2)})mm`);
+      trace.push(`t=${(5 + (s + 60) / 60).toFixed(0)}s awake=${awakeEnd} desk=(${(dd.x * 1000).toFixed(2)},${(dd.z * 1000).toFixed(2)})mm`);
     }
     const deskDrift = pos(deskK).subtract(desk3).length() * 1000;
     const lampDrift = pos(lampK).subtract(lamp3).length() * 1000;
-    const deskTotal = pos(deskK).subtract(new Vector3(items[deskK].placement.xf.p.x, items[deskK].placement.xf.p.y, items[deskK].placement.xf.p.z)).length() * 1000;
-    const lampBase = islandOf(ids[lampK], c.d, "base_weight");
+    const hasLamp = items[lampK].id === "b_lamp";
+    const lampBase = hasLamp ? islandOf(ids[lampK], c.d, "base_weight") : null;
     const joints: Record<string, number> = {};
-    for (const nm of ["turret", "arm1_l", "elbow", "head_knuckle"]) {
+    if (lampBase) for (const nm of ["arm1_l", "elbow", "head_knuckle"]) {
       const isl = islandOf(ids[lampK], c.d, nm);
       if (isl !== lampBase) joints[nm] = +relAngleDeg(lampBase, isl).toFixed(2);
     }
-    out[name] = { trace, deskDriftMm_3to13s: +deskDrift.toFixed(2), deskFromPlacementMm: +deskTotal.toFixed(2), lampDriftMm_3to13s: +lampDrift.toFixed(2), lampJointAnglesDeg: joints, awakeEnd };
-    checks[`${name}: all asleep after 13 s`] = awakeEnd === 0;
+    const asleep5 = early.length > 0 && early[early.length - 1].includes("awake=0 ");
+    const sv = desk3.subtract(desk0);
+    const settle = Math.hypot(sv.x, sv.z) * 1000; // horizontal (the desk also sinks into the carpet)
+    out[name] = { early, trace, deskSettleMm_0to5s: { horiz: +settle.toFixed(2), vert: +(sv.y * 1000).toFixed(2) }, deskDriftMm_5to15s: +deskDrift.toFixed(2), lampDriftMm_5to15s: +lampDrift.toFixed(2), lampJointAnglesDeg: joints, awakeEnd };
+    // While any jointed island on the desk is awake, the desk creeps ~1.75 mm/s on the carpet (the
+    // same rate for a lone head hinge as for the whole lamp; a rigid lamp or a woken bare desk does
+    // not creep — a physics/joint-solver effect, reported). The lamp now comes to rest, so this is
+    // bounded by its settling time; it used to go on forever.
+    checks[`${name}: asleep within 5 s`] = asleep5;
+    checks[`${name}: desk settle shift < 15 mm`] = settle < 15;
+    checks[`${name}: all asleep after 15 s`] = awakeEnd === 0;
     checks[`${name}: desk drifts < 2 mm over 10 s`] = deskDrift < 2;
     checks[`${name}: lamp drifts < 2 mm over 10 s`] = lampDrift < 2;
     c.scene.dispose();

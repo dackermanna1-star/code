@@ -12,6 +12,7 @@ import { BEDROOM_OBJECTS } from "../../src/objects/bedroom/index.ts";
 import { guitarOnStand } from "../../src/objects/bedroom/guitar.ts";
 import { polyTransform } from "../../src/geom/poly.ts";
 import { polyContact } from "../../src/objects/lib/contact.ts";
+import { planJointConstraints } from "../../src/destruction/runtime/graph.ts";
 
 /** Realistic mass ranges (kg) per type id; brief ranges where the brief gives one. */
 const MASS: Record<string, [number, number]> = {
@@ -45,7 +46,7 @@ const MASS: Record<string, [number, number]> = {
   keyboard: [0.7, 1.4],
   mouse: [0.06, 0.15],
   speaker: [0.4, 1.2],
-  deskLamp: [2, 4],
+  deskLamp: [2, 5], // heavy cast-iron base (≈ 2.7 kg) out-weighs the 1.3 kg arm reach, like a real task lamp
   laptop: [1.5, 2.5], // brief
   officeChair: [12, 18], // brief
   bookshelf: [25, 45],
@@ -137,7 +138,7 @@ test("interactive joints: drawers, doors, lids, casters, articulated lamp", () =
   assert.equal(groups("laptop", "hinge"), 1);
   assert.equal(groups("jewelryBox", "hinge"), 1);
   assert.equal(groups("officeChair", "hinge"), 6, "5 caster ball joints + seat swivel");
-  assert.equal(groups("deskLamp", "hinge"), 4);
+  assert.equal(groups("deskLamp", "hinge"), 3, "shoulder, elbow, head (fixed turret post)");
   // latches: wardrobe magnetic catches, jewelry box clasp
   assert.equal(BEDROOM_OBJECTS.wardrobe().bonds.filter((b) => b.kind === "latch").length, 2);
   assert.equal(BEDROOM_OBJECTS.jewelryBox().bonds.filter((b) => b.kind === "latch").length, 1);
@@ -195,8 +196,44 @@ test("flat soft goods keep ≤ 16 hull points so the physics hull is exact (thin
   check("duvet", ["main", "hem", "drape_l", "drape_r"]);
   check("foldedClothes", ["cloth"]);
   check("officeChair", ["seat_cushion"]);
-  const bag = BEDROOM_OBJECTS.beanbag().parts.find((q) => q.name === "bag")!;
-  assert.ok(bag.poly.verts.length <= 16, `beanbag has ${bag.poly.verts.length} hull points`);
+  const bag = BEDROOM_OBJECTS.beanbag().parts;
+  assert.ok(bag.length >= 3, "beanbag is several soft lobes (rounded silhouette)");
+  for (const p of bag) assert.ok(p.poly.verts.length <= 16, `beanbag ${p.name} has ${p.poly.verts.length} hull points`);
+});
+
+test("rigid bonds join parts that touch (no fastener bridging an air gap > 0.6 mm)", () => {
+  // joints (hinge/slider/latch) may span clearance; every other bond must be real contact. The
+  // 0.6 mm allowance covers intended play (shelves on pins: 0.5 mm)
+  const bad: string[] = [];
+  for (const type of Object.keys(BEDROOM_OBJECTS)) {
+    const def = BEDROOM_OBJECTS[type]();
+    const by = new Map(def.parts.map((p) => [p.name, p]));
+    for (const bd of def.bonds) {
+      if (bd.b === "world" || bd.joint) continue;
+      const A = by.get(bd.a)!,
+        B = by.get(bd.b)!;
+      if (!polyContact(A.poly, B.poly, 0.0006)) {
+        const c = polyContact(A.poly, B.poly, 0.1);
+        bad.push(`${type}: ${bd.kind} ${bd.a}—${bd.b} ${c ? (c.sep * 1000).toFixed(2) + " mm" : "> 10 cm"}`);
+      }
+    }
+  }
+  assert.deepEqual(bad, []);
+});
+
+test("jointed parts that gravity loads rest on a stop at the built pose (hinge friction creeps)", () => {
+  // desk lamp: gravity tips arms/head forward (+): each joint's forward limit is ≤ 1° from the pose
+  const lamp = BEDROOM_OBJECTS.deskLamp();
+  const lj = lamp.bonds.filter((b) => b.kind === "hinge");
+  assert.ok(lj.length >= 4);
+  for (const b of lj) {
+    assert.ok(b.joint!.max <= (1 * Math.PI) / 180 && b.joint!.max >= 0, `deskLamp ${b.a} forward stop ${b.joint!.max}`);
+    assert.equal(b.joint!.spring, undefined, "no return springs (they keep the lamp awake)");
+  }
+  // laptop: the lid leans past vertical, so its open stop (min) holds it at the built angle
+  for (const b of BEDROOM_OBJECTS.laptop().bonds.filter((q) => q.kind === "hinge")) {
+    assert.ok(b.joint!.min <= 0 && b.joint!.min >= (-1 * Math.PI) / 180, `laptop lid open stop ${b.joint!.min}`);
+  }
 });
 
 test("office chair casters: ball-jointed wheels at the wheel centre, hood pressed into the leg", () => {
@@ -216,5 +253,17 @@ test("office chair casters: ball-jointed wheels at the wheel centre, hood presse
     const pv = balls[0].joint!.pivot;
     assert.ok(Math.hypot(pv.x - cx, pv.y - cy, pv.z - cz) < 0.002, "pivot at the wheel centre (no moment on the joint)");
     assert.ok(def.bonds.some((b) => b.kind === "press" && b.a === `caster${k}_hood` && b.b === `leg${k}`));
+    assert.ok(wheel.poly.verts.length <= 16, "wheel rolling hull is exact (≤ 16 points, no decimation)");
+    // the runtime realises a single-pivot hinge as a ball-and-socket: the casters rely on it
+    const plan = planJointConstraints("hinge", [{ alive: true, moving: 1, fixed: 0, anchor: pv }]);
+    assert.equal(plan.length, 1);
+    assert.equal(plan[0].kind, "ball", "single-pivot hinge must plan as a ball joint (caster swivel)");
+    // the settled wheel (rising ≤ 13 mm into the hood) must not pass through hood or leg
+    const hood = def.parts.find((p) => p.name === `caster${k}_hood`)!;
+    let top = -Infinity,
+      under = Infinity;
+    for (const v of wheel.poly.verts) top = Math.max(top, v.y);
+    for (const v of hood.poly.verts) under = Math.min(under, v.y);
+    assert.ok(under - top >= 0.012, `caster${k}: hood clearance ${(under - top) * 1000} mm`);
   }
 });

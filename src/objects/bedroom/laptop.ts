@@ -90,9 +90,12 @@ export function buildLaptop(o: LaptopOpts = {}): AssemblyDef {
     b.screen(lcd, "laptop", { on: o.on ?? true, mains: false });
     lidParts.push(lidBack, lcd, bt, bb, bl, br);
   });
-  // closing rotates the top of the lid towards +Z (positive about +X)
+  // closing rotates the top of the lid towards +Z (positive about +X). The lid leans 25° past
+  // vertical, so gravity opens it: physics hinge friction is velocity-level and creeps under that
+  // static load (the lid used to fall to a −20° stop), so the open stop sits at the built angle and
+  // carries the lid's weight; closing it is free (friction-damped).
   for (const x of [-0.12, 0.12]) {
-    b.hinge(lidBack, wb, { pivots: [[x, hingeY, hingeZ]], axis: [1, 0, 0], min: -20, max: open - 3, friction: 1.5, strength: 35, group: "lid" });
+    b.hinge(lidBack, wb, { pivots: [[x, hingeY, hingeZ]], axis: [1, 0, 0], min: -0.5, max: open - 3, friction: 1.5, strength: 35, group: "lid" });
   }
   return finish(b, o);
 }

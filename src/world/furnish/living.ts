@@ -88,7 +88,7 @@ const WALL_CLEAR = 0.02;
  * angle (a pillow stood up at 10° rolls back on its rounded edge to ~25–30° and pushes the loose
  * back cushions), so they spawn at rest.
  */
-const PILLOW_LEAN = 27;
+const PILLOW_LEAN = 10;
 /** Tiny lift so stacked items start in contact without interpenetration. */
 const LIFT = 0.0005;
 

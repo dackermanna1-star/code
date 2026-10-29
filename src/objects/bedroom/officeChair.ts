@@ -30,7 +30,11 @@ export function buildOfficeChair(o: OfficeChairOpts = {}): AssemblyDef {
     hubY1 = 0.135;
   const hub = b.cyl("hub", "aluminum", "aluminum", 0.036, hubY1 - hubY0, [0, (hubY0 + hubY1) / 2, 0], { segments: 12, tint: 0x9a9da2, mass: 0.35 });
   const rTip = 0.3;
-  const tipY = 0.072; // underside of the leg tips (caster sockets)
+  // The jointed wheels ride up into their hoods by 7–15 mm under the chair's weight (positional give
+  // of the ball joints, see below): hoods and leg tips are built that much higher so the settled
+  // wheels do not pass visibly through them (jointed bodies do not collide with each other).
+  const CASTER_SAG = 0.017;
+  const tipY = 0.072 + CASTER_SAG; // underside of the leg tips (caster sockets)
   const legs: string[] = [];
   for (let k = 0; k < 5; k++) {
     const a = Math.PI / 2 + (2 * Math.PI * k) / 5;
@@ -58,8 +62,27 @@ export function buildOfficeChair(o: OfficeChairOpts = {}): AssemblyDef {
   // between the leg and an axle-hinged wheel is too compliant for the physics solver at a ~1:200
   // mass ratio: the casters folded and the chair sagged 5 cm. With the joint at the ball's centre
   // the floor load passes straight through the pivot and the joint carries no moment; the
-  // remaining positional give is ~1.5 cm, see tests/probes/content-bedrooms-chair.probe.ts.)
+  // remaining positional give is 7–15 mm, see tests/probes/content-bedrooms-settle.probe.ts.)
+  //
+  // NOTE: the builder has no ball joint. A hinge with ONE pivot becomes a ball-and-socket in the
+  // runtime (destruction/runtime/graph.ts planJointConstraints: "1 intact → ball", the rule for a
+  // door hanging on its last hinge); the axis and ±180° limits below are then unused. If that rule
+  // changes, every caster turns into a one-axis wheel: tests/unit/content-bedrooms-objects.test.ts
+  // and the settle probe assert the planned constraint kind. (Contract request: a builder ball().)
   const wheelR = 0.03; // 60 mm twin wheels (≈ 0.12 kg of rubber per caster)
+  // Rolling shape: exactly 16 points (the physics hull limit, so nothing is decimated arbitrarily),
+  // spread evenly over the sphere on a Fibonacci spiral from pole to pole. It rests on a face about
+  // 0.85 R below its centre in any orientation, so it rolls the same way in every direction.
+  const wheelPts: Array<[number, number, number]> = [];
+  {
+    const N = 16,
+      ga = Math.PI * (3 - Math.sqrt(5));
+    for (let i = 0; i < N; i++) {
+      const y = -1 + (2 * i) / (N - 1);
+      const r = Math.sqrt(Math.max(0, 1 - y * y));
+      wheelPts.push([wheelR * r * Math.cos(ga * i), wheelR * y, wheelR * r * Math.sin(ga * i)]);
+    }
+  }
   for (let k = 0; k < 5; k++) {
     const a = Math.PI / 2 + (2 * Math.PI * k) / 5;
     const ca = Math.cos(a),
@@ -70,7 +93,7 @@ export function buildOfficeChair(o: OfficeChairOpts = {}): AssemblyDef {
     let hood = "",
       wheel = "";
     b.group([sx, 0, sz], [0, yawDeg, 0], `caster${k}_`, () => {
-      const yH = 2 * wheelR + 0.0008; // hood underside just clears the wheels
+      const yH = 2 * wheelR + 0.0008 + CASTER_SAG; // hood underside clears the settled wheels
       hood = b.hull(
         "hood",
         "plastic",
@@ -88,7 +111,7 @@ export function buildOfficeChair(o: OfficeChairOpts = {}): AssemblyDef {
         [0, 0, 0],
         { tint: PAL.black, mass: o.casterKg ?? 0.05 },
       );
-      wheel = b.ellipsoid("wheel", "rubber", "rubber", [wheelR, wheelR, wheelR], [0, wheelR, 0], { segments: 12, rings: 6, tint: 0x2a2a2a, ...(o.casterKg !== undefined ? { mass: o.casterKg } : {}) });
+      wheel = b.hull("wheel", "rubber", "rubber", wheelPts, [0, wheelR, 0], { smooth: 1, tint: 0x2a2a2a, ...(o.casterKg !== undefined ? { mass: o.casterKg } : {}) });
       if (jointed) b.hinge(wheel, hood, { pivots: [[0, wheelR, 0]], axis: [1, 0, 0], min: -180, max: 180, strength: 40 });
       else b.bond(wheel, hood, "press", { strength: 40 });
     });
