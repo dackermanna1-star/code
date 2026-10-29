@@ -31,7 +31,7 @@ import type { EventBus, GameEvents } from "../../core/events.ts";
 import type { Rng } from "../../core/rng.ts";
 import type { Settings } from "../../core/settings.ts";
 import type { Time } from "../../core/time.ts";
-import { polyBounds, polyCentroid, polyClosestPoint, polyExtents, polyPoints, polyVolume, type ConvexPoly } from "../../geom/poly.ts";
+import { polyBounds, polyCentroid, polyClosestPoint, polyExtents, polyHiddenFaces, polyPoints, polyVolume, type ConvexPoly } from "../../geom/poly.ts";
 import { polyToRenderGeom, type RenderGeom } from "../../geom/meshgen.ts";
 import type { Vec3, Xform } from "../../geom/vec.ts";
 import { S } from "../../render/surfaces.ts";
@@ -454,6 +454,11 @@ export class World {
     if (bond.rigid) {
       if (bond.a.island) this.topoDirty.add(bond.a.island);
       if (bond.b?.island) this.topoDirty.add(bond.b.island);
+      // faces hidden by this bond's neighbour are visible again (visiblePoly)
+      if (bond.b) {
+        this.markGeom(bond.a, true);
+        this.markGeom(bond.b, true);
+      }
     }
     this.hooks.bondBroken(bond, energy);
   }
@@ -465,6 +470,9 @@ export class World {
     else return;
     removeFrom(from.bonds, bond);
     to.bonds.push(bond);
+    // the other end's face may have been hidden by `from` and is only partly covered by `to`
+    const other = bond.a === to ? bond.b : bond.a;
+    if (other && bond.rigid) this.markGeom(other, true);
     if (bond.group) this.hooks.jointBondsChanged(bond.group);
   }
 
@@ -1382,7 +1390,7 @@ export class World {
 
   partGeom(p: Part): RenderGeom {
     if (!p.geom || p.geomDirty) {
-      p.geom = polyToRenderGeom(p.poly, {
+      p.geom = polyToRenderGeom(this.visiblePoly(p), {
         tessCell: p.tessCell > 0 ? p.tessCell : undefined,
         dents: p.dents.length ? p.dents : undefined,
         cracks: p.cracks.length ? p.cracks : undefined,
@@ -1391,6 +1399,26 @@ export class World {
       p.geomDirty = false;
     }
     return p.geom;
+  }
+
+  /**
+   * The part's poly without the faces completely covered by a rigidly bonded neighbour on the same
+   * island (fused tiles, bonded fracture cells, stacked boards): drawing those internal faces
+   * causes depth ties along the shared edges (thin dark seams). Bond changes re-mark both ends
+   * (breakBond / repointBond), so a face reappears as soon as its cover is gone.
+   */
+  private visiblePoly(p: Part): ConvexPoly {
+    let others: ConvexPoly[] | null = null;
+    for (const b of p.bonds) {
+      if (!b.alive || !b.rigid || !b.b) continue;
+      const o = b.a === p ? b.b : b.a;
+      if (!o.alive || o.island !== p.island) continue;
+      (others ??= []).push(o.poly);
+    }
+    if (!others) return p.poly;
+    const hidden = polyHiddenFaces(p.poly, others);
+    if (!hidden.size || hidden.size >= p.poly.faces.length) return p.poly;
+    return { ...p.poly, faces: p.poly.faces.filter((_, i) => !hidden.has(i)) };
   }
 
   private rebuildChunk(island: Island, ch: Chunk): void {

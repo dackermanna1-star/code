@@ -2,6 +2,7 @@
 // the loading overlay, then the game loop. URL parameters:
 //   ?test=1            deterministic seed, preserveDrawingBuffer, no click-to-play / pointer lock
 //   ?quality=low|medium|high|ultra   ?ps2=1   ?seed=N   ?nofurniture=1 (structure only)
+//   ?settle=N (settle-phase steps, debugging)   ?hold=1 (frozen after boot: step via __sim.step)
 // A boot failure shows an overlay (message + stack) and sets window.__simError / __sim.error.
 
 import { Engine, Scene, Vector3, Color4 } from "@babylonjs/core";
@@ -31,6 +32,10 @@ interface BootOptions {
   quality: QualityLevel | null;
   ps2: boolean | null;
   furniture: boolean;
+  /** Settle-phase fixed steps (debug: `?settle=N`). */
+  settle: number | null;
+  /** Tests: keep the simulation frozen after boot (time.scale = 0); advance with __sim.step(n). */
+  hold: boolean;
 }
 
 const TEST_SEED = 0x5eed1234;
@@ -48,6 +53,8 @@ function parseOptions(): BootOptions {
     quality: ql in QUALITY ? (ql as QualityLevel) : null,
     ps2: flag("ps2"),
     furniture: flag("nofurniture") !== true,
+    hold: flag("hold") === true,
+    settle: q.has("settle") && Number.isFinite(Number(q.get("settle"))) ? Math.max(0, Math.floor(Number(q.get("settle")))) : null,
   };
 }
 
@@ -171,7 +178,7 @@ async function boot(): Promise<void> {
     mark("renderAudio", t0);
 
     // ---- world object (rooms, roomAt, spawn) — built later, but systems below read it
-    const world = new GameWorld(ctx, { furniture: opts.furniture, onProgress: (p, label) => loading(0.36 + 0.6 * p, label) });
+    const world = new GameWorld(ctx, { furniture: opts.furniture, settleSteps: opts.settle ?? undefined, onProgress: (p, label) => loading(0.36 + 0.6 * p, label) });
     ctx.world = world;
 
     // audio propagation hooks: room acoustics + occlusion through static structure
@@ -234,6 +241,7 @@ async function boot(): Promise<void> {
     const game = new Game(ctx, { pauseOnHidden: !opts.test });
     debug.attach(game, world);
     (window as unknown as { __game?: unknown }).__game = opts.test ? { ctx, game, world } : undefined;
+    if (opts.hold) time.scale = 0;
     game.start();
     hud.hideLoading();
     // the reflection capture renders during the first frames; don't report ready before it lands
@@ -242,6 +250,7 @@ async function boot(): Promise<void> {
       input.setFallback(true); // no pointer lock in automation
       hud.forcePlay();
     }
+    if (opts.hold) time.scale = 0;
     timings.total = Math.round(performance.now() - tBoot);
     debug.ready = true;
   } catch (e) {

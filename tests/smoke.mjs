@@ -106,6 +106,8 @@ try {
   const simAfter = await page.evaluate(() => window.__sim.stats().time.simTime);
   console.log(`real-time run: ${(simAfter - simBefore).toFixed(2)} s simulated in 3 s`);
   if (!(simAfter > simBefore)) fail("simulation did not advance in the real-time loop");
+  // the rest is driven by hand: deterministic, and screenshots never wait on a slow SwiftShader frame
+  await page.evaluate(() => window.__sim.loop(false));
   const stepRes = await page.evaluate(() => window.__sim.step(30));
   if (stepRes?.error) fail("step(30) failed: " + stepRes.error);
 
@@ -138,7 +140,7 @@ try {
     else if (!(r.res?.energy > 0)) fail(`hit '${t.q}' delivered no energy`);
   }
 
-  // ---- screenshots from the room poses
+  // ---- screenshots from the room poses (canvas captures: the 3D view without the HUD)
   const poses = ["living", "kitchen", "bathroom", "bedroom2", "master", "foyer", "balconyView"];
   for (const name of poses) {
     const r = await page.evaluate((n) => window.__sim.setPose(n), name);
@@ -146,12 +148,26 @@ try {
       fail(`setPose(${name}): ${r.error}`);
       continue;
     }
-    await page.waitForTimeout(700); // a few real frames (shadows/env settle, TAA-free)
+    const url = await page.evaluate(() => window.__sim.capture(3, "image/png"));
+    if (typeof url !== "string" || !url.startsWith("data:image/png;base64,")) {
+      fail(`capture(${name}) failed: ${JSON.stringify(url).slice(0, 300)}`);
+      continue;
+    }
     const file = join(outDir, `smoke-${name}.png`);
-    await page.screenshot({ path: file });
+    writeFileSync(file, Buffer.from(url.slice(url.indexOf(",") + 1), "base64"));
     result.screenshots.push(file);
   }
-  await page.evaluate(() => window.__sim.setPose(null));
+  // one full-page shot of the player view with the HUD (non-fatal: headless compositing can be slow)
+  await page.evaluate(() => {
+    window.__sim.setPose(null);
+    window.__sim.render(2);
+  });
+  try {
+    await page.screenshot({ path: join(outDir, "smoke-hud.png"), timeout: 60000 });
+    result.screenshots.push(join(outDir, "smoke-hud.png"));
+  } catch (e) {
+    console.log("HUD page screenshot skipped:", String(e).split("\n")[0]);
+  }
 
   // ---- stats
   result.stats = await page.evaluate(() => window.__sim.stats());

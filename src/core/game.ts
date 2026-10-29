@@ -13,7 +13,7 @@
 // the loop ducks the audio and freezes Babylon animatables while paused, and opens the pause menu
 // when the tab is hidden. A camera override (debug screenshot poses) replaces the player camera.
 
-import { Vector3 } from "@babylonjs/core";
+import { Vector3, type AbstractMesh } from "@babylonjs/core";
 import type { GameContext } from "./context.ts";
 import { FIXED_DT } from "./time.ts";
 import type { Vec3 } from "../geom/vec.ts";
@@ -41,6 +41,8 @@ export interface LoopStats {
   updateMs: number;
   renderMs: number;
   stepsLastFrame: number;
+  /** Draw calls of the last scene.render() (all passes: shadows, probes, post). */
+  drawCalls: number;
   errors: number;
 }
 
@@ -52,7 +54,7 @@ export class Game {
   readonly ctx: GameContext;
   /** When set, the camera shows this pose instead of the player's view (screenshots). */
   cameraOverride: CameraOverride | null = null;
-  readonly stats: LoopStats = { frames: 0, frameMs: 0, frameMsAvg: 0, stepsMs: 0, updateMs: 0, renderMs: 0, stepsLastFrame: 0, errors: 0 };
+  readonly stats: LoopStats = { frames: 0, frameMs: 0, frameMsAvg: 0, stepsMs: 0, updateMs: 0, renderMs: 0, stepsLastFrame: 0, drawCalls: 0, errors: 0 };
   /** Called with every caught loop error (the first few are also logged). */
   onError: ((e: unknown) => void) | null = null;
 
@@ -63,6 +65,7 @@ export class Game {
   private readonly up = new Vector3();
   private readonly disposers: Array<() => void> = [];
   private lastErrorLog = 0;
+  private readonly hiddenOverlay: AbstractMesh[] = [];
 
   constructor(ctx: GameContext, opts: GameOptions = {}) {
     this.ctx = ctx;
@@ -109,7 +112,7 @@ export class Game {
       tSteps = now();
       this.frameUpdate(c.time.frameDt);
       tUpdate = now();
-      c.scene.render();
+      this.renderScene();
     } catch (e) {
       this.reportError(e);
     }
@@ -147,7 +150,7 @@ export class Game {
       for (let i = 0; i < count; i++) this.fixedStep();
       const dt = Math.min(0.25, Math.max(count, 1) * FIXED_DT);
       this.frameUpdate(dt);
-      c.scene.render();
+      this.renderScene();
     } catch (e) {
       this.reportError(e);
       throw e;
@@ -158,7 +161,7 @@ export class Game {
   renderOnce(): void {
     try {
       this.frameUpdate(0);
-      this.ctx.scene.render();
+      this.renderScene();
     } catch (e) {
       this.reportError(e);
     }
@@ -172,6 +175,17 @@ export class Game {
 
   // ------------------------------------------------------------------ internals
 
+  /** scene.render() + draw-call count (engine._drawCalls is a running counter in Babylon 9). */
+  private renderScene(): void {
+    const pc = (this.ctx.engine as unknown as { _drawCalls?: { current: number } })._drawCalls;
+    const before = pc ? pc.current : 0;
+    this.ctx.scene.render();
+    if (pc) {
+      const d = pc.current - before;
+      this.stats.drawCalls = d >= 0 ? d : pc.current;
+    }
+  }
+
   /** Per-frame updates (dt = real frame seconds; simulation-driven systems get 0 while paused). */
   private frameUpdate(dt: number): void {
     const c = this.ctx;
@@ -183,6 +197,7 @@ export class Game {
       cam.position.set(o.pos.x, o.pos.y, o.pos.z);
       cam.rotation.set(o.pitch, o.yaw, 0);
     }
+    this.hideOverlayGroup(!!o);
     // listener = the rendered camera (shake included: what you see is what you hear)
     cam.getDirectionToRef(FWD, this.fwd);
     cam.getDirectionToRef(UP, this.up);
@@ -193,6 +208,24 @@ export class Game {
     c.render.update(dt);
     c.hud.update(dt);
     c.debug.update(dt);
+  }
+
+  /**
+   * Free-camera poses show the world only: the first-person viewmodel (rendering group 1, placed
+   * for the player's eye) is hidden through isVisible, which the viewmodel itself never touches.
+   */
+  private hideOverlayGroup(hide: boolean): void {
+    if (hide) {
+      for (const m of this.ctx.scene.meshes) {
+        if (m.renderingGroupId === 1 && m.isVisible) {
+          m.isVisible = false;
+          this.hiddenOverlay.push(m);
+        }
+      }
+    } else if (this.hiddenOverlay.length) {
+      for (const m of this.hiddenOverlay) if (!m.isDisposed()) m.isVisible = true;
+      this.hiddenOverlay.length = 0;
+    }
   }
 
   /** Mirror the HUD's pause state onto audio and Babylon animations. */

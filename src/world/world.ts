@@ -74,7 +74,13 @@ function roomInfos(): RoomInfo[] {
 
 export class GameWorld implements WorldSystem {
   readonly rooms: RoomInfo[] = roomInfos();
-  readonly spawn: { pos: Vec3; yaw: number; pitch: number } = { pos: { ...SPAWN.pos }, yaw: SPAWN.yaw, pitch: SPAWN.pitch };
+  /**
+   * Player spawn. plan.ts SPAWN (7.4, 2.2) lies inside the furnished living room's sofa (the capsule
+   * spawned in it and kicked it apart), so the world spawns the player in the open floor between
+   * the balcony door, the armchair and the coffee table, looking past the dining table into the
+   * kitchen (TV wall on the left). Eye height from SPAWN.
+   */
+  readonly spawn: { pos: Vec3; yaw: number; pitch: number } = { pos: { x: 6.9, y: SPAWN.pos.y, z: 0.95 }, yaw: Math.atan2(-1.4, 5.05), pitch: 0.08 };
   /** Every assembly spawned by build(), in spawn order. */
   readonly spawned: SpawnRecord[] = [];
   report: WorldReport | null = null;

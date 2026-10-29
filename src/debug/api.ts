@@ -16,7 +16,7 @@
 // Everything is guarded: a bad argument returns an { error } object instead of throwing into the
 // test harness, except step(), which rethrows simulation failures.
 
-import { SceneInstrumentation, Vector3, type PhysicsBody } from "@babylonjs/core";
+import { Vector3, type PhysicsBody } from "@babylonjs/core";
 import { Layer, type DebugSystem, type GameContext, type ToolId, type StrikeResult } from "../core/context.ts";
 import type { GameEvents } from "../core/events.ts";
 import { QUALITY, type QualityLevel } from "../core/settings.ts";
@@ -70,7 +70,6 @@ export class DebugApi implements DebugSystem {
   private world: GameWorld | null = null;
   private readonly ring: EventRecord[] = [];
   private evCount = 0;
-  private instr: SceneInstrumentation | null = null;
   private poseName: string | null = null;
 
   constructor(ctx: GameContext) {
@@ -143,6 +142,23 @@ export class DebugApi implements DebugSystem {
       }),
       setPose: (name: string | CameraPose | null) => this.guard(() => this.setPose(name)),
       events: (since = 0) => this.events(since),
+      /** Start / stop the real-time render loop (tests: stop it, then step / render / capture by hand). */
+      loop: (on: boolean) => this.guard(() => {
+        if (!this.game) throw new Error("game not started");
+        if (on) this.game.start();
+        else this.game.stop();
+        return { running: this.game.isRunning };
+      }),
+      /** Render `frames` frames without simulating (pose changes, shadow/env refresh). */
+      render: (frames = 1) => this.guard(() => {
+        for (let i = 0; i < Math.max(1, Math.min(60, Math.floor(frames))); i++) this.game?.renderOnce();
+        return { ok: true };
+      }),
+      /** Render `frames` frames and return the canvas as a data URL (needs preserveDrawingBuffer: ?test=1). */
+      capture: (frames = 2, type = "image/png", quality = 0.9) => this.guard(() => {
+        for (let i = 0; i < Math.max(1, Math.min(60, Math.floor(frames))); i++) this.game?.renderOnce();
+        return this.ctx.canvas.toDataURL(type, quality);
+      }),
       eventCount: () => this.evCount,
       player: () => this.guard(() => this.playerInfo()),
       roomAt: (p: Vec3) => this.world?.roomAt(p)?.id ?? null,
@@ -168,10 +184,6 @@ export class DebugApi implements DebugSystem {
 
   private stats(): Json {
     const c = this.ctx;
-    if (!this.instr) {
-      this.instr = new SceneInstrumentation(c.scene);
-      this.instr.captureFrameTime = true;
-    }
     const ps = c.physics.stats();
     const ds = c.destruction.stats();
     const loop = this.game?.stats;
@@ -188,7 +200,7 @@ export class DebugApi implements DebugSystem {
       fps: Math.round(c.engine.getFps() * 10) / 10,
       frameMs: loop ? Math.round(loop.frameMsAvg * 100) / 100 : null,
       loop: loop ? { ...loop } : null,
-      drawCalls: this.instr.drawCallsCounter.current,
+      drawCalls: loop ? loop.drawCalls : null,
       activeMeshes: active,
       meshes: c.scene.meshes.length,
       vertices: c.scene.getTotalVertices(),
