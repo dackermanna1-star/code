@@ -13,6 +13,39 @@ puts 70–85 % of all samples in `uniformMatrix4fv` / `drawElements` / `bindVert
 for the render targets that run before the queue fills (the shadow maps: ≈ 15–20 µs of JS per shadow draw on
 this VM) and for render-only frames.
 
+## After the optimization pass (2026-10-29, same harnesses)
+
+Default quality is now **Minimal** (weak PCs; see `src/core/settings.ts`). Draw calls per frame are exact;
+CPU ms come from the loaded SwiftShader VM (indicative only).
+
+| | before (high) | now: minimal (default) | now: high |
+|---|---|---|---|
+| idle living room, draws/frame | 4890 (cube 3618 + sun 775 + main 482 + 14 post) | **132** (main 124, 1 post, 0 shadow) | 156 (main 130, shadow 7) |
+| hall, draws/frame | 3489 | **188** | 210 |
+| post passes | 14 (10 full-res half-float) | **1** (image processing) at 0.67 render scale | 14 |
+| shadow re-renders while the fan spins | both maps, every caster, every frame | none (static casters only, ≤ 4 refreshes/s) | rotor only (layered cache) |
+| rendered destruction (perf.mjs), draws during / after | 12.4k / 12.7k | 567 / 427 | – |
+
+Heavy destruction, simulation only (`tests/simperf.mjs`, 43 assemblies wrecked; ms per fixed step, awake bodies):
+
+| window after the sequence | pre-session tree (high) | now: minimal | now: high |
+|---|---|---|---|
+| 0–1 s | 76.9 (1127 awake) | **41.7** (726) | 62.6 (949) |
+| 1–3 s | 56.1 (988) | **25.9** (474) | 44.0 (653) |
+| 3–6 s | 30.0 (500) | **8.6** (133) | 21.7 (270) |
+| 6–10 s | 1.8 (2) | **1.1** (7) | 1.7 (28) |
+| worst destruction step | 48 | 36 | 19.5 |
+
+(The original profile below measured 191 ms physics + 48 ms destruction per step during destruction, before the
+sleep fix and the WIP simulation work.) Idle: physics ≈ 0.3 ms, destruction ≈ 0.5 ms per step. The accumulator now
+runs at most 2 steps per frame (fewer while steps are expensive).
+
+What changed: Minimal preset (render scale, one post pass, static-only cached sun shadows, no point shadows, 10
+interior lights, fewer particles/voices, lighter physics); resting islands batched per 4 m cell with frozen world
+matrices and lazy restore; 4 m render chunks for walls/floors; awake debris-piece budget (smallest pieces crumble into
+micro-debris); preset-scaled micro-debris fracture cells; motor rotors kept out of sleep piles. Not done: room/portal
+culling (not needed for the draw-call target).
+
 ## TL;DR
 
 1. **~90 % of all draw calls are shadow-map re-renders that are supposed to be cached.** Both cached maps

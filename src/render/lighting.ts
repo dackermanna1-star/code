@@ -219,6 +219,7 @@ const POINT_NEAR = 0.05;
 
 const TMP_V = new Vector3();
 const TMP_C = new Vector3();
+const TMP_FWD = new Vector3();
 const ROOM_IDS = new Set<string>(ROOMS.map((r) => r.id));
 let fallbackWarned = false;
 
@@ -1222,7 +1223,8 @@ export class Lighting implements ILighting {
 
   /**
    * Keep at most `maxInteriorLights` interior lights in the cluster: the nearest to the camera
-   * (lights in the camera's room count as 3 m nearer; hysteresis keeps the current set). The
+   * (lights in the camera's room count as 3 m nearer, lights behind the camera 1.6× farther;
+   * hysteresis keeps the current set). The
    * others leave the cluster (no per-pixel cost at all) and rejoin when the player comes closer.
    * Shadow-promoted lights are never culled.
    */
@@ -1241,12 +1243,16 @@ export class Lighting implements ILighting {
     }
     const cp = cam.globalPosition;
     const camRoom = nearestRoom(cp.x, cp.z).id;
+    const fwd = TMP_FWD;
+    cam.getDirectionToRef(Vector3.Forward(), fwd);
     const cands = this.budgetCands;
     cands.length = 0;
     for (const rec of this.lights.values()) {
       if (!(rec.clustered || rec.culled) || rec.light.isDisposed()) continue;
       const lit = rec.base > 0 && !(rec.mains && !this._powered);
-      let d = lit ? Vector3.Distance(this.lightPosition(rec.light), cp) : 1e6;
+      const lp = this.lightPosition(rec.light);
+      let d = lit ? Vector3.Distance(lp, cp) : 1e6;
+      if (lit && (lp.x - cp.x) * fwd.x + (lp.y - cp.y) * fwd.y + (lp.z - cp.z) * fwd.z < -0.5) d *= 1.6; // behind the camera
       if (rec.room === camRoom) d -= 3;
       if (rec.clustered) d -= 0.75; // hysteresis
       cands.push({ rec, d });

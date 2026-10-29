@@ -58,7 +58,7 @@ export const QUALITY: Readonly<Record<QualityLevel, QualityPreset>> = {
   // Weak PCs (integrated GPUs, old laptops): the default. ~0.67 render scale, one post pass, no SSAO /
   // bloom / FXAA / film effects, a small sun map that only ever holds casters at rest (redrawn at most
   // 4× a second, only where something started or stopped moving), no point shadows, no light shafts,
-  // 8 interior lights, a tight debris body budget and fewer particles / voices.
+  // 10 interior lights, a tight debris body budget and fewer particles / voices.
   minimal: {
     resolutionScale: 0.67,
     shadowMapSize: 1024,
@@ -76,7 +76,7 @@ export const QUALITY: Readonly<Record<QualityLevel, QualityPreset>> = {
     shadowMinRadius: 0.12,
     shadowRefreshInterval: 0.25,
     filmEffects: false,
-    maxInteriorLights: 8,
+    maxInteriorLights: 10,
     maxDebrisBodies: 160,
     microCellSize: 0.06,
     lightPhysics: true,
