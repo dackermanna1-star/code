@@ -101,7 +101,7 @@ export class Interactions {
     if (!p) return null;
     const asm = isl.asm;
     let usable: TargetInfo["usable"] = null;
-    const g = this.deps.joints.movingGroupOf(isl);
+    const g = this.usableGroup(isl);
     if (p.tags.some((t) => t.startsWith("switch:"))) usable = "switch";
     else if (this.deps.hasScreen(p)) usable = "tv";
     else if (this.deps.hasFaucet(p)) usable = "faucet";
@@ -213,7 +213,9 @@ export class Interactions {
         this.share(loads, anchors, lp, fmag);
       }
     } else {
-      // dynamic: only joints hold it — find groups where this island is the moving side
+      // dynamic: only joints hold it — find groups where this island is the moving side.
+      // (JointSystem.jointLoads skips this island's measured reactions this step: no double count)
+      isl.pulledStep = w.stepIndex;
       const groups = new Set<JointGroup>();
       for (const p of isl.parts) for (const b of p.bonds) if (b.group && b.alive && b.a.island === isl) groups.add(b.group);
       for (const g of groups) {
@@ -316,9 +318,25 @@ export class Interactions {
     if (part.tags.some((t) => t.startsWith("switch:"))) return this.deps.toggleSwitch(part);
     if (this.deps.hasScreen(part)) return this.deps.toggleScreen(part);
     if (this.deps.hasFaucet(part)) return this.deps.toggleFaucet(part);
-    const g = this.deps.joints.movingGroupOf(isl);
+    const g = this.usableGroup(isl);
     if (g) return this.deps.joints.use(g, isl, { x: point.x, y: point.y, z: point.z }, { x: from.x, y: from.y, z: from.z });
     return false;
+  }
+
+  /**
+   * The door/drawer joint the use key operates on this island: motor-driven joints (ceiling
+   * fan rotors, turntables) and free-spinning hinges without limits or a latch are not doors.
+   */
+  private usableGroup(isl: Island): JointGroup | null {
+    const g = this.deps.joints.movingGroupOf(isl);
+    if (!g || g.motorSpeed !== 0) return null;
+    if (g.kind === "hinge" && !g.latch) {
+      const lo = g.def.min,
+        hi = g.def.max;
+      const limited = Number.isFinite(lo) && Number.isFinite(hi) && hi > lo && hi - lo < 2 * Math.PI - 1e-3;
+      if (!limited) return null;
+    }
+    return g;
   }
 }
 

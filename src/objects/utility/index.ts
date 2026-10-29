@@ -4,7 +4,7 @@
 import type { AssemblyDef } from "../../destruction/model/types.ts";
 import { buildDryer, buildWasher } from "./laundry.ts";
 import { buildWaterHeater } from "./waterHeater.ts";
-import { buildWireShelf } from "./shelving.ts";
+import { buildWallWireShelf, buildWireShelf } from "./shelving.ts";
 import { buildBulbBox, buildDetergentJug, buildHammer, buildPaintCan, buildPliers, buildScrewdriver, buildStorageBox, buildToolbox, buildWrench } from "./supplies.ts";
 import { buildBroomHolder, buildIroningBoard, buildMopBucket, buildVacuumCleaner } from "./cleaning.ts";
 import { buildElectricalPanel } from "./panel.ts";
@@ -19,6 +19,7 @@ export const UTILITY_OBJECTS: Record<string, (opts?: any) => AssemblyDef> = {
   dryer: buildDryer,
   waterHeater: buildWaterHeater,
   wireShelf: buildWireShelf,
+  wallWireShelf: buildWallWireShelf,
   detergentJug: buildDetergentJug,
   paintCan: buildPaintCan,
   bulbBox: buildBulbBox,

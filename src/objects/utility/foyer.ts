@@ -6,7 +6,7 @@
 // (foyerMirror, intercom): origin on the wall plane at floor level, +Z out of the wall.
 
 import { drawer, frameBars, pictureFrame, pcb, buttonGrid, cable } from "../lib/kit.ts";
-import { boxR, bondOverlapping, bondTouching, finish, mk, panelBox, taperedBlockPoints, CHROME, SOFT_SEAM, type BaseOpts } from "./helpers.ts";
+import { boxR, bondOverlapping, bondTouching, finish, mk, panelBox, type BaseOpts } from "./helpers.ts";
 import type { V3 } from "../lib/builder.ts";
 import type { AssemblyDef } from "../../destruction/model/types.ts";
 
@@ -316,8 +316,6 @@ export function buildUmbrellaStand(o: BaseOpts & { tint?: number } = {}): Assemb
     const lean = 6 * sx;
     const rad = (lean * Math.PI) / 180;
     // along the umbrella axis from its tip on the stand floor
-    const p = (s: number): [number, number, number] => [-sx * 0.03 + Math.sin(-rad) * -s * -1, floorY + Math.cos(rad) * s, sz];
-    void p;
     const ax = (s: number): [number, number, number] => [-sx * 0.03 + sx * Math.sin(Math.abs(rad)) * s, floorY + Math.cos(rad) * s, sz];
     const canopyC = ax(0.0016 + 0.33);
     const canopy = b.cyl(`umbrella${k}_canopy`, "fabric", "fabric_upholstery", 0.014, 0.66, canopyC, { rTop: 0.026, segments: 8, rot: [0, 0, -lean], tint, mass: 0.22 });
@@ -420,8 +418,5 @@ export function buildFoyerBench(o: BaseOpts & { tint?: number } = {}): AssemblyD
   b.glue(apron, seat, 60);
   b.dowel(shelf, legL, 2, 40);
   b.dowel(shelf, legR, 2, 40);
-  void taperedBlockPoints;
-  void CHROME;
-  void SOFT_SEAM;
   return finish(b, o);
 }

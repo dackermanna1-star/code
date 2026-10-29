@@ -81,15 +81,19 @@ export function buildDuvet(o: DuvetOpts = {}): AssemblyDef {
   b.stuffing(main, "feathers");
   if (fold > 0) {
     const ft = t * 0.75;
-    const hem = softBlock(b, "hem", "fabric", surf, [w, ft, fold], 0.5, [0, t + ft / 2, -l / 2 + fold / 2], { tint: 0xf4f1ea, mass: (kg * w * fold) / area }, 2);
+    // the folded-back hem lies on the slab near its rounded head end, where the slab's crown has
+    // already dropped a few mm: sink it 4 mm so the two quilts actually touch (seam stitched)
+    const hem = softBlock(b, "hem", "fabric", surf, [w, ft, fold], 0.5, [0, t + ft / 2 - 0.004, -l / 2 + fold / 2], { tint: 0xf4f1ea, mass: (kg * w * fold) / area }, 2);
     b.bond(hem, main, "fused", { strength: 30 });
     b.stuffing(hem, "feathers");
   }
   if (drop > 0) {
     for (const sx of [-1, 1]) {
       const nm = sx < 0 ? "drape_l" : "drape_r";
-      // hangs straight down from under the slab's edge, outside the mattress
-      const d = softBlock(b, nm, "fabric", surf, [DRAPE_T, drop, l - 0.04], 0.3, [sx * (w / 2 - DRAPE_T / 2), -drop / 2 + 0.004, 0], {
+      // hangs straight down from the slab's rounded edge (its top reaches 15 mm up into the slab's
+      // edge roll, so the sewn edge really joins the two), outside the mattress
+      const dh = drop + 0.015;
+      const d = softBlock(b, nm, "fabric", surf, [DRAPE_T, dh, l - 0.04], 0.3, [sx * (w / 2 - DRAPE_T / 2), 0.015 - dh / 2, 0], {
         tint,
         mass: (kg * drop * (l - 0.04)) / area,
       }, 2);

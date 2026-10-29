@@ -171,7 +171,9 @@ export async function probe() {
   const landsBefore = w.log.land.length;
   p.teleport({ x: 3, y: 0.5 + 2.2 + 1.65, z: -6 }, 0, 0); // feet 2.2 m above the crate top (≈6.5 m/s)
   for (let i = 0; i < 60; i++) w.step(1);
-  const stomps = w.destruction.strikes.slice(strikesBefore).filter((s) => s.source === "stomp" && s.body === crate);
+  // landing stomps (footstep crunches are "stomp" strikes too, but lighter: tell them apart by mass)
+  const isLandingStomp = (s: { source: string; mass: number }) => s.source === "stomp" && s.mass === PLAYER.stompMass;
+  const stomps = w.destruction.strikes.slice(strikesBefore).filter((s) => isLandingStomp(s) && s.body === crate);
   out.stomp = {
     count: stomps.length,
     speed: stomps.length ? r2(stomps[0].speed) : null,
@@ -187,12 +189,12 @@ export async function probe() {
   w.step(1);
   key("Space", false);
   w.step(80);
-  out.hopOnCrate_stomps = w.destruction.strikes.slice(sb2).filter((s) => s.source === "stomp" && s.body === crate).length;
+  out.hopOnCrate_stomps = w.destruction.strikes.slice(sb2).filter((s) => isLandingStomp(s) && s.body === crate).length;
   // a small drop (0.25 m → ≈2.2 m/s) does not
   const sb3a = w.destruction.strikes.length;
   p.teleport({ x: 3, y: 0.5 + 0.25 + 1.65, z: -6 }, 0, 0);
   w.step(60);
-  out.smallDrop_noStomp = w.destruction.strikes.slice(sb3a).filter((s) => s.source === "stomp" && s.speed > PLAYER.stompSpeed).length === 0;
+  out.smallDrop_noStomp = w.destruction.strikes.slice(sb3a).filter(isLandingStomp).length === 0;
 
   // ---------------------------------------------------------------- debris: walk through, crunch
   p.teleport({ x: 0, y: 1.65, z: -1.6 }, Math.PI, 0);
@@ -271,19 +273,71 @@ export async function probe() {
     const jerk = Math.max(...d.slice(1).map((v, i) => Math.abs(v - d[i])));
     out.interp144 = { frames: d.length, stillFrames: still, meanStepMm: r3(mean * 1000), maxStepChangeMm: r3(jerk * 1000), smooth: still === 0 && jerk < 0.006 };
   }
+  // the same driven by the real game clock (Time.beginFrame) at 144 Hz and 48 Hz, with a heavy-hit
+  // hit-stop in between (slows the clock without touching Time.scale): smooth before and after,
+  // and the camera springs slow down during the hit-stop like the physics
+  {
+    const time = w.ctx.time;
+    const run = (fdt: number, frames: number, hitStopAt = -1) => {
+      const xs: number[] = [];
+      for (let f = 0; f < frames; f++) {
+        if (f === hitStopAt) time.hitStop(0.12, 0.15);
+        const n = time.beginFrame(fdt);
+        w.step(n);
+        p.update(fdt);
+        xs.push(w.ctx.render.camera.position.x);
+      }
+      return xs;
+    };
+    const smoothness = (xs: number[]) => {
+      const d = xs.slice(1).map((x, i) => x - xs[i]);
+      const mean = d.reduce((a2, b2) => a2 + b2, 0) / d.length;
+      const still = d.filter((v) => Math.abs(v) < 1e-5).length;
+      // relative frame-to-frame variation of the camera step (judder = steps of 0 / 2×mean)
+      const jerk = Math.max(...d.slice(1).map((v, i) => Math.abs(v - d[i])));
+      return { meanStepMm: r3(mean * 1000), stillFrames: still, maxStepChangeMm: r3(jerk * 1000), smooth: still === 0 && jerk < Math.max(0.006, 0.2 * Math.abs(mean)) };
+    };
+    run(1 / 144, 20); // settle onto the clock
+    const before = smoothness(run(1 / 144, 60));
+    const hs = run(1 / 144, 40, 0); // 0.12 s hit-stop at 15 % speed, then normal
+    const after = smoothness(hs.slice(-16));
+    const at48 = smoothness(run(1 / 48, 48));
+    // springs (standing still, bob faded out): kick the landing dip, then compare 4 frames of
+    // hit-stop with 4 normal frames
+    key("KeyD", false);
+    run(1 / 144, 160);
+    p.rig.land(6);
+    const dipY = () => w.ctx.render.camera.position.y - p.position.y;
+    run(1 / 144, 1);
+    const d0 = dipY();
+    time.hitStop(0.2, 0.15);
+    run(1 / 144, 4);
+    const dSlow = dipY() - d0;
+    run(1 / 144, 40); // hit-stop over
+    p.rig.land(6);
+    run(1 / 144, 1);
+    const d1 = dipY();
+    run(1 / 144, 4);
+    const dFast = dipY() - d1;
+    out.clockInterp = { before, after, at48, dipSlowMm: r3(dSlow * 1000), dipNormalMm: r3(dFast * 1000), hitStopSlowsSprings: Math.abs(dSlow) < 0.5 * Math.abs(dFast) };
+  }
   key("KeyD", false);
   w.step(30);
-  // pause: camera springs freeze with the simulation
+  // pause: camera springs freeze with the simulation (game-loop order: clock → steps → update)
   {
-    const t = w.ctx.time as { scale: number };
+    const t = w.ctx.time;
+    const frame = () => {
+      w.step(t.beginFrame(1 / 60));
+      p.update(1 / 60);
+    };
     p.rig.land(6);
     t.scale = 0;
-    p.update(1 / 60);
+    frame();
     const y0 = w.ctx.render.camera.position.y;
-    for (let i = 0; i < 30; i++) p.update(1 / 60);
+    for (let i = 0; i < 30; i++) frame();
     const y1 = w.ctx.render.camera.position.y;
     t.scale = 1;
-    for (let i = 0; i < 5; i++) p.update(1 / 60);
+    for (let i = 0; i < 5; i++) frame();
     const y2 = w.ctx.render.camera.position.y;
     out.pauseFreezesDip = { frozen: Math.abs(y1 - y0) < 1e-3, resumes: Math.abs(y2 - y1) > 1e-3 };
     w.step(60);

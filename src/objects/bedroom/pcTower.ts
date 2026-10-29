@@ -1,8 +1,9 @@
 // Gaming PC tower (mid-tower ATX), everything a separate part that sparks and scatters:
 //  chassis — 0.8 mm steel tray/top/bottom/back/front frame, PSU shroud, mesh front bezel with an
 //  LED strip, 4 mm tempered-glass side panel (dices), power button, rubber feet;
-//  motherboard — PCB with IO block, VRM/chipset heatsinks, M.2 drive, capacitors, 24-pin header,
-//  CPU under a tower cooler (copper base, heat pipes, aluminium fin stack, fan), four RAM sticks;
+//  motherboard — PCB on brass standoffs with IO block, VRM/chipset heatsinks, M.2 drive,
+//  capacitors, 24-pin header, PCIe slot, CPU under a tower cooler (copper base, mounting posts +
+//  crossbar, heat pipes, aluminium fin stack, fan), four RAM sticks;
 //  GPU — PCB, backplate, fin block, shroud with two fans, PCIe bracket screwed to the case;
 //  PSU — steel box with its own board (transformer, bulk capacitor, heatsink) and fan hum;
 //  3.5" HDD, 2.5" SSD on the shroud, front intake fans, rear exhaust fan, power cables.
@@ -97,8 +98,8 @@ export function buildPcTower(o: PcTowerOpts = {}): AssemblyDef {
         { kind: "cap", x: 0.09, y: 0.0 },
         { kind: "cap", x: 0.09, y: -0.02 },
         { kind: "connector", x: -0.112, y: 0.04, size: [0.015, 0.052, 0.02], tint: 0x111111 }, // 24-pin header
+        { kind: "connector", x: 0.0068, y: -0.0515, size: [0.085, 0.01, 0.0066], tint: 0x1a1a1a }, // PCIe x16 slot
       ],
-      mount: { to: tray, screws: 9, each: 10 },
       sparks: 0.7,
       tint: 0x2a3a2e,
     },
@@ -106,6 +107,19 @@ export function buildPcTower(o: PcTowerOpts = {}): AssemblyDef {
     [0, 90, 0],
   );
   const boardFront = boardX + 0.0016;
+  // brass standoffs screwed into the tray, the board screwed onto them (9 screws in reality; the
+  // four corner standoffs carry their strength)
+  const offs: Array<[number, number]> = [
+    [mbY - 0.1425, mbZ + 0.112],
+    [mbY - 0.1425, mbZ - 0.112],
+    [mbY + 0.1425, mbZ + 0.112],
+    [mbY + 0.1425, mbZ - 0.112],
+  ];
+  offs.forEach(([y, z], k) => {
+    const so = b.cyl(`standoff${k}`, "copper", "copper", 0.0028, boardX - (xR + t), [(xR + t + boardX) / 2, y, z], { axis: "x", segments: 6, tint: PAL.brass });
+    b.screw(so, tray, 1, 12);
+    b.screw(mb.board, so, 1, 22);
+  });
   // CPU + tower cooler (copper base, heat pipes, fin stack, fan)
   const cpuY = 0.38,
     cpuZ = -0.115;
@@ -114,7 +128,21 @@ export function buildPcTower(o: PcTowerOpts = {}): AssemblyDef {
   const baseX0 = boardFront + 0.004;
   const cBase = boxR(b, "cooler_base", "copper", "copper", [baseX0, baseX0 + 0.01], [cpuY - 0.02, cpuY + 0.02], [cpuZ - 0.02, cpuZ + 0.02], {});
   b.glue(cBase, cpu, 5); // thermal paste
-  b.bolt(cBase, mb.board, 40); // backplate bracket screws
+  // mounting: two steel posts screwed through the board into the backplate, a crossbar over the
+  // copper base (above the heat pipes) held down by spring screws
+  const mountY0 = cpuY + 0.006,
+    mountY1 = cpuY + 0.018;
+  const baseTop = baseX0 + 0.01;
+  const xbar = boxR(b, "cooler_mount", "steel", "metal_raw", [baseTop, baseTop + 0.003], [mountY0, mountY1], [cpuZ - 0.042, cpuZ + 0.042], { tess: 0 });
+  b.bolt(xbar, cBase, 40);
+  for (const [k, z] of [
+    [0, cpuZ - 0.036],
+    [1, cpuZ + 0.036],
+  ] as Array<[number, number]>) {
+    const post = boxR(b, `cooler_post${k}`, "steel", "metal_raw", [boardFront, baseTop], [mountY0, mountY1], [z - 0.004, z + 0.004], { tess: 0 });
+    b.screw(post, mb.board, 1, 30);
+    b.screw(post, xbar, 1, 25);
+  }
   const finX0 = -0.06;
   const pipes = [-0.105, -0.125].map((z, k) => {
     // 1 mm into the base and into the fin stack (soldered)
@@ -156,7 +184,7 @@ export function buildPcTower(o: PcTowerOpts = {}): AssemblyDef {
   const bracket = boxR(b, "gpu_bracket", "steel", "metal_raw", [gx0, 0.03], [0.17, 0.25], [zBk + t, zBk + t + 0.002], { tess: 0 });
   b.screw(bracket, back, 2, 25);
   b.screw(bracket, gpuPcb, 2, 15);
-  b.clip(gpuPcb, mb.board, 15); // PCIe slot latch
+  b.clip(gpuPcb, mb.components[8], 15); // edge connector in the PCIe slot (latch)
   b.sparks(gpuPcb, 0.8);
 
   // ---------------------------------------------------------------- PSU (steel box + board) under the shroud
@@ -202,15 +230,17 @@ export function buildPcTower(o: PcTowerOpts = {}): AssemblyDef {
   b.screw(rear, back, 4, 6);
 
   // ---------------------------------------------------------------- cables (24-pin ATX, PCIe power)
-  const psuFront = psuZ + psuD / 2;
+  const psuFront = psuZ + psuD / 2 + 0.0002;
+  // 24-pin plug enters the header from the front edge of the board
+  const headerZ = mbZ + 0.112 + 0.0075 + 0.0002;
   cable(
     b,
     "atx_cable",
     [
-      [-0.085, 0.06, psuFront + 0.003],
+      [-0.085, 0.06, psuFront],
       [-0.085, 0.06, 0.165],
       [-0.085, 0.32, 0.165],
-      [-0.085, 0.32, 0.03],
+      [-0.085, 0.32, headerZ],
     ],
     { r: 0.007, sides: 6, kgPerM: 0.12, jointStrength: 30, sparks: 0.3, start: { to: psu.front!, kind: "clip", strength: 12 }, end: { to: mb.components[7], kind: "clip", strength: 10 } },
   );
@@ -218,10 +248,10 @@ export function buildPcTower(o: PcTowerOpts = {}): AssemblyDef {
     b,
     "pcie_cable",
     [
-      [0.02, 0.06, psuFront + 0.003],
+      [0.02, 0.06, psuFront],
       [0.02, 0.06, 0.165],
-      [0.02, 0.21, 0.165],
-      [0.02, 0.21, gz1 + 0.008],
+      [0.02, 0.2308, 0.165],
+      [0.02, 0.2308, gz1 + 0.0002], // 8-pin plug on the card's front edge
     ],
     { r: 0.006, sides: 6, kgPerM: 0.08, jointStrength: 25, sparks: 0.3, start: { to: psu.front!, kind: "clip", strength: 10 }, end: { to: gpuPcb, kind: "clip", strength: 8 } },
   );

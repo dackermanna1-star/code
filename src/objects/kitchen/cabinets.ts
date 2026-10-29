@@ -18,7 +18,7 @@ import { Builder, type V3 } from "../lib/builder.ts";
 import { cabinetCarcass, drawer, hingedDoorPanel, type CarcassResult, type HardwareLook } from "../lib/kit.ts";
 import type { AssemblyDef } from "../../destruction/model/types.ts";
 import { KPAL, LocalFrame, bondEachTouching, centerOf, finish, frontFinish, scoped, type Finish, type FrontColor } from "./lib.ts";
-import { CARCASS_D, CARCASS_H, COUNTER_T, COUNTER_Y, FRONT_T, ISLAND, ISLAND_XF, TOE_H, TOE_SET, WALL_CAB, WEST, WEST_XF } from "./layout.ts";
+import { CARCASS_D, CARCASS_H, COUNTER_Y, FRONT_T, ISLAND, ISLAND_XF, TOE_H, TOE_SET, WALL_CAB, WEST, WEST_XF } from "./layout.ts";
 
 export interface CabinetLook {
   front: Finish;
@@ -429,6 +429,5 @@ export function buildKitchenIsland(o: IslandOpts = {}): AssemblyDef {
       b.world(s, "screw", 60, [cx, 0, cz]);
     }
   }
-  void COUNTER_T;
   return finish(b);
 }

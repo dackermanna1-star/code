@@ -72,11 +72,20 @@ export function upholsteredSeat(b: Builder, p: SeatParams): void {
   const zF = D / 2,
     zB = -D / 2;
 
+  // Arms: an outer and an inner plywood skin on a front and a back post (the back post rises to
+  // the top of the back). Posts sit between the skins, |x| in [xi + pnl, L/2 - pnl]. The seat rails
+  // run the full width between the posts and butt against their inner faces (dowels + screws);
+  // the inner arm skin starts on top of the seat rails (below the deck nothing is visible).
+  const pnl = 0.012;
+  const xr = xi + pnl; // posts' inner faces / seat rails' ends
+  const postY1 = armTop - 0.08;
+  const zRB0 = zB + BACK_T; // back face of the back rail = front face of the outer back panel
+
   // ---- seat frame
-  const frontRail = b.box("rail_front", "softwood", surf, [2 * xi, railH, railT], [0, (yr0 + yr1) / 2, zF - railT / 2], { ...up, grain: "x" });
-  const backRail = b.box("rail_back", "softwood", surf, [2 * xi, railH, railT], [0, (yr0 + yr1) / 2, zB + BACK_T + railT / 2], { ...up, grain: "x" });
-  const crossLen = zF - railT - (zB + BACK_T + railT);
-  const crossZ = (zF - railT + zB + BACK_T + railT) / 2;
+  const frontRail = b.box("rail_front", "softwood", surf, [2 * xr, railH, railT], [0, (yr0 + yr1) / 2, zF - railT / 2], { ...up, grain: "x" });
+  const backRail = b.box("rail_back", "softwood", surf, [2 * xr, railH, railT], [0, (yr0 + yr1) / 2, zRB0 + railT / 2], { ...up, grain: "x" });
+  const crossLen = zF - railT - (zRB0 + railT);
+  const crossZ = (zF - railT + zRB0 + railT) / 2;
   for (let k = 1; k < p.seats; k++) {
     const x = -xi + (2 * xi * k) / p.seats;
     const c = b.box(`rail_cross${k}`, "softwood", "wood_pine", [0.035, 0.1, crossLen], [x, yr1 - 0.05, crossZ], { grain: "z" });
@@ -86,40 +95,40 @@ export function upholsteredSeat(b: Builder, p: SeatParams): void {
 
   // ---- arms: outer + inner plywood panels on front/back posts, padded roll on top
   const arms: string[][] = [];
-  const pnl = 0.012;
-  const postY1 = armTop - 0.08;
   for (const sx of [-1, 1]) {
     const nm = sx < 0 ? "arm_l" : "arm_r";
-    const xo = sx * (L / 2),
-      xin = sx * xi;
-    const xMid = (xo + xin) / 2;
+    const xo = sx * (L / 2);
+    const xMid = (sx * (L / 2 + xi)) / 2;
     const outer = b.box(`${nm}_outer`, "plywood", surf, [pnl, postY1 - yr0, D], [xo - (sx * pnl) / 2, (yr0 + postY1) / 2, 0], { ...up, grain: "z" });
-    const inner = b.box(`${nm}_inner`, "plywood", surf, [pnl, postY1 - yr0, D - railT - BACK_T], [xin + (sx * pnl) / 2, (yr0 + postY1) / 2, (zF + zB + BACK_T + railT) / 2], { ...up, grain: "z" });
-    const postW = Math.abs(xo - xin) - 2 * pnl;
+    const inner = b.box(`${nm}_inner`, "plywood", surf, [pnl, postY1 - yr1, zF - zRB0], [sx * (xi + pnl / 2), (yr1 + postY1) / 2, (zF + zRB0) / 2], { ...up, grain: "z" });
+    const postW = armW - 2 * pnl;
     const pf = b.box(`${nm}_post_f`, "softwood", surf, [postW, postY1 - yr0, railT], [xMid, (yr0 + postY1) / 2, zF - railT / 2], { ...up, grain: "y" });
     const pb = b.box(`${nm}_post_b`, "softwood", surf, [postW, H - yr0, railT], [xMid, (yr0 + H) / 2, zB + railT / 2], { ...up, grain: "y" });
     const roll = b.pillow(`${nm}_roll`, "foam", surf, [armW, 0.08, D - railT], 0.35, [xMid, armTop - 0.046, railT / 2], { tint, mass: 0.6 + 0.6 * D });
     b.nail(outer, pf, 6, 8); // staples
     b.nail(outer, pb, 6, 8);
     b.nail(inner, pf, 4, 8);
+    b.nail(inner, pb, 4, 8);
+    b.nail(inner, frontRail, 3, 8);
     bondTouching(b, roll, [outer, inner, pf, pb], "glue", 60, 0.003, 2);
     b.stuffing(roll, "foam");
     b.dowel(frontRail, pf, 2, 45);
     b.screw(frontRail, pf, 1, 35);
     b.dowel(backRail, pb, 2, 45);
-    b.nail(inner, frontRail, 3, 8);
+    b.screw(backRail, pb, 1, 35);
     arms.push([outer, inner, pf, pb, roll]);
   }
   const [armL, armR] = arms;
 
-  // ---- back: outer plywood, top rail, inside-back foam pad
-  const backPanel = b.box("back_panel", "plywood", surf, [2 * xi, H - yr0, BACK_T], [0, (yr0 + H) / 2, zB + BACK_T / 2], { ...up, grain: "x" });
-  const padZ0 = zB + BACK_T,
+  // ---- back: outer plywood (between the back posts), top rail, inside-back foam pad
+  const backPanel = b.box("back_panel", "plywood", surf, [2 * xr, H - yr0, BACK_T], [0, (yr0 + H) / 2, zB + BACK_T / 2], { ...up, grain: "x" });
+  const padZ0 = zRB0,
     padZ1 = lay.backZ0 - 0.003;
-  const topRail = b.box("rail_top", "softwood", surf, [2 * xi, 0.05, padZ1 - padZ0], [0, H - 0.025, (padZ0 + padZ1) / 2], { ...up, grain: "x" });
+  const topRail = b.box("rail_top", "softwood", surf, [2 * xr, 0.05, padZ1 - padZ0], [0, H - 0.025, (padZ0 + padZ1) / 2], { ...up, grain: "x" });
   const backPad = b.box("back_pad", "foam", surf, [2 * xi, H - 0.05 - deckTop, padZ1 - padZ0], [0, (deckTop + H - 0.05) / 2, (padZ0 + padZ1) / 2], { ...up, mass: 1.1 * L });
   for (const s of [armL, armR]) {
     b.nail(backPanel, s[3], 6, 8);
+    b.nail(backPanel, s[1], 3, 8);
     b.screw(topRail, s[3], 2, 35);
   }
   b.nail(backPanel, backRail, 6, 8);
@@ -128,10 +137,12 @@ export function upholsteredSeat(b: Builder, p: SeatParams): void {
   b.glue(backPad, topRail, 20);
   b.stuffing(backPad, "foam");
 
-  // ---- sinuous springs across the seat rails + deck pad
+  // ---- sinuous springs across the seat rails, a foam edge roll stapled along the front rail,
+  // and the deck pad over the springs (glued to the edge roll)
+  const EDGE = 0.03;
   const nSpr = p.seats * p.springsPerSeat;
-  const sprZ0 = zB + BACK_T + 0.02,
-    sprZ1 = zF - 0.025;
+  const sprZ0 = zRB0 + 0.02,
+    sprZ1 = zF - EDGE - 0.001;
   const springs: string[] = [];
   for (let k = 0; k < nSpr; k++) {
     const x = (-0.5 + (k + 0.5) / nSpr) * 2 * xi;
@@ -140,8 +151,11 @@ export function upholsteredSeat(b: Builder, p: SeatParams): void {
     b.clip(s, backRail, 8);
     springs.push(s);
   }
-  const deck = b.box("deck", "foam", surf, [2 * xi, deckTop - yr1 - 0.005, zF - sprZ0], [0, (yr1 + 0.005 + deckTop) / 2, (zF + sprZ0) / 2], { tint, mass: 0.3 * L });
-  b.nail(deck, frontRail, 3, 6);
+  const edgeRoll = b.box("edge_roll", "foam", surf, [2 * xi, deckTop - yr1, EDGE], [0, (yr1 + deckTop) / 2, zF - EDGE / 2], { ...up, mass: 0.12 * L });
+  b.nail(edgeRoll, frontRail, Math.max(4, Math.round(L / 0.15)), 6);
+  const deckZ1 = zF - EDGE;
+  const deck = b.box("deck", "foam", surf, [2 * xi, deckTop - yr1 - 0.005, deckZ1 - sprZ0], [0, (yr1 + 0.005 + deckTop) / 2, (deckZ1 + sprZ0) / 2], { tint, mass: 0.3 * L });
+  b.glue(deck, edgeRoll, 20);
   for (const s of springs) b.friction(deck, s, 2);
 
   // ---- legs (corners under the arm posts, plus middle legs under the rails on long seats)

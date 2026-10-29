@@ -172,8 +172,7 @@ export function buildFruit(o: { kind?: "apple" | "orange" | "banana" | "lemon"; 
       [0.04, 0.0142, 0],
       [0.09, 0.0297, 0],
     ];
-    const segs = b.tube("banana", "food", "food", pts, 0.017, { sides: 6, tint: 0xe8c840, seam: "fused", jointStrength: 20, mass: 0.12 });
-    void segs;
+    b.tube("banana", "food", "food", pts, 0.017, { sides: 6, tint: 0xe8c840, seam: "fused", jointStrength: 20, mass: 0.12 });
   } else {
     const r = kind === "apple" ? [0.039, 0.035, 0.039] : kind === "lemon" ? [0.03, 0.028, 0.04] : [0.038, 0.036, 0.038];
     const tint = kind === "apple" ? 0xb8282a : kind === "lemon" ? 0xf0d23a : 0xf08a1e;
@@ -239,32 +238,45 @@ export function buildSpiceJar(o: ItemOpts & { spice?: number } = {}): AssemblyDe
 
 // ============================================================================ bottles
 
+export type BottleKind = "wine" | "whiteWine" | "oil" | "beer";
+
+const BOTTLES: Record<BottleKind, { R: number; hb: number; hs: number; rn: number; hn: number; t: number; /** Glass mass carried by the wall tiles (the hollow body; base/shoulder/neck have their own). */ wallGlassKg: number; litres: number; rho: number; tint: number; liquid: number; seg: number }> = {
+  wine: { R: 0.038, hb: 0.2, hs: 0.235, rn: 0.0145, hn: 0.07, t: 0.0035, wallGlassKg: 0.32, litres: 0.75, rho: 0.99, tint: 0x2c4a2e, liquid: 0x5a0f1e, seg: 6 },
+  whiteWine: { R: 0.038, hb: 0.2, hs: 0.235, rn: 0.0145, hn: 0.07, t: 0.0035, wallGlassKg: 0.32, litres: 0.75, rho: 0.99, tint: 0x9aa56a, liquid: 0xd8cf8a, seg: 6 },
+  oil: { R: 0.032, hb: 0.17, hs: 0.205, rn: 0.013, hn: 0.05, t: 0.0035, wallGlassKg: 0.27, litres: 0.5, rho: 0.92, tint: 0x6e7a2a, liquid: 0xa79a2a, seg: 6 },
+  beer: { R: 0.031, hb: 0.12, hs: 0.165, rn: 0.0135, hn: 0.055, t: 0.003, wallGlassKg: 0.07, litres: 0.33, rho: 1.01, tint: 0x6b3d14, liquid: 0xd9a441, seg: 6 },
+};
+/** Overall height of a bottle (incl. cork/cap). */
+export function bottleHeight(kind: BottleKind): number {
+  const k = BOTTLES[kind];
+  return k.hs + k.hn + (kind === "beer" ? 0.006 : 0.025);
+}
+
 /**
- * Glass bottle (wine 0.75 l / oil 0.5 l): base disc, straight wall ring, shoulder ring, solid neck
- * and a cork/cap. The wall tiles carry the mass of the contents (full bottle), `liquid` on the base.
+ * Glass bottle (wine 0.75 l, oil 0.5 l, beer 0.33 l): base disc, straight wall ring, shoulder ring,
+ * solid neck and a cork / screw cap / crown cap. The wall tiles carry the hollow body's glass plus
+ * the contents (full bottle), `liquid` on the base.
  */
-export function buildBottle(o: { kind?: "wine" | "oil" | "whiteWine"; seed?: number } = {}): AssemblyDef {
+export function buildBottle(o: { kind?: BottleKind; seed?: number } = {}): AssemblyDef {
   const kind = o.kind ?? "wine";
-  const oil = kind === "oil";
-  const b = new Builder(oil ? "oilBottle" : "wineBottle", oil ? "Olive Oil Bottle" : "Wine Bottle", "kitchenware", oil ? 12 : 18, o.seed);
-  const R = oil ? 0.032 : 0.038,
-    hb = oil ? 0.17 : 0.2,
-    hs = oil ? 0.205 : 0.235,
-    rn = oil ? 0.013 : 0.0145,
-    hn = oil ? 0.05 : 0.07;
-  const t = 0.0035;
-  const tint = oil ? 0x6e7a2a : kind === "whiteWine" ? 0x9aa56a : 0x2c4a2e;
-  const litres = oil ? 0.5 : 0.75;
-  const s = shell(b, "body", { profile: [[R, 0], [R, hb]], t, base: 0.006, segments: 6, mat: "glass", surf: "glass_dark", innerSurf: "glass_dark", tint, wallKg: 0.32 + litres * (oil ? 0.92 : 0.99) });
-  const sh = b.lathe("shoulder", "glass", "glass_dark", "glass_dark", { profile: [[R, hb], [rn + 0.002, hs]], thickness: t, segments: 6, capBottom: false, tint, innerTint: tint, edgeSurf: "glass_edge" });
+  const k = BOTTLES[kind];
+  const oil = kind === "oil",
+    beer = kind === "beer";
+  const b = new Builder(oil ? "oilBottle" : beer ? "beerBottle" : "wineBottle", oil ? "Olive Oil Bottle" : beer ? "Beer Bottle" : "Wine Bottle", "kitchenware", oil ? 12 : beer ? 3 : 18, o.seed);
+  const { R, hb, hs, rn, hn, t, tint } = k;
+  const s = shell(b, "body", { profile: [[R, 0], [R, hb]], t, base: beer ? 0.005 : 0.006, segments: k.seg, mat: "glass", surf: "glass_dark", innerSurf: "glass_dark", tint, wallKg: k.wallGlassKg + k.litres * k.rho });
+  const sh = b.lathe("shoulder", "glass", "glass_dark", "glass_dark", { profile: [[R, hb], [rn + 0.002, hs]], thickness: t, segments: k.seg, capBottom: false, tint, innerTint: tint, edgeSurf: "glass_edge" });
   for (const a of sh) bondTouching(b, a, s.wall, "fused", 30, 0.0015, 0);
-  const neck = b.cyl("neck", "glass", "glass_dark", rn, hn + 0.004, [0, hs - 0.004 + (hn + 0.004) / 2, 0], { segments: 6, tint, capSurf: "glass_edge" });
+  const neck = b.cyl("neck", "glass", "glass_dark", rn, hn + 0.004, [0, hs - 0.004 + (hn + 0.004) / 2, 0], { segments: k.seg, tint, capSurf: "glass_edge" });
   bondEachTouching(b, neck, sh, "fused", 25, 0.003);
-  const cap = b.cyl("cap", oil ? "plastic" : "softwood", oil ? "plastic" : "wood_pine", rn + 0.001, 0.025, [0, hs + hn + 0.0125, 0], { segments: 6, tint: oil ? 0x1d1d1f : 0x9a1f2a });
-  b.press(cap, neck, 5);
-  const label = b.box("label", "paper", "label_bottle", [0.002, 0.08, 0.05], [R + 0.001, 0.09, 0], { mass: 0.002 });
+  const cap = beer
+    ? b.cyl("cap", "steel", "metal_painted", rn + 0.0005, 0.006, [0, hs + hn + 0.003, 0], { segments: k.seg, tint: 0xc9a227, mass: 0.002, tess: 0 })
+    : b.cyl("cap", oil ? "plastic" : "softwood", oil ? "plastic" : "wood_pine", rn + 0.001, 0.025, [0, hs + hn + 0.0125, 0], { segments: k.seg, tint: oil ? 0x1d1d1f : 0x9a1f2a });
+  b.press(cap, neck, beer ? 8 : 5);
+  const lh = beer ? 0.06 : 0.08;
+  const label = b.box("label", "paper", "label_bottle", [0.002, lh, beer ? 0.04 : 0.05], [R + 0.001, beer ? 0.06 : 0.09, 0], { mass: 0.002 });
   bondTouching(b, label, s.wall, "glue", 2, 0.003);
-  b.liquid(s.base, oil ? 0xa79a2a : kind === "whiteWine" ? 0xd8cf8a : 0x5a0f1e, litres);
+  b.liquid(s.base, k.liquid, k.litres);
   return finish(b);
 }
 

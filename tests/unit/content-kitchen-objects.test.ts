@@ -54,6 +54,7 @@ const MASS: Record<string, [number, number]> = {
   spiceJar: [0.07, 0.15],
   wineBottle: [1.2, 1.5], // full
   oilBottle: [0.8, 1.1], // full 0.5 l
+  beerBottle: [0.5, 0.6], // full 0.33 l (≈ 0.2 kg glass)
   cerealBox: [0.3, 0.7],
   can: [0.3, 0.5],
   skillet: [2, 3.5],
@@ -118,7 +119,7 @@ test("kitchen features: water at faucet/pipes, lights under the cabinets, fridge
   const range = KITCHEN_OBJECTS.range();
   assert.ok(range.bonds.some((b) => b.kind === "latch"), "oven door detent");
   assert.ok(range.parts.some((p) => p.name === "cooktop" && p.mat === "glass"), "breakable glass-ceramic top");
-  for (const t of ["wineBottle", "oilBottle", "milkCarton", "kettle"]) assert.ok((KITCHEN_OBJECTS[t]().features ?? []).some((f) => f.type === "liquid"), `${t} liquid`);
+  for (const t of ["wineBottle", "oilBottle", "beerBottle", "milkCarton", "kettle"]) assert.ok((KITCHEN_OBJECTS[t]().features ?? []).some((f) => f.type === "liquid"), `${t} liquid`);
   const hood = KITCHEN_OBJECTS.rangeHood();
   assert.ok((hood.features ?? []).some((f) => f.type === "light"), "hood lights");
 });

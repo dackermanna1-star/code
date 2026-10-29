@@ -39,7 +39,10 @@ export async function setupStructure(log: (m: string) => void, quality: "low" | 
   const scene = new Scene(engine);
   const settings = new Settings();
   settings.data.quality = quality;
-  const physics = await createPhysics(scene, {});
+  // maxHullPoints 64: works around a physics.ts bug (prepareHull path (d) passes its whole
+  // 128-point scratch buffer to rawHull, whose k-point view then overflows → RangeError for any
+  // part with more than maxHullPoints (default 16) vertices, e.g. 10+-segment cylinders)
+  const physics = await createPhysics(scene, { maxHullPoints: 64 });
   const timings: Record<string, number> = {};
   let t = performance.now();
   let texMode = "photo";

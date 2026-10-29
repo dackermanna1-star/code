@@ -1,5 +1,5 @@
 // Kitchen placements: inside the room, >= 15 mm from finished wall faces, no interpenetration
-// between assemblies (exact convex test on overlapping parts), clear paths/door swings, every
+// between assemblies (exact convex test on overlapping parts, > 0.3 mm), clear paths/door swings, every
 // item resting on the floor or on what it sits on (±2 mm), part budget, determinism.
 // Run: node --test tests/unit/content-kitchen-placement.test.ts
 
@@ -7,9 +7,11 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { kitchenLayout, furnishKitchen } from "../../src/world/furnish/kitchen.ts";
 import { KF } from "../../src/objects/kitchen/layout.ts";
-import { polyTransform, type ConvexPoly } from "../../src/geom/poly.ts";
+import { faceAttr, polyBox, polyTransform, type ConvexPoly } from "../../src/geom/poly.ts";
+import { v3 } from "../../src/geom/vec.ts";
 import { polyContact, aabbOf, type Aabb } from "../../src/objects/lib/contact.ts";
-import { CEILING_Y } from "../../src/world/structure/levels.ts";
+import { CEILING_Y, ELEC_PLATE_H, ELEC_PLATE_T, ELEC_PLATE_W, SERVICE_POINTS, WALL_TILE_T, WALL_TILE_ZONES } from "../../src/world/structure/levels.ts";
+import { ELECTRICAL } from "../../src/world/structure/services.ts";
 
 const L = kitchenLayout();
 const P = L.placements;
@@ -64,7 +66,9 @@ test("kitchen: everything inside the room, >= 15 mm from finished wall faces, be
     }
 });
 
-test("kitchen: no interpenetration between assemblies (exact convex check, > 2 mm)", () => {
+test("kitchen: no interpenetration between assemblies (exact convex check, > 0.3 mm)", () => {
+  // separate bodies that start interpenetrating get shoved apart by the solver (stacked dishes
+  // explode), so even sub-millimetre overlaps count
   const bad: string[] = [];
   for (let i = 0; i < P.length; i++)
     for (let j = i + 1; j < P.length; j++) {
@@ -74,7 +78,7 @@ test("kitchen: no interpenetration between assemblies (exact convex check, > 2 m
         for (const b of world[j]) {
           if (!overlap(a.box, b.box)) continue;
           const c = polyContact(a.poly, b.poly, 0);
-          if (c && c.sep < -0.002) bad.push(`${P[i].type}#${i}.${a.name} × ${P[j].type}#${j}.${b.name} (${(c.sep * 1000).toFixed(1)} mm)`);
+          if (c && c.sep < -0.0003) bad.push(`${P[i].type}#${i}.${a.name} × ${P[j].type}#${j}.${b.name} (${(c.sep * 1000).toFixed(1)} mm)`);
         }
       }
     }
@@ -140,6 +144,48 @@ test("kitchen: clear paths, fridge door swing and the foyer opening stay free", 
   zoneFree("foyer opening", 8.2, KF.x1, 4.6, 5.87, 2.1);
   // the room's open side towards the living room (dining approach)
   zoneFree("living approach", 4.5, 8.5, 5.0, 5.75, 1.0);
+});
+
+test("kitchen: clear of the backsplash tiles, switch/outlet plates and the sink stub-outs", () => {
+  // keep-out boxes in world space: [label, x0, x1, y0, y1, z0, z1, allowed placement types]
+  const boxes: Array<[string, number, number, number, number, number, number, string[]]> = [];
+  for (const zn of WALL_TILE_ZONES)
+    if (zn.room === "kitchen" && zn.side === "n") boxes.push([`backsplash tiles`, zn.from, zn.to, zn.y0, zn.y1, KF.z1 - WALL_TILE_T - 0.015, KF.z1, []]);
+  const face: Record<string, { axis: "x" | "z"; at: number; dir: 1 | -1 }> = {
+    p_utility_kitchen: { axis: "x", at: KF.x0, dir: 1 },
+    p_kitchen_foyer: { axis: "x", at: KF.x1, dir: -1 },
+    north: { axis: "z", at: KF.z1, dir: -1 },
+  };
+  for (const e of ELECTRICAL) {
+    if (e.room !== "kitchen" || e.at === undefined || !face[e.wall]) continue;
+    const f = face[e.wall];
+    const proud = ELEC_PLATE_T + (e.kind === "switch" ? 0.006 : 0) + 0.01; // plate (+ rocker) + 1 cm
+    const n0 = f.dir > 0 ? f.at : f.at - proud,
+      n1 = f.dir > 0 ? f.at + proud : f.at;
+    const [a0, a1] = [e.at - ELEC_PLATE_W / 2, e.at + ELEC_PLATE_W / 2];
+    const [y0, y1] = [e.y - ELEC_PLATE_H / 2, e.y + ELEC_PLATE_H / 2];
+    if (f.axis === "x") boxes.push([e.id, n0, n1, y0, y1, a0, a1, []]);
+    else boxes.push([e.id, a0, a1, y0, y1, n0, n1, []]);
+  }
+  // sink stub-outs (valve bodies 5..45 mm off the face, drain stub to 58 mm): only the north run's
+  // supply/drain lines connect there
+  const sp = SERVICE_POINTS.find((s) => s.id === "kitchenSink")!;
+  boxes.push(["sink stub-outs", sp.face, sp.face + 0.06, Math.min(sp.valveY, sp.drainY ?? sp.valveY) - 0.03, sp.valveY + 0.03, sp.along - 0.13, sp.along + 0.13, ["kitchenNorthRun"]]);
+  assert.ok(boxes.length >= 7, `keep-out boxes: ${boxes.map((b) => b[0]).join(", ")}`);
+  const bad: string[] = [];
+  for (const [label, x0, x1, y0, y1, z0, z1, allowed] of boxes) {
+    const keep = polyBox(v3(x1 - x0, y1 - y0, z1 - z0), faceAttr(0), { p: v3((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2), q: { x: 0, y: 0, z: 0, w: 1 } });
+    const kb = aabbOf(keep);
+    for (let i = 0; i < P.length; i++) {
+      if (allowed.includes(P[i].type) || !overlap(asmBox[i], kb)) continue;
+      for (const w of world[i]) {
+        if (!overlap(w.box, kb)) continue;
+        const c = polyContact(w.poly, keep, 0);
+        if (c && c.sep < -1e-4) bad.push(`${label} × ${P[i].type}#${i}.${w.name} (${(c.sep * 1000).toFixed(1)} mm)`);
+      }
+    }
+  }
+  assert.deepEqual(bad, []);
 });
 
 test("kitchen: layout is deterministic", () => {

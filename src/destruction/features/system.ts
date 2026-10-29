@@ -158,6 +158,11 @@ export class FeatureSystem {
       if (!p || !p.features) continue;
       for (const f of p.features.slice()) safe(this.w, () => f.onBondBroken?.(bond, p));
     }
+    const all = bond.asm.features;
+    for (let i = 0; i < all.length; i++) {
+      const f = all[i];
+      if (f.onAsmBondBroken) safe(this.w, () => f.onAsmBondBroken!(bond));
+    }
   }
 
   onPartMoved(part: Part, island: Island): void {

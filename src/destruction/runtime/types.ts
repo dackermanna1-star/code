@@ -227,6 +227,8 @@ export class Island {
   savedDisableSync = false;
   /** Sim time of the last impact/strike involving this island. */
   lastHit = -1;
+  /** World.stepIndex of the last Interactions.pull() on this (dynamic) island. */
+  pulledStep = -1;
   /** Split operation that created this island (siblings share it) and when. */
   birth = 0;
   birthTime = -1;
@@ -252,7 +254,7 @@ export interface JointConstraint {
   pivot: Vec3;
   /** Latch motor engaged in this constraint. */
   latched: boolean;
-  /** Angle/position offset between the built pose and the constraint's zero (see joints.ts). */
+  /** Hinge angle between the built pose and the constraint's zero (0 for sliders; see joints.ts). */
   offset: number;
   /** Signature used to avoid needless re-creation. */
   sig: string;

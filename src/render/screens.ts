@@ -41,6 +41,7 @@ import type { ConvexPoly } from "../geom/poly.ts";
 import type { Vec3 } from "../geom/vec.ts";
 import { drawSevenSeg, measureSevenSeg } from "./proctex/sevenseg.ts";
 import { SURFACES } from "./surfaces.ts";
+import { applyLightingSetup } from "./worldMaterial.ts";
 
 export type ScreenKind = "tv" | "monitor" | "laptop" | "phone" | "microwave";
 export type ScreenState = "on" | "off" | "cracked" | "dead";
@@ -782,7 +783,7 @@ export function createScreen(scene: Scene, target: Mesh | ScreenPlacement, kind:
   mat.roughness = 0.14;
   mat.emissiveTexture = dt;
   mat.emissiveColor = Color3.White();
-  mat.maxSimultaneousLights = 8;
+  applyLightingSetup(mat);
   mesh.material = mat;
   mesh.receiveShadows = false;
   if (ownsMesh) screenHooks.registerReceiver?.(mesh);

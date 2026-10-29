@@ -13,7 +13,8 @@
 // offset + a 2 mm lift along the normal.
 //
 // Decals are world-static quads, but they do not outlive their support: `revalidate()` (called
-// by Vfx a few times after fractures, splits and grabbed/thrown/dropped objects) re-probes the
+// by Vfx a few times after fractures, splits and grabbed/thrown/dropped objects, and every half
+// second around the grab spot while the player holds or drags something) re-probes the
 // surface under nearby horizontal decals and fades out those whose support dropped away or
 // moved, and removes wall decals inside a broken-out region.
 //

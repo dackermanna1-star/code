@@ -14,7 +14,7 @@
 import { Builder } from "../lib/builder.ts";
 import { barHandle, hingeAxis } from "../lib/kit.ts";
 import type { AssemblyDef } from "../../destruction/model/types.ts";
-import { bondEachTouching, finish } from "./lib.ts";
+import { finish } from "./lib.ts";
 
 export interface FridgeOpts {
   finish?: "stainless" | "white" | "black";
@@ -122,16 +122,12 @@ export function buildFridge(o: FridgeOpts = {}): AssemblyDef {
       y1 = D.crisperTop - 0.004;
     const pt = 0.003;
     const bot = b.box(`crisper${k}_bot`, "plastic", "plastic", [w, pt, z1 - z0], [xc, y0 + pt / 2, (z0 + z1) / 2], { tint: 0xe8ecee });
-    const fr2 = b.box(`crisper${k}_front`, "plastic", "glass_frosted", [w, y1 - y0 - pt, pt], [xc, (y0 + pt + y1) / 2, z1 - pt / 2], { tint: 0xdfe8ea });
-    const l = b.box(`crisper${k}_l`, "plastic", "plastic", [pt, y1 - y0 - pt, z1 - z0 - pt], [x0 + pt / 2, (y0 + pt + y1) / 2, (z0 + z1 - pt) / 2], { tint: 0xe8ecee });
-    const r = b.box(`crisper${k}_r`, "plastic", "plastic", [pt, y1 - y0 - pt, z1 - z0 - pt], [x1 - pt / 2, (y0 + pt + y1) / 2, (z0 + z1 - pt) / 2], { tint: 0xe8ecee });
-    const k2 = b.box(`crisper${k}_k`, "plastic", "plastic", [w - 2 * pt, y1 - y0 - pt, pt], [xc, (y0 + pt + y1) / 2, z0 + pt / 2], { tint: 0xe8ecee });
+    b.box(`crisper${k}_front`, "plastic", "glass_frosted", [w, y1 - y0 - pt, pt], [xc, (y0 + pt + y1) / 2, z1 - pt / 2], { tint: 0xdfe8ea });
+    b.box(`crisper${k}_l`, "plastic", "plastic", [pt, y1 - y0 - pt, z1 - z0 - pt], [x0 + pt / 2, (y0 + pt + y1) / 2, (z0 + z1 - pt) / 2], { tint: 0xe8ecee });
+    b.box(`crisper${k}_r`, "plastic", "plastic", [pt, y1 - y0 - pt, z1 - z0 - pt], [x1 - pt / 2, (y0 + pt + y1) / 2, (z0 + z1 - pt) / 2], { tint: 0xe8ecee });
+    b.box(`crisper${k}_k`, "plastic", "plastic", [w - 2 * pt, y1 - y0 - pt, pt], [xc, (y0 + pt + y1) / 2, z0 + pt / 2], { tint: 0xe8ecee });
     b.autoBond("fused", undefined, 0.0004, (a, c) => a.startsWith(`crisper${k}_`) && c.startsWith(`crisper${k}_`));
     b.slider(bot, ff, { pivots: [[xc, y0, (z0 + z1) / 2]], axis: [0, 0, 1], min: 0, max: 0.3, strength: 25, friction: 0.3 });
-    void fr2;
-    void l;
-    void r;
-    void k2;
   };
   cr(0, -LX + 0.001, -0.002);
   cr(1, 0.002, LX - 0.001);
@@ -160,7 +156,7 @@ export function buildFridge(o: FridgeOpts = {}): AssemblyDef {
   const DZ0 = ZF,
     DZ1 = D.doorFront;
   const axis = hingeAxis([1, 0, 0], [0, 0, 1]);
-  const door = (nm: string, y0: number, y1: number, bins: readonly number[], handleLen: number, latchTo: string): void => {
+  const door = (nm: string, y0: number, y1: number, oy0: number, oy1: number, bins: readonly number[], handleLen: number, latchTo: string): void => {
     const dw = W;
     const skinP = b.box(`${nm}_skin`, "steelSheet", skin.surf, [dw, y1 - y0, st], [0, (y0 + y1) / 2, DZ1 - st / 2], { tint: skin.tint });
     const core = b.box(`${nm}_foam`, "foam", skin.surf, [dw - 0.002, y1 - y0 - 0.002, 0.042], [0, (y0 + y1) / 2, DZ1 - st - 0.021], { tint: skin.tint });
@@ -170,12 +166,15 @@ export function buildFridge(o: FridgeOpts = {}): AssemblyDef {
     const gk = 0.015;
     const g1 = b.box(`${nm}_gasket_l`, "rubber", "rubber", [0.025, y1 - y0 - 0.01, gk], [-dw / 2 + 0.0175, (y0 + y1) / 2, zIn - gk / 2 + 0.003], { tint: 0xd9d9d6, mass: 0.12 });
     const g2 = b.box(`${nm}_gasket_r`, "rubber", "rubber", [0.025, y1 - y0 - 0.01, gk], [dw / 2 - 0.0175, (y0 + y1) / 2, zIn - gk / 2 + 0.003], { tint: 0xd9d9d6, mass: 0.12 });
-    const g3 = b.box(`${nm}_gasket_t`, "rubber", "rubber", [dw - 0.085, 0.025, gk], [0, y1 - 0.0175, zIn - gk / 2 + 0.003], { tint: 0xd9d9d6, mass: 0.12 });
-    const g4 = b.box(`${nm}_gasket_b`, "rubber", "rubber", [dw - 0.085, 0.025, gk], [0, y0 + 0.0175, zIn - gk / 2 + 0.003], { tint: 0xd9d9d6, mass: 0.12 });
-    // door dikes (bins hang between them)
+    // top/bottom strips run between the side strips (butt-jointed, fused at the corners)
+    const g3 = b.box(`${nm}_gasket_t`, "rubber", "rubber", [dw - 0.06, 0.025, gk], [0, y1 - 0.0175, zIn - gk / 2 + 0.003], { tint: 0xd9d9d6, mass: 0.12 });
+    const g4 = b.box(`${nm}_gasket_b`, "rubber", "rubber", [dw - 0.06, 0.025, gk], [0, y0 + 0.0175, zIn - gk / 2 + 0.003], { tint: 0xd9d9d6, mass: 0.12 });
+    // door dikes (bins hang between them): they reach into the compartment opening [oy0, oy1]
     const dike = 0.085;
-    const dkL = b.box(`${nm}_dike_l`, "plastic", liner.surf, [0.03, y1 - y0 - 0.12, dike], [-0.33, (y0 + y1) / 2, zIn - dike / 2], { tint: liner.tint, mass: 0.35 });
-    const dkR = b.box(`${nm}_dike_r`, "plastic", liner.surf, [0.03, y1 - y0 - 0.12, dike], [0.33, (y0 + y1) / 2, zIn - dike / 2], { tint: liner.tint, mass: 0.35 });
+    const dy0 = oy0 + 0.006,
+      dy1 = oy1 - 0.006;
+    const dkL = b.box(`${nm}_dike_l`, "plastic", liner.surf, [0.03, dy1 - dy0, dike], [-0.33, (dy0 + dy1) / 2, zIn - dike / 2], { tint: liner.tint, mass: 0.35 });
+    const dkR = b.box(`${nm}_dike_r`, "plastic", liner.surf, [0.03, dy1 - dy0, dike], [0.33, (dy0 + dy1) / 2, zIn - dike / 2], { tint: liner.tint, mass: 0.35 });
     b.glue(skinP, core, 120);
     b.glue(lnr, core, 120);
     for (const g of [g1, g2, g3, g4]) b.clip(g, lnr, 6);
@@ -192,7 +191,6 @@ export function buildFridge(o: FridgeOpts = {}): AssemblyDef {
       b.fuse(bb, bf, 20);
       b.clip(bb, dkL, 8);
       b.clip(bb, dkR, 8);
-      void bf;
     });
     barHandle(b, `${nm}_handle`, { on: skinP, len: handleLen, size: 0.018, standoff: 0.045, vertical: true, mat: "steel", surf: "steel_brushed", screw: 70 }, [dw / 2 - 0.05, y0 + (y1 - y0) * (nm === "fz" ? 0.4 : 0.72), DZ1]);
     // hinges on the -X edge at the door front face
@@ -200,8 +198,7 @@ export function buildFridge(o: FridgeOpts = {}): AssemblyDef {
     const gid = b.hinge(skinP, sideL, { pivots: [[px, y1 - 0.02, DZ1]], axis, min: 0, max: 100, strength: 110, friction: 0.15 });
     b.hinge(skinP, sideL, { pivots: [[px, y0 + 0.02, DZ1]], axis, min: 0, max: 100, strength: 110, friction: 0.15, group: gid, latch: 10, latchPos: [dw / 2 - 0.02, (y0 + y1) / 2, DZ0], latchPart: g2, latchFixed: latchTo });
   };
-  door("fr", 0.1, 1.255, D.fridgeBins, 0.6, sideR);
-  door("fz", 1.265, H, D.freezerBins, 0.3, sideR);
-  void bondEachTouching;
+  door("fr", 0.1, 1.255, yF0, yF1, D.fridgeBins, 0.6, sideR);
+  door("fz", 1.265, H, yZ0, yZ1, D.freezerBins, 0.3, sideR);
   return finish(b);
 }

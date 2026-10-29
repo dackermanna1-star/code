@@ -24,7 +24,8 @@
 //                                        the parent part, tint = 0xRRGGBB face tint.
 //   decal(kind, pos, normal, size)       size = diameter (m); world-space quads, removed again
 //                                        when their support breaks or is moved away (fracture /
-//                                        split / grab / throw / drop re-checks); puddles near an
+//                                        split / grab / throw / drop / heavy impact and tool-hit
+//                                        re-checks); puddles near an
 //                                        existing one enlarge it.
 // Optional createVfx hooks: `lightLevel(x,y,z)` (exact light level for unlit sprites),
 // `roomMaskAt(x,z)` (room layer bits so lights of other rooms are ignored by the estimate),
@@ -304,6 +305,7 @@ export class Vfx implements VfxSystem {
     this.fx.update(d);
     if (d > 0) {
       this.feedPuddles(d);
+      this.reactions.update(); // periodic support re-checks around a held object's grab spot
       this.runRevalidations(d);
     }
     this.microRender.sync();
@@ -371,11 +373,18 @@ export class Vfx implements VfxSystem {
     const stamp = this.decals.currentStamp;
     if (surfaceRadius > 0) this.decals.revalidate(p.x, p.y, p.z, 0, surfaceRadius, this.groundAtFn, stamp);
     if (!(radius > 0)) return;
-    // coalesce with a pending check nearby (event storms around one break)
+    // coalesce with a check sequence nearby (event storms around one break, the periodic checks
+    // around a held object's grab spot): a sequence that already ran its first check restarts so
+    // the new event gets its full deferred schedule; one still waiting for its first check simply
+    // absorbs it (so a storm can never postpone the first check indefinitely)
     for (const r of this.revals) {
-      if (r.next === 0 && (r.x - p.x) ** 2 + (r.y - p.y) ** 2 + (r.z - p.z) ** 2 < 0.09) {
+      if ((r.x - p.x) ** 2 + (r.y - p.y) ** 2 + (r.z - p.z) ** 2 < 0.09) {
         r.radius = Math.max(r.radius, radius);
         r.stamp = Math.max(r.stamp, stamp);
+        if (r.next > 0) {
+          r.age = 0;
+          r.next = 0;
+        }
         return;
       }
     }

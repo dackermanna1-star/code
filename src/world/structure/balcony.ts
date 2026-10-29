@@ -84,28 +84,50 @@ export function buildBalcony(): AssemblyDef {
   // ---- tempered glass panels clamped between neighbouring posts
   const gy0 = yTop + 0.1,
     gy1 = yPost1 - 0.06;
+  // Stainless glass clamps (two per panel edge) bolted to the post face and gripping the pane on
+  // its inner face: the glass hangs on real hardware (clamp → post), each clamp failing on its own.
+  const CLAMP_T = 0.012,
+    CLAMP_H = 0.05,
+    CLAMP_GRIP = 0.025;
+  const clampYs = [gy0 + 0.15, gy1 - 0.15];
+  const midX = mid(xW, xE);
   const panel = (name: string, a: { name: string; x: number; z: number }, c: { name: string; x: number; z: number }) => {
     const alongX = Math.abs(a.z - c.z) < 1e-6;
+    // inner side of the pane (towards the balcony floor / building)
+    const inner = alongX ? 1 : Math.sign(midX - a.x);
     if (alongX) {
       const x0 = Math.min(a.x, c.x) + POST / 2 + 0.015,
         x1 = Math.max(a.x, c.x) - POST / 2 - 0.015;
       boxW(b, name, "temperedGlass", "glass", [x0, x1], [gy0, gy1], [a.z - GLASS_T / 2, a.z + GLASS_T / 2], { tags: ["railing", "glass"] });
-      for (const [p, x] of [
-        [a, x0],
-        [c, x1],
-      ] as Array<[{ name: string }, number]>) {
-        // two glass clamps per post → one bond with the summed strength
-        bondAt(b, name, p.name, "clip", 60, [x, mid(gy0, gy1), a.z]);
+      const zf = a.z + (inner * GLASS_T) / 2;
+      const cz: [number, number] = [Math.min(zf, zf + inner * CLAMP_T), Math.max(zf, zf + inner * CLAMP_T)];
+      for (const [p, cx, xg] of [
+        [a, [a.x + POST / 2, x0 + CLAMP_GRIP], x0 + CLAMP_GRIP / 2],
+        [c, [x1 - CLAMP_GRIP, c.x - POST / 2], x1 - CLAMP_GRIP / 2],
+      ] as Array<[{ name: string; x: number }, [number, number], number]>) {
+        clampYs.forEach((y, k) => {
+          const cl = `${name}_clamp_${p.name}_${k}`;
+          boxW(b, cl, "steel", "steel_brushed", cx, [y - CLAMP_H / 2, y + CLAMP_H / 2], cz, { tags: ["railing", "clamp"] });
+          bondAt(b, cl, p.name, "screw", 80, [p.x + (p === a ? POST / 2 : -POST / 2), y, mid(cz[0], cz[1])]);
+          bondAt(b, cl, name, "clip", 30, [xg, y, zf]);
+        });
       }
     } else {
       const z0 = Math.min(a.z, c.z) + POST / 2 + 0.015,
         z1 = Math.max(a.z, c.z) - POST / 2 - 0.015;
       boxW(b, name, "temperedGlass", "glass", [a.x - GLASS_T / 2, a.x + GLASS_T / 2], [gy0, gy1], [z0, z1], { tags: ["railing", "glass"] });
-      for (const [p, z] of [
-        [a, z0],
-        [c, z1],
-      ] as Array<[{ name: string }, number]>) {
-        bondAt(b, name, p.name, "clip", 60, [a.x, mid(gy0, gy1), z]);
+      const xf = a.x + (inner * GLASS_T) / 2;
+      const cxr: [number, number] = [Math.min(xf, xf + inner * CLAMP_T), Math.max(xf, xf + inner * CLAMP_T)];
+      for (const [p, czr, zg] of [
+        [a, [a.z + POST / 2, z0 + CLAMP_GRIP], z0 + CLAMP_GRIP / 2],
+        [c, [z1 - CLAMP_GRIP, c.z - POST / 2], z1 - CLAMP_GRIP / 2],
+      ] as Array<[{ name: string; z: number }, [number, number], number]>) {
+        clampYs.forEach((y, k) => {
+          const cl = `${name}_clamp_${p.name}_${k}`;
+          boxW(b, cl, "steel", "steel_brushed", cxr, [y - CLAMP_H / 2, y + CLAMP_H / 2], czr, { tags: ["railing", "clamp"] });
+          bondAt(b, cl, p.name, "screw", 80, [mid(cxr[0], cxr[1]), y, p.z + (p === a ? POST / 2 : -POST / 2)]);
+          bondAt(b, cl, name, "clip", 30, [xf, y, zg]);
+        });
       }
     }
   };

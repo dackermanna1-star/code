@@ -153,9 +153,10 @@ function addLaminate(b: Builder, id: RoomId, cov: Rect2[]): void {
       for (const p of clipToUnion(cell, cov)) {
         if (p.x1 - p.x0 < 0.02 || p.z1 - p.z0 < 0.01) continue;
         const name = `plank_${n++}`;
+        // NOT `supported`: a pried-up plank is a free 1.2 m board that must be able to snap
+        // (global failure; its slenderness already lowers the threshold realistically)
         boxW(b, name, "hardwood", "wood_oak", [p.x0, p.x1], [y0, FLOOR_Y], [p.z0, p.z1], {
           tint: plankTint(rng),
-          supported: true,
           grain: "x",
           endGrain: false,
           tags: ["plank", "floor"],

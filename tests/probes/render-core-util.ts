@@ -11,6 +11,7 @@ import {
   ShadowGenerator,
   DefaultRenderingPipeline,
   ImageProcessingConfiguration,
+  Matrix,
 } from "@babylonjs/core";
 import type { RenderGeom } from "../../src/geom/meshgen.ts";
 
@@ -141,4 +142,36 @@ export function snap(scene: Scene, frames = 2): string {
   renderFrames(scene, frames);
   const c = scene.getEngine().getRenderingCanvas() as HTMLCanvasElement;
   return c.toDataURL("image/png");
+}
+
+/**
+ * scene.whenReadyAsync() with a timeout: a single material that fails to compile (e.g. a
+ * concurrently edited render-env shader) would otherwise hang the probe until the harness
+ * timeout. Resolves with the names of meshes that are still not ready ([] = all ready).
+ */
+export async function readyOrTimeout(scene: Scene, ms = 20000): Promise<string[]> {
+  let done = false;
+  const ok = scene.whenReadyAsync().then(() => (done = true));
+  const t0 = performance.now();
+  while (!done && performance.now() - t0 < ms) {
+    await Promise.race([ok, new Promise((r) => setTimeout(r, 100))]);
+  }
+  if (done) return [];
+  return scene.meshes.filter((m) => m.isEnabled() && !m.isReady(true)).map((m) => m.name);
+}
+
+/** Average luminance (0..255) of the framebuffer around the projection of world point `p`. */
+export async function lumAtWorld(scene: Scene, p: Vector3, r = 2): Promise<number> {
+  const engine = scene.getEngine();
+  const cam = scene.activeCamera as UniversalCamera;
+  const w = engine.getRenderWidth(),
+    h = engine.getRenderHeight();
+  const s = Vector3.Project(p, Matrix.Identity(), scene.getTransformMatrix(), cam.viewport.toGlobal(w, h));
+  const x = Math.round(s.x),
+    y = Math.round(s.y);
+  const size = r * 2 + 1;
+  const data = (await engine.readPixels(x - r, h - 1 - y - r, size, size, true, false)) as Uint8Array;
+  let acc = 0;
+  for (let i = 0; i < size * size; i++) acc += 0.2126 * data[i * 4] + 0.7152 * data[i * 4 + 1] + 0.0722 * data[i * 4 + 2];
+  return Math.round(acc / (size * size));
 }

@@ -16,6 +16,7 @@ import { ROOMS } from "../../src/world/plan.ts";
 import { buildStructure } from "../../src/world/structure.ts";
 import { kitchenLayout } from "../../src/world/furnish/kitchen.ts";
 import { MockVfx } from "./destruction-util.ts";
+import type { AssemblyDef } from "../../src/destruction/model/types.ts";
 import manifest from "../../public/assets/textures/manifest.json";
 
 const photoUrls = import.meta.glob("../../public/assets/textures/*.jpg", { query: "?url", import: "default", eager: true }) as Record<string, string>;
@@ -31,6 +32,25 @@ const VIEWS: Array<[string, [number, number, number], [number, number, number]]>
   ["worktop top-down", [6.2, 2.3, 7.6], [6.2, 0.9, 8.5]],
   ["from the foyer opening", [9.0, 1.6, 5.1], [5.0, 0.9, 7.8]],
 ];
+
+/** Rigid islands an assembly is built with: components of its non-joint, non-world bonds (loose parts alone). */
+function rigidComponents(def: AssemblyDef): number {
+  const idx = new Map(def.parts.map((p, i) => [p.name, i]));
+  const par = def.parts.map((_, i) => i);
+  const find = (i: number): number => {
+    while (par[i] !== i) i = par[i] = par[par[i]];
+    return i;
+  };
+  const loose = (i: number): boolean => !!def.parts[i].tags?.includes("loose");
+  for (const b of def.bonds) {
+    if (b.kind === "hinge" || b.kind === "slider" || b.kind === "latch" || b.b === "world") continue;
+    const ia = idx.get(b.a),
+      ib = idx.get(b.b);
+    if (ia === undefined || ib === undefined || loose(ia) || loose(ib)) continue;
+    par[find(ia)] = find(ib);
+  }
+  return new Set(def.parts.map((_, i) => find(i))).size;
+}
 
 export async function probe(): Promise<unknown> {
   const canvas = document.getElementById("renderCanvas") as HTMLCanvasElement;
@@ -110,9 +130,8 @@ export async function probe(): Promise<unknown> {
   L.placements.forEach((p, i) => {
     const a = after.find((q) => q.id === idOf(i));
     if (!a) return;
-    const joints = new Set(p.def.bonds.filter((bd) => bd.kind === "hinge" || bd.kind === "slider").map((bd) => bd.joint?.group)).size;
-    const loose = p.def.parts.filter((q) => q.tags?.includes("loose")).length;
-    if (a.islands > 1 + joints + loose) split.push(`${p.type}#${i}:${a.islands}`);
+    const expected = rigidComponents(p.def);
+    if (a.islands > expected) split.push(`${p.type}#${i}: ${a.islands} islands (built ${expected})`);
     if (a.damage > 0.001) split.push(`${p.type}#${i} damaged ${a.damage.toFixed(3)}`);
   });
 

@@ -26,12 +26,14 @@ export function buildPedalBin(o: MiscOpts = {}): AssemblyDef {
   b.screw(drum.base, foot, 3, 20);
   const bucket = shell(b, "bucket", { profile: [[0.12, 0], [0.128, 0.4]], t: 0.0025, base: 0.003, segments: 8, mat: "plastic", surf: "plastic", tint: 0x2b2c2f }, [0, 0.0212, 0]);
   b.friction(bucket.base, drum.base, 3);
-  const lid = b.cyl("lid", "steelSheet", "steel_brushed", R + 0.003, 0.02, [0, H + 0.01 - 0.02 + 0.0, 0], { segments: 10, rTop: R - 0.01, mass: 0.45 });
+  // domed lid resting on the drum rim (0.5 mm clear: it is a separate body on its hinge)
+  const lid = b.cyl("lid", "steelSheet", "steel_brushed", R + 0.003, 0.02, [0, H + 0.0005 + 0.01, 0], { segments: 10, rTop: R - 0.01, mass: 0.45 });
   const hingeBlk = b.box("lid_hinge", "plastic", "plastic", [0.06, 0.03, 0.025], [0, H - 0.035, -R + 0.006 - 0.0125 + 0.0], { tint: 0x1d1d1f });
   bondEachTouching(b, hingeBlk, drum.wall, "screw", 25, 0.003);
-  b.hinge(lid, hingeBlk, { pivots: [[0, H, -R - 0.004]], axis: [-1, 0, 0], min: 0, max: 95, strength: 25, friction: 0.3 });
+  b.hinge(lid, hingeBlk, { pivots: [[0, H + 0.001, -R - 0.004]], axis: [-1, 0, 0], min: 0, max: 95, strength: 25, friction: 0.3 });
   const pedal = b.box("pedal", "plastic", "plastic", [0.08, 0.012, 0.06], [0, 0.02, R + 0.03], { tint: 0x1d1d1f });
-  b.hinge(pedal, foot, { pivots: [[0, 0.015, R + 0.002]], axis: [1, 0, 0], min: -8, max: 0, strength: 15, friction: 0.4, spring: 2 });
+  // stepping on it swings the tip down (positive about +X); a return spring holds it level
+  b.hinge(pedal, foot, { pivots: [[0, 0.015, R + 0.002]], axis: [1, 0, 0], min: 0, max: 8, strength: 15, friction: 0.4, spring: 2 });
   for (const [k, p] of ([[0.03, 0.07, 0.02], [-0.04, 0.06, -0.03]] as Array<[number, number, number]>).entries()) {
     const pp = b.ellipsoid(`paper${k}`, "paper", "paper", [0.045, 0.035, 0.04], [p[0], 0.0242 + 0.035 + k * 0.0, p[2]], { segments: 7, rings: 5, mass: 0.02, tint: 0xf1efe8 });
     b.tag(pp, "loose");
@@ -57,7 +59,7 @@ export function buildRecyclingBin(o: MiscOpts = {}): AssemblyDef {
   const loose = (p: string): void => b.tag(p, "loose");
   loose(b.cyl("can0", "aluminum", "aluminum", 0.033, 0.115, [-0.09, t + 0.0575, -0.05], { segments: 8, mass: 0.015, tess: 0.03 }));
   loose(b.cyl("can1", "aluminum", "aluminum", 0.033, 0.115, [-0.02, t + 0.0575, -0.07], { segments: 8, mass: 0.015, tess: 0.03, tint: 0xd04a3a }));
-  loose(b.cyl("bottle", "plastic", "plastic", 0.04, 0.24, [0.1, t + 0.04, 0.02], { axis: "z", segments: 8, mass: 0.03, tint: 0xcfe8f2 }));
+  loose(b.cyl("bottle", "plastic", "plastic", 0.04, 0.24, [0.1, t + 0.04, -0.003], { axis: "z", segments: 8, mass: 0.03, tint: 0xcfe8f2 }));
   loose(b.box("carton", "cardboard", "cardboard", [0.24, 0.006, 0.2], [-0.03, t + 0.118, 0.0], { mass: 0.12 }));
   return finish(b);
 }
@@ -84,7 +86,6 @@ export function buildWallClock(o: MiscOpts = {}): AssemblyDef {
     b.press(mh, hh, 1);
     const glass = b.cyl("glass", "glass", "glass", R - 0.001, 0.002, [0, D - 0.003, 0], { segments: 12 });
     for (const r of rim) bondEachTouching(b, glass, [r], "clip", 2, 0.0015);
-    void back;
   });
   // hanging on a nail behind the top of the movement
   b.world("back", "nail", 12, [0, 0.08, 0.003]);

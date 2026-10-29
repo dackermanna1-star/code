@@ -116,11 +116,11 @@ export function buildCoatCloset(o: CoatClosetOpts = {}): AssemblyDef {
   b.screw(header, sideR, 2, 30);
   b.screw(header, top, 2, 30);
   // screwed to the back wall (and a side wall) through cleats
-  b.world(sideL, "screw", 70, [-W / 2 + t / 2, 1.2, -D / 2]);
-  b.world(sideR, "screw", 70, [W / 2 - t / 2, 1.2, -D / 2]);
+  // side panels screwed through cleats into the back wall (and into the side wall when the
+  // closet stands in a corner: one bond per panel with the summed strength, anchored between)
+  b.world(sideL, "screw", o.sideWall === "l" ? 140 : 70, o.sideWall === "l" ? [-W / 2 + t / 2, 1.2, -D / 4] : [-W / 2 + t / 2, 1.2, -D / 2]);
+  b.world(sideR, "screw", o.sideWall === "r" ? 140 : 70, o.sideWall === "r" ? [W / 2 - t / 2, 1.2, -D / 4] : [W / 2 - t / 2, 1.2, -D / 2]);
   b.world(top, "screw", 60, [0, H - t / 2, -D / 2]);
-  if (o.sideWall === "l") b.world(sideL, "screw", 70, [-W / 2, 1.2, 0]);
-  if (o.sideWall === "r") b.world(sideR, "screw", 70, [W / 2, 1.2, 0]);
 
   // ------------------------------------------------------------------ shelf on cleats, rod in sockets
   const sTop = COAT_CLOSET.shelfTop;

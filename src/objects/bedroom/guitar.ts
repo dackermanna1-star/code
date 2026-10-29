@@ -152,7 +152,12 @@ export function buildGuitar(o: GuitarOpts = {}): AssemblyDef {
     }
   }
   // ---- blocks and braces inside
-  const neckBlock = boxR(b, "neck_block", "hardwood", "wood_walnut", [-0.035, 0.035], [0.52, 0.561], [-zR, zR], { grain: "z" });
+  // neck block glued against the flat inner face of the top rib tile (the tile spanning ±12.8°
+  // around +Y), so the neck heel outside and the block inside sandwich the rib (2.5 mm)
+  const nSeg = (G.upArc[1] - G.upArc[0]) / G.segU;
+  const topTileHalf = (90 - (G.upArc[0] + nSeg * Math.floor((90 - G.upArc[0]) / nSeg))) * D2R;
+  const ribInnerY = G.cU + (G.rU - G.rib) * Math.cos(Math.min(topTileHalf, nSeg * D2R - topTileHalf));
+  const neckBlock = boxR(b, "neck_block", "hardwood", "wood_walnut", [-0.029, 0.029], [ribInnerY - 0.044, ribInnerY - 0.0002], [-zR, zR], { grain: "z" });
   b.glue(neckBlock, topU, 30);
   b.glue(neckBlock, backU, 30);
   const tailBlock = boxR(b, "tail_block", "hardwood", "wood_walnut", [-0.03, 0.03], [0.009, 0.035], [-zR, zR], { grain: "z" });
@@ -233,7 +238,8 @@ export function buildGuitarStand(o: GuitarStandOpts = {}): AssemblyDef {
   const mastZ = Math.min(o.mastZ ?? yokeZ - 0.06, yokeZ - 0.05);
   const lipZ = o.lipZ ?? STAND.shelfZ[1];
   const barH = 0.022;
-  const fz0 = Math.max(0.05, lipZ - 0.01);
+  // the front bar runs under the cradle's front edge and its lip
+  const fz0 = lipZ - 0.012;
   const front = boxR(b, "front_bar", "steel", S, [-0.17, 0.17], [0, barH], [fz0, fz0 + 0.022], { tess: 0, mass: 0.45 });
   const rear = boxR(b, "rear_leg", "steel", S, [-0.011, 0.011], [0, barH], [mastZ - 0.03, fz0], { tess: 0, mass: 0.45 });
   b.weld(rear, front, 80);

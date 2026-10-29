@@ -37,6 +37,8 @@ export const TOILET = {
   tankTopY: 0.775,
   /** Back of the cistern (local z) and front of the bowl. */
   backZ: -0.355,
+  /** Wall plane behind the toilet (the supply valve is fixed there): 1.5 cm behind the lid's 5 mm overhang. */
+  wallZ: -0.375,
   frontZ: 0.33,
 } as const;
 
@@ -140,7 +142,6 @@ export function buildToilet(o: ToiletOpts = {}): AssemblyDef {
   const tBack = boxR(b, "tank_back", "ceramic", "ceramic_glaze", [-tw, tw], [ty0 + tbt, ty1], [tz0, tz0 + wt], { tint: china });
   const tLeft = boxR(b, "tank_left", "ceramic", "ceramic_glaze", [-tw, -tw + wt], [ty0 + tbt, ty1], [tz0 + wt, tz1 - wt], { tint: china });
   const tRight = boxR(b, "tank_right", "ceramic", "ceramic_glaze", [tw - wt, tw], [ty0 + tbt, ty1], [tz0 + wt, tz1 - wt], { tint: china });
-  const tank = [tBottom, tFront, tBack, tLeft, tRight];
   for (const w of [tFront, tBack, tLeft, tRight]) b.fuse(w, tBottom);
   for (const w of [tLeft, tRight]) {
     b.fuse(w, tFront);
@@ -207,7 +208,7 @@ export function buildToilet(o: ToiletOpts = {}): AssemblyDef {
   b.hinge(lidPart, posts, { pivots: [[-0.07, pivY, -0.122], [0.07, pivY, -0.122]], axis, min: 0, max: 100, strength: 12, friction: 0.3 });
 
   // ------------------------------------------------------------------ supply: angle stop + braided line
-  const wallZ = tz0 - 0.015;
+  const wallZ = TOILET.wallZ;
   const valve = b.cyl("supply_valve", CHROME.mat, CHROME.surf, 0.013, 0.05, [sx, 0.18, wallZ + 0.025], { axis: "z", segments: 10, mass: 0.18 });
   const handle = boxR(b, "supply_handle", CHROME.mat, CHROME.surf, [sx - 0.016, sx + 0.016], [0.174, 0.186], [wallZ + 0.05, wallZ + 0.058], { mass: 0.02 });
   b.press(handle, valve, 6);
@@ -229,6 +230,5 @@ export function buildToilet(o: ToiletOpts = {}): AssemblyDef {
   b.water(valve, [sx, 0.19, wallZ + 0.03], [0, 0.3, 1], 0.7);
   b.water(line[line.length - 1], [sx, ty0 - 0.035, tzc], [0, -0.5, 1], 0.7);
 
-  void tank;
   return finish(b, o);
 }

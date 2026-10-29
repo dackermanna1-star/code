@@ -23,7 +23,6 @@ import { generateCity, GROUND_Y, type CityLayout } from "./env/cityLayout.ts";
 import { buildCityGeometry } from "./env/cityGeometry.ts";
 import { buildTowerGeometry } from "./env/towerLayout.ts";
 import type { BuiltGeometry, MeshBuffer } from "./env/meshBuffer.ts";
-import { WORLD_LAYER_BIT } from "./env/roomGraph.ts";
 import { Rng } from "../core/rng.ts";
 
 const CITY_VERTEX = /* glsl */ `
@@ -119,14 +118,16 @@ void main(void) {
     float avgWin = (win.z - win.x) * (win.w - win.y);
     isWin = mix(isWin, avgWin, lod);
     float r = hash12(id + seed * 113.0);
-    float lit = mix(step(r, vData.w), vData.w * 0.85, lod);
+    // Golden hour: only a few rooms have their lights on yet.
+    float litFrac = vData.w * 0.45;
+    float lit = mix(step(r, litFrac), litFrac * 0.85, lod);
     vec3 R = reflect(V, N);
     R.y = abs(R.y) * 0.85 + 0.03;
     float fres = 0.07 + 0.93 * pow(1.0 - clamp(dot(-V, N), 0.0, 1.0), 5.0);
     vec3 refl = skyRadiance(normalize(R));
     vec3 interior = mix(vec3(0.018, 0.02, 0.024), vec3(0.05, 0.042, 0.034), hash12(id + 7.0));
     float warm = step(hash12(id + 3.0), 0.78);
-    vec3 litCol = mix(vec3(0.7, 0.82, 1.0), vec3(1.0, 0.7, 0.4), warm) * (1.1 + 1.7 * hash12(id + 5.0));
+    vec3 litCol = mix(vec3(0.7, 0.82, 1.0), vec3(1.0, 0.7, 0.4), warm) * (0.6 + 1.0 * hash12(id + 5.0));
     float reflK = style < 0.5 ? 1.0 : 0.65;
     vec3 glass = interior * (1.0 - fres) + refl * fres * reflK + litCol * lit * (1.0 - 0.6 * fres);
     // Sunlit glass glints gold (specular of the low sun).
@@ -279,7 +280,6 @@ function meshFrom(name: string, g: BuiltGeometry, scene: Scene): Mesh {
   m.setVerticesData("data", g.data, false, 4);
   m.hasVertexAlpha = false;
   m.isPickable = false;
-  m.layerMask = WORLD_LAYER_BIT; // never matched by interior light masks
   m.freezeWorldMatrix();
   m.doNotSyncBoundingInfo = true;
   return m;
@@ -384,12 +384,14 @@ export class Exterior implements IExterior {
     this.towerMaterial = tm;
     const near = meshFrom("towerNear", tower.near.build(), scene);
     near.material = tm;
-    near.receiveShadows = true;
+    // Receivers get sun shadows (and the clustered-light material setup); only the facade
+    // near the apartment casts into it.
+    this.lighting.registerReceiver(near);
     this.lighting.setShadowCaster(near, true, true);
     this.towerNear = near;
     const far = meshFrom("towerFar", tower.far.build(), scene);
     far.material = tm;
-    far.receiveShadows = true;
+    this.lighting.registerReceiver(far);
     this.meshes.push(near, far);
 
     const glassMat = this.makeShader("towerGlassMat", GLASS_FRAGMENT, false);
@@ -451,8 +453,8 @@ export class Exterior implements IExterior {
     const sun = this.lighting.sun;
     mat.setVector3("uSunLight", new Vector3(sun.diffuse.r * sun.intensity, sun.diffuse.g * sun.intensity, sun.diffuse.b * sun.intensity));
     // Outdoor sky light: brighter than the interior fill (open sky dome).
-    mat.setVector3("uSkyUp", new Vector3(0.42, 0.5, 0.68));
-    mat.setVector3("uSkyDown", new Vector3(0.3, 0.25, 0.22));
+    mat.setVector3("uSkyUp", new Vector3(0.62, 0.68, 0.84));
+    mat.setVector3("uSkyDown", new Vector3(0.42, 0.34, 0.28));
     mat.setFloat("uGroundY", GROUND_Y);
     mat.setFloat("uHazeDensity", this.tuning.hazeDensity);
     return mat;

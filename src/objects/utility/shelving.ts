@@ -6,7 +6,7 @@
 // Frame: origin on the floor at the centre of the footprint, front +Z. Shelf surfaces (tops of
 // the cross wires) at WIRE_SHELF.tops.
 
-import { boxR, finish, mk, tubeKgPerM, CHROME, type BaseOpts } from "./helpers.ts";
+import { finish, mk, tubeKgPerM, CHROME, type BaseOpts } from "./helpers.ts";
 import type { AssemblyDef } from "../../destruction/model/types.ts";
 
 export interface WireShelfOpts extends BaseOpts {
@@ -75,6 +75,95 @@ export function buildWireShelf(o: WireShelfOpts = {}): AssemblyDef {
       b.weld(wire, back, 18);
     }
   });
-  void boxR;
+  return finish(b, o);
+}
+
+// =============================================================================================
+// Wall-mounted wire shelving (laundry shelf over the washer and dryer)
+// =============================================================================================
+
+export interface WallWireShelfOpts extends BaseOpts {
+  /** Shelf length along the wall. */
+  len?: number;
+  /** Depth out of the wall. */
+  d?: number;
+  /** Shelf surface heights above the floor (tops of the deck wires), one tier each. */
+  tops?: number[];
+}
+
+export const WALL_WIRE_SHELF = {
+  len: 1.22,
+  d: 0.305,
+  tops: [1.42, 1.8] as readonly number[],
+  /** Deck wire radius (the shelf surface is the top of these wires). */
+  wireR: 0.0025,
+  /** Local x of the inner cross bars (±bracketX/3) and limit of the end bars. */
+  bracketX: 0.55,
+  /** Bracket wall-tab depth below the shelf surface. */
+  bracketDrop: 0.22,
+} as const;
+
+/**
+ * Epoxy-coated steel wire shelving on the wall, one or more tiers: each tier is a deck of eight
+ * 5 mm longitudinal wires welded on four 6 mm cross bars, its back wire held in three plastic
+ * wall clips and its front carried by two diagonal steel support brackets screwed into the wall.
+ * Overload or hit it and wires bend and pop their welds, clips snap, brackets tear out of the
+ * plugs and the whole deck tips its contents onto the machines below.
+ *
+ * Wall-mounted frame: origin on the wall plane at floor level, x along the wall, +Z out of the
+ * wall. Shelf surfaces at `tops`.
+ */
+export function buildWallWireShelf(o: WallWireShelfOpts = {}): AssemblyDef {
+  const b = mk("wallWireShelf", "Wall Wire Shelf", "furniture", 60, o);
+  const L = o.len ?? WALL_WIRE_SHELF.len,
+    D = o.d ?? WALL_WIRE_SHELF.d;
+  const tops = o.tops ?? WALL_WIRE_SHELF.tops;
+  const wr = WALL_WIRE_SHELF.wireR,
+    cr = 0.003;
+  const coat = { mat: "steel" as const, surf: "metal_painted" as const, tint: 0xf1f1ee };
+  const nWire = 8;
+  const zBack = 0.0145 + wr; // back wire sits in the wall clips
+  const zFront = D - wr;
+  const xb = Math.min(WALL_WIRE_SHELF.bracketX, L / 2 - 0.04);
+  const crossX = [-(L / 2 - 0.03), -xb / 3, xb / 3, L / 2 - 0.03];
+  tops.forEach((T, s) => {
+    const yWire = T - wr;
+    const yCross = T - 2 * wr - cr;
+    b.group([0, 0, 0], undefined, `t${s}_`, () => {
+      // cross bars (front to back) under the deck
+      const bars = crossX.map((x, k) => b.cyl(`bar${k}`, coat.mat, coat.surf, cr, D - 0.004, [x, yCross, 0.004 + (D - 0.004) / 2], { axis: "z", segments: 6, tint: coat.tint, tess: 0 }));
+      // longitudinal deck wires welded on top of every bar
+      const wires: string[] = [];
+      for (let k = 0; k < nWire; k++) {
+        const z = zBack + ((zFront - zBack) * k) / (nWire - 1);
+        const w = b.cyl(`wire${k}`, coat.mat, coat.surf, wr, L, [0, yWire, z], { axis: "x", segments: 6, tint: coat.tint, tess: 0 });
+        for (const bar of bars) b.weld(w, bar, 15);
+        wires.push(w);
+      }
+      // plastic clips around the back wire, screwed into wall plugs
+      for (const [k, x] of [-0.42, 0, 0.42].map((x, i) => [i, x * (L / 1.22)] as [number, number])) {
+        const clip = b.box(`clip${k}`, "plastic", "plastic", [0.024, 0.028, 0.0145], [x, T - 0.002 - 0.014, 0.0145 / 2], { tint: 0xf4f4f2, mass: 0.006 });
+        b.clip(clip, wires[0], 8);
+        b.world(clip, "screw", 30, [x, T - 0.016, 0]);
+      }
+      // diagonal support brackets from a wall tab up under the front of the end cross bars
+      for (const [k, x] of [
+        ["l", crossX[0]],
+        ["r", crossX[3]],
+      ] as Array<[string, number]>) {
+        const yLo = T - WALL_WIRE_SHELF.bracketDrop;
+        const yHi = yCross - cr; // touches the underside of the cross bar
+        const zf = D - 0.03;
+        const pts: Array<[number, number, number]> = [];
+        for (const dx of [-0.006, 0.006]) {
+          pts.push([x + dx, yLo, 0], [x + dx, yLo + 0.035, 0], [x + dx, yLo, 0.004]);
+          pts.push([x + dx, yHi, zf - 0.02], [x + dx, yHi, zf], [x + dx, yHi - 0.012, zf]);
+        }
+        const br = b.hull(`bracket_${k}`, "steel", "metal_painted", pts, [0, 0, 0], { tint: coat.tint, mass: 0.11, tess: 0 });
+        b.clip(br, bars[k === "l" ? 0 : 3], 40);
+        b.world(br, "screw", 45, [x, yLo + 0.017, 0]);
+      }
+    });
+  });
   return finish(b, o);
 }

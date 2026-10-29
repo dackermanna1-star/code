@@ -213,7 +213,7 @@ export function look(cam: UniversalCamera, pos: [number, number, number], target
 }
 
 export function shot(canvas: HTMLCanvasElement): string {
-  return canvas.toDataURL("image/png");
+  return canvas.toDataURL("image/jpeg", 0.88);
 }
 
 export function registerAll(lighting: { setShadowCaster(m: AbstractMesh, c: boolean, l?: boolean): void; registerReceiver(m: AbstractMesh): void }, s: StandIn): void {
@@ -221,5 +221,23 @@ export function registerAll(lighting: { setShadowCaster(m: AbstractMesh, c: bool
   for (const m of s.casters) {
     const bb = m.getBoundingInfo().boundingBox.extendSizeWorld;
     lighting.setShadowCaster(m, true, bb.length() * 2 > 1.5);
+  }
+}
+
+/** scene.whenReadyAsync() with a timeout (a failed shader compile otherwise hangs forever). */
+export async function whenReady(scene: Scene, ms = 300000): Promise<void> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    await Promise.race([
+      scene.whenReadyAsync(),
+      new Promise((_, reject) => {
+        timer = setTimeout(() => {
+          const pending = scene.meshes.filter((m) => m.isEnabled() && !m.isReady(true)).map((m) => m.name);
+          reject(new Error(`whenReadyAsync timed out; not ready: ${pending.slice(0, 20).join(", ")}`));
+        }, ms);
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
   }
 }

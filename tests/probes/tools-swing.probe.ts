@@ -2,8 +2,9 @@
 // sweeps). Verifies: hit timing vs the analytic path, contact point on the surface, head speed ≈
 // tool speed at the nominal reach, charged vs normal energies, light dynamic box knocked away
 // (impulse along the swing, swing follows through), break-through continuation, kick and stomp
-// sweeps, crowbar pry calls until the bond pops, extinguisher spray pushing a light box, painful
-// punches, fire not consumed while holding, tool switching.
+// sweeps (no pain flash for boots), the per-swing strike budget (static things still stop the head
+// once it is used up), crowbar pry calls until the bond pops, extinguisher spray pushing a light
+// box, painful punches, fire not consumed while holding, tool switching.
 // Run: node tests/probe.mjs tests/probes/tools-swing.probe.ts
 import { Vector3, Color3 } from "@babylonjs/core";
 import { makeHarness, r, rv, type Harness } from "./tools-util.ts";
@@ -147,8 +148,9 @@ async function stompTest(): Promise<Any> {
     h.tools.stomp(h.tc);
     for (let k = 0; k < 50 && h.strikes.length === 0; k++) h.step(1);
     const s = h.strikes[0];
-    out.underCrosshair = { strike: s ?? null };
-    out.okA = !!s && s.bodyName === "microwave" && s.source === "stomp" && s.mass === 20 && Math.abs(s.point[1] - 0.3) < 0.01 && s.speed > 2.5 && s.speed < 5;
+    out.underCrosshair = { strike: s ?? null, flashes: h.flashes.length };
+    // boots don't flinch: no pain flash / pulled blow on steel
+    out.okA = !!s && s.bodyName === "microwave" && s.source === "stomp" && s.mass === 20 && Math.abs(s.point[1] - 0.3) < 0.01 && s.speed > 2.5 && s.speed < 5 && h.flashes.length === 0;
     h.engine.dispose();
   }
   // (b) looking ahead: stomp straight down under the feet → the floor
@@ -158,11 +160,62 @@ async function stompTest(): Promise<Any> {
     h.tools.stomp(h.tc);
     for (let k = 0; k < 50 && h.strikes.length === 0; k++) h.step(1);
     const s = h.strikes[0];
-    out.underFeet = { strike: s ?? null };
-    out.okB = !!s && s.bodyName === "floor" && Math.abs(s.point[1]) < 0.01 && Math.hypot(s.point[0], s.point[2]) < 0.35;
+    out.underFeet = { strike: s ?? null, flashes: h.flashes.length };
+    // the floor is concrete in the harness (a tiled floor is "painful" for bare fists only)
+    out.okB = !!s && s.bodyName === "floor" && Math.abs(s.point[1]) < 0.01 && Math.hypot(s.point[0], s.point[2]) < 0.35 && h.flashes.length === 0;
     h.engine.dispose();
   }
   out.ok = !!out.okA && !!out.okB;
+  return out;
+}
+
+/** Kick into concrete: full blow, no pain flash. */
+async function kickConcreteTest(): Promise<Any> {
+  const h = await makeHarness(canvas());
+  h.addBox("pillar", new Vector3(0, 0.6, 0.9), new Vector3(1, 1.2, 0.2), { mat: "concrete" });
+  h.setView(new Vector3(0, 1.65, 0), 0, 0.6);
+  h.step(10);
+  h.tools.kick(h.tc);
+  for (let k = 0; k < 50 && h.strikes.length === 0; k++) h.step(1);
+  const s = h.strikes[0];
+  const lh = internals(h).lastHit;
+  const out: Any = { strike: s ?? null, flashes: h.flashes.length, normalSpeed: r(lh?.normalSpeed ?? 0, 2) };
+  out.ok = !!s && s.bodyName === "pillar" && h.flashes.length === 0 && s.speed > 4;
+  h.engine.dispose();
+  return out;
+}
+
+/**
+ * Strike budget: a hammer swing breaks through three thin panes (3 strikes = the per-swing
+ * budget), then a concrete wall behind them stops the head — without a 4th strike and without
+ * the head passing through it.
+ */
+async function budgetTest(): Promise<Any> {
+  const h = await makeHarness(canvas());
+  h.tools.select("hammer");
+  const zs = [0.38, 0.43, 0.48];
+  zs.forEach((z, i) => h.addBox(`pane${i}`, new Vector3(0, 1.4, z + 0.00625), new Vector3(3, 2.8, 0.0125), { mat: "glass", breakAt: 0.5 }));
+  h.step(30);
+  h.tools.debugSwing(1, h.tc);
+  const m = internals(h).machine;
+  const R = TOOL_DEFS.hammer.headRadius;
+  h.step(1); // the strike is aimed (at pane0) on its first step
+  // the aimed swing's full extent; a concrete wall goes in 4 cm short of it (behind the panes)
+  let pathMaxZ = -Infinity;
+  const o = v3();
+  for (let i = 0; i <= 200; i++) pathMaxZ = Math.max(pathMaxZ, m.headAt((m.path.T * i) / 200, o).z + R);
+  const zw = pathMaxZ - 0.04;
+  h.addBox("wall", new Vector3(0, 1.4, zw + 0.1), new Vector3(3, 2.8, 0.2), { mat: "concrete" });
+  let maxZ = -Infinity;
+  for (let k = 0; k < 60; k++) {
+    h.step(1);
+    if (m.phase === "strike") maxZ = Math.max(maxZ, m.headAt(m.t, o).z + R);
+  }
+  const names = h.strikes.map((s) => s.bodyName);
+  const out: Any = { strikes: names, pathMaxZ: r(pathMaxZ), headMaxZ: r(maxZ), wallFace: r(zw), phase: m.phase };
+  // the swing would have carried the head through the wall face; it stopped on it instead
+  out.ok = names.join() === "pane0,pane1,pane2" && zw > zs[2] + 0.03 && maxZ < zw + 0.01;
+  h.engine.dispose();
   return out;
 }
 
@@ -275,13 +328,15 @@ export async function probe() {
     dynamicBox: await dynamicBoxTest(),
     breakThrough: await breakThroughTest(),
     kick: await kickTest(),
+    kickConcrete: await kickConcreteTest(),
     stomp: await stompTest(),
+    budget: await budgetTest(),
     pry: await pryTest(),
     spray: await sprayTest(),
     pain: await painTest(),
     holdingAndSwitch: await holdingAndSwitchTest(),
   };
   const oks: Record<string, boolean> = { walls: walls.every((w) => w.ok), charged: energyRatios.every((e) => e.ratio !== null && e.ratio > 1.2) };
-  for (const k of ["dynamicBox", "breakThrough", "kick", "stomp", "pry", "spray", "pain", "holdingAndSwitch"]) oks[k] = !!(results[k] as Any).ok;
+  for (const k of ["dynamicBox", "breakThrough", "kick", "kickConcrete", "stomp", "budget", "pry", "spray", "pain", "holdingAndSwitch"]) oks[k] = !!(results[k] as Any).ok;
   return { allOk: Object.values(oks).every(Boolean), oks, ...results };
 }

@@ -19,6 +19,7 @@ import {
   RawTexture,
   ShaderMaterial,
   Texture,
+  Vector2,
   Vector3,
   Vector4,
   VertexData,
@@ -27,7 +28,6 @@ import {
 } from "@babylonjs/core";
 import type { IAtmosphere, ILighting } from "./contracts.ts";
 import { computeShafts, insideShaft, type ShaftVolume } from "./env/shaftGeom.ts";
-import { WORLD_LAYER_BIT } from "./env/roomGraph.ts";
 import { Rng } from "../core/rng.ts";
 
 const SHAFT_VERTEX = /* glsl */ `
@@ -55,6 +55,7 @@ uniform vec3 uClipMax;
 uniform vec3 uLens;
 uniform vec3 uColor;
 uniform vec3 uLightDir;
+uniform vec2 uPanes;
 uniform float uDensity;
 uniform float uTime;
 
@@ -67,10 +68,28 @@ vec3 safeInv(vec3 d) {
   return vec3(abs(d.x) > 1e-7 ? 1.0 / d.x : 1e7, abs(d.y) > 1e-7 ? 1.0 / d.y : 1e7, abs(d.z) > 1e-7 ? 1.0 / d.z : 1e7);
 }
 
+// Light carried by the beam at shaft coordinates s (u across the opening, v up, w along the
+// light): soft aperture edges, the shadows of the mullions between panes, fading with the
+// distance from the window, and dust streaks drifting along the beam.
+float beam(vec3 s) {
+  vec2 e = min(s.xy, 1.0 - s.xy) * uLens.xy;
+  float m = smoothstep(0.0, 0.12, e.x) * smoothstep(0.0, 0.12, e.y);
+  if (uPanes.x > 1.5) {
+    float k = s.x * uPanes.x;
+    float bar = abs(k - floor(k + 0.5)) * uLens.x / uPanes.x; // metres to the nearest pane joint
+    float inner = step(0.5, k) * step(k, uPanes.x - 0.5);
+    m *= 1.0 - inner * (1.0 - smoothstep(uPanes.y * 0.5, uPanes.y * 0.5 + 0.05, bar));
+  }
+  float w = s.z * uLens.z;
+  m *= exp(-w * 0.28) * smoothstep(0.0, 0.25, w);
+  vec2 q = s.xy * uLens.xy * 2.6;
+  return m * (0.72 + 0.4 * vnoise(q + vec2(uTime * 0.06, -uTime * 0.035)) + 0.18 * vnoise(q * 3.1 - vec2(uTime * 0.11, 0.0)));
+}
+
 void main(void) {
   vec3 ro = cameraPosition;
   vec3 rd = normalize(vWorld - ro);
-  // Ray in shaft space (affine map → t stays in world metres).
+  // Ray in shaft space (affine map, so t stays in world metres).
   vec3 o = vec3(dot(uRow0.xyz, ro) + uRow0.w, dot(uRow1.xyz, ro) + uRow1.w, dot(uRow2.xyz, ro) + uRow2.w);
   vec3 d = vec3(dot(uRow0.xyz, rd), dot(uRow1.xyz, rd), dot(uRow2.xyz, rd));
   vec3 inv = safeInv(d);
@@ -91,25 +110,22 @@ void main(void) {
   tn = max(tn, 0.0);
   float thick = tf - tn;
   if (thick <= 1e-4) discard;
-  vec3 pm = ro + rd * (0.5 * (tn + tf));
-  vec3 s = vec3(dot(uRow0.xyz, pm) + uRow0.w, dot(uRow1.xyz, pm) + uRow1.w, dot(uRow2.xyz, pm) + uRow2.w);
-  // Soft aperture edges (metres to the nearest edge) and fade away from the window.
-  vec2 e = min(s.xy, 1.0 - s.xy) * uLens.xy;
-  float edge = smoothstep(0.0, 0.16, e.x) * smoothstep(0.0, 0.16, e.y);
-  float w = s.z * uLens.z;
-  float fade = exp(-w * 0.3) * smoothstep(0.0, 0.3, w);
+  // Integrate the beam along the ray segment (4 midpoint samples).
+  float acc = 0.0;
+  for (int i = 0; i < 4; i++) {
+    float t = tn + thick * (float(i) + 0.5) * 0.25;
+    acc += beam(o + d * t);
+  }
+  acc *= 0.25;
   // Henyey-Greenstein (g = 0.45) normalised to 1 looking straight into the light, with an
   // isotropic floor so beams stay readable from the side.
   float ct = dot(uLightDir, -rd);
   const float g = 0.45;
   float hg = (1.0 - g * g) / pow(1.0 + g * g - 2.0 * g * ct, 1.5) * ((1.0 - g) * (1.0 - g) * (1.0 - g)) / (1.0 - g * g);
-  float phase = 0.28 + 0.72 * hg;
-  // Dust streaks along the beam, drifting slowly.
-  vec2 q = vec2(s.x * uLens.x, s.y * uLens.y) * 2.6;
-  float n = 0.72 + 0.4 * vnoise(q + vec2(uTime * 0.06, -uTime * 0.035)) + 0.18 * vnoise(q * 3.1 - vec2(uTime * 0.11, 0.0));
+  float phase = 0.3 + 0.7 * hg;
   // Optical-depth saturation: long looks down a beam glow but never blow out.
-  float a = uDensity * thick * edge * fade * phase * n;
-  vec3 col = uColor * (0.4 * (1.0 - exp(-a / 0.4)));
+  float od = uDensity * thick * acc * phase;
+  vec3 col = uColor * (0.5 * (1.0 - exp(-od / 0.5)));
   gl_FragColor = vec4(col, 1.0);
 }
 `;
@@ -119,9 +135,13 @@ export interface AtmosphereTuning {
   density: number;
   /** Base number of dust motes at particle quality 1. */
   motes: number;
+  /** Clear apertures wider than this (m) get a central mullion shadow in their beam. */
+  mullionMinWidth: number;
+  /** Width (m) of that mullion / meeting stile. */
+  mullionWidth: number;
 }
 
-export const DEFAULT_ATMOSPHERE: AtmosphereTuning = { density: 0.32, motes: 260 };
+export const DEFAULT_ATMOSPHERE: AtmosphereTuning = { density: 0.45, motes: 260, mullionMinWidth: 1.3, mullionWidth: 0.06 };
 
 interface ShaftRender {
   vol: ShaftVolume;
@@ -162,7 +182,6 @@ export class Atmosphere implements IAtmosphere {
       vd.indices = vol.indices;
       vd.applyToMesh(mesh, false);
       mesh.isPickable = false;
-      mesh.layerMask = WORLD_LAYER_BIT;
       mesh.freezeWorldMatrix();
       const mat = this.makeMaterial(vol, color, L);
       mesh.material = mat;
@@ -227,7 +246,7 @@ export class Atmosphere implements IAtmosphere {
       { vertexSource: SHAFT_VERTEX, fragmentSource: SHAFT_FRAGMENT },
       {
         attributes: ["position"],
-        uniforms: ["world", "viewProjection", "cameraPosition", "uRow0", "uRow1", "uRow2", "uClipMin", "uClipMax", "uLens", "uColor", "uLightDir", "uDensity", "uTime"],
+        uniforms: ["world", "viewProjection", "cameraPosition", "uRow0", "uRow1", "uRow2", "uClipMin", "uClipMax", "uLens", "uColor", "uLightDir", "uPanes", "uDensity", "uTime"],
         needAlphaBlending: true,
       },
     );
@@ -245,6 +264,10 @@ export class Atmosphere implements IAtmosphere {
     m.setVector3("uLens", new Vector3(len(vol.U), len(vol.V), len(vol.D)));
     m.setVector3("uColor", color);
     m.setVector3("uLightDir", L);
+    // Wide openings are glazed in two panes (sliding door meeting stiles, window mullion):
+    // their frame members split the beam.
+    const width = len(vol.U);
+    m.setVector2("uPanes", new Vector2(width > this.tuning.mullionMinWidth ? 2 : 1, this.tuning.mullionWidth));
     m.setFloat("uDensity", this.tuning.density);
     m.setFloat("uTime", 0);
     return m;
@@ -274,7 +297,6 @@ export class Atmosphere implements IAtmosphere {
     ps.particleTexture = this.moteTexture;
     ps.blendMode = ParticleSystem.BLENDMODE_ADD;
     ps.emitter = Vector3.Zero();
-    ps.layerMask = WORLD_LAYER_BIT;
     const rng = new Rng(0xd057);
     const shafts = this.shafts;
     const total = shafts.reduce((s, v) => s + v.volume, 0) || 1;

@@ -70,7 +70,7 @@ export function buildRange(o: RangeOpts = {}): AssemblyDef {
     faces: { px: { surf: "glass_edge" }, nx: { surf: "glass_edge" }, pz: { surf: "glass_edge" }, nz: { surf: "glass_edge" } },
   });
   bondTouching(b, glass, [sideL, sideR, back, cross], "glue", 60, 0.001, 3);
-  const tray = b.box("tray", "steelSheet", "metal_raw", [W - 2 * t, 0.0008, ZF - ZB - 0.035 - t], [0, 0.84, ZB + t + (ZF - ZB - 0.035 - t) / 2], { tint: 0x8d8e8b });
+  const tray = b.box("tray", "steelSheet", "metal_raw", [W - 2 * t, 0.0006, ZF - ZB - 0.035 - t], [0, 0.84, ZB + t + (ZF - ZB - 0.035 - t) / 2], { tint: 0x8d8e8b });
   b.weld(tray, sideL, 50);
   b.weld(tray, sideR, 50);
   b.weld(tray, back, 40);
@@ -107,10 +107,13 @@ export function buildRange(o: RangeOpts = {}): AssemblyDef {
   b.weld(rails[0], sideL, 80);
   b.weld(rails[1], cavR, 80);
   b.weld(rails[1], sideR, 80);
-  // support sheet under the cavity floor
-  const leg = b.box("cav_stand", "steelSheet", "metal_raw", [0.4, cav.y0 - ct - 0.021, 0.001], [0, (0.021 + cav.y0 - ct) / 2, -0.1], { tint: 0x8d8e8b });
-  b.weld(leg, pan, 60);
-  b.weld(leg, cavB, 60);
+  // oven floor sheet: spans the body sides under the cavity and carries it (the storage drawer
+  // slides underneath)
+  const floor = b.box("cav_floor", "steelSheet", "metal_raw", [W - 2 * t, 0.0006, ZF - 0.002 - (ZB + t)], [0, cav.y0 - ct - 0.0003, (ZB + t + ZF - 0.002) / 2], { tint: 0x8d8e8b });
+  b.weld(floor, sideL, 60);
+  b.weld(floor, sideR, 60);
+  b.weld(floor, back, 40);
+  b.weld(floor, cavB, 60);
   // fibreglass batts: over the cavity, both sides, behind
   const insT = b.box("ins_top", "insulation", "insulation", [2 * cav.x, 0.1, cav.z1 - cav.z0 - 0.03], [0, cav.y1 + ct + 0.05, cav.z0 + (cav.z1 - cav.z0 - 0.03) / 2], { tint: 0xe8d07a });
   const insL = b.box("ins_l", "insulation", "insulation", [hw - t - cav.x - ct - 0.002, cav.y1 - cav.y0, cav.z1 - cav.z0 - 0.02], [-(cav.x + ct + (hw - t - cav.x - ct) / 2), (cav.y0 + cav.y1) / 2, cav.z0 + (cav.z1 - cav.z0 - 0.02) / 2 - 0.0], { tint: 0xe8d07a });
@@ -162,30 +165,35 @@ export function buildRange(o: RangeOpts = {}): AssemblyDef {
     b.slider(rack, cavR, { pivots: [[cav.x - 0.003, y, 0]], axis: [0, 0, 1], min: 0, max: 0.28, strength: 40, friction: 0.4, group: g });
   });
   // ------------------------------------------------------------------ oven door (bottom hinge)
-  const dz0 = ZF,
+  // Steel frame (side rails, bottom rail, full-width top rail carrying the handle), dark tempered
+  // outer glass below the top rail, tempered inner window; it closes 1.5 mm proud of the flanges.
+  const dz0 = ZF + 0.0015,
     dz1 = RANGE_DIM.doorFront;
   const dy0 = 0.17,
     dy1 = 0.775;
   const dW = W - 0.012;
   const railW = 0.03;
-  const dcz = (dz0 + dz1) / 2;
-  const dSideL = b.box("door_side_l", "steelSheet", "metal_raw", [railW, dy1 - dy0, dz1 - dz0 - 0.005], [-dW / 2 + railW / 2, (dy0 + dy1) / 2, dcz - 0.0025], { mass: 0.5, tint: 0x8e8f8c });
-  const dSideR = b.box("door_side_r", "steelSheet", "metal_raw", [railW, dy1 - dy0, dz1 - dz0 - 0.005], [dW / 2 - railW / 2, (dy0 + dy1) / 2, dcz - 0.0025], { mass: 0.5, tint: 0x8e8f8c });
-  const dTop = b.box("door_top", "steelSheet", front.surf, [dW - 2 * railW, 0.06, dz1 - dz0 - 0.005], [0, dy1 - 0.03, dcz - 0.0025], { mass: 0.45, tint: front.tint });
-  const dBot = b.box("door_bot", "steelSheet", front.surf, [dW - 2 * railW, 0.05, dz1 - dz0 - 0.005], [0, dy0 + 0.025, dcz - 0.0025], { mass: 0.4, tint: front.tint });
-  const outer = b.box("door_glass", "temperedGlass", "glass_dark", [dW, dy1 - dy0, 0.005], [0, (dy0 + dy1) / 2, dz1 - 0.0025], {
+  const topH = 0.06;
+  const glassT = 0.005;
+  const dcz = (dz0 + dz1 - glassT) / 2; // frame depth behind the outer glass
+  const fdz = dz1 - glassT - dz0;
+  const dSideL = b.box("door_side_l", "steelSheet", "metal_raw", [railW, dy1 - topH - dy0, fdz], [-dW / 2 + railW / 2, (dy0 + dy1 - topH) / 2, dcz], { mass: 0.45, tint: 0x8e8f8c });
+  const dSideR = b.box("door_side_r", "steelSheet", "metal_raw", [railW, dy1 - topH - dy0, fdz], [dW / 2 - railW / 2, (dy0 + dy1 - topH) / 2, dcz], { mass: 0.45, tint: 0x8e8f8c });
+  const dTop = b.box("door_top", "steelSheet", front.surf, [dW, topH, dz1 - dz0], [0, dy1 - topH / 2, (dz0 + dz1) / 2], { mass: 0.6, tint: front.tint });
+  const dBot = b.box("door_bot", "steelSheet", front.surf, [dW - 2 * railW, 0.05, fdz], [0, dy0 + 0.025, dcz], { mass: 0.4, tint: front.tint });
+  const outer = b.box("door_glass", "temperedGlass", "glass_dark", [dW, dy1 - topH - dy0, glassT], [0, (dy0 + dy1 - topH) / 2, dz1 - glassT / 2], {
     faces: { px: { surf: "glass_edge" }, nx: { surf: "glass_edge" }, py: { surf: "glass_edge" }, ny: { surf: "glass_edge" } },
   });
-  const inner = b.box("door_window", "temperedGlass", "glass", [dW - 2 * railW, dy1 - dy0 - 0.11, 0.004], [0, (dy0 + 0.05 + dy1 - 0.06) / 2, dz0 + 0.002], {
+  const inner = b.box("door_window", "temperedGlass", "glass", [dW - 2 * railW, dy1 - topH - dy0 - 0.05, 0.004], [0, (dy0 + 0.05 + dy1 - topH) / 2, dz0 + 0.002], {
     faces: { px: { surf: "glass_edge" }, nx: { surf: "glass_edge" }, py: { surf: "glass_edge" }, ny: { surf: "glass_edge" } },
   });
-  for (const p of [dTop, dBot]) {
-    b.weld(p, dSideL, 60);
-    b.weld(p, dSideR, 60);
-  }
+  b.weld(dTop, dSideL, 60);
+  b.weld(dTop, dSideR, 60);
+  b.weld(dBot, dSideL, 60);
+  b.weld(dBot, dSideR, 60);
   for (const p of [dSideL, dSideR, dTop, dBot]) b.bond(outer, p, "glue", { strength: 25 });
   for (const p of [dSideL, dSideR, dTop, dBot]) b.bond(inner, p, "clip", { strength: 6 });
-  const dh = barHandle(b, "door_handle", { on: dTop, len: dW - 0.12, size: 0.016, standoff: 0.04, mat: "steel", surf: "steel_brushed", screw: 60 }, [0, dy1 - 0.035, dz1], undefined);
+  const dh = barHandle(b, "door_handle", { on: dTop, len: dW - 0.12, size: 0.016, standoff: 0.04, mat: "steel", surf: "steel_brushed", screw: 60 }, [0, dy1 - topH / 2, dz1], undefined);
   // hinges at the bottom corners: free edge points up, opens towards +Z; spring-balanced, detent
   const axis = hingeAxis([0, 1, 0], [0, 0, 1]);
   const g = b.hinge(dSideL, sideL, { pivots: [[-dW / 2 + 0.01, dy0, dz0]], axis, min: 0, max: 88, strength: 70, friction: 0.6, spring: 22 });
@@ -196,21 +204,22 @@ export function buildRange(o: RangeOpts = {}): AssemblyDef {
   const drD = 0.5;
   const drW = 2 * (hw - t) - 0.03;
   const drFront = b.box("drawer_front", "steelSheet", front.surf, [dW, 0.125, 0.02], [0, 0.03 + 0.0625, ZF + 0.01], { mass: 0.9, tint: front.tint });
-  const drBot = b.box("drawer_bot", "steelSheet", "metal_raw", [drW, 0.001, drD], [0, drY0 + 0.0005, ZF - drD / 2], { tint: 0x8d8e8b });
-  const drL = b.box("drawer_l", "steelSheet", "metal_raw", [0.001, drY1 - drY0 - 0.001, drD], [-drW / 2 + 0.0005, (drY0 + 0.001 + drY1) / 2, ZF - drD / 2], { tint: 0x8d8e8b });
-  const drR = b.box("drawer_r", "steelSheet", "metal_raw", [0.001, drY1 - drY0 - 0.001, drD], [drW / 2 - 0.0005, (drY0 + 0.001 + drY1) / 2, ZF - drD / 2], { tint: 0x8d8e8b });
-  const drK = b.box("drawer_k", "steelSheet", "metal_raw", [drW - 0.002, drY1 - drY0 - 0.001, 0.001], [0, (drY0 + 0.001 + drY1) / 2, ZF - drD + 0.0005], { tint: 0x8d8e8b });
+  const dt = 0.0006; // 0.6 mm drawer sheet
+  const drBot = b.box("drawer_bot", "steelSheet", "metal_raw", [drW, dt, drD], [0, drY0 + dt / 2, ZF - drD / 2], { tint: 0x8d8e8b });
+  const drL = b.box("drawer_l", "steelSheet", "metal_raw", [dt, drY1 - drY0 - dt, drD], [-drW / 2 + dt / 2, (drY0 + dt + drY1) / 2, ZF - drD / 2], { tint: 0x8d8e8b });
+  const drR = b.box("drawer_r", "steelSheet", "metal_raw", [dt, drY1 - drY0 - dt, drD], [drW / 2 - dt / 2, (drY0 + dt + drY1) / 2, ZF - drD / 2], { tint: 0x8d8e8b });
+  b.box("drawer_k", "steelSheet", "metal_raw", [drW - 2 * dt, drY1 - drY0 - dt, dt], [0, (drY0 + dt + drY1) / 2, ZF - drD + dt / 2], { tint: 0x8d8e8b });
   b.autoBond("weld", 40, 0.0004, (a, c) => a.startsWith("drawer_") && c.startsWith("drawer_"));
   pullHandle(b, "drawer_pull", { on: drFront, len: 0.3, depth: 0.018, width: 0.02, mat: "steel", surf: "steel_brushed", tint: 0xffffff }, [0, 0.0925, ZF + 0.02]);
   const dg = b.slider(drL, sideL, { pivots: [[-drW / 2, (drY0 + drY1) / 2, ZF - drD / 2]], axis: [0, 0, 1], min: 0, max: 0.42, strength: 50, friction: 0.3 });
   b.slider(drR, sideR, { pivots: [[drW / 2, (drY0 + drY1) / 2, ZF - drD / 2]], axis: [0, 0, 1], min: 0, max: 0.42, strength: 50, friction: 0.3, group: dg });
-  void drK;
   // ------------------------------------------------------------------ controls
   const knobs: string[] = [];
   [-0.31, -0.22, -0.11, 0.11, 0.22, 0.31].forEach((x, k) => knobs.push(knob(b, `knob${k}`, { on: panel, r: 0.019, len: 0.028, kind: "press", strength: 2, mat: "plastic", surf: "plastic", tint: 0x1c1c1e }, [x, 0.835, ZF])));
   const disp = b.box("display", "plastic", "display_green", [0.09, 0.028, 0.004], [0, 0.835, ZF + 0.002], { tint: 0xffffff, faces: { nz: { surf: "plastic", tint: 0x101010 } } });
   b.press(disp, panel, 3);
-  pcb(b, "board", { w: 0.18, h: 0.07, mount: { to: panel, screws: 4, each: 10 }, sparks: 0.7, components: [{ kind: "relay", x: -0.05, y: 0 }, { kind: "relay", x: -0.02, y: 0 }, { kind: "chip", x: 0.04, y: 0.01 }, { kind: "cap", x: 0.075, y: -0.02 }] }, [0, 0.835, ZF - t - 0.012], [0, 180, 0]);
+  // control board on the back of the fascia (rotated so its components face into the body)
+  pcb(b, "board", { w: 0.18, h: 0.07, mount: { to: panel, screws: 4, each: 10 }, sparks: 0.7, components: [{ kind: "relay", x: -0.05, y: 0 }, { kind: "relay", x: -0.02, y: 0 }, { kind: "chip", x: 0.04, y: 0.01 }, { kind: "cap", x: 0.075, y: -0.02 }] }, [0, 0.835, ZF - t - 0.0016], [0, 180, 0]);
   // ------------------------------------------------------------------ tea towel on the handle
   if (o.towel !== false) {
     const hb = dh.bar;
@@ -226,7 +235,6 @@ export function buildRange(o: RangeOpts = {}): AssemblyDef {
     b.bond(capT, bk, "fused", { strength: 30 });
     b.friction(capT, hb, 3);
   }
-  void sideL;
   return finish(b);
 }
 

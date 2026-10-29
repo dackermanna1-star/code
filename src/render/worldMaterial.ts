@@ -243,6 +243,19 @@ export class WorldMaterialPlugin extends MaterialPluginBase {
   }
 }
 
+/**
+ * Light setup shared by every material that lives inside the apartment (world, glass, screens):
+ * interior lights run through ONE ClusteredLightContainer (render-env), which takes a single
+ * light slot, so 6 slots cover sun + sky fill + cluster + up to 2 shadowed point lights + one
+ * spare. More than 8 fails to link on WebGL2 minimum hardware (one vertex UBO per light).
+ * GLTF falloff windows each light smoothly to zero at its `range`, which the clustered tile
+ * culling needs (physical inverse-square falloff never reaches 0 → hard tile seams).
+ */
+export function applyLightingSetup(m: PBRMaterial): void {
+  m.maxSimultaneousLights = 6;
+  m.useGLTFLightFalloff = true;
+}
+
 export interface WorldMaterialHandle {
   material: PBRMaterial;
   plugin: WorldMaterialPlugin;
@@ -254,7 +267,7 @@ export function createWorldMaterial(scene: Scene, lib: TextureLibrary, name = "w
   m.metallic = 0; // non-null metallic/roughness → METALLICWORKFLOW (values overridden per pixel)
   m.roughness = 1;
   m.albedoColor = Color3.White();
-  m.maxSimultaneousLights = 8;
+  applyLightingSetup(m);
   // per-pixel irradiance so environment diffuse uses the perturbed normal
   m.forceIrradianceInFragment = true;
   m.backFaceCulling = true;

@@ -95,8 +95,9 @@ export function buildOfficeChair(o: OfficeChairOpts = {}): AssemblyDef {
     void wheel;
   }
   // ---- gas cylinder + seat swivel
-  // the outer tube sits 15 mm deep in the hub's tapered bore
-  const outer = b.cyl("gas_outer", "steel", "metal_black", 0.025, 0.2, [0, hubY1 - 0.015 + 0.1, 0], { segments: 12, tint, mass: 0.9 });
+  // the outer tube sits 15 mm deep in the hub's tapered bore (the hub is one convex boss, so the
+  // tube is tagged as an insert; both carry mass overrides, so nothing is double-counted)
+  const outer = b.cyl("gas_outer", "steel", "metal_black", 0.025, 0.2, [0, hubY1 - 0.015 + 0.1, 0], { segments: 12, tint, mass: 0.9, tags: ["inset"] });
   b.press(outer, hub, 220);
   const pistonY0 = hubY1 - 0.015 + 0.2;
   const piston = b.cyl("gas_piston", "steel", "chrome", 0.014, 0.12, [0, pistonY0 + 0.06, 0], { segments: 10, mass: 0.35 });

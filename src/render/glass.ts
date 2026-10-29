@@ -14,7 +14,7 @@
 
 import { PBRMaterial, Color3, Material, type Scene } from "@babylonjs/core";
 import type { TextureLibrary } from "./textures.ts";
-import { WorldMaterialPlugin, type WorldMaterialHandle } from "./worldMaterial.ts";
+import { WorldMaterialPlugin, applyLightingSetup, type WorldMaterialHandle } from "./worldMaterial.ts";
 
 export function createGlassMaterial(scene: Scene, lib: TextureLibrary, name = "glassMaterial"): WorldMaterialHandle {
   const g = new PBRMaterial(name, scene);
@@ -31,7 +31,7 @@ export function createGlassMaterial(scene: Scene, lib: TextureLibrary, name = "g
   g.disableDepthWrite = true;
   g.forceIrradianceInFragment = true;
   g.environmentIntensity = 1;
-  g.maxSimultaneousLights = 8;
+  applyLightingSetup(g);
   // glass is thin: a little extra direct specular helps sun glints read
   g.specularIntensity = 1.2;
   const plugin = new WorldMaterialPlugin(g, lib, true);

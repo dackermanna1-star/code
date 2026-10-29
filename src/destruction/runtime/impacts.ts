@@ -9,7 +9,7 @@
 // damage, chips → micro-debris, fracture plans → the budgeted queue. Tool/fist/kick/stomp
 // strikes use the same path with the striker as the other side.
 
-import { Vector3 } from "@babylonjs/core";
+import { PhysicsMotionType, Vector3 } from "@babylonjs/core";
 import type { RawImpact, StrikeInput, StrikeResult } from "../../core/context.ts";
 import { Rng, seedFrom } from "../../core/rng.ts";
 import type { Vec3 } from "../../geom/vec.ts";
@@ -138,9 +138,12 @@ export class ImpactSystem {
     let nx = r.nx,
       ny = r.ny,
       nz = r.nz;
+    /** Body on the B side that the destruction system doesn't own (player, props), if any. */
+    let foreign = B ? null : r.b;
     if (!A) {
       A = B;
       B = undefined;
+      foreign = r.a;
       nx = -nx;
       ny = -ny;
       nz = -nz;
@@ -188,6 +191,8 @@ export class ImpactSystem {
         massB: B && pB ? (B.isStatic ? pB.mass : B.mass) : 0,
         idA: islA.id,
         idB: B ? B.id : -1,
+        staticA: islA.isStatic,
+        staticB: B ? B.isStatic : isStaticBody(foreign),
       });
     }
   }
@@ -455,6 +460,8 @@ export class ImpactSystem {
         massB: ms,
         idA: island.id,
         idB: -1,
+        staticA: island.isStatic,
+        staticB: false,
       });
     }
     return res;
@@ -470,6 +477,16 @@ function findBond(part: Part, id: number): Bond | undefined {
 
 function isFiniteVec(v: Vec3 | undefined): v is Vec3 {
   return !!v && Number.isFinite(v.x) && Number.isFinite(v.y) && Number.isFinite(v.z);
+}
+
+/** A body we don't own counts as static structure only when Havok says it is static. */
+function isStaticBody(body: RawImpact["bodyA"] | null | undefined): boolean {
+  if (!body) return true; // contact with the world itself
+  try {
+    return body.getMotionType() === PhysicsMotionType.STATIC;
+  } catch {
+    return false;
+  }
 }
 
 function safeHardness(part: Part): number {

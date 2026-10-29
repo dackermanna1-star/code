@@ -612,13 +612,17 @@ export class StrikePath {
    * (optional) re-aims the punch line through that fist-centre contact point (over-extending by
    * the rig's `extend` beyond it).
    */
-  buildJab(prep: PreparedJab, hand: number, w0: number, v: number, contact?: V3): void {
+  buildJab(prep: PreparedJab, hand: number, w0: number, v: number, contact?: V3, lift = 0): void {
     const rig = prep.rig;
     const g = rig.guard[hand],
       b = prep.back[hand];
     const p0 = set(_t0, g.x + b.x * w0, g.y + b.y * w0, g.z + b.z * w0);
     let en: V3 = prep.end[hand],
       c: V3 = rig.contact[hand];
+    if (contact && lift > 1e-4) {
+      this.buildOverhand(p0, contact, lift, rig.extend, v, hand, w0);
+      return;
+    }
     if (contact) {
       c = contact;
       const dir = normalizeInPlace(sub(_tA0, contact, p0), prep.dir[hand]);
@@ -631,6 +635,76 @@ export class StrikePath {
     this.start = w0;
     this.hand = hand;
     this.finish(L, Lc, v);
+  }
+
+  /**
+   * Overhand punch (jab rigs): from the guard the fist rises `lift` metres (camera up) on a cubic
+   * Bézier and comes down onto `contact` along the line from the raised point (over an obstacle
+   * edge in front of the target, e.g. a counter top), then over-extends by `extend` along it.
+   * Starts exactly at the guard, so the pose is continuous with the wind-up.
+   */
+  private buildOverhand(p0: V3, contact: V3, lift: number, extend: number, v: number, hand: number, w0: number): void {
+    const p0x = p0.x,
+      p0y = p0.y,
+      p0z = p0.z;
+    // final punch direction: from the raised guard to the contact
+    const df = normalizeInPlace(set(_tB0, contact.x - p0x, contact.y - p0y - lift, contact.z - p0z));
+    const span = Math.hypot(contact.x - p0x, contact.y - p0y - lift, contact.z - p0z);
+    const b1 = set(_tA0, p0x + (contact.x - p0x) * 0.15, p0y + lift * 1.25 + (contact.y - p0y) * 0.15, p0z + (contact.z - p0z) * 0.15);
+    const b2 = set(_tA1, contact.x - df.x * 0.4 * span, contact.y - df.y * 0.4 * span, contact.z - df.z * 0.4 * span);
+    let acc = 0,
+      px = p0x,
+      py = p0y,
+      pz = p0z;
+    for (let i = 0; i <= TAB_N; i++) {
+      let x: number, y: number, z: number, dx: number, dy: number, dz: number;
+      if (i <= TAB_A) {
+        const u = i / TAB_A,
+          m = 1 - u;
+        const k0 = m * m * m,
+          k1 = 3 * m * m * u,
+          k2 = 3 * m * u * u,
+          k3 = u * u * u;
+        x = k0 * p0x + k1 * b1.x + k2 * b2.x + k3 * contact.x;
+        y = k0 * p0y + k1 * b1.y + k2 * b2.y + k3 * contact.y;
+        z = k0 * p0z + k1 * b1.z + k2 * b2.z + k3 * contact.z;
+        const d0 = 3 * m * m,
+          d1 = 6 * m * u,
+          d2 = 3 * u * u;
+        dx = d0 * (b1.x - p0x) + d1 * (b2.x - b1.x) + d2 * (contact.x - b2.x);
+        dy = d0 * (b1.y - p0y) + d1 * (b2.y - b1.y) + d2 * (contact.y - b2.y);
+        dz = d0 * (b1.z - p0z) + d1 * (b2.z - b1.z) + d2 * (contact.z - b2.z);
+      } else {
+        const f = ((i - TAB_A) / (TAB_N - TAB_A)) * extend;
+        x = contact.x + df.x * f;
+        y = contact.y + df.y * f;
+        z = contact.z + df.z * f;
+        dx = df.x;
+        dy = df.y;
+        dz = df.z;
+      }
+      if (i === TAB_A) {
+        dx = df.x;
+        dy = df.y;
+        dz = df.z;
+      }
+      if (i > 0) acc += Math.hypot(x - px, y - py, z - pz);
+      this.s[i] = acc;
+      this.head[3 * i] = px = x;
+      this.head[3 * i + 1] = py = y;
+      this.head[3 * i + 2] = pz = z;
+      const dl = Math.hypot(dx, dy, dz);
+      const inv = dl > 1e-9 ? 1 / dl : 0;
+      this.dir[3 * i] = inv > 0 ? dx * inv : df.x;
+      this.dir[3 * i + 1] = inv > 0 ? dy * inv : df.y;
+      this.dir[3 * i + 2] = inv > 0 ? dz * inv : df.z;
+    }
+    for (let i = 0; i <= TAB_N; i++) this.param[i] = acc > 0 ? this.s[i] / acc : i / TAB_N;
+    copy(this.contact, contact);
+    copy(this.travel, df);
+    this.start = w0;
+    this.hand = hand;
+    this.finish(acc, this.s[TAB_A], v);
   }
 
   /** Build a straight path p0 → p1 (any coordinate frame) with the nominal contact at `contactS` metres. */
@@ -805,11 +879,107 @@ const FULL_SPEED_APPROACH = 0.75;
 /** Lowest speed factor of a cramped swing. */
 const MIN_CRAMPED_SPEED = 0.5;
 
+/**
+ * Re-aimed swings must still travel away from the eye at contact (camera-forward component of the
+ * travel; a chop straight down onto a table top seen from above has very little).
+ */
+const MIN_TRAVEL_FWD = 0.05;
+
+/**
+ * One way of swinging at the aimed point — the tool system tries a few (SwingMachine.aimStrike)
+ * and keeps the first whose head and shaft reach the target before anything else, the way a real
+ * swinger chops down onto a mug instead of driving the handle into the counter in front of it.
+ */
+export interface AimVariant {
+  /** Curve rigs: the direction (camera space, unit) the rig's design-forward is turned to; null = square up to the surface. */
+  into: V3 | null;
+  /** Curve rigs: roll (rad) of the swing plane about `into` (an overhead chop turned into a diagonal / side swing). */
+  roll: number;
+  /**
+   * Curve rigs: world up in camera space → instead of `roll`, roll the swing plane so the handle is
+   * level at contact (a flat side swing: head and shaft at the target's height, over a shelf top).
+   */
+  level: V3 | null;
+  /** Jab rigs: the fist rises this far (m, camera up) and comes down onto the point (overhand punch). */
+  lift: number;
+}
+export const makeAimVariant = (): AimVariant => ({ into: null, roll: 0, level: null, lift: 0 });
+
+/** Max number of variants aimVariants() produces. */
+export const MAX_AIM_VARIANTS = 7;
+/** Down-tilts (rad) of the squared approach tried for curve rigs; side rolls (rad) of the swing plane. */
+const AIM_DOWN_TILTS = [0.6, 1.2];
+const AIM_ROLL = 1.05;
+/** Overhand lifts (m) tried for punches. */
+const AIM_LIFTS = [0.15, 0.3, 0.45];
+
 const _aimInto = v3();
 const _aimAxis = v3();
 const _aimC = v3();
 const _aimDir = v3();
 const _aim: CurveAim = { contact: v3(), travel: v3(), handle: v3(), end: v3() };
+const _sq = v3();
+const _vk = v3();
+
+/** Squared-up into-surface direction (camera space): −normal when the surface faces the eye, else along the view. */
+function squaredInto(aim: StrikeAim, d: number, out: V3): V3 {
+  set(out, -aim.normal.x, -aim.normal.y, -aim.normal.z);
+  normalizeInPlace(out, _ez);
+  if (out.z < SQUARE_COS) set(out, aim.point.x / d, aim.point.y / d, aim.point.z / d);
+  return out;
+}
+
+/**
+ * Candidate ways to swing at `aim` (camera space), most natural first: squared up; tilted down
+ * onto the target (chopping onto its top, clear of what it stands on); the swing plane rolled to
+ * either side; straight along the view. Fists: straight punch, then overhand punches. `down` =
+ * world down in camera space. Variants whose direction would not travel away from the eye are
+ * skipped. Writes into `out` (pre-allocated, ≥ MAX_AIM_VARIANTS) and returns the count.
+ */
+export function aimVariants(rig: Rig, aim: StrikeAim, down: V3, out: AimVariant[]): number {
+  const d = len(aim.point);
+  if (!(d > 1e-4) || !Number.isFinite(d)) return 0;
+  let n = 0;
+  const push = (into: V3 | null, roll: number, lift: number, level = false) => {
+    const o = out[n++];
+    if (into) {
+      o.into ??= v3();
+      copy(o.into, into);
+    } else o.into = null;
+    o.roll = roll;
+    o.lift = lift;
+    if (level) {
+      o.level ??= v3();
+      set(o.level, -down.x, -down.y, -down.z);
+    } else o.level = null;
+  };
+  if (rig.kind === "jab") {
+    push(null, 0, 0);
+    for (const l of AIM_LIFTS) push(null, 0, l);
+    return n;
+  }
+  const sq = squaredInto(aim, d, _sq);
+  push(null, 0, 0);
+  // tilt towards world down (about sq × down)
+  const ax = normalizeInPlace(cross(_aimAxis, sq, down), { x: 1, y: 0, z: 0 });
+  const toDown = Math.acos(Math.max(-1, Math.min(1, dot(sq, down))));
+  for (const tilt of AIM_DOWN_TILTS) {
+    const a = Math.min(tilt, toDown);
+    if (a < 0.3) continue;
+    const t = rotateAxis(_vk, ax, a, sq);
+    // the cross product's sense: make sure we turned towards down
+    if (dot(t, down) < dot(sq, down)) rotateAxis(t, ax, -a, sq);
+    if (t.z < 0.25) continue;
+    push(t, 0, 0);
+    if (a < tilt) break; // reached straight down
+  }
+  push(null, AIM_ROLL, 0);
+  push(null, -AIM_ROLL, 0);
+  push(null, 0, 0, true);
+  const view = set(_vk, aim.point.x / d, aim.point.y / d, aim.point.z / d);
+  if (dot(view, sq) < Math.cos(0.26)) push(view, 0, 0);
+  return n;
+}
 
 /** Pull-back weight of a jab for charge c (normal punches pull back a little). */
 const jabWind = (c: number) => 0.25 + 0.75 * smoothstep01(c);
@@ -1048,10 +1218,11 @@ export class SwingMachine {
    * (clamped to [MIN_AIM_REACH, reach + AIM_STRETCH]); curve swings also rotate their contact travel, handle and
    * the rest of the path from "straight ahead" to "into the surface" (when it faces the player),
    * so a square blow delivers ≈ cos²(travel, view) of ½·m·v². A much shortened approach loses
-   * speed (less run-up). Keeps the current strike time. Returns false (path unchanged) when there
-   * is no strike, no aim or the target is out of reach.
+   * speed (less run-up). Keeps the current strike time. `variant` (optional, see aimVariants)
+   * swings differently at the same point. Returns false (path unchanged) when there is no strike,
+   * no aim, the target is out of reach or the variant cannot reach it travelling away from the eye.
    */
-  aimStrike(aim: StrikeAim | null): boolean {
+  aimStrike(aim: StrikeAim | null, variant?: AimVariant | null): boolean {
     if (this.phase !== "strike" || !aim) return false;
     const def = this.def;
     const r = def.headRadius;
@@ -1061,10 +1232,9 @@ export class SwingMachine {
     if (this.prep.rig.kind === "curve") {
       const p = this.prep as PreparedCurve;
       const rig = p.rig;
-      // into-surface direction (camera space): −normal when the surface faces us, else along the view
-      const into = set(_aimInto, -aim.normal.x, -aim.normal.y, -aim.normal.z);
-      normalizeInPlace(into, _ez);
-      if (into.z < SQUARE_COS) set(into, aim.point.x / d, aim.point.y / d, aim.point.z / d);
+      // into-surface direction (camera space): −normal when the surface faces us, else along the
+      // view — or the variant's explicit direction
+      const into = variant?.into ? normalizeInPlace(copy(_aimInto, variant.into), _ez) : squaredInto(aim, d, _aimInto);
       // rotation taking +Z (the rig's design "forward") onto `into`
       const ax = set(_aimAxis, -into.y, into.x, 0);
       const sa = len(ax);
@@ -1079,6 +1249,12 @@ export class SwingMachine {
         copy(a.travel, p.travel);
         copy(a.handle, p.handle);
       }
+      const roll = variant?.level ? levelRoll(into, a.handle, variant.level) : variant ? variant.roll : 0;
+      if (roll !== 0) {
+        rotateAxis(a.travel, into, roll, a.travel);
+        rotateAxis(a.handle, into, roll, a.handle);
+      }
+      if (a.travel.z < MIN_TRAVEL_FWD) return false;
       // head centre where the sphere touches the aimed point when arriving along `into`
       const c = set(a.contact, aim.point.x - into.x * r, aim.point.y - into.y * r, aim.point.z - into.z * r);
       clampReach(c, def.reach + AIM_STRETCH);
@@ -1098,11 +1274,13 @@ export class SwingMachine {
       const g = p.rig.guard[this.hand],
         b = p.back[this.hand],
         w0 = jabWind(this.charge);
-      // fist centre short of the point along the punch line from the (pulled-back) guard
-      const dir = normalizeInPlace(set(_aimDir, aim.point.x - g.x - b.x * w0, aim.point.y - g.y - b.y * w0, aim.point.z - g.z - b.z * w0), p.dir[this.hand]);
+      const lift = variant ? Math.max(0, variant.lift) : 0;
+      // fist centre short of the point along the punch line from the (pulled-back, raised) guard
+      const dir = normalizeInPlace(set(_aimDir, aim.point.x - g.x - b.x * w0, aim.point.y - g.y - b.y * w0 - lift, aim.point.z - g.z - b.z * w0), p.dir[this.hand]);
+      if (lift > 0 && dir.z < MIN_TRAVEL_FWD) return false;
       const c = set(_aimC, aim.point.x - dir.x * r, aim.point.y - dir.y * r, aim.point.z - dir.z * r);
       clampReach(c, def.reach + AIM_STRETCH);
-      this.path.buildJab(p, this.hand, w0, v, c);
+      this.path.buildJab(p, this.hand, w0, v, c, lift);
     }
     const ratio = this.nominalLc > 1e-6 ? this.path.Lc / this.nominalLc : 1;
     if (ratio < FULL_SPEED_APPROACH) this.path.retime(v * Math.max(MIN_CRAMPED_SPEED, Math.sqrt(ratio / FULL_SPEED_APPROACH)));
@@ -1235,6 +1413,29 @@ export class SwingMachine {
     return this.poseAtS(this.path.sAt(t), out);
   }
 }
+
+/**
+ * Roll angle about unit `k` that makes `h` (rotated about k) perpendicular to `up` — the handle
+ * level — choosing the smaller of the two solutions (or the closest approach when none is exact).
+ */
+function levelRoll(k: V3, h: V3, up: V3): number {
+  const a = dot(h, k);
+  const hp = set(_lvH, h.x - k.x * a, h.y - k.y * a, h.z - k.z * a);
+  const q = cross(_lvQ, k, hp);
+  const A = dot(hp, up),
+    B = dot(q, up),
+    C = a * dot(k, up);
+  const R = Math.hypot(A, B);
+  if (R < 1e-6) return 0;
+  const phi = Math.atan2(B, A);
+  const w = Math.acos(Math.max(-1, Math.min(1, -C / R)));
+  const wrap = (x: number) => Math.atan2(Math.sin(x), Math.cos(x));
+  const t1 = wrap(phi + w),
+    t2 = wrap(phi - w);
+  return Math.abs(t1) <= Math.abs(t2) ? t1 : t2;
+}
+const _lvH = v3();
+const _lvQ = v3();
 
 /** Scale a camera-space point onto the shell [MIN_AIM_REACH, reach] around the eye. */
 function clampReach(c: V3, reach: number): V3 {

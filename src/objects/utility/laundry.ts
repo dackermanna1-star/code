@@ -208,9 +208,12 @@ function detergentDrawer(b: Builder, c: CabinetParts, compartments: boolean): st
 }
 
 export interface HoseEnds {
-  /** Wall valve outlet (inlet hose end) and drain standpipe point, local coordinates. */
+  /** Underside of the wall valve the inlet hose screws onto (local coordinates). */
   inlet?: V3;
+  /** Where the drain hose ends (local): the mouth of a standpipe or a wall stub-out. */
   drain?: V3;
+  /** Direction of the drain hose's last few cm (local; default straight down into a standpipe). */
+  drainDir?: V3;
 }
 
 export interface WasherOpts extends BaseOpts {
@@ -420,7 +423,7 @@ export function buildDryer(o: DryerOpts = {}): AssemblyDef {
 
   // ------------------------------------------------------------------ vent duct + power cord
   const v = o.vent ?? ([-0.2, 0.15, -D / 2 - 0.06] as V3);
-  const vx = Array.isArray(v) ? v : [v.x, v.y, v.z];
+  const vx: [number, number, number] = Array.isArray(v) ? [v[0], v[1], v[2]] : [v.x, v.y, v.z];
   const outlet = b.cyl("vent_outlet", "plastic", "plastic", 0.05, 0.03, [-0.2, 0.15, -D / 2 - 0.015 + 0.0001], { axis: "z", segments: 10, tint: 0x2f2f31, mass: 0.05 });
   b.screw(outlet, c.back, 2, 20);
   const duct = b.tube(
@@ -520,79 +523,112 @@ function door(b: Builder, c: CabinetParts, o: { ring: number; inner: number; gla
   return inner;
 }
 
-/** Inlet + drain hoses (water features) to the wall, or loose coils behind the machine. */
+type P3 = [number, number, number];
+
+/** Height hoses and cords cross over the machine at (clear of the worktop, knob and fascia). */
+const Y_OVER = 0.9;
+
+const p3 = (v: V3): P3 => (Array.isArray(v) ? [v[0], v[1], v[2]] : [v.x, v.y, v.z]);
+
+/** Drop points closer than 2 mm to their predecessor (zero-length tube segments). */
+function dedupe(pts: P3[]): P3[] {
+  const out: P3[] = [];
+  for (const q of pts) {
+    const l = out[out.length - 1];
+    if (!l || Math.hypot(q[0] - l[0], q[1] - l[1], q[2] - l[2]) > 0.002) out.push(q);
+  }
+  return out;
+}
+
+/**
+ * Route from `from` (a point just behind the back panel) to `end`, arriving along the unit
+ * direction `dir` (the last 5 cm run straight along it): up behind the machine to the approach
+ * height, across behind the back, forward/back to the approach point, then into the end. When
+ * the approach point is higher than the machine the run crosses above the worktop; otherwise it
+ * stays behind the back panel (so the end must be behind it or beside the cabinet).
+ */
+function routeTo(from: P3, end: P3, dir: P3, zBehind: number): P3[] {
+  const pre: P3 = [end[0] - dir[0] * 0.05, end[1] - dir[1] * 0.05, end[2] - dir[2] * 0.05];
+  const yr = pre[1] >= Y_OVER ? pre[1] : Math.max(0.05, pre[1]);
+  return dedupe([from, [from[0], yr, zBehind], [pre[0], yr, zBehind], [pre[0], yr, pre[2]], pre, end]);
+}
+
+/**
+ * Inlet + drain hoses (water features). With wall connections the inlet hose rises behind the
+ * machine and comes up into the underside of the wall valve; the drain hose runs into the drain
+ * (standpipe from above, or a wall stub-out along `drainDir`). Without them the ends lie loosely
+ * coiled behind the machine.
+ */
 function hoses(b: Builder, c: CabinetParts, ends?: HoseEnds): void {
   const zb = -D / 2;
-  const p = (v: V3): [number, number, number] => (Array.isArray(v) ? [v[0], v[1], v[2]] : [v.x, v.y, v.z]);
-  const inlet = ends?.inlet ? p(ends.inlet) : ([0.18, 0.86, zb - 0.06] as [number, number, number]);
-  const drain = ends?.drain ? p(ends.drain) : ([0.1, 0.78, zb - 0.06] as [number, number, number]);
   const nipple = b.cyl("inlet_valve", "plastic", "plastic", 0.012, 0.03, [0.18, 0.78, zb - 0.015 + 0.0001], { axis: "z", segments: 8, tint: 0x2f2f31, mass: 0.05 });
   b.screw(nipple, c.back, 2, 20);
-  const hIn = b.tube(
-    "inlet_hose",
-    "rubber",
-    "rubber",
-    [
-      [0.18, 0.78, zb - 0.03],
-      [0.18, 0.8, zb - 0.06],
-      [(0.18 + inlet[0]) / 2, Math.max(0.82, inlet[1] - 0.08), (zb - 0.06 + inlet[2]) / 2],
-      inlet,
-    ],
-    0.009,
-    { sides: 6, tint: 0x9aa0a6, kgPerM: 0.18, jointStrength: 40 },
-  );
+  const inlet = ends?.inlet ? p3(ends.inlet) : null;
+  const inPts: P3[] = inlet
+    ? [[0.18, 0.78, zb - 0.03], ...routeTo([0.18, 0.8, zb - 0.06], inlet, [0, 1, 0], zb - 0.06)]
+    : [
+        [0.18, 0.78, zb - 0.03],
+        [0.18, 0.8, zb - 0.06],
+        [0.18, 0.84, zb - 0.06],
+        [0.18, 0.86, zb - 0.06],
+      ];
+  const hIn = b.tube("inlet_hose", "rubber", "rubber", dedupe(inPts), 0.009, { sides: 6, tint: 0x9aa0a6, kgPerM: 0.18, jointStrength: 40 });
   b.screw(hIn[0], nipple, 1, 40);
-  if (ends?.inlet) {
+  const inEnd = inPts[inPts.length - 1];
+  if (inlet) {
     b.world(hIn[hIn.length - 1], "screw", 40, inlet);
     b.water(hIn[hIn.length - 1], inlet, [0, -0.3, 1], 0.7);
-  } else b.water(hIn[hIn.length - 1], inlet, [0, -0.3, 1], 0.1, 0.3);
-  const hDr = b.tube(
-    "drain_hose",
-    "rubber",
-    "rubber",
-    [
-      [0.17, 0.08, zb + 0.0002],
-      [0.17, 0.08, zb - 0.04],
-      [(0.17 + drain[0]) / 2, (0.1 + drain[1]) / 2, zb - 0.05],
-      [drain[0], drain[1] + 0.07, drain[2] + 0.03],
-      [drain[0], drain[1] + 0.075, drain[2] - 0.01],
-      [drain[0], drain[1], drain[2] - 0.03],
-    ],
-    0.011,
-    { sides: 6, tint: 0x6b6f73, kgPerM: 0.2, jointStrength: 35 },
-  );
+  } else b.water(hIn[hIn.length - 1], inEnd, [0, -0.3, 1], 0.1, 0.3);
+
+  const drain = ends?.drain ? p3(ends.drain) : null;
+  const dirIn = ends?.drainDir ? p3(ends.drainDir) : ([0, -1, 0] as P3);
+  const dl = Math.hypot(dirIn[0], dirIn[1], dirIn[2]) || 1;
+  const dir: P3 = [dirIn[0] / dl, dirIn[1] / dl, dirIn[2] / dl];
+  const drPts: P3[] = drain
+    ? [[0.17, 0.08, zb + 0.0002], ...routeTo([0.17, 0.08, zb - 0.04], drain, dir, zb - 0.05)]
+    : [
+        [0.17, 0.08, zb + 0.0002],
+        [0.17, 0.08, zb - 0.04],
+        [0.12, 0.03, zb - 0.07],
+        [0.02, 0.0115, zb - 0.09],
+      ];
+  const hDr = b.tube("drain_hose", "rubber", "rubber", drPts, 0.011, { sides: 6, tint: 0x6b6f73, kgPerM: 0.2, jointStrength: 35 });
   b.clip(hDr[0], c.back, 15);
-  if (ends?.drain) b.world(hDr[hDr.length - 1], "friction", 12, [drain[0], drain[1], drain[2] - 0.03]);
+  if (drain) b.world(hDr[hDr.length - 1], "friction", 12, drain);
   b.water(hDr[1], [0.17, 0.08, zb - 0.03], [0, -1, 0], 0.05, 1.5);
 }
 
-/** Power cord out of the back, to a wall socket (plug world-bonded) or lying behind. */
+/**
+ * Power cord out of the back. With `plug` (the plug's top centre, local) the cord rises behind
+ * the machine, crosses above it when the socket is high, and ends in a plug pushed into the
+ * socket (world-bonded); otherwise it drops behind the machine with the plug on the floor.
+ */
 function cord(b: Builder, c: CabinetParts, plug?: V3, cx = -0.22): void {
   const zb = -D / 2;
   const relief = b.cyl("cord_relief", "rubber", "rubber", 0.007, 0.02, [cx, 0.7, zb - 0.01 + 0.0001], { axis: "z", segments: 8, tint: 0x1b1b1b, mass: 0.01 });
   b.clip(relief, c.back, 30);
-  const end: [number, number, number] = plug ? (Array.isArray(plug) ? [plug[0], plug[1], plug[2]] : [plug.x, plug.y, plug.z]) : [cx, 0.012, zb - 0.12];
-  const pts: Array<[number, number, number]> = plug
-    ? [
-        [cx, 0.7, zb - 0.02],
-        [cx, 0.62, zb - 0.04],
-        [(end[0] + cx) / 2, Math.max(0.65, end[1] - 0.12), (end[2] + zb - 0.04) / 2],
-        [end[0], end[1] - 0.06, end[2]],
-      ]
-    : [
-        [cx, 0.7, zb - 0.02],
-        [cx, 0.4, zb - 0.04],
-        [cx, 0.01, zb - 0.07],
-        [cx - Math.sign(cx) * 0.1, 0.0045, zb - 0.12],
-      ];
+  const end: P3 | null = plug ? p3(plug) : null;
+  let pts: P3[];
+  if (end) {
+    // the cord enters the plug body from below (angled plug), so it arrives straight up
+    const bottom: P3 = [end[0], end[1] - 0.06, end[2]];
+    pts = routeTo([cx, 0.7, zb - 0.02], bottom, [0, 1, 0], zb - 0.05);
+  } else {
+    pts = [
+      [cx, 0.7, zb - 0.02],
+      [cx, 0.4, zb - 0.04],
+      [cx, 0.01, zb - 0.07],
+      [cx - Math.sign(cx) * 0.1, 0.0045, zb - 0.12],
+    ];
+  }
   const cordSegs = b.tube("cord", "copper", "rubber", pts, 0.0045, { sides: 6, tint: 0x1b1b1b, kgPerM: 0.09, jointStrength: 40 });
   b.fuse(cordSegs[0], relief, 40);
   const last = pts[pts.length - 1];
-  const plugPart = plug
+  const plugPart = end
     ? boxR(b, "plug", "plastic", "plastic", [end[0] - 0.02, end[0] + 0.02], [end[1] - 0.06, end[1] - 0.02], [end[2] - 0.015, end[2] + 0.015], { tint: 0x1b1b1b, mass: 0.06 })
     : boxR(b, "plug", "plastic", "plastic", cx < 0 ? [last[0], last[0] + 0.04] : [last[0] - 0.04, last[0]], [0, 0.025], [last[2] - 0.015, last[2] + 0.015], { tint: 0x1b1b1b, mass: 0.06 });
   b.press(plugPart, cordSegs[cordSegs.length - 1], 30);
-  if (plug) b.world(plugPart, "press", 15, end);
+  if (end) b.world(plugPart, "press", 15, [end[0], end[1] - 0.04, end[2]]);
   b.sparks(plugPart, 0.4);
 }
 

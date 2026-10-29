@@ -68,6 +68,14 @@ export const HOLD_MIN = 0.6;
 export const HOLD_MAX = 2.5;
 /** Initial hold distance when picking something up (it is brought this close). */
 export const HOLD_PICKUP = 1.15;
+/**
+ * Rate (m/s) at which the hand pushes an object that is closer than its hold distance out to it
+ * (picked up from under the nose, or carried over from a broken-off part), and the steepest
+ * downward view (forward.y) at which it does: pushing out along a steep view ray would only ram the
+ * object into what it rests on at full hand strength.
+ */
+const HOLD_EASE_RATE = 1.0;
+const HOLD_EASE_MIN_FWD_Y = -0.4;
 export const THROW_MAX_ENERGY = 250; // J
 export const THROW_MAX_SPEED = 16; // m/s
 /** Fraction of the max throw energy for a quick tap (no charge). */
@@ -102,7 +110,9 @@ interface Hold {
   /** Doors / drawers: held where the hand is, stay on their layer. */
   jointed: boolean;
   local: Vector3; // grab point in the body frame
+  /** Hand distance from the eye along the view (m); eases out towards distGoal (see stepDynamic). */
   dist: number;
+  distGoal: number;
   minDist: number;
   mass: number;
   massAge: number;
@@ -243,7 +253,16 @@ export class Interaction {
     if (!this.hold || !Number.isFinite(notches) || notches === 0) return;
     const h = this.hold;
     const lo = h.mode === "static" || h.jointed ? 0.2 : Math.max(HOLD_MIN, h.minDist);
-    h.dist = Math.max(lo, Math.min(HOLD_MAX, h.dist + notches * 0.15));
+    if (notches > 0) {
+      const next = Math.max(lo, Math.min(HOLD_MAX, Math.max(h.dist, h.distGoal) + notches * 0.15));
+      if (h.dist >= h.distGoal) h.dist = next; // (still easing out: only the goal moves)
+      h.distGoal = next;
+    } else {
+      // pulling in never pushes out an object that is still closer than the minimum
+      const next = Math.max(lo, Math.min(HOLD_MAX, h.dist + notches * 0.15));
+      h.distGoal = next;
+      h.dist = Math.min(h.dist, next);
+    }
   }
 
   // ---------------------------------------------------------------- per fixed step
@@ -267,6 +286,7 @@ export class Interaction {
         if (hd.jointed && hd.mode === "dynamic" && this.target && !this.target.usable) {
           hd.jointed = false;
           hd.minDist = this.minHoldDistance(hd.body, this.P);
+          hd.distGoal = Math.max(Math.max(HOLD_MIN, hd.minDist), Math.min(HOLD_MAX, hd.dist));
           this.applyHeldLayer(hd);
           this.wake(hd.body);
         }
@@ -366,12 +386,14 @@ export class Interaction {
     // Picking something up brings it towards you; doors/drawers and anchored things are held
     // where the hand is. A carried-over hold keeps the hand where it was.
     const want = carry ? carry.dist : distance;
-    const dist =
-      mode === "static" || jointed
-        ? Math.max(0.2, want)
-        : carry
-          ? Math.max(Math.max(HOLD_MIN, minDist), Math.min(HOLD_MAX, want))
-          : Math.max(Math.max(HOLD_MIN, minDist), Math.min(HOLD_PICKUP, want));
+    const free = mode === "dynamic" && !jointed;
+    const distGoal = !free
+      ? Math.max(0.2, want)
+      : carry
+        ? Math.max(Math.max(HOLD_MIN, minDist), Math.min(HOLD_MAX, want))
+        : Math.max(Math.max(HOLD_MIN, minDist), Math.min(HOLD_PICKUP, want));
+    // never reach through the grab point: an object closer than its hold distance starts where it is
+    const dist = free ? this.startDistance(distGoal, point, view.eye) : distGoal;
     const shape = body.shape;
     const h: Hold = {
       body,
@@ -379,6 +401,7 @@ export class Interaction {
       jointed,
       local,
       dist,
+      distGoal,
       minDist,
       mass: this.readMass(body, info?.mass ?? null),
       massAge: 0,
@@ -561,10 +584,16 @@ export class Interaction {
     return given;
   }
 
-  /** F while holding: thrust the held object forward/down hard for a moment. */
+  /** The held object can be slammed (free dynamic hold; doors/drawers and anchored things can't). */
+  get canSlam(): boolean {
+    const h = this.hold;
+    return !!h && h.mode === "dynamic" && !h.jointed;
+  }
+
+  /** F while holding: thrust the held object forward/down hard for a moment (false: not possible / cooling down). */
   slam(): boolean {
     const h = this.hold;
-    if (!h || h.mode !== "dynamic" || h.jointed || this.slamCooldown > 0) return false;
+    if (!h || !this.canSlam || this.slamCooldown > 0) return false;
     h.slamTime = SLAM_TIME;
     this.slamCooldown = SLAM_COOLDOWN;
     return true;
@@ -702,6 +731,12 @@ export class Interaction {
       mass = dm ?? fallbackMass ?? 10;
     }
     return Math.max(0.01, mass);
+  }
+
+  /** Initial hand distance for a hold whose goal is `goal`: the grab point's own distance if closer. */
+  private startDistance(goal: number, grabPoint: Vector3, eye: Vector3): number {
+    const d = Vector3.Distance(grabPoint, eye);
+    return Number.isFinite(d) ? Math.min(goal, Math.max(0.2, d)) : goal;
   }
 
   /** Hold distance below which a big object would clip into the camera. */
@@ -880,8 +915,10 @@ export class Interaction {
     h.mass = this.readMass(h.body, null);
     h.massAge = 0;
     if (!h.jointed) {
-      h.minDist = this.minHoldDistance(h.body, this.grabPointWorld(h, this.tmp));
-      h.dist = Math.max(Math.max(HOLD_MIN, h.minDist), Math.min(HOLD_MAX, h.dist));
+      const P = this.grabPointWorld(h, this.tmp);
+      h.minDist = this.minHoldDistance(h.body, P);
+      h.distGoal = Math.max(Math.max(HOLD_MIN, h.minDist), Math.min(HOLD_MAX, h.dist));
+      h.dist = this.startDistance(h.distGoal, P, view.eye);
     }
     if (!this.beginDynamic(h, view)) this.hold = null;
   }
@@ -1087,6 +1124,8 @@ export class Interaction {
       this.drop("nan");
       return;
     }
+    // ease out to the hold distance (not while looking steeply down at the object)
+    if (h.dist < h.distGoal && view.forward.y > HOLD_EASE_MIN_FWD_Y) h.dist = Math.min(h.distGoal, h.dist + HOLD_EASE_RATE * dt);
     // hold target (slam: thrust forward and down)
     const T = this.T;
     if (h.slamTime > 0) {

@@ -58,12 +58,17 @@ export async function probe(): Promise<unknown> {
     b.dispose(m);
     const r = median(reuse),
       c = median(create);
+    const rMin = Math.min(...reuse),
+      cMin = Math.min(...create);
     out[name] = {
       vertices: verts,
       reuseMs: Math.round(r * 1000) / 1000,
       createMs: Math.round(c * 1000) / 1000,
       reusePer1000: Math.round((r / (verts / 1000)) * 1000) / 1000,
       createPer1000: Math.round((c / (verts / 1000)) * 1000) / 1000,
+      // min-of-N: least disturbed by the other agents' probes on this 4-CPU box
+      reuseMinPer1000: Math.round((rMin / (verts / 1000)) * 1000) / 1000,
+      createMinPer1000: Math.round((cMin / (verts / 1000)) * 1000) / 1000,
     };
   }
   // fracture-like churn: 12 small islands disposed, 12 new ones built (pool hits)

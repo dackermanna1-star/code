@@ -2,8 +2,9 @@
 //  * buildMonitor: 24" LCD — plastic bezel bars, LCD glass (`screen`), diffuser, steel backlight
 //    tray, main + power boards (sparks), rear cover (back plate + rim walls), VESA plate,
 //    aluminium neck and weighted steel base.
-//  * buildKeyboard: tenkeyless mechanical keyboard — bottom shell, rim walls, PCB, steel switch
-//    plate and 87 individual press-fit keycaps (they fly off when the board is smashed).
+//  * buildKeyboard: tenkeyless mechanical keyboard — bottom shell, rim walls, case foam, PCB,
+//    switch banks soldered to it, steel switch plate and 87 individual press-fit keycaps (each
+//    with its switch top: they fly off when the board is smashed).
 //  * buildMouse: base plate, shell, two buttons, wheel on a wheel block.
 //  * buildSpeaker: MDF cabinet (6 panels), paper woofer cone, tweeter dome, ferrite magnet.
 // Local frames: origin at the centre of the underside; the screen / near edge / buttons face +Z.
@@ -12,7 +13,7 @@
 import type { AssemblyDef } from "../../destruction/model/types.ts";
 import type { Builder } from "../lib/builder.ts";
 import { frameBarPoints, pcb } from "../lib/kit.ts";
-import { boxR, finish, mk, PAL, type BaseOpts } from "./common.ts";
+import { boxR, finish, mk, sheetKg, PAL, type BaseOpts } from "./common.ts";
 
 // ------------------------------------------------------------------ monitor
 
@@ -136,11 +137,20 @@ const ROWS: Array<{ main: number[]; nav: Array<0 | 1> }> = [
 /** Row centre z (back → front). */
 const ROW_Z = [-0.05, -0.0262, -0.0071, 0.0119, 0.031, 0.05];
 
-/** One sculpted keycap: hull of the bottom rectangle and a smaller, slightly rear-shifted top. */
-function keycap(b: Builder, name: string, cx: number, cz: number, wu: number, y0: number, tint: number, on: string): string {
+/** Switch footprint (Cherry MX style housing top + stem) under every keycap (m). */
+const SWITCH = 0.014;
+
+/**
+ * One sculpted keycap on its switch: hull of the switch top housing + stem (14 mm square at the
+ * plate), the cap's skirt rectangle 4.5 mm higher and a smaller, slightly rear-shifted dished top.
+ * The switch top comes off with the cap when it is knocked off the plate (weak press fit).
+ */
+function keycap(b: Builder, name: string, cx: number, cz: number, wu: number, yPlate: number, tint: number, on: string): string {
   const w = wu * U - 0.001,
     d = U - 0.001;
-  const h = 0.008;
+  const stem = 0.0045,
+    h = 0.008;
+  const sw = Math.max(SWITCH, wu * U - 0.005);
   const tw = w - 0.006,
     td = d - 0.0055;
   const pts: Array<[number, number, number]> = [];
@@ -150,11 +160,16 @@ function keycap(b: Builder, name: string, cx: number, cz: number, wu: number, y0
     [-1, 1],
     [1, 1],
   ]) {
-    pts.push([cx + (a * w) / 2, y0, cz + (c * d) / 2]);
-    pts.push([cx + (a * tw) / 2, y0 + h, cz - 0.0008 + (c * td) / 2]);
+    pts.push([cx + (a * sw) / 2, yPlate, cz + (c * SWITCH) / 2]);
+    pts.push([cx + (a * w) / 2, yPlate + stem, cz + (c * d) / 2]);
+    pts.push([cx + (a * tw) / 2, yPlate + stem + h, cz - 0.0008 + (c * td) / 2]);
   }
-  const k = b.hull(name, "plastic", "keycaps", pts, [0, 0, 0], { tint });
-  b.press(k, on, 2);
+  // hollow ABS cap (1.2 mm walls) + switch top housing and stem: ≈ 2.5 g per unit width
+  const k = b.hull(name, "plastic", "keycaps", pts, [0, 0, 0], { tint, mass: 0.0018 + 0.0007 * wu });
+  // stem retention: ~8 N over ~4 mm of engagement is a few hundredths of a joule; 0.08 J lets a
+  // sledge/hammer blow anywhere on the board (inertial load ½·m_key·Δv² ≈ 0.07 J) pop keys after a
+  // hit or two, and a drop off the desk loosen them, while direct hits flick them off at once
+  b.press(k, on, 0.08);
   return k;
 }
 
@@ -180,39 +195,70 @@ export function buildKeyboard(o: KeyboardOpts = {}): AssemblyDef {
   b.fuse(walls[2], walls[1], 8);
   b.fuse(walls[3], walls[0], 8);
   b.fuse(walls[3], walls[1], 8);
-  const board = boxR(b, "pcb", "pcb", "pcb", [-w / 2 + wallT + 0.002, w / 2 - wallT - 0.002], [0.0105, 0.0121], [-d / 2 + wallT + 0.002, d / 2 - wallT - 0.002], { tint: 0x1d2b4a });
-  b.screw(board, bottom, 6, 4);
+  // plate-mounted stack: steel plate screwed into the case walls, switches clipped into the plate
+  // and soldered to the PCB below it, Poron case foam between the PCB and the bottom shell
+  const yP0 = 0.0105,
+    yP1 = 0.0121; // PCB
+  const yS0 = 0.0175,
+    yS1 = 0.019; // switch plate
+  const inX = w / 2 - wallT - 0.002,
+    inZ = d / 2 - wallT - 0.002;
+  const foam = boxR(b, "case_foam", "foam", "fabric_upholstery", [-inX, inX], [yB1, yP0], [-inZ, inZ], { tint: 0x2a2a2a });
+  b.glue(foam, bottom, 6);
+  const board = boxR(b, "pcb", "pcb", "pcb", [-inX, inX], [yP0, yP1], [-inZ, inZ], { tint: 0x1d2b4a });
+  b.friction(board, foam, 3);
   b.sparks(board, 0.4);
-  const plate = boxR(b, "plate", "steel", "metal_black", [-w / 2 + wallT, w / 2 - wallT], [0.0175, 0.019], [-d / 2 + wallT, d / 2 - wallT], { tess: 0 });
-  for (const wl of walls) b.clip(plate, wl, 8);
-  b.screw(plate, board, 4, 6); // through the switches
-  // keycaps
-  const yK = 0.019 + 0.0045;
+  // 1.5 mm steel with 87 14 mm switch cut-outs (~37 % of its area removed)
+  const plateKg = sheetKg((w - 2 * wallT) * (d - 2 * wallT), yS1 - yS0, 7850, 0.63);
+  const plate = boxR(b, "plate", "steel", "metal_black", [-w / 2 + wallT, w / 2 - wallT], [yS0, yS1], [-d / 2 + wallT, d / 2 - wallT], { tess: 0, mass: plateKg });
+  for (const wl of walls) b.screw(plate, wl, 2, 6);
+  // keycaps (+ switch tops) and, under the plate, the switch bodies as one bank per contiguous run
+  // of keys in a row (housings at 19.05 mm pitch are nearly continuous; ≈ 2 g each with spring and
+  // contacts): soldered to the PCB, clipped into the plate
   const x0 = -(18.25 * U) / 2;
   const alpha = 0xd9d6cf,
     mod = 0x8f9093,
     accent = 0xc4523b;
   let n = 0;
   ROWS.forEach((row, r) => {
+    const keys: Array<{ cx: number; wu: number; tint: number }> = [];
     let x = x0;
     row.main.forEach((wu, i) => {
       if (wu < 0) {
         x -= wu * U;
         return;
       }
-      const cx = x + (wu * U) / 2;
       const isMod = wu > 1.01 || (r === 0 && i > 0) || r === 5;
-      const tintK = r === 0 && i === 0 ? accent : isMod ? mod : alpha;
-      keycap(b, `key_r${r}_${n}`, cx, ROW_Z[r], wu, yK, tintK, plate);
-      n++;
+      keys.push({ cx: x + (wu * U) / 2, wu, tint: r === 0 && i === 0 ? accent : isMod ? mod : alpha });
       x += wu * U;
     });
     const nx0 = x0 + 15.25 * U;
     row.nav.forEach((has, c) => {
-      if (!has) return;
-      keycap(b, `key_r${r}_${n}`, nx0 + (c + 0.5) * U, ROW_Z[r], 1, yK, mod, plate);
+      if (has) keys.push({ cx: nx0 + (c + 0.5) * U, wu: 1, tint: mod });
+    });
+    // switch banks: split the row where the gap between switch housings exceeds 0.75 u
+    let run: typeof keys = [];
+    let bank = 0;
+    const flush = (): void => {
+      if (!run.length) return;
+      const xa = run[0].cx - Math.max(SWITCH, run[0].wu * U - 0.005) / 2,
+        xb = run[run.length - 1].cx + Math.max(SWITCH, run[run.length - 1].wu * U - 0.005) / 2;
+      const sb = boxR(b, `switches_r${r}_${bank++}`, "plastic", "plastic", [xa, xb], [yP1, yS0], [ROW_Z[r] - SWITCH / 2, ROW_Z[r] + SWITCH / 2], { tint: 0x3b3b40, mass: 0.002 * run.length });
+      b.weld(sb, board, 4 * run.length); // solder joints, 2 pins per switch
+      b.clip(sb, plate, 2 * run.length);
+      run = [];
+    };
+    keys.forEach((k, i) => {
+      if (i > 0) {
+        const prev = keys[i - 1];
+        const gap = k.cx - k.wu * U * 0.5 - (prev.cx + prev.wu * U * 0.5);
+        if (gap > 0.75 * U) flush();
+      }
+      run.push(k);
+      keycap(b, `key_r${r}_${n}`, k.cx, ROW_Z[r], k.wu, yS1, k.tint, plate);
       n++;
     });
+    flush();
   });
   for (const [sx, sz, nm] of [
     [-1, -1, "bl"],

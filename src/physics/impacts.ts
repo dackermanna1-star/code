@@ -28,8 +28,10 @@
 //   impulse = max(measured step impulse, estimate)   — estimate ≈ (1+e)·μ·v_n from PRE-step velocities,
 // and the rest of the episode only suppresses duplicates. If the episode's measured excess ends up clearly larger
 // than what was emitted (a light body crushed between a heavy one and the floor: μ underestimates the load), the
-// difference is emitted as a `started:false` (crush) impact when the episode ends. An estimator returning NaN
-// (unknown velocities) falls back to the episode-end emission.
+// difference is emitted as a `started:false` (crush) impact when the episode ends. The episode logic also stays in
+// charge (no early emission) when the estimate is NaN (unknown velocities) or below earlyMinFraction × the measured
+// step impulse: a measured load the approach speed cannot explain is a spawn overlap or resting load (filtered by the
+// steady-load test) or a crush (reported at episode end).
 
 export const EV_STARTED = 1;
 export const EV_CONTINUED = 2;
@@ -76,6 +78,8 @@ export interface ImpactConfig {
    * `started:false` crush impact of the difference.
    */
   crushMargin: number;
+  /** Same-step emission only when estimate ≥ earlyMinFraction × the measured step impulse (else the episode decides). */
+  earlyMinFraction: number;
 }
 
 /**
@@ -97,6 +101,7 @@ export const DEFAULT_IMPACT_CONFIG: Readonly<ImpactConfig> = {
   baselineUp: 0.05,
   baselineDown: 0.3,
   crushMargin: 0.5,
+  earlyMinFraction: 0.5,
 };
 
 /** One aggregated impact (pooled: valid until the next endStep()). Normal points from a to b. */
@@ -213,6 +218,8 @@ export class ImpactAggregator<S extends ImpactSide> {
   events = 0;
   /** Optional pre-step impulse estimator: enables same-step `started` delivery (see header). */
   estimator: ImpactEstimator<S> | null = null;
+  /** Same-step `started` impacts emitted so far (stats). */
+  earlyEmitted = 0;
 
   constructor(cfg: Partial<ImpactConfig> = {}) {
     this.cfg = { ...DEFAULT_IMPACT_CONFIG, ...cfg };
@@ -463,7 +470,8 @@ export class ImpactAggregator<S extends ImpactSide> {
       nz = p.lnz;
     }
     const e = est(p.a, p.b, px, py, pz, nx, ny, nz);
-    if (!(e >= 0)) return n; // unknown velocities (NaN): fall back to the episode-end emission
+    // unknown velocities (NaN), or a measured load the approach speed cannot explain: the episode decides
+    if (!(e >= 0) || e < this.cfg.earlyMinFraction * p.sImp) return n;
     const imp = e > p.sImp ? e : p.sImp;
     if (!this.passes(p, imp)) {
       // too weak to report: remember a token so the episode end doesn't report the same contact late
@@ -485,6 +493,7 @@ export class ImpactAggregator<S extends ImpactSide> {
     o.steps = 1;
     o.contacts = p.sContacts;
     p.eEmitted = imp;
+    this.earlyEmitted++;
     return n + 1;
   }
 

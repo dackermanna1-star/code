@@ -7,11 +7,8 @@
 // Loose items: origin at the centre of their base, sitting on y = 0.
 
 import { torusTiles } from "../../geom/primitives.ts";
-import { polyFromHull } from "../../geom/poly.ts";
-import { v3 } from "../../geom/vec.ts";
 import { pcb, spokeRot } from "../lib/kit.ts";
 import { boxR, bondTouching, finish, mk, plasticBottle, roundedPrismPoints, SOFT_SEAM, CHROME, type BaseOpts } from "../utility/helpers.ts";
-import type { Builder } from "../lib/builder.ts";
 import type { AssemblyDef } from "../../destruction/model/types.ts";
 
 // =============================================================================================
@@ -443,6 +440,3 @@ export function buildExhaustFan(o: FanOpts = {}): AssemblyDef {
   return finish(b, o);
 }
 
-void polyFromHull;
-void v3;
-export type { Builder };

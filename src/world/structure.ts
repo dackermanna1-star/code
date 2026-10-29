@@ -6,7 +6,8 @@
 // buildStructure() returns every assembly with parts already placed in WORLD space (identity
 // transforms). Interior doors live inside their partition's assembly (parts prefixed
 // `<opening id>_`, tagged `opening:<id>`); the front door, windows and the sliding door are
-// assemblies of their own (every part tagged `opening:<id>`). OPENINGS / WALL_SEGMENTS describe openings and solid wall pieces for audio
+// assemblies of their own (every part tagged `opening:<id>`). OPENINGS / WALL_SEGMENTS describe
+// openings and solid wall pieces (split wherever the room on either side changes) for audio
 // occlusion and light shafts. Reference levels for furnishing: src/world/structure/levels.ts.
 
 import { xident, type Xform } from "../geom/vec.ts";

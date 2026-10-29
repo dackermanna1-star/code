@@ -3,7 +3,8 @@
 // gypsum sheets on both faces screwed to every framing member they cross, batt insulation in
 // insulated walls, electrical boxes/cables/plates, copper supply + PVC drain stub-outs in
 // plumbing walls, cased-archway trim, the interior doors (frame + leaf, doors.ts), wall tiles
-// (bathroom) and baseboards. One assembly per partition. Built in the wall's local frame (u along the wall, w across). PURE.
+// (bathroom) and baseboards. One assembly per partition. Built in the wall's local frame (u along
+// the wall, w across). PURE.
 
 import type { AssemblyDef } from "../../destruction/model/types.ts";
 import { STUD_SPACING, roomAt } from "../plan.ts";
@@ -25,11 +26,11 @@ import {
   WALL_TILE_T,
 } from "./levels.ts";
 import { partitionFaceIntervals, runSideRoom, type PartitionRun, type WallFrame } from "./layout.ts";
-import { BoxIndex, Fixings, PAL, bondAt, boxR, fasteners, mid, newBuilder, sheetFaces, worldAt, type Interval, type LBox, type V3 } from "./common.ts";
+import { BoxIndex, Fixings, PAL, bondAt, boxR, fasteners, mid, newBuilder, sheetFaces, trimFaces, worldAt, type Interval, type LBox, type V3 } from "./common.ts";
 import { intervalsSubtract, splitEven } from "./rects.ts";
 import { addBaseboards, addPlate, addWallTiles, plateFits, tileZonesOnFace, visibleIntervals, type FaceCtx, type FaceRect } from "./walldeco.ts";
 import { BOX_D, BOX_H, BOX_W, CABLE_KG_PER_M, CABLE_T, CABLE_W, ELECTRICAL, type ElecPoint } from "./services.ts";
-import { casingRect, clearOpening } from "./openings.ts";
+import { JAMB_FIX_Y, SHIM_DEPTH, SHIM_LEN, casingRect, clearOpening, shimFix } from "./openings.ts";
 import { inFrame } from "./concrete.ts";
 import { addInteriorDoor } from "./doors.ts";
 
@@ -92,8 +93,17 @@ export function buildPartition(run: PartitionRun): AssemblyDef {
     // ================================================================ framing
     const plates: LBox[] = [];
     let pk = 0;
+    // Plates are laid as ~1.2 m lengths butted over the centre of every third grid stud (which
+    // is nailed to both), each with its own powder-actuated pins (≤ 2 pins, one bond at their
+    // centre): fasteners pull out locally where the plate is pried or struck, not all at once.
     const plateRun = (a: number, c: number, y0: number, y1: number, role: "plateB" | "plateT") => {
-      const cuts = splitEven(a, c, 3.0);
+      const cuts = [a];
+      for (let m = 1; m < 100; m++) {
+        const j = fu0 + m * 3 * STUD_SPACING + W / 2;
+        if (j >= c - 0.3) break;
+        if (j > cuts[cuts.length - 1] + 0.3) cuts.push(j);
+      }
+      cuts.push(c);
       let prev: LBox | null = null;
       for (let i = 0; i + 1 < cuts.length; i++) {
         const name = `${role}_${pk++}`;
@@ -103,7 +113,7 @@ export function buildPartition(run: PartitionRun): AssemblyDef {
         // powder-actuated pins into the slab every ~0.6 m
         const pins = splitEven(cuts[i], cuts[i + 1], 0.6);
         for (let k = 0; k + 1 < pins.length; k++) fix.world(name, "nail", 45, [mid(pins[k], pins[k + 1]), role === "plateB" ? y0 : y1, 0]);
-        if (prev) bondAt(b, prev.name, name, "nail", 30, [cuts[i], mid(y0, y1), 0]);
+        if (prev) bondAt(b, prev.name, name, "nail", 40, [cuts[i], mid(y0, y1), 0]);
         prev = box;
       }
     };
@@ -264,17 +274,19 @@ export function buildPartition(run: PartitionRun): AssemblyDef {
         top = Math.max(top, dy);
         const riser = `${sp.id}_drain_riser`;
         const ry1 = dy - 0.02;
-        b.cyl(riser, "plastic", "plastic", 0.02, ry1 - STUD_Y0, [uC, mid(STUD_Y0, ry1), s * 0.0195], { segments: 10, tint: PAL.pvc, tags: ["pipe", "drain"] });
-        idx.add({ name: riser, u0: uC - 0.02, u1: uC + 0.02, y0: STUD_Y0, y1: ry1, w0: Math.min(s * -0.0005, s * 0.0395), w1: Math.max(s * -0.0005, s * 0.0395), role: "pipe" });
+        // 40 mm PVC riser strapped against the blocking (its back touches the blocking face)
+        const dw = s * 0.0135;
+        b.cyl(riser, "plastic", "plastic", 0.02, ry1 - STUD_Y0, [uC, mid(STUD_Y0, ry1), dw], { segments: 10, tint: PAL.pvc, tags: ["pipe", "drain"] });
+        idx.add({ name: riser, u0: uC - 0.02, u1: uC + 0.02, y0: STUD_Y0, y1: ry1, w0: Math.min(dw - 0.02, dw + 0.02), w1: Math.max(dw - 0.02, dw + 0.02), role: "pipe" });
         const elbow = `${sp.id}_drain_elbow`;
-        const wa = s * -0.0005,
+        const wa = dw - s * 0.02,
           wb = s * SHEET_IN;
         b.cyl(elbow, "plastic", "plastic", 0.02, Math.abs(wb - wa), [uC, dy, mid(wa, wb)], { axis: "z", segments: 10, tint: PAL.pvc, tags: ["pipe", "drain"] });
         idx.add({ name: elbow, u0: uC - 0.02, u1: uC + 0.02, y0: dy - 0.02, y1: dy + 0.02, w0: Math.min(wa, wb), w1: Math.max(wa, wb), role: "pipe" });
-        bondAt(b, elbow, riser, "glue", 80, [uC, ry1, s * 0.0195]);
-        bondAt(b, riser, blk, "nail", 15, [uC, Math.min(ry1, vy - 0.205), s * -0.006]);
+        bondAt(b, elbow, riser, "glue", 80, [uC, ry1, dw]);
+        bondAt(b, riser, blk, "nail", 15, [uC, Math.min(ry1, vy - 0.205), s * -0.0065]);
         const pu = plateUnder(uC);
-        if (pu) bondAt(b, riser, pu.name, "nail", 10, [uC, STUD_Y0, s * 0.0195]);
+        if (pu) bondAt(b, riser, pu.name, "nail", 10, [uC, STUD_Y0, dw]);
         valves.push({ id: sp.id, side: s, u: uC, y: dy, stub: elbow, kind: "drain" });
       }
       reserved.push({ u0: A.u1, u1: B.u0, y0: 0, y1: top + 0.1 });
@@ -475,9 +487,15 @@ export function buildPartition(run: PartitionRun): AssemblyDef {
       boxR(b, L, "softwood", "wood_painted", [o.r0 + SHIM, c0], [0, o.head - SHIM], T, trim);
       boxR(b, R, "softwood", "wood_painted", [c1, o.r1 - SHIM], [0, o.head - SHIM], T, trim);
       boxR(b, H, "softwood", "wood_painted", [c0, c1], [top, o.head - SHIM], T, { ...trim, grain: "x" });
-      bondAt(b, L, `jackL_${id}`, "nail", 90, [o.r0, 1.0, 0]);
-      bondAt(b, R, `jackR_${id}`, "nail", 90, [o.r1, 1.0, 0]);
-      bondAt(b, H, `header_${id}`, "nail", 90, [mid(o.r0, o.r1), o.head, 0]);
+      // nailed through shim packs into the jacks (three per side) and the header
+      const sd: Interval = [-SHIM_DEPTH / 2, SHIM_DEPTH / 2];
+      JAMB_FIX_Y.forEach((y, k) => {
+        const yr: Interval = [y - SHIM_LEN / 2, y + SHIM_LEN / 2];
+        shimFix(b, `${id}_shimL${k}`, L, `jackL_${id}`, [o.r0, o.r0 + SHIM], yr, sd, "nail", 60);
+        shimFix(b, `${id}_shimR${k}`, R, `jackR_${id}`, [o.r1 - SHIM, o.r1], yr, sd, "nail", 60);
+      });
+      const hm = mid(o.r0, o.r1);
+      shimFix(b, `${id}_shimHead`, H, `header_${id}`, [hm - SHIM_LEN / 2, hm + SHIM_LEN / 2], [o.head - SHIM, o.head], sd, "nail", 90);
       bondAt(b, H, L, "nail", 40, [c0, mid(top, o.head), 0]);
       bondAt(b, H, R, "nail", 40, [c1, mid(top, o.head), 0]);
       for (const s of [1, -1] as const) {
@@ -487,7 +505,7 @@ export function buildPartition(run: PartitionRun): AssemblyDef {
           cR = `${id}_casing${tag}R`,
           cH = `${id}_casing${tag}H`;
         const yTop = top + CASING_REVEAL;
-        const cas = { faces: { [s > 0 ? "pz" : "nz"]: { surf: "wood_painted" as const, tint: PAL.trimWhite } }, tags: ["trim"] };
+        const cas = { faces: trimFaces(s), tags: ["trim"] };
         boxR(b, cL, "mdf", "mdf", [c0 - CASING_REVEAL - CASING_W, c0 - CASING_REVEAL], [0, yTop], wc, cas);
         boxR(b, cR, "mdf", "mdf", [c1 + CASING_REVEAL, c1 + CASING_REVEAL + CASING_W], [0, yTop], wc, cas);
         boxR(b, cH, "mdf", "mdf", [c0 - CASING_REVEAL - CASING_W, c1 + CASING_REVEAL + CASING_W], [yTop, yTop + CASING_W], wc, { ...cas, grain: "x" });
@@ -501,7 +519,8 @@ export function buildPartition(run: PartitionRun): AssemblyDef {
           [cR, c1 + CASING_REVEAL, c1 + CASING_REVEAL + CASING_W, 0, yTop],
           [cH, c0 - CASING_REVEAL - CASING_W, c1 + CASING_REVEAL + CASING_W, yTop, yTop + CASING_W],
         ] as Array<[string, number, number, number, number]>) {
-          for (const h of idx.overlapping(u0, u1, y0, y1, ["king", "jack", "header"], 0.005)) {
+          // finish nails + adhesive into the drywall face (the sheets are screwed to the jacks/kings)
+          for (const h of idx.overlapping(u0, u1, y0, y1, [s > 0 ? "sheetP" : "sheetN"], 0.005)) {
             bondAt(b, cn, h.box.name, "nail", 20, [mid(h.ou[0], h.ou[1]), mid(h.oy[0], h.oy[1]), s * run.half]);
           }
         }
@@ -513,11 +532,13 @@ export function buildPartition(run: PartitionRun): AssemblyDef {
     for (const o of run.openings) {
       if (o.op.kind !== "door") continue;
       const id = o.op.id;
+      // full names resolved HERE (addInteriorDoor calls back inside its own `<id>_` group)
+      const pfx = b.n("");
       const made = addInteriorDoor(b, run, o, {
-        jackL: b.n(`jackL_${id}`),
-        jackR: b.n(`jackR_${id}`),
-        header: b.n(`header_${id}`),
-        behind: (u0, u1, y0, y1) => idx.overlapping(u0, u1, y0, y1, ["king", "jack", "header"], 0.005).map((h) => ({ name: b.n(h.box.name), u: h.ou, y: h.oy })),
+        jackL: pfx + `jackL_${id}`,
+        jackR: pfx + `jackR_${id}`,
+        header: pfx + `header_${id}`,
+        behind: (side, u0, u1, y0, y1) => idx.overlapping(u0, u1, y0, y1, [side > 0 ? "sheetP" : "sheetN"], 0.005).map((h) => ({ name: pfx + h.box.name, u: h.ou, y: h.oy })),
       });
       doorParts.push({ id, parts: made });
     }
@@ -542,12 +563,17 @@ export function buildPartition(run: PartitionRun): AssemblyDef {
       const w0 = -(run.half + (neg ? BASEBOARD_T : 0)),
         w1 = run.half + (pos ? BASEBOARD_T : 0);
       const name = `base_cap${cap.end}`;
+      // painted on every exposed face; raw MDF only on the back against the wall's end cap
+      const paint = { surf: "wood_painted" as const, tint: PAL.trimWhite };
+      const capFaces: Partial<Record<"px" | "nx" | "py" | "pz" | "nz", typeof paint>> = { px: paint, nx: paint, py: paint, pz: paint, nz: paint };
+      delete capFaces[cap.end === 0 ? "px" : "nx"];
       boxR(b, name, "mdf", "mdf", [ua, ub], [0, 0.09], [w0, w1], {
-        faces: { [cap.end === 0 ? "nx" : "px"]: { surf: "wood_painted", tint: PAL.trimWhite }, py: { surf: "wood_painted", tint: PAL.trimWhite } },
+        faces: capFaces,
         tags: ["baseboard"],
       });
       bondAt(b, name, cap.name, "glue", 10, [cap.end === 0 ? run.u0 : run.u1, 0.045, 0]);
-      bondAt(b, name, cap.end === 0 ? end0.name : end1.name, "nail", 20, [cap.end === 0 ? fu0 : fu1, 0.045, 0]);
+      // finish nails through the gypsum end cap into the end stud (bond to the cap it touches)
+      bondAt(b, name, cap.name, "nail", 20, [cap.end === 0 ? run.u0 : run.u1, 0.045, 0]);
     }
     for (const pl of placed) addPlate(ctxOf(pl.side), pl.p, pl.u, pl.p.y, pl.box, []);
 

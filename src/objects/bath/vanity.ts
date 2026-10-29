@@ -20,7 +20,7 @@ export interface VanityOpts extends BaseOpts {
   tint?: number;
   /** China colour. */
   topTint?: number;
-  /** Angle-valve positions (local x of cold/hot), height, and protrusion from the wall plane. */
+  /** Angle-valve positions (local x of cold/hot) and centre height (the wall stub-out valves). */
   valveX?: [number, number];
   valveY?: number;
   /** Drain stub height. */
@@ -124,7 +124,9 @@ export function buildVanity(o: VanityOpts = {}): AssemblyDef {
   // ------------------------------------------------------------------ supply hoses to the wall valves
   const [vxC, vxH] = o.valveX ?? [-0.1, 0.1];
   const vy = o.valveY ?? 0.55;
-  const vz = wallZ + 0.05; // valve outlets ~5 cm proud of the wall
+  // the hoses screw onto the top of the angle-valve bodies (Ø22 mm, 5–45 mm proud of the wall)
+  const vz = wallZ + 0.025;
+  const vTop = vy + 0.011 + 0.0045 + 0.0005;
   for (const [k, xv, xs] of [
     ["c", vxC, -0.012],
     ["h", vxH, 0.012],
@@ -137,15 +139,15 @@ export function buildVanity(o: VanityOpts = {}): AssemblyDef {
         [xs, yDeck - 0.0005, fz],
         [xs, yDeck - 0.06, fz],
         [xs + (xv - xs) * 0.3, yDeck - 0.14, fz - 0.002],
-        [xv, vy + 0.05, vz],
-        [xv, vy + 0.032, vz],
+        [xv, vy + 0.06, vz],
+        [xv, vTop, vz],
       ],
       0.0045,
       { sides: 6, kgPerM: 0.12, jointStrength: 40 },
     );
     bondTouching(b, hose[0], [deckUnder], "screw", 30, 0.002);
-    b.world(hose[hose.length - 1], "screw", 30, [xv, vy + 0.032, vz]);
-    b.water(hose[hose.length - 1], [xv, vy + 0.035, vz], [0, 0.4, 1], 0.7);
+    b.world(hose[hose.length - 1], "screw", 30, [xv, vTop, vz]);
+    b.water(hose[hose.length - 1], [xv, vTop, vz], [0, 0.4, 1], 0.7);
   }
 
   // ------------------------------------------------------------------ drain + P-trap

@@ -143,6 +143,38 @@ export interface PhysicsSystem {
   readonly worldBody: PhysicsBody;
 
   stats(): PhysicsStats;
+
+  // ---- optional helpers (all implemented by src/physics/physics.ts; optional so test doubles may omit them)
+  /** Fixed steps completed so far. */
+  readonly stepIndex?: number;
+  /** Hinge position motor: drive to `target` (rad) with at most `maxForce` (N·m); maxForce ≤ 0 releases it. */
+  setHingeMotor?(c: PhysicsConstraint, target: number, maxForce: number): void;
+  /** Hinge angular limits (rad, relative to the creation pose); both undefined = free. */
+  setHingeLimits?(c: PhysicsConstraint, min?: number, max?: number): void;
+  /** Current hinge angle (rad, 0 = creation pose, same sign as limits/motor targets); NaN if unknown. */
+  hingeAngle?(c: PhysicsConstraint): number;
+  /** Current slider travel (m along axisA, 0 = creation pose); NaN if unknown. */
+  sliderPosition?(c: PhysicsConstraint): number;
+  /** Average constraint force (N) / torque (N·m) magnitudes over the last fixed step (all substeps). */
+  constraintLoad?(c: PhysicsConstraint): { force: number; torque: number };
+  /** Constraint impulse over the last fixed step (all substeps), world N·s / N·m·s, plus that step's dt. */
+  appliedImpulse?(c: PhysicsConstraint, out?: { linear: Vector3; angular: Vector3; dt: number }): { linear: Vector3; angular: Vector3; dt: number };
+  /** Move a body immediately (node and physics agree; sync baseline re-seeded); resets velocity by default. */
+  teleport?(body: PhysicsBody, pos: Vec3, rot?: Quat | null, resetVelocity?: boolean): void;
+  /** Keep a body permanently awake (held objects) or return it to simulation control. */
+  setKeepAwake?(body: PhysicsBody, on: boolean): void;
+  /** Suppress impacts involving `body` for the next `steps` fixed steps (fragments spawned in contact). */
+  muteImpacts?(body: PhysicsBody, steps: number): void;
+  /** Velocity was changed by raw Havok calls: re-read it before the next step (Babylon setters are tracked already). */
+  expectFast?(body: PhysicsBody): void;
+  /** Mass (kg) of a dynamic body; Infinity for static/animated/unknown. */
+  massOf?(body: PhysicsBody): number;
+  /** Every hit along from→to, nearest first. */
+  raycastAll?(from: Vector3, to: Vector3, collideWith?: LayerBits, ignore?: PhysicsBody | null): RayHit[];
+  /** Dispose a shape (deep: also its children). */
+  disposeShape?(shape: PhysicsShape, deep?: boolean): void;
+  /** Force-sleep policy for slow dynamic bodies (thresholds in m/s, rad/s, s). */
+  setAutoSleep?(enabled: boolean, thresholds?: { linear?: number; angular?: number; seconds?: number }): void;
 }
 
 // ======================================================================== render

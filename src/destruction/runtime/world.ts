@@ -133,6 +133,8 @@ export class World {
   partCount = 0;
   fractures = 0;
   bondsBroken = 0;
+  /** Fixed-step counter (advanced by Destruction.afterPhysics). */
+  stepIndex = 0;
   /** Edit static containers in place (disabled automatically if the physics shapes don't support it). */
   inPlaceEdits = true;
   private nextBirth = 1;
@@ -741,8 +743,9 @@ export class World {
       else {
         if (!island.isStatic) this.reclassify(island);
         this.syncContainer(island);
-        this.applyKicks(island);
       }
+      // fragment kicks (also clears them on islands that stay static, so none go stale)
+      this.applyKicks(island);
       return;
     }
 

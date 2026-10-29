@@ -199,8 +199,10 @@ export async function probe() {
     R.sim.d.spawn(doorDef({ latch: 40 }), at(0, 0, 0.9));
     R.sim.step(30);
     R.tools.select("crowbar");
-    // aim at the latch edge of the slab (door at z 0.9, latch at x 0.4, y 1.0)
-    R.setView(eye, Math.atan2(0.37, 0.88), Math.atan2(0.65, Math.hypot(0.37, 0.88)));
+    // aim at the latch edge of the slab (door at z 0.9, latch at x 0.4, y 1.0), standing within
+    // levering reach of it (arm + bar ≈ 1.05 m from the shoulder)
+    const pe = new Vector3(0, 1.65, 0.1);
+    R.setView(pe, Math.atan2(0.37, 0.78), Math.atan2(0.65, Math.hypot(0.37, 0.78)));
     R.step(30);
     const ev0 = { ...R.sim.ev };
     R.input.press("alt");

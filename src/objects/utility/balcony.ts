@@ -3,7 +3,7 @@
 //
 // Frame: origin on the floor (balcony slab top) at the centre of the footprint, front +Z.
 
-import { hingeAxis, pcb, spokeRot } from "../lib/kit.ts";
+import { pcb, spokeRot } from "../lib/kit.ts";
 import { boxR, bondNearest, bondTouching, finish, mk, rhsKg, tubeKgPerM, BRASS, type BaseOpts } from "./helpers.ts";
 import type { V3 } from "../lib/builder.ts";
 import { polyChord } from "../../geom/poly.ts";
@@ -28,7 +28,7 @@ export function buildPatioChair(o: BaseOpts & { tint?: number; slatTint?: number
   const zPost = (y: number) => zBack0 - y * tilt; // back post centre line
   const zFront = 0.25;
   const H = PATIO_CHAIR.h;
-  const sq = (x: number, y: number, z: number): V3[] => [
+  const sq = (x: number, y: number, z: number): Array<[number, number, number]> => [
     [x - s / 2, y, z - s / 2],
     [x + s / 2, y, z - s / 2],
     [x - s / 2, y, z + s / 2],
@@ -94,7 +94,6 @@ export function buildPatioChair(o: BaseOpts & { tint?: number; slatTint?: number
     b.screw(slat, posts.l, 1, 20);
     b.screw(slat, posts.r, 1, 20);
   }
-  void spokeRot;
   return finish(b, o);
 }
 
@@ -411,7 +410,7 @@ export function buildAcCondenser(o: CondenserOpts = {}): AssemblyDef {
   b.weld(suction[0], sideL, 15);
   bondTouching(b, suction[suction.length - 1], [comp], "weld", 25, 0.004, 0) || b.weld(suction[suction.length - 1], comp, 25);
   const ls = o.lineSet ?? ([-W / 2 - 0.08, 0.55, -D / 2 - 0.02] as V3);
-  const lsv = Array.isArray(ls) ? ls : [ls.x, ls.y, ls.z];
+  const lsv: [number, number, number] = Array.isArray(ls) ? [ls[0], ls[1], ls[2]] : [ls.x, ls.y, ls.z];
   const run = (name: string, z: number, r: number, mat: "insulation" | "copper", surf: "insulation" | "copper" | "rubber", kgm: number, start: string, dx: number) => {
     const ex = lsv[0] + dx;
     const segs = b.tube(
@@ -438,6 +437,5 @@ export function buildAcCondenser(o: CondenserOpts = {}): AssemblyDef {
   const cap = b.cyl("run_capacitor", "aluminum", "aluminum", 0.022, 0.08, [-W / 2 + t + 0.022, y0 + 0.3, -0.06], { segments: 10, tess: 0, mass: 0.25 });
   b.clip(cap, sideL, 15);
   b.sparks(cap, 0.7);
-  void hingeAxis;
   return finish(b, o);
 }

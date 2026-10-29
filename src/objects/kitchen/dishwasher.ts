@@ -49,9 +49,10 @@ export function buildDishwasher(o: DishwasherOpts = {}): AssemblyDef {
   const sump = b.cyl("sump", "plastic", "plastic", 0.07, 0.06, [-0.08, 0.048, -0.03], { segments: 10, tint: 0x2c2c2e });
   b.screw(sump, base, 3, 20);
   b.liquid(sump, 0xbfd3d8, 0.5);
-  const valve = b.cyl("inlet_valve", "plastic", "plastic", 0.018, 0.05, [-0.2, 0.05, ZB + 0.04], { axis: "z", segments: 8, tint: 0x2a2a2a });
+  // inlet solenoid valve at the back-left corner, sitting on the base beside the counterweight
+  const valve = b.cyl("inlet_valve", "plastic", "plastic", 0.018, 0.04, [-0.24, 0.018 + 0.018, ZB + 0.035], { axis: "z", segments: 8, tint: 0x2a2a2a });
   b.screw(valve, base, 2, 20);
-  b.water(valve, [-0.2, 0.05, ZB + 0.02], [0, 0.3, -1], 0.6);
+  b.water(valve, [-0.24, 0.036, ZB + 0.015], [0, 0.3, -1], 0.6);
   // ------------------------------------------------------------------ wrapper + tub
   const sideL = b.box("side_l", "steelSheet", "metal_raw", [st, DW_DIM.h - 0.018, ZD - ZB], [-hw + st / 2, (0.018 + DW_DIM.h) / 2, (ZB + ZD) / 2], { tint: 0xc4c5c2 });
   const sideR = b.box("side_r", "steelSheet", "metal_raw", [st, DW_DIM.h - 0.018, ZD - ZB], [hw - st / 2, (0.018 + DW_DIM.h) / 2, (ZB + ZD) / 2], { tint: 0xc4c5c2 });
@@ -82,8 +83,9 @@ export function buildDishwasher(o: DishwasherOpts = {}): AssemblyDef {
     posts.push(p);
   });
   // tub flanges screwed to the wrappers at the front
-  const flL = b.box("flange_l", "steelSheet", "metal_raw", [hw - st - tb.x, tb.y1 - tb.y0, 0.001], [-(tb.x + (hw - st - tb.x) / 2), (tb.y0 + tb.y1) / 2, ZD - 0.0005], { tint: 0xc4c5c2 });
-  const flR = b.box("flange_r", "steelSheet", "metal_raw", [hw - st - tb.x, tb.y1 - tb.y0, 0.001], [tb.x + (hw - st - tb.x) / 2, (tb.y0 + tb.y1) / 2, ZD - 0.0005], { tint: 0xc4c5c2 });
+  const flW = hw - st - tb.x - tt; // from the tub wall's outer face to the wrapper
+  const flL = b.box("flange_l", "steelSheet", "metal_raw", [flW, tb.y1 - tb.y0, 0.001], [-(tb.x + tt + flW / 2), (tb.y0 + tb.y1) / 2, ZD - 0.0005], { tint: 0xc4c5c2 });
+  const flR = b.box("flange_r", "steelSheet", "metal_raw", [flW, tb.y1 - tb.y0, 0.001], [tb.x + tt + flW / 2, (tb.y0 + tb.y1) / 2, ZD - 0.0005], { tint: 0xc4c5c2 });
   b.screw(flL, sideL, 3, 20);
   b.screw(flR, sideR, 3, 20);
   b.screw(flL, tub.l, 2, 20);

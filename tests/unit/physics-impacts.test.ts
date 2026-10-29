@@ -294,3 +294,80 @@ test("noisy resting load after an impact: still one started impact, bounded late
   assert.ok(em[0].step <= 7, `latency bounded by maxEpisodeSteps (got step ${em[0].step})`);
   near(em[0].imp.impulse, 4.6, 0.5);
 });
+
+// ---------------------------------------------------------------- same-step delivery (pre-step estimator)
+test("estimator: the started impact is emitted in the contact step with max(measured, estimate); no duplicate later", () => {
+  const floor = side(1, Infinity, "floor"), box = side(2, 1, "box");
+  const agg = new ImpactAggregator<Side>();
+  agg.estimator = () => 4.43; // (1+e)·μ·v_n from the pre-step velocity
+  const rest = 0.1635;
+  const seq: Ev[][] = [
+    [{ a: box, b: floor, type: EV_STARTED, impulse: 0.284, gap: 0.07 }],
+    [{ a: box, b: floor, type: EV_CONTINUED, impulse: 4.339 }],
+    ...Array.from({ length: 10 }, () => [{ a: box, b: floor, type: EV_CONTINUED, impulse: rest }]),
+  ];
+  const em = run(agg, seq);
+  assert.equal(em.length, 1, JSON.stringify(em.map((e) => [e.step, e.imp.impulse, e.imp.started])));
+  assert.equal(em[0].step, 0, "same step as the (speculative) contact start");
+  assert.equal(em[0].imp.started, true);
+  near(em[0].imp.impulse, 4.43, 1e-9);
+  near(em[0].imp.ny, 1, 1e-9, "normal a→b");
+  assert.equal(agg.earlyEmitted, 1);
+});
+
+test("estimator: approach without impulse waits for the first real impulse step, then emits immediately", () => {
+  const wall = side(1, Infinity), box = side(2, 2);
+  const agg = new ImpactAggregator<Side>();
+  let calls = 0;
+  agg.estimator = () => (calls++, 6);
+  const seq: Ev[][] = [
+    [{ a: box, b: wall, type: EV_STARTED, impulse: 0 }],
+    [{ a: box, b: wall, type: EV_CONTINUED, impulse: 0 }],
+    [{ a: box, b: wall, type: EV_CONTINUED, impulse: 5.5 }],
+    [],
+  ];
+  const em = run(agg, seq);
+  assert.equal(em.length, 1, JSON.stringify(em.map((e) => [e.step, e.imp.impulse])));
+  assert.equal(em[0].step, 2);
+  near(em[0].imp.impulse, 6, 1e-9);
+  assert.equal(calls, 1, "pre-step velocities are only valid for the first impulse step");
+});
+
+test("estimator: unknown (NaN) or implausibly small estimates leave the decision to the episode logic", () => {
+  const floor = side(1, Infinity), crate = side(2, 30), book = side(3, 0.5);
+  // heavy crate spawned resting on a light book: measured spawn load, estimate 0 → no early emission, steady → nothing
+  const agg = new ImpactAggregator<Side>();
+  agg.estimator = () => 0;
+  const em = run(agg, Array.from({ length: 8 }, (_, i) => [{ a: crate, b: book, type: i === 0 ? EV_STARTED : EV_CONTINUED, impulse: 4.9 }]));
+  assert.equal(em.length, 0, JSON.stringify(em.map((e) => [e.step, e.imp.impulse])));
+  // NaN: same as no estimator (episode-end emission)
+  const agg2 = new ImpactAggregator<Side>();
+  agg2.estimator = () => NaN;
+  const em2 = run(agg2, [[{ a: book, b: floor, type: EV_STARTED, impulse: 2 }], []]);
+  assert.equal(em2.length, 1);
+  assert.equal(em2[0].step, 1, "emitted at separation (episode end)");
+  near(em2[0].imp.impulse, 2, 1e-9);
+});
+
+test("estimator: a light body crushed by a heavy one reports the extra measured load as a crush impact", () => {
+  const mug = side(1, 0.4), box = side(2, 20);
+  const agg = new ImpactAggregator<Side>();
+  agg.estimator = () => 1.1; // reduced mass ≈ 0.39 kg × 2.9 m/s
+  const loads = [1.5, 40, 25, 8, 3.27, 3.27, 3.27];
+  const em = run(agg, loads.map((imp, i) => [{ a: box, b: mug, type: i === 0 ? EV_STARTED : EV_CONTINUED, impulse: imp }]));
+  assert.equal(em.length, 2, JSON.stringify(em.map((e) => [e.step, e.imp.impulse, e.imp.started])));
+  assert.equal(em[0].step, 0);
+  assert.equal(em[0].imp.started, true);
+  near(em[0].imp.impulse, 1.5, 1e-9, "max(measured, estimate)");
+  assert.equal(em[1].imp.started, false, "crush remainder");
+  const total = loads.slice(0, 6).reduce((x, y) => x + y, 0) - 6 * 3.27;
+  near(em[1].imp.impulse, total - 1.5, 1e-6);
+});
+
+test("estimator: an early hit that is too weak to report suppresses the late duplicate", () => {
+  const floor = side(1, Infinity), shard = side(2, 0.5);
+  const agg = new ImpactAggregator<Side>();
+  agg.estimator = () => 0.05; // Δv 0.1 m/s < minDeltaV
+  const em = run(agg, [[{ a: shard, b: floor, type: EV_STARTED, impulse: 0.06 }], [{ a: shard, b: floor, type: EV_CONTINUED, impulse: 0.03 }], []]);
+  assert.equal(em.length, 0, JSON.stringify(em.map((e) => [e.step, e.imp.impulse])));
+});

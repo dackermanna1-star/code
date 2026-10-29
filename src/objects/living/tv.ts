@@ -5,7 +5,8 @@
 //    carrying three aluminium LED strips on the front and the power + main boards (PCBs with
 //    soldered parts, `sparks`) and two speaker modules on the back,
 //  * a mitred plastic bezel that doubles as the side walls, clipped to a thin plastic back cover,
-//  * an aluminium pedestal: neck bolted through the back cover, base plate bolted to the neck.
+//  * an aluminium pedestal: neck bolted through the back cover into a pressed-steel VESA bracket
+//    screwed to the chassis, base plate bolted to the neck.
 // Knock it off the console and the glass/LCD shatter on impact, the cover cracks open and the
 // boards spark; club it and the bezel clips pop and the chassis dents.
 //
@@ -128,11 +129,20 @@ export function buildTv(o: TvOpts = {}): AssemblyDef {
   b.screen(lcd, "tv", { on: o.on ?? true, mains: true });
   b.sparks(chassis, 0.3);
 
-  // ---- pedestal stand
+  // ---- stand mount: a pressed-steel VESA bracket screwed to the back of the chassis, between
+  // the chassis and the back cover; the stand's bolts pass through the cover into it
   const neckTop = yb + 0.15;
+  const vesaY = neckTop - 0.06;
+  const vesaZ0 = zb + 0.0015 + 0.0005, // 0.5 mm behind the cover's inner face
+    vesaZ1 = zMount;
+  const vesa = b.box("vesa", "steel", "metal_raw", [0.1, 0.1, vesaZ1 - vesaZ0], [0, vesaY, (vesaZ0 + vesaZ1) / 2], { tint: 0x9a9ea2, mass: 0.22, tess: 0 });
+  b.screw(vesa, chassis, 4, 25);
+
+  // ---- pedestal stand
   const neck = b.box("neck", "aluminum", "aluminum", [0.06, neckTop - 0.008, 0.02], [0, 0.008 + (neckTop - 0.008) / 2, zb - 0.01], { tint: 0x3a3b3e, tess: 0 });
   const base = b.box("base", "aluminum", "aluminum", [TV_DIMS.baseW, 0.008, TV_DIMS.baseD], [0, 0.004, 0], { tint: 0x3a3b3e, tess: 0 });
-  b.bolt(neck, back, 160);
+  b.bolt(neck, vesa, 180); // two M6 bolts through the cover into the bracket
+  b.press(neck, back, 10); // the cover is just clamped between them
   b.bolt(neck, base, 220);
   return b.build();
 }

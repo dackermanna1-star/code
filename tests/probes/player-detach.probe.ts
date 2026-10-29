@@ -7,7 +7,8 @@ import { Destruction } from "../../src/destruction/destructionSystem.ts";
 import { buildObject } from "../../src/objects/registry.ts";
 import { PlayerCore } from "../../src/player/playerCore.ts";
 import { Layer } from "../../src/core/context.ts";
-import { makeWorld, r2 } from "./player-util.ts";
+import { buildKitchenWallCabinet } from "../../src/objects/kitchen/cabinets.ts";
+import { makeWorld, key, r2 } from "./player-util.ts";
 
 export async function probe() {
   const w = await makeWorld();
@@ -98,6 +99,45 @@ export async function probe() {
   out.staleUseAfterDrop = uses;
   step(30);
   out.legLayerRestored = legLayerHeld() === false;
+
+  // ---- static hold: pull on the side panel of a wall-anchored cabinet, then the panel's bonds
+  // give way. The hand must come away with the panel (now a loose dynamic piece), not stay on the
+  // anchored carcass.
+  w.input.hold("crouch", 0); // stand up (virtual holds run on wall-clock time)
+  step(10);
+  const cabId = destruction.spawn(buildKitchenWallCabinet({ w: 0.6, doors: 1, led: false }), { p: { x: 3, y: 1.3, z: 1.0 }, q: I });
+  step(5);
+  const cab = world.assemblies.get(cabId)!;
+  // eye 0.7 m to the left of the cabinet, looking +X at the middle of its left side
+  p.teleport({ x: 3 - 0.3 - 0.7, y: 1.65, z: 1.0 }, Math.PI / 2, 0);
+  step(10);
+  out.cabTarget = p.target ? { part: p.target.partName, isStatic: p.target.isStatic, grabbable: p.target.grabbable } : null;
+  p.debugAction("grab");
+  const cabBody = p.holding;
+  const sideName = p.target?.partName ?? null;
+  out.cabHold = { grabbed: cabBody !== null, mode: p.interaction.holdMode };
+  step(5);
+  const side = sideName ? [...cab.parts].find((q) => q.name === sideName) : undefined;
+  if (side && cabBody) {
+    for (const b of side.bonds.slice()) world.breakBond(b);
+    step(3);
+    const sideBody = side.island?.body ?? null;
+    out.cabAfterBreak = {
+      stillHolding: p.holding !== null,
+      holdingPanel: p.holding !== null && p.holding === sideBody,
+      holdingCarcass: p.holding !== null && p.holding === cabBody,
+      mode: p.interaction.holdMode,
+      panelDynamic: !!side.island && !side.island.isStatic,
+      carcassStillAnchored: cabBody ? destruction.isStatic(cabBody) : null,
+    };
+    // the panel comes along when the player backs off
+    const x0 = sideBody ? sideBody.transformNode.position.x : 0;
+    key("KeyS", true);
+    step(40);
+    key("KeyS", false);
+    out.panelFollowsDx = sideBody ? r2(sideBody.transformNode.position.x - x0) : null;
+    p.debugAction("grab"); // drop
+  }
   out.nan = [p.position.x, p.position.y, p.position.z].some((x) => !Number.isFinite(x));
   return out;
 }

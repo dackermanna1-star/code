@@ -6,9 +6,12 @@
 // Startup: createRender() → camera → lighting → textures (photos/procedural, progress) →
 // materials/batcher → procedural interior environment → post-processing → exterior and
 // atmosphere → quality/PS2 from settings. After the apartment is built, call
-// captureEnvironment() once to replace the procedural environment with a real capture.
+// captureEnvironment() once to replace the procedural environment with a real capture; a
+// mains power change re-captures it automatically (the capture bakes the interior lights).
+// Exterior/Atmosphere/PostFX failures degrade the look (console warning) instead of aborting
+// startup; Lighting is required.
 
-import { UniversalCamera, Vector3, type Engine, type Scene, type Material, type TransformNode, type AbstractMesh, type Light } from "@babylonjs/core";
+import { UniversalCamera, Vector3, type Engine, type Scene, type Material, type TransformNode, type AbstractMesh, type Light, type Observer } from "@babylonjs/core";
 import type { RenderSystem, IslandMeshes } from "../core/context.ts";
 import type { Settings, QualityPreset, SettingsData } from "../core/settings.ts";
 import type { RenderGeom } from "../geom/meshgen.ts";
@@ -17,6 +20,7 @@ import { Lighting } from "./lighting.ts";
 import { PostFX } from "./postfx.ts";
 import { Exterior } from "./exterior.ts";
 import { Atmosphere } from "./atmosphere.ts";
+import type { ILighting, IPostFX, IExterior, IAtmosphere } from "./contracts.ts";
 import { loadTextures, type TextureLibrary, type TextureLoadOptions } from "./textures.ts";
 import { createWorldMaterial, type WorldMaterialHandle } from "./worldMaterial.ts";
 import { createGlassMaterial } from "./glass.ts";
@@ -50,13 +54,16 @@ export class Render implements RenderSystem {
   readonly glass: WorldMaterialHandle;
   readonly surfaces: SurfaceTable;
   readonly batcher: IslandBatcher;
-  readonly lighting: Lighting;
-  readonly postfx: PostFX;
-  readonly exterior: Exterior | null;
-  readonly atmosphere: Atmosphere | null;
+  // typed by the render-env contracts (contracts.ts), not the concrete classes
+  readonly lighting: ILighting;
+  readonly postfx: IPostFX;
+  readonly exterior: IExterior | null;
+  readonly atmosphere: IAtmosphere | null;
   readonly environment: EnvironmentCapture;
   private quality: QualityPreset;
   private powered = true;
+  private ps2 = false;
+  private recaptureObs: Observer<Scene> | null = null;
   private disposed = false;
   private unsubscribeSettings: (() => void) | null = null;
 
@@ -70,10 +77,10 @@ export class Render implements RenderSystem {
     glass: WorldMaterialHandle;
     surfaces: SurfaceTable;
     batcher: IslandBatcher;
-    lighting: Lighting;
-    postfx: PostFX;
-    exterior: Exterior | null;
-    atmosphere: Atmosphere | null;
+    lighting: ILighting;
+    postfx: IPostFX;
+    exterior: IExterior | null;
+    atmosphere: IAtmosphere | null;
     environment: EnvironmentCapture;
   }) {
     this.engine = parts.engine;
@@ -127,15 +134,35 @@ export class Render implements RenderSystem {
 
   /** Mains power: interior lights, mains-powered emissive surfaces and screens. */
   setPower(on: boolean): void {
+    if (on === this.powered) return;
     this.powered = on;
     this.lighting.setPower(on);
     this.world.plugin.setPowered(on);
     this.glass.plugin.setPowered(on);
     setScreensPowered(this.scene, on);
+    // the captured environment bakes the interior lights into reflections and ambient: once
+    // the lights have actually changed (a couple of frames), capture it again
+    if (this.environment.lastCapture) this.recaptureAfterFrames(3);
+  }
+
+  /** Re-run the last environment capture after `frames` rendered frames (debounced). */
+  private recaptureAfterFrames(frames: number): void {
+    if (this.recaptureObs) this.scene.onAfterRenderObservable.remove(this.recaptureObs);
+    let left = frames;
+    this.recaptureObs = this.scene.onAfterRenderObservable.add(() => {
+      if (--left > 0) return;
+      if (this.recaptureObs) this.scene.onAfterRenderObservable.remove(this.recaptureObs);
+      this.recaptureObs = null;
+      if (!this.disposed) this.captureEnvironment();
+    });
   }
 
   get isPowered(): boolean {
     return this.powered;
+  }
+
+  get ps2Mode(): boolean {
+    return this.ps2;
   }
 
   shake(trauma: number): void {
@@ -151,6 +178,7 @@ export class Render implements RenderSystem {
   }
 
   setPS2Mode(on: boolean): void {
+    this.ps2 = on;
     this.postfx.setPS2(on);
     // PS2 look: bilinear texels with a visible mip band
     this.textures.setRetroFiltering(on);
@@ -170,9 +198,15 @@ export class Render implements RenderSystem {
     const living = ROOMS.find((r) => r.id === "living");
     const pos = living ? new Vector3((living.x0 + living.x1) / 2, 1.45, (living.z0 + living.z1) / 2) : new Vector3(6.4, 1.45, 4.4);
     const size = this.quality.shadowMapSize >= 4096 ? 256 : this.quality.shadowMapSize >= 2048 ? 128 : 64;
-    const meshes = this.scene.meshes.filter(
-      (m) => m.isEnabled() && m.isVisible && m.getTotalVertices() > 0 && !m.infiniteDistance && m.renderingGroupId === 0 && !m.name.startsWith("screen_"),
-    );
+    // opaque interior + exterior geometry + the sky dome (seen through the windows): no screens
+    // (animated), no alpha-blended or additive meshes (glass is nearly invisible anyway; light
+    // shafts / dust would bake glow into every reflection), no overlay rendering groups
+    const meshes = this.scene.meshes.filter((m) => {
+      if (!m.isEnabled() || !m.isVisible || m.getTotalVertices() <= 0 || m.renderingGroupId !== 0) return false;
+      if (m.name.startsWith("screen_")) return false;
+      const mat = m.material;
+      return !mat || !mat.needAlphaBlendingForMesh(m);
+    });
     return this.environment.capture({
       position: pos,
       size,
@@ -222,7 +256,7 @@ export class Render implements RenderSystem {
     if (this.disposed) return;
     const fov = (d.fov > 30 && d.fov < 130 ? d.fov : 75) * DEG;
     if (Math.abs(this.camera.fov - fov) > 1e-4) this.camera.fov = fov;
-    if (this.postfx.ps2Mode !== !!d.ps2Mode) this.setPS2Mode(!!d.ps2Mode);
+    if (this.ps2 !== !!d.ps2Mode) this.setPS2Mode(!!d.ps2Mode);
     const q = this.settings.quality;
     if (q !== this.quality) this.applyQuality(q);
   }
@@ -232,18 +266,49 @@ export class Render implements RenderSystem {
     this.disposed = true;
     this.unsubscribeSettings?.();
     this.unsubscribeSettings = null;
+    if (this.recaptureObs) this.scene.onAfterRenderObservable.remove(this.recaptureObs);
+    this.recaptureObs = null;
     this.environment.dispose();
-    this.atmosphere?.dispose();
-    this.exterior?.dispose();
-    this.postfx.dispose();
+    disposeIfPossible(this.atmosphere);
+    disposeIfPossible(this.exterior);
+    disposeIfPossible(this.postfx);
     this.batcher.clearPool();
-    this.lighting.dispose();
+    disposeIfPossible(this.lighting);
     this.world.material.dispose();
     this.glass.material.dispose();
     this.textures.dispose();
     setActiveSurfaceTable(null);
     screenHooks.registerReceiver = undefined;
     screenHooks.unregisterReceiver = undefined;
+  }
+}
+
+/** Stand-in when PostFX cannot be created: no post effects, shake/flash become no-ops. */
+class NullPostFX implements IPostFX {
+  private readonly zero = { pos: { x: 0, y: 0, z: 0 }, rot: { x: 0, y: 0, z: 0 } };
+  setPS2(): void {}
+  applyQuality(): void {}
+  shake(): void {}
+  getShake(): { pos: Vec3; rot: Vec3 } {
+    return this.zero;
+  }
+  flash(): void {}
+  update(): void {}
+}
+
+/** Sub-systems are only contractually required to implement their interface (contracts.ts). */
+function disposeIfPossible(o: unknown): void {
+  const d = (o as { dispose?: unknown } | null)?.dispose;
+  if (typeof d === "function") d.call(o);
+}
+
+/** Optional sub-system construction: a failure degrades the look instead of the whole game. */
+function optional<T>(what: string, make: () => T): T | null {
+  try {
+    return make();
+  } catch (e) {
+    console.warn(`render: ${what} unavailable (${String((e as Error)?.message ?? e)})`);
+    return null;
   }
 }
 
@@ -284,23 +349,29 @@ export async function createRender(opts: CreateRenderOptions): Promise<Render> {
   const environment = new EnvironmentCapture(scene, createInteriorEnvironment(scene, 64));
   // 6. post-processing
   progress(0.76, "Post-processing");
-  const postfx = new PostFX(scene, camera, settings);
+  const postfx: IPostFX = optional("post-processing", () => new PostFX(scene, camera, settings)) ?? new NullPostFX();
   // 7. exterior + atmosphere
-  let exterior: Exterior | null = null;
+  let exterior: IExterior | null = null;
   if (!opts.skipExterior) {
     progress(0.8, "City");
-    exterior = new Exterior(scene, lighting);
-    exterior.build();
+    exterior = optional("exterior", () => {
+      const e = new Exterior(scene, lighting);
+      e.build();
+      return e;
+    });
   }
-  let atmosphere: Atmosphere | null = null;
+  let atmosphere: IAtmosphere | null = null;
   if (!opts.skipAtmosphere) {
     progress(0.92, "Atmosphere");
-    atmosphere = new Atmosphere(scene, lighting);
-    atmosphere.build();
+    atmosphere = optional("atmosphere", () => {
+      const a = new Atmosphere(scene, lighting);
+      a.build();
+      return a;
+    });
   }
   const render = new Render({ engine, scene, settings, camera, textures, world, glass, surfaces, batcher, lighting, postfx, exterior, atmosphere, environment });
   render.applyQuality(settings.quality);
-  if (!!settings.data.ps2Mode !== render.postfx.ps2Mode) render.setPS2Mode(!!settings.data.ps2Mode);
+  if (settings.data.ps2Mode) render.setPS2Mode(true);
   progress(1, "Renderer ready");
   return render;
 }

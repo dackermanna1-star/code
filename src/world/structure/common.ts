@@ -61,6 +61,18 @@ export function frontFace(side: number, surf: SurfaceName, tint = 0xffffff): Par
   return { [side > 0 ? "pz" : "nz"]: { surf, tint } };
 }
 
+/**
+ * Painted trim (casings, baseboards, archway trim): every exposed face painted — front, both
+ * edges, top and bottom — leaving raw MDF only on the back face against the wall (+w trim on a
+ * side=1 face has its back at -w). Interior cut faces created by fracture use the part surface.
+ */
+export function trimFaces(side: number, surf: SurfaceName = "wood_painted", tint: number = PAL.trimWhite): Partial<Record<FaceKey, SurfSpec>> {
+  const s: SurfSpec = { surf, tint };
+  const out: Partial<Record<FaceKey, SurfSpec>> = { px: s, nx: s, py: s, ny: s, pz: s, nz: s };
+  delete out[side > 0 ? "nz" : "pz"];
+  return out;
+}
+
 export function bondAt(b: Builder, a: string, c: string, kind: BondKind, strength: number, at: V3): void {
   b.bond(a, c, kind, { strength: Math.max(0.5, strength), anchor: at });
 }
@@ -70,9 +82,12 @@ export function worldAt(b: Builder, a: string, kind: BondKind, strength: number,
 }
 
 /**
- * Accumulates several fasteners of one kind on one part (pins every 0.6 m, hangers, shim nails)
- * into ONE bond with the summed strength anchored at the fasteners' centroid (the builder flags
- * duplicate same-kind bonds per pair). Call flush() inside the same builder frame.
+ * Accumulates several fasteners of one kind on one part (pins, hangers, anchors) into ONE bond
+ * with the summed strength anchored at the fasteners' centroid (the builder flags duplicate
+ * same-kind bonds per pair). Bond damage is weighted by distance to the anchor, so use it only
+ * for fasteners clustered on SHORT members (≤ ~1.2 m: plates are laid in 1.2 m lengths, door
+ * jambs get one shim pack per fixing instead); a long member would lose its local pull-out.
+ * Call flush() inside the same builder frame.
  */
 export class Fixings {
   private m = new Map<string, { a: string; b: string; kind: BondKind; s: number; x: number; y: number; z: number; n: number }>();

@@ -7,7 +7,8 @@ import { Lighting } from "../../src/render/lighting.ts";
 import { PostFX } from "../../src/render/postfx.ts";
 import { Exterior } from "../../src/render/exterior.ts";
 import { Atmosphere } from "../../src/render/atmosphere.ts";
-import { makeEngine, makeCamera, buildStandIn, registerAll, addCeilingLights, frames, look, shot } from "./render-env-util.ts";
+import { SceneInstrumentation } from "@babylonjs/core";
+import { makeEngine, makeCamera, buildStandIn, registerAll, addCeilingLights, frames, look, shot, whenReady } from "./render-env-util.ts";
 
 const VIEWS: Record<string, [[number, number, number], [number, number, number]]> = {
   spawn: [
@@ -67,7 +68,8 @@ export async function probe(): Promise<unknown> {
   const post = new PostFX(scene, cam, settings);
   const t4 = performance.now();
   console.log(`setup done lighting ${(t1 - t0).toFixed(0)} ext ${(t2 - t1).toFixed(0)} atm ${(t3 - t2).toFixed(0)} post ${(t4 - t3).toFixed(0)}`);
-  await scene.whenReadyAsync();
+  const inst = new SceneInstrumentation(scene);
+  await whenReady(scene);
   console.log("ready");
   const t5 = performance.now();
   const shots: Record<string, string> = {};
@@ -109,8 +111,10 @@ export async function probe(): Promise<unknown> {
     shots,
     timings,
     setupMs: { lighting: +(t1 - t0).toFixed(1), exterior: +(t2 - t1).toFixed(1), atmosphere: +(t3 - t2).toFixed(1), post: +(t4 - t3).toFixed(1), ready: +(t5 - t4).toFixed(1) },
-    cascaded: lighting.cascaded,
     lights: lighting.lightCount,
+    clustered: lighting.clusteredCount,
+    shadowed: lighting.shadowedLights.map((l) => l.name),
+    drawCalls: inst.drawCallsCounter.current,
     meshes: scene.meshes.length,
     activeIndices: scene.getActiveIndices(),
     postProcesses: cam._postProcesses.filter((p) => p).map((p) => p!.name),

@@ -23,6 +23,9 @@ import {
   RECOVER_INTERRUPT,
   MIN_AIM_REACH,
   AIM_STRETCH,
+  aimVariants,
+  makeAimVariant,
+  MAX_AIM_VARIANTS,
   type PreparedCurve,
   type PreparedJab,
   type V3,
@@ -74,6 +77,10 @@ test("tool defs: brief parameters, finite derived strike windows", () => {
   near(STOMP.mass, 20, 1e-9);
   near(STOMP.speed, 4, 1e-9);
   near(PRY.force, 3000, 1e-9);
+  // the bar levers only within arm reach (upper arm 0.3 + forearm 0.27) + bar (0.5) of the shoulder,
+  // and slips out a little beyond that
+  assert.ok(PRY.reach <= 1.07 && PRY.slipDistance > PRY.reach && PRY.slipDistance <= PRY.reach + 0.1);
+  assert.ok(PRY.rayLength >= PRY.reach + 0.3, "the crosshair ray reaches past the shoulder reach");
   assert.ok(SPRAY.duration > 5 && SPRAY.thrust > 0);
 });
 
@@ -489,5 +496,133 @@ test("grazes do not use up the per-swing hit budget; shaft points lie on the too
         near(dist(p, pose.right.p), rig.toolLen - off, 1e-6, `${id} shaft point distance from the grip`);
       }
     }
+  }
+});
+
+const variantsBuf = () => Array.from({ length: MAX_AIM_VARIANTS }, makeAimVariant);
+const closestApproach = (m: SwingMachine, p: V3) => {
+  let best = Infinity;
+  const o = v3();
+  for (let k = 0; k <= 400; k++) best = Math.min(best, dist(m.headAt((m.path.T * k) / 400, o), p));
+  return best;
+};
+
+test("aimVariants: squared first, then down-tilts, side rolls, a level swing, the view; fists: overhand lifts", () => {
+  const down = v3(0, -1, 0); // looking horizontally
+  const out = variantsBuf();
+  const front = { point: v3(0, 0, 0.6), normal: v3(0, 0, -1) };
+  const n = aimVariants(TOOL_RIGS.sledgehammer, front, down, out);
+  assert.ok(n >= 5 && n <= MAX_AIM_VARIANTS, `count ${n}`);
+  assert.equal(out[0].into, null);
+  assert.equal(out[0].roll, 0);
+  assert.equal(out[0].level, null);
+  // down-tilts: unit, turned towards down, still travelling away from the eye
+  const tilts = out.slice(0, n).filter((x) => x.into && x.into.y < -0.1);
+  assert.ok(tilts.length >= 1, "has down-tilted variants");
+  for (const t of tilts) {
+    near(mag(t.into!), 1, 1e-9);
+    assert.ok(t.into!.z >= 0.25, `tilt forward ${t.into!.z}`);
+  }
+  assert.ok(out.slice(0, n).some((x) => x.roll > 0) && out.slice(0, n).some((x) => x.roll < 0), "rolled both ways");
+  const lv = out.slice(0, n).find((x) => x.level);
+  assert.ok(lv && Math.abs(lv.level!.y - 1) < 1e-9, "level variant carries world up");
+  // looking straight down at a floor: no down-tilts (already straight down)
+  const nd = aimVariants(TOOL_RIGS.axe, { point: v3(0, 0, 0.7), normal: v3(0, 0, -1) }, v3(0, 0, 1), out);
+  assert.ok(out.slice(0, nd).every((x) => !x.into || x.into.z > 0.9), "no tilt when the view is already down");
+  // fists
+  const nj = aimVariants(TOOL_RIGS.hands, front, down, out);
+  assert.deepEqual(out.slice(0, nj).map((x) => x.lift), [0, 0.15, 0.3, 0.45]);
+  // degenerate aim
+  assert.equal(aimVariants(TOOL_RIGS.bat, { point: v3(0, 0, 0), normal: v3(0, 0, -1) }, down, out), 0);
+});
+
+test("aim variants reach the aimed point at 0.4–0.8 m (or are rejected); level swings keep the handle level", () => {
+  const out = variantsBuf();
+  for (const pitch of [0, 0.5]) {
+    // world down / up in camera space for a camera pitched down by `pitch`
+    const down = v3(0, -Math.cos(pitch), Math.sin(pitch));
+    const up = v3(0, Math.cos(pitch), -Math.sin(pitch));
+    for (const id of TOOL_ORDER) {
+      const def = TOOL_DEFS[id];
+      for (const dz of [0.4, 0.6, 0.8]) {
+        if (dz - def.headRadius > def.reach + AIM_STRETCH) continue;
+        for (const normal of [v3(0, 0, -1), v3(up.x, up.y, up.z)]) {
+          const aim = { point: v3(0, 0, dz), normal };
+          const n = aimVariants(TOOL_RIGS[id], aim, down, out);
+          let accepted = 0;
+          for (let i = 0; i < n; i++) {
+            const m = new SwingMachine(def, TOOL_RIGS[id]);
+            m.forceStrike(0);
+            if (!m.aimStrike(aim, out[i])) {
+              assert.ok(i > 0, `${id} squared variant must be accepted`);
+              continue;
+            }
+            accepted++;
+            const tag = `${id} pitch=${pitch} dz=${dz} n=${normal.y.toFixed(2)} v#${i}`;
+            // all samples finite, the head sweeps through the aimed point
+            const best = closestApproach(m, aim.point);
+            assert.ok(Number.isFinite(best) && best <= def.headRadius + 0.006, `${tag} closest approach ${best.toFixed(3)}`);
+            // travels away from the eye at contact
+            const tan = m.path.tangentAtS(m.path.Lc, v3());
+            assert.ok(tan.z >= 0.049, `${tag} travel ${JSON.stringify(tan)}`);
+            if (out[i].level) {
+              // the handle is levelled by rolling about the travel: exact for side-on targets; for a
+              // swing coming straight down onto a top face only as level as the roll allows
+              const sq = new SwingMachine(def, TOOL_RIGS[id]);
+              sq.forceStrike(0);
+              sq.aimStrike(aim);
+              const tilt = (q: { x: number; y: number; z: number; w: number }) => {
+                const a = rotateQ(v3(), q, v3(0, 1, 0));
+                return Math.abs(a.x * up.x + a.y * up.y + a.z * up.z);
+              };
+              assert.ok(tilt(m.path.qContact) <= tilt(sq.path.qContact) + 1e-6, `${tag} level handle no worse than squared`);
+              if (normal.z < -0.99) near(tilt(m.path.qContact), 0, 0.02, `${tag} level handle`);
+            }
+            // speed never exceeds the rated speed
+            assert.ok(mag(m.velocityAt(m.path.tc, v3())) <= def.speed * 1.001);
+          }
+          assert.ok(accepted >= 2, `${id} several ways to swing (${accepted})`);
+        }
+      }
+    }
+  }
+});
+
+test("overhand punch: starts at the guard, rises over the straight line, comes down onto the point", () => {
+  const def = TOOL_DEFS.hands;
+  const point = v3(0, 0, 0.5);
+  const straight = new SwingMachine(def, TOOL_RIGS.hands);
+  straight.forceStrike(0);
+  const start = straight.headAt(0, v3());
+  assert.ok(straight.aimStrike({ point, normal: v3(0, 0, -1) }));
+  for (const lift of [0.15, 0.3, 0.45]) {
+    const m = new SwingMachine(def, TOOL_RIGS.hands);
+    m.forceStrike(0);
+    const v = makeAimVariant();
+    v.lift = lift;
+    assert.ok(m.aimStrike({ point, normal: v3(0, 0, -1) }, v), `lift ${lift} accepted`);
+    // continuous with the wound pose: same start as the straight punch
+    assert.ok(dist(m.headAt(0, v3()), start) < 1e-9, "starts at the pulled-back guard");
+    // the fist comes over: at mid-approach it is higher than the straight punch
+    const ym = m.path.headAtS(m.path.Lc * 0.5, v3()).y;
+    const ys = straight.path.headAtS(straight.path.Lc * 0.5, v3()).y;
+    assert.ok(ym > ys + 0.3 * lift, `lift ${lift}: mid-approach height ${ym.toFixed(3)} vs ${ys.toFixed(3)}`);
+    // reaches the point, travelling along the line from the raised guard
+    assert.ok(closestApproach(m, point) <= def.headRadius + 0.005);
+    const tan = m.path.tangentAtS(m.path.Lc, v3());
+    const e = v3(point.x - start.x, point.y - start.y - lift, point.z - start.z);
+    const el = mag(e);
+    near((tan.x * e.x + tan.y * e.y + tan.z * e.z) / el, 1, 1e-3, `lift ${lift} travel ${JSON.stringify(tan)}`);
+    // pose: the striking fist follows the path exactly, all finite
+    const pose = makePose();
+    for (const t of [0, m.path.tc * 0.5, m.path.tc, m.path.T]) {
+      m.t = t;
+      m.poseAt(0, pose);
+      const fist = m.hand === 1 ? pose.left.p : pose.right.p;
+      assert.ok(dist(fist, m.headAt(t, v3())) < 1e-9);
+      assert.ok(Number.isFinite(pose.right.q.w) && Number.isFinite(pose.left.q.w));
+    }
+    // strike timing still reaches (at most) the rated speed at contact
+    assert.ok(mag(m.velocityAt(m.path.tc, v3())) <= def.speed * 1.001);
   }
 });

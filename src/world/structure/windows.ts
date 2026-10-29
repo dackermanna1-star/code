@@ -115,7 +115,9 @@ export function buildWindow(run: ConcreteRun, o: RunOpening): AssemblyDef {
   const room = roomAt(pt.x, pt.z);
   const width = o.r1 - o.r0;
   const area = width * (o.head - o.sill);
-  const b = newBuilder("window", `Window — ${room?.name ?? "?"}`, "fixture", Math.round(650 + 450 * area));
+  // named by room AND wall (Bedroom 2 has a south and an east window): names stay unique
+  const wallName = run.wall.id.charAt(0).toUpperCase() + run.wall.id.slice(1);
+  const b = newBuilder("window", `Window — ${room?.name ?? "?"} (${wallName})`, "fixture", Math.round(650 + 450 * area));
   const F = WINDOW_FRAME_FACE;
   const wIn = half - WINDOW_REVEAL;
   const fw: Interval = [wIn - WINDOW_FRAME_DEPTH, wIn];
@@ -157,8 +159,7 @@ export function buildWindow(run: ConcreteRun, o: RunOpening): AssemblyDef {
     const ly: Interval = [y0 + F, y1 - F];
     lights.forEach((L, i) => {
       const pfx = `light${i}_`;
-      // glazing and sashes sit tight in the frame (the real rebate/gasket overlap has no line
-      // of sight; sash and frame are joint-connected, so they never collide with each other)
+      // fixed glazing sits tight in the frame (the real rebate/gasket overlap has no line of sight)
       if (!L.casement) {
         const gu: Interval = [L.u[0], L.u[1]],
           gy: Interval = [ly[0], ly[1]];
@@ -166,10 +167,20 @@ export function buildWindow(run: ConcreteRun, o: RunOpening): AssemblyDef {
         glaze(b, igu, gu, gy, wc, { top: head, bottom: sill, left: L.lb, right: L.rb }, 10);
         return;
       }
-      // casement sash (inward opening, side hung)
+      // casement sash (inward opening, side hung). The hinge axis sits just inside the sash's
+      // room face, so while opening the sash's OUTER latch-side corner swings out along u by
+      // up to hypot(W, d) − W (W sash width, d pivot-to-outer-face depth) before it clears the
+      // frame: the sash leaves that much rebate clearance (+ margin) at the latch bar, 1 mm at
+      // the hinge bar, so it never cuts through its own frame — which matters once the hinge
+      // group breaks with the sash ajar, or a frame bar comes loose and collides with it.
+      // A soft EPDM weatherstrip (visual, noCollide) closes the latch-side gap.
       const SF = 0.045;
       const sw: Interval = [wc - 0.03, wc + 0.03];
-      const su: Interval = [L.u[0], L.u[1]],
+      const pw = sw[1] + 0.003;
+      const W0 = L.u[1] - L.u[0];
+      const latchGap = Math.hypot(W0, pw - sw[0]) - W0 + 0.0015;
+      const hingeGap = 0.001;
+      const su: Interval = L.hingeAtLow ? [L.u[0] + hingeGap, L.u[1] - latchGap] : [L.u[0] + latchGap, L.u[1] - hingeGap],
         sy: Interval = [ly[0], ly[1]];
       const st = ["window-sash"];
       const sT = bar(b, `${pfx}sashTop`, su, [sy[1] - SF, sy[1]], sw, st, KG_SASH);
@@ -203,7 +214,11 @@ export function buildWindow(run: ConcreteRun, o: RunOpening): AssemblyDef {
       const latchBar = L.hingeAtLow ? L.rb : L.lb;
       const uH = L.hingeAtLow ? su[0] : su[1];
       const hs = L.hingeAtLow ? -1 : 1;
-      const pw = sw[1] + 0.003;
+      // weatherstrip in the latch-side rebate gap, glued to the latch-side frame bar
+      const gasket = `${pfx}weatherstrip`;
+      const wsU: Interval = L.hingeAtLow ? [su[1], L.u[1]] : [L.u[0], su[0]];
+      boxR(b, gasket, "rubber", "rubber", wsU, sy, [sw[0] + 0.008, sw[1] - 0.008], { tint: 0x1d1f22, noCollide: true, mass: 0.09 * (sy[1] - sy[0]), tags: ["window-frame", "gasket"] });
+      bondAt(b, gasket, latchBar.name, "glue", 8, [L.hingeAtLow ? L.u[1] : L.u[0], mid(sy[0], sy[1]), wc]);
       const pivots: V3[] = [
         [uH, sy[0] + 0.12, pw],
         [uH, sy[1] - 0.12, pw],

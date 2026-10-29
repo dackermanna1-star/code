@@ -2,7 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { validateProfiles, KIND_LAYERS, EMITTER_LAYERS, PROFILES, GROUPS, VFX_KINDS } from "../../src/vfx/profiles.ts";
-import { Reactions, MAT_FX, DUST_FX, fractureIntensity, type ReactionSink } from "../../src/vfx/reactions.ts";
+import { Reactions, MAT_FX, DUST_FX, fractureIntensity, holdRadius, HOLD_RECHECK_EVERY, HOLD_RECHECK_MAX, type ReactionSink } from "../../src/vfx/reactions.ts";
 import { EmitterRate, MAX_EMITTER_STRENGTH as MAX_STRENGTH } from "../../src/vfx/emitterRate.ts";
 import { roomZoneOf, roomZoneBounds, ROOM_ZONE_GRID_BASE } from "../../src/vfx/zones.ts";
 import { ROOMS } from "../../src/world/plan.ts";
@@ -16,7 +16,7 @@ interface Rec {
   patches: number;
   disturbs: number;
   patchNormals: Array<{ x: number; y: number; z: number } | undefined>;
-  revalidations: Array<{ radius: number; surfaceRadius: number }>;
+  revalidations: Array<{ radius: number; surfaceRadius: number; x: number; y: number; z: number }>;
 }
 
 function sink(rand = 0.5): { s: ReactionSink; r: Rec; clock: { t: number } } {
@@ -30,7 +30,7 @@ function sink(rand = 0.5): { s: ReactionSink; r: Rec; clock: { t: number } } {
       r.patchNormals.push(n);
     },
     disturb: () => r.disturbs++,
-    revalidate: (_p, radius, surfaceRadius) => r.revalidations.push({ radius, surfaceRadius }),
+    revalidate: (p, radius, surfaceRadius) => r.revalidations.push({ radius, surfaceRadius, x: p.x, y: p.y, z: p.z }),
     now: () => clock.t,
     random: () => rand,
   };
@@ -310,4 +310,99 @@ test("micro-debris zones follow the apartment rooms", () => {
   sim.spawn({ ...base, x: -3, z: -5 });
   assert.equal(sim.activeBins[0].zone, z);
   assert.equal(sim.checkInvariants(), null);
+});
+
+test("heavy impacts and tool hits re-check decal supports (pushed furniture), never wall marks", () => {
+  const { s, r } = sink(0);
+  const re = new Reactions(s);
+  re.impact(imp({ energy: 10, speed: 2 }));
+  assert.equal(r.revalidations.length, 0, "light knocks do not re-check");
+  re.impact(imp({ pos: v(1, 0.8, 1), energy: 120, speed: 4 }));
+  assert.equal(r.revalidations.length, 1);
+  assert.equal(r.revalidations[0].surfaceRadius, 0);
+  assert.ok(r.revalidations[0].radius >= 0.6 && r.revalidations[0].radius <= 1.5);
+  re.toolHit({ tool: "hands", pos: v(2, 0.8, 1), normal: v(1, 0, 0), mat: "hardwood", energy: 20, hard: false });
+  assert.equal(r.revalidations.length, 1, "a light tap does not re-check");
+  re.toolHit({ tool: "kick", pos: v(2, 0.5, 1), normal: v(1, 0, 0), mat: "hardwood", energy: 180, hard: false });
+  assert.equal(r.revalidations.length, 2);
+  assert.equal(r.revalidations[1].surfaceRadius, 0);
+});
+
+test("a held object's grab spot is re-checked while held and again on release (slow drags)", () => {
+  const { s, r, clock } = sink();
+  const re = new Reactions(s);
+  const at = (x: number, z: number) => r.revalidations.filter((q) => Math.abs(q.x - x) < 1e-9 && Math.abs(q.z - z) < 1e-9);
+  // a 60 kg table can only be dragged: grabbed at one end, so the search radius is large
+  re.grab({ pos: v(1.6, 0.5, 0.8), mass: 60 });
+  assert.ok(re.holding);
+  assert.equal(at(1.6, 0.8).length, 1);
+  assert.ok(at(1.6, 0.8)[0].radius > 1.9 && at(1.6, 0.8)[0].radius <= 2.2, "heavy furniture reaches ~2 m");
+  assert.equal(at(1.6, 0.8)[0].surfaceRadius, 0, "moving an object never removes wall marks");
+  // slow 2 s drag: periodic re-checks of the grab spot (not every frame)
+  for (let f = 1; f <= 120; f++) {
+    clock.t = f / 60;
+    re.update();
+  }
+  const periodic = at(1.6, 0.8).length - 1;
+  assert.ok(periodic >= Math.floor(2 / HOLD_RECHECK_EVERY) - 1 && periodic <= Math.ceil(2 / HOLD_RECHECK_EVERY), `periodic ${periodic}`);
+  // released 2.5 m away: both the release point and the ORIGINAL grab spot are re-checked
+  const before = at(1.6, 0.8).length;
+  re.release(v(4.1, 0.5, 0.8));
+  assert.ok(!re.holding);
+  assert.equal(at(1.6, 0.8).length, before + 1, "grab spot re-checked on release");
+  assert.equal(at(4.1, 0.8).length, 1, "release spot re-checked");
+  assert.ok(at(4.1, 0.8)[0].radius > 1.9, "drop reuses the held object's radius");
+  // nothing more after the release
+  const n = r.revalidations.length;
+  for (let f = 121; f <= 300; f++) {
+    clock.t = f / 60;
+    re.update();
+  }
+  assert.equal(r.revalidations.length, n);
+  // throw via the event bus path: grab spot + release spot, radius from the thrown mass
+  const handlers = new Map<string, (e: unknown) => void>();
+  const off = re.attach({ on: (t, fn) => (handlers.set(t, fn as (e: unknown) => void), () => handlers.delete(t)) });
+  handlers.get("grab")!({ pos: v(0, 0.9, 0), mass: 0.4 });
+  assert.equal(r.revalidations.at(-1)!.radius, 1.2, "hand-sized items keep the 1.2 m radius");
+  handlers.get("throw")!({ pos: v(3, 1.4, 2), energy: 80, mass: 0.4 });
+  assert.deepEqual(r.revalidations.slice(-2).map((q) => [q.x, q.z]), [[0, 0], [3, 2]]);
+  assert.ok(!re.holding);
+  off();
+  assert.equal(handlers.size, 0);
+});
+
+test("hold tracking: silent hold ends, missing mass, regrabs and invalid input", () => {
+  const { s, r, clock } = sink();
+  const re = new Reactions(s);
+  assert.equal(holdRadius(undefined), 1.2);
+  assert.equal(holdRadius(NaN), 1.2);
+  assert.equal(holdRadius(-5), 1.2);
+  assert.equal(holdRadius(1e6), 2.2);
+  assert.ok(holdRadius(10) > holdRadius(2) && holdRadius(46) > holdRadius(10));
+  // grab without mass (old emitters) works with the default radius
+  re.grab({ pos: v(0, 0.8, 0) } as never);
+  assert.equal(r.revalidations.at(-1)!.radius, 1.2);
+  // a regrab without a drop event in between (hold ended silently): old spot gets a final check
+  clock.t = 0.1;
+  re.grab({ pos: v(5, 0.8, 5), mass: 20 });
+  assert.deepEqual(r.revalidations.slice(-2).map((q) => [q.x, q.z]), [[0, 0], [5, 5]]);
+  // a hold that never ends stops being re-checked after HOLD_RECHECK_MAX
+  for (let t = 0.1; t < HOLD_RECHECK_MAX + 5; t += 0.05) {
+    clock.t = t;
+    re.update();
+  }
+  assert.ok(!re.holding, "gave up without a release event");
+  const n = r.revalidations.length;
+  assert.ok(n < 2 + 2 + (HOLD_RECHECK_MAX / HOLD_RECHECK_EVERY) * 1.1, `bounded: ${n}`);
+  clock.t += 10;
+  re.update();
+  assert.equal(r.revalidations.length, n);
+  // invalid grab is ignored; a drop with nothing tracked still checks the release spot
+  re.grab({ pos: v(NaN, 0, 0), mass: 5 });
+  assert.ok(!re.holding);
+  re.release(v(1, 0, 1));
+  assert.equal(r.revalidations.length, n + 1);
+  assert.equal(r.revalidations.at(-1)!.radius, 1.2);
+  re.release(v(Infinity, 0, 1));
+  assert.equal(r.revalidations.length, n + 1);
 });

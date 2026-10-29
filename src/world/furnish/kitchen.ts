@@ -6,17 +6,18 @@
 // `kitchenLayout()` also reports, per placement, the index of the placement it rests on or in
 // (-1 = the floor / a wall), which the tests use to tell intended contact from collisions.
 
-import { qaxisAngle, qmul, qrot, v3, xapply, xmul, type Quat, type Xform } from "../../geom/vec.ts";
+import { qaxisAngle, qrot, v3, xapply, xmul, type Quat, type Xform } from "../../geom/vec.ts";
 import type { AssemblyDef } from "../../destruction/model/types.ts";
 import { buildMicrowave } from "../../objects/reference/microwave.ts";
 import { KITCHEN_OBJECTS as K } from "../../objects/kitchen/index.ts";
 import { yawXf } from "../../objects/kitchen/lib.ts";
-import { COUNTER_Y, DISHWASHER, FRIDGE, HOOD, ISLAND, ISLAND_XF, KF, NORTH, NORTH_XF, RANGE, UPPERS, UPPER_BACK_Z, WALL_CAB, WEST, WEST_XF } from "../../objects/kitchen/layout.ts";
+import { COUNTER_Y, DISHWASHER, FRIDGE, HOOD, ISLAND_XF, KF, NORTH_XF, RANGE, UPPERS, UPPER_BACK_Z, WALL_CAB, WEST, WEST_XF } from "../../objects/kitchen/layout.ts";
 import { RANGE_BURNERS, RANGE_DIM, RANGE_TOP_Y } from "../../objects/kitchen/range.ts";
 import { DW_DIM, DW_RACKS } from "../../objects/kitchen/dishwasher.ts";
 import { FRIDGE_DIM } from "../../objects/kitchen/fridge.ts";
-import { STACK_PITCH } from "../../objects/kitchen/dishware.ts";
 import { DISH_RACK, FRUIT_BOWL_FLOOR, KNIFE_BLADE, KNIFE_SLOTS, KNIFE_SLOT_FLOOR, KNIFE_SLOT_LEN, KNIFE_TILT, SPICE_SLOTS } from "../../objects/kitchen/items.ts";
+import { polyTransform, type ConvexPoly } from "../../geom/poly.ts";
+import { aabbOf, polyContact } from "../../objects/lib/contact.ts";
 import type { Placement } from "./types.ts";
 
 /** Gap left under resting items (m) so nothing starts interpenetrating. */
@@ -56,6 +57,45 @@ function minYRotated(def: AssemblyDef, q: Quat): number {
   let y = Infinity;
   for (const p of def.parts) for (const v of p.poly.verts) y = Math.min(y, qrot(q, v).y);
   return y;
+}
+
+/**
+ * Vertical pitch at which identical copies of `def` nest, each resting on the one below (plates,
+ * bowls): the smallest upward shift at which the copy clears the original by `gap` everywhere,
+ * found by bisection on the exact convex separation of every part pair. Real stacks rest foot-on-
+ * slope, so the pitch is set by the geometry, never guessed.
+ */
+function nestPitch(def: AssemblyDef, gap = REST_GAP): number {
+  const polys = def.parts.map((p) => p.poly);
+  const boxes = polys.map(aabbOf);
+  let y0 = Infinity,
+    y1 = -Infinity;
+  for (const b of boxes) {
+    y0 = Math.min(y0, b.min.y);
+    y1 = Math.max(y1, b.max.y);
+  }
+  const clear = (dy: number): boolean => {
+    const up: ConvexPoly[] = polys.map((p) => polyTransform(p, { p: v3(0, dy, 0), q: { x: 0, y: 0, z: 0, w: 1 } }));
+    for (let i = 0; i < polys.length; i++)
+      for (let j = 0; j < up.length; j++) {
+        const a = boxes[i],
+          b = boxes[j];
+        // shifted copy's bounds overlap the original's (with the gap as margin)?
+        if (a.max.x + gap < b.min.x || b.max.x + gap < a.min.x || a.max.z + gap < b.min.z || b.max.z + gap < a.min.z) continue;
+        if (a.max.y + gap < b.min.y + dy || b.max.y + dy + gap < a.min.y) continue;
+        const c = polyContact(polys[i], up[j], gap);
+        if (c && c.sep < gap) return false;
+      }
+    return true;
+  };
+  let lo = 0,
+    hi = y1 - y0 + gap;
+  for (let it = 0; it < 22; it++) {
+    const mid = (lo + hi) / 2;
+    if (clear(mid)) hi = mid;
+    else lo = mid;
+  }
+  return hi;
 }
 
 /** Local transform placing an item on a surface at height y (container frame), yaw in radians. */
@@ -195,11 +235,19 @@ export function kitchenLayout(seed = 1): KitchenLayout {
     const u = uppers;
     const floor = (i: number) => localTop(i, "car_bottom");
     const shelf = (i: number) => localTop(i, "car_shelf0");
-    // U2: dinner plates + side plates below, bowls on the shelf
-    for (let k = 0; k < 5; k++) putIn(u.u2, "plate", K.plate({ seed: nextSeed() }), onSurf(-0.19, floor(u.u2) + k * STACK_PITCH.plate, 0.0));
-    for (let k = 0; k < 4; k++) putIn(u.u2, "sidePlate", K.sidePlate({ seed: nextSeed() }), onSurf(0.2, floor(u.u2) + k * STACK_PITCH.sidePlate, 0.0));
-    for (let k = 0; k < 3; k++) putIn(u.u2, "bowl", K.bowl({ seed: nextSeed() }), onSurf(-0.18, shelf(u.u2) + k * STACK_PITCH.bowl, -0.005));
-    for (let k = 0; k < 2; k++) putIn(u.u2, "bowl", K.bowl({ seed: nextSeed() }), onSurf(0.18, shelf(u.u2) + k * STACK_PITCH.bowl, -0.005));
+    // U2: dinner plates + side plates below, bowls on the shelf (stacks nest at the exact pitch)
+    const stack = (type: "plate" | "sidePlate" | "bowl", n: number, x: number, y: number, z: number): void => {
+      let pitch = 0;
+      for (let k = 0; k < n; k++) {
+        const def = K[type]({ seed: nextSeed() });
+        if (k === 0) pitch = nestPitch(def);
+        putIn(u.u2, type, def, onSurf(x, y + k * pitch, z));
+      }
+    };
+    stack("plate", 5, -0.19, floor(u.u2), 0.0);
+    stack("sidePlate", 4, 0.2, floor(u.u2), 0.0);
+    stack("bowl", 3, -0.18, shelf(u.u2), -0.005);
+    stack("bowl", 2, 0.18, shelf(u.u2), -0.005);
     // U3 (over the sink): tumblers below, wine glasses on the shelf
     for (const [x, z] of [
       [-0.27, -0.06],
@@ -259,7 +307,10 @@ export function kitchenLayout(seed = 1): KitchenLayout {
     // door bins (door frame = fridge frame while the door is closed)
     const binZ = 0.2939;
     putIn(fridge, "milkCarton", K.milkCarton({ seed: nextSeed() }), onSurf(-0.2, localTop(fridge, "fr_bin0_bot"), binZ));
+    for (const x of [-0.07, 0.01]) putIn(fridge, "beerBottle", K.beerBottle({ seed: nextSeed() }), onSurf(x, localTop(fridge, "fr_bin0_bot"), binZ, 0.6));
     putIn(fridge, "jar", K.jar({ tint: 0x6a1a2a, seed: nextSeed() }), onSurf(0.15, localTop(fridge, "fr_bin1_bot"), binZ));
+    // freezer: a tub of leftovers on the wire shelf
+    putIn(fridge, "foodTub", K.foodTub({ tint: 0xe8e8e8, seed: nextSeed() }), onSurf(0.15, localTop(fridge, "fz_shelf"), -0.1));
     // cereal on top of the fridge
     putIn(fridge, "cerealBox", K.cerealBox({ tint: 0xfff0c8, seed: nextSeed() }), onSurf(-0.15, FRIDGE_DIM.h, -0.05));
     putIn(fridge, "cerealBox", K.cerealBox({ w: 0.21, h: 0.3, tint: 0xffd8d8, seed: nextSeed() }), onSurf(0.12, FRIDGE_DIM.h, -0.05));
@@ -271,9 +322,6 @@ export function kitchenLayout(seed = 1): KitchenLayout {
   for (const x of [6.08, 6.8, 7.52]) put("barStool", K.barStool({ seed: nextSeed() }), yawXf(x, 0, 5.98, 0));
   put("wallClock", K.wallClock({ seed: nextSeed() }), yawXf(KF.x1 - 0.015, 1.95, 6.9, -Math.PI / 2));
 
-  void ISLAND;
-  void NORTH;
-  void qmul;
   return { placements, on };
 }
 

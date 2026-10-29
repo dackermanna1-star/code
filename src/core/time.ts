@@ -55,6 +55,11 @@ export class Time {
     this.hitStopScale = Math.min(this.hitStopScale, scale);
   }
 
+  /** Interpolation factor (0..1) between the last two fixed steps for this render frame. */
+  get alpha(): number {
+    return Math.min(1, Math.max(0, this.acc / FIXED_DT));
+  }
+
   get paused(): boolean {
     return this.scale === 0;
   }

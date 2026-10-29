@@ -51,11 +51,13 @@ export function buildToaster(o: SmallApplianceOpts = {}): AssemblyDef {
   b.clip(tops[4], capR, 6);
   b.screw(capL, base, 1, 20);
   b.screw(capR, base, 1, 20);
-  // mica element boards between and beside the slots
+  // mica element boards (nichrome wound) between and beside the slots, clipped into the end
+  // frames; the crumb tray slides in underneath them
   const micas: string[] = [];
   [-0.055, 0, 0.055].forEach((z, k) => {
-    const m = b.box(`mica${k}`, "pcb", "ceramic_bisque", [2 * sl - 0.01, 0.13, 0.002], [0, 0.03 + 0.065, z], { tint: 0xd8c9a3 });
-    b.clip(m, base, 4);
+    const m = b.box(`mica${k}`, "pcb", "ceramic_bisque", [iw, 0.13, 0.002], [0, 0.03 + 0.065, z], { tint: 0xd8c9a3 });
+    b.clip(m, capL, 4);
+    b.clip(m, capR, 4);
     b.sparks(m, 0.5);
     micas.push(m);
   });
@@ -64,8 +66,6 @@ export function buildToaster(o: SmallApplianceOpts = {}): AssemblyDef {
   knob(b, "browning", { on: capR, r: 0.012, len: 0.012, kind: "press", strength: 2, mat: "plastic", surf: "plastic", tint: 0x1e1e20 }, [W / 2, 0.06, 0.03], [0, 90, 0]);
   const tray = b.box("crumb_tray", "steelSheet", "metal_raw", [iw - 0.02, 0.002, D - 0.02], [0, 0.013, 0], { tint: 0xa8a8a8 });
   b.slider(tray, base, { pivots: [[0, 0.012, 0]], axis: [0, 0, 1], min: 0, max: 0.15, strength: 8, friction: 0.3 });
-  const feet = [-1, 1].flatMap((sx) => [-1, 1].map((sz) => [sx * 0.11, sz * 0.06] as [number, number]));
-  void feet;
   return finish(b);
 }
 
@@ -93,8 +93,7 @@ export function buildKettle(o: SmallApplianceOpts & { litres?: number } = {}): A
   const handle = b.tube("handle", "plastic", "plastic", hp, 0.012, { sides: 6, tint: 0x1d1e20, mass: 0.12 });
   bondTouching(b, handle[0], s.wall, "screw", 30, 0.002);
   bondTouching(b, handle[handle.length - 1], s.wall, "screw", 30, 0.002);
-  const g = b.hinge(lid, handle[0], { pivots: [[-0.058, yb + 0.206, 0]], axis: [0, 0, 1], min: -95, max: 0, strength: 12, friction: 0.2, latch: 2 });
-  void g;
+  b.hinge(lid, handle[0], { pivots: [[-0.058, yb + 0.206, 0]], axis: [0, 0, 1], min: -95, max: 0, strength: 12, friction: 0.2, latch: 2 });
   // spout at +X
   const spout = b.hull(
     "spout",
@@ -229,7 +228,14 @@ export function buildBlender(o: SmallApplianceOpts = {}): AssemblyDef {
   b.bolt(hub, bottom, 40);
   const lid = b.box("lid", "rubber", "rubber", [2 * ht, 0.018, 2 * ht], [0, y1 + 0.009, 0], { tint: 0x26272a });
   bondTouching(b, lid, walls, "press", 6, 0.002);
-  const handle = b.box("handle", "plastic", "plastic", [0.025, 0.15, 0.03], [ht + 0.012 + 0.006, (y0 + y1) / 2, 0], { tint: 0x2e2f33, mass: 0.1 });
-  bondTouching(b, handle, walls, "screw", 30, 0.012);
+  // moulded handle on the +X wall: its inner face follows the tapered glass, the grip is vertical
+  const yw0 = y0 + 0.006;
+  const rAt = (y: number): number => hb + ((ht - hb) * (y - yw0)) / (y1 - yw0);
+  const ha = y0 + 0.035,
+    hbY = y1 - 0.02;
+  const hpts: V3[] = [];
+  for (const z of [-0.015, 0.015]) hpts.push([rAt(ha), ha, z], [rAt(hbY), hbY, z], [ht + 0.042, ha, z], [ht + 0.042, hbY, z]);
+  const handle = b.hull("handle", "plastic", "plastic", hpts, [0, 0, 0], { tint: 0x2e2f33, mass: 0.12 });
+  bondTouching(b, handle, walls, "screw", 30, 0.002);
   return finish(b);
 }

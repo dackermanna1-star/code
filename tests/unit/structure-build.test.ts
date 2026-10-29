@@ -9,7 +9,7 @@ import { polyVolume } from "../../src/geom/poly.ts";
 import { MATERIALS } from "../../src/destruction/model/materials.ts";
 import { JOINT_KINDS, type AssemblyDef, type PartDef } from "../../src/destruction/model/types.ts";
 import { buildStructure, structureStats } from "../../src/world/structure.ts";
-import { allParts, overlaps } from "./structure-helpers.ts";
+import { allParts, jointUnits, overlaps } from "./structure-helpers.ts";
 import { Builder } from "../../src/objects/lib/builder.ts";
 
 const t0 = performance.now();
@@ -52,6 +52,13 @@ test("structure builds within the part budget and reports totals", () => {
 });
 
 test("every assembly is valid: unique parts, bonds/joints/features reference parts, no NaN", () => {
+  // assembly names are unique (debug findAssembly(name), logs, repair bills address them by name)
+  const asmNames = defs.map((d) => d.name);
+  assert.deepEqual(
+    asmNames.filter((n, i) => asmNames.indexOf(n) !== i),
+    [],
+    "duplicate assembly names",
+  );
   const finite = (v: { x: number; y: number; z: number }) => Number.isFinite(v.x) && Number.isFinite(v.y) && Number.isFinite(v.z);
   for (const d of defs) {
     assert.ok(d.parts.length > 0, d.name);
@@ -87,7 +94,8 @@ test("deterministic: two builds are identical", () => {
 });
 
 test("no two parts interpenetrate (across all assemblies, > 0.5 mm)", () => {
-  const ov = overlaps(allParts(defs), 0.0005);
+  // 'inset' parts (hinge leaves let into their mortise) may overlap their own assembly's parts
+  const ov = overlaps(allParts(defs), 0.0005, (a, b) => a.asm !== b.asm || !(a.part.tags?.includes("inset") || b.part.tags?.includes("inset")));
   const msg = ov
     .slice(0, 10)
     .map((o) => `${o.a.asm.name}/${o.a.part.name} × ${o.b.asm.name}/${o.b.part.name} (${(o.depth * 1000).toFixed(1)} mm)`)
@@ -127,31 +135,23 @@ test("nothing floats: every rigid group is anchored or hangs on a joint from an 
 });
 
 test("realistic masses of key components", () => {
-  const find = (type: string, name?: string) => defs.filter((d) => d.type === type && (!name || d.name === name));
-  const leafMass = (d: AssemblyDef) => {
-    // parts reachable from the hinge stile through rigid bonds
-    const hinge = d.bonds.find((b) => b.kind === "hinge")!;
-    const adj = new Map<string, string[]>();
-    for (const b of d.bonds) {
-      if (b.b === "world" || JOINT_KINDS.has(b.kind) || b.kind === "latch") continue;
-      (adj.get(b.a) ?? adj.set(b.a, []).get(b.a)!).push(b.b);
-      (adj.get(b.b) ?? adj.set(b.b, []).get(b.b)!).push(b.a);
-    }
-    const seen = new Set([hinge.a]);
-    const st = [hinge.a];
-    while (st.length) for (const n of adj.get(st.pop()!) ?? []) if (!seen.has(n)) (seen.add(n), st.push(n));
-    return d.parts.filter((p) => seen.has(p.name)).reduce((s, p) => s + massOf(p), 0);
-  };
-  for (const d of find("door_interior")) {
-    const m = leafMass(d);
-    assert.ok(m > 10 && m < 17, `${d.name} leaf ${m.toFixed(1)} kg`);
+  // moving islands hung on joint groups: door leaves (interior ones live in their partition's
+  // assembly), the front door leaf, casement sashes
+  const units = jointUnits(defs);
+  const leafMass = (u: (typeof units)[number]) => u.moving.reduce((s, p) => s + massOf(p), 0);
+  const interior = units.filter((u) => u.asm.type === "wall_partition");
+  assert.equal(interior.length, 4, "four interior doors hang in their partitions");
+  for (const u of interior) {
+    const m = leafMass(u);
+    assert.ok(m > 10 && m < 17, `${u.opening} leaf ${m.toFixed(1)} kg`);
   }
-  const fd = find("door_front")[0];
-  const fm = leafMass(fd);
+  const fd = units.filter((u) => u.asm.type === "door_front");
+  assert.equal(fd.length, 1);
+  const fm = leafMass(fd[0]);
   assert.ok(fm > 30 && fm < 46, `front door leaf ${fm.toFixed(1)} kg`);
-  for (const d of find("window")) {
-    const m = leafMass(d);
-    assert.ok(m > 12 && m < 45, `${d.name} sash ${m.toFixed(1)} kg`);
+  for (const u of units.filter((q) => q.asm.type === "window")) {
+    const m = leafMass(u);
+    assert.ok(m > 12 && m < 45, `${u.asm.name} sash ${m.toFixed(1)} kg`);
   }
   // a full drywall sheet ≈ 25–30 kg, a laminate plank ≈ 1.9 kg, a floor tile ≈ 2 kg
   const sheet = defs.flatMap((d) => d.parts).find((p) => p.name.startsWith("shP_") && polyVolume(p.poly) > 1.1 * 2.6 * 0.0124)!;
@@ -174,8 +174,9 @@ test("rigid islands: static assemblies stay one island (a hidden underlay may be
     }
     const roots = new Set(d.parts.map((_, i) => find(i)));
     total += roots.size;
-    const jointed = d.bonds.some((b) => JOINT_KINDS.has(b.kind));
-    const allowed = jointed ? 2 : d.type === "floor_laminate" || d.type === "floor_carpet" ? 2 : 1;
+    // the static island + one per moving unit (door leaf / sash / sliding panel)
+    const groups = new Set(d.bonds.filter((b) => JOINT_KINDS.has(b.kind)).map((b) => b.joint!.group));
+    const allowed = groups.size ? 1 + groups.size : d.type === "floor_laminate" || d.type === "floor_carpet" ? 2 : 1;
     assert.ok(roots.size <= allowed, `${d.name}: ${roots.size} rigid islands`);
   }
   console.log(`  rigid islands at spawn: ${total}`);

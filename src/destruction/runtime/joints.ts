@@ -10,9 +10,12 @@
 //
 // Frames: pivots/axes are in the shared assembly frame, which is the local frame of every
 // island node of the assembly (and of the per-assembly anchor body used for joints bonded to
-// "world"), so constraints can be re-created exactly after splits. The physics contract
-// states hinge/slider limits are "relative to the creation pose"; when a joint is re-created
-// away from its built pose the current angle/offset is subtracted (`zeroAtCreation`).
+// "world"), so constraints can be re-created exactly after splits. Hinge angles start at 0 at
+// creation (the physics module aligns the perpendicular axes to the creation pose), so when a
+// hinge is re-created away from its built pose the current angle is subtracted from its limits
+// and motor target (`zeroAtCreation`). Slider travel is the separation of the two pivots along
+// the axis; both pivots are the same assembly-frame point, so the travel already reads the
+// absolute slide from the built pose (0 = closed) and slider limits are never offset.
 
 import { TransformNode, Quaternion, Vector3, type PhysicsBody } from "@babylonjs/core";
 import type { HingeOpts, SliderOpts } from "../../core/context.ts";
@@ -231,8 +234,9 @@ export class JointSystem {
       let min = Number.isFinite(g.def.min) ? g.def.min : 0;
       let max = Number.isFinite(g.def.max) ? g.def.max : 0;
       if (latched) min = max = 0;
-      const a = this.slideSign * (min - jc.offset),
-        b = this.slideSign * (max - jc.offset);
+      // absolute travel (slider limits are never offset, see header)
+      const a = this.slideSign * min,
+        b = this.slideSign * max;
       ext.setSliderLimits(jc.c, Math.min(a, b), Math.max(a, b));
     } else return false;
     jc.latched = latched;
@@ -280,12 +284,12 @@ export class JointSystem {
       if (latched && g.latch) o.motor = { target: this.angleSign * (0 - offset), maxForce: latchTorque(g.latch.max) };
       c = w.physics.hinge(fixedBody, moving.body, o);
     } else {
-      if (this.zeroAtCreation) offset = this.slideOf(moving, fixed, g.asm, axis);
+      // offset stays 0: the pivot separation measures the absolute slide (see header)
       let min = Number.isFinite(g.def.min) ? g.def.min : 0;
       let max = Number.isFinite(g.def.max) ? g.def.max : 0;
       if (latched) min = max = 0; // pinned closed
-      const a = this.slideSign * (min - offset),
-        b = this.slideSign * (max - offset);
+      const a = this.slideSign * min,
+        b = this.slideSign * max;
       const o: SliderOpts = { pivotA: piv, pivotB: piv.clone(), axisA: ax, axisB: ax.clone(), min: Math.min(a, b), max: Math.max(a, b), collideConnected: false };
       if (g.def.friction && g.def.friction > 0) o.friction = g.def.friction;
       c = w.physics.slider(fixedBody, moving.body, o);
@@ -472,9 +476,12 @@ export class JointSystem {
    * Sustained constraint reactions damage joint bonds (call after each physics step): the
    * solver's applied impulses give the load the joint resists from steady forces — things piled
    * on an open drawer or lid, the player standing on a door or drawer, a door hanging by its
-   * last hinge. Havok reports the LAST SUBSTEP only, so once-per-step impulses (the player's
-   * grab spring) are under-read; those are modelled exactly by Interactions.pull(). Only
-   * SUSTAINED load counts: the minimum over the last LOAD_WINDOW steps (slams and kicks are
+   * last hinge. The raw Havok read covers the last substep (force = impulse / substep dt, the
+   * same as the step average for steady loads). The player's grab is a motor constraint solved
+   * in every substep, so its hand force IS in these reactions — and Interactions.pull() models
+   * that same hand force against the joint bonds. To count it once, constraints whose moving
+   * island was pulled this step take no damage here (their load history is still recorded).
+   * Only SUSTAINED load counts: the minimum over the last LOAD_WINDOW steps (slams and kicks are
    * spikes, left to the damage model). Per bond:
    *   F_b = F/n + τ⊥/spacing (+ τ_axis/(n·0.25 m) when forced against a limit, unlatched)
    *   hold = max(JOINT_HOLD·strength, 2 × the share of the moving part's own weight)
@@ -525,6 +532,8 @@ export class JointSystem {
           jc.fEma = sF;
           jc.tAxisEma = sA;
           jc.tPerpEma = sP;
+          // the hand force of a pull this step is already applied by Interactions.pull()
+          if (jc.moving.pulledStep === this.w.stepIndex) continue;
           const bonds = jc.bonds;
           let alive = 0;
           let spacing = 0.1;

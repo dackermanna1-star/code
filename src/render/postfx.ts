@@ -43,13 +43,13 @@ export interface PostTuning {
 }
 
 export const DEFAULT_POST_TUNING: PostTuning = {
-  exposure: 1.25,
+  exposure: 1.3,
   contrast: 1.12,
   bloomThreshold: 0.95,
   bloomWeight: 0.32,
   bloomKernel: 72,
   bloomScale: 0.5,
-  vignetteWeight: 2.2,
+  vignetteWeight: 1.6,
   grainIntensity: 3,
   chromaticAberration: 5,
   ssaoRadius: 0.55,

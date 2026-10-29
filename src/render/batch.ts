@@ -24,10 +24,10 @@
 // instanceColor). Never pack these by hand: use `surfAttrib()` / `colorAttrib()` below — they
 // read the active surface table registered by the RenderSystem.
 //
-// Printed surfaces (book covers, posters, labels, panels, clock face, display digits) are
-// drawn as one full tile: give the face's part `uvOffset = [faceWidth/2, faceHeight/2]` and a
-// surface whose worldSize equals the face size (registerSurface with the same tex) so the
-// face shows exactly the whole artwork.
+// Printed surfaces (book covers, paintings, posters, labels, panels, clock face, display
+// digits, rug — see printed.ts) carry one whole picture per tile. Faces mapped onto exactly
+// one tile by the builder (printed.ts printedFaceUV, fracture-stable) are used as is; other
+// whole faces whose uvs cross a tile seam are fitted onto one tile here (fitPrintedUVs).
 // ============================================================================================
 
 import { Mesh, VertexBuffer, Buffer, SubMesh, BoundingInfo, Vector3, type Scene, type TransformNode, type Material, type AbstractMesh } from "@babylonjs/core";
@@ -36,6 +36,7 @@ import type { IslandMeshes } from "../core/context.ts";
 import { SURFACES } from "./surfaces.ts";
 import type { TextureLibrary } from "./textures.ts";
 import { WORLD_STRIDE, OFF_NORMAL, OFF_UV, OFF_COLOR, OFF_SURF, SRGB_TO_LINEAR, SURFACE_ROW, packSurfaceRow } from "./layout.ts";
+import { fitPrintedUVs, PrintedFitScratch } from "./printed.ts";
 
 // layout constants + packing live in the pure module (unit-tested in Node); re-exported here
 export { WORLD_STRIDE, SRGB_TO_LINEAR } from "./layout.ts";
@@ -44,7 +45,7 @@ export { WORLD_STRIDE, SRGB_TO_LINEAR } from "./layout.ts";
 
 /** Per-surface packed vertex constants, rebuilt/extended as surfaces are registered. */
 export class SurfaceTable {
-  /** Row stride (see layout.ts packSurfaceRow): albedoL, normalL, packedRM, emissive, invWorldSize, tintR, tintG, tintB, alpha, transparent. */
+  /** Row stride (see layout.ts packSurfaceRow): albedoL, normalL, packedRM, emissive, invWorldSize, tintR, tintG, tintB, alpha, transparent, printed. */
   static readonly STRIDE = SURFACE_ROW;
   data = new Float32Array(0);
   count = 0;
@@ -207,6 +208,13 @@ export class IslandBatcher {
   private vclass = new Uint8Array(1024);
   private remap = new Int32Array(1024);
   private kinds = new Uint8Array(64);
+  /** Per geom: has printed-surface vertices (needs fitPrintedUVs). */
+  private printedGeom = new Uint8Array(64);
+  /** Tile-unit uvs of the geom being filled when it has printed faces. */
+  private fitUV = new Float32Array(1024);
+  private readonly fitScratch = new PrintedFitScratch();
+  private readonly invWSOf = (s: number): number => this.table.data[this.table.base(s) + 4];
+  private readonly printedOf = (s: number): boolean => this.table.data[this.table.base(s) + 10] > 0.5;
   private readonly cursor = { vo: 0, vg: 0, io: 0, ig: 0 };
   private readonly boundsO = new Float64Array(6);
   private readonly boundsG = new Float64Array(6);
@@ -233,8 +241,12 @@ export class IslandBatcher {
     const tab = table.data;
     const ST = SurfaceTable.STRIDE;
     const nSurf = table.count;
-    if (this.kinds.length < geoms.length) this.kinds = new Uint8Array(geoms.length * 2);
+    if (this.kinds.length < geoms.length) {
+      this.kinds = new Uint8Array(geoms.length * 2);
+      this.printedGeom = new Uint8Array(geoms.length * 2);
+    }
     const kinds = this.kinds;
+    const printedGeom = this.printedGeom;
     // ---- pass 1: classify geoms, count vertices / indices per class (0 opaque, 1 glass)
     let nv0 = 0,
       nv1 = 0,
@@ -248,12 +260,15 @@ export class IslandBatcher {
       }
       const vc = g.vertexCount;
       const surf = g.surf;
-      let glassV = 0;
+      let glassV = 0,
+        printedV = 0;
       for (let v = 0; v < vc; v++) {
         const s = surf[v];
         const b = s < nSurf ? s * ST : table.base(s);
         if (tab[b + 9] > 0.5) glassV++;
+        if (tab[b + 10] > 0.5) printedV++;
       }
+      printedGeom[gi] = printedV > 0 ? 1 : 0;
       const nIdx = g.indices.length - (g.indices.length % 3);
       if (glassV === 0) {
         kinds[gi] = ALL_OPAQUE;
@@ -297,11 +312,12 @@ export class IslandBatcher {
       const kind = kinds[gi];
       if (kind === 255) continue;
       const g = geoms[gi];
+      const tileUV = printedGeom[gi] ? this.fitPrinted(g) : null;
       if (kind === ALL_OPAQUE) {
-        if (ro) this.fillWhole(g, ro, cursor, false, bo);
+        if (ro) this.fillWhole(g, ro, cursor, false, bo, tileUV);
       } else if (kind === ALL_GLASS) {
-        if (rg) this.fillWhole(g, rg, cursor, true, bg);
-      } else this.fillMixed(g, ro, rg, cursor, bo, bg);
+        if (rg) this.fillWhole(g, rg, cursor, true, bg, tileUV);
+      } else this.fillMixed(g, ro, rg, cursor, bo, bg, tileUV);
     }
     // ---- upload + draw ranges + bounds + lighting registration
     if (opaque && ro) this.commit(opaque, ro, cursor.vo, cursor.io, bo);
@@ -338,8 +354,16 @@ export class IslandBatcher {
 
   // ---------------------------------------------------------------- internals
 
+  /** Tile-unit uvs of a geom with printed faces (whole faces fitted onto one tile). */
+  private fitPrinted(g: RenderGeom): Float32Array {
+    const vc = g.vertexCount;
+    if (this.fitUV.length < vc * 2) this.fitUV = new Float32Array(vc * 4);
+    fitPrintedUVs(g.uvs, g.surf, g.indices, vc, this.invWSOf, this.printedOf, this.fitUV, this.fitScratch);
+    return this.fitUV;
+  }
+
   /** Copy a geom whose vertices all go to one mesh (fast path: no remapping). */
-  private fillWhole(g: RenderGeom, r: BatchRecord, c: { vo: number; vg: number; io: number; ig: number }, glass: boolean, bb: Float64Array): void {
+  private fillWhole(g: RenderGeom, r: BatchRecord, c: { vo: number; vg: number; io: number; ig: number }, glass: boolean, bb: Float64Array, tileUV: Float32Array | null): void {
     const table = this.table;
     const tab = table.data;
     const ST = SurfaceTable.STRIDE;
@@ -379,9 +403,14 @@ export class IslandBatcher {
       out[o + OFF_NORMAL] = N[v * 3];
       out[o + OFF_NORMAL + 1] = N[v * 3 + 1];
       out[o + OFF_NORMAL + 2] = N[v * 3 + 2];
-      const inv = tab[b + 4];
-      out[o + OFF_UV] = UV[v * 2] * inv;
-      out[o + OFF_UV + 1] = UV[v * 2 + 1] * inv;
+      if (tileUV) {
+        out[o + OFF_UV] = tileUV[v * 2];
+        out[o + OFF_UV + 1] = tileUV[v * 2 + 1];
+      } else {
+        const inv = tab[b + 4];
+        out[o + OFF_UV] = UV[v * 2] * inv;
+        out[o + OFF_UV + 1] = UV[v * 2 + 1] * inv;
+      }
       const tint = TN[v];
       out[o + OFF_COLOR] = SRGB_TO_LINEAR[(tint >> 16) & 255] * tab[b + 5];
       out[o + OFF_COLOR + 1] = SRGB_TO_LINEAR[(tint >> 8) & 255] * tab[b + 6];
@@ -430,7 +459,7 @@ export class IslandBatcher {
   }
 
   /** Split a geom with both opaque and glass vertices between the two meshes. */
-  private fillMixed(g: RenderGeom, ro: BatchRecord | null, rg: BatchRecord | null, c: { vo: number; vg: number; io: number; ig: number }, bo: Float64Array, bg: Float64Array): void {
+  private fillMixed(g: RenderGeom, ro: BatchRecord | null, rg: BatchRecord | null, c: { vo: number; vg: number; io: number; ig: number }, bo: Float64Array, bg: Float64Array, tileUV: Float32Array | null): void {
     const table = this.table;
     const tab = table.data;
     const vc = g.vertexCount;
@@ -469,9 +498,14 @@ export class IslandBatcher {
       out[o + OFF_NORMAL] = N[v * 3];
       out[o + OFF_NORMAL + 1] = N[v * 3 + 1];
       out[o + OFF_NORMAL + 2] = N[v * 3 + 2];
-      const inv = tab[b + 4];
-      out[o + OFF_UV] = UV[v * 2] * inv;
-      out[o + OFF_UV + 1] = UV[v * 2 + 1] * inv;
+      if (tileUV) {
+        out[o + OFF_UV] = tileUV[v * 2];
+        out[o + OFF_UV + 1] = tileUV[v * 2 + 1];
+      } else {
+        const inv = tab[b + 4];
+        out[o + OFF_UV] = UV[v * 2] * inv;
+        out[o + OFF_UV + 1] = UV[v * 2 + 1] * inv;
+      }
       const tint = TN[v];
       out[o + OFF_COLOR] = SRGB_TO_LINEAR[(tint >> 16) & 255] * tab[b + 5];
       out[o + OFF_COLOR + 1] = SRGB_TO_LINEAR[(tint >> 8) & 255] * tab[b + 6];

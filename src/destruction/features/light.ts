@@ -1,6 +1,7 @@
 // `light` feature: a Babylon PointLight/SpotLight parented to the bulb's island node. The
-// bulb part breaking (fracture), detaching (all its bonds gone) or a mains fixture being torn
-// from the ceiling kills the light (pop + sparks via the `lightBroken` event); strong impacts
+// bulb part breaking (fracture), detaching (all its bonds gone) or a hard-wired mains fixture
+// losing its last connection to the building (any bond of the assembly) kills the light (pop +
+// sparks via the `lightBroken` event); shattered bulb fragments are unlit; strong impacts
 // make it flicker. Wall switches toggle it; the power state is handled by the lighting system
 // (mains lights) and mirrored on the bulb's emissive surface.
 
@@ -39,7 +40,7 @@ export class LightFeature extends BaseFeature {
     this.on = d.on !== false;
     this.baseIntensity = Number.isFinite(d.intensity) && d.intensity > 0 ? d.intensity : 1;
     let world = false;
-    for (const p of asm.parts) for (const b of p.bonds) if (b.world && b.rigid) world = true;
+    for (const p of asm.parts) for (const b of p.bonds) if (b.world) world = true;
     this.hadWorldBond = world;
     this.sync();
   }
@@ -177,19 +178,42 @@ export class LightFeature extends BaseFeature {
   onBondBroken(_bond: Bond, part: Part): void {
     if (!this.alive) return;
     // bulb pulled out of its socket
-    if (part === this.part && part.bonds.length === 0 && this.asm.parts.size > 1) {
-      this.break("wires");
-      return;
+    if (part === this.part && part.bonds.length === 0 && this.asm.parts.size > 1) this.break("wires");
+  }
+
+  /** Any bond of the assembly broke: a hard-wired fixture torn from the ceiling/wall rips its cable. */
+  onAsmBondBroken(): void {
+    if (!this.alive || !this.mains || !this.hadWorldBond) return;
+    if (!this.wired()) this.break("wires");
+  }
+
+  /**
+   * The bulb still reaches the building through live bonds (rigid or jointed: a pendant on its
+   * chain, a swing-arm lamp on its hinge). Fixtures are small — a plain BFS over the bonds.
+   */
+  private wired(): boolean {
+    const start = this.part;
+    if (!start || !start.alive) return false;
+    const seen = new Set<Part>([start]);
+    const stack: Part[] = [start];
+    while (stack.length) {
+      const p = stack.pop()!;
+      for (const b of p.bonds) {
+        if (!b.alive) continue;
+        if (b.world) return true;
+        const o = b.other(p);
+        if (o && !seen.has(o)) {
+          seen.add(o);
+          stack.push(o);
+        }
+      }
     }
-    // mains fixture torn off the ceiling/wall: its cable rips
-    if (this.mains && this.hadWorldBond) {
-      const isl = this.part?.island;
-      if (isl && !isl.isStatic && !isl.parts.some((p) => p.bonds.some((b) => b.world && b.rigid && b.alive))) this.break("wires");
-    }
+    return false;
   }
 
   onIslandChanged(_part: Part, island: Island): void {
     if (this.light) this.light.parent = island.node;
+    else if (this.alive && this.on) this.sync(); // host was between islands (deferred split)
   }
 
   onPower(): void {

@@ -73,7 +73,7 @@ export class Destruction implements DestructionSystem {
     this.features.screenFactory = renderScreenFactory(ctx.scene);
     this.debris = new DebrisSystem(w, {
       hasFeatures: (isl) => this.features.hasFeatures(isl),
-      fellOut: (isl) => this.fellOut(isl),
+      fellOut: (isl, emit) => this.fellOut(isl, emit),
     });
     this.fracture = new FractureSystem(w, {
       onFracture: (old, frags, info) => this.features.onFracture(old, frags, info),
@@ -329,14 +329,19 @@ export class Destruction implements DestructionSystem {
     this.fracture.budgetMs = Number.isFinite(v) && v > 0 ? v : FRACTURE_BUDGET_MS;
   }
 
-  /** The fell-out handler: event, feature cleanup, full release. */
-  private fellOut(isl: Island): void {
+  /**
+   * The fell-out handler: event (only for a real fall — a non-finite body is dropped silently,
+   * it has no position to report), feature cleanup, full release.
+   */
+  private fellOut(isl: Island, emit: boolean): void {
     const w = this.world;
     if (!isl.alive) return;
     const pos = w.toWorldVec(isl, isl.com);
-    let main: Part | null = null;
-    for (const p of isl.parts) if (!main || p.mass > main.mass) main = p;
-    w.events.emit("fellOut", { pos, mass: isl.mass, mat: main ? main.matId : "plastic" });
+    if (emit && Number.isFinite(pos.x) && Number.isFinite(pos.y) && Number.isFinite(pos.z)) {
+      let main: Part | null = null;
+      for (const p of isl.parts) if (!main || p.mass > main.mass) main = p;
+      w.events.emit("fellOut", { pos, mass: isl.mass, mat: main ? main.matId : "plastic" });
+    }
     w.removeIsland(isl);
     this.accounting.markDirty(isl.asm);
     this.joints.refreshDirty();

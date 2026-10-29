@@ -18,8 +18,11 @@ import { furnishLivingItems } from "../../src/world/furnish/living.ts";
 import { MockVfx } from "./destruction-util.ts";
 import { Builder } from "../../src/objects/lib/builder.ts";
 
-/** Spawn the full structure + fixtures (heavy) or a light stand-in shell. */
-const STRUCTURE = false;
+/**
+ * Spawn the full structure + fixtures (heavy) or a light stand-in shell. The full variant is
+ * tests/probes/content-living-full.probe.ts, which sets `globalThis.__livingFull` before calling.
+ */
+const structureMode = (): boolean => !!(globalThis as { __livingFull?: boolean }).__livingFull;
 import manifest from "../../public/assets/textures/manifest.json";
 
 const photoUrls = import.meta.glob("../../public/assets/textures/*.jpg", { query: "?url", import: "default", eager: true }) as Record<string, string>;
@@ -37,11 +40,13 @@ const VIEWS: Array<[string, [number, number, number], [number, number, number]]>
 ];
 
 export async function probe(): Promise<unknown> {
+  const STRUCTURE = structureMode();
   const canvas = document.getElementById("renderCanvas") as HTMLCanvasElement;
   const engine = new Engine(canvas, true, { stencil: true, preserveDrawingBuffer: true });
   const scene = new Scene(engine);
   const settings = new Settings();
-  const physics = await createPhysics(scene, {});
+  // estimateImpacts off: the physics module's same-step estimator is mid-edit in the shared tree
+  const physics = await createPhysics(scene, { estimateImpacts: false });
   let render;
   try {
     render = await createRender({ engine, scene, settings, skipAtmosphere: true, textures: { manifest: manifest as never, resolve: (f: string) => photoUrls[`../../public/assets/textures/${f}`] ?? f } });
@@ -77,21 +82,29 @@ export async function probe(): Promise<unknown> {
   const items = furnishLivingItems();
   const buildMs = performance.now() - tb;
   const ts = performance.now();
-  const ids = items.map((it) => d.spawn(it.def, it.xf));
+  // spawn AWAKE (the default is asleep) so the settle test shows anything that slides, tips or falls
+  const ids = items.map((it) => d.spawn({ ...it.def, startAsleep: false }, it.xf));
   const spawnMs = performance.now() - ts;
   const before = ids.map((id) => d.positionOf(id));
   const stats0 = { destruction: d.stats(), physics: physics.stats() };
 
   const tStep = performance.now();
+  // settle 2.5 s; a failure in another module's step code is reported, the screenshots still render
   const N = 150;
-  for (let i = 0; i < N; i++) {
-    d.beforePhysics(FIXED_DT);
-    physics.step(FIXED_DT);
-    time.tick();
-    d.afterPhysics(FIXED_DT);
-    d.update(FIXED_DT);
+  let steps = 0;
+  let stepError: string | null = null;
+  try {
+    for (; steps < N; steps++) {
+      d.beforePhysics(FIXED_DT);
+      physics.step(FIXED_DT);
+      time.tick();
+      d.afterPhysics(FIXED_DT);
+      d.update(FIXED_DT);
+    }
+  } catch (e) {
+    stepError = String(e);
   }
-  const stepMs = (performance.now() - tStep) / N;
+  const stepMs = (performance.now() - tStep) / Math.max(1, steps);
   const moved: Array<{ id: string; dist: number; dy: number }> = [];
   ids.forEach((id, i) => {
     const a = before[i],
@@ -104,7 +117,8 @@ export async function probe(): Promise<unknown> {
     .list()
     .filter((a) => ids.includes(a.id))
     .map((a) => ({ a, it: items[ids.indexOf(a.id)] }))
-    .filter(({ a, it }) => a.islands > 1 + it.def.parts.filter((p) => p.tags?.includes("loose")).length)
+    // expected islands: the body + one per loose part + one per joint group (doors, drawers)
+    .filter(({ a, it }) => a.islands > 1 + it.def.parts.filter((p) => p.tags?.includes("loose")).length + new Set(it.def.bonds.filter((b) => b.kind === "hinge" || b.kind === "slider").map((b) => b.joint!.group)).size)
     .map(({ a, it }) => `${it.id}:${a.islands}`);
 
   for (const r of ROOMS)
@@ -168,6 +182,8 @@ export async function probe(): Promise<unknown> {
     timingsMs: { build: Math.round(buildMs), spawn: Math.round(spawnMs), stepAvg: Math.round(stepMs * 10) / 10 },
     stats0,
     afterSettle: { destruction: d.stats(), physics: physics.stats() },
+    steps,
+    stepError,
     moved,
     brokenIslands,
   };

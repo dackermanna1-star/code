@@ -1,7 +1,7 @@
 // Probe: full RenderSystem (render-env Lighting/PostFX/Exterior/Atmosphere + render-core
 // materials/batching/screens/env capture) on a stand-in living room at plan coordinates.
 import { Engine, Scene, Vector3, TransformNode, PointLight, Color3 } from "@babylonjs/core";
-import { boxGeom, snap } from "./render-core-util.ts";
+import { boxGeom, snap, readyOrTimeout } from "./render-core-util.ts";
 import { createRender } from "../../src/render/renderSystem.ts";
 import { createScreen } from "../../src/render/screens.ts";
 import { Settings } from "../../src/core/settings.ts";
@@ -84,8 +84,8 @@ export async function probe(): Promise<unknown> {
 
   const cam = render.camera;
   log("built");
-  await scene.whenReadyAsync();
-  log("ready");
+  const notReady = await readyOrTimeout(scene, 25000);
+  log("ready" + (notReady.length ? ` (not ready: ${notReady.join(",")})` : ""));
   for (let i = 0; i < 3; i++) {
     render.update(1 / 60);
     scene.render();
@@ -109,14 +109,32 @@ export async function probe(): Promise<unknown> {
   cam.position.set(7.0, 1.6, 3.8);
   cam.rotation.set(0.02, Math.PI * 0.96, 0);
   sheets.push(snap(scene, 3));
-  // power cut
+  // power cut: lights/emissive/screens off, then the environment is re-captured (double
+  // buffered: the old capture must stay active until the new one is ready, never the fallback)
+  const envBefore = scene.environmentTexture;
+  const fallback = render.environment.fallback;
   render.setPower(false);
-  for (let i = 0; i < 3; i++) {
+  let recaptured = false,
+    sawFallback = false;
+  for (let i = 0; i < 80 && !recaptured; i++) {
     render.update(1 / 60);
     scene.render();
+    if (scene.environmentTexture === fallback) sawFallback = true;
+    recaptured = scene.environmentTexture !== envBefore && scene.environmentTexture !== fallback;
+    await new Promise((r) => setTimeout(r, 20));
   }
+  log("recaptured " + recaptured);
   sheets.push(snap(scene, 2));
   render.setPower(true);
+  // power back: wait for the second re-capture so it does not land in the frame timing below
+  const envOff = scene.environmentTexture;
+  let recapturedOn = false;
+  for (let i = 0; i < 80 && !recapturedOn; i++) {
+    render.update(1 / 60);
+    scene.render();
+    recapturedOn = scene.environmentTexture !== envOff && scene.environmentTexture !== fallback;
+    await new Promise((r) => setTimeout(r, 20));
+  }
   // PS2 mode on (retro texture filtering + post), then back off; quality switch low→medium→low
   render.setPS2Mode(true);
   sheets.push(snap(scene, 2));
@@ -138,6 +156,8 @@ export async function probe(): Promise<unknown> {
     captured,
     captureMs: Math.round(captureMs),
     frameMs: Math.round(frameMs * 10) / 10,
+    notReady,
+    powerCut: { recaptured, sawFallback, recapturedOn },
     meshes: scene.meshes.length,
     stats: render.stats(),
     progress: progress.join(" | "),

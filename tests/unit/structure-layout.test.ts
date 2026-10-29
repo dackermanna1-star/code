@@ -6,7 +6,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { Builder } from "../../src/objects/lib/builder.ts";
 import { polyCentroid } from "../../src/geom/poly.ts";
-import { ROOMS, WALLS, roomById, type RoomId } from "../../src/world/plan.ts";
+import { ROOMS, WALLS, roomAt, roomById, type RoomId } from "../../src/world/plan.ts";
 import { WallFrame, ceilingCoverage, floorCoverage, footprints, layout, openingInfos, partitionFaceIntervals, thresholds, wallSegmentInfos } from "../../src/world/structure/layout.ts";
 import { CEILING_Y, FLOOR_Y, PARTITION_FACE, SERVICE_POINTS, SLAB_TOP_Y, WALL_TILE_ZONES, roomFaces } from "../../src/world/structure/levels.ts";
 import { rectArea, rectIntersect } from "../../src/world/structure/rects.ts";
@@ -171,6 +171,32 @@ test("metadata: OPENINGS and WALL_SEGMENTS", () => {
   }
   // the south wall has solid pieces below every window
   assert.ok(segs.some((s) => s.wallId === "south" && s.y1 <= 0.9 + 1e-9 && s.y1 > 0.5));
+  // rooms[] is right along the WHOLE piece on both sides (pieces split where a side's room changes)
+  for (const s of segs) {
+    const L = Math.hypot(s.b[0] - s.a[0], s.b[1] - s.a[1]);
+    assert.ok(L > 0.004, `${s.wallId}: degenerate piece`);
+    const tx = (s.b[0] - s.a[0]) / L,
+      tz = (s.b[1] - s.a[1]) / L;
+    const off = s.thickness / 2 + 0.05;
+    const sides = new Set<string>();
+    for (const f of [0.02, 0.25, 0.5, 0.75, 0.98]) {
+      const x = s.a[0] + tx * L * f,
+        z = s.a[1] + tz * L * f;
+      const l = roomAt(x - tz * off, z + tx * off)?.id ?? null,
+        r = roomAt(x + tz * off, z - tx * off)?.id ?? null;
+      // corner stubs inside the crossing wall's thickness face no room (merged into the piece)
+      if (l !== null || r !== null) sides.add(JSON.stringify([l, r]));
+    }
+    assert.equal(sides.size, 1, `${s.wallId} ${s.a}→${s.b}: rooms change along the piece ${[...sides].join(" ")}`);
+    const [l, r] = JSON.parse([...sides][0]) as [string | null, string | null];
+    const ok = (s.rooms[0] === l && s.rooms[1] === r) || (s.rooms[0] === r && s.rooms[1] === l);
+    assert.ok(ok, `${s.wallId} ${s.a}→${s.b}: rooms ${JSON.stringify(s.rooms)} but sides are ${l} / ${r}`);
+  }
+  // the examples that used to be mislabelled by the midpoint room
+  const north = segs.filter((s) => s.wallId === "north" && s.y0 < 0 && s.y1 > 2.9).map((s) => s.rooms[1]);
+  for (const r of ["bath", "utility", "kitchen", "foyer"]) assert.ok(north.includes(r as RoomId), `north wall bounds ${r}`);
+  const west = segs.filter((s) => s.wallId === "west").map((s) => s.rooms[1]);
+  for (const r of ["master", "hallW", "bath"]) assert.ok(west.includes(r as RoomId), `west wall bounds ${r}`);
 });
 
 test("rooms of the plan all resolve", () => {

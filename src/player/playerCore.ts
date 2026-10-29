@@ -135,11 +135,16 @@ export class PlayerCore implements PlayerSystem {
   private readonly prevFoot = new Vector3();
   private hasPrevFoot = false;
   /**
-   * Render interpolation: mirror of the game loop's fixed-step accumulator (simulation seconds).
-   * Each fixed step subtracts FIXED_DT, each frame adds its scaled dt; the remainder after a frame's
-   * steps is the time elapsed since the last step (0..FIXED_DT).
+   * Render interpolation: simulation seconds since the last fixed step (0..FIXED_DT), i.e. the game
+   * clock's fixed-step accumulator after this frame's steps. Read from the clock when it exposes it
+   * (see clockRemainder); otherwise mirrored here: each fixed step subtracts FIXED_DT, each frame
+   * adds its dt·scale.
    */
   private sinceFixed = 0;
+  /** Fixed steps run since the last update() (simulated time of this frame). */
+  private stepsThisFrame = 0;
+  /** Clock accumulator seen by the previous update(), -1 = none yet. */
+  private clockAccPrev = -1;
   /** Stride phase at the previous / last fixed step (head-bob interpolation). */
   private phasePrev = 0;
   private phaseCur = 0;
@@ -268,6 +273,7 @@ export class PlayerCore implements PlayerSystem {
     this.jumpBufferT = this.coyoteT = this.jumpLockT = 0;
     this.hasPrevFoot = false;
     this.sinceFixed = 0;
+    this.clockAccPrev = -1;
     this.phasePrev = this.phaseCur = this.footsteps.phase;
     this.syncFoot();
     this.updateEye(0);
@@ -276,6 +282,7 @@ export class PlayerCore implements PlayerSystem {
   fixedUpdate(dt: number): void {
     if (!(dt > 0)) return;
     this.sinceFixed -= FIXED_DT;
+    this.stepsThisFrame++;
     this.phasePrev = this.phaseCur;
     const input = this.ctx.input;
     const holdingBefore = this.interaction.held !== null;
@@ -312,9 +319,8 @@ export class PlayerCore implements PlayerSystem {
     else this.airMove(v, dt);
     // jump (buffered, with coyote time)
     if (this.jumpBufferT > 0 && (supported || this.coyoteT > 0) && !sliding) {
-      const vj = Math.sqrt(2 * PLAYER.gravity * PLAYER.jumpHeight);
       const sv = supported ? Math.max(0, this.surface.averageSurfaceVelocity.y) : 0;
-      v.y = vj + sv;
+      v.y = JUMP_SPEED + sv;
       this.jumpBufferT = 0;
       this.coyoteT = 0;
       this.jumpLockT = 0.12;
@@ -387,10 +393,21 @@ export class PlayerCore implements PlayerSystem {
 
   update(dt: number): void {
     const rawDt = Number.isFinite(dt) ? Math.max(0, dt) : 0;
-    // Simulation-time dt for the camera springs (pause / hit-stop slow them down with the physics);
-    // mouse look stays on real time.
-    const scale = this.ctx.time ? Math.max(0, Number.isFinite(this.ctx.time.scale) ? this.ctx.time.scale : 1) : 1;
-    const simDt = rawDt * scale;
+    // Simulation time of this frame for the camera springs (pause, slow-mo and hit-stop slow them
+    // down with the physics) and the interpolation factor; mouse look stays on real time.
+    // Exact from the clock's accumulator when readable: simulated = steps·FIXED_DT + Δaccumulator.
+    const acc = this.clockRemainder();
+    let simDt: number;
+    if (acc !== null) {
+      simDt = this.clockAccPrev >= 0 ? this.stepsThisFrame * FIXED_DT + acc - this.clockAccPrev : rawDt * this.timeScale();
+      this.clockAccPrev = acc;
+      this.sinceFixed = acc;
+    } else {
+      simDt = rawDt * this.timeScale();
+      this.sinceFixed += simDt;
+    }
+    simDt = Math.min(0.25, Math.max(0, simDt));
+    this.stepsThisFrame = 0;
     this.stepsSinceFrame = 0;
     const rotating = this.interaction.held !== null && this.ctx.input.down("rotate");
     this.applyLook(rotating);
@@ -400,7 +417,7 @@ export class PlayerCore implements PlayerSystem {
     // Render interpolation: the gameplay eye moves once per fixed step; the rendered camera blends
     // between the last two fixed-step eyes by the frame time since the last step (≤ 1 step of lag,
     // no judder at any refresh rate). The bob phase is interpolated the same way.
-    this.sinceFixed = Math.min(FIXED_DT, Math.max(0, this.sinceFixed + simDt));
+    this.sinceFixed = Math.min(FIXED_DT, Math.max(0, this.sinceFixed));
     const alpha = this.sinceFixed / FIXED_DT;
     const ci = this.camIn;
     ci.footX = this.foot.x;
@@ -430,7 +447,8 @@ export class PlayerCore implements PlayerSystem {
         t?.debugSwing(clamp01(power ?? 1), this.tc);
         break;
       case "kick":
-        if (!this.interaction.held || !this.interaction.slam()) t?.kick(this.tc);
+        if (this.interaction.canSlam) this.interaction.slam();
+        else t?.kick(this.tc);
         break;
       case "stomp":
         t?.stomp(this.tc);
@@ -456,6 +474,27 @@ export class PlayerCore implements PlayerSystem {
     this.cc.dispose();
     this.standShape.dispose();
     this.crouchShape.dispose();
+  }
+
+  /** Game clock time scale (0 = paused), sanitized. */
+  private timeScale(): number {
+    const s = this.ctx.time?.scale;
+    return typeof s === "number" && Number.isFinite(s) ? Math.max(0, s) : 1;
+  }
+
+  /**
+   * Simulation seconds the game clock has accumulated towards its next fixed step, after this
+   * frame's steps — exact render interpolation that also covers hit-stop (which slows the clock
+   * without touching Time.scale) and the clock's spiral-of-death reset. Uses a public `alpha`
+   * (0..1) if Time provides one, else Time's accumulator field. Only trusted while the clock is
+   * driven by beginFrame (frameDt > 0); null → update() mirrors the accumulator from dt·scale.
+   */
+  private clockRemainder(): number | null {
+    const t = this.ctx.time as unknown as { alpha?: unknown; acc?: unknown; frameDt?: unknown } | undefined;
+    if (!t || !(typeof t.frameDt === "number" && t.frameDt > 0)) return null;
+    if (typeof t.alpha === "number" && Number.isFinite(t.alpha)) return Math.min(1, Math.max(0, t.alpha)) * FIXED_DT;
+    if (typeof t.acc === "number" && Number.isFinite(t.acc)) return Math.min(FIXED_DT, Math.max(0, t.acc));
+    return null;
   }
 
   // ------------------------------------------------------------------ movement
@@ -805,8 +844,12 @@ export class PlayerCore implements PlayerSystem {
         else it.drop("fire");
       }
       if (it.held && input.released("fire") && it.isCharging) it.throwHeld(this.view);
-      // F: slam a free held object; while pulling a door / anchored thing, kick instead
-      if (input.pressed("kick") && !it.slam()) tools?.kick(this.tc);
+      // F: slam a free held object (ignored during the slam cooldown); while pulling a door /
+      // anchored thing it kicks instead, so the press is never lost
+      if (input.pressed("kick")) {
+        if (it.canSlam) it.slam();
+        else tools?.kick(this.tc);
+      }
       if (input.pressed("drop")) it.drop("key");
       if (wheel !== 0) it.addWheel(wheel);
       this.wheelAcc = 0;

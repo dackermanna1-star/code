@@ -154,7 +154,7 @@ export function buildFlowerVase(o: { tint?: number; seed?: number } = {}): Assem
 
 /** Standing photo frame with an easel strut (0.16 × 0.21 m). */
 export function buildPhotoFrame(o: { w?: number; h?: number; tint?: number; surf?: SurfaceName; seed?: number } = {}): AssemblyDef {
-  const b = new Builder("photoFrame", "Photo Frame", "decor", 20, o.seed);
+  const b = new Builder("easelPhotoFrame", "Photo Frame", "decor", 20, o.seed);
   const w = o.w ?? 0.16,
     h = o.h ?? 0.21,
     depth = 0.012;
@@ -253,7 +253,7 @@ export function buildDinnerPlate(o: { tint?: number; seed?: number } = {}): Asse
 
 /** Stemmed wine glass (annealed glass: bowl tiles fused onto a pulled stem and a foot). */
 export function buildWineGlass(o: { seed?: number } = {}): AssemblyDef {
-  const b = new Builder("wineGlass", "Wine Glass", "kitchenware", 9, o.seed);
+  const b = new Builder("stemWineGlass", "Wine Glass", "kitchenware", 9, o.seed);
   const footT = 0.003,
     stemH = 0.085;
   const foot = b.cyl("foot", "glass", "glass", 0.034, footT, [0, footT / 2, 0], { segments: 12, capSurf: "glass" });

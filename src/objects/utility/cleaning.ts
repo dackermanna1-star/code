@@ -6,7 +6,7 @@
 // of the wall, X along it.
 
 import { hingeAxis } from "../lib/kit.ts";
-import { boxR, bondOverlapping, bondTouching, finish, mk, panelBox, tubeKgPerM, CHROME, type BaseOpts } from "./helpers.ts";
+import { boxR, bondOverlapping, bondTouching, finish, mk, panelBox, tubeKgPerM, type BaseOpts } from "./helpers.ts";
 import type { V3 } from "../lib/builder.ts";
 import type { AssemblyDef } from "../../destruction/model/types.ts";
 
@@ -151,7 +151,6 @@ export function buildVacuumCleaner(o: BaseOpts & { tint?: number } = {}): Assemb
   // the body reclines on its pivot; an upright lock holds it until knocked
   const ax = hingeAxis([0, 1, 0], [0, 0, 1]);
   b.hinge(housing.bottom!, head, { pivots: [[-0.1, yB, -0.06], [0.1, yB, -0.06]], axis: [ax.x, ax.y, ax.z], min: 0, max: 60, strength: 60, friction: 0.2, latch: 6 });
-  void CHROME;
   return finish(b, o);
 }
 

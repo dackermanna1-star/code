@@ -1,11 +1,11 @@
-// Doors (one assembly per opening, frame + leaf): interior hollow-core doors (HDF skins on a
-// pine stile/rail frame with lock blocks and a cardboard honeycomb core, lever handles through
-// a latch) on 3 hinges with a latch, in painted pine jambs with stops and MDF casings; the front
-// door is solid core (walnut-veneered HDF skins, hardwood stiles/rails, laminated pine staves),
-// 3 heavy hinges, a deadbolt (strong latch), peephole, oak threshold. Interior doors are built
-// into their partition's assembly (frames nailed to the jack studs / header); the front door is
-// its own assembly, anchored into the concrete reveal (world bonds). Leaves hang on hinge
-// joints. PURE.
+// Doors (frame + leaf): interior hollow-core doors (the kit's hollow-core panel: HDF skins on a
+// pine stile/rail frame with a lock block and honeycomb core, levers, latch) on 3 hinges, in
+// painted pine jambs with stops and MDF casings, built INTO their partition's assembly (jambs
+// nailed through shim packs to the jack studs and header, casings nailed to the drywall), so
+// wrecking the wall really frees the frame. The front door is its own assembly: solid core
+// (walnut-veneered HDF skins, hardwood stiles/rails, laminated pine staves), 3 heavy hinges, a
+// deadbolt (strong latch), peephole, oak threshold, anchored into the concrete reveal (world
+// bonds; the concrete around it is far tougher than the frame). Leaves hang on hinge joints. PURE.
 
 import type { AssemblyDef } from "../../destruction/model/types.ts";
 import type { Builder } from "../../objects/lib/builder.ts";
@@ -14,7 +14,7 @@ import type { SurfaceName } from "../../render/surfaces.ts";
 import { CASING_REVEAL, CASING_T, CASING_W, DOOR_T, FRONT_DOOR_T, FRONT_JAMB_T, HANDLE_Y, JAMB_T, SHIM } from "./levels.ts";
 import type { ConcreteRun, PartitionRun, RunOpening } from "./layout.ts";
 import { Fixings, PAL, bondAt, boxR, mid, newBuilder, trimFaces, worldAt, type Interval, type V3 } from "./common.ts";
-import { clearOpening } from "./openings.ts";
+import { JAMB_FIX_Y, SHIM_DEPTH, SHIM_LEN, clearOpening, shimFix } from "./openings.ts";
 import { hingeGroup } from "./joints.ts";
 import { hingedDoorPanel } from "../../objects/lib/kit.ts";
 import { inFrame } from "./concrete.ts";
@@ -263,9 +263,9 @@ function addCasings(
   bondAt(b, ch, cl, "glue", 10, [c0 - CASING_REVEAL - CASING_W / 2, yTop, mid(wc[0], wc[1])]);
   bondAt(b, ch, cr, "glue", 10, [c1 + CASING_REVEAL + CASING_W / 2, yTop, mid(wc[0], wc[1])]);
   if (behind) {
-    // finish nails through the drywall into the jack/king studs and the header
+    // finish nails + construction adhesive into the drywall face (sheets screwed to the jacks/kings)
     for (const [n, u0, u1, y0, y1] of boxes) {
-      for (const h of behind(u0, u1, y0, y1)) bondAt(b, n, h.name, "nail", 20, [mid(h.u[0], h.u[1]), mid(h.y[0], h.y[1]), wf]);
+      for (const h of behind(side, u0, u1, y0, y1)) bondAt(b, n, h.name, "nail", 20, [mid(h.u[0], h.u[1]), mid(h.y[0], h.y[1]), wf]);
     }
   } else {
     // finish nails into plugs in the concrete
@@ -282,8 +282,12 @@ export interface DoorFraming {
   jackL: string;
   jackR: string;
   header: string;
-  /** Framing members behind the casings (casing finish nails), from the partition's box index. */
-  behind: (u0: number, u1: number, y0: number, y1: number) => Array<{ name: string; u: Interval; y: Interval }>;
+  /**
+   * Wall finish (drywall sheets) under a casing on face `side` (full names + overlap rectangle),
+   * which the casing's finish nails and adhesive bite into (the nails continue into the jacks,
+   * but a fastener bond must join touching parts; the sheets are screwed to that framing).
+   */
+  behind: (side: number, u0: number, u1: number, y0: number, y1: number) => Array<{ name: string; u: Interval; y: Interval }>;
 }
 
 /**
@@ -312,16 +316,16 @@ export function addInteriorDoor(b: Builder, run: PartitionRun, o: RunOpening, fr
     boxR(b, jH, "softwood", "wood_painted", [c0, c1], [top, o.head - SHIM], full, { ...trim, grain: "x" });
     bondAt(b, jH, jL, "nail", 40, [c0, mid(top, o.head - SHIM), 0]);
     bondAt(b, jH, jR, "nail", 40, [c1, mid(top, o.head - SHIM), 0]);
-    // fixed through the shims into the jack studs: finish nails low, a trim-head screw high
-    // (two separate fixings so each end of the jamb can pull out on its own), head to header
-    for (const [j, jack, u] of [
-      [jL, framing.jackL, o.r0],
-      [jR, framing.jackR, o.r1],
-    ] as Array<[string, string, number]>) {
-      bondAt(b, j, jack, "nail", 90, [u, 0.55, 0]);
-      bondAt(b, j, jack, "screw", 90, [u, 1.55, 0]);
-    }
-    bondAt(b, jH, framing.header, "nail", 60, [mid(o.r0, o.r1), o.head - SHIM, 0]);
+    // nailed through shim packs into the jack studs at three heights per side (each fixing its
+    // own shim, so each can pull out on its own) and through one into the header
+    const sd: Interval = [-SHIM_DEPTH / 2, SHIM_DEPTH / 2];
+    JAMB_FIX_Y.forEach((y, k) => {
+      const yr: Interval = [y - SHIM_LEN / 2, y + SHIM_LEN / 2];
+      shimFix(b, `shimL${k}`, jL, framing.jackL, [o.r0, o.r0 + SHIM], yr, sd, "nail", 60);
+      shimFix(b, `shimR${k}`, jR, framing.jackR, [o.r1 - SHIM, o.r1], yr, sd, "nail", 60);
+    });
+    const hm = mid(o.r0, o.r1);
+    shimFix(b, "shimHead", jH, framing.header, [hm - SHIM_LEN / 2, hm + SHIM_LEN / 2], [o.head - SHIM, o.head], sd, "nail", 60);
 
     const wS = sw * (T / 2 - 0.005);
     const wB = wS - sw * DOOR_T;

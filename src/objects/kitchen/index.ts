@@ -66,6 +66,7 @@ export const KITCHEN_OBJECTS: Record<string, (opts?: any) => AssemblyDef> = {
   spiceJar: buildSpiceJar,
   wineBottle: (o?: { seed?: number; kind?: "wine" | "whiteWine" }) => buildBottle({ kind: o?.kind ?? "wine", seed: o?.seed }),
   oilBottle: (o?: { seed?: number }) => buildBottle({ kind: "oil", seed: o?.seed }),
+  beerBottle: (o?: { seed?: number }) => buildBottle({ kind: "beer", seed: o?.seed }),
   cerealBox: buildCerealBox,
   can: buildCan,
   skillet: buildSkillet,

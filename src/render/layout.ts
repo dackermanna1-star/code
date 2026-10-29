@@ -9,6 +9,7 @@
 //   color  = linear rgb tint (surface tint × face tint), a = 1 opaque / glass opacity
 
 import type { SurfaceDef } from "./surfaces.ts";
+import { isPrintedSurface } from "./printed.ts";
 
 /** Floats per vertex in batched island buffers: pos3 nrm3 uv2 color4 surf4. */
 export const WORLD_STRIDE = 16;
@@ -31,7 +32,7 @@ export const SRGB_TO_LINEAR: Float32Array = (() => {
 })();
 
 /** Floats per surface row in the packed surface table. */
-export const SURFACE_ROW = 10;
+export const SURFACE_ROW = 11;
 
 const clamp = (x: number, lo: number, hi: number): number => (x < lo ? lo : x > hi ? hi : x);
 
@@ -58,7 +59,8 @@ export function unpackRoughMetal(z: number): { roughness: number; metallic: numb
 
 /**
  * One surface table row: [albedoLayer, normalLayer, packedRM, emissive(signed), 1/worldSize,
- * tintR, tintG, tintB (linear), alpha, transparent(0|1)].
+ * tintR, tintG, tintB (linear), alpha, transparent(0|1), printed(0|1)] — printed = one whole
+ * picture per tile (see printed.ts), fitted per face by the batcher.
  */
 export function packSurfaceRow(s: SurfaceDef, albedoLayer: number, normalLayer: number, out: Float32Array | number[], o = 0): void {
   const rough = clamp(s.roughness, 0, 1);
@@ -73,6 +75,7 @@ export function packSurfaceRow(s: SurfaceDef, albedoLayer: number, normalLayer: 
   out[o + 7] = SRGB_TO_LINEAR[s.tint & 255];
   out[o + 8] = s.transparent ? glassOpacity(s.tint, rough) : 1;
   out[o + 9] = s.transparent ? 1 : 0;
+  out[o + 10] = isPrintedSurface(s) ? 1 : 0;
 }
 
 /** Effective emissive multiplier the shader applies for surf.w given the mains power (0..1). */

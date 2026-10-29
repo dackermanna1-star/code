@@ -11,6 +11,11 @@
 //   feature   → sparks, bulb pops (glass + sparks), smoking electronics, water splashes
 //   land / footstep → tiny dust on dusty floors, debris pushed around by feet
 //   split     → a puff of dust where something tore loose
+// Decal supports are re-checked (sink.revalidate) after fractures, splits, grab/throw/drop and
+// heavy impacts / tool hits, so marks, puddles and dust patches never float after the table or
+// wall under them broke or was pushed away. A held object is tracked from its grab: its grab
+// spot is re-checked every HOLD_RECHECK_EVERY seconds while it is held (slow drags of heavy
+// furniture) and once more on release, wherever the object ends up.
 // Rate limits keep pathological event storms (hundreds of impacts per frame) cheap.
 
 import type { VfxKind } from "../core/context.ts";
@@ -124,6 +129,13 @@ export const MAT_FX: Readonly<Record<MaterialId, MatFx>> = (() => {
 })();
 
 const UP: Vec3 = { x: 0, y: 1, z: 0 };
+/** Support re-check cadence around the grab spot while the player holds something (s). */
+export const HOLD_RECHECK_EVERY = 0.5;
+/**
+ * Stop the periodic hold re-checks after this long even without a drop/throw event: the player
+ * module ends some holds silently (held body broke apart, teleport/reset, joint failure).
+ */
+export const HOLD_RECHECK_MAX = 60;
 const STEEL_TOOLS = new Set(["hammer", "sledgehammer", "crowbar", "axe", "extinguisher"]);
 
 const clamp = (v: number, lo: number, hi: number) => (v < lo ? lo : v > hi ? hi : v);
@@ -139,6 +151,16 @@ export function fractureIntensity(ev: Pick<FractureEv, "volume" | "energy">): nu
   const v = Number.isFinite(ev.volume) ? Math.max(0, ev.volume) : 0;
   const e = Number.isFinite(ev.energy) ? Math.max(0, ev.energy) : 0;
   return clamp(Math.sqrt(v / 2e-4) + 0.2 * Math.log10(1 + e), 0.25, 8);
+}
+
+/**
+ * How far around a grab point (m) a moved object's former supports are re-checked. The grab
+ * point can be anywhere on the object (one end of a sofa), so heavier — bigger — things reach
+ * further: 1.2 m for hand-sized items, ~2 m for 45–60 kg furniture, capped at 2.2 m.
+ */
+export function holdRadius(mass: number | undefined): number {
+  const m = typeof mass === "number" && Number.isFinite(mass) ? Math.max(0, mass) : 0;
+  return clamp(0.9 + 0.3 * Math.cbrt(m), 1.2, 2.2);
 }
 
 /** Simple token bucket per channel. */
@@ -164,6 +186,11 @@ class Limiter {
 export class Reactions {
   private readonly sink: ReactionSink;
   private readonly recentHits: Array<{ t: number; x: number; y: number; z: number }> = [];
+  /**
+   * What the player holds (one object at a time): the grab spot, its re-check radius, the time of
+   * the next periodic re-check and when to give up without a release event.
+   */
+  private held: { x: number; y: number; z: number; r: number; next: number; until: number } | null = null;
   private readonly lim = {
     impact: new Limiter(40, 12),
     sparks: new Limiter(20, 8),
@@ -194,9 +221,9 @@ export class Reactions {
       events.on("split", (e) => this.split(e)),
       events.on("strain", (e) => this.strain(e)),
       // debris resting on something the player picks up / throws / drops must re-check its support
-      events.on("grab", (e) => this.moved(e.pos)),
-      events.on("throw", (e) => this.moved(e.pos)),
-      events.on("drop", (e) => this.moved(e.pos)),
+      events.on("grab", (e) => this.grab(e)),
+      events.on("throw", (e) => this.release(e.pos, e.mass)),
+      events.on("drop", (e) => this.release(e.pos)),
     ];
     return () => offs.forEach((f) => f());
   }
@@ -264,7 +291,11 @@ export class Reactions {
       const p = clamp((ev.speed - 5) / 6, 0.15, 0.9);
       if (s.random() < p && this.lim.sparks.take(now)) s.burst("sparks", ev.pos, n, clamp(0.4 + ev.energy / 150, 0.4, 2.5));
     }
-    if (ev.energy > 30) this.kick(ev.pos, clamp(0.25 + 0.15 * Math.sqrt(ev.energy / 30), 0.25, 1.2), clamp(0.6 + 0.25 * Math.sqrt(ev.energy / 30), 0.6, 3));
+    if (ev.energy > 30) {
+      this.kick(ev.pos, clamp(0.25 + 0.15 * Math.sqrt(ev.energy / 30), 0.25, 1.2), clamp(0.6 + 0.25 * Math.sqrt(ev.energy / 30), 0.6, 3));
+      // a heavy hit can shove a table/counter out from under its puddle or dust patch
+      s.revalidate(ev.pos, clamp(0.6 + 0.2 * Math.sqrt(ev.energy / 30), 0.6, 1.5), 0);
+    }
   }
 
   chip(ev: GameEvents["chip"]): void {
@@ -355,6 +386,8 @@ export class Reactions {
     if (m.dust) s.burst(m.dust, ev.pos, n, I * 0.6, { tint: m.dustTint });
     if (m.chips && m.chips !== m.dust && E > 10) s.burst(m.chips, ev.pos, n, I * 0.45, { tint: m.chipTint });
     this.kick(ev.pos, clamp(0.2 + E / 600, 0.2, 0.8), clamp(0.5 + E / 150, 0.5, 2.5));
+    // kicks / swings push furniture around without a grab: re-check decal supports nearby
+    if (E > 40) s.revalidate(ev.pos, clamp(0.6 + E / 400, 0.6, 1.5), 0);
   }
 
   feature(ev: GameEvents["feature"]): void {
@@ -428,10 +461,66 @@ export class Reactions {
   }
 
   /** Something was moved by the player near `pos`: settled debris there may have lost its support. */
-  moved(pos: Vec3): void {
+  moved(pos: Vec3, radius = 1.2): void {
     if (!fin(pos)) return;
-    this.sink.disturb(pos, 1.2);
-    this.sink.revalidate(pos, 1.2, 0);
+    const r = Number.isFinite(radius) && radius > 0 ? radius : 1.2;
+    this.sink.disturb(pos, r);
+    this.sink.revalidate(pos, r, 0);
+  }
+
+  /**
+   * The player picked something up at `ev.pos`. Its spot is re-checked now, periodically while it
+   * is held (see update) and again on release: a heavy object can only be dragged, and a slow drag
+   * keeps decals supported well past the deferred checks of the grab itself.
+   */
+  grab(ev: GameEvents["grab"]): void {
+    if (!fin(ev.pos)) return;
+    // one object at a time: a hold that ended without a release event gets its final check now
+    this.endHold();
+    const r = holdRadius(ev.mass);
+    this.moved(ev.pos, r);
+    const now = this.sink.now();
+    this.held = { x: ev.pos.x, y: ev.pos.y, z: ev.pos.z, r, next: now + HOLD_RECHECK_EVERY, until: now + HOLD_RECHECK_MAX };
+  }
+
+  /**
+   * The held object was dropped or thrown; `pos` = its grab point at release (it moved with the
+   * object). Both the release spot and the original grab spot are re-checked.
+   */
+  release(pos: Vec3, mass?: number): void {
+    const r = mass !== undefined ? holdRadius(mass) : (this.held?.r ?? 1.2);
+    this.endHold();
+    this.moved(pos, r);
+  }
+
+  /**
+   * Per-frame upkeep (call once per frame after the sink clock advanced): periodic support
+   * re-checks around the grab spot while something is held.
+   */
+  update(): void {
+    const h = this.held;
+    if (!h) return;
+    const now = this.sink.now();
+    if (!(now >= h.next)) return;
+    if (now >= h.until) {
+      this.endHold();
+      return;
+    }
+    h.next = now + HOLD_RECHECK_EVERY;
+    this.moved(h, h.r);
+  }
+
+  /** Whether a grab is being tracked (tests/debug). */
+  get holding(): boolean {
+    return this.held !== null;
+  }
+
+  /** Forget the current hold after a last re-check of its grab spot. */
+  private endHold(): void {
+    const h = this.held;
+    if (!h) return;
+    this.held = null;
+    this.moved(h, h.r);
   }
 
   private nearRecentHit(p: Vec3, now: number): boolean {

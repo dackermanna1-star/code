@@ -3,7 +3,7 @@
 import { Settings } from "../../src/core/settings.ts";
 import { Lighting } from "../../src/render/lighting.ts";
 import { Atmosphere } from "../../src/render/atmosphere.ts";
-import { makeEngine, makeCamera, frames, look, shot } from "./render-env-util.ts";
+import { makeEngine, makeCamera, frames, look, shot, whenReady } from "./render-env-util.ts";
 
 async function centreLum(scene: import("@babylonjs/core").Scene): Promise<number> {
   const e = scene.getEngine();
@@ -27,7 +27,7 @@ export async function probe(): Promise<unknown> {
   const lighting = new Lighting(scene, settings);
   const atm = new Atmosphere(scene, lighting, { density: 0.6 });
   atm.build();
-  await scene.whenReadyAsync();
+  await whenReady(scene);
   const out: Record<string, unknown> = { shafts: atm.shafts.map((s) => s.id) };
   const shots: Record<string, string> = {};
   look(cam, [8.6, 1.6, 4.2], [5.6, 1.0, -1.0]);

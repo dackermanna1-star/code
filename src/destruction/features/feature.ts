@@ -42,6 +42,8 @@ export interface PartFeature {
   /** Host fractured; `fragments` are the live non-micro fragment parts (remain + loose). */
   onFracture?(old: Part, fragments: Part[], ev: FractureInfo): void;
   onBondBroken?(bond: Bond, part: Part): void;
+  /** Some bond of the feature's assembly broke (connectivity checks: hard-wired fixtures). */
+  onAsmBondBroken?(bond: Bond): void;
   /** Host part now belongs to another island (split / restore). */
   onIslandChanged?(part: Part, island: Island): void;
   /** Host part removed without fragments (fell out / despawn / all micro). */

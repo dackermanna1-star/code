@@ -43,8 +43,11 @@ interface DebrisCell {
 export interface DebrisDeps {
   /** Island hosts features that must keep their own meshes (screens, lights...). */
   hasFeatures(island: Island): boolean;
-  /** Island is about to be removed for falling out of the world. */
-  fellOut(island: Island): void;
+  /**
+   * Remove an island that fell out of the world (`emit` = announce it with a `fellOut` event)
+   * or whose body state became non-finite (removed silently: there is no meaningful position).
+   */
+  fellOut(island: Island, emit: boolean): void;
 }
 
 interface SyncPlugin {
@@ -130,11 +133,11 @@ export class DebrisSystem {
     if (!Number.isFinite(c.x) || !Number.isFinite(c.y) || !Number.isFinite(c.z)) {
       // a body whose state became non-finite can only poison the simulation: drop it
       w.warnOnce(`nan:${isl.asm.type}`, `${isl.asm.type}: island ${isl.id} has a non-finite pose; removed`);
-      this.deps.fellOut(isl);
+      this.deps.fellOut(isl, false);
       return;
     }
     if (c.y < FELL_OUT_Y) {
-      this.deps.fellOut(isl);
+      this.deps.fellOut(isl, true);
       return;
     }
     const awake = w.physics.isAwake(isl.body);

@@ -5,7 +5,7 @@
 // built in their LYING pose (as they rest in the toolbox / on a shelf).
 
 import { hingeAxis } from "../lib/kit.ts";
-import { boxR, bondTouching, finish, mk, panelBox, roundedPrismPoints, roundedRectOutline, CHROME, type BaseOpts } from "./helpers.ts";
+import { boxR, bondTouching, finish, mk, panelBox, roundedPrismPoints, roundedRectOutline, type BaseOpts } from "./helpers.ts";
 import type { V3 } from "../lib/builder.ts";
 import type { AssemblyDef } from "../../destruction/model/types.ts";
 
@@ -374,6 +374,5 @@ export function buildPliers(o: BaseOpts = {}): AssemblyDef {
   // the lower half stands on a thin washer so both halves rest on y = 0
   const pad = boxR(b, "pad", "rubber", "rubber", [-0.11, -0.04], [0, th], [-0.03, -0.024], { tint: 0x2a5ad8, mass: 0.004 });
   b.glue(pad, `grip_b`, 4);
-  void CHROME;
   return finish(b, o);
 }

@@ -1,7 +1,7 @@
 // Shared helpers for the structure unit tests: world-space AABBs, SAT overlap depth between
 // convex parts, ray casts against convex parts, point containment. PURE (Node).
 
-import type { AssemblyDef, PartDef } from "../../src/destruction/model/types.ts";
+import { JOINT_KINDS, type AssemblyDef, type BondDef, type PartDef } from "../../src/destruction/model/types.ts";
 import type { ConvexPoly } from "../../src/geom/poly.ts";
 
 export interface PartRef {
@@ -162,4 +162,57 @@ export class PartGrid {
         }
     return out.sort((a, b) => a.t - b.t);
   }
+}
+
+/** Rigid islands of an assembly (union of non-joint, non-world bonds): part name → island root. */
+export function rigidIslands(d: AssemblyDef): Map<string, number> {
+  const idx = new Map(d.parts.map((p, i) => [p.name, i]));
+  const parent = d.parts.map((_, i) => i);
+  const find = (i: number): number => (parent[i] === i ? i : (parent[i] = find(parent[i])));
+  for (const b of d.bonds) {
+    if (b.b === "world" || JOINT_KINDS.has(b.kind) || b.kind === "latch") continue;
+    parent[find(idx.get(b.a)!)] = find(idx.get(b.b)!);
+  }
+  return new Map(d.parts.map((p, i) => [p.name, find(i)]));
+}
+
+/**
+ * A moving unit hung on a joint group (door leaf, casement sash, sliding panel): the group's
+ * joint bonds, its latch, the parts of the moving island and of the fixed island.
+ */
+export interface JointUnit {
+  asm: AssemblyDef;
+  group: string;
+  joints: BondDef[];
+  latch: BondDef | undefined;
+  moving: PartDef[];
+  fixed: PartDef[];
+  /** `opening:<id>` tag of the moving parts (doors/windows), if any. */
+  opening: string | undefined;
+}
+
+export function jointUnits(defs: AssemblyDef[]): JointUnit[] {
+  const out: JointUnit[] = [];
+  for (const asm of defs) {
+    const groups = new Map<string, BondDef[]>();
+    for (const b of asm.bonds) if (JOINT_KINDS.has(b.kind)) (groups.get(b.joint!.group!) ?? groups.set(b.joint!.group!, []).get(b.joint!.group!)!).push(b);
+    if (!groups.size) continue;
+    const isl = rigidIslands(asm);
+    for (const [group, joints] of groups) {
+      const mi = isl.get(joints[0].a)!,
+        fi = joints[0].b === "world" ? -1 : isl.get(joints[0].b)!;
+      const moving = asm.parts.filter((p) => isl.get(p.name) === mi);
+      const tag = moving.flatMap((p) => p.tags ?? []).find((t) => t.startsWith("opening:"));
+      out.push({
+        asm,
+        group,
+        joints,
+        latch: asm.bonds.find((b) => b.kind === "latch" && b.joint?.group === group),
+        moving,
+        fixed: asm.parts.filter((p) => isl.get(p.name) === fi),
+        opening: tag?.slice(8),
+      });
+    }
+  }
+  return out;
 }

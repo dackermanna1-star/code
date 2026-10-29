@@ -21,7 +21,7 @@ import {
   type WallTileZone,
 } from "./levels.ts";
 import type { WallFrame } from "./layout.ts";
-import { BoxIndex, PAL, bondAt, boxR, fasteners, frontFace, mid, type Interval, type V3 } from "./common.ts";
+import { BoxIndex, PAL, bondAt, boxR, fasteners, frontFace, mid, trimFaces, type Interval, type V3 } from "./common.ts";
 import { clipToUnion, intervalsSubtract, splitEven, type Rect2 } from "./rects.ts";
 import type { ElecPoint } from "./services.ts";
 
@@ -179,26 +179,29 @@ export function addBaseboardPiece(ctx: FaceCtx, a: number, c: number, w0: number
   const name = `${ctx.prefix}base_${Math.round(a * 1000)}`;
   const wl = Math.min(w0, w1),
     wh = Math.max(w0, w1);
+  // painted on every exposed face (front, top, cut ends); raw MDF only on the back
   boxR(b, name, "mdf", "mdf", [a, c], [0, BASEBOARD_H], [wl, wh], {
-    faces: { ...frontFace(side, "wood_painted", PAL.trimWhite), py: { surf: "wood_painted", tint: PAL.trimWhite } },
+    faces: trimFaces(side),
     tags: ["baseboard"],
     grain: "x",
     uvOffset: [0, 0],
   });
   idx.add({ name, u0: a, u1: c, y0: 0, y1: BASEBOARD_H, w0: wl, w1: wh, role: "baseboard" });
-  // nailed through the finish into framing (studs / plates) or concrete cells; glued to sheets
+  // finish nails through the wall finish into the framing (studs / plates) or concrete behind:
+  // a fastener bond must join touching parts, so each nail group is a bond to the finish piece
+  // the board sits on, as strong as the nails that reach framing behind that piece (the finish is
+  // itself screwed / glued to that framing); plus a bead of adhesive on every piece
+  const wBack = side > 0 ? wl : wh;
   let bonded = 0;
-  for (const h of idx.overlapping(a, c, 0, BASEBOARD_H, ctx.fixRoles, 0.003)) {
-    const at: V3 = [mid(h.ou[0], h.ou[1]), mid(h.oy[0], h.oy[1]), wl];
-    bondAt(b, name, h.box.name, "nail", h.box.role === "cell" ? 15 : 25 * fasteners(h.ou[1] - h.ou[0], 0.4), at);
+  for (const s of idx.overlapping(a, c, 0, BASEBOARD_H, ctx.substrateRoles, 0.003)) {
+    let nails = 0;
+    for (const h of idx.overlapping(s.ou[0], s.ou[1], 0, BASEBOARD_H, ctx.fixRoles, 0.003)) nails += h.box.role === "cell" ? 15 : 25 * fasteners(h.ou[1] - h.ou[0], 0.4);
+    const at: V3 = [mid(s.ou[0], s.ou[1]), BASEBOARD_H / 2, wBack];
+    if (nails > 0) bondAt(b, name, s.box.name, "nail", nails, at);
+    bondAt(b, name, s.box.name, "glue", 12, at);
     bonded++;
   }
-  for (const h of idx.overlapping(a, c, 0, BASEBOARD_H, ctx.substrateRoles, 0.003)) {
-    if (bonded > 0 && h.box.role !== "finish") continue;
-    bondAt(b, name, h.box.name, "glue", 12, [mid(h.ou[0], h.ou[1]), BASEBOARD_H / 2, wl]);
-    bonded++;
-  }
-  if (bonded === 0) b.world(name, "nail", 20, [mid(a, c), BASEBOARD_H / 2, wl]);
+  if (bonded === 0) b.world(name, "nail", 20, [mid(a, c), BASEBOARD_H / 2, wBack]);
   return name;
 }
 

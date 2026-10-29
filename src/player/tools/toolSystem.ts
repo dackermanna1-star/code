@@ -56,8 +56,12 @@ import {
   smoothstep01,
   v3,
   AIM_SLACK,
+  aimVariants,
+  makeAimVariant,
+  MAX_AIM_VARIANTS,
   type V3,
   type StrikeAim,
+  type AimVariant,
 } from "./swing.ts";
 import { LegAction, type LegKind } from "./legs.ts";
 import { Viewmodel, type ViewState } from "./viewmodel.ts";
@@ -84,6 +88,19 @@ const FLOOR_MASK = Layer.STATIC | Layer.DYNAMIC;
 /** Swing sweeps are split into sub-steps of at most this head path length (m), at most SUB_SWEEP_MAX per step. */
 const SUB_SWEEP_LEN = 0.06;
 const SUB_SWEEP_MAX = 8;
+/** Approach dry run (chooseApproach): from/to these fractions of the contact time, in segments of ≤ SEG_LEN m (≤ MAX_SEGS). */
+const APPROACH_FROM = 0.3;
+const APPROACH_TO = 1.15;
+const APPROACH_SEG_LEN = 0.08;
+const APPROACH_MAX_SEGS = 10;
+/**
+ * A variant that reaches the target delivering at least this share of ½·m·v² is taken without
+ * trying the others (the most natural swing that gets there wins; only a really glancing first
+ * contact — e.g. the head skimming a corner — looks for a squarer way to swing).
+ */
+const GOOD_SHARE = 0.35;
+/** An obstacle the wound-back tool starts in is ignored for this fraction of the contact time. */
+const START_IGNORE = 0.45;
 /** Seconds before the crowbar tries to wedge in again after slipping off. */
 const PRY_RETRY = 0.4;
 
@@ -149,6 +166,9 @@ export class ToolSystem implements IToolSystem {
   private swingIgnoreUntil = 0;
   private readonly hitCentre = new Vector3();
   private readonly aim: StrikeAim = { point: v3(), normal: v3() };
+  private readonly variants: AimVariant[] = Array.from({ length: MAX_AIM_VARIANTS }, makeAimVariant);
+  private readonly dryPrev = new Vector3();
+  private readonly dryCur = new Vector3();
   /** Shaft sweep scratch (world positions at the start / end of a sweep). */
   private readonly shaftA = new Vector3();
   private readonly shaftB = new Vector3();
@@ -455,6 +475,19 @@ export class ToolSystem implements IToolSystem {
     this.swingIgnoreUntil = 0;
     const def = this.defs[this._current];
     // square up to what the crosshair is on: re-aim the contact along the view line at its surface
+    // The wound-back head may be inside something behind/above the player (a wall, the ceiling):
+    // start the swing from where the tool is actually blocked and ignore that obstacle while the
+    // head moves away from it (first part of the path towards the contact point). The path start
+    // (the wound pose) does not depend on the aim, so this is resolved first.
+    m.headAt(0, this.c0);
+    this.toWorld(this.c0, this.prevHead);
+    const rig = TOOL_RIGS[this._current];
+    this.toWorld(rig.kind === "curve" ? SHOULDER_R : FIST_PIVOT, this.w0);
+    const block = this.safeSweep(this.w0, this.prevHead, def.headRadius, tc.ignore, null);
+    if (block) {
+      this.prevHead.copyFrom(this.hitCentre);
+      this.swingIgnore = block.body;
+    }
     this.w1.copyFrom(this.fwd).scaleInPlace(def.reach + def.headRadius + AIM_SLACK).addInPlace(this.eye);
     const target = this.safeRay(this.eye, this.w1, tc.ignore);
     if (target && Number.isFinite(target.distance)) {
@@ -463,23 +496,92 @@ export class ToolSystem implements IToolSystem {
       this.aim.normal.x = n.x * this.right.x + n.y * this.right.y + n.z * this.right.z;
       this.aim.normal.y = n.x * this.up.x + n.y * this.up.y + n.z * this.up.z;
       this.aim.normal.z = n.x * this.fwd.x + n.y * this.fwd.y + n.z * this.fwd.z;
-      m.aimStrike(this.aim);
+      this.chooseApproach(target.body, tc);
     }
-    m.headAt(0, this.c0);
-    this.toWorld(this.c0, this.prevHead);
-    // The wound-back head may be inside something behind/above the player (a wall, the ceiling):
-    // start the swing from where the tool is actually blocked and ignore that obstacle while the
-    // head moves away from it (first part of the path towards the contact point).
-    const rig = TOOL_RIGS[this._current];
-    this.toWorld(rig.kind === "curve" ? SHOULDER_R : FIST_PIVOT, this.w0);
-    const block = this.safeSweep(this.w0, this.prevHead, def.headRadius, tc.ignore, null);
-    if (block) {
-      this.prevHead.copyFrom(this.hitCentre);
-      this.swingIgnore = block.body;
-      this.swingIgnoreUntil = m.path.tc * 0.45;
-    }
+    if (this.swingIgnore) this.swingIgnoreUntil = m.path.tc * START_IGNORE;
     // whoosh (audio) — position of the head at the start of the strike
     this.ctx.events?.emit("toolSwing", { tool: this._current, pos: { x: this.prevHead.x, y: this.prevHead.y, z: this.prevHead.z }, power: m.charge });
+  }
+
+  /**
+   * Pick how to swing at the aimed target: try the aim variants in order of naturalness (squared
+   * up, chopping down onto it, the swing plane rolled, along the view; overhand punches) and keep
+   * the first whose head and shaft would reach the target before touching anything else (dry-run
+   * sweeps along the approach) — e.g. chop down onto a mug rather than drive the handle into the
+   * counter edge in front of it. Falls back to the variant that gets furthest.
+   */
+  private chooseApproach(target: PhysicsBody, tc: ToolContext): void {
+    const m = this.machine;
+    // world down in camera space
+    this.c1.x = -this.right.y;
+    this.c1.y = -this.up.y;
+    this.c1.z = -this.fwd.y;
+    const n = aimVariants(m.rig, this.aim, this.c1, this.variants);
+    let best = -1,
+      bestScore = -Infinity,
+      built = -1;
+    for (let i = 0; i < n; i++) {
+      // (out of reach: every variant is refused and the nominal swing is kept)
+      if (!m.aimStrike(this.aim, this.variants[i])) continue;
+      built = i;
+      const score = this.approachScore(target, tc);
+      if (score > bestScore) {
+        bestScore = score;
+        best = i;
+      }
+      // reaches the target first, squarely enough: take it (else keep looking for a squarer one)
+      if (score >= 1 + GOOD_SHARE) break;
+    }
+    if (best >= 0 && best !== built) m.aimStrike(this.aim, this.variants[best]);
+  }
+
+  /**
+   * Dry-run sweep of the head (and shaft) along the current strike path's approach (honouring the
+   * start-of-swing ignore like sweepStrike does): 1 + the share of ½·m·v² the blow would deliver
+   * (cos² of travel vs. surface normal) when the first thing touched is `target`, 0.99 when
+   * nothing is touched, else the fraction of the approach that was clear (< 0.99).
+   */
+  private approachScore(target: PhysicsBody, tc: ToolContext): number {
+    const m = this.machine;
+    const def = this.defs[this._current];
+    const path = m.path;
+    const shaft = TOOL_SHAFTS[this._current];
+    const shaftFrom = SHAFT_SWEEP_FROM * path.tc;
+    const t0 = APPROACH_FROM * path.tc;
+    const t1 = Math.min(path.T, path.tc * APPROACH_TO);
+    const arc = path.sAt(t1) - path.sAt(t0);
+    const n = Math.min(APPROACH_MAX_SEGS, Math.max(1, Math.ceil(arc / APPROACH_SEG_LEN)));
+    this.toWorld(m.headAt(t0, this.c0), this.dryPrev);
+    for (let k = 1; k <= n; k++) {
+      const ta = t0 + ((t1 - t0) * (k - 1)) / n,
+        tb = t0 + ((t1 - t0) * k) / n;
+      this.toWorld(m.headAt(tb, this.c0), this.dryCur);
+      const ignore = this.swingIgnore && ta < START_IGNORE * path.tc ? this.swingIgnore : null;
+      let hit = this.safeSweep(this.dryPrev, this.dryCur, def.headRadius, tc.ignore, ignore);
+      let tHit = hit ? ta + (tb - ta) * hit.fraction : Infinity;
+      if (shaft && tb > shaftFrom) {
+        const ts = Math.max(ta, shaftFrom);
+        for (const off of shaft.offsets) {
+          this.toWorld(m.toolPointAt(ts, off, this.c2), this.shaftA);
+          this.toWorld(m.toolPointAt(tb, off, this.c2), this.shaftB);
+          const sh = this.safeSweep(this.shaftA, this.shaftB, shaft.radius, tc.ignore, ignore);
+          if (!sh) continue;
+          const tS = ts + (tb - ts) * sh.fraction;
+          if (tS < tHit) {
+            hit = sh;
+            tHit = tS;
+          }
+        }
+      }
+      if (hit) {
+        if (hit.body !== target) return Math.min(0.98, Math.max(0, (tHit - t0) / Math.max(path.tc - t0, 1e-4)));
+        const dir = this.dirToWorld(path.tangentAtS(path.sAt(tHit), this.c0), this.w2);
+        const c = -(dir.x * hit.normal.x + dir.y * hit.normal.y + dir.z * hit.normal.z);
+        return 1 + (c > 0 ? c * c : 0);
+      }
+      this.dryPrev.copyFrom(this.dryCur);
+    }
+    return 0.99;
   }
 
   private sweepStrike(tc: ToolContext): void {
@@ -500,7 +602,8 @@ export class ToolSystem implements IToolSystem {
     let ta = t0;
     // a few hits per step are possible when the head breaks through (glass → stuff behind it)
     for (let guard = 0; ta < t1 - 1e-9 && guard < n + MAX_HITS_PER_SWING + 2; guard++) {
-      if (m.hits >= MAX_HITS_PER_SWING) break;
+      // strike budget used up: no more strikes, but static things still stop the head
+      const spent = m.hits >= MAX_HITS_PER_SWING;
       const tb = Math.min(t1, ta + dtSub);
       const subEnd = tb >= t1 - 1e-9 ? this.curHead : this.toWorld(m.headAt(tb, this.c0), this.w0);
       const ignore = this.swingIgnore && ta < this.swingIgnoreUntil ? this.swingIgnore : null;
@@ -540,7 +643,12 @@ export class ToolSystem implements IToolSystem {
         );
       }
       const centre = this.shaftA.copyFrom(this.hitCentre);
-      const outcome = shaftOff >= 0 ? this.resolveShaftHit(hit, tHit, shaftOff, def) : this.resolveSwingHit(hit, tHit, def);
+      let outcome: "continue" | "stop" | "recoil";
+      if (!spent) outcome = shaftOff >= 0 ? this.resolveShaftHit(hit, tHit, shaftOff, def) : this.resolveSwingHit(hit, tHit, def);
+      else if (this.bodyIsStatic(hit.body)) {
+        m.hit("stop", tHit, 1, 1, false);
+        outcome = "stop";
+      } else outcome = "continue"; // pushes past loose things without another strike
       this.prevHead.copyFrom(centre);
       if (outcome !== "continue") return;
       // follow through: ignore this body for the rest of the swing, continue from the contact
@@ -685,7 +793,7 @@ export class ToolSystem implements IToolSystem {
       });
     } catch (e) {
       console.warn("tools: destruction.strike failed", e);
-      return legOrMachineHit("stop");
+      return legOrMachineHit("stop", 1, 1, false);
     }
     const energy = Number.isFinite(res.energy) ? Math.max(0, res.energy) : 0;
     const hardness = Number.isFinite(res.hardness) ? clamp01(res.hardness) : 0.5;
@@ -707,15 +815,13 @@ export class ToolSystem implements IToolSystem {
     const dvHead = Number.isFinite(res.impulse) ? Math.max(0, res.impulse) / Math.max(mass, 1e-3) : speed;
     const vnAfter = speed - dvHead;
     let targetMass = Infinity;
-    let isStatic = true;
     try {
       const tm = d.massOf(hit.body);
-      isStatic = d.isStatic(hit.body);
       if (tm !== null) targetMass = tm;
-      else isStatic = hit.body.getMotionType() !== PhysicsMotionType.DYNAMIC;
     } catch {
       /* unknown body: treat as static */
     }
+    const isStatic = this.bodyIsStatic(hit.body);
     const ke = 0.5 * mass * speedTotal * speedTotal;
     if (res.broke) {
       // broke through (drywall, glass, a mug…): keep swinging with the energy that is left
@@ -732,6 +838,16 @@ export class ToolSystem implements IToolSystem {
     if (hardness >= HARD_RECOIL) return legOrMachineHit("recoil", 1, clamp01(hardness * (0.4 + 0.6 * rel)));
     if (hardness >= MEDIUM_THUD) return legOrMachineHit("recoil", 1, 0.3 * rel);
     return legOrMachineHit("stop");
+  }
+
+  /** Static/anchored target (destruction's view; plain physics bodies by motion type; unknown → static). */
+  private bodyIsStatic(body: PhysicsBody): boolean {
+    try {
+      if (this.ctx.destruction.massOf(body) !== null) return this.ctx.destruction.isStatic(body);
+      return body.getMotionType() !== PhysicsMotionType.DYNAMIC;
+    } catch {
+      return true;
+    }
   }
 
   /** Camera shake, hit-stop, pain flash, viewmodel jolt and the toolHit event. */
@@ -945,7 +1061,7 @@ export class ToolSystem implements IToolSystem {
       dz = p.point.z - this.eye.z;
     const dist = Math.hypot(dx, dy, dz);
     const cosA = dist > 1e-6 ? (dx * this.fwd.x + dy * this.fwd.y + dz * this.fwd.z) / dist : 1;
-    if (dist > PRY.slipDistance || cosA < Math.cos(PRY.slipAngle)) {
+    if (this.shoulderDistance(p.point) > PRY.slipDistance || cosA < Math.cos(PRY.slipAngle)) {
       this.endPry(false); // the bar slipped out
       p.cooldown = PRY_RETRY;
       return;
@@ -977,9 +1093,10 @@ export class ToolSystem implements IToolSystem {
 
   private beginPry(tc: ToolContext): void {
     const p = this.pry;
-    this.w0.copyFrom(this.fwd).scaleInPlace(PRY.reach).addInPlace(this.eye);
+    this.w0.copyFrom(this.fwd).scaleInPlace(PRY.rayLength).addInPlace(this.eye);
     const hit = this.safeRay(this.eye, this.w0, tc.ignore);
-    if (!hit) return;
+    // the bar must reach it from the shoulder (arm + bar length)
+    if (!hit || this.shoulderDistance(hit.point) > PRY.reach) return;
     let ours = false;
     try {
       ours = this.ctx.destruction.massOf(hit.body) !== null;
@@ -1001,6 +1118,23 @@ export class ToolSystem implements IToolSystem {
     p.time = 0;
     p.bondBroke = false;
   }
+
+  /**
+   * Distance (m) from the right shoulder to a world point. The shoulder is placed in the BODY frame
+   * (yaw only: it does not swing back when the player looks down, unlike a camera-attached point).
+   */
+  private shoulderDistance(w: Vector3): number {
+    this.playerAxes(this.bodyRight, this.bodyFwd);
+    const r = this.bodyRight,
+      f = this.bodyFwd,
+      e = this.eye;
+    const sx = e.x + r.x * SHOULDER_R.x + f.x * SHOULDER_R.z,
+      sy = e.y + SHOULDER_R.y,
+      sz = e.z + r.z * SHOULDER_R.x + f.z * SHOULDER_R.z;
+    return Math.hypot(w.x - sx, w.y - sy, w.z - sz);
+  }
+  private readonly bodyRight = new Vector3(1, 0, 0);
+  private readonly bodyFwd = new Vector3(0, 0, 1);
 
   private endPry(popped: boolean): void {
     const p = this.pry;
@@ -1277,15 +1411,28 @@ export class ToolSystem implements IToolSystem {
     pr.p.x = SHOULDER_R.x + ax * gripDist;
     pr.p.y = SHOULDER_R.y + ay * gripDist - lever;
     pr.p.z = SHOULDER_R.z + az * gripDist - lever * 0.6;
-    // re-aim the bar from the moved hand to the tip (one bar length along it)
+    // re-aim the bar from the moved hand to the tip
     this.c1.x = tip.x - pr.p.x;
     this.c1.y = tip.y - pr.p.y;
     this.c1.z = tip.z - pr.p.z;
-    quatFromAxisFace(pr.q, this.c1, PRY_FACE_HINT);
     const bl = Math.hypot(this.c1.x, this.c1.y, this.c1.z) || 1;
-    this.pose.head.x = pr.p.x + (this.c1.x / bl) * len;
-    this.pose.head.y = pr.p.y + (this.c1.y / bl) * len;
-    this.pose.head.z = pr.p.z + (this.c1.z / bl) * len;
+    const ux = this.c1.x / bl,
+      uy = this.c1.y / bl,
+      uz = this.c1.z / bl;
+    // the bar pivots on the wedge: slide the hand along it to one bar length from the tip when the
+    // arm can reach there (otherwise keep the hand and let the bar end short of the point)
+    const gx = tip.x - ux * len,
+      gy = tip.y - uy * len,
+      gz = tip.z - uz * len;
+    if (Math.hypot(gx - SHOULDER_R.x, gy - SHOULDER_R.y, gz - SHOULDER_R.z) <= PRY_ARM_REACH) {
+      pr.p.x = gx;
+      pr.p.y = gy;
+      pr.p.z = gz;
+    }
+    quatFromAxisFace(pr.q, this.c1, PRY_FACE_HINT);
+    this.pose.head.x = pr.p.x + ux * len;
+    this.pose.head.y = pr.p.y + uy * len;
+    this.pose.head.z = pr.p.z + uz * len;
     this.pose.left.p.x = pr.p.x;
     this.pose.left.p.y = pr.p.y;
     this.pose.left.p.z = pr.p.z;

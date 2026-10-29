@@ -51,7 +51,10 @@ export async function probe(): Promise<unknown> {
   const time = new Time();
   const d = new Destruction({ physics, render, vfx: new MockVfx(), events, time, settings, rng: new Rng(7), scene });
 
+  const mark = (m: string): void => console.log(`[bedrooms-room] ${m} t=${Math.round(performance.now())}ms heap=${Math.round(((performance as unknown as { memory?: { usedJSHeapSize: number } }).memory?.usedJSHeapSize ?? 0) / 1e6)}MB`);
+  mark("systems ready");
   for (const p of buildStructure()) d.spawn(p.def, p.xf);
+  mark("structure spawned");
   let fixtures = 0;
   try {
     const mod = await import("../../src/world/furnish/fixtures.ts");
@@ -63,6 +66,7 @@ export async function probe(): Promise<unknown> {
   } catch {
     /* fixtures optional */
   }
+  mark(`fixtures spawned (${fixtures})`);
   const tb = performance.now();
   const items = bedroomItems();
   const buildMs = performance.now() - tb;
@@ -71,6 +75,7 @@ export async function probe(): Promise<unknown> {
   const spawnMs = performance.now() - ts;
   const before = ids.map((id) => d.positionOf(id));
   const stats0 = { destruction: d.stats(), physics: physics.stats() };
+  mark(`bedroom items spawned (${ids.length})`);
 
   const tStep = performance.now();
   const N = 180;
@@ -82,6 +87,7 @@ export async function probe(): Promise<unknown> {
     d.update(FIXED_DT);
   }
   const stepMs = (performance.now() - tStep) / N;
+  mark("settled");
   const moved: Array<{ id: string; dist: number; dy: number }> = [];
   ids.forEach((id, i) => {
     const a = before[i],
@@ -111,6 +117,7 @@ export async function probe(): Promise<unknown> {
         render.addLight(l, r.id, true);
       }
   await scene.whenReadyAsync();
+  mark("scene ready");
   const cam = render.camera;
   const shots: string[] = [];
   for (const [, pos, target] of VIEWS) {
@@ -121,6 +128,7 @@ export async function probe(): Promise<unknown> {
       scene.render();
     }
     shots.push(canvas.toDataURL("image/jpeg", 0.88));
+    mark(`shot ${shots.length}`);
   }
   const Wd = canvas.clientWidth || 1280,
     Ht = canvas.clientHeight || 720;

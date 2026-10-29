@@ -1,14 +1,12 @@
-// Room topology for room-based interior light assignment (pure, no Babylon).
+// Room topology helpers (pure, no Babylon): nearest room / room-of-point lookups, the room
+// adjacency graph (doors, windows, open-plan boundaries) and per-room layer-mask bits.
 //
-// Babylon materials evaluate a bounded number of lights per mesh. Instead of letting every
-// interior bulb light every mesh (light leaking through walls + per-material light limits),
-// each room gets one bit of a mesh layer mask:
-//   * a registered world mesh carries the bits of every room its AABB overlaps
-//     (plus WORLD_LAYER_BIT so it stays visible to the default camera mask);
-//   * an interior light only affects meshes whose layer mask intersects
-//     `light.includeOnlyWithLayerMask` = its room + the rooms connected to it through
-//     door/window openings or open-plan boundaries.
-// Partition walls overlap both of their rooms; Lambert N·L keeps the far face dark.
+// The interior lights themselves are shaded through one ClusteredLightContainer (see
+// lighting.ts), so meshes no longer need room masks for light assignment. Lighting uses
+// `nearestRoom` to track which room a portable lamp is in; the mask helpers remain for
+// consumers that approximate room-local lighting on the CPU (e.g. particle tinting):
+//   * a box's room bits = every room its XZ footprint overlaps (`roomMaskForBox`);
+//   * `lightMaskForRoom` = the room plus every room connected to it.
 
 import { ROOMS, WALLS, sideRoom, wallLength, type Room, type RoomId, type Wall } from "../../world/plan.ts";
 

@@ -16,9 +16,6 @@ export interface DishOpts {
 
 const GLAZE = 0xf5f3ee;
 
-/** Height step for stacking identical items (base on base, rims clear). */
-export const STACK_PITCH = { plate: 0.0085, sidePlate: 0.0075, bowl: 0.0105 } as const;
-
 /** Dinner plate Ø 26 cm (~0.55 kg). */
 export function buildPlate(o: DishOpts = {}): AssemblyDef {
   const b = new Builder("plate", "Dinner Plate", "kitchenware", 12, o.seed);
@@ -118,14 +115,13 @@ export function buildCutleryTray(o: { w?: number; d?: number; seed?: number } = 
     h = 0.05,
     t = 0.003;
   const tint = 0xe8e8e4;
-  const bot = b.box("bottom", "plastic", "plastic", [w, t, d], [0, t / 2, 0], { tint });
-  const wl = b.box("wall_l", "plastic", "plastic", [t, h - t, d], [-w / 2 + t / 2, t + (h - t) / 2, 0], { tint });
-  const wr = b.box("wall_r", "plastic", "plastic", [t, h - t, d], [w / 2 - t / 2, t + (h - t) / 2, 0], { tint });
-  const wf = b.box("wall_f", "plastic", "plastic", [w - 2 * t, h - t, t], [0, t + (h - t) / 2, d / 2 - t / 2], { tint });
-  const wk = b.box("wall_k", "plastic", "plastic", [w - 2 * t, h - t, t], [0, t + (h - t) / 2, -d / 2 + t / 2], { tint });
+  b.box("bottom", "plastic", "plastic", [w, t, d], [0, t / 2, 0], { tint });
+  b.box("wall_l", "plastic", "plastic", [t, h - t, d], [-w / 2 + t / 2, t + (h - t) / 2, 0], { tint });
+  b.box("wall_r", "plastic", "plastic", [t, h - t, d], [w / 2 - t / 2, t + (h - t) / 2, 0], { tint });
+  b.box("wall_f", "plastic", "plastic", [w - 2 * t, h - t, t], [0, t + (h - t) / 2, d / 2 - t / 2], { tint });
+  b.box("wall_k", "plastic", "plastic", [w - 2 * t, h - t, t], [0, t + (h - t) / 2, -d / 2 + t / 2], { tint });
   const cw = (w - 2 * t) / 3;
-  const dv: string[] = [];
-  for (const k of [1, 2]) dv.push(b.box(`div${k}`, "plastic", "plastic", [t, h - t - 0.005, d - 2 * t], [-w / 2 + t + k * cw, t + (h - t - 0.005) / 2, 0], { tint }));
+  for (const k of [1, 2]) b.box(`div${k}`, "plastic", "plastic", [t, h - t - 0.005, d - 2 * t], [-w / 2 + t + k * cw, t + (h - t - 0.005) / 2, 0], { tint });
   b.autoBond("fused", undefined, 0.0004);
   // cutlery: loose stainless pieces in the three compartments
   const piece = (nm: string, x: number, z: number, kind: "fork" | "knife" | "spoon"): void => {
@@ -156,7 +152,6 @@ export function buildCutleryTray(o: { w?: number; d?: number; seed?: number } = 
   piece("knife1", xs[1] + 0.015, -0.005, "knife");
   piece("spoon0", xs[2] - 0.02, 0, "spoon");
   piece("spoon1", xs[2] + 0.022, 0.004, "spoon");
-  void [bot, wl, wr, wf, wk, dv];
   return finish(b);
 }
 

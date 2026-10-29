@@ -136,8 +136,10 @@ export function buildWaterHeater(o: WaterHeaterOpts = {}): AssemblyDef {
     const c = b.contact(t, pad, 0.0015);
     if (c) b.glue(t, pad, 15);
   }
-  const mid = nearest(b, tank, [0, 0.7, R]);
-  b.water(mid, [0, 0.5, rIn * COS_HALF], [0, -0.2, 1], 0.55, o.litres ?? 150);
+  // the tank's water lives on a base (bottom dome) tile, per the tiled-vessel rule: it leaks
+  // when the bottom seams or the base pad give way (heater knocked over / torn off its pipes)
+  const base = nearest(b, tank, [0, yt0 + 0.012, rIn * 0.5]);
+  b.water(base, [0, yt0 + 0.02, rIn * COS_HALF], [0, -0.2, 1], 0.55, o.litres ?? 150);
 
   // ------------------------------------------------------------------ nipples + supply pipes
   const yNip0 = 1.3412;

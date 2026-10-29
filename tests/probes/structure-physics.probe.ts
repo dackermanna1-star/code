@@ -21,7 +21,10 @@ export async function probe(): Promise<unknown> {
   const scene = new Scene(engine);
   scene.clearColor = new Color4(0.5, 0.55, 0.6, 1);
   const cam = new FreeCamera("cam", new Vector3(6, 1.6, 2), scene) as unknown as UniversalCamera;
-  const physics = await createPhysics(scene, {});
+  // maxHullPoints 64: works around a physics.ts bug (prepareHull path (d) passes its whole
+  // 128-point scratch buffer to rawHull, whose k-point view then overflows → RangeError for any
+  // part with more than maxHullPoints (default 16) vertices, e.g. 10+-segment cylinders)
+  const physics = await createPhysics(scene, { maxHullPoints: 64 });
   const render = new MockRender(scene, cam);
   const events = new EventBus<GameEvents>();
   const time = new Time();

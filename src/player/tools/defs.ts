@@ -391,12 +391,20 @@ export const DEFAULT_EYE_HEIGHT = 1.65;
 export const PRY = {
   force: 3000,
   /**
-   * Max eye → wedge distance (m): arm reach (~0.57 m from a shoulder ~0.3 m from the eye) plus the
-   * 0.5 m levering length of the bar, minus a margin — the bar can't lever beyond that.
+   * Max SHOULDER → wedge distance (m; shoulder in the body frame, ~0.24 m below and 0.19 m right of
+   * the eye): the levering arm's reach (~0.55 m, upper arm 0.3 + forearm 0.27, slightly bent) plus
+   * the 0.5 m levering length of the bar — the bar can't lever beyond that. (From the eye that is
+   * ~0.8–1.2 m: low wedge points like a door latch are closer to the shoulder than to the eye.)
    */
   reach: 1.05,
-  /** The wedge slips out if the point drifts beyond this distance (m) or angle from the view (rad). */
-  slipDistance: 1.2,
+  /** Length (m) of the crosshair ray that looks for the wedge point (then checked against `reach`). */
+  rayLength: 1.4,
+  /**
+   * The wedge slips out if the point drifts beyond this shoulder distance (m) or angle from the
+   * view (rad) — a little beyond `reach` (the pried part gives way), where the bar still nearly
+   * spans it.
+   */
+  slipDistance: 1.12,
   slipAngle: deg(40),
   /** Seconds of zero returned stress (nothing to lever) before the bar slips off. */
   slipAfter: 0.3,
