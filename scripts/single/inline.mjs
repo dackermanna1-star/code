@@ -68,7 +68,12 @@ const boot = `
   const WORKER = ${JSON.stringify(workerSrc)};
   const RealWorker = window.Worker;
   window.Worker = function (url, opts) {
-    if (WORKER && /bankWorker/.test(String(url))) url = URL.createObjectURL(new Blob([WORKER], { type: "text/javascript" }));
+    // file:// pages may not start blob: MODULE workers; the bundled worker has no imports, so it
+    // runs as a classic worker.
+    if (WORKER && /bankWorker/.test(String(url))) {
+      url = URL.createObjectURL(new Blob([WORKER], { type: "text/javascript" }));
+      opts = { ...opts, type: "classic" };
+    }
     return new RealWorker(url, opts);
   };
   window.Worker.prototype = RealWorker.prototype;
