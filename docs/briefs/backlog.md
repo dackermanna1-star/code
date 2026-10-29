@@ -11,3 +11,7 @@
 - `liquid`/`water` features on tiled vessels should fire when any shell tile breaks.
 - Audio id `extinguisher.spray`.
 - VFX: MicroKind for tempered cubes; decal() attached to nodes; horizontal raycast hook.
+- Builder: use `printedFaceUV(points, n, worldSize)` (src/render/printed.ts) for printed-surface faces in
+  finishPart instead of random uv offsets (survives fracture; batcher fallback then unnecessary).
+- render-env: keep maxSimultaneousLights ≤ 8 on receivers; check setPower(false) visibly darkens rooms.
+- render-core: capture() never resolves if a listed mesh never becomes ready (add timeout).

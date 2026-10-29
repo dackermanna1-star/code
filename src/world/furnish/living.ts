@@ -10,7 +10,7 @@
 //    its north arm, glass coffee table on an area rug between sofa and TV (magazines, remote,
 //    controller, candle tray, bowl), leather armchair angled near the window with a pillow,
 //    fiddle-leaf fig in the SE corner, floor lamp behind the sofa's south arm (by the outlet).
-//  * Dining table x 5.45–7.05, z 3.7–4.6 with four reference chairs tucked in, placemats, a
+//  * Dining table x 5.45–7.05, z 3.64–4.54 with four reference chairs tucked in, placemats, a
 //    flower vase and two place settings.
 //  * Wall art: painting above the sofa (east wall), painting on the TV wall north of the console,
 //    mirror on the east wall by the foyer arch.
@@ -23,8 +23,9 @@
 // Stacked items are placed on the measured surface of their support (ray cast through the
 // support's parts at the item's footprint), never at guessed heights.
 
-import { polyChord } from "../../geom/poly.ts";
-import { qeuler, qmul, v3, xapply, xapplyDir, xinv, type Quat, type Vec3, type Xform } from "../../geom/vec.ts";
+import { polyChord, polyTransform, type ConvexPoly } from "../../geom/poly.ts";
+import { qeuler, qmul, qrot, v3, vadd, vscale, xapply, xapplyDir, xinv, type Quat, type Vec3, type Xform } from "../../geom/vec.ts";
+import { aabbOf, aabbOverlap, polyContact, type Aabb } from "../../objects/lib/contact.ts";
 import type { AssemblyDef } from "../../destruction/model/types.ts";
 import type { RoomId } from "../plan.ts";
 import { PARTITION_FACE } from "../structure/levels.ts";
@@ -192,6 +193,60 @@ class Layout {
     return this.add(id, def, { p: v3(ox, y, oz), q }, { on, tags: o.tags });
   }
 
+  /**
+   * Soft item (throw pillow) nested in the corner of a seat: starting from pose `xf`, it is
+   * alternately dropped (world −Y) onto and pushed (along `back`, a world direction) against the
+   * parts of `host` until both moves are blocked with a `gap` of air, so the spawn pose is the
+   * rest pose — no slumping into the seat/back cushion groove at spawn. Exact convex-poly
+   * separation, a few iterations of a march + bisection along each direction.
+   */
+  nest(id: string, def: AssemblyDef, xf: Xform, hostId: string, back: Vec3, gap = 0.0006): LivingItem {
+    const host = this.get(hostId);
+    const hp = host.def.parts.map((pt) => polyTransform(pt.poly, host.xf));
+    const hb = hp.map(aabbOf);
+    const local = def.parts.map((pt) => pt.poly);
+    const posed = (p: Vec3): ConvexPoly[] => local.map((poly) => polyTransform(poly, { p, q: xf.q }));
+    /** Smallest separation (m) between the item at p and the host, capped at 0.03 (far). */
+    const sep = (p: Vec3): number => {
+      let m = 0.03;
+      for (const a of posed(p)) {
+        const ab = aabbOf(a);
+        for (let j = 0; j < hp.length; j++) {
+          if (!aabbOverlap(ab, hb[j] as Aabb, 0.03)) continue;
+          const c = polyContact(a, hp[j], 0.03);
+          if (c && c.sep < m) m = c.sep;
+        }
+      }
+      return m;
+    };
+    /** Move p along unit dir until the separation would drop below gap (≤ 0.3 m travel). */
+    const slide = (p: Vec3, dir: Vec3): Vec3 => {
+      if (sep(p) < gap) return p; // already touching (or penetrating): leave it to the other move
+      let lo = 0,
+        hi = 0;
+      for (let t = 0.004; t <= 0.3; t += 0.004) {
+        if (sep(vadd(p, vscale(dir, t))) < gap) {
+          hi = t;
+          break;
+        }
+        lo = t;
+      }
+      if (hi === 0) return vadd(p, vscale(dir, lo));
+      for (let k = 0; k < 14; k++) {
+        const m = (lo + hi) / 2;
+        if (sep(vadd(p, vscale(dir, m))) < gap) hi = m;
+        else lo = m;
+      }
+      return vadd(p, vscale(dir, lo));
+    };
+    let p = xf.p;
+    for (let it = 0; it < 6; it++) {
+      p = slide(p, v3(0, -1, 0));
+      p = slide(p, back);
+    }
+    return this.add(id, def, { p, q: xf.q }, { on: [hostId], tags: ["nested"] });
+  }
+
   /** Wall-hung item (origin at the bottom centre of its back face) on a wall plane. */
   wall(id: string, def: AssemblyDef, face: "west" | "east", along: number, bottomY: number): LivingItem {
     const x = face === "west" ? WEST_FACE + WALL_GAP : EAST_FACE - WALL_GAP;
@@ -279,11 +334,12 @@ export function furnishLivingItems(): LivingItem[] {
       const def = buildThrowPillow({ seed: 3131 + k, tint: k ? 0xc9a24a : 0xb5523b });
       const qLocal = qmul(yawQ(k ? -8 : 8), lean);
       const q = qmul(sofa.xf.q, qLocal);
-      // pillow back 6 mm in front of the back cushions
+      // start a little above the seat and in front of the back cushions, then nest it into the
+      // seat/back corner (its spawn pose is its rest pose)
       const loc = worldAabb(def, { p: v3(0, 0, 0), q: qLocal });
-      const lz = lay.backZ1 + 0.006 + (loc.max.z - loc.min.z) / 2;
-      const w = localToWorld(sofa, lx, 0, lz);
-      L.rest(`pillow${k}`, def, w.x, w.z, q, ["sofa"]);
+      const lz = lay.backZ1 + 0.02 + (loc.max.z - loc.min.z) / 2 - (loc.min.z + loc.max.z) / 2;
+      const w = localToWorld(sofa, lx, SOFA_PARAMS.seatTop + 0.05 - loc.min.y, lz);
+      L.nest(`pillow${k}`, def, { p: w, q }, "sofa", qrot(sofa.xf.q, v3(0, 0, -1)));
     }
   }
   L.floor("sideTable", buildSideTable({ seed: 3132 }), 7.75, sofaZ + SOFA_PARAMS.L / 2 + 0.06 + 0.225, -90);
@@ -309,19 +365,22 @@ export function furnishLivingItems(): LivingItem[] {
     const def = buildThrowPillow({ seed: 3151, size: 0.4, tint: 0x5c6b5a });
     const qLocal = qeuler(-100 * D2R, 0, 0);
     const loc = worldAabb(def, { p: v3(0, 0, 0), q: qLocal });
-    const w = localToWorld(arm, 0, 0, lay.backZ1 + 0.006 + (loc.max.z - loc.min.z) / 2);
-    L.rest("pillow2", def, w.x, w.z, qmul(arm.xf.q, qLocal), ["armchair"]);
+    const lz = lay.backZ1 + 0.02 + (loc.max.z - loc.min.z) / 2 - (loc.min.z + loc.max.z) / 2;
+    const w = localToWorld(arm, 0, ARMCHAIR_PARAMS.seatTop + 0.05 - loc.min.y, lz);
+    L.nest("pillow2", def, { p: w, q: qmul(arm.xf.q, qLocal) }, "armchair", qrot(arm.xf.q, v3(0, 0, -1)));
   }
   L.floor("fig", buildFiddleLeafFig({ seed: 3152 }), 8.82, 0.52, 15);
   L.floor("floorLamp", buildFloorLamp({ seed: 3153 }), 8.8, 1.07, -90);
 
   // ------------------------------------------------------------------ dining
+  // tZ/tuck keep ≥ 0.9 m between the north chairs' backs (z ≤ 4.89) and the kitchen bar stools
+  // (z ≥ 5.79): that strip is the straight walk from the hall opening to the foyer arch
   const tX = 6.25,
-    tZ = 4.14;
+    tZ = 4.09;
   L.floor("diningTable", buildDiningTable({ seed: 3160 }), tX, tZ, 0);
   const chairProbe = buildChair({ seed: 3161 });
   const cb = worldAabb(chairProbe, { p: v3(), q: yawQ(0) });
-  const tuck = 0.08; // seat front this far under the table edge
+  const tuck = 0.12; // seat front this far under the table edge (pushed in)
   for (const [k, [dx, south]] of ([
     [-0.4, true],
     [0.4, true],

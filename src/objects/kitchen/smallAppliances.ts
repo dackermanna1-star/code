@@ -79,7 +79,7 @@ export function buildKettle(o: SmallApplianceOpts & { litres?: number } = {}): A
   const s = shell(b, "body", { profile: [[0.075, 0], [0.068, 0.2]], t: 0.0008, base: 0.0025, segments: 8, mat: "steelSheet", surf: "steel_brushed", innerSurf: "metal_raw", tint: 0xffffff }, [0, yb, 0]);
   b.press(s.base, pbase, 3);
   b.liquid(s.base, 0xd8e8ee, o.litres ?? 1.0);
-  // lid on a rear hinge (opens upwards)
+  // lid on a rear hinge (opens upwards: free edge +X swings towards +Y, positive about +Z)
   const lid = b.cyl("lid", "plastic", "plastic_glossy", 0.064, 0.012, [0, yb + 0.2 + 0.006, 0], { segments: 8, tint: 0x1d1e20 });
   const knobL = b.box("lid_button", "plastic", "plastic", [0.03, 0.012, 0.02], [-0.035, yb + 0.212 + 0.006, 0], { tint: 0x5a5b5e });
   b.press(knobL, lid, 2);
@@ -93,7 +93,7 @@ export function buildKettle(o: SmallApplianceOpts & { litres?: number } = {}): A
   const handle = b.tube("handle", "plastic", "plastic", hp, 0.012, { sides: 6, tint: 0x1d1e20, mass: 0.12 });
   bondTouching(b, handle[0], s.wall, "screw", 30, 0.002);
   bondTouching(b, handle[handle.length - 1], s.wall, "screw", 30, 0.002);
-  b.hinge(lid, handle[0], { pivots: [[-0.058, yb + 0.206, 0]], axis: [0, 0, 1], min: -95, max: 0, strength: 12, friction: 0.2, latch: 2 });
+  b.hinge(lid, handle[0], { pivots: [[-0.058, yb + 0.206, 0]], axis: [0, 0, 1], min: 0, max: 95, strength: 12, friction: 0.2, latch: 2 });
   // spout at +X
   const spout = b.hull(
     "spout",

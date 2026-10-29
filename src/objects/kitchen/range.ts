@@ -194,10 +194,13 @@ export function buildRange(o: RangeOpts = {}): AssemblyDef {
   for (const p of [dSideL, dSideR, dTop, dBot]) b.bond(outer, p, "glue", { strength: 25 });
   for (const p of [dSideL, dSideR, dTop, dBot]) b.bond(inner, p, "clip", { strength: 6 });
   const dh = barHandle(b, "door_handle", { on: dTop, len: dW - 0.12, size: 0.016, standoff: 0.04, mat: "steel", surf: "steel_brushed", screw: 60 }, [0, dy1 - topH / 2, dz1], undefined);
-  // hinges at the bottom corners: free edge points up, opens towards +Z; spring-balanced, detent
+  // hinges at the bottom corners: free edge points up, opens towards +Z; spring-balanced, detent.
+  // The pivot sits on the door's FRONT bottom edge (as on real hinge arms), so the whole leaf rises
+  // as it swings: it never dips below dy0 and clears the storage drawer front 15 mm below it
+  // (a pivot on the back edge swings the bottom rail down into the drawer).
   const axis = hingeAxis([0, 1, 0], [0, 0, 1]);
-  const g = b.hinge(dSideL, sideL, { pivots: [[-dW / 2 + 0.01, dy0, dz0]], axis, min: 0, max: 88, strength: 70, friction: 0.6, spring: 22 });
-  b.hinge(dSideR, sideR, { pivots: [[dW / 2 - 0.01, dy0, dz0]], axis, min: 0, max: 88, strength: 70, friction: 0.6, spring: 22, group: g, latch: 6, latchPos: [0, dy1 - 0.01, dz0], latchPart: dTop, latchFixed: panel });
+  const g = b.hinge(dSideL, sideL, { pivots: [[-dW / 2 + 0.01, dy0, dz1]], axis, min: 0, max: 88, strength: 70, friction: 0.6, spring: 22 });
+  b.hinge(dSideR, sideR, { pivots: [[dW / 2 - 0.01, dy0, dz1]], axis, min: 0, max: 88, strength: 70, friction: 0.6, spring: 22, group: g, latch: 6, latchPos: [0, dy1 - 0.01, dz0], latchPart: dTop, latchFixed: panel });
   // ------------------------------------------------------------------ storage drawer
   const drY0 = 0.035,
     drY1 = 0.15;

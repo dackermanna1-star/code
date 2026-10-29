@@ -48,7 +48,7 @@ export async function probe(): Promise<unknown> {
           await frames(scene, 1);
         }
         v.push(await meanLum());
-        if (on) shots[`${tag}_${name}`] = shot(canvas);
+        shots[`${tag}_${name}${on ? "" : "_off"}`] = shot(canvas);
       }
       r[name] = Math.round((v[0] - v[1]) * 100) / 100;
     }

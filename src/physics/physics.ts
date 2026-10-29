@@ -183,6 +183,9 @@ export interface PhysicsDebugStats extends PhysicsStats {
   eventsLastStep: number;
   impactsLastStep: number;
   forcedSleeps: number;
+  /** Last sleep-assist pass: awake members, and the largest component's size / slow members / fastest non-slow member
+   *  (m/s, Infinity = travelling) / whether it was put to sleep. */
+  sleepPass: { step: number; members: number; size: number; slow: number; fastest: number; slept: boolean };
   minSubsteps: number;
   /** Substeps actually used by the last step (adaptive). */
   substepsLast: number;
@@ -236,6 +239,14 @@ const SLEEP_VERIFY_FACTOR = 1.5;
 /** Sleep assist: drift is judged over at least JITTER_STEPS steps; a single step faster than √JITTER_FACTOR2 × the
  *  thresholds is real motion. */
 const JITTER_STEPS = 8;
+/** Sleep pass: a member whose net (anchor-averaged) speed exceeded the linear threshold within this many steps is
+ *  travelling (a ball rolling across a pile re-triggers it at least every JITTER_STEPS steps) and keeps its
+ *  component awake — Havok wakes whole islands, so it cannot be left awake alone on a slept pile. */
+const DRIFT_RECENT_STEPS = 2 * JITTER_STEPS;
+/** Sleep assist: a body woken by its island (it was asleep and has not travelled since — a pile woken by one impact)
+ *  needs only this long (s) below the thresholds instead of `seconds` (Havok wakes the whole island, so the pile can
+ *  only re-sleep as a whole: its untouched majority must not hold it awake for the full timer). */
+const REWAKE_SECONDS = 0.25;
 const JITTER_FACTOR2 = 16;
 /** STARTED events within this many steps of a body's mask change are echoes of existing contacts (see queueHeat). */
 const MASK_ECHO_STEPS = 4;
@@ -311,6 +322,10 @@ class BodyRec implements ImpactSide {
   asleepKnown = false;
   /** Step at which the sleep-assist anchor pose was taken. */
   anchorStep = 0;
+  /** Last step at which the body's anchor-averaged (net) speed exceeded the linear threshold (see fastSync). */
+  driftStep = -1_000_000;
+  /** Woken by its island (asleep before, no net travel since): counts slow steps REWAKE_SECONDS-fast (fastSync). */
+  rewoken = false;
   /** Step index until which the body's velocity is polled before stepping (fresh / expectFast). */
   watchUntil = -1;
   // ---- velocity cache (impulse estimation, adaptive substeps, adaptive event masks)
@@ -1120,6 +1135,8 @@ export class Physics implements PhysicsSystem {
       const stillLin2 = linLim2 * STILL_FRACTION * STILL_FRACTION;
       const stillAng2 = angLim2 * STILL_FRACTION * STILL_FRACTION;
       const slowCap = 4 * Math.max(1, Math.round(sa.seconds / dt));
+      // bodies woken by their island (asleep before, not travelling since) prove calm within REWAKE_SECONDS
+      const rewakeW = Math.max(1, sa.seconds / Math.max(REWAKE_SECONDS, dt));
       const wm = this.syncWorldMatrices;
       const invDt = 1 / dt;
       const step = this._stepIndex;
@@ -1259,9 +1276,11 @@ export class Physics implements PhysicsSystem {
             const an = this.fastAnchor;
             const ai = i * 8;
             if (rec.asleepKnown) {
-              // it was asleep and moves: woken (support removed, hit, island woke) — calm must be proven afresh
+              // it was asleep and moves: woken (support removed, hit, island woke) — calm must be proven afresh, but
+              // quickly (rewoken) unless it turns out to travel
               rec.anchorStep = step;
               rec.slow = 0;
+              rec.rewoken = true;
               an[ai] = tx;
               an[ai + 1] = ty;
               an[ai + 2] = tz;
@@ -1277,7 +1296,14 @@ export class Physics implements PhysicsSystem {
             const drift2 = ex * ex + ey * ey + ez * ez;
             const qd = Math.min(1, Math.abs(qx * an[ai + 3] + qy * an[ai + 4] + qz * an[ai + 5] + qw * an[ai + 6]));
             const rot2 = 4 * (1 - qd * qd); // (2·sin(θ/2))² ≈ θ²
-            if (d2 > linLim2 * JITTER_FACTOR2 || a2 > angLim2 * JITTER_FACTOR2 || drift2 > linLim2 * s2 || rot2 > angLim2 * s2 || elapsed > 2 * slowCap) {
+            const spike = d2 > linLim2 * JITTER_FACTOR2 || a2 > angLim2 * JITTER_FACTOR2;
+            // net drift beyond the linear threshold over ≥ JITTER_STEPS without a jitter spike: genuinely travelling
+            // (rolling, sliding), as opposed to oscillating in place — such a body keeps its pile awake (sleepPass)
+            if (!spike && drift2 > linLim2 * s2) {
+              rec.driftStep = step;
+              rec.rewoken = false;
+            }
+            if (spike || drift2 > linLim2 * s2 || rot2 > angLim2 * s2 || elapsed > 2 * slowCap) {
               an[ai] = tx;
               an[ai + 1] = ty;
               an[ai + 2] = tz;
@@ -1287,7 +1313,10 @@ export class Physics implements PhysicsSystem {
               an[ai + 6] = qw;
               rec.anchorStep = step;
               if (elapsed <= 2 * slowCap) rec.slow = 0; // (a long-calm body just re-anchors)
-            } else if (rec.slow < slowCap) rec.slow += drift2 < stillLin2 * s2 && rot2 < stillAng2 * s2 ? STILL_WEIGHT : 1;
+            } else if (rec.slow < slowCap) {
+              const wgt = drift2 < stillLin2 * s2 && rot2 < stillAng2 * s2 ? STILL_WEIGHT : 1;
+              rec.slow += rec.rewoken && wgt < rewakeW ? rewakeW : wgt;
+            }
           }
         }
         rec.asleepKnown = false;
@@ -1407,6 +1436,7 @@ export class Physics implements PhysicsSystem {
     const slowN = this.sleepSlowN;
     const fastest = this.sleepFastest;
     const next = this._stepIndex + 1;
+    const linear = this.sleepAssist.linear;
     for (let i = 0; i < n; i++) {
       size[i] = slowN[i] = 0;
       fastest[i] = 0;
@@ -1418,7 +1448,10 @@ export class Physics implements PhysicsSystem {
       if (rec.keepAwake || rec.joints !== null) blocked[root] = 1;
       else if (rec.slow >= sleepSteps) slowN[root]++;
       else if (rec.vStep === next) {
-        const sp = Math.sqrt(rec.vx * rec.vx + rec.vy * rec.vy + rec.vz * rec.vz) + Math.sqrt(rec.wx * rec.wx + rec.wy * rec.wy + rec.wz * rec.wz) * rec.radius;
+        const lin = Math.sqrt(rec.vx * rec.vx + rec.vy * rec.vy + rec.vz * rec.vz);
+        // travelling (net drift recently above the linear threshold and still moving that fast), not jitter: blocks
+        // the majority rule. (A body nudged a centimetre by an impact that has stopped again does not.)
+        const sp = this._stepIndex - rec.driftStep <= DRIFT_RECENT_STEPS && lin > linear ? Infinity : lin + Math.sqrt(rec.wx * rec.wx + rec.wy * rec.wy + rec.wz * rec.wz) * rec.radius;
         if (sp > fastest[root]) fastest[root] = sp;
       }
     }
@@ -1445,12 +1478,24 @@ export class Physics implements PhysicsSystem {
       const l = Math.hypot(lv[0], lv[1], lv[2]), a = Math.hypot(av[0], av[1], av[2]);
       if (size[root] > SLEEP_BIG_COMPONENT) {
         // pile (majority rule): solver jitter spins bodies at up to ~1.5 rad/s, so only linear motion counts
-        if (!(l < FREEZE_SAFE_SPEED)) blocked[root] = 1;
+        // (plus the travelling check again with Havok's velocity: a member drifting recently that moves faster than the
+        // linear threshold is rolling / sliding over the pile, and Havok would wake the pile around it anyway)
+        if (!(l < FREEZE_SAFE_SPEED) || (rec.slow < sleepSteps && this._stepIndex - rec.driftStep <= DRIFT_RECENT_STEPS && l > sa.linear)) blocked[root] = 1;
       } else if (!(l <= linMax && a <= angMax)) {
         blocked[root] = 1;
         rec.slow = 0;
       }
     }
+    // diagnostics: the largest component of this pass
+    let big = -1;
+    for (let i = 0; i < n; i++) if (find(i) === i && (big < 0 || size[i] > size[big])) big = i;
+    const si = this.sleepInfo;
+    si.step = this._stepIndex;
+    si.members = n;
+    si.size = size[big];
+    si.slow = slowN[big];
+    si.fastest = fastest[big];
+    si.slept = blocked[big] === 0;
     const INACTIVE = hk.ActivationState.INACTIVE;
     for (let i = 0; i < n; i++) {
       const rec = mem[i];
@@ -1464,6 +1509,8 @@ export class Physics implements PhysicsSystem {
     mem.length = 0;
   }
 
+  /** Last sleep pass: awake members and its largest component (size, slow members, fastest non-slow one, slept). */
+  private readonly sleepInfo = { step: -1, members: 0, size: 0, slow: 0, fastest: 0, slept: false };
   private readonly sleepMem: BodyRec[] = [];
   private sleepPos = new Float64Array(0);
   private sleepOrder = new Int32Array(0);
@@ -1671,6 +1718,7 @@ export class Physics implements PhysicsSystem {
     if (rec) {
       rec.slow = 0;
       rec.asleepKnown = false;
+      rec.rewoken = false;
     }
   }
 
@@ -2804,6 +2852,7 @@ export class Physics implements PhysicsSystem {
       eventsLastStep: this.eventsLast,
       impactsLastStep: this.impactsLast,
       forcedSleeps: this.forcedSleeps,
+      sleepPass: { ...this.sleepInfo },
       minSubsteps: this.minSubsteps,
       substepsLast: this.substepsLast,
       thinSpeedLast: this.thinSpeed,

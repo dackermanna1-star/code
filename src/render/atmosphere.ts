@@ -68,6 +68,7 @@ uniform float uTime;
 #ifdef SUN_SHADOW
 uniform highp sampler2DShadow sunShadowMap;
 uniform mat4 uSunMatrix;
+uniform float uOccluderDepth;
 // Sun visibility (0 = occluded) of a world point: hardware 2x2 PCF compare against the sun
 // shadow map; points outside the map's frustum count as lit.
 float sunVis(vec3 p) {
@@ -144,7 +145,15 @@ void main(void) {
     float t = tn + thick * (float(i) + 0.5) / 6.0;
     float bm = beam(o + d * t);
 #ifdef SUN_SHADOW
-    if (bm > 0.0) bm *= sunVis(ro + rd * (tn + thick * (float(i) + jit) / 6.0));
+    if (bm > 0.0) {
+      // Points in the first uOccluderDepth metres behind the aperture are tested at that
+      // depth along their light line: the thin lit sliver between the glass and a drawn
+      // curtain / blind is hidden behind it from inside the room, so a line blocked right at
+      // the window is dark over its whole length.
+      float tj = tn + thick * (float(i) + jit) / 6.0;
+      float wj = (o.z + d.z * tj) * uLens.z;
+      bm *= sunVis(ro + rd * tj + uLightDir * max(uOccluderDepth - wj, 0.0));
+    }
 #endif
     acc += bm;
   }
@@ -171,9 +180,15 @@ export interface AtmosphereTuning {
   mullionMinWidth: number;
   /** Width (m) of that mullion / meeting stile. */
   mullionWidth: number;
+  /**
+   * Distance (m, along the wall normal) in front of the opening within which an occluder
+   * (blind, curtain, furniture against the glass) darkens its whole light line, including
+   * the sliver between it and the glass.
+   */
+  occluderDepth: number;
 }
 
-export const DEFAULT_ATMOSPHERE: AtmosphereTuning = { density: 0.45, motes: 260, mullionMinWidth: 1.3, mullionWidth: 0.06 };
+export const DEFAULT_ATMOSPHERE: AtmosphereTuning = { density: 0.45, motes: 260, mullionMinWidth: 1.3, mullionWidth: 0.06, occluderDepth: 0.3 };
 
 interface ShaftRender {
   vol: ShaftVolume;
@@ -293,7 +308,7 @@ export class Atmosphere implements IAtmosphere {
       { vertexSource: SHAFT_VERTEX, fragmentSource: SHAFT_FRAGMENT },
       {
         attributes: ["position"],
-        uniforms: ["world", "viewProjection", "cameraPosition", "uRow0", "uRow1", "uRow2", "uClipMin", "uClipMax", "uLens", "uColor", "uLightDir", "uPanes", "uDensity", "uTime", "uSunMatrix"],
+        uniforms: ["world", "viewProjection", "cameraPosition", "uRow0", "uRow1", "uRow2", "uClipMin", "uClipMax", "uLens", "uColor", "uLightDir", "uPanes", "uDensity", "uTime", "uSunMatrix", "uOccluderDepth"],
         samplers: occlude ? ["sunShadowMap"] : [],
         defines,
         needAlphaBlending: true,
@@ -329,6 +344,10 @@ export class Atmosphere implements IAtmosphere {
     const width = len(vol.U);
     m.setVector2("uPanes", new Vector2(width > this.tuning.mullionMinWidth ? 2 : 1, this.tuning.mullionWidth));
     m.setFloat("uDensity", this.tuning.density);
+    // Normal distance → distance along the light (grazing sun: much longer), capped.
+    const n = Vector3.Cross(new Vector3(vol.U.x, vol.U.y, vol.U.z), new Vector3(vol.V.x, vol.V.y, vol.V.z)).normalize();
+    const cosI = Math.max(0.25, Math.abs(Vector3.Dot(n, L)));
+    m.setFloat("uOccluderDepth", Math.min(1.2, this.tuning.occluderDepth / cosI));
     m.setFloat("uTime", 0);
     return m;
   }
