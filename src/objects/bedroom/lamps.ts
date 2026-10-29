@@ -142,8 +142,9 @@ function spotBulb(b: Builder, name: string, socketPart: string, pos: [number, nu
 }
 
 /**
- * Articulated desk lamp. Built pose: lower arm leaning 15° forward, upper arm reaching forward
- * 15° below horizontal, shade aimed 30° forward of straight down. Spring-balanced friction
+ * Articulated desk lamp. Built pose: lower arm leaning 10° back, upper arm reaching forward 25°
+ * below horizontal, shade aimed 30° forward of straight down; the centre of mass stays over the
+ * cast-iron base. Spring-balanced friction
  * hinges hold the pose (like the balancing springs of a real task lamp).
  */
 export function buildDeskLamp(o: DeskLampOpts = {}): AssemblyDef {
@@ -151,24 +152,27 @@ export function buildDeskLamp(o: DeskLampOpts = {}): AssemblyDef {
   const tint = o.tint ?? 0x2b2d31;
   const S = "metal_painted" as const;
   // ---- weighted base: rubber ring, cast-iron disc, pressed steel cover
-  const ring = b.cyl("base_ring", "rubber", "rubber", 0.075, 0.004, [0, 0.002, 0], { segments: 14 });
-  const weight = b.cyl("base_weight", "castIron", "cast_iron", 0.068, 0.012, [0, 0.004 + 0.006, 0], { segments: 14 });
-  const cover = b.cyl("base_cover", "steelSheet", S, 0.078, 0.005, [0, 0.016 + 0.0025, 0], { segments: 16, rTop: 0.072, tint, tess: 0, mass: 0.25 });
+  const ring = b.cyl("base_ring", "rubber", "rubber", 0.085, 0.004, [0, 0.002, 0], { segments: 14 });
+  const weight = b.cyl("base_weight", "castIron", "cast_iron", 0.078, 0.012, [0, 0.004 + 0.006, 0], { segments: 14 });
+  const cover = b.cyl("base_cover", "steelSheet", S, 0.088, 0.005, [0, 0.016 + 0.0025, 0], { segments: 16, rTop: 0.082, tint, tess: 0, mass: 0.25 });
   b.glue(ring, weight, 10);
   b.screw(cover, weight, 3, 25);
   // ---- swivel turret (free vertical hinge with friction) + shoulder knuckle
   const yT0 = 0.021;
   const turret = b.cyl("turret", "steel", S, 0.016, 0.03, [0, yT0 + 0.015, 0], { segments: 10, tint });
-  b.hinge(turret, cover, { pivots: [[0, yT0, 0]], axis: [0, 1, 0], min: -180, max: 180, friction: 0.8, strength: 60 });
+  // two bearing points on the turret axis (a single pivot would be a ball joint)
+  b.hinge(turret, cover, { pivots: [[0, yT0, 0], [0, yT0 + 0.025, 0]], axis: [0, 1, 0], min: -180, max: 180, friction: 0.8, strength: 60 });
   const yS = yT0 + 0.03 + 0.012; // shoulder pivot height
   const knuckle = boxR(b, "shoulder", "steel", S, [-0.016, 0.016], [yS - 0.012, yS + 0.012], [-0.012, 0.012], { tint });
   b.weld(knuckle, turret, 80);
   const fwd = hingeAxis([0, 1, 0], [0, 0, 1]); // positive angle tips the arms forward
 
-  // ---- lower arm: two flat bars + spreader, leaning forward 25°
+  // ---- lower arm: two flat bars + spreader
+  // lower arm leans BACK and the upper arm reaches forward, keeping the centre of mass over the
+  // base (like a balanced task lamp); the shade ends up ~0.33 m in front of the turret
   const L1 = 0.36,
-    L2 = 0.34;
-  const lean = 15;
+    L2 = 0.38;
+  const lean = -10;
   const a1 = (lean * Math.PI) / 180;
   const elbow: [number, number, number] = [0, yS + L1 * Math.cos(a1), L1 * Math.sin(a1)];
   const mid1: [number, number, number] = [0, (yS + elbow[1]) / 2, elbow[2] / 2];
@@ -181,7 +185,7 @@ export function buildDeskLamp(o: DeskLampOpts = {}): AssemblyDef {
   // ---- elbow knuckle + upper arm, 15° below horizontal
   const ek = boxR(b, "elbow", "steel", S, [-0.016, 0.016], [elbow[1] - 0.012, elbow[1] + 0.012], [elbow[2] - 0.012, elbow[2] + 0.012], { tint });
   b.hinge(ek, arm1, { pivots: [[-0.018, elbow[1], elbow[2]], [0.018, elbow[1], elbow[2]]], axis: [fwd.x, fwd.y, fwd.z], min: -60, max: 70, friction: 3, spring: 4, strength: 45 });
-  const drop = 15;
+  const drop = 25;
   const a2 = (-drop * Math.PI) / 180;
   const head: [number, number, number] = [0, elbow[1] + L2 * Math.sin(a2), elbow[2] + L2 * Math.cos(a2)];
   const mid2: [number, number, number] = [0, (elbow[1] + head[1]) / 2, (elbow[2] + head[2]) / 2];

@@ -170,6 +170,11 @@ export class WorldMaterialPlugin extends MaterialPluginBase {
     return "WorldMaterialPlugin";
   }
 
+  /** Mains power for emissive surfaces flagged mains-powered (bulbs, LEDs, displays). */
+  setPowered(on: boolean | number): void {
+    this.power = typeof on === "number" ? Math.max(0, Math.min(1, on)) : on ? 1 : 0;
+  }
+
   /** Swap the texture library (rebinds on the next frame). */
   setLibrary(lib: TextureLibrary): void {
     this.lib = lib;

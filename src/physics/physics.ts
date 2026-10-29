@@ -101,6 +101,21 @@ export interface PhysicsOptions {
   fastThinSpeed?: number;
   /** Bodies whose smallest equivalent dimension is below this (m) count as thin. Default 0.02. */
   thinWidth?: number;
+  /**
+   * Adaptive collision-event masks (see header): CONTINUED events only for bodies that are fast (> hotSpeed) or were
+   * in an impact within hotSteps. Default true; false gives every body STARTED|CONTINUED|FINISHED.
+   */
+  adaptiveEvents?: boolean;
+  /** Body speed (m/s, incl. corner speed) above which its contacts report CONTINUED events. Default 0.5. */
+  hotSpeed?: number;
+  /** Fixed steps a body stays "hot" after being fast or in an impact. Default 30. */
+  hotSteps?: number;
+  /** Same-step `started` impacts from pre-step velocities (see impacts.ts). Default true. */
+  estimateImpacts?: boolean;
+  /** Hull inputs with more points are decimated to at most this many k-DOP support points (4–64). Default 16. */
+  maxHullPoints?: number;
+  /** Hull inputs thinner than this (m) are thickened to it (coplanar / collinear / single points). Default 0.001. */
+  minHullThickness?: number;
   /** Gravity along Y (m/s²). Default −9.81. */
   gravity?: number;
   /** Impact aggregation tuning (minImpulse, minDeltaV, spikeFactor, …). */
@@ -108,7 +123,7 @@ export interface PhysicsOptions {
   /** World speed limits. Defaults 80 m/s and 60 rad/s (nothing in an apartment is faster; tames spinning shards). */
   maxLinearVelocity?: number;
   maxAngularVelocity?: number;
-  /** Force-sleep slow dynamic bodies (large piles never sleep otherwise). Default enabled (0.1 m/s, 0.5 rad/s, 1.5 s). */
+  /** Force-sleep slow dynamic bodies (large piles never sleep otherwise). Default enabled (0.08 m/s, 0.2 rad/s, 0.6 s; see header). */
   sleepAssist?: boolean | Partial<SleepAssistConfig>;
   /** Dynamic bodies lighter than this get this mass (kg); keeps solver mass ratios sane. Default 0.005. */
   minDynamicMass?: number;
@@ -144,6 +159,18 @@ export interface PhysicsDebugStats extends PhysicsStats {
   /** Fastest thin dynamic body seen in the last step (m/s, incl. corner speed). */
   thinSpeedLast: number;
   stepIndex: number;
+  /** Bodies with CONTINUED events enabled (adaptive event masks). */
+  hotBodies: number;
+  /** Same-step (estimated) started impacts so far. */
+  earlyImpacts: number;
+  /** hullShape(): calls, EMA / last time (ms), last input/output point counts, box substitutions, thickened inputs. */
+  hullCount: number;
+  hullMsAvg: number;
+  hullMsLast: number;
+  hullPointsInLast: number;
+  hullPointsOutLast: number;
+  hullBoxes: number;
+  hullThickened: number;
   /** Last step breakdown (ms). */
   havokMs: number;
   eventsMs: number;
@@ -153,6 +180,8 @@ export interface PhysicsDebugStats extends PhysicsStats {
 
 // ---------------------------------------------------------------------------------------------- internals
 const EVENT_MASK = EV_STARTED | EV_CONTINUED | EV_FINISHED;
+/** Mask of "cold" bodies under adaptive event masks: contact starts and ends only. */
+const COLD_MASK = EV_STARTED | EV_FINISHED;
 const STATIC = PhysicsMotionType.STATIC;
 const ANIMATED = PhysicsMotionType.ANIMATED;
 const DYNAMIC = PhysicsMotionType.DYNAMIC;
@@ -214,6 +243,36 @@ class BodyRec implements ImpactSide {
   radius = 0;
   /** Step index until which the body's velocity is polled before stepping (fresh / expectFast). */
   watchUntil = -1;
+  // ---- velocity cache (impulse estimation, adaptive substeps, adaptive event masks)
+  /** Velocity at the start of the coming step (m/s, rad/s): body-buffer motion of the last step, or read from Havok
+   *  when something changed it between steps (setLinearVelocity / applyImpulse / …). */
+  vx = 0;
+  vy = 0;
+  vz = 0;
+  wx = 0;
+  wy = 0;
+  wz = 0;
+  /** Velocity at the start of the most recent step (what the step's collisions acted on). */
+  pvx = 0;
+  pvy = 0;
+  pvz = 0;
+  pwx = 0;
+  pwy = 0;
+  pwz = 0;
+  /** v/w hold a non-zero value. */
+  vNonZero = false;
+  /** Velocity changed outside the step: re-read from Havok before the next step. */
+  velDirty = false;
+  /** COM in the body frame and mean per-unit-mass principal inertia (m²) for the rotational effective mass. */
+  comX = 0;
+  comY = 0;
+  comZ = 0;
+  kk = 0;
+  /** Largest restitution of the body's leaf shapes (Havok combines restitution with MAXIMUM). */
+  restitution = 0;
+  /** Current Havok event mask and the step until which CONTINUED events stay enabled (adaptive masks). */
+  mask = 0;
+  hotUntil = -1;
   disposeObserver: Observer<Node> | null = null;
 
   constructor(body: PhysicsBody, serial: number, foreign: boolean) {
@@ -279,6 +338,11 @@ export class Physics implements PhysicsSystem {
   syncWorldMatrices: boolean;
   rawEvents: boolean;
   minDynamicMass: number;
+  adaptiveEvents: boolean;
+  hotSpeed: number;
+  hotSteps: number;
+  maxHullPoints: number;
+  minHullThickness: number;
   readonly sleepAssist: SleepAssistConfig;
   /** Impact aggregation parameters (mutable at runtime). */
   readonly impacts: ImpactConfig;
@@ -308,6 +372,18 @@ export class Physics implements PhysicsSystem {
   private pollCursor = 0;
   /** Thin bodies whose velocity must be read before the next step (fresh fragments, expectFast). */
   private watch: BodyRec[] = [];
+  /** Bodies whose velocity was changed between steps (wrapped plugin setters / impulses). */
+  private velDirty: BodyRec[] = [];
+  private hotCount = 0;
+  private earlyCount = 0;
+  private hullCount = 0;
+  private hullMsEma = 0;
+  private hullMsLast = 0;
+  private hullInLast = 0;
+  private hullOutLast = 0;
+  private hullBoxes = 0;
+  private hullThickened = 0;
+  private hullScratch = new Float64Array(3 * 64);
   private thinSpeed = 0;
   private substepsLast = 1;
   // hull scratch memory in the WASM heap
@@ -356,10 +432,16 @@ export class Physics implements PhysicsSystem {
     this.syncWorldMatrices = opts.syncWorldMatrices ?? true;
     this.rawEvents = opts.rawEvents ?? true;
     this.minDynamicMass = opts.minDynamicMass ?? 0.005;
+    this.adaptiveEvents = opts.adaptiveEvents ?? true;
+    this.hotSpeed = opts.hotSpeed !== undefined && opts.hotSpeed >= 0 ? opts.hotSpeed : 0.5;
+    this.hotSteps = clampInt(opts.hotSteps ?? 30, 1, 100000);
+    this.maxHullPoints = clampInt(opts.maxHullPoints ?? 16, 4, 64);
+    this.minHullThickness = opts.minHullThickness !== undefined && opts.minHullThickness >= 0 ? opts.minHullThickness : 0.001;
     const sa = typeof opts.sleepAssist === "object" ? opts.sleepAssist : {};
-    this.sleepAssist = { enabled: opts.sleepAssist !== false && sa.enabled !== false, linear: sa.linear ?? 0.1, angular: sa.angular ?? 0.5, seconds: sa.seconds ?? 1.5 };
+    this.sleepAssist = { enabled: opts.sleepAssist !== false && sa.enabled !== false, linear: sa.linear ?? 0.08, angular: sa.angular ?? 0.2, seconds: sa.seconds ?? 0.6 };
     this.agg = new ImpactAggregator<BodyRec>(opts.impacts);
     this.impacts = this.agg.cfg;
+    if (opts.estimateImpacts !== false) this.agg.estimator = (a, b, px, py, pz, nx, ny, nz) => this.estimateImpulse(a, b, px, py, pz, nx, ny, nz);
 
     this.plugin = new HavokPlugin(true, hk, { maxQueryCollectorHits: clampInt(opts.maxRayHits ?? 32, 2, 256) });
     if (!scene.enablePhysics(new Vector3(0, opts.gravity ?? -9.81, 0), this.plugin)) throw new Error("Physics: enablePhysics failed");
@@ -369,6 +451,7 @@ export class Physics implements PhysicsSystem {
     this.engine.setVelocityLimits(opts.maxLinearVelocity ?? 80, opts.maxAngularVelocity ?? 60);
     this.P = this.plugin as unknown as PluginInternals;
     this.world = this.P.world;
+    this.wrapVelocityChanges();
     // HP_World_GetNextCollisionEvent takes the world as a plain number (as Babylon's notifier does)
     this.worldNum = Number(this.world);
 
@@ -456,23 +539,27 @@ export class Physics implements PhysicsSystem {
       tHavok += b - a;
       tEvents += now() - b;
     }
+    // impacts are aggregated BEFORE the sync: the estimator needs the pre-step velocities and poses that the sync
+    // replaces with this step's results
     const t1 = now();
+    const count = this.agg.endStep(this.impactOut);
+    this.heatImpacts(count);
+    const t2 = now();
     this.syncForeign();
     this.fastSync(dt);
     P._releasePendingWorldRegions?.();
-    const t2 = now();
-    const count = this.agg.endStep(this.impactOut);
+    const t3 = now();
     this._stepIndex++;
     this.dispatch(count);
     scene.onAfterPhysicsObservable.notifyObservers(scene);
-    const t3 = now();
+    const t4 = now();
     this.tHavok = tHavok;
     this.tEvents = tEvents;
-    this.tSync = t2 - t1;
-    this.tImpacts = t3 - t2;
+    this.tSync = t3 - t2;
+    this.tImpacts = t2 - t1 + (t4 - t3);
     this.eventsLast = events;
     this.impactsLast = count;
-    const ms = t3 - t0;
+    const ms = t4 - t0;
     this.stepMsEma = this.stepMsEma === 0 ? ms : this.stepMsEma + (ms - this.stepMsEma) * 0.1;
   }
 
@@ -504,14 +591,74 @@ export class Physics implements PhysicsSystem {
     rec.watchUntil = Math.max(rec.watchUntil, this._stepIndex + steps);
   }
 
+  /** Read the Havok velocity of every body changed between steps; returns the fastest thin dynamic one (m/s). */
+  private readDirtyVelocities(): number {
+    const hk = this.hk;
+    const list = this.velDirty;
+    let thin = 0;
+    for (let i = 0; i < list.length; i++) {
+      const rec = list[i];
+      rec.velDirty = false;
+      if (rec.disposed || !rec.body._pluginData || rec.motion === STATIC) continue;
+      const lv = hk.HP_Body_GetLinearVelocity(rec.hpId)[1];
+      const av = hk.HP_Body_GetAngularVelocity(rec.hpId)[1];
+      rec.vx = lv[0];
+      rec.vy = lv[1];
+      rec.vz = lv[2];
+      rec.wx = av[0];
+      rec.wy = av[1];
+      rec.wz = av[2];
+      rec.vNonZero = true;
+      const sp = Math.hypot(lv[0], lv[1], lv[2]) + Math.hypot(av[0], av[1], av[2]) * rec.radius;
+      if (rec.motion === DYNAMIC) {
+        if (rec.thin && sp > thin) thin = sp;
+        if (sp > this.hotSpeed) this.heat(rec);
+      }
+    }
+    list.length = 0;
+    return Number.isFinite(thin) ? thin : 1e9;
+  }
+
+  /**
+   * Route every velocity change made through Babylon (body.setLinearVelocity / setAngularVelocity / applyImpulse /
+   * applyAngularImpulse / applyForce / applyTorque all end in these plugin methods) into the velocity cache, so
+   * strikes, kicks and throws are seen before the next step without callers having to say so.
+   */
+  private wrapVelocityChanges(): void {
+    const plugin = this.plugin as unknown as Record<string, (body: PhysicsBody, ...rest: unknown[]) => unknown>;
+    for (const name of ["setLinearVelocity", "setAngularVelocity", "applyImpulse", "applyAngularImpulse"]) {
+      const orig = plugin[name];
+      if (typeof orig !== "function") continue;
+      plugin[name] = (body: PhysicsBody, ...rest: unknown[]): unknown => {
+        const r = orig.call(this.plugin, body, ...rest);
+        this.touchVelocity(body);
+        return r;
+      };
+    }
+  }
+
+  private touchVelocity(body: PhysicsBody): void {
+    const rec = this.recs.get(body);
+    if (rec !== undefined && !rec.velDirty && !rec.disposed) {
+      rec.velDirty = true;
+      this.velDirty.push(rec);
+    }
+  }
+
   /** Substeps for this step: minimum, plus enough that no thin body moves more than fastThinSpeed·dt per substep. */
   private chooseSubsteps(): number {
     const lo = clampInt(this.minSubsteps, 1, 8);
+    // bodies whose velocity was set / kicked between steps: refresh the velocity cache (impulse estimates, event
+    // masks) and let thin ones drive the substep count right away (a struck shard's first step must not tunnel)
+    let v = this.thinSpeed;
+    if (this.velDirty.length > 0) {
+      const vd = this.readDirtyVelocities();
+      if (vd > v) v = vd;
+    }
     if (!this.adaptiveSubsteps) {
       this.watch.length = 0;
       return lo;
     }
-    let v = this.thinSpeed;
     if (this.watch.length > 0) {
       const hk = this.hk;
       let keep = 0;

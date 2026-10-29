@@ -794,6 +794,8 @@ export interface StrikeAim {
 }
 /** A retargeted contact never comes closer to the eye than this (m); nearer targets are met earlier in the swing. */
 export const MIN_AIM_REACH = 0.3;
+/** The contact may stretch this far (m) beyond the nominal reach (lean / full arm extension). */
+export const AIM_STRETCH = 0.08;
 /** Targets up to this far (m) beyond reach + head radius still square the swing up (met in the follow-through). */
 export const AIM_SLACK = 0.25;
 /** The swing squares up to surfaces whose inward normal is within ~73° of the view (cos); others are hit along the view. */
@@ -1043,7 +1045,7 @@ export class SwingMachine {
   /**
    * Re-aim the current strike at what the crosshair is on, the way a real swinger squares up: the
    * contact point moves along the view line to where the head sphere just touches the surface
-   * (clamped to [MIN_AIM_REACH, reach]); curve swings also rotate their contact travel, handle and
+   * (clamped to [MIN_AIM_REACH, reach + AIM_STRETCH]); curve swings also rotate their contact travel, handle and
    * the rest of the path from "straight ahead" to "into the surface" (when it faces the player),
    * so a square blow delivers ≈ cos²(travel, view) of ½·m·v². A much shortened approach loses
    * speed (less run-up). Keeps the current strike time. Returns false (path unchanged) when there
@@ -1079,9 +1081,17 @@ export class SwingMachine {
       }
       // head centre where the sphere touches the aimed point when arriving along `into`
       const c = set(a.contact, aim.point.x - into.x * r, aim.point.y - into.y * r, aim.point.z - into.z * r);
-      clampReach(c, def.reach);
-      // follow-through keeps its shape relative to the contact
-      set(a.end, rig.end.head.x + c.x - rig.contact.x, rig.end.head.y + c.y - rig.contact.y, rig.end.head.z + c.z - rig.contact.z);
+      clampReach(c, def.reach + AIM_STRETCH);
+      // follow-through keeps its shape relative to the contact, carried on along the travel by
+      // the depth the contact moved in: the swing still reaches through to its natural extent
+      // (whatever is behind a broken pane / sheet of drywall gets hit too)
+      const fwd = Math.max(0, len(rig.contact) - len(c));
+      set(
+        a.end,
+        rig.end.head.x + c.x - rig.contact.x + a.travel.x * fwd,
+        rig.end.head.y + c.y - rig.contact.y + a.travel.y * fwd,
+        rig.end.head.z + c.z - rig.contact.z + a.travel.z * fwd,
+      );
       this.path.buildCurve(p, woundHead(rig, this.charge, this.tv), woundQuat(p, this.charge, this.tq), v, a);
     } else {
       const p = this.prep as PreparedJab;
@@ -1091,7 +1101,7 @@ export class SwingMachine {
       // fist centre short of the point along the punch line from the (pulled-back) guard
       const dir = normalizeInPlace(set(_aimDir, aim.point.x - g.x - b.x * w0, aim.point.y - g.y - b.y * w0, aim.point.z - g.z - b.z * w0), p.dir[this.hand]);
       const c = set(_aimC, aim.point.x - dir.x * r, aim.point.y - dir.y * r, aim.point.z - dir.z * r);
-      clampReach(c, def.reach);
+      clampReach(c, def.reach + AIM_STRETCH);
       this.path.buildJab(p, this.hand, w0, v, c);
     }
     const ratio = this.nominalLc > 1e-6 ? this.path.Lc / this.nominalLc : 1;

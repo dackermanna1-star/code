@@ -14,6 +14,8 @@ export interface OfficeChairOpts extends BaseOpts {
   fabric?: number;
   /** "jointed" (default): rolling/swivelling casters; "fixed": wheels bonded rigidly (cheaper). */
   casters?: "jointed" | "fixed";
+  /** Mass (kg) of each caster hood and each wheel (default 0.07 each). */
+  casterKg?: number;
 }
 
 export const OFFICE_CHAIR = { r: 0.33, seatY: 0.555, backTop: 1.13 } as const;
@@ -80,14 +82,15 @@ export function buildOfficeChair(o: OfficeChairOpts = {}): AssemblyDef {
           [0.009, tipY - 0.001, 0.01],
         ],
         [0, 0, 0],
-        { tint: PAL.black, mass: 0.07 },
+        { tint: PAL.black, mass: o.casterKg ?? 0.07 },
       );
-      wheel = b.cyl("wheel", "rubber", "rubber", wheelR, wheelW, [0, wheelR, tr], { axis: "x", segments: 12, tint: 0x2a2a2a, mass: 0.07 });
+      wheel = b.cyl("wheel", "rubber", "rubber", wheelR, wheelW, [0, wheelR, tr], { axis: "x", segments: 12, tint: 0x2a2a2a, mass: o.casterKg ?? 0.07 });
       if (jointed) {
         b.hinge(wheel, hood, { pivots: [[-wheelW / 2, wheelR, tr], [wheelW / 2, wheelR, tr]], axis: [1, 0, 0], min: -180, max: 180, friction: 0.03, strength: 40 });
       } else b.bond(wheel, hood, "press", { strength: 40 });
     });
-    if (jointed) b.hinge(hood, legs[k], { pivots: [[sx, tipY, sz]], axis: [0, 1, 0], min: -180, max: 180, friction: 0.02, strength: 60 });
+    // swivel: two bearing points on the vertical stem axis (a single pivot would be a ball joint)
+    if (jointed) b.hinge(hood, legs[k], { pivots: [[sx, tipY, sz], [sx, tipY - 0.015, sz]], axis: [0, 1, 0], min: -180, max: 180, friction: 0.02, strength: 60 });
     else b.bond(hood, legs[k], "press", { strength: 60 });
     void wheel;
   }
@@ -100,7 +103,7 @@ export function buildOfficeChair(o: OfficeChairOpts = {}): AssemblyDef {
   b.press(piston, outer, 160);
   const mechY0 = pistonY0 + 0.12;
   const mech = boxR(b, "mechanism", "steel", "metal_black", [-0.1, 0.1], [mechY0, mechY0 + 0.03], [-0.1, 0.1], { mass: 1.6, tess: 0 });
-  if (jointed) b.hinge(mech, piston, { pivots: [[0, mechY0, 0]], axis: [0, 1, 0], min: -180, max: 180, friction: 0.25, strength: 120 });
+  if (jointed) b.hinge(mech, piston, { pivots: [[0, mechY0, 0], [0, mechY0 - 0.06, 0]], axis: [0, 1, 0], min: -180, max: 180, friction: 0.25, strength: 120 });
   else b.press(mech, piston, 120);
   // ---- seat
   const panY0 = mechY0 + 0.03;

@@ -447,6 +447,13 @@ export class Decals {
     return a;
   }
 
+  /** Live decals (probes/debug overlay; allocates). */
+  debugList(): Array<{ kind: DecalKind; x: number; y: number; z: number; ny: number; r: number; density: number; dying: boolean }> {
+    const out = [];
+    for (const d of this.list) if (d.alive) out.push({ kind: d.kind, x: d.x, y: d.y, z: d.z, ny: d.ny, r: d.ra, density: d.density, dying: d.dying });
+    return out;
+  }
+
   /** Number of decals of a kind (tests/stats). */
   countOf(kind: DecalKind): number {
     let n = 0;

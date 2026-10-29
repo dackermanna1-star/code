@@ -81,6 +81,9 @@ const PRY_ARM_REACH = 0.55;
 const PRY_FACE_HINT: V3 = { x: -0.5, y: -0.3, z: 0.8 };
 /** Floor probe mask (what the player can stand on). */
 const FLOOR_MASK = Layer.STATIC | Layer.DYNAMIC;
+/** Swing sweeps are split into sub-steps of at most this head path length (m), at most SUB_SWEEP_MAX per step. */
+const SUB_SWEEP_LEN = 0.06;
+const SUB_SWEEP_MAX = 8;
 /** Seconds before the crowbar tries to wedge in again after slipping off. */
 const PRY_RETRY = 0.4;
 
@@ -482,28 +485,38 @@ export class ToolSystem implements IToolSystem {
   private sweepStrike(tc: ToolContext): void {
     const m = this.machine;
     const def = this.defs[this._current];
-    let t0 = m.sweepFrom;
+    const t0 = m.sweepFrom;
     const t1 = m.sweepTo;
     m.headAt(t1, this.c0);
     this.toWorld(this.c0, this.curHead);
     const shaft = TOOL_SHAFTS[this._current];
     const shaftFrom = SHAFT_SWEEP_FROM * m.path.tc;
+    // The head covers up to ~35 cm per step on a curved path: sweep it (and the shaft) in sub-steps
+    // along the actual curve, so a contact's time — hence its velocity — is the true one (a single
+    // chord would put a hit near the apex of the arc at the wrong time / direction).
+    const arc = m.path.sAt(t1) - m.path.sAt(t0);
+    const n = Math.min(SUB_SWEEP_MAX, Math.max(1, Math.ceil(arc / SUB_SWEEP_LEN)));
+    const dtSub = (t1 - t0) / n;
+    let ta = t0;
     // a few hits per step are possible when the head breaks through (glass → stuff behind it)
-    for (let iter = 0; iter < MAX_HITS_PER_SWING + 2; iter++) {
+    for (let guard = 0; ta < t1 - 1e-9 && guard < n + MAX_HITS_PER_SWING + 2; guard++) {
       if (m.hits >= MAX_HITS_PER_SWING) break;
-      const ignore = this.swingIgnore && t0 < this.swingIgnoreUntil ? this.swingIgnore : null;
-      let hit = this.safeSweep(this.prevHead, this.curHead, def.headRadius, tc.ignore, ignore);
-      let tHit = hit ? t0 + (t1 - t0) * hit.fraction : Infinity;
+      const tb = Math.min(t1, ta + dtSub);
+      const subEnd = tb >= t1 - 1e-9 ? this.curHead : this.toWorld(m.headAt(tb, this.c0), this.w0);
+      const ignore = this.swingIgnore && ta < this.swingIgnoreUntil ? this.swingIgnore : null;
+      let hit = this.safeSweep(this.prevHead, subEnd, def.headRadius, tc.ignore, ignore);
+      let frac = hit ? hit.fraction : 1;
+      let tHit = hit ? ta + (tb - ta) * hit.fraction : Infinity;
       let shaftOff = -1;
       // the shaft (handle / barrel) sweeps too, from late in the approach on: earliest contact wins
-      if (shaft && t1 > shaftFrom) {
-        const ts = Math.max(t0, shaftFrom);
+      if (shaft && tb > shaftFrom) {
+        const ts = Math.max(ta, shaftFrom);
         for (const off of shaft.offsets) {
           this.toWorld(m.toolPointAt(ts, off, this.c2), this.shaftA);
-          this.toWorld(m.toolPointAt(t1, off, this.c2), this.shaftB);
+          this.toWorld(m.toolPointAt(tb, off, this.c2), this.shaftB);
           const sh = this.safeSweep(this.shaftA, this.shaftB, shaft.radius, tc.ignore, ignore);
           if (!sh) continue;
-          const tS = ts + (t1 - ts) * sh.fraction;
+          const tS = ts + (tb - ts) * sh.fraction;
           if (tS < tHit) {
             hit = sh;
             tHit = tS;
@@ -511,20 +524,29 @@ export class ToolSystem implements IToolSystem {
           }
         }
       }
-      if (!hit) break;
-      const outcome = shaftOff >= 0 ? this.resolveShaftHit(hit, tHit, shaftOff, def) : this.resolveSwingHit(hit, tHit, def);
-      // the head's position at the contact time (the sweep's own contact centre for head hits)
-      if (shaftOff >= 0) this.toWorld(m.headAt(tHit, this.c0), this.hitCentre);
-      else this.hitCentre.copyFrom(this.prevHead).scaleInPlace(1 - hit.fraction).addInPlace(this.w0.copyFrom(this.curHead).scaleInPlace(hit.fraction));
-      if (outcome !== "continue") {
-        this.prevHead.copyFrom(this.hitCentre);
-        return;
+      if (!hit) {
+        this.prevHead.copyFrom(subEnd);
+        ta = tb;
+        continue;
       }
+      // the head's position at the contact time (on the head's own sweep for head hits)
+      if (shaftOff >= 0) this.toWorld(m.headAt(tHit, this.c0), this.hitCentre);
+      else {
+        frac = Math.min(1, Math.max(0, frac));
+        this.hitCentre.set(
+          this.prevHead.x + (subEnd.x - this.prevHead.x) * frac,
+          this.prevHead.y + (subEnd.y - this.prevHead.y) * frac,
+          this.prevHead.z + (subEnd.z - this.prevHead.z) * frac,
+        );
+      }
+      const centre = this.shaftA.copyFrom(this.hitCentre);
+      const outcome = shaftOff >= 0 ? this.resolveShaftHit(hit, tHit, shaftOff, def) : this.resolveSwingHit(hit, tHit, def);
+      this.prevHead.copyFrom(centre);
+      if (outcome !== "continue") return;
       // follow through: ignore this body for the rest of the swing, continue from the contact
       this.swingIgnore = hit.body;
       this.swingIgnoreUntil = Infinity;
-      this.prevHead.copyFrom(this.hitCentre);
-      t0 = tHit;
+      ta = tHit;
       if (m.phase !== "strike") break;
     }
     this.prevHead.copyFrom(this.curHead);

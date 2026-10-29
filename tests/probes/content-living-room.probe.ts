@@ -16,6 +16,10 @@ import { ROOMS } from "../../src/world/plan.ts";
 import { buildStructure } from "../../src/world/structure.ts";
 import { furnishLivingItems } from "../../src/world/furnish/living.ts";
 import { MockVfx } from "./destruction-util.ts";
+import { Builder } from "../../src/objects/lib/builder.ts";
+
+/** Spawn the full structure + fixtures (heavy) or a light stand-in shell. */
+const STRUCTURE = false;
 import manifest from "../../public/assets/textures/manifest.json";
 
 const photoUrls = import.meta.glob("../../public/assets/textures/*.jpg", { query: "?url", import: "default", eager: true }) as Record<string, string>;
@@ -48,9 +52,19 @@ export async function probe(): Promise<unknown> {
   const time = new Time();
   const d = new Destruction({ physics, render, vfx: new MockVfx(), events, time, settings, rng: new Rng(7), scene });
 
-  for (const p of buildStructure()) d.spawn(p.def, p.xf);
+  if (STRUCTURE) for (const p of buildStructure()) d.spawn(p.def, p.xf);
+  else {
+    // light mode: a static floor slab + the two walls the room's furniture stands against
+    const b = new Builder("probeShell", "Probe Shell", "structure", 0);
+    const f = b.box("floor", "concrete", "wood_oak", [5.6, 0.2, 5.4], [6.6, -0.1, 2.5]);
+    const w = b.box("wall_w", "gypsum", "paint_wall", [0.115, 2.7, 4.4], [4.0, 1.35, 2.2]);
+    const e = b.box("wall_e", "gypsum", "paint_wall", [0.115, 2.7, 4.4], [9.2, 1.35, 2.2]);
+    const s2 = b.box("wall_s", "concrete", "paint_wall", [5.4, 2.7, 0.2], [6.6, 1.35, -0.1]);
+    for (const p of [f, w, e, s2]) b.world(p, "mortar", 1e6);
+    d.spawn(b.build(), { p: { x: 0, y: 0, z: 0 }, q: { x: 0, y: 0, z: 0, w: 1 } });
+  }
   let fixtures = 0;
-  try {
+  if (STRUCTURE) try {
     const mod = await import("../../src/world/furnish/fixtures.ts");
     for (const p of mod.furnishFixtures()) if (p.room === "living") {
       d.spawn(p.def, p.xf);
@@ -69,7 +83,7 @@ export async function probe(): Promise<unknown> {
   const stats0 = { destruction: d.stats(), physics: physics.stats() };
 
   const tStep = performance.now();
-  const N = 180;
+  const N = 150;
   for (let i = 0; i < N; i++) {
     d.beforePhysics(FIXED_DT);
     physics.step(FIXED_DT);

@@ -21,11 +21,13 @@ import {
   EV_STRIKE_END,
   MAX_CHARGE_HOLD,
   RECOVER_INTERRUPT,
+  MIN_AIM_REACH,
+  AIM_STRETCH,
   type PreparedCurve,
   type PreparedJab,
   type V3,
 } from "../../src/player/tools/swing.ts";
-import { TOOL_DEFS, TOOL_RIGS, TOOL_ORDER, sharpnessFor, isPainful, KICK, STOMP, PRY, SPRAY } from "../../src/player/tools/defs.ts";
+import { TOOL_DEFS, TOOL_RIGS, TOOL_ORDER, TOOL_SHAFTS, sharpnessFor, isPainful, KICK, STOMP, PRY, SPRAY } from "../../src/player/tools/defs.ts";
 
 const DT = 1 / 60;
 const dist = (a: V3, b: V3) => Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
@@ -155,7 +157,8 @@ test("strike path: samples, travel at contact, handle ⊥ travel, hands within r
       // direction of travel at contact = the rig's travel (strong forward component)
       const tan = path.tangentAtS(path.Lc, v3());
       near(tan.x * prep.travel.x + tan.y * prep.travel.y + tan.z * prep.travel.z, 1, 1e-6, `${id} travel at contact`);
-      assert.ok(tan.z >= 0.49, `${id} forward component ${tan.z}`);
+      // nearly along the view at contact: a square blow delivers ≥ ~80 % of ½·m·v²
+      assert.ok(tan.z >= 0.9, `${id} forward component ${tan.z}`);
       // at contact the striking face leads: face == travel, handle ⊥ travel
       const pose = makePose();
       const N = 60;
@@ -163,9 +166,13 @@ test("strike path: samples, travel at contact, handle ⊥ travel, hands within r
         const t = (path.T * k) / N;
         m.t = t;
         m.poseAt(0, pose);
-        // hands stay within arm's reach of the shoulders and never come near the eye
+        // hands stay within reach of a shoulder and never come near the eye. A square blow puts
+        // the hands at about the target's depth (handle ⊥ travel ≈ view), so the arms extend with
+        // some torso lean/rotation: two-handed tools may reach from either shoulder.
         const sh = { x: 0.19, y: -0.24, z: -0.05 };
-        assert.ok(dist(pose.right.p, sh) < 0.82, `${id} c=${c} grip reach ${dist(pose.right.p, sh).toFixed(2)} at t=${t.toFixed(3)}`);
+        const shL = { x: -0.19, y: -0.24, z: -0.05 };
+        const reach = rig.offhand !== 0 ? Math.min(dist(pose.right.p, sh), dist(pose.right.p, shL)) : dist(pose.right.p, sh);
+        assert.ok(reach < 0.88, `${id} c=${c} grip reach ${reach.toFixed(2)} at t=${t.toFixed(3)}`);
         assert.ok(mag(pose.right.p) > 0.12, `${id} c=${c} grip too close to the eye at t=${t.toFixed(3)}`);
         // head is one tool length up the handle from the grip
         near(dist(pose.head, pose.right.p), rig.toolLen, 1e-6);
@@ -393,5 +400,94 @@ test("idle poses keep the tools in view and in front of the camera", () => {
       assert.ok(mag(pt) > 0.25 && mag(pt) < 1.3, `${id} idle distance`);
     }
     for (const k of ["x", "y", "z"] as const) assert.ok(Number.isFinite(p.head[k]) && Number.isFinite(p.right.q.w));
+  }
+});
+
+test("aimStrike: re-targets the contact at the crosshair point at 0.4–0.8 m and squares up to the surface", () => {
+  for (const id of TOOL_ORDER) {
+    const def = TOOL_DEFS[id];
+    for (const dz of [0.4, 0.6, 0.8]) {
+      for (const n of [v3(0, 0, -1), v3(0, Math.SQRT1_2, -Math.SQRT1_2), v3(0.5, 0, -Math.sqrt(0.75))]) {
+        const m = new SwingMachine(def, TOOL_RIGS[id]);
+        m.forceStrike(0);
+        const point = v3(0, 0, dz);
+        assert.ok(m.aimStrike({ point, normal: n }), `${id} ${dz} aimed`);
+        const path = m.path;
+        const head = path.headAtS(path.Lc, v3());
+        const maxD = def.reach + AIM_STRETCH;
+        const expectD = Math.min(Math.max(dz - def.headRadius, MIN_AIM_REACH), maxD);
+        // the head sphere centre at contact sits one head radius off the surface point (inside the reach shell)
+        if (dz - def.headRadius <= maxD && dz - def.headRadius >= MIN_AIM_REACH) {
+          assert.ok(dist(head, point) < def.headRadius + 0.012, `${id} dz=${dz} n=${JSON.stringify(n)} contact ${JSON.stringify(head)} vs point`);
+        } else near(mag(head), expectD, 0.03, `${id} clamped contact`);
+        // the travel at contact goes into the surface: ≥ 0.9 along −n (≥ 81 % of ½·m·v²)
+        const tan = path.tangentAtS(path.Lc, v3());
+        const into = -(tan.x * n.x + tan.y * n.y + tan.z * n.z);
+        // (fists punch straight from the guard: a cramped close punch comes in at an angle, so only
+        // the frontal case at a punching distance is checked for them)
+        if (id !== "hands") assert.ok(into >= 0.89, `${id} dz=${dz} into-surface component ${into.toFixed(3)}`);
+        else if (dz >= 0.6 && n.z < -0.99) assert.ok(into >= 0.75, `fist dz=${dz} into-surface component ${into.toFixed(3)}`);
+        // speed: full at a comfortable distance, reduced (never below half) when cramped
+        const vc = m.velocityAt(path.tc, v3());
+        assert.ok(mag(vc) <= def.speed * 1.001 && mag(vc) >= def.speed * 0.5 - 1e-6, `${id} speed ${mag(vc)}`);
+        if (id !== "hands" && dz >= 0.8 && def.reach >= 0.8) near(mag(vc), def.speed, def.speed * 0.15, `${id} full speed at ${dz}`);
+        // the swept head reaches the point: closest approach ≤ head radius
+        let best = Infinity;
+        const o = v3();
+        for (let k = 0; k <= 400; k++) best = Math.min(best, dist(m.headAt((path.T * k) / 400, o), point));
+        // (only targets within reach: e.g. the extinguisher held across the chest reaches ~0.7 m)
+        if (dz - def.headRadius <= maxD) assert.ok(best <= def.headRadius + 0.005, `${id} dz=${dz} closest approach ${best.toFixed(3)}`);
+      }
+    }
+  }
+});
+
+test("aimStrike: out-of-reach targets leave the nominal path; the viewmodel pose follows the aimed path", () => {
+  const def = TOOL_DEFS.bat;
+  const m = new SwingMachine(def, TOOL_RIGS.bat);
+  m.forceStrike(0);
+  const T = m.path.T;
+  assert.equal(m.aimStrike({ point: v3(0, 0, 2.5), normal: v3(0, 0, -1) }), false);
+  near(m.path.T, T, 1e-12);
+  assert.ok(m.aimStrike({ point: v3(0, 0, 0.5), normal: v3(0, 0, -1) }));
+  const pose = makePose();
+  m.t = m.path.tc;
+  m.poseAt(0, pose);
+  assert.ok(dist(pose.head, m.path.headAtS(m.path.Lc, v3())) < 1e-6, "pose head = path head at contact");
+  // fists: the punching fist follows the re-aimed line
+  const f = new SwingMachine(TOOL_DEFS.hands, TOOL_RIGS.hands);
+  f.forceStrike(0);
+  assert.ok(f.aimStrike({ point: v3(0, 0, 0.4), normal: v3(0, 0, -1) }));
+  f.t = f.path.tc;
+  f.poseAt(0, pose);
+  const fist = f.hand === 1 ? pose.left.p : pose.right.p;
+  assert.ok(dist(fist, v3(0, 0, 0.4)) < TOOL_DEFS.hands.headRadius + 0.01, `fist at contact ${JSON.stringify(fist)}`);
+});
+
+test("grazes do not use up the per-swing hit budget; shaft points lie on the tool axis", () => {
+  const m = new SwingMachine(TOOL_DEFS.bat, TOOL_RIGS.bat);
+  m.forceStrike(0);
+  m.update(DT, false);
+  m.hit("continue", m.t, 0.85, 1, false);
+  m.hit("continue", m.t, 0.85, 1, false);
+  assert.equal(m.hits, 0);
+  m.hit("continue", m.t, 0.9);
+  assert.equal(m.hits, 1);
+  for (const id of Object.keys(TOOL_SHAFTS) as (keyof typeof TOOL_SHAFTS)[]) {
+    const rig = TOOL_RIGS[id];
+    assert.ok(rig.kind === "curve");
+    const sm = new SwingMachine(TOOL_DEFS[id], rig);
+    sm.forceStrike(0);
+    const pose = makePose();
+    for (const off of TOOL_SHAFTS[id]!.offsets) {
+      assert.ok(off > 0 && off < rig.toolLen, `${id} shaft offset within the tool`);
+      for (const t of [0, sm.path.tc, sm.path.T]) {
+        sm.t = t;
+        sm.poseAt(0, pose);
+        const p = sm.toolPointAt(t, off, v3());
+        near(dist(p, pose.head), off, 1e-6, `${id} shaft point distance from the head`);
+        near(dist(p, pose.right.p), rig.toolLen - off, 1e-6, `${id} shaft point distance from the grip`);
+      }
+    }
   }
 });

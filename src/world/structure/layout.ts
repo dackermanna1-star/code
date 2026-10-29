@@ -670,28 +670,68 @@ export function openingInfos(): OpeningInfo[] {
   return out;
 }
 
+/**
+ * u values along a run where the room on either side can change: every room rectangle edge
+ * crossing the run's axis (room boundaries lie on partition centre lines and open-plan edges,
+ * so this includes the concrete segment boundaries of layout()).
+ */
+function roomCuts(run: PartitionRun | ConcreteRun, lo: number, hi: number): number[] {
+  const f = run.frame;
+  const vals = new Set<number>();
+  for (const r of ROOMS) {
+    for (const v of Math.abs(f.dx) > 0.5 ? [r.x0, r.x1] : [r.z0, r.z1]) {
+      const u = Math.abs(f.dx) > 0.5 ? f.u(v, f.oz) : f.u(f.ox, v);
+      if (u > lo + 1e-6 && u < hi - 1e-6) vals.add(u);
+    }
+  }
+  return [...vals].sort((a, b) => a - b);
+}
+
+/**
+ * Splits [u0, u1] of a run into pieces with constant rooms on both sides. Pieces that face no
+ * room at all (corner stubs inside another wall's thickness) are merged into their neighbour.
+ */
+export function splitByRooms(run: PartitionRun | ConcreteRun, u0: number, u1: number): Array<{ u0: number; u1: number; rooms: [RoomId | null, RoomId | null] }> {
+  const xs = [u0, ...roomCuts(run, u0, u1), u1];
+  const raw = [];
+  for (let i = 0; i + 1 < xs.length; i++) raw.push({ u0: xs[i], u1: xs[i + 1], rooms: segRooms(run.frame, run.half, (xs[i] + xs[i + 1]) / 2) });
+  const out: typeof raw = [];
+  const same = (a: [RoomId | null, RoomId | null], b: [RoomId | null, RoomId | null]) => a[0] === b[0] && a[1] === b[1];
+  const empty = (r: [RoomId | null, RoomId | null]) => r[0] === null && r[1] === null;
+  for (const p of raw) {
+    const last = out[out.length - 1];
+    if (last && (same(last.rooms, p.rooms) || empty(p.rooms))) last.u1 = p.u1;
+    else if (last && empty(last.rooms)) out[out.length - 1] = { u0: last.u0, u1: p.u1, rooms: p.rooms };
+    else out.push({ ...p });
+  }
+  return out;
+}
+
 export function wallSegmentInfos(): WallSegmentInfo[] {
   const L = layout();
   const out: WallSegmentInfo[] = [];
   const add = (run: PartitionRun | ConcreteRun, u0: number, u1: number, y0: number, y1: number) => {
     if (u1 - u0 < 0.01 || y1 - y0 < 0.01) return;
     const f = run.frame;
-    const a = f.toWorld(u0, 0, 0),
-      b = f.toWorld(u1, 0, 0);
     const concrete = !("abutPos" in run);
     const insulated = !concrete && !!run.wall.insulated;
-    out.push({
-      wallId: run.wall.id,
-      kind: run.wall.kind,
-      a: [a.x, a.z],
-      b: [b.x, b.z],
-      thickness: run.half * 2,
-      y0,
-      y1,
-      rooms: segRooms(f, run.half, (u0 + u1) / 2),
-      transmissionLossDb: concrete ? 55 : insulated ? 42 : 34,
-      surfaceDensity: concrete ? 2400 * (run.half * 2 - WALL_FINISH_T) + 700 * WALL_FINISH_T : 2 * 700 * 0.0125 + (insulated ? 3 : 0) + 4,
-    });
+    for (const piece of splitByRooms(run, u0, u1)) {
+      if (piece.u1 - piece.u0 < 0.005) continue;
+      const a = f.toWorld(piece.u0, 0, 0),
+        b = f.toWorld(piece.u1, 0, 0);
+      out.push({
+        wallId: run.wall.id,
+        kind: run.wall.kind,
+        a: [a.x, a.z],
+        b: [b.x, b.z],
+        thickness: run.half * 2,
+        y0,
+        y1,
+        rooms: piece.rooms,
+        transmissionLossDb: concrete ? 55 : insulated ? 42 : 34,
+        surfaceDensity: concrete ? 2400 * (run.half * 2 - WALL_FINISH_T) + 700 * WALL_FINISH_T : 2 * 700 * 0.0125 + (insulated ? 3 : 0) + 4,
+      });
+    }
   };
   for (const run of [...L.partitions, ...L.concrete]) {
     const isConc = !("abutPos" in run);

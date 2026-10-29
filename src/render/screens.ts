@@ -223,35 +223,29 @@ function buildQuad(scene: Scene, p: ScreenPlacement, name: string): Mesh {
   const face = pickDisplayFace(p.poly, p.front);
   if (!face || face.idx.length < 3) throw new Error("createScreen: screen poly has no usable face");
   const n = face.n;
-  // right/up axes (text upright, not mirrored, seen from outside): right = n × Y, up = right × n
-  let rx: number, ry: number, rz: number;
-  if (Math.abs(n.y) < 0.9) {
-    rx = -n.z;
-    ry = 0;
-    rz = n.x;
-  } else {
-    rx = 1;
-    ry = 0;
-    rz = 0;
+  // Image axes (upright, not mirrored, seen from outside; api-notes §1.4: U = cross(N, V)):
+  // V = world up projected onto the face for wall-like faces; for flat displays (phone on a
+  // table) V = −Z projected, so the image reads correctly for a viewer at the object's front.
+  let vx = 0,
+    vy = 1,
+    vz = 0;
+  if (Math.abs(n.y) >= 0.9) {
+    vx = 0;
+    vy = 0;
+    vz = -1;
   }
-  let rl = Math.hypot(rx, ry, rz) || 1;
-  rx /= rl;
-  ry /= rl;
-  rz /= rl;
-  // up = cross(right, n) for walls gives +Y; general formula keeps it orthogonal
-  let ux = ry * n.z - rz * n.y,
-    uy = rz * n.x - rx * n.z,
-    uz = rx * n.y - ry * n.x;
-  // ensure up points generally +Y (walls) or +Z (floors)
-  if ((Math.abs(n.y) < 0.9 && uy < 0) || (Math.abs(n.y) >= 0.9 && uz * Math.sign(n.y) < 0)) {
-    ux = -ux;
-    uy = -uy;
-    uz = -uz;
-  }
-  rl = Math.hypot(ux, uy, uz) || 1;
-  ux /= rl;
-  uy /= rl;
-  uz /= rl;
+  const vn = vx * n.x + vy * n.y + vz * n.z;
+  vx -= n.x * vn;
+  vy -= n.y * vn;
+  vz -= n.z * vn;
+  const vl = Math.hypot(vx, vy, vz) || 1;
+  const ux = vx / vl,
+    uy = vy / vl,
+    uz = vz / vl; // "up" axis of the image
+  // right = cross(n, up)
+  const rx = n.y * uz - n.z * uy,
+    ry = n.z * ux - n.x * uz,
+    rz = n.x * uy - n.y * ux;
   let u0 = Infinity,
     u1 = -Infinity,
     v0 = Infinity,

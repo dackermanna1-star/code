@@ -249,12 +249,12 @@ export function buildWasher(o: WasherOpts = {}): AssemblyDef {
 
   // concrete counterweights (bolted on)
   // (SEG = 8: the tub's top and bottom are tile vertices — ridges along the tub)
-  const wTop = boxR(b, "weight_top", "concrete", "concrete", [-0.21, 0.21], [YC + 0.25 + 0.0005, 0.745], [0.05, 0.21], { tint: 0xb9b4aa });
+  const wTop = boxR(b, "weight_top", "concrete", "concrete", [-0.21, 0.21], [YC + 0.25 + 0.0005, 0.742], [0.05, 0.21], { tint: 0xb9b4aa });
   b.bolt(wTop, tubTop, 220);
   const wFront = boxR(b, "weight_front", "concrete", "concrete", [-0.17, 0.17], [YC - 0.25, YC - 0.18], [zt1, zt1 + 0.04], { tint: 0xb9b4aa });
   b.bolt(wFront, nearestTile(b, tub, [0, YC - 0.21, zt1]), 180);
   for (const sx of [-1, 1]) {
-    const side = boxR(b, `weight_${sx < 0 ? "l" : "r"}`, "concrete", "concrete", sx < 0 ? [-0.292, -0.252] : [0.252, 0.292], [YC - 0.12, YC + 0.12], [-0.05, 0.2], { tint: 0xb9b4aa });
+    const side = boxR(b, `weight_${sx < 0 ? "l" : "r"}`, "concrete", "concrete", sx < 0 ? [-0.292, -0.252] : [0.252, 0.292], [YC - 0.135, YC + 0.135], [-0.05, 0.2], { tint: 0xb9b4aa });
     b.bolt(side, nearestTile(b, tub, [sx * 0.25, YC, 0.08]), 200);
   }
 
@@ -402,7 +402,7 @@ export function buildDryer(o: DryerOpts = {}): AssemblyDef {
   const motor = b.cyl("motor", "steel", "metal_raw", 0.05, 0.13, [0.1, Y0 + 0.03 + 0.05, -0.05], { axis: "x", segments: 12, mass: 4, tint: 0x8d8f91 });
   b.bolt(motor, c.cross, 120);
   b.sparks(motor, 0.4);
-  const blower = boxR(b, "blower", "plastic", "plastic", [-0.255, -0.075], [Y0 + 0.03, 0.17], [-0.24, -0.08], { tint: 0x2f2f31, mass: 0.8 });
+  const blower = boxR(b, "blower", "plastic", "plastic", [-(W / 2 - t - 0.03), -(W / 2 - t - 0.21)], [Y0 + 0.03, 0.17], [-0.24, -0.08], { tint: 0x2f2f31, mass: 0.8 });
   b.screw(blower, c.rails[0], 2, 25);
   const heater = boxR(b, "heater", "steelSheet", "metal_raw", [-0.06, 0.06], [YC + 0.255, YC + 0.255 + 0.09], [-D / 2 + t, -D / 2 + t + 0.08], { mass: 1.8 });
   b.screw(heater, c.back, 4, 25);

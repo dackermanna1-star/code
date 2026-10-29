@@ -76,11 +76,11 @@ export function buildElectricalPanel(o: PanelOpts = {}): AssemblyDef {
   for (const br of breakers.slice(0, 6)) b.screw(bus, br, 1, 8);
   // row 1 is fed by a jumper from the main breaker
   const jumper = cable(b, "jumper", [
-    [-0.13, rows[0] - bh / 2 - 0.004, zb0 + 0.027],
-    [-0.13, rows[1] + bh / 2 + 0.004, zb0 + 0.027],
+    [-0.13, rows[0] - bh / 2 - 0.0008, zb0 + 0.027],
+    [-0.13, rows[1] + bh / 2 + 0.0008, zb0 + 0.027],
   ], { r: 0.003, kgPerM: 0.08, sparks: 0.6 });
-  bondTouching(b, jumper[0], [main], "screw", 15, 0.006);
-  bondTouching(b, jumper[jumper.length - 1], breakers.slice(6), "screw", 15, 0.006);
+  bondTouching(b, jumper[0], [main], "screw", 15, 0.002);
+  bondTouching(b, jumper[jumper.length - 1], breakers.slice(6), "screw", 15, 0.002);
   b.power(main);
   b.power(bus);
   b.sparks(bus, 0.9);
@@ -108,8 +108,8 @@ export function buildElectricalPanel(o: PanelOpts = {}): AssemblyDef {
   const dTop = df("top", [xs0, xs1], [r0t, y0 + h - t - 0.004]);
   const dMid = df("mid", [xs0, xs1], [r1t, r0b]);
   const dBot = df("bot", [xs0, xs1], [y0 + t + 0.004, r1b]);
-  const dL = df("l", [-inX + 0.004, xs0], [y0 + t + 0.004, y0 + h - t - 0.004]);
-  const dR = df("r", [xs1, inX - 0.004], [y0 + t + 0.004, y0 + h - t - 0.004]);
+  const dL = df("l", [-inX + 0.0005, xs0], [y0 + t + 0.004, y0 + h - t - 0.004]);
+  const dR = df("r", [xs1, inX - 0.0005], [y0 + t + 0.004, y0 + h - t - 0.004]);
   for (const p of [dTop, dMid, dBot]) {
     b.weld(p, dL, 20);
     b.weld(p, dR, 20);

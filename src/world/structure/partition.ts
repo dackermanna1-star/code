@@ -2,8 +2,8 @@
 // studs and a header (+ cripples) over every opening, backing studs at T junctions, 12.5 mm
 // gypsum sheets on both faces screwed to every framing member they cross, batt insulation in
 // insulated walls, electrical boxes/cables/plates, copper supply + PVC drain stub-outs in
-// plumbing walls, cased-archway trim, wall tiles (bathroom) and baseboards. One assembly per
-// partition. Built in the wall's local frame (u along the wall, w across). PURE.
+// plumbing walls, cased-archway trim, the interior doors (frame + leaf, doors.ts), wall tiles
+// (bathroom) and baseboards. One assembly per partition. Built in the wall's local frame (u along the wall, w across). PURE.
 
 import type { AssemblyDef } from "../../destruction/model/types.ts";
 import { STUD_SPACING, roomAt } from "../plan.ts";
@@ -31,6 +31,7 @@ import { addBaseboards, addPlate, addWallTiles, plateFits, tileZonesOnFace, visi
 import { BOX_D, BOX_H, BOX_W, CABLE_KG_PER_M, CABLE_T, CABLE_W, ELECTRICAL, type ElecPoint } from "./services.ts";
 import { casingRect, clearOpening } from "./openings.ts";
 import { inFrame } from "./concrete.ts";
+import { addInteriorDoor } from "./doors.ts";
 
 const W = STUD_W;
 const SD2 = STUD_D / 2; // 0.0445
@@ -84,6 +85,7 @@ export function buildPartition(run: PartitionRun): AssemblyDef {
   const ctxP = mkCtx(1),
     ctxN = mkCtx(-1);
   const ctxOf = (s: number) => (s > 0 ? ctxP : ctxN);
+  const doorParts: Array<{ id: string; parts: string[] }> = [];
 
   inFrame(b, run, () => {
     const fix = new Fixings();
@@ -506,6 +508,20 @@ export function buildPartition(run: PartitionRun): AssemblyDef {
       }
     }
 
+    // ================================================================ doors (frame + leaf)
+    // built into this assembly so the frame is carried by the jacks/header around it
+    for (const o of run.openings) {
+      if (o.op.kind !== "door") continue;
+      const id = o.op.id;
+      const made = addInteriorDoor(b, run, o, {
+        jackL: b.n(`jackL_${id}`),
+        jackR: b.n(`jackR_${id}`),
+        header: b.n(`header_${id}`),
+        behind: (u0, u1, y0, y1) => idx.overlapping(u0, u1, y0, y1, ["king", "jack", "header"], 0.005).map((h) => ({ name: b.n(h.box.name), u: h.ou, y: h.oy })),
+      });
+      doorParts.push({ id, parts: made });
+    }
+
     // ================================================================ face finishes
     for (const ctx of [ctxP, ctxN]) addWallTiles(ctx);
     const reaches: Record<string, boolean> = {};
@@ -581,5 +597,10 @@ export function buildPartition(run: PartitionRun): AssemblyDef {
   });
   const def = b.build();
   def.room = (roomN ?? roomP)?.id;
+  // door parts carry `opening:<id>` (links them to OPENINGS, like window/door assemblies)
+  for (const d of doorParts) {
+    const set = new Set(d.parts);
+    for (const p of def.parts) if (set.has(p.name)) p.tags = [...(p.tags ?? []), `opening:${d.id}`];
+  }
   return def;
 }

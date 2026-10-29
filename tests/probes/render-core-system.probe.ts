@@ -117,6 +117,14 @@ export async function probe(): Promise<unknown> {
   }
   sheets.push(snap(scene, 2));
   render.setPower(true);
+  // PS2 mode on (retro texture filtering + post), then back off; quality switch low→medium→low
+  render.setPS2Mode(true);
+  sheets.push(snap(scene, 2));
+  render.setPS2Mode(false);
+  settings.set("quality", "medium");
+  render.update(1 / 60);
+  scene.render();
+  settings.set("quality", "low");
   // frame timing
   const tf = performance.now();
   for (let i = 0; i < 20; i++) {

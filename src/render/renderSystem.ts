@@ -129,8 +129,8 @@ export class Render implements RenderSystem {
   setPower(on: boolean): void {
     this.powered = on;
     this.lighting.setPower(on);
-    this.world.plugin.power = on ? 1 : 0;
-    this.glass.plugin.power = on ? 1 : 0;
+    this.world.plugin.setPowered(on);
+    this.glass.plugin.setPowered(on);
     setScreensPowered(this.scene, on);
   }
 

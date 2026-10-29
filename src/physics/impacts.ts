@@ -21,6 +21,15 @@
 //  * Every emission must also pass the Δv gate: impulse / (lightest DYNAMIC mass of the pair) ≥ minDeltaV,
 //    which rejects resting/spawn loads (a 30 kg box spawned in contact).
 // Events of all substeps of one fixed step accumulate into that step; (A,B)/(B,A) duplicates share one pair.
+//
+// SAME-STEP DELIVERY (optional `estimator`): waiting for the episode to end delays `started` impacts by 1–6 steps
+// (the projectile has already rebounded when destruction sees the hit). When an estimator is set, the first
+// episode step with a real (≥ minImpulse) contact impulse emits the `started` impact immediately with
+//   impulse = max(measured step impulse, estimate)   — estimate ≈ (1+e)·μ·v_n from PRE-step velocities,
+// and the rest of the episode only suppresses duplicates. If the episode's measured excess ends up clearly larger
+// than what was emitted (a light body crushed between a heavy one and the floor: μ underestimates the load), the
+// difference is emitted as a `started:false` (crush) impact when the episode ends. An estimator returning NaN
+// (unknown velocities) falls back to the episode-end emission.
 
 export const EV_STARTED = 1;
 export const EV_CONTINUED = 2;
@@ -62,7 +71,18 @@ export interface ImpactConfig {
   /** Baseline EMA rates when the step impulse is above / below the baseline. */
   baselineUp: number;
   baselineDown: number;
+  /**
+   * After a same-step (estimated) emission, an episode excess above emitted × (1 + crushMargin) is reported as a
+   * `started:false` crush impact of the difference.
+   */
+  crushMargin: number;
 }
+
+/**
+ * Pre-step impulse estimate for a pair at a contact point (normal from a to b): ≈ (1+e)·μ·v_n, 0 when the bodies
+ * are not approaching, NaN when unknown.
+ */
+export type ImpactEstimator<S extends ImpactSide> = (a: S, b: S, px: number, py: number, pz: number, nx: number, ny: number, nz: number) => number;
 
 export const DEFAULT_IMPACT_CONFIG: Readonly<ImpactConfig> = {
   minImpulse: 0.02,
@@ -76,6 +96,7 @@ export const DEFAULT_IMPACT_CONFIG: Readonly<ImpactConfig> = {
   forgetSteps: 240,
   baselineUp: 0.05,
   baselineDown: 0.3,
+  crushMargin: 0.5,
 };
 
 /** One aggregated impact (pooled: valid until the next endStep()). Normal points from a to b. */
@@ -143,6 +164,10 @@ class Pair<S extends ImpactSide> {
   ePrev = -1;
   ePrev2 = -1;
   inEpisodeList = false;
+  /** Impulse already emitted early (same-step) for this episode; 0 = none. */
+  eEmitted = 0;
+  /** The same-step emission was attempted (only the first significant step may use pre-step velocities). */
+  eTried = false;
   /** Resting impulse per step (EMA) while in CONTACT. */
   baseline = 0;
   /** Last raw normal (fallback if the weighted sum cancels). */
@@ -165,6 +190,8 @@ class Pair<S extends ImpactSide> {
     this.inEpisodeList = false;
     this.eImp = this.ePeak = this.eW = this.ePx = this.ePy = this.ePz = this.eNx = this.eNy = this.eNz = 0;
     this.eSteps = this.eContacts = 0;
+    this.eEmitted = 0;
+    this.eTried = false;
   }
 }
 
@@ -184,6 +211,8 @@ export class ImpactAggregator<S extends ImpactSide> {
   private lastPair: Pair<S> | null = null;
   /** Raw contact events seen in the current step (stats). */
   events = 0;
+  /** Optional pre-step impulse estimator: enables same-step `started` delivery (see header). */
+  estimator: ImpactEstimator<S> | null = null;
 
   constructor(cfg: Partial<ImpactConfig> = {}) {
     this.cfg = { ...DEFAULT_IMPACT_CONFIG, ...cfg };
@@ -292,7 +321,10 @@ export class ImpactAggregator<S extends ImpactSide> {
       p.lastContactStep = step;
       switch (p.phase) {
         case IDLE:
-          if (p.sStarted) this.startEpisode(p);
+          if (p.sStarted) {
+            this.startEpisode(p);
+            n = this.tryEarly(p, out, n);
+          }
           else {
             // contact resumed without STARTED (island woke up, or state was forgotten): learn the load only
             p.phase = CONTACT;
@@ -302,8 +334,10 @@ export class ImpactAggregator<S extends ImpactSide> {
         case CONTACT:
           if (gap > cfg.idleSteps) {
             // we never saw them separate (no FINISHED) or the pair slept in between
-            if (p.sStarted) this.startEpisode(p);
-            else p.baseline = p.sImp;
+            if (p.sStarted) {
+              this.startEpisode(p);
+              n = this.tryEarly(p, out, n);
+            } else p.baseline = p.sImp;
             break;
           }
           n = this.contactStep(p, out, n);
@@ -319,6 +353,7 @@ export class ImpactAggregator<S extends ImpactSide> {
             } else {
               this.resetEpisode(p);
               this.accumulateEpisode(p);
+              n = this.tryEarly(p, out, n);
             }
             break;
           }
@@ -402,6 +437,55 @@ export class ImpactAggregator<S extends ImpactSide> {
     p.eImp = p.ePeak = p.eW = p.ePx = p.ePy = p.ePz = p.eNx = p.eNy = p.eNz = 0;
     p.eSteps = p.eContacts = 0;
     p.ePrev = p.ePrev2 = -1;
+    p.eEmitted = 0;
+    p.eTried = false;
+  }
+
+  /**
+   * Same-step delivery: on the first episode step with a real contact impulse, emit the `started` impact now with
+   * max(measured, pre-step estimate). Returns the new output count.
+   */
+  private tryEarly(p: Pair<S>, out: ImpactOut<S>[], n: number): number {
+    const est = this.estimator;
+    if (est === null || p.eTried || p.sImp < this.cfg.minImpulse) return n;
+    p.eTried = true;
+    const w = p.sW > 0 ? 1 / p.sW : 0;
+    const px = p.sPx * w, py = p.sPy * w, pz = p.sPz * w;
+    let nx = p.sNx, ny = p.sNy, nz = p.sNz;
+    const l = Math.sqrt(nx * nx + ny * ny + nz * nz);
+    if (l > 1e-9) {
+      nx /= l;
+      ny /= l;
+      nz /= l;
+    } else {
+      nx = p.lnx;
+      ny = p.lny;
+      nz = p.lnz;
+    }
+    const e = est(p.a, p.b, px, py, pz, nx, ny, nz);
+    if (!(e >= 0)) return n; // unknown velocities (NaN): fall back to the episode-end emission
+    const imp = e > p.sImp ? e : p.sImp;
+    if (!this.passes(p, imp)) {
+      // too weak to report: remember a token so the episode end doesn't report the same contact late
+      p.eEmitted = imp > 0 ? imp : 1e-9;
+      return n;
+    }
+    const o = this.outAt(out, n);
+    o.a = p.a;
+    o.b = p.b;
+    o.px = px;
+    o.py = py;
+    o.pz = pz;
+    o.nx = nx;
+    o.ny = ny;
+    o.nz = nz;
+    o.impulse = imp;
+    o.started = true;
+    o.peak = p.sImp;
+    o.steps = 1;
+    o.contacts = p.sContacts;
+    p.eEmitted = imp;
+    return n + 1;
   }
 
   /** Episode accumulation; the first step of an episode becomes ePrev for the steadiness test. */
@@ -449,7 +533,17 @@ export class ImpactAggregator<S extends ImpactSide> {
 
   /** Close an episode; `rest` = resting impulse per step during it (0 if the bodies separated). */
   private finishEpisode(p: Pair<S>, rest: number, out: ImpactOut<S>[], n: number): number {
-    const excess = p.eImp - p.eSteps * rest;
+    let excess = p.eImp - p.eSteps * rest;
+    const early = p.eEmitted;
+    p.eEmitted = 0;
+    p.eTried = false;
+    let started = true;
+    if (early > 0) {
+      // already reported in its first step: only a clearly larger measured load (crush) is reported, as the rest
+      if (!(excess > early * (1 + this.cfg.crushMargin))) return n;
+      excess -= early;
+      started = false;
+    }
     if (!this.passes(p, excess)) return n;
     const o = this.outAt(out, n);
     const w = p.eW > 0 ? 1 / p.eW : 0;
@@ -460,7 +554,7 @@ export class ImpactAggregator<S extends ImpactSide> {
     o.pz = p.ePz * w;
     this.normalInto(o, p.eNx, p.eNy, p.eNz, p);
     o.impulse = excess;
-    o.started = true;
+    o.started = started;
     o.peak = p.ePeak;
     o.steps = p.eSteps;
     o.contacts = p.eContacts;

@@ -4,7 +4,9 @@
 // doors, windows, the balcony sliding door and the balcony. PURE (no Babylon).
 //
 // buildStructure() returns every assembly with parts already placed in WORLD space (identity
-// transforms). OPENINGS / WALL_SEGMENTS describe openings and solid wall pieces for audio
+// transforms). Interior doors live inside their partition's assembly (parts prefixed
+// `<opening id>_`, tagged `opening:<id>`); the front door, windows and the sliding door are
+// assemblies of their own (every part tagged `opening:<id>`). OPENINGS / WALL_SEGMENTS describe openings and solid wall pieces for audio
 // occlusion and light shafts. Reference levels for furnishing: src/world/structure/levels.ts.
 
 import { xident, type Xform } from "../geom/vec.ts";
@@ -15,7 +17,7 @@ import { buildConcreteSegment, buildSlab } from "./structure/concrete.ts";
 import { buildPartition } from "./structure/partition.ts";
 import { buildFloor } from "./structure/floors.ts";
 import { buildCeiling } from "./structure/ceilings.ts";
-import { buildFrontDoor, buildInteriorDoor } from "./structure/doors.ts";
+import { buildFrontDoor } from "./structure/doors.ts";
 import { buildSlidingDoor, buildWindow } from "./structure/windows.ts";
 import { buildBalcony } from "./structure/balcony.ts";
 import { buildCorridor } from "./structure/corridor.ts";
@@ -40,7 +42,7 @@ export function buildStructure(): StructurePiece[] {
     defs.push(buildFloor(r.id));
     defs.push(buildCeiling(r.id));
   }
-  for (const p of L.partitions) for (const o of p.openings) if (o.op.kind === "door") defs.push(tagOpening(buildInteriorDoor(p, o), o.op.id));
+  // interior doors are built into their partition's assembly (framed by its jacks/header)
   for (const c of L.concrete) {
     for (const o of c.openings) {
       if (o.op.kind === "window") defs.push(tagOpening(buildWindow(c, o), o.op.id));

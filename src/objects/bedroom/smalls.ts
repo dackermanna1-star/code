@@ -196,8 +196,8 @@ export function buildPerfumeBottle(o: PerfumeOpts = {}): AssemblyDef {
   let body: string;
   let neckY: number;
   if (shape === "flacon") {
-    body = b.bevelBox("body", "glass", "glass", [0.062, 0.082, 0.034], 0.006, [0, 0.041, 0], { tint: glassTint, mass: 0.24 });
-    neckY = 0.082;
+    body = b.bevelBox("body", "glass", "glass", [0.062, 0.08, 0.04], 0.003, [0, 0.04, 0], { tint: glassTint, mass: 0.24 });
+    neckY = 0.08;
   } else if (shape === "round") {
     body = b.cyl("body", "glass", "glass", 0.03, 0.07, [0, 0.035, 0], { segments: 12, tint: glassTint, mass: 0.2, capSurf: "glass" });
     neckY = 0.07;

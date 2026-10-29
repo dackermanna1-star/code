@@ -217,9 +217,14 @@ export interface ServicePoint {
   drainY: number | null;
 }
 
-// Positions sit at stud-bay centres of the partition framing (studs @ 400 mm from the run start).
+// Positions sit at stud-bay centres of the partition framing (studs @ 400 mm from the run start,
+// bay centres at z = 5.8765 + 0.4·k on p_bath_utility). Fixture envelopes centred on them stay
+// clear of every door swing (tests/unit/structure-services.test.ts):
+//  * vanity (0.8 × 0.46 m) z 7.08–7.88 under the mirror outlet (o_bath_mirror, z 7.32), well
+//    north of the bathroom door's swing (radius ≈ 0.75 m about x 1.43, z 5.65); its bay is not
+//    the water heater's (z 7.0765, utility face), so the two stub-outs never share a cavity.
 export const SERVICE_POINTS: readonly ServicePoint[] = [
-  { id: "vanity", wall: "p_bath_utility", room: "bath", face: 2.5 - PARTITION_FACE - WALL_TILE_T, along: 6.2765, valveY: 0.55, drainY: 0.45 },
+  { id: "vanity", wall: "p_bath_utility", room: "bath", face: 2.5 - PARTITION_FACE - WALL_TILE_T, along: 7.4765, valveY: 0.55, drainY: 0.45 },
   { id: "waterHeater", wall: "p_bath_utility", room: "utility", face: 2.5 + PARTITION_FACE, along: 7.0765, valveY: 1.55, drainY: null },
   { id: "washer", wall: "p_bath_utility", room: "utility", face: 2.5 + PARTITION_FACE, along: 8.635, valveY: 1.1, drainY: 0.95 },
   { id: "kitchenSink", wall: "p_utility_kitchen", room: "kitchen", face: 4.0 + PARTITION_FACE, along: 8.58375, valveY: 0.5, drainY: 0.42 },

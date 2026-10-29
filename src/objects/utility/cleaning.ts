@@ -117,7 +117,7 @@ export function buildVacuumCleaner(o: BaseOpts & { tint?: number } = {}): Assemb
     const roller = b.cyl(`roller_${sx < 0 ? "l" : "r"}`, "plastic", "plastic", 0.012, 0.03, [sx * 0.1305, 0.012, 0.13], { axis: "x", segments: 8, tint: dark, mass: 0.01 });
     b.clip(roller, side, 6);
   }
-  const brush = b.cyl("brushroll", "plastic", "carpet", 0.022, 0.27, [0, 0.034, 0.07], { axis: "x", segments: 8, tint: 0x3a3a3a, mass: 0.12 });
+  const brush = b.cyl("brushroll", "plastic", "carpet", 0.022, 0.2915, [0, 0.034, 0.07], { axis: "x", segments: 8, tint: 0x3a3a3a, mass: 0.12 }); // end caps in the side bearings
   b.clip(brush, hood.left!, 5);
   b.clip(brush, hood.right!, 5);
   // body: motor housing (panels) with the motor inside, clear dust bin, filter cap
@@ -225,6 +225,13 @@ export function buildIroningBoard(o: IroningBoardOpts = {}): AssemblyDef {
   const deck = b.hull("deck", "steelSheet", "vent_grille", deckPts, [0, 0, 0], { tint: 0xc9ccce, mass: 1.6, tess: 0.06 });
   const cover = b.hull("cover", "fabric", "fabric_cotton", coverPts, [0, 0, 0], { tint: 0x8fb4d0, mass: 0.35 });
   b.glue(cover, deck, 25);
-  for (const l of legs) b.screw(l, deck, 1, 30); // through the pivot brackets
+  // pivot brackets: steel blocks riveted to the deck's underside that the leg tubes pivot in
+  legs.forEach((l, k) => {
+    const lx = [-0.15, 0.15, -0.11, 0.11][k];
+    const yb = bottom + (k < 2 ? 0.74 : 0.3);
+    const br = boxR(b, `bracket${k}`, "steel", "metal_raw", [lx - 0.012, lx + 0.012], [yb - 0.02, yb + 0.02], [zLeg + legR - 0.0005, zDeck], { tess: 0, mass: 0.04 });
+    b.bolt(br, l, 60);
+    b.screw(br, deck, 2, 20);
+  });
   return finish(b, o);
 }

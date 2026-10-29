@@ -4,8 +4,9 @@
 // Frame: origin on the floor (balcony slab top) at the centre of the footprint, front +Z.
 
 import { hingeAxis, pcb, spokeRot } from "../lib/kit.ts";
-import { boxR, bondOverlapping, bondTouching, finish, mk, rhsKg, tubeKgPerM, BRASS, type BaseOpts } from "./helpers.ts";
+import { boxR, bondNearest, bondTouching, finish, mk, rhsKg, tubeKgPerM, BRASS, type BaseOpts } from "./helpers.ts";
 import type { V3 } from "../lib/builder.ts";
+import { polyChord } from "../../geom/poly.ts";
 import type { AssemblyDef } from "../../destruction/model/types.ts";
 
 // =============================================================================================
@@ -124,7 +125,7 @@ export function buildBistroTable(o: BaseOpts & { tint?: number } = {}): Assembly
   legAngles.forEach((a, k) => {
     const seg = b.tube(`leg${k}`, "aluminum", "aluminum", [legBot(a), legTop(a)], tr, { sides: 8, tint, kgPerM: kgm, tess: 0 });
     legs.push(seg[0]);
-    bondOverlapping(b, seg[0], ring, "weld", 120, 0.003);
+    bondNearest(b, seg[0], ring, "weld", 120, legTop(a));
   });
   // stretchers between the legs at 0.25 m
   const at = (a: number, y: number): [number, number, number] => {
@@ -151,7 +152,11 @@ export function buildBistroTable(o: BaseOpts & { tint?: number } = {}): Assembly
     const r = 0.28 * Math.cos(Math.PI / 10);
     pads.push(b.cyl(`pad${k}`, "rubber", "rubber", 0.012, 0.004, [r * Math.cos(a), yPad + 0.002, r * Math.sin(a)], { segments: 8, tint: 0x1b1b1b, mass: 0.003 }));
   }
-  for (const p of pads) bondOverlapping(b, p, ring, "glue", 10, 0.003);
+  for (const p of pads) {
+    const c = b.get(p).poly.verts.reduce((acc, q) => [acc[0] + q.x, acc[1] + q.y, acc[2] + q.z], [0, 0, 0]);
+    const n = b.get(p).poly.verts.length;
+    bondNearest(b, p, ring, "glue", 10, [c[0] / n, yPad, c[2] / n]);
+  }
   const glass = b.cyl("top", "temperedGlass", "glass", BISTRO_TABLE.r, 0.006, [0, yPad + 0.004 + 0.003, 0], { segments: 16, capSurf: "glass", smooth: 0 });
   for (const p of pads) b.friction(glass, p, 3);
   return finish(b, o);
@@ -212,32 +217,37 @@ export function buildTerracottaPlant(o: PlanterOpts = {}): AssemblyDef {
       // a short branch from the stem's side out to the cluster's surface
       const hx = Math.cos(a),
         hz = Math.sin(a);
-      const top: [number, number, number] = [hx * 0.016, ys1 + stemH - 0.012, hz * 0.016];
+      const top: [number, number, number] = [hx * 0.008, ys1 + stemH - 0.012, hz * 0.008];
       const dir = [c[0] - top[0], c[1] - top[1], c[2] - top[2]];
       const dl = Math.hypot(dir[0], dir[1], dir[2]);
       const u = [dir[0] / dl, dir[1] / dl, dir[2] / dl];
-      const rEll = 1 / Math.hypot(u[0] / (rr * 0.92), u[1] / (rr * 0.8), u[2] / (rr * 0.92)); // centre → surface along u
-      const reach = Math.max(0.012, dl - rEll);
+      // where the ray from the stem enters the (faceted) cluster: the branch ends 2 mm inside it
+      const ch = polyChord(b.get(f).poly, { x: top[0], y: top[1], z: top[2] }, { x: u[0], y: u[1], z: u[2] });
+      const reach = Math.max(0.012, (ch ? ch.tMin : dl * 0.4) + 0.002);
       const end: V3 = [top[0] + u[0] * reach, top[1] + u[1] * reach, top[2] + u[2] * reach];
       const br = b.tube(`branch${j}`, "softwood", "wood_fiber", [top, end], 0.005, { sides: 5, tint: 0x5a4030 });
       b.glue(br[0], stem, 10);
       b.glue(f, br[0], 8);
     }
   } else if (plant === "snake") {
+    // sword-shaped leaves fanning out of the soil: slanted slabs (hulls), bases 2 mm into the soil
     for (let j = 0; j < 6; j++) {
-      const a = (360 * j) / 6;
-      const ar = (a * Math.PI) / 180;
-      const lean = 6 + (j % 3) * 3;
+      const ar = (2 * Math.PI * j) / 6;
+      const lean = ((6 + (j % 3) * 3) * Math.PI) / 180;
       const len = (0.42 + (j % 2) * 0.12) * k;
       const r = 0.045 * k;
-      const base: V3 = [r * Math.cos(ar), ys1, r * Math.sin(ar)];
-      const lr = (lean * Math.PI) / 180;
-      const c: V3 = [base[0] + Math.cos(ar) * Math.sin(lr) * len * 0.5, ys1 + Math.cos(lr) * len * 0.5 + 0.002, base[2] + Math.sin(ar) * Math.sin(lr) * len * 0.5];
-      const leaf = b.box(`leaf${j}`, "fabric", "foliage", [0.045 * k, len, 0.006], c, {
-        rot: [lean * Math.cos(ar + Math.PI / 2) * -1, -a + 90, 0],
-        tint: green[j % 3],
-        mass: 0.04 * k,
-      });
+      const rad = [Math.cos(ar), 0, Math.sin(ar)];
+      const tan = [-Math.sin(ar), 0, Math.cos(ar)];
+      const B = [r * rad[0], ys1 - 0.002, r * rad[2]];
+      const T = [B[0] + rad[0] * Math.sin(lean) * len, B[1] + Math.cos(lean) * len, B[2] + rad[2] * Math.sin(lean) * len];
+      const pts: V3[] = [];
+      for (const [P, hw, ht] of [
+        [B, 0.0225 * k, 0.003],
+        [T, 0.012 * k, 0.002],
+      ] as Array<[number[], number, number]>)
+        for (const sw of [-1, 1])
+          for (const st of [-1, 1]) pts.push([P[0] + tan[0] * hw * sw + rad[0] * ht * st, P[1], P[2] + tan[2] * hw * sw + rad[2] * ht * st]);
+      const leaf = b.hull(`leaf${j}`, "fabric", "foliage", pts, [0, 0, 0], { tint: green[j % 3], mass: 0.04 * k });
       b.glue(leaf, soil, 5);
     }
   } else {
@@ -309,8 +319,8 @@ export function buildAcCondenser(o: CondenserOpts = {}): AssemblyDef {
   b.screw(part, top, 2, 25);
 
   // ------------------------------------------------------------------ coil (L-shaped: back + left side)
-  const coilBack = boxR(b, "coil_back", "aluminum", "vent_grille", [px + 0.005, W / 2 - 0.045], [y0 + 0.02, yTop - 0.02], [-D / 2 + 0.002, -D / 2 + 0.042], { tint: 0xb8bcbe, mass: 4.2, tess: 0 });
-  const coilSide = boxR(b, "coil_side", "aluminum", "vent_grille", [W / 2 - 0.045, W / 2 - t - 0.002], [y0 + 0.02, yTop - 0.02], [-D / 2 + 0.002, D / 2 - 0.04], { tint: 0xb8bcbe, mass: 2.6, tess: 0 });
+  const coilBack = boxR(b, "coil_back", "aluminum", "vent_grille", [px + 0.005, W / 2 - 0.045], [y0 + 0.0012, yTop - 0.02], [-D / 2 + 0.002, -D / 2 + 0.042], { tint: 0xb8bcbe, mass: 4.2, tess: 0 });
+  const coilSide = boxR(b, "coil_side", "aluminum", "vent_grille", [W / 2 - 0.045, W / 2 - t - 0.002], [y0 + 0.0012, yTop - 0.02], [-D / 2 + 0.002, D / 2 - 0.04], { tint: 0xb8bcbe, mass: 2.6, tess: 0 });
   b.screw(coilBack, base, 2, 30);
   b.screw(coilSide, base, 2, 30);
   b.weld(coilBack, coilSide, 60);
@@ -380,6 +390,11 @@ export function buildAcCondenser(o: CondenserOpts = {}): AssemblyDef {
     valves.push(boxR(b, `valve_${k}`, BRASS.mat, BRASS.surf, [-W / 2 - 0.035, -W / 2], [y0 + 0.12, y0 + 0.16], [z - 0.018, z + 0.018], { tint: BRASS.tint, mass: 0.25, tess: 0 }));
     b.bolt(valves[valves.length - 1], sideL, 60);
   }
+  // suction line into the compressor's side (ends on its shell, 0.5 mm out)
+  const sdx = 0.05,
+    sdz = 0.08;
+  const sl = Math.hypot(sdx, sdz);
+  const sEnd: [number, number, number] = [cx + (sdx / sl) * (0.075 + 0.0005), compY0 + 0.18, cz + (sdz / sl) * (0.075 + 0.0005)];
   const suction = b.tube(
     "suction",
     "copper",
@@ -387,7 +402,8 @@ export function buildAcCondenser(o: CondenserOpts = {}): AssemblyDef {
     [
       [-W / 2 + t + 0.0005, y0 + 0.14, 0.09],
       [cx + 0.05, y0 + 0.14, 0.09],
-      [cx + 0.05, compY0 + 0.18, cz + 0.08],
+      [cx + 0.05, compY0 + 0.18, cz + 0.12],
+      sEnd,
     ],
     0.0064,
     { sides: 6, kgPerM: tubeKgPerM(0.0127, 0.0008, 8900), jointStrength: 60, tess: 0 },
@@ -403,7 +419,7 @@ export function buildAcCondenser(o: CondenserOpts = {}): AssemblyDef {
       mat,
       surf,
       [
-        [-W / 2 - 0.035 - r - 0.0005, y0 + 0.14, z],
+        [-W / 2 - 0.035 - 0.0005, y0 + 0.14, z],
         [ex, y0 + 0.14, z],
         [ex, lsv[1] - 0.05, (z + lsv[2]) / 2],
         [ex, lsv[1], lsv[2]],

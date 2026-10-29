@@ -55,6 +55,7 @@ async function wallTest(tool: ToolId, power: number): Promise<Any> {
     headSpeed: lh ? r(lh.speed, 2) : null,
     normalSpeed: s ? s.speed : null,
     ratioToRated: lh ? r(lh.speed / chargedSpeed(def, power), 3) : null,
+    squareShare: lh && s ? r((s.speed / lh.speed) ** 2, 3) : null,
     energy: s?.energy ?? null,
     mass: s?.mass,
     contactRadius: s?.contactRadius,
@@ -71,6 +72,8 @@ async function wallTest(tool: ToolId, power: number): Promise<Any> {
     Math.abs((s?.point[2] ?? 0) - zw) < 0.004 &&
     Math.abs((res.stepsToHit as number) - (res.predictedSteps as number)) <= 1 &&
     (res.ratioToRated as number) > 0.6 &&
+    // a square blow delivers ≥ 80 % of ½·m·v² (fists: the pain-pulled punch is checked separately)
+    (tool === "hands" || (res.squareShare as number) >= 0.8) &&
     (res.ratioToRated as number) <= 1.05 &&
     !!swingEv &&
     !!hitEv &&
@@ -267,7 +270,7 @@ export async function probe() {
     return { tool: t, normal: n?.energy, charged: c?.energy, ratio, expected: r(TOOL_DEFS[t].chargeSpeedMul ** 2, 2) };
   });
   const results: Any = {
-    walls: walls.map((w) => ({ ok: w.ok, tool: w.tool, p: w.power, steps: `${w.stepsToHit}/${w.predictedSteps}`, z: `${w.pointZ}/${w.wallZ}`, y: w.pointYrel, v: w.headSpeed, vn: w.normalSpeed, ratio: w.ratioToRated, E: w.energy, out: w.outcome, shake: w.shake, stop: w.hitStop, fl: w.flashes, src: w.source, mat: w.strikerMat })),
+    walls: walls.map((w) => ({ ok: w.ok, tool: w.tool, p: w.power, share: w.squareShare, steps: `${w.stepsToHit}/${w.predictedSteps}`, z: `${w.pointZ}/${w.wallZ}`, y: w.pointYrel, v: w.headSpeed, vn: w.normalSpeed, ratio: w.ratioToRated, E: w.energy, out: w.outcome, shake: w.shake, stop: w.hitStop, fl: w.flashes, src: w.source, mat: w.strikerMat })),
     energyRatios,
     dynamicBox: await dynamicBoxTest(),
     breakThrough: await breakThroughTest(),

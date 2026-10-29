@@ -2,17 +2,18 @@
 // pine stile/rail frame with lock blocks and a cardboard honeycomb core, lever handles through
 // a latch) on 3 hinges with a latch, in painted pine jambs with stops and MDF casings; the front
 // door is solid core (walnut-veneered HDF skins, hardwood stiles/rails, laminated pine staves),
-// 3 heavy hinges, a deadbolt (strong latch), peephole, oak threshold. Frames are nailed /
-// screwed to the building (world bonds), leaves hang on hinge joints. PURE.
+// 3 heavy hinges, a deadbolt (strong latch), peephole, oak threshold. Interior doors are built
+// into their partition's assembly (frames nailed to the jack studs / header); the front door is
+// its own assembly, anchored into the concrete reveal (world bonds). Leaves hang on hinge
+// joints. PURE.
 
 import type { AssemblyDef } from "../../destruction/model/types.ts";
 import type { Builder } from "../../objects/lib/builder.ts";
 import type { MaterialId } from "../../destruction/model/materials.ts";
 import type { SurfaceName } from "../../render/surfaces.ts";
-import { roomById } from "../plan.ts";
 import { CASING_REVEAL, CASING_T, CASING_W, DOOR_T, FRONT_DOOR_T, FRONT_JAMB_T, HANDLE_Y, JAMB_T, SHIM } from "./levels.ts";
 import type { ConcreteRun, PartitionRun, RunOpening } from "./layout.ts";
-import { Fixings, PAL, bondAt, boxR, mid, newBuilder, worldAt, type Interval, type V3 } from "./common.ts";
+import { Fixings, PAL, bondAt, boxR, mid, newBuilder, trimFaces, worldAt, type Interval, type V3 } from "./common.ts";
 import { clearOpening } from "./openings.ts";
 import { hingeGroup } from "./joints.ts";
 import { hingedDoorPanel } from "../../objects/lib/kit.ts";
@@ -226,39 +227,81 @@ function addKnuckles(b: Builder, ys: number[], uH: number, inward: number, wS: n
   });
 }
 
-/** Casings (MDF, painted) on one face around a frame (local u/y, face plane at w = side*faceW). */
-function addCasings(b: Builder, prefix: string, c0: number, c1: number, top: number, side: number, faceW: number, jambs: { L: string; R: string; H: string }, jambIn: { l: number; r: number }): void {
+/**
+ * Casings (MDF, painted on every exposed face) on one face around a frame (local u/y, face plane
+ * at w = side*faceW), nailed to the jambs and with finish nails through the wall finish into
+ * the framing behind them (`behind`, partitions) or into plugs in the concrete (world).
+ */
+function addCasings(
+  b: Builder,
+  prefix: string,
+  c0: number,
+  c1: number,
+  top: number,
+  side: number,
+  faceW: number,
+  jambs: { L: string; R: string; H: string },
+  jambIn: { l: number; r: number },
+  behind?: DoorFraming["behind"],
+): void {
   const wc = rng(side * faceW, side * (faceW + CASING_T));
   const yTop = top + CASING_REVEAL;
-  const front = { [side > 0 ? "pz" : "nz"]: { surf: "wood_painted" as SurfaceName, tint: PAL.trimWhite } };
+  const faces = trimFaces(side);
   const cl = `${prefix}L`,
     cr = `${prefix}R`,
     ch = `${prefix}H`;
-  boxR(b, cl, "mdf", "mdf", [c0 - CASING_REVEAL - CASING_W, c0 - CASING_REVEAL], [0, yTop], wc, { faces: front, tags: ["trim"] });
-  boxR(b, cr, "mdf", "mdf", [c1 + CASING_REVEAL, c1 + CASING_REVEAL + CASING_W], [0, yTop], wc, { faces: front, tags: ["trim"] });
-  boxR(b, ch, "mdf", "mdf", [c0 - CASING_REVEAL - CASING_W, c1 + CASING_REVEAL + CASING_W], [yTop, yTop + CASING_W], wc, { faces: front, tags: ["trim"], grain: "x" });
+  const boxes: Array<[string, number, number, number, number]> = [
+    [cl, c0 - CASING_REVEAL - CASING_W, c0 - CASING_REVEAL, 0, yTop],
+    [cr, c1 + CASING_REVEAL, c1 + CASING_REVEAL + CASING_W, 0, yTop],
+    [ch, c0 - CASING_REVEAL - CASING_W, c1 + CASING_REVEAL + CASING_W, yTop, yTop + CASING_W],
+  ];
+  for (const [n, u0, u1, y0, y1] of boxes) boxR(b, n, "mdf", "mdf", [u0, u1], [y0, y1], wc, { faces, tags: ["trim"], grain: n === ch ? "x" : "y" });
   const wf = side * faceW;
   bondAt(b, cl, jambs.L, "nail", 45, [mid(jambIn.l, c0 - CASING_REVEAL), yTop / 2, wf]);
   bondAt(b, cr, jambs.R, "nail", 45, [mid(c1 + CASING_REVEAL, jambIn.r), yTop / 2, wf]);
   bondAt(b, ch, jambs.H, "nail", 30, [mid(c0, c1), yTop, wf]);
   bondAt(b, ch, cl, "glue", 10, [c0 - CASING_REVEAL - CASING_W / 2, yTop, mid(wc[0], wc[1])]);
   bondAt(b, ch, cr, "glue", 10, [c1 + CASING_REVEAL + CASING_W / 2, yTop, mid(wc[0], wc[1])]);
-  // finish nails through the drywall into the framing / plugs in the concrete
-  worldAt(b, cl, "nail", 60, [c0 - CASING_REVEAL - CASING_W * 0.75, yTop / 2, wf]);
-  worldAt(b, cr, "nail", 60, [c1 + CASING_REVEAL + CASING_W * 0.75, yTop / 2, wf]);
-  worldAt(b, ch, "nail", 40, [mid(c0, c1), yTop + CASING_W / 2, wf]);
+  if (behind) {
+    // finish nails through the drywall into the jack/king studs and the header
+    for (const [n, u0, u1, y0, y1] of boxes) {
+      for (const h of behind(u0, u1, y0, y1)) bondAt(b, n, h.name, "nail", 20, [mid(h.u[0], h.u[1]), mid(h.y[0], h.y[1]), wf]);
+    }
+  } else {
+    // finish nails into plugs in the concrete
+    worldAt(b, cl, "nail", 60, [c0 - CASING_REVEAL - CASING_W * 0.75, yTop / 2, wf]);
+    worldAt(b, cr, "nail", 60, [c1 + CASING_REVEAL + CASING_W * 0.75, yTop / 2, wf]);
+    worldAt(b, ch, "nail", 40, [mid(c0, c1), yTop + CASING_W / 2, wf]);
+  }
 }
 
 // ===================================================================== interior door
-export function buildInteriorDoor(run: PartitionRun, o: RunOpening): AssemblyDef {
-  const into = o.op.into ? roomById(o.op.into) : null;
-  const b = newBuilder("door_interior", `${into?.name ?? "Interior"} Door`, "fixture", 280);
+/** Framing of the partition around a door opening that the frame is fixed to. */
+export interface DoorFraming {
+  /** Full names of the jack studs and the header (partition assembly). */
+  jackL: string;
+  jackR: string;
+  header: string;
+  /** Framing members behind the casings (casing finish nails), from the partition's box index. */
+  behind: (u0: number, u1: number, y0: number, y1: number) => Array<{ name: string; u: Interval; y: Interval }>;
+}
+
+/**
+ * Interior door (pine jambs + stops, MDF casings both faces, hollow-core leaf on 3 hinges with a
+ * latch) built INTO the partition assembly that frames it: jambs are nailed through the shims to
+ * the jack studs, the head jamb to the header, casings to the framing behind them. So wrecking
+ * the wall around a door really frees its frame (no frame floating on world bonds).
+ * Call inside the partition's local frame (inFrame). Parts get the prefix `<opening id>_`.
+ * Returns the full names of the parts it created.
+ */
+export function addInteriorDoor(b: Builder, run: PartitionRun, o: RunOpening, framing: DoorFraming): string[] {
+  const before = new Set(b.partNames());
   const T = 2 * run.half;
   const sw = o.swingSide,
     hs = o.hingeSide;
   const hingeAtLow = hs < 0;
   const { c0, c1, top } = clearOpening(o, JAMB_T);
-  inFrame(b, run, () => {
+  b.group([0, 0, 0], undefined, `${o.op.id}_`, () => {
     const full: Interval = [-T / 2, T / 2];
     const trim = { tint: PAL.trimWhite, tags: ["door-frame"] };
     const jL = "jambL",
@@ -269,14 +312,16 @@ export function buildInteriorDoor(run: PartitionRun, o: RunOpening): AssemblyDef
     boxR(b, jH, "softwood", "wood_painted", [c0, c1], [top, o.head - SHIM], full, { ...trim, grain: "x" });
     bondAt(b, jH, jL, "nail", 40, [c0, mid(top, o.head - SHIM), 0]);
     bondAt(b, jH, jR, "nail", 40, [c1, mid(top, o.head - SHIM), 0]);
-    // nailed through the shims into the jack studs at three heights (one bond per jamb)
-    const fx = new Fixings();
-    for (const y of [0.3, 1.0, 1.75]) {
-      fx.world(jL, "nail", 60, [o.r0 + SHIM, y, 0]);
-      fx.world(jR, "nail", 60, [o.r1 - SHIM, y, 0]);
+    // fixed through the shims into the jack studs: finish nails low, a trim-head screw high
+    // (two separate fixings so each end of the jamb can pull out on its own), head to header
+    for (const [j, jack, u] of [
+      [jL, framing.jackL, o.r0],
+      [jR, framing.jackR, o.r1],
+    ] as Array<[string, string, number]>) {
+      bondAt(b, j, jack, "nail", 90, [u, 0.55, 0]);
+      bondAt(b, j, jack, "screw", 90, [u, 1.55, 0]);
     }
-    fx.flush(b);
-    worldAt(b, jH, "nail", 60, [mid(o.r0, o.r1), o.head - SHIM, 0]);
+    bondAt(b, jH, framing.header, "nail", 60, [mid(o.r0, o.r1), o.head - SHIM, 0]);
 
     const wS = sw * (T / 2 - 0.005);
     const wB = wS - sw * DOOR_T;
@@ -291,8 +336,8 @@ export function buildInteriorDoor(run: PartitionRun, o: RunOpening): AssemblyDef
       boxR(b, n, "softwood", "wood_painted", u, y, stopW, { ...trim, grain: n === "stopHead" ? "x" : "y" });
       bondAt(b, n, j, "nail", 20, [mid(u[0], u[1]), mid(y[0], y[1]), mid(stopW[0], stopW[1])]);
     }
-    addCasings(b, "casingP", c0, c1, top, 1, T / 2, { L: jL, R: jR, H: jH }, { l: o.r0 + SHIM, r: o.r1 - SHIM });
-    addCasings(b, "casingN", c0, c1, top, -1, T / 2, { L: jL, R: jR, H: jH }, { l: o.r0 + SHIM, r: o.r1 - SHIM });
+    addCasings(b, "casingP", c0, c1, top, 1, T / 2, { L: jL, R: jR, H: jH }, { l: o.r0 + SHIM, r: o.r1 - SHIM }, framing.behind);
+    addCasings(b, "casingN", c0, c1, top, -1, T / 2, { L: jL, R: jR, H: jH }, { l: o.r0 + SHIM, r: o.r1 - SHIM }, framing.behind);
 
     // ---- leaf: the kit's hollow-core panel (HDF skins on pine stiles/rails + lock block,
     // honeycomb core, steel hinge leaves, levers both sides, latch on the lock block)
@@ -336,9 +381,7 @@ export function buildInteriorDoor(run: PartitionRun, o: RunOpening): AssemblyDef
     boxR(b, strike, "steel", "chrome", rng(cEdge, cEdge + (hingeAtLow ? -0.0015 : 0.0015)), [HANDLE_Y - 0.035, HANDLE_Y + 0.035], [wc - 0.0125, wc + 0.0125], { noCollide: true, tags: ["door-frame"] });
     bondAt(b, strike, latchJamb, "screw", 30, [cEdge, HANDLE_Y, wc]);
   });
-  const def = b.build();
-  def.room = o.op.into;
-  return def;
+  return b.partNames().filter((n) => !before.has(n));
 }
 
 // ===================================================================== front door

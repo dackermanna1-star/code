@@ -175,11 +175,12 @@ export function buildPhotoFrame(o: BaseOpts & { tint?: number } = {}): AssemblyD
   // after leaning back by `lean`, the back-bottom edge is the lowest point
   const lift = (h / 2) * c;
   const pf = pictureFrame(b, "frame", { w, h, bar: 0.018, depth, mat: "softwood", surf: "wood_walnut", tint: o.tint, art: "photo_0", nail: false }, [0, lift, 0], [-lean, 0, 0]);
-  // strut from the backing's middle down to the shelf behind the frame
-  const zBack = -(h / 2) * s; // back face, bottom edge after rotation (z of the bottom edge is +h/2·sin)
-  void zBack;
-  const yTopS = lift + 0.02 * c,
-    zTopS = -0.02 * s - 0.001;
+  // strut from the backing's back face (frame-local z = 0.003) down to the shelf behind the frame;
+  // frame-local (y, z) → leaned: y' = y·cos + z·sin + lift, z' = −y·sin + z·cos
+  const yl = 0.02,
+    zl = depth - 0.012 - 0.0002;
+  const yTopS = yl * c + zl * s + lift,
+    zTopS = -yl * s + zl * c;
   const strut = b.hull(
     "strut",
     "mdf",

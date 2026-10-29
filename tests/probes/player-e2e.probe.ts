@@ -139,10 +139,10 @@ export async function probe() {
   const tableInfo = destruction.list().find((a) => a.id === ids.table);
   out.sledgeVsTable = { events: diff(c1), damage: tableInfo ? r2(tableInfo.damage) : null, islands: tableInfo?.islands ?? null };
 
-  // ---- landing stomp on the table top (drop from 1.3 m above it)
+  // ---- landing stomp on the table top (drop from 2.4 m above it)
   const c2 = snapCounts();
   p.setTool("hands");
-  p.teleport({ x: 3.15, y: 0.45 + 1.3 + 1.65, z: 1.2 }, 0, 0.3);
+  p.teleport({ x: 3.15, y: 0.45 + 2.4 + 1.65, z: 1.2 }, 0, 0.3); // ≈6.9 m/s: well beyond a jump landing
   step(80);
   const table2 = destruction.list().find((a) => a.id === ids.table);
   out.stompTable = { events: diff(c2), damage: table2 ? r2(table2.damage) : null, islands: table2?.islands ?? null };

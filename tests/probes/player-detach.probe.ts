@@ -1,6 +1,7 @@
 // Detach: grab the chair by a front leg, then break every bond of that leg (as a kick or pull
 // would). The hand must follow the leg to its new body instead of steering the rest of the chair.
 // Also: jointed throw refusal, edges consumed while holding, and the footstep debris support rule.
+import { Vector3 } from "@babylonjs/core";
 import { FIXED_DT } from "../../src/core/time.ts";
 import { Destruction } from "../../src/destruction/destructionSystem.ts";
 import { buildObject } from "../../src/objects/registry.ts";
@@ -68,8 +69,16 @@ export async function probe() {
     legSeparate: legBody !== chairBody,
     chairIslands: destruction.list().find((a) => a.id === chairId)?.islands ?? null,
   };
-  const legLayer = () => (legBody?.shape ? legBody.shape.filterMembershipMask : -1);
-  out.legOnHeldLayer = legLayer() === Layer.HELD;
+  // which layer is the leg on? a short ray through its centre with HELD only / without HELD
+  const legLayerHeld = (): boolean | null => {
+    if (!legBody) return null;
+    const m = legBody.transformNode.position;
+    const com = gp.island ? world.toWorldVec(gp.island, gp.island.com) : { x: m.x, y: m.y, z: m.z };
+    const from = new Vector3(com.x - 0.3, com.y, com.z), to = new Vector3(com.x + 0.3, com.y, com.z);
+    const held = w.physics.raycast(from, to, Layer.HELD, null);
+    return !!held && held.body === legBody;
+  };
+  out.legOnHeldLayer = legLayerHeld();
   // the leg comes with the hand: look up, it rises
   const y0 = legBody ? legBody.transformNode.position.y : 0;
   w.input.addLook(0, -250);
@@ -88,7 +97,7 @@ export async function probe() {
   step(5);
   out.staleUseAfterDrop = uses;
   step(30);
-  out.legLayerRestored = legLayer() !== Layer.HELD;
+  out.legLayerRestored = legLayerHeld() === false;
   out.nan = [p.position.x, p.position.y, p.position.z].some((x) => !Number.isFinite(x));
   return out;
 }
