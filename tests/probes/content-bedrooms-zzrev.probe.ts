@@ -17,9 +17,7 @@ export async function probe(): Promise<unknown> {
   const engine = new Engine(canvas, true, { stencil: true });
   const out: Record<string, unknown> = {};
   const variants: Array<[string, string[] | null]> = [
-    ["chairAlone", ["b_chair"]],
-    ["deskLamp", ["b_desk", "b_lamp"]],
-    ["deskNoLamp", ["b_desk", "b_pc", "b_monitor", "b_speaker", "b_keyboard", "b_mouse", "b_mug", "b_laptop", "b_papers"]],
+    ["deskPcLong", ["b_desk", "b_pc"]],
   ];
   for (const [name, only] of variants) {
     const scene = new Scene(engine);
@@ -39,13 +37,13 @@ export async function probe(): Promise<unknown> {
       if (contacts.length < 20) contacts.push(`${e.matA}/${e.matB} E=${e.energy.toFixed(3)} @(${e.pos.x.toFixed(2)},${e.pos.y.toFixed(2)},${e.pos.z.toFixed(2)})`);
     });
     const trace: string[] = [];
-    for (let s = 0; s < 180; s++) {
+    for (let s = 0; s < 1200; s++) {
       d.beforePhysics(FIXED_DT);
       physics.step(FIXED_DT);
       time.tick();
       d.afterPhysics(FIXED_DT);
       d.update(FIXED_DT);
-      if (s % 30 === 0 || s < 5) {
+      if (s % 150 === 0) {
         const p = d.positionOf(ids[0])!;
         const r = items[0].placement.xf.p;
         let lampInfo = "";

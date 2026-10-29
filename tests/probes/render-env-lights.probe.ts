@@ -3,7 +3,7 @@
 // point-shadow promotion/demotion, the cached sun shadow map (draw calls only when casters
 // move) and quality changes.
 // Run: node tests/probe.mjs tests/probes/render-env-lights.probe.ts
-import { ClusteredLightContainer, Color3, MeshBuilder, PointLight, Scene, SceneInstrumentation, SpotLight, UniversalCamera, Vector3, type Light } from "@babylonjs/core";
+import { ClusteredLightContainer, Color3, MeshBuilder, PointLight, Scene, SceneInstrumentation, SpotLight, StandardMaterial, UniversalCamera, Vector3, type Light, type RenderTargetTexture } from "@babylonjs/core";
 import { QUALITY, Settings } from "../../src/core/settings.ts";
 import { Lighting } from "../../src/render/lighting.ts";
 import { makeEngine, makeCamera, pbr, frames, whenReady } from "./render-env-util.ts";
@@ -139,6 +139,65 @@ export async function probe(): Promise<unknown> {
   check("demotedRejoined", lighting.clusteredCount === 12 && !scene.lights.some((l) => l.name === "p0"), lighting.clusteredCount);
   await frames(scene, 3);
 
+  // ---- Ultra: 2 shadowed bulbs + sun + sky + cluster = 5 lights → every lit material must
+  // get the slots (a default-4 PBR floor / StandardMaterial would drop one bulb entirely).
+  cam.position.set(6.4, 9, 4.4);
+  cam.setTarget(new Vector3(6.4, 0, 4.401));
+  cam.computeWorldMatrix();
+  lighting.applyQuality(QUALITY.medium);
+  for (let i = 0; i < 3; i++) lighting.update(0.6);
+  await frames(scene, 3);
+  const lumMedium = await read();
+  const stdBox = MeshBuilder.CreateBox("stdBox", { width: 1.2, height: 0.05, depth: 1.2 }, scene);
+  stdBox.position.set(9.5, 0.03, 6.5);
+  const stdMat = new StandardMaterial("stdMat", scene); // created before Ultra, never registered
+  stdBox.material = stdMat;
+  lighting.applyQuality(QUALITY.ultra);
+  for (let i = 0; i < 3; i++) lighting.update(0.6);
+  const lateMat = new StandardMaterial("lateMat", scene); // created while Ultra is active
+  lighting.update(1 / 60);
+  await whenReady(scene, 240000);
+  await frames(scene, 3);
+  const lumUltra = await read();
+  const floorSlots = (floor.material as unknown as { maxSimultaneousLights: number }).maxSimultaneousLights;
+  check("ultraTwoShadowed", lighting.shadowedLights.length === 2, lighting.shadowedLights.map((l) => l.name));
+  check("ultraSlots", lighting.lightSlots === 5 && floorSlots >= 5 && stdMat.maxSimultaneousLights >= 5 && lateMat.maxSimultaneousLights >= 5, {
+    need: lighting.lightSlots,
+    floorSlots,
+    std: stdMat.maxSimultaneousLights,
+    late: lateMat.maxSimultaneousLights,
+  });
+  check("ultraFloorSees5", floor.lightSources.length === 5, floor.lightSources.map((l) => l.name));
+  // Shadows of the crates darken a little; a lost bulb would drop the frame far more.
+  check("ultraNoLostBulb", lumUltra > lumMedium * 0.85, { lumMedium, lumUltra });
+
+  // ---- point cube maps only re-render for casters within reach
+  const isPending = (rt: RenderTargetTexture | null | undefined) => (rt as unknown as { _currentRefreshId: number } | null)?._currentRefreshId === -1;
+  await frames(scene, 2);
+  const shadowedNow = lighting.shadowedLights;
+  const pointMaps = shadowedNow.map((l) => l.getShadowGenerator()?.getShadowMap());
+  const lp = shadowedNow.map((l) => (l as PointLight).position);
+  // The crate farthest from both shadowed bulbs.
+  let far = boxes[0];
+  let best = -1;
+  for (const b of boxes) {
+    const d = Math.min(...lp.map((p) => Vector3.Distance(p, b.position)));
+    if (d > best) {
+      best = d;
+      far = b;
+    }
+  }
+  const settledBefore = pointMaps.every((m) => !isPending(m));
+  far.position.y += 0.001;
+  far.computeWorldMatrix(true);
+  const sunPending = isPending(lighting.sunShadows.getShadowMap());
+  const farPending = pointMaps.map((m) => isPending(m));
+  check("casterMoveLocal", settledBefore && sunPending && (best <= 3.5 + 0.6 || farPending.every((p) => !p)), { settledBefore, sunPending, farPending, best, far: far.name });
+  await frames(scene, 2);
+  lighting.applyQuality(QUALITY.high);
+  lighting.update(0.6);
+  await frames(scene, 2);
+
   // ---- cached sun shadows: no shadow pass while nothing moves
   lighting.sun.intensity = 5;
   lighting.applyQuality(QUALITY.medium); // no point shadows: only the sun map is cached
@@ -195,7 +254,25 @@ export async function probe(): Promise<unknown> {
   fb.update(1 / 60);
   const enabled = fls.filter((l) => l.isEnabled() && l.intensity > 0).map((l) => l.name);
   check("fallbackNoCluster", fb.cluster === null);
-  check("fallbackNearest4", enabled.join(",") === "f0,f1,f2,f3", enabled);
+  check("fallbackSlots", fb.lightSlots === 6, fb.lightSlots);
+  const shaded = () => fls.filter((l) => l.isEnabled() && l.intensity > 0 && l.excludeWithLayerMask === 0).map((l) => l.name).join(",");
+  check("fallbackNearest4", shaded() === "f0,f1,f2,f3" && enabled.length === 7, { shaded: shaded(), enabled });
+  // Owner disables f0: it frees its slot for f4, and the selector never re-enables it.
+  fls[0].setEnabled(false);
+  fb.update(0.6);
+  check("fallbackOwnerDisabled", shaded() === "f1,f2,f3,f4" && !fls[0].isEnabled(), shaded());
+  cam2.position.set(9, 1.6, 0); // move away and back: f0 deselected / reselected by distance
+  cam2.computeWorldMatrix();
+  fb.update(0.6);
+  cam2.position.set(0, 1.6, 0);
+  cam2.computeWorldMatrix();
+  fb.update(0.6);
+  check("fallbackKeepsOwnerOff", !fls[0].isEnabled() && shaded() === "f1,f2,f3,f4", shaded());
+  fls[0].setEnabled(true);
+  fb.update(0.6);
+  check("fallbackOwnerOn", shaded() === "f0,f1,f2,f3", shaded());
+  fb.removeLight(fls[6]); // masked when removed: handed back unmasked
+  check("fallbackRemoveUnmasks", fls[6].excludeWithLayerMask === 0);
   fb.dispose();
   scene2.dispose();
   return { fail, ...out };
