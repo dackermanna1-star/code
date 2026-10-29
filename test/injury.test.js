@@ -124,3 +124,156 @@ test('thrown objects cause blunt trauma scaled by mass and speed', () => {
   assert.ok(results.soccerBall.concussion < 0.2);
   assert.ok(results.baseball.concussion > 0.2, `baseball concussion ${results.baseball.concussion}`);
 });
+
+// ------------------------------------------------------------------------------------------------
+// Lethality and physiology guarantees. Shots are fired at a standing dummy; long time spans then run
+// the physiology alone (no physics), which is what decides survival and is much faster.
+
+/** Fire along the segment's own axes at an anatomical point (bind-pose coordinates). */
+function shootBind(sb, person, weapon, seg, bindPt, from = [0, 0, 1]) {
+  const s = person.rd.segments[seg];
+  const t = s.body.localToWorld(new Vec3(...bindPt).sub(s.bindPos), new Vec3());
+  const o = t.clone().add(s.body.localDirToWorld(new Vec3(...from), new Vec3()));
+  return sb.fire(weapon, o, t.clone().sub(o).normalize());
+}
+
+/** Physiology only for `seconds`; returns the time of death (or null) and a few samples. */
+function physiology(person, seconds, each) {
+  const inj = person.injury;
+  for (let i = 0; i < seconds * 60; i++) {
+    inj.update(1 / 60);
+    inj.events.length = 0;
+    if (each) each(i / 60, inj);
+    if (!inj.alive) return i / 60;
+  }
+  return null;
+}
+
+test('a magazine emptied into the body kills within 30 s (it does not stay unconscious)', () => {
+  const { sb, person } = scene(4);
+  const segs = ['chest', 'abdomen', 'pelvis', 'thighL', 'thighR', 'upperArmL', 'upperArmR'];
+  for (let i = 0; i < 20; i++) {
+    shootAt(sb, person, 'smg', segs[i % 7], [((i * 41) % 11) / 30 - 0.18, ((i * 29) % 9) / 60 - 0.12, 4]);
+    run(sb, 1 / 30);
+  }
+  assert.ok(!person.injury.structSev.brain && !person.injury.structSev.brainstem, 'no head hits in this volley');
+  const t = physiology(person, 60);
+  assert.ok(t !== null && t < 30, `dead after ${t} s`);
+  assert.doesNotMatch(person.injury.deathCause, /brain/);
+});
+
+test('cardiac arrest becomes clinical death after a short agonal phase with gasps and no pulse', () => {
+  const { sb, person } = scene(2);
+  shootBind(sb, person, 'pistol', 'chest', [0.0, 1.36, -0.03]); // aorta
+  run(sb, 0.2);
+  const inj = person.injury;
+  let gasp = 0, arrestAt = null, sawNoPulse = false;
+  const t = physiology(person, 120, (time, s) => {
+    if (s.arrestTime >= 0 && s.alive) {
+      if (arrestAt === null) arrestAt = time;
+      gasp = Math.max(gasp, person.ctl.respiration);
+      const v = s.vitals();
+      sawNoPulse = sawNoPulse || (v.hr === 0 && v.spo2 === null && v.status === 'cardiac arrest');
+    }
+  });
+  assert.ok(arrestAt !== null, 'circulation stopped');
+  assert.ok(t !== null && t - arrestAt < 12, `death ${t} s, arrest ${arrestAt} s`);
+  assert.ok(gasp > 0.8, `agonal gasp depth ${gasp}`);
+  assert.ok(sawNoPulse, 'pulseless vitals during the agonal phase');
+  assert.match(inj.deathCause, /exsanguination|heart|fibrillation/);
+});
+
+test('a severed femoral artery: compensated shock first, then decompensation and death within minutes', () => {
+  const { sb, person } = scene(3);
+  shootBind(sb, person, 'pistol', 'thighL', [0.075, 0.75, 0.022]);
+  run(sb, 0.2);
+  const inj = person.injury;
+  assert.ok(inj.structSev['femoral artery L'] > 0.9, 'femoral artery hit');
+  let map30 = 0, hr30 = 0;
+  const t = physiology(person, 300, (time, s) => {
+    if (Math.abs(time - 30) < 1e-3) {
+      map30 = s.mapF;
+      hr30 = s.hr;
+    }
+  });
+  // class II at 30 s: pressure maintained by tachycardia and vasoconstriction
+  assert.ok(map30 > 65 && hr30 > 115, `MAP ${map30.toFixed(0)} HR ${hr30.toFixed(0)} at 30 s`);
+  // bleeding does not stall at low pressure: the spiral ends in arrest
+  assert.ok(t !== null && t > 60 && t < 240, `dead after ${t} s`);
+  assert.match(inj.deathCause, /exsanguination/);
+  assert.ok(inj.blood < 3300, `blood left ${inj.blood.toFixed(0)}`);
+});
+
+test('single non-vital wounds are survivable for minutes', () => {
+  for (const [seg, pt] of [['upperArmR', null], ['thighL', [0.135, 0.72, 0.02]]]) {
+    const { sb, person } = scene(3);
+    if (pt) shootBind(sb, person, 'pistol', seg, pt);
+    else shootAt(sb, person, 'pistol', seg, [0.03, 0.05, 4]);
+    run(sb, 0.5);
+    const t = physiology(person, 300);
+    assert.equal(t, null, `${seg} wound killed after ${t} s`);
+    assert.ok(person.injury.blood > 4300, `${seg}: blood ${person.injury.blood.toFixed(0)}`);
+    assert.ok(person.injury.vitals().iss < 16, 'not a major trauma');
+  }
+});
+
+test('high cervical cord injury: apnoea, desaturation over minutes, hypoxic arrest', () => {
+  const { sb, person } = scene(3);
+  shootBind(sb, person, 'pistol', 'neck', [0, 1.575, -0.045], [0, 0, -1]); // from behind
+  run(sb, 0.2);
+  const inj = person.injury;
+  assert.equal(inj.spinal, 'C1');
+  assert.equal(inj.breathing, 0);
+  let sat30 = 1, sat120 = 1;
+  const t = physiology(person, 300, (time, s) => {
+    if (Math.abs(time - 30) < 1e-3) sat30 = s.spo2;
+    if (Math.abs(time - 120) < 1e-3) sat120 = s.spo2;
+  });
+  assert.ok(sat30 > 0.9, `oxygen stores last: SpO2 ${sat30.toFixed(2)} at 30 s`);
+  assert.ok(sat120 < 0.75, `then desaturates: SpO2 ${sat120.toFixed(2)} at 120 s`);
+  assert.ok(t !== null && t < 240, `dead after ${t} s`);
+  assert.match(inj.deathCause, /respiratory/);
+});
+
+test('face, jaw and scalp-graze shots are not fatal; a channel through the brain is', () => {
+  for (const [pt, from] of [[[0, 1.61, 0.055], [1.5, 0, 0.15]], [[0, 1.778, -0.015], [1.5, 0, 0]]]) {
+    const { sb, person } = scene(3);
+    shootBind(sb, person, 'pistol', 'head', pt, from);
+    run(sb, 0.2);
+    assert.ok(person.injury.alive, `${pt}: ${person.injury.deathCause}`);
+    assert.equal(physiology(person, 240), null);
+  }
+  const { sb, person } = scene(3);
+  shootBind(sb, person, 'pistol', 'head', [0, 1.7, 0.0], [0, 0, 1]);
+  run(sb, 0.1);
+  assert.equal(person.injury.alive, false);
+  assert.match(person.injury.deathCause, /brain/);
+  assert.ok(person.injury.vitals().iss >= 25, 'penetrating brain injury is AIS 5+');
+});
+
+test('repeated hits on one vessel do not multiply its bleeding; total bleeding never exceeds cardiac output', () => {
+  const { sb, person } = scene(2);
+  for (let i = 0; i < 4; i++) shootBind(sb, person, 'pistol', 'chest', [0.0, 1.36, -0.03]);
+  const inj = person.injury;
+  let aorta = 0;
+  for (const w of inj.wounds) for (const b of w.bleeds || []) if (/aort/.test(b.label)) aorta += b.q;
+  assert.ok(aorta > 0 && aorta <= 120 + 110 + 1e-6, `aortic bleeding ${aorta}`);
+  for (let i = 0; i < 120; i++) {
+    inj.update(1 / 60);
+    assert.ok(inj.bleedRate <= Math.max(inj.co, 5000 / 60) * 1.05, `bleed ${inj.bleedRate} > CO ${inj.co}`);
+  }
+});
+
+test('an ordinary fall after a shove does not break the forearm or hand', () => {
+  let broken = 0;
+  for (const seed of [1, 2]) {
+    const { sb, person } = scene(seed);
+    const chest = person.rd.segments.chest.body;
+    sb.shove(chest, chest.pos.clone(), new Vec3(0, 0, -160), 0.15);
+    run(sb, 5);
+    broken += person.injury.fractures.filter((f) => /hand|forearm|radius/.test(f.seg + f.label)).length;
+    // the back of the head may strike the floor (concussion), but this is not major trauma
+    assert.ok(person.injury.alive && person.injury.vitals().iss < 16, `ISS ${person.injury.vitals().iss}`);
+  }
+  assert.equal(broken, 0);
+});
