@@ -67,8 +67,11 @@ const SHIN = 0.45;
 const SWAY_GAIN = 0.55;
 const SWAY_MAX = 0.08;
 const SWAY_OMEGA = 13;
-const RECOIL_OMEGA = 20;
-const RECOIL_ZETA = 0.45;
+const RECOIL_OMEGA = 22;
+/** Near-critical damping: one firm jolt and settle, no wobble. */
+const RECOIL_ZETA = 0.85;
+const RECOIL_GAIN = 2.6;
+const RECOIL_MAX = 0.14;
 
 export class Viewmodel {
   readonly root: TransformNode;
@@ -197,12 +200,21 @@ export class Viewmodel {
     const by = -Math.abs(Math.sin(this.bobPhase)) * 0.009 * a + Math.sin(this.time * 1.5) * 0.0022 * (1 - a);
     const broll = Math.sin(this.bobPhase) * 0.014 * a;
 
-    // ---- recoil spring (impulse from hits / prying pops)
-    if (vs.kick > 0) this.recoilVel += vs.kick * 5;
+    // ---- recoil spring (impulse from hits / prying pops). A new hit raises the jolt to its own
+    // strength instead of stacking on the previous one, so rapid hits can't pump the spring.
+    if (vs.kick > 0) this.recoilVel = Math.max(this.recoilVel, vs.kick * RECOIL_GAIN);
     if (h > 0) {
-      this.recoilVel += (-RECOIL_OMEGA * RECOIL_OMEGA * this.recoil - 2 * RECOIL_ZETA * RECOIL_OMEGA * this.recoilVel) * h;
-      this.recoil += this.recoilVel * h;
-      this.recoil = Math.max(-0.25, Math.min(0.25, this.recoil));
+      // semi-implicit Euler, substepped so low frame rates stay stable and damped
+      const n = Math.ceil(h / (1 / 240));
+      const sh = h / n;
+      for (let i = 0; i < n; i++) {
+        this.recoilVel += (-RECOIL_OMEGA * RECOIL_OMEGA * this.recoil - 2 * RECOIL_ZETA * RECOIL_OMEGA * this.recoilVel) * sh;
+        this.recoil += this.recoilVel * sh;
+      }
+      if (Math.abs(this.recoil) > RECOIL_MAX) {
+        this.recoil = Math.sign(this.recoil) * RECOIL_MAX;
+        if (this.recoil * this.recoilVel > 0) this.recoilVel = 0;
+      }
     }
 
     // ---- tremble at full charge, pry stress jitter, spray buzz

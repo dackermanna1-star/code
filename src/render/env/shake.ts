@@ -30,7 +30,10 @@ export class ShakeModel {
   /** Add trauma (clamped to [0, 1]; NaN/negative ignored). */
   add(amount: number): void {
     if (!(amount > 0)) return;
-    this.trauma = Math.min(1, this.trauma + amount);
+    // A hit raises trauma to its own strength plus a little extra, so spamming equal hits holds
+    // the shake near that strength instead of stacking it to the maximum.
+    const a = Math.min(1, amount);
+    this.trauma = Math.min(1, Math.max(this.trauma, a) + 0.25 * a * (1 - this.trauma));
   }
 
   /**

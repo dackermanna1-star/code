@@ -371,8 +371,11 @@ export class ToolSystem implements IToolSystem {
   }
 
   update(dt: number, tc: ToolContext): void {
-    const scale = this.ctx.time ? this.ctx.time.scale : 1;
-    this.sinceFixed = Math.min(FIXED_DT, this.sinceFixed + Math.max(0, dt) * scale);
+    // Render extrapolation = simulated time left in the clock's accumulator after this frame's
+    // fixed steps. Counting real frame time instead ran ahead of the sim during hit-stop (steps
+    // slowed to ~12%) and snapped back at every step: the hands rattled while hits were spammed.
+    const time = this.ctx.time;
+    this.sinceFixed = time ? time.alpha * FIXED_DT : Math.min(FIXED_DT, this.sinceFixed + Math.max(0, dt));
     this.holding = tc.holding;
     // lowering while holding an object (smooth, frame-rate based)
     this.holdLower = clamp01(this.holdLower + (tc.holding ? 1 : -1) * HOLD_LOWER_RATE * Math.max(0, dt));
