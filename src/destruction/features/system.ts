@@ -136,6 +136,20 @@ export class FeatureSystem {
     return false;
   }
 
+  /**
+   * Must this island keep its own meshes (no cell-batch consolidation)? Hosts of animated
+   * features: motors (spinning rotors) and screens. Lights only swap surfaces (a mesh rebuild,
+   * which restores a consolidated island) and the other features only emit effects/sounds.
+   */
+  pinsMeshes(island: Island): boolean {
+    for (const p of island.parts) {
+      const fs = p.features;
+      if (!fs) continue;
+      for (const f of fs) if (f.def.type === "motor" || f.def.type === "screen") return true;
+    }
+    return false;
+  }
+
   // ---------------------------------------------------------------- part events
 
   onDamage(part: Part, info: Omit<DamageInfo, "part">): void {

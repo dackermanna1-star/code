@@ -715,6 +715,14 @@ export class IslandBatcher {
     }
     const mn = this.tmpMin.set(x0, y0, z0),
       mx = this.tmpMax.set(x1, y1, z1);
+    // meshes of frozen (never moving) nodes — the debris/static cell batches — freeze too: Babylon
+    // then skips their world-matrix and bounding updates in every frame's active-mesh evaluation
+    const parent = mesh.parent as TransformNode | null;
+    if (parent && parent.isWorldMatrixFrozen) {
+      if (mesh.isWorldMatrixFrozen) mesh.unfreezeWorldMatrix();
+      mesh.computeWorldMatrix(true);
+      mesh.freezeWorldMatrix();
+    } else if (mesh.isWorldMatrixFrozen) mesh.unfreezeWorldMatrix();
     const world = mesh.computeWorldMatrix(true);
     if (mesh.hasBoundingInfo) mesh.getBoundingInfo().reConstruct(mn, mx, world);
     else mesh.setBoundingInfo(new BoundingInfo(mn, mx, world));
@@ -750,6 +758,7 @@ export class IslandBatcher {
       r.sub.verticesCount = 0;
       r.sub.indexCount = 0;
       mesh.setEnabled(false);
+      if (mesh.isWorldMatrixFrozen) mesh.unfreezeWorldMatrix();
       mesh.parent = null;
       this.pool.push(mesh);
       this.stats.pooled = this.pool.length;

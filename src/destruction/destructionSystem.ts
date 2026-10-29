@@ -36,6 +36,8 @@ import { FeatureSystem } from "./features/system.ts";
 import { renderScreenFactory, type ScreenVisualFactory } from "./features/screen.ts";
 import { polyPoints } from "../geom/poly.ts";
 import { applyDents } from "../geom/meshgen.ts";
+import { largestFace } from "./runtime/polyUtil.ts";
+import { S } from "../render/surfaces.ts";
 
 /** Cosmetic (dent/crack) mesh rebuild budgets (ms). */
 const MESH_BUDGET_STEP = 1.5;
@@ -75,7 +77,9 @@ export class Destruction implements DestructionSystem {
     this.features.screenFactory = renderScreenFactory(ctx.scene);
     this.debris = new DebrisSystem(w, {
       hasFeatures: (isl) => this.features.hasFeatures(isl),
+      pinsMeshes: (isl) => this.features.pinsMeshes(isl),
       fellOut: (isl, emit) => this.fellOut(isl, emit),
+      recycle: (isl) => this.recycle(isl),
     });
     this.fracture = new FractureSystem(w, {
       onFracture: (old, frags, info) => this.features.onFracture(old, frags, info),
@@ -122,6 +126,7 @@ export class Destruction implements DestructionSystem {
       },
       jointBondsChanged: (g) => this.joints.markDirty(g),
       partKilled: (p, frags) => this.features.onPartKilled(p, frags),
+      consolidatedDirty: (isl) => this.debris.restoreDirty(isl),
     };
     ctx.physics.onImpact((e) => this.impacts.onRaw(e));
   }
@@ -378,6 +383,46 @@ export class Destruction implements DestructionSystem {
     this.accounting.markDirty(isl.asm);
     this.joints.refreshDirty();
   }
+
+  /**
+   * Debris body budget (DebrisSystem): a small rigid piece crumbles into a few micro-debris
+   * particles of its own surface, size and velocity, then its island is released. Settled
+   * micro-debris persists at no per-step cost, so the rubble stays on the floor.
+   */
+  private recycle(isl: Island): void {
+    const w = this.world;
+    if (!isl.alive) return;
+    let main: Part | null = null;
+    for (const p of isl.parts) if (!main || p.mass > main.mass) main = p;
+    const c = w.toWorldVec(isl, isl.com);
+    if (main && main.mat.micro !== "none" && Number.isFinite(c.x) && Number.isFinite(c.y) && Number.isFinite(c.z)) {
+      const poly = main.poly;
+      const face = poly.faces.length ? poly.faces[largestFace(poly)] : null;
+      const surf = face ? (face.attr.surf === S.bulb_on ? S.bulb_off : face.attr.surf) : 0;
+      const tint = face ? face.attr.tint : 0xffffff;
+      const ext = Math.max(0.01, Math.min(isl.extent, 0.45));
+      const n = Math.max(2, Math.min(5, Math.round(ext / 0.05)));
+      const size = Math.max(0.012, Math.min(0.09, ext * 0.55));
+      const v = this.recycleVel;
+      const p = this.recyclePos;
+      w.pointVelocity(isl, c, v);
+      const vx = Number.isFinite(v.x) ? v.x : 0,
+        vy = Number.isFinite(v.y) ? v.y : 0,
+        vz = Number.isFinite(v.z) ? v.z : 0;
+      const r = ext * 0.3;
+      for (let i = 0; i < n; i++) {
+        p.x = c.x + (w.rng.next() - 0.5) * r;
+        p.y = c.y + (w.rng.next() - 0.5) * r * 0.5;
+        p.z = c.z + (w.rng.next() - 0.5) * r;
+        w.vfx.micro(main.mat.micro, p, { x: vx + (w.rng.next() - 0.5) * 0.3, y: vy, z: vz + (w.rng.next() - 0.5) * 0.3 }, size * (0.7 + 0.5 * w.rng.next()), surf, tint);
+      }
+    }
+    w.removeIsland(isl);
+    this.accounting.markDirty(isl.asm);
+    this.joints.refreshDirty();
+  }
+  private readonly recycleVel = { x: 0, y: 0, z: 0 };
+  private readonly recyclePos = { x: 0, y: 0, z: 0 };
 }
 
 function firstIsland(asm: Assembly): Island | null {

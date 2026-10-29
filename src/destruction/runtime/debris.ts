@@ -1,13 +1,23 @@
 // Debris lifecycle (docs/ARCHITECTURE.md §4.8):
 //  * activity tracking — dynamic islands are checked round-robin (≈ every 0.5 s each) so the
 //    cost stays O(K) per step even with thousands of pieces;
-//  * consolidation — small islands (mass < 20 kg, extent < 0.6 m, no joints/features) that have
-//    slept for settings.quality.consolidateAfter seconds lose their own meshes; their
-//    world-space geometry is appended to a static batch per 2 m world cell (draw-call
-//    consolidation). Bodies stay in Havok (asleep, Babylon sync disabled) so they still
-//    collide and wake; any impact/strike or a wake detected by the round-robin restores them;
+//  * consolidation (draw calls: one per island chunk otherwise, ~500–800 per frame) — dynamic
+//    islands that have slept for settings.quality.consolidateAfter seconds, and static islands
+//    untouched for STATIC_REST_S (none hosting motors or screens; not the chunked walls/floors),
+//    lose their own meshes; their world-space geometry is appended to a batch per DEBRIS_CELL
+//    world cell (small islands whole into the cell of their centre of mass, big ones part by
+//    part). Bodies stay in Havok (asleep, Babylon sync disabled) so they still collide and wake;
+//    a tool strike or use, a motion detected by restoreMoved, a static→dynamic transition or any
+//    geometry/membership change of the island (World.rebuildMeshes → restoreDirty) restores
+//    them (plain contacts do not: debris landing on a batched shelf changes nothing visible).
+//    Cell batches rebuild under a time budget, additions only after BATCH_SETTLE_S of quiet (a
+//    burst of consolidations rebuilds each batch once); removals in the same step;
 //  * fell-out removal — islands whose centre of mass drops below y = −30 m (thrown off the
 //    balcony) are removed completely (`fellOut` event);
+//  * debris body budget — while more broken-off pieces (Island.piece) are awake than
+//    settings.quality.maxDebrisBodies, the smallest awake ones older than RECYCLE_MIN_AGE crumble
+//    into micro-debris particles (deps.recycle): step cost grows with the awake bodies (a heavy
+//    wreck held ~1400 awake pieces, 100–200 ms per step), settled micro-debris costs nothing;
 //  * air drag — light, large dynamic islands (curtain panels, cushions, paper, cardboard, lamp
 //    shades) get Havok linear/angular damping from their area-to-mass ratio (see airDamping):
 //    without it a torn curtain strip swung like a rigid pendulum for 10+ s, and because Havok
@@ -15,19 +25,35 @@
 //    awake with it (≈ 900 bodies, 60–100 ms per step).
 
 import { TransformNode, type PhysicsBody } from "@babylonjs/core";
-import type { IslandMeshes } from "../../core/context.ts";
+import { Layer, type IslandMeshes } from "../../core/context.ts";
 import type { RenderGeom } from "../../geom/meshgen.ts";
 import type { Island } from "./types.ts";
 import { nodeToWorld, type World } from "./world.ts";
 
-export const CONSOLIDATE_MAX_MASS = 20;
-export const CONSOLIDATE_MAX_EXTENT = 0.6;
+/** Dynamic islands with more parts keep their own meshes (bounded restore cost). */
+export const CONSOLIDATE_MAX_PARTS = 512;
 export const FELL_OUT_Y = -30;
-export const DEBRIS_CELL = 2.0;
-/** Max vertices per consolidated batch mesh (bounded rebuild cost). */
-const BATCH_MAX_VERTS = 30000;
+/** Consolidation cell size (m, cubic cells in world space). */
+export const DEBRIS_CELL = 4.0;
+/** Max vertices per consolidated batch mesh (bounded rebuild cost: a restore rebuilds its batches). */
+const BATCH_MAX_VERTS = 20000;
+/** A batch with only additions waits this long (s, sim time) for more before it is rebuilt. */
+const BATCH_SETTLE_S = 0.3;
+/** Static islands untouched (no impact/strike) this long (s) are consolidated. */
+const STATIC_REST_S = 2;
+/** The static candidates are scanned every this many steps. */
+const STATIC_SCAN_STEPS = 15;
 /** Each tracked island is checked about every this many steps. */
 const CHECK_PERIOD_STEPS = 30;
+/** The debris body budget is enforced every this many steps… */
+const CAP_PERIOD_STEPS = 4;
+/** …recycling at most this many pieces per check (bounded removal cost per step). */
+const RECYCLE_PER_CHECK = 10;
+/** Pieces younger than this (s) fly on (a fresh break keeps its look); older ones may be recycled. */
+const RECYCLE_MIN_AGE = 1.5;
+/** Only pieces lighter (kg) and smaller (m) than these are ever recycled (chunks of wall stay). */
+const RECYCLE_MAX_MASS = 6;
+const RECYCLE_MAX_EXTENT = 0.45;
 /**
  * A consolidated island is restored (own meshes back) once its body moved further than this (m) from the pose it was
  * consolidated at — translation, or rotation × half its extent. Smaller solver corrections are invisible in the batch:
@@ -54,6 +80,10 @@ interface Batch {
   dirty: boolean;
   /** Contains removals (must rebuild this step to avoid ghost geometry). */
   urgent: boolean;
+  /** Sim time it became dirty (additions wait BATCH_SETTLE_S). */
+  dirtySince: number;
+  /** Islands added since the last rebuild (not shown by the mesh yet). */
+  fresh: Set<Island>;
 }
 
 interface DebrisCell {
@@ -63,13 +93,17 @@ interface DebrisCell {
 }
 
 export interface DebrisDeps {
-  /** Island hosts features that must keep their own meshes (screens, lights...). */
+  /** Island hosts features (never recycled by the debris body budget). */
   hasFeatures(island: Island): boolean;
+  /** Island hosts animated features that must keep their own meshes (motors, screens). */
+  pinsMeshes(island: Island): boolean;
   /**
    * Remove an island that fell out of the world (`emit` = announce it with a `fellOut` event)
    * or whose body state became non-finite (removed silently: there is no meaningful position).
    */
   fellOut(island: Island, emit: boolean): void;
+  /** Debris body budget: replace a small piece by micro-debris particles and remove it. */
+  recycle(island: Island): void;
 }
 
 interface SyncPlugin {
@@ -89,6 +123,14 @@ export class DebrisSystem {
   private consolidatedList: Island[] = [];
   /** Disable consolidation entirely (tests/debug). */
   enabled = true;
+  /** Pieces recycled by the debris body budget (stats). */
+  recycled = 0;
+  private capStep = 0;
+  private readonly capCands: Island[] = [];
+  /** Static islands waiting to be consolidated (created static, or restored after a hit). */
+  private readonly staticCands = new Set<Island>();
+  private staticStep = 0;
+  private readonly byCell = new Map<string, { geoms: RenderGeom[]; verts: number }>();
   private readonly sc = { x: 0, y: 0, z: 0 };
 
   constructor(w: World, deps: DebrisDeps) {
@@ -106,20 +148,34 @@ export class DebrisSystem {
     if (!isl.isStatic) {
       this.track(isl);
       this.applyAirDrag(isl);
-    }
+    } else this.staticCands.add(isl);
   }
 
   onIslandDisposing(isl: Island): void {
     if (isl.consolidated) this.unconsolidate(isl, false);
     this.untrack(isl);
+    this.staticCands.delete(isl);
   }
 
   onIslandMotionChanged(isl: Island): void {
-    if (isl.isStatic) this.untrack(isl);
-    else {
+    if (isl.isStatic) {
+      this.untrack(isl);
+      this.staticCands.add(isl);
+    } else {
+      // a static island that starts moving (support gone) needs its own meshes at once
+      if (isl.consolidated) this.restore(isl);
+      this.staticCands.delete(isl);
       this.track(isl);
       this.applyAirDrag(isl);
     }
+  }
+
+  /**
+   * The island's render geometry or membership changed while consolidated (World.rebuildMeshes):
+   * its own meshes come back (rebuilt from the current parts) and the batches drop it this step.
+   */
+  restoreDirty(isl: Island): void {
+    if (isl.consolidated) this.restore(isl);
   }
 
   /** Air drag as Havok damping for light, large dynamic islands (see airDamping). */
@@ -156,8 +212,16 @@ export class DebrisSystem {
   /** Round-robin activity check: sleep time, consolidation, wake restore, fell-out. */
   fixedUpdate(): void {
     if (this.consolidatedList.length) this.restoreMoved();
+    if (++this.staticStep >= STATIC_SCAN_STEPS) {
+      this.staticStep = 0;
+      this.consolidateStatics();
+    }
     const n = this.rr.length;
     if (!n) return;
+    if (++this.capStep >= CAP_PERIOD_STEPS) {
+      this.capStep = 0;
+      this.enforceBodyCap();
+    }
     const k = Math.min(n, Math.max(8, Math.ceil(n / CHECK_PERIOD_STEPS)));
     for (let i = 0; i < k && this.rr.length; i++) {
       if (this.rrPos >= this.rr.length) this.rrPos = 0;
@@ -222,48 +286,134 @@ export class DebrisSystem {
     }
   }
 
+  /**
+   * Debris body budget (settings.quality.maxDebrisBodies): count the AWAKE rigid pieces (dynamic
+   * islands that broke off) and, over the budget, recycle the smallest eligible awake ones — older
+   * than RECYCLE_MIN_AGE, light and small, no features or joints — into micro-debris. Sleeping
+   * pieces cost almost nothing and are left alone: removing one wakes everything resting near it
+   * (support-loss wake), which kept a recycled pile awake for good.
+   */
+  private enforceBodyCap(): void {
+    const w = this.w;
+    const cap = w.settings.quality.maxDebrisBodies;
+    if (!(cap > 0)) return;
+    const now = w.now;
+    const cands = this.capCands;
+    cands.length = 0;
+    let pieces = 0;
+    for (let i = 0; i < this.rr.length; i++) {
+      const isl = this.rr[i];
+      if (!isl.piece || !isl.alive || isl.isStatic || !isl.body || isl.consolidated) continue;
+      if (!w.physics.isAwake(isl.body)) continue;
+      pieces++;
+      if (isl.mass > RECYCLE_MAX_MASS || isl.extent > RECYCLE_MAX_EXTENT) continue;
+      if (isl.birthTime >= 0 && now - isl.birthTime < RECYCLE_MIN_AGE) continue;
+      if (now - isl.lastHit < RECYCLE_MIN_AGE || w.stepIndex - isl.pulledStep < 120) continue; // being handled
+      cands.push(isl);
+    }
+    const excess = pieces - cap;
+    if (excess <= 0 || !cands.length) {
+      cands.length = 0;
+      return;
+    }
+    const k = Math.min(excess, cands.length, RECYCLE_PER_CHECK);
+    // the k smallest (partial selection: k ≪ candidates)
+    for (let i = 0; i < k; i++) {
+      let best = i;
+      for (let j = i + 1; j < cands.length; j++) if (cands[j].mass < cands[best].mass) best = j;
+      const t = cands[i];
+      cands[i] = cands[best];
+      cands[best] = t;
+    }
+    for (let i = 0; i < k; i++) {
+      const isl = cands[i];
+      if (!isl.alive || this.deps.hasFeatures(isl) || this.isHeld(isl)) continue;
+      let jointed = false;
+      for (const p of isl.parts) for (const b of p.bonds) if (!b.rigid && b.alive) jointed = true;
+      if (jointed) continue;
+      this.deps.recycle(isl);
+      this.recycled++;
+    }
+    cands.length = 0;
+  }
+
+  /** Static islands untouched for STATIC_REST_S without pending mesh work: consolidate (in one go per scan). */
+  private consolidateStatics(): void {
+    if (!this.enabled || !this.staticCands.size) return;
+    const w = this.w;
+    const now = w.now;
+    for (const isl of this.staticCands) {
+      if (!isl.alive || !isl.isStatic || isl.consolidated) {
+        this.staticCands.delete(isl);
+        continue;
+      }
+      if (isl.lastHit >= 0 && now - isl.lastHit < STATIC_REST_S) continue;
+      if (w.meshDirty.has(isl)) continue; // pending (cosmetic) rebuilds: next scan
+      this.staticCands.delete(isl);
+      if (this.eligible(isl)) this.consolidate(isl);
+    }
+  }
+
+  /**
+   * May this island's geometry live in a cell batch? Not with animated features (motors, screens),
+   * not chunked, not empty; dynamic ones up to CONSOLIDATE_MAX_PARTS parts.
+   * Jointed islands (doors, drawers) are fine: any motion restores them (restoreMoved) and using
+   * one restores it first (Interactions).
+   */
+  /** In the player's hands (its shapes are on the HELD layer)? */
+  private isHeld(isl: Island): boolean {
+    const ph = this.w.physics as unknown as { layerOf?(shape: unknown): { layer: number } };
+    if (!isl.container || typeof ph.layerOf !== "function") return false;
+    return (ph.layerOf(isl.container).layer & Layer.HELD) !== 0;
+  }
+
   eligible(isl: Island): boolean {
-    if (isl.isStatic || isl.mass >= CONSOLIDATE_MAX_MASS || isl.extent >= CONSOLIDATE_MAX_EXTENT) return false;
-    if (isl.parts.length === 0 || isl.parts.length > 64) return false;
-    for (const p of isl.parts) for (const b of p.bonds) if (!b.rigid && b.alive) return false;
-    return !this.deps.hasFeatures(isl);
+    if (isl.parts.length === 0 || (!isl.isStatic && isl.parts.length > CONSOLIDATE_MAX_PARTS)) return false;
+    // big chunked islands (walls, floors, ceilings) already draw per 2 m chunk and rebuild only the
+    // touched chunk; in shared cell batches one dent would rebuild every batch they span
+    if (isl.chunked) return false;
+    return !this.deps.pinsMeshes(isl);
   }
 
   // ------------------------------------------------------------- consolidation
 
   consolidate(isl: Island): void {
-    if (isl.consolidated || !isl.body) return;
+    if (isl.consolidated || !isl.body || !isl.alive) return;
     const w = this.w;
-    const geoms: RenderGeom[] = [];
-    let verts = 0;
+    // small islands go whole into the cell of their centre of mass; big ones part by part (compact
+    // cell meshes for culling, bounded rebuilds)
+    const split = isl.extent > DEBRIS_CELL * 0.5;
+    const byCell = this.byCell;
+    byCell.clear();
+    let key = split ? "" : cellKeyOf(nodeToWorld(isl.node, isl.com, this.sc));
     for (const p of isl.parts) {
       const g = toWorldGeom(w.partGeom(p), isl.node);
-      geoms.push(g);
-      verts += g.vertexCount;
+      if (!g.vertexCount) continue;
+      if (split) key = cellKeyOf(nodeToWorld(isl.node, p.centroid, this.sc));
+      let e = byCell.get(key);
+      if (!e) {
+        e = { geoms: [], verts: 0 };
+        byCell.set(key, e);
+      }
+      e.geoms.push(g);
+      e.verts += g.vertexCount;
     }
-    const c = w.toWorldVec(isl, isl.com);
-    const key = `${Math.floor(c.x / DEBRIS_CELL)},${Math.floor(c.y / DEBRIS_CELL)},${Math.floor(c.z / DEBRIS_CELL)}`;
-    let cell = this.cells.get(key);
-    if (!cell) {
-      const node = new TransformNode(`debris.${key}`, w.scene);
-      cell = { key, node, batches: [] };
-      this.cells.set(key, cell);
+    if (!byCell.size) return; // nothing to draw: keep it as it is
+    const batches: Batch[] = [];
+    for (const [k, e] of byCell) {
+      const batch = this.batchFor(k, e.verts);
+      batch.islands.set(isl, e.geoms);
+      batch.verts += e.verts;
+      batch.fresh.add(isl);
+      this.markDirty(batch, false);
+      batches.push(batch);
     }
-    let batch = cell.batches[cell.batches.length - 1];
-    if (!batch || batch.verts + verts > BATCH_MAX_VERTS) {
-      batch = { index: cell.batches.length, islands: new Map(), verts: 0, meshes: null, dirty: true, urgent: false };
-      cell.batches.push(batch);
-      this.cellOf.set(batch, cell);
-    }
-    batch.islands.set(isl, geoms);
-    batch.verts += verts;
-    batch.dirty = true;
-    this.dirtyBatches.add(batch);
+    byCell.clear();
     const p = isl.node.position;
     const q = isl.node.rotationQuaternion;
     isl.consolidated = {
-      cellKey: key,
-      batch: batch.index,
+      batches,
+      pending: batches.length,
       inBatch: false,
       idx: this.consolidatedList.length,
       px: p.x,
@@ -278,6 +428,33 @@ export class DebrisSystem {
     isl.savedDisableSync = isl.body.disableSync;
     isl.body.disableSync = true;
     this.consolidated++;
+  }
+
+  /** The cell's last batch with room for `verts` more vertices (a new one when full). */
+  private batchFor(key: string, verts: number): Batch {
+    let cell = this.cells.get(key);
+    if (!cell) {
+      const node = new TransformNode(`debris.${key}`, this.w.scene);
+      node.freezeWorldMatrix(); // cell batches never move (their meshes freeze too, see batch.ts)
+      cell = { key, node, batches: [] };
+      this.cells.set(key, cell);
+    }
+    let batch = cell.batches[cell.batches.length - 1];
+    if (!batch || (batch.verts > 0 && batch.verts + verts > BATCH_MAX_VERTS)) {
+      batch = { index: cell.batches.length, islands: new Map(), verts: 0, meshes: null, dirty: false, urgent: false, dirtySince: 0, fresh: new Set() };
+      cell.batches.push(batch);
+      this.cellOf.set(batch, cell);
+    }
+    return batch;
+  }
+
+  private markDirty(b: Batch, urgent: boolean): void {
+    if (!b.dirty) {
+      b.dirty = true;
+      b.dirtySince = this.w.now;
+    }
+    if (urgent) b.urgent = true;
+    this.dirtyBatches.add(b);
   }
 
   /** Bring a consolidated island back to life (its own meshes, Babylon sync). */
@@ -299,15 +476,14 @@ export class DebrisSystem {
         if (last.consolidated) last.consolidated.idx = k;
       }
     }
-    const cell = this.cells.get(ref.cellKey);
-    const batch = cell?.batches[ref.batch];
-    if (batch) {
+    for (const bo of ref.batches) {
+      const batch = bo as Batch;
       const g = batch.islands.get(isl);
       if (g) for (const x of g) batch.verts -= x.vertexCount;
       batch.islands.delete(isl);
-      batch.dirty = true;
-      if (ref.inBatch) batch.urgent = true;
-      this.dirtyBatches.add(batch);
+      // a batch whose mesh already shows the island must drop it before anything renders
+      const shown = !batch.fresh.delete(isl);
+      this.markDirty(batch, shown);
     }
     if (isl.body) {
       isl.body.disableSync = isl.savedDisableSync;
@@ -316,20 +492,25 @@ export class DebrisSystem {
       if (plugin && typeof plugin.sync === "function" && !isl.body.isDisposed) plugin.sync(isl.body);
     }
     isl.sleepTime = 0;
-    isl.awake = true;
+    isl.awake = !isl.isStatic;
     isl.lastCheck = this.w.now;
+    if (isl.isStatic && isl.alive) this.staticCands.add(isl); // re-consolidated once it rests again
     if (rebuildOwn && ref.inBatch && isl.alive) this.w.rebuildAllChunks(isl);
-    // The batch still shows the island until it is rebuilt. Urgent batches are rebuilt by
-    // rebuildBatches() at the end of this fixed step (before anything renders) — once per
-    // batch, however many of its islands a heavy hit restores in the same step.
+    // Batches still showing the island are urgent: rebuildBatches() rebuilds them at the end of
+    // this fixed step (before anything renders) — once per batch, however many of its islands a
+    // heavy hit restores in the same step.
   }
 
-  /** Rebuild dirty batches: removals (urgent) always, additions within the budget (ms). */
+  /** Rebuild dirty batches: removals (urgent) always, settled additions within the budget (ms). */
   rebuildBatches(budgetMs: number): void {
     if (!this.dirtyBatches.size) return;
     const t0 = performance.now();
+    const now = this.w.now;
     for (const b of this.dirtyBatches) {
-      if (!b.urgent && performance.now() - t0 > budgetMs) continue;
+      if (!b.urgent) {
+        if (now >= b.dirtySince && now - b.dirtySince < BATCH_SETTLE_S) continue;
+        if (performance.now() - t0 > budgetMs) continue;
+      }
       this.rebuildBatch(b);
     }
   }
@@ -357,14 +538,17 @@ export class DebrisSystem {
     } else {
       b.meshes = this.w.render.buildIsland(cell.node, geoms, b.meshes, `debris:${cell.key}/${b.index}`);
     }
-    // the batch now shows these islands: drop their own meshes
-    for (const isl of b.islands.keys()) {
+    // islands now shown by all their batches drop their own meshes
+    for (const isl of b.fresh) {
       const ref = isl.consolidated;
-      if (ref && !ref.inBatch) {
+      if (!ref) continue;
+      ref.pending--;
+      if (ref.pending <= 0 && !ref.inBatch) {
         this.w.disposeChunkMeshes(isl);
         ref.inBatch = true;
       }
     }
+    b.fresh.clear();
   }
 
   dispose(): void {
@@ -378,8 +562,14 @@ export class DebrisSystem {
     this.cells.clear();
     this.cellOf.clear();
     this.dirtyBatches.clear();
+    this.staticCands.clear();
     this.rr.length = 0;
   }
+}
+
+/** Consolidation cell key of a world point. */
+function cellKeyOf(c: { x: number; y: number; z: number }): string {
+  return `${Math.floor(c.x / DEBRIS_CELL)},${Math.floor(c.y / DEBRIS_CELL)},${Math.floor(c.z / DEBRIS_CELL)}`;
 }
 
 /**

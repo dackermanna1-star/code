@@ -12,7 +12,7 @@
 //    exact mass via setMassProperties (sum of part masses, so decimated hulls don't matter).
 //  * Render geometry is cached per part (RenderGeom in island frame) and batched per CHUNK:
 //    small islands have one chunk (one draw call), big static islands (walls, floors) are
-//    split into 2 m spatial chunks so a dent or a hole only rebuilds the touched chunk.
+//    split into 4 m spatial chunks (CHUNK_CELL) so a dent or a hole only rebuilds the touched chunk.
 //  * Structural changes (membership) rebuild meshes in the same step; cosmetic changes
 //    (dents/cracks) are rebuilt under a per-step time budget.
 //
@@ -58,6 +58,12 @@ export const GRID_MIN_PARTS = 24;
 /** Islands with more parts (and big enough) get chunked render batches. */
 export const CHUNK_MIN_PARTS = 40;
 export const CHUNK_SIZE = 2.0;
+/**
+ * Render-chunk cell (m) of chunked islands. 4 m: a storey-high wall is one chunk tall and a floor
+ * slab a dozen chunks — every chunk is a draw call (these islands stay out of the debris cell
+ * batches), while a dent still rebuilds only its own chunk.
+ */
+export const CHUNK_CELL = 4.0;
 /** Fragments smaller than this (largest extent, m) get an oriented-box collider instead of a hull. */
 export const SMALL_FRAGMENT_BOX = 0.05;
 /** In-place container edits beyond this many removals fall back to a rebuild. */
@@ -97,6 +103,11 @@ export interface WorldHooks {
   /** A bond endpoint was re-pointed to a fragment, or a joint bond changed islands. */
   jointBondsChanged(group: JointGroup): void;
   partKilled(part: Part, fragments: boolean): void;
+  /**
+   * A consolidated island (geometry in a debris cell batch) needs a mesh rebuild: membership or
+   * geometry changed without a restore. The owner restores it (own meshes back, batches drop it).
+   */
+  consolidatedDirty?(island: Island): void;
 }
 
 const NOOP_HOOKS: WorldHooks = {
@@ -1343,9 +1354,9 @@ export class World {
   private chunkKeyOf(island: Island, p: Part): number {
     if (!island.chunked) return 0;
     const c = p.centroid;
-    const ix = Math.floor(c.x / CHUNK_SIZE) + 512,
-      iy = Math.floor(c.y / CHUNK_SIZE) + 512,
-      iz = Math.floor(c.z / CHUNK_SIZE) + 512;
+    const ix = Math.floor(c.x / CHUNK_CELL) + 512,
+      iy = Math.floor(c.y / CHUNK_CELL) + 512,
+      iz = Math.floor(c.z / CHUNK_CELL) + 512;
     return ((ix & 1023) * 1024 + (iy & 1023)) * 1024 + (iz & 1023);
   }
 
@@ -1449,7 +1460,13 @@ export class World {
         this.meshDirty.delete(island);
         continue;
       }
-      if (island.consolidated && island.consolidated.inBatch) continue;
+      if (island.consolidated) {
+        // changed while its geometry lives in a cell batch (a split, a bond break under load…):
+        // own meshes back, the batches drop it this step — never a stale or doubled copy
+        this.hooks.consolidatedDirty?.(island);
+        if (island.consolidated && island.consolidated.inBatch) continue; // (no restorer: keep the batch)
+        if (!this.meshDirty.has(island)) continue; // rebuilt by the restore
+      }
       let remaining = false;
       for (const ch of island.chunks.values()) {
         if (!ch.dirty) continue;

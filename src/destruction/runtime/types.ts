@@ -187,9 +187,11 @@ export class Chunk {
 }
 
 export interface ConsolidationRef {
-  cellKey: string;
-  batch: number;
-  /** World-space geometry is in the batch mesh (island meshes disposed). */
+  /** The cell batches holding this island's world-space geometry (DebrisSystem batches; big islands span several). */
+  batches: object[];
+  /** Of these, batches not rebuilt since the island was added (its own meshes stay until 0). */
+  pending: number;
+  /** World-space geometry is in the batch meshes (island meshes disposed). */
   inBatch: boolean;
   /** Index in DebrisSystem's list of consolidated islands. */
   idx: number;

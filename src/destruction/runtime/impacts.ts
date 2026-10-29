@@ -222,8 +222,9 @@ export class ImpactSystem {
     const islA = A!;
     // pieces of the same split spawn touching each other: ignore their mutual contacts briefly
     if (B && islA.birth !== 0 && islA.birth === B.birth && w.now - Math.max(islA.birthTime, B.birthTime) < SIBLING_GRACE) return;
-    if (islA.consolidated) this.deps.restore(islA);
-    if (B && B.consolidated) this.deps.restore(B);
+    // (consolidated islands are not restored here: most contacts change nothing visible — debris
+    // landing on a batched floor or shelf. Damage that edits geometry or membership restores the
+    // island through World.rebuildMeshes, motion through DebrisSystem.restoreMoved.)
     const P = { x: r.px, y: r.py, z: r.pz };
     const pA = w.locatePart(islA, w.toLocal(islA, P, this.lp));
     if (!pA) return;
