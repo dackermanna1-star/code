@@ -166,10 +166,11 @@ function keycap(b: Builder, name: string, cx: number, cz: number, wu: number, yP
   }
   // hollow ABS cap (1.2 mm walls) + switch top housing and stem: ≈ 2.5 g per unit width
   const k = b.hull(name, "plastic", "keycaps", pts, [0, 0, 0], { tint, mass: 0.0018 + 0.0007 * wu });
-  // stem retention: ~8 N over ~4 mm of engagement is a few hundredths of a joule; 0.08 J lets a
-  // sledge/hammer blow anywhere on the board (inertial load ½·m_key·Δv² ≈ 0.07 J) pop keys after a
-  // hit or two, and a drop off the desk loosen them, while direct hits flick them off at once
-  b.press(k, on, 0.08);
+  // stem retention: ~8 N over ~4 mm of engagement is a few hundredths of a joule. 0.05–0.16 J
+  // (seeded spread, worn and tight stems) lets every sledge/hammer blow anywhere on the board
+  // (inertial load ½·m_key·Δv² ≈ 0.07 J per key) shed a growing share of the keys, and repeated
+  // drops off the desk loosen them, while direct hits flick them off at once
+  b.press(k, on, b.rng.range(0.05, 0.16));
   return k;
 }
 

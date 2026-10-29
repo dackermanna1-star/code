@@ -7,7 +7,7 @@
 
 import type { AssemblyDef } from "../../destruction/model/types.ts";
 import type { SurfaceName } from "../../render/surfaces.ts";
-import { finish, mk, softBlock, PAL, type BaseOpts } from "./common.ts";
+import { finish, mk, softBlock, softSlab, PAL, type BaseOpts } from "./common.ts";
 
 // ------------------------------------------------------------------ mattress
 
@@ -35,9 +35,9 @@ export function buildMattress(o: MattressOpts = {}): AssemblyDef {
   const tint = o.tint ?? 0xf3f0ea;
   const coreH = h - TOP_H;
   // high-density foam core in a woven ticking cover (one soft part)
-  const core = softBlock(b, "core", "foam", "fabric_cotton", [w, coreH, l], 0.12, [0, coreH / 2, 0], { tint, mass: kg * 0.8 }, 2);
+  const core = softSlab(b, "core", "foam", "fabric_cotton", [w, coreH, l], 0.025, [0, coreH / 2, 0], { tint, mass: kg * 0.8 });
   // quilted pillow top (fibre batting), slightly inset
-  const top = softBlock(b, "pillow_top", "fabric", "fabric_cotton", [w - 0.02, TOP_H, l - 0.02], 0.35, [0, coreH + TOP_H / 2, 0], { tint: 0xfbfaf6, mass: kg * 0.2 }, 4);
+  const top = softSlab(b, "pillow_top", "fabric", "fabric_cotton", [w - 0.02, TOP_H, l - 0.02], 0.03, [0, coreH + TOP_H / 2, 0], { tint: 0xfbfaf6, mass: kg * 0.2 });
   b.bond(top, core, "fused", { strength: 80 }); // stitched border tape
   b.stuffing(core, "foam");
   b.stuffing(top, "fiber");
@@ -77,26 +77,26 @@ export function buildDuvet(o: DuvetOpts = {}): AssemblyDef {
   const b = mk("duvet", "Duvet", "soft", 120, o);
   // main quilted slab (origin at the centre of its underside; the head end is -Z)
   const area = w * l + (fold > 0 ? w * fold : 0) + (drop > 0 ? 2 * drop * (l - 0.04) : 0);
-  const main = softBlock(b, "main", "fabric", surf, [w, t, l], 0.45, [0, t / 2, 0], { tint, mass: (kg * w * l) / area }, 4);
+  const main = softSlab(b, "main", "fabric", surf, [w, t, l], 0.02, [0, t / 2, 0], { tint, mass: (kg * w * l) / area });
   b.stuffing(main, "feathers");
   if (fold > 0) {
     const ft = t * 0.75;
-    // the folded-back hem lies on the slab near its rounded head end, where the slab's crown has
-    // already dropped a few mm: sink it 4 mm so the two quilts actually touch (seam stitched)
-    const hem = softBlock(b, "hem", "fabric", surf, [w, ft, fold], 0.5, [0, t + ft / 2 - 0.004, -l / 2 + fold / 2], { tint: 0xf4f1ea, mass: (kg * w * fold) / area }, 2);
+    // the folded-back hem lies flat on the slab at its head end (seam stitched)
+    const hem = softSlab(b, "hem", "fabric", surf, [w, ft, fold], 0.02, [0, t + ft / 2, -l / 2 + fold / 2], { tint: 0xf4f1ea, mass: (kg * w * fold) / area });
     b.bond(hem, main, "fused", { strength: 30 });
     b.stuffing(hem, "feathers");
   }
   if (drop > 0) {
     for (const sx of [-1, 1]) {
       const nm = sx < 0 ? "drape_l" : "drape_r";
-      // hangs straight down from the slab's rounded edge (its top reaches 15 mm up into the slab's
-      // edge roll, so the sewn edge really joins the two), outside the mattress
-      const dh = drop + 0.015;
-      const d = softBlock(b, nm, "fabric", surf, [DRAPE_T, dh, l - 0.04], 0.3, [sx * (w / 2 - DRAPE_T / 2), 0.015 - dh / 2, 0], {
+      // hangs straight down from under the slab's chamfered edge (its top tucks 6 mm up against
+      // the chamfer, so the sewn edge really joins the two), outside the mattress
+      const top = 0.006;
+      const dh = drop + top;
+      const d = softSlab(b, nm, "fabric", surf, [DRAPE_T, dh, l - 0.04], 0.008, [sx * (w / 2 - DRAPE_T / 2), top - dh / 2, 0], {
         tint,
         mass: (kg * drop * (l - 0.04)) / area,
-      }, 2);
+      });
       b.bond(d, main, "fused", { strength: 25 });
       b.stuffing(d, "feathers");
     }
@@ -147,7 +147,10 @@ export function buildClothes(o: ClothesOpts = {}): AssemblyDef {
   const b = mk(folded ? "foldedClothes" : "laundryPile", folded ? "Folded Clothes" : "Laundry", "soft", folded ? 30 : 15, o);
   const tint = o.tint ?? CLOTH_TINTS[Math.abs(Math.floor(o.seed ?? 0)) % CLOTH_TINTS.length];
   const kg = o.kg ?? (folded ? 0.35 : 0.45);
-  const p = softBlock(b, "cloth", "fabric", folded ? "fabric_cotton" : "fabric_upholstery", size, folded ? 0.18 : 0.75, [0, size[1] / 2, 0], { tint, mass: kg }, folded ? 2 : 4);
+  // folded stacks get a flat-topped slab (they are stacked); laundry is a crumpled lump
+  const p = folded
+    ? softSlab(b, "cloth", "fabric", "fabric_cotton", size, 0.015, [0, size[1] / 2, 0], { tint, mass: kg })
+    : softBlock(b, "cloth", "fabric", "fabric_upholstery", size, 0.75, [0, size[1] / 2, 0], { tint, mass: kg }, 4);
   b.stuffing(p, "fiber");
   return finish(b, o);
 }

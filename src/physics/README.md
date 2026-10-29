@@ -17,19 +17,28 @@ for (let i = 0; i < time.beginFrame(dt); i++) physics.step(FIXED_DT); // scene.r
   fire once per fixed step; `applyForce(F)` once per step = impulse F·dt. Bitwise deterministic per world.
 * **Adaptive substeps**: `minSubsteps` (option `substeps`, default 1); while *thin* dynamic bodies (< 2 cm
   equivalent thickness, from Havok's inertia) move fast, `ceil(v/15 m/s)` substeps (max 4) — no tunnelling of
-  2–10 cm shards up to 60 m/s. Fragments are covered automatically (velocity read after `setShape`); call
-  `expectFast(body)` after striking a small body. `physics.substeps` reads the count used by the last step
-  (Havok's constraint impulses are per substep: force = impulse / (dt / substeps) — or use `constraintLoad`).
-* **Sleep assist**: dynamic bodies slower than 0.1 m/s / 0.5 rad/s for 1.5 s are put to sleep (Havok never sleeps
-  big piles). Bodies with joints or `setKeepAwake(b, true)` are exempt; HELD-layer bodies are kept awake.
+  2–10 cm shards up to 60 m/s. Velocities set through Babylon (`setLinearVelocity`, `applyImpulse`, …) are seen
+  before the next step automatically (struck shards included); only raw `HP_Body_*` velocity calls need
+  `expectFast(body)`. `physics.substeps` reads the count used by the last step (Havok's raw constraint impulses are
+  per substep — use `appliedImpulse` / `constraintLoad`, which sum all substeps).
+* **Velocity cache**: `preStepVelocity(body, lin, ang?)` = COM velocity at the start of the last step, i.e. before
+  its collisions (restore a projectile's velocity when the thing it hit breaks). Bias under gravity ≈ 0.06 m/s.
+* **Sleep assist** (`setAutoSleep(enabled, {linear, angular, seconds})`, default on, 0.08 m/s, 0.2 rad/s, 0.6 s):
+  groups of touching dynamic bodies whose average speeds stayed below the thresholds are put to sleep together
+  (Havok never sleeps big piles; sleeping single bodies of an active pile makes it thrash). Piles > 32 bodies sleep
+  when 90 % are slow and the rest only jitter. Bodies with joints or `setKeepAwake(b, true)` keep their group awake;
+  HELD-layer bodies are kept awake. Slept bodies wake on contact and fall when their support is removed.
 
 ## Bodies and shapes
 * `createBody(node, "static"|"dynamic"|"animated", startAsleep)` then `setShape(body, shape)`. Nodes must be
   unparented, unit scale, with `rotationQuaternion`. Move static bodies with `teleport()`, not via the node.
 * Shapes (`ShapeOpts`: density kg/m³, friction, restitution, layer, collideWith — default layer DYNAMIC):
-  `hullShape(points)` (raw Havok, ~0.1 ms), `boxShape(center, rot, size)` (boxes < 10 cm or with a middle extent
-  < 5 cm become 8-point hulls: small Havok boxes fall through floors), `sphereShape`, `containerShape(children)`
-  (children in body frame, distinct objects, keep their own density/material/filter).
+  `hullShape(points)` (raw Havok, no temp mesh; inputs that fill their box become boxes, planar/degenerate inputs
+  are made 1 mm thick, more than `maxHullPoints` (16) points are reduced to well-spread support points — pass whole
+  dented vertex buffers freely; timing in `debugStats().hullMsAvg`), `boxShape(center, rot, size)` (boxes < 10 cm,
+  with a middle extent < 5 cm or thinner than 2 cm become 8-point hulls: small/thin Havok boxes tunnel),
+  `sphereShape`, `containerShape(children)` (children in body frame, distinct objects, keep their own
+  density/material/filter).
 * **Ownership**: containers from `containerShape` are owned by the physics system once assigned (`setShape` disposes
   the previous one, `disposeBody` the body's); leaf shapes are the caller's — `disposeShape(leaf)` when unused,
   `disposeShape(container, true)` for a whole unassigned tree. `removeChildren(body, idx)` edits in place.
@@ -47,11 +56,15 @@ using it (sleep state preserved). The character controller's capsule needs membe
 ## Impacts — `onImpact(cb)` (returns an unsubscribe function)
 * One `RawImpact` per body pair per event; `bodyA`/`bodyB` ordered by creation (handle both orders), `normal` A→B,
   `point` = impulse-weighted midpoint between the two surfaces (world copies), `impulse` in N·s.
-* `started: true` — a new contact: the impulse of the whole contact episode is merged (speculative STARTED step,
-  main CONTINUED step, restitution rebound, a rotating corner's second hit) minus the resting load:
-  ≈ (1+e)·μ·v. Delivered when the episode ends (separation, steady load, or 8 steps) — typically 1–2 steps after
-  the peak. `started: false` — a spike above 3× the resting load of an existing contact (crushing, slams, things
-  landing on a pile), impulse = excess over the load.
+* `started: true` — a new contact, delivered in the SAME step as its first real contact impulse with
+  impulse = max(measured, (1+e)·v_n / Σ 1/m_eff) from the bodies' pre-step velocities (rotation and a supported
+  resting target included) ≈ (1+e)·μ·v. The rest of the contact episode (rebound, corner second hit) only
+  suppresses duplicates; if the measured episode turns out far larger (a light body crushed under a heavy one), the
+  excess follows as `started: false` when the episode ends. Without usable velocities (foreign bodies) the episode
+  impulse is reported when the episode ends (1–2 steps later). `started: false` — also a spike above 3× the resting
+  load of an existing contact (crushing, slams, things landing on a pile), impulse = excess over the load.
+* Event cost: bodies report CONTINUED contact events only while fast (> 0.5 m/s), just after a contact start or an
+  impact (adaptive masks); a settled scene raises ~0 events per step.
 * Gates: impulse ≥ `minImpulse` (0.02 N·s) and impulse / lightest dynamic mass ≥ 0.25 m/s (filters resting and
   spawn loads). Tunable via `physics.impacts`. Extra fields: `peak`, `steps`, `contacts` (`PhysicsImpact`).
 * Delivered after the step completes: handlers may create/dispose bodies freely. `muteImpacts(body, steps)` for
@@ -67,9 +80,12 @@ the body's container, 0 for single-child containers, −1 for leaf shapes); `ray
 to the creation pose (perpendicular axes are made consistent automatically), `collideConnected` default false.
 `worldBody` = static anchor at the origin. Runtime: `setHingeLimits(c, min?, max?)`, `setHingeMotor(c, target,
 maxTorque)` (position motor = latch/closer; maxTorque 0 releases), `setHingeVelocityMotor`, `setHingeFriction`,
-`setSliderLimits`, `hingeAngle(c)`, `sliderPosition(c)`, `constraintLoad(c)` → `{force N, torque N·m}` for joint
-stress, `removeConstraint(c)` (truly frees the Havok constraint).
+`setSliderLimits`, `hingeAngle(c)`, `sliderPosition(c)`, `appliedImpulse(c, out?)` → `{linear, angular (world
+vectors, N·s / N·m·s, summed over the step's substeps), dt}`, `constraintLoad(c)` → `{force N, torque N·m}` (the
+same, averaged over the step) for joint stress, `removeConstraint(c)` (truly frees the Havok constraint).
+These helpers are optional members of the `PhysicsSystem` contract (no casts needed).
 
 ## Stats
-`stats()` → bodies, awake, stepMs (EMA), constraints; `debugStats()` adds substeps, events/impacts per step, sync
-counts and a per-phase time breakdown.
+`stats()` → bodies, awake, stepMs (EMA), constraints; `debugStats()` adds substeps, events/impacts per step, hot
+(CONTINUED-reporting) bodies, same-step impacts, forced sleeps, hull statistics (count, EMA/last ms, points in/out,
+box substitutions, thickened inputs), sync counts and a per-phase time breakdown.

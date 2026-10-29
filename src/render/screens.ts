@@ -108,7 +108,8 @@ class ScreenManager {
   readonly scene: Scene;
   private obs: Observer<Scene> | null = null;
   private acc = 0;
-  private t = 0;
+  /** Screen animation clock (s): the timebase of every tick and immediate redraw. */
+  t = 0;
   powered = true;
   constructor(scene: Scene) {
     this.scene = scene;
@@ -885,13 +886,13 @@ export function createScreen(scene: Scene, target: Mesh | ScreenPlacement, kind:
       state = s;
       if (s === "cracked") wasCracked = true;
       applyLook();
-      draw(performance.now() / 1000);
+      draw(mgr.t); // same timebase as the animation ticks
     },
     setPowered(on: boolean): void {
       if (disposed) return;
       powered = on;
       applyLook();
-      draw(performance.now() / 1000);
+      draw(mgr.t); // same timebase as the animation ticks
     },
     setParent(node: TransformNode): void {
       if (!disposed && ownsMesh) mesh.parent = node;
@@ -916,6 +917,6 @@ export function createScreen(scene: Scene, target: Mesh | ScreenPlacement, kind:
   };
   mgr.screens.add(handle);
   applyLook();
-  draw(0);
+  draw(mgr.t);
   return handle;
 }

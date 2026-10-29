@@ -2,7 +2,7 @@
 // raw vs Babylon event path, query costs, create/dispose churn leak check. CPU timings are noisy (shared machine).
 import { Vector3, Quaternion, type PhysicsBody } from "@babylonjs/core";
 import { Layer } from "../../src/core/context.ts";
-import { makeWorld, body, staticBox, floor, steps, counts, randomPoints, r, type World } from "./physics-sys-util.ts";
+import { makeWorld, body, staticBox, floor, steps, counts, randomPoints, r, check, type World } from "./physics-sys-util.ts";
 
 const ZERO = { x: 0, y: 0, z: 0 };
 const IDQ = { x: 0, y: 0, z: 0, w: 1 };
@@ -56,8 +56,26 @@ async function pile(opts: { substeps?: number; adaptive?: boolean; assist: boole
   const block = body(w, "block", new Vector3(0, 9, 0), "dynamic", w.physics.boxShape(ZERO, IDQ, { x: 0.6, y: 0.6, z: 0.6 }, { density: 230 }));
   steps(w, 90);
   const movedAfterBlock = bodies.filter((b) => w.physics.isAwake(b)).length;
+  // the woken pile must fall asleep again (island-coherent sleep pass), and stay cheap
+  const reSleep = timeSteps(w, 120);
+  const awakeAfterReSleep = bodies.filter((b) => w.physics.isAwake(b)).length;
   const blockY = block.transformNode.position.y;
-  const res = { phases, awakeEvery40StepsFrom200: awakeTrace, awakeAtEnd: awakeExact, forcedSleeps: st.forcedSleeps, eventsLastStep: st.eventsLastStep, maxSubstepsSeen: st.substepsLast, impactsTotal: impacts, awakeAfterBlockDrop: movedAfterBlock, blockRestY: r(blockY, 2) };
+  const st2 = w.physics.debugStats();
+  const res = {
+    phases,
+    awakeEvery40StepsFrom200: awakeTrace,
+    awakeAtEnd: awakeExact,
+    forcedSleeps: st.forcedSleeps,
+    eventsLastStep: st.eventsLastStep,
+    hotBodies: st.hotBodies,
+    maxSubstepsSeen: st.substepsLast,
+    impactsTotal: impacts,
+    awakeAfterBlockDrop90Steps: movedAfterBlock,
+    awakeAfterFurther120Steps: awakeAfterReSleep,
+    reSleepWindowMs: reSleep,
+    forcedSleepsAfterBlock: st2.forcedSleeps - st.forcedSleeps,
+    blockRestY: r(blockY, 2),
+  };
   w.dispose();
   return res;
 }
@@ -67,7 +85,11 @@ export async function probe() {
 
   // ---- P1: 1000-hull pile
   out.P1_pile_default = await pile({ assist: true });
-  out.P1_pile_assistAggressive = await pile({ assist: { linear: 0.15, angular: 0.6, seconds: 1.0 } });
+  {
+    const p = out.P1_pile_default as { awakeAtEnd: number; awakeAfterFurther120Steps: number; blockRestY: number; forcedSleeps: number };
+    // asleep by the end (900 steps), re-asleep 210 steps after a 50 kg block lands on it, block resting on the pile, no thrash
+    check(out, "P1_pileSleepsAndReSleeps", p.awakeAtEnd <= 10 && p.awakeAfterFurther120Steps <= 10 && p.blockRestY > 0.3 && p.forcedSleeps <= 1500, { awakeAtEnd: p.awakeAtEnd, awakeAfterReSleep: p.awakeAfterFurther120Steps, blockRestY: p.blockRestY, forcedSleeps: p.forcedSleeps });
+  }
   out.P1_pile_fixed2substeps = await pile({ substeps: 2, adaptive: false, assist: true });
   out.P1_pile_assistOff = await pile({ assist: false });
 
@@ -113,7 +135,9 @@ export async function probe() {
     steps(w, 30);
     const t = timeSteps(w, 120);
     const st = w.physics.debugStats();
-    out[`P3_300awake_substeps${substeps}${external ? "_babylonEvents" : "_rawEvents"}`] = { msPerStep: t, eventsPerStep: st.eventsLastStep, havokMs: r(st.havokMs, 3), eventsMs: r(st.eventsMs, 3), syncMs: r(st.syncMs, 3) };
+    out[`P3_300awake_substeps${substeps}${external ? "_babylonEvents" : "_rawEvents"}`] = { msPerStep: t, eventsPerStep: st.eventsLastStep, hotBodies: st.hotBodies, havokMs: r(st.havokMs, 3), eventsMs: r(st.eventsMs, 3), syncMs: r(st.syncMs, 3) };
+    // ARCHITECTURE §11: physics ≤ 5 ms per fixed step for the 300-awake reference scene (default settings)
+    if (substeps === 1 && !external) check(out, "P3_budget_300awake_5ms", t.avg <= 5, { avgMs: t.avg, p95Ms: t.p95, note: "CPU timings on a shared, loaded machine" });
     w.dispose();
   }
 

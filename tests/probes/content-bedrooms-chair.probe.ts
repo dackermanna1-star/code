@@ -1,5 +1,6 @@
 // Office chair caster stability: spawns chair variants side by side on a static concrete slab
-// and on a soft carpet slab (jointed casters with different caster masses, fixed casters),
+// and on a soft carpet slab (ball-jointed casters with default / overridden caster masses, fixed
+// casters),
 // settles 2 s, then pushes each chair and reports drop, tilt, roll distance and whether casters
 // came apart.
 // Run: node tests/probe.mjs tests/probes/content-bedrooms-chair.probe.ts --timeout 600000
@@ -36,9 +37,9 @@ export async function probe(): Promise<unknown> {
   fb.world("carpet", "glue", 1e5, [2, 0, 0]);
   d.spawn(fb.build(), { p: { x: 0, y: 0, z: 0 }, q: { x: 0, y: 0, z: 0, w: 1 } });
   const base: Array<{ name: string; opts: Record<string, unknown> }> = [
-    { name: "jointed 0.07", opts: {} },
+    { name: "jointed", opts: {} },
+    { name: "jointed 0.03", opts: { casterKg: 0.03 } },
     { name: "jointed 0.15", opts: { casterKg: 0.15 } },
-    { name: "jointed 0.3", opts: { casterKg: 0.3 } },
     { name: "fixed", opts: { casters: "fixed" } },
   ];
   const variants = [...base.map((v) => ({ ...v, name: `concrete ${v.name}`, x: -3.6 + 0.8 * base.indexOf(v), y: 0 })), ...base.map((v) => ({ ...v, name: `carpet ${v.name}`, x: 0.6 + 0.8 * base.indexOf(v), y: 0.01 }))];
@@ -66,8 +67,8 @@ export async function probe(): Promise<unknown> {
       // per-island drop (island frames start at the spawn frame): shows which joint sags
       const drops: Record<string, number> = {};
       for (const isl of asm.islands) {
-        const nm = isl.parts.find((q) => q.name === "hub" || q.name === "mechanism" || q.name.endsWith("_hood") || q.name.endsWith("_wheel"))?.name ?? isl.parts[0].name;
-        if (nm === "hub" || nm === "mechanism" || nm === "caster0_hood" || nm === "caster0_wheel") drops[nm] = +(isl.node.position.y - variants[k].y).toFixed(3);
+        const nm = isl.parts.find((q) => q.name === "hub" || q.name === "mechanism")?.name;
+        if (nm) drops[nm] = +(isl.node.position.y - variants[k].y).toFixed(3);
       }
       return { v: variants[k].name, x: +p.x.toFixed(3), y: +p.y.toFixed(3), z: +p.z.toFixed(3), tiltDeg: +((Math.acos(Math.min(1, up.y)) * 180) / Math.PI).toFixed(1), islands: asm.islands.size, broken, maxV: +maxV.toFixed(2), drops };
     });

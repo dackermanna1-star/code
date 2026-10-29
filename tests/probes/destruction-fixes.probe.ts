@@ -129,8 +129,8 @@ export async function probe() {
     sim.settings.data.quality = "low"; // consolidateAfter 1 s
     const blocks: any[] = [];
     for (let i = 0; i < 48; i++) {
-      const x = 8.1 + (i % 7) * 0.26,
-        z = 8.1 + Math.floor(i / 7) * 0.26;
+      const x = 4.1 + (i % 7) * 0.26,
+        z = 6.1 + Math.floor(i / 7) * 0.26;
       const id = d.spawn({ ...blockDef("softwood", { x: 0.06, y: 0.06, z: 0.06 }, "cube", "wood_pine"), startAsleep: false } as AssemblyDef, { p: { x, y: 0.0, z }, q: I });
       ids.push(id);
       blocks.push([...d.assembly(id)!.islands][0]);
@@ -203,7 +203,7 @@ export async function probe() {
 
   // ---------------------------------------------------------------- 8. damage accounting
   {
-    const id = d.spawn({ ...blockDef("ceramic", { x: 0.3, y: 0.02, z: 0.3 }, "tile", "ceramic_white"), startAsleep: false } as AssemblyDef, { p: { x: 12, y: 0, z: 12 }, q: I });
+    const id = d.spawn({ ...blockDef("ceramic", { x: 0.3, y: 0.02, z: 0.3 }, "tile", "tile_glazed_white"), startAsleep: false } as AssemblyDef, { p: { x: 12, y: 0, z: 12 }, q: I });
     ids.push(id);
     const asm = d.assembly(id)!;
     sim.step(20);
@@ -285,8 +285,12 @@ export async function probe() {
     const asm = d.assembly(id)!;
     sim.step(2);
     const bulb = asm.byName.get("bulb")!;
-    const wp = d.world.toWorldVec(bulb.island!, { x: 0.03, y: 2.42, z: 0 });
-    strikeAt(bulb.island!.body!, wp, new Vector3(-1, 0, 0), 0.6, 8, 0.01);
+    // the damage model's dice are seeded per part/point: hit until it shatters
+    for (let k = 0; k < 8 && bulb.alive && bulb.island; k++) {
+      const wp = d.world.toWorldVec(bulb.island, { x: 0.03, y: 2.42 - 0.005 * k, z: 0.004 * k });
+      strikeAt(bulb.island.body!, wp, new Vector3(-1, 0, 0), 0.6, 8, 0.01);
+      sim.step(5);
+    }
     sim.step(20);
     const frags = [...asm.parts].filter((p) => p.name.startsWith("bulb#"));
     const lit = frags.filter((p) => p.poly.faces.some((f) => f.attr.surf === S.bulb_on)).length;

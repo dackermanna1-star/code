@@ -32,7 +32,7 @@ import { qeuler, qrot, v3, vadd, type Vec3, type Xform } from "../../geom/vec.ts
 import { polyClip, polyTransform, type ConvexPoly } from "../../geom/poly.ts";
 import type { AssemblyDef } from "../../destruction/model/types.ts";
 import type { RoomId } from "../plan.ts";
-import { BALCONY_FLOOR_Y, CEILING_Y, PARTITION_FACE, SERVICE_POINTS, WALL_TILE_T, roomFaces } from "../structure/levels.ts";
+import { BALCONY_FLOOR_Y, CEILING_Y, SERVICE_POINTS, WALL_TILE_T, roomFaces } from "../structure/levels.ts";
 import { ELECTRICAL } from "../structure/services.ts";
 import type { Placement } from "./types.ts";
 
@@ -450,7 +450,8 @@ function laundry(L: Layout): void {
   const upper = { below: tHi + 0.002 };
   const tb = L.onLocal("toolbox", "toolbox", buildToolbox({ seed: 38, room }), shelf.id, 0.26, zs, 0, upper);
   L.onLocal("bulbBox", "bulbBox", buildBulbBox({ seed: 39, room }), shelf.id, -0.12, zs, 0, upper);
-  L.onLocal("pliers", "pliers", buildPliers({ seed: 40, room }), shelf.id, -0.38, zs, 0.3, upper);
+  // pliers lie across the deck wires (they would rock lying along one)
+  L.onLocal("pliers", "pliers", buildPliers({ seed: 40, room }), shelf.id, -0.42, zs, Math.PI / 2, upper);
   // tools lying on the toolbox tray floor (below the lid)
   const inTray = { below: 0.05 + tb.xf.p.y, tags: ["inside"] };
   L.onLocal("hammer", "hammer", buildHammer({ seed: 41, room }), tb.id, 0, -0.02, 0, inTray);
@@ -571,5 +572,5 @@ export function furnishUtility(): Placement[] {
   return furnishUtilityItems().map(({ type, def, xf, room }) => ({ type, def, xf, room }));
 }
 
-/** Reference data for tests/probes. */
-export const UTILITY_LAYOUT = { BATH_TILE, GAP, PARTITION_FACE } as const;
+/** Reference faces used by the layout (bathroom glazed-tile faces) and the free-standing clearance. */
+export const UTILITY_LAYOUT = { BATH_TILE, GAP } as const;

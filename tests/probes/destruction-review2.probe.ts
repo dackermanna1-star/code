@@ -55,8 +55,8 @@ export async function probe() {
   };
   out.plank075 = drop(blockDef("softwood", { x: 0.6, y: 0.02, z: 0.1 }, "plank", "wood_pine"), 0.75, -6);
   out.plank15 = drop(blockDef("softwood", { x: 0.6, y: 0.02, z: 0.1 }, "plank", "wood_pine"), 1.5, -4);
-  out.plate075 = drop(blockDef("ceramic", { x: 0.25, y: 0.012, z: 0.25 }, "plate", "ceramic_white"), 0.75, -2);
-  out.mug075 = drop(blockDef("ceramic", { x: 0.08, y: 0.1, z: 0.08 }, "mug", "ceramic_white"), 0.75, 0);
+  out.plate075 = drop(blockDef("ceramic", { x: 0.25, y: 0.012, z: 0.25 }, "plate", "ceramic_glaze"), 0.75, -2);
+  out.mug075 = drop(blockDef("ceramic", { x: 0.08, y: 0.1, z: 0.08 }, "mug", "ceramic_glaze"), 0.75, 0);
   out.brick03 = drop(blockDef("ceramic", { x: 0.2, y: 0.06, z: 0.1 }, "brick"), 0.3, 2);
   out.glassSheet05 = drop(blockDef("glass", { x: 0.3, y: 0.004, z: 0.3 }, "glass", "glass"), 0.5, 4);
   out.stats = d.stats();

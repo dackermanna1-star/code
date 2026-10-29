@@ -136,7 +136,7 @@ test("interactive joints: drawers, doors, lids, casters, articulated lamp", () =
   assert.equal(groups("wardrobe", "hinge"), 2);
   assert.equal(groups("laptop", "hinge"), 1);
   assert.equal(groups("jewelryBox", "hinge"), 1);
-  assert.equal(groups("officeChair", "hinge"), 11, "5 swivels + 5 axles + seat swivel");
+  assert.equal(groups("officeChair", "hinge"), 6, "5 caster ball joints + seat swivel");
   assert.equal(groups("deskLamp", "hinge"), 4);
   // latches: wardrobe magnetic catches, jewelry box clasp
   assert.equal(BEDROOM_OBJECTS.wardrobe().bonds.filter((b) => b.kind === "latch").length, 2);
@@ -174,4 +174,47 @@ test("guitar rests on its stand: touching cradle and yoke, no penetration", () =
   }
   assert.ok(minSep > -0.0005, `guitar penetrates the stand by ${(-minSep * 1000).toFixed(1)} mm`);
   assert.ok(minSep < 0.002, `guitar floats ${(minSep * 1000).toFixed(1)} mm above its supports`);
+});
+
+test("flat soft goods keep ≤ 16 hull points so the physics hull is exact (things rest on them)", () => {
+  // src/physics/physics.ts decimates hulls with more points to k-DOP support points, which would
+  // turn a finely sampled mattress/duvet top into a shallow pyramid
+  const check = (type: string, parts: string[]): void => {
+    const def = BEDROOM_OBJECTS[type]();
+    for (const name of parts) {
+      const p = def.parts.find((q) => q.name === name);
+      assert.ok(p, `${type}: missing ${name}`);
+      assert.ok(p!.poly.verts.length <= 16, `${type}:${name} has ${p!.poly.verts.length} hull points`);
+      // flat top: at least 4 vertices at the maximum height
+      let top = -Infinity;
+      for (const v of p!.poly.verts) top = Math.max(top, v.y);
+      assert.ok(p!.poly.verts.filter((v) => Math.abs(v.y - top) < 1e-6).length >= 4, `${type}:${name} has no flat top`);
+    }
+  };
+  check("mattress", ["core", "pillow_top"]);
+  check("duvet", ["main", "hem", "drape_l", "drape_r"]);
+  check("foldedClothes", ["cloth"]);
+  check("officeChair", ["seat_cushion"]);
+  const bag = BEDROOM_OBJECTS.beanbag().parts.find((q) => q.name === "bag")!;
+  assert.ok(bag.poly.verts.length <= 16, `beanbag has ${bag.poly.verts.length} hull points`);
+});
+
+test("office chair casters: ball-jointed wheels at the wheel centre, hood pressed into the leg", () => {
+  const def = BEDROOM_OBJECTS.officeChair();
+  for (let k = 0; k < 5; k++) {
+    const balls = def.bonds.filter((b) => b.kind === "hinge" && b.a === `caster${k}_wheel`);
+    assert.equal(balls.length, 1, "one pivot → ball-and-socket");
+    const wheel = def.parts.find((p) => p.name === `caster${k}_wheel`)!;
+    let cx = 0,
+      cy = 0,
+      cz = 0;
+    for (const v of wheel.poly.verts) {
+      cx += v.x / wheel.poly.verts.length;
+      cy += v.y / wheel.poly.verts.length;
+      cz += v.z / wheel.poly.verts.length;
+    }
+    const pv = balls[0].joint!.pivot;
+    assert.ok(Math.hypot(pv.x - cx, pv.y - cy, pv.z - cz) < 0.002, "pivot at the wheel centre (no moment on the joint)");
+    assert.ok(def.bonds.some((b) => b.kind === "press" && b.a === `caster${k}_hood` && b.b === `leg${k}`));
+  }
 });

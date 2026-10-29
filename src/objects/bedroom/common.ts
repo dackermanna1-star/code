@@ -125,6 +125,42 @@ export function softBlock(
   return b.hull(name, mat, surf, pts, [0, 0, 0], { smooth: 1, ...o });
 }
 
+/**
+ * Soft slab with a FLAT top and bottom (mattress, duvet, folded clothes, seat cushion): a box whose
+ * top and bottom faces are inset by `r` (horizontally) and whose sides bulge out to the full size at
+ * mid-height — exactly 16 hull points, smooth shaded. The physics module decimates hulls with more
+ * than 16 points to k-DOP support points (src/physics/physics.ts, maxHullPoints), which turns a
+ * finely sampled rounded top into a shallow pyramid that things placed near its edges sink into;
+ * 16 points are kept exactly, so pillows, duvets and thrown objects rest on the real surface.
+ */
+export function softSlab(
+  b: Builder,
+  name: string,
+  mat: MaterialId,
+  surf: SurfaceName,
+  size: readonly [number, number, number],
+  r: number,
+  pos: readonly [number, number, number],
+  o: PartOpts = {},
+): string {
+  const [sx, sy, sz] = size;
+  if (!(sx > 0 && sy > 0 && sz > 0)) throw new Error(`${b.type}: softSlab '${name}' needs a positive size`);
+  const a = sx / 2,
+    h = sy / 2,
+    c = sz / 2;
+  const ri = Math.min(Math.max(0, r), 0.45 * Math.min(sx, sz));
+  const [px, py, pz] = pos;
+  const pts: Array<[number, number, number]> = [];
+  for (const sxn of [-1, 1])
+    for (const szn of [-1, 1]) {
+      pts.push([px + sxn * (a - ri), py + h, pz + szn * (c - ri)]); // top face
+      pts.push([px + sxn * (a - ri), py - h, pz + szn * (c - ri)]); // bottom face
+      pts.push([px + sxn * a, py, pz + szn * (c - ri)]); // bulging sides (x)
+      pts.push([px + sxn * (a - ri), py, pz + szn * c]); // bulging sides (z)
+    }
+  return b.hull(name, mat, surf, pts, [0, 0, 0], { smooth: 1, ...o });
+}
+
 /** Colour palette shared by the bedroom objects (0xRRGGBB tints). */
 export const PAL = {
   white: 0xf2f0ea,

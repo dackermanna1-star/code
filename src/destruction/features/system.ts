@@ -22,6 +22,8 @@ export class FeatureSystem {
   readonly all = new Set<PartFeature>();
   /** Features with per-step / per-frame work. */
   private readonly active = new Set<PartFeature>();
+  /** Features whose assembly lost bonds since the last fixed step (see onAsmBondsBroken). */
+  private readonly connectivity = new Set<PartFeature>();
   powered = true;
   screenFactory: ScreenVisualFactory | null = null;
   private readonly audioGetter: () => AudioSystem | null;
@@ -124,6 +126,7 @@ export class FeatureSystem {
       this.bind(f, null);
       this.all.delete(f);
       this.active.delete(f);
+      this.connectivity.delete(f);
     }
     asm.features.length = 0;
   }
@@ -159,10 +162,7 @@ export class FeatureSystem {
       for (const f of p.features.slice()) safe(this.w, () => f.onBondBroken?.(bond, p));
     }
     const all = bond.asm.features;
-    for (let i = 0; i < all.length; i++) {
-      const f = all[i];
-      if (f.onAsmBondBroken) safe(this.w, () => f.onAsmBondBroken!(bond));
-    }
+    for (let i = 0; i < all.length; i++) if (all[i].onAsmBondsBroken) this.connectivity.add(all[i]);
   }
 
   onPartMoved(part: Part, island: Island): void {
@@ -238,6 +238,10 @@ export class FeatureSystem {
 
   // Set iteration tolerates features (de)activating themselves while being ticked.
   fixedUpdate(dt: number): void {
+    if (this.connectivity.size) {
+      for (const f of this.connectivity) if (f.part || f.asm.alive) safe(this.w, () => f.onAsmBondsBroken!());
+      this.connectivity.clear();
+    }
     if (!this.active.size) return;
     for (const f of this.active) {
       if (!f.fixedUpdate) continue;

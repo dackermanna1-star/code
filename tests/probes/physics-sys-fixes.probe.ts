@@ -65,6 +65,9 @@ export async function probe() {
     const P = w.physics;
     const rows: Record<string, unknown> = {};
     let ok = true;
+    // JIT warm-up (timings below are per hull, after warm-up; CPU timings noisy on the shared machine)
+    for (let i = 0; i < 40; i++) P.disposeShape(P.hullShape(randomPoints(900 + i, 20 + i * 5, 0.2)));
+    for (let i = 0; i < 10; i++) P.disposeShape(fullHull(P, randomPoints(950 + i, 30, 0.2)));
     for (const n of [16, 30, 64, 256, 1024]) {
       const pts = randomPoints(11 + n, n, 0.2);
       // round-ish cloud (dented part buffers are closer to this than to a cube)
@@ -88,7 +91,8 @@ export async function probe() {
       const b = body(w, "dec", new Vector3(3, 0, 0), "static", shapes[0]);
       const dev = rayDeviation(w, a, b, 3, 1);
       rows[`n${n}`] = { msPerHull: r(ms, 3), undecimatedMs: r(fullMs, 3), pointsOut: outPts, devMaxMm: r(dev.max * 1000, 1), devMeanMm: r(dev.mean * 1000, 2), devMaxPctOfRadius: r((dev.max / 0.2) * 100, 1), misses: dev.misses };
-      if (outPts > 16 || dev.misses > 0 || (n > 16 && ms > fullMs * 1.5 + 0.05)) ok = false;
+      // ≤ 16 points always; the decimated hull must be clearly cheaper than the full one for big inputs
+      if (outPts > 16 || dev.misses > 0 || (n >= 256 && ms > fullMs)) ok = false;
       a.transformNode.dispose();
       b.transformNode.dispose();
       for (const s of [...shapes, ...refs]) P.disposeShape(s);
@@ -360,6 +364,37 @@ export async function probe() {
     }
     check(out, "F10_autoSleep", awakeOff > 30 && awakeOn <= 6 && reSleepSteps > 0 && reSleepSteps < 120, { awakeOff, awakeOn, reSleepSteps, forcedSleeps: P.debugStats().forcedSleeps });
     w.dispose();
+  }
+
+  // ---- F11: bodies put to sleep by the sleep assist fall when their support goes away (no floating)
+  {
+    const res: Record<string, unknown> = {};
+    let ok = true;
+    for (const mode of ["disposeDynamicSupport", "disposeStaticSupport", "removeContainerChild"]) {
+      const w = await makeWorld();
+      const P = w.physics;
+      staticBox(w, new Vector3(0, -0.1, 0), new Vector3(20, 0.2, 20));
+      let support: PhysicsBody;
+      if (mode === "disposeDynamicSupport") support = dynBox(w, new Vector3(0, 0.5, 0), new Vector3(1, 1, 1), 300);
+      else if (mode === "removeContainerChild") {
+        const a = P.boxShape(ZERO, IDQ, { x: 1, y: 1, z: 1 }, { layer: Layer.STATIC });
+        const b = P.boxShape({ x: 3, y: 0, z: 0 }, IDQ, { x: 1, y: 1, z: 1 }, { layer: Layer.STATIC });
+        support = body(w, "pillars", new Vector3(0, 0.5, 0), "static", P.containerShape([a, b]));
+      } else support = staticBox(w, new Vector3(0, 0.5, 0), new Vector3(1, 1, 1));
+      const top = dynBox(w, new Vector3(0, 1.1, 0), new Vector3(0.3, 0.2, 0.3), 500);
+      steps(w, 240);
+      const asleep = !P.isAwake(top);
+      if (mode === "removeContainerChild") P.removeChildren(support, [0]);
+      else support.transformNode.dispose();
+      const y0 = top.transformNode.position.y;
+      steps(w, 60);
+      const y1 = top.transformNode.position.y;
+      const fell = y1 < y0 - 0.5;
+      if (!asleep || !fell) ok = false;
+      res[mode] = { asleepBefore: asleep, y0: r(y0, 3), y1: r(y1, 3), fell };
+      w.dispose();
+    }
+    check(out, "F11_noFloatingAfterSupportRemoval", ok, res);
   }
   return out;
 }

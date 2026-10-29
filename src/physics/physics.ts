@@ -12,22 +12,52 @@
 //    step uses `substeps` (minimum, default 1) and adds substeps while THIN dynamic bodies move fast:
 //    n = ceil(v_eff / fastThinSpeed (15 m/s)), up to maxSubsteps (4). Thinness = smallest dimension of the
 //    equivalent box of the body's per-unit-mass principal inertia (s_k = √(6(I_i + I_j − I_k)), free from Havok);
-//    speed = body-buffer displacement of the last step (+ corner speed ω·r), and freshly shaped/kicked thin
-//    bodies get their velocity read once (expectFast() does the same for strikes).
+//    speed = the velocity cache below (+ corner speed ω·r). Velocities set between steps through Babylon
+//    (setLinearVelocity / applyImpulse / …, wrapped on the plugin) are read back before choosing substeps, so a
+//    resting shard struck by a tool tunnels 0/20 without any expectFast() call (physics-sys-review3).
+//  * VELOCITY CACHE: each moved body's COM linear / angular velocity is derived from the body buffer during the
+//    sync (COM displacement / dt, ω from q_new·q_old⁻¹), stored as "velocity at the start of the next step"; bodies
+//    that did not move have zero velocity. Exact without gravity (error 1e-4 m/s); under gravity Havok's integrator
+//    lags the end velocity by 0.375·|g|·dt ≈ 0.06 m/s (documented bias). preStepVelocity() exposes it.
 //  * SMALL BOXES ARE HULLS: Havok BOX shapes with all extents ≤ ~3 cm, or two small extents (2×2×30 cm sticks),
-//    fall through static floors when rotated, even at 1 m/s. 8-point hulls of the same geometry never do, so
-//    boxShape() emits a hull below a size threshold.
-//  * EVENTS: every body made by createBody() gets event mask STARTED|CONTINUED|FINISHED (does not wake
-//    startAsleep bodies). Events are read straight from the Havok event list (no per-event allocation); when
-//    something else listens to Babylon's collision observables the Babylon notifier is used instead so those
-//    listeners keep working. Raw contact-point events → ImpactAggregator (impacts.ts) → RawImpact per pair.
+//    fall through static floors when rotated, even at 1 m/s; thin plates (10×10×0.5 cm) tunnel through slabs at
+//    10 m/s. 8-point hulls of the same geometry never do, so boxShape() emits a hull below size thresholds.
+//  * HULLS: hullShape() works in the input's principal frame: points that fill their box (all 8 corners present,
+//    principal / support-point / body frame) become a box; degenerate inputs (planar, segment, point) are made
+//    minHullThickness (1 mm) thick — a zero-thickness 10 cm square weighed 2 kg (convex-radius inflation), a 1e-5 m
+//    one 0 kg; inputs above maxHullPoints (16) are reduced to a well-spread subset of their k-DOP / Fibonacci
+//    support points (farthest-point sampling). Measured (physics-sys-fixes F1, loaded machine): 1024 points
+//    1.2 ms vs 12.7 ms undecimated; inward surface error of a round 20 cm cloud mean 5–13 %, max 16–31 % of the
+//    radius (the limit of 16 vertices); box-like inputs are exact. Resting gap on a floor < 0.1 mm for hulls,
+//    boxes and spheres (F4). Count / EMA time / point counts are in debugStats().
+//  * EVENTS AND IMPACTS (Addendum 1): callbacks on every body cost ~10k CONTINUED events per step on a 1000-body
+//    pile. Adaptive masks: bodies are cold (STARTED|FINISHED) and become hot (STARTED|CONTINUED|FINISHED) for
+//    hotSteps (30) while their corner speed exceeds hotSpeed (0.5 m/s), after a contact START and after taking part
+//    in an emitted impact; static bodies are always cold (a pair reports an event type if EITHER mask has it).
+//    Sleeping bodies are never heated (a mask change would wake them) and the STARTED echoes Havok sends after a
+//    mask change are ignored. A settled 200-box scene (all kept awake): 0 events/step vs 800 (F8).
+//    Raw events are read straight from the Havok event list (no per-event allocation; Babylon's notifier is used
+//    when something else listens to its collision observables) → ImpactAggregator (impacts.ts) → one RawImpact per
+//    pair per contact start, delivered in the SAME step as the first real contact impulse with
+//    impulse = max(measured, (1+e)·v_n / Σ inverse effective masses) from the cached pre-step velocities (resting
+//    bodies pushed down count as supported). A 10 m/s ball hitting a wall is reported in the step its velocity
+//    changes with (1+e)·m·v exactly; a 20 kg box landing on a mug is reported in its contact step (F7, review2).
 //  * SYNC: unparented nodes are synced from the world body buffer (allocation-free, ~0.1 µs/body, change
 //    detection so sleeping bodies cost almost nothing and their world matrices stay clean); parented/foreign
 //    bodies use Babylon's sync. World matrices of moved nodes are refreshed so fixed-step code never sees stale
-//    matrices.
-//  * SLEEP ASSIST: large touching piles never deactivate in Havok (1000 hulls: 15–18 ms/step forever, far more with
-//    collision events). Dynamic bodies that stay slow (0.1 m/s, 0.5 rad/s) for 1.5 s are put to sleep; they still
-//    wake on contact (the 1000-hull pile is asleep after ~6–9 s and costs < 0.1 ms/step).
+//    matrices. teleport() re-seeds the sync baseline (the jump is not motion).
+//  * SLEEP ASSIST (Addendum 2): large touching piles never deactivate in Havok (1000 hulls: 15–18 ms/step forever).
+//    A body counts as slow while its AVERAGE speed since an anchor pose stays below 0.08 m/s and 0.2 rad/s (per-step
+//    displacement is useless: Havok's position correction makes resting pile bodies jump); practically still bodies
+//    count 4× faster. Every 4 steps the awake dynamic bodies are grouped into proximity components (COM bounding
+//    spheres, sweep-and-prune + union-find) and a component is put to sleep AS A WHOLE once all members have been
+//    slow for 0.6 s — or, for piles of > 32 bodies, 90 % of them while the rest merely jitter (< 0.3 m/s) — after a
+//    last check of Havok's own velocities. Sleeping single bodies of an active island instead (the earlier scheme)
+//    is undone by their neighbours next step and agitates the pile (120 hulls: never asleep, 3000 forced sleeps,
+//    spin up to 1.2 rad/s). Measured (physics-sys-perf, loaded machine): a 1000-hull pile is asleep ~5 s after being
+//    dropped (0.06 ms/step after), re-asleep < 3.5 s after a 50 kg block lands on it, exactly one forced sleep per
+//    body each time; while it is actively falling/settling Havok itself costs 20–50 ms/step (not reducible here).
+//    Pile members (> 32) are only verified for linear motion (solver jitter spins them); small groups also for spin.
 //  * FILTERS: a filter change on a body's root leaf shape is ignored by Havok until the body's shape is re-set
 //    (HP_Body_SetShape(0) then the shape); setLayer() does that for every body using the shape and restores
 //    the sleep state.
@@ -194,11 +224,15 @@ const STILL_WEIGHT = 4;
 /** Sleep assist: the island-coherent sleep pass runs every this many steps; bounding spheres within SLEEP_MARGIN (m) touch. */
 const SLEEP_PASS_STEPS = 4;
 const SLEEP_MARGIN = 0.03;
-/** Sleep pass members: moved within this many steps. Components larger than SLEEP_BIG_COMPONENT let members that were
- *  slow for SLEEP_FALLBACK × `seconds` sleep on their own. */
-const SLEEP_RECENT_STEPS = 8;
+/** Components larger than SLEEP_BIG_COMPONENT sleep when SLEEP_MAJORITY of their members are slow and the others merely
+ *  jitter (see sleepPass). */
 const SLEEP_BIG_COMPONENT = 32;
-const SLEEP_FALLBACK = 4;
+const SLEEP_MAJORITY = 0.9;
+/** …provided no non-slow member is faster than this (m/s, corner speed): measured pile jitter peaks at 0.16–0.27 m/s,
+ *  while anything genuinely moving (a block landing on the pile) is far faster and keeps its pile awake. */
+const FREEZE_SAFE_SPEED = 0.3;
+/** Sleep pass verification: a slow member whose Havok velocity exceeds this × the thresholds is moving after all. */
+const SLEEP_VERIFY_FACTOR = 1.5;
 /** Sleep assist: drift is judged over at least JITTER_STEPS steps; a single step faster than √JITTER_FACTOR2 × the
  *  thresholds is real motion. */
 const JITTER_STEPS = 8;
@@ -269,8 +303,12 @@ class BodyRec implements ImpactSide {
   radius = 0;
   /** Bounding radius about the COM (m, from the shape's AABB): proximity grouping of the sleep pass. */
   boundR = 0;
-  /** Last step in which the body moved (sleep pass membership). */
-  movedStep = -1e9;
+  /**
+   * Known to be asleep (forced asleep by us, created asleep, or seen INACTIVE by the activation poll) and not moved
+   * since: excluded from the sleep pass. Awake bodies that are perfectly still are members (they would wake a slept
+   * island they touch).
+   */
+  asleepKnown = false;
   /** Step at which the sleep-assist anchor pose was taken. */
   anchorStep = 0;
   /** Step index until which the body's velocity is polled before stepping (fresh / expectFast). */
@@ -735,6 +773,7 @@ export class Physics implements PhysicsSystem {
 
   private touchVelocity(body: PhysicsBody): void {
     const rec = this.recs.get(body);
+    if (rec !== undefined && !rec.disposed) rec.asleepKnown = false; // velocity changes wake
     if (rec !== undefined && !rec.velDirty && !rec.disposed) {
       rec.velDirty = true;
       this.velDirty.push(rec);
@@ -1080,7 +1119,7 @@ export class Physics implements PhysicsSystem {
       const angLim2 = sa.angular * dt * (sa.angular * dt);
       const stillLin2 = linLim2 * STILL_FRACTION * STILL_FRACTION;
       const stillAng2 = angLim2 * STILL_FRACTION * STILL_FRACTION;
-      const slowCap = SLEEP_FALLBACK * Math.max(1, Math.round(sa.seconds / dt));
+      const slowCap = 4 * Math.max(1, Math.round(sa.seconds / dt));
       const wm = this.syncWorldMatrices;
       const invDt = 1 / dt;
       const step = this._stepIndex;
@@ -1219,6 +1258,18 @@ export class Physics implements PhysicsSystem {
             const a2 = theta * theta;
             const an = this.fastAnchor;
             const ai = i * 8;
+            if (rec.asleepKnown) {
+              // it was asleep and moves: woken (support removed, hit, island woke) — calm must be proven afresh
+              rec.anchorStep = step;
+              rec.slow = 0;
+              an[ai] = tx;
+              an[ai + 1] = ty;
+              an[ai + 2] = tz;
+              an[ai + 3] = qx;
+              an[ai + 4] = qy;
+              an[ai + 5] = qz;
+              an[ai + 6] = qw;
+            }
             const elapsed = step - rec.anchorStep;
             const span = elapsed < JITTER_STEPS ? JITTER_STEPS : elapsed;
             const s2 = span * span;
@@ -1239,6 +1290,7 @@ export class Physics implements PhysicsSystem {
             } else if (rec.slow < slowCap) rec.slow += drift2 < stillLin2 * s2 && rot2 < stillAng2 * s2 ? STILL_WEIGHT : 1;
           }
         }
+        rec.asleepKnown = false;
         prev[p] = r0;
         prev[p + 1] = r1;
         prev[p + 2] = r2;
@@ -1252,7 +1304,6 @@ export class Physics implements PhysicsSystem {
         prev[p + 10] = ty;
         prev[p + 11] = tz;
         rec.moved = true;
-        rec.movedStep = step;
         moved++;
         node.position.set(tx, ty, tz);
         q.set(qx, qy, qz, qw);
@@ -1266,6 +1317,7 @@ export class Physics implements PhysicsSystem {
         if (this.pollCursor >= list.length) this.pollCursor = 0;
         const rec = list[this.pollCursor++];
         rec.awakePoll = rec.motion !== STATIC && hk.HP_Body_GetActivationState(rec.hpId)[1] === ACTIVE;
+        if (rec.motion === DYNAMIC) rec.asleepKnown = !rec.awakePoll;
       }
     }
     this.movedLast = moved;
@@ -1277,17 +1329,18 @@ export class Physics implements PhysicsSystem {
    * active island to sleep is undone by their neighbours next step and the wake/sleep churn agitates the pile (measured:
    * 120-hull pile never slept, 3000 forced sleeps, spin up to 1.2 rad/s). So the awake dynamic bodies are grouped into
    * proximity components (bounding spheres around the COM touching, sweep-and-prune + union-find) and a component is
-   * put to sleep only when EVERY member has been slow for `seconds` (kept-awake / jointed members block theirs).
+   * put to sleep as a whole: when every member has been slow for `seconds`, or — for piles of more than
+   * SLEEP_BIG_COMPONENT bodies, whose solver jitter never stops everywhere at once — when SLEEP_MAJORITY of them have
+   * and no other member moves faster than FREEZE_SAFE_SPEED. Kept-awake or jointed members keep their component awake.
    */
   private sleepPass(dt: number): void {
     const list = this.fast;
     const mem = this.sleepMem;
     mem.length = 0;
-    // members: dynamic bodies that moved recently (awake; a resting body is bit-identical now and then)
-    const recent = this._stepIndex - SLEEP_RECENT_STEPS;
+    // members: dynamic bodies not known to be asleep (moving, or awake and perfectly still)
     for (let i = 0; i < list.length; i++) {
       const rec = list[i];
-      if (rec.movedStep >= recent && rec.motion === DYNAMIC && !rec.disposed) mem.push(rec);
+      if (!rec.asleepKnown && rec.motion === DYNAMIC && !rec.disposed) mem.push(rec);
     }
     const n = mem.length;
     if (n === 0) return;
@@ -1298,6 +1351,7 @@ export class Physics implements PhysicsSystem {
       this.sleepBlocked = new Uint8Array(n * 2);
       this.sleepSize = new Int32Array(n * 2);
       this.sleepSlowN = new Int32Array(n * 2);
+      this.sleepFastest = new Float64Array(n * 2);
     }
     const pos = this.sleepPos, order = this.sleepOrder, parent = this.sleepParent, blocked = this.sleepBlocked;
     let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity, minZ = Infinity, maxZ = -Infinity;
@@ -1348,42 +1402,66 @@ export class Physics implements PhysicsSystem {
         }
       }
     }
+    // per component: size, slow members, fastest non-slow member (corner speed from the velocity cache)
     const size = this.sleepSize;
     const slowN = this.sleepSlowN;
-    for (let i = 0; i < n; i++) size[i] = slowN[i] = 0;
+    const fastest = this.sleepFastest;
+    const next = this._stepIndex + 1;
+    for (let i = 0; i < n; i++) {
+      size[i] = slowN[i] = 0;
+      fastest[i] = 0;
+    }
     for (let i = 0; i < n; i++) {
       const root = find(i);
       size[root]++;
       const rec = mem[i];
-      if (rec.keepAwake || rec.joints !== null) blocked[root] = 2; // hard block
+      if (rec.keepAwake || rec.joints !== null) blocked[root] = 1;
       else if (rec.slow >= sleepSteps) slowN[root]++;
+      else if (rec.vStep === next) {
+        const sp = Math.sqrt(rec.vx * rec.vx + rec.vy * rec.vy + rec.vz * rec.vz) + Math.sqrt(rec.wx * rec.wx + rec.wy * rec.wy + rec.wz * rec.wz) * rec.radius;
+        if (sp > fastest[root]) fastest[root] = sp;
+      }
     }
+    // a component sleeps when all members are slow; a big one (a pile: the solver never calms it everywhere at once)
+    // when SLEEP_MAJORITY of them are and the rest only jitter (slower than FREEZE_SAFE_SPEED: nothing real in flight)
     for (let i = 0; i < n; i++) {
-      if (find(i) !== i || blocked[i] === 2) continue;
-      const need = size[i] > SLEEP_BIG_COMPONENT ? Math.ceil(size[i] * this.sleepMajorityTmp) : size[i];
-      if (slowN[i] < need) blocked[i] = 1;
+      if (find(i) !== i || blocked[i]) continue;
+      if (slowN[i] === size[i]) continue;
+      if (size[i] > SLEEP_BIG_COMPONENT && slowN[i] >= Math.ceil(size[i] * SLEEP_MAJORITY) && fastest[i] < FREEZE_SAFE_SPEED) continue;
+      blocked[i] = 1;
     }
+    // last check with Havok's own velocities (displacement-based slowness can lag an acceleration from rest — a box
+    // whose support vanished moves only g·dt²/2 in its first step): any member actually moving keeps its component
+    // awake and has to prove calm again
     const hk = this.hk;
+    const sa = this.sleepAssist;
+    const linMax = sa.linear * SLEEP_VERIFY_FACTOR, angMax = sa.angular * SLEEP_VERIFY_FACTOR;
+    for (let i = 0; i < n; i++) {
+      const root = find(i);
+      if (blocked[root]) continue;
+      const rec = mem[i];
+      const lv = hk.HP_Body_GetLinearVelocity(rec.hpId)[1];
+      const av = hk.HP_Body_GetAngularVelocity(rec.hpId)[1];
+      const l = Math.hypot(lv[0], lv[1], lv[2]), a = Math.hypot(av[0], av[1], av[2]);
+      if (size[root] > SLEEP_BIG_COMPONENT) {
+        // pile (majority rule): solver jitter spins bodies at up to ~1.5 rad/s, so only linear motion counts
+        if (!(l < FREEZE_SAFE_SPEED)) blocked[root] = 1;
+      } else if (!(l <= linMax && a <= angMax)) {
+        blocked[root] = 1;
+        rec.slow = 0;
+      }
+    }
     const INACTIVE = hk.ActivationState.INACTIVE;
-    const fallback = this.sleepFallbackTmp * sleepSteps;
     for (let i = 0; i < n; i++) {
       const rec = mem[i];
-      const root = find(i);
-      // big piles are rarely calm everywhere at once: their members that stayed slow SLEEP_FALLBACK× longer freeze
-      // individually (the calm bulk of a pile sleeps while a few bodies on top still jitter)
-      if (blocked[root] && !(size[root] > SLEEP_BIG_COMPONENT && rec.slow >= fallback && this.sleepOk(rec, sleepSteps))) continue;
+      if (blocked[find(i)]) continue;
       if (rec.mask === EVENT_MASK) this.setMask(rec, COLD_MASK); // (setting a mask wakes: before sleeping)
       hk.HP_Body_SetActivationState(rec.hpId, INACTIVE);
       rec.slow = 0;
+      rec.asleepKnown = true;
       this.forcedSleeps++;
     }
     mem.length = 0;
-  }
-
-  sleepFallbackTmp = SLEEP_FALLBACK;
-  sleepMajorityTmp = 1;
-  private sleepOk(rec: BodyRec, sleepSteps: number): boolean {
-    return rec.slow >= sleepSteps && !rec.keepAwake && rec.joints === null;
   }
 
   private readonly sleepMem: BodyRec[] = [];
@@ -1393,6 +1471,7 @@ export class Physics implements PhysicsSystem {
   private sleepBlocked = new Uint8Array(0);
   private sleepSize = new Int32Array(0);
   private sleepSlowN = new Int32Array(0);
+  private sleepFastest = new Float64Array(0);
 
   private addFast(rec: BodyRec): void {
     const hk = this.hk;
@@ -1477,6 +1556,7 @@ export class Physics implements PhysicsSystem {
     const body = new PhysicsBody(node, mt, mt !== STATIC && startAsleep, this.scene);
     const rec = this.register(body, false);
     rec.motion = mt;
+    rec.asleepKnown = mt === DYNAMIC && startAsleep;
     // adaptive masks: cold (STARTED|FINISHED) until the body is fast or in a contact start/impact (see header)
     const mask = this.adaptiveEvents ? COLD_MASK : EVENT_MASK;
     body.setEventMask(mask);
@@ -1588,13 +1668,18 @@ export class Physics implements PhysicsSystem {
     const rec = this.recs.get(body);
     if ((rec ? rec.motion : body.getMotionType()) === STATIC) return;
     this.hk.HP_Body_SetActivationState(id, this.hk.ActivationState.ACTIVE);
-    if (rec) rec.slow = 0;
+    if (rec) {
+      rec.slow = 0;
+      rec.asleepKnown = false;
+    }
   }
 
   /** Put a body to sleep now (it wakes on contact, impulses, velocity changes). */
   sleep(body: PhysicsBody): void {
     const id = body._pluginData?.hpBodyId;
     if (id) this.hk.HP_Body_SetActivationState(id, this.hk.ActivationState.INACTIVE);
+    const rec = this.recs.get(body);
+    if (rec && rec.motion === DYNAMIC) rec.asleepKnown = true;
   }
 
   isAwake(body: PhysicsBody): boolean {
@@ -1616,9 +1701,10 @@ export class Physics implements PhysicsSystem {
   }
 
   /**
-   * Force-sleep policy (see header): dynamic, unjointed, not-kept-awake bodies slower than `linear` (m/s) and
-   * `angular` (rad/s) for `seconds` are deactivated (they still wake on contact); practically still bodies count
-   * 4× faster. Omitted thresholds keep their current values. Defaults: on, 0.08 m/s, 0.2 rad/s, 0.6 s.
+   * Force-sleep policy (header "SLEEP ASSIST"): groups of touching dynamic bodies whose average speeds stayed below
+   * `linear` (m/s) and `angular` (rad/s) for `seconds` are deactivated together (they still wake on contact);
+   * practically still bodies count 4× faster. Omitted thresholds keep their current values.
+   * Defaults: on, 0.08 m/s, 0.2 rad/s, 0.6 s.
    */
   setAutoSleep(enabled: boolean, thresholds: { linear?: number; angular?: number; seconds?: number } = {}): void {
     const sa = this.sleepAssist;
@@ -2017,7 +2103,9 @@ export class Physics implements PhysicsSystem {
 
   /**
    * Box (full size) centred at `center` with `rotation`, in the body frame. Boxes whose largest extent is
-   * < 10 cm or whose middle extent is < 5 cm are built as 8-point hulls (Havok boxes that small tunnel).
+   * < 10 cm, whose middle extent is < 5 cm or whose smallest extent is < 2 cm are built as 8-point hulls (Havok
+   * boxes that small or thin tunnel: a 10×10×0.5 cm BOX passed a 5 cm slab at 10 m/s in 2/10 trials, the same hull
+   * never — physics-sys-ccd C1).
    */
   boxShape(center: Vec3, rotation: Quat, size: Vec3, opts?: ShapeOpts): PhysicsShape {
     this.alive();
@@ -2033,11 +2121,11 @@ export class Physics implements PhysicsSystem {
     return shape;
   }
 
-  /** Box geometry → Havok box, or an 8-point hull below the tunnelling size threshold (see header). */
+  /** Box geometry → Havok box, or an 8-point hull below the tunnelling size thresholds (see boxShape). */
   private makeBox(cx: number, cy: number, cz: number, q: Quaternion, sx: number, sy: number, sz: number): PhysicsShape {
     const lo = Math.min(sx, sy, sz), hi = Math.max(sx, sy, sz);
     const mid = sx + sy + sz - lo - hi;
-    if (hi < 0.1 || mid < 0.05) {
+    if (hi < 0.1 || mid < 0.05 || lo < 0.02) {
       const pts = this.boxPts;
       const c = this.tv3;
       let k = 0;

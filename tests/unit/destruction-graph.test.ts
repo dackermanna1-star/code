@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { UnionFind, planSplit, farMasses, planJointConstraints, resolveBondTransfers, type GraphBond } from "../../src/destruction/runtime/graph.ts";
+import { UnionFind, planSplit, farMasses, FarMassScratch, planJointConstraints, resolveBondTransfers, type GraphBond } from "../../src/destruction/runtime/graph.ts";
 import { near } from "./destruction-helpers.ts";
 
 const rb = (a: number, b: number, alive = true): GraphBond => ({ a, b, rigid: true, alive });
@@ -142,4 +142,26 @@ test("bond transfer resolution", () => {
     cells,
   );
   assert.deepEqual(res, [0, -1, 3, -1]);
+});
+
+test("farMasses: pooled scratch gives the same result and honours the bond count", () => {
+  const scratch = new FarMassScratch();
+  // a chain 0-1-2-3 plus a cycle 1-3, world bond on 3; extra stale entries past bondCount
+  const masses = [1, 2, 3, 4, 99, 99];
+  const bonds = [rb(0, 1), rb(1, 2), rb(2, 3), rb(1, 3), rb(3, -1), rb(4, 5)];
+  for (const root of [0, 2, 3]) {
+    const ref = farMasses(4, masses, bonds.slice(0, 5), root);
+    const got = farMasses(4, masses, bonds, root, scratch, 5);
+    assert.equal(ref.length, 5);
+    for (let k = 0; k < 5; k++) near(got[k], ref[k], 1e-12);
+  }
+  // grows for bigger inputs and stays correct
+  const n = 40;
+  const big: GraphBond[] = [];
+  for (let i = 0; i + 1 < n; i++) big.push(rb(i, i + 1));
+  const m = new Array(n).fill(1);
+  const ref = farMasses(n, m, big, 0);
+  const got = farMasses(n, m, big, 0, scratch);
+  for (let k = 0; k < big.length; k++) near(got[k], ref[k], 1e-12);
+  near(ref[0], n - 1, 1e-12);
 });

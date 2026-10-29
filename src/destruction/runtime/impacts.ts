@@ -7,7 +7,11 @@
 // split by stiffness, and each side's part gets `respond(...)` from the damage model. The
 // outcome is applied here: dents/cracks (render dirty), fatigue points, direct + inertial bond
 // damage, chips → micro-debris, fracture plans → the budgeted queue. Tool/fist/kick/stomp
-// strikes use the same path with the striker as the other side.
+// strikes use the same path with the striker as the other side. Passive collisions are
+// handled most energetic first and their damage planning is time-budgeted per step (fragment
+// showers after a big break make hundreds of contacts); every impact still emits its event.
+// The hot path reuses pooled scratch (RNG, inertial-loading arrays); respond() itself and the
+// small point/direction objects handed to it allocate (its outputs may keep references).
 
 import { PhysicsMotionType, Vector3 } from "@babylonjs/core";
 import type { RawImpact, StrikeInput, StrikeResult } from "../../core/context.ts";
@@ -40,8 +44,8 @@ const INERTIAL_MIN_ENERGY = 0.05;
  * are handled most energetic first; once the budget is spent the rest still make their sound
  * (impact events) but cause no damage this step.
  */
-export const RESPOND_BUDGET_MS = 3;
-const RESPOND_MIN_COUNT = 24;
+export const RESPOND_BUDGET_MS = 2.5;
+const RESPOND_MIN_COUNT = 8;
 /** Below this many buffered impacts they are processed in arrival order (no sorting). */
 const SORT_MIN = 16;
 const MAX_DENTS = 48;
@@ -301,8 +305,8 @@ export class ImpactSystem {
       sharpness: sharpness > 0 ? sharpness : 1,
       strike,
     };
-    reseed(this.rng, seedFrom(part.id, point.x, point.y, point.z, energy));
-    const out = respond(part, imp, this.rng);
+    const seed = seedFrom(part.id, point.x, point.y, point.z, energy);
+    const out = respond(part, imp, RESEEDABLE ? reseed(this.rng, seed) : new Rng(seed));
     this.apply(island, part, out, imp, P, dirIn);
     return out;
   }
@@ -572,10 +576,18 @@ function findIn(list: readonly Bond[], id: number): Bond | undefined {
 /**
  * Re-seed a pooled Rng in place. Rng keeps its mulberry32 state in a (TypeScript-)private
  * field `s`; this mirrors its constructor so the damage model sees exactly `new Rng(seed)`.
+ * RESEEDABLE verifies that layout once (falls back to a fresh Rng per hit if it ever changes).
  */
-function reseed(rng: Rng, seed: number): void {
+function reseed(rng: Rng, seed: number): Rng {
   (rng as unknown as { s: number }).s = seed >>> 0;
+  return rng;
 }
+
+const RESEEDABLE = ((): boolean => {
+  const a = new Rng(0x1234567);
+  const b = reseed(new Rng(1), 0x1234567);
+  return a.next() === b.next() && a.next() === b.next();
+})();
 
 function findBond(part: Part, id: number): Bond | undefined {
   for (const b of part.bonds) if (b.id === id) return b;

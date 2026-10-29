@@ -148,14 +148,16 @@ export function buildElectricalPanel(o: PanelOpts = {}): AssemblyDef {
     const segs = cable(
       b,
       `cable${k}`,
+      // up out of the gland, then bent back into the wall (through a hole above the box)
       [
         [cx, yTop + 0.014, 0.04],
-        [cx, yTop + 0.16, 0.035],
-        [cx, yTop + 0.22, 0.008],
+        [cx, yTop + 0.15, 0.04],
+        [cx, yTop + 0.19, 0.014],
+        [cx, yTop + 0.19, 0.0005],
       ],
       { r: k === 0 ? 0.007 : 0.0045, kgPerM: k === 0 ? 0.25 : 0.12, sparks: 0.4, start: { to: gl, kind: "clip", strength: 25 } },
     );
-    b.world(segs[segs.length - 1], "clip", 20, [cx, yTop + 0.22, 0]);
+    b.world(segs[segs.length - 1], "clip", 20, [cx, yTop + 0.19, 0]);
   });
 
   return finish(b, o);

@@ -189,7 +189,7 @@ export async function probe() {
       }
       steps(w, 90);
       for (const n of w.scene.transformNodes) if (n.name === name && n.position.y < -0.02) fell++;
-      const expectHull = name !== "pane30x30x0.4";
+      const expectHull = true; // all of these: small, stick-like or thin (< 2 cm) — Havok boxes would tunnel
       res[name] = { shapeType: type === PhysicsShapeType.CONVEX_HULL ? "hull" : type === PhysicsShapeType.BOX ? "box" : type, fellThrough: fell };
       if (fell > 0 || (type === PhysicsShapeType.CONVEX_HULL) !== expectHull) ok = false;
     }

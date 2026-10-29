@@ -1,5 +1,7 @@
 // Living & dining room object registry: type id → builder (merged into OBJECT_REGISTRY by the
-// integration step). The glass coffee table and dining chair are the reference objects.
+// integration step). The glass coffee table and dining chair are the reference objects. Type ids
+// are unique across the area registries (the kitchen owns `wineGlass`, the foyer `photoFrame`, so
+// ours are `stemWineGlass` / `easelPhotoFrame`).
 
 import type { AssemblyDef } from "../../destruction/model/types.ts";
 import { buildChair } from "../reference/chair.ts";

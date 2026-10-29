@@ -546,6 +546,8 @@ export class StrikePath {
   readonly travel: V3 = v3(0, 0, 1);
   readonly qContact: Q4 = q4();
   readonly qEnd: Q4 = q4();
+  /** Exponent of the wound → contact rotation easing (1.5 = late wrist snap; < 1 = the tool turns over early). */
+  ease = 1.5;
   private hint = 0;
 
   /**
@@ -562,6 +564,7 @@ export class StrikePath {
     if (aim) quatFromAxisFace(this.qContact, aim.handle, T);
     else Object.assign(this.qContact, prep.qContact);
     Object.assign(this.qEnd, prep.qEnd);
+    this.ease = aim?.ease ?? 1.5;
     const dA = Math.max(1e-3, Math.hypot(C.x - S.x, C.y - S.y, C.z - S.z));
     const dB = Math.max(1e-3, Math.hypot(E.x - C.x, E.y - C.y, E.z - C.z));
     // tangents scaled by the chords (well-behaved Hermite shapes)
@@ -818,7 +821,7 @@ export class StrikePath {
   quatAtS(_prep: PreparedCurve, s: number, out: Q4): Q4 {
     if (s <= this.Lc) {
       const u = this.Lc > 0 ? clamp01(s / this.Lc) : 1;
-      return slerpQ(out, this.q0, this.qContact, u * Math.sqrt(u));
+      return slerpQ(out, this.q0, this.qContact, this.ease === 1.5 ? u * Math.sqrt(u) : Math.pow(u, this.ease));
     }
     const u = this.L > this.Lc ? clamp01((s - this.Lc) / (this.L - this.Lc)) : 1;
     return slerpQ(out, this.qContact, this.qEnd, u);
@@ -830,6 +833,8 @@ export interface CurveAim {
   travel: V3;
   handle: V3;
   end: V3;
+  /** Rotation easing exponent (see StrikePath.ease); default 1.5. */
+  ease?: number;
 }
 const _tA0 = v3();
 const _tA1 = v3();
@@ -902,14 +907,27 @@ export interface AimVariant {
   level: V3 | null;
   /** Jab rigs: the fist rises this far (m, camera up) and comes down onto the point (overhand punch). */
   lift: number;
+  /**
+   * Curve rigs: overhand chop (pick-style blow). The tool is turned over early in the approach and
+   * at contact the handle points from a raised hand (CHOP_HAND, above the eye) to the head at the
+   * target, coming down along `into`. The shaft then lies above the line of sight to the aimed
+   * point — which is clear by definition — so it passes over a shelf / counter edge in front of a
+   * small target instead of through it (a long one-handed bar's normal diagonal swing keeps the
+   * grip below the head and drives the bar into the support).
+   */
+  chop: boolean;
 }
-export const makeAimVariant = (): AimVariant => ({ into: null, roll: 0, level: null, lift: 0 });
+export const makeAimVariant = (): AimVariant => ({ into: null, roll: 0, level: null, lift: 0, chop: false });
 
 /** Max number of variants aimVariants() produces. */
-export const MAX_AIM_VARIANTS = 7;
+export const MAX_AIM_VARIANTS = 10;
 /** Down-tilts (rad) of the squared approach tried for curve rigs; side rolls (rad) of the swing plane. */
 const AIM_DOWN_TILTS = [0.6, 1.2];
 const AIM_ROLL = 1.05;
+/** Rotation easing of chop variants (the tool turns over early, see StrikePath.ease). */
+const CHOP_EASE = 0.5;
+/** Chop variants: the handle at contact points from this camera-space point (raised hand, above and right of the eye) to the head. */
+const CHOP_HAND: V3 = { x: 0.12, y: 0.3, z: 0.05 };
 /** Overhand lifts (m) tried for punches. */
 const AIM_LIFTS = [0.15, 0.3, 0.45];
 
@@ -940,8 +958,9 @@ export function aimVariants(rig: Rig, aim: StrikeAim, down: V3, out: AimVariant[
   const d = len(aim.point);
   if (!(d > 1e-4) || !Number.isFinite(d)) return 0;
   let n = 0;
-  const push = (into: V3 | null, roll: number, lift: number, level = false) => {
+  const push = (into: V3 | null, roll: number, lift: number, level = false, chop = false) => {
     const o = out[n++];
+    o.chop = chop;
     if (into) {
       o.into ??= v3();
       copy(o.into, into);
@@ -978,6 +997,18 @@ export function aimVariants(rig: Rig, aim: StrikeAim, down: V3, out: AimVariant[
   push(null, 0, 0, true);
   const view = set(_vk, aim.point.x / d, aim.point.y / d, aim.point.z / d);
   if (dot(view, sq) < Math.cos(0.26)) push(view, 0, 0);
+  // last resort: overhand chops down onto the target (pick-style, shaft along the line of sight),
+  // used when every ordinary swing would hit something in front of it first
+  for (const tilt of AIM_DOWN_TILTS) {
+    if (n >= out.length) break;
+    const a = Math.min(tilt, toDown);
+    if (a < 0.3) continue;
+    const t = rotateAxis(_vk, ax, a, sq);
+    if (dot(t, down) < dot(sq, down)) rotateAxis(t, ax, -a, sq);
+    if (t.z < 0.25) continue;
+    push(t, 0, 0, false, true);
+    if (a < tilt) break;
+  }
   return n;
 }
 
@@ -1249,11 +1280,19 @@ export class SwingMachine {
         copy(a.travel, p.travel);
         copy(a.handle, p.handle);
       }
-      const roll = variant?.level ? levelRoll(into, a.handle, variant.level) : variant ? variant.roll : 0;
+      const chop = !!variant?.chop;
+      const roll = chop ? 0 : variant?.level ? levelRoll(into, a.handle, variant.level) : variant ? variant.roll : 0;
       if (roll !== 0) {
         rotateAxis(a.travel, into, roll, a.travel);
         rotateAxis(a.handle, into, roll, a.handle);
       }
+      if (chop) {
+        // travel straight along `into`; handle (grip → head) from the raised hand to the aimed point
+        copy(a.travel, into);
+        set(a.handle, aim.point.x - CHOP_HAND.x, aim.point.y - CHOP_HAND.y, aim.point.z - CHOP_HAND.z);
+        normalizeInPlace(a.handle, _ez);
+        a.ease = CHOP_EASE;
+      } else a.ease = undefined;
       if (a.travel.z < MIN_TRAVEL_FWD) return false;
       // head centre where the sphere touches the aimed point when arriving along `into`
       const c = set(a.contact, aim.point.x - into.x * r, aim.point.y - into.y * r, aim.point.z - into.z * r);

@@ -1,8 +1,9 @@
 // Runtime probe for the two bedrooms: spawn the structure + the bedroom fixtures (if present) +
 // every bedroom placement into the real Physics + Render + Destruction systems (VFX mocked),
 // settle 3 s, report what moved (things that slide, tip, roll or fall), joints/islands/timings,
-// and render a 4×3 contact sheet of both rooms.
-// Run: node tests/probe.mjs tests/probes/content-bedrooms-room.probe.ts --timeout 600000 --screenshot /tmp/claude-0/content-bedrooms-sheet.png
+// and render a 3×2 contact sheet of the MASTER bedroom (content-bedrooms-room2.probe.ts renders
+// bedroom 2 with the same code; split so each run stays light on this shared SwiftShader box).
+// Run: node tests/probe.mjs tests/probes/content-bedrooms-room.probe.ts --timeout 1200000 --screenshot /tmp/claude-0/content-bedrooms-master.png
 
 import { Engine, Scene, Vector3, PointLight, Color3 } from "@babylonjs/core";
 import { createPhysics } from "../../src/physics/physics.ts";
@@ -20,7 +21,9 @@ import manifest from "../../public/assets/textures/manifest.json";
 
 const photoUrls = import.meta.glob("../../public/assets/textures/*.jpg", { query: "?url", import: "default", eager: true }) as Record<string, string>;
 
-const VIEWS: Array<[string, [number, number, number], [number, number, number]]> = [
+export type View = [string, [number, number, number], [number, number, number]];
+
+export const VIEWS: View[] = [
   ["master: from the door", [3.3, 1.6, 4.0], [0.8, 0.6, 2.0]],
   ["master: bed from the foot", [3.0, 1.45, 2.2], [0.3, 0.6, 2.2]],
   ["master: south nightstand", [1.15, 1.05, 0.45], [0.2, 0.62, 1.1]],
@@ -36,6 +39,11 @@ const VIEWS: Array<[string, [number, number, number], [number, number, number]]>
 ];
 
 export async function probe(): Promise<unknown> {
+  return runRooms(VIEWS.filter((v) => v[0].startsWith("master")));
+}
+
+/** Spawn both bedrooms, settle, analyse, render `views` as a 3×2 contact sheet. */
+export async function runRooms(views: View[]): Promise<unknown> {
   const canvas = document.getElementById("renderCanvas") as HTMLCanvasElement;
   const engine = new Engine(canvas, true, { stencil: true, preserveDrawingBuffer: true });
   const scene = new Scene(engine);
@@ -120,7 +128,7 @@ export async function probe(): Promise<unknown> {
   mark("scene ready");
   const cam = render.camera;
   const shots: string[] = [];
-  for (const [, pos, target] of VIEWS) {
+  for (const [, pos, target] of views) {
     cam.position.set(pos[0], pos[1], pos[2]);
     cam.setTarget(new Vector3(target[0], target[1], target[2]));
     for (let i = 0; i < 3; i++) {
@@ -138,8 +146,8 @@ export async function probe(): Promise<unknown> {
   const g = sheet.getContext("2d")!;
   g.fillStyle = "#111";
   g.fillRect(0, 0, Wd, Ht);
-  const cols = 4,
-    rows = 3;
+  const cols = 3,
+    rows = 2;
   const cw = Wd / cols,
     ch = Ht / rows;
   await Promise.all(
@@ -155,7 +163,7 @@ export async function probe(): Promise<unknown> {
             g.fillRect(x + 1, y + 1, 190, 16);
             g.fillStyle = "#fff";
             g.font = "11px sans-serif";
-            g.fillText(VIEWS[i][0], x + 5, y + 13);
+            g.fillText(views[i][0], x + 5, y + 13);
             res();
           };
           img.onerror = () => res();

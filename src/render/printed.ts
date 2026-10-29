@@ -7,15 +7,20 @@
 //
 // Two mechanisms:
 //  1. printedFaceUV() — the proper, fracture-stable fix for builders: a UVMap for a face such
-//     that the face spans exactly one tile. The map lives in the face attributes, which
-//     fracture preserves, so fragments keep showing their piece of the picture.
-//  2. fitPrintedUVs() — the batcher's fallback for faces that were not mapped that way: each
-//     connected face (component of printed-surface triangles) whose uv bounds CROSS a tile
-//     seam and plausibly cover one whole picture (0.5..1.5 tiles in both directions) is
-//     remapped onto exactly one tile (stretched to the face's aspect, inset by half a texel so
-//     REPEAT filtering does not bleed the opposite edge in). Faces already inside one tile
-//     (e.g. mapped by printedFaceUV, intact or fractured), narrow strips (cylinder label tiles,
-//     book spines) and large intentionally tiled areas are left untouched.
+//     that the face spans exactly one tile, placed in the reserved tile PRINTED_BAND (u and v
+//     in [BAND, BAND+1) tiles) so the batcher recognises it. The map lives in the face
+//     attributes, which fracture preserves, so fragments keep showing their piece of the
+//     picture. The batcher shifts such uvs back by BAND (small values on the GPU).
+//  2. fitPrintedUVs() — the batcher's fallback for faces that were not mapped that way: EVERY
+//     connected face (component of printed-surface triangles) is remapped onto exactly one
+//     tile (stretched to the face's aspect, inset by half a texel so REPEAT filtering does not
+//     bleed the opposite edge in), whatever its size and wherever the builder's random uv
+//     offset put it, so intact objects look the same for every seed. Only narrow strips
+//     (aspect > STRIP_ASPECT: book spines, carton sides, thin label edges) keep their raw,
+//     world-scaled mapping.
+//     LIMITATION: the fallback cannot know a face was fractured, so each fragment of an
+//     UNMAPPED printed face is fitted on its own (each shows the whole picture). Fracture-
+//     correct pictures need builders to map printed faces with printedFaceUV (requested).
 
 import type { SurfaceDef } from "./surfaces.ts";
 
@@ -46,6 +51,16 @@ export function isPrintedSurface(s: Pick<SurfaceDef, "tex">): boolean {
 /** Texel inset (in tile units) for fitted faces: half a texel of a 256² layer. */
 export const FIT_INSET = 0.5 / 256;
 
+/**
+ * Reserved tile index marking faces mapped by printedFaceUV (u and v both in [BAND, BAND+1)
+ * tiles). Far beyond any raw uv (metres / worldSize of real content stays below ~300 tiles),
+ * small enough that float32 keeps ~1e-4 tile precision.
+ */
+export const PRINTED_BAND = 1024;
+
+/** Components more elongated than this (in uv extent) are strips and keep their raw mapping. */
+export const STRIP_ASPECT = 3.5;
+
 interface V3 {
   x: number;
   y: number;
@@ -54,21 +69,24 @@ interface V3 {
 
 /**
  * Builder helper (fracture-stable): UVMap {u, v, u0, v0} for a planar face such that
- * uv = (p·u + u0, p·v + v0) spans exactly one tile of a surface with `worldSize` (metres),
- * the picture upright (image up = `up` projected onto the face, default +Y, or −Z for faces
- * looking up/down, matching geom autoUV) and not mirrored when seen from outside.
- * `points` are the face's vertices, `n` its outward unit normal.
+ * uv = (p·u + u0, p·v + v0) spans exactly one tile (the reserved PRINTED_BAND tile) of a
+ * surface with `worldSize` (metres), the picture upright and not mirrored when seen from
+ * outside. Image up = `up` projected onto the face; default world +Y, and −Z for faces looking
+ * up or down, so a flat print (paper on a desk, a book lying flat) reads upright for a viewer
+ * at the object's +Z front — the same convention as screens.ts. `points` are the face's
+ * vertices, `n` its outward unit normal.
  */
 export function printedFaceUV(points: readonly V3[], n: V3, worldSize: number, up?: V3): { u: V3; v: V3; u0: number; v0: number } {
   const ws = worldSize > 1e-6 ? worldSize : 1;
-  // image up axis V: projected `up` (default world up; floors/ceilings use −Z like autoUV)
+  // image up axis V: projected `up` (default world up; faces looking up/down use −Z, the far
+  // side for a viewer at the object's +Z front, like screens.ts)
   let ux = up?.x ?? 0,
     uy = up?.y ?? 1,
     uz = up?.z ?? 0;
   if (!up && Math.abs(n.y) > 0.9) {
     ux = 0;
     uy = 0;
-    uz = n.y > 0 ? 1 : -1;
+    uz = -1;
   }
   const d = ux * n.x + uy * n.y + uz * n.z;
   let vx = ux - n.x * d,
@@ -111,8 +129,8 @@ export function printedFaceUV(points: readonly V3[], n: V3, worldSize: number, u
   return {
     u: { x: rx * su, y: ry * su, z: rz * su },
     v: { x: vx * sv, y: vy * sv, z: vz * sv },
-    u0: ws * FIT_INSET - a0 * su,
-    v0: ws * FIT_INSET - b0 * sv,
+    u0: ws * (PRINTED_BAND + FIT_INSET) - a0 * su,
+    v0: ws * (PRINTED_BAND + FIT_INSET) - b0 * sv,
   };
 }
 
@@ -142,7 +160,8 @@ function find(parent: Int32Array, i: number): number {
 /**
  * Writes tile-unit uvs (raw uv × invWorldSize, printed faces fitted, see header) for every
  * vertex of a geom into `out` (2 floats per vertex). `invWS(s)` returns 1/worldSize of surface
- * s and `printed(s)` whether it carries printed art. Returns the number of fitted faces.
+ * s and `printed(s)` whether it carries printed art. Returns the number of faces fitted by
+ * the fallback (printedFaceUV-mapped faces are shifted out of PRINTED_BAND but not counted).
  */
 export function fitPrintedUVs(
   uvs: Float32Array,
@@ -197,8 +216,10 @@ export function fitPrintedUVs(
     if (w < B[o + 2]) B[o + 2] = w;
     if (w > B[o + 3]) B[o + 3] = w;
   }
-  // decide per component, then remap its vertices
-  let fitted = 0;
+  // decide per component (B[o] = NaN: leave raw; B[o+1] = NaN: pre-mapped, shift out of the
+  // reserved band), then remap its vertices
+  let fitted = 0,
+    touched = 0;
   const EPS = 1e-4;
   for (let v = 0; v < vc; v++) {
     if (parent[v] < 0 || find(parent, v) !== v) continue;
@@ -207,24 +228,39 @@ export function fitPrintedUVs(
       u1 = B[o + 1],
       w0 = B[o + 2],
       w1 = B[o + 3];
+    if (
+      Math.floor(u0 + EPS) === PRINTED_BAND &&
+      Math.floor(u1 - EPS) === PRINTED_BAND &&
+      Math.floor(w0 + EPS) === PRINTED_BAND &&
+      Math.floor(w1 - EPS) === PRINTED_BAND
+    ) {
+      B[o + 1] = NaN; // printedFaceUV-mapped (intact or a fragment): keep, shift
+      touched++;
+      continue;
+    }
     const eu = u1 - u0,
       ew = w1 - w0;
-    const insideU = Math.floor(u0 + EPS) === Math.floor(u1 - EPS);
-    const insideV = Math.floor(w0 + EPS) === Math.floor(w1 - EPS);
-    const plausible = eu >= 0.5 && eu <= 1.5 && ew >= 0.5 && ew <= 1.5;
-    if ((insideU && insideV) || !plausible) {
-      B[o] = NaN; // marker: leave this component as is
+    const lo = Math.min(eu, ew),
+      hi = Math.max(eu, ew);
+    if (!(lo > 1e-6) || hi > STRIP_ASPECT * lo) {
+      B[o] = NaN; // degenerate or a strip: raw mapping
       continue;
     }
     fitted++;
+    touched++;
   }
-  if (fitted === 0) return 0;
+  if (touched === 0) return 0;
   const span = 1 - 2 * FIT_INSET;
   for (let v = 0; v < vc; v++) {
     if (parent[v] < 0) continue;
     const o = find(parent, v) * 4;
     const u0 = B[o];
     if (u0 !== u0) continue;
+    if (B[o + 1] !== B[o + 1]) {
+      out[v * 2] -= PRINTED_BAND;
+      out[v * 2 + 1] -= PRINTED_BAND;
+      continue;
+    }
     const eu = B[o + 1] - u0,
       ew = B[o + 3] - B[o + 2];
     out[v * 2] = FIT_INSET + ((out[v * 2] - u0) / eu) * span;

@@ -65,8 +65,12 @@ const MAX_INPLACE_REMOVALS = 32;
 export const WORK_BUDGET_MS = 4;
 /** Islands created per step from deferred split pieces even when the budget is spent. */
 export const MIN_ISLANDS_PER_STEP = 4;
-/** Hull refinements per step even when the budget is spent (so stand-in boxes never linger). */
-const MIN_REFINES_PER_STEP = 1;
+/**
+ * While break work keeps the budget busy, hull refinement waits at most this many steps before
+ * doing one anyway (each refinement step re-assigns a static island's container — about one
+ * hull build of extra cost on a big wall — so it is batched into quieter steps).
+ */
+const REFINE_MAX_WAIT_STEPS = 8;
 
 export interface WorldServices {
   physics: PhysicsSystem;
@@ -159,6 +163,7 @@ export class World {
   stepIndex = 0;
   /** Break-work budget of the current fixed step (ms spent / allowed). */
   readonly work = { used: 0, budgetMs: WORK_BUDGET_MS, islands: 0, refines: 0 };
+  private lastRefineStep = 0;
   /** Nesting depth of beginWork()/endWork() (only the outermost scope is timed). */
   private workScope = 0;
   private workT0 = 0;
@@ -689,17 +694,19 @@ export class World {
   }
 
   /**
-   * Replace stand-in boxes by hulls while the step's work budget lasts (at least
-   * MIN_REFINES_PER_STEP). Static islands first (they define holes the player sees and walks
-   * past), then pieces heavy enough to matter; small debris keeps its box. The container swaps
-   * happen in the next syncContainer (flushTopology).
+   * Replace stand-in boxes by hulls while the step's work budget lasts (when break work keeps
+   * it busy, one at least every REFINE_MAX_WAIT_STEPS steps). Static islands first (they define
+   * holes the player sees and walks past), then pieces heavy enough to matter; small debris
+   * keeps its box. The container swaps happen in the next syncContainer (flushTopology), once
+   * per island and step.
    */
   refineShapes(): void {
     if (!this.refineQueue.size) return;
+    if (this.overBudget() && this.stepIndex - this.lastRefineStep < REFINE_MAX_WAIT_STEPS) return;
     let pass = 0;
     while (pass < 2 && this.refineQueue.size) {
       for (const p of this.refineQueue) {
-        if (this.work.refines >= MIN_REFINES_PER_STEP && this.overBudget()) return;
+        if (this.work.refines > 0 && this.overBudget()) return;
         const isl = p.island;
         if (!p.alive || !p.approxShape || !p.shape) {
           this.refineQueue.delete(p);
@@ -715,6 +722,7 @@ export class World {
         }
         this.refineQueue.delete(p);
         p.approxShape = false;
+        this.lastRefineStep = this.stepIndex;
         let hull: PhysicsShape;
         this.beginWork();
         try {

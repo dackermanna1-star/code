@@ -1,6 +1,7 @@
-// Runtime probe for the living/dining room: spawn the structure + every living-room placement
-// (+ the fixtures if present) into the real Physics + Render + Destruction systems (VFX mocked),
-// settle 3 s, report which assemblies moved (things that slide, tip or fall), counts/timings, and
+// Runtime probe for the living/dining room: spawn a light stand-in shell (or, via
+// content-living-full.probe.ts, the real structure + living-room fixtures) and every living-room
+// placement AWAKE into the real Physics + Render + Destruction systems (VFX mocked), settle 2.5 s,
+// report which assemblies moved (things that slide, tip or fall) or split, counts/timings, and
 // render a 3×3 contact sheet of the room.
 // Run: node tests/probe.mjs tests/probes/content-living-room.probe.ts --timeout 500000 --screenshot /tmp/claude-0/content-living-sheet.png
 
@@ -14,7 +15,7 @@ import { Settings } from "../../src/core/settings.ts";
 import { Rng } from "../../src/core/rng.ts";
 import { ROOMS } from "../../src/world/plan.ts";
 import { buildStructure } from "../../src/world/structure.ts";
-import { furnishLivingItems } from "../../src/world/furnish/living.ts";
+import { furnishLivingItems, worldAabb } from "../../src/world/furnish/living.ts";
 import { MockVfx } from "./destruction-util.ts";
 import { Builder } from "../../src/objects/lib/builder.ts";
 
@@ -41,6 +42,7 @@ const VIEWS: Array<[string, [number, number, number], [number, number, number]]>
 
 export async function probe(): Promise<unknown> {
   const STRUCTURE = structureMode();
+  const mark = (m: string): void => console.log(`[living-room] ${m} t=${Math.round(performance.now())}ms heap=${Math.round(((performance as unknown as { memory?: { usedJSHeapSize: number } }).memory?.usedJSHeapSize ?? 0) / 1e6)}MB`);
   const canvas = document.getElementById("renderCanvas") as HTMLCanvasElement;
   const engine = new Engine(canvas, true, { stencil: true, preserveDrawingBuffer: true });
   const scene = new Scene(engine);
@@ -57,7 +59,13 @@ export async function probe(): Promise<unknown> {
   const time = new Time();
   const d = new Destruction({ physics, render, vfx: new MockVfx(), events, time, settings, rng: new Rng(7), scene });
 
-  if (STRUCTURE) for (const p of buildStructure()) d.spawn(p.def, p.xf);
+  if (STRUCTURE) {
+    // only the structure around the living room (the whole apartment is too heavy for SwiftShader)
+    for (const p of buildStructure()) {
+      const bb = worldAabb(p.def, p.xf);
+      if (bb.max.x > 3.7 && bb.min.x < 9.5 && bb.max.z > -0.4 && bb.min.z < 5.6) d.spawn(p.def, p.xf);
+    }
+  }
   else {
     // light mode: a static floor slab + the two walls the room's furniture stands against
     const b = new Builder("probeShell", "Probe Shell", "structure", 0);
@@ -68,6 +76,7 @@ export async function probe(): Promise<unknown> {
     for (const p of [f, w, e, s2]) b.world(p, "mortar", 1e6);
     d.spawn(b.build(), { p: { x: 0, y: 0, z: 0 }, q: { x: 0, y: 0, z: 0, w: 1 } });
   }
+  mark("structure/shell spawned");
   let fixtures = 0;
   if (STRUCTURE) try {
     const mod = await import("../../src/world/furnish/fixtures.ts");
@@ -85,6 +94,7 @@ export async function probe(): Promise<unknown> {
   // spawn AWAKE (the default is asleep) so the settle test shows anything that slides, tips or falls
   const ids = items.map((it) => d.spawn({ ...it.def, startAsleep: false }, it.xf));
   const spawnMs = performance.now() - ts;
+  mark(`living items spawned (${ids.length})`);
   const before = ids.map((id) => d.positionOf(id));
   const stats0 = { destruction: d.stats(), physics: physics.stats() };
 
@@ -105,6 +115,7 @@ export async function probe(): Promise<unknown> {
     stepError = String(e);
   }
   const stepMs = (performance.now() - tStep) / Math.max(1, steps);
+  mark(`settled (${steps} steps)`);
   const moved: Array<{ id: string; dist: number; dy: number }> = [];
   ids.forEach((id, i) => {
     const a = before[i],
@@ -130,6 +141,7 @@ export async function probe(): Promise<unknown> {
       render.addLight(l, r.id, true);
     }
   await scene.whenReadyAsync();
+  mark("scene ready");
   const cam = render.camera;
   const shots: string[] = [];
   for (const [, pos, target] of VIEWS) {

@@ -626,3 +626,36 @@ test("overhand punch: starts at the guard, rises over the straight line, comes d
     assert.ok(mag(m.velocityAt(m.path.tc, v3())) <= def.speed * 1.001);
   }
 });
+
+test("chop variants (last resort): crowbar turns over early, shaft above the line of sight, hand raised in front of the face", () => {
+  const def = TOOL_DEFS.crowbar;
+  // a mug on a chest-height shelf seen from 0.45 m: aim at its front face, looking down ~30°
+  const pitch = 0.5;
+  const down = v3(0, -Math.cos(pitch), Math.sin(pitch)); // world down in camera space
+  const aim = { point: v3(0, 0, 0.47), normal: v3(0, -Math.sin(pitch), -Math.cos(pitch)) };
+  const out = variantsBuf();
+  const n = aimVariants(TOOL_RIGS.crowbar, aim, down, out);
+  const chops = out.slice(0, n).filter((x) => x.chop);
+  assert.ok(chops.length >= 1, "has chop variants");
+  assert.ok(out.slice(0, n).findIndex((x) => x.chop) > out.slice(0, n).findIndex((x) => x.level), "chops come after the ordinary swings");
+  const lineHeight = (p: V3) => {
+    // height of p above the eye → aimed-point line, measured along camera up at p's depth
+    const k = p.z / aim.point.z;
+    return p.y - aim.point.y * k;
+  };
+  for (const c of chops) {
+    const m = new SwingMachine(def, TOOL_RIGS.crowbar);
+    m.forceStrike(0);
+    const start = m.headAt(0, v3());
+    assert.ok(m.aimStrike(aim, c), "chop accepted");
+    assert.ok(dist(m.headAt(0, v3()), start) < 1e-9, "starts at the wound pose");
+    assert.ok(closestApproach(m, aim.point) <= def.headRadius + 0.005, "reaches the point");
+    // at contact the grip is raised in front of the face and the shaft points stay above the line of sight
+    const grip = m.toolPointAt(m.path.tc, TOOL_RIGS.crowbar.toolLen, v3());
+    assert.ok(grip.z > 0 && grip.y > 0.15, `grip ${JSON.stringify(grip)}`);
+    for (const off of TOOL_SHAFTS.crowbar!.offsets) assert.ok(lineHeight(m.toolPointAt(m.path.tc, off, v3())) > 0.02, `shaft point ${off} above the line of sight`);
+    // turned over early (the default eases the rotation late, a wrist snap at contact)
+    assert.ok(m.path.ease < 1, `ease ${m.path.ease}`);
+  }
+  assert.equal(out[0].chop, false);
+});

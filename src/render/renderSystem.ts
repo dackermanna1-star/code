@@ -185,9 +185,11 @@ export class Render implements RenderSystem {
   }
 
   /**
-   * Render the apartment once into the reflection probe (living-room centre, box-projected
-   * onto the interior bounds) and make it the environment. Cheap at runtime (render once);
-   * the procedural environment stays active until the capture is ready.
+   * Render the apartment once into the reflection probe and make it the environment. The probe
+   * sits at the centre of the living room (mid height) and is box-projected onto the living-room
+   * bounds: Babylon's parallax correction assumes the cube was rendered from the box centre, and
+   * the box must match the walls the probe actually sees. Cheap at runtime (render once); the
+   * previous environment stays active until the capture is ready.
    */
   captureEnvironment(): void {
     void this.captureEnvironmentAsync();
@@ -195,9 +197,8 @@ export class Render implements RenderSystem {
 
   /** As captureEnvironment(), resolving true once the captured environment is active. */
   captureEnvironmentAsync(): Promise<boolean> {
-    const living = ROOMS.find((r) => r.id === "living");
-    const pos = living ? new Vector3((living.x0 + living.x1) / 2, 1.45, (living.z0 + living.z1) / 2) : new Vector3(6.4, 1.45, 4.4);
-    const size = this.quality.shadowMapSize >= 4096 ? 256 : this.quality.shadowMapSize >= 2048 ? 128 : 64;
+    const box = captureBox();
+    const size = envProbeSize(this.quality);
     // opaque interior + exterior geometry + the sky dome (seen through the windows): no screens
     // (animated), no alpha-blended or additive meshes (glass is nearly invisible anyway; light
     // shafts / dust would bake glow into every reflection), no overlay rendering groups
@@ -207,19 +208,14 @@ export class Render implements RenderSystem {
       const mat = m.material;
       return !mat || !mat.needAlphaBlendingForMesh(m);
     });
-    return this.environment.capture({
-      position: pos,
-      size,
-      meshes,
-      box: {
-        center: new Vector3((INTERIOR.minX + INTERIOR.maxX) / 2, CEILING_H / 2, (INTERIOR.minZ + INTERIOR.maxZ) / 2),
-        size: new Vector3(INTERIOR.maxX - INTERIOR.minX, CEILING_H, INTERIOR.maxZ - INTERIOR.minZ),
-      },
-    });
+    return this.environment.capture({ position: box.center, size, meshes, box });
   }
 
   applyQuality(q: QualityPreset): void {
+    const resized = envProbeSize(q) !== envProbeSize(this.quality);
     this.quality = q;
+    // the active capture stays installed until the re-capture at the new resolution is ready
+    if (resized && this.environment.lastCapture) this.recaptureAfterFrames(1);
     this.lighting.applyQuality(q);
     this.postfx.applyQuality(q);
     this.atmosphere?.setEnabled(q.lightShafts);
@@ -296,6 +292,27 @@ class NullPostFX implements IPostFX {
   update(): void {}
 }
 
+/** Environment-probe face resolution for a quality preset. */
+function envProbeSize(q: QualityPreset): number {
+  return q.shadowMapSize >= 4096 ? 256 : q.shadowMapSize >= 2048 ? 128 : 64;
+}
+
+/**
+ * Environment-capture box: the living room (the probe is rendered from its centre at mid
+ * height). Falls back to the whole interior if the plan has no living room.
+ */
+export function captureBox(): { center: Vector3; size: Vector3 } {
+  const living = ROOMS.find((r) => r.id === "living");
+  const x0 = living ? living.x0 : INTERIOR.minX;
+  const x1 = living ? living.x1 : INTERIOR.maxX;
+  const z0 = living ? living.z0 : INTERIOR.minZ;
+  const z1 = living ? living.z1 : INTERIOR.maxZ;
+  return {
+    center: new Vector3((x0 + x1) / 2, CEILING_H / 2, (z0 + z1) / 2),
+    size: new Vector3(x1 - x0, CEILING_H, z1 - z0),
+  };
+}
+
 /** Sub-systems are only contractually required to implement their interface (contracts.ts). */
 function disposeIfPossible(o: unknown): void {
   const d = (o as { dispose?: unknown } | null)?.dispose;
@@ -342,6 +359,8 @@ export async function createRender(opts: CreateRenderOptions): Promise<Render> {
     unregisterReceiver: (m) => lighting.unregisterReceiver(m),
     setShadowCaster: (m, cast, large) => lighting.setShadowCaster(m, cast, large),
   });
+  // runtime islands (fracture splits) take pool hits instead of creating meshes mid-game
+  batcher.prewarm();
   screenHooks.registerReceiver = (m) => lighting.registerReceiver(m);
   screenHooks.unregisterReceiver = (m) => lighting.unregisterReceiver(m);
   // 5. reflection environment (procedural until captureEnvironment())

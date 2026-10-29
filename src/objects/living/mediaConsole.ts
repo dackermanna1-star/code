@@ -71,7 +71,8 @@ export function buildMediaConsole(o: MediaConsoleOpts = {}): AssemblyDef {
     b.dowel(dv, top, 2, 40);
     b.dowel(dv, bottom, 2, 40);
   }
-  const back = b.box("back", "mdf", "mdf", [W, H - legH, backT], [0, (legH + H) / 2, -D / 2 + backT / 2], { supported: true });
+  // HDF back: raw hardboard outside, veneer-look foil on the inside face (seen in the open bay)
+  const back = b.box("back", "mdf", "mdf", [W, H - legH, backT], [0, (legH + H) / 2, -D / 2 + backT / 2], { supported: true, faces: { pz: { surf, tint } } });
   for (const p of [sideL, sideR, top, bottom, divL, divR]) fastenSeam(b, back, p, "nail", { spacing: 0.12, each: 6, tol: 0.001 });
 
   // ---- legs: tapered turned hardwood, screwed into mounting plates under the bottom

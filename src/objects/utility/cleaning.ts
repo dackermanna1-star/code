@@ -112,8 +112,10 @@ export function buildVacuumCleaner(o: BaseOpts & { tint?: number } = {}): Assemb
   const head = hood.top!;
   for (const sx of [-1, 1]) {
     const side = sx < 0 ? hood.left! : hood.right!;
-    const wheel = b.cyl(`wheel_${sx < 0 ? "l" : "r"}`, "rubber", "rubber", 0.05, 0.025, [sx * (0.15 + 0.0125 + 0.001), 0.05, -0.05], { axis: "x", segments: 12, tint: dark, mass: 0.08 });
-    b.clip(wheel, side, 25); // on the axle through the head's rear corners
+    // rear wheels on stub axles behind the head's rear corners: their contact line sits ~4 cm
+    // behind the machine's centre of mass so the upright stands on its own
+    const wheel = b.cyl(`wheel_${sx < 0 ? "l" : "r"}`, "rubber", "rubber", 0.05, 0.025, [sx * (0.15 + 0.0125 + 0.001), 0.05, -0.08], { axis: "x", segments: 12, tint: dark, mass: 0.08 });
+    b.clip(wheel, side, 25);
     const roller = b.cyl(`roller_${sx < 0 ? "l" : "r"}`, "plastic", "plastic", 0.012, 0.03, [sx * 0.1305, 0.012, 0.13], { axis: "x", segments: 8, tint: dark, mass: 0.01 });
     b.clip(roller, side, 6);
   }

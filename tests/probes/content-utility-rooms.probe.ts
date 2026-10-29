@@ -45,10 +45,42 @@ const VIEWS: Array<[string, [number, number, number], [number, number, number]]>
   ["bath: from above the tub", [1.9, 2.4, 8.5], [0.6, 0.4, 7.4]],
 ];
 
+type View = [string, [number, number, number], [number, number, number]];
+
+/** Close-up sets (2×2 sheets) selected by the content-utility-closeup-*.probe.ts wrappers. */
+export const CLOSEUPS: Record<string, View[]> = {
+  bath: [
+    ["vanity", [1.3, 1.35, 7.48], [2.4, 0.85, 7.48]],
+    ["toilet", [1.35, 1.15, 6.5], [0.2, 0.45, 7.0]],
+    ["tub + mixer", [1.55, 1.3, 7.55], [0.2, 0.95, 8.45]],
+    ["screen + shower from the east", [2.25, 1.6, 8.3], [0.0, 1.1, 8.3]],
+  ],
+  laundry: [
+    ["machines", [3.2, 1.25, 6.9], [3.2, 0.6, 8.6]],
+    ["wall shelf", [3.25, 1.75, 7.55], [3.25, 1.7, 8.8]],
+    ["water heater + pipes", [3.65, 1.65, 6.55], [2.6, 1.25, 7.1]],
+    ["hoses behind the washer", [3.0, 1.7, 7.55], [2.6, 0.95, 8.7]],
+  ],
+  foyer: [
+    ["electrical panel", [11.75, 1.5, 7.15], [12.8, 1.45, 7.6]],
+    ["console + intercom", [10.35, 1.3, 7.55], [9.75, 0.95, 8.8]],
+    ["coat closet", [11.85, 1.5, 6.8], [12.2, 1.2, 8.4]],
+    ["shoe rack + bench", [10.45, 1.1, 6.55], [9.3, 0.3, 6.95]],
+  ],
+  balcony: [
+    ["bistro set", [6.4, 1.4, -0.45], [5.0, 0.4, -1.1]],
+    ["AC condenser", [7.0, 1.2, -1.25], [8.3, 0.35, -0.4]],
+    ["herb pot corner", [6.0, 1.3, -0.55], [4.6, 0.2, -1.4]],
+    ["overview", [8.8, 1.8, -0.3], [4.8, 0.3, -1.2]],
+  ],
+};
+
 export async function probe(): Promise<unknown> {
   const LIGHT = !(globalThis as { __utilityFull?: boolean }).__utilityFull;
   const SETTLE = (globalThis as { __utilitySettle?: number }).__utilitySettle ?? 120;
   const log = (m: string) => console.log(`[content-utility probe] ${m}`);
+  const set = (globalThis as { __utilityCloseup?: string }).__utilityCloseup;
+  const views: View[] = set ? CLOSEUPS[set] : VIEWS;
   const canvas = document.getElementById("renderCanvas") as HTMLCanvasElement;
   const engine = new Engine(canvas, true, { stencil: true, preserveDrawingBuffer: true });
   const scene = new Scene(engine);
@@ -67,7 +99,27 @@ export async function probe(): Promise<unknown> {
   const t0 = performance.now();
   let structureParts = 0;
   if (!LIGHT) {
+    // only the structure assemblies that reach into the four rooms (keeps the probe's memory down)
+    const regions = [
+      { x0: -0.3, x1: 4.2, z0: 5.4, z1: 9.1 },
+      { x0: 9.0, x1: 13.1, z0: 4.2, z1: 9.1 },
+      { x0: 4.2, x1: 9.2, z0: -1.8, z1: 0.2 },
+    ];
     for (const p of buildStructure()) {
+      let x0 = Infinity,
+        x1 = -Infinity,
+        z0 = Infinity,
+        z1 = -Infinity;
+      for (const part of p.def.parts)
+        for (const v of part.poly.verts) {
+          const wx = v.x + p.xf.p.x,
+            wz = v.z + p.xf.p.z; // structure assemblies are built in world coordinates (identity xf rotation)
+          x0 = Math.min(x0, wx);
+          x1 = Math.max(x1, wx);
+          z0 = Math.min(z0, wz);
+          z1 = Math.max(z1, wz);
+        }
+      if (!regions.some((r) => x0 < r.x1 && x1 > r.x0 && z0 < r.z1 && z1 > r.z0)) continue;
       d.spawn(p.def, p.xf);
       structureParts += p.def.parts.length;
     }
@@ -160,7 +212,7 @@ export async function probe(): Promise<unknown> {
   const cam = render.camera;
   cam.minZ = 0.03;
   const shots: string[] = [];
-  for (const [, pos, target] of VIEWS) {
+  for (const [, pos, target] of views) {
     cam.position.set(pos[0], pos[1], pos[2]);
     cam.setTarget(new Vector3(target[0], target[1], target[2]));
     for (let i = 0; i < 3; i++) {
@@ -178,8 +230,8 @@ export async function probe(): Promise<unknown> {
   const g = sheet.getContext("2d")!;
   g.fillStyle = "#111";
   g.fillRect(0, 0, W, H);
-  const cols = 4,
-    rows = 4;
+  const cols = Math.ceil(Math.sqrt(views.length)),
+    rows = Math.ceil(views.length / cols);
   const cw = W / cols,
     ch = H / rows;
   await Promise.all(
@@ -195,7 +247,7 @@ export async function probe(): Promise<unknown> {
             g.fillRect(x + 1, y + 1, 190, 16);
             g.fillStyle = "#fff";
             g.font = "11px sans-serif";
-            g.fillText(VIEWS[i][0], x + 5, y + 13);
+            g.fillText(views[i][0], x + 5, y + 13);
             res();
           };
           img.onerror = () => res();

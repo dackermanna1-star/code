@@ -6,7 +6,7 @@
 import type { AssemblyDef } from "../../destruction/model/types.ts";
 import type { SurfaceName } from "../../render/surfaces.ts";
 import { glassPaneInFrame, pictureFrame } from "../lib/kit.ts";
-import { boxR, finish, mk, softBlock, PAL, type BaseOpts } from "./common.ts";
+import { boxR, finish, mk, PAL, type BaseOpts } from "./common.ts";
 
 // ------------------------------------------------------------------ framed print
 
@@ -113,11 +113,28 @@ export interface BeanbagOpts extends BaseOpts {
 
 export const BEANBAG = { w: 0.85, h: 0.55, d: 0.8 } as const;
 
-/** Beanbag: a fabric sack of EPS beads (soft; tears and spills foam beads). */
+/**
+ * Beanbag: a fabric sack of EPS beads (soft; tears and spills foam beads), slumped into a dome on a
+ * wide flat base. Exactly 16 hull points (base ring, bulging belly ring, shoulder ring, crown), so
+ * the physics keeps the hull as built instead of decimating it (it would sink ~6 cm into the floor).
+ */
 export function buildBeanbag(o: BeanbagOpts = {}): AssemblyDef {
   const b = mk("beanbag", "Beanbag", "soft", 70, o);
   const { w, h, d } = BEANBAG;
-  const bag = softBlock(b, "bag", "fabric", "fabric_upholstery", [w, h, d], 0.85, [0, h / 2, 0], { tint: o.tint ?? 0x8c3b3b, mass: 4.5 }, 4);
+  const rings: Array<[number, number, number, number]> = [
+    // [count, radius fraction, height fraction, phase]
+    [5, 0.78, 0, 0],
+    [6, 1, 0.32, 0.5],
+    [4, 0.62, 0.82, 0.25],
+  ];
+  const pts: Array<[number, number, number]> = [];
+  for (const [n, rf, hf, ph] of rings)
+    for (let k = 0; k < n; k++) {
+      const a = (2 * Math.PI * (k + ph)) / n;
+      pts.push([(w / 2) * rf * Math.cos(a), h * hf, (d / 2) * rf * Math.sin(a)]);
+    }
+  pts.push([0, h, 0]); // crown
+  const bag = b.hull("bag", "fabric", "fabric_upholstery", pts, [0, 0, 0], { tint: o.tint ?? 0x8c3b3b, mass: 4.5, smooth: 1 });
   b.stuffing(bag, "foam");
   return finish(b, o);
 }

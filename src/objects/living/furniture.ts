@@ -96,7 +96,8 @@ export function buildBookcase(o: { surf?: SurfaceName; tint?: number; seed?: num
     mat: "particleboard",
     surf: o.surf ?? "wood_oak",
     tint: o.tint ?? 0xffffff,
-    back: { t: 0.003 },
+    // 3 mm HDF back with the oak-look foil on both faces (seen through the open shelves)
+    back: { t: 0.003, surf: o.surf ?? "wood_oak" },
     toeKick: { h: toe, setback: 0.0 },
     top: "full",
     shelves: [levels[1], levels[2], levels[4]],

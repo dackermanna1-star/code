@@ -26,8 +26,8 @@
 //
 // Printed surfaces (book covers, paintings, posters, labels, panels, clock face, display
 // digits, rug — see printed.ts) carry one whole picture per tile. Faces mapped onto exactly
-// one tile by the builder (printed.ts printedFaceUV, fracture-stable) are used as is; other
-// whole faces whose uvs cross a tile seam are fitted onto one tile here (fitPrintedUVs).
+// one tile by the builder (printed.ts printedFaceUV, fracture-stable) are used as is; every
+// other whole face (except narrow strips) is fitted onto one tile here (fitPrintedUVs).
 // ============================================================================================
 
 import { Mesh, VertexBuffer, Buffer, SubMesh, BoundingInfo, Vector3, type Scene, type TransformNode, type Material, type AbstractMesh } from "@babylonjs/core";
@@ -185,6 +185,19 @@ export interface BatchStats {
 const LARGE_DIAGONAL = 1.5;
 /** Pooled meshes larger than this (vertex capacity) are freed instead of parked. */
 const POOL_MAX_VERTS = 12000;
+/**
+ * Default startup pool (IslandBatcher.prewarm): fracture fragments and small objects are a few
+ * hundred vertices, typical furniture islands 1–3k, big islands up to ~10k (~5 MB CPU+GPU).
+ */
+const DEFAULT_PREWARM: ReadonlyArray<{ verts: number; count: number; glass?: boolean }> = [
+  { verts: 192, count: 12 },
+  { verts: 640, count: 12 },
+  { verts: 2048, count: 10 },
+  { verts: 6144, count: 6 },
+  { verts: 12000, count: 2 },
+  { verts: 192, count: 4, glass: true },
+  { verts: 1024, count: 2, glass: true },
+];
 
 /** Per-geom classification from pass 1. */
 const ALL_OPAQUE = 0,
@@ -336,6 +349,29 @@ export class IslandBatcher {
     if (!m) return;
     if (m.opaque) this.disposeMesh(m.opaque);
     if (m.glass) this.disposeMesh(m.glass);
+  }
+
+  /**
+   * Pre-create pooled meshes (startup), so that islands appearing at runtime (fracture
+   * splits, debris) take pool hits: creating a mesh (Mesh + Buffer + 5 vertex buffers + index
+   * buffer + submesh) costs a fixed ~0.3 ms, a pool hit only the data fill (~0.05–0.1 ms per
+   * 1000 vertices). `spec` lists vertex capacities (index capacity = 1.5 × vertices, the ratio
+   * of flat-shaded boxes) and how many of each; respects poolLimit. Returns meshes added.
+   */
+  prewarm(spec: ReadonlyArray<{ verts: number; count: number; glass?: boolean }> = DEFAULT_PREWARM): number {
+    let added = 0;
+    for (const e of spec) {
+      const nv = Math.max(16, Math.min(POOL_MAX_VERTS, Math.floor(e.verts)));
+      for (let i = 0; i < e.count && this.pool.length < this.poolLimit; i++) {
+        // create() sizes capacity at 1.25× + slack; ask for nv/1.25 so capV ≈ nv
+        const want = Math.max(1, Math.floor((nv - 16) / 1.25));
+        const mesh = this.create(null, "islandPool", !!e.glass, want, Math.ceil(want * 1.5));
+        this.stats.meshesCreated--; // not a runtime creation
+        this.disposeMesh(mesh);
+        added++;
+      }
+    }
+    return added;
   }
 
   /** Free every pooled mesh (e.g. when tearing down). */
@@ -618,7 +654,7 @@ export class IslandBatcher {
     return mesh;
   }
 
-  private create(node: TransformNode, name: string, glass: boolean, nv: number, ni: number): Mesh {
+  private create(node: TransformNode | null, name: string, glass: boolean, nv: number, ni: number): Mesh {
     const scene = this.scene;
     const capV = Math.ceil(nv * 1.25) + 16;
     const capI = Math.ceil(ni * 1.25) + 48;

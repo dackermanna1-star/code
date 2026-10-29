@@ -94,6 +94,13 @@ const APPROACH_TO = 1.15;
 const APPROACH_SEG_LEN = 0.08;
 const APPROACH_MAX_SEGS = 10;
 /**
+ * The dry run sweeps shafts this much (m) fatter than they are: the real swing samples the path
+ * on a different (finer) grid, so a shaft that only just clears a support edge in the dry run can
+ * clip it for real. Variants that graze something in front of the target are passed over in
+ * favour of one that clears it (e.g. an overhand chop over a shelf edge).
+ */
+const DRY_SHAFT_MARGIN = 0.012;
+/**
  * A variant that reaches the target delivering at least this share of ½·m·v² is taken without
  * trying the others (the most natural swing that gets there wins; only a really glancing first
  * contact — e.g. the head skimming a corner — looks for a squarer way to swing).
@@ -567,7 +574,7 @@ export class ToolSystem implements IToolSystem {
         for (const off of shaft.offsets) {
           this.toWorld(m.toolPointAt(ts, off, this.c2), this.shaftA);
           this.toWorld(m.toolPointAt(tb, off, this.c2), this.shaftB);
-          const sh = this.safeSweep(this.shaftA, this.shaftB, shaft.radius, tc.ignore, ignore);
+          const sh = this.safeSweep(this.shaftA, this.shaftB, shaft.radius + DRY_SHAFT_MARGIN, tc.ignore, ignore);
           if (!sh) continue;
           const tS = ts + (tb - ts) * sh.fraction;
           if (tS < tHit) {

@@ -36,40 +36,65 @@ export async function probe(): Promise<unknown> {
     ["mixed_glass_200parts_4800v", make(200, 5)],
   ];
   const out: Record<string, unknown> = {};
+  // performance.now() has ~0.1 ms resolution here: every sample times REPS builds
+  const REPS = 10;
+  const round3 = (x: number): number => Math.round(x * 1000) / 1000;
   for (const [name, geoms] of cases) {
     const verts = geoms.reduce((a, g) => a + g.vertexCount, 0);
     const node = new TransformNode(name, scene);
     // warm-up
     let m = b.build(node, geoms, null, name);
     for (let i = 0; i < 5; i++) m = b.build(node, geoms, m, name);
+    // rebuild of an existing island (prev has capacity)
     const reuse: number[] = [];
-    for (let i = 0; i < 40; i++) {
+    for (let i = 0; i < 12; i++) {
       const t = performance.now();
-      m = b.build(node, geoms, m, name);
-      reuse.push(performance.now() - t);
-    }
-    const create: number[] = [];
-    for (let i = 0; i < 10; i++) {
-      const t = performance.now();
-      const fresh = b.build(node, geoms, null, name + "_c");
-      create.push(performance.now() - t);
-      b.dispose(fresh);
+      for (let k = 0; k < REPS; k++) m = b.build(node, geoms, m, name);
+      reuse.push((performance.now() - t) / REPS);
     }
     b.dispose(m);
-    const r = median(reuse),
-      c = median(create);
-    const rMin = Math.min(...reuse),
-      cMin = Math.min(...create);
+    // new island taking a pooled mesh (the runtime path once the pool is warm)
+    const pool: number[] = [];
+    for (let i = 0; i < 12; i++) {
+      const fresh: Array<ReturnType<typeof b.build>> = [];
+      const t = performance.now();
+      for (let k = 0; k < REPS; k++) fresh.push(b.build(node, geoms, null, name + "_p"));
+      pool.push((performance.now() - t) / REPS);
+      for (const f of fresh) b.dispose(f);
+    }
+    // new island with the pool bypassed (fresh Mesh + Buffer creation)
+    const create: number[] = [];
+    const keepLimit = b.poolLimit;
+    b.clearPool();
+    b.poolLimit = 0;
+    for (let i = 0; i < 6; i++) {
+      const fresh: Array<ReturnType<typeof b.build>> = [];
+      const t = performance.now();
+      for (let k = 0; k < REPS; k++) fresh.push(b.build(node, geoms, null, name + "_c"));
+      create.push((performance.now() - t) / REPS);
+      for (const f of fresh) b.dispose(f);
+    }
+    b.poolLimit = keepLimit;
+    const per = (ms: number): number => round3(ms / (verts / 1000));
     out[name] = {
       vertices: verts,
-      reuseMs: Math.round(r * 1000) / 1000,
-      createMs: Math.round(c * 1000) / 1000,
-      reusePer1000: Math.round((r / (verts / 1000)) * 1000) / 1000,
-      createPer1000: Math.round((c / (verts / 1000)) * 1000) / 1000,
+      reuseMs: round3(median(reuse)),
+      poolMs: round3(median(pool)),
+      createMs: round3(median(create)),
+      reusePer1000: per(median(reuse)),
+      poolPer1000: per(median(pool)),
+      createPer1000: per(median(create)),
       // min-of-N: least disturbed by the other agents' probes on this 4-CPU box
-      reuseMinPer1000: Math.round((rMin / (verts / 1000)) * 1000) / 1000,
-      createMinPer1000: Math.round((cMin / (verts / 1000)) * 1000) / 1000,
+      reuseMinPer1000: per(Math.min(...reuse)),
+      poolMinPer1000: per(Math.min(...pool)),
+      createMinPer1000: per(Math.min(...create)),
     };
+  }
+  // startup prewarm cost and size
+  {
+    const t = performance.now();
+    const added = b.prewarm();
+    out.prewarm = { meshes: added, ms: round3(performance.now() - t) };
   }
   // fracture-like churn: 12 small islands disposed, 12 new ones built (pool hits)
   const small = make(3);

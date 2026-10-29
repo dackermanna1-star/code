@@ -2,7 +2,7 @@
 // UVMap, and the batcher's per-face fallback (seam crossing, strips, tiled areas, multi-face).
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { printedFaceUV, fitPrintedUVs, PrintedFitScratch, FIT_INSET, isPrintedSurface, PRINTED_TEXTURES } from "../../src/render/printed.ts";
+import { printedFaceUV, fitPrintedUVs, PrintedFitScratch, FIT_INSET, PRINTED_BAND, isPrintedSurface, PRINTED_TEXTURES } from "../../src/render/printed.ts";
 import { SURFACES, S } from "../../src/render/surfaces.ts";
 import { packSurfaceRow, SURFACE_ROW } from "../../src/render/layout.ts";
 
@@ -35,10 +35,12 @@ test("printedFaceUV maps a wall face onto exactly one tile, upright and unmirror
   const uv = pts.map((p) => [dot(p, m.u) + m.u0, dot(p, m.v) + m.v0]);
   const us = uv.map((t) => t[0]),
     vs = uv.map((t) => t[1]);
-  assert.ok(Math.abs(Math.min(...us) - ws * FIT_INSET) < 1e-9);
-  assert.ok(Math.abs(Math.max(...us) - ws * (1 - FIT_INSET)) < 1e-9);
-  assert.ok(Math.abs(Math.min(...vs) - ws * FIT_INSET) < 1e-9);
-  assert.ok(Math.abs(Math.max(...vs) - ws * (1 - FIT_INSET)) < 1e-9);
+  // exactly the reserved band tile (marks the face as builder-mapped for the batcher)
+  const B = PRINTED_BAND;
+  assert.ok(Math.abs(Math.min(...us) - ws * (B + FIT_INSET)) < 1e-9);
+  assert.ok(Math.abs(Math.max(...us) - ws * (B + 1 - FIT_INSET)) < 1e-9);
+  assert.ok(Math.abs(Math.min(...vs) - ws * (B + FIT_INSET)) < 1e-9);
+  assert.ok(Math.abs(Math.max(...vs) - ws * (B + 1 - FIT_INSET)) < 1e-9);
   // upright: the top edge has the larger v
   assert.ok(uv[2][1] > uv[1][1]);
   // unmirrored from outside: U = cross(N, V) (left-handed viewer looking along −N has +U to the right)
@@ -47,9 +49,10 @@ test("printedFaceUV maps a wall face onto exactly one tile, upright and unmirror
   const frag = [pts[0], { x: 2.0, y: 1.075, z: -3 }, { x: 2.0, y: 1.4, z: -3 }];
   for (const p of frag) {
     const u = dot(p, m.u) + m.u0;
-    assert.ok(u >= ws * FIT_INSET - 1e-9 && u <= ws * (1 - FIT_INSET) + 1e-9);
+    assert.ok(u >= ws * (B + FIT_INSET) - 1e-9 && u <= ws * (B + 1 - FIT_INSET) + 1e-9);
   }
-  // floor face (rug) uses −Z/+Z as image up like autoUV; no NaN for degenerate input
+  // upward face (rug, paper on a desk): image up = −Z, so a viewer at the object's +Z front
+  // sees it upright and unmirrored (same convention as screens.ts); no NaN for degenerate input
   const rug = printedFaceUV(
     [
       { x: 0, y: 0, z: 0 },
@@ -60,7 +63,11 @@ test("printedFaceUV maps a wall face onto exactly one tile, upright and unmirror
     { x: 0, y: 1, z: 0 },
     2,
   );
-  assert.ok(Math.abs(rug.v.z) > 0.9 && Number.isFinite(rug.u0) && Number.isFinite(rug.v0));
+  assert.ok(rug.v.z < 0 && Math.abs(rug.v.x) < 1e-9, "image up is −Z (far side from the +Z front)");
+  assert.ok(rug.u.x < 0, "image right is −X (viewer at +Z looking towards −Z has +X on the left)");
+  assert.ok(Number.isFinite(rug.u0) && Number.isFinite(rug.v0));
+  const down = printedFaceUV([{ x: 0, y: 2, z: 0 }, { x: 1, y: 2, z: 1 }], { x: 0, y: -1, z: 0 }, 1);
+  assert.ok(down.v.z < 0, "downward faces use −Z as image up too");
   const deg = printedFaceUV([{ x: 1, y: 1, z: 1 }], { x: 0, y: 0, z: 1 }, 0);
   assert.ok([deg.u.x, deg.u.y, deg.u.z, deg.v.x, deg.v.y, deg.v.z, deg.u0, deg.v0].every(Number.isFinite));
 });
@@ -79,41 +86,91 @@ function quads(spec: Array<{ u0: number; v0: number; u1: number; v1: number; sur
   return { uvs: new Float32Array(uvs), surf: new Uint16Array(surf), idx: new Uint32Array(idx), vc: uvs.length / 2 };
 }
 
-test("fitPrintedUVs: whole faces across a seam are fitted, others left alone", () => {
+const inv = (s: number): number => 1 / SURFACES[s].worldSize;
+const printedOf = (s: number): boolean => isPrintedSurface(SURFACES[s]);
+const near = (a: number, b: number): boolean => Math.abs(a - b) < 1e-5;
+const LO = FIT_INSET,
+  HI = 1 - FIT_INSET;
+/** Is quad q of `out` fitted onto exactly one tile [LO, HI]² with preserved orientation? */
+function isFitted(out: Float32Array, q: number): boolean {
+  const o = q * 8;
+  return near(out[o], LO) && near(out[o + 1], LO) && near(out[o + 4], HI) && near(out[o + 5], HI) && out[o + 2] > out[o] && out[o + 5] > out[o + 3];
+}
+
+test("fitPrintedUVs: every whole printed face is fitted onto one tile; strips and other surfaces stay raw", () => {
   const P = S.painting_0,
     W = S.wood_oak;
-  const ws = (s: number): number => SURFACES[s].worldSize;
-  const inv = (s: number): number => 1 / ws(s);
-  const printed = (s: number): boolean => isPrintedSurface(SURFACES[s]);
-  const w0 = ws(P);
+  const w0 = SURFACES[P].worldSize;
   const g = quads([
-    // 0: painting face 0.9×0.65 m at a random offset → crosses a seam → fitted
+    // 0: painting face 0.9×0.65 m at a random offset, crossing a seam → fitted
     { u0: 1.33, v0: 2.21, u1: 1.33 + 0.9, v1: 2.21 + 0.65, surf: P },
-    // 1: painting face already inside one tile (builder-mapped) → untouched
-    { u0: w0 * 2 + 0.01, v0: 0.01, u1: w0 * 3 - 0.01, v1: w0 - 0.01, surf: P },
-    // 2: narrow strip (book spine / label tile) across a seam → untouched
+    // 1: the same kind of face whose random offset leaves it inside one tile → fitted too
+    { u0: w0 * 2 + 0.01, v0: 0.01, u1: w0 * 3 - 0.2, v1: w0 - 0.3, surf: P },
+    // 2: narrow strip (book spine / carton side) across a seam → raw
     { u0: w0 - 0.02, v0: 0.1, u1: w0 + 0.02, v1: 0.6, surf: P },
-    // 3: big intentionally tiled printed area (3 × 3 tiles) → untouched
+    // 3: printed face covering 3 × 3 tiles (worldSize too small for this use) → fitted
     { u0: 0.1, v0: 0.1, u1: 0.1 + 3 * w0, v1: 0.1 + 3 * w0, surf: P },
-    // 4: non-printed surface crossing seams → untouched
+    // 4: non-printed surface crossing seams → raw
     { u0: 0.5, v0: 0.5, u1: 2.5, v1: 2.5, surf: W },
+    // 5: microwave keypad 0.1289 × 0.2892 m (aspect 2.24) → fitted whatever the worldSize
+    { u0: 0.71, v0: 1.93, u1: 0.71 + 0.1289, v1: 1.93 + 0.2892, surf: S.panel_microwave },
   ]);
   const out = new Float32Array(g.vc * 2);
-  const fitted = fitPrintedUVs(g.uvs, g.surf, g.idx, g.vc, inv, printed, out, new PrintedFitScratch());
-  assert.equal(fitted, 1);
-  const quad = (q: number): number[] => Array.from(out.subarray(q * 8, q * 8 + 8));
-  const q0 = quad(0);
-  const lo = FIT_INSET,
-    hi = 1 - FIT_INSET;
-  const near = (a: number, b: number): boolean => Math.abs(a - b) < 1e-5;
-  assert.ok(near(q0[0], lo) && near(q0[1], lo) && near(q0[4], hi) && near(q0[5], hi), `fitted ${q0}`);
-  // orientation preserved (u grows from vertex 0 to 1, v from 1 to 2)
-  assert.ok(q0[2] > q0[0] && q0[5] > q0[3]);
-  // untouched quads = raw uv × 1/worldSize
-  for (const q of [1, 2, 3, 4]) {
+  const fitted = fitPrintedUVs(g.uvs, g.surf, g.idx, g.vc, inv, printedOf, out, new PrintedFitScratch());
+  assert.equal(fitted, 4);
+  for (const q of [0, 1, 3, 5]) assert.ok(isFitted(out, q), `quad ${q} fitted: ${Array.from(out.subarray(q * 8, q * 8 + 8))}`);
+  for (const q of [2, 4]) {
     const raw = Array.from(g.uvs.subarray(q * 8, q * 8 + 8)).map((x, i) => x * inv(g.surf[q * 4 + (i >> 1)]));
-    quad(q).forEach((x, i) => assert.ok(Math.abs(x - raw[i]) < 1e-5, `quad ${q}`));
+    Array.from(out.subarray(q * 8, q * 8 + 8)).forEach((x, i) => assert.ok(Math.abs(x - raw[i]) < 1e-5, `quad ${q} raw`));
   }
+});
+
+test("fitPrintedUVs: an intact object looks the same for every builder uv offset", () => {
+  // 0.6 × 0.45 m painting_0 face (worldSize 0.8): previously a crop at offset 0.02, whole at 0.33
+  let ref: number[] | null = null;
+  for (const off of [0, 0.02, 0.33, 0.79, 1.57, 2.94]) {
+    const g = quads([{ u0: off, v0: off * 0.7, u1: off + 0.6, v1: off * 0.7 + 0.45, surf: S.painting_0 }]);
+    const out = new Float32Array(g.vc * 2);
+    fitPrintedUVs(g.uvs, g.surf, g.idx, g.vc, inv, printedOf, out, new PrintedFitScratch());
+    const now = Array.from(out);
+    if (!ref) ref = now;
+    now.forEach((x, i) => assert.ok(near(x, ref![i]), `offset ${off}: ${now} vs ${ref}`));
+  }
+});
+
+test("fitPrintedUVs: printedFaceUV-mapped faces and their fracture fragments keep their piece of the picture", () => {
+  const P = S.painting_0;
+  const ws = SURFACES[P].worldSize;
+  // 0.9 × 0.65 canvas facing +Z, mapped by the builder helper; then split into left/right halves
+  const pts = [
+    { x: 0, y: 0, z: 0 },
+    { x: 0.9, y: 0, z: 0 },
+    { x: 0.9, y: 0.65, z: 0 },
+    { x: 0, y: 0.65, z: 0 },
+  ];
+  const m = printedFaceUV(pts, { x: 0, y: 0, z: 1 }, ws);
+  const uvOf = (x: number, y: number): [number, number] => [x * m.u.x + y * m.u.y + m.u0, x * m.v.x + y * m.v.y + m.v0];
+  const quad = (x0: number, x1: number): { u0: number; v0: number; u1: number; v1: number; surf: number } => {
+    const a = uvOf(x0, 0),
+      b = uvOf(x1, 0.65);
+    return { u0: a[0], v0: a[1], u1: b[0], v1: b[1], surf: P };
+  };
+  const g = quads([quad(0, 0.9), quad(0, 0.45), quad(0.45, 0.9)]);
+  const out = new Float32Array(g.vc * 2);
+  const fitted = fitPrintedUVs(g.uvs, g.surf, g.idx, g.vc, inv, printedOf, out, new PrintedFitScratch());
+  assert.equal(fitted, 0, "builder-mapped faces are not refitted");
+  const us = (q: number): number[] => [0, 2, 4, 6].map((k) => out[q * 8 + k]);
+  const vs = (q: number): number[] => [1, 3, 5, 7].map((k) => out[q * 8 + k]);
+  // whole face: exactly one tile, shifted out of the reserved band
+  assert.ok(near(Math.min(...us(0)), LO) && near(Math.max(...us(0)), HI), `whole ${us(0)}`);
+  assert.ok(near(Math.min(...vs(0)), LO) && near(Math.max(...vs(0)), HI));
+  // halves: complementary halves of that tile (u runs towards −X on a +Z face), full height
+  const mid = 0.5;
+  const left = us(1),
+    right = us(2);
+  assert.ok(near(Math.max(...left), HI) && Math.abs(Math.min(...left) - mid) < 1e-3, `left half ${left}`);
+  assert.ok(near(Math.min(...right), LO) && Math.abs(Math.max(...right) - mid) < 1e-3, `right half ${right}`);
+  for (const q of [1, 2]) assert.ok(near(Math.min(...vs(q)), LO) && near(Math.max(...vs(q)), HI));
 });
 
 test("fitPrintedUVs: faces sharing nothing are fitted independently; scratch reuse is clean", () => {

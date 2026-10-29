@@ -12,14 +12,24 @@
 // Up to `quality.pointShadows` lights nearest the camera leave the cluster to cast cube
 // shadows (a light with a ShadowGenerator cannot be clustered) and rejoin it when demoted.
 // If clustering is unsupported (no float colour blending), the lights stay ordinary scene
-// lights and only the few nearest the camera are enabled.
+// lights and only the few nearest the camera are shaded (the others are masked out of every
+// mesh with `excludeWithLayerMask`, so the owner's own enable flag is never touched).
+//
+// Light budget: Standard/PBR shade at most `maxSimultaneousLights` (default 4) lights and
+// silently drop the rest. Sun + sky + cluster use 3; every shadowed point light (Ultra: 2)
+// or fallback light needs one more slot. Whenever that exceeds 4, every lit material in the
+// scene (and every material added later) is raised to the required count (≤ 6, well under
+// the vertex UBO limit, notes §2.1); otherwise a shadowed bulb would vanish entirely on
+// materials still at 4.
 //
 // Sun shadows: one ShadowGenerator (a CSM doubles the caster draws, notes §1.2) with a
-// fixed orthographic frustum fitted to the apartment in light space: no per-frame refit,
-// no shimmer, ~6 mm texels at 2048. Its depth range extends upstream so the balconies and
+// fixed orthographic frustum fitted to the apartment in light space (shadowOrthoScale 0: no
+// hidden 20 % padding): no per-frame refit, no shimmer, ~9 mm texels at 2048. Its depth range extends upstream so the balconies and
 // slab edges of the tower outside the windows still occlude. The map is cached: it only
-// re-renders when a caster moved, was added/removed, or `invalidateShadows()` was called
-// (plus a slow safety refresh), so a settled room costs no shadow pass at all.
+// re-renders when a caster moved, was added/removed, or `invalidateShadows()` was called;
+// point-light cube maps only re-render for casters within that light's reach. A slow
+// round-robin safety refresh (one map per tick) catches in-place geometry edits, so a
+// settled room costs at most one shadow map every couple of seconds.
 
 import {
   ClusteredLightContainer,
@@ -36,6 +46,7 @@ import {
   type AbstractMesh,
   type Light,
   type Material,
+  type Nullable,
   type Observer,
   type Scene,
   type SubMesh,
@@ -71,7 +82,10 @@ export interface LightingTuning {
   defaultRange: number;
   /** Cache the sun shadow map between caster movements (false = re-render every frame). */
   staticShadowCache: boolean;
-  /** Safety refresh period (s) of a cached shadow map (catches in-place geometry edits). */
+  /**
+   * Safety refresh period (s) of the cached shadow maps (catches in-place geometry edits).
+   * Each tick re-renders ONE map, round-robin over the sun and the point-light cube maps.
+   */
   maxShadowAge: number;
   /** Interior lights with a smaller range never cast point shadows (LED strips, hood lamps). */
   pointShadowMinRange: number;
@@ -88,12 +102,20 @@ export const DEFAULT_TUNING: LightingTuning = {
   interiorGain: 1,
   defaultRange: 6,
   staticShadowCache: true,
-  maxShadowAge: 0.5,
+  maxShadowAge: 1.5,
   pointShadowMinRange: 3,
 };
 
-/** Lights enabled at once when clustering is unavailable (sun + sky + N stays ≤ 8 per material). */
+/** Lights shaded at once when clustering is unavailable (sun + sky + N = 6 material slots). */
 const FALLBACK_MAX_LIGHTS = 4;
+/** Lights every material reserves for sun, sky and the cluster. */
+const BASE_SLOTS = 3;
+/** Babylon's default `maxSimultaneousLights`. */
+const DEFAULT_SLOTS = 4;
+/** Hard cap on raised material slots (each light is a vertex UBO; notes §2.1 say ≤ 8). */
+const MAX_SLOTS = 6;
+/** Layer mask that excludes a light from every mesh (fallback deselection). */
+const EXCLUDE_ALL = 0xffffffff | 0;
 /** Upper bound for light ranges (cluster depth slicing / tile bounds). */
 const MAX_RANGE = 14;
 
@@ -116,8 +138,10 @@ interface LightRec {
   clustered: boolean;
   /** Point/spot shadow generator while promoted. */
   shadow: ShadowGenerator | null;
-  /** Fallback mode: enabled by the nearest-light selection. */
+  /** Fallback mode: shaded by the nearest-light selection (else masked out of every mesh). */
   selected: boolean;
+  /** The owner's `excludeWithLayerMask`, saved while the fallback selection masks the light. */
+  savedExcludeMask: number;
   disposeObs: Observer<unknown> | null;
 }
 
@@ -157,6 +181,14 @@ export class Lighting implements ILighting {
   private readonly lights = new Map<Light, LightRec>();
   /** Shadow generators of the promoted (shadow-casting) interior lights. */
   private readonly pointGens: ShadowGenerator[] = [];
+  /** Promoted light records (parallel to their generators; for per-light invalidation). */
+  private readonly pointRecs: LightRec[] = [];
+  /** Material light slots currently required of every lit material (see header). */
+  private slotsNeeded = DEFAULT_SLOTS;
+  private slotSweepCount = -1;
+  private materialObs: Nullable<Observer<Material>> = null;
+  /** Round-robin cursor of the shadow safety refresh (0 = sun, i = pointGens[i - 1]). */
+  private refreshCursor = 0;
   /** Lights handed back by removeLight(): re-added to the scene if their owner keeps them. */
   private readonly released: Light[] = [];
   private _powered = true;
@@ -166,7 +198,7 @@ export class Lighting implements ILighting {
   private pointTimer = 0;
   private pruneTimer = 0;
   private disposed = false;
-  private readonly onCasterMoved = (): void => this.invalidateShadows();
+  private readonly onCasterMoved = (mesh: unknown): void => this.invalidateNear(mesh as AbstractMesh);
 
   constructor(scene: Scene, settings: Settings, tuning: Partial<LightingTuning> = {}) {
     this.scene = scene;
@@ -186,6 +218,7 @@ export class Lighting implements ILighting {
     const c = new Vector3((SHADOW_BOUNDS.min.x + SHADOW_BOUNDS.max.x) / 2, 1.3, (SHADOW_BOUNDS.min.z + SHADOW_BOUNDS.max.z) / 2);
     this.sun.position = c.subtract(dir.scale(40));
     this.sun.renderPriority = 1000;
+    this.sun.shadowOrthoScale = 0; // the fitted box is the map: no hidden padding (texel math)
     this.fitSunFrustum();
 
     // ---- sky fill: cool zenith, warm bounce from the sunlit floors below
@@ -208,6 +241,7 @@ export class Lighting implements ILighting {
     this.cluster = cluster;
 
     this.createSunShadows(this._quality);
+    this.updateLightSlots();
   }
 
   // ------------------------------------------------------------------ ILighting
@@ -242,9 +276,9 @@ export class Lighting implements ILighting {
       this.casters.delete(mesh);
       if (rec.obs) mesh.onAfterWorldMatrixUpdateObservable.remove(rec.obs as never);
       this._sunShadows.removeShadowCaster(mesh, false);
-      for (const l of this.lights.values()) l.shadow?.removeShadowCaster(mesh, false);
+      for (const g of this.pointGens) g.removeShadowCaster(mesh, false);
     }
-    this.invalidateShadows();
+    this.invalidateNear(mesh);
   }
 
   registerReceiver(mesh: AbstractMesh): void {
@@ -252,12 +286,12 @@ export class Lighting implements ILighting {
     mesh.receiveShadows = true;
     this.receivers.add(mesh);
     this.prepareMaterial(mesh.material);
-    // A (re)built receiver usually means new geometry: refresh cached shadows.
-    this.invalidateShadows();
+    // A (re)built receiver usually means new geometry: refresh the cached shadows around it.
+    this.invalidateNear(mesh);
   }
 
   unregisterReceiver(mesh: AbstractMesh): void {
-    if (this.receivers.delete(mesh)) this.invalidateShadows();
+    if (this.receivers.delete(mesh)) this.invalidateNear(mesh);
   }
 
   addLight(light: Light, roomId: string | null, mains: boolean): void {
@@ -291,6 +325,7 @@ export class Lighting implements ILighting {
       clustered: false,
       shadow: null,
       selected: true,
+      savedExcludeMask: 0,
       disposeObs: null,
     };
     this.lights.set(light, rec);
@@ -333,6 +368,7 @@ export class Lighting implements ILighting {
     if (q.pointShadows !== prev.pointShadows) {
       for (const rec of this.lights.values()) if (rec.shadow) this.demote(rec);
     }
+    this.updateLightSlots();
     this.pointTimer = 0;
     this.invalidateShadows();
   }
@@ -360,10 +396,16 @@ export class Lighting implements ILighting {
       this.updatePointShadows();
       if (!this.cluster) this.updateFallbackSelection();
     }
-    // Cached shadow maps: periodic safety refresh.
+    // Cached shadow maps: slow round-robin safety refresh, one map per tick.
     if (this.tuning.staticShadowCache) {
       this.shadowAge += step;
-      if (this.shadowAge >= this.tuning.maxShadowAge) this.invalidateShadows();
+      if (this.shadowAge >= this.tuning.maxShadowAge) {
+        this.shadowAge = 0;
+        const n = this.pointGens.length + 1;
+        this.refreshCursor = (this.refreshCursor + 1) % n;
+        const g = this.refreshCursor === 0 ? this._sunShadows : this.pointGens[this.refreshCursor - 1];
+        g?.getShadowMap()?.resetRefreshCounter();
+      }
     }
     // Drop disposed casters / receivers now and then (Babylon already removed them from the maps).
     this.pruneTimer -= step;
@@ -374,7 +416,12 @@ export class Lighting implements ILighting {
         if (rec.obs) m.onAfterWorldMatrixUpdateObservable.remove(rec.obs as never);
         this.casters.delete(m);
       }
-      for (const m of this.receivers) if (m.isDisposed()) this.receivers.delete(m);
+      for (const m of this.receivers) {
+        if (m.isDisposed()) this.receivers.delete(m);
+        else this.prepareMaterial(m.material); // material assigned after registration
+      }
+      // Materials whose slot count was lowered again by their creator after creation.
+      if (this.slotsNeeded > DEFAULT_SLOTS && this.scene.materials.length !== this.slotSweepCount) this.sweepMaterialSlots();
     }
   }
 
@@ -390,6 +437,11 @@ export class Lighting implements ILighting {
     if (!this.tuning.staticShadowCache) return;
     this._sunShadows?.getShadowMap()?.resetRefreshCounter();
     for (const g of this.pointGens) g.getShadowMap()?.resetRefreshCounter();
+  }
+
+  /** Material light slots currently required of every lit material (debug). */
+  get lightSlots(): number {
+    return this.slotsNeeded;
   }
 
   /** Number of interior lights currently managed. */
@@ -427,8 +479,8 @@ export class Lighting implements ILighting {
 
   /**
    * Make a material compatible with the clustered lights: PBR switches to glTF light falloff
-   * (smooth window to 0 at `range`; physical inverse-square falloff never reaches 0 and shows
-   * hard cluster-tile seams). Called for every registered receiver's material.
+   * (inverse square windowed smoothly to 0 at `range`; plain physical falloff never reaches 0
+   * and shows hard cluster-tile seams). Called for every registered receiver's material.
    */
   prepareMaterial(mat: Material | null | undefined): void {
     if (!mat || this.preparedMaterials.has(mat)) return;
@@ -439,7 +491,8 @@ export class Lighting implements ILighting {
       return;
     }
     const pbr = mat as Material & { useGLTFLightFalloff?: boolean };
-    if (this.cluster && typeof pbr.useGLTFLightFalloff === "boolean" && !pbr.useGLTFLightFalloff) pbr.useGLTFLightFalloff = true;
+    if (typeof pbr.useGLTFLightFalloff === "boolean" && !pbr.useGLTFLightFalloff) pbr.useGLTFLightFalloff = true;
+    this.raiseSlots(mat);
   }
 
   dispose(): void {
@@ -450,6 +503,8 @@ export class Lighting implements ILighting {
     for (const [m, rec] of this.casters) if (rec.obs) m.onAfterWorldMatrixUpdateObservable.remove(rec.obs as never);
     this.casters.clear();
     this.receivers.clear();
+    if (this.materialObs) this.scene.onNewMaterialAddedObservable.remove(this.materialObs);
+    this.materialObs = null;
     this._sunShadows.dispose();
     this.cluster?.dispose();
     this.sun.dispose();
@@ -622,7 +677,7 @@ export class Lighting implements ILighting {
       // Hand the light back in its nominal state; it rejoins the scene as an ordinary light
       // at the next update unless the owner disposes it first (the usual case).
       light.intensity = rec.base;
-      if (!light.isEnabled()) light.setEnabled(true);
+      if (!this.cluster && !rec.selected) light.setEnabled(true); // undo the fallback selection
       if (wasClustered) this.released.push(light);
     }
   }

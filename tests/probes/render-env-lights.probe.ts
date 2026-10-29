@@ -3,7 +3,7 @@
 // point-shadow promotion/demotion, the cached sun shadow map (draw calls only when casters
 // move) and quality changes.
 // Run: node tests/probe.mjs tests/probes/render-env-lights.probe.ts
-import { Color3, MeshBuilder, PointLight, SceneInstrumentation, SpotLight, Vector3, type Light } from "@babylonjs/core";
+import { ClusteredLightContainer, Color3, MeshBuilder, PointLight, Scene, SceneInstrumentation, SpotLight, UniversalCamera, Vector3, type Light } from "@babylonjs/core";
 import { QUALITY, Settings } from "../../src/core/settings.ts";
 import { Lighting } from "../../src/render/lighting.ts";
 import { makeEngine, makeCamera, pbr, frames, whenReady } from "./render-env-util.ts";
@@ -169,5 +169,34 @@ export async function probe(): Promise<unknown> {
 
   lighting.dispose();
   check("disposed", scene.lights.length === 0, scene.lights.map((l) => l.name));
+
+  // ---- fallback without clustering: only the 4 nearest lights are enabled
+  const proto = ClusteredLightContainer.prototype as unknown as object;
+  const desc = Object.getOwnPropertyDescriptor(proto, "isSupported");
+  Object.defineProperty(proto, "isSupported", { get: () => false, configurable: true });
+  const scene2 = new Scene(engine);
+  let fb: Lighting;
+  try {
+    fb = new Lighting(scene2, settings);
+  } finally {
+    if (desc) Object.defineProperty(proto, "isSupported", desc);
+  }
+  const cam2 = new UniversalCamera("cam2", new Vector3(0, 1.6, 0), scene2);
+  scene2.activeCamera = cam2;
+  cam2.computeWorldMatrix();
+  const fls: PointLight[] = [];
+  for (let i = 0; i < 7; i++) {
+    const l = new PointLight("f" + i, new Vector3(i * 1.5, 2.4, 0), scene2);
+    l.intensity = 1;
+    l.range = 4;
+    fb.addLight(l, null, true);
+    fls.push(l);
+  }
+  fb.update(1 / 60);
+  const enabled = fls.filter((l) => l.isEnabled() && l.intensity > 0).map((l) => l.name);
+  check("fallbackNoCluster", fb.cluster === null);
+  check("fallbackNearest4", enabled.join(",") === "f0,f1,f2,f3", enabled);
+  fb.dispose();
+  scene2.dispose();
   return { fail, ...out };
 }

@@ -181,8 +181,8 @@ export class LightFeature extends BaseFeature {
     if (part === this.part && part.bonds.length === 0 && this.asm.parts.size > 1) this.break("wires");
   }
 
-  /** Any bond of the assembly broke: a hard-wired fixture torn from the ceiling/wall rips its cable. */
-  onAsmBondBroken(): void {
+  /** Bonds of the assembly broke: a hard-wired fixture torn from the ceiling/wall rips its cable. */
+  onAsmBondsBroken(): void {
     if (!this.alive || !this.mains || !this.hadWorldBond) return;
     if (!this.wired()) this.break("wires");
   }
