@@ -6,6 +6,7 @@ import { Ragdoll } from '../src/human/ragdoll.js';
 import { BodyShape } from '../src/human/bodyShape.js';
 import { Sandbox } from '../src/game/sandbox.js';
 import { raycastPeople } from '../src/game/weapons.js';
+import { FRACTURE_BLEED, LIMB_TREE } from '../src/human/injury.js';
 
 const segNames = new Ragdoll(new World()).segList.map((s) => s.name);
 const shape = new BodyShape(segNames);
@@ -251,17 +252,93 @@ test('face, jaw and scalp-graze shots are not fatal; a channel through the brain
   assert.ok(person.injury.vitals().iss >= 25, 'penetrating brain injury is AIS 5+');
 });
 
-test('repeated hits on one vessel do not multiply its bleeding; total bleeding never exceeds cardiac output', () => {
+test('repeated hits on one vessel do not multiply its bleeding; arterial bleeding never exceeds the cardiac output, venous bleeding the venous return', () => {
   const { sb, person } = scene(2);
   for (let i = 0; i < 4; i++) shootBind(sb, person, 'pistol', 'chest', [0.0, 1.36, -0.03]);
-  const inj = person.injury;
   let aorta = 0;
-  for (const w of inj.wounds) for (const b of w.bleeds || []) if (/aort/.test(b.label)) aorta += b.q;
+  for (const w of person.injury.wounds) for (const b of w.bleeds || []) if (/aort/.test(b.label)) aorta += b.q;
   assert.ok(aorta > 0 && aorta <= 120 + 110 + 1e-6, `aortic bleeding ${aorta}`);
-  for (let i = 0; i < 120; i++) {
-    inj.update(1 / 60);
-    assert.ok(inj.bleedRate <= Math.max(inj.co, 5000 / 60) * 1.05, `bleed ${inj.bleedRate} > CO ${inj.co}`);
+  // central and limb arteries and great veins: carotid / jugular, liver, femoral artery and vein
+  const b = scene(3);
+  shootBind(b.sb, b.person, 'pistol', 'neck', [0.028, 1.53, 0.0]);
+  shootBind(b.sb, b.person, 'pistol', 'abdomen', [-0.08, 1.15, 0.03]);
+  shootBind(b.sb, b.person, 'pistol', 'thighR', [-0.075, 0.75, 0.022]);
+  const inj = b.person.injury;
+  let withPulse = 0, venMax = 0;
+  physiology(b.person, 60, () => {
+    assert.ok(Math.abs(inj.bleedRate - inj.leakArt - inj.leakVen) < 1e-6 * (1 + inj.bleedRate), 'flows add up');
+    // the arterial leaks are in parallel with the systemic circulation (above the mean filling
+    // pressure, which is where the arterial pressure ends up after arrest)
+    if (inj.alive && inj.arrestTime < 0 && inj.map > 12) {
+      withPulse++;
+      assert.ok(inj.leakArt <= inj.co * (1 + 1e-9) + 1e-9, `arterial bleeding ${inj.leakArt} > CO ${inj.co}`);
+    }
+    // venous leaks draw on what the stressed volume returns to the heart
+    assert.ok(inj.leakVen <= 0.85 * inj.venousCapacity + 1e-6, `venous bleeding ${inj.leakVen} > return ${inj.venousCapacity}`);
+    venMax = Math.max(venMax, inj.leakVen);
+  });
+  assert.ok(withPulse > 600 && venMax > 5, `both kinds of leak exercised (${withPulse} frames with a pulse, venous ${venMax.toFixed(1)} mL/s)`);
+});
+
+test('a broken bone bleeds once: further bullets and blows on it do not multiply its fracture haemorrhage', () => {
+  const { sb, person } = scene(3);
+  const inj = person.injury;
+  const boneBleed = (seg) => {
+    let q = 0;
+    for (const w of inj.wounds) if (w.seg.name === seg) for (const b of w.bleeds || []) if (b.cls === 'bone') q += b.q;
+    return q;
+  };
+  // bullets through the left femur; the later ones hit the bone (fragments) after it has broken
+  for (let i = 0; i < 4; i++) {
+    shootBind(sb, person, 'sniper', 'thighL', [0.092, 0.78 - 0.05 * i, 0.0]);
+    run(sb, 0.05);
   }
+  assert.ok(person.rd.segments.thighL.fractured, 'left femur broken');
+  assert.ok(boneBleed('thighL') > 0 && boneBleed('thighL') <= FRACTURE_BLEED.femur + 1e-9, `left femur ${boneBleed('thighL')} mL/s`);
+  // two violent blows on the right thigh in one frame (before the break is executed), and two on
+  // the ribs
+  const thighR = person.rd.segments.thighR.body, chest = person.rd.segments.chest.body;
+  for (const [body, J] of [[thighR, 60], [chest, 60]]) {
+    for (let i = 0; i < 2; i++) {
+      inj.time += 0.3; // past the cooldown for repeated reports of one contact
+      inj.blunt(body, body.pos.clone(), new Vec3(0, 0, -1), J, 12, 'metal', null);
+    }
+  }
+  assert.ok(inj.fractures.some((f) => f.label === 'ribs'), 'ribs broken');
+  assert.ok(inj.pendingBreaks.some((b) => b.seg.name === 'thighR'), 'right femur breaking');
+  assert.ok(boneBleed('thighR') > 0 && boneBleed('thighR') <= FRACTURE_BLEED.femur + 1e-9, `right femur ${boneBleed('thighR')} mL/s`);
+  assert.ok(boneBleed('chest') <= FRACTURE_BLEED.ribs + 1e-9, `ribs ${boneBleed('chest')} mL/s`);
+});
+
+test('the arteries of a limb share its feeding artery: a leg volley dies, but more slowly than a torso volley', () => {
+  // femoral, deep femoral and popliteal arteries severed in both thighs, plus muscle and bone
+  const legs = scene(3);
+  for (const sg of [1, -1]) {
+    const seg = sg > 0 ? 'thighL' : 'thighR';
+    shootBind(legs.sb, legs.person, 'pistol', seg, [sg * 0.08, 0.75, 0.01], [0, 0, 2]);
+    shootBind(legs.sb, legs.person, 'pistol', seg, [sg * 0.088, 0.56, -0.015], [0, 0, 2]);
+    shootBind(legs.sb, legs.person, 'pistol', seg, [sg * 0.12, 0.66, 0.0], [0, 0, 2]);
+  }
+  run(legs.sb, 0.05);
+  const inj = legs.person.injury;
+  for (const t of ['legL', 'legR']) {
+    let nominal = 0;
+    for (const w of inj.wounds) if (w.tree === t) for (const b of w.bleeds) nominal += b.q * b.art;
+    const T = inj.trees[t];
+    // arterial outflow of the limb at normal pressure: below the sum of its leaks and below what a
+    // transection at the groin would drain
+    const eff = T.S * T.phi;
+    assert.ok(nominal > 25, `${t}: vessels hit (${nominal.toFixed(1)} mL/s nominal)`);
+    assert.ok(eff < 0.85 * nominal && eff <= LIMB_TREE.leg.gc, `${t}: ${eff.toFixed(1)} of ${nominal.toFixed(1)} mL/s`);
+  }
+  const tLegs = physiology(legs.person, 300);
+  const torso = scene(3);
+  for (let i = 0; i < 8; i++) shootAt(torso.sb, torso.person, 'pistol', i % 2 ? 'abdomen' : 'chest', [((i * 37) % 9) / 30 - 0.15, ((i * 53) % 7) / 40 - 0.08, 4]);
+  run(torso.sb, 0.05);
+  const tTorso = physiology(torso.person, 300);
+  assert.ok(tTorso !== null && tLegs !== null, `torso ${tTorso} s, legs ${tLegs} s`);
+  assert.ok(tLegs > 2 * tTorso && tLegs > 40, `legs ${tLegs} s vs torso ${tTorso} s`);
+  assert.match(inj.deathCause, /exsanguination/);
 });
 
 test('an ordinary fall after a shove does not break the forearm or hand', () => {

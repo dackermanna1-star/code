@@ -20,9 +20,14 @@ import { buildAnatomy, pathToStructure, boneAxis, issRegion } from './organs.js'
  * - circulation (Guyton): only the "stressed" part of the blood volume generates the filling
  *   pressure that returns blood to the heart. The baroreflex recruits unstressed volume and
  *   constricts arterioles, so ~30 % of the volume can be lost with a near-normal pressure; beyond
- *   ~40-45 % venous return and arterial pressure collapse (class IV haemorrhage). Every bleeding
- *   vessel is a leak in parallel with the systemic circulation, so total bleeding can never exceed
- *   the cardiac output and a hole in the aorta collapses the arterial pressure at once.
+ *   ~40-45 % venous return and arterial pressure collapse (class IV haemorrhage).
+ * - bleeding: every arterial leak is in parallel with the systemic circulation, so arterial
+ *   bleeding takes a share of the cardiac output and can never exceed it, and a hole in the aorta
+ *   collapses the arterial pressure at once. The leaks of a limb are fed through its main artery
+ *   (in series with it, viscous flow): a limb loses at most what a transection at its root would
+ *   drain, and less as the pressure falls. Venous and pulmonary leaks drain the venous return
+ *   before it reaches the heart; they are bounded by what the stressed volume can return, not by
+ *   the cardiac output, so total bleeding can exceed the cardiac output while the heart runs empty.
  * - the shock spiral: low coronary perfusion and hypoxaemia build a myocardial oxygen debt that
  *   weakens the heart, which lowers the pressure further; clotting fails in shock and after severe
  *   tissue injury (acute traumatic coagulopathy). Without effective circulation (no pulse) the heart
@@ -33,7 +38,9 @@ import { buildAnatomy, pathToStructure, boneAxis, issRegion } from './organs.js'
  * - brain: cerebral perfusion (autoregulated above ~55 mmHg) x arterial oxygen content decides
  *   consciousness and, if prolonged, hypoxic brain damage.
  * Its outputs drive the motor controller (muscle strength per limb, balance skill, pain behaviours,
- * consciousness, breathing including agonal gasps).
+ * consciousness, breathing depth and rate). Agonal gasps are published as ctl.respiration, 'gasp'
+ * events and the respiratory rate, but the controller only animates breathing in its balance and
+ * ground modes, so the gasps of an unconscious body (its limp mode) are not visible yet.
  */
 
 export const BLOOD_VOLUME = 5000; // mL
@@ -97,11 +104,34 @@ const TISSUE_EXT = { head: 0.95, neck: 0.75, chest: 0.5, abdomen: 0.4, pelvis: 0
 const TISSUE_CAV = { neck: 'neck', chest: 'pleura', abdomen: 'peritoneum', pelvis: 'retro' };
 
 // Haemorrhage from a fracture (marrow, periosteum, torn muscle): a closed femoral shaft fracture
-// loses ~1-1.5 L into the thigh, a pelvic fracture several litres (ATLS).
-const FRACTURE_BLEED = {
+// loses ~1-1.5 L into the thigh, a pelvic fracture several litres (ATLS). It is a property of the
+// broken bone, not of the hit: further hits on a bone that is already broken add nothing (see
+// boneBleed()).
+export const FRACTURE_BLEED = {
   femur: 2.5, tibia: 1.0, humerus: 0.9, 'radius/ulna': 0.5, pelvis: 3.5, 'pelvis (ilium)': 3.5, sacrum: 2,
   'thoracic vertebrae': 0.8, 'lumbar vertebrae': 1, 'cervical vertebrae': 0.5, ribs: 0.6,
 };
+// Peripheral arterial trees, one per limb. Every leak in a limb (a cut artery, the vessels of a
+// torn muscle or a broken bone) is fed through the limb's main artery, so the leaks are in series
+// with it and share its resistance: their sum can never exceed what a transection at the root of
+// the limb would drain (`gc`, mL/s at normal pressure: common femoral / axillary level). Flow along
+// these long, narrow arteries is viscous (Poiseuille, proportional to the pressure), unlike the
+// orifice flow out of a hole in the aorta or a ventricle (~sqrt(P)), so limb haemorrhage slows
+// down as the pressure falls. A transected feeding artery (iliac, subclavian) leaves the limb only
+// its collateral supply. Likewise the venous leaks of a limb share its venous outflow (`gcv`: the
+// limb's venous return, a few mL/s at rest, plus some back-flow through the femoral / axillary vein).
+export const LIMB_TREE = {
+  leg: { gc: 40, gcv: 15, feeder: 'iliac artery' },
+  arm: { gc: 22, gcv: 7, feeder: 'subclavian artery' },
+};
+
+function limbTree(segName) {
+  const k = segName.replace(/[LR]$/, ''), s = segName[segName.length - 1];
+  if (k === 'thigh' || k === 'shin' || k === 'foot') return 'leg' + s;
+  if (k === 'upperArm' || k === 'forearm' || k === 'hand') return 'arm' + s;
+  return null;
+}
+
 // AIS of a fracture (closed; open adds one, capped)
 const FRACTURE_AIS = { femur: 3, pelvis: 3, 'pelvis (ilium)': 3, sacrum: 3, skull: 2, ribs: 2 };
 
@@ -142,7 +172,11 @@ function clotClass(kind, q) {
     case 'vein':
       return q > 15 ? [0.35, 240] : [0.75, 150];
     case 'organ':
-      return [0.35, 300]; // liver / spleen / kidney: non-compressible, poor clotting
+      // liver / spleen / kidney: non-compressible. A handgun channel through the parenchyma is
+      // contained by the capsule and surrounding tissue and often stops bleeding on its own (most
+      // grade II-III injuries are managed without surgery); a burst organ (rifle cavitation,
+      // grade IV-V) keeps bleeding
+      return q > 14 ? [0.25, 300] : q > 7 ? [0.65, 300] : [0.8, 240];
     case 'lung':
       return [0.75, 120]; // low pressure: most lung wounds stop bleeding on their own
     case 'bone':
@@ -181,6 +215,10 @@ export class InjurySystem {
     this.lostInternal = 0;
     this.bleedRate = 0; // mL/s total
     this.externalRate = 0;
+    this.leakArt = 0; // arterial part of the bleeding (mL/s): a share of the cardiac output
+    this.leakVen = 0; // venous / pulmonary part: drains the venous return before the heart
+    this.venousCapacity = CO0; // what the stressed volume can return to the heart (mL/s)
+    this.trees = {}; // per limb: leak conductances in series with its feeding artery / draining vein
     // circulation
     this.hr = 72;
     this.map = MAP0;
@@ -250,6 +288,7 @@ export class InjurySystem {
     this.lastGrunt = -10;
     this.bruiseCooldown = new Map();
     this.pendingBreaks = [];
+    this.boneBleedQ = {}; // bone ('segment:bone') -> fracture haemorrhage already assigned, mL/s
   }
 
   // ------------------------------------------------------------------------------------------
@@ -288,6 +327,12 @@ export class InjurySystem {
     this._scores = null;
   }
 
+  /** addAIS for a condition that develops over time (checked every step, recorded once). */
+  gradeOnce(region, ais, label) {
+    if (this.aisList.some((x) => x.label === label)) return;
+    this.addAIS(region, ais, label);
+  }
+
   /** Injury Severity Score (3 worst body regions) and New ISS (3 worst injuries anywhere). */
   severityScores() {
     if (this._scores) return this._scores;
@@ -308,12 +353,27 @@ export class InjurySystem {
     return clamp(this.severityScores().niss / 75 + this.tissueEnergy / 15000, 0, 1.5);
   }
 
+  /**
+   * Fracture haemorrhage of a bone that is (newly) broken: the marrow cavity, periosteum and the
+   * muscle torn by the fragments bleed once per bone. Returns the part of `fb` (mL/s) not yet
+   * assigned to an earlier fracture of the same bone, so a comminuted or re-struck bone, a
+   * fragment hit after the break, or two impacts in one frame do not multiply the bleeding.
+   */
+  boneBleed(segName, bone, fb) {
+    const key = segName + ':' + bone;
+    const prev = this.boneBleedQ[key] || 0;
+    const add = Math.max(0, fb - prev);
+    this.boneBleedQ[key] = prev + add;
+    return add;
+  }
+
   /** A bleeding source on a wound. q: mL/s fully open at normal pressure. */
   makeBleed(q, cls, o = {}) {
     const [clotMax, tau] = clotClass(cls, q);
     return {
       q, cls, clotMax, tau, clot: 0,
       art: o.art ?? (cls === 'artery' || cls === 'heart' ? 1 : cls === 'vein' || cls === 'lung' ? 0 : 0.4),
+      full: o.full ?? q, // nominal flow of the whole structure (several wounds may share it)
       ext: o.ext ?? 1,
       cav: o.cav || 'tissue',
       side: o.side || 'L',
@@ -512,6 +572,8 @@ export class InjurySystem {
           this.ptxRate[sd] = Math.max(this.ptxRate[sd], open ? 1 / 10 : 1 / 30);
           if (open) this.openChest[sd] = true;
           else if (direct && !this.tension[sd] && this.rng() < 0.2) this.tension[sd] = true;
+          // AIS 2005: a laceration of both lungs is graded 4 (one lung 3)
+          if (this.structSev['lung L'] && this.structSev['lung R']) this.addAIS('chest', 4, 'bilateral lung laceration');
           toLog.push([`${s.label} ${direct ? 'punctured' : 'contused'} (pneumothorax)`, 2]);
           break;
         }
@@ -524,8 +586,8 @@ export class InjurySystem {
         case 'artery':
         case 'vein': {
           const q = s.bleed * added;
-          bleeds.push(this.makeBleed(q, s.kind, { ext: s.external, cav: s.cav, side: s.side || side, label: s.label }));
-          toLog.push([`${s.label} ${direct ? 'severed' : 'lacerated'}`, q > 15 ? 3 : 2]);
+          bleeds.push(this.makeBleed(q, s.kind, { ext: s.external, cav: s.cav, side: s.side || side, label: s.label, full: s.bleed }));
+          if (added > 0.02) toLog.push([`${s.label} ${direct ? 'severed' : 'lacerated'}`, q > 15 ? 3 : 2]);
           break;
         }
         case 'organ':
@@ -552,8 +614,8 @@ export class InjurySystem {
             } else {
               this.addFracture(seg, s.bone, open, false);
             }
-            const fb = FRACTURE_BLEED[s.bone] ?? 0.3;
-            bleeds.push(this.makeBleed(fb, 'bone', { art: 0.3, ext: open ? 0.4 : 0, cav: s.bone === 'pelvis' ? 'retro' : 'tissue', side, label: s.label }));
+            const fb = this.boneBleed(name, s.bone, FRACTURE_BLEED[s.bone] ?? 0.3);
+            if (fb > 0) bleeds.push(this.makeBleed(fb, 'bone', { art: 0.3, ext: open ? 0.4 : 0, cav: s.bone === 'pelvis' ? 'retro' : 'tissue', side, label: s.label }));
             if (s.nearCord && (direct ? this.rng() < 0.45 : this.rng() < 0.12)) {
               this.spinalInjury(s.nearCord);
               toLog.push([`spinal cord injured by ${s.label} fragments`, 3]);
@@ -828,7 +890,8 @@ export class InjurySystem {
     // fractures
     const pFrac = 1 / (1 + Math.exp(-(F - T.fracture) / (0.08 * T.fracture)));
     if (T.fracture < Infinity && this.rng() < pFrac) {
-      const fb = FRACTURE_BLEED[T.label] ?? 0.3;
+      // (bullets name the long bones the same way: 'femur', 'tibia', 'humerus', 'radius/ulna')
+      const fb = () => this.boneBleed(name, T.label, FRACTURE_BLEED[T.label] ?? 0.3);
       if (seg.bone) {
         // break where it was struck: project the contact onto the bone axis
         const ax = boneAxis(name);
@@ -838,11 +901,13 @@ export class InjurySystem {
           const t = clamp(_v2.subVectors(pb, ax.a).dot(ab) / ab.lengthSq(), 0, 1);
           result.fracture = { seg, t, open: F > T.fracture * 2.2 };
           this.queueBreak(seg, t, F > T.fracture * 2.2);
-          this.addBleed(w, this.makeBleed(fb, 'bone', { art: 0.3, ext: F > T.fracture * 2.2 ? 0.3 : 0, cav: 'tissue' }));
+          const q = fb();
+          if (q > 0) this.addBleed(w, this.makeBleed(q, 'bone', { art: 0.3, ext: F > T.fracture * 2.2 ? 0.3 : 0, cav: 'tissue' }));
         }
       } else {
         this.addFracture(seg, T.label, F > T.fracture * 2.5, false);
-        this.addBleed(w, this.makeBleed(fb, 'bone', { art: 0.3, ext: 0, cav: k === 'pelvis' ? 'retro' : k === 'chest' ? 'pleura' : 'tissue', side: local.x >= 0 ? 'L' : 'R' }));
+        const q = fb();
+        if (q > 0) this.addBleed(w, this.makeBleed(q, 'bone', { art: 0.3, ext: 0, cav: k === 'pelvis' ? 'retro' : k === 'chest' ? 'pleura' : 'tissue', side: local.x >= 0 ? 'L' : 'R' }));
         if (k === 'chest' && F > T.fracture * 1.8) {
           // flail segment / lung contusion; sharp rib ends may puncture the lung
           const sd = local.x >= 0 ? 'L' : 'R';
@@ -975,11 +1040,14 @@ export class InjurySystem {
     // flow (hypotension) lets clots form
     const coag = (1 - 0.6 * smoothstep(70, 40, this.mapF)) * (1 - 0.45 * smoothstep(0.2, 0.7, load));
     const clotRate = alive ? 1 + 1.5 * smoothstep(80, 40, this.mapF) : 0.3;
+    const trees = this.trees;
+    for (const t in trees) trees[t].S = trees[t].Sv = 0;
     let K = 0, Qv = 0;
     for (const w of this.wounds) {
       w.age += dt;
       w.spurtPhase += dt * (this.hr / 60);
       if (!w.bleeds.length) continue;
+      if (w.tree === undefined) w.tree = w.seg ? limbTree(w.seg.name) : null;
       const share = w.partner ? 0.4 : 1;
       const pIn = w.pressure > 0, pOut = w.partner ? w.partner.pressure > 0 : false;
       for (const b of w.bleeds) {
@@ -991,9 +1059,27 @@ export class InjurySystem {
         b.pressF = share * (pIn ? pf : 1) + (1 - share) * (pOut ? pf : 1);
         b.qe = b.q * (1 - b.clot) * this.bleedScale;
         const qn = b.qe * (b.ext * b.pressF + 1 - b.ext);
-        K += qn * b.art;
-        Qv += qn * (1 - b.art);
+        if (w.tree) {
+          // conductance of the leak itself, without the shared feeding vessels: chosen so that a
+          // single structure bleeds its nominal flow `q` at normal pressure
+          if (b.sInt === undefined) {
+            const def = LIMB_TREE[w.tree.slice(0, 3)];
+            b.sInt = def.gc / Math.max(def.gc - b.full * b.art, 0.1 * def.gc);
+            b.sIntV = def.gcv / Math.max(def.gcv - b.full * (1 - b.art), 0.1 * def.gcv);
+          }
+          const T = trees[w.tree] || (trees[w.tree] = { S: 0, Sv: 0, phi: 1, phiV: 1 });
+          T.S += qn * b.art * b.sInt;
+          T.Sv += qn * (1 - b.art) * b.sIntV;
+        } else {
+          K += qn * b.art;
+          Qv += qn * (1 - b.art);
+        }
       }
+    }
+    for (const t in trees) {
+      const T = trees[t], gcv = LIMB_TREE[t.slice(0, 3)].gcv;
+      T.phiV = gcv / (T.Sv + gcv);
+      Qv += T.Sv * T.phiV;
     }
     // ---- venous / pulmonary bleeding is lost before it reaches the heart
     Qv *= xV;
@@ -1001,15 +1087,28 @@ export class InjurySystem {
     Qv *= vScale;
     const inflow = Math.max(0, vr - Qv / CO0);
     this.inflow = inflow;
+    this.venousCapacity = vr * CO0;
     // ---- pump: wounded myocardium x ischaemic myocardium, helped by sympathetic contractility
     const isch = 1 - 0.9 * smoothstep(12, 60, this.myoDebt);
     const pump = alive && !arrested ? this.cardiac * isch * (1 + 0.25 * c) : 0;
     const co = CO0 * heartOutput(inflow, pump);
-    // ---- arterial pressure: cardiac output drains through the systemic resistance and through
-    // the arterial leaks (orifice flow ~ sqrt(P)): Gs*P + K*sqrt(P) = CO
+    // ---- limb trees: leaks (conductance S) in series with the feeding artery (gc), so the tree
+    // drains S*gc/(S+gc), at most gc, in proportion to the arterial pressure (veins likewise)
+    let gT = 0;
+    for (const t in trees) {
+      const T = trees[t];
+      const def = LIMB_TREE[t.slice(0, 3)];
+      const gc = def.gc * (1 - 0.7 * (this.structSev[def.feeder + ' ' + t[3]] || 0));
+      T.phi = gc / (T.S + gc);
+      gT += (T.S * T.phi) / MAP0;
+    }
+    // ---- arterial pressure: cardiac output drains through the systemic resistance, the limb
+    // trees (viscous, ~P) and the central arterial leaks (orifice flow ~ sqrt(P)):
+    // (Gs + GT)*P + K*sqrt(P) = CO
     const gs = (G_SVR * (1 + 0.7 * (1 - this.autonomic))) / (1 + 0.8 * c);
+    const g = gs + gT;
     K /= SQ_MAP0;
-    const x = co > 0 ? (-K + Math.sqrt(K * K + 4 * gs * co)) / (2 * gs) : 0;
+    const x = co > 0 ? (-K + Math.sqrt(K * K + 4 * g * co)) / (2 * g) : 0;
     this.map = x * x;
     this.co = co;
     this.perfusion = co / CO0;
@@ -1019,7 +1118,7 @@ export class InjurySystem {
     const xA = Math.max(x, Math.sqrt(PV0 * vs)) / SQ_MAP0;
     const post = alive ? 1 : Math.exp(-(this.time - this.deathTime) / 40); // post-mortem drainage stops
     // ---- distribute the flows
-    let ext = 0, int = 0;
+    let ext = 0, int = 0, leakArt = 0, leakVen = 0;
     const cav = this.cav;
     for (const w of this.wounds) {
       if (!w.bleeds.length) {
@@ -1030,9 +1129,15 @@ export class InjurySystem {
       const share = w.partner ? 0.4 : 1;
       let wExt = 0, wExtIn = 0, wInt = 0;
       const pIn = w.pressure > 0, pOut = w.partner ? w.partner.pressure > 0 : false;
+      const T = w.tree ? trees[w.tree] : null;
       for (const b of w.bleeds) {
-        const drive = (b.art * xA + (1 - b.art) * xV * vScale) * post;
-        const f = b.qe * drive;
+        // arterial drive: sqrt(P / P0) for central leaks, (P / P0) through a limb tree
+        const dA = T ? xA * xA * b.sInt * T.phi : xA;
+        const fa = b.qe * b.art * dA * post, fv = b.qe * (1 - b.art) * xV * vScale * post * (T ? b.sIntV * T.phiV : 1);
+        const f = fa + fv;
+        const m = b.ext * b.pressF + 1 - b.ext;
+        leakArt += fa * m;
+        leakVen += fv * m;
         const pf = b.art > 0.5 ? 0.45 : 0.25;
         const fe = f * b.ext;
         wExtIn += fe * share * (pIn ? pf : 1);
@@ -1054,6 +1159,8 @@ export class InjurySystem {
     }
     this.externalRate = ext;
     this.bleedRate = ext + int;
+    this.leakArt = leakArt;
+    this.leakVen = leakVen;
     this.blood = Math.max(0, this.blood - (ext + int) * dt);
     this.lostExternal += ext * dt;
     this.lostInternal += int * dt;
@@ -1149,6 +1256,10 @@ export class InjurySystem {
       // a pleural cavity holds up to ~3 L of blood; the haemothorax compresses the lung
       const htx = smoothstep(300, 1800, this.cav['pleura' + s]);
       this.lungs[s] = this.parench[s] * (1 - 0.92 * this.ptx[s]) * (1 - 0.8 * htx);
+      // the trauma scores grade what the chest injury has become: massive haemothorax (> 1 L) is
+      // AIS 4, a tension pneumothorax AIS 5
+      if (this.cav['pleura' + s] > 1000) this.gradeOnce('chest', 4, 'massive haemothorax');
+      if (this.tensionP[s] > 0.5) this.gradeOnce('chest', 5, 'tension pneumothorax');
     }
     // airway: tracheal injury, aspirated blood (cleared by coughing while conscious) and an
     // expanding neck haematoma
@@ -1267,7 +1378,8 @@ export class InjurySystem {
   /**
    * Breathing motion for the controller: deeper and faster with shock and hypoxia (air hunger),
    * none with respiratory paralysis, and in the dying brain stem only agonal gasps: sudden deep
-   * breaths every few seconds, without the rhythm of normal breathing.
+   * breaths every few seconds, without the rhythm of normal breathing. (The controller ignores
+   * ctl.respiration while unconscious; see the class comment.)
    */
   breathingOutput(dt, lossFrac) {
     const ctl = this.ctl;

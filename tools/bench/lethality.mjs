@@ -12,6 +12,9 @@
 //   shotgun, chest, 3 m          -> dead within 1 min
 //   4x pistol, abdominal organs  -> dead within minutes (liver / spleen / kidneys bleed persistently)
 //   12x pistol, limb muscles     -> slower death from many bleeding wounds and fractures
+//   10x pistol, legs (scattered) -> exsanguination over minutes when vessels are hit, but always
+//                                   slower than the torso volleys (limb arteries share their
+//                                   feeding artery; run on several scene seeds)
 //   pistol, carotid artery       -> exsanguinates within minutes (neck haematoma narrows the airway)
 //   pistol, back of the neck     -> high cervical cord: apnoea, hypoxic arrest within a few minutes
 //   pistol, both lungs           -> bilateral pneumothorax: hypoxic arrest within minutes
@@ -19,7 +22,10 @@
 // Shots aimed at the segment centre converge from `from` (world offset of the muzzle); shots with an
 // anatomical aim point (bind-pose coordinates inside the segment) are fired along the segment's own
 // axes from `from` (segment-frame offset), so they cross the intended anatomy whatever the pose.
-import { scene, run, report, Vec3 } from './common.mjs';
+// Env: ONLY=name,name (subset), SEED=n (scene seed of the scenarios without their own, default 3),
+// VERBOSE=1 (injury log of each case).
+import { scene, run, report, bodyShape, Vec3 } from './common.mjs';
+import { raycastPeople } from '../../src/game/weapons.js';
 
 const torso8 = Array.from({ length: 8 }, (_, i) => ['pistol', i % 2 ? 'abdomen' : 'chest', [((i * 37) % 9) / 30 - 0.15, ((i * 53) % 7) / 40 - 0.08, 4]]);
 const smg30 = Array.from({ length: 30 }, (_, i) => ['smg', ['chest', 'abdomen', 'pelvis', 'thighL', 'thighR', 'upperArmL', 'upperArmR', 'neck'][i % 8], [((i * 41) % 11) / 30 - 0.18, ((i * 29) % 9) / 40 - 0.1, 4]]);
@@ -31,6 +37,16 @@ const limbs12 = [
   ['thighL', [0.14, 0.6, -0.02]], ['thighR', [-0.14, 0.6, -0.02]], ['upperArmL', [0.236, 1.3, -0.04]], ['upperArmR', [-0.236, 1.3, -0.04]],
   ['upperArmL', [0.245, 1.22, -0.045]], ['upperArmR', [-0.245, 1.22, -0.045]], ['shinL', [0.128, 0.33, -0.02]], ['shinR', [-0.128, 0.33, -0.02]],
 ].map(([seg, p]) => front(seg, p));
+// scattered hits over the front of both thighs and shins (low-discrepancy pattern, so some shots
+// cross the femoral vessels and some only muscle and bone)
+const legs10 = Array.from({ length: 10 }, (_, i) => {
+  const seg = ['thighL', 'thighR', 'shinL', 'thighR', 'thighL', 'shinR', 'thighL', 'thighR', 'shinR', 'shinL'][i];
+  const u = (i * 0.618034 + 0.2) % 1, v = (i * 0.754878 + 0.5) % 1;
+  const sg = seg.endsWith('L') ? 1 : -1;
+  const p = seg.startsWith('thigh') ? [sg * (0.04 + 0.11 * u), 0.58 + 0.28 * v, 0.01] : [sg * (0.07 + 0.06 * u), 0.15 + 0.3 * v, -0.01];
+  return front(seg, p, 'pistol', 2);
+});
+const TORSO_VOLLEYS = ['8x pistol torso', '30x SMG body', '20x SMG body no head'];
 
 const SCEN = [
   { name: 'rifle head', expect: 'dead<1s', shots: [['rifle', 'head']] },
@@ -42,16 +58,31 @@ const SCEN = [
   { name: '3x rifle chest', expect: 'dead<60s', shots: [['rifle', 'chest', [0.12, 0.05, 4]], ['rifle', 'chest', [-0.1, -0.05, 4]], ['rifle', 'chest', [0.02, 0.12, 4]]] },
   { name: '8x pistol torso', expect: 'dead<90s', shots: torso8 },
   { name: '30x SMG body', expect: 'dead<30s', shots: smg30 },
-  { name: '20x SMG body no head', expect: 'dead<30s', shots: smg20 },
+  { name: '20x SMG body no head', expect: 'dead<30s', noHead: true, shots: smg20 },
   { name: 'shotgun chest', expect: 'dead<60s', shots: [['shotgun', 'chest', [0, 0.05, 3]]] },
   { name: '4x pistol abdomen', expect: 'dead<240s', shots: [[-0.06, 1.14], [0.06, 1.12], [-0.075, 1.07], [0.05, 1.05]].map(([x, y]) => front('abdomen', [x, y, 0.04])) },
   { name: '12x pistol limbs', expect: 'dead<300s', window: 300, rof: 30, shots: limbs12 },
+  ...[1, 2, 5].map((seed) => ({ name: `10x pistol legs s${seed}`, seed, expect: 'dead<300s', window: 300, slowerThan: TORSO_VOLLEYS, shots: legs10 })),
   { name: 'pistol carotid', expect: 'dead<240s', shots: [front('neck', [0.028, 1.53, 0.0], 'pistol', 1)] },
   { name: 'pistol back of neck', expect: 'dead<240s', shots: [['pistol', 'neck', [0, 0, -1], [0, 1.575, -0.045]]] },
   { name: 'pistol both lungs', expect: 'dead<240s', shots: [front('chest', [-0.085, 1.36, 0.0]), front('chest', [0.09, 1.34, 0.0])] },
   { name: 'pistol jaw', expect: 'alive', shots: [['pistol', 'head', [1.5, 0, 0.15], [0, 1.61, 0.055]]] },
   { name: 'pistol scalp graze', expect: 'alive', shots: [['pistol', 'head', [1.5, 0, 0], [0, 1.778, -0.015]]] },
 ];
+
+/**
+ * A shooter who keeps off the head and neck (`noHead` scenarios): once the dummy is down, a level
+ * shot at an arm can run on into the head, so fire from higher up until the line of fire is clear.
+ */
+function clearOfHead(sb, a) {
+  for (let i = 0; i < 8; i++) {
+    const dir = a.target.clone().sub(a.origin).normalize();
+    const hits = raycastPeople(sb.people, bodyShape(), a.origin, dir, 12);
+    if (!hits.some((h) => h.seg.name === 'head' || h.seg.name === 'neck')) break;
+    a.origin.y += 0.4;
+  }
+  return a;
+}
 
 /** Muzzle and aim point of one shot (see the header). */
 function aim(person, seg, from, bindPt) {
@@ -68,12 +99,13 @@ const only = process.env.ONLY ? process.env.ONLY.split(',') : null;
 const out = [];
 for (const s of SCEN) {
   if (only && !only.includes(s.name)) continue;
-  const { sb, person } = scene(3, { shape: true, settle: 1 });
+  const { sb, person } = scene(s.seed ?? +(process.env.SEED || 3), { shape: true, settle: 1 });
   // fire the volley at `rof` rounds/s (default 10), re-aiming at the (possibly moving) body
   let k = 0;
   const shoot = () => {
     const [w, seg, from, bp] = s.shots[k++];
-    const a = aim(person, seg, from || [0.03, 0.05, 4], bp);
+    let a = aim(person, seg, from || [0.03, 0.05, 4], bp);
+    if (s.noHead) a = clearOfHead(sb, a);
     sb.fire(w, a.origin, a.target.clone().sub(a.origin).normalize());
   };
   const every = Math.max(1, Math.round(60 / (s.rof || 10)));
@@ -94,9 +126,17 @@ for (const s of SCEN) {
   const inj = person.injury;
   const v = inj.vitals();
   const r = { name: s.name, expect: s.expect, unconscious: tUnc === null ? null : +tUnc.toFixed(1), dead: tDead === null ? null : +tDead.toFixed(1), cause: inj.deathCause, blood: Math.round(inj.blood), wounds: inj.wounds.length, iss: v.iss };
-  const pass = s.expect === 'alive' ? r.dead === null : r.dead !== null && r.dead < +s.expect.match(/<(\d+)/)[1];
+  let pass = s.expect === 'alive' ? r.dead === null : r.dead !== null && r.dead < +s.expect.match(/<(\d+)/)[1];
+  // the premise of a `noHead` scenario: death from the body wounds, not a stray head shot
+  if (s.noHead && (inj.structSev.brain || inj.structSev.brainstem)) pass = false;
+  // (a scenario that must die more slowly than the torso volleys is checked after they have run)
+  if (s.slowerThan) {
+    const ref = out.filter((x) => s.slowerThan.includes(x.name) && x.dead !== null).map((x) => x.dead);
+    if (ref.length && r.dead !== null && r.dead <= Math.max(...ref)) pass = false;
+  }
   r.pass = pass;
   out.push(r);
   console.log(`${s.name.padEnd(21)} expect ${s.expect.padEnd(10)} unconscious=${r.unconscious ?? '-'}s dead=${r.dead ?? '-'}s cause=${r.cause ?? '-'} blood=${r.blood} ISS=${r.iss} ${pass ? 'PASS' : 'FAIL'}`);
+  if (process.env.VERBOSE) for (const e of inj.injuries) console.log(`    ${e.time.toFixed(1).padStart(6)}s ${e.text}`);
 }
 report('lethality', { pass: out.filter((r) => r.pass).length, total: out.length, cases: out.map((r) => [r.name, r.dead, r.pass]) });
