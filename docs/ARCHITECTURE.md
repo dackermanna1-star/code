@@ -71,7 +71,7 @@ ctx = { engine, scene, time, settings, rng, events,
 
 ### Loop & timing (`src/core/time.ts`, `src/core/game.ts`)
 * Fixed-step simulation at **60 Hz** (`FIXED_DT = 1/60`), decoupled from rendering through
-  an accumulator (max 4 steps per frame, then drop time). Havok is stepped exactly once per
+  an accumulator (max 2 steps per frame, fewer while steps are expensive, then drop time). Havok is stepped exactly once per
   fixed step with `FIXED_DT` (see physics API notes for the exact mechanism).
 * Per fixed step, in order:
   1. `input` sampled (edge-triggered actions latched per frame, consumed by the first step)
@@ -255,12 +255,16 @@ recomputed; colliders are refreshed from the deformed hull only for large global
   immediately for responsiveness.
 * Micro-debris: no physics bodies; ballistic sim with simple collisions against a cached
   height probe + bounce; thousands rendered by thin instances / SPS.
-* Sleeping small debris islands are merged into per-cell static batch meshes after they
-  sleep for 2 s (draw-call consolidation); they are restored when woken.
+* Draw-call consolidation (`runtime/debris.ts`): sleeping dynamic islands (after
+  `quality.consolidateAfter`) and resting static islands are merged into per-4 m-cell batch
+  meshes (frozen world matrices); chunked walls/floors keep their 4 m render chunks. An island
+  gets its own meshes back when it moves, is struck/used, or its geometry/membership changes.
+  Islands hosting motors or screens are never merged.
 * Bodies falling below y = −30 (thrown off the balcony) are removed after a delayed
   distant-impact sound.
-* Physical debris count is unbounded by design; quality presets only control micro-debris
-  density, dust counts and consolidation aggressiveness.
+* Physical debris is budgeted per preset (`quality.maxDebrisBodies`): over the budget the
+  smallest settled broken-off pieces crumble into micro-debris; fracture cells below
+  `quality.microCellSize` become micro-debris instead of bodies.
 
 ### 4.9 Features (`src/destruction/features/*`)
 Behaviours attached to parts, reacting to damage/destroy events:
@@ -408,8 +412,11 @@ x 7.8–8.8; bedroom-2 south x 10.2–11.8 and east z 1.4–3.0. Sill 0.9 m, hea
 ## 11. Performance budgets & quality
 Target 60 fps on a mid-range desktop GPU at 1080p with ~300 awake bodies and thousands of
 sleeping debris pieces. Budgets per fixed step: physics ≤ 5 ms, destruction ≤ 4 ms,
-micro-debris ≤ 1 ms. Presets (Low/Medium/High/Ultra) control resolution scale, shadows,
-SSAO, bloom, particle density, micro-debris density, consolidation. Debug overlay (F3)
+micro-debris ≤ 1 ms. Presets (Minimal/Low/Medium/High/Ultra; Minimal is the default for weak
+PCs until the player picks another) control resolution scale, shadows (size, moving casters,
+refresh interval, point shadows), SSAO, bloom, FXAA, film effects, interior-light budget,
+particle / micro-debris density, debris body budget, consolidation, audio voices and boot-time
+physics detail (`src/core/settings.ts`). Debug overlay (F3)
 shows fps, frame/physics/destruction ms, draw calls, bodies (awake/asleep), islands,
 parts, debris, voices.
 

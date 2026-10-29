@@ -37,12 +37,11 @@ import type { FractureInfo } from "../features/feature.ts";
 export const FRACTURE_BUDGET_MS = WORK_BUDGET_MS;
 /** Loose cells smaller than this (m, largest extent) become micro-debris. */
 export const LOOSE_MIN_EXTENT = 0.03;
-/** Dynamic body budget per micro-debris capacity unit of the quality preset (see bodyCap). */
-const BODIES_PER_MICRO = 0.1;
-const MIN_BODY_CAP = 150;
-/** Awake body budget per micro-debris capacity unit of the quality preset (high: 400, medium 200; see awakeCap). */
-const AWAKE_PER_MICRO = 1 / 15;
-const MIN_AWAKE_CAP = 100;
+/** Minimum dynamic body budget (see bodyCap; the preset's maxDebrisBodies). */
+const MIN_BODY_CAP = 100;
+/** Awake body budget relative to the dynamic body budget (see awakeCap). */
+const AWAKE_PER_BODY = 0.6;
+const MIN_AWAKE_CAP = 60;
 /** Over the awake budget, loose cells smaller (m) and lighter (kg) than these become micro-debris. */
 export const BUSY_MICRO_EXTENT = 0.06;
 export const BUSY_MICRO_MASS = 0.05;
@@ -135,16 +134,15 @@ export class FractureSystem {
     this.queue.length = j;
   }
 
-  /** Dynamic body budget derived from the quality preset's micro-debris capacity. */
+  /** Dynamic body budget: the quality preset's debris-body budget. */
   private bodyCap(): number {
-    const m = this.w.settings.quality.microDebrisMax;
-    return Math.max(MIN_BODY_CAP, (Number.isFinite(m) ? m : 3000) * BODIES_PER_MICRO);
+    const m = this.w.settings.quality.maxDebrisBodies;
+    return Math.max(MIN_BODY_CAP, Number.isFinite(m) ? m : 400);
   }
 
-  /** Awake body budget derived from the quality preset's micro-debris capacity. */
+  /** Awake body budget (a fraction of the body budget). */
   private awakeCap(): number {
-    const m = this.w.settings.quality.microDebrisMax;
-    return Math.max(MIN_AWAKE_CAP, (Number.isFinite(m) ? m : 3000) * AWAKE_PER_MICRO);
+    return Math.max(MIN_AWAKE_CAP, this.bodyCap() * AWAKE_PER_BODY);
   }
 
   private apply(req: FractureRequest): void {
@@ -168,6 +166,12 @@ export class FractureSystem {
     const passiveDebris = !req.strike && !island.isStatic && (P.gen > 0 || island.layer === Layer.DEBRIS);
     const saturated = passiveDebris && this.deps.dynamicCount() >= this.bodyCap();
     const canMicro = P.mat.micro !== "none";
+    // weak-PC presets turn bigger chips into particles (BUSY_* scale with the size, mass with its cube)
+    const mc = w.settings.quality.microCellSize;
+    const k = Number.isFinite(mc) && mc > LOOSE_MIN_EXTENT ? mc / LOOSE_MIN_EXTENT : 1;
+    const minExt = LOOSE_MIN_EXTENT * k,
+      busyExt = BUSY_MICRO_EXTENT * k,
+      busyMass = BUSY_MICRO_MASS * k * k * k;
     let busy: boolean | null = null; // (asked lazily: only fractures with small loose cells need it)
     for (let i = 0; i < n; i++) {
       const c = cells[i];
@@ -176,9 +180,9 @@ export class FractureSystem {
         const ext = Number.isFinite(c.maxExtent) ? c.maxExtent : 0;
         const m = c.volume * density;
         if (passiveDebris) {
-          if (ext < LOOSE_MIN_EXTENT || (saturated && m < DEBRIS_MASS)) role = "micro";
-        } else if (canMicro && ext < BUSY_MICRO_EXTENT && m < BUSY_MICRO_MASS) {
-          if (ext < LOOSE_MIN_EXTENT) role = "micro";
+          if (ext < minExt || (saturated && m < DEBRIS_MASS)) role = "micro";
+        } else if (canMicro && ext < busyExt && m < busyMass) {
+          if (ext < minExt) role = "micro";
           else {
             if (busy === null) busy = this.deps.awakeCount() >= this.awakeCap();
             if (busy) role = "micro";

@@ -692,8 +692,11 @@ export class JointSystem {
     if (g.motorOn) tau += Math.max(-tmax, Math.min(tmax, (tmax / 1.5) * (g.motorSpeed - wRel)));
     else if (Math.abs(wRel) < 0.05) {
       this.motors.delete(g); // stopped: no more per-step work until powered again
+      this.w.physics.setDriven?.(jc.moving.body, false);
       return;
     }
+    // a powered rotor never joins the sleep assist's piles (its spin would hold them awake)
+    this.w.physics.setDriven?.(jc.moving.body, g.motorOn);
     this.applyTorque(jc, axis, tau, dt);
     if (g.motorOn && Math.abs(g.motorSpeed - wRel) > 0.2) this.w.physics.wake(jc.moving.body);
   }

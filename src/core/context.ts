@@ -163,6 +163,8 @@ export interface PhysicsSystem {
   teleport?(body: PhysicsBody, pos: Vec3, rot?: Quat | null, resetVelocity?: boolean): void;
   /** Keep a body permanently awake (held objects) or return it to simulation control. */
   setKeepAwake?(body: PhysicsBody, on: boolean): void;
+  /** Body spun by a powered motor (fan rotor): kept out of the sleep assist's pile grouping. */
+  setDriven?(body: PhysicsBody, on: boolean): void;
   /** Suppress impacts involving `body` for the next `steps` fixed steps (fragments spawned in contact). */
   muteImpacts?(body: PhysicsBody, steps: number): void;
   /** Velocity was changed by raw Havok calls: re-read it before the next step (Babylon setters are tracked already). */

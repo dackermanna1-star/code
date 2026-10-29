@@ -348,6 +348,12 @@ class BodyRec implements ImpactSide {
   joints: Set<JointRec> | null = null;
   keepAwake = false;
   heldAwake = false;
+  /**
+   * Driven by a running velocity motor (ceiling-fan rotor, hood blower): never a member of the sleep pass's
+   * components — its spin would otherwise keep every pile whose AABBs chain up to it awake for good (measured: a
+   * 184-body wreck next to the kitchen never slept, 10 ms per step, because the blower joined its component).
+   */
+  driven = false;
   /** We overrode mass (min-mass clamp) / inertia (degenerate shape): undone on the next setShape. */
   massClamped = false;
   inertiaFixed = false;
@@ -1573,7 +1579,8 @@ export class Physics implements PhysicsSystem {
     // members: dynamic bodies not known to be asleep (moving, or awake and perfectly still)
     for (let i = 0; i < list.length; i++) {
       const rec = list[i];
-      if (!rec.asleepKnown && rec.motion === DYNAMIC && !rec.disposed) mem.push(rec);
+      if (!rec.asleepKnown && rec.motion === DYNAMIC && !rec.disposed && !rec.driven) mem.push(rec);
+      else rec.sleepIdx = -1;
     }
     const n = mem.length;
     if (n === 0) return;
@@ -2110,6 +2117,12 @@ export class Physics implements PhysicsSystem {
     const rec = this.recs.get(body);
     if ((rec ? rec.motion : body.getMotionType()) === STATIC) return false;
     return this.hk.HP_Body_GetActivationState(id)[1] === this.hk.ActivationState.ACTIVE;
+  }
+
+  /** Mark a body as spun by a powered motor (see BodyRec.driven); cleared when its joint goes. */
+  setDriven(body: PhysicsBody, on: boolean): void {
+    const rec = this.recs.get(body);
+    if (rec) rec.driven = on && rec.motion === DYNAMIC;
   }
 
   /** Keep a body permanently awake (held objects, slow scripted drags) or return it to simulation control. */
@@ -2981,6 +2994,7 @@ export class Physics implements PhysicsSystem {
         r.joints.delete(j);
         if (r.joints.size === 0) r.joints = null;
       }
+      r.driven = false; // (a rotor has one motor joint)
       if (!r.disposed && r.motion === DYNAMIC) this.wake(r.body); // a door released from its hinges starts to fall
     }
   }
@@ -3023,6 +3037,12 @@ export class Physics implements PhysicsSystem {
       P.setAxisMotorType(c, ax, PhysicsConstraintMotorType.VELOCITY);
       P.setAxisMotorTarget(c, ax, velocity);
       P.setAxisMotorMaxForce(c, ax, maxTorque);
+    }
+    const j = this.joints.get(c);
+    if (j) {
+      const on = maxTorque > 0 && Number.isFinite(velocity) && velocity !== 0;
+      j.a.driven = on && j.a.motion === DYNAMIC;
+      j.b.driven = on && j.b.motion === DYNAMIC;
     }
     this.wakeJoint(c);
   }
