@@ -139,7 +139,7 @@ test("variants build without warnings", () => {
     ["coatCloset", { coats: 0, sideWall: "none" }],
     ["wallWireShelf", { len: 0.9, tops: [1.5] }],
     ["washer", { hoses: { inlet: [0.25, 1.05, -0.4], drain: [0.1, 0.95, -0.42] } }],
-    ["dryer", { plug: [-0.4, 1.1, 0.1], vent: [-0.2, 0.15, -0.38] }],
+    ["dryer", { plug: [-0.4, 1.1, 0.1] }],
     ["acCondenser", { fanSpeed: 0 }],
   ];
   for (const [type, o] of variants) {

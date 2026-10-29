@@ -45,7 +45,8 @@ export function buildLaptop(o: LaptopOpts = {}): AssemblyDef {
   // internals between shell and deck
   const batt = boxR(b, "battery", "plastic", "metal_black", [-0.12, 0.12], [y1, y1 + 0.007], [0.01, 0.095], { mass: 0.3, tint: 0x2f3033 });
   b.screw(batt, bottom, 4, 6);
-  const board = boxR(b, "mainboard", "pcb", "pcb", [-0.1, 0.06], [y1 + 0.002, y1 + 0.0036], [-0.098, -0.008], { tint: 0x1f3326 });
+  // the board lies on the shell (insulating Mylar sheet between them, not modelled)
+  const board = boxR(b, "mainboard", "pcb", "pcb", [-0.1, 0.06], [y1, y1 + 0.0016], [-0.098, -0.008], { tint: 0x1f3326 });
   b.screw(board, bottom, 4, 5);
   b.sparks(board, 0.8);
   const fan = b.cyl("fan", "plastic", "plastic", 0.028, 0.007, [0.105, y1 + 0.0035, -0.07], { segments: 12, tint: 0x222222, mass: 0.02 });

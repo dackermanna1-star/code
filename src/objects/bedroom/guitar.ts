@@ -179,8 +179,16 @@ export function buildGuitar(o: GuitarOpts = {}): AssemblyDef {
     }
   }
   const neck = b.hull("neck", "hardwood", "wood_walnut", neckPts, [0, 0, 0], { grain: "y", tint: 0xc98f5e, smooth: 1 });
-  b.glue(neck, nearest(neck, ribsU), 60); // dovetail into the neck block through the top rib
-  b.glue(neck, neckBlock, 60);
+  b.glue(neck, nearest(neck, ribsU), 60); // heel glued against the top rib
+  // dovetail tenon: part of the heel, let through the rib into the neck block (inset), so the
+  // neck's main structural joint is real wood-to-wood contact, not a bond across the rib
+  const tenon = boxR(b, "neck_tenon", "hardwood", "wood_walnut", [-0.011, 0.011], [ribInnerY - 0.014, NECK.y0 + 0.012], [NECK.zTop - NECK.d0 + 0.007, Math.min(zR - 0.003, NECK.zTop - 0.004)], {
+    grain: "y",
+    tint: 0xc98f5e,
+    tags: ["inset"],
+  });
+  b.glue(tenon, neck, 60);
+  b.glue(tenon, neckBlock, 60);
   const fbY0 = 0.448;
   const fb = b.hull(
     "fingerboard",
@@ -258,7 +266,8 @@ export function buildGuitarStand(o: GuitarStandOpts = {}): AssemblyDef {
   const mast = b.cyl("mast", "steel", S, 0.0125, yokeY + 0.0125 - barH, [0, (barH + yokeY + 0.0125) / 2, mastZ], { segments: 10, mass: roundTubeKgPerM(0.025, 0.0015) * (yokeY - barH) });
   b.weld(mast, rear, 90);
   const padZ0 = yokeZ - 0.014;
-  const armZ0 = mastZ + 0.0125;
+  // the 10-gon mast presents a flat towards +Z at its apothem (r·cos 18°): the arm butts onto it
+  const armZ0 = mastZ + 0.0125 * Math.cos(Math.PI / 10);
   const arm = b.cyl("arm", "steel", S, 0.01, padZ0 - armZ0, [0, yokeY, (armZ0 + padZ0) / 2], { axis: "z", segments: 10, mass: roundTubeKgPerM(0.02, 0.0015) * (padZ0 - armZ0) });
   b.weld(arm, mast, 70);
   const pad = boxR(b, "yoke_pad", "rubber", "rubber", [-0.042, 0.042], [yokeY - STAND.padH / 2, yokeY + STAND.padH / 2], [padZ0, yokeZ], { tint: 0x1c1c1e, mass: 0.08 });

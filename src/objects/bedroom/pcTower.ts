@@ -165,7 +165,7 @@ export function buildPcTower(o: PcTowerOpts = {}): AssemblyDef {
   // ---------------------------------------------------------------- GPU (fans facing down)
   const gx0 = -0.09,
     gx1 = 0.025;
-  const gz0 = -0.2152,
+  const gz0 = zBk + t + 0.002, // the card's PCB starts at the bracket face (screwed to it)
     gz1 = 0.06;
   const gpuPcb = boxR(b, "gpu_pcb", "pcb", "pcb", [gx0, gx1], [0.23, 0.2316], [gz0, gz1], { tint: 0x1f2a22 });
   const gBack = boxR(b, "gpu_backplate", "aluminum", "metal_black", [gx0, gx1], [0.2316, 0.2346], [gz0, gz1], { tess: 0 });

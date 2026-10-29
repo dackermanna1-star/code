@@ -20,7 +20,7 @@ export interface TableLampOpts {
   seed?: number;
 }
 
-/** Table lamp: 0.34 m dia × 0.52 m, ~3 kg, ~27 parts. */
+/** Table lamp: 0.34 m dia × 0.52 m, ~3 kg, 36 parts. */
 export function buildTableLamp(o: TableLampOpts = {}): AssemblyDef {
   const b = new Builder("tableLamp", "Ceramic Table Lamp", "decor", 120, o.seed);
   const tint = o.tint ?? PALETTE.ceramic[b.rng.int(0, PALETTE.ceramic.length - 1)];
@@ -56,7 +56,7 @@ export interface FloorLampOpts {
   seed?: number;
 }
 
-/** Floor lamp: 0.44 m dia × 1.68 m, ~6 kg, ~22 parts. */
+/** Floor lamp: 0.44 m dia × 1.68 m, ~6 kg, 28 parts. */
 export function buildFloorLamp(o: FloorLampOpts = {}): AssemblyDef {
   const b = new Builder("floorLamp", "Floor Lamp", "decor", 150, o.seed);
   const black = 0x232325;

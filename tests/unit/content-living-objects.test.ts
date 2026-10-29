@@ -102,6 +102,16 @@ function build(type: string): AssemblyDef {
   return d;
 }
 
+/** Categories whose items are "small items" (≤ 20 parts) in the _content.md budget. */
+const SMALL_CATEGORIES = new Set(["decor", "kitchenware", "soft"]);
+/** Explicit exceptions to the small-item cap, with the reason. */
+const PART_CAP_EXCEPTIONS: Record<string, number> = {
+  tableLamp: 40, // a light fixture (ceramic lathe base, harp, socket, bulb, shade frame + fabric)
+  floorLamp: 40, // a light fixture, 1.6 m tall
+  fiddleLeafFig: 32, // 1.7 m floor plant: pot tiles, soil, trunk, branches, leaf clusters
+  flowerVase: 21, // 13 vase tiles + 4 stems with blooms
+};
+
 test("every living object has a mass range in this test", () => {
   for (const type of Object.keys(LIVING_OBJECTS)) assert.ok(MASS[type], `no mass range for ${type}`);
 });
@@ -141,8 +151,9 @@ for (const type of Object.keys(LIVING_OBJECTS)) {
     assert.ok(Math.abs(minY) < 1e-6, `${type}: base not at y = 0 (${minY})`);
     // no substantial overlaps between parts
     assert.deepEqual(overlapReport(def), [], `${type}: overlapping parts`);
-    // part budget per object (small items ≤ 40, furniture ≤ 80)
-    assert.ok(def.parts.length <= 80, `${type}: ${def.parts.length} parts`);
+    // part budget per object (_content.md: small items 1–20, furniture 15–80)
+    const cap = PART_CAP_EXCEPTIONS[type] ?? (SMALL_CATEGORIES.has(def.category) ? 20 : 80);
+    assert.ok(def.parts.length <= cap, `${type}: ${def.parts.length} parts > ${cap}`);
   });
 }
 

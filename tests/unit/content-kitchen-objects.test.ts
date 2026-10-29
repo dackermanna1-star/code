@@ -10,6 +10,7 @@ import { KITCHEN_OBJECTS } from "../../src/objects/kitchen/index.ts";
 import { polyVolume } from "../../src/geom/poly.ts";
 import { MATERIALS } from "../../src/destruction/model/materials.ts";
 import type { AssemblyDef } from "../../src/destruction/model/types.ts";
+import { sweepJoints, jointGroups, islandsOf, movedCom, type SweepHit } from "./content-kitchen-sweep-lib.ts";
 
 KBUILD.validate = "full";
 KBUILD.record = true;
@@ -122,4 +123,46 @@ test("kitchen features: water at faucet/pipes, lights under the cabinets, fridge
   for (const t of ["wineBottle", "oilBottle", "beerBottle", "milkCarton", "kettle"]) assert.ok((KITCHEN_OBJECTS[t]().features ?? []).some((f) => f.type === "liquid"), `${t} liquid`);
   const hood = KITCHEN_OBJECTS.rangeHood();
   assert.ok((hood.features ?? []).some((f) => f.type === "light"), "hood lights");
+});
+
+// Every hinged door / lid and every drawer / rack / tray must travel its whole range without
+// running into the rest of its own appliance or cabinet (the oven door once swung its bottom rail
+// down into the storage drawer and broke it off its runners). Doors sweep against everything in the
+// built pose; drawers and racks are pulled out with the door in front of them opened (to 90° for
+// the fridge, which is where the walls stop its doors in the kitchen).
+test("kitchen joints sweep clear of their own assembly (doors, lids, drawers, racks)", () => {
+  const doorOpen = (type: string) => (_g: string, max: number) => (type === "fridge" ? Math.min(max, Math.PI / 2) : max);
+  const bad: string[] = [];
+  let groups = 0;
+  for (const [type, build] of Object.entries(KITCHEN_OBJECTS)) {
+    const def = build();
+    groups += jointGroups(def).length;
+    const worst = new Map<string, SweepHit>();
+    for (const h of sweepJoints(def, 24, 0.001, doorOpen(type))) {
+      const k = `${h.group}|${h.moving}|${h.other}`;
+      if ((worst.get(k)?.depth ?? 0) < h.depth) worst.set(k, h);
+    }
+    for (const h of worst.values()) bad.push(`${type}: ${h.group} at ${h.at.toFixed(2)}: ${h.moving} x ${h.other} ${(h.depth * 1000).toFixed(1)} mm`);
+  }
+  assert.ok(groups >= 30, `only ${groups} joint groups found`);
+  assert.deepEqual(bad, [], bad.slice(0, 20).join("\n"));
+});
+
+test("appliance doors fall open under their own weight (gravity beats the counter-spring)", () => {
+  for (const type of ["range", "dishwasher"]) {
+    const def = KITCHEN_OBJECTS[type]();
+    const g = jointGroups(def).find((x) => x.bond.kind === "hinge")!;
+    const j = g.bond.joint!;
+    const isl = islandsOf(def);
+    const id = isl.get(g.bond.a);
+    const m = def.parts.filter((p) => isl.get(p.name) === id).reduce((s, p) => s + (p.mass ?? polyVolume(p.poly) * MATERIALS[p.mat].density), 0);
+    for (const deg of [20, 45, 70, 85]) {
+      const th = (deg * Math.PI) / 180;
+      const lever = movedCom(def, g.id, th).z - j.pivot.z;
+      assert.ok(m * 9.81 * lever > (j.spring ?? 0) * th, `${type} door holds itself at ${deg}°`);
+    }
+    // ...and stays shut against its latch: the closed door's weight leans it inwards or barely out
+    const lever0 = movedCom(def, g.id, 0).z - j.pivot.z;
+    assert.ok(m * 9.81 * lever0 < 3, `${type} closed door pulls ${(m * 9.81 * lever0).toFixed(1)} N·m on its latch`);
+  }
 });

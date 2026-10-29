@@ -86,6 +86,7 @@ export async function probe(): Promise<unknown> {
 
   const log: Array<Record<string, unknown>> = [];
   const run = (name: string, fn: () => unknown, settle = 45) => {
+    console.log(`[content-living-destroy] ${name}`); // progress marker (localises page crashes)
     const ev0 = { ...sim.ev };
     const f0 = features().length;
     const r = fn();

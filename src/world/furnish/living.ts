@@ -23,9 +23,9 @@
 // Stacked items are placed on the measured surface of their support (ray cast through the
 // support's parts at the item's footprint), never at guessed heights.
 
-import { polyChord, polyTransform, type ConvexPoly } from "../../geom/poly.ts";
+import { polyChord, polyTransform } from "../../geom/poly.ts";
 import { qeuler, qmul, qrot, v3, vadd, vscale, xapply, xapplyDir, xinv, type Quat, type Vec3, type Xform } from "../../geom/vec.ts";
-import { aabbOf, aabbOverlap, polyContact, type Aabb } from "../../objects/lib/contact.ts";
+import { aabbOf, aabbOverlap, type Aabb } from "../../objects/lib/contact.ts";
 import type { AssemblyDef } from "../../destruction/model/types.ts";
 import type { RoomId } from "../plan.ts";
 import { PARTITION_FACE } from "../structure/levels.ts";
@@ -194,55 +194,54 @@ class Layout {
   }
 
   /**
-   * Soft item (throw pillow) nested in the corner of a seat: starting from pose `xf`, it is
-   * alternately dropped (world −Y) onto and pushed (along `back`, a world direction) against the
-   * parts of `host` until both moves are blocked with a `gap` of air, so the spawn pose is the
-   * rest pose — no slumping into the seat/back cushion groove at spawn. Exact convex-poly
-   * separation, a few iterations of a march + bisection along each direction.
+   * Soft item (throw pillow) nested in the corner of a seat: starting from pose `xf` (clear of
+   * the host), it is alternately dropped (world −Y) onto and pushed (along `back`, a unit world
+   * direction) against the parts of `host` until both moves are blocked with `gap` of air, so the
+   * spawn pose is the rest pose — no slumping into the seat/back cushion groove at spawn.
+   * Travel distances are exact ray casts: the item's vertices against the host's parts and the
+   * host's vertices (near the item) back against the item's parts.
    */
   nest(id: string, def: AssemblyDef, xf: Xform, hostId: string, back: Vec3, gap = 0.0006): LivingItem {
     const host = this.get(hostId);
     const hp = host.def.parts.map((pt) => polyTransform(pt.poly, host.xf));
     const hb = hp.map(aabbOf);
-    const local = def.parts.map((pt) => pt.poly);
-    const posed = (p: Vec3): ConvexPoly[] => local.map((poly) => polyTransform(poly, { p, q: xf.q }));
-    /** Smallest separation (m) between the item at p and the host, capped at 0.03 (far). */
-    const sep = (p: Vec3): number => {
-      let m = 0.03;
-      for (const a of posed(p)) {
-        const ab = aabbOf(a);
-        for (let j = 0; j < hp.length; j++) {
-          if (!aabbOverlap(ab, hb[j] as Aabb, 0.03)) continue;
-          const c = polyContact(a, hp[j], 0.03);
-          if (c && c.sep < m) m = c.sep;
+    const MAX = 0.3;
+    /** Free travel (m, ≤ MAX) of the item at p along unit dir before it touches the host. */
+    const travel = (p: Vec3, dir: Vec3): number => {
+      const ip = def.parts.map((pt) => polyTransform(pt.poly, { p, q: xf.q }));
+      // swept box of the item, to cull host parts
+      const sw: Aabb = { min: v3(Infinity, Infinity, Infinity), max: v3(-Infinity, -Infinity, -Infinity) };
+      for (const poly of ip) {
+        const a = aabbOf(poly);
+        for (const c of [a.min, a.max, vadd(a.min, vscale(dir, MAX)), vadd(a.max, vscale(dir, MAX))]) {
+          sw.min = v3(Math.min(sw.min.x, c.x), Math.min(sw.min.y, c.y), Math.min(sw.min.z, c.z));
+          sw.max = v3(Math.max(sw.max.x, c.x), Math.max(sw.max.y, c.y), Math.max(sw.max.z, c.z));
         }
       }
-      return m;
-    };
-    /** Move p along unit dir until the separation would drop below gap (≤ 0.3 m travel). */
-    const slide = (p: Vec3, dir: Vec3): Vec3 => {
-      if (sep(p) < gap) return p; // already touching (or penetrating): leave it to the other move
-      let lo = 0,
-        hi = 0;
-      for (let t = 0.004; t <= 0.3; t += 0.004) {
-        if (sep(vadd(p, vscale(dir, t))) < gap) {
-          hi = t;
-          break;
-        }
-        lo = t;
-      }
-      if (hi === 0) return vadd(p, vscale(dir, lo));
-      for (let k = 0; k < 14; k++) {
-        const m = (lo + hi) / 2;
-        if (sep(vadd(p, vscale(dir, m))) < gap) hi = m;
-        else lo = m;
-      }
-      return vadd(p, vscale(dir, lo));
+      const near = hp.filter((_, k) => aabbOverlap(hb[k], sw, 0.002));
+      const neg = vscale(dir, -1);
+      let t = MAX;
+      for (const poly of ip)
+        for (const v of poly.verts)
+          for (const h of near) {
+            const c = polyChord(h, v, dir);
+            if (c && c.tMax > 0 && c.tMin >= -1e-4 && c.tMin < t) t = Math.max(0, c.tMin);
+          }
+      for (const h of near)
+        for (const u of h.verts)
+          for (const poly of ip) {
+            const c = polyChord(poly, u, neg);
+            if (c && c.tMax > 0 && c.tMin >= -1e-4 && c.tMin < t) t = Math.max(0, c.tMin);
+          }
+      return t;
     };
     let p = xf.p;
-    for (let it = 0; it < 6; it++) {
-      p = slide(p, v3(0, -1, 0));
-      p = slide(p, back);
+    for (let it = 0; it < 8; it++) {
+      const dy = travel(p, v3(0, -1, 0));
+      p = vadd(p, v3(0, -Math.max(0, dy - gap), 0));
+      const dz = travel(p, back);
+      p = vadd(p, vscale(back, Math.max(0, dz - gap)));
+      if (dy < 2 * gap && dz < 2 * gap) break;
     }
     return this.add(id, def, { p, q: xf.q }, { on: [hostId], tags: ["nested"] });
   }

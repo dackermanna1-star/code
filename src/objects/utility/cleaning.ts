@@ -88,9 +88,10 @@ export function buildBroomHolder(o: BroomHolderOpts = {}): AssemblyDef {
       jaws.push(j);
     }
   }
-  // the broom: wooden handle in grip "a", head hanging 4 cm above the floor
+  // the broom: wooden handle in grip "a", head hanging 10 cm above the floor so it clears the
+  // baseboard (BASEBOARD_H 90 mm × 12 mm) — the head sits only 1 cm off the wall plane
   const L = 1.25;
-  const headY0 = 0.04;
+  const headY0 = 0.1;
   const handleY0 = headY0 + 0.06;
   const handle = b.cyl("broom_handle", "softwood", "wood_pine", r, L, [-0.09, handleY0 + L / 2, zc], { segments: 8, tint: 0xd9b98a });
   b.clip(handle, jaws[0], 8);

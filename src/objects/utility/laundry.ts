@@ -11,8 +11,10 @@
 // (water features) and a heavy door: plastic ring, thick glass bowl porthole, hinge + lock.
 //
 // Dryer (~38 kg): no tub, no concrete — a lighter steel drum on a rear bearing and front
-// rollers, motor + blower + heater box at the back, felt door seal, a lint filter in a slot
-// below the door opening (slider), a flexible aluminium vent duct to the wall and a power cord.
+// rollers, motor + blower + heater box at the back, felt door seal, a lint filter clipped into
+// the back of the door liner (pull it out), and a power cord. It is a CONDENSER dryer (no wall
+// vent in this apartment): an aluminium heat-exchanger block in the plinth and the condensate
+// water container in the drawer slot of the fascia (a little grey water in it).
 //
 // Frame: origin on the floor at the centre of the footprint, door +Z, back −Z.
 
@@ -335,8 +337,6 @@ export function buildWasher(o: WasherOpts = {}): AssemblyDef {
 
 export interface DryerOpts extends BaseOpts {
   tint?: number;
-  /** Wall vent point (duct end), local; default straight back into the wall behind. */
-  vent?: V3;
   /** Outlet position for the plug (local); omitted = plug lying behind the dryer. */
   plug?: V3;
 }
@@ -347,7 +347,9 @@ export function buildDryer(o: DryerOpts = {}): AssemblyDef {
   const t = 0.001;
   const c = cabinet(b, { t, tint, worktop: false, hole: 0.17, fasciaTint: 0xf6f6f4 });
   controls(b, c, { display: "display_blue", sparks: 0.7 });
-  detergentDrawer(b, c, false); // water container drawer (condenser model)
+  // condensate water container in the drawer slot (condenser model), part-filled
+  const tank = detergentDrawer(b, c, false);
+  b.liquid(tank, 0xb8c4c8, 0.6);
 
   // ------------------------------------------------------------------ drum on rear bearing + front rollers
   const zd0 = -D / 2 + 0.06,
@@ -421,25 +423,16 @@ export function buildDryer(o: DryerOpts = {}): AssemblyDef {
   });
   b.clip(lint, liner, 4);
 
-  // ------------------------------------------------------------------ vent duct + power cord
-  const v = o.vent ?? ([-0.2, 0.15, -D / 2 - 0.06] as V3);
-  const vx: [number, number, number] = Array.isArray(v) ? [v[0], v[1], v[2]] : [v.x, v.y, v.z];
-  const outlet = b.cyl("vent_outlet", "plastic", "plastic", 0.05, 0.03, [-0.2, 0.15, -D / 2 - 0.015 + 0.0001], { axis: "z", segments: 10, tint: 0x2f2f31, mass: 0.05 });
-  b.screw(outlet, c.back, 2, 20);
-  const duct = b.tube(
-    "duct",
-    "aluminum",
-    "aluminum",
-    [
-      [-0.2, 0.15, -D / 2 - 0.03],
-      [vx[0] * 0.5 - 0.1, (vx[1] + 0.15) / 2, (vx[2] - D / 2 - 0.03) / 2],
-      [vx[0], vx[1], vx[2]],
-    ],
-    0.05,
-    { sides: 8, kgPerM: 0.25, jointStrength: 20, tess: 0.05 },
-  );
-  b.clip(duct[0], outlet, 15);
-  if (o.vent) b.world(duct[duct.length - 1], "clip", 15, vx);
+  // ------------------------------------------------------------------ condenser + power cord
+  // air-to-air heat exchanger (aluminium fin block) in the plinth, sitting on the two cross
+  // rails left of the front rollers; the process air from the drum condenses in it
+  const cond = boxR(b, "condenser", "aluminum", "aluminum", [-(W / 2 - t - 0.04), -0.09], [Y0 + 0.03, Y0 + 0.03 + 0.11], [-0.06, 0.152], {
+    tint: 0xb9bcbe,
+    faces: { pz: { surf: "vent_grille", tint: 0xb0b3b5 }, nz: { surf: "vent_grille", tint: 0xb0b3b5 } },
+    mass: 1.3,
+  });
+  b.screw(cond, c.cross, 2, 25);
+  b.screw(cond, c.crossFront, 2, 25);
   cord(b, c, o.plug, 0.22);
   return finish(b, o);
 }

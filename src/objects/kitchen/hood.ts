@@ -1,6 +1,7 @@
 // Wall-mounted chimney range hood (0.75 m T-shape, ~12 kg): 0.8 mm stainless canopy box with two
 // aluminium mesh grease filters, a blower (motor + plastic housing) on a steel mounting plate
-// screwed to the wall, an aluminium flex duct, a three-sided chimney cover screwed to a wall
+// screwed to the wall (its blower wheel spins inside the canopy and the motor hums while powered),
+// an aluminium flex duct, a three-sided chimney cover screwed to a wall
 // bracket under the ceiling, two LED spots (glass lenses with `light` features) and press-fit
 // buttons. Tear it off the wall, dent the canopy, pop the filters out.
 // Origin: bottom centre of the canopy, back (wall side) at z = -0.25, front +Z. PURE MODULE.
@@ -59,6 +60,14 @@ export function buildRangeHood(o: HoodOpts = {}): AssemblyDef {
   b.screw(housing, topP, 4, 20);
   b.screw(motor, housing, 3, 20);
   b.sparks(motor, 0.5);
+  // blower wheel inside the canopy, under the housing inlet, on the motor shaft: a powered hinge
+  // spins it (it stops on a power cut or when the motor is wrecked) and the motor hums while it runs
+  const wheel = b.cyl("blower_wheel", "aluminum", "vent_grille", 0.07, 0.03, [0, 0.04, -0.12], { segments: 12, mass: 0.25, tint: 0xb8b8b4, tess: 0 });
+  const shaft = b.cyl("blower_shaft", "steel", "metal_raw", 0.006, H - t - 0.055, [0, (0.055 + H - t) / 2, -0.12], { segments: 6, mass: 0.03 });
+  b.weld(shaft, wheel, 20);
+  const fan = b.hinge(wheel, topP, { pivots: [[0, 0.04, -0.12]], axis: [0, 1, 0], min: -1e6, max: 1e6, strength: 25, friction: 0.02 });
+  b.motor(motor, fan, 25, true);
+  b.hum(motor, "motor.hum", true);
   // chimney: flex duct + 3-sided cover screwed to a bracket under the ceiling
   const ch = o.chimney ?? 2.69 - 1.56 - H;
   const cw = 0.25,

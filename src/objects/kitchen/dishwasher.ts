@@ -130,7 +130,7 @@ export function buildDishwasher(o: DishwasherOpts = {}): AssemblyDef {
   b.press(armU, feed, 6);
   b.screw(feed, tub.k, 2, 20);
   // ------------------------------------------------------------------ door (bottom hinge)
-  const dy0 = 0.075,
+  const dy0 = 0.1,
     dy1 = DW_DIM.h;
   const outer = b.box("door_skin", "steelSheet", skin.surf, [W, dy1 - dy0 - 0.03, st], [0, (dy0 + dy1 - 0.03) / 2, ZF - st / 2], { tint: skin.tint });
   const strip = b.box("door_controls", "plastic", "plastic", [W, 0.03, ZF - ZD], [0, dy1 - 0.015, (ZD + ZF) / 2], { mass: 0.45, tint: 0x1f2022 });
@@ -151,7 +151,7 @@ export function buildDishwasher(o: DishwasherOpts = {}): AssemblyDef {
   b.press(disp7, strip, 3);
   pcb(b, "board", { w: 0.16, h: 0.022, mount: { to: liner, screws: 2, each: 8 }, sparks: 0.6, components: [{ kind: "chipSmall", x: -0.04, y: 0 }, { kind: "relay", x: 0.03, y: 0, size: [0.016, 0.012, 0.014] }] }, [0, dy1 - 0.07, ZD + 0.003 + 0.0016]);
   barHandle(b, "handle", { on: outer, len: 0.4, size: 0.012, standoff: 0.03, mat: "steel", surf: "steel_brushed" }, [0, dy1 - 0.08, ZF]);
-  const kick = b.box("toekick", "steelSheet", skin.surf, [W - 0.004, 0.06, st], [0, 0.045, ZD - 0.03], { tint: skin.tint });
+  const kick = b.box("toekick", "steelSheet", skin.surf, [W - 0.004, dy0 - 0.017, st], [0, (0.015 + dy0 - 0.002) / 2, ZD - 0.03], { tint: skin.tint });
   b.screw(kick, sideL, 1, 20);
   b.screw(kick, sideR, 1, 20);
   const axis = hingeAxis([0, 1, 0], [0, 0, 1]);

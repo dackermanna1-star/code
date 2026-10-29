@@ -24,8 +24,9 @@
 //
 // Sun shadows: one ShadowGenerator (a CSM doubles the caster draws, notes §1.2) with a
 // fixed orthographic frustum fitted to the apartment in light space (shadowOrthoScale 0: no
-// hidden 20 % padding): no per-frame refit, no shimmer, ~9 mm texels at 2048. Its depth range extends upstream so the balconies and
-// slab edges of the tower outside the windows still occlude. The map is cached: it only
+// hidden 20 % padding): no per-frame refit, no shimmer, 9 × 4 mm texels at 2048. Its
+// depth range extends upstream so the balconies and slab edges of the tower outside the
+// windows still occlude. The map is cached: it only
 // re-renders when a caster moved, was added/removed, or `invalidateShadows()` was called;
 // point-light cube maps only re-render for casters within that light's reach. A slow
 // round-robin safety refresh (one map per tick) catches in-place geometry edits, so a
@@ -191,8 +192,6 @@ export class Lighting implements ILighting {
   private slotsNeeded = DEFAULT_SLOTS;
   private slotSweepCount = -1;
   private materialObs: Nullable<Observer<Material>> = null;
-  /** Materials added since the last update (raised once their constructor has finished). */
-  private readonly pendingMaterials: Material[] = [];
   /** Round-robin cursor of the shadow safety refresh (0 = sun, i = pointGens[i - 1]). */
   private refreshCursor = 0;
   /** Lights handed back by removeLight(): re-added to the scene if their owner keeps them. */
@@ -389,11 +388,6 @@ export class Lighting implements ILighting {
     if (this.released.length) {
       for (const l of this.released) if (!l.isDisposed() && this.scene.lights.indexOf(l) < 0) this.scene.addLight(l);
       this.released.length = 0;
-    }
-    // New materials: give them the light slots the current light set needs.
-    if (this.pendingMaterials.length) {
-      for (const m of this.pendingMaterials) this.raiseSlots(m);
-      this.pendingMaterials.length = 0;
     }
     // Interior lights: power, flicker, external intensity changes.
     for (const rec of this.lights.values()) this.applyPowerAndFlicker(rec, step);
@@ -829,8 +823,10 @@ export class Lighting implements ILighting {
     if (need <= this.slotsNeeded) return; // never lowered: spare slots cost nothing, recompiles do
     this.slotsNeeded = need;
     if (!this.materialObs) {
+      // Scene announces new materials asynchronously (SetImmediate), i.e. after their
+      // constructor and the creator's synchronous setup have run.
       this.materialObs = this.scene.onNewMaterialAddedObservable.add((m) => {
-        if (!this.disposed) this.pendingMaterials.push(m);
+        if (!this.disposed) this.raiseSlots(m);
       });
     }
     this.sweepMaterialSlots();

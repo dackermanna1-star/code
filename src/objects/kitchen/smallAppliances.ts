@@ -28,7 +28,9 @@ export function buildToaster(o: SmallApplianceOpts = {}): AssemblyDef {
   const capL = b.box("cap_l", "plastic", "plastic_glossy", [cap, H - 0.012, D], [-W / 2 + cap / 2, 0.012 + (H - 0.012) / 2, 0], { tint: 0x1e1e20, mass: 0.2 });
   const capR = b.box("cap_r", "plastic", "plastic_glossy", [cap, H - 0.012, D], [W / 2 - cap / 2, 0.012 + (H - 0.012) / 2, 0], { tint: 0x1e1e20, mass: 0.2 });
   const iw = W - 2 * cap;
-  const fr = b.box("shell_f", "steelSheet", body.surf, [iw, H - 0.012 - st, st], [0, 0.012 + (H - 0.012 - st) / 2, D / 2 - st / 2], { tint: body.tint });
+  // the front shell stops 4 mm above the base: that slot is where the crumb tray slides out
+  const slot = 0.004;
+  const fr = b.box("shell_f", "steelSheet", body.surf, [iw, H - 0.012 - slot - st, st], [0, 0.012 + slot + (H - 0.012 - slot - st) / 2, D / 2 - st / 2], { tint: body.tint });
   const bk = b.box("shell_b", "steelSheet", body.surf, [iw, H - 0.012 - st, st], [0, 0.012 + (H - 0.012 - st) / 2, -D / 2 + st / 2], { tint: body.tint });
   // top with two bread slots (z ±0.03, 30 mm wide, 140 mm long): five strips
   const yT = H - st / 2;
@@ -45,8 +47,8 @@ export function buildToaster(o: SmallApplianceOpts = {}): AssemblyDef {
   for (const p of [fr, bk]) {
     b.screw(p, capL, 1, 15);
     b.screw(p, capR, 1, 15);
-    b.screw(p, base, 1, 15);
   }
+  b.screw(bk, base, 1, 15);
   b.clip(tops[3], capL, 6);
   b.clip(tops[4], capR, 6);
   b.screw(capL, base, 1, 20);

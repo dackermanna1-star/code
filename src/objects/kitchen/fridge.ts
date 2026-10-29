@@ -2,8 +2,8 @@
 //  * 0.6 mm steel wrapper (sides, top, back) on a 1 mm base pan with feet/rollers; polyurethane
 //    foam walls (soft, they absorb blows) behind 3 mm plastic liners that crack;
 //  * fresh-food compartment: three tempered-glass shelves on liner ribs (friction — knock the
-//    fridge over and they slide out and dice), two crisper drawers on sliders, a lamp (bulb part —
-//    no light feature: the room switch would light it with the door shut), thermostat housing;
+//    fridge over and they slide out and dice), two crisper drawers on sliders, a lamp (`light`, starts
+//    off; it follows the room switch — the contract has no door switch), thermostat housing;
 //  * freezer: wire shelf, ice tray; foam divider mullion;
 //  * doors hinged on the right (local -X) with magnetic gaskets (latch 10 J): stainless skin, foam
 //    core, liner, door dikes and bins (items rest in them), vertical bar handles;
@@ -127,12 +127,18 @@ export function buildFridge(o: FridgeOpts = {}): AssemblyDef {
     b.box(`crisper${k}_r`, "plastic", "plastic", [pt, y1 - y0 - pt, z1 - z0 - pt], [x1 - pt / 2, (y0 + pt + y1) / 2, (z0 + z1 - pt) / 2], { tint: 0xe8ecee });
     b.box(`crisper${k}_k`, "plastic", "plastic", [w - 2 * pt, y1 - y0 - pt, pt], [xc, (y0 + pt + y1) / 2, z0 + pt / 2], { tint: 0xe8ecee });
     b.autoBond("fused", undefined, 0.0004, (a, c) => a.startsWith(`crisper${k}_`) && c.startsWith(`crisper${k}_`));
-    b.slider(bot, ff, { pivots: [[xc, y0, (z0 + z1) / 2]], axis: [0, 0, 1], min: 0, max: 0.3, strength: 25, friction: 0.3 });
+    // The hinge-side drawer's travel stops where the open door's dike would catch it (the door
+    // swings its dike across the drawer path; 0.21 m clears it with the door at 90°, which is where
+    // the door stops against the walls in the kitchen), the other one runs out the full 0.30 m.
+    b.slider(bot, ff, { pivots: [[xc, y0, (z0 + z1) / 2]], axis: [0, 0, 1], min: 0, max: k === 0 ? 0.21 : 0.3, strength: 25, friction: 0.3 });
   };
   cr(0, -LX + 0.001, -0.002);
   cr(1, 0.002, LX - 0.001);
   const lamp = b.cyl("lamp", "glass", "bulb_off", 0.015, 0.03, [0.2, yF1 - 0.015, 0.1], { segments: 8 });
   b.clip(lamp, div, 4);
+  // fridge lamp (`light`, starts off): see the oven lamp note in range.ts — no door switch exists
+  // in the feature contract, so it follows the room switch; its short range stays in the cabinet
+  b.light({ part: lamp, pos: [0.2, yF1 - 0.045, 0.1], kind: "point", color: 0xeef4ff, intensity: 0.4, range: 0.5, castShadows: false, mains: true, on: false });
   const thermo = b.box("thermostat", "plastic", "plastic", [0.16, 0.05, 0.12], [-0.12, yF1 - 0.025, 0.12], { tint: 0xe3e4e5, mass: 0.25 });
   b.screw(thermo, div, 2, 15);
   const wire = b.box("fz_shelf", "steel", "vent_grille", [2 * LX - 0.002, 0.006, 0.5], [0, 1.49, LZ + 0.003 + 0.25], { mass: 0.6, tint: 0xe6e6e6, tess: 0 });

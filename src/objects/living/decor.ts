@@ -3,7 +3,7 @@
 //  * books (hardcover: two cover boards + spine + page block that tears into paper; paperback:
 //    one paper block), magazines,
 //  * pillar candles (wax) on a walnut tray, a glazed decorative bowl, ceramic vases, a ceramic
-//    figurine, a flower vase holding water (`liquid`) with stems and blossoms,
+//    figurine, a flower vase holding water (`liquid`) with four cut flowers,
 //  * a standing photo frame (frame bars, glass, photo, backing, easel strut),
 //  * framed paintings (wood frame + glass + canvas + backing) hanging on a weak NAIL world bond,
 //    a wall mirror (MDF frame, 4 mm mirror glass, backing) on two screwed D-ring hangers,
@@ -95,7 +95,7 @@ export function buildCandleTray(o: { seed?: number } = {}): AssemblyDef {
 /** Glazed decorative bowl (Ø 0.26 m). */
 export function buildDecorBowl(o: { tint?: number; seed?: number } = {}): AssemblyDef {
   const b = new Builder("decorBowl", "Ceramic Bowl", "decor", 45, o.seed);
-  bowl(b, "bowl", { r: 0.13, h: 0.075, t: 0.007, segments: 8, tint: o.tint ?? 0x2f5d6b });
+  bowl(b, "bowl", { r: 0.13, h: 0.075, t: 0.007, segments: 6, tint: o.tint ?? 0x2f5d6b });
   return b.build();
 }
 
@@ -119,7 +119,7 @@ export function buildFigurine(o: { tint?: number; seed?: number } = {}): Assembl
   return b.build();
 }
 
-/** Flower vase with water (`liquid`) and five cut flowers. */
+/** Flower vase with water (`liquid`) and four cut flowers (straight stems leaning on the rim). */
 export function buildFlowerVase(o: { tint?: number; seed?: number } = {}): AssemblyDef {
   const b = new Builder("flowerVase", "Vase of Flowers", "decor", 55, o.seed);
   const r = 0.07,
@@ -128,22 +128,23 @@ export function buildFlowerVase(o: { tint?: number; seed?: number } = {}): Assem
   const tiles = vase(b, "vase", { r, h, t, segments: 6, tint: o.tint ?? 0xe9e3d6 });
   const floor = lowestPart(b, tiles);
   b.liquid(floor, 0xcfe3ea, 0.4);
-  const petals = [0xd8425a, 0xf2f0ea, 0xe7a23b, 0xc25a9a, 0xf0d34a];
-  for (let k = 0; k < 5; k++) {
-    const a = (k / 5) * 2 * Math.PI + 0.3;
+  const petals = [0xd8425a, 0xf2f0ea, 0xe7a23b, 0xc25a9a];
+  for (let k = 0; k < petals.length; k++) {
+    const a = (k / petals.length) * 2 * Math.PI + 0.3;
     const c = Math.cos(a),
       s = Math.sin(a);
-    const topR = 0.05 + 0.025 * (k % 2);
-    const topY = h + 0.17 + 0.05 * ((k * 3) % 5) * 0.4;
+    // one straight stem per flower, from just off-centre on the vase floor (opposite side) out
+    // through the neck (inner Ø 65 mm) to the bloom: one part each keeps the vase ≈ 20 parts
+    const topR = 0.04 + 0.012 * (k % 2);
+    const topY = h + 0.17 + 0.03 * k;
     const stem = b.tube(`stem${k}`, "food", "foliage", [
-      [0.006 * c, t + 0.004, 0.006 * s],
-      [0.012 * c, h, 0.012 * s],
+      [-0.01 * c, t + 0.004, -0.01 * s],
       [topR * c, topY, topR * s],
-    ], 0.0025, { sides: 5, tint: 0x4f7a34, joint: "fused", jointStrength: 6 });
+    ], 0.0025, { sides: 5, tint: 0x4f7a34 });
     b.friction(stem[0], floor, 2);
     const head: V3 = [topR * c * 1.06, topY + 0.018, topR * s * 1.06];
     const bloom = b.ellipsoid(`bloom${k}`, "paper", "fabric_cotton", [0.03, 0.022, 0.03], head, { tint: petals[k], segments: 8, rings: 4, mass: 0.006 });
-    b.glue(bloom, stem[1], 4);
+    b.glue(bloom, stem[0], 4);
   }
   return b.build();
 }

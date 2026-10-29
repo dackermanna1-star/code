@@ -99,7 +99,7 @@ export function buildWardrobe(o: WardrobeOpts = {}): AssemblyDef {
         barY0 = barY1 - 0.022;
       const zMid = zN;
       const bar = boxR(b, `hanger${k}_bar`, "hardwood", "wood_oak", [x - 0.006, x + 0.006], [barY0, barY1], [zMid - 0.21, zMid + 0.21], { grain: "z" });
-      const neckTop = rodY + rodR + 0.006;
+      const neckTop = rodY + rodR + 0.004; // hook tip (4 mm thick) rests ON the rod top
       const neck = boxR(b, `hanger${k}_neck`, "steel", "chrome", [x - 0.002, x + 0.002], [barY1, neckTop], [zN, zN + 0.004], { tess: 0 });
       const tip = boxR(b, `hanger${k}_hook`, "steel", "chrome", [x - 0.002, x + 0.002], [neckTop - 0.004, neckTop], [zc - rodR - 0.002, zN], { tess: 0 });
       b.weld(tip, neck, 30);

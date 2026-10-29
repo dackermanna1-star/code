@@ -16,6 +16,7 @@ import { BALCONY, ROOMS, WALLS, type RoomId } from "../../src/world/plan.ts";
 import { BALCONY_FLOOR_Y, CEILING_Y, FRONT_JAMB_T, JAMB_T, PARTITION_FACE, SERVICE_POINTS, SHIM, WALL_TILE_T, roomFaces, type Rect2 } from "../../src/world/structure/levels.ts";
 import { ELECTRICAL } from "../../src/world/structure/services.ts";
 import { fixtureLayout } from "../../src/world/furnish/fixtures.ts";
+import { buildStructure } from "../../src/world/structure.ts";
 import { furnishUtility, furnishUtilityItems, toWorld, worldAabb, worldPolys, yawQ, type UtilityItem } from "../../src/world/furnish/utility.ts";
 
 const items = furnishUtilityItems();
@@ -436,4 +437,27 @@ test("bathroom specifics: vanity centred on its stub-out, mirror cabinet clear a
   const tub = worldAabb(byId.get("bathtub")!.def, byId.get("bathtub")!.xf);
   assert.ok(Math.abs(scr.min.y - tub.max.y) < 1e-3, "screen stands on the rim");
   assert.ok(scr.min.z >= tub.min.z && scr.max.z <= tub.min.z + 0.07 + 1e-3, "screen within the front rim deck");
+});
+
+// ------------------------------------------------------------------ against the real structure
+
+test("no item interpenetrates the structure's parts (baseboards, casings, jambs, tiles, finishes)", () => {
+  // exact part-vs-part sweep against buildStructure() (world-space parts); world-anchored
+  // connection parts (hose/pipe/cable ends, screws into the wall) are allowed to enter it
+  const S = buildStructure().flatMap((s) => worldPolys(s.def, s.xf).map((poly, i) => ({ poly, box: aabbOf(poly), name: `${s.def.type}.${s.def.parts[i].name}` })));
+  const bad: string[] = [];
+  for (const it of items) {
+    const anchored = anchoredParts(it);
+    const polys = worldPolys(it.def, it.xf);
+    const boxes = boxesOf(it);
+    for (let i = 0; i < polys.length; i++) {
+      if (anchored.has(i)) continue;
+      for (const s of S) {
+        if (!boxOverlap(boxes[i], s.box, 0.0005)) continue;
+        const c = polyContact(polys[i], s.poly, 0);
+        if (c && -c.sep > 0.0005) bad.push(`${it.id}/${it.def.parts[i].name} ${fmt(-c.sep)} m into ${s.name}`);
+      }
+    }
+  }
+  assert.deepEqual(bad, []);
 });

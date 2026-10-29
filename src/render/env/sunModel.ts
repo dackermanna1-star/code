@@ -5,6 +5,13 @@
 // the evening sun hangs low in the west-south-west, so it rakes in through the south
 // windows at a grazing angle and paints long warm patches on the floors and partition
 // walls. (The east windows only see sky light at this time of day, as they should.)
+//
+// Spec note: the brief asks for a west-south-west sun AND light through the east windows;
+// no single sun can do both (a sun west of the meridian is behind the east facade). The
+// WSW evening sun is kept — it rakes the south openings, which carry the main view — so
+// only the south openings get sun patches / shafts; bedroom 2's east window gets sky light.
+// Raised with the orchestrator as a spec clarification; a south-east morning sun (azimuth
+// ≈ 120–150°) would light both facades if that is preferred.
 
 import type { Vec3 } from "../../geom/vec.ts";
 

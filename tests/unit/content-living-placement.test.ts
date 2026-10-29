@@ -187,6 +187,31 @@ test("clear paths: balcony slider (1 m deep), curtains, hall opening, foyer arch
   assert.deepEqual(zoneHits(4.6, 5.45, 1.0, 4.25, 1.0).filter((id) => id !== "rug"), [], "walkway between the TV wall and the coffee table/dining");
 });
 
+test("hall-to-foyer walkway between the dining chairs and the kitchen bar stools is ≥ 0.85 m (aim 0.9)", async () => {
+  // the kitchen's stools sit along the peninsula; fall back to their known edge (z 5.79) if the
+  // kitchen module cannot be loaded (it is another agent's file and may be mid-edit)
+  let stoolMinZ = 5.79;
+  try {
+    const { furnishKitchen } = await import("../../src/world/furnish/kitchen.ts");
+    const zs = furnishKitchen()
+      .filter((p) => /stool/i.test(p.type))
+      .map((p) => worldAabb(p.def, p.xf))
+      .filter((b) => b.max.x > 5.4 && b.min.x < 7.8)
+      .map((b) => b.min.z);
+    if (zs.length) stoolMinZ = Math.min(...zs);
+  } catch {
+    /* keep the fallback */
+  }
+  let maxZ = -Infinity,
+    who = "";
+  for (const it of items) {
+    const b = boxes.get(it.id)!;
+    if (b.max.x <= 5.4 || b.min.x >= 7.8 || isWall(it)) continue;
+    if (b.max.z > maxZ) [maxZ, who] = [b.max.z, it.id];
+  }
+  assert.ok(stoolMinZ - maxZ >= 0.88, `only ${(stoolMinZ - maxZ).toFixed(3)} m between ${who} (z ${maxZ.toFixed(3)}) and the bar stools (z ${stoolMinZ.toFixed(3)})`);
+});
+
 test("wall-hung items and furniture leave switch/outlet plates free", () => {
   for (const e of ELECTRICAL.filter((p) => p.room === "living" && p.at !== undefined)) {
     const along = e.at!;

@@ -155,6 +155,7 @@ export async function probe(): Promise<unknown> {
   lighting.applyQuality(QUALITY.ultra);
   for (let i = 0; i < 3; i++) lighting.update(0.6);
   const lateMat = new StandardMaterial("lateMat", scene); // created while Ultra is active
+  await new Promise((r) => setTimeout(r, 50)); // the scene announces new materials asynchronously
   lighting.update(1 / 60);
   await whenReady(scene, 240000);
   await frames(scene, 3);
@@ -172,27 +173,29 @@ export async function probe(): Promise<unknown> {
   check("ultraNoLostBulb", lumUltra > lumMedium * 0.85, { lumMedium, lumUltra });
 
   // ---- point cube maps only re-render for casters within reach
-  const isPending = (rt: RenderTargetTexture | null | undefined) => (rt as unknown as { _currentRefreshId: number } | null)?._currentRefreshId === -1;
+  const isPending = (rt: RenderTargetTexture | null | undefined) => (rt as unknown as { _objectRenderer?: { _currentRefreshId: number } } | null)?._objectRenderer?._currentRefreshId === -1;
+  // A caster well out of reach of both shadowed bulbs (range + its radius).
+  const farBox = MeshBuilder.CreateBox("farBox", { size: 0.4 }, scene);
+  farBox.position.set(12.4, 0.2, 8.4);
+  farBox.material = floor.material;
+  lighting.setShadowCaster(farBox, true);
   await frames(scene, 2);
   const shadowedNow = lighting.shadowedLights;
   const pointMaps = shadowedNow.map((l) => l.getShadowGenerator()?.getShadowMap());
-  const lp = shadowedNow.map((l) => (l as PointLight).position);
-  // The crate farthest from both shadowed bulbs.
-  let far = boxes[0];
-  let best = -1;
-  for (const b of boxes) {
-    const d = Math.min(...lp.map((p) => Vector3.Distance(p, b.position)));
-    if (d > best) {
-      best = d;
-      far = b;
-    }
-  }
+  const best = Math.min(...shadowedNow.map((l) => Vector3.Distance((l as PointLight).position, farBox.position) - (l as PointLight).range));
+  const far = farBox;
   const settledBefore = pointMaps.every((m) => !isPending(m));
   far.position.y += 0.001;
   far.computeWorldMatrix(true);
   const sunPending = isPending(lighting.sunShadows.getShadowMap());
   const farPending = pointMaps.map((m) => isPending(m));
-  check("casterMoveLocal", settledBefore && sunPending && (best <= 3.5 + 0.6 || farPending.every((p) => !p)), { settledBefore, sunPending, farPending, best, far: far.name });
+  check("casterMoveLocal", settledBefore && sunPending && best > 0.4 && farPending.every((p) => !p), { settledBefore, sunPending, farPending, best });
+  // ... while a crate inside a bulb's reach does re-render that cube map.
+  boxes[2].position.y += 0.001;
+  boxes[2].computeWorldMatrix(true);
+  check("casterMoveNear", pointMaps.some((m) => isPending(m)));
+  lighting.setShadowCaster(farBox, false);
+  farBox.dispose();
   await frames(scene, 2);
   lighting.applyQuality(QUALITY.high);
   lighting.update(0.6);
@@ -258,18 +261,21 @@ export async function probe(): Promise<unknown> {
   const shaded = () => fls.filter((l) => l.isEnabled() && l.intensity > 0 && l.excludeWithLayerMask === 0).map((l) => l.name).join(",");
   check("fallbackNearest4", shaded() === "f0,f1,f2,f3" && enabled.length === 7, { shaded: shaded(), enabled });
   // Owner disables f0: it frees its slot for f4, and the selector never re-enables it.
+  const tick = () => {
+    for (let i = 0; i < 3; i++) fb.update(0.25); // selection runs every 0.5 s
+  };
   fls[0].setEnabled(false);
-  fb.update(0.6);
+  tick();
   check("fallbackOwnerDisabled", shaded() === "f1,f2,f3,f4" && !fls[0].isEnabled(), shaded());
   cam2.position.set(9, 1.6, 0); // move away and back: f0 deselected / reselected by distance
   cam2.computeWorldMatrix();
-  fb.update(0.6);
+  tick();
   cam2.position.set(0, 1.6, 0);
   cam2.computeWorldMatrix();
-  fb.update(0.6);
+  tick();
   check("fallbackKeepsOwnerOff", !fls[0].isEnabled() && shaded() === "f1,f2,f3,f4", shaded());
   fls[0].setEnabled(true);
-  fb.update(0.6);
+  tick();
   check("fallbackOwnerOn", shaded() === "f0,f1,f2,f3", shaded());
   fb.removeLight(fls[6]); // masked when removed: handed back unmasked
   check("fallbackRemoveUnmasks", fls[6].excludeWithLayerMask === 0);

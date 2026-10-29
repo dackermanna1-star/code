@@ -281,11 +281,51 @@ export function buildBottle(o: { kind?: BottleKind; seed?: number } = {}): Assem
     ? b.cyl("cap", "steel", "metal_painted", rn + 0.0005, 0.006, [0, hs + hn + 0.003, 0], { segments: k.seg, tint: 0xc9a227, mass: 0.002, tess: 0 })
     : b.cyl("cap", oil ? "plastic" : "softwood", oil ? "plastic" : "wood_pine", rn + 0.001, 0.025, [0, hs + hn + 0.0125, 0], { segments: k.seg, tint: oil ? 0x1d1d1f : 0x9a1f2a });
   b.press(cap, neck, beer ? 8 : 5);
+  // paper label: one thin sheet glued flat onto each of the two wall facets that face +X, so it
+  // lies on the glass instead of standing off it like a card
   const lh = beer ? 0.06 : 0.08;
-  const label = b.box("label", "paper", "label_bottle", [0.002, lh, beer ? 0.04 : 0.05], [R + 0.001, beer ? 0.06 : 0.09, 0], { mass: 0.002 });
-  bondTouching(b, label, s.wall, "glue", 2, 0.003);
+  const ly = beer ? 0.06 : 0.09;
+  const facets = s.wall
+    .map((w) => ({ w, f: outerFacet(b, w) }))
+    .filter((x) => x.f && x.f.n.x > 0.2)
+    .sort((a, c) => c.f!.n.x - a.f!.n.x)
+    .slice(0, 2);
+  facets.forEach(({ w, f }, k) => {
+    const n = f!.n;
+    const yaw = Math.atan2(-n.z, n.x); // box +X onto the facet normal
+    const lt = 0.0006;
+    const off = f!.d + lt / 2;
+    const lb = b.box(`label${k}`, "paper", "label_bottle", [lt, lh, f!.width - 0.003], [n.x * off, ly, n.z * off], { mass: 0.001, rot: [0, (yaw * 180) / Math.PI, 0] });
+    b.glue(lb, w, 1);
+  });
   b.liquid(s.base, k.liquid, k.litres);
   return finish(b);
+}
+
+/**
+ * The outward, near-vertical face of a lathe wall tile: unit normal (horizontal), plane offset from
+ * the axis and its horizontal width. Null when the tile has no such face.
+ */
+function outerFacet(b: Builder, part: string): { n: { x: number; y: number; z: number }; d: number; width: number } | null {
+  const poly = b.get(part).poly;
+  let best: (typeof poly.faces)[number] | null = null;
+  for (const f of poly.faces) {
+    if (Math.abs(f.n.y) > 0.05) continue;
+    if (!best || f.d > best.d) best = f;
+  }
+  if (!best || best.d <= 0) return null;
+  const h = Math.hypot(best.n.x, best.n.z);
+  const n = { x: best.n.x / h, y: 0, z: best.n.z / h };
+  // width along the tangent (n rotated 90° about Y)
+  let lo = Infinity,
+    hi = -Infinity;
+  for (const i of best.idx) {
+    const v = poly.verts[i];
+    const t = -v.x * n.z + v.z * n.x;
+    lo = Math.min(lo, t);
+    hi = Math.max(hi, t);
+  }
+  return { n, d: best.d / h, width: hi - lo };
 }
 
 // ============================================================================ pantry

@@ -1,14 +1,17 @@
 // Small living-room electronics, each a separate grabbable/throwable assembly:
 //  * game console  — glossy plastic shell screwed together, steel chassis tray, mainboard with an
 //    APU heatsink and RAM, slot-loading optical drive, PSU can, blower fan, power button, LED,
-//  * game controller — two hollow shell halves sandwiching the PCB, grips, thumbsticks, face
-//    buttons, D-pad, triggers and light bar all press-fit (they pop off when it is smashed),
+//  * game controller — two shell halves sandwiching the PCB (solid: at 13 mm a thin-walled shell
+//    would cost more parts than the whole controller), grips, thumbsticks, face buttons, D-pad,
+//    triggers and light bar all press-fit (they pop off when it is smashed),
 //  * cable/satellite box — steel sheet cover, plastic fascia with a green VFD display, PCB,
-//  * Wi-Fi router — shell halves around a PCB, LED strip, four snap-off antennas,
+//  * Wi-Fi router — hollow 2.5 mm plastic shell (six walls) around a PCB, LED strip, four snap-off
+//    antennas,
 //  * soundbar — plastic enclosure, internal baffle with two drivers (cone + magnet), fabric-look
 //    grille, amplifier board,
-//  * TV remote — shell halves around the PCB, rubber keypad, press-fit buttons and a battery bay
-//    whose door and two AAA cells fly out when it is stomped.
+//  * TV remote — shell halves around the PCB (solid at ~1 cm, like the controller's), rubber
+//    keypad, press-fit buttons and a battery bay whose door and two AAA cells fly out when it is
+//    stomped.
 //
 // Frames: origin at the floor contact centre, +Y up, front (ports/slot/IR window) faces +Z.
 
@@ -206,22 +209,24 @@ export function buildWifiRouter(o: { seed?: number } = {}): AssemblyDef {
     [0.09, -0.055],
   ].entries())
     feetP.push(b.cyl(`foot${k}`, "rubber", "rubber", 0.008, feet, [x, feet / 2, z], { segments: 8, tint: 0x111111 }));
-  const hb = 0.013,
-    ht = 0.017,
+  // hollow 2.5 mm plastic shell (six snap-together walls), the PCB glued on the floor inside
+  const H = 0.032,
+    t = 0.0025,
     pt = 0.0016;
-  const bot = b.bevelBox("shell_b", "plastic", "plastic", [W, hb, D], 0.003, [0, feet + hb / 2, 0], { tint, mass: 0.11 });
-  const board = b.box("pcb", "pcb", "pcb", [W - 0.01, pt, D - 0.01], [0, feet + hb + pt / 2, 0]);
-  const top = b.bevelBox("shell_t", "plastic", "plastic", [W, ht, D], 0.004, [0, feet + hb + pt + ht / 2, 0], { tint, mass: 0.1 });
+  const shell = sheetMetalBox(b, "shell", { w: W, h: H, d: D, t, mat: "plastic", surf: "plastic", tint, faces: { front: true }, join: "screw", spacing: 0.1, each: 8 }, [0, feet, 0]);
+  const bot = shell.bottom!,
+    front = shell.front!,
+    back = shell.back!;
+  const floorY = feet + t;
+  const board = b.box("pcb", "pcb", "pcb", [W - 2 * t - 0.012, pt, D - 2 * t - 0.012], [0, floorY + pt / 2, 0]);
   for (const f of feetP) b.glue(f, bot, 3);
-  b.screw(bot, board, 3, 8);
-  b.clip(top, board, 12);
+  b.screw(board, bot, 3, 8);
   b.sparks(board, 0.5);
-  const led = b.box("led", "plastic", "led_green", [0.11, 0.004, 0.003], [0, feet + hb + pt + ht * 0.45, D / 2 + 0.0015]);
-  b.glue(led, top, 3);
+  const led = b.box("led", "plastic", "led_green", [0.11, 0.004, 0.0015], [0, feet + H * 0.55, D / 2 + 0.00075]);
+  b.glue(led, front, 3);
   for (const [k, x] of [-0.08, -0.027, 0.027, 0.08].entries()) {
     const ant = b.bevelBox(`ant${k}`, "plastic", "plastic", [0.012, 0.11, 0.007], 0.002, [x, feet + 0.004 + 0.055, -D / 2 - 0.0035], { tint, mass: 0.009 });
-    b.press(ant, top, 3);
-    b.press(ant, bot, 2);
+    b.press(ant, back, 3);
   }
   return b.build();
 }

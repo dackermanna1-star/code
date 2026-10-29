@@ -4,7 +4,7 @@
 //  * Glass-ceramic cooktop (4 mm, glass with 2.5× strength: shrugs off pans, shatters under a
 //    hammer) over four radiant elements on a steel tray.
 //  * Oven: 1 mm enamelled cavity in fibreglass insulation, bake/broil elements (steel tube loops),
-//    an oven lamp, two wire racks on slider joints, and a bottom-hinged, spring-balanced door
+//    an oven lamp (`light`, off), two wire racks on slider joints, and a bottom-hinged, spring-balanced door
 //    with a detent: steel frame, dark tempered outer glass and a tempered inner window.
 //  * Front control panel with six press-fit knobs, a clock display (screen-less 7-segment
 //    surface) and the control board (sparks); a storage drawer on runners under the oven.
@@ -159,6 +159,10 @@ export function buildRange(o: RangeOpts = {}): AssemblyDef {
   bondTouching(b, bkT, broil, "screw", 30, 0.0015);
   const lamp = b.cyl("lamp", "glass", "bulb_off", 0.016, 0.03, [cav.x - 0.04, cav.y1 - 0.015, cav.z0 + 0.04], { segments: 8 });
   b.clip(lamp, cavT, 4);
+  // Oven lamp: starts off. Appliance lamps cannot opt out of the room's wall switch (contract
+  // request filed), so it lights with the room once it has been switched; a short range keeps that
+  // light inside the cavity (seen through the window), and a broken bulb or ripped cord kills it.
+  b.light({ part: lamp, pos: [cav.x - 0.04, cav.y1 - 0.04, cav.z0 + 0.04], kind: "point", color: 0xffd8a0, intensity: 0.45, range: 0.45, castShadows: false, mains: true, on: false });
   [0.33, 0.5].forEach((y, k) => {
     const rack = b.box(`rack${k}`, "steel", "vent_grille", [2 * cav.x - 0.006, 0.008, cav.z1 - cav.z0 - 0.05], [0, y, cav.z0 + 0.01 + (cav.z1 - cav.z0 - 0.05) / 2], { mass: 1.6, tint: 0xd8d8d8, tess: 0 });
     const g = b.slider(rack, cavL, { pivots: [[-cav.x + 0.003, y, 0]], axis: [0, 0, 1], min: 0, max: 0.28, strength: 40, friction: 0.4 });

@@ -54,10 +54,30 @@ async function pile(opts: { substeps?: number; adaptive?: boolean; assist: boole
   const awakeExact = bodies.filter((b) => w.physics.isAwake(b)).length;
   // the pile must stay interactive: drop a 50 kg block on it
   const block = body(w, "block", new Vector3(0, 9, 0), "dynamic", w.physics.boxShape(ZERO, IDQ, { x: 0.6, y: 0.6, z: 0.6 }, { density: 230 }));
-  steps(w, 90);
-  const movedAfterBlock = bodies.filter((b) => w.physics.isAwake(b)).length;
-  // the woken pile must fall asleep again (island-coherent sleep pass), and stay cheap
-  const reSleep = timeSteps(w, 120);
+  // per step: awake count (stats(): cheap) and step time — impact = the step the pile wakes, re-sleep = the first step
+  // after it with ≤ 10 bodies awake; the wake window's ms/step is what one impact costs
+  let impactStep = -1, reSleepStep = -1, movedAfterBlock = 0;
+  const wakeMs: number[] = [];
+  const reSleepMs: number[] = [];
+  for (let k = 0; k < 210; k++) {
+    const a = performance.now();
+    w.physics.step(1 / 60);
+    const ms = performance.now() - a;
+    const awake = w.physics.stats().awake;
+    if (impactStep < 0 && awake > 50) impactStep = k;
+    if (impactStep >= 0 && reSleepStep < 0) {
+      wakeMs.push(ms);
+      if (awake <= 10) reSleepStep = k;
+    }
+    if (k >= 90) reSleepMs.push(ms);
+    if (k === 89) movedAfterBlock = bodies.filter((b) => w.physics.isAwake(b)).length;
+  }
+  const msStats = (t: number[]) => {
+    if (t.length === 0) return { steps: 0, avg: 0, p95: 0, max: 0 };
+    const s2 = [...t].sort((x, y) => x - y);
+    return { steps: t.length, avg: r(t.reduce((x, y) => x + y, 0) / t.length, 3), p95: r(s2[Math.floor(t.length * 0.95)], 3), max: r(s2[t.length - 1], 3) };
+  };
+  const reSleep = msStats(reSleepMs);
   const awakeAfterReSleep = bodies.filter((b) => w.physics.isAwake(b)).length;
   const blockY = block.transformNode.position.y;
   const st2 = w.physics.debugStats();
@@ -73,6 +93,9 @@ async function pile(opts: { substeps?: number; adaptive?: boolean; assist: boole
     awakeAfterBlockDrop90Steps: movedAfterBlock,
     awakeAfterFurther120Steps: awakeAfterReSleep,
     reSleepWindowMs: reSleep,
+    impactStepAfterBlockSpawn: impactStep,
+    reSleepSecondsAfterImpact: reSleepStep < 0 ? -1 : r((reSleepStep - impactStep) / 60, 3),
+    wakeWindowMs: msStats(wakeMs),
     forcedSleepsAfterBlock: st2.forcedSleeps - st.forcedSleeps,
     blockRestY: r(blockY, 2),
   };
@@ -86,8 +109,11 @@ export async function probe() {
   // ---- P1: 1000-hull pile
   out.P1_pile_default = await pile({ assist: true });
   {
-    const p = out.P1_pile_default as { awakeAtEnd: number; awakeAfterFurther120Steps: number; blockRestY: number; forcedSleeps: number };
+    const p = out.P1_pile_default as { awakeAtEnd: number; awakeAfterFurther120Steps: number; blockRestY: number; forcedSleeps: number; reSleepSecondsAfterImpact: number; wakeWindowMs: unknown };
     // asleep by the end (900 steps), re-asleep 210 steps after a 50 kg block lands on it, block resting on the pile, no thrash
+    // one impact wakes the whole pile (Havok wakes islands as a whole — physics-sys-sleep S0): it must re-sleep fast,
+    // the wake window being where the cost is (Havok solving 1000 awake hulls)
+    check(out, "P1_pileReSleepsSoonAfterImpact", p.reSleepSecondsAfterImpact > 0 && p.reSleepSecondsAfterImpact <= 1.2, { reSleepSecondsAfterImpact: p.reSleepSecondsAfterImpact, wakeWindowMs: p.wakeWindowMs });
     check(out, "P1_pileSleepsAndReSleeps", p.awakeAtEnd <= 10 && p.awakeAfterFurther120Steps <= 10 && p.blockRestY > 0.3 && p.forcedSleeps <= 1500, { awakeAtEnd: p.awakeAtEnd, awakeAfterReSleep: p.awakeAfterFurther120Steps, blockRestY: p.blockRestY, forcedSleeps: p.forcedSleeps });
   }
   out.P1_pile_fixed2substeps = await pile({ substeps: 2, adaptive: false, assist: true });

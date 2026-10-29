@@ -51,13 +51,21 @@
 //    displacement is useless: Havok's position correction makes resting pile bodies jump); practically still bodies
 //    count 4× faster. Every 4 steps the awake dynamic bodies are grouped into proximity components (COM bounding
 //    spheres, sweep-and-prune + union-find) and a component is put to sleep AS A WHOLE once all members have been
-//    slow for 0.6 s — or, for piles of > 32 bodies, 90 % of them while the rest merely jitter (< 0.3 m/s) — after a
-//    last check of Havok's own velocities. Sleeping single bodies of an active island instead (the earlier scheme)
-//    is undone by their neighbours next step and agitates the pile (120 hulls: never asleep, 3000 forced sleeps,
-//    spin up to 1.2 rad/s). Measured (physics-sys-perf, loaded machine): a 1000-hull pile is asleep ~5 s after being
-//    dropped (0.06 ms/step after), re-asleep < 3.5 s after a 50 kg block lands on it, exactly one forced sleep per
-//    body each time; while it is actively falling/settling Havok itself costs 20–50 ms/step (not reducible here).
-//    Pile members (> 32) are only verified for linear motion (solver jitter spins them); small groups also for spin.
+//    slow for 0.6 s — or, for piles of > 32 bodies, 90 % of them while the rest merely jitter (< 0.3 m/s and none
+//    TRAVELLING) — after a last check of Havok's own velocities. Travelling = net displacement over a position-only
+//    anchor (≥ 8 steps) above the linear threshold while still moving that fast: a ball rolling or a piece sliding
+//    across a pile keeps it awake (a ball rolling over 36 planks stops exactly where it stops without the assist,
+//    physics-sys-sleep S1; the earlier rule froze it at 0.1 m/s). Partial sleeping is impossible: Havok wakes a
+//    whole island at once (touching one of 36 slept planks wakes all 36 in one step, S0), and sleeping single
+//    bodies of an active island (the first scheme) is undone by their neighbours and agitates the pile (120 hulls:
+//    never asleep, 3000 forced sleeps). So an impact on a slept pile wakes all of it; bodies that were asleep and do
+//    not travel since ("rewoken") prove calm in 0.25 s instead of 0.6 s, and the pile re-sleeps as soon as the
+//    genuinely moving bodies near the impact have stopped. Measured (physics-sys-perf, loaded machine): a 1000-hull
+//    pile is asleep ~5 s after being dropped (0.1 ms/step after); a 50 kg block landing on it at 11 m/s: 60 % of
+//    the pile slow again after 0.33 s, whole pile asleep ≈ 0.9 s after the impact (waits for the pushed bodies),
+//    exactly one forced sleep per body; while 1000 hulls are awake Havok itself costs 20–50 ms/step (not reducible
+//    here — keeping that window short is the lever). Pile members (> 32) are only verified for linear motion
+//    (solver jitter spins them); small groups also for spin.
 //  * FILTERS: a filter change on a body's root leaf shape is ignored by Havok until the body's shape is re-set
 //    (HP_Body_SetShape(0) then the shape); setLayer() does that for every body using the shape and restores
 //    the sleep state.
@@ -324,6 +332,11 @@ class BodyRec implements ImpactSide {
   anchorStep = 0;
   /** Last step at which the body's anchor-averaged (net) speed exceeded the linear threshold (see fastSync). */
   driftStep = -1_000_000;
+  /** Position-only travel anchor (world COM-frame origin, m) and the step it was taken at (fastSync). */
+  travelX = 0;
+  travelY = 0;
+  travelZ = 0;
+  travelStep = -1_000_000;
   /** Woken by its island (asleep before, no net travel since): counts slow steps REWAKE_SECONDS-fast (fastSync). */
   rewoken = false;
   /** Step index until which the body's velocity is polled before stepping (fresh / expectFast). */
@@ -1281,6 +1294,10 @@ export class Physics implements PhysicsSystem {
               rec.anchorStep = step;
               rec.slow = 0;
               rec.rewoken = true;
+              rec.travelX = tx;
+              rec.travelY = ty;
+              rec.travelZ = tz;
+              rec.travelStep = step;
               an[ai] = tx;
               an[ai + 1] = ty;
               an[ai + 2] = tz;
@@ -1296,14 +1313,26 @@ export class Physics implements PhysicsSystem {
             const drift2 = ex * ex + ey * ey + ez * ez;
             const qd = Math.min(1, Math.abs(qx * an[ai + 3] + qy * an[ai + 4] + qz * an[ai + 5] + qw * an[ai + 6]));
             const rot2 = 4 * (1 - qd * qd); // (2·sin(θ/2))² ≈ θ²
-            const spike = d2 > linLim2 * JITTER_FACTOR2 || a2 > angLim2 * JITTER_FACTOR2;
-            // net drift beyond the linear threshold over ≥ JITTER_STEPS without a jitter spike: genuinely travelling
-            // (rolling, sliding), as opposed to oscillating in place — such a body keeps its pile awake (sleepPass)
-            if (!spike && drift2 > linLim2 * s2) {
+            const linSpike = d2 > linLim2 * JITTER_FACTOR2;
+            // travel detection on a separate, position-only anchor (the pose anchor above re-anchors on every spin
+            // spike, e.g. every step of a rolling ball): net displacement beyond the linear threshold × elapsed time
+            // (≥ JITTER_STEPS) = genuinely travelling (rolling, sliding), as opposed to oscillating in place — such a
+            // body keeps its pile awake (sleepPass). A single-step linear jump (position correction) just re-anchors.
+            const te = step - rec.travelStep;
+            const tsp = te < JITTER_STEPS ? JITTER_STEPS : te;
+            const fx = tx - rec.travelX, fy = ty - rec.travelY, fz = tz - rec.travelZ;
+            const travel = fx * fx + fy * fy + fz * fz > linLim2 * tsp * tsp;
+            if (travel) {
               rec.driftStep = step;
               rec.rewoken = false;
             }
-            if (spike || drift2 > linLim2 * s2 || rot2 > angLim2 * s2 || elapsed > 2 * slowCap) {
+            if (travel || linSpike || te > 2 * slowCap) {
+              rec.travelX = tx;
+              rec.travelY = ty;
+              rec.travelZ = tz;
+              rec.travelStep = step;
+            }
+            if (linSpike || a2 > angLim2 * JITTER_FACTOR2 || drift2 > linLim2 * s2 || rot2 > angLim2 * s2 || elapsed > 2 * slowCap) {
               an[ai] = tx;
               an[ai + 1] = ty;
               an[ai + 2] = tz;
@@ -1360,7 +1389,9 @@ export class Physics implements PhysicsSystem {
    * proximity components (bounding spheres around the COM touching, sweep-and-prune + union-find) and a component is
    * put to sleep as a whole: when every member has been slow for `seconds`, or — for piles of more than
    * SLEEP_BIG_COMPONENT bodies, whose solver jitter never stops everywhere at once — when SLEEP_MAJORITY of them have
-   * and no other member moves faster than FREEZE_SAFE_SPEED. Kept-awake or jointed members keep their component awake.
+   * and no other member moves faster than FREEZE_SAFE_SPEED or is travelling (net drift above the linear threshold
+   * and still that fast: rolling / sliding across the pile — Havok would wake the whole island around it anyway, so
+   * it keeps the component awake). Kept-awake or jointed members keep their component awake.
    */
   private sleepPass(dt: number): void {
     const list = this.fast;
@@ -1504,6 +1535,7 @@ export class Physics implements PhysicsSystem {
       hk.HP_Body_SetActivationState(rec.hpId, INACTIVE);
       rec.slow = 0;
       rec.asleepKnown = true;
+      rec.awakePoll = false; // (stats().awake must not wait for the round-robin poll)
       this.forcedSleeps++;
     }
     mem.length = 0;
@@ -1727,7 +1759,10 @@ export class Physics implements PhysicsSystem {
     const id = body._pluginData?.hpBodyId;
     if (id) this.hk.HP_Body_SetActivationState(id, this.hk.ActivationState.INACTIVE);
     const rec = this.recs.get(body);
-    if (rec && rec.motion === DYNAMIC) rec.asleepKnown = true;
+    if (rec && rec.motion === DYNAMIC) {
+      rec.asleepKnown = true;
+      rec.awakePoll = false;
+    }
   }
 
   isAwake(body: PhysicsBody): boolean {

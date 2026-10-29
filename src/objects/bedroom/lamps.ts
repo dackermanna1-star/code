@@ -144,8 +144,9 @@ function spotBulb(b: Builder, name: string, socketPart: string, pos: [number, nu
 /**
  * Articulated desk lamp. Built pose: lower arm leaning 10° back, upper arm reaching forward 25°
  * below horizontal, shade aimed 30° forward of straight down; the centre of mass stays over the
- * cast-iron base. Spring-balanced friction
- * hinges hold the pose (like the balancing springs of a real task lamp).
+ * cast-iron base. Pure friction hinges hold the pose (no return springs: a spring whose rest angle
+ * differs from the gravity equilibrium keeps torquing forever, so the lamp never sleeps and walks
+ * the desk it stands on). The turret swivel is stiff too, so it does not wander.
  */
 export function buildDeskLamp(o: DeskLampOpts = {}): AssemblyDef {
   const b = mk("deskLamp", "Desk Lamp", "electronics", 60, o);
@@ -161,7 +162,7 @@ export function buildDeskLamp(o: DeskLampOpts = {}): AssemblyDef {
   const yT0 = 0.021;
   const turret = b.cyl("turret", "steel", S, 0.016, 0.03, [0, yT0 + 0.015, 0], { segments: 10, tint });
   // two bearing points on the turret axis (a single pivot would be a ball joint)
-  b.hinge(turret, cover, { pivots: [[0, yT0, 0], [0, yT0 + 0.025, 0]], axis: [0, 1, 0], min: -180, max: 180, friction: 0.8, strength: 60 });
+  b.hinge(turret, cover, { pivots: [[0, yT0, 0], [0, yT0 + 0.025, 0]], axis: [0, 1, 0], min: -180, max: 180, friction: 2.5, strength: 60 });
   const yS = yT0 + 0.03 + 0.012; // shoulder pivot height
   const knuckle = boxR(b, "shoulder", "steel", S, [-0.016, 0.016], [yS - 0.012, yS + 0.012], [-0.012, 0.012], { tint });
   b.weld(knuckle, turret, 80);
@@ -183,12 +184,12 @@ export function buildDeskLamp(o: DeskLampOpts = {}): AssemblyDef {
   const arm1 = [-1, 1].map((sx) => b.box(sx < 0 ? "arm1_l" : "arm1_r", "steel", S, [0.004, L1, 0.012], [sx * X1, mid1[1], mid1[2]], { rot: [lean, 0, 0], tint, tess: 0 }));
   const sp1 = b.box("arm1_spreader", "steel", S, [2 * X1 - 0.004, 0.02, 0.012], mid1, { rot: [lean, 0, 0], tint });
   for (const a of arm1) b.weld(a, sp1, 60);
-  b.hinge(arm1[0], knuckle, { pivots: [[-X1, yS, 0]], axis: [fwd.x, fwd.y, fwd.z], min: -40, max: 45, friction: 4, spring: 6, strength: 50, group: "lamp_shoulder" });
-  b.hinge(arm1[1], knuckle, { pivots: [[X1, yS, 0]], axis: [fwd.x, fwd.y, fwd.z], min: -40, max: 45, friction: 4, spring: 6, strength: 50, group: "lamp_shoulder" });
+  b.hinge(arm1[0], knuckle, { pivots: [[-X1, yS, 0]], axis: [fwd.x, fwd.y, fwd.z], min: -40, max: 45, friction: 5, strength: 50, group: "lamp_shoulder" });
+  b.hinge(arm1[1], knuckle, { pivots: [[X1, yS, 0]], axis: [fwd.x, fwd.y, fwd.z], min: -40, max: 45, friction: 5, strength: 50, group: "lamp_shoulder" });
 
   // ---- elbow knuckle + upper arm, 15° below horizontal
   const ek = boxR(b, "elbow", "steel", S, [-(X2 - 0.002), X2 - 0.002], [elbow[1] - 0.012, elbow[1] + 0.012], [elbow[2] - 0.012, elbow[2] + 0.012], { tint });
-  b.hinge(ek, arm1, { pivots: [[-X1, elbow[1], elbow[2]], [X1, elbow[1], elbow[2]]], axis: [fwd.x, fwd.y, fwd.z], min: -60, max: 70, friction: 3, spring: 4, strength: 45 });
+  b.hinge(ek, arm1, { pivots: [[-X1, elbow[1], elbow[2]], [X1, elbow[1], elbow[2]]], axis: [fwd.x, fwd.y, fwd.z], min: -60, max: 70, friction: 4, strength: 45 });
   const drop = 25;
   const a2 = (-drop * Math.PI) / 180;
   const head: [number, number, number] = [0, elbow[1] + L2 * Math.sin(a2), elbow[2] + L2 * Math.cos(a2)];
@@ -201,7 +202,7 @@ export function buildDeskLamp(o: DeskLampOpts = {}): AssemblyDef {
 
   // ---- head knuckle, stem, shade (spun steel lathe) aimed down/forward, socket + spot bulb
   const hk = boxR(b, "head_knuckle", "steel", S, [-(X2 - 0.002), X2 - 0.002], [head[1] - 0.012, head[1] + 0.012], [head[2] - 0.012, head[2] + 0.012], { tint });
-  b.hinge(hk, arm2, { pivots: [[-X2, head[1], head[2]], [X2, head[1], head[2]]], axis: [fwd.x, fwd.y, fwd.z], min: -50, max: 50, friction: 1, strength: 40 });
+  b.hinge(hk, arm2, { pivots: [[-X2, head[1], head[2]], [X2, head[1], head[2]]], axis: [fwd.x, fwd.y, fwd.z], min: -50, max: 50, friction: 1.5, strength: 40 });
   const tilt = 30;
   const ax = (180 - tilt) * (Math.PI / 180);
   const dir: [number, number, number] = [0, Math.cos(ax), Math.sin(ax)]; // shade axis (local +Y of the head frame)
