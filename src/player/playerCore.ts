@@ -78,7 +78,7 @@ export const PLAYER = {
   pushForce: 600,
   /**
    * The player's weight on a dynamic body it stands on is capped at this many times that body's own
-   * weight (see pressSupport): a rug lying on the floor is pressed onto the floor, not hammered into it.
+   * weight (see loadSupport): a rug lying on the floor is pressed onto the floor, not hammered into it.
    */
   supportLoadCap: 2,
   /** Falling below this height (off the balcony) respawns the player. */
@@ -200,8 +200,8 @@ export class PlayerCore implements PlayerSystem {
     // No built-in weight impulses: Babylon applies characterMass·g·dt along EVERY manifold contact's
     // normal (weight × contact count, tilted by the capsule's round bottom), which pumped a 7.8 kg rug
     // up and down at ~1 m/s under a player standing still (13–23 N·s per step) and dragged it, and the
-    // coffee table standing on it shook apart. pressSupport() applies the weight instead: once per
-    // step, vertical, capped.
+    // coffee table standing on it shook apart. loadSupport() applies the weight instead: as the
+    // support's gravity factor (vertical, through its centre of mass, capped).
     cc.characterMass = 0;
     cc.maxCharacterSpeedForSolver = 30;
     // Default 0.05/0.1 lets the capsule hover 5–15 cm above the floor depending on how it
@@ -380,7 +380,7 @@ export class PlayerCore implements PlayerSystem {
     // ---- what is under the feet
     this.support = this.grounded || landSpeed > 0 ? this.probeSupport() : null;
     this.view.support = this.support ? this.support.body : null;
-    this.pressSupport(dt, moved > 0.002 || landSpeed > 0);
+    this.loadSupport();
 
     if (landSpeed > 0) this.onLand(landSpeed);
 
@@ -791,42 +791,58 @@ export class PlayerCore implements PlayerSystem {
   }
 
   /**
-   * The player's weight on the dynamic body under the feet: one vertical impulse per step (weight is
-   * vertical whatever the contact normal), capped at supportLoadCap × the body's own weight (a light
-   * body pressed by many times its weight between the player and the floor only makes the solver
-   * jitter; the visible result — it stays put — is the same), applied below the body's centre of
-   * mass: a rigid rug pressed at one end tilts on the floor's few contact points (a real rug is
-   * limp), lifts its far end and walks the coffee table standing on it off (0.1 mm per step).
-   * Landing stomps (onLand) still strike at the contact point. A support that is asleep under a
-   * player standing still is left asleep (the load does not change); walking or landing presses it
-   * again.
+   * The player's weight on the dynamic body under the feet, as that body's gravity factor
+   * (1 + carried load / own mass): Havok integrates it like a heavier body — vertical whatever the
+   * contact normal, through the centre of mass, with no impulses for the solver to bounce. Impulses
+   * did not work: a 7.8 kg rug pressed by 2.5–23 N·s per step between the player and the floor
+   * bounced off it (restitution), tilted on the floor's few contact points (a real rug is limp) and
+   * made the glass coffee table standing on it hop, creep 1.6 cm/s and take 7–12 J "hits". The load is
+   * capped at supportLoadCap × the body's own weight (a light body crushed by many times its weight
+   * only makes the solver jitter; it stays put either way). Stepping onto or off a body wakes it (a
+   * plank resting on something unstable reacts); a sleeping body under a player standing still stays
+   * asleep — its gravity factor does not move it. Landing stomps (onLand) strike at the contact point.
    */
-  private pressSupport(dt: number, moving: boolean): void {
+  private loadSupport(): void {
     const sp = this.support;
-    if (!sp || !this.grounded || sp.body === this.body || sp.body.isDisposed || !sp.body._pluginData) return;
-    if (sp.body.getMotionType() !== PhysicsMotionType.DYNAMIC) return;
-    const ph = this.ctx.physics;
-    if (!moving && !ph.isAwake(sp.body)) return;
-    let m: number | null = null;
-    try {
-      m = this.ctx.destruction.massOf(sp.body);
-    } catch {
-      m = null;
+    let target: PhysicsBody | null = null;
+    let factor = 1;
+    if (sp && this.grounded && sp.body !== this.body && !sp.body.isDisposed && sp.body._pluginData && sp.body.getMotionType() === PhysicsMotionType.DYNAMIC) {
+      let m: number | null = null;
+      try {
+        m = this.ctx.destruction.massOf(sp.body);
+      } catch {
+        m = null;
+      }
+      if (m === null || !(m > 0)) m = sp.body.getMassProperties().mass ?? 0;
+      if (m > 0 && Number.isFinite(m)) {
+        target = sp.body;
+        factor = 1 + Math.min(PLAYER.mass, PLAYER.supportLoadCap * m) / m;
+      }
     }
-    if (m === null || !(m > 0)) m = sp.body.getMassProperties().mass ?? 0;
-    if (!(m > 0) || !Number.isFinite(m)) return;
-    const load = Math.min(PLAYER.mass, PLAYER.supportLoadCap * m) * PLAYER.gravity * dt;
-    const com = sp.body.getMassProperties().centerOfMass;
-    if (com) {
-      Vector3.TransformCoordinatesToRef(com, sp.body.transformNode.getWorldMatrix(), this.pressAt);
-      this.pressAt.y = sp.point.y;
-    } else this.pressAt.copyFrom(sp.point);
-    if (!Number.isFinite(this.pressAt.x + this.pressAt.y + this.pressAt.z)) return;
-    sp.body.applyImpulse(this.pressImp.set(0, -load, 0), this.pressAt);
+    const prev = this.loaded;
+    if (prev && prev !== target) {
+      if (!prev.isDisposed && prev._pluginData) {
+        prev.setGravityFactor(1);
+        this.ctx.physics.wake(prev);
+      }
+      this.loaded = null;
+    }
+    if (target) {
+      if (prev !== target) {
+        target.setGravityFactor(factor);
+        this.loadedFactor = factor;
+        this.ctx.physics.wake(target);
+      } else if (Math.abs(this.loadedFactor - factor) > 0.01) {
+        target.setGravityFactor(factor);
+        this.loadedFactor = factor;
+      }
+      this.loaded = target;
+    }
   }
 
-  private readonly pressImp = new Vector3();
-  private readonly pressAt = new Vector3();
+  /** Body carrying the player's weight through its gravity factor (loadSupport), and that factor. */
+  private loaded: PhysicsBody | null = null;
+  private loadedFactor = 1;
 
   private onLand(speed: number): void {
     this.rig.land(speed);

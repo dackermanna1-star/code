@@ -32,7 +32,9 @@ for (let i = 0; i < time.beginFrame(dt); i++) physics.step(FIXED_DT); // scene.r
   kept awake. Slept bodies wake on contact, through their constraints, on use/pull/motor changes, and when something
   they rest on vanishes: disposing a body or removing container children (disposeBody, setShape with fewer children,
   removeChildren, teleport) wakes the sleeping dynamic bodies overlapping what vanished before the next step (Havok
-  itself does not). A (practically) zero impulse (|J| < 1e-5 N·s) is ignored instead of waking the body.
+  itself does not). An impulse too small to move a sleeping body (Δv < 3 mm/s — Havok bleeds 5 mm/s per step off slow
+  bodies anyway; Babylon's character controller applies such impulses to whatever the player touches) is ignored instead
+  of waking it.
   Before (bounding-sphere groups, joints blocking): 200–300 of 644 bodies of the furnished apartment never slept,
   6–19 ms/step; after: only powered rotors stay awake, ≈ 0.3 ms/step (`node tests/idle.mjs`).
 
@@ -74,6 +76,10 @@ using it (sleep state preserved). The character controller's capsule needs membe
   impact (adaptive masks); a settled scene raises ~0 events per step.
 * Gates: impulse ≥ `minImpulse` (0.02 N·s) and impulse / lightest dynamic mass ≥ 0.25 m/s (filters resting and
   spawn loads). Tunable via `physics.impacts`. Extra fields: `peak`, `steps`, `contacts` (`PhysicsImpact`).
+* Wake echoes: a contact start between bodies none of which moved during the previous step (asleep or perfectly still)
+  and none of which was given a velocity since is passed on as a resumed contact, not a hit — Havok re-reports every
+  resting contact of an island that wakes / re-deactivates as STARTED with up to ~2.5× the resting load (measured 7–9 J
+  bogus "impacts" between a rug, the floor and the glass table on it).
 * Delivered after the step completes: handlers may create/dispose bodies freely. `muteImpacts(body, steps)` for
   fragments spawned in contact.
 

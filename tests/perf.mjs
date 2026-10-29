@@ -406,6 +406,21 @@ function installPerf() {
   wrapT(ctx.render, "update", "frame.render.update");
   wrapT(ctx.hud, "update", "frame.hud");
   wrapT(game, "fixedStep", "loop.fixedSteps");
+  // point-light shadow promotions/demotions (each promotion = new ShadowGenerator + cube RTT + full render,
+  // and the light leaves the cluster: every lit material's light layout changes)
+  const countCalls = (obj, method, key) => {
+    if (!obj || typeof obj[method] !== "function") return;
+    const orig = obj[method];
+    obj[method] = function () {
+      const f = P.frame;
+      if (P.rec && f) f.counts[key] = (f.counts[key] || 0) + 1;
+      return orig.apply(this, arguments);
+    };
+  };
+  countCalls(ctx.render.lighting, "promote", "pointShadowPromotions");
+  countCalls(ctx.render.lighting, "demote", "pointShadowDemotions");
+  countCalls(ctx.render, "buildIsland", "islandMeshBuilds");
+  countCalls(ctx.render.lighting, "setShadowCaster", "setShadowCaster");
   wrapT(game, "frameUpdate", "loop.frameUpdate");
   // scene.render: frame boundaries (one record per scene.render) + its total time
   const sr = scene.render;
@@ -424,7 +439,7 @@ function installPerf() {
   };
 
   function newFrame() {
-    return { t: { renderMs: 0, evalMs: 0, evalActiveMs: 0, rttMs: 0, mainMs: 0, postMs: 0, startedAt: now() }, sys: {}, passes: {}, rtts: {}, posts: {}, resets: {}, resetsTotal: {}, movedCasters: {}, heap0: performance.memory ? performance.memory.usedJSHeapSize : 0 };
+    return { t: { renderMs: 0, evalMs: 0, evalActiveMs: 0, rttMs: 0, mainMs: 0, postMs: 0, startedAt: now() }, sys: {}, passes: {}, rtts: {}, posts: {}, resets: {}, resetsTotal: {}, movedCasters: {}, counts: {}, heap0: performance.memory ? performance.memory.usedJSHeapSize : 0 };
   }
   function endFrame() {
     const f = P.frame;
@@ -848,6 +863,11 @@ function aggregate(frames) {
     postProcesses: posts,
     heap: { allocMBPerFrameApprox: r2(pos.reduce((a, b) => a + b, 0) / n / 1048576), gcDropsObserved: heapDeltas.filter((d) => d < -1048576).length, heapMB: last.heap1 ? r1(last.heap1 / 1048576) : null },
     worstSimFrames,
+    countsPerFrame: (() => {
+      const c = {};
+      for (const f of frames) for (const [k, v] of Object.entries(f.counts ?? {})) c[k] = (c[k] ?? 0) + v / n;
+      return Object.fromEntries(Object.entries(c).map(([k, v]) => [k, r2(v)]));
+    })(),
     rttInvalidationsPerFrame: topR(resetsTotal, 10),
     rttInvalidationCallSitesPerFrame: topR(resets, 25),
     movedShadowCastersPerFrame: { framesWithAny: `${framesWithMovedCasters}/${n}`, total: r1(Object.values(moved).reduce((a, b) => a + b, 0)), byCategory: topR(moved, 80) },
@@ -976,6 +996,7 @@ function summarize(r) {
   lines.push(`   systems: ` + Object.entries(s).filter(([k]) => !k.startsWith("loop.")).map(([k, v]) => `${k} ${v.mean}`).join(", "));
   const inv = Object.entries(r.rttInvalidationCallSitesPerFrame ?? {}).slice(0, 6);
   if (inv.length) lines.push(`   RTT invalidations/frame: ` + inv.map(([k, v]) => `${v}× ${k.slice(0, 140)}`).join("\n                            "));
+  if (r.countsPerFrame && Object.keys(r.countsPerFrame).length) lines.push(`   counts/frame: ${JSON.stringify(r.countsPerFrame)}`);
   const mc = r.movedShadowCastersPerFrame;
   if (mc) lines.push(`   moved shadow casters/frame: ${mc.total} (${mc.framesWithAny} frames) ` + JSON.stringify(Object.fromEntries(Object.entries(mc.byCategory).slice(0, 8))));
   lines.push(`   physics awake ${r.physics.awake}/${r.physics.bodies} stepEma ${r.physics.stepMsEmaMean} ms; destruction ${JSON.stringify(r.destruction.msLastStep)}; heap +${r.heap.allocMBPerFrameApprox} MB/frame`);
@@ -1093,28 +1114,30 @@ try {
         report.scenarios.whatifAllAsleepFanOn = a;
         summarize(a);
         const fan = await sim(() => {
-          const j = window.__game.ctx.destruction.joints;
+          const c = window.__game.ctx;
+          const j = c.destruction.joints;
           let n = 0;
+          const moving = new Set();
           for (const g of [...j.motors]) {
             g.motorOn = false;
             g.motorSpeed = 0;
             n++;
+            for (const b of g.bonds ?? []) for (const isl of [b.a?.island, b.b?.island]) if (isl && !isl.isStatic && isl.body) moving.add(isl);
           }
-          // and stop every dynamic body dead (a 52" fan takes many seconds to spin down by friction)
-          const c = window.__game.ctx;
-          const zero = { x: 0, y: 0, z: 0 };
-          for (const isl of c.destruction.world.islands) {
-            if (isl.isStatic || !isl.body || !isl.alive) continue;
+          // stop only the motor-driven islands dead (a 52" fan takes many seconds to spin down by friction);
+          // touching every body would wake the whole apartment
+          for (const isl of moving) {
             try {
-              isl.body.setLinearVelocity(new isl.node.position.constructor(0, 0, 0));
-              isl.body.setAngularVelocity(new isl.node.position.constructor(0, 0, 0));
+              const v = isl.node.position.constructor;
+              isl.body.setLinearVelocity(new v(0, 0, 0));
+              isl.body.setAngularVelocity(new v(0, 0, 0));
+              c.physics.sleep(isl.body);
             } catch {}
           }
-          void zero;
-          return { motorsStopped: n };
+          return { motorsStopped: n, motorIslandsStopped: moving.size };
         });
         log("whatif motors", JSON.stringify(fan));
-        await sim(() => window.__sim.step(30));
+        await sim(() => window.__sim.step(2));
         log("whatif sleepAll", JSON.stringify(await sleepAll()));
         await sim(() => window.__sim.step(1));
         const b = await measure("whatif-allAsleep-fanOff", Math.min(FRAMES, 12));

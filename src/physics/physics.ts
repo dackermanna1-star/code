@@ -247,6 +247,8 @@ const SLEEP_MAJORITY = 0.9;
 /** …provided no non-slow member is faster than this (m/s, corner speed): measured pile jitter peaks at 0.16–0.27 m/s,
  *  while anything genuinely moving (a block landing on the pile) is far faster and keeps its pile awake. */
 const FREEZE_SAFE_SPEED = 0.3;
+/** A sleeping body ignores impulses changing its (corner) speed by less than this (m/s) — see wrapVelocityChanges. */
+const IMPULSE_IGNORE_DV = 0.003;
 /** Sleeping dynamic bodies within this distance (m) of a vanished support (disposed body, removed container child) are
  *  woken before the next step (see queueWakeRegion). */
 const WAKE_REGION_MARGIN = 0.03;
@@ -811,12 +813,22 @@ export class Physics implements PhysicsSystem {
       if (typeof orig !== "function") continue;
       const isImpulse = name === "applyImpulse" || name === "applyAngularImpulse";
       plugin[name] = (body: PhysicsBody, ...rest: unknown[]): unknown => {
-        // A (practically) zero impulse is no impulse, but Havok wakes the body anyway: Babylon's character
-        // controller applies one to every dynamic body it touches each step, which kept a rug the player
-        // stands on (and everything on it) awake forever. |J| < 1e-5 N·s changes a 5 g body by < 2 mm/s.
+        // An impulse too small to move a body is no impulse, but Havok wakes a sleeping body for it anyway:
+        // Babylon's character controller applies one (often ~0.001 N·s) to every dynamic body it touches each
+        // step, which kept a rug the player stands on — and everything on it — waking up again and again.
+        // Havok bleeds ~0.005 m/s per step off slow bodies, so a velocity change below IMPULSE_IGNORE_DV
+        // (corner speed for angular impulses) has no effect on a resting body: a sleeping body ignores it.
         if (isImpulse) {
           const j = rest[0] as { x: number; y: number; z: number } | undefined;
-          if (j && j.x * j.x + j.y * j.y + j.z * j.z < 1e-10) return undefined;
+          if (j) {
+            const j2 = j.x * j.x + j.y * j.y + j.z * j.z;
+            if (j2 < 1e-10) return undefined;
+            const rec = this.recs.get(body);
+            if (rec && rec.motion === DYNAMIC && !rec.disposed && rec.mass > 0 && Number.isFinite(rec.mass)) {
+              const dv = name === "applyImpulse" ? Math.sqrt(j2) / rec.mass : (Math.sqrt(j2) / (rec.mass * Math.max(rec.kk, 1e-8))) * rec.radius;
+              if (dv < IMPULSE_IGNORE_DV && this.hk.HP_Body_GetActivationState(rec.hpId)[1] === this.hk.ActivationState.INACTIVE) return undefined;
+            }
+          }
         }
         const r = orig.call(this.plugin, body, ...rest);
         this.touchVelocity(body);
@@ -1075,18 +1087,48 @@ export class Physics implements PhysicsSystem {
         const type = i32[w];
         if (type === EV_FINISHED) agg.add(ra, rb, EV_FINISHED, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
         else {
-          if (type === EV_STARTED) {
-            this.queueHeat(ra);
-            this.queueHeat(rb);
+          let t = type === EV_STARTED ? EV_STARTED : EV_CONTINUED;
+          if (t === EV_STARTED) {
+            if (this.wakeEcho(ra, rb, f32[w + 10], f32[w + 11], f32[w + 12], f32[w + 13], f32[w + 14], f32[w + 15])) t = EV_CONTINUED;
+            else {
+              this.queueHeat(ra);
+              this.queueHeat(rb);
+            }
           }
           // contact A: position f32[w+10..12], normal f32[w+13..15] (A→B); contact B: position f32[w+26..28]; impulse f32[w+34]
-          agg.add(ra, rb, type === EV_STARTED ? EV_STARTED : EV_CONTINUED, f32[w + 10], f32[w + 11], f32[w + 12], f32[w + 26], f32[w + 27], f32[w + 28], f32[w + 13], f32[w + 14], f32[w + 15], f32[w + 34]);
+          agg.add(ra, rb, t, f32[w + 10], f32[w + 11], f32[w + 12], f32[w + 26], f32[w + 27], f32[w + 28], f32[w + 13], f32[w + 14], f32[w + 15], f32[w + 34]);
         }
       }
       count++;
       addr = hk.HP_World_GetNextCollisionEvent(this.worldNum, addr);
     }
     return count;
+  }
+
+  /**
+   * A contact START between bodies that were in contact already — none of them moved during the previous step (asleep,
+   * or perfectly still) — and that do not approach each other now (pre-step velocities, including any given between
+   * the steps, along the contact normal) is not a hit. Havok raises such starts when an island wakes up or is
+   * deactivated / re-activated (touched by an awake body, a use / pull / wake(), the player's capsule shoving a chair
+   * sideways, its own island bookkeeping), re-reporting every resting contact of the island with impulses of up to
+   * ~2.5× the resting load (re-established contacts), which the aggregator would take for hits — measured: 7–12 J
+   * "impacts" between the glass coffee table, the rug and the floor each time the rug the player stood on changed
+   * state. Such starts are passed on as CONTINUED (contact resumed: the load is learned, nothing emitted). A real hit
+   * always involves an approach (the projectile, the struck part with its new velocity, a body falling since its
+   * support vanished: it moved in the previous step).
+   */
+  private wakeEcho(a: BodyRec, b: BodyRec, px: number, py: number, pz: number, nx: number, ny: number, nz: number): boolean {
+    if (!this.restedLastStep(a) || !this.restedLastStep(b)) return false;
+    this.estVn = 0;
+    const ea = this.pointTerms(a, px, py, pz, nx, ny, nz, 1);
+    const eb = this.pointTerms(b, px, py, pz, nx, ny, nz, -1);
+    return ea === ea && eb === eb && this.estVn <= RESTING_SPEED;
+  }
+
+  private restedLastStep(rec: BodyRec): boolean {
+    if (rec.motion === STATIC || rec === this.worldRec) return true;
+    if (rec.motion !== DYNAMIC || rec.foreign || rec.disposed || rec.fastSlot < 0) return false;
+    return !rec.moved; // (the last sync's verdict: it did not move during the previous step)
   }
 
   /** True when someone else observes Babylon's collision observables (then Babylon must dispatch events). */
@@ -1132,10 +1174,13 @@ export class Physics implements PhysicsSystem {
       const nrm = e.normal;
       if (ra === null || rb === null || !p || !nrm) return;
       const d = Number.isFinite(e.distance) ? e.distance : 0; // contact B ≈ A + n·distance
-      const type = e.type === PhysicsEventType.COLLISION_STARTED ? EV_STARTED : EV_CONTINUED;
+      let type = e.type === PhysicsEventType.COLLISION_STARTED ? EV_STARTED : EV_CONTINUED;
       if (type === EV_STARTED) {
-        this.queueHeat(ra);
-        this.queueHeat(rb);
+        if (this.wakeEcho(ra, rb, p.x, p.y, p.z, nrm.x, nrm.y, nrm.z)) type = EV_CONTINUED;
+        else {
+          this.queueHeat(ra);
+          this.queueHeat(rb);
+        }
       }
       this.agg.add(ra, rb, type, p.x, p.y, p.z, p.x + nrm.x * d, p.y + nrm.y * d, p.z + nrm.z * d, nrm.x, nrm.y, nrm.z, e.impulse);
     })!;
