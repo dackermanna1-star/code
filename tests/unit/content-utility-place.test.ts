@@ -9,7 +9,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { qrot, v3, type Vec3 } from "../../src/geom/vec.ts";
+import { qaxisAngle, qrot, v3, vsub, xmul, type Vec3, type Xform } from "../../src/geom/vec.ts";
 import { aabbOf, polyContact, type Aabb } from "../../src/objects/lib/contact.ts";
 import type { ConvexPoly } from "../../src/geom/poly.ts";
 import { BALCONY, ROOMS, WALLS, type RoomId } from "../../src/world/plan.ts";
@@ -352,6 +352,78 @@ test("0.85 m clear paths through the doorways (0.6 m deep into each room)", () =
   }
 });
 
+/**
+ * Narrowest walkable width along a walk line through a room. The line runs along z from z0 to z1
+ * (`axis: "z"`, slices across x) or along x (slices across z). Each 5 cm slice collects the item
+ * parts standing in it between 3 cm (rugs, mats are walkable) and 1.9 m, finds the free
+ * intervals between them and the finished faces, and keeps the widest one that overlaps the
+ * previous slice's corridor; the corridor width is that overlap, so a sidestep that cannot be
+ * walked straight through does not count.
+ */
+function walkWidth(room: RoomId, axis: "x" | "z", a0: number, a1: number, start: [number, number]): { min: number; at: number } {
+  const F = facesFor(room, { min: v3(0, 0.03, 0), max: v3(0, 0.03, 0) }); // tile faces at floor level
+  const lo = axis === "z" ? F.x0 : F.z0,
+    hi = axis === "z" ? F.x1 : F.z1;
+  const boxes = items.filter((it) => it.room === room).flatMap((it) => boxesOf(it));
+  let corridor: [number, number] = start;
+  let min = Infinity,
+    at = a0;
+  for (let a = a0; a <= a1 + 1e-9; a += 0.05) {
+    const s0 = a - 0.025,
+      s1 = a + 0.025;
+    const blocked: Array<[number, number]> = [];
+    for (const b of boxes) {
+      if (b.max.y < 0.03 || b.min.y > 1.9) continue;
+      const [b0, b1, c0, c1] = axis === "z" ? [b.min.z, b.max.z, b.min.x, b.max.x] : [b.min.x, b.max.x, b.min.z, b.max.z];
+      if (b1 > s0 && b0 < s1) blocked.push([c0, c1]);
+    }
+    blocked.sort((p, q) => p[0] - q[0]);
+    const free: Array<[number, number]> = [];
+    let cur = lo;
+    for (const [c0, c1] of blocked) {
+      if (c0 > cur) free.push([cur, Math.min(c0, hi)]);
+      cur = Math.max(cur, c1);
+    }
+    if (cur < hi) free.push([cur, hi]);
+    // widest overlap with the corridor so far
+    let best: [number, number] = [0, 0];
+    for (const [f0, f1] of free) {
+      const o0 = Math.max(f0, corridor[0]),
+        o1 = Math.min(f1, corridor[1]);
+      if (o1 - o0 > best[1] - best[0]) best = [f0, f1];
+    }
+    const w = Math.min(best[1], corridor[1]) - Math.max(best[0], corridor[0]);
+    if (w < min) {
+      min = w;
+      at = a;
+    }
+    corridor = best;
+  }
+  return { min, at };
+}
+
+test("main walk lines keep ≥ 0.6 m: laundry door → washer/dryer fronts, bathroom door → vanity, toilet and tub", () => {
+  const U = roomFaces("utility"),
+    B = roomFaces("bath");
+  const front = (id: string) => worldAabb(byId.get(id)!.def, byId.get(id)!.xf).min.z; // machines face south
+  const lines: Array<{ name: string; room: RoomId; axis: "x" | "z"; a0: number; a1: number; start: [number, number] }> = [
+    // laundry: from the doorway north to the standing spot 5 cm in front of the machine doors
+    { name: "laundry door → machines", room: "utility", axis: "z", a0: U.z0 + 0.03, a1: Math.min(front("washer"), front("dryer")) - 0.05, start: [2.85, 3.65] },
+    // bathroom: from the doorway north past the vanity and the toilet to the tub's front
+    { name: "bath door → vanity/toilet/tub", room: "bath", axis: "z", a0: B.z0 + 0.03, a1: worldAabb(byId.get("bathtub")!.def, byId.get("bathtub")!.xf).min.z - 0.05, start: [1.4, 2.2] },
+  ];
+  for (const l of lines) {
+    const r = walkWidth(l.room, l.axis, l.a0, l.a1, l.start);
+    assert.ok(r.min >= 0.6, `${l.name}: only ${fmt(r.min)} m wide at ${l.axis} = ${fmt(r.at)}`);
+  }
+  // in front of the toilet (it faces east): 0.6 m clear from the bowl's front edge, at its width
+  const t = worldAabb(byId.get("toilet")!.def, byId.get("toilet")!.xf);
+  const zone: Aabb = { min: v3(t.max.x, 0.03, (t.min.z + t.max.z) / 2 - 0.3), max: v3(t.max.x + 0.6, 1.9, (t.min.z + t.max.z) / 2 + 0.3) };
+  for (const it of items)
+    if (it.room === "bath" && it.id !== "toilet" && !ancestors(it).has("toilet"))
+      boxesOf(it).forEach((b, i) => assert.ok(!boxOverlap(b, zone), `${it.id}/${it.def.parts[i].name} in front of the toilet`));
+});
+
 test("switches and outlets in these rooms stay uncovered (≥ 1 cm around the plates)", () => {
   for (const e of ELECTRICAL) {
     if (e.at === undefined || !MY_ROOMS.includes(e.room)) continue;
@@ -460,4 +532,31 @@ test("no item interpenetrates the structure's parts (baseboards, casings, jambs,
     }
   }
   assert.deepEqual(bad, []);
+});
+
+test("bath screen: at its inward joint limit the glass stays ≥ 5 mm off the shower set and the back tiles", () => {
+  const scr = byId.get("showerScreen")!,
+    set = byId.get("showerSet")!;
+  const hinge = scr.def.bonds.find((b) => b.kind === "hinge")!;
+  const j = hinge.joint!;
+  assert.ok(j.min < 0 && j.min > (-35 * Math.PI) / 180, `inward limit ${((j.min * 180) / Math.PI).toFixed(1)}°`);
+  // moving side = everything not rigidly joined to the wall channel
+  const par = new Map(scr.def.parts.map((p) => [p.name, p.name]));
+  const find = (x: string): string => {
+    while (par.get(x) !== x) x = par.get(x)!;
+    return x;
+  };
+  for (const b of scr.def.bonds) if (b.b !== "world" && b.kind !== "hinge" && b.kind !== "slider" && b.kind !== "latch") par.set(find(b.a), find(b.b));
+  const fixedRoot = find(hinge.b);
+  // swing about the hinge axis (assembly frame) by the joint minimum: xf ∘ T(p) ∘ R ∘ T(−p)
+  const q = qaxisAngle(j.axis, j.min);
+  const p = j.pivot;
+  const swung: Xform = xmul(scr.xf, { p: vsub(p, qrot(q, p)), q });
+  const moving = worldPolys(scr.def, swung).filter((_, i) => find(scr.def.parts[i].name) !== fixedRoot);
+  assert.ok(moving.length >= 5);
+  const back = roomFaces("bath").z1 - WALL_TILE_T;
+  for (const m of moving) {
+    assert.ok(Math.max(...m.verts.map((v) => v.z)) < back - 0.005, "free edge clear of the back-wall tiles");
+    for (const s of worldPolys(set.def, set.xf)) assert.equal(polyContact(m, s, 0.005), null, "screen swung in touches the shower set");
+  }
 });

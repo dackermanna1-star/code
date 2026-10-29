@@ -4,7 +4,8 @@
 // steel side/back panels, a front panel built around the round door opening, a plastic control
 // fascia (programme knob, display, buttons, control board) and a detergent drawer on a slider.
 //
-// Washer (~70 kg): a polypropylene tub hanging on two springs and standing on two friction
+// Washer (~70 kg): a polypropylene tub hanging on two springs (a vertical slider joint with
+// 15 mm of travel, so the tub unit is its own jointed island) and standing on two friction
 // dampers, a perforated stainless drum inside it on a bearing (it spins when knocked), three
 // drum lifters, ~25 kg of CONCRETE counterweights bolted to the tub (top, sides, front), the
 // motor under the tub, a rubber door bellow, the drain pump, inlet + drain hoses to the wall
@@ -263,17 +264,26 @@ export function buildWasher(o: WasherOpts = {}): AssemblyDef {
     b.bolt(side, nearestTile(b, tub, [sx * 0.25, YC, 0.08]), 200);
   }
 
-  // suspension: two springs up to the worktop frame, two dampers down to the base frame
+  // suspension: the tub unit (tub + concrete + motor + drum) is its own jointed island. It hangs
+  // from the worktop frame by two springs, modelled as one vertical slider group (the hook ends
+  // of the springs ride in the top frame), and stands on two friction dampers whose feet rest
+  // (unbonded) on the base cross rail. At spawn the dampers carry it, at the slider's lower limit;
+  // a knock lets it jump up to 15 mm and bang back down. The springs are rigid parts of the tub
+  // unit, the slider is what carries it, and the rubber bellow is clipped to the tub only, so no
+  // rigid path joins the tub to the cabinet. Until the slider bonds are ripped out it rattles
+  // inside the cabinet; after that it is loose in there.
+  const springs: string[] = [];
   for (const sx of [-1, 1]) {
     const y0 = YC + polygonSurfaceY(SEG, 0.25, 0, 0.2, true) + 0.0005;
     const spring = b.cyl(`spring_${sx < 0 ? "l" : "r"}`, "steel", "metal_raw", 0.01, H - 0.02 - y0 - 0.001, [sx * 0.2, (y0 + H - 0.021) / 2, -0.12], { segments: 8, mass: 0.15 });
-    b.clip(spring, c.top, 45);
     b.clip(spring, nearestTile(b, tub, [sx * 0.2, YC + 0.15, -0.12]), 45);
+    springs.push(spring);
     const dy1 = YC + polygonSurfaceY(SEG, 0.25, 0, 0.15, false) - 0.0005;
     const damper = b.cyl(`damper_${sx < 0 ? "l" : "r"}`, "steel", "metal_painted", 0.012, dy1 - (Y0 + 0.03), [sx * 0.15, (dy1 + Y0 + 0.03) / 2, -0.05], { segments: 8, tint: 0x3a3a3a, mass: 0.35 });
-    b.clip(damper, c.cross, 45);
     b.clip(damper, nearestTile(b, tub, [sx * 0.15, YC - 0.2, -0.05]), 45);
   }
+  const hang = b.slider(springs[0], c.top, { pivots: [[-0.2, H - 0.021, -0.12]], axis: [0, 1, 0], min: 0, max: 0.015, strength: 60, friction: 0.4 });
+  b.slider(springs[1], c.top, { pivots: [[0.2, H - 0.021, -0.12]], axis: [0, 1, 0], min: 0, max: 0.015, strength: 60, friction: 0.4, group: hang });
   // motor hanging under the tub, drain pump behind the kick panel
   const motor = b.cyl("motor", "steel", "metal_raw", 0.055, 0.15, [0, YC - 0.25 - 0.055 - 0.0005, -0.14], { axis: "x", segments: 12, mass: 4.5, tint: 0x8d8f91 });
   b.bolt(motor, tubBottom, 150);
@@ -314,7 +324,7 @@ export function buildWasher(o: WasherOpts = {}): AssemblyDef {
   // ------------------------------------------------------------------ door bellow (rubber)
   const seal = b.lathe("seal", "rubber", "rubber", "rubber", {
     profile: [
-      [0.175, zt1 + 0.002],
+      [0.182, zt1], // bellow flange over the tub lip (thickness goes inward)
       [0.175, D / 2 - 0.0008],
     ],
     thickness: 0.012,
@@ -326,7 +336,8 @@ export function buildWasher(o: WasherOpts = {}): AssemblyDef {
     seamStrength: 25,
     mass: 0.6,
   });
-  for (const s of seal) bondTouching(b, s, [c.frontL, c.frontR, c.frontLow, c.frontUp, ...tub], "clip", 8, 0.004, 0);
+  // bellow clipped to the tub only (it just presses against the front panel), see suspension
+  for (const s of seal) bondTouching(b, s, [...tub], "clip", 8, 0.004, 0);
 
   door(b, c, { ring: 0.235, inner: 0.16, glassBowl: true, ringTint: 0xd8dadc, lockStrength: 18 });
   hoses(b, c, o.hoses);

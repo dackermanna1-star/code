@@ -196,10 +196,34 @@ test("washer: concrete counterweights, steel drum on a bearing, glass porthole d
   assert.ok(joints(w, "slider").size >= 1, "detergent drawer slider");
   assert.ok(joints(w, "hinge").size >= 2, "door + drum bearing");
   assert.ok(feats(w, "water").length >= 2 && feats(w, "sparks").length >= 1);
+  // suspension: the tub unit (tub, concrete, motor, drum carrier) is a separate jointed island
+  // hanging on the vertical spring slider, not rigidly bonded to the cabinet
+  const comp = rigidComponents(w);
+  const tubC = comp.get("tub_back")!;
+  assert.notEqual(tubC, comp.get("worktop"), "tub not rigidly joined to the cabinet");
+  for (const n of ["weight_top", "weight_front", "weight_l", "weight_r", "motor", "spring_l", "damper_r", "seal_0_0"]) assert.equal(comp.get(n), tubC, `${n} rides with the tub`);
+  const hang = w.bonds.filter((b) => b.kind === "slider" && b.a.startsWith("spring_"));
+  assert.equal(hang.length, 2, "tub hangs on two spring sliders");
+  for (const b of hang) assert.ok(b.joint && Math.abs(b.joint.axis.y) > 0.99 && b.joint.min === 0 && b.joint.max > 0 && b.joint.max <= 0.03, "vertical, short travel");
   const dr = get("dryer");
   assert.equal(massByMat(dr, "concrete"), 0, "dryers carry no concrete");
   assert.ok(dr.parts.some((p) => p.name.startsWith("lint")), "lint filter");
+  // condenser dryer: heat exchanger + water container, no vent duct
+  assert.ok(dr.parts.some((p) => p.name === "condenser"), "condenser block");
+  assert.ok(!dr.parts.some((p) => /duct|vent_outlet/.test(p.name)), "no vent duct on a condenser dryer");
+  assert.ok(feats(dr, "liquid").length === 1, "condensate in the water container");
 });
+
+/** Rigid connected components (part name → component root), ignoring joints and world bonds. */
+function rigidComponents(d: AssemblyDef): Map<string, string> {
+  const par = new Map(d.parts.map((p) => [p.name, p.name]));
+  const find = (x: string): string => {
+    while (par.get(x) !== x) x = par.get(x)!;
+    return x;
+  };
+  for (const b of d.bonds) if (b.b !== "world" && b.kind !== "hinge" && b.kind !== "slider" && b.kind !== "latch") par.set(find(b.a), find(b.b));
+  return new Map(d.parts.map((p) => [p.name, find(p.name)]));
+}
 
 test("water heater: finite 150 l water, insulation, steel jacket, supply pipes", () => {
   const h = get("waterHeater");

@@ -18,6 +18,7 @@ import { buildStructure } from "../../src/world/structure.ts";
 import { furnishLivingItems, worldAabb } from "../../src/world/furnish/living.ts";
 import { MockVfx } from "./destruction-util.ts";
 import { Builder } from "../../src/objects/lib/builder.ts";
+import type { Vec3 } from "../../src/geom/vec.ts";
 
 /**
  * Spawn the full structure + fixtures (heavy) or a light stand-in shell. The full variant is
@@ -96,6 +97,18 @@ export async function probe(): Promise<unknown> {
   const spawnMs = performance.now() - ts;
   mark(`living items spawned (${ids.length})`);
   const before = ids.map((id) => d.positionOf(id));
+  // part-level drift of the seats (loose cushions are their own islands) and the pillows
+  const watch = items.map((it, i) => ({ it, id: ids[i] })).filter(({ it }) => /^(sofa|armchair|pillow)/.test(it.id));
+  const partPos = () => {
+    const out = new Map<string, Vec3>();
+    for (const { it, id } of watch) {
+      const asm = d.assembly(id);
+      if (!asm) continue;
+      for (const pt of asm.parts) if (pt.island) out.set(`${it.id}.${pt.name}`, d.world.toWorldVec(pt.island, pt.centroid));
+    }
+    return out;
+  };
+  const parts0 = partPos();
   const stats0 = { destruction: d.stats(), physics: physics.stats() };
 
   const tStep = performance.now();
@@ -124,6 +137,13 @@ export async function probe(): Promise<unknown> {
     const dist = Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
     if (dist > 0.005) moved.push({ id: items[i].id, dist: Math.round(dist * 1000) / 1000, dy: Math.round((b.y - a.y) * 1000) / 1000 });
   });
+  const partsMoved: Array<{ part: string; dist: number; dy: number }> = [];
+  for (const [k, b] of partPos()) {
+    const a = parts0.get(k);
+    if (!a) continue;
+    const dist = Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
+    if (dist > 0.005) partsMoved.push({ part: k, dist: Math.round(dist * 1000) / 1000, dy: Math.round((b.y - a.y) * 1000) / 1000 });
+  }
   const brokenIslands = d
     .list()
     .filter((a) => ids.includes(a.id))
@@ -197,6 +217,7 @@ export async function probe(): Promise<unknown> {
     steps,
     stepError,
     moved,
+    partsMoved,
     brokenIslands,
   };
 }

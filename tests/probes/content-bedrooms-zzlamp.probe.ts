@@ -15,13 +15,9 @@ export async function probe(): Promise<unknown> {
   const canvas = document.getElementById("renderCanvas") as HTMLCanvasElement;
   const engine = new Engine(canvas, true, { stencil: true });
   const out: Record<string, unknown> = {};
-  const variants: Record<string, (def: any) => void> = {
-    cur: () => {},
-    turretWeld: (def) => { for (const b of def.bonds) if (b.a === "turret" && b.joint) { b.kind = "weld"; delete b.joint; b.strength = 60; } },
-    //fric0: (def) => { for (const b of def.bonds) if (b.joint) delete b.joint.friction; },
-    //fricX4: (def) => { for (const b of def.bonds) if (b.joint && b.joint.friction) b.joint.friction *= 4; },
-    //allWeld: (def) => { for (const b of def.bonds) if (b.joint) { b.kind = "weld"; delete b.joint; b.strength = 60; } },
-  };
+  const weldWhere = (def: any, f: (b: any) => boolean) => { for (const b of def.bonds) if (b.joint && f(b)) { b.kind = "weld"; delete b.joint; b.strength = 60; } };
+  const weld = (def: any) => weldWhere(def, (b) => b.a === "turret");
+  const variants: Record<string, (def: any) => void> = { bar1: () => {}, bar2: () => {}, bar3: () => {} };
   for (const [name, patch] of Object.entries(variants)) {
     const scene = new Scene(engine);
     const settings = new Settings();
@@ -34,13 +30,19 @@ export async function probe(): Promise<unknown> {
     fb.box("slab", "concrete", "concrete", [3, 0.1, 3], [0, -0.05, 0]);
     fb.world("slab", "mortar", 1e6, [0, -0.05, 0]);
     d.spawn(fb.build(), { p: { x: 0, y: 0, z: 0 }, q: { x: 0, y: 0, z: 0, w: 1 } });
-    const def = buildDeskLamp({ seed: 120 });
-    patch(def);
+    void patch;
+    const bb = new Builder("bar", "Bar", "misc", 0, 1);
+    bb.box("post", "steel", "steel_brushed", [0.04, 0.3, 0.04], [0, 0.15, 0], { mass: 2 });
+    // bar 0.4 m long sticking out along +Z from a pivot at the post top, 1 kg → τ = 0.2·9.81 ≈ 2 N·m
+    const fr = name === "bar1" ? 5 : name === "bar2" ? 20 : 0;
+    bb.box("bar", "steel", "steel_brushed", [0.02, 0.02, 0.4], [0, 0.32, 0.2 + 0.021], { mass: 1 });
+    bb.hinge("bar", "post", { pivots: name === "bar3" ? [[-0.01, 0.32, 0.01], [0.01, 0.32, 0.01]] : [[-0.01, 0.32, 0.01], [0.01, 0.32, 0.01]], axis: [1, 0, 0], min: -80, max: 80, friction: fr || 5, strength: 1e4 });
+    const def = bb.build();
     const id = d.spawn(def, { p: { x: 0, y: 0, z: 0 }, q: { x: 0, y: 0, z: 0, w: 1 } });
     const trace: string[] = [];
     for (let s = 0; s <= 900; s++) {
       d.beforePhysics(FIXED_DT); physics.step(FIXED_DT); time.tick(); d.afterPhysics(FIXED_DT); d.update(FIXED_DT);
-      if (s % 150 === 0) {
+      if (s < 80 ? s % 8 === 0 : s % 150 === 0) {
         const a = d.world.assemblies.get(id)!;
         let info = "";
         for (const isl of a.islands) {
@@ -54,6 +56,8 @@ export async function probe(): Promise<unknown> {
     const a = d.world.assemblies.get(id)!;
     const gs: string[] = [];
     for (const g of a.groups.values()) gs.push(`${(g as any).id ?? ""}:${g.constraints.map((c) => c.kind + "(" + c.moving.parts[0].name + "->" + (c.fixed?.parts[0].name ?? "anchor") + ")").join(",")}`);
+    const plug: any = (scene.getPhysicsEngine() as any)?.getPhysicsPlugin();
+    for (const g of a.groups.values()) for (const jc of g.constraints) gs.push(`fric=${plug?.getAxisFriction?.(jc.c, 3)} mode=${plug?.getAxisMode?.(jc.c, 3)} min=${plug?.getAxisMinLimit?.(jc.c, 3)} max=${plug?.getAxisMaxLimit?.(jc.c, 3)} def=${JSON.stringify(g.def)}`);
     let dead = 0; for (const b of a.bonds) if (!b.alive) dead++;
     out[name] = { trace, gs, dead };
     scene.dispose();

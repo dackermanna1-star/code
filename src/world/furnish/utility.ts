@@ -37,7 +37,7 @@ import { ELECTRICAL } from "../structure/services.ts";
 import type { Placement } from "./types.ts";
 
 import { buildBathtub, BATHTUB } from "../../objects/bath/bathtub.ts";
-import { buildShowerScreen, buildShowerSet } from "../../objects/bath/shower.ts";
+import { buildShowerScreen, buildShowerSet, SHOWER_SCREEN } from "../../objects/bath/shower.ts";
 import { buildToilet, TOILET } from "../../objects/bath/toilet.ts";
 import { buildVanity, VANITY } from "../../objects/bath/vanity.ts";
 import { buildMirrorCabinet, MIRROR_CABINET } from "../../objects/bath/mirrorCabinet.ts";
@@ -325,6 +325,38 @@ class Layout {
 
 // ------------------------------------------------------------------------------------ bathroom
 
+/**
+ * Inward swing limit (degrees) for the bath screen hinged at plan (hx, hz) with its panel running
+ * east (+X) and swinging north (+Z) into the tub: the largest whole angle at which the panel's
+ * inner side (glass + clamp plates + inner knob, ≤ 3 cm from the hinge line) still keeps 1 cm
+ * from every part of the shower set within the glass height and from the back-wall tile face,
+ * less a 2° margin. So the joint limit stops the glass, not the chrome mixer.
+ */
+export function screenInwardLimit(set: UtilityItem, hx: number, hz: number, y0: number, wallZ: number): number {
+  const reach = 0.03 + 0.01;
+  const w = SHOWER_SCREEN.w + 0.035; // panel + gap to the channel, measured from the hinge axis
+  const yTop = y0 + SHOWER_SCREEN.seal + SHOWER_SCREEN.h;
+  const pts: Array<[number, number]> = [];
+  for (const poly of worldPolys(set.def, set.xf))
+    for (const v of poly.verts) if (v.y > y0 && v.y < yTop) pts.push([v.x - hx, v.z - hz]);
+  const clear = (deg: number): boolean => {
+    const a = (deg * Math.PI) / 180;
+    const ux = Math.cos(a),
+      uz = Math.sin(a);
+    // free edge vs the back wall (its inner corner reaches furthest north)
+    if (hz + w * uz + reach * ux > wallZ) return false;
+    for (const [dx, dz] of pts) {
+      const s = dx * ux + dz * uz; // along the panel
+      const n = -dx * uz + dz * ux; // north of the panel line
+      if (s > -reach && s < w + reach && n > -reach && n < reach) return false;
+    }
+    return true;
+  };
+  let deg = 0;
+  while (deg < 60 && clear(deg + 1)) deg++;
+  return Math.max(0, deg - 2);
+}
+
 function bathroom(L: Layout): void {
   const room: RoomId = "bath";
   // ---- bathtub along the north wall, drain end (+X local) at the west wall: yaw π
@@ -340,7 +372,8 @@ function bathroom(L: Layout): void {
   // ---- hinged glass screen on the tub's front rim at the shower end: channel on the west wall,
   //      panel running east along the rim; local +X (opening side) → south, out of the tub.
   const rimFrontZ = tubC.z - BATHTUB.width / 2 + BATHTUB.rimFront / 2;
-  L.add("showerScreen", "showerScreen", buildShowerScreen({ seed: 13, room }), room, "wall", BATH_TILE.x0, BATHTUB.rimY, rimFrontZ, Math.PI / 2, { on: "bathtub" });
+  const inward = screenInwardLimit(L.get("showerSet"), BATH_TILE.x0 + SHOWER_SCREEN.profileD, rimFrontZ, BATHTUB.rimY, BATH_TILE.z1);
+  L.add("showerScreen", "showerScreen", buildShowerScreen({ seed: 13, room, inward }), room, "wall", BATH_TILE.x0, BATHTUB.rimY, rimFrontZ, Math.PI / 2, { on: "bathtub" });
 
   // ---- toilet against the west wall at z ≈ 7.0, facing east; its supply valve sits on the wall
   //      plane (local z = TOILET.wallZ, 1.5 cm behind the overhanging tank lid)

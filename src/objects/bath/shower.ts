@@ -143,6 +143,12 @@ export interface ShowerScreenOpts extends BaseOpts {
   h?: number;
   /** Glass thickness (6 or 8 mm). */
   t?: number;
+  /**
+   * How far (degrees) the panel may swing back INTO the tub. Keep it short of the shower mixer
+   * and the back wall tiles so the joint limit, not tempered glass against chrome, stops it
+   * (the placement computes it from the mixer's position). Default 20°, clamped to 0–60°.
+   */
+  inward?: number;
 }
 
 export const SHOWER_SCREEN = { w: 0.78, h: 1.4, t: 0.006, seal: 0.008, profileD: 0.025 } as const;
@@ -156,6 +162,7 @@ export function buildShowerScreen(o: ShowerScreenOpts = {}): AssemblyDef {
   const pd = SHOWER_SCREEN.profileD;
   const z0 = pd + 0.005; // glass edge, 5 mm in front of the wall channel
   const y0 = seal;
+  const inward = Math.min(60, Math.max(0, o.inward ?? 20));
 
   // aluminium wall channel (screwed through the tiles into plugs)
   const profile = boxR(b, "profile", "aluminum", "aluminum", [-0.012, 0.012], [0, h + seal + 0.02], [0, pd], { tess: 0, mass: 0.55 });
@@ -181,7 +188,7 @@ export function buildShowerScreen(o: ShowerScreenOpts = {}): AssemblyDef {
     b.bolt(pi, glass, 100);
     b.weld(knuckle, po, 150);
     b.weld(knuckle, pi, 150);
-    group = b.hinge(knuckle, profile, { pivots: [[0, yh, pd]], axis: [axis.x, axis.y, axis.z], min: -60, max: 90, strength: 60, friction: 0.08, group });
+    group = b.hinge(knuckle, profile, { pivots: [[0, yh, pd]], axis: [axis.x, axis.y, axis.z], min: -inward, max: 90, strength: 60, friction: 0.08, group });
   }
   // through-bolted knob pair near the free edge
   const ky = y0 + 0.62 * h;

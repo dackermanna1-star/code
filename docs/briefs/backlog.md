@@ -15,3 +15,6 @@
   finishPart instead of random uv offsets (survives fracture; batcher fallback then unnecessary).
 - render-env: keep maxSimultaneousLights ≤ 8 on receivers; check setPower(false) visibly darkens rooms.
 - render-core: capture() never resolves if a listed mesh never becomes ready (add timeout).
+- Light features: opt-out flag so a room switch skips appliance lamps (oven/fridge interior lights).
+- Destruction: stacked loads — impact energy uses only the struck body's mass.
+- Physics: nested compound bodies settle ~1 mm per level lower than shapes allow.
