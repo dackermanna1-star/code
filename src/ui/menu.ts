@@ -39,6 +39,7 @@ type BoolKey = { [K in keyof SettingsData]: SettingsData[K] extends boolean ? K 
 
 const pct = (v: number) => `${Math.round(v * 100)}%`;
 const QUALITY_OPTS: ReadonlyArray<readonly [QualityLevel, string]> = [
+  ["minimal", "Min"],
   ["low", "Low"],
   ["medium", "Med"],
   ["high", "High"],

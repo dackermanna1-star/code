@@ -51,7 +51,7 @@ const INAUDIBLE = 2e-4;
 const OCC_PULLBACK = 0.08;
 /** Max simultaneous strain (creak) loops. */
 const MAX_STRAINS = 4;
-const HRTF_BY_QUALITY: Record<string, number> = { low: 8, medium: 16, high: 24, ultra: 32 };
+const HRTF_BY_QUALITY: Record<string, number> = { minimal: 0, low: 6, medium: 16, high: 24, ultra: 32 };
 
 const dbToGain = (db: number): number => Math.pow(10, db / 20);
 /** NaN-safe clamp: NaN → lo (non-finite values must never reach an AudioParam). */

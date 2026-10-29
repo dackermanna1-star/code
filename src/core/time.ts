@@ -1,7 +1,8 @@
 // Fixed-step clock. The game advances simulation in FIXED_DT steps; rendering interpolates
 // nothing (Havok bodies are synced each step) but runs at display rate.
 //
-// Spiral-of-death guard: the accumulator runs at most MAX_STEPS_PER_FRAME steps per frame, and fewer
+// Spiral-of-death guard: the accumulator runs at most MAX_STEPS_PER_FRAME (2: a 30 fps machine still runs
+// in real time, anything slower runs in slight slow motion) steps per frame, and fewer
 // while a fixed step is expensive (heavy destruction: hundreds of awake debris bodies). The real time
 // each step takes is measured between beginFrame() and tick(); a frame runs at most
 // STEP_BUDGET_MS / (measured step cost) steps (at least 1). A frame that falls behind therefore
@@ -9,7 +10,7 @@
 // frame even longer (measured: 4 × 100+ ms steps per rendered frame after a big wreck).
 
 export const FIXED_DT = 1 / 60;
-export const MAX_STEPS_PER_FRAME = 4;
+export const MAX_STEPS_PER_FRAME = 2;
 /** Real time (ms) the fixed steps of one frame may take before fewer steps per frame are allowed. */
 export const STEP_BUDGET_MS = 20;
 

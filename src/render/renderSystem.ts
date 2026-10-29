@@ -292,9 +292,13 @@ class NullPostFX implements IPostFX {
   update(): void {}
 }
 
-/** Environment-probe face resolution for a quality preset. */
+/**
+ * Environment-probe face resolution for a quality preset. Captured once (and after power cuts), so
+ * even the weak-PC presets use 128: at 64 the roughness mips of metals (fridge, sink) blur into the
+ * room's average warm tint.
+ */
 function envProbeSize(q: QualityPreset): number {
-  return q.shadowMapSize >= 4096 ? 256 : q.shadowMapSize >= 2048 ? 128 : 64;
+  return q.shadowMapSize >= 4096 ? 256 : 128;
 }
 
 /**

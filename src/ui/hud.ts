@@ -435,7 +435,7 @@ export class Hud implements HudSystem {
     const s = this.ctx.settings;
     s.set(key, value);
     try {
-      if (key === "quality") this.ctx.render?.applyQuality(QUALITY[value as SettingsData["quality"]] ?? QUALITY.high);
+      if (key === "quality") this.ctx.render?.applyQuality(QUALITY[value as SettingsData["quality"]] ?? QUALITY.minimal);
       else if (key === "ps2Mode") this.ctx.render?.setPS2Mode(!!value);
       else if (key === "masterVolume") this.ctx.audio?.setMasterVolume(Number(value));
     } catch (e) {

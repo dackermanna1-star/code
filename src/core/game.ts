@@ -3,7 +3,7 @@
 // scene.physicsEnabled = false, we call physics.step(FIXED_DT) — see docs/api-notes/input-loop-camera.md).
 //
 // Per render frame:
-//   n = time.beginFrame(dt)                          (accumulator, ≤ 4 steps, time.scale / hit-stop)
+//   n = time.beginFrame(dt)                          (accumulator, ≤ 2 steps, time.scale / hit-stop)
 //   n × fixed step:  input latch → player.fixedUpdate → destruction.beforePhysics → physics.step
 //                    → destruction.afterPhysics → vfx.fixedUpdate → time.tick
 //   player.update → audio listener + audio.update → vfx.update → destruction.update →

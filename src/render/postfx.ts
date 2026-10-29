@@ -11,6 +11,9 @@
 // the full-resolution bilateral blur upsamples with depth awareness).
 // The DefaultRenderingPipeline re-appends its post-processes whenever it rebuilds, so the
 // composite pass is moved back to the end from the pipeline's onBuildObservable.
+// The composite pass is only attached while it has work (PS2 mode, grain / aberration on the
+// presets with film effects): on the weak-PC preset the whole chain is ONE image-processing pass
+// (tone mapping, contrast, vignette, dither) and impact flashes are drawn by a DOM overlay.
 
 import {
   Constants,
@@ -76,6 +79,11 @@ export class PostFX implements IPostFX {
   private readonly shakeOut: { pos: Vec3; rot: Vec3 };
   private readonly composite: PostProcess;
   private readonly compositeState: CompositeState;
+  /** The composite pass is attached to the camera (it has work: PS2, grain, aberration). */
+  private compositeOn = true;
+  /** Full-screen DOM flash used while the composite pass is detached (created on demand). */
+  private flashDiv: HTMLDivElement | null = null;
+  private flashShown = -1;
   private buildObserver: Observer<DefaultRenderingPipeline> | null = null;
   private resizeObserver: Observer<unknown> | null = null;
   private quality: QualityPreset;
@@ -112,6 +120,7 @@ export class PostFX implements IPostFX {
     this.buildStack();
     // The composite pass is created after the pipelines so it starts last.
     this.composite = createCompositePass(camera, this.engine, this.compositeState);
+    this.updateComposite();
     this.applyScaling();
     this.resizeObserver = this.engine.onResizeObservable.add(() => {
       if (this.ps2) this.applyScaling();
@@ -126,6 +135,7 @@ export class PostFX implements IPostFX {
     this.compositeState.ps2 = on;
     this.configureImageProcessing();
     this.configurePipeline();
+    this.updateComposite();
     this.applyScaling();
   }
 
@@ -134,6 +144,7 @@ export class PostFX implements IPostFX {
     this.quality = q;
     if (rebuild) this.buildStack();
     else this.configurePipeline();
+    this.updateComposite();
     this.applyScaling();
   }
 
@@ -158,6 +169,7 @@ export class PostFX implements IPostFX {
     s.flashR = this.flashModel.color.x;
     s.flashG = this.flashModel.color.y;
     s.flashB = this.flashModel.color.z;
+    if (!this.compositeOn) this.updateFlashOverlay();
   }
 
   // ------------------------------------------------------------------ extras
@@ -178,6 +190,8 @@ export class PostFX implements IPostFX {
     this.ssao?.dispose();
     this.pipeline?.dispose();
     this.composite.dispose(this.camera);
+    this.flashDiv?.remove();
+    this.flashDiv = null;
     this.setCanvasPixelated(false);
     this.engine.setHardwareScalingLevel(this.baseScaling);
   }
@@ -254,19 +268,63 @@ export class PostFX implements IPostFX {
     p.grainEnabled = false;
     p.chromaticAberrationEnabled = false;
     const cs = this.compositeState;
-    cs.grain = this.ps2 ? 0 : Math.max(0, t.grainIntensity);
+    const film = !this.ps2 && q.filmEffects;
+    cs.grain = film ? Math.max(0, t.grainIntensity) : 0;
     cs.grainAnimated = true;
-    cs.aberration = this.ps2 ? 0 : Math.max(0, t.chromaticAberration);
+    cs.aberration = film ? Math.max(0, t.chromaticAberration) : 0;
     cs.aberrationRadial = 1.2;
     p.sharpenEnabled = false;
     p.depthOfFieldEnabled = false;
     p.prepare();
   }
 
+  /** Attach the composite pass while it has work; otherwise flashes go through the DOM overlay. */
+  private updateComposite(): void {
+    const cs = this.compositeState;
+    const want = cs.ps2 || cs.grain > 0 || cs.aberration > 0;
+    if (want === this.compositeOn) return;
+    this.compositeOn = want;
+    if (want) {
+      this.keepCompositeLast();
+      if (this.flashDiv) this.flashDiv.style.display = "none";
+      this.flashShown = -1;
+    } else {
+      this.camera.detachPostProcess(this.composite);
+      this.updateFlashOverlay();
+    }
+  }
+
+  /** The composite's flash (mix towards a colour by alpha) as a full-screen DOM layer. */
+  private updateFlashOverlay(): void {
+    const s = this.compositeState;
+    const a = Math.max(0, Math.min(1, s.flashA));
+    const q = Math.round(a * 100) / 100;
+    if (q === this.flashShown) return;
+    this.flashShown = q;
+    if (q <= 0) {
+      if (this.flashDiv) this.flashDiv.style.display = "none";
+      return;
+    }
+    if (!this.flashDiv) {
+      const canvas = this.engine.getRenderingCanvas();
+      if (typeof document === "undefined" || !canvas) return;
+      const d = document.createElement("div");
+      d.style.cssText = "position:fixed;inset:0;pointer-events:none;z-index:5;display:none";
+      (canvas.parentElement ?? document.body).appendChild(d);
+      this.flashDiv = d;
+    }
+    // the composite mixes in display space: the flash colour is display-referred (0..1)
+    const c = (v: number): number => Math.round(Math.max(0, Math.min(1, v)) * 255);
+    this.flashDiv.style.background = `rgb(${c(s.flashR)},${c(s.flashG)},${c(s.flashB)})`;
+    this.flashDiv.style.opacity = String(q);
+    this.flashDiv.style.display = "block";
+  }
+
   /** Move the composite pass to the end of the camera's chain (pipelines append on rebuild). */
   private keepCompositeLast(): void {
     const pp = this.composite as PostProcess | undefined;
     if (!pp) return; // constructor: composite not created yet (it is attached last anyway)
+    if (!this.compositeOn) return; // detached: nothing to keep last
     const list = this.camera._postProcesses;
     let last = -1;
     for (let i = list.length - 1; i >= 0; i--) {

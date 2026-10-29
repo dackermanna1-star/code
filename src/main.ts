@@ -1,7 +1,7 @@
 // Boot: engine + scene, the GameContext (systems in dependency order), the apartment build behind
 // the loading overlay, then the game loop. URL parameters:
 //   ?test=1            deterministic seed, preserveDrawingBuffer, no click-to-play / pointer lock
-//   ?quality=low|medium|high|ultra   ?ps2=1   ?seed=N   ?nofurniture=1 (structure only)
+//   ?quality=minimal|low|medium|high|ultra   ?ps2=1   ?seed=N   ?nofurniture=1 (structure only)
 //   ?settle=N (settle-phase steps, debugging)   ?hold=1 (frozen after boot: step via __sim.step)
 // A boot failure shows an overlay (message + stack) and sets window.__simError / __sim.error.
 
@@ -141,7 +141,8 @@ async function boot(): Promise<void> {
     // ---- physics
     stage = "physics";
     let t0 = performance.now();
-    const physics = await createPhysics(scene);
+    // weak-PC presets: coarser hulls, fewer substeps, faster forced sleep (boot-time options)
+    const physics = await createPhysics(scene, settings.quality.lightPhysics ? { maxHullPoints: 10, maxSubsteps: 2, sleepAssist: { seconds: 0.4 } } : {});
     ctx.physics = physics;
     mark("physics", t0);
 
@@ -166,6 +167,7 @@ async function boot(): Promise<void> {
       createAudio({
         events,
         settings,
+        maxVoices: settings.quality.audioVoices,
         seed: opts.seed,
         onProgress: (p) => {
           pAudio = p;

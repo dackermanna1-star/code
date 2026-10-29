@@ -173,6 +173,8 @@ interface LightRec {
   faceViews: Matrix[];
   /** Fallback mode: shaded by the nearest-light selection (else masked out of every mesh). */
   selected: boolean;
+  /** Left the cluster because of the quality's interior-light budget (rejoins when near again). */
+  culled: boolean;
   /** The owner's `excludeWithLayerMask`, saved while the fallback selection masks the light. */
   savedExcludeMask: number;
   disposeObs: Observer<unknown> | null;
@@ -262,6 +264,8 @@ export class Lighting implements ILighting {
   private readonly lights = new Map<Light, LightRec>();
   /** Promoted (shadow-casting) interior lights, in promotion order. */
   private readonly pointRecs: LightRec[] = [];
+  /** Scratch of updateClusterBudget(). */
+  private readonly budgetCands: Array<{ rec: LightRec; d: number }> = [];
   /** Material light slots currently required of every lit material (see header). */
   private slotsNeeded = DEFAULT_SLOTS;
   private slotSweepCount = -1;
@@ -273,6 +277,8 @@ export class Lighting implements ILighting {
   private _powered = true;
 
   private shadowAge = 0;
+  /** Lighting clock of the last time the cached maps were armed (quality.shadowRefreshInterval). */
+  private lastArm = -Infinity;
   private trackTimer = 0;
   private pointTimer = 0;
   private pruneTimer = 0;
@@ -424,6 +430,7 @@ export class Lighting implements ILighting {
       shadowReach: 0,
       faceViews: [],
       selected: true,
+      culled: false,
       savedExcludeMask: 0,
       disposeObs: null,
     };
@@ -498,6 +505,7 @@ export class Lighting implements ILighting {
       this.pointTimer = 0.5;
       this.updatePointShadows();
       if (!this.cluster) this.updateFallbackSelection();
+      else this.updateClusterBudget();
     }
     this.clock += step;
     this.promoteTimer -= step;
@@ -715,7 +723,7 @@ export class Lighting implements ILighting {
     const b = this.sunBox;
     if (TMP_C.x + r < b.minX || TMP_C.x - r > b.maxX || TMP_C.y + r < b.minY || TMP_C.y - r > b.maxY) return false;
     if (TMP_C.z + r < b.minZ || TMP_C.z - r > b.maxZ) return false;
-    if (r < Math.max(b.texelX, b.texelY) * this.tuning.sunCasterMinTexels && !large) return false;
+    if (!large && (r < Math.max(b.texelX, b.texelY) * this.tuning.sunCasterMinTexels || r < this._quality.shadowMinRadius)) return false;
     return true;
   }
 
@@ -738,7 +746,8 @@ export class Lighting implements ILighting {
   private forKind(kind: CasterKind, fn: (m: AbstractMesh) => void): void {
     if (this.listsDirty) this.rebuildLists();
     if (kind !== "dynamic") for (const m of this.staticList) fn(m);
-    if (kind !== "static") for (const m of this.dynamicList) fn(m);
+    // weak-PC presets: moving casters cast no shadow until they come to rest
+    if (kind !== "static" && this._quality.dynamicShadows) for (const m of this.dynamicList) fn(m);
   }
 
   // ------------------------------------------------------------------ shadow cache bookkeeping
@@ -806,6 +815,7 @@ export class Lighting implements ILighting {
    * light-space footprint on the sun map, its AABB's footprint on each cube face it reaches.
    */
   private markBounds(stat: boolean, bb: Float64Array, large: boolean): void {
+    if (!stat && !this._quality.dynamicShadows) return; // moving casters are not drawn at all
     const x = bb[0],
       y = bb[1],
       z = bb[2],
@@ -945,6 +955,11 @@ export class Lighting implements ILighting {
       }
     }
     if (this.listsDirty) this.rebuildLists();
+    // weak-PC presets redraw the cached maps at most every shadowRefreshInterval seconds: dirty
+    // regions accumulate meanwhile (a settling debris shower costs a few redraws, not one per frame)
+    const interval = this._quality.shadowRefreshInterval;
+    if (interval > 0 && now - this.lastArm < interval && now >= this.lastArm) return;
+    this.lastArm = now;
     this._sunLayer.arm();
     for (const lr of this.pointRecs) lr.layer?.arm();
   }
@@ -1027,7 +1042,8 @@ export class Lighting implements ILighting {
       if (!disposing) rec.layer?.dispose();
       this.dropPointRec(rec);
     }
-    const wasClustered = rec.clustered;
+    const wasClustered = rec.clustered || rec.culled;
+    rec.culled = false;
     this.leaveCluster(rec, false);
     if (!disposing && !light.isDisposed()) {
       // Hand the light back in its nominal state; it rejoins the scene as an ordinary light
@@ -1124,7 +1140,7 @@ export class Lighting implements ILighting {
     const d = Vector3.Distance(bs.centerWorld, rec.shadowPos);
     if (d - r > rec.shadowReach) return false;
     if (r < 0.6 && d < r + 0.05) return false; // lamp shade / fixture enclosing the bulb
-    return r >= 0.02;
+    return r >= Math.max(0.02, this._quality.shadowMinRadius);
   }
 
   /** Casters of one cube face (or of the whole map of a spot light) of promoted light `rec`, overlapping `rects`. */
@@ -1200,6 +1216,54 @@ export class Lighting implements ILighting {
     const list: AbstractMesh[] = [];
     for (const m of this.casters.keys()) if (!m.isDisposed() && this.pointCasterWanted(rec, m)) list.push(m);
     sm.renderList = list;
+  }
+
+  // ---- interior-light budget (quality.maxInteriorLights): only the nearest lights stay clustered
+
+  /**
+   * Keep at most `maxInteriorLights` interior lights in the cluster: the nearest to the camera
+   * (lights in the camera's room count as 3 m nearer; hysteresis keeps the current set). The
+   * others leave the cluster (no per-pixel cost at all) and rejoin when the player comes closer.
+   * Shadow-promoted lights are never culled.
+   */
+  private updateClusterBudget(): void {
+    const max = Math.max(0, Math.floor(this._quality.maxInteriorLights));
+    const cam = this.scene.activeCamera;
+    let n = 0;
+    for (const rec of this.lights.values()) if (rec.clustered || rec.culled) n++;
+    if (n <= max || !cam) {
+      for (const rec of this.lights.values()) {
+        if (!rec.culled) continue;
+        rec.culled = false;
+        if (!rec.light.isDisposed()) this.joinCluster(rec);
+      }
+      return;
+    }
+    const cp = cam.globalPosition;
+    const camRoom = nearestRoom(cp.x, cp.z).id;
+    const cands = this.budgetCands;
+    cands.length = 0;
+    for (const rec of this.lights.values()) {
+      if (!(rec.clustered || rec.culled) || rec.light.isDisposed()) continue;
+      const lit = rec.base > 0 && !(rec.mains && !this._powered);
+      let d = lit ? Vector3.Distance(this.lightPosition(rec.light), cp) : 1e6;
+      if (rec.room === camRoom) d -= 3;
+      if (rec.clustered) d -= 0.75; // hysteresis
+      cands.push({ rec, d });
+    }
+    cands.sort((a, b) => a.d - b.d);
+    for (let i = 0; i < cands.length; i++) {
+      const rec = cands[i].rec;
+      const keep = i < max;
+      if (keep && rec.culled) {
+        rec.culled = false;
+        this.joinCluster(rec);
+      } else if (!keep && rec.clustered) {
+        this.leaveCluster(rec, false);
+        rec.culled = true;
+      }
+    }
+    cands.length = 0;
   }
 
   // ---- fallback (no clustering): only the nearest lights are shaded
