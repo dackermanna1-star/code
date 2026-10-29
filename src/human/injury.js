@@ -454,24 +454,33 @@ export class InjurySystem {
     this.log(`DEATH: ${cause}`, 3);
   }
 
-  /** Transient muscular reaction to a hit (Euphoria-style shot/impact reaction). */
+  /**
+   * Transient muscular reaction to a hit (Euphoria-style shot/impact reaction): a momentary loss
+   * of tone where it hurts. A penetrating wound (bullet) triggers a strong nociceptive withdrawal
+   * and inhibition of the muscles around it — a leg shot makes that knee give way, a gut shot
+   * folds the hips and both knees; a chest shot mostly takes the trunk's tone. A blunt blow to a
+   * braced body is mostly a mechanical push: the struck region flinches, the legs keep working.
+   */
   reactToHit(segName, strength, dirW, kind) {
     if (!this.alive) return;
     const side = sideOf(segName);
     const k = segKind(segName);
     const s = clamp(strength, 0, 1.2);
+    const pen = kind === 'bullet';
+    const legs = (a) => {
+      this.buckle.L = Math.min(this.buckle.L, 1 - a * s);
+      this.buckle.R = Math.min(this.buckle.R, 1 - a * s);
+    };
     if (k === 'thigh' || k === 'shin' || k === 'foot') {
-      this.buckle[side] = Math.min(this.buckle[side], 1 - 0.75 * s);
+      this.buckle[side] = Math.min(this.buckle[side], 1 - (pen ? 0.75 : 0.35) * s);
     } else if (k === 'pelvis' || k === 'abdomen') {
-      this.buckle.L = Math.min(this.buckle.L, 1 - 0.5 * s);
-      this.buckle.R = Math.min(this.buckle.R, 1 - 0.5 * s);
-      this.buckle.trunk = Math.min(this.buckle.trunk, 1 - 0.5 * s);
+      legs(pen ? 0.45 : 0.15);
+      this.buckle.trunk = Math.min(this.buckle.trunk, 1 - (pen ? 0.5 : 0.3) * s);
     } else if (k === 'chest' || k === 'neck') {
-      this.buckle.L = Math.min(this.buckle.L, 1 - 0.3 * s);
-      this.buckle.R = Math.min(this.buckle.R, 1 - 0.3 * s);
-      this.buckle.trunk = Math.min(this.buckle.trunk, 1 - 0.4 * s);
+      legs(pen ? 0.2 : 0.05);
+      this.buckle.trunk = Math.min(this.buckle.trunk, 1 - (pen ? 0.4 : 0.2) * s);
     } else if (k === 'upperArm' || k === 'forearm' || k === 'hand') {
-      this.buckle.arms[side] = Math.min(this.buckle.arms[side], 1 - 0.85 * s);
+      this.buckle.arms[side] = Math.min(this.buckle.arms[side], 1 - (pen ? 0.85 : 0.5) * s);
     }
     if (this.ctl && this.ctl.onHit) this.ctl.onHit({ segment: segName, strength: s, dir: dirW, kind });
     if (this.conscious && this.time - this.lastGrunt > 0.35) {
@@ -770,6 +779,9 @@ export class InjurySystem {
       const seg = mine.userData.segment;
       const k = segKind(seg.name);
       const ground = !other;
+      // footfalls: a sole landing on the floor (stepping, staggering, even a ~1 m jump down) loads
+      // the heel pad and shoe with 2-3 body weights; that is locomotion, not trauma
+      if (ground && k === 'foot' && imp.speed < 5 && mine.localDirToWorld(_v0.set(0, -1, 0), _v1).y < -0.6) continue;
       let material = ground ? 'concrete' : otherShape && otherShape.material ? otherShape.material : 'default';
       if (other && other.userData && other.userData.ragdoll) material = 'flesh';
       // the local load is limited by the momentum of the struck part itself

@@ -103,6 +103,7 @@ export class World {
     this.anchors = new Map(); // feature key -> Anchor
     this.anchorStamp = 0;
     this.torsionalFriction = true;
+    this.anchorPass = opts.anchorPass ?? true; // re-solve joint anchors after contacts (see solvePositions)
     this.onBodyRemoved = null;
   }
 
@@ -378,6 +379,13 @@ export class World {
       else for (let i = i0; i < i1; i++) this.solveContactFriction(pool[i], h);
       i0 = i1;
     }
+    // Second Gauss-Seidel pass over the rigid joint anchors only. With a single pass, the contact
+    // corrections (applied last) leave the articulated chain slightly torn apart every substep, and
+    // the next substep's joint pass over-corrects: a sustained period-2 limit cycle of amplitude
+    // ~g*h^2 (resting bodies rock ~0.3 mrad at 600 Hz and report phantom velocities of up to
+    // 0.5 rad/s, which pollute sensing, damping and impact speeds). Compliant drives and limits are
+    // not re-applied, so muscle stiffness is unaffected; the cost is one cheap anchor solve per joint.
+    if (this.anchorPass) for (const j of this.joints) if (j.enabled) j.solveAnchor(h);
   }
 
   solveContactNormal(c, h) {
