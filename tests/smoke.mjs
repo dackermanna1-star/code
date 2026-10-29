@@ -3,7 +3,8 @@
 //
 // Usage: npm run build && node tests/smoke.mjs [--out dir] [--timeout ms] [--url-extra "&quality=low"] [--strict-idle]
 // --strict-idle makes the idle-performance check (bodies come to rest, physics step within budget)
-// fatal; by default it is reported as IDLE WARN (known open issue: jointed groups never sleep).
+// fatal; by default it is reported as IDLE WARN. (Settled, only powered rotors stay awake — the fan, the hood
+// blower — and a step costs well under 1 ms; tests/idle.mjs measures it in detail.)
 // Screenshots + stats.json land in --out (default test-results/smoke). Exit code 0 = pass.
 import { createRequire } from "node:module";
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";

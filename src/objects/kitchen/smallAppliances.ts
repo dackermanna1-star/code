@@ -95,7 +95,9 @@ export function buildKettle(o: SmallApplianceOpts & { litres?: number } = {}): A
   const handle = b.tube("handle", "plastic", "plastic", hp, 0.012, { sides: 6, tint: 0x1d1e20, mass: 0.12 });
   bondTouching(b, handle[0], s.wall, "screw", 30, 0.002);
   bondTouching(b, handle[handle.length - 1], s.wall, "screw", 30, 0.002);
-  b.hinge(lid, handle[0], { pivots: [[-0.058, yb + 0.206, 0]], axis: [0, 0, 1], min: 0, max: 95, strength: 12, friction: 0.2, latch: 2 });
+  // two pivots: a single-pivot joint group becomes a ball-and-socket (graph.ts), on which the lid flopped
+  // about every axis and its latch was never engaged (latches only act on hinges)
+  b.hinge(lid, handle[0], { pivots: [[-0.058, yb + 0.206, -0.015], [-0.058, yb + 0.206, 0.015]], axis: [0, 0, 1], min: 0, max: 95, strength: 6, friction: 0.2, latch: 2 });
   // spout at +X
   const spout = b.hull(
     "spout",
@@ -134,7 +136,8 @@ export function buildCoffeeMaker(o: SmallApplianceOpts = {}): AssemblyDef {
   b.glue(tower, base, 60);
   b.screw(head, tower, 3, 20);
   b.clip(tank, tower, 6);
-  b.hinge(basket, head, { pivots: [[0.062, 0.285, 0.07]], axis: [0, 1, 0], min: 0, max: 80, strength: 10, friction: 0.3, latch: 2, latchPos: [-0.06, 0.28, 0.07] });
+  // two pivots (a single one would make it a ball joint whose latch never engages, see the kettle lid)
+  b.hinge(basket, head, { pivots: [[0.062, 0.275, 0.07], [0.062, 0.295, 0.07]], axis: [0, 1, 0], min: 0, max: 80, strength: 5, friction: 0.3, latch: 2, latchPos: [-0.06, 0.28, 0.07] });
   b.screw(plate, base, 2, 15);
   b.sparks(plate, 0.3);
   buttonGrid(b, "btn", { on: base, rows: 1, cols: 2, size: [0.018, 0.012], depth: 0.003, tints: [0x2e7d32, 0x3a3b3d] }, [0.07, 0.0175, 0.14]);

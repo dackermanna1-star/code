@@ -292,11 +292,13 @@ export class Destruction implements DestructionSystem {
 
   stats(): DestructionStats {
     let dyn = 0,
-      debris = 0;
+      debris = 0,
+      pieces = 0;
     for (const isl of this.world.islands) {
       if (isl.isStatic) continue;
       dyn++;
       if (isl.layer === Layer.DEBRIS) debris++;
+      if (isl.piece) pieces++;
     }
     return {
       assemblies: this.world.assemblies.size,
@@ -306,6 +308,7 @@ export class Destruction implements DestructionSystem {
       fractures: this.world.fractures,
       bondsBroken: this.world.bondsBroken,
       debrisIslands: debris,
+      debrisPieces: pieces,
       consolidated: this.debris.consolidated,
       valueDestroyed: this.accounting.valueDestroyed,
       totalValue: this.accounting.totalValue,

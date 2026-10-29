@@ -191,6 +191,16 @@ export interface ConsolidationRef {
   batch: number;
   /** World-space geometry is in the batch mesh (island meshes disposed). */
   inBatch: boolean;
+  /** Index in DebrisSystem's list of consolidated islands. */
+  idx: number;
+  /** Node pose when consolidated: any change means the body moved (woken) and must get its own meshes back. */
+  px: number;
+  py: number;
+  pz: number;
+  qx: number;
+  qy: number;
+  qz: number;
+  qw: number;
 }
 
 export class Island {
@@ -238,6 +248,8 @@ export class Island {
   lastHit = -1;
   /** World.stepIndex of the last Interactions.pull() on this (dynamic) island. */
   pulledStep = -1;
+  /** Created for pieces that broke off (fracture fragments, split-off parts; not the keeper of a split, not a spawn). */
+  piece = false;
   /** Split operation that created this island (siblings share it) and when. */
   birth = 0;
   birthTime = -1;

@@ -28,6 +28,13 @@ export function stepLength(speed: number): number {
 
 /** Loose bodies lighter than this are pressed underfoot with a light strike on each step. */
 const CRUSH_MAX_MASS = 30;
+/**
+ * …except the body the player stands on, unless it is this light (a mug, a shard on top of a
+ * board): a rug, a door lying flat or a mattress carries the player's weight already (see
+ * PlayerCore.pressSupport), and a 22 kg heel strike on a 7.8 kg rug at every step bounced it off
+ * the floor and shook what stands on it (the glass coffee table broke).
+ */
+const CRUSH_SUPPORT_MAX_MASS = 2;
 
 export class Footsteps {
   /** Stride phase (radians). */
@@ -97,7 +104,7 @@ export class Footsteps {
     } catch {
       hit = null;
     }
-    if (hit) this.crush({ body: hit.body, point: hit.point, normal: hit.normal, childIndex: hit.childIndex }, speed);
+    if (hit) this.crush({ body: hit.body, point: hit.point, normal: hit.normal, childIndex: hit.childIndex }, speed, support ? support.body : null);
   }
 
   private readonly sweepFrom = new Vector3();
@@ -106,7 +113,7 @@ export class Footsteps {
   private readonly crushDir = new Vector3(0, -1, 0);
 
   /** Light strike on a loose (dynamic, light) body under the foot. */
-  private crush(target: SupportProbe, speed: number): void {
+  private crush(target: SupportProbe, speed: number, standingOn: PhysicsBody | null = null): void {
     const d = this.ctx.destruction;
     let mass: number | null = null;
     try {
@@ -116,6 +123,7 @@ export class Footsteps {
       return;
     }
     if (mass === null || !(mass > 0) || mass > CRUSH_MAX_MASS) return;
+    if (target.body === standingOn && mass > CRUSH_SUPPORT_MAX_MASS) return;
     // (strike copies point/dir: scratch vectors are safe)
     d.strike({
       point: this.crushPoint.copyFrom(target.point),

@@ -1130,6 +1130,7 @@ export class World {
     }
     isl.birth = g.birth;
     isl.birthTime = g.birthTime;
+    isl.piece = true;
     if (!isl.isStatic) this.setPieceVelocity(isl, g.v, g.w, g.com);
     for (const p of parts) this.hooks.partMoved(p, isl);
     this.applyKicks(isl);

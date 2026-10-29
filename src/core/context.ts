@@ -268,7 +268,10 @@ export interface DestructionStats {
   parts: number;
   fractures: number;
   bondsBroken: number;
+  /** Dynamic islands on the DEBRIS layer (small bodies, intact small objects included; consolidated ones too). */
   debrisIslands: number;
+  /** Dynamic islands that broke off something (fracture fragments, split-off pieces) — the HUD's debris count. */
+  debrisPieces?: number;
   consolidated: number;
   valueDestroyed: number;
   totalValue: number;

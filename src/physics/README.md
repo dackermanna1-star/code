@@ -25,9 +25,16 @@ for (let i = 0; i < time.beginFrame(dt); i++) physics.step(FIXED_DT); // scene.r
   its collisions (restore a projectile's velocity when the thing it hit breaks). Bias under gravity ≈ 0.06 m/s.
 * **Sleep assist** (`setAutoSleep(enabled, {linear, angular, seconds})`, default on, 0.08 m/s, 0.2 rad/s, 0.6 s):
   groups of touching dynamic bodies whose average speeds stayed below the thresholds are put to sleep together
-  (Havok never sleeps big piles; sleeping single bodies of an active pile makes it thrash). Piles > 32 bodies sleep
-  when 90 % are slow and the rest only jitter. Bodies with joints or `setKeepAwake(b, true)` keep their group awake;
-  HELD-layer bodies are kept awake. Slept bodies wake on contact and fall when their support is removed.
+  (Havok never sleeps big piles; sleeping single bodies of an active pile makes it thrash). Groups = world AABBs
+  within 3 cm of each other (a superset of the contacts) joined through constraints between awake dynamic bodies.
+  Piles > 32 bodies sleep when 90 % are slow and the rest only jitter. Jointed bodies (doors, drawers, a latch motor
+  at its target) sleep like any other once slow; `setKeepAwake(b, true)` keeps a group awake; HELD-layer bodies are
+  kept awake. Slept bodies wake on contact, through their constraints, on use/pull/motor changes, and when something
+  they rest on vanishes: disposing a body or removing container children (disposeBody, setShape with fewer children,
+  removeChildren, teleport) wakes the sleeping dynamic bodies overlapping what vanished before the next step (Havok
+  itself does not). A (practically) zero impulse (|J| < 1e-5 N·s) is ignored instead of waking the body.
+  Before (bounding-sphere groups, joints blocking): 200–300 of 644 bodies of the furnished apartment never slept,
+  6–19 ms/step; after: only powered rotors stay awake, ≈ 0.3 ms/step (`node tests/idle.mjs`).
 
 ## Bodies and shapes
 * `createBody(node, "static"|"dynamic"|"animated", startAsleep)` then `setShape(body, shape)`. Nodes must be

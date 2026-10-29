@@ -30,10 +30,13 @@ export function buildPedalBin(o: MiscOpts = {}): AssemblyDef {
   const lid = b.cyl("lid", "steelSheet", "steel_brushed", R + 0.003, 0.02, [0, H + 0.0005 + 0.01, 0], { segments: 10, rTop: R - 0.01, mass: 0.45 });
   const hingeBlk = b.box("lid_hinge", "plastic", "plastic", [0.06, 0.03, 0.025], [0, H - 0.035, -R + 0.006 - 0.0125 + 0.0], { tint: 0x1d1d1f });
   bondEachTouching(b, hingeBlk, drum.wall, "screw", 25, 0.003);
-  b.hinge(lid, hingeBlk, { pivots: [[0, H + 0.001, -R - 0.004]], axis: [-1, 0, 0], min: 0, max: 95, strength: 25, friction: 0.3 });
+  // Two pivots (the hinge pin's ends): a joint group with ONE pivot is realised as a ball-and-socket
+  // (graph.ts planJointConstraints), which let the lid and the pedal flop and spin about every axis —
+  // the bin rattled on the tiles forever (~8 impacts/s at ~0.3 m/s) and kept the kitchen awake.
+  b.hinge(lid, hingeBlk, { pivots: [[0.025, H + 0.001, -R - 0.004], [-0.025, H + 0.001, -R - 0.004]], axis: [-1, 0, 0], min: 0, max: 95, strength: 13, friction: 0.3 });
   const pedal = b.box("pedal", "plastic", "plastic", [0.08, 0.012, 0.06], [0, 0.02, R + 0.03], { tint: 0x1d1d1f });
   // stepping on it swings the tip down (positive about +X); a return spring holds it level
-  b.hinge(pedal, foot, { pivots: [[0, 0.015, R + 0.002]], axis: [1, 0, 0], min: 0, max: 8, strength: 15, friction: 0.4, spring: 2 });
+  b.hinge(pedal, foot, { pivots: [[0.03, 0.015, R + 0.002], [-0.03, 0.015, R + 0.002]], axis: [1, 0, 0], min: 0, max: 8, strength: 8, friction: 0.4, spring: 2 });
   for (const [k, p] of ([[0.03, 0.07, 0.02], [-0.04, 0.06, -0.03]] as Array<[number, number, number]>).entries()) {
     const pp = b.ellipsoid(`paper${k}`, "paper", "paper", [0.045, 0.035, 0.04], [p[0], 0.0242 + 0.035 + k * 0.0, p[2]], { segments: 7, rings: 5, mass: 0.02, tint: 0xf1efe8 });
     b.tag(pp, "loose");

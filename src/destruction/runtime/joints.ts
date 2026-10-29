@@ -637,21 +637,28 @@ export class JointSystem {
     }
   }
 
-  /** Self-closing spring (+ light damping) towards the built pose. */
+  /**
+   * Self-closing spring (+ light damping) towards the built pose. Applied continuously while the
+   * joint is awake, never to a sleeping one: the sleep assist only puts a joint to sleep once the
+   * spring is in equilibrium with whatever holds it (gravity, a limit, friction), anything that
+   * moves it again wakes it first, and an impulse every step would keep it awake forever. (The
+   * former dead zone near the closed pose made a sprung pedal hanging under gravity chatter
+   * around the zone's edge instead of settling.)
+   */
   private applySpring(g: JointGroup, dt: number): void {
     const jc = g.constraints[0];
     const k = g.def.spring ?? 0;
     if (!jc || !(k > 0) || !jc.moving.body || jc.moving.isStatic || jc.latched) return;
+    const ph = this.w.physics;
+    if (!ph.isAwake(jc.moving.body) && (!jc.fixed || jc.fixed.isStatic || !jc.fixed.body || !ph.isAwake(jc.fixed.body))) return;
     this.worldAxisInto(g, jc, sAxis, sPivot);
     const axis = sAxis;
     if (g.kind === "hinge") {
       const theta = this.hingeAngleOf(jc.moving, jc.fixed, g.asm, unit(g.def.axis));
-      if (Math.abs(theta) < 0.01) return;
       const tau = -k * theta - 0.15 * k * this.relAngVel(jc, axis);
       this.applyTorque(jc, axis, tau, dt);
     } else {
       const s = this.slideOf(jc.moving, jc.fixed, g.asm, unit(g.def.axis));
-      if (Math.abs(s) < 0.002) return;
       jc.moving.body.getLinearVelocityToRef(tV);
       const v = tV.x * axis.x + tV.y * axis.y + tV.z * axis.z;
       const F = -k * s - 0.15 * k * v;

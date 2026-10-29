@@ -49,8 +49,9 @@
 //  * SLEEP ASSIST (Addendum 2): large touching piles never deactivate in Havok (1000 hulls: 15–18 ms/step forever).
 //    A body counts as slow while its AVERAGE speed since an anchor pose stays below 0.08 m/s and 0.2 rad/s (per-step
 //    displacement is useless: Havok's position correction makes resting pile bodies jump); practically still bodies
-//    count 4× faster. Every 4 steps the awake dynamic bodies are grouped into proximity components (COM bounding
-//    spheres, sweep-and-prune + union-find) and a component is put to sleep AS A WHOLE once all members have been
+//    count 4× faster. Every 4 steps the awake dynamic bodies are grouped into proximity components (world AABBs within
+//    3 cm, sweep-and-prune + union-find, joined through constraints; jointed bodies sleep too — see sleepPass) and a
+//    component is put to sleep AS A WHOLE once all members have been
 //    slow for 0.6 s — or, for piles of > 32 bodies, 90 % of them while the rest merely jitter (< 0.3 m/s and none
 //    TRAVELLING) — after a last check of Havok's own velocities. Travelling = net displacement over a position-only
 //    anchor (≥ 8 steps) above the linear threshold while still moving that fast: a ball rolling or a piece sliding
@@ -65,7 +66,9 @@
 //    the pile slow again after 0.33 s, whole pile asleep ≈ 0.9 s after the impact (waits for the pushed bodies),
 //    exactly one forced sleep per body; while 1000 hulls are awake Havok itself costs 20–50 ms/step (not reducible
 //    here — keeping that window short is the lever). Pile members (> 32) are only verified for linear motion
-//    (solver jitter spins them); small groups also for spin.
+//    (solver jitter spins them); small groups also for spin. Havok does not wake sleeping bodies resting on a body
+//    that is removed or loses container children: what vanished is queued as world AABBs and the sleeping bodies
+//    overlapping them are woken before the next step (queueWakeRegion).
 //  * FILTERS: a filter change on a body's root leaf shape is ignored by Havok until the body's shape is re-set
 //    (HP_Body_SetShape(0) then the shape); setLayer() does that for every body using the shape and restores
 //    the sleep state.
@@ -191,6 +194,8 @@ export interface PhysicsDebugStats extends PhysicsStats {
   eventsLastStep: number;
   impactsLastStep: number;
   forcedSleeps: number;
+  /** Sleeping bodies woken because something they rested on was removed (disposed body, removed container child). */
+  wokenBySupportLoss: number;
   /** Last sleep-assist pass: awake members, and the largest component's size / slow members / fastest non-slow member
    *  (m/s, Infinity = travelling) / whether it was put to sleep. */
   sleepPass: { step: number; members: number; size: number; slow: number; fastest: number; slept: boolean };
@@ -232,7 +237,7 @@ const DYNAMIC = PhysicsMotionType.DYNAMIC;
  */
 const STILL_FRACTION = 0.25;
 const STILL_WEIGHT = 4;
-/** Sleep assist: the island-coherent sleep pass runs every this many steps; bounding spheres within SLEEP_MARGIN (m) touch. */
+/** Sleep assist: the island-coherent sleep pass runs every this many steps; world AABBs closer than SLEEP_MARGIN (m) touch. */
 const SLEEP_PASS_STEPS = 4;
 const SLEEP_MARGIN = 0.03;
 /** Components larger than SLEEP_BIG_COMPONENT sleep when SLEEP_MAJORITY of their members are slow and the others merely
@@ -242,6 +247,9 @@ const SLEEP_MAJORITY = 0.9;
 /** …provided no non-slow member is faster than this (m/s, corner speed): measured pile jitter peaks at 0.16–0.27 m/s,
  *  while anything genuinely moving (a block landing on the pile) is far faster and keeps its pile awake. */
 const FREEZE_SAFE_SPEED = 0.3;
+/** Sleeping dynamic bodies within this distance (m) of a vanished support (disposed body, removed container child) are
+ *  woken before the next step (see queueWakeRegion). */
+const WAKE_REGION_MARGIN = 0.03;
 /** Sleep pass verification: a slow member whose Havok velocity exceeds this × the thresholds is moving after all. */
 const SLEEP_VERIFY_FACTOR = 1.5;
 /** Sleep assist: drift is judged over at least JITTER_STEPS steps; a single step faster than √JITTER_FACTOR2 × the
@@ -320,14 +328,23 @@ class BodyRec implements ImpactSide {
   thin = false;
   /** Half diagonal of the equivalent box (m): corner speed = ω·radius. */
   radius = 0;
-  /** Bounding radius about the COM (m, from the shape's AABB): proximity grouping of the sleep pass. */
+  /** Bounding radius about the COM (m, from the shape's AABB). */
   boundR = 0;
+  /** Shape AABB in the body frame (m): the sleep pass groups bodies whose world AABBs (+ SLEEP_MARGIN) overlap. */
+  bbMinX = 0;
+  bbMinY = 0;
+  bbMinZ = 0;
+  bbMaxX = 0;
+  bbMaxY = 0;
+  bbMaxZ = 0;
   /**
    * Known to be asleep (forced asleep by us, created asleep, or seen INACTIVE by the activation poll) and not moved
    * since: excluded from the sleep pass. Awake bodies that are perfectly still are members (they would wake a slept
    * island they touch).
    */
   asleepKnown = false;
+  /** Index in the current sleep pass's member list (scratch, valid only while the pass runs and mem[idx] === rec). */
+  sleepIdx = -1;
   /** Step at which the sleep-assist anchor pose was taken. */
   anchorStep = 0;
   /** Last step at which the body's anchor-averaged (net) speed exceeded the linear threshold (see fastSync). */
@@ -645,6 +662,7 @@ export class Physics implements PhysicsSystem {
       console.warn("Physics: floating-origin world regions are not supported; only the default world is stepped");
     }
     scene.onBeforePhysicsObservable.notifyObservers(scene);
+    if (this.wakeRegions.length > 0) this.processWakeRegions();
     const n = this.chooseSubsteps();
     this.substepsLast = n;
     const h = dt / n;
@@ -791,7 +809,15 @@ export class Physics implements PhysicsSystem {
     for (const name of ["setLinearVelocity", "setAngularVelocity", "applyImpulse", "applyAngularImpulse"]) {
       const orig = plugin[name];
       if (typeof orig !== "function") continue;
+      const isImpulse = name === "applyImpulse" || name === "applyAngularImpulse";
       plugin[name] = (body: PhysicsBody, ...rest: unknown[]): unknown => {
+        // A (practically) zero impulse is no impulse, but Havok wakes the body anyway: Babylon's character
+        // controller applies one to every dynamic body it touches each step, which kept a rug the player
+        // stands on (and everything on it) awake forever. |J| < 1e-5 N·s changes a 5 g body by < 2 mm/s.
+        if (isImpulse) {
+          const j = rest[0] as { x: number; y: number; z: number } | undefined;
+          if (j && j.x * j.x + j.y * j.y + j.z * j.z < 1e-10) return undefined;
+        }
         const r = orig.call(this.plugin, body, ...rest);
         this.touchVelocity(body);
         return r;
@@ -1386,12 +1412,20 @@ export class Physics implements PhysicsSystem {
    * Island-coherent force-sleep (header "SLEEP ASSIST"). Havok deactivates whole islands: putting single bodies of an
    * active island to sleep is undone by their neighbours next step and the wake/sleep churn agitates the pile (measured:
    * 120-hull pile never slept, 3000 forced sleeps, spin up to 1.2 rad/s). So the awake dynamic bodies are grouped into
-   * proximity components (bounding spheres around the COM touching, sweep-and-prune + union-find) and a component is
-   * put to sleep as a whole: when every member has been slow for `seconds`, or — for piles of more than
-   * SLEEP_BIG_COMPONENT bodies, whose solver jitter never stops everywhere at once — when SLEEP_MAJORITY of them have
-   * and no other member moves faster than FREEZE_SAFE_SPEED or is travelling (net drift above the linear threshold
-   * and still that fast: rolling / sliding across the pile — Havok would wake the whole island around it anyway, so
-   * it keeps the component awake). Kept-awake or jointed members keep their component awake.
+   * components that cover Havok's islands — world AABBs overlapping within SLEEP_MARGIN (a superset of the contacts;
+   * sweep-and-prune + union-find) joined through constraints between awake dynamic bodies — and a component is put to
+   * sleep as a whole: when every member has been slow for `seconds`, or — for piles of more than SLEEP_BIG_COMPONENT
+   * bodies, whose solver jitter never stops everywhere at once — when SLEEP_MAJORITY of them have and no other member
+   * moves faster than FREEZE_SAFE_SPEED or is travelling (net drift above the linear threshold and still that fast:
+   * rolling / sliding across the pile — Havok would wake the whole island around it anyway, so it keeps the component
+   * awake). Kept-awake members keep their component awake.
+   *
+   * Jointed bodies (doors, drawers, lids, a latched door's position motor at its target) sleep like any other body
+   * once they are slow: Havok deactivates constrained islands natively and wakes them through their constraints, a
+   * use / pull / motor change wakes them explicitly (wake(), wakeJoint()), and a powered velocity motor keeps its rotor
+   * moving (never slow). Before AABB grouping, bounding SPHERES (a rug: 1.5 m, a 2 m plant: 1.5 m) chained whole rooms
+   * into one component and a single jointed or restless member (a drawer, the ceiling fan, a rattling bin) kept
+   * 200–300 resting bodies awake forever (6–19 ms/step; tests/idle.mjs).
    */
   private sleepPass(dt: number): void {
     const list = this.fast;
@@ -1404,8 +1438,8 @@ export class Physics implements PhysicsSystem {
     }
     const n = mem.length;
     if (n === 0) return;
-    if (this.sleepPos.length < n * 4) {
-      this.sleepPos = new Float64Array(n * 8);
+    if (this.sleepBox.length < n * 6) {
+      this.sleepBox = new Float64Array(n * 12);
       this.sleepOrder = new Int32Array(n * 2);
       this.sleepParent = new Int32Array(n * 2);
       this.sleepBlocked = new Uint8Array(n * 2);
@@ -1413,23 +1447,40 @@ export class Physics implements PhysicsSystem {
       this.sleepSlowN = new Int32Array(n * 2);
       this.sleepFastest = new Float64Array(n * 2);
     }
-    const pos = this.sleepPos, order = this.sleepOrder, parent = this.sleepParent, blocked = this.sleepBlocked;
+    const box = this.sleepBox, order = this.sleepOrder, parent = this.sleepParent, blocked = this.sleepBlocked;
     let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity, minZ = Infinity, maxZ = -Infinity;
+    const half = 0.5 * SLEEP_MARGIN;
     for (let i = 0; i < n; i++) {
       const rec = mem[i];
+      rec.sleepIdx = i;
       const node = rec.body.transformNode;
       const q = node.rotationQuaternion!;
-      const c = this.tv3.set(rec.comX, rec.comY, rec.comZ).applyRotationQuaternionInPlace(q).addInPlace(node.position);
-      pos[i * 4] = c.x;
-      pos[i * 4 + 1] = c.y;
-      pos[i * 4 + 2] = c.z;
-      pos[i * 4 + 3] = Math.max(rec.boundR, rec.radius, 0.02) + SLEEP_MARGIN;
-      if (c.x < minX) minX = c.x;
-      if (c.x > maxX) maxX = c.x;
-      if (c.y < minY) minY = c.y;
-      if (c.y > maxY) maxY = c.y;
-      if (c.z < minZ) minZ = c.z;
-      if (c.z > maxZ) maxZ = c.z;
+      const p = node.position;
+      // world AABB of the body-frame AABB: centre R·c + t, half extents |R|·h (+ half the margin on each side)
+      const x = q.x, y = q.y, z = q.z, w = q.w;
+      const r00 = 1 - 2 * (y * y + z * z), r01 = 2 * (x * y - z * w), r02 = 2 * (x * z + y * w);
+      const r10 = 2 * (x * y + z * w), r11 = 1 - 2 * (x * x + z * z), r12 = 2 * (y * z - x * w);
+      const r20 = 2 * (x * z - y * w), r21 = 2 * (y * z + x * w), r22 = 1 - 2 * (x * x + y * y);
+      const cx = 0.5 * (rec.bbMinX + rec.bbMaxX), cy = 0.5 * (rec.bbMinY + rec.bbMaxY), cz = 0.5 * (rec.bbMinZ + rec.bbMaxZ);
+      // (a body without a known AABB gets a 2 cm box around its origin)
+      const hx = Math.max(0.01, 0.5 * (rec.bbMaxX - rec.bbMinX)), hy = Math.max(0.01, 0.5 * (rec.bbMaxY - rec.bbMinY)), hz = Math.max(0.01, 0.5 * (rec.bbMaxZ - rec.bbMinZ));
+      const wx = r00 * cx + r01 * cy + r02 * cz + p.x, wy = r10 * cx + r11 * cy + r12 * cz + p.y, wz = r20 * cx + r21 * cy + r22 * cz + p.z;
+      const ex = Math.abs(r00) * hx + Math.abs(r01) * hy + Math.abs(r02) * hz + half;
+      const ey = Math.abs(r10) * hx + Math.abs(r11) * hy + Math.abs(r12) * hz + half;
+      const ez = Math.abs(r20) * hx + Math.abs(r21) * hy + Math.abs(r22) * hz + half;
+      const o = i * 6;
+      box[o] = wx - ex;
+      box[o + 1] = wy - ey;
+      box[o + 2] = wz - ez;
+      box[o + 3] = wx + ex;
+      box[o + 4] = wy + ey;
+      box[o + 5] = wz + ez;
+      if (wx < minX) minX = wx;
+      if (wx > maxX) maxX = wx;
+      if (wy < minY) minY = wy;
+      if (wy > maxY) maxY = wy;
+      if (wz < minZ) minZ = wz;
+      if (wz > maxZ) maxZ = wz;
       order[i] = i;
       parent[i] = i;
       blocked[i] = 0;
@@ -1437,7 +1488,7 @@ export class Physics implements PhysicsSystem {
     // sweep and prune along the axis of largest spread
     const axis = maxX - minX >= maxY - minY && maxX - minX >= maxZ - minZ ? 0 : maxY - minY >= maxZ - minZ ? 1 : 2;
     const ord = order.subarray(0, n);
-    ord.sort((a, b) => pos[a * 4 + axis] - pos[a * 4 + 3] - (pos[b * 4 + axis] - pos[b * 4 + 3]));
+    ord.sort((a, b) => box[a * 6 + axis] - box[b * 6 + axis]);
     const sleepSteps = Math.max(1, Math.round(this.sleepAssist.seconds / dt));
     const find = (i: number): number => {
       while (parent[i] !== i) {
@@ -1448,18 +1499,28 @@ export class Physics implements PhysicsSystem {
     };
     for (let oi = 0; oi < n; oi++) {
       const i = ord[oi];
-      const ri = pos[i * 4 + 3];
-      const hiI = pos[i * 4 + axis] + ri;
+      const bi = i * 6;
+      const hiI = box[bi + 3 + axis];
       for (let oj = oi + 1; oj < n; oj++) {
         const j = ord[oj];
-        const rj = pos[j * 4 + 3];
-        if (pos[j * 4 + axis] - rj > hiI) break;
-        const dx = pos[i * 4] - pos[j * 4], dy = pos[i * 4 + 1] - pos[j * 4 + 1], dz = pos[i * 4 + 2] - pos[j * 4 + 2];
-        const rr = ri + rj;
-        if (dx * dx + dy * dy + dz * dz <= rr * rr) {
+        const bj = j * 6;
+        if (box[bj + axis] > hiI) break;
+        if (box[bj] <= box[bi + 3] && box[bi] <= box[bj + 3] && box[bj + 1] <= box[bi + 4] && box[bi + 1] <= box[bj + 4] && box[bj + 2] <= box[bi + 5] && box[bi + 2] <= box[bj + 5]) {
           const a = find(i), b = find(j);
           if (a !== b) parent[a] = b;
         }
+      }
+    }
+    // constraints between awake dynamic bodies join their components (one Havok island)
+    for (let i = 0; i < n; i++) {
+      const joints = mem[i].joints;
+      if (joints === null) continue;
+      for (const j of joints) {
+        const other = j.a === mem[i] ? j.b : j.a;
+        const k = other.sleepIdx;
+        if (k < 0 || k >= n || mem[k] !== other) continue;
+        const a = find(i), b = find(k);
+        if (a !== b) parent[a] = b;
       }
     }
     // per component: size, slow members, fastest non-slow member (corner speed from the velocity cache)
@@ -1476,7 +1537,7 @@ export class Physics implements PhysicsSystem {
       const root = find(i);
       size[root]++;
       const rec = mem[i];
-      if (rec.keepAwake || rec.joints !== null) blocked[root] = 1;
+      if (rec.keepAwake) blocked[root] = 1;
       else if (rec.slow >= sleepSteps) slowN[root]++;
       else if (rec.vStep === next) {
         const lin = Math.sqrt(rec.vx * rec.vx + rec.vy * rec.vy + rec.vz * rec.vz);
@@ -1541,10 +1602,78 @@ export class Physics implements PhysicsSystem {
     mem.length = 0;
   }
 
+  /** World AABBs (min xyz, max xyz) where support vanished since the last step (see queueWakeRegion). */
+  private wakeRegions: number[] = [];
+  private wokenBySupportLoss = 0;
+
+  /**
+   * Havok does not wake sleeping bodies that rest on a body when that body is removed from the world or loses a
+   * container child (measured: plates and placemats stayed in mid-air after their dining table was despawned). So the
+   * body-frame AABB of what vanished is queued in world space and every sleeping dynamic body overlapping it (within
+   * WAKE_REGION_MARGIN) is woken before the next step; awake ones are left alone (their sleep timers keep running).
+   * Bodies that start moving (a support turning dynamic, a split-off piece) wake what rests on them through Havok's
+   * contacts.
+   */
+  private queueWakeRegion(rec: BodyRec, mnX: number, mnY: number, mnZ: number, mxX: number, mxY: number, mxZ: number): void {
+    if (!Number.isFinite(mnX + mnY + mnZ + mxX + mxY + mxZ) || mxX < mnX) return;
+    const node = rec.body.transformNode;
+    if (!node || node.parent !== null) return;
+    const q = node.rotationQuaternion ?? IDENTITY_Q;
+    const p = node.position;
+    const x = q.x, y = q.y, z = q.z, w = q.w;
+    const r00 = 1 - 2 * (y * y + z * z), r01 = 2 * (x * y - z * w), r02 = 2 * (x * z + y * w);
+    const r10 = 2 * (x * y + z * w), r11 = 1 - 2 * (x * x + z * z), r12 = 2 * (y * z - x * w);
+    const r20 = 2 * (x * z - y * w), r21 = 2 * (y * z + x * w), r22 = 1 - 2 * (x * x + y * y);
+    const cx = 0.5 * (mnX + mxX), cy = 0.5 * (mnY + mxY), cz = 0.5 * (mnZ + mxZ);
+    const hx = 0.5 * (mxX - mnX), hy = 0.5 * (mxY - mnY), hz = 0.5 * (mxZ - mnZ);
+    const wx = r00 * cx + r01 * cy + r02 * cz + p.x, wy = r10 * cx + r11 * cy + r12 * cz + p.y, wz = r20 * cx + r21 * cy + r22 * cz + p.z;
+    const ex = Math.abs(r00) * hx + Math.abs(r01) * hy + Math.abs(r02) * hz + WAKE_REGION_MARGIN;
+    const ey = Math.abs(r10) * hx + Math.abs(r11) * hy + Math.abs(r12) * hz + WAKE_REGION_MARGIN;
+    const ez = Math.abs(r20) * hx + Math.abs(r21) * hy + Math.abs(r22) * hz + WAKE_REGION_MARGIN;
+    if (!Number.isFinite(wx + wy + wz + ex + ey + ez)) return;
+    this.wakeRegions.push(wx - ex, wy - ey, wz - ez, wx + ex, wy + ey, wz + ez);
+  }
+
+  /** Queue the body-frame AABB of a shape (a whole body's, or one removed container child's). */
+  private queueShapeRegion(rec: BodyRec, shape: PhysicsShape | null): void {
+    if (!shape || shape._pluginData === undefined) return;
+    const bb = this.hk.HP_Shape_GetBoundingBox(shape._pluginData, IDENTITY_QT)[1];
+    this.queueWakeRegion(rec, bb[0][0], bb[0][1], bb[0][2], bb[1][0], bb[1][1], bb[1][2]);
+  }
+
+  /** Wake the sleeping dynamic bodies overlapping a queued region (see queueWakeRegion); runs before each step. */
+  private processWakeRegions(): void {
+    const R = this.wakeRegions;
+    const nr = R.length;
+    const hk = this.hk;
+    const INACTIVE = hk.ActivationState.INACTIVE;
+    const list = this.fast;
+    for (let i = 0; i < list.length; i++) {
+      const rec = list[i];
+      if (rec.motion !== DYNAMIC || rec.disposed || rec.body._pluginData == null) continue;
+      // cheap bound first: a sphere of radius boundR (+ the body AABB's size, should boundR be unknown) around the COM
+      const node = rec.body.transformNode;
+      const q = node.rotationQuaternion ?? IDENTITY_Q;
+      const c = this.tv3.set(rec.comX, rec.comY, rec.comZ).applyRotationQuaternionInPlace(q).addInPlace(node.position);
+      const r = Math.max(rec.boundR, 0.5 * Math.hypot(rec.bbMaxX - rec.bbMinX, rec.bbMaxY - rec.bbMinY, rec.bbMaxZ - rec.bbMinZ), 0.02);
+      let hit = false;
+      for (let k = 0; k < nr; k += 6) {
+        if (c.x + r >= R[k] && c.x - r <= R[k + 3] && c.y + r >= R[k + 1] && c.y - r <= R[k + 4] && c.z + r >= R[k + 2] && c.z - r <= R[k + 5]) {
+          hit = true;
+          break;
+        }
+      }
+      if (!hit || hk.HP_Body_GetActivationState(rec.hpId)[1] !== INACTIVE) continue;
+      this.wake(rec.body);
+      this.wokenBySupportLoss++;
+    }
+    R.length = 0;
+  }
+
   /** Last sleep pass: awake members and its largest component (size, slow members, fastest non-slow one, slept). */
   private readonly sleepInfo = { step: -1, members: 0, size: 0, slow: 0, fastest: 0, slept: false };
   private readonly sleepMem: BodyRec[] = [];
-  private sleepPos = new Float64Array(0);
+  private sleepBox = new Float64Array(0);
   private sleepOrder = new Int32Array(0);
   private sleepParent = new Int32Array(0);
   private sleepBlocked = new Uint8Array(0);
@@ -1672,6 +1801,7 @@ export class Physics implements PhysicsSystem {
     }
     if (rec.disposed) return;
     if (rec === this.worldRec && !this._disposed) throw new Error("disposeBody: the world body is owned by the physics system");
+    if (!this._disposed) this.queueShapeRegion(rec, rec.shape); // what rested on it must fall (Havok won't wake it)
     if (rec.joints) for (const j of [...rec.joints]) this.removeConstraint(j.c);
     this.forget(rec);
     if (rec.disposeObserver) {
@@ -1704,6 +1834,14 @@ export class Physics implements PhysicsSystem {
     }
     const info = this.shapes.get(shape);
     if (info?.children) this.syncChildren(shape, info);
+    if (prev && prev !== shape && prev._pluginData !== undefined) {
+      // what rested on geometry the new shape no longer has must fall: queue the removed children (or the old leaf)
+      const pi = this.shapes.get(prev);
+      const keep = info?.children ? new Set(info.children) : null;
+      if (pi?.children && keep) {
+        for (const ch of pi.children) if (!keep.has(ch)) this.queueShapeRegion(rec, ch);
+      } else if (!keep || !keep.has(prev)) this.queueShapeRegion(rec, prev);
+    }
     body.shape = shape; // HP_Body_SetShape + mass properties (Havok wakes bodies whose shape changes)
     if (prev !== shape) {
       if (prev) this.releaseShapeUse(rec, prev);
@@ -1824,6 +1962,8 @@ export class Physics implements PhysicsSystem {
     if (!finite3(pos)) throw new Error("teleport: non-finite position");
     const node = body.transformNode;
     const q = node.rotationQuaternion ?? (node.rotationQuaternion = Quaternion.Identity());
+    const trec = this.recs.get(body);
+    if (trec && !trec.foreign && !trec.disposed) this.queueShapeRegion(trec, trec.shape); // (old pose: what rested on it)
     if (rot) q.set(rot.x, rot.y, rot.z, rot.w).normalize();
     node.position.set(pos.x, pos.y, pos.z);
     this.hk.HP_Body_SetQTransform(id, [
@@ -1939,6 +2079,14 @@ export class Physics implements PhysicsSystem {
       const ez = Math.max(Math.abs(mx[2] - rec.comZ), Math.abs(mn[2] - rec.comZ));
       const br = Math.sqrt(ex * ex + ey * ey + ez * ez);
       rec.boundR = Number.isFinite(br) ? br : 0;
+      if (Number.isFinite(mn[0] + mn[1] + mn[2] + mx[0] + mx[1] + mx[2])) {
+        rec.bbMinX = mn[0];
+        rec.bbMinY = mn[1];
+        rec.bbMinZ = mn[2];
+        rec.bbMaxX = mx[0];
+        rec.bbMaxY = mx[1];
+        rec.bbMaxZ = mx[2];
+      } else rec.bbMinX = rec.bbMinY = rec.bbMinZ = rec.bbMaxX = rec.bbMaxY = rec.bbMaxZ = 0;
     }
     const user = rec.body._pluginData.userMassProps;
     if (!(m >= this.minDynamicMass) || !Number.isFinite(m)) {
@@ -2275,6 +2423,7 @@ export class Physics implements PhysicsSystem {
     const sorted = [...new Set(indices)].filter((i) => i >= 0 && i < info.children!.length).sort((x, y) => y - x);
     for (const i of sorted) {
       const ch = info.children[i];
+      this.queueShapeRegion(rec, ch); // (before removal: what rested on this child must fall)
       c.removeChild(i); // collision changes immediately; indices above i shift down
       info.children.splice(i, 1);
       this.shapes.get(ch)?.parents?.delete(c);
@@ -2890,6 +3039,7 @@ export class Physics implements PhysicsSystem {
       eventsLastStep: this.eventsLast,
       impactsLastStep: this.impactsLast,
       forcedSleeps: this.forcedSleeps,
+      wokenBySupportLoss: this.wokenBySupportLoss,
       sleepPass: { ...this.sleepInfo },
       minSubsteps: this.minSubsteps,
       substepsLast: this.substepsLast,

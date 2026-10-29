@@ -76,6 +76,11 @@ export const PLAYER = {
   maxSlopeDeg: 50,
   /** Horizontal push the body can exert on loose furniture while walking into it (N). */
   pushForce: 600,
+  /**
+   * The player's weight on a dynamic body it stands on is capped at this many times that body's own
+   * weight (see pressSupport): a rug lying on the floor is pressed onto the floor, not hammered into it.
+   */
+  supportLoadCap: 2,
   /** Falling below this height (off the balcony) respawns the player. */
   killY: -25,
 } as const;
@@ -192,7 +197,12 @@ export class PlayerCore implements PlayerSystem {
     // edges up to ≈ r·(1 − cos maxSlope) ≈ 10 cm by itself.
     cc.maxStepHeight = 0;
     cc.characterStrength = PLAYER.pushForce;
-    cc.characterMass = PLAYER.mass;
+    // No built-in weight impulses: Babylon applies characterMass·g·dt along EVERY manifold contact's
+    // normal (weight × contact count, tilted by the capsule's round bottom), which pumped a 7.8 kg rug
+    // up and down at ~1 m/s under a player standing still (13–23 N·s per step) and dragged it, and the
+    // coffee table standing on it shook apart. pressSupport() applies the weight instead: once per
+    // step, vertical, capped.
+    cc.characterMass = 0;
     cc.maxCharacterSpeedForSolver = 30;
     // Default 0.05/0.1 lets the capsule hover 5–15 cm above the floor depending on how it
     // arrived; 0.02/0.03 keeps it at 1.4–5 cm (api-notes §7.3).
@@ -370,6 +380,7 @@ export class PlayerCore implements PlayerSystem {
     // ---- what is under the feet
     this.support = this.grounded || landSpeed > 0 ? this.probeSupport() : null;
     this.view.support = this.support ? this.support.body : null;
+    this.pressSupport(dt, moved > 0.002 || landSpeed > 0);
 
     if (landSpeed > 0) this.onLand(landSpeed);
 
@@ -778,6 +789,44 @@ export class PlayerCore implements PlayerSystem {
     if (!best || !best.bodyB) return null;
     return { body: best.bodyB.body, point: best.position.clone(), normal: best.normal.clone(), childIndex: -1 };
   }
+
+  /**
+   * The player's weight on the dynamic body under the feet: one vertical impulse per step (weight is
+   * vertical whatever the contact normal), capped at supportLoadCap × the body's own weight (a light
+   * body pressed by many times its weight between the player and the floor only makes the solver
+   * jitter; the visible result — it stays put — is the same), applied below the body's centre of
+   * mass: a rigid rug pressed at one end tilts on the floor's few contact points (a real rug is
+   * limp), lifts its far end and walks the coffee table standing on it off (0.1 mm per step).
+   * Landing stomps (onLand) still strike at the contact point. A support that is asleep under a
+   * player standing still is left asleep (the load does not change); walking or landing presses it
+   * again.
+   */
+  private pressSupport(dt: number, moving: boolean): void {
+    const sp = this.support;
+    if (!sp || !this.grounded || sp.body === this.body || sp.body.isDisposed || !sp.body._pluginData) return;
+    if (sp.body.getMotionType() !== PhysicsMotionType.DYNAMIC) return;
+    const ph = this.ctx.physics;
+    if (!moving && !ph.isAwake(sp.body)) return;
+    let m: number | null = null;
+    try {
+      m = this.ctx.destruction.massOf(sp.body);
+    } catch {
+      m = null;
+    }
+    if (m === null || !(m > 0)) m = sp.body.getMassProperties().mass ?? 0;
+    if (!(m > 0) || !Number.isFinite(m)) return;
+    const load = Math.min(PLAYER.mass, PLAYER.supportLoadCap * m) * PLAYER.gravity * dt;
+    const com = sp.body.getMassProperties().centerOfMass;
+    if (com) {
+      Vector3.TransformCoordinatesToRef(com, sp.body.transformNode.getWorldMatrix(), this.pressAt);
+      this.pressAt.y = sp.point.y;
+    } else this.pressAt.copyFrom(sp.point);
+    if (!Number.isFinite(this.pressAt.x + this.pressAt.y + this.pressAt.z)) return;
+    sp.body.applyImpulse(this.pressImp.set(0, -load, 0), this.pressAt);
+  }
+
+  private readonly pressImp = new Vector3();
+  private readonly pressAt = new Vector3();
 
   private onLand(speed: number): void {
     this.rig.land(speed);

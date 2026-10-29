@@ -65,7 +65,9 @@ export function buildRangeHood(o: HoodOpts = {}): AssemblyDef {
   const wheel = b.cyl("blower_wheel", "aluminum", "vent_grille", 0.07, 0.03, [0, 0.04, -0.12], { segments: 12, mass: 0.25, tint: 0xb8b8b4, tess: 0 });
   const shaft = b.cyl("blower_shaft", "steel", "metal_raw", 0.006, H - t - 0.055, [0, (0.055 + H - t) / 2, -0.12], { segments: 6, mass: 0.03 });
   b.weld(shaft, wheel, 20);
-  const fan = b.hinge(wheel, topP, { pivots: [[0, 0.04, -0.12]], axis: [0, 1, 0], min: -1e6, max: 1e6, strength: 25, friction: 0.02 });
+  // two pivots along the shaft: a single-pivot joint group is realised as a ball-and-socket (graph.ts),
+  // so the wheel hung like a pendulum, swung forever and the motor (hinge-only) never drove it
+  const fan = b.hinge(wheel, topP, { pivots: [[0, 0.025, -0.12], [0, 0.055, -0.12]], axis: [0, 1, 0], min: -1e6, max: 1e6, strength: 13, friction: 0.02 });
   b.motor(motor, fan, 25, true);
   b.hum(motor, "motor.hum", true);
   // chimney: flex duct + 3-sided cover screwed to a bracket under the ceiling

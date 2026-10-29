@@ -603,7 +603,9 @@ export class Hud implements HudSystem {
       const ds = this.ctx.destruction?.stats();
       if (ds) {
         destroyed = ds.totalValue > 0 ? ds.valueDestroyed / ds.totalValue : 0;
-        debris = (ds.debrisIslands || 0) + (ds.consolidated || 0);
+        // pieces that broke off (fracture fragments, split-off parts) — not the intact small objects on the
+        // DEBRIS layer (≈ 400 at start), and consolidated islands are still islands (they were counted twice)
+        debris = ds.debrisPieces ?? ds.debrisIslands ?? 0;
       }
     } catch {
       /* destruction not ready */

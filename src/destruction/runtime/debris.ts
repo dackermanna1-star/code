@@ -63,6 +63,8 @@ export class DebrisSystem {
   private dirtyBatches = new Set<Batch>();
   private cellOf = new Map<Batch, DebrisCell>();
   consolidated = 0;
+  /** Consolidated islands (ConsolidationRef.idx), scanned every step for motion (see restoreMoved). */
+  private consolidatedList: Island[] = [];
   /** Disable consolidation entirely (tests/debug). */
   enabled = true;
   private readonly sc = { x: 0, y: 0, z: 0 };
@@ -113,6 +115,7 @@ export class DebrisSystem {
 
   /** Round-robin activity check: sleep time, consolidation, wake restore, fell-out. */
   fixedUpdate(): void {
+    if (this.consolidatedList.length) this.restoreMoved();
     const n = this.rr.length;
     if (!n) return;
     const k = Math.min(n, Math.max(8, Math.ceil(n / CHECK_PERIOD_STEPS)));
@@ -152,6 +155,25 @@ export class DebrisSystem {
     if (this.enabled && !isl.consolidated && isl.sleepTime >= w.settings.quality.consolidateAfter && this.eligible(isl)) this.consolidate(isl);
   }
 
+  /**
+   * Consolidated islands whose body moved this step (woken by Havok through a touching island or a
+   * constraint, by its support vanishing, by the player's capsule — none of which raise an impact)
+   * get their own meshes back now, not when the round-robin check comes by (up to 0.5 s later, with
+   * the mesh frozen in the batch while the body falls). A sleeping body's pose is bit-identical from
+   * step to step, so any change is motion. ~7 compares per consolidated island and step.
+   */
+  private restoreMoved(): void {
+    const list = this.consolidatedList;
+    for (let i = list.length - 1; i >= 0; i--) {
+      const isl = list[i];
+      const ref = isl.consolidated;
+      if (!ref) continue;
+      const p = isl.node.position;
+      const q = isl.node.rotationQuaternion;
+      if (p.x !== ref.px || p.y !== ref.py || p.z !== ref.pz || (q && (q.x !== ref.qx || q.y !== ref.qy || q.z !== ref.qz || q.w !== ref.qw))) this.restore(isl);
+    }
+  }
+
   eligible(isl: Island): boolean {
     if (isl.isStatic || isl.mass >= CONSOLIDATE_MAX_MASS || isl.extent >= CONSOLIDATE_MAX_EXTENT) return false;
     if (isl.parts.length === 0 || isl.parts.length > 64) return false;
@@ -189,7 +211,22 @@ export class DebrisSystem {
     batch.verts += verts;
     batch.dirty = true;
     this.dirtyBatches.add(batch);
-    isl.consolidated = { cellKey: key, batch: batch.index, inBatch: false };
+    const p = isl.node.position;
+    const q = isl.node.rotationQuaternion;
+    isl.consolidated = {
+      cellKey: key,
+      batch: batch.index,
+      inBatch: false,
+      idx: this.consolidatedList.length,
+      px: p.x,
+      py: p.y,
+      pz: p.z,
+      qx: q ? q.x : 0,
+      qy: q ? q.y : 0,
+      qz: q ? q.z : 0,
+      qw: q ? q.w : 1,
+    };
+    this.consolidatedList.push(isl);
     isl.savedDisableSync = isl.body.disableSync;
     isl.body.disableSync = true;
     this.consolidated++;
@@ -205,6 +242,15 @@ export class DebrisSystem {
     if (!ref) return;
     isl.consolidated = null;
     this.consolidated--;
+    const list = this.consolidatedList;
+    const k = list[ref.idx] === isl ? ref.idx : list.indexOf(isl);
+    if (k >= 0) {
+      const last = list.pop()!;
+      if (last !== isl) {
+        list[k] = last;
+        if (last.consolidated) last.consolidated.idx = k;
+      }
+    }
     const cell = this.cells.get(ref.cellKey);
     const batch = cell?.batches[ref.batch];
     if (batch) {
