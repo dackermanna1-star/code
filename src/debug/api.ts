@@ -9,7 +9,7 @@
 //   __sim.hit({ id | point, tool, power, dir })  strike as if the player swung that tool at it
 //   __sim.throwAt(id, speed, type) spawn a projectile in front of the camera aimed at assembly id
 //   __sim.spawn(type, pos, yaw)    spawn a registered object
-//   __sim.teleport(pos, yaw, pitch), setTool(id), action(name, power)
+//   __sim.teleport(pos, yaw, pitch, {strict}) (reports / refuses capsule overlaps), setTool(id), action(name, power)
 //   __sim.setQuality(level), setPS2(on), setPose(name | null), screenshotPoses
 //   __sim.events(sinceIndex)       recent game events (ring buffer) for tests
 //
@@ -22,8 +22,9 @@ import type { GameEvents } from "../core/events.ts";
 import { QUALITY, type QualityLevel } from "../core/settings.ts";
 import { qeuler, type Vec3 } from "../geom/vec.ts";
 import { TOOL_DEFS, TOOL_ORDER, sharpnessFor } from "../player/tools/defs.ts";
+import { PLAYER } from "../player/playerCore.ts";
 import { buildObject, objectTypes } from "../objects/registry.ts";
-import type { Game } from "../core/game.ts";
+import { Game } from "../core/game.ts";
 import type { GameWorld } from "../world/world.ts";
 import { SCREENSHOT_POSES, lookAngles, type CameraPose } from "./poses.ts";
 
@@ -121,6 +122,8 @@ export class DebugApi implements DebugSystem {
       step: (n = 1) => this.step(n),
       stats: () => this.guard(() => this.stats()),
       world: () => this.world?.report ?? null,
+      /** Assemblies with awake islands (moving first, then most awake): what keeps the physics from resting. */
+      awake: (limit = 20) => this.guard(() => this.world?.awakeAssemblies(limit) ?? []),
       listAssemblies: () => this.guard(() => this.listAssemblies()),
       findAssembly: (q: string) => this.guard(() => this.findAssembly(q)),
       findAssemblies: (q: string) => this.guard(() => this.findAssemblies(q)),
@@ -128,7 +131,7 @@ export class DebugApi implements DebugSystem {
       throwAt: (id: number, speed = 10, type = "mug") => this.guard(() => this.throwAt(id, speed, type)),
       spawn: (type: string, pos: Vec3, yaw = 0) => this.guard(() => this.spawn(type, pos, yaw)),
       objectTypes: () => objectTypes(),
-      teleport: (pos: Vec3, yaw = 0, pitch = 0) => this.guard(() => this.teleport(pos, yaw, pitch)),
+      teleport: (pos: Vec3, yaw = 0, pitch = 0, opts?: { strict?: boolean }) => this.guard(() => this.teleport(pos, yaw, pitch, !!opts?.strict)),
       setTool: (t: ToolId) => this.guard(() => this.setTool(t)),
       action: (name: Parameters<GameContext["player"]["debugAction"]>[0], power?: number) => this.guard(() => {
         this.ctx.player.debugAction(name, power);
@@ -148,6 +151,13 @@ export class DebugApi implements DebugSystem {
         if (on) this.game.start();
         else this.game.stop();
         return { running: this.game.isRunning };
+      }),
+      /** Hold mode on/off (on: simulation frozen outside __sim.step; off: real time resumes). */
+      hold: (on: boolean) => this.guard(() => {
+        if (!this.game) throw new Error("game not started");
+        this.game.hold = !!on;
+        if (!on && this.ctx.time.scale === 0 && !this.ctx.hud.menuOpen) this.ctx.time.scale = 1;
+        return { hold: this.game.hold };
       }),
       /** Render `frames` frames without simulating (pose changes, shadow/env refresh). */
       render: (frames = 1) => this.guard(() => {
@@ -178,8 +188,8 @@ export class DebugApi implements DebugSystem {
   private step(n: number): Json {
     if (!this.game) throw new Error("game not started");
     const t0 = performance.now();
-    this.game.stepSync(Number.isFinite(n) ? n : 1);
-    return { steps: Math.max(0, Math.floor(n)), ms: Math.round((performance.now() - t0) * 10) / 10, simTime: r3(this.ctx.time.simTime) };
+    const steps = this.game.stepSync(Game.syncStepCount(n)); // the count actually simulated
+    return { steps, ms: Math.round((performance.now() - t0) * 10) / 10, simTime: r3(this.ctx.time.simTime) };
   }
 
   private stats(): Json {
@@ -353,10 +363,34 @@ export class DebugApi implements DebugSystem {
     return { id, type, parts: def.parts.length };
   }
 
-  private teleport(pos: Vec3, yaw: number, pitch: number): Json {
+  /**
+   * Teleport the player (eye position). The capsule is checked against dynamic bodies first: a
+   * capsule dropped into furniture is pushed out violently and wrecks it, which silently corrupts a
+   * test. On overlap the result names the assembly (`overlaps`) and a warning is logged; with
+   * `strict` the teleport is refused instead.
+   */
+  private teleport(pos: Vec3, yaw: number, pitch: number, strict: boolean): Json {
     if (!finiteV(pos)) throw new Error("teleport: bad position");
+    const overlaps = this.capsuleOverlap(pos);
+    if (overlaps && strict) return { ok: false, overlaps, room: this.world?.roomAt(pos)?.id ?? null };
+    if (overlaps) console.warn(`[__sim.teleport] capsule at (${pos.x}, ${pos.y}, ${pos.z}) overlaps ${overlaps}`);
     this.ctx.player.teleport(pos, Number.isFinite(yaw) ? yaw : 0, Number.isFinite(pitch) ? pitch : 0);
-    return { ok: true, room: this.world?.roomAt(pos)?.id ?? null };
+    return { ok: true, overlaps, room: this.world?.roomAt(pos)?.id ?? null };
+  }
+
+  /** Name of a dynamic assembly the standing player capsule would overlap at this eye position, else null. */
+  private capsuleOverlap(eye: Vec3): string | null {
+    const ph = this.ctx.physics;
+    const r = PLAYER.radius;
+    const feet = eye.y - PLAYER.eyeStand;
+    // sweep the capsule's sphere from its top centre down to its bottom centre (+2 cm: a rug or a
+    // floor tile the feet stand on is not an overlap)
+    const from = new Vector3(eye.x, feet + PLAYER.height - r, eye.z);
+    const to = new Vector3(eye.x, feet + r + 0.02, eye.z);
+    const h = ph.sphereSweep(from, to, r, Layer.DYNAMIC);
+    if (!h) return null;
+    const t = this.ctx.destruction.target(h.body, h.point, h.childIndex);
+    return t ? `${t.assemblyName} #${t.assemblyId}` : "a dynamic body";
   }
 
   private setTool(t: ToolId): Json {

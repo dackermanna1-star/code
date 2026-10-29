@@ -36,6 +36,27 @@ const countSince = (from) => {
   return c;
 };
 
+/**
+ * First candidate eye position where the standing capsule overlaps no dynamic body and the player
+ * stands still on static ground: teleport (strict), settle 10 steps, and reject the spot if any
+ * dynamic body near the feet reports an impact (a rug, a toy) or anything takes damage. The player
+ * is left at the chosen spot facing `lookAt`. Runs in the page.
+ */
+const quietSpot = (cands, lookAt) => {
+  const sim = window.__sim;
+  for (const p of cands) {
+    const yaw = lookAt ? Math.atan2(lookAt.x - p.x, lookAt.z - p.z) : 0;
+    if (!sim.teleport(p, yaw, 0.15, { strict: true }).ok) continue;
+    const e0 = sim.eventCount();
+    sim.step(10);
+    const bad = sim.events(e0).some(
+      (e) => e.type === "damage" || e.type === "bondBreak" || (e.type === "impact" && e.ev.energy > 0.5 && Math.hypot(e.ev.pos.x - p.x, e.ev.pos.z - p.z) < 0.6 && e.ev.pos.y < 0.3),
+    );
+    if (!bad) return p;
+  }
+  return null;
+};
+
 export const SCENARIOS = [
   {
     name: "sledge-partition",
@@ -44,7 +65,8 @@ export const SCENARIOS = [
       const r = await h.sim(() => {
         const sim = window.__sim;
         const wall = sim.findAssemblies("Stud Wall (Living Room / Master Bedroom)")[0] ?? sim.findAssembly("partition");
-        sim.teleport({ x: 4.9, y: 1.65, z: 2.2 }, -Math.PI / 2, 0);
+        const tp = sim.teleport({ x: 4.9, y: 1.65, z: 2.2 }, -Math.PI / 2, 0, { strict: true });
+        if (!tp.ok) return { error: `teleport blocked by ${tp.overlaps}` };
         sim.step(5);
         const e0 = sim.eventCount();
         const before = sim.listAssemblies().find((a) => a.id === wall.id);
@@ -56,26 +78,40 @@ export const SCENARIOS = [
         const after = sim.listAssemblies().find((a) => a.id === wall.id);
         return { wall: wall.name, events: (window.__countSince ?? (() => ({})))(e0), hits: hits.map((x) => x.energy), islandsBefore: before.islands, islandsAfter: after.islands, damage: after.damage };
       });
-      return { ok: r.islandsAfter > r.islandsBefore && (r.events.fracture ?? 0) > 0, details: r };
+      return { ok: !r.error && r.islandsAfter > r.islandsBefore && (r.events.fracture ?? 0) > 0, details: r };
     },
   },
   {
     name: "throw-mug-at-tv",
-    description: "A mug thrown at 14 m/s from across the room hits the 55\" TV: impact events, the mug breaks or the screen takes damage.",
+    description: "A mug thrown at 14 m/s from ~2 m in front of the 55\" TV hits it: the TV itself takes damage (and standing there broke nothing beforehand).",
     async run(page, h) {
       const r = await h.sim(() => {
         const sim = window.__sim;
         const tv = sim.findAssembly("tv55") ?? sim.findAssembly("tv");
-        sim.teleport({ x: 6.6, y: 1.5, z: 2.4 }, -Math.PI / 2, 0);
+        // a clear spot in front of the screen (+x side): the capsule must not overlap furniture
+        // (dropped into the glass coffee table it shatters it and the scenario passes for the wrong reason)
+        // and must not stand on a loose body either (a rug dragged by the capsule shakes the table on it)
+        const cands = [];
+        for (const dx of [1.0, 1.3, 1.6, 1.9]) for (const dz of [0, 0.4, -0.4, 0.8, -0.8]) cands.push({ x: tv.pos.x + dx, y: 1.65, z: tv.pos.z + dz });
+        const spot = window.__quietSpot(cands, tv.pos);
+        if (!spot) return { error: "no clear spot in front of the TV" };
+        const eT = sim.eventCount();
         sim.step(5);
+        const afterTeleport = window.__countSince(eT);
         const e0 = sim.eventCount();
         const t = sim.throwAt(tv.id, 14, "mug");
         sim.step(90);
         const tvAfter = sim.listAssemblies().find((a) => a.id === tv.id);
         const mug = sim.listAssemblies().find((a) => a.id === t.id);
-        return { thrown: t, events: window.__countSince(e0), tvDamage: tvAfter.damage, mugDamage: mug?.damage ?? null, mugIslands: mug?.islands ?? null };
+        const tvDamageEvents = sim.events(e0).filter((e) => e.type === "damage" && e.ev.assembly === tv.name).length;
+        const damaged = [...new Set(sim.events(e0).filter((e) => e.type === "damage").map((e) => e.ev.assembly))];
+        return { spot, tv: tv.name, afterTeleport, thrown: t, events: window.__countSince(e0), tvDamage: tvAfter.damage, tvDamageEvents, damaged, mugDamage: mug?.damage ?? null, mugIslands: mug?.islands ?? null };
       });
-      return { ok: (r.events.impact ?? 0) > 0 && (r.tvDamage > 0 || (r.mugDamage ?? 0) > 0), details: r };
+      if (r.error) return { ok: false, details: r };
+      const quietTeleport = !(r.afterTeleport.damage > 0) && !(r.afterTeleport.bondBreak > 0) && !(r.afterTeleport.fracture > 0);
+      // only the TV and the mug itself may take damage
+      const collateral = r.damaged.filter((n) => n !== r.tv && !/mug/i.test(n));
+      return { ok: quietTeleport && (r.tvDamage > 0 || r.tvDamageEvents > 0) && collateral.length === 0, details: { ...r, quietTeleport, collateral } };
     },
   },
   {
@@ -85,7 +121,8 @@ export const SCENARIOS = [
       const r = await h.sim(() => {
         const sim = window.__sim;
         const win = sim.findAssemblies("window").find((a) => /Bedroom 2/.test(a.name) && /South/.test(a.name)) ?? sim.findAssembly("window");
-        sim.teleport({ x: 11.0, y: 1.65, z: 1.0 }, Math.PI, 0);
+        const tp = sim.teleport({ x: 11.0, y: 1.65, z: 1.0 }, Math.PI, 0, { strict: true });
+        if (!tp.ok) return { error: `teleport blocked by ${tp.overlaps}` };
         sim.step(5);
         const e0 = sim.eventCount();
         const before = sim.listAssemblies().find((a) => a.id === win.id);
@@ -97,7 +134,7 @@ export const SCENARIOS = [
         const glass = sim.events(e0).filter((e) => e.type === "fracture" && (e.ev.mat === "glass" || e.ev.mat === "temperedGlass")).length;
         return { window: win.name, glassFractures: glass, islandsBefore: before.islands, islandsAfter: after.islands, events: window.__countSince(e0) };
       });
-      return { ok: r.glassFractures > 0 && r.islandsAfter > r.islandsBefore, details: r };
+      return { ok: !r.error && r.glassFractures > 0 && r.islandsAfter > r.islandsBefore, details: r };
     },
   },
 ];
@@ -139,7 +176,7 @@ for (const sc of SCENARIOS) {
     await page.waitForFunction(() => window.__sim?.ready || window.__sim?.error, null, { timeout: 240000, polling: 500 });
     const bootErr = await page.evaluate(() => window.__sim.error);
     if (bootErr) throw new Error("boot: " + bootErr);
-    await page.evaluate(`window.__countSince = ${countSince.toString()}; window.__sim.loop(false);`);
+    await page.evaluate(`window.__countSince = ${countSince.toString()}; window.__quietSpot = ${quietSpot.toString()}; window.__sim.loop(false);`);
     const h = {
       sim: (fn, a) => page.evaluate(fn, a),
       shot: async (name) => {

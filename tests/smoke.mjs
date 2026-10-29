@@ -1,7 +1,9 @@
 // Smoke test: the full game boots in headless Chromium (SwiftShader WebGL2), builds the whole
 // furnished apartment, runs, takes hits and renders every room without page / console errors.
 //
-// Usage: npm run build && node tests/smoke.mjs [--out dir] [--timeout ms] [--url-extra "&quality=low"]
+// Usage: npm run build && node tests/smoke.mjs [--out dir] [--timeout ms] [--url-extra "&quality=low"] [--strict-idle]
+// --strict-idle makes the idle-performance check (bodies come to rest, physics step within budget)
+// fatal; by default it is reported as IDLE WARN (known open issue: jointed groups never sleep).
 // Screenshots + stats.json land in --out (default test-results/smoke). Exit code 0 = pass.
 import { createRequire } from "node:module";
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
@@ -21,6 +23,11 @@ const dist = join(repo, "dist");
 const outDir = resolve(arg("--out", process.env.SMOKE_OUT ?? join(repo, "test-results", "smoke")));
 const bootTimeout = Number(arg("--timeout", 180000));
 const urlExtra = arg("--url-extra", "");
+const strictIdle = args.includes("--strict-idle");
+/** Idle check: after IDLE_STEPS fixed steps without input, at most this many bodies awake / this physics step time. */
+const IDLE_STEPS = 300;
+const IDLE_MAX_AWAKE = 60;
+const IDLE_MAX_STEP_MS = 5; // ARCHITECTURE §11 physics budget (CPU timing; SwiftShader-independent)
 mkdirSync(outDir, { recursive: true });
 
 if (!existsSync(join(dist, "index.html"))) {
@@ -38,8 +45,19 @@ const BENIGN = [
   /Automatic fallback to software WebGL has been deprecated/i,
   /The AudioContext was not allowed to start/i, // no user gesture in automation
   /\[\.WebGL-[0-9a-fx]+\]GL Driver Message/i, // SwiftShader driver chatter
-  /Failed to load resource: the server responded with a status of 404 \(Not Found\)/i, // optional CC0 samples / photos
 ];
+/**
+ * The console's "Failed to load resource … 404" line carries no URL, so 404s are judged from the
+ * network responses instead: only these optional assets may be missing (the game falls back to
+ * synthesized sounds / procedural textures); any other 404 (texture, chunk, wasm …) fails.
+ */
+const OPTIONAL_404 = [
+  /\/assets\/sounds?\//i, // optional CC0 samples (audio/samples.ts falls back to synthesis)
+  /\/assets\/textures\/.*\.(jpe?g|png|webp)$/i, // optional photo textures (procedural fallback)
+  /\/assets\/photos?\//i, // optional printed photos (posters, frames)
+  /\/favicon\.ico$/i,
+];
+const RE_404 = /Failed to load resource: the server responded with a status of 404 \(Not Found\)/i;
 
 // ---- static server for dist/ on a free port (parallel runs are safe)
 const MIME = { ".html": "text/html", ".js": "text/javascript", ".mjs": "text/javascript", ".wasm": "application/wasm", ".css": "text/css", ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".ogg": "audio/ogg", ".wav": "audio/wav", ".mp3": "audio/mpeg", ".json": "application/json", ".svg": "image/svg+xml" };
@@ -62,10 +80,18 @@ const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
 const errors = [];
 const warnings = [];
 const logs = [];
+const missing = [];
+const optionalMissing = [];
+page.on("response", (r) => {
+  if (r.status() !== 404) return;
+  const path = new URL(r.url()).pathname;
+  if (OPTIONAL_404.some((re) => re.test(path))) optionalMissing.push(path);
+  else missing.push(path);
+});
 page.on("console", (m) => {
   const t = m.type();
   const text = m.text();
-  if (BENIGN.some((re) => re.test(text))) return;
+  if (BENIGN.some((re) => re.test(text)) || RE_404.test(text)) return; // 404s: judged by URL above
   if (t === "error") errors.push(text);
   else if (t === "warning") warnings.push(text);
   else if (t === "log") logs.push(text);
@@ -78,7 +104,7 @@ const fail = (msg) => {
   console.error("SMOKE FAIL:", msg);
 };
 const t0 = Date.now();
-const result = { url: null, bootMs: null, world: null, hits: [], stats: null, screenshots: [] };
+const result = { url: null, bootMs: null, world: null, idle: null, hits: [], stats: null, screenshots: [] };
 
 try {
   const url = `http://127.0.0.1:${port}/?test=1${urlExtra}`;
@@ -111,19 +137,64 @@ try {
   const stepRes = await page.evaluate(() => window.__sim.step(30));
   if (stepRes?.error) fail("step(30) failed: " + stepRes.error);
 
-  // ---- hits: a dish, a drywall partition, a window pane (as the player would swing at them)
+  // ---- idle: with no input everything should come to rest and the physics step fit its budget
+  result.idle = await page.evaluate((n) => {
+    const sim = window.__sim;
+    const e0 = sim.eventCount();
+    const batches = [];
+    for (let done = 0; done < n; done += 60) {
+      const r = sim.step(Math.min(60, n - done));
+      const st = sim.stats();
+      batches.push({ steps: r.steps, ms: r.ms, awake: st.physics.awake, stepMs: Math.round(st.physics.stepMs * 100) / 100 });
+    }
+    const ev = {};
+    for (const e of sim.events(e0)) ev[e.type] = (ev[e.type] ?? 0) + 1;
+    return { batches, events: ev, awake: sim.awake(8) };
+  }, IDLE_STEPS);
+  {
+    const last = result.idle.batches.at(-1);
+    console.log(`idle ${IDLE_STEPS} steps: ${result.idle.batches.map((b) => `awake ${b.awake} step ${b.stepMs} ms`).join(" → ")}; events ${JSON.stringify(result.idle.events)}`);
+    console.log(`  still awake: ${result.idle.awake.map((a) => `${a.name} (${a.room ?? "-"}) ${a.awake}/${a.islands} v${a.maxSpeed}`).join(", ")}`);
+    const idleIssues = [];
+    if (last.awake > IDLE_MAX_AWAKE) idleIssues.push(`${last.awake} bodies still awake after ${IDLE_STEPS} idle steps (max ${IDLE_MAX_AWAKE})`);
+    if (last.stepMs > IDLE_MAX_STEP_MS) idleIssues.push(`idle physics step ${last.stepMs} ms (budget ${IDLE_MAX_STEP_MS} ms)`);
+    if ((result.idle.events.damage ?? 0) > 0 || (result.idle.events.bondBreak ?? 0) > 0) idleIssues.push(`damage while idle: ${JSON.stringify(result.idle.events)}`);
+    result.idle.issues = idleIssues;
+    for (const m of idleIssues) {
+      if (strictIdle) fail(m);
+      else console.warn("IDLE WARN:", m);
+    }
+  }
+
+  // ---- hits: a dish, a drywall partition, a window pane (as the player would swing at them).
+  // `mustBreak`: brittle targets must fracture / lose bonds, not just absorb energy.
   const targets = [
-    { q: "plate", tool: "hammer", power: 1 },
-    { q: "mug", tool: "bat", power: 1 },
-    { q: "partition", tool: "sledgehammer", power: 1 },
-    { q: "window", tool: "bat", power: 1 },
+    { q: "plate", tool: "hammer", power: 1, mustBreak: true },
+    { q: "mug", tool: "bat", power: 1, mustBreak: true },
+    { q: "partition", tool: "sledgehammer", power: 1, mustBreak: false },
+    { q: "window", tool: "bat", power: 1, mustBreak: true },
   ];
   for (const t of targets) {
     const r = await page.evaluate(({ q, tool, power }) => {
       const sim = window.__sim;
       const a = sim.findAssembly(q);
       if (!a || a.error) return { q, missing: true };
-      sim.teleport({ x: a.pos.x + 0.9, y: 1.65, z: a.pos.z + 0.4 }, 0, 0); // eye near the target
+      // stand ~0.9 m from the target, in its room, with the capsule clear of any furniture (a
+      // capsule dropped into a body wrecks it and corrupts the test): try a ring of spots
+      const room = sim.roomAt(a.pos);
+      let spot = null;
+      for (const r of [0.9, 1.3, 0.6]) {
+        for (let k = 0; k < 12 && !spot; k++) {
+          const ang = (k / 12) * Math.PI * 2;
+          const p = { x: a.pos.x + Math.sin(ang) * r, y: 1.65, z: a.pos.z + Math.cos(ang) * r };
+          if (room && sim.roomAt(p) !== room) continue;
+          const tp = sim.teleport(p, Math.atan2(a.pos.x - p.x, a.pos.z - p.z), 0.3, { strict: true });
+          if (tp.ok) spot = p;
+        }
+        if (spot) break;
+      }
+      if (!spot) return { q, id: a.id, noSpot: true };
+      sim.step(2);
       const e0 = sim.eventCount();
       const res = sim.hit({ id: a.id, tool, power });
       sim.step(45);
@@ -131,13 +202,15 @@ try {
       const count = {};
       for (const k of evs) count[k] = (count[k] ?? 0) + 1;
       const after = sim.listAssemblies().find((x) => x.id === a.id);
-      return { q, id: a.id, type: a.type, res, events: count, damage: after?.damage ?? null, islands: after?.islands ?? null };
+      return { q, id: a.id, type: a.type, spot, res, events: count, damage: after?.damage ?? null, islands: after?.islands ?? null };
     }, t);
     result.hits.push(r);
     console.log("hit", JSON.stringify(r));
     if (r.missing) fail(`no assembly matching '${t.q}'`);
     else if (r.res?.error) fail(`hit '${t.q}' threw: ${r.res.error}`);
+    else if (r.noSpot) fail(`no clear spot to stand near '${t.q}'`);
     else if (!(r.res?.energy > 0)) fail(`hit '${t.q}' delivered no energy`);
+    else if (t.mustBreak && !r.res.broke && !(r.events.fracture > 0) && !(r.events.bondBreak > 0)) fail(`hit '${t.q}' broke nothing: ${JSON.stringify(r.events)}`);
   }
 
   // ---- screenshots from the room poses (canvas captures: the 3D view without the HUD)
@@ -188,7 +261,9 @@ try {
 }
 
 for (const e of errors) fail(`console error: ${e.slice(0, 2000)}`);
-writeFileSync(join(outDir, "smoke.json"), JSON.stringify({ ...result, errors, warnings, logs, failures }, null, 2));
+for (const m of [...new Set(missing)]) fail(`missing resource (404): ${m}`);
+if (optionalMissing.length) console.log(`optional assets missing (fallbacks used): ${[...new Set(optionalMissing)].length}`);
+writeFileSync(join(outDir, "smoke.json"), JSON.stringify({ ...result, errors, warnings, logs, missing, optionalMissing, failures }, null, 2));
 if (warnings.length) console.log(`--- ${warnings.length} console warnings ---\n` + [...new Set(warnings)].slice(0, 40).join("\n"));
 await browser.close();
 server.close();

@@ -29,6 +29,11 @@ export interface GameOptions {
   pauseOnHidden?: boolean;
   /** Master-volume factor while paused (0..1). Default 0.25. */
   pausedVolume?: number;
+  /**
+   * Hold mode (`?hold=1`): the simulation stays frozen (time.scale = 0) outside the menus and only
+   * advances through stepSync (`__sim.step`). A pause/resume through the HUD keeps it frozen.
+   */
+  hold?: boolean;
 }
 
 export interface LoopStats {
@@ -46,6 +51,8 @@ export interface LoopStats {
   errors: number;
 }
 
+/** stepSync runs the simulation-driven frame updates at least every this many fixed steps. */
+const SYNC_UPDATE_STEPS = 15;
 const FWD = new Vector3(0, 0, 1);
 const UP = new Vector3(0, 1, 0);
 const now = (): number => performance.now();
@@ -58,9 +65,13 @@ export class Game {
   /** Called with every caught loop error (the first few are also logged). */
   onError: ((e: unknown) => void) | null = null;
 
+  /** See GameOptions.hold; may be toggled at runtime (debug API). */
+  hold: boolean;
+
   private running = false;
   private paused = false;
-  private readonly opts: Required<GameOptions>;
+  private menuWasOpen = false;
+  private readonly opts: Required<Omit<GameOptions, "hold">>;
   private readonly fwd = new Vector3();
   private readonly up = new Vector3();
   private readonly disposers: Array<() => void> = [];
@@ -70,6 +81,12 @@ export class Game {
   constructor(ctx: GameContext, opts: GameOptions = {}) {
     this.ctx = ctx;
     this.opts = { pauseOnHidden: opts.pauseOnHidden ?? true, pausedVolume: opts.pausedVolume ?? 0.25 };
+    this.hold = !!opts.hold;
+    if (this.hold) ctx.time.scale = 0;
+    // master volume changes made while paused (the pause menu's slider) must stay ducked. The HUD
+    // applies the new value to the audio right after storing the setting, so re-apply afterwards.
+    const offSettings = ctx.settings.onChange(() => queueMicrotask(() => this.applyMasterVolume()));
+    this.disposers.push(offSettings);
     const onVis = () => {
       if (document.hidden && this.opts.pauseOnHidden) {
         // the HUD's pause() also releases the pointer lock and disables input
@@ -110,7 +127,8 @@ export class Game {
       for (let i = 0; i < n; i++) this.fixedStep();
       this.stats.stepsLastFrame = n;
       tSteps = now();
-      this.frameUpdate(c.time.frameDt);
+      const dt = c.time.frameDt;
+      this.frameUpdate(dt, c.time.scale > 0 ? dt : 0);
       tUpdate = now();
       this.renderScene();
     } catch (e) {
@@ -139,18 +157,40 @@ export class Game {
     c.time.tick();
   }
 
+  /** Largest step count stepSync accepts per call. */
+  static readonly MAX_SYNC_STEPS = 100000;
+
+  /** Normalise a requested step count: non-finite → 1, else floor, clamped to [0, MAX_SYNC_STEPS]. */
+  static syncStepCount(n: unknown): number {
+    const v = typeof n === "number" ? n : Number(n);
+    if (!Number.isFinite(v)) return 1;
+    return Math.max(0, Math.min(Game.MAX_SYNC_STEPS, Math.floor(v)));
+  }
+
   /**
-   * Advance `n` fixed steps synchronously (tests / debug), then run one frame update + render
-   * with a frame delta covering the steps. Ignores time.scale (works while paused).
+   * Advance `n` fixed steps synchronously (tests / debug), then run one frame update + render.
+   * Ignores time.scale (works while paused / in hold mode). The simulation-driven frame updates
+   * (destruction features: light flicker, leaks, sparks; VFX particles) advance by the simulated
+   * time: every SYNC_UPDATE_STEPS steps in between, and the remainder in the final frame update.
+   * Returns the number of steps actually simulated (see syncStepCount).
    */
-  stepSync(n: number): void {
-    const count = Math.max(0, Math.min(100000, Math.floor(n)));
+  stepSync(n: number): number {
+    const count = Game.syncStepCount(n);
     const c = this.ctx;
     try {
-      for (let i = 0; i < count; i++) this.fixedStep();
+      let pending = 0;
+      for (let i = 0; i < count; i++) {
+        this.fixedStep();
+        if (++pending === SYNC_UPDATE_STEPS && i < count - 1) {
+          c.vfx.update(pending * FIXED_DT);
+          c.destruction.update(pending * FIXED_DT);
+          pending = 0;
+        }
+      }
       const dt = Math.min(0.25, Math.max(count, 1) * FIXED_DT);
-      this.frameUpdate(dt);
+      this.frameUpdate(dt, pending * FIXED_DT);
       this.renderScene();
+      return count;
     } catch (e) {
       this.reportError(e);
       throw e;
@@ -160,7 +200,7 @@ export class Game {
   /** Render one frame without simulating (screenshots after a pose change). */
   renderOnce(): void {
     try {
-      this.frameUpdate(0);
+      this.frameUpdate(0, 0);
       this.renderScene();
     } catch (e) {
       this.reportError(e);
@@ -186,10 +226,13 @@ export class Game {
     }
   }
 
-  /** Per-frame updates (dt = real frame seconds; simulation-driven systems get 0 while paused). */
-  private frameUpdate(dt: number): void {
+  /**
+   * Per-frame updates. dt = real frame seconds (camera, audio, render, HUD); simDt = simulated
+   * seconds for the simulation-driven systems (VFX particles, destruction features) — 0 while
+   * paused, the stepped time in stepSync.
+   */
+  private frameUpdate(dt: number, simDt: number): void {
     const c = this.ctx;
-    const simDt = c.time.scale > 0 ? dt : 0;
     c.player.update(dt);
     const cam = c.render.camera;
     const o = this.cameraOverride;
@@ -228,15 +271,26 @@ export class Game {
     }
   }
 
-  /** Mirror the HUD's pause state onto audio and Babylon animations. */
+  /** Mirror the HUD's pause state onto audio and Babylon animations; keep hold mode frozen. */
   private syncPause(): void {
     const c = this.ctx;
-    const paused = c.time.scale === 0 && c.hud.menuOpen;
+    const menuOpen = c.hud.menuOpen;
+    // the HUD restores time.scale ≥ 1 when its menu closes; hold mode stays frozen
+    if (this.hold && !menuOpen && (this.menuWasOpen || c.time.scale !== 0)) c.time.scale = 0;
+    this.menuWasOpen = menuOpen;
+    const paused = c.time.scale === 0 && menuOpen;
     if (paused === this.paused) return;
     this.paused = paused;
-    const master = Number.isFinite(c.settings.data.masterVolume) ? c.settings.data.masterVolume : 0.8;
-    c.audio.setMasterVolume(paused ? master * this.opts.pausedVolume : master);
+    this.applyMasterVolume();
     c.scene.animationTimeScale = paused ? 0 : 1;
+  }
+
+  /** The settings' master volume, ducked while paused. The single place the loop sets it. */
+  private applyMasterVolume(): void {
+    const c = this.ctx;
+    const v = c.settings.data.masterVolume;
+    const master = typeof v === "number" && Number.isFinite(v) ? v : 0.8;
+    c.audio.setMasterVolume(this.paused ? master * this.opts.pausedVolume : master);
   }
 
   private reportError(e: unknown): void {

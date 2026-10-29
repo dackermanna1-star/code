@@ -11,6 +11,7 @@
 //   4. render.captureEnvironment() (async: completes on the next rendered frames).
 // Spawn failures of single assemblies are recorded (report.failures) and never abort the build.
 
+import { Vector3, type PhysicsBody } from "@babylonjs/core";
 import type { GameContext, RoomInfo, WorldSystem } from "../core/context.ts";
 import { FIXED_DT } from "../core/time.ts";
 import type { Vec3 } from "../geom/vec.ts";
@@ -39,12 +40,34 @@ export interface SpawnRecord {
   source: string;
 }
 
+/** An assembly with islands still simulated (not asleep): who keeps the physics awake. */
+export interface AwakeAssembly {
+  id: number;
+  type: string;
+  name: string;
+  room: string | null;
+  /** Awake islands / all islands of the assembly. */
+  awake: number;
+  islands: number;
+  /** Fastest awake island's linear speed (m/s): rattling items show a persistent small speed. */
+  maxSpeed: number;
+}
+
+/** The slice of the destruction runtime this module introspects (Destruction.world). */
+interface IslandIntrospection {
+  world?: {
+    assemblies: Map<number, { id: number; type: string; name: string; room: string | null; islands: Set<{ alive?: boolean; body: PhysicsBody | null }> }>;
+  };
+}
+
 export interface WorldReport {
   assemblies: number;
   parts: number;
   bonds: number;
   bodies: number;
   awakeAfterSettle: number;
+  /** The assemblies that are still awake after the settle phase (moving ones first, then most awake islands; ≤ 15). */
+  awakeAssemblies: AwakeAssembly[];
   triangles: number;
   meshes: number;
   /** Per phase: assemblies spawned and milliseconds (build = blueprint construction, spawn = engine). */
@@ -74,13 +97,8 @@ function roomInfos(): RoomInfo[] {
 
 export class GameWorld implements WorldSystem {
   readonly rooms: RoomInfo[] = roomInfos();
-  /**
-   * Player spawn. plan.ts SPAWN (7.4, 2.2) lies inside the furnished living room's sofa (the capsule
-   * spawned in it and kicked it apart), so the world spawns the player in the open floor between
-   * the balcony door, the armchair and the coffee table, looking past the dining table into the
-   * kitchen (TV wall on the left). Eye height from SPAWN.
-   */
-  readonly spawn: { pos: Vec3; yaw: number; pitch: number } = { pos: { x: 6.9, y: SPAWN.pos.y, z: 0.95 }, yaw: Math.atan2(-1.4, 5.05), pitch: 0.08 };
+  /** Player spawn (plan.ts SPAWN). */
+  readonly spawn: { pos: Vec3; yaw: number; pitch: number } = { pos: { ...SPAWN.pos }, yaw: SPAWN.yaw, pitch: SPAWN.pitch };
   /** Every assembly spawned by build(), in spawn order. */
   readonly spawned: SpawnRecord[] = [];
   report: WorldReport | null = null;
@@ -123,7 +141,7 @@ export class GameWorld implements WorldSystem {
       }
     };
     const report: WorldReport = {
-      assemblies: 0, parts: 0, bonds: 0, bodies: 0, awakeAfterSettle: 0, triangles: 0, meshes: 0,
+      assemblies: 0, parts: 0, bonds: 0, bodies: 0, awakeAfterSettle: 0, awakeAssemblies: [], triangles: 0, meshes: 0,
       phases: [], settleMs: 0, settleSteps: 0, settleEvents: {}, totalMs: 0, failures: [],
     };
     this.report = report;
@@ -216,6 +234,7 @@ export class GameWorld implements WorldSystem {
     const ps = physics.stats();
     report.bodies = ps.bodies;
     report.awakeAfterSettle = ps.awake;
+    report.awakeAssemblies = this.awakeAssemblies(15);
     let tris = 0;
     let meshes = 0;
     for (const m of this.ctx.scene.meshes) {
@@ -243,6 +262,49 @@ export class GameWorld implements WorldSystem {
     }
     report.totalMs = round1(now() - t0);
     progress(1, "Ready");
+  }
+
+  /**
+   * Assemblies with awake (simulated) islands: visibly moving ones first (fastest first), then by
+   * number of awake islands. Finds what
+   * keeps the physics from resting (a rattling item, a jointed group that never sleeps).
+   */
+  awakeAssemblies(limit = 20): AwakeAssembly[] {
+    const w = (this.ctx.destruction as unknown as IslandIntrospection).world;
+    if (!w) return [];
+    const ph = this.ctx.physics;
+    const v = new Vector3();
+    const out: AwakeAssembly[] = [];
+    const roomOf = new Map<number, string | null>();
+    for (const r of this.spawned) roomOf.set(r.id, r.room);
+    for (const asm of w.assemblies.values()) {
+      let awake = 0;
+      let maxSpeed = 0;
+      for (const isl of asm.islands) {
+        const b = isl.body;
+        if (!b || isl.alive === false) continue;
+        let on = false;
+        try {
+          on = ph.isAwake(b); // false for static bodies
+        } catch {
+          continue;
+        }
+        if (!on) continue;
+        awake++;
+        try {
+          b.getLinearVelocityToRef(v);
+          const sp = v.length();
+          if (Number.isFinite(sp) && sp > maxSpeed) maxSpeed = sp;
+        } catch {
+          /* ignore */
+        }
+      }
+      if (awake) out.push({ id: asm.id, type: asm.type, name: asm.name, room: asm.room ?? roomOf.get(asm.id) ?? null, awake, islands: asm.islands.size, maxSpeed: Math.round(maxSpeed * 1000) / 1000 });
+    }
+    // moving ones first (a rattling item), fastest first; then the most awake islands
+    const MOVING = 0.02;
+    out.sort((a, b) => Number(b.maxSpeed > MOVING) - Number(a.maxSpeed > MOVING) || (a.maxSpeed > MOVING ? b.maxSpeed - a.maxSpeed : 0) || b.awake - a.awake || b.maxSpeed - a.maxSpeed);
+    return out.slice(0, Math.max(0, limit));
   }
 
   /** Spawn records of one source ("structure", "kitchen", …) or all. */

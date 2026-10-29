@@ -31,10 +31,11 @@ import type { EventBus, GameEvents } from "../../core/events.ts";
 import type { Rng } from "../../core/rng.ts";
 import type { Settings } from "../../core/settings.ts";
 import type { Time } from "../../core/time.ts";
-import { polyBounds, polyCentroid, polyClosestPoint, polyExtents, polyHiddenFaces, polyPoints, polyVolume, type ConvexPoly } from "../../geom/poly.ts";
+import { polyBounds, polyCentroid, polyClosestPoint, polyExtents, polyPoints, polyVolume, type ConvexPoly } from "../../geom/poly.ts";
 import { polyToRenderGeom, type RenderGeom } from "../../geom/meshgen.ts";
 import type { Vec3, Xform } from "../../geom/vec.ts";
 import { S } from "../../render/surfaces.ts";
+import { coveredFaces } from "./faceCover.ts";
 import { fusedStrength } from "../model/damage.ts";
 import { BOND_DEFAULTS, MATERIALS, material, type MaterialDef } from "../model/materials.ts";
 import type { AssemblyDef, BondDef, BondKind, JointDef, PartDef } from "../model/types.ts";
@@ -1416,7 +1417,7 @@ export class World {
       (others ??= []).push(o.poly);
     }
     if (!others) return p.poly;
-    const hidden = polyHiddenFaces(p.poly, others);
+    const hidden = coveredFaces(p.poly, others); // opaque covers only (glass stays see-through)
     if (!hidden.size || hidden.size >= p.poly.faces.length) return p.poly;
     return { ...p.poly, faces: p.poly.faces.filter((_, i) => !hidden.has(i)) };
   }

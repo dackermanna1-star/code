@@ -140,8 +140,12 @@ export const WALLS: Wall[] = [
 /** Balcony slab and railing (outside the south wall, in front of the living room). */
 export const BALCONY = { x0: 4.4, x1: 9.0, z0: -1.6, z1: -0.2, railH: 1.05 } as const;
 
-/** Player spawn: living room, looking towards the kitchen/TV wall. */
-export const SPAWN = { pos: { x: 7.4, y: 1.65, z: 2.2 }, yaw: -Math.PI * 0.62, pitch: 0.05 } as const;
+/**
+ * Player spawn: living room, on the open floor between the balcony door, the armchair and the
+ * coffee table (clear of the furnished sofa), looking past the dining table into the kitchen with
+ * the TV wall on the left. y = standing eye height.
+ */
+export const SPAWN = { pos: { x: 6.9, y: 1.65, z: 0.95 }, yaw: Math.atan2(-1.4, 5.05), pitch: 0.08 } as const;
 
 export function roomAt(x: number, z: number): Room | null {
   for (const r of ROOMS) {

@@ -5,7 +5,7 @@
 //   ?settle=N (settle-phase steps, debugging)   ?hold=1 (frozen after boot: step via __sim.step)
 // A boot failure shows an overlay (message + stack) and sets window.__simError / __sim.error.
 
-import { Engine, Scene, Vector3, Color4 } from "@babylonjs/core";
+import { Engine, Scene, Vector3, Color4, type PhysicsBody } from "@babylonjs/core";
 import { Layer, type GameContext } from "./core/context.ts";
 import { EventBus, type GameEvents } from "./core/events.ts";
 import { Rng } from "./core/rng.ts";
@@ -234,11 +234,14 @@ async function boot(): Promise<void> {
           `settle ${rep.settleSteps} steps ${Math.round(rep.settleMs)} ms, awake ${rep.awakeAfterSettle}` +
           (rep.failures.length ? `; ${rep.failures.length} FAILED` : ""),
       );
+      if (rep.awakeAssemblies.length) {
+        console.log(`[world] still awake after settle: ${rep.awakeAssemblies.map((a) => `${a.name} (${a.room ?? "-"}) ${a.awake}/${a.islands} v${a.maxSpeed}`).join(", ")}`);
+      }
     }
 
     // ---- loop
     stage = "loop";
-    const game = new Game(ctx, { pauseOnHidden: !opts.test });
+    const game = new Game(ctx, { pauseOnHidden: !opts.test, hold: opts.hold });
     debug.attach(game, world);
     (window as unknown as { __game?: unknown }).__game = opts.test ? { ctx, game, world } : undefined;
     if (opts.hold) time.scale = 0;
@@ -263,25 +266,62 @@ async function boot(): Promise<void> {
  * Audio occlusion: rays listener → source against the STATIC layer. Hits closer than 0.3 m to each
  * other belong to the same wall (drywall + studs + drywall, a slab); each wall crossed attenuates,
  * three or more block almost everything. Hits within 2 cm of the source (the surface it sits on)
- * are ignored. 1 = clear line … 0 = blocked.
+ * are ignored, and so is the source's own island: a static element (wall run, slab) whose world
+ * AABB contains the source point and is thin (≤ 0.6 m in its smallest extent) — a fracture centroid
+ * inside a stud wall or a leak / spark loop in a wall cavity must not count its own wall as a
+ * crossing. 1 = clear line … 0 = blocked.
  */
 function makeOcclusion(ctx: GameContext): (from: Vec3, to: Vec3) => number {
   const a = new Vector3(),
     b = new Vector3();
   const LEVELS = [1, 0.42, 0.16, 0.05];
+  const TOL = 0.03;
+  const THIN = 0.6;
+  // static bodies' world AABBs, refreshed every second (walls lose parts when they break)
+  const boxes = new WeakMap<PhysicsBody, { t: number; min: Vec3; max: Vec3 } | null>();
+  const aabbOf = (body: PhysicsBody): { min: Vec3; max: Vec3 } | null => {
+    const t = performance.now();
+    const c = boxes.get(body);
+    if (c !== undefined && (c === null || t - c.t < 1000)) return c;
+    let rec: { t: number; min: Vec3; max: Vec3 } | null = null;
+    try {
+      const bb = body.getBoundingBox();
+      const mn = bb.minimumWorld, mx = bb.maximumWorld;
+      if ([mn.x, mn.y, mn.z, mx.x, mx.y, mx.z].every(Number.isFinite)) rec = { t, min: { x: mn.x, y: mn.y, z: mn.z }, max: { x: mx.x, y: mx.y, z: mx.z } };
+    } catch {
+      rec = null; // shape-less body: never the source's island
+    }
+    boxes.set(body, rec);
+    return rec;
+  };
+  /** The source point lies inside this thin static element (its own island). */
+  const containsSource = (body: PhysicsBody, p: Vec3): boolean => {
+    const bb = aabbOf(body);
+    if (!bb) return false;
+    const ex = Math.min(bb.max.x - bb.min.x, bb.max.y - bb.min.y, bb.max.z - bb.min.z);
+    if (ex > THIN) return false;
+    return p.x >= bb.min.x - TOL && p.x <= bb.max.x + TOL && p.y >= bb.min.y - TOL && p.y <= bb.max.y + TOL && p.z >= bb.min.z - TOL && p.z <= bb.max.z + TOL;
+  };
+  const own = new Map<PhysicsBody, boolean>();
   return (from, to) => {
     const len = Math.hypot(to.x - from.x, to.y - from.y, to.z - from.z);
     if (!(len > 0.05) || !Number.isFinite(len)) return 1;
     a.set(from.x, from.y, from.z);
     b.set(to.x, to.y, to.z);
     const ph = ctx.physics;
+    own.clear();
+    const isOwn = (body: PhysicsBody): boolean => {
+      let v = own.get(body);
+      if (v === undefined) own.set(body, (v = containsSource(body, to)));
+      return v;
+    };
     let walls = 0;
     if (ph.raycastAll) {
       const hits = ph.raycastAll(a, b, Layer.STATIC);
       if (hits.length > 1) hits.sort((p, q) => p.distance - q.distance);
       let last = -1;
       for (const h of hits) {
-        if (h.distance > len - 0.02) continue;
+        if (h.distance > len - 0.02 || isOwn(h.body)) continue;
         if (last >= 0 && h.distance - last < 0.3) {
           last = h.distance;
           continue;
@@ -291,7 +331,7 @@ function makeOcclusion(ctx: GameContext): (from: Vec3, to: Vec3) => number {
       }
     } else {
       const h = ph.raycast(a, b, Layer.STATIC);
-      if (h && h.distance < len - 0.02) walls = 1;
+      if (h && h.distance < len - 0.02 && !isOwn(h.body)) walls = 1;
     }
     return LEVELS[walls];
   };
