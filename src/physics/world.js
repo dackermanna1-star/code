@@ -43,7 +43,9 @@ class Contact {
 
 class Anchor {
   constructor() {
-    this.p = new Vec3();
+    this.p = new Vec3(); // ground point
+    this.local = new Vec3(); // pinned material point (body frame) of a rounded feature
+    this.material = false;
     this.stamp = 0;
   }
 }
@@ -104,6 +106,9 @@ export class World {
     this.anchorStamp = 0;
     this.torsionalFriction = true;
     this.anchorPass = opts.anchorPass ?? true; // re-solve joint anchors after contacts (see solvePositions)
+    this.materialAnchors = opts.materialAnchors ?? true; // ground anchors for rounded features too
+    this.kineticRelease = opts.kineticRelease ?? true; // a sliding rounded manifold: kinetic friction only
+    this.anchorRestSpeed = opts.anchorRestSpeed ?? 0.1; // m/s: rounded features are pinned only below this
     this.onBodyRemoved = null;
   }
 
@@ -332,23 +337,40 @@ export class World {
     c.key = -1;
     c.anchor = null;
     c.impact = null;
-    if (!sB && this.collector.feature >= 0 && sA.type === SHAPE_BOX && sA.radius <= 0.02) {
+    const sharp = sA.type === SHAPE_BOX && sA.radius <= 0.02;
+    if (!sB && this.collector.feature >= 0 && (sharp || this.materialAnchors)) {
       c.key = sA.id * 16 + this.collector.feature;
       let an = this.anchors.get(c.key);
       _v2.copy(c.rA).applyQuat(A.prevRot).add(A.prevPos);
       // re-use an anchor across brief contact gaps (rocking feet) if the feature lands close to it
-      const stale = !an || an.stamp < this.anchorStamp - 60 || (an.stamp < this.anchorStamp - 1 && Math.hypot(an.p.x - _v2.x, an.p.z - _v2.z) > 0.02);
-      if (stale) {
-        if (!an) {
-          an = new Anchor();
-          this.anchors.set(c.key, an);
-        }
-        // new anchor at the material point's position at the start of this substep
-        an.p.copy(_v2);
-        an.p.y = this.groundY;
+      let stale = !an || an.stamp < this.anchorStamp - 60 || (an.stamp < this.anchorStamp - 1 && Math.hypot(an.p.x - _v2.x, an.p.z - _v2.z) > 0.02);
+      // rounded feature (capsule end, sphere, rounded box corner): the pinned material point is the
+      // one that touched first; once the body has rolled on, the touching point is a new one
+      if (!stale && !sharp && an.local.distanceTo(c.rA) > 0.004) stale = true;
+      // ...and it is only pinned while (nearly) at rest: a limb sliding or being dragged over the
+      // floor keeps the per-substep friction (anchoring it turns smooth sliding into stick-slip)
+      let moving = false;
+      if (!sharp) {
+        A.velocityAt(_pA, _v3);
+        moving = Math.hypot(_v3.x, _v3.z) > this.anchorRestSpeed;
+        if (moving && an) an.stamp = -1e9;
       }
-      an.stamp = this.anchorStamp;
-      c.anchor = an;
+      if (moving) c.key = -1;
+      else {
+        if (stale) {
+          if (!an) {
+            an = new Anchor();
+            this.anchors.set(c.key, an);
+          }
+          // new anchor at the material point's position at the start of this substep
+          an.p.copy(_v2);
+          an.p.y = this.groundY;
+          an.local.copy(c.rA);
+        }
+        an.material = !sharp;
+        an.stamp = this.anchorStamp;
+        c.anchor = an;
+      }
     }
     // pre-solve approach velocity
     A.velocityAt(_pA, _v0);
@@ -385,6 +407,8 @@ export class World {
     // ~g*h^2 (resting bodies rock ~0.3 mrad at 600 Hz and report phantom velocities of up to
     // 0.5 rad/s, which pollute sensing, damping and impact speeds). Compliant drives and limits are
     // not re-applied, so muscle stiffness is unaffected; the cost is one cheap anchor solve per joint.
+    // What this pass moves after the friction solve is pulled back by the next substep's persistent
+    // ground anchors (solveAnchoredFriction), so it cannot make resting bodies creep.
     if (this.anchorPass) for (const j of this.joints) if (j.enabled) j.solveAnchor(h);
   }
 
@@ -406,19 +430,28 @@ export class World {
   }
 
   /**
-   * Ground static friction with persistent anchors: every contact feature (box corner, capsule end)
-   * is pinned to the ground point where it first touched, as long as the manifold's total friction
-   * demand stays inside mu * N. Prevents the slow "walking" drift of strongly actuated feet.
+   * Ground static friction with persistent anchors: every contact feature (box corner, capsule end,
+   * sphere) is pinned to the ground point where it first touched, as long as the manifold's total
+   * friction demand stays inside mu * N. Prevents the slow "walking" drift of strongly actuated feet.
+   *
+   * Rounded features pin the *material* point that touched (so rolling stays free: in pure rolling
+   * the touching material point does not move) and re-anchor once the body has rolled on. Without
+   * anchors, static friction only cancels each substep's own tangential motion, so whatever the
+   * later solves leave over (Gauss-Seidel coupling of the corners of a resting trunk, joints, the
+   * anchor pass below) is never taken back: limp bodies on the floor crept 2-6 mm/s, which scales
+   * with the substep length (g*h per substep) - a ratchet, not physics. A rounded manifold that
+   * cannot be held slides with kinetic friction only (velocity pass), as in Mueller et al.
    */
   solveAnchoredFriction(pool, i0, i1, h) {
-    let lsum = 0, mu = 0, demand = 0;
+    let lsum = 0, mu = 0, demand = 0, rounded = false;
     const A = pool[i0].bodyA;
     for (let i = i0; i < i1; i++) {
       const c = pool[i];
       if (c.lambdaN <= 0 || !c.anchor) continue;
+      if (c.anchor.material) rounded = true;
       lsum += c.lambdaN;
       mu += c.staticFriction * c.lambdaN;
-      _rA.copy(c.rA).applyQuat(A.rot);
+      _rA.copy(c.anchor.material ? c.anchor.local : c.rA).applyQuat(A.rot);
       _pA.copy(_rA).add(A.pos);
       _t.subVectors(_pA, c.anchor.p);
       _t.y = 0;
@@ -430,21 +463,23 @@ export class World {
     if (lsum <= 0) return;
     mu /= lsum;
     const budget = mu * lsum;
-    const scale = demand > budget ? budget / demand : 1;
+    let scale = demand > budget ? budget / demand : 1;
+    if (scale < 1 && this.kineticRelease && rounded) scale = 0;
     for (let i = i0; i < i1; i++) {
       const c = pool[i];
       if (c.lambdaN <= 0 || !c.anchor) continue;
-      _rA.copy(c.rA).applyQuat(A.rot);
+      const loc = c.anchor.material ? c.anchor.local : c.rA;
+      _rA.copy(loc).applyQuat(A.rot);
       _pA.copy(_rA).add(A.pos);
       _t.subVectors(_pA, c.anchor.p);
       _t.y = 0;
       const tl = _t.length();
       if (tl < 1e-10) continue;
       _t.scale(-1 / tl);
-      positionalCorrection(A, null, _t, tl * scale, _rA, null, 0, h);
+      if (scale > 0) positionalCorrection(A, null, _t, tl * scale, _rA, null, 0, h);
       if (scale < 1) {
         // sliding: drag the anchor along with the contact point
-        _rA.copy(c.rA).applyQuat(A.rot);
+        _rA.copy(loc).applyQuat(A.rot);
         c.anchor.p.copy(_rA).add(A.pos);
         c.anchor.p.y = this.groundY;
       }

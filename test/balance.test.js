@@ -4,10 +4,13 @@ import { Vec3, makeRng } from '../src/physics/math.js';
 import { World } from '../src/physics/world.js';
 import { DRIVE_RELATIVE } from '../src/physics/joints.js';
 import { Ragdoll } from '../src/human/ragdoll.js';
+import { BodyShape } from '../src/human/bodyShape.js';
 import { Sandbox } from '../src/game/sandbox.js';
 
-function scene(seed = 1, settle = 1) {
-  const sb = new Sandbox({ rng: makeRng(seed) });
+let skin = null; // visible-skin SDF for ballistics (built on demand)
+
+function scene(seed = 1, settle = 1, shape = null) {
+  const sb = new Sandbox({ rng: makeRng(seed), shape });
   const person = sb.spawnPerson(new Vec3(0, 0, 0), 0);
   run(sb, settle);
   return { sb, person };
@@ -147,4 +150,113 @@ test('catch-fall: a hard shove forward lands on the hands, not the face', () => 
   assert.equal(first, 'hands');
   assert.ok(headV < 2, `head hit the floor at ${headV.toFixed(2)} m/s`);
   assert.ok(person.injury.conscious, 'knocked out by a braced fall');
+});
+
+/** Run and report the fastest head-floor impact, whether it was knocked out, and the modes seen. */
+function watchFall(sb, person, seconds, perFrame) {
+  const head = person.rd.segments.head.body;
+  let headV = 0;
+  const modes = new Set();
+  run(sb, seconds, (i) => {
+    if (perFrame) perFrame(i / 60);
+    for (const imp of sb.world.impactList) if (!imp.bodyB && imp.bodyA === head) headV = Math.max(headV, imp.speed);
+    modes.add(person.ctl.mode);
+  });
+  const ko = person.injury.injuries.some((l) => /Knocked/.test(l.text));
+  return { headV, ko, modes };
+}
+
+function setLegMuscle(person, m) {
+  for (const s of ['L', 'R']) {
+    person.injury.muscle['thigh' + s] = m;
+    person.injury.muscle['shin' + s] = m;
+  }
+}
+
+test('a momentary leg buckle is caught: the knees dip, the body stays up', () => {
+  const { sb, person } = scene(1);
+  let knees = false;
+  const r = watchFall(sb, person, 3, (t) => {
+    setLegMuscle(person, t < 0.15 ? 1 : 0);
+    const sg = person.rd.segments;
+    if (sg.shinL.body.groundContact || sg.shinR.body.groundContact) knees = true;
+  });
+  assert.ok(r.modes.has('falling'), 'the legs should give way');
+  assert.equal(knees, false, 'a 0.15 s buckle should not put the knees on the floor');
+  assert.equal(person.ctl.mode, 'balance');
+});
+
+test('legs lost for a second: down on the knees and the hands, no face-first head strike', () => {
+  for (const seed of [1, 2]) {
+    const { sb, person } = scene(seed);
+    const r = watchFall(sb, person, 8, (t) => setLegMuscle(person, t < 1 ? 1 : 0));
+    assert.ok(r.headV < 2, `head hit the floor at ${r.headV.toFixed(2)} m/s`);
+    assert.equal(r.ko, false, 'knocked out by a fall to the knees');
+  }
+});
+
+test('partly damaged legs: kneel, then a controlled descent onto the hands and the floor', () => {
+  for (const m of [0.6, 0.7]) {
+    const { sb, person } = scene(1);
+    const sg = person.rd.segments;
+    let handsFirst = null;
+    const r = watchFall(sb, person, 9, () => {
+      setLegMuscle(person, m);
+      const hands = sg.handL.body.groundContact || sg.handR.body.groundContact;
+      const trunk = sg.chest.body.groundContact || sg.head.body.groundContact;
+      if (handsFirst === null && (hands || trunk)) handsFirst = hands && !trunk;
+    });
+    assert.equal(handsFirst, true, `muscle damage ${m}: the hands should reach the floor before the chest or face`);
+    assert.ok(r.headV < 2, `head hit the floor at ${r.headV.toFixed(2)} m/s`);
+    assert.equal(r.ko, false);
+  }
+});
+
+test('rifle shot to the abdomen off the midline: no knock-out from the fall that follows', () => {
+  skin = skin || new BodyShape(new Ragdoll(new World()).segList.map((s) => s.name));
+  for (const dx of [-0.05, 0.05]) {
+    const { sb, person } = scene(1, 1, skin);
+    const t = person.rd.segments.abdomen.body.pos.clone();
+    t.x += dx;
+    const o = new Vec3(t.x, t.y + 0.02, t.z + 4);
+    sb.fire('rifle', o, t.clone().sub(o).normalize());
+    const r = watchFall(sb, person, 8);
+    assert.ok(r.headV < 2, `head hit the floor at ${r.headV.toFixed(2)} m/s (dx ${dx})`);
+    assert.equal(r.ko, false, `knocked out after a gut shot (dx ${dx})`);
+  }
+});
+
+test('a dead body on the floor comes to rest (no creeping across the floor)', () => {
+  for (const [x, z] of [[0, -1], [1, 0]]) {
+    const { sb, person } = scene(1);
+    shove(sb, person, x, z, 120);
+    person.injury.kill('test');
+    run(sb, 20);
+    const p0 = person.rd.segList.map((s) => s.body.pos.clone());
+    run(sb, 30);
+    const d = person.rd.segList.map((s, i) => s.body.pos.distanceTo(p0[i]));
+    const pel = d[person.rd.segList.indexOf(person.rd.segments.pelvis)];
+    assert.ok(pel < 0.01, `pelvis crept ${(pel * 1000).toFixed(1)} mm in 30 s (push ${x},${z})`);
+    assert.ok(Math.max(...d) < 0.03, `a segment crept ${(Math.max(...d) * 1000).toFixed(1)} mm in 30 s (push ${x},${z})`);
+  }
+});
+
+test('settle steps never lift a foot that still carries the body', () => {
+  const { sb, person } = scene(1);
+  shove(sb, person, 1, 0, 60);
+  const ctl = person.ctl;
+  const c = new Vec3();
+  let steps = 0, worst = 0;
+  run(sb, 7, () => {
+    for (const e of ctl.events) {
+      if (e.type !== 'step') continue;
+      steps++;
+      if (e.kind !== 'settle') continue;
+      ctl.soleCenter(e.foot === 'L' ? 'R' : 'L', c);
+      worst = Math.max(worst, Math.hypot(ctl.sens.com.x - c.x, ctl.sens.com.z - c.z));
+    }
+  });
+  assert.equal(ctl.mode, 'balance');
+  assert.ok(worst < 0.05, `settle step taken with the COM ${(worst * 100).toFixed(1)} cm from the stance foot`);
+  assert.ok(steps <= 9, `${steps} steps to recover from a 60 N*s side push`);
 });

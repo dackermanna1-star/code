@@ -1,5 +1,5 @@
 import { Vec3, Quat, clamp, lerp, smoothstep, approach, noise1, wrapAngle } from '../physics/math.js';
-import { DRIVE_RELATIVE, DRIVE_WORLD, DRIVE_PARENT_WORLD, RelativePointSpring } from '../physics/joints.js';
+import { DRIVE_RELATIVE, DRIVE_WORLD, RelativePointSpring } from '../physics/joints.js';
 import { landmark, DIRS } from './anatomy.js';
 import { twoBoneIK, makeIKResult, boneRotation } from './ik.js';
 
@@ -235,6 +235,18 @@ export class HumanController {
     if (m === 'getup') this.gu = null;
   }
 
+  /** Back to standing balance after a dip (fresh balance-controller state from the current pose). */
+  resumeBalance() {
+    const pel = this.seg.pelvis.body;
+    this.heading = yawOf(pel.rot);
+    this.cdes = null;
+    this.pelvisYTarget = pel.pos.y;
+    this.comInt.setZero();
+    this.settleFoot = null;
+    this.kneel = null;
+    this.setMode('balance');
+  }
+
   // ------------------------------------------------------------------------------------------
   sense() {
     const rd = this.rd, S = this.sens;
@@ -367,10 +379,26 @@ export class HumanController {
         this.setMode('falling');
       }
     } else if (this.mode === 'falling') {
+      const k = this.fallCause === 'legs' ? this.kneel : null;
+      // a momentary buckle: legs that come back early in the drop catch the dip (the knee
+      // extensors brake it while the body is still high over its feet; the soles may be all but
+      // unloaded while it drops); later the knees are going to the floor anyway, and someone in
+      // severe pain (a gut shot) lets them go rather than fighting to stay up
+      const feet = this.seg.footL.body.groundContact && this.seg.footR.body.groundContact;
+      if (k && k.phase === 'drop' && legsOk && this.pain < 0.8 && S.pelvisH > 0.74 && this.seg.pelvis.body.vel.y > -1.0 && feet && S.upTilt < 0.35) {
+        this.resumeBalance();
+        return;
+      }
+      // down on hands and knees and fit to get up: that is where a get-up starts from
+      if (k && k.ready === 'getup' && this.ableToGetUp()) {
+        this.setMode('getup');
+        return;
+      }
       // landed only once the head has come to rest too: the bracing arms and the neck keep
       // protecting it until then (releasing them as the chest touches drops the face on the floor)
       const settled = S.torsoGround && this.rd.computeCOMVelocity(_v0).length() < 0.6 && this.seg.head.body.vel.length() < 0.5;
-      if (settled || this.modeTime > (this.fallCause === 'legs' ? 3.5 : 2.5)) this.setMode('ground');
+      // a fall to the knees runs its own course (kneeling, going down onto the hands)
+      if (settled || this.modeTime > (k ? 12 : 2.5)) this.setMode('ground');
     } else if (this.mode === 'ground') {
       // body back up somehow (e.g. dragged): resume balance attempt if feet are under it
       if (S.footContact.L && S.footContact.R && S.pelvisH > 0.8 && S.upTilt < 0.3) this.setMode('balance');
@@ -413,17 +441,6 @@ export class HumanController {
     const c = this.cmd[name];
     if (!c) return;
     c.mode = DRIVE_RELATIVE;
-    c.target.copy(q);
-    if (k !== undefined) c.k = k;
-    if (d !== undefined) c.d = d;
-    if (tmax !== undefined) c.tmax = tmax;
-  }
-
-  // Drive the *parent* segment toward a world orientation (stance hip holding the pelvis upright).
-  setParentWorld(name, q, k, d, tmax) {
-    const c = this.cmd[name];
-    if (!c) return;
-    c.mode = DRIVE_PARENT_WORLD;
     c.target.copy(q);
     if (k !== undefined) c.k = k;
     if (d !== undefined) c.d = d;
@@ -882,10 +899,15 @@ export class HumanController {
       const kp = this.servo.kp, kd = this.servo.kd, ki = this.servo.ki;
       const ex = _v0.x - S.com.x, ez = _v0.z - S.com.z;
       // the integral only trims small residual errors (anti-windup): integrating a large
-      // correction makes the COM overshoot and creep back over seconds
-      const near = Math.hypot(ex, ez) < 0.02 ? 1 : 0;
-      this.comInt.x = clamp(this.comInt.x * (1 - (near ? 0.6 : 3) * dt) + ex * dt * near, -0.05, 0.05);
-      this.comInt.z = clamp(this.comInt.z * (1 - (near ? 0.6 : 3) * dt) + ez * dt * near, -0.05, 0.05);
+      // correction makes the COM overshoot and creep back over seconds. A deliberate weight shift
+      // onto one foot (before a settle step) that has stalled is the exception: the compliant legs
+      // meet a steady resistance there (a lateral lunge over the stance knee), and without the
+      // integral the shift stops several cm short; it only integrates once the COM has slowed
+      const slow = Math.hypot(S.comVel.x, S.comVel.z) < 0.05;
+      const near = Math.hypot(ex, ez) < 0.02 || (this.settleFoot && slow) ? 1 : 0;
+      const iMax = this.settleFoot ? 0.08 : 0.05;
+      this.comInt.x = clamp(this.comInt.x * (1 - (near ? 0.6 : 3) * dt) + ex * dt * near, -iMax, iMax);
+      this.comInt.z = clamp(this.comInt.z * (1 - (near ? 0.6 : 3) * dt) + ez * dt * near, -iMax, iMax);
       // bounded displacement: the IK must keep producing reachable, natural leg configurations
       let dx = ex * kp + this.comInt.x * ki - S.comVel.x * kd;
       let dz = ez * kp + this.comInt.z * ki - S.comVel.z * kd;
@@ -904,8 +926,10 @@ export class HumanController {
     // deep crouch is straightened gradually instead of launching the body
     let desiredY = this.world.groundY + g.pelvisBindY - crouch;
     // every stance leg must be able to reach its planted foot (wide stances lower the pelvis), and a
-    // swing leg must be able to reach its landing spot (long catch steps become a lunge)
-    const reachSides = this.step ? [this.step.stance, this.step.foot] : stanceSides;
+    // swing leg must be able to reach its landing spot (long catch steps become a lunge). That
+    // includes a foot about to be unloaded for a settle step: during the weight shift it is the far
+    // leg that pushes the body over the other foot, and a leg already at full stretch cannot push
+    const reachSides = this.step ? [this.step.stance, this.step.foot] : SIDES;
     for (const s of reachSides) {
       // the swing leg has to reach its landing spot from where the hip will be at touchdown (the
       // body keeps travelling during the swing), not from where it is now: judging it from the
@@ -1085,9 +1109,11 @@ export class HumanController {
     _v1.set(cw.x, 0, cw.z);
     const spin = _v1.length();
     const wm = cpOut > 0.1 && cpOut < 1 ? clamp((spin - 1.5) / 1.2, 0, 1) : 0;
-    this.wmAmount = approach(this.wmAmount || 0, wm, dt * (wm > (this.wmAmount || 0) ? 6 : 2));
-    // the head moves along spin x up: circle the arms so their tops move that way
-    if (this.wmAmount > 0.05 && spin > 0.2) this.windmill(dt, this.wmAmount, _v0.crossVectors(_v1, UP));
+    // the head moves along spin x up: circle the arms so their tops move that way; once started,
+    // the arms carry on round (a circle takes ~0.6 s) rather than flicking for a few frames
+    if (wm > 0.05 && spin > 0.2) (this.wmDir || (this.wmDir = new Vec3())).crossVectors(_v1, UP);
+    this.wmAmount = approach(this.wmAmount || 0, wm, dt * (wm > (this.wmAmount || 0) ? 6 : 0.7));
+    if (this.wmAmount > 0.05 && this.wmDir) this.windmill(dt, this.wmAmount, _v0.copy(this.wmDir));
     else if (flail > 0.05) this.armsOut(flail);
   }
 
@@ -1145,7 +1171,9 @@ export class HumanController {
     if (w.t < 0) {
       if (this.quietTime > w.next) {
         w.t = 0;
-        w.side = this.rng() < 0.5 ? 'L' : 'R';
+        // onto either leg - but a hurt or weaker leg is the one that gets unloaded (antalgic)
+        const dL = this.legStrength.L - this.legStrength.R;
+        w.side = Math.abs(dL) > 0.08 ? (dL > 0 ? 'L' : 'R') : this.rng() < 0.5 ? 'L' : 'R';
         w.hold = 4 + 6 * this.rng();
       }
     } else {
@@ -1253,15 +1281,25 @@ export class HumanController {
       const stance = this.settleFoot === 'L' ? 'R' : 'L';
       this.soleCenter(stance, _v1);
       const off = Math.hypot(S.com.x - _v1.x, S.com.z - _v1.z);
-      const loaded = S.footLoad[stance] > 0.85 && off < 0.03 && speed < 0.06;
-      if ((loaded && this.settleTime > 0.2) || this.settleTime > 1.6) {
+      // the foot can come up once it carries (almost) nothing: judged by its share of what the
+      // feet carry together (the balance assist takes a part of the weight off both)
+      const share = S.footLoad[stance] / Math.max(S.footLoad.L + S.footLoad.R, 1e-3);
+      const loaded = share > 0.85 && off < 0.035 && speed < 0.08;
+      if ((loaded && this.settleTime > 0.2) || (this.settleTime > 1.6 && off < 0.05)) {
         const f = this.settleFoot;
         this.settleFoot = null;
         this.beginStep(f, 'settle');
-      } else if (speed > 0.35) this.settleFoot = null;
+      } else if (speed > 0.35 || this.settleTime > 1.6) {
+        // pushed, or the weight did not get across: lifting a foot that still carries the body
+        // would start a new stagger, so stay in the stance for now and think again later (after
+        // a second failure, only after a good while)
+        this.settleFoot = null;
+        this.settleFails = (this.settleFails || 0) + 1;
+        this.settleBlock = this.time + (this.settleFails >= 2 ? 8 : 2.5);
+      }
       return;
     }
-    if (speed > 0.15 || this.time - this.lastStepEnd < 0.25) {
+    if (speed > 0.15 || this.time - this.lastStepEnd < 0.25 || this.time < (this.settleBlock ?? -1)) {
       this.awkwardTime = 0;
       return;
     }
@@ -1335,6 +1373,8 @@ export class HumanController {
     this.step.cross = side * tl < 0.06 && side * sl > 0.06;
     this.stepCount++;
     this.comInt.setZero();
+    this.settleFails = 0;
+    this.settleBlock = -1;
     this.events.push({ type: 'step', foot, kind, time: this.time });
   }
 
@@ -1566,67 +1606,189 @@ export class HumanController {
       this.gains('ankle' + s, 0.2);
     }
     // arms: brace toward the impact zone (Euphoria-style catch fall)
-    this.braceArms(fd, along, left);
+    this.braceArms(fd, along, left, dt);
   }
 
   /**
    * The legs give way (a leg or gut wound, a broken leg, blood loss): the knee extensors can no
    * longer hold the body, so the knees fold and the person drops onto them with the trunk still
-   * upright, kneels for a moment (clutching the wound) and then sags forward onto the hands, or
-   * sideways over the weaker leg - Euphoria's "fall to knees" rather than a pole fall. Deep knee
-   * flexion with weak gains lets gravity do the descent; bounded helper forces (below) keep the
-   * trunk over the knees.
+   * upright - Euphoria's "fall to knees" rather than a pole fall. Then, physically and in phases:
+   *  drop  - deep knee flexion with weak gains lets gravity do the descent; bounded helper forces
+   *          keep the trunk over the knees. Legs that come back before the knees reach the floor
+   *          catch the dip and balance resumes (updateMode).
+   *  kneel - upright on the knees, clutching the wound, for as long as the trunk and hip
+   *          extensors and the pain allow (a fit person only pauses).
+   *  hands - a controlled lean forward onto the hands: the hip and trunk extensors lower the trunk
+   *          eccentrically at a bounded rate while the arms reach for the floor ahead of the
+   *          knees; the head is lifted and turned aside. Toppling freely from an upright kneel
+   *          rotates the whole body about the knees (~4 m/s at the hands) and arms that are still
+   *          ~0.5 m above the floor cannot catch it: that is how faces hit concrete. Someone fit
+   *          enough gets up from hands and knees (where a get-up starts); otherwise
+   *  lower - the arms yield slowly and let the chest down onto the floor, face turned aside.
    */
   doKneelFall(dt) {
-    if (!this.kneel) this.braceLatch = this.braceReach = null;
-    const k = this.kneel || (this.kneel = { t: 0, down: -1, topple: 0, yaw: yawOf(this.seg.pelvis.body.rot) });
+    const sg = this.seg, S = this.sens;
+    const pel = sg.pelvis.body, ch = sg.chest.body;
+    if (!this.kneel) this.braceLatch = this.kneelReach = null;
+    const k = this.kneel || (this.kneel = { t: 0, down: -1, phase: 'drop', pt: 0, topple: 0, pitch: 0, both: 0, yaw: yawOf(pel.rot), spot: null, ready: null, turn: this.rng() < 0.5 ? 1 : -1 });
     k.t += dt;
+    k.pt += dt;
+    const toPhase = (p) => {
+      k.phase = p;
+      k.pt = 0;
+    };
     // knees on the floor (the knee is the end of both the thigh and the shin capsule)
-    const sg = this.seg;
-    if (k.down < 0 && (sg.shinL.body.groundContact || sg.shinR.body.groundContact || sg.thighL.body.groundContact || sg.thighR.body.groundContact)) k.down = k.t;
-    const onKnees = k.down >= 0 ? k.t - k.down : 0;
-    // the trunk stays up on the knees for longer the more trunk strength and the less pain is left
-    const hold = 0.35 + 0.9 * clamp(this.spineStrength - 0.5 * this.pain, 0, 1);
-    k.topple = k.down >= 0 ? smoothstep(0, 0.7, onKnees - hold) : smoothstep(1.2, 1.8, k.t);
-    const tp = k.topple;
-    const weakL = this.legStrength.L < this.legStrength.R;
-    const asym = clamp(Math.abs(this.legStrength.L - this.legStrength.R) * 2, 0, 1);
-    for (const s of SIDES) {
-      // hips keep the thighs in line with the trunk while dropping, flexing as it sags; the knees
-      // yield under the body weight with what strength is left
-      this.setRel('hip' + s, _q0.setFromEuler(-0.1 - 1.0 * tp, 0, 0, 'XYZ'));
-      this.gains('hip' + s, 0.5 - 0.2 * tp);
-      // once kneeling, the knees stop folding (sitting back on the heels would tip the body
-      // backward); the hips flex instead and the trunk goes forward over the knees
-      this.setRel('knee' + s, _q0.setFromAxisAngle(LAT, k.down >= 0 ? 1.75 : 2.0));
-      this.gains('knee' + s, k.down >= 0 ? 0.35 : 0.25);
-      // compliant ankles: the shins tip forward over the feet (dorsiflexion, then the heels lift);
-      // a firm calf would push the shins back and the body would topple stiffly instead
-      this.setRel('ankle' + s, _q0.setFromAxisAngle(LAT, tp > 0.05 ? 0.4 : -0.3));
-      this.gains('ankle' + s, 0.05);
+    if (k.down < 0 && (sg.shinL.body.groundContact || sg.shinR.body.groundContact || sg.thighL.body.groundContact || sg.thighR.body.groundContact)) {
+      k.down = k.t;
+      toPhase('kneel');
     }
-    // trunk upright on the way down, slumping forward and toward the weaker leg as it gives up
-    const side = (weakL ? -1 : 1) * (0.06 + 0.2 * asym * tp);
-    this.standingSpine(0.12 + 0.7 * tp, side, k.yaw, 0.75 - 0.35 * tp);
-    // Helper forces (Euphoria-style assistance, scaled by assistGain, standing in for the hip
-    // extensors and trunk control that keep a kneeling-down person upright): the pelvis is drawn
-    // over the spot where the knees will land, ahead of the feet, so the shins tip forward over
-    // them; pelvis and chest are held upright. Released as the body sags forward.
-    const a = this.assistGain * (1 - tp) * (k.down >= 0 ? 0.6 : 1);
-    if (a > 0.01) {
-      const pel = this.seg.pelvis.body, ch = this.seg.chest.body;
-      const fx = Math.sin(k.yaw), fz = Math.cos(k.yaw);
+    // knocked over while on the knees (a shove, a blow, toppling backward): an ordinary protective
+    // fall in the direction it is actually going takes over
+    if (k.down >= 0 && k.phase !== 'lower') {
+      const v = this.sens.comVel;
+      const back = -(ch.localDirToWorld(UP, _v0).x * Math.sin(k.yaw) + _v0.z * Math.cos(k.yaw));
+      if (Math.hypot(v.x, v.z) > 1.0 || (back > 0.35 && k.phase === 'kneel')) {
+        this.fallCause = 'balance';
+        this.fallDir.set(v.x, 0, v.z);
+        if (this.fallDir.lengthSq() < 0.01) this.fallDir.set(-Math.sin(k.yaw), 0, -Math.cos(k.yaw));
+        this.fallDir.normalize();
+        this.modeTime = 0;
+        this.kneel = null;
+        this.doFalling(dt);
+        return;
+      }
+    }
+    const minLeg = Math.min(this.legStrength.L, this.legStrength.R);
+    // what is left to hold the trunk up on the knees: trunk and hip extensors, inhibited by pain
+    const vigor = clamp(Math.min(this.spineStrength, 0.4 + minLeg) - 0.45 * this.pain, 0, 1);
+    const able = this.ableToGetUp() && this.autoGetUp && this.assistGain >= 0.25;
+    if (k.phase === 'kneel') {
+      const hold = able ? 0.7 : 0.4 + 2.6 * vigor;
+      // tipping over regardless (pushed, or sagging back onto the heels): hands down at once
+      if (k.pt > hold || S.chestTilt > 0.7 || S.pelvisH < 0.3) {
+        toPhase('hands');
+        this.braceLatch = { L: null, R: null };
+        k.pitch = Math.min(S.chestTilt, 0.6);
+      }
+    }
+    const fx = Math.sin(k.yaw), fz = Math.cos(k.yaw);
+    const down = k.phase === 'hands' || k.phase === 'lower';
+    k.topple = down ? 1 : 0; // applyArmTasks: the wound is clutched only while upright
+    // where the knees are (or will land: ahead of the feet, under the dropping pelvis)
+    let kneeX, kneeZ;
+    if (k.down >= 0) {
+      this.jt.kneeL.worldAnchor(_v1);
+      this.jt.kneeR.worldAnchor(_v2);
+      kneeX = (_v1.x + _v2.x) / 2;
+      kneeZ = (_v1.z + _v2.z) / 2;
+    } else {
       if (!k.spot) {
         const aL = this.ankleWorld('L', _v1), aR = this.ankleWorld('R', _v2);
         k.spot = new Vec3((aL.x + aR.x) / 2 + fx * 0.3, 0, (aL.z + aR.z) / 2 + fz * 0.3);
       }
-      pel.force.x += clamp((k.spot.x - pel.pos.x) * 500 - pel.vel.x * 120, -160, 160) * a;
-      pel.force.z += clamp((k.spot.z - pel.pos.z) * 500 - pel.vel.z * 120, -160, 160) * a;
-      for (const [b, kp, lim] of [[pel, 320, 140], [ch, 260, 110]]) {
-        _v0.set(0, 1, 0).applyQuat(b.rot);
-        _v1.crossVectors(_v0, UP);
-        const sn = _v1.length();
-        if (sn > 1e-6) _v1.scale((kp * Math.asin(clamp(sn, 0, 1))) / sn);
+      kneeX = k.spot.x;
+      kneeZ = k.spot.z;
+    }
+    // ---- trunk pitch plan (rad from upright) ----
+    let lw = 0;
+    if (k.phase === 'hands') {
+      const planted = (this.braceLatch.L ? 1 : 0) + (this.braceLatch.R ? 1 : 0);
+      k.both = planted === 2 ? k.both + dt : 0;
+      // lowered at <= 0.9 rad/s until a hand is on the floor, then held where it is
+      // (the last few centimetres: past ~75 deg the trunk keeps going slowly until a hand touches)
+      if (!planted) k.pitch = k.pitch < 1.3 ? approach(k.pitch, 1.3, 1.1 * dt) : approach(k.pitch, 1.62, 0.5 * dt);
+      else k.pitch = approach(k.pitch, clamp(S.chestTilt, 0.9, 1.6), 0.6 * dt);
+      const settled = this.rd.computeCOMVelocity(_v0).length() < 0.25;
+      if ((k.both > 0.3 || (planted && k.pt > 1.6)) && settled) {
+        if (able) k.ready = 'getup';
+        else {
+          k.ready = null;
+          toPhase('lower');
+        }
+      } else if (k.pt > 2.8) toPhase('lower'); // never got a hand down (useless arms): let it down
+    }
+    if (k.phase === 'lower') {
+      lw = smoothstep(0, 1.6, k.pt);
+      k.pitch = approach(k.pitch, 1.5, 0.5 * dt);
+    }
+    // ---- legs ----
+    for (const s of SIDES) {
+      if (!down) {
+        // hips keep the thighs in line with the trunk; the knees yield under the body weight with
+        // what strength is left; once kneeling they stop folding (sitting back on the heels would
+        // tip the body backward)
+        this.setRel('hip' + s, _q0.setFromEuler(-0.1, 0, 0, 'XYZ'));
+        this.gains('hip' + s, 0.5);
+        if (k.down >= 0) {
+          this.setRel('knee' + s, _q0.setFromAxisAngle(LAT, 1.75));
+          this.gains('knee' + s, 0.35);
+        } else {
+          // dropping: the knee extensors give way eccentrically with what is left of them - the
+          // target leads the current flexion a little and the damping brakes the fold, so legs with
+          // some strength let the body down onto the knees while dead legs just fold
+          const give = clamp((0.6 - this.legStrength[s]) / 0.5, 0, 1);
+          this.jt['knee' + s].relativeRotation(_q0);
+          const th = 2 * Math.atan2(_q0.x, _q0.w);
+          this.setRel('knee' + s, _q0.setFromAxisAngle(LAT, Math.min(2.0, Math.max(th, 0) + 0.05 + 0.45 * give)));
+          this.gains('knee' + s, 0.45);
+          this.cmd['knee' + s].d *= 1 + 4 * (1 - give);
+        }
+      } else {
+        // the trunk hinges forward at the hips over the kneeling thighs, sitting back a little
+        // toward the heels; letting the body down, the legs slide back out behind
+        this.setRel('hip' + s, _q0.setFromEuler(-0.1 - 0.85 * k.pitch * (1 - 0.7 * lw), 0, 0, 'XYZ'));
+        this.gains('hip' + s, 0.45 - 0.25 * lw);
+        this.setRel('knee' + s, _q0.setFromAxisAngle(LAT, 1.75 + 0.3 * clamp(k.pitch / 1.3, 0, 1) * (1 - lw) - 1.1 * lw));
+        this.gains('knee' + s, 0.35 - 0.2 * lw);
+      }
+      // compliant ankles: the shins tip over the feet; a firm calf would push the body over
+      this.setRel('ankle' + s, _q0.setFromAxisAngle(LAT, down ? 0.4 : -0.3));
+      this.gains('ankle' + s, 0.05);
+    }
+    // ---- trunk ----
+    const weakL = this.legStrength.L < this.legStrength.R;
+    const asym = clamp(Math.abs(this.legStrength.L - this.legStrength.R) * 2, 0, 1);
+    if (!down) {
+      // upright on the way down and while kneeling, hunched a little over a painful wound
+      this.standingSpine(0.12 + 0.15 * this.painHunch(), (weakL ? -1 : 1) * 0.06, k.yaw, 0.75);
+      _q0.setFromEuler(0.25, 0, 0, 'XYZ'); // looking down at the wound
+      this.setRel('neckTop', _q0, 60, 3, 30);
+    } else {
+      // a straight back hinging forward
+      yawQuat(k.yaw, _q0);
+      _q1.setFromEuler(k.pitch * 0.85, 0, (weakL ? -1 : 1) * 0.1 * asym, 'XYZ');
+      _q2.multiplyQuats(_q0, _q1);
+      this.setWorld('lumbar', _q2);
+      this.gains('lumbar', 0.8);
+      _q1.setFromEuler(k.pitch, 0, 0, 'XYZ');
+      _q2.multiplyQuats(_q0, _q1);
+      this.setWorld('thoracic', _q2);
+      this.gains('thoracic', 0.8);
+      // face toward the floor: the head is lifted (neck extended) and turned to one side, more so
+      // the lower it gets, so the chest and arms take the floor and not the face
+      this.setRel('neckBase', _q1.setFromEuler(-0.25, 0, 0, 'XYZ'), 170, 8, 65);
+      _q0.copy(ch.rot);
+      _q1.setFromEuler(-0.5, k.turn * (0.25 + 0.7 * lw), 0, 'XYZ');
+      _q0.multiply(_q1);
+      this.setWorld('neckTop', _q0, 150, 7, 45);
+    }
+    // ---- helper forces ----
+    // Euphoria-style assistance (scaled by assistGain), standing in for the hip extensors and the
+    // trunk control that hold a kneeling person up and lower them under control: the pelvis is kept
+    // over the knees (sitting back a little as the trunk goes forward) and pelvis and chest track the
+    // planned pitch. A weaker body is helped less and goes down faster.
+    const a = this.assistGain * (k.down >= 0 ? 0.6 + 0.4 * vigor : 1) * (1 - lw);
+    if (a > 0.01) {
+      const back = down ? 0.04 + 0.08 * Math.min(k.pitch, 1.2) : 0;
+      pel.force.x += clamp((kneeX - fx * back - pel.pos.x) * 500 - pel.vel.x * 120, -180, 180) * a;
+      pel.force.z += clamp((kneeZ - fz * back - pel.pos.z) * 500 - pel.vel.z * 120, -180, 180) * a;
+      yawQuat(k.yaw, _q0);
+      for (const [b, kp, lim, f] of [[pel, 320, 150, 0.6], [ch, 260, 120, 1]]) {
+        _q1.setFromEuler(down ? k.pitch * f : 0, 0, 0, 'XYZ');
+        _q2.multiplyQuats(_q0, _q1);
+        _q2.multiplyConjB(_q2, b.rot).toRotVec(_v1);
+        _v1.y = 0; // pitch and roll only: the heading is the legs' business
+        _v1.scale(kp);
         _v2.copy(b.angVel);
         _v2.y = 0;
         _v1.addScaled(_v2, -0.12 * kp);
@@ -1635,23 +1797,88 @@ export class HumanController {
         b.torque.addScaled(_v1, a);
       }
     }
-    _q0.setFromEuler(0.35 + 0.2 * tp, 0, 0, 'XYZ'); // head bowed
-    this.setRel('neckTop', _q0, 60, 3, 30);
-    if (tp > 0.05) {
-      // sagging forward: hands go to the floor in front (catch / support)
-      const fx = Math.sin(k.yaw), fz = Math.cos(k.yaw);
-      this.fallDir.set(fx + (weakL ? 1 : -1) * Math.cos(k.yaw) * 0.4 * asym, 0, fz - (weakL ? 1 : -1) * Math.sin(k.yaw) * 0.4 * asym).normalize();
-      this.braceArms(this.fallDir, 0.8, (weakL ? 1 : -1) * 0.3 * asym);
-      // with the legs dead, leaning the trunk forward only rotates the pelvis back onto the heels:
-      // a gentle bounded guide lets the slump go forward over the knees onto the hands
-      if (k.down >= 0 && !this.seg.chest.body.groundContact) {
-        const g = 70 * this.assistGain * Math.min(tp, 1 - smoothstep(0.6, 1.2, onKnees - hold - 0.7));
-        this.seg.chest.body.force.addScaled(this.fallDir, g);
-      }
+    const M = this.rd.totalMass * G;
+    if (k.phase === 'drop') {
+      // what the weakened legs can still brake (eccentric quadriceps in the deepening squat, where
+      // the knee moment soon exceeds what is left of them): the descent is slowed in proportion
+      // to the strength remaining, so dead legs drop the body onto the knees (~2.5 m/s) and
+      // half-strength ones let it down at about 1 m/s
+      const brake = clamp((this.legStrength.L + this.legStrength.R) / 2, 0, 0.6);
+      pel.force.y += clamp((-(0.7 + 2.5 * (0.6 - brake)) - pel.vel.y) * 400, 0, brake * 0.6 * M) * this.assistGain;
+    }
+    if (k.phase === 'lower') {
+      // eccentric triceps and chest muscles (and hip extensors, as the legs slide back): chest and
+      // pelvis come down at <= 0.3 m/s
+      ch.force.y += clamp((-0.3 - ch.vel.y) * 260, 0, 0.4 * M) * this.assistGain;
+      pel.force.y += clamp((-0.3 - pel.vel.y) * 260, 0, 0.3 * M) * this.assistGain;
+    }
+    // ---- arms ----
+    if (down) {
+      this.fallDir.set(fx, 0, fz);
+      this.kneelArms(k, dt, lw);
     } else this.relaxedArms(0.8, 0);
   }
 
-  braceArms(fd, along, left) {
+  /**
+   * Arms going down to the floor from the knees: each wrist reaches for a spot ahead of the knees,
+   * a little wider than the shoulders, at a human arm speed; a hand that touches stays planted and
+   * the arm becomes a compliant strut. `lower` (0..1) lets the shoulders down by bending the elbows.
+   */
+  kneelArms(k, dt, lower) {
+    const ch = this.seg.chest.body;
+    const gy = this.world.groundY;
+    const fx = Math.sin(k.yaw), fz = Math.cos(k.yaw), lx = fz, lz = -fx;
+    if (!this.braceLatch) this.braceLatch = { L: null, R: null };
+    if (!this.kneelReach) this.kneelReach = { L: null, R: null };
+    const arm = this._armOut || (this._armOut = { upper: new Quat(), fore: new Quat(), reach: 0 });
+    this.jt.kneeL.worldAnchor(_v1);
+    this.jt.kneeR.worldAnchor(_v2);
+    const kx = (_v1.x + _v2.x) / 2, kz = (_v1.z + _v2.z) / 2;
+    const pole = new Vec3();
+    for (const s of SIDES) {
+      if (this.armStrength[s] < 0.15) continue; // a useless arm just hangs
+      if (this.armTask[s] && this.armTask[s].priority > 2) continue;
+      const sg = s === 'L' ? 1 : -1;
+      const sh = ch.localToWorld(this.geo['shoulderAnchor' + s], new Vec3());
+      const hand = this.seg['hand' + s].body;
+      if (!this.braceLatch[s] && hand.groundContact) this.braceLatch[s] = hand.pos.clone();
+      const latch = this.braceLatch[s];
+      pole.set(-fx + lx * sg * 0.5, 0.3, -fz + lz * sg * 0.5); // elbows back and out
+      if (latch) {
+        _v1.copy(latch);
+        _v1.y = gy + 0.05;
+        this.armIK(s, sh, _v1, pole, arm);
+        // letting the body down: the arms soften and the elbows bend under the weight (eccentric
+        // triceps; the descent itself is rate-limited in doKneelFall)
+        const soft = 1 - 0.65 * lower;
+        this.setWorld('shoulder' + s, arm.upper, 280 * soft, 16, 150 * soft);
+        _q0.multiplyConjA(arm.upper, arm.fore);
+        this.setRel('elbow' + s, _q0, 150 * soft, 9, 115 * soft);
+        this.cmd['elbow' + s].gc = 1.6 * soft;
+        this.palmDown(s, this.fallDir);
+        continue;
+      }
+      _v1.set(kx + fx * 0.34 + lx * sg * 0.17, gy + 0.03, kz + fz * 0.34 + lz * sg * 0.17);
+      // nearly straight but never locked, so the elbows can yield as the hands land
+      const reachMax = (this.geo['A1' + s] + this.geo['A2' + s]) * 0.95;
+      _v0.subVectors(_v1, sh);
+      if (_v0.length() > reachMax) _v1.copy(sh).addScaled(_v0, reachMax / _v0.length());
+      let rr = this.kneelReach[s];
+      if (!rr) rr = this.kneelReach[s] = hand.localToWorld(this.geo['wristInHand' + s], new Vec3()).sub(sh);
+      _v0.subVectors(_v1, sh).sub(rr);
+      const step = 2.5 * dt, dl = _v0.length();
+      rr.addScaled(_v0, dl > step ? step / dl : 1);
+      _v1.addVectors(sh, rr);
+      this.armIK(s, sh, _v1, pole, arm);
+      this.setWorld('shoulder' + s, arm.upper, 200, 13, 120);
+      this.feedForward('shoulder' + s, arm.upper, dt);
+      _q0.multiplyConjA(arm.upper, arm.fore);
+      this.setRel('elbow' + s, _q0, 110, 5, 95);
+      this.palmDown(s, this.fallDir);
+    }
+  }
+
+  braceArms(fd, along, left, dt = 1 / 60) {
     const chest = this.seg.chest.body;
     const S = this.sens;
     const gy = this.world.groundY;
@@ -1706,13 +1933,13 @@ export class HumanController {
       _v3.subVectors(_v1, _v0);
       if (_v3.length() > reachMax) _v1.copy(_v0).addScaled(_v3, reachMax / _v3.length());
       _v3.subVectors(_v1, _v0).sub(rr);
-      const step = 2.5 / 60, dl = _v3.length();
+      const step = 2.5 * dt, dl = _v3.length();
       rr.addScaled(_v3, dl > step ? step / dl : 1);
       _v1.addVectors(_v0, rr);
       const arm = this._armOut || (this._armOut = { upper: new Quat(), fore: new Quat(), reach: 0 });
       this.armIK(s, _v0, _v1, _v2, arm);
       this.setWorld('shoulder' + s, arm.upper, 200, 13, 120);
-      this.feedForward('shoulder' + s, arm.upper, 1 / 60);
+      this.feedForward('shoulder' + s, arm.upper, dt);
       _q0.multiplyConjA(arm.upper, arm.fore);
       this.setRel('elbow' + s, _q0, 110, 5, 95);
       this.palmDown(s, fd);
