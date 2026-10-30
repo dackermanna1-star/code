@@ -134,6 +134,9 @@ export class NavGrid {
    */
   findPath(from, to) {
     const { n, h } = this;
+    // (never right at the edge of the floor)
+    const lim = this.half - 0.4;
+    to = new Vec3(Math.max(-lim, Math.min(lim, to.x)), to.y, Math.max(-lim, Math.min(lim, to.z)));
     const s0 = this.cellOf(from.x, from.z);
     const g0 = this.cellOf(to.x, to.z);
     const s = this.nearestFree(s0[0], s0[1]) || s0;

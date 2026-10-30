@@ -8,6 +8,7 @@ const _c = new Vec3();
 const _p = new Vec3();
 
 const ANKLE_H = 0.085; // ankle joint above the sole
+const BALL = new Vec3(0, -0.03, 0.09); // ball of the foot (sole, under the toe joints) in the foot frame
 const HEEL = 0.06, TOE = 0.2; // sole extent behind / ahead of the ankle
 const MAX_RISE = 0.25; // highest step up (or down) a foot is put on
 
@@ -29,9 +30,10 @@ export class Locomotion {
   constructor(ctl) {
     this.ctl = ctl;
     this.maxSpeed = 1.25; // m/s, comfortable walking speed of a healthy adult
-    this.width = 0.13; // step width (between the ankles; feet land close to the midline)
+    this.width = 0.17; // step width (between the ankles; the feet pass each other closely)
     this.look = new Vec3();
     this.dir = new Vec3(0, 0, 1);
+    this.violation = new Vec3(); // how far the planned foothold was pulled in (world, m)
     this.reset();
   }
 
@@ -93,6 +95,7 @@ export class Locomotion {
   }
 
   finish(status = 'arrived') {
+    this.planted = null;
     const nav = this.ctl.nav;
     if (nav && !nav.done) {
       nav.done = true;
@@ -211,25 +214,25 @@ export class Locomotion {
     const err = wrapAngle(desiredYaw - c.heading);
     const vmax = (nav.speed ?? this.maxSpeed) * (0.35 + 0.65 * fit);
     const vArrive = Math.sqrt(2 * 0.75 * Math.max(0, remaining - 0.12));
-    const turn = clamp(1.5 - Math.abs(err), 0, 1);
+    // a sharp turn is mostly made first, in a few slow turning steps
+    const turn = clamp(1 - (Math.abs(err) - 0.3) / 0.6, 0, 1);
     let vt = Math.min(vmax, vArrive) * turn * crowdSlow;
     if (this.pause > 0) vt = 0;
     this.speed = approach(this.speed, vt, (vt > this.speed ? 0.8 : 1.6) * dt);
 
-    // ---- heading: turned toward the walking direction at a natural rate; the pelvis can only be
-    // turned so far against a planted foot, the rest of a turn happens with the next steps
-    const rate = v < 0.4 ? 2.4 : 1.5;
-    let h = c.heading + clamp(err, -rate * dt, rate * dt);
+    // ---- heading: people turn with their steps - each walking step lands the foot turned toward
+    // the way to go (up to ~0.6 rad on the spot, ~0.35 at walking pace), and the body turns along
+    // with that swing; between steps it holds
     const st = c.step;
-    const ref = st ? c.footYaw(st.stance) : this.meanFootYaw();
-    const lim = st ? 0.55 : 0.45;
-    h = ref + clamp(wrapAngle(h - ref), -lim, lim);
-    c.heading = h;
+    if (st && st.kind === 'walk' && st.turnTo !== undefined) c.heading = approach(c.heading, c.heading + wrapAngle(st.turnTo - c.heading), 3.0 * dt);
+    this.err = err;
 
-    // ---- arrival / stopping
-    if (remaining < 0.22 || (remaining < 0.45 && v < 0.15 && this.speed < 0.2 && Math.abs(err) < 2)) this.state = 'stop';
-    else if (this.state === 'stop' && remaining > 0.6) this.state = 'walk';
-    if (this.state === 'stop' && !c.step && v < 0.1 && S.footContact.L && S.footContact.R && this.pause <= 0) {
+    // ---- arrival / stopping (close enough is there: nobody turns round for the last 40 cm)
+    const last = nav.goalIndex === undefined || !nav.goals || nav.goalIndex >= nav.goals.length - 1;
+    if (last && (remaining < 0.25 || (remaining < 0.5 && (v < 0.2 || Math.abs(err) > 1.2)))) this.state = 'stop';
+    else if (this.state === 'stop' && remaining > 0.8) this.state = 'walk';
+    this.stopT = this.state === 'stop' ? (this.stopT || 0) + dt : 0;
+    if (this.state === 'stop' && ((!c.step && v < 0.12 && S.footContact.L && S.footContact.R && this.pause <= 0) || this.stopT > 2.5)) {
       this.finish('arrived');
       return;
     }
@@ -262,8 +265,20 @@ export class Locomotion {
   }
 
   meanFootYaw() {
-    const a = this.ctl.footYaw('L'), b = this.ctl.footYaw('R');
+    const a = this.plantYaw('L'), b = this.plantYaw('R');
     return Math.atan2(Math.sin(a) + Math.sin(b), Math.cos(a) + Math.cos(b));
+  }
+
+  /** Yaw a foot was put down with (the stance ankle keeps it), else its current yaw. */
+  plantYaw(s) {
+    const p = this.planted;
+    return p && p[s] !== null ? p[s] : this.ctl.footYaw(s);
+  }
+
+  /** A walking step has landed: remember the yaw the foot was put down with. */
+  onLand(st) {
+    const p = this.planted || (this.planted = { L: null, R: null });
+    p[st.foot] = this.active ? st.yaw : null;
   }
 
   /** Point `dist` metres further along the route from the projection of P on the current leg. */
@@ -327,8 +342,10 @@ export class Locomotion {
       const sc = c.soleCenter(stance, _a), sw = c.soleCenter(foot, _b);
       const ax = sw.x - sc.x, az = sw.z - sc.z, al = Math.hypot(ax, az) || 1;
       const toward = ((S.cp.x - sc.x) * ax + (S.cp.z - sc.z) * az) / al;
-      const ready = toward < 0.05 || this.shift.t > 0.8;
-      if (!ready || this.shift.t < 0.12) return true;
+      // (turning on the spot, the steps are small: a partial shift will do)
+      const turning = Math.abs(this.err || 0) > 0.6;
+      const ready = toward < (turning ? 0.07 : 0.05) || this.shift.t > (turning ? 0.4 : 0.7);
+      if (!ready || this.shift.t < 0.1) return true;
     } else if (this.ds < this.dsTime(this.speed)) return true;
     this.shift = null;
     c.beginStep(foot, 'walk');
@@ -351,12 +368,14 @@ export class Locomotion {
   chooseFoot() {
     const c = this.ctl, S = c.sens;
     if (this.nextFoot && S.footContact[other(this.nextFoot)]) return this.nextFoot;
-    // starting off: the trailing foot goes first; side by side, the one on the inside of the turn
+    // starting off: into a turn the inside foot goes first (an open step, no crossing); straight
+    // on, the trailing foot
+    const err = wrapAngle(Math.atan2(this.dir.x, this.dir.z) - c.heading);
+    if (Math.abs(err) > 0.45) return err > 0 ? 'L' : 'R';
     const a = c.soleCenter('L', _a), b = c.soleCenter('R', _b);
     const fL = a.x * this.dir.x + a.z * this.dir.z, fR = b.x * this.dir.x + b.z * this.dir.z;
     if (Math.abs(fL - fR) > 0.05) return fL < fR ? 'L' : 'R';
-    const err = wrapAngle(Math.atan2(this.dir.x, this.dir.z) - c.heading);
-    if (Math.abs(err) > 0.3) return err > 0 ? 'L' : 'R';
+    if (Math.abs(err) > 0.2) return err > 0 ? 'L' : 'R';
     return S.footLoad.L < S.footLoad.R ? 'L' : 'R';
   }
 
@@ -365,6 +384,15 @@ export class Locomotion {
   setupStep(st) {
     const c = this.ctl;
     const v = this.speed;
+    // the turn this step makes (from where the stance foot points)
+    const want = Math.atan2(this.dir.x, this.dir.z);
+    const maxTurn = lerp(0.6, 0.35, clamp(v / 1.0, 0, 1));
+    const from = this.plantYaw(st.stance);
+    st.turnTo = from + clamp(wrapAngle(want - from), -maxTurn, maxTurn);
+    // (a turn away from the swinging foot's side is limited: the legs would cross)
+    const side = st.foot === 'L' ? 1 : -1;
+    const tw = wrapAngle(st.turnTo - from);
+    if (tw * side < -0.25) st.turnTo = from - side * 0.25;
     st.walkV = v;
     st.duration = this.swingTime(v);
     // antalgic gait: weight is taken off a hurt leg quickly (short stance on it, short swing of
@@ -384,7 +412,8 @@ export class Locomotion {
     const w = S.w0;
     const e = Math.exp(w * rem);
     let xx = p.x + (S.cpB.x - p.x) * e, xz = p.z + (S.cpB.z - p.z) * e;
-    const yaw = c.heading;
+    // in the frame the foot will land in (turned with this step)
+    const yaw = st.turnTo ?? c.heading;
     const hx = Math.sin(yaw), hz = Math.cos(yaw), lx = hz, lz = -hx;
     const v = this.state === 'stop' ? 0 : Math.min(this.speed, (st.walkV ?? this.speed) + 0.35);
     const T = this.swingTime(v) + this.dsTime(v);
@@ -397,7 +426,8 @@ export class Locomotion {
     // stopping: the last step brings the capture point to the middle of the feet
     // (with a margin: the pendulum prediction is only so good, and a capture point that ends up
     // outside the stance foot could only be caught by crossing the legs)
-    const beta = v < 0.05 ? Math.max(0.09, this.width * 0.5) : Math.max(this.width / (1 + eT), 0.04);
+    // (turning on the spot keeps the sway going, like walking in place: no new weight shift needed)
+    const beta = this.state === 'stop' ? Math.max(0.09, this.width * 0.5) : Math.max(this.width / (1 + eT), 0.05);
     // walk along the route direction (the feet turn with the heading); drifted off the route
     // line, every foothold moves toward the drift so the body sways back onto it
     const ct = this.crossTrack;
@@ -410,7 +440,7 @@ export class Locomotion {
     const rawF = fwd, rawL = lat;
     // the feet are ~10 cm wide: side by side they need that much room (a foot well ahead or
     // behind may come closer to the midline)
-    const minLat = lerp(0.11, 0.05, smoothstep(0.25, 0.4, Math.abs(fwd)));
+    const minLat = lerp(0.13, 0.08, smoothstep(0.25, 0.45, Math.abs(fwd)));
     lat = side * clamp(side * lat, minLat, 0.42);
     fwd = clamp(fwd, -0.4, 0.85);
     const len = Math.hypot(fwd, lat);
@@ -418,9 +448,14 @@ export class Locomotion {
       fwd *= 0.92 / len;
       lat *= 0.92 / len;
     }
+    // what the foothold had to give up (it is clamped to a natural stride): the balance helper
+    // nudges the body back so the steps stay feasible (see HumanController.commit)
+    const vf = rawF - fwd, vl = rawL - lat;
+    this.violation.set(hx * vf + lx * vl, 0, hz * vf + lz * vl);
     // a shove or a hit asks for more than a walking step can give: this one becomes a catch step
     // (crossovers allowed) and walking resumes once the balance is back
-    if (Math.hypot(rawF - fwd, rawL - lat) > 0.2 && st.t > 0.03) {
+    if (Math.hypot(vf, vl) > 0.2 && st.t > 0.03) {
+      this.violation.setZero();
       if (globalThis.__walkDebug) console.log('toCatch', st.foot, 'raw', rawF.toFixed(2), rawL.toFixed(2), 'clamped', fwd.toFixed(2), lat.toFixed(2), 'phase', (st.t / st.duration).toFixed(2));
       st.kind = 'catch';
       this.pause = Math.max(this.pause, 0.8);
@@ -533,6 +568,42 @@ export class Locomotion {
     const N = prof.length - 1;
     const f = clamp(u, 0, 1) * N, k = Math.min(N - 1, Math.floor(f)), t = f - k;
     return prof[k] * (1 - t) + prof[k + 1] * t;
+  }
+
+  /**
+   * Heel-off of the trailing stance foot: in late stance the foot rolls onto its ball, which lifts
+   * the ankle and keeps that leg long (without it a long stride forces the pelvis down into a
+   * crouch, and a crouched stance leg brakes every step), and the calf pushes the body on. Writes
+   * the ankle position for the rolled foot into `ankleOut`; returns the foot pitch (rad, toes down).
+   */
+  heelOff(s, dt, ankleOut) {
+    const c = this.ctl, S = c.sens;
+    const heel = this.heel || (this.heel = { L: 0, R: 0 });
+    const hx = Math.sin(c.heading), hz = Math.cos(c.heading);
+    const a = c.ankleWorld(s, ankleOut);
+    const o = c.ankleWorld(other(s), _b);
+    const pel = c.seg.pelvis.body.pos;
+    const back = -((a.x - pel.x) * hx + (a.z - pel.z) * hz);
+    const lead = (o.x - a.x) * hx + (o.z - a.z) * hz;
+    if (c.step && c.step.foot === s) {
+      // swinging: the next stance starts flat-footed
+      heel[s] = 0;
+      return 0;
+    }
+    let goal = 0;
+    if (this.stepping && S.footContact[s] && lead > 0.12) goal = clamp((back - 0.06) * 2.0, 0, 0.6);
+    heel[s] = approach(heel[s], goal, (goal > heel[s] ? 3.5 : 6) * dt);
+    const th = heel[s];
+    if (th < 0.01) return 0;
+    // roll about the ball of the foot, where it is now
+    const fb = c.seg['foot' + s].body;
+    const ball = fb.localToWorld(BALL, _c);
+    const rel = _p.subVectors(c.geo['ankleInFoot' + s], BALL);
+    // rotate the foot-frame offset by (foot yaw) * (pitch toes down)
+    const yaw = c.footYaw(s), cy = Math.cos(yaw), sy = Math.sin(yaw), cp = Math.cos(th), sp = Math.sin(th);
+    const ry = rel.y * cp - rel.z * sp, rz = rel.y * sp + rel.z * cp;
+    ankleOut.set(ball.x + rel.x * cy + rz * sy, Math.max(ball.y, S.footFloor[s]) + ry, ball.z - rel.x * sy + rz * cy);
+    return th;
   }
 
   /** Arm swing (shoulder flexion, rad) from where the feet are: each arm swings with the opposite leg. */
