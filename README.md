@@ -237,6 +237,7 @@ Headless benchmarks measure the behaviour objectively (`bash tools/bench/all.sh`
 | `getup.mjs`, `lying.mjs` | knock-downs and lying starts: getting up, first-attempt rate, time |
 | `kneelfall.mjs` | collapses after leg and gut wounds: knock-outs and head strikes |
 | `lethality.mjs` | gunshot lethality against physiological expectations |
+| `volley.mjs` | time to death after volleys of N rounds to the torso and thighs |
 
 ## Project layout
 

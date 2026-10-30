@@ -124,7 +124,7 @@ export class ViewModel {
     this.pitch += this.pitchV * dt;
     this.sway += dt;
     // hold the gun at the lower right, barrel converging on the aim point
-    const base = new THREE.Vector3(0.2, -0.17 + Math.sin(this.sway * 1.3) * 0.002, -0.52);
+    const base = new THREE.Vector3(0.22, -0.19 + Math.sin(this.sway * 1.3) * 0.002, -0.62);
     this.root.position.copy(base);
     this.root.position.z += Math.max(this.kick, -0.02) * 0.06;
     const target = this.aim.clone().multiplyScalar(6);
