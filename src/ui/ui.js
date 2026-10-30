@@ -155,6 +155,7 @@ export class UI {
         <div class="bar"><span class="k">Blood volume</span><span class="b"><i class="blood"></i></span><span class="t blood-t">5000 mL</span></div>
         <div class="bar"><span class="k">Pain</span><span class="b"><i class="pain"></i></span><span class="t pain-t">0%</span></div>
         <div class="bar"><span class="k">Muscle tone</span><span class="b"><i class="tone"></i></span><span class="t tone-t">100%</span></div>
+        <div class="bar" title="Injury Severity Score (0-75): sum of squares of the worst AIS grades in the three most injured body regions"><span class="k">Trauma (ISS)</span><span class="b"><i class="iss" style="width:0;background:linear-gradient(90deg,#b07cff,#ff4d4d)"></i></span><span class="t iss-t">0</span></div>
       </div>
       <div class="flags"></div>
       <h4>Injuries</h4>
@@ -222,7 +223,7 @@ export class UI {
     st.dataset.s = v.status;
     q('.hr').textContent = v.alive ? v.hr : '0';
     q('.bp').textContent = v.alive ? v.bp : '0/0';
-    q('.spo2').textContent = v.alive ? v.spo2 : '—';
+    q('.spo2').textContent = v.alive && v.spo2 !== null ? v.spo2 : '—'; // no pulse, no oximeter reading
     q('.bleed').textContent = (v.bleedRate * 60).toFixed(0);
     const bp = Math.max(0, Math.min(1, v.blood / 5000));
     q('.blood').style.width = `${bp * 100}%`;
@@ -233,9 +234,14 @@ export class UI {
     const tone = person.ctl.tone;
     q('.tone').style.width = `${tone * 100}%`;
     q('.tone-t').textContent = `${Math.round(tone * 100)}%`;
+    q('.iss').style.width = `${Math.min(1, v.iss / 75) * 100}%`;
+    q('.iss-t').textContent = v.iss ? `${v.iss} ${v.issLabel}` : '0';
     const flags = [];
     if (!v.alive) flags.push(['dead', `Dead — ${v.deathCause}`]);
+    else if (v.status === 'cardiac arrest') flags.push(['bad', `No pulse (${v.rhythm}) — agonal gasps`]);
     else if (!v.conscious) flags.push(['bad', 'Unconscious']);
+    if (v.alive) for (const c of v.conditions) flags.push(['bad', c]);
+    if (v.alive && v.status !== 'cardiac arrest' && v.rr > 24) flags.push(['warn', `Breathing ${v.rr}/min`]);
     if (v.spinal) flags.push(['bad', `Spinal cord injury (${v.spinal})`]);
     if (v.concussion > 0.2) flags.push(['warn', 'Concussed']);
     if (v.externalRate > 3) flags.push(['bad', 'Heavy external bleeding']);
@@ -269,15 +275,25 @@ export class UI {
     const c = this.ecgCtx;
     const W = this.ecg.width, H = this.ecg.height;
     const alive = person && person.injury.alive;
-    const hr = person ? person.injury.hr : 0;
+    const rhythm = person ? person.injury.rhythm : 'asystole';
+    const pulse = alive && person.injury.arrestTime < 0;
+    // pulseless electrical activity: slow, wide complexes; ventricular fibrillation: chaotic waves
+    const hr = pulse ? person.injury.hr : rhythm === 'PEA' ? 34 : 0;
     const speed = 60; // px/s
     const steps = Math.max(1, Math.round(dt * speed));
     for (let s = 0; s < steps; s++) {
       this.ecgPhase += (hr / 60) * (1 / speed);
+      this.ecgT = (this.ecgT || 0) + 1 / speed;
       const ph = this.ecgPhase % 1;
       // P-QRS-T waveform
       let y = 0;
-      if (alive && hr > 5) {
+      if (alive && rhythm === 'VF') {
+        const t = this.ecgT;
+        y = 0.38 * Math.sin(t * 2 * Math.PI * 5.1) + 0.22 * Math.sin(t * 2 * Math.PI * 7.7 + 1.3) + 0.12 * Math.sin(t * 2 * Math.PI * 2.3);
+      } else if (alive && rhythm === 'PEA') {
+        y += 0.5 * Math.exp(-Math.pow((ph - 0.25) / 0.035, 2));
+        y -= 0.2 * Math.exp(-Math.pow((ph - 0.33) / 0.04, 2));
+      } else if (pulse && hr > 5) {
         y += 0.12 * Math.exp(-Math.pow((ph - 0.12) / 0.025, 2));
         y -= 0.15 * Math.exp(-Math.pow((ph - 0.21) / 0.008, 2));
         y += 1.0 * Math.exp(-Math.pow((ph - 0.23) / 0.009, 2));
@@ -288,7 +304,7 @@ export class UI {
       const x = this.ecgX;
       c.fillStyle = 'rgba(8,14,12,1)';
       c.fillRect(x, 0, 3, H);
-      c.strokeStyle = alive ? '#4cff9a' : '#ff5a5a';
+      c.strokeStyle = pulse ? '#4cff9a' : '#ff5a5a';
       c.lineWidth = 1.5;
       c.beginPath();
       c.moveTo(x - 1, this._lastY ?? H * 0.65);
