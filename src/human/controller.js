@@ -226,6 +226,7 @@ export class HumanController {
     this.settleFoot = null;
     this.settleTime = 0;
     this.awkwardTime = 0;
+    this.resetGetUp();
   }
 
   setMode(m) {
@@ -374,6 +375,7 @@ export class HumanController {
     } else if (this.mode === 'getup') {
       if (this.modeTime > 14) this.failGetUp('timeout');
       else if (!this.ableToGetUp(true)) this.failGetUp('unable');
+      else if (this.getUpToppling()) this.failGetUp('toppled');
     }
   }
 
@@ -1679,7 +1681,7 @@ export class HumanController {
   }
 
   /** Palm-down hand on the floor, fingers forward and a little outward. */
-  palmDown(s, psi, out) {
+  floorPalm(s, psi, out) {
     const sg = s === 'L' ? 1 : -1, a = psi + 0.35 * sg;
     return this.palmRot(s, _v3.set(0, -1, 0), this.guScratch().e.set(Math.sin(a), 0, Math.cos(a)), out);
   }
@@ -1708,7 +1710,7 @@ export class HumanController {
     this.setRel('shoulder' + s, gs.q, 220 * k, 13 * k, 95);
     gs.q.multiplyConjA(gs.arm.upper, gs.arm.fore);
     this.setRel('elbow' + s, gs.q, 130 * k, 6 * k, 70);
-    this.setWorld('wrist' + s, this.palmDown(s, psi, gs.palm), 14, 0.5, 16);
+    this.setWorld('wrist' + s, this.floorPalm(s, psi, gs.palm), 14, 0.5, 16);
   }
 
   /** Free arm reaching its wrist toward a world point (elbow toward `pole`). */
@@ -1859,6 +1861,18 @@ export class HumanController {
   // the weight (statics above, over the measured floor contacts), IK posture targets shape the
   // motion, and only a small assistGain-scaled helper remains (Euphoria-style assistance).
 
+  /** Forget any get-up / lying-down state (fresh controller, or one reset mid-attempt). */
+  resetGetUp() {
+    this.gu = null;
+    this.groundState = null;
+    this.getUpFails = 0;
+    this.lastGetUpFail = undefined;
+    this.restTime = 0;
+    this.wokeAt = undefined;
+    // (a get-up switches the generic upper-body gravity compensation off)
+    if (this.cmd) this.setUpperGC(1);
+  }
+
   /** Disorientation after waking from a knockout (1 -> 0 over ~15 s). */
   daze() {
     return this.wokeAt === undefined ? 0 : Math.exp(-(this.time - this.wokeAt) / 15);
@@ -1888,18 +1902,60 @@ export class HumanController {
     return this.restTime > wait && this.ableToGetUp() && this.time - (this.lastGetUpFail ?? -100) > 3;
   }
 
+  /**
+   * Give up this attempt. Still up off the floor (kneeling, half kneeling, rising), the body goes
+   * down as in any fall: the protective reflexes brace the arms toward the floor and tuck the chin
+   * (a collapse from there without them can knock the dummy out); low down it just lies down.
+   */
   failGetUp(reason = '') {
+    const S = this.sens;
     this.lastGetUpFail = this.time;
     this.getUpFails = (this.getUpFails || 0) + 1;
     this.restTime = 0;
     this.events.push({ type: 'getupFail', phase: this.gu ? this.gu.phase : null, reason, time: this.time });
-    this.setMode('ground');
+    this.setUpperGC(1);
+    if (S.com.y - this.world.groundY > 0.42) {
+      this.fallDir.set(S.comVel.x, 0, S.comVel.z);
+      if (this.fallDir.lengthSq() < 0.01) {
+        _v0.set(0, 1, 0).applyQuat(this.seg.chest.body.rot);
+        this.fallDir.set(_v0.x, 0, _v0.z);
+      }
+      if (this.fallDir.lengthSq() < 1e-6) this.fallDir.set(Math.sin(this.heading), 0, Math.cos(this.heading));
+      this.fallDir.normalize();
+      this.setMode('falling');
+    } else this.setMode('ground');
   }
 
-  /** Speed of the attempt: slower when weak, dizzy, dazed or in pain. */
+  /**
+   * Losing it while up on the knees or feet: the weight dropping fast, rushing off sideways, or the
+   * trunk toppling over. (A get-up never moves like that when it goes well.)
+   */
+  getUpToppling() {
+    const g = this.gu, S = this.sens;
+    if (!g || g.t < 0.2 || !g.start || !/^(kneel|lunge|rise|stepup)$/.test(g.phase)) return false;
+    if (S.com.y - this.world.groundY < 0.4) return false;
+    // (generous: a quickly swinging leg alone moves the whole-body COM at ~0.5 m/s)
+    if (S.comVel.y < -0.8 || Math.hypot(S.comVel.x, S.comVel.z) > 1.1) return true;
+    // upright (kneeling up, half kneeling, rising): the trunk tipping over well past where it is
+    // meant to be, caught early, while there is still time to get the hands out (from a tall
+    // kneel the face reaches the floor in ~0.4 s)
+    if (g.phase === 'kneel' && (g.start.q || 0) < 0.9) return false;
+    const ch = this.seg.chest.body;
+    const meant = g.phase === 'rise' ? 0.45 : 0.15;
+    // (rate of tipping: angular velocity about the axis that would turn the chest back upright)
+    const ax = _v1.crossVectors(_v0.set(0, 1, 0).applyQuat(ch.rot), UP), al = ax.length();
+    const tipRate = al > 1e-4 ? -ch.angVel.dot(ax) / al : 0;
+    return S.chestTilt > meant + 0.6 || (S.chestTilt > meant + 0.35 && tipRate > 1.5);
+  }
+
+  /**
+   * Speed of the attempt: slower when weak, dizzy, dazed or in pain. (Pain enters through the
+   * balance skill, which the injury model already lowers with it, and through the weakness of a
+   * hurting limb; it is not counted a second time here.)
+   */
   getUpPace() {
     const legs = Math.min(this.legStrength.L, this.legStrength.R);
-    return clamp(1 - 0.45 * (1 - this.balanceSkill) - 0.4 * (1 - legs) - 0.35 * this.daze() - 0.2 * smoothstep(0.4, 0.9, this.pain), 0.4, 1);
+    return clamp(1 - 0.45 * (1 - this.balanceSkill) - 0.4 * (1 - legs) - 0.35 * this.daze(), 0.4, 1);
   }
 
   beginGetUp() {
@@ -1910,12 +1966,38 @@ export class HumanController {
     ax.y = 0;
     if (ax.lengthSq() < 1e-4) ax.set(Math.sin(this.heading), 0, Math.cos(this.heading));
     ax.normalize();
-    const kind = front.y < -0.5 ? 'prone' : front.y > 0.5 ? 'supine' : left.y > 0 ? 'sideR' : 'sideL';
+    let kind = front.y < -0.5 ? 'prone' : front.y > 0.5 ? 'supine' : left.y > 0 ? 'sideR' : 'sideL';
     const useArm = { L: this.armStrength.L > 0.3, R: this.armStrength.R > 0.3 };
+    // Already up on the knees (e.g. dropped onto them when the legs gave way, then onto the hands):
+    // the get-up carries on from there, as people do, rather than lying down first.
+    const gy = this.world.groundY, sg = this.seg;
+    const kneesDown = (sg.thighL.body.groundContact || sg.shinL.body.groundContact) && (sg.thighR.body.groundContact || sg.shinR.body.groundContact);
+    let phase = kind === 'prone' ? 'flat' : 'roll';
+    if (kneesDown && pel.pos.y - gy > 0.33 && chest.pos.y - gy > 0.3) {
+      kind = 'kneeling';
+      phase = this.sens.chestTilt < 0.7 ? 'kneel' : 'quad';
+      // facing from the knees toward the chest
+      _v0.set(0.5 * (sg.thighL.body.pos.x + sg.thighR.body.pos.x), 0, 0.5 * (sg.thighL.body.pos.z + sg.thighR.body.pos.z));
+      ax.set(chest.pos.x - _v0.x, 0, chest.pos.z - _v0.z);
+      if (ax.lengthSq() < 1e-4) ax.set(Math.sin(this.heading), 0, Math.cos(this.heading));
+      ax.normalize();
+    }
     const g = {
-      kind, phase: kind === 'prone' ? 'flat' : 'roll', t: 0, T: 0, pt: 0, psi: Math.atan2(ax.x, ax.z), start: null,
+      kind, phase, t: 0, T: 0, pt: 0, psi: Math.atan2(ax.x, ax.z), start: null,
       useArm, hand: { L: null, R: null }, pace: this.getUpPace(), cands: [], rollTo: 'L', front: 'R',
     };
+    // hands already on the floor stay where they are; one still in the air goes down beside its
+    // shoulder
+    if (phase === 'quad') {
+      for (const s of SIDES) {
+        if (!useArm[s]) continue;
+        if (sg['hand' + s].body.groundContact) {
+          const wr = this.jt['wrist' + s].worldAnchor(new Vec3());
+          wr.y = Math.min(wr.y, gy + 0.06);
+          g.hand[s] = { planted: true, at: wr };
+        } else this.planHand(g, s, useArm.L !== useArm.R, true);
+      }
+    }
     // roll toward the side already lower; face up with one bad arm, roll onto the good side so
     // that arm ends up underneath, ready to push, and the injured one stays on top
     if (kind === 'sideL') g.rollTo = 'L';
@@ -1944,6 +2026,14 @@ export class HumanController {
     g.pace = approach(g.pace, this.getUpPace(), dt * 0.5);
     g.t += dt * g.pace;
     g.T += dt;
+    // an arm that gives out during the attempt (e.g. broken on the way) is no longer leaned on: it
+    // is guarded against the body, and the attempt carries on one-armed (or ends, see ableToGetUp)
+    for (const s of SIDES) {
+      if (g.useArm[s] && this.armStrength[s] < 0.22) {
+        g.useArm[s] = false;
+        g.hand[s] = null;
+      }
+    }
     g.dt = dt;
     this.frameNo = (this.frameNo || 0) + 1;
     this.dtLast = dt;
@@ -1976,6 +2066,9 @@ export class HumanController {
         break;
       case 'rise':
         this.guRise(g, dt);
+        break;
+      case 'stepup':
+        this.guStepUp(g, dt);
         break;
     }
     if (this.mode !== 'getup') return;
@@ -2087,7 +2180,7 @@ export class HumanController {
     const A = gs.h.subVectors(chest.pos, pel.pos).normalize();
     const w = 0.5 * (chest.angVel.dot(A) + pel.angVel.dot(A)) * rs;
     if (armUp || t > 1.5) g.start.go = true;
-    const wT = g.start.go ? 1.8 * g.pace * lead : 0;
+    const wT = g.start.go ? 2.3 * g.pace * lead : 0;
     const tq = clamp(25 * (wT - w), -30, 45) * this.assistGain;
     chest.torque.addScaled(A, tq * rs * 0.6);
     pel.torque.addScaled(A, tq * rs * 0.4);
@@ -2138,19 +2231,38 @@ export class HumanController {
         if (st[s] === 'out' && at[s].lat > 0.22) st[s] = 'side';
       }
     }
-    let ready = true;
+    let ready = true, propped = true;
+    for (const s of SIDES) {
+      // a hand already on the floor beside the chest, about level with or a little ahead of its
+      // shoulder (e.g. propped up on the forearms after rolling over), is where a push-up starts:
+      // it stays there (about where a push-up puts it: just outside the shoulder, not under the
+      // chest, not so far out that the arm would push sideways and slide away)
+      const usable = this.seg['hand' + s].body.groundContact && at[s].lat > 0.16 && at[s].lat < 0.36 && at[s].ahead > -0.1 && at[s].ahead < 0.3;
+      if (g.useArm[s] && !usable) propped = false;
+    }
+    // (a lone arm always goes to its own spot, further ahead and nearer the middle)
+    if (g.useArm.L !== g.useArm.R) propped = false;
+    // Propped up on an arm that is not in a push-up spot (say on one forearm, the other hand behind):
+    // the arms first give way and let the chest down onto the floor, from where they can be
+    // brought to the sides (an arm carrying the chest cannot be moved, and pushing up from a
+    // lopsided prop rolls the body over).
+    const chestUp = chest.pos.y - this.world.groundY;
+    if (!propped && chestUp > 0.2) g.start.letDown = true;
+    else if (chestUp < 0.165) g.start.letDown = false;
     for (const s of SIDES) {
       const sg = s === 'L' ? 1 : -1;
       if (st[s] === 'guard') {
         this.guardArm(s);
         continue;
       }
-      if (st[s] === 'out') this.setRel('shoulder' + s, _q0.setFromEuler(-0.2, 0, 1.45 * sg, 'XYZ'), 140, 10, 90);
-      else this.setRel('shoulder' + s, _q0.setFromEuler(0.1, 0, (st[s] === 'trapped' ? 0.35 : 0.12) * sg, 'XYZ'), 140, 10, 90);
-      this.setRel('elbow' + s, _q1.identity(), 50, 3, 50);
+      const ka = g.start.letDown ? 0.2 : 1;
+      if (st[s] === 'out') this.setRel('shoulder' + s, _q0.setFromEuler(-0.2, 0, 1.45 * sg, 'XYZ'), 140 * ka, 10 * ka, 90);
+      else this.setRel('shoulder' + s, _q0.setFromEuler(0.1, 0, (st[s] === 'trapped' ? 0.35 : 0.12) * sg, 'XYZ'), 140 * ka, 10 * ka, 90);
+      this.setRel('elbow' + s, _q1.identity(), 50 * ka * ka, 3 * ka, 50);
       this.setRel('wrist' + s, _q2.identity(), 6, 0.2, 8);
-      // (out to the side at shoulder height will do: the push-up places the hands from there)
-      if (at[s].ahead > 0.02 || at[s].lat < 0.12) ready = false;
+      // (by the side, out to the side or overhead all do, as long as the hand is clear of the
+      // chest: the push-up carries each hand round the outside of its shoulder to its spot)
+      if (at[s].lat < 0.12 || st[s] === 'trapped') ready = false;
     }
     // trunk muscles settle the body level, or, with an arm trapped under the chest, tipped a little
     // onto the other side, lifting that side of the chest off the arm
@@ -2162,9 +2274,22 @@ export class HumanController {
     const off = (a, b) => Math.abs((0.5 * (a.x + b.x) - pel.pos.x) * lx + (0.5 * (a.z + b.z) - pel.pos.z) * lz);
     // (and in line with the trunk: legs swept off to one side would kneel up skewed)
     const legsOk = off(kl, kr) < 0.1 && off(al, ar) < 0.15 && (kl.x - kr.x) * lx + (kl.z - kr.z) * lz > 0.1;
-    const fy = chest.localDirToWorld(FWD, gs.d).y;
-    if (fy < -0.8 && Math.abs(w) < 0.4 && ready && legsOk && g.t > 0.3) {
-      g.hand.L = g.hand.R = null;
+    const fy = chest.localDirToWorld(FWD, gs.d).y, tilt = Math.abs(chest.localDirToWorld(LAT, gs.d).y);
+    // Push off from here when lying face down with the arms ready (or propped on hands already
+    // placed for it). The arms and legs need not be tidy: after a while the push-up starts from
+    // wherever they are (the hands are planned from where they lie, a pinned one is drawn out
+    // round the shoulder), rather than giving up and rolling over again.
+    const faceDown = fy < -0.55 && tilt < 0.45;
+    const go = g.t > 0.3 && Math.abs(w) < 0.4 && ((fy < -0.8 && ready && (legsOk || g.t > 1)) || (faceDown && propped && g.t > 0.4) || (faceDown && g.t > 2));
+    if (go) {
+      for (const s of SIDES) {
+        g.hand[s] = null;
+        if (!propped || !g.useArm[s]) continue;
+        // the propped hands are planted where they are
+        const wr = this.jt['wrist' + s].worldAnchor(new Vec3());
+        wr.y = Math.min(wr.y, this.world.groundY + 0.06);
+        g.hand[s] = { planted: true, at: wr };
+      }
       this.getUpPhase(g, 'push');
     } else if (g.t > 3) this.failGetUp('flat');
   }
@@ -2184,6 +2309,20 @@ export class HumanController {
     chest.torque.addScaled(A, tq * 0.6);
     pel.torque.addScaled(A, tq * 0.4);
     return w;
+  }
+
+  /**
+   * How much arm `s` should shorten (m, negative = push out further) to keep a trunk propped on
+   * both hands level about its long axis: the side tipping down pushes harder, the other side
+   * gives (proportional to the side tilt and its rate; internal arm work, no helper).
+   */
+  rollFix(g, s) {
+    const gs = this.guScratch();
+    const chest = this.seg.chest.body, pel = this.seg.pelvis.body;
+    const A = gs.la.subVectors(chest.pos, pel.pos).normalize();
+    const w = 0.5 * (chest.angVel.dot(A) + pel.angVel.dot(A));
+    const tilt = chest.localDirToWorld(LAT, gs.lb).y;
+    return (s === 'L' ? 1 : -1) * (0.3 * tilt + 0.06 * w);
   }
 
   /**
@@ -2217,7 +2356,7 @@ export class HumanController {
     if (Math.cos(a0 + 0.5 * da - aOut) < -0.2) da -= Math.sign(da) * 2 * Math.PI;
     const a1 = a0 + da;
     const d = Math.abs(a1 - a0) * 0.3 + Math.abs(rad(to) - rad(from));
-    g.hand[s] = { from, to, sh: sh.clone(), a0, a1, r0: rad(from), r1: rad(to), t: 0, dur: clamp(0.25 + d * 0.9, 0.3, 0.7), planted: false, at: new Vec3() };
+    g.hand[s] = { from, to, sh: sh.clone(), a0, a1, r0: rad(from), r1: rad(to), t: 0, dur: clamp(0.2 + d * 0.6, 0.25, 0.5), planted: false, at: new Vec3() };
   }
 
   /** Wrist-shoulder distance of arm `s` now. */
@@ -2241,7 +2380,7 @@ export class HumanController {
     const tgt = gs.f.set(h.sh.x + Math.sin(an) * r, lerp(h.from.y, h.to.y, p) + 0.06 * bump - Math.max(0, x - 1) * 0.15, h.sh.z + Math.cos(an) * r);
     const fx = Math.sin(g.psi), fz = Math.cos(g.psi), sg = s === 'L' ? 1 : -1;
     // elbow out to the side and a little up/back
-    this.reachArm(s, tgt, gs.b.set(-0.4 * fx + fz * sg, 0.5, -0.4 * fz - fx * sg), 1, this.palmDown(s, g.psi, gs.palm));
+    this.reachArm(s, tgt, gs.b.set(-0.4 * fx + fz * sg, 0.5, -0.4 * fz - fx * sg), 1, this.floorPalm(s, g.psi, gs.palm));
     const hand = this.seg['hand' + s].body;
     const wr = this.jt['wrist' + s].worldAnchor(gs.c);
     // a hand that cannot quite get to its spot goes down where it is, but not under the chest
@@ -2278,7 +2417,7 @@ export class HumanController {
     // the knees: the knees are the pivots (they carry ~60% of the weight here, too much to slide
     // them in under the hips, which is also why people rock back rather than drag their knees)
     const t0 = g.start.planted < 0 ? Infinity : g.start.planted;
-    const pa = this.ease((t - t0) / 0.75), pp = this.ease((t - t0 - 0.3) / 0.85);
+    const pa = this.ease((t - t0) / 0.5), pp = this.ease((t - t0 - 0.1) / 0.7);
     const kn = g.start.knee;
     const L1 = this.geo.L1L;
     if (g.start.arc === undefined) {
@@ -2316,7 +2455,10 @@ export class HumanController {
           h.at.z = lerp(h.slideFrom.z, ez, k);
         }
       }
-      const reach = g.start.reach ? lerp(g.start.reach[s], 0.54, pa) : null;
+      // the trunk is kept level by the arms: one tipping toward its side pushes harder (extends),
+      // the other gives a little (a lopsided push would roll the chest over onto one hand)
+      const reach0 = g.start.reach ? lerp(g.start.reach[s], 0.54, pa) : null;
+      const reach = reach0 === null || one ? reach0 : reach0 + clamp(-this.rollFix(g, s), -0.08, 0.08);
       if (this.handToFloor(g, s, dt, reach, chestRot, 1)) this.addCand(g.cands, this.seg['hand' + s].body, this.armStrength[s] ** 2);
     }
     let hipY = 0;
@@ -2375,8 +2517,10 @@ export class HumanController {
     const chestRot = this.trunkRot(g.psi, Math.PI / 2 - clamp(up, -0.2, 0.6) - 0.05, 0, gs.chestRot);
     this.trunkPose(pelRot, chestRot, 0.9, -0.4, 0);
     const ca = Math.cos(1.35), sa = Math.sin(1.35);
-    // a hand far out of place (e.g. after rolling over) is walked to its shoulder (worst first)
-    if (!g.start.moving && g.t > 0.1) {
+    // a hand far out of place (e.g. after rolling over) is walked to its shoulder (worst first);
+    // never the only one there is (lifting it would drop the chest: kneeling up takes the weight
+    // off it first)
+    if (!g.start.moving && g.t > 0.1 && !one) {
       let worst = null, wd = 0.5;
       for (const s of SIDES) {
         const h = g.hand[s];
@@ -2465,8 +2609,10 @@ export class HumanController {
     const kn = g.start.knee;
     const kmx = 0.5 * (kn.L.x + kn.R.x), kmz = 0.5 * (kn.L.z + kn.R.z);
     const t = g.t;
-    // how far the centre of mass still is in front of the knees
-    const ahead = (S.com.x - kmx) * fx + (S.com.z - kmz) * fz;
+    // how far the centre of mass still is in front of the knees (where they are now: they may have
+    // slid since the phase began)
+    const kL = this.jt.kneeL.worldAnchor(gs.a), kR = this.jt.kneeR.worldAnchor(gs.b);
+    const ahead = (S.com.x - 0.5 * (kL.x + kR.x)) * fx + (S.com.z - 0.5 * (kL.z + kR.z)) * fz;
     // 1) sit back toward the heels: the weight comes back over the knees and shins
     const sb = this.ease(t / 0.45);
     // 2) raise the trunk pushing off the floor, hips forward over the knees; not while the weight
@@ -2482,14 +2628,29 @@ export class HumanController {
     const off = lerp(lerp((g.start.pel.x - kmx) * fx + (g.start.pel.z - kmz) * fz, -0.12, sb), -0.07, q);
     const pelT = new Vec3(kmx + fx * off, gy + lerp(lerp(g.start.pel.y - gy, 0.47, sb), 0.53, q), kmz + fz * off);
     g.support.comTarget = gs.ct.set(kmx - fx * 0.09, gy, kmz - fz * 0.09);
+    // On one hand: until it lets go, the weight stays inside the tripod it makes with the knees
+    // (toward the hand's side), and the trunk muscles keep the chest from tipping over the side
+    // without an arm.
+    const s1 = g.useArm.L !== g.useArm.R ? (g.useArm.L ? 'L' : 'R') : null, h1 = s1 ? g.hand[s1] : null;
+    if (h1 && h1.planted && !g.start.released) {
+      const lx = fz, lz = -fx;
+      const lat = clamp((h1.at.x - kmx) * lx + (h1.at.z - kmz) * lz, -0.3, 0.3) / 3;
+      g.support.comTarget.x += lx * lat;
+      g.support.comTarget.z += lz * lat;
+      this.levelTrunk(dt, 0);
+    }
     // the hips follow the weight: kneeling on a base only as wide as the knees, a sideways drift
     // (e.g. leaning toward the side without a supporting arm) is caught by moving the hips back
     // over the knees
     this.comFeedback(pelT, g.support.comTarget, 0.5, 0.08);
     this.kneelBoth(g, kn, pelRot, (s) => gs.k.copy(this.geo['hipAnchor' + s]).applyQuat(pelRot).add(pelT).clone(), lerp(0.7, -0.25, q));
     for (const s of SIDES) this.addCand(g.cands, this.seg['foot' + s].body, (0.2 + 0.3 * q) * this.legStrength[s]);
-    // hands come off the floor once the weight is over the knees (or out of reach)
-    if (!g.start.released && ((ahead < 0.04 && q > 0.25) || q > 0.7)) g.start.released = true;
+    // hands come off the floor once the weight is over the knees (or out of reach); hands that
+    // have already left it are not reached for again (straining toward a floor point that has
+    // gone out of reach would pull the trunk forward, off the knees)
+    const handsDown = SIDES.some((s) => g.useArm[s] && g.hand[s] && g.hand[s].planted && this.seg['hand' + s].body.groundContact);
+    g.start.handsOff = handsDown ? 0 : (g.start.handsOff || 0) + dt;
+    if (!g.start.released && ((ahead < 0.04 && q > 0.25) || q > 0.7 || (q > 0.2 && g.start.handsOff > 0.2))) g.start.released = true;
     for (const s of SIDES) {
       const h = g.hand[s];
       if (!g.useArm[s]) this.guardArm(s);
@@ -2537,7 +2698,7 @@ export class HumanController {
     const shift = this.ease(t / 0.3);
     const kb = g.start.kneeB;
     const latOff = Math.abs((S.com.x - kb.x) * lx + (S.com.z - kb.z) * lz);
-    if (g.start.swing === undefined && t > 0.25 && (latOff < 0.045 || t > 0.6)) {
+    if (g.start.swing === undefined && t > 0.2 && (latOff < 0.045 || t > 0.55)) {
       g.start.swing = t;
       // the swing starts from where the foot is now (the hips have moved across meanwhile)
       this.ankleWorld(F, g.start.ank);
@@ -2604,7 +2765,7 @@ export class HumanController {
     const M = this.rd.totalMass * G;
     this.assistBody(pel, pelT.y, pelRot, 900, 120, 0.1 * M, 130, 60);
     this.assistBody(chest, null, chestRot, 0, 0, 0, 120, 55);
-    if (g.start.planted >= 0 && t - g.start.planted > 0.25) {
+    if (g.start.planted >= 0 && t - g.start.planted > 0.12) {
       g.plantF = g.start.plantAt;
       this.getUpPhase(g, 'rise');
     } else if (t > 2.2 || (t > 0.4 && pel.pos.y - gy < 0.3)) this.failGetUp('lunge');
@@ -2625,12 +2786,14 @@ export class HumanController {
     const ankF = g.start.ankF, ankB = g.start.toeB;
     // 1) lean forward and bring the weight onto the front foot (its knee travels over the toes);
     // 2) only then push up off the front leg, the back knee leaving the floor
-    const tr = this.ease(t / 0.5);
+    const tr = this.ease(t / 0.4);
     const fwdOf = (p) => (p.x - ankF.x) * fx + (p.z - ankF.z) * fz;
     const onFront = fwdOf(S.com) > -0.13;
-    if (g.start.up < 0 && t > 0.3 && (onFront || t > 0.8)) g.start.up = t;
-    const p = g.start.up < 0 ? 0 : this.ease((t - g.start.up) / 0.9);
-    const lean = lerp(0.42 * tr, 0.04, p);
+    if (g.start.up < 0 && t > 0.25 && (onFront || t > 0.7)) g.start.up = t;
+    const p = g.start.up < 0 ? 0 : this.ease((t - g.start.up) / 0.65);
+    // (nearly upright at the top: the balance controller straightens the trunk, and a body handed
+    // over still leaning would have its weight pushed back toward the heels)
+    const lean = lerp(0.42 * tr, 0.05, p);
     const pelRot = this.trunkRot(g.psi, lean * 0.6, 0, gs.pelRot);
     const chestRot = this.trunkRot(g.psi, lean, 0, gs.chestRot);
     this.trunkPose(pelRot, chestRot, 1, 0.15, 0);
@@ -2639,56 +2802,44 @@ export class HumanController {
     // heel), coming over the feet as the legs straighten; the trunk lean carries the weight forward
     const latF = (ankF.x - g.start.pel.x) * fz - (ankF.z - g.start.pel.z) * fx;
     const latB = (ankB.x - g.start.pel.x) * fz - (ankB.z - g.start.pel.z) * fx;
-    const lat = lerp(latF, latB, 0.4), back = lerp(0.3, 0.12, p);
+    // as the front leg straightens the hips come over the front foot (the trunk carried on it
+    // alone, so that the back foot can then be brought up beside it)
+    const lat = lerp(lerp(latF, latB, 0.4), latF, p), back = lerp(0.3, 0.06, p);
     const px = ankF.x - fx * back + fz * (lat - latF), pz = ankF.z - fz * back - fx * (lat - latF);
-    const pelT = gs.f.set(lerp(g.start.pel.x, px, tr), gy + lerp(lerp(g.start.pel.y - gy, 0.55, tr), 0.88, p), lerp(g.start.pel.z, pz, tr));
+    // height: the legs extend at a bounded rate (peak ~0.5 m/s, like a sit-to-stand); thrown up
+    // faster, the body would coast on upward after the push and unload its feet at the hand-over
+    const yGoal = lerp(lerp(g.start.pel.y - gy, 0.55, tr), 0.88, p);
+    if (g.start.yT === undefined) g.start.yT = pel.pos.y - gy;
+    g.start.yT = yGoal > g.start.yT ? approach(g.start.yT, yGoal, 0.5 * dt * g.pace) : yGoal;
+    const pelT = gs.f.set(lerp(g.start.pel.x, px, tr), gy + g.start.yT, lerp(g.start.pel.z, pz, tr));
     // weight on the line from the back knee to the front foot (75% of the way) during the transfer,
-    // then between the feet (65:35); with two supports the COM has to stay on the line between them
+    // then all onto the front foot (the middle of its sole) as the body comes up
     const kb2 = g.start.kneeB;
-    let cx = lerp(lerp(ankF.x, kb2.x, 0.25), lerp(ankF.x, ankB.x, 0.33), p), cz = lerp(lerp(ankF.z, kb2.z, 0.25), lerp(ankF.z, ankB.z, 0.33), p);
-    // 3) once up, the weight settles to the middle of the stance and comes to rest there, both
-    //    feet down: the balance controller takes over a body already centred over its feet and
-    //    tidies up the split stance by itself (handed over moving, or with the weight still on one
-    //    foot, it has to pull the COM across first and sets off catch steps)
-    if (p >= 1 && g.start.q === undefined) g.start.q = t;
-    const q = g.start.q === undefined ? 0 : this.ease((t - g.start.q) / 0.8);
-    const cx0 = cx, cz0 = cz;
-    cx = lerp(cx, 0.5 * (ankF.x + ankB.x), q);
-    cz = lerp(cz, 0.5 * (ankF.z + ankB.z), q);
-    pelT.x += (cx - cx0) * 0.9;
-    pelT.z += (cz - cz0) * 0.9;
+    const sole = this.soleCenter(F, gs.b);
+    const cx = lerp(lerp(ankF.x, kb2.x, 0.25), sole.x + fx * 0.02, p), cz = lerp(lerp(ankF.z, kb2.z, 0.25), sole.z + fz * 0.02, p);
     g.support.comTarget = gs.ct.set(cx, gy, cz);
     this.comFeedback(pelT, g.support.comTarget, 0.7, 0.08);
-    // settling over the narrow split stance, a lasting offset of the weight is trimmed out slowly
-    // (integral action, as in standing balance)
-    if (!g.start.ci) g.start.ci = new Vec3();
-    if (q > 0) {
-      const ci = g.start.ci;
-      ci.x = clamp(ci.x + (cx - S.com.x) * 1.5 * dt, -0.12, 0.12);
-      ci.z = clamp(ci.z + (cz - S.com.z) * 1.5 * dt, -0.12, 0.12);
-      pelT.x += ci.x;
-      pelT.z += ci.z;
-    }
-    // both planted feet must stay reachable
+    // both planted feet must stay reachable (the back one with the heel coming up onto the toes,
+    // which raises its ankle ~10 cm, and its toes may drag forward a little as the hips rise)
     for (const s of SIDES) {
       const a = s === F ? ankF : this.ankleWorld(B, gs.a);
       const hip = gs.k.copy(this.geo['hipAnchor' + s]).applyQuat(pelRot).add(pelT);
-      const dx = hip.x - a.x, dz = hip.z - a.z, L = (this.geo['L1' + s] + this.geo['L2' + s]) * 0.975;
+      const dx = hip.x - a.x, dz = hip.z - a.z, L = (this.geo['L1' + s] + this.geo['L2' + s]) * 0.975 + (s === F ? 0 : 0.1);
       pelT.y = Math.min(pelT.y, a.y + Math.sqrt(Math.max(L * L - dx * dx - dz * dz, 0.04)) + (pelT.y - hip.y));
     }
     const hipF = gs.k.copy(this.geo['hipAnchor' + F]).applyQuat(pelRot).add(pelT).clone();
     this.standLegTo(F, hipF, pelRot, ankF, g.psi, 1.1);
     // back leg: kneeling until the push starts, then the knee comes off the floor, pushing from
-    // the tucked toes
+    // the tucked toes (which stay on the floor: the foot only leaves it to step up)
     const hipB = gs.k.copy(this.geo['hipAnchor' + B]).applyQuat(pelRot).add(pelT).clone();
     if (g.start.up < 0) this.kneelLegTo(B, hipB, pelRot, g.start.kneeB, g.psi, 1, -0.25);
     else {
       const ankBnow = this.ankleWorld(B, gs.b).clone();
-      ankBnow.y = Math.max(ankBnow.y, gy + 0.09 + 0.06 * p);
+      ankBnow.y = clamp(ankBnow.y - 0.01, gy + 0.08, gy + 0.11);
       this.standLegTo(B, hipB, pelRot, ankBnow, g.psi, 0.9, -0.2 + 0.2 * p, 2.5);
     }
     this.addCand(g.cands, this.seg['foot' + F].body, 1);
-    this.addCand(g.cands, this.seg['foot' + B].body, 0.45 + 0.4 * q);
+    this.addCand(g.cands, this.seg['foot' + B].body, 0.45 * (1 - p) + 0.05);
     this.addCand(g.cands, this.seg['thigh' + B].body, 1 - p);
     this.addCand(g.cands, this.seg['shin' + B].body, 0.5 * (1 - p));
     // the hand pushes down on the front knee while the trunk is still bent over it
@@ -2703,16 +2854,142 @@ export class HumanController {
     const M = this.rd.totalMass * G;
     this.assistBody(pel, pelT.y, pelRot, 1000, 140, 0.12 * M, 140, 70);
     this.assistBody(chest, null, chestRot, 0, 0, 0, 130, 60);
-    // up as far as the split stance allows (the back foot is still far behind)
-    const calm = Math.hypot(S.comVel.x, S.comVel.z) < 0.08 && Math.abs(S.comVel.y) < 0.15;
-    const high = pel.pos.y - gy > Math.min(0.82, pelT.y - gy - 0.05) && pel.pos.y - gy > 0.66;
-    // (both feet firmly down: with the back foot hovering, the balance controller would see a
-    // single stance with the weight far behind it and throw in a catch step)
-    g.start.both = S.footContact.L && S.footContact.R ? (g.start.both || 0) + dt : 0;
+    // Once the weight is over the front foot and the hips are up off the back knee, the back foot
+    // steps up beside it while the front leg straightens (people do not first stand up fully in
+    // the split stance: with the back toes ~0.8 m behind, the hips cannot rise far over the front
+    // foot anyway, and waiting there lets the weight drift off sideways). The weight need not be
+    // exactly over the middle of the sole; after a moment it goes from anywhere over the foot.
     const off = Math.hypot(S.com.x - cx, S.com.z - cz);
-    if (q >= 1 && high && g.start.both > 0.2 && calm && (off < 0.05 || (off < 0.09 && t - g.start.q > 2))) this.standUp();
+    const vf = S.comVel.x * fx + S.comVel.z * fz;
+    const quiet = Math.hypot(S.comVel.x, S.comVel.z) < 0.25 && Math.abs(S.comVel.y) < 0.3 && vf > -0.08;
+    const up = p >= 0.6 && pel.pos.y - gy > 0.58;
+    if (up && g.start.top === undefined) g.start.top = t;
+    // (still a little toward the back foot's side is fine: the step lands on that side and takes
+    // the weight; outward of the front foot it is not)
+    const offF = (S.com.x - cx) * fx + (S.com.z - cz) * fz, offL = ((S.com.x - cx) * lx + (S.com.z - cz) * lz) * -sgF;
+    const waited = g.start.top !== undefined && t - g.start.top > 0.6 && Math.abs(offF) < 0.12 && offL > -0.05 && offL < 0.18 && Math.abs(S.comVel.y) < 0.3;
+    if (up && S.footLoad[F] > 0.4 && ((off < 0.08 && quiet) || waited)) {
+      g.plantF = this.ankleWorld(F, new Vec3());
+      this.getUpPhase(g, 'stepup');
+    }
     // slumped back down to the floor: give up this attempt, rest and try again
     else if (t > 4.5 || (t > 0.4 && pel.pos.y - gy < 0.33)) this.failGetUp('rise');
+  }
+
+  /**
+   * Standing on the front leg, the back foot steps up beside it (the end of a rise from a half
+   * kneel): one deliberate step, its landing spot nudged toward where the weight is drifting, as in
+   * a balance step, while the front leg finishes straightening. As soon as both feet are down in
+   * a normal stance the balance controller takes over (it never inherits the long split stance of
+   * the half kneel, which it can only leave by a run of catch steps).
+   */
+  guStepUp(g, dt) {
+    const gs = this.guScratch(), S = this.sens;
+    const pel = this.seg.pelvis.body, gy = this.world.groundY;
+    const F = g.front, B = F === 'L' ? 'R' : 'L';
+    const sgB = B === 'L' ? 1 : -1;
+    if (!g.start) {
+      // the step is made facing where the pelvis faces now (turning it back to the original heading
+      // while on one foot would twist the stance foot on the floor)
+      g.psi = yawOf(pel.rot);
+      g.start = { from: this.ankleWorld(B, new Vec3()), target: new Vec3(), yT: pel.pos.y - gy, planted: -1, plantAt: new Vec3(), ci: new Vec3() };
+    }
+    const fx = Math.sin(g.psi), fz = Math.cos(g.psi), lx = fz, lz = -fx;
+    const t = g.t, st = g.start;
+    const ankF = this.ankleWorld(F, gs.h).clone();
+    const solF = this.soleCenter(F, gs.a).clone();
+    const solB = this.soleCenter(B, gs.b);
+    // the weight stays over the stance foot (a little inside and ahead of the middle of its sole:
+    // the trunk straightening up and the leg swinging through both pull it back) during the swing,
+    // then moves toward the middle of the feet
+    const q = st.planted < 0 ? 0 : this.ease((t - st.planted) / 0.4) * 0.7;
+    const ix = lx * sgB * 0.015 + fx * 0.03, iz = lz * sgB * 0.015 + fz * 0.03;
+    const ct = gs.ct.set(lerp(solF.x + ix, 0.5 * (solF.x + solB.x), q), gy, lerp(solF.z + iz, 0.5 * (solF.z + solB.z), q));
+    g.support.comTarget = ct;
+    g.support.kp = 600;
+    const dur = 0.5;
+    const ph = clamp(t / dur, 0, 2);
+    // landing spot: a stance width beside the front foot, placed so that the middle of the two
+    // soles comes under the capture point (where the weight is heading), updated while the swing is
+    // young; never closer than ~13 cm beside the stance foot (the legs would collide, and the base
+    // would stay a tightrope)
+    if (st.planted < 0 && ph < 0.7) {
+      // (fore-aft within ~12 cm of the other foot: a stance staggered more than that is one the
+      // balance controller would soon tidy up with another step)
+      const cpF = clamp((S.cp.x - solF.x) * fx + (S.cp.z - solF.z) * fz, -0.06, 0.06);
+      const cpL = clamp(((S.cp.x - solF.x) * lx + (S.cp.z - solF.z) * lz) * sgB, -0.05, 0.12);
+      // (ankle ~6 cm behind the middle of its sole)
+      const along = 2 * cpF - 0.058, side = Math.max(0.13, 0.2 + cpL);
+      st.target.set(solF.x + fx * along + lx * sgB * side, gy + 0.085, solF.z + fz * along + lz * sgB * side);
+    }
+    // trunk held in world space by the spine muscles (as when standing), straightening from the
+    // rise's forward lean over ~0.6 s (straightened at once, the upper body would swing back and
+    // carry the weight back off the stance foot)
+    if (st.lean0 === undefined) st.lean0 = clamp(this.pitchOf(this.seg.chest.body, g.psi), 0, 0.5);
+    this.standingSpine(lerp(st.lean0, 0.03, this.ease(t / 0.6)), 0, g.psi, 1);
+    const pelRot = yawQuat(g.psi, gs.pelRot);
+    // pelvis: moved against the weight's error like the stance legs' COM servo in standing balance
+    // (proportional + slow integral, damped by the COM velocity, bounded); it rises gently toward
+    // standing height, and the legs never throw the body upward (a stance leg that overshot would
+    // unload its foot at the top, and the swinging leg would then spin it on the floor)
+    st.yT = approach(st.yT, this.geo.pelvisBindY - 0.03, 0.4 * dt);
+    st.yT = Math.min(st.yT, pel.pos.y - gy + 0.03) - clamp((pel.vel.y - 0.15) * 0.1, 0, 0.04);
+    const ex = ct.x - S.com.x, ez = ct.z - S.com.z;
+    st.ci.x = clamp(st.ci.x + ex * dt, -0.05, 0.05);
+    st.ci.z = clamp(st.ci.z + ez * dt, -0.05, 0.05);
+    let dx = ex * 0.7 + st.ci.x * 0.5 - S.comVel.x * 0.35, dz = ez * 0.7 + st.ci.z * 0.5 - S.comVel.z * 0.35;
+    const dl = Math.hypot(dx, dz);
+    if (dl > 0.07) {
+      dx *= 0.07 / dl;
+      dz *= 0.07 / dl;
+    }
+    const pelT = gs.f.set(pel.pos.x + dx, gy + st.yT, pel.pos.z + dz);
+    // the planted feet must stay reachable
+    for (const s of st.planted < 0 ? [F] : SIDES) {
+      const a = s === F ? ankF : st.plantAt;
+      const hip = gs.k.copy(this.geo['hipAnchor' + s]).applyQuat(pelRot).add(pelT);
+      const hx = hip.x - a.x, hz = hip.z - a.z, L = (this.geo['L1' + s] + this.geo['L2' + s]) * 0.975;
+      pelT.y = Math.min(pelT.y, a.y + Math.sqrt(Math.max(L * L - hx * hx - hz * hz, 0.04)) + (pelT.y - hip.y));
+    }
+    const hipF = gs.k.copy(this.geo['hipAnchor' + F]).applyQuat(pelRot).add(pelT).clone();
+    this.standLegTo(F, hipF, pelRot, ankF, g.psi, 1.1);
+    this.addCand(g.cands, this.seg['foot' + F].body, 1);
+    const footB = this.seg['foot' + B].body;
+    if (st.planted < 0) {
+      // single support. (The stance hip keeps driving the thigh relative to the pelvis, rotation
+      // included: driving the pelvis' world orientation instead, as in walking, leaves the stance
+      // leg free to twist, and the swing leg's reaction then spins it on its foot whenever that is
+      // lightly loaded.)
+      // swing: heel up and forward, the foot travelling low, then put down flat
+      const e = this.ease(Math.min(ph, 1));
+      const now = gs.e.lerpVectors(st.from, st.target, e);
+      now.y = lerp(st.from.y, st.target.y, e) + 0.07 * Math.sin(Math.PI * Math.min(ph, 1));
+      if (ph >= 1) now.y = st.target.y - Math.min(0.04, (ph - 1) * dur * 0.3);
+      this.swingLegTo(B, now, g.psi, 0.9, 220, 1.2 * (1 - smoothstep(0.1, 0.5, ph)));
+      const a = this.ankleWorld(B, gs.c);
+      const near = Math.hypot(a.x - st.target.x, a.z - st.target.z) < 0.07;
+      if ((footB.groundContact && ph > 0.5 && (near || ph > 0.9)) || ph > 1.6) {
+        st.planted = t;
+        st.plantAt.set(a.x, gy + 0.085, a.z);
+      }
+    } else {
+      const hipB = gs.k.copy(this.geo['hipAnchor' + B]).applyQuat(pelRot).add(pelT).clone();
+      this.standLegTo(B, hipB, pelRot, st.plantAt, g.psi, 1);
+      this.addCand(g.cands, footB, smoothstep(0, 0.15, t - st.planted));
+    }
+    this.relaxedArms(1, 0);
+    this.armsOut(st.planted < 0 ? 0.15 : 0);
+    if (!g.useArm.L) this.guardArm('L');
+    if (!g.useArm.R) this.guardArm('R');
+    // the same upright help the balance controller gives a standing body (Euphoria-style balance
+    // assistance): it is what the step hands over to
+    const M = this.rd.totalMass * G;
+    this.assistBody(pel, pelT.y, pelRot, 1000, 140, 0.1 * M, 300, 110);
+    // standing on both feet in a normal stance: the balance controller takes over at once (it
+    // centres the weight, and catches it with a step if need be, better than a prolonged get-up
+    // posture could)
+    if (st.planted >= 0 && ((S.footContact.L && S.footContact.R) || t - st.planted > 0.25)) this.standUp();
+    else if (t > 3.5 || pel.pos.y - gy < 0.45) this.failGetUp('stepup');
   }
 
   /** Hand over to the balance controller, standing and settled. */
@@ -2732,6 +3009,8 @@ export class HumanController {
     // the balance assistance takes over where the get-up helpers leave off (no sudden drop)
     this.assist = 0.8;
     this.getUpFails = 0;
+    // (a later fall starts a new rest on the floor before the next attempt)
+    this.restTime = 0;
     this.setUpperGC(1);
     this.setMode('balance');
   }
@@ -2780,12 +3059,13 @@ export class HumanController {
     const fetal = gs.side !== 0 ? smoothstep(0.6, 1.3, Math.abs(phi) < 2.4 ? 1.4 - Math.abs(Math.abs(phi) - Math.PI / 2) : 0.5) : 0;
     if (gs.side !== 0) {
       // the top leg and arm push the body over (a bounded helper standing in for that push,
-      // scaled with muscle tone), then it rests on its side, held there lightly by the curled-up
-      // posture
+      // scaled with muscle tone), then it rests on its side, propped mainly by the curled-up
+      // posture (the top knee drawn forward onto the floor, as in the recovery position) with only
+      // a light hold
       const A = _v3.subVectors(chest.pos, pel.pos).normalize();
       const w = 0.5 * (chest.angVel.dot(A) + pel.angVel.dot(A));
       const err = wrapAngle(gs.side * Math.PI / 2 - phi);
-      const cap = Math.abs(err) > 0.6 ? 80 : 25;
+      const cap = Math.abs(err) > 0.6 ? 80 : 10;
       const tq = clamp(80 * err - 20 * w, -cap, cap) * this.assistGain * smoothstep(0.3, 0.6, this.tone);
       chest.torque.addScaled(A, tq * 0.6);
       pel.torque.addScaled(A, tq * 0.4);
@@ -2808,10 +3088,12 @@ export class HumanController {
       const top = gs.side !== 0 && (gs.side > 0) === (s === 'L') ? 0.25 : 0;
       const hipFlex = -0.3 - 0.9 * curl * legPain - (0.6 + top) * fetal + 0.5 * wr * n(0.5, 10 + o);
       const knee = 0.4 + 1.2 * curl * legPain + 0.6 * fetal + 0.6 * wr * Math.max(0, n(0.6, 11 + o));
-      this.setRel('hip' + s, _q0.setFromEuler(hipFlex, 0.15 * sg * wr * n(0.3, 12 + o), -0.12 * sg, 'XYZ'));
-      this.gains('hip' + s, tone * (0.12 + 0.15 * fetal));
+      // (the top thigh also crosses over toward the floor in front: its knee is the prop)
+      const cross = top ? 0.35 * fetal * sg : 0;
+      this.setRel('hip' + s, _q0.setFromEuler(hipFlex, 0.15 * sg * wr * n(0.3, 12 + o), -0.12 * sg + cross, 'XYZ'));
+      this.gains('hip' + s, tone * (0.12 + 0.3 * fetal));
       this.setRel('knee' + s, _q0.setFromAxisAngle(LAT, knee));
-      this.gains('knee' + s, tone * (0.12 + 0.1 * fetal));
+      this.gains('knee' + s, tone * (0.12 + 0.2 * fetal));
       this.setRel('ankle' + s, _q0.setFromEuler(0.3, 0, 0, 'XYZ'));
       this.gains('ankle' + s, tone * 0.15);
       // arms drawn in to the body (protective); wound clutching overrides them

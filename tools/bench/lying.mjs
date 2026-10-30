@@ -40,12 +40,39 @@ export function layDown(person, kind = 'supine', yaw = 0) {
 /**
  * Follow one person's get-up attempts. Call `tick(t)` every frame; `summary()` afterwards.
  * attempts: get-up starts; firstOk: the first attempt reached standing; standAt: time standing
- * began (balance held for `holdS` seconds); falls: falls after having stood up.
+ * began (balance held for `holdS` seconds); falls: falls after having stood up; ko: knockouts after
+ * the start. While getting up it also measures the helpers: the net external force and torque the
+ * controller puts on the whole body (all muscle torques are equal and opposite pairs and cancel, so
+ * what is left after its update is exactly the assistGain-scaled helper forces and torques).
  */
 export function getUpTracker(person, holdS = 4) {
-  const ctl = person.ctl;
-  const st = { attempts: 0, fails: 0, firstOk: null, standAt: -1, stoodAt: -1, falls: 0, t0: -1, upTime: 0, helperLift: 0, maxTrunkW: 0, maxComV: 0, phases: [] };
-  let prev = ctl.mode, standT = 0, hadStood = false;
+  const ctl = person.ctl, rd = person.rd;
+  const st = { attempts: 0, fails: 0, firstOk: null, standAt: -1, stoodAt: -1, falls: 0, ko: 0, t0: -1, upTime: 0, helperLift: 0, maxTrunkW: 0, maxComV: 0, phases: [] };
+  const help = { n: 0, f: 0, fmax: 0, t: 0, tmax: 0 };
+  const com = new Vec3();
+  const update = ctl.update.bind(ctl);
+  ctl.update = (dt) => {
+    update(dt);
+    if (ctl.mode !== 'getup') return;
+    let fx = 0, fy = 0, fz = 0, tx = 0, ty = 0, tz = 0;
+    rd.computeCOM(com);
+    for (const b of rd.allBodies()) {
+      fx += b.force.x;
+      fy += b.force.y;
+      fz += b.force.z;
+      const rx = b.pos.x - com.x, ry = b.pos.y - com.y, rz = b.pos.z - com.z;
+      tx += b.torque.x + ry * b.force.z - rz * b.force.y;
+      ty += b.torque.y + rz * b.force.x - rx * b.force.z;
+      tz += b.torque.z + rx * b.force.y - ry * b.force.x;
+    }
+    const f = Math.hypot(fx, fy, fz) / (rd.totalMass * 9.81), tq = Math.hypot(tx, ty, tz);
+    help.n++;
+    help.f += f;
+    help.t += tq;
+    help.fmax = Math.max(help.fmax, f);
+    help.tmax = Math.max(help.tmax, tq);
+  };
+  let prev = ctl.mode, standT = 0, hadStood = false, wasConscious = true;
   function tick(t) {
     const m = ctl.mode;
     for (const e of ctl.events) {
@@ -67,6 +94,8 @@ export function getUpTracker(person, holdS = 4) {
       st.maxTrunkW = Math.max(st.maxTrunkW, ch.angVel.length());
       st.maxComV = Math.max(st.maxComV, ctl.sens.comVel.length());
     }
+    if (wasConscious && !ctl.conscious && t > 0.5) st.ko++;
+    wasConscious = ctl.conscious;
     if (m === 'falling' && prev !== 'falling' && hadStood) st.falls++;
     if (m === 'balance' && st.t0 >= 0) {
       if (standT === 0) st.stoodAt = t;
@@ -82,8 +111,13 @@ export function getUpTracker(person, holdS = 4) {
   function summary() {
     return {
       ...st,
-      // mean helper lift as a fraction of body weight while getting up
+      // mean upward helper lift (fraction of body weight) while getting up
       helperFrac: st.upTime > 0 ? st.helperLift / (st.upTime * 60) / (person.rd.totalMass * 9.81) : 0,
+      // net external helper force (fraction of body weight) and torque (N*m): mean and peak
+      helperF: help.n ? help.f / help.n : 0,
+      helperFmax: help.fmax,
+      helperT: help.n ? help.t / help.n : 0,
+      helperTmax: help.tmax,
       duration: st.standAt >= 0 && st.t0 >= 0 ? st.standAt - st.t0 : null,
     };
   }
