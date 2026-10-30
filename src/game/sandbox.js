@@ -8,6 +8,7 @@ import { THROWABLES, createThrowableBody, applyDrag, launch } from './throwables
 import { WEAPONS, makeProjectile, traceProjectile, spreadDirections, raycastPeople } from './weapons.js';
 import { OBSTACLES, createObstacleBody, obstacleRadius } from './obstacles.js';
 import { NavGrid } from './navigation.js';
+import { ZombieBrain, ZOMBIE_KINDS } from '../human/zombie.js';
 
 const G = new Vec3(0, -9.81, 0);
 export const COURSE_Z = -3.5; // the obstacle course runs along this line (clear of the spawn point)
@@ -49,16 +50,44 @@ export class Sandbox {
   }
 
   // ------------------------------------------------------------------------------------------
-  spawnPerson(pos = new Vec3(0, 0, 0), yaw = 0) {
+  spawnPerson(pos = new Vec3(0, 0, 0), yaw = 0, opts = {}) {
     const rd = new Ragdoll(this.world, { position: pos, yaw });
     rd.addToWorld();
     const ctl = new HumanController(rd, { rng: this.rng });
-    const injury = new InjurySystem(rd, ctl, { rng: this.rng, bleedScale: this.settings.bleedScale });
-    const person = { id: this.nextId++, rd, ctl, injury, seen: new Map() };
+    const injury = new InjurySystem(rd, ctl, { rng: this.rng, bleedScale: this.settings.bleedScale, undead: opts.undead, hp: opts.hp, armor: opts.armor });
+    const person = { id: this.nextId++, rd, ctl, injury, seen: new Map(), look: opts.look || null, zombie: null, knockback: opts.knockback ?? 1 };
     this.applyAssist(person);
     this.people.push(person);
+    if (opts.zombie) person.zombie = new ZombieBrain(this, person, opts.zombie);
     this.fx({ type: 'personAdded', person });
     return person;
+  }
+
+  /** A zombie of `kind` (walker | runner | brute: see ZOMBIE_KINDS) standing at `pos`. */
+  spawnZombie(pos, yaw = 0, kind = 'walker') {
+    const def = ZOMBIE_KINDS[kind] || ZOMBIE_KINDS.walker;
+    return this.spawnPerson(pos, yaw, { undead: true, hp: def.hp, armor: def.armor, look: kind, zombie: kind, knockback: def.knockback });
+  }
+
+  get zombies() {
+    return this.people.filter((p) => p.zombie);
+  }
+
+  /**
+   * Route for a zombie from `from` to `to`: along the flow field toward the player when the level
+   * keeps one (survival), around the fixed props otherwise (straight on when there are none).
+   */
+  zombieRoute(from, to) {
+    if (this.flow && this.flow.covers(to)) {
+      const p = this.flow.pathFrom(from, to);
+      if (p) return p;
+    }
+    if (this.obstacles.length) {
+      this.nav.rebuild(this.obstacleVersion);
+      const p = this.nav.findPath(from, to);
+      if (p) return p;
+    }
+    return [new Vec3(to.x, 0, to.z)];
   }
 
   removePerson(person) {
@@ -76,6 +105,7 @@ export class Sandbox {
     c.stepAssist = a;
     c.vAssist = 0.3 * a;
     c.chestAssist = a;
+    if (person.zombie) person.zombie.applyAssist();
   }
 
   setAssist(a) {
@@ -425,7 +455,8 @@ export class Sandbox {
     const world = this.world;
     this.updateWalkers(dt);
     for (const p of this.people) {
-      this.perceive(p, dt);
+      if (p.zombie) p.zombie.update(dt);
+      else this.perceive(p, dt);
       p.ctl.update(dt);
     }
     for (const s of this.shoves) {

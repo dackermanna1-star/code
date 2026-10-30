@@ -111,6 +111,16 @@ export class HumanController {
     this.stepAssist = 1.0;
     this.vAssist = 0.3;
     this.chestAssist = 1.0;
+    // walking/running drive: a helper force toward the commanded speed (gain 1/s, cap fraction of
+    // body weight) and an extra forward lean of the trunk (rad)
+    this.driveGain = 1.5;
+    this.driveMax = 0.07;
+    this.walkLean = 0;
+    this.strengthScale = 1; // muscle strength multiplier (a heavy-set brute)
+    this.assistTilt = 0.12; // trunk tilt (rad) beyond which the balance assist starts to fade
+    this.violationAssist = 1; // strength of the nudge that keeps walking footholds within reach
+    this.fearless = false; // no startle, no dodging (the undead)
+    this.armDriver = null; // optional arm behaviour (dt) => void, run after the built-in arm layer
     this.assist = 1;
     this.alive = true;
     this.conscious = true;
@@ -436,6 +446,7 @@ export class HumanController {
         this.doLimp(dt);
     }
     this.applyArmTasks(dt);
+    if (this.armDriver && this.alive) this.armDriver(dt);
     this.commit();
     this.applyGravityCompensation();
   }
@@ -460,13 +471,17 @@ export class HumanController {
     }
     if (this.mode === 'balance') {
       this.airborne = !S.footContact.L && !S.footContact.R ? (this.airborne || 0) + dt : 0;
-      const lost =
-        S.upTilt > 0.62 ||
-        S.chestTilt > 0.8 ||
-        S.pelvisH < 0.55 ||
-        (this.airborne > 0.3 && S.com.y < 0.85) ||
-        (S.cpDist > 0.75 && S.cpDist < 1e3 && this.step === null) ||
-        !legsOk;
+      // (at a run the capture point is well ahead of the feet between the steps as a matter of course)
+      const runCp = 0.5 * smoothstep(1.2, 1.8, Math.hypot(S.comVel.x, S.comVel.z));
+      const why =
+        S.upTilt > 0.62 ? 'tilt'
+        : S.chestTilt > 0.8 ? 'chest'
+        : S.pelvisH < 0.55 ? 'low'
+        : this.airborne > 0.3 && S.com.y < 0.85 ? 'airborne'
+        : S.cpDist > 0.75 + runCp && S.cpDist < 1e3 && this.step === null ? 'capture point'
+        : !legsOk ? 'legs' : null;
+      const lost = !!why;
+      if (lost) this.lostReason = why;
       if (lost && (this.modeTime > 0.25 || !legsOk)) {
         this.fallDir.set(S.comVel.x, 0, S.comVel.z);
         if (this.fallDir.lengthSq() < 0.01) {
@@ -584,7 +599,7 @@ export class HumanController {
         j.stiffness = c.k * act + kp;
       }
       j.damping = c.d * Math.sqrt(act) + dp;
-      j.maxTorque = c.tmax * act + tp;
+      j.maxTorque = c.tmax * act * this.strengthScale + tp;
       j.worldDamping = j.driveMode === DRIVE_WORLD;
       if (c.ff && j.worldDamping) j.targetAngVel.copy(c.ffVel);
       else j.targetAngVel.setZero();
@@ -609,6 +624,15 @@ export class HumanController {
       const l = _v1.length();
       if (l > lim) _v1.scale(lim / l);
       pel.torque.add(_v1);
+      // ...and about the vertical at speed: a leg flung forward at 6-8 m/s twists the pelvis by up
+      // to 60 degrees each stride (the trunk and arms counter that in a runner), which swings the
+      // hips, and with them every foothold, from side to side
+      const yawK = this.loco.stepping ? smoothstep(1.3, 1.7, Math.hypot(this.sens.comVel.x, this.sens.comVel.z)) : 0;
+      if (yawK > 0) {
+        _v0.set(0, 0, 1).applyQuat(pel.rot);
+        const want = this.heading + this.loco.pelvisYaw();
+        pel.torque.y += clamp((wrapAngle(want - Math.atan2(_v0.x, _v0.z)) * 160 - pel.angVel.y * 16) * yawK * this.assist, -80, 80);
+      }
       // vertical support (experimental): holds the pelvis near standing height
       if (this.vAssist) {
         const target = (this.standFloor ?? this.world.groundY) + this.geo.pelvisBindY - 0.02;
@@ -621,14 +645,15 @@ export class HumanController {
       if (lo.stepping && (lo.speed > 0.05 || this.sens.comVel.length() > 0.2)) {
         const v = this.sens.comVel, d = lo.dir, M = this.rd.totalMass;
         const along = v.x * d.x + v.z * d.z;
-        const F = clamp((lo.speed - along) * 1.5 * M, -0.05 * M * G, 0.07 * M * G) * this.assistGain * this.assist;
+        // (the undead are driven harder: see Sandbox.spawnZombie)
+        const F = clamp((lo.speed - along) * this.driveGain * M, -0.05 * M * G, this.driveMax * M * G) * this.assistGain * this.assist;
         pel.force.x += d.x * F;
         pel.force.z += d.z * F;
         // ...and sideways, only while a planned foothold is out of a natural stride's reach (the
         // capture point drifting past the stance foot): a nudge that keeps the steps walkable
         const st = this.step;
         if (st && st.kind === 'walk') {
-          const vio = lo.violation, k = 6.5 * M * this.assistGain * this.assist, cap = 0.08 * M * G;
+          const vio = lo.violation, k = 6.5 * M * this.assistGain * this.assist, cap = 0.08 * M * G * this.violationAssist;
           let fx = -vio.x * k, fz = -vio.z * k;
           const fl = Math.hypot(fx, fz);
           if (fl > cap) {
@@ -933,8 +958,11 @@ export class HumanController {
     const pel = this.seg.pelvis.body;
     const skill = this.balanceSkill;
     // assist fades when the capture point is far out or the trunk tilts (we are no longer "balanced")
-    const threat = clamp((S.cpDist - 0.05) / 0.35, 0, 1);
-    const tilt = clamp((S.upTilt - 0.12) / 0.35, 0, 1);
+    // (running, the capture point is far ahead of the feet and the pelvis rocks more, as a matter of
+    // course: only what goes beyond that counts)
+    const v0 = Math.hypot(S.comVel.x, S.comVel.z), running = this.loco.stepping ? smoothstep(1.3, 1.6, v0) : 0;
+    const threat = clamp((S.cpDist - 0.05 - running * (0.12 + 0.3 * v0)) / 0.35, 0, 1);
+    const tilt = clamp((S.upTilt - this.assistTilt - running * 0.1) / 0.35, 0, 1);
     const assistGoal = Math.max(clamp(1 - Math.max(threat, tilt), 0, 1), this.step || this.recentStep ? (this.stepAssist ?? 0.45) * (1 - tilt) : 0) * Math.min(this.legStrength.L, this.legStrength.R) * skill;
     this.assist = approach(this.assist, assistGoal, dt * 4);
 
@@ -1063,7 +1091,17 @@ export class HumanController {
     // includes a foot about to be unloaded for a settle step: during the weight shift it is the far
     // leg that pushes the body over the other foot, and a leg already at full stretch cannot push
     const reachSides = this.step ? [this.step.stance, this.step.foot] : SIDES;
+    // (between the steps of a run the trailing foot is about to push off and lift: it is not kept
+    // planted by sinking the pelvis - that crouch is what brakes a fast gait)
+    let skipTrail = null;
+    if (!this.step && walk && speed > 1.3) {
+      const hx0 = Math.sin(this.heading), hz0 = Math.cos(this.heading);
+      const aL = this.ankleWorld('L', _v2), fL = aL.x * hx0 + aL.z * hz0;
+      const aR = this.ankleWorld('R', _v2), fR = aR.x * hx0 + aR.z * hz0;
+      skipTrail = fL < fR ? 'L' : 'R';
+    }
     for (const s of reachSides) {
+      if (s === skipTrail) continue;
       // the swing leg has to reach its landing spot from where the hip will be at touchdown (the
       // body keeps travelling during the swing), not from where it is now: judging it from the
       // current hip turns every long catch step into a needlessly deep lunge
@@ -1129,8 +1167,8 @@ export class HumanController {
           // capped near real hip-flexor strength (~150-200 N at the foot); eased off for the
           // touchdown so the leg places the foot instead of ramming it into the floor
           const late = st.planting || st.t / st.duration > 0.85;
-          // (lifting the foot up and over an obstacle takes a harder pull)
-          const over = st.profile ? 1 + clamp(st.profileTop * 3, 0, 0.7) : 1;
+          // (lifting the foot up and over an obstacle, or swinging it at a run, takes a harder pull)
+          const over = (st.profile ? 1 + clamp(st.profileTop * 3, 0, 0.7) : 1) * (st.kind === 'walk' ? 1 + clamp((st.walkV - 1.25) * 0.6, 0, 0.6) : 1);
           spring.maxForce = (this.footSpringForce ?? 200) * over * this.legStrength[s] * this.tone * (late ? 0.45 : 1);
         }
         // knee points along the pelvis' own facing (blended with the intended heading) so the
@@ -1150,7 +1188,8 @@ export class HumanController {
         const sg = this.swingGain ?? 0.8;
         this.gains('hip' + s, sg);
         this.cmd['hip' + s].d *= 1.25;
-        this.cmd['hip' + s].tmax = st.profile ? 220 : 160; // hip flexor/extensor strength of a swinging leg
+        // hip flexor/extensor strength of a swinging leg (more over an obstacle or at a run)
+        this.cmd['hip' + s].tmax = st.profile || (st.kind === 'walk' && st.walkV > 1.4) ? 220 : 160;
         if (ph < 0.7 && !st.planting) this.feedForward('hip' + s, legOut.thigh, dt);
         else this.cmd['hip' + s].d *= st.planting ? 2.5 : 1.6;
         _q0.multiplyConjA(legOut.thigh, legOut.shin);
@@ -1159,7 +1198,7 @@ export class HumanController {
         // terminal swing: the hamstrings brake the shin (otherwise the knee snaps straight late
         // in the swing and whips the foot 15 cm past its landing spot at 6-7 m/s)
         // (a walking step lands on a nearly straight knee: less braking)
-        this.cmd['knee' + s].d *= ph > 0.55 || st.planting ? (st.kind === 'walk' ? 1.5 : 2.6) : 1.25;
+        this.cmd['knee' + s].d *= ph > 0.55 || st.planting ? (st.kind === 'walk' ? lerp(1.5, 2.6, smoothstep(1.3, 1.9, st.walkV)) : 2.6) : 1.25;
         yawQuat(st.yaw, _q1);
         _q2.setFromEuler(st.toePitch, 0, 0, 'XYZ');
         _q1.multiply(_q2);
@@ -1226,7 +1265,7 @@ export class HumanController {
     if (walk) {
       // walking posture: a slight forward lean that grows with speed; over a hurt leg the trunk
       // leans toward it while it carries the weight (less load on the painful hip: a limp)
-      lean += 0.03 + 0.035 * Math.min(speed, 1.4);
+      lean += 0.03 + 0.035 * Math.min(speed, 1.4) + this.walkLean * clamp(speed / 1.2, 0, 1);
       if (this.step) {
         const st = this.step.stance, hurt = clamp((0.92 - this.legStrength[st]) / 0.4, 0, 1);
         leanSide += (st === 'L' ? -1 : 1) * 0.09 * hurt;
@@ -1655,7 +1694,10 @@ export class HumanController {
   updateStep(dt) {
     const st = this.step, S = this.sens;
     st.t += dt;
-    if (st.t / st.duration < 0.8 && !st.planting) {
+    // (at a run the landing spot is committed early: a target that still moves late in a fast swing
+    // flings the foot 20-30 cm past it)
+    const replanUntil = st.kind === 'walk' ? lerp(0.8, 0.45, smoothstep(1.3, 1.9, st.walkV)) : 0.8;
+    if (st.t / st.duration < replanUntil && !st.planting) {
       _v2.copy(st.target);
       this.planStepTarget(st.target);
       // the swing's clearance over whatever lies between here and the landing spot (any step)
@@ -1710,7 +1752,10 @@ export class HumanController {
       return;
     }
     // horizontal: fast early, settle late (minimum-jerk-like); vertical: lift then plant
-    let sx = smoothstep(0.05, 0.85, phase);
+    // (at a run, spread over the whole swing: the foot's peak speed would otherwise reach 8-10 m/s
+    // and it could not be stopped on its spot)
+    const runF = st.kind === 'walk' ? smoothstep(1.3, 1.9, st.walkV) : 0;
+    let sx = smoothstep(lerp(0.05, 0, runF), lerp(0.85, 0.95, runF), phase);
     if (st.profile) {
       // over an obstacle the foot only moves on as far as its height allows (it goes up first,
       // then over: a toe dragged into a kerb or a log is a trip); the swing clock waits for it

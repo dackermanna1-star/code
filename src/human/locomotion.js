@@ -36,6 +36,7 @@ export class Locomotion {
     this.look = new Vec3();
     this.dir = new Vec3(0, 0, 1);
     this.violation = new Vec3(); // how far the planned foothold was pulled in (world, m)
+    this.catchMargin = 0; // extra miss (m) tolerated before a walking step becomes a catch step
     this.reset();
   }
 
@@ -75,12 +76,14 @@ export class Locomotion {
 
   /** Swing time of a step at walking speed v (s). */
   swingTime(v) {
-    return clamp(0.5 - 0.065 * v, 0.41, 0.5);
+    // (faster than a brisk walk the cadence keeps rising: a zombie's lurching run)
+    return v <= 1.25 ? clamp(0.5 - 0.065 * v, 0.41, 0.5) : Math.max(0.34, 0.42 - 0.07 * (v - 1.25));
   }
 
   /** Double support between steps (s). */
   dsTime(v) {
-    return clamp(0.16 - 0.05 * v, 0.09, 0.16);
+    // (at a run hardly any: the trailing foot pushes off as the leading one lands)
+    return v <= 1.25 ? clamp(0.16 - 0.05 * v, 0.09, 0.16) : Math.max(0.02, 0.0875 - 0.06 * (v - 1.25));
   }
 
   begin() {
@@ -186,6 +189,7 @@ export class Locomotion {
     }
     const look = 0.55 + 0.45 * v;
     const carrot = this.pointAlong(path, i, P, look, _b);
+    const prevYaw = Math.atan2(this.dir.x, this.dir.z);
     this.dir.set(carrot.x - P.x, 0, carrot.z - P.z);
     if (this.dir.lengthSq() < 1e-6) this.dir.set(Math.sin(c.heading), 0, Math.cos(c.heading));
     this.dir.normalize();
@@ -212,19 +216,34 @@ export class Locomotion {
       this.dir.z += sz * 1.2;
       this.dir.normalize();
     }
+    // at a run the way to go swings round gradually and stays near the way the body is going (a
+    // runner swerves, it cannot jink): a sudden or sharp change of direction - someone in the way,
+    // a moving target - would ask for footholds no stride can reach. It slows down for the turn
+    // instead (below, from the full turn still to make)
+    const rawYaw = Math.atan2(this.dir.x, this.dir.z);
+    if (v > 1.0 && this.stepping) {
+      const k = smoothstep(1.0, 1.8, v), rate = lerp(5, 1.6, k), lim = lerp(1.4, 0.35, k);
+      const vdir = Math.atan2(S.comVel.x, S.comVel.z);
+      let yaw = prevYaw + clamp(wrapAngle(rawYaw - prevYaw), -rate * dt, rate * dt);
+      yaw = vdir + clamp(wrapAngle(yaw - vdir), -lim, lim);
+      this.dir.set(Math.sin(yaw), 0, Math.cos(yaw));
+    }
 
     // ---- speed: accelerate gently, arrive (decelerate to the goal), turn on the spot when the goal is behind
     const desiredYaw = Math.atan2(this.dir.x, this.dir.z);
-    const err = wrapAngle(desiredYaw - c.heading);
+    const err = wrapAngle(desiredYaw - c.heading), errAll = wrapAngle(rawYaw - c.heading);
     const vmax = (nav.speed ?? this.maxSpeed) * (0.35 + 0.65 * fit);
     const vArrive = Math.sqrt(2 * 0.75 * Math.max(0, remaining - 0.12));
     // a sharp turn is mostly made first, in a few slow turning steps
-    const turn = clamp(1 - (Math.abs(err) - 0.3) / 0.6, 0, 1);
+    // (at a run sooner: a runner cannot cut a corner, it has to slow down for it)
+    const runK = smoothstep(1.2, 1.8, v);
+    const turn = clamp(1 - (Math.abs(errAll) - lerp(0.3, 0.12, runK)) / 0.6, 0.4 * runK, 1);
     // people slow down to step over or onto something
     const obstacleSlow = this.obstacleAhead ? 0.7 : 10;
     let vt = Math.min(vmax, vArrive, obstacleSlow) * turn * crowdSlow;
     if (this.pause > 0) vt = 0;
-    this.speed = approach(this.speed, vt, (vt > this.speed ? 0.8 : 1.6) * dt);
+    // (a runner brakes over a few strides: a hard stop would need footholds far ahead of it)
+    this.speed = approach(this.speed, vt, (vt > this.speed ? 0.8 : lerp(1.6, 1.1, runK)) * dt);
 
     // ---- heading: people turn with their steps - each walking step lands the foot turned toward
     // the way to go (up to ~0.6 rad on the spot, ~0.35 at walking pace), and the body turns along
@@ -285,6 +304,9 @@ export class Locomotion {
   onLand(st) {
     const p = this.planted || (this.planted = { L: null, R: null });
     p[st.foot] = this.active ? st.yaw : null;
+    // whoever started it (the gait or a reactive catch step), the next step is the other foot's:
+    // the same foot again would leave the body on one leg for two swings
+    this.nextFoot = other(st.foot);
   }
 
   /** Point `dist` metres further along the route from the projection of P on the current leg. */
@@ -336,6 +358,9 @@ export class Locomotion {
       // nearly stopped inside the base of support: standing balance squares up the feet
       return false;
     }
+    // about to turn on the spot while still drifting (after a stumble): come to rest first - a
+    // turning step's turned footholds would put the drift out to the side
+    if (this.speed < 0.1 && Math.abs(this.err || 0) > 0.6 && v > 0.3 && !this.shift) return false;
     this.ds += dt;
     const foot = (this.nextFoot = this.chooseFoot()); // keep the choice while the weight shifts
     const stance = other(foot);
@@ -399,6 +424,13 @@ export class Locomotion {
     const side = st.foot === 'L' ? 1 : -1;
     const tw = wrapAngle(st.turnTo - from);
     if (tw * side < -0.25) st.turnTo = from - side * 0.25;
+    // at a run the foot lands pointing within ~0.3 rad of the way the body is actually going (the
+    // turn is made over several steps, leaning into it)
+    const S = c.sens, vm = Math.hypot(S.comVel.x, S.comVel.z);
+    if (vm > 1.1) {
+      const vdir = Math.atan2(S.comVel.x, S.comVel.z), lim = lerp(0.6, 0.3, smoothstep(1.1, 1.8, vm));
+      st.turnTo = vdir + clamp(wrapAngle(st.turnTo - vdir), -lim, lim);
+    }
     st.walkV = v;
     st.duration = this.swingTime(v);
     // antalgic gait: weight is taken off a hurt leg quickly (short stance on it, short swing of
@@ -417,10 +449,10 @@ export class Locomotion {
     const p = c.stancePivot(st.stance, _a, true);
     const w = S.w0;
     const e = Math.exp(w * rem);
-    let xx = p.x + (S.cpB.x - p.x) * e, xz = p.z + (S.cpB.z - p.z) * e;
     // in the frame the foot will land in (turned with this step)
     const yaw = st.turnTo ?? c.heading;
     const hx = Math.sin(yaw), hz = Math.cos(yaw), lx = hz, lz = -hx;
+    let xx = p.x + (S.cpB.x - p.x) * e, xz = p.z + (S.cpB.z - p.z) * e;
     const v = this.state === 'stop' ? 0 : Math.min(this.speed, (st.walkV ?? this.speed) + 0.35);
     const T = this.swingTime(v) + this.dsTime(v);
     const eT = Math.exp(w * T);
@@ -448,11 +480,13 @@ export class Locomotion {
     // behind may come closer to the midline)
     const minLat = lerp(0.13, 0.08, smoothstep(0.25, 0.45, Math.abs(fwd)));
     lat = side * clamp(side * lat, minLat, 0.42);
-    fwd = clamp(fwd, -0.4, 0.85);
+    // (longer strides when running)
+    const reach = 0.85 + 0.25 * clamp(v - 1.25, 0, 1);
+    fwd = clamp(fwd, -0.4, reach);
     const len = Math.hypot(fwd, lat);
-    if (len > 0.92) {
-      fwd *= 0.92 / len;
-      lat *= 0.92 / len;
+    if (len > reach + 0.07) {
+      fwd *= (reach + 0.07) / len;
+      lat *= (reach + 0.07) / len;
     }
     // what the foothold had to give up (it is clamped to a natural stride): the balance helper
     // nudges the body back so the steps stay feasible (see HumanController.commit)
@@ -461,10 +495,17 @@ export class Locomotion {
     // a shove or a hit asks for more than a walking step can give: this one becomes a catch step
     // (crossovers allowed) and walking resumes once the balance is back
     // (around obstacles the footholds are deliberately off the pendulum's choice: only a big miss)
-    if (Math.hypot(vf, vl) > (this.obstacleAhead ? 0.35 : 0.2) && st.t > 0.03) {
+    // (at a run the footholds swing about more, and a catch step - short and quick - would only
+    // brake the body hard and set off a stumble: a runner whose stride falls short eases off
+    // instead, and only a really big miss - a shove, a hit - counts)
+    const running = smoothstep(1.3, 1.8, st.walkV ?? 0), miss = Math.hypot(vf, vl);
+    if (running > 0 && miss > 0.3 && st.t > 0.25 * st.duration) this.speed = Math.min(this.speed, Math.max(1.0, (st.walkV ?? 0) * (1 - 0.4 * running * clamp((miss - 0.3) / 0.5, 0, 1))));
+    // (the pendulum's prediction early in a fast swing is the least reliable part of it)
+    if (miss > (this.obstacleAhead ? 0.35 : 0.2) + 0.6 * running + this.catchMargin && st.t > 0.03 + 0.25 * st.duration * running) {
       this.violation.setZero();
       st.kind = 'catch';
-      this.pause = Math.max(this.pause, 0.8);
+      // (a stumbling runner keeps running - stopping dead from a run is what would bring it down)
+      this.pause = Math.max(this.pause, lerp(0.8, 0.12, running));
       this.nextFoot = null;
       return c.planStepTarget(out);
     }
@@ -659,7 +700,7 @@ export class Locomotion {
     }
     let goal = 0;
     if (this.stepping && S.footContact[s] && lead > 0.12) goal = clamp((back - 0.06) * 2.0, 0, 0.6);
-    heel[s] = approach(heel[s], goal, (goal > heel[s] ? 3.5 : 6) * dt);
+    heel[s] = approach(heel[s], goal, (goal > heel[s] ? lerp(3.5, 6, smoothstep(1.3, 1.6, Math.hypot(S.comVel.x, S.comVel.z))) : 6) * dt);
     const th = heel[s];
     if (th < 0.01) return 0;
     // roll about the ball of the foot, where it is now

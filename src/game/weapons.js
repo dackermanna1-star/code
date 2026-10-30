@@ -139,11 +139,22 @@ export function traceProjectile(ctx, origin, dir, proj, maxDist = 120) {
     if (h.type === 'flesh') {
       const entry = new Vec3().copy(origin).addScaled(dir, h.tIn);
       const exit = h.tOut > h.tIn + 0.004 ? new Vec3().copy(origin).addScaled(dir, h.tOut) : null;
+      // armour (a boss's helmet stops the round, its vest takes most of the energy)
+      const armor = h.person.injury.armorHit ? h.person.injury.armorHit(h.seg.name, proj) : null;
+      if (armor === 'stopped') {
+        h.body.applyImpulse(new Vec3().copy(dir).scale(proj.mass * proj.speed * forceScale), entry);
+        hitPeople.add(h.person);
+        hitList.push({ person: h.person, seg: h.seg.name, armor: true });
+        fx({ type: 'armorHit', person: h.person, body: h.body, seg: h.seg, point: entry, dir: dir.clone(), energy: proj.energy });
+        end = entry;
+        proj.pen = 0;
+        break;
+      }
       const vIn = proj.speed;
       const res = h.person.injury.bulletThrough(h.body, entry, exit, dir, proj);
       const dv = Math.max(0, vIn - proj.speed);
       // momentum actually transferred to the body (the bullet's lost momentum)
-      const J = new Vec3().copy(dir).scale(proj.mass * dv * forceScale);
+      const J = new Vec3().copy(dir).scale(proj.mass * dv * forceScale * (h.person.knockback ?? 1));
       h.body.applyImpulse(J, entry);
       hitPeople.add(h.person);
       hitList.push({ person: h.person, seg: h.seg.name });

@@ -190,6 +190,10 @@ function clotClass(kind, q) {
 
 let woundIds = 1;
 
+// Undead damage: location multiplier and bonus for vital structures hit (see bulletThrough)
+const UNDEAD_LOC = { head: 2, neck: 1.5, chest: 1, abdomen: 0.9, pelvis: 0.9, upperArm: 0.45, forearm: 0.4, hand: 0.25, thigh: 0.6, shin: 0.5, foot: 0.3 };
+const UNDEAD_VITAL = { heart: 90, artery: 25, vein: 10, cord: 60, lung: 15, organ: 15, bone: 12 };
+
 export class InjurySystem {
   constructor(ragdoll, controller, opts = {}) {
     this.rd = ragdoll;
@@ -199,6 +203,13 @@ export class InjurySystem {
     // contact produces must not shift the motor controller's random sequence
     this.rng = opts.rng ? makeRng(Math.floor(opts.rng() * 4294967296)) : Math.random;
     this.bleedScale = opts.bleedScale ?? 1;
+    // Undead (zombies): no circulation, pain or consciousness to lose - they keep coming until the
+    // brain or the cervical cord is destroyed or the body is wrecked (`hp`, worn down by the energy
+    // the bullets deposit, more for vital structures). `armor`: { helmet: hits it stops, vest:
+    // fraction of a torso round's energy it absorbs }.
+    this.undead = !!opts.undead;
+    this.hpMax = opts.hp ?? 200;
+    this.armor = opts.armor ? { ...opts.armor } : null;
     this.anatomy = buildAnatomy();
     this.bySeg = {};
     for (const s of this.anatomy) (this.bySeg[s.seg] || (this.bySeg[s.seg] = [])).push(s);
@@ -207,6 +218,7 @@ export class InjurySystem {
 
   reset() {
     this.time = 0;
+    this.hp = this.hpMax;
     this.wounds = [];
     this.events = [];
     this.injuries = []; // human-readable log: {time, text, severity}
@@ -507,7 +519,7 @@ export class InjurySystem {
           break;
         case 'brain':
           brainHit = true;
-          if (direct || sev > 0.25) this.kill('gunshot wound to the brain');
+          if (direct || sev > 0.25 || this.undead) this.kill('gunshot wound to the brain');
           else {
             this.knockOut(30 + 90 * sev, 0.9);
             this.brainDamage = Math.max(this.brainDamage, 0.6 * sev);
@@ -516,7 +528,7 @@ export class InjurySystem {
           break;
         case 'brainstem':
           brainHit = true;
-          if (direct || sev > 0.3) {
+          if (direct || sev > 0.3 || this.undead) {
             this.kill('brain stem destroyed');
             toLog.push(['brain stem destroyed', 3]);
           } else {
@@ -703,6 +715,16 @@ export class InjurySystem {
 
     // the hit itself: transient loss of tone in the area + startle (shot reaction)
     this.reactToHit(name, clamp(deposited / 400, 0.25, 1.2), dirW, 'bullet');
+    if (this.undead && this.alive) {
+      // wrecking a zombie: tissue destroyed (sub-linear in the deposited energy, so a rifle round
+      // is worth ~3 pistol rounds rather than 6), more where it matters, plus vital structures hit
+      let vital = 0;
+      for (const x of hit.structures) vital += (UNDEAD_VITAL[x.s.kind] || 0) * (x.direct ? 1 : 0.4);
+      const dmg = (Math.pow(deposited, 0.7) + vital) * (UNDEAD_LOC[kind] ?? 1);
+      this.hp -= dmg;
+      hit.damage = dmg;
+      if (this.hp <= 0) this.kill('destroyed');
+    }
     hit.stopped = stopped;
     hit.energyLeft = proj.energy;
     hit.penUsed = penBefore - proj.pen;
@@ -710,6 +732,31 @@ export class InjurySystem {
     hit.exitWound = exitWound;
     hit.endW = endW;
     return hit;
+  }
+
+  /**
+   * Armour in the way of a round about to enter segment `segName`: returns 'stopped' (a helmet
+   * takes it - each hit wears it down until it comes off), 'reduced' (a vest took most of its
+   * energy: `proj` is weakened in place) or null.
+   */
+  armorHit(segName, proj) {
+    const a = this.armor;
+    if (!a || !this.alive) return null;
+    const k = segKind(segName);
+    if (k === 'head' && a.helmet > 0) {
+      a.helmet--;
+      this.events.push({ type: 'armor', part: 'helmet', left: a.helmet });
+      if (a.helmet === 0) this.log('Helmet shot off', 2);
+      return 'stopped';
+    }
+    if ((k === 'chest' || k === 'abdomen') && a.vest > 0) {
+      proj.energy *= 1 - a.vest;
+      proj.pen *= 1 - a.vest;
+      proj.speed = proj.speed0 * Math.sqrt(proj.energy / proj.energy0);
+      this.events.push({ type: 'armor', part: 'vest' });
+      return 'reduced';
+    }
+    return null;
   }
 
   queueBreak(seg, t, open) {
@@ -751,6 +798,11 @@ export class InjurySystem {
   spinalInjury(level) {
     const order = { C1: 0, C5: 1, T6: 2, L1: 3, S1: 4 };
     if (this.spinal && order[this.spinal] <= order[level]) return;
+    if (this.undead && (level === 'C1' || level === 'C5')) {
+      this.spinal = level;
+      this.kill('cervical spine severed');
+      return;
+    }
     this.spinal = level;
     const P = this.paralysis;
     // Sympathetic outflow leaves the cord at T1-L2 (cardiac accelerators T1-T4): lesions above T6
@@ -790,7 +842,7 @@ export class InjurySystem {
   }
 
   knockOut(seconds, concussion = 0.5) {
-    if (!this.alive) return;
+    if (!this.alive || this.undead) return;
     this.koTimer = Math.max(this.koTimer, seconds);
     this.concussion = Math.max(this.concussion, concussion);
     if (this.conscious) {
@@ -974,8 +1026,15 @@ export class InjurySystem {
     this.handPressure();
     this.circulation(dt);
     this.respire(dt);
-    this.cerebral(dt);
-    const lossFrac = 1 - this.blood / BLOOD_VOLUME;
+    if (this.undead) {
+      // the wounds still ooze (for the visuals); nothing of it matters to the undead
+      this.blood = Math.max(this.blood, BLOOD_VOLUME * 0.6);
+      this.spo2 = 0.97;
+      this.hypoxia = 0;
+      this.brainDamage = 0;
+      this.arrestTime = this.alive ? -1 : this.arrestTime;
+    } else this.cerebral(dt);
+    const lossFrac = this.undead ? 0 : 1 - this.blood / BLOOD_VOLUME;
 
     // ---------------- pain ----------------
     this.painAcute *= Math.exp(-dt / 9);
@@ -984,7 +1043,7 @@ export class InjurySystem {
     for (const f of this.fractures) chronic += 0.35;
     for (const k in this.limbPain) this.limbPain[k] *= Math.exp(-dt / 60);
     const mask = 1 - 0.45 * this.adrenaline;
-    this.pain = this.conscious ? clamp(1 - Math.exp(-(this.painAcute + chronic * 0.6) * mask), 0, 1) : 0;
+    this.pain = this.conscious && !this.undead ? clamp(1 - Math.exp(-(this.painAcute + chronic * 0.6) * mask), 0, 1) : 0;
     this.adrenaline *= Math.exp(-dt / 50);
 
     // ---------------- transient hit reactions recover ----------------
@@ -996,7 +1055,7 @@ export class InjurySystem {
     this.buckle.arms.R = rec(this.buckle.arms.R, 1.2);
 
     // ---------------- death ----------------
-    if (this.alive) {
+    if (this.alive && !this.undead) {
       if (this.arrestTime >= 0 && this.time - this.arrestTime > AGONAL_TIME) this.kill(this.arrestCause || 'cardiac arrest');
       else if (this.brainDamage >= 1) this.kill('hypoxic brain injury');
       else if (this.blood < BLOOD_VOLUME * 0.3) this.kill('exsanguination');
@@ -1242,7 +1301,7 @@ export class InjurySystem {
   }
 
   cardiacArrest(cause) {
-    if (this.arrestTime >= 0) return;
+    if (this.arrestTime >= 0 || this.undead) return;
     this.arrestTime = this.time;
     this.arrestCause = cause;
     this.log(`Cardiac arrest (${cause})`, 3);
@@ -1355,11 +1414,13 @@ export class InjurySystem {
     ctl.pain = this.pain;
     this.breathingOutput(dt, lossFrac);
     // weakness: hypovolaemia, low arterial pressure and hypoxaemia starve the muscles and the brain
-    const weak = clamp(
-      0.8 * smoothstep(0.18, 0.45, lossFrac) + 0.8 * smoothstep(70, 35, this.mapF) + 0.5 * smoothstep(0.88, 0.6, this.spo2) + 0.4 * smoothstep(0.75, 0.5, this.delivery),
-      0,
-      1,
-    );
+    const weak = this.undead
+      ? 0
+      : clamp(
+          0.8 * smoothstep(0.18, 0.45, lossFrac) + 0.8 * smoothstep(70, 35, this.mapF) + 0.5 * smoothstep(0.88, 0.6, this.spo2) + 0.4 * smoothstep(0.75, 0.5, this.delivery),
+          0,
+          1,
+        );
     const P = this.paralysis;
     const m = (n) => this.muscle[n] || 0;
     const broken = (n) => this.fractures.some((f) => f.seg === n && f.physical);
@@ -1369,15 +1430,19 @@ export class InjurySystem {
     for (const s of ['L', 'R']) {
       const muscle = 1 - 0.55 * m('thigh' + s) - 0.35 * m('shin' + s) - 0.2 * m('foot' + s) - 0.25 * m('pelvis');
       // pain inhibits the muscles a little (fractures and torn muscle are modelled separately)
-      const limbPain = clamp(((this.limbPain['thigh' + s] || 0) + (this.limbPain['shin' + s] || 0) + (this.limbPain['foot' + s] || 0)) * 0.12, 0, 0.25);
+      const limbPain = this.undead ? 0 : clamp(((this.limbPain['thigh' + s] || 0) + (this.limbPain['shin' + s] || 0) + (this.limbPain['foot' + s] || 0)) * 0.12, 0, 0.25);
       ctl.legStrength[s] = clamp(muscle * fracLeg(s) * pelvisFx * P.legs * this.nerve['leg' + s] * (1 - 0.85 * weak) * this.buckle[s] * (1 - limbPain), 0, 1);
       const am = 1 - 0.5 * m('upperArm' + s) - 0.4 * m('forearm' + s) - 0.25 * m('hand' + s);
       ctl.armStrength[s] = clamp(am * fracArm(s) * (s === 'L' ? P.armsL : P.armsR) * this.nerve['arm' + s] * (1 - 0.7 * weak) * this.buckle.arms[s], 0, 1);
     }
     ctl.spineStrength = clamp(P.trunk * (1 - 0.7 * weak) * this.buckle.trunk * (1 - 0.3 * m('abdomen')), 0, 1);
     ctl.neckStrength = clamp(P.neck * (1 - 0.6 * weak), 0, 1);
-    ctl.balanceSkill = clamp((1 - 0.7 * this.concussion) * (1 - 0.6 * weak) * (1 - 0.3 * this.pain), 0.05, 1);
+    ctl.balanceSkill = this.undead ? 1 : clamp((1 - 0.7 * this.concussion) * (1 - 0.6 * weak) * (1 - 0.3 * this.pain), 0.05, 1);
     this.concussion = Math.max(0, this.concussion - dt / 240);
+    if (this.undead) {
+      ctl.wounds = [];
+      return;
+    }
     // wounds worth clutching (most painful first), excluding ones on a useless arm
     const list = [];
     for (const w of this.wounds) {
