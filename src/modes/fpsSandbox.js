@@ -172,7 +172,8 @@ export class FpsSandboxMode {
         return;
       }
     } else if (this.input.locked) {
-      this.acc += dtReal;
+      // (a bone-breaking blow can slow everything down for a beat)
+      this.acc += dtReal * kc.momentScale(dtReal);
       let n = 0, look = inp.look;
       while (this.acc >= FIXED && n < 3) {
         this.step(inp, look);
@@ -184,6 +185,11 @@ export class FpsSandboxMode {
         n++;
       }
       if (n === 3) this.acc = 0;
+      // the mouse still looks around in slow motion
+      if (n === 0) {
+        this.player.yaw += look.dx;
+        this.player.pitch = clamp(this.player.pitch + look.dy, -1.45, 1.45);
+      }
       h.afterSim(simDt, dtReal, this.camera);
     } else h.afterSim(0, dtReal, this.camera);
     this.render(dtReal, inp);

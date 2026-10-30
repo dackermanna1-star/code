@@ -1118,7 +1118,7 @@ function frame(now) {
   if (state.firing && state.tool.startsWith('w:') && WEAPONS[state.tool.slice(2)].auto) fireWeapon();
   let simDt = 0;
   if (!state.paused) {
-    acc += dtReal * state.timeScale;
+    acc += dtReal * state.timeScale * killCam.momentScale(dtReal);
     let n = 0;
     while (acc >= FIXED && n < 4) {
       stepSim();

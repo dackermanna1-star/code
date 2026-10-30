@@ -67,6 +67,7 @@ export class KillCam {
     this.bullet = null;
     this.state = null;
     this.vignette = null;
+    this.moment = null;
   }
 
   setAspect(a) {
@@ -113,18 +114,22 @@ export class KillCam {
 
   /** Visual grade of the screen (CSS filter on the canvas + a vignette). */
   setLook(kind) {
-    if (this.host.hideUi) this.host.hideUi(kind !== 'none');
+    if (this.host.hideUi) this.host.hideUi(kind !== 'none' && kind !== 'moment');
     const c = this.host.canvas;
     if (!c || typeof document === 'undefined') return;
     if (!this.vignette && this.host.overlay !== null) {
       // vignette and cinema bars
       const v = document.createElement('div');
       v.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:30;opacity:0;transition:opacity .25s;background:radial-gradient(ellipse at center, rgba(0,0,0,0) 45%, rgba(0,0,0,0.78) 100%)';
-      v.innerHTML = '<div style="position:absolute;left:0;right:0;top:0;height:9vh;background:#000"></div><div style="position:absolute;left:0;right:0;bottom:0;height:9vh;background:#000"></div>';
+      v.innerHTML = '<div class="kc-bar" style="position:absolute;left:0;right:0;top:0;height:9vh;background:#000"></div><div class="kc-bar" style="position:absolute;left:0;right:0;bottom:0;height:9vh;background:#000"></div>';
       document.body.appendChild(v);
       this.vignette = v;
     }
-    if (kind === 'flight') {
+    if (this.vignette) for (const b of this.vignette.querySelectorAll('.kc-bar')) b.style.display = kind === 'moment' ? 'none' : '';
+    if (kind === 'moment') {
+      c.style.filter = 'contrast(1.15) saturate(0.7)';
+      if (this.vignette) this.vignette.style.opacity = 0.8;
+    } else if (kind === 'flight') {
       c.style.filter = 'contrast(1.12) saturate(0.8) brightness(1.03)';
       if (this.vignette) this.vignette.style.opacity = 1;
     } else if (kind === 'xray') {
@@ -156,8 +161,43 @@ export class KillCam {
     if (kinds.includes('organ') && rig.damageOrgan) rig.damageOrgan('liver', entry, dir, E);
   }
 
+  /**
+   * A bone-breaking blow (a full-power bat swing to the ribs, a haymaker to the jaw, a stomp on the
+   * head): a beat of slow motion with the X-ray on the victim, seen from wherever the player is.
+   */
+  impactMoment(person, dur = 1.1) {
+    if (this.active || this.moment || this.mode === 'off') return false;
+    const h = this.host;
+    const xray = h.xray ? h.xray(person) : null;
+    if (xray && xray.setVisible) xray.setVisible(true, 0.1);
+    if (h.ghost) h.ghost(person, true);
+    this.moment = { t: 0, person, xray, dur, off: false };
+    this.setLook('moment');
+    return true;
+  }
+
+  /** Per real-time frame: the time scale of a running impact moment (1 when there is none). */
+  momentScale(dt) {
+    const M = this.moment;
+    if (!M) return 1;
+    M.t += dt;
+    const ramp = 0.4;
+    if (M.t > M.dur && !M.off) {
+      M.off = true;
+      if (M.xray && M.xray.setVisible) M.xray.setVisible(false, 0.4);
+      if (this.host.ghost) this.host.ghost(M.person, false);
+      if (!this.active) this.setLook('none');
+    }
+    if (M.t > M.dur + ramp) {
+      this.moment = null;
+      return 1;
+    }
+    return M.t < M.dur ? lerp(0.05, 0.1, M.t / M.dur) : lerp(0.1, 1, ((M.t - M.dur) / ramp) ** 2);
+  }
+
   /** Skip to the end (a key press). */
   skip() {
+    if (this.moment) this.moment.t = Math.max(this.moment.t, this.moment.dur);
     if (!this.active) return;
     if (!this.state.fired) this.fire();
     this.finish();
