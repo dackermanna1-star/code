@@ -6,6 +6,7 @@ import { HumanController } from '../human/controller.js';
 import { InjurySystem } from '../human/injury.js';
 import { THROWABLES, createThrowableBody, applyDrag, launch } from './throwables.js';
 import { WEAPONS, makeProjectile, traceProjectile, spreadDirections, raycastPeople } from './weapons.js';
+import { MeleeStriker, meleeStrike } from './melee.js';
 import { OBSTACLES, createObstacleBody, obstacleRadius } from './obstacles.js';
 import { NavGrid } from './navigation.js';
 import { ZombieBrain, ZOMBIE_KINDS } from '../human/zombie.js';
@@ -382,6 +383,25 @@ export class Sandbox {
     }
     this.fx({ type: 'shot', weapon: weaponType, origin: origin.clone(), dir: dir.clone(), paths, by: opts.by || null });
     return paths;
+  }
+
+  // ------------------------------------------------------------------------------------------
+  // Melee (see melee.js): fx 'meleeHit' / 'meleeMiss', injuries through each person's injury model.
+  /**
+   * A strike in progress (first-person game): call .update({a, b} | point, dt) every physics step
+   * while the weapon moves, .end() when the swing is over. opts: { charge, mode, by, exclude }.
+   */
+  meleeStriker(weapon, opts = {}) {
+    return new MeleeStriker(this, weapon, opts);
+  }
+
+  /**
+   * One straight strike: the weapon's striking point travels from `from` to `to` (world) at its
+   * speed for opts.charge (sandbox tool: strike at a clicked point from the camera). Knife:
+   * opts.mode 'stab' | 'slash'. Returns { hits, speedLeft, stopped }.
+   */
+  meleeStrike(weapon, from, to, opts = {}) {
+    return meleeStrike(this, weapon, from, to, opts);
   }
 
   // ------------------------------------------------------------------------------------------

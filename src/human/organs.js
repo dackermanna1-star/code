@@ -142,6 +142,60 @@ export function buildAnatomy() {
   return S;
 }
 
+// ------------------------------------------------------------------------------------------------
+// The rib cage (melee trauma: which ribs a blow loads, where a blade meets bone). Kept out of
+// buildAnatomy() so the ballistics are unchanged.
+//
+// Rib n (1..12) leaves the spine beside thoracic vertebra n and runs round the side of the chest as
+// an elliptical arc in a plane that tilts down toward the front: ribs 1-7 reach the sternum through
+// their costal cartilages, 8-10 end in the cartilage of the costal margin, 11 and 12 end free in the
+// flank. Arc parameter theta: 0 at the back midline, PI at the front midline. The lower ribs reach
+// below the chest segment and guard the liver and spleen (bind coordinates are shared by all
+// segments, so a blow to the upper abdomen finds them too).
+const RIB_AXES = [
+  null,
+  [0.06, 0.045], [0.088, 0.062], [0.105, 0.075], [0.118, 0.085], [0.127, 0.091], [0.133, 0.095],
+  [0.137, 0.097], [0.138, 0.097], [0.136, 0.095], [0.132, 0.091], [0.124, 0.085], [0.114, 0.078],
+];
+const RIB_DROP = [0, 0.03, 0.05, 0.065, 0.075, 0.085, 0.09, 0.095, 0.1, 0.1, 0.095, 0.07, 0.05];
+// where the bony rib ends (costochondral junction, or the free tip of a floating rib)
+const RIB_END = [0, 2.85, 2.85, 2.85, 2.85, 2.85, 2.85, 2.85, 2.6, 2.45, 2.3, 1.95, 1.55];
+const RIB_T0 = 0.3; // rib head beside the vertebra
+const RIB_ZC = -0.035; // centre of the cage (bind z)
+export const RIB_SPACING = 0.0245; // vertical rib spacing at the spine (T1 at 1.47 m .. T12 at 1.2 m)
+
+/** Bind-space point of rib n (1..12) on side 'L' (+x) or 'R' at arc parameter theta. */
+export function ribPoint(n, side, theta, out = new Vec3()) {
+  const [ax, az] = RIB_AXES[n];
+  const yp = 1.47 - RIB_SPACING * (n - 1);
+  return out.set((side === 'L' ? 1 : -1) * ax * Math.sin(theta), yp - RIB_DROP[n] * (1 - Math.cos(theta)) * 0.5, RIB_ZC - az * Math.cos(theta));
+}
+
+/** Arc range [start, end] of the bony part of rib n. */
+export function ribRange(n) {
+  return [RIB_T0, RIB_END[n]];
+}
+
+/**
+ * The ribs around a bind-space point: for every rib on the point's side, its arc parameter at the
+ * point's bearing, the vertical offset of the point from the rib (dy, m) and whether the bony rib
+ * reaches that far round (bony). `radial` is the point's distance from the cage axis relative to the
+ * cage at the nearest rib (1 = on the ribs, > 1 outside them). Sorted by |dy|.
+ */
+export function ribsNear(p) {
+  const side = p.x >= 0 ? 'L' : 'R';
+  const ax = Math.abs(p.x), dz = p.z - RIB_ZC;
+  const out = [];
+  for (let n = 1; n <= 12; n++) {
+    const [a, c] = RIB_AXES[n];
+    const theta = Math.atan2(ax / a, -dz / c);
+    const y = 1.47 - RIB_SPACING * (n - 1) - RIB_DROP[n] * (1 - Math.cos(theta)) * 0.5;
+    out.push({ n, side, theta, dy: p.y - y, radial: Math.hypot(ax / a, dz / c), bony: theta >= RIB_T0 && theta <= RIB_END[n] });
+  }
+  out.sort((u, w) => Math.abs(u.dy) - Math.abs(w.dy));
+  return out;
+}
+
 /** AIS body region (Injury Severity Score) of a structure or of a soft-tissue wound in a segment. */
 export function issRegion(segName, s = null) {
   if (s && s.face) return 'face';
