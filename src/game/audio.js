@@ -1291,6 +1291,300 @@ export class AudioEngine {
     }
   }
 
+  // -------------------------------------------------------------------------------------------
+  // Survival mode: the undead, the trains, the player's own gun handling
+
+  /** A zombie's groan: a slow, rasping, falling moan (lower and longer from a brute). */
+  zombieGroan(kind = 'walker', pos, intensity = 0.7) {
+    if (!this._live() || !this._allow('zgroan', 0.25, 3)) return;
+    try {
+      const v = this._voice(40, pos, { send: 0.35, level: 0.9 });
+      if (!v) return;
+      const t = v.t, brute = kind === 'brute', runner = kind === 'runner';
+      const dur = (brute ? 1.6 : runner ? 0.7 : 1.15) * rand(0.8, 1.25);
+      const f0 = (brute ? 58 : runner ? 105 : 82) * rand(0.88, 1.12);
+      const N = 40, pitch = new Float32Array(N);
+      let jit = 0;
+      for (let i = 0; i < N; i++) {
+        const x = i / (N - 1);
+        jit = jit * 0.85 + (Math.random() * 2 - 1) * 0.03;
+        pitch[i] = f0 * (1.08 - 0.3 * x + 0.06 * Math.sin(x * 19) + jit);
+      }
+      const src = v.osc(this._glottalWave(), f0, t, t + dur + 0.02);
+      src.frequency.setValueCurveAtTime(pitch, t, dur);
+      const shape = swell(runner ? 0.25 : 0.35);
+      const g = v.gain(0);
+      g.gain.setValueCurveAtTime(curve(32, 0.5 * intensity, shape), t, dur);
+      // a hollow throat: two broad formants, and a slow tremor
+      const f1 = v.filter('bandpass', (brute ? 380 : 520) * rand(0.9, 1.1), 1.6);
+      const f2 = v.filter('bandpass', (brute ? 900 : 1250) * rand(0.9, 1.1), 2.2);
+      const mix = v.gain(1);
+      src.connect(f1);
+      src.connect(f2);
+      f1.connect(mix);
+      f2.connect(mix);
+      mix.connect(g);
+      g.connect(v.out);
+      // rasp: noise through the same tract, gated in time with the tremor
+      const n = v.noise('pink', t, dur + 0.02);
+      const bp = v.filter('bandpass', brute ? 700 : 1100, 0.9);
+      const ng = v.gain(0);
+      ng.gain.setValueCurveAtTime(curve(32, 0.35 * intensity * this._bandComp('pink', [['bandpass', 1000, 0.9]]), (x) => shape(x) * (0.6 + 0.4 * Math.sin(x * 40) ** 2)), t, dur);
+      n.connect(bp);
+      bp.connect(ng);
+      ng.connect(v.out);
+      v.commit();
+    } catch (e) {
+      this._warn(e);
+    }
+  }
+
+  /** The snarl a zombie lets out as it swings. */
+  zombieSnarl(kind = 'walker', pos) {
+    if (!this._live() || !this._allow('zsnarl', 0.15, 2)) return;
+    try {
+      const v = this._voice(45, pos, { send: 0.25 });
+      if (!v) return;
+      const t = v.t, dur = rand(0.25, 0.4) * (kind === 'brute' ? 1.5 : 1);
+      const n = v.noise('pink', t, dur + 0.02);
+      const bp = v.filter('bandpass', kind === 'brute' ? 600 : 1500, 1.4);
+      bp.frequency.setValueAtTime(kind === 'brute' ? 500 : 1300, t);
+      bp.frequency.exponentialRampToValueAtTime(kind === 'brute' ? 300 : 700, t + dur);
+      const g = v.gain(0);
+      g.gain.setValueCurveAtTime(curve(24, 0.9 * this._bandComp('pink', [['bandpass', 1200, 1.4]]), swell(0.2)), t, dur);
+      n.connect(bp);
+      bp.connect(g);
+      g.connect(v.out);
+      v.commit();
+    } catch (e) {
+      this._warn(e);
+    }
+  }
+
+  /** Footstep on concrete (the player's: no position, a little to either side). */
+  footstep(intensity = 0.5, pos = null, side = 0) {
+    if (!this._live() || !this._allow('step', 0.08, 2)) return;
+    try {
+      const v = this._voice(20, pos, { send: 0.12, level: 0.55 + 0.45 * intensity });
+      if (!v) return;
+      const t = v.t;
+      // heel thud
+      const o = v.osc('sine', rand(70, 95), t, t + 0.12);
+      o.frequency.exponentialRampToValueAtTime(45, t + 0.1);
+      const g = v.gain(0);
+      perc(g.gain, t, 0.35 * intensity, 0.004, 0.03, 4);
+      o.connect(g);
+      g.connect(v.out);
+      // grit scuff
+      const n = v.noise('white', t, 0.12);
+      const hp = v.filter('bandpass', rand(2200, 3800), 0.8);
+      const ng = v.gain(0);
+      perc(ng.gain, t + 0.01, 0.12 * intensity * this._bandComp('white', [['bandpass', 3000, 0.8]]), 0.006, 0.035, 4);
+      n.connect(hp);
+      hp.connect(ng);
+      ng.connect(v.out);
+      v.commit();
+    } catch (e) {
+      this._warn(e);
+    }
+  }
+
+  /** Gun handling: 'magOut' | 'magIn' | 'charge' | 'shell' | 'pump' | 'dry' | 'equip'. */
+  gunHandling(what = 'magIn', weapon = 'rifle') {
+    if (!this._live()) return;
+    try {
+      const v = this._voice(60, null, { send: 0.05, level: 0.7, propagate: false });
+      if (!v) return;
+      const t = v.t;
+      const click = (when, f, q, peak, tau) => {
+        const n = v.noise('white', when, tau * 6);
+        const bp = v.filter('bandpass', f, q);
+        const g = v.gain(0);
+        perc(g.gain, when, peak * this._bandComp('white', [['bandpass', f, q]]), 0.001, tau, 5);
+        n.connect(bp);
+        bp.connect(g);
+        g.connect(v.out);
+      };
+      const heavy = weapon === 'shotgun' ? 0.8 : weapon === 'pistol' ? 1.3 : 1;
+      if (what === 'magOut') {
+        click(t, 2600 * heavy, 3, 0.5, 0.012);
+        click(t + 0.05, 1200 * heavy, 2, 0.35, 0.03);
+      } else if (what === 'magIn') {
+        click(t, 1800 * heavy, 2.5, 0.6, 0.015);
+        click(t + 0.03, 3400 * heavy, 4, 0.55, 0.01);
+      } else if (what === 'charge') {
+        click(t, 2000, 2, 0.45, 0.02);
+        click(t + 0.12, 2900, 3, 0.7, 0.012);
+      } else if (what === 'shell') {
+        click(t, 1500, 2.2, 0.5, 0.02);
+        click(t + 0.04, 3000, 3, 0.3, 0.01);
+      } else if (what === 'pump') {
+        click(t, 900, 1.6, 0.7, 0.03);
+        click(t + 0.14, 1300, 1.8, 0.8, 0.025);
+      } else if (what === 'dry') click(t, 4200, 5, 0.6, 0.006);
+      else click(t, 1600, 1.5, 0.35, 0.02);
+      v.commit();
+    } catch (e) {
+      this._warn(e);
+    }
+  }
+
+  /** Hit marker tick (a kill: a heavier one). */
+  hitTick(kill = false, head = false) {
+    if (!this._live() || !this._allow('tick', 0.03, 3)) return;
+    try {
+      const v = this._voice(70, null, { send: 0, level: 0.5, propagate: false });
+      if (!v) return;
+      const t = v.t;
+      const o = v.osc('triangle', head ? 2400 : kill ? 900 : 1700, t, t + 0.12);
+      const g = v.gain(0);
+      perc(g.gain, t, kill ? 0.5 : 0.28, 0.001, kill ? 0.05 : 0.018, 4);
+      o.connect(g);
+      g.connect(v.out);
+      v.commit();
+    } catch (e) {
+      this._warn(e);
+    }
+  }
+
+  /** The player is hit: a dull thump and a gasp. */
+  playerHurt(intensity = 0.5) {
+    if (!this._live()) return;
+    try {
+      const v = this._voice(90, null, { send: 0.05, level: 0.9, propagate: false });
+      if (v) {
+        const t = v.t;
+        const o = v.osc('sine', 110, t, t + 0.25);
+        o.frequency.exponentialRampToValueAtTime(40, t + 0.2);
+        const g = v.gain(0);
+        perc(g.gain, t, 0.7 * intensity, 0.004, 0.06, 4);
+        o.connect(g);
+        g.connect(v.out);
+        v.commit();
+      }
+      this._gruntUntil = 0;
+      this.grunt(clamp(0.4 + intensity, 0, 1), null);
+    } catch (e) {
+      this._warn(e);
+    }
+  }
+
+  /** Wave start / boss / wave cleared sting: a low brass-like swell. */
+  sting(kind = 'wave') {
+    if (!this._live()) return;
+    try {
+      const v = this._voice(95, null, { send: 0.4, level: 0.8, propagate: false });
+      if (!v) return;
+      const t = v.t;
+      const notes = kind === 'boss' ? [41.2, 43.65, 61.7] : kind === 'clear' ? [130.8, 164.8, 196] : [55, 82.4, 110];
+      const dur = kind === 'boss' ? 3.2 : 2.2;
+      for (const [i, f] of notes.entries()) {
+        const o = v.osc('sawtooth', f, t + i * (kind === 'clear' ? 0.12 : 0), t + dur);
+        const lp = v.filter('lowpass', f * 4, 0.7);
+        lp.frequency.setValueAtTime(f * 1.5, t);
+        lp.frequency.linearRampToValueAtTime(f * 6, t + dur * 0.4);
+        lp.frequency.linearRampToValueAtTime(f * 2, t + dur);
+        const g = v.gain(0);
+        g.gain.setValueCurveAtTime(curve(32, 0.16, swell(0.35, 2)), t, dur);
+        o.connect(lp);
+        lp.connect(g);
+        g.connect(v.out);
+      }
+      v.commit();
+    } catch (e) {
+      this._warn(e);
+    }
+  }
+
+  /** Two-tone door chime (opening: up, closing: down). */
+  doorChime(closing = false, pos) {
+    if (!this._live()) return;
+    try {
+      const v = this._voice(55, pos, { send: 0.5, level: 0.8 });
+      if (!v) return;
+      const t = v.t;
+      const pair = closing ? [988, 740] : [740, 988];
+      pair.forEach((f, i) => {
+        const o = v.osc('sine', f, t + i * 0.32, t + i * 0.32 + 0.9);
+        const g = v.gain(0);
+        perc(g.gain, t + i * 0.32, 0.25, 0.005, 0.22, 5);
+        o.connect(g);
+        g.connect(v.out);
+      });
+      v.commit();
+    } catch (e) {
+      this._warn(e);
+    }
+  }
+
+  /**
+   * A train's running noise, kept up while it is in earshot: call every frame with its position,
+   * speed (m/s) and whether it is braking; trainStop(id) when it has gone.
+   */
+  train(id, pos, speed, braking) {
+    if (!this._live()) return;
+    try {
+      const ctx = this.ctx;
+      const T = this._trains || (this._trains = new Map());
+      let tr = T.get(id);
+      if (!tr) {
+        const src = ctx.createBufferSource();
+        src.buffer = this._noise('brown');
+        src.loop = true;
+        const lp = ctx.createBiquadFilter();
+        lp.type = 'lowpass';
+        lp.frequency.value = 300;
+        const g = ctx.createGain();
+        g.gain.value = 0;
+        const sq = ctx.createOscillator();
+        sq.type = 'sine';
+        sq.frequency.value = 2900;
+        const sqg = ctx.createGain();
+        sqg.gain.value = 0;
+        const pan = this._hasPan ? ctx.createStereoPanner() : null;
+        src.connect(lp);
+        lp.connect(g);
+        sq.connect(sqg);
+        const out = pan || this.dry;
+        g.connect(out);
+        sqg.connect(out);
+        if (pan) pan.connect(this.dry);
+        g.connect(this.verbIn);
+        src.start();
+        sq.start();
+        tr = { src, lp, g, sq, sqg, pan };
+        T.set(id, tr);
+      }
+      const sp = this._spatial(pos);
+      const now = ctx.currentTime;
+      const loud = clamp(speed / 14, 0.15, 1) * sp.gain;
+      tr.g.gain.setTargetAtTime(1.6 * loud, now, 0.1);
+      tr.lp.frequency.setTargetAtTime(160 + speed * 45, now, 0.1);
+      const squeal = braking && speed > 0.5 && speed < 7 ? (1 - speed / 7) * 0.05 * sp.gain : 0;
+      tr.sqg.gain.setTargetAtTime(squeal * (0.6 + 0.4 * Math.sin(now * 23)), now, 0.03);
+      tr.sq.frequency.setTargetAtTime(2600 + speed * 120, now, 0.1);
+      if (tr.pan) tr.pan.pan.setTargetAtTime(sp.pan, now, 0.05);
+    } catch (e) {
+      this._warn(e);
+    }
+  }
+
+  trainStop(id) {
+    const T = this._trains;
+    const tr = T && T.get(id);
+    if (!tr) return;
+    try {
+      const now = this.ctx.currentTime;
+      tr.g.gain.setTargetAtTime(0, now, 0.3);
+      tr.sqg.gain.setTargetAtTime(0, now, 0.1);
+      tr.src.stop(now + 1.5);
+      tr.sq.stop(now + 1.5);
+    } catch (e) {
+      this._warn(e);
+    }
+    T.delete(id);
+  }
+
   /** Stops everything and closes the context (e.g. on hot reload). unlock() starts afresh. */
   dispose() {
     try {

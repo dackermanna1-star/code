@@ -71,6 +71,9 @@ export class UI {
     bar.appendChild(el('span', 'sep'));
     mk('Follow', 'follow', 'Camera follows the selected dummy (B)');
     mk('Physics', 'debug', 'Show colliders, centre of mass and support polygon (V)');
+    bar.appendChild(el('span', 'sep'));
+    const sv = mk('▶ Survival', 'survival', 'First-person survival: hold the subway platform against the dead (P)');
+    sv.classList.add('survival');
     this.root.appendChild(bar);
   }
 

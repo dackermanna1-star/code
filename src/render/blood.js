@@ -32,6 +32,7 @@ const _up = new THREE.Vector3(0, 1, 0);
 export class BloodParticles {
   constructor(scene, decals) {
     this.decals = decals;
+    this.floorAt = null; // optional (x, z) -> floor height (default: the y = 0 plane)
     this.pos = new Float32Array(MAX_DROPS * 3);
     this.vel = new Float32Array(MAX_DROPS * 3);
     this.size = new Float32Array(MAX_DROPS);
@@ -157,7 +158,8 @@ export class BloodParticles {
       this.age[i] += dt;
       const y = this.pos[i3 + 1];
       let dead = this.age[i] > 6;
-      if (y <= this.size[i] * 0.5) {
+      const fy = this.floorAt ? this.floorAt(this.pos[i3], this.pos[i3 + 2], y + 0.5) : 0;
+      if (y <= fy + this.size[i] * 0.5) {
         dead = true;
         const x = this.pos[i3], z = this.pos[i3 + 2];
         const kind = this.kind[i];
@@ -488,7 +490,7 @@ export class SkinBlood {
       const pv = this.vertexWorld(v);
       const yv = this.wy[pv + 1];
       // reached the floor: soaks into the pool
-      if (yv < 0.018) {
+      if (yv < (this.particles.floorAt ? this.particles.floorAt(this.wy[pv], this.wy[pv + 2], yv + 0.3) : 0) + 0.018) {
         const ml = (b - RETAIN) * UNIT_ML;
         next[v] -= b - RETAIN;
         this.decals.addPoolVolume(this.wy[pv], this.wy[pv + 2], ml * 1.0);

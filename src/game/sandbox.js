@@ -21,7 +21,7 @@ export const COURSE_Z = -3.5; // the obstacle course runs along this line (clear
 export class Sandbox {
   constructor(opts = {}) {
     this.shape = opts.shape; // BodyShape for ballistic hit tests
-    this.world = new World({ substeps: opts.substeps ?? 20, groundHalfSize: 12 });
+    this.world = new World({ substeps: opts.substeps ?? 20, groundHalfSize: opts.groundHalfSize ?? 12 });
     this.world.onBodyRemoved = (b) => this.onBodyRemoved(b);
     this.people = [];
     this.objects = [];
@@ -92,10 +92,32 @@ export class Sandbox {
 
   removePerson(person) {
     if (this.grab && person.rd.allBodies().includes(this.grab.body)) this.endGrab();
-    person.rd.removeFromWorld();
-    for (const s of ['L', 'R']) this.world.removeConstraint(person.ctl.footSpring[s]);
+    if (!person.frozen) {
+      person.rd.removeFromWorld();
+      for (const s of ['L', 'R']) this.world.removeConstraint(person.ctl.footSpring[s]);
+    }
     this.people = this.people.filter((p) => p !== person);
     this.fx({ type: 'personRemoved', person });
+  }
+
+  /**
+   * Take a corpse that has come to rest out of the simulation (its bodies leave the world; the
+   * renderer keeps showing it where it lies). Fx 'personFrozen'; removePerson still disposes it.
+   */
+  freezePerson(person) {
+    if (person.frozen) return;
+    if (this.grab && person.rd.allBodies().includes(this.grab.body)) this.endGrab();
+    person.rd.removeFromWorld();
+    for (const s of ['L', 'R']) this.world.removeConstraint(person.ctl.footSpring[s]);
+    for (const b of person.rd.allBodies()) {
+      b.vel.setZero();
+      b.angVel.setZero();
+      if (b.framePos) b.framePos.copy(b.pos);
+      if (b.frameRot) b.frameRot.copy(b.rot);
+    }
+    person.frozen = true;
+    this.people = this.people.filter((p) => p !== person);
+    this.fx({ type: 'personFrozen', person });
   }
 
   applyAssist(person) {

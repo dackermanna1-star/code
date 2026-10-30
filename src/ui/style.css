@@ -605,3 +605,14 @@ body {
     display: none;
   }
 }
+
+.btn.survival {
+  background: #8e1b1b;
+  border-color: #c23a3a;
+  color: #fff;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+.btn.survival:hover {
+  background: #b02424;
+}

@@ -16,7 +16,7 @@ attribute vec4 aSplat;   // x, z, radius, rotation
 attribute vec4 aParams;  // elongation, kind (0 blood, 1 hole, 2 juice, 3 pool), seed, strength
 varying vec2 vUv;
 varying vec4 vParams;
-uniform float uHalf;
+uniform vec4 uRect; // centre x, centre z, half extents x, z
 void main() {
   vParams = aParams;
   vUv = position.xy; // -1..1
@@ -25,7 +25,7 @@ void main() {
   p.x *= aParams.x;
   p = vec2(c * p.x - s * p.y, s * p.x + c * p.y);
   vec2 world = aSplat.xy + p;
-  gl_Position = vec4(world / uHalf, 0.0, 1.0);
+  gl_Position = vec4((world - uRect.xy) / uRect.zw, 0.0, 1.0);
 }`;
 
 const frag = /* glsl */ `
@@ -83,7 +83,13 @@ export class FloorDecals {
     this.renderer = renderer;
     this.half = opts.half ?? 7; // covered square half-size (m)
     this.size = opts.size ?? 2048;
-    this.target = new THREE.WebGLRenderTarget(this.size, this.size, {
+    // covered area: a square of `half` round the origin, or opts.rect {minX, maxX, minZ, maxZ}
+    // (texture `size` along x, proportionally fewer texels along z)
+    const r = opts.rect || { minX: -this.half, maxX: this.half, minZ: -this.half, maxZ: this.half };
+    this.rect = { ...r };
+    const sx = this.size, sz = Math.max(64, Math.round((this.size * (r.maxZ - r.minZ)) / (r.maxX - r.minX)));
+    this.texSize = [sx, sz];
+    this.target = new THREE.WebGLRenderTarget(sx, sz, {
       type: THREE.UnsignedByteType,
       format: THREE.RGBAFormat,
       depthBuffer: false,
@@ -108,7 +114,7 @@ export class FloorDecals {
     this.material = new THREE.ShaderMaterial({
       vertexShader: vert,
       fragmentShader: frag,
-      uniforms: { uHalf: { value: this.half } },
+      uniforms: { uRect: { value: new THREE.Vector4((r.minX + r.maxX) / 2, (r.minZ + r.maxZ) / 2, (r.maxX - r.minX) / 2, (r.maxZ - r.minZ) / 2) } },
       transparent: true,
       depthTest: false,
       depthWrite: false,
@@ -137,7 +143,13 @@ export class FloorDecals {
   }
 
   inside(x, z) {
-    return Math.abs(x) < this.half - 0.05 && Math.abs(z) < this.half - 0.05;
+    const r = this.rect;
+    return x > r.minX + 0.05 && x < r.maxX - 0.05 && z > r.minZ + 0.05 && z < r.maxZ - 0.05;
+  }
+
+  /** Uniform for floor shaders: (centre x, centre z, half x, half z) of the covered area. */
+  get rectUniform() {
+    return this.material.uniforms.uRect.value;
   }
 
   /**

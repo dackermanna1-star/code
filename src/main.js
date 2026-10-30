@@ -22,6 +22,7 @@ import * as OM from './render/objectMeshes.js';
 import { createObstacleMesh, disposeObstacleMesh, createObstacleGhost, setObstacleGhostColor, obstacleFootprint } from './render/obstacleMeshes.js';
 import { WalkMarkers, goalsAhead } from './render/walkMarkers.js';
 import { UI, WEAPON_KEYS, THROW_KEYS } from './ui/ui.js';
+import { SurvivalMode } from './modes/survivalMode.js';
 
 const FIXED = 1 / 60;
 const WOUND_KIND = { entry: 0, exit: 1, laceration: 2, bruise: 3, abrasion: 4 };
@@ -31,9 +32,9 @@ const WOUND_KIND = { entry: 0, exit: 1, laceration: 2, bruise: 3, abrasion: 4 };
 const container = document.getElementById('app');
 const renderer = createRenderer(container);
 renderer.autoClear = false;
-const decals = new FloorDecals(renderer, { half: 7, size: 2048 });
+let decals = new FloorDecals(renderer, { half: 7, size: 2048 });
 const arena = new Arena(renderer, decals);
-const scene = arena.scene;
+let scene = arena.scene;
 const camera = new THREE.PerspectiveCamera(48, window.innerWidth / window.innerHeight, 0.03, 200);
 camera.position.set(2.3, 1.55, 3.3);
 const controls = new OrbitControls(camera, renderer.domElement);
@@ -49,9 +50,9 @@ controls.update();
 
 const segNames = new Ragdoll(new World()).segList.map((s) => s.name);
 const shape = new BodyShape(segNames);
-const sandbox = new Sandbox({ shape });
-const particles = new BloodParticles(scene, decals);
-const effects = new Effects(scene, { shardFactory: typeof OM.createShardMesh === 'function' ? OM.createShardMesh : null });
+let sandbox = new Sandbox({ shape });
+let particles = new BloodParticles(scene, decals);
+let effects = new Effects(scene, { shardFactory: typeof OM.createShardMesh === 'function' ? OM.createShardMesh : null });
 const viewmodel = new ViewModel(OM, camera.aspect);
 viewmodel.setEnvironment(arena.envMap);
 const audio = new AudioEngine({ volume: 0.7 });
@@ -90,7 +91,7 @@ ui.setTime(1, false);
 // ---------------------------------------------------------------------------------------------
 // body mesh (generated in a worker) and per-person render state
 let meshShared = null;
-const renders = new Map();
+let renders = new Map();
 ui.setLoading(true);
 // generate prop/weapon textures in idle slices now rather than on the first throw
 if (typeof OM.preloadObjectMeshes === 'function') setTimeout(() => OM.preloadObjectMeshes().catch(() => {}), 300);
@@ -118,9 +119,12 @@ try {
   buildMeshHere();
 }
 
+// skin of the undead (the survival mode's zombies): grey-green, waxy, darker on the big ones
+const LOOK_COLOR = { walker: 0x9aa48b, runner: 0xa8a99a, brute: 0x7d806f };
+
 function attachRender(person) {
   if (!meshShared || renders.has(person)) return;
-  const hm = new HumanMesh(meshShared.data, person.rd, shape);
+  const hm = new HumanMesh(meshShared.data, person.rd, shape, person.look ? { color: LOOK_COLOR[person.look] ?? 0x9aa48b } : {});
   scene.add(hm.mesh);
   const skin = new SkinBlood(hm, meshShared, particles, decals, person);
   const r = { hm, skin, decals: [], decalsDirty: true, decalTimer: 0 };
@@ -156,7 +160,7 @@ function addWoundDecal(person, r, w) {
 
 // ---------------------------------------------------------------------------------------------
 // props
-const propMeshes = new Map();
+let propMeshes = new Map();
 
 function makePropMesh(type) {
   try {
@@ -170,7 +174,7 @@ function makePropMesh(type) {
 
 // ---------------------------------------------------------------------------------------------
 // fixed obstacles and the placement ghost
-const obstacleMeshes = new Map();
+let obstacleMeshes = new Map();
 const ghosts = new Map(); // type -> preview group (one shown at a time)
 const GHOST_OK = 0xbfe6ff, GHOST_BAD = 0xff4d4d;
 
@@ -419,6 +423,9 @@ function doAction(act) {
       state.follow = !state.follow;
       ui.setFlag('follow', state.follow);
       break;
+    case 'survival':
+      enterSurvival();
+      break;
     case 'debug':
       state.debug = !state.debug;
       dbg.setVisible(state.debug);
@@ -553,6 +560,7 @@ renderer.domElement.addEventListener('pointermove', (e) => {
 renderer.domElement.addEventListener('pointerenter', () => (state.pointerIn = true));
 renderer.domElement.addEventListener('pointerleave', () => (state.pointerIn = false));
 renderer.domElement.addEventListener('pointerdown', (e) => {
+  if (mode === 'survival') return;
   updatePointer(e);
   audio.unlock();
   if (e.button !== 0) return;
@@ -601,6 +609,7 @@ window.addEventListener('pointerup', (e) => {
 
 window.addEventListener('keydown', (e) => {
   if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
+  if (mode === 'survival') return;
   audio.unlock();
   const k = e.key.toLowerCase();
   state.keys.add(k);
@@ -635,10 +644,14 @@ window.addEventListener('keydown', (e) => {
   else if (k === 'b') doAction('follow');
   else if (k === 'v') doAction('debug');
   else if (k === 'h') ui.toggleHidden();
+  else if (k === 'p') doAction('survival');
 });
 window.addEventListener('keyup', (e) => state.keys.delete(e.key.toLowerCase()));
 
 window.addEventListener('resize', () => {
+  if (mode === 'survival') {
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  }
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
@@ -852,6 +865,61 @@ function injuryFx(person, ev) {
   }
 }
 
+/** People meshes: pose from the bodies, skin blood, wound decals, pallor. */
+function updateRenders(simDt, dtReal, alpha) {
+  for (const [person, r] of renders) {
+    if (!person.frozen) r.hm.update(alpha);
+    else if (!r.frozenPosed) {
+      r.hm.update(1);
+      r.frozenPosed = true;
+    }
+    if (simDt > 0 && !person.frozen) r.skin.update(simDt, shape);
+    r.decalTimer -= dtReal;
+    if (r.decalsDirty || r.decalTimer <= 0) {
+      for (const d of r.decals) d.age = d.wound.age;
+      r.hm.setWounds(r.decals);
+      r.decalsDirty = false;
+      r.decalTimer = person.frozen ? 2 : 0.25;
+    }
+    const inj = person.injury;
+    const loss = 1 - inj.blood / 5000;
+    r.hm.setPhysiology(clamp((loss - 0.1) * 2.5, 0, 1) + (inj.alive ? 0 : 0.3), clamp((0.9 - inj.spo2) * 3, 0, 1));
+  }
+}
+
+// ---------------------------------------------------------------------------------------------
+// modes: the sandbox, and first-person survival (which brings its own world and swaps it in)
+let mode = 'sandbox';
+const sandboxCtx = { sandbox, scene, decals, particles, effects, renders, propMeshes, obstacleMeshes };
+function useWorld(ctx) {
+  ({ sandbox, scene, decals, particles, effects, renders, propMeshes, obstacleMeshes } = ctx);
+}
+const survival = new SurvivalMode({
+  renderer, OM, audio, shape, ui, envMap: arena.envMap,
+  useWorld, attachRender, detachRender, handleFx, updateRenders,
+  exitSurvival: () => exitSurvival(),
+});
+function enterSurvival() {
+  if (mode === 'survival') return;
+  if (!meshShared) {
+    ui.notify('Still building the body mesh — one moment');
+    return;
+  }
+  audio.unlock();
+  audio.heartbeat(0);
+  state.firing = false;
+  sandbox.endGrab();
+  mode = 'survival';
+  survival.enter();
+}
+function exitSurvival() {
+  if (mode !== 'survival') return;
+  survival.exit();
+  useWorld(sandboxCtx);
+  mode = 'sandbox';
+  last = performance.now();
+}
+
 // ---------------------------------------------------------------------------------------------
 // main loop
 let acc = 0;
@@ -880,6 +948,10 @@ function frame(now) {
   requestAnimationFrame(frame);
   const dtReal = Math.min((now - last) / 1000, 0.1);
   last = now;
+  if (mode === 'survival') {
+    survival.frame(now, dtReal);
+    return;
+  }
   // automatic weapons keep firing while the button is held
   if (state.firing && state.tool.startsWith('w:') && WEAPONS[state.tool.slice(2)].auto) fireWeapon();
   let simDt = 0;
@@ -901,21 +973,7 @@ function frame(now) {
   for (const e of sandbox.drainFx()) handleFx(e);
   const alpha = state.paused ? 1 : clamp(acc / FIXED, 0, 1);
 
-  // people
-  for (const [person, r] of renders) {
-    r.hm.update(alpha);
-    if (simDt > 0) r.skin.update(simDt, shape);
-    r.decalTimer -= dtReal;
-    if (r.decalsDirty || r.decalTimer <= 0) {
-      for (const d of r.decals) d.age = d.wound.age;
-      r.hm.setWounds(r.decals);
-      r.decalsDirty = false;
-      r.decalTimer = 0.25;
-    }
-    const inj = person.injury;
-    const loss = 1 - inj.blood / 5000;
-    r.hm.setPhysiology(clamp((loss - 0.1) * 2.5, 0, 1) + (inj.alive ? 0 : 0.3), clamp((0.9 - inj.spo2) * 3, 0, 1));
-  }
+  updateRenders(simDt, dtReal, alpha);
   // props
   for (const [o, m] of propMeshes) interpPose(o.body, alpha, m);
   particles.update(simDt);
@@ -1032,7 +1090,15 @@ requestAnimationFrame(frame);
 // test / automation hooks
 window.__sim = {
   ready: false,
-  sandbox,
+  get sandbox() {
+    return sandbox;
+  },
+  survival,
+  enterSurvival,
+  exitSurvival,
+  get mode() {
+    return mode;
+  },
   scene,
   renderer,
   camera,
