@@ -269,7 +269,7 @@ test('repeated hits on one vessel do not multiply its bleeding; arterial bleedin
     assert.ok(Math.abs(inj.bleedRate - inj.leakArt - inj.leakVen) < 1e-6 * (1 + inj.bleedRate), 'flows add up');
     // the arterial leaks are in parallel with the systemic circulation (above the mean filling
     // pressure, which is where the arterial pressure ends up after arrest)
-    if (inj.alive && inj.arrestTime < 0 && inj.map > 12) {
+    if (inj.alive && inj.arrestTime < 0) {
       withPulse++;
       assert.ok(inj.leakArt <= inj.co * (1 + 1e-9) + 1e-9, `arterial bleeding ${inj.leakArt} > CO ${inj.co}`);
     }
@@ -278,6 +278,40 @@ test('repeated hits on one vessel do not multiply its bleeding; arterial bleedin
     venMax = Math.max(venMax, inj.leakVen);
   });
   assert.ok(withPulse > 600 && venMax > 5, `both kinds of leak exercised (${withPulse} frames with a pulse, venous ${venMax.toFixed(1)} mL/s)`);
+  // the worst case for the bound: the aorta plus both femoral arteries (central orifice leaks and
+  // two limb trees at once), all the way through decompensation, with no pressure guard
+  const c = scene(4);
+  shootBind(c.sb, c.person, 'pistol', 'abdomen', [0.008, 1.1, -0.048]);
+  shootBind(c.sb, c.person, 'pistol', 'thighL', [0.075, 0.75, 0.022]);
+  shootBind(c.sb, c.person, 'pistol', 'thighR', [-0.075, 0.75, 0.022]);
+  const ic = c.person.injury;
+  let pulse = 0;
+  physiology(c.person, 40, () => {
+    if (ic.alive && ic.arrestTime < 0) {
+      pulse++;
+      assert.ok(ic.leakArt <= ic.co * (1 + 1e-9) + 1e-9, `arterial bleeding ${ic.leakArt} > CO ${ic.co}`);
+    }
+  });
+  assert.ok(pulse > 30, `bound checked while the heart beat (${pulse} frames)`);
+});
+
+test('the bleeding-rate setting scales limb haemorrhage like central haemorrhage', () => {
+  // The setting multiplies every leak's conductance. A leak sits in parallel with the systemic
+  // circulation, so a 4x larger leak also lowers the arterial pressure that drives it: the flow
+  // grows sub-linearly (~2.5x for a femoral or carotid wound), but the limb tree must not cap it
+  // (a saturated tree used to give only ~1.3x).
+  const rates = [];
+  for (const k of [1, 4]) {
+    const { sb, person } = scene(2);
+    sb.setBleedScale(k);
+    shootBind(sb, person, 'pistol', 'thighR', [-0.075, 0.75, 0.022]);
+    // first frame after the hit, at normal pressure (a 4x femoral bleed takes most of the cardiac
+    // output within a second, after which the falling pressure makes it sub-linear, as it should)
+    sb.step(1 / 60);
+    rates.push(person.injury.bleedRate);
+  }
+  assert.ok(rates[0] > 2, `femoral wound bleeds (${rates[0].toFixed(1)} mL/s)`);
+  assert.ok(rates[1] > 2.2 * rates[0], `4x setting: ${rates[1].toFixed(1)} vs ${rates[0].toFixed(1)} mL/s`);
 });
 
 test('a broken bone bleeds once: further bullets and blows on it do not multiply its fracture haemorrhage', () => {

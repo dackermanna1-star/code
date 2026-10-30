@@ -1086,7 +1086,9 @@ export class InjurySystem {
       }
     }
     for (const t in trees) {
-      const T = trees[t], gcv = LIMB_TREE[t.slice(0, 3)].gcv;
+      // (the bleeding-rate setting scales the feeding vessels with the leaks, so a limb's
+      // haemorrhage stays proportional to it: k*S*k*gc / (k*S + k*gc) = k * S*gc/(S+gc))
+      const T = trees[t], gcv = LIMB_TREE[t.slice(0, 3)].gcv * this.bleedScale;
       T.phiV = gcv / (T.Sv + gcv);
       Qv += T.Sv * T.phiV;
     }
@@ -1107,7 +1109,7 @@ export class InjurySystem {
     for (const t in trees) {
       const T = trees[t];
       const def = LIMB_TREE[t.slice(0, 3)];
-      const gc = def.gc * (1 - 0.7 * (this.structSev[def.feeder + ' ' + t[3]] || 0));
+      const gc = def.gc * (1 - 0.7 * (this.structSev[def.feeder + ' ' + t[3]] || 0)) * this.bleedScale;
       T.phi = gc / (T.S + gc);
       gT += (T.S * T.phi) / MAP0;
     }
@@ -1123,8 +1125,10 @@ export class InjurySystem {
     this.perfusion = co / CO0;
     // Windkessel: the arterial pressure follows the flows with a short lag
     this.mapF += (this.map - this.mapF) * clamp(dt / 0.8, 0, 1);
-    // after arrest the pressures equalise at the (falling) mean filling pressure
-    const xA = Math.max(x, Math.sqrt(PV0 * vs)) / SQ_MAP0;
+    // after arrest the pressures equalise at the (falling) mean filling pressure; while the heart
+    // still beats the leaks follow the solved arterial pressure itself (which keeps the arterial
+    // leaks within the cardiac output)
+    const xA = (arrested || !alive ? Math.max(x, Math.sqrt(PV0 * vs)) : x) / SQ_MAP0;
     const post = alive ? 1 : Math.exp(-(this.time - this.deathTime) / 40); // post-mortem drainage stops
     // ---- distribute the flows
     let ext = 0, int = 0, leakArt = 0, leakVen = 0;
@@ -1224,6 +1228,8 @@ export class InjurySystem {
       if (this.breathing < 0.1) return 'respiratory paralysis (high cervical spinal cord injury)';
       if (this.airway < 0.4) return 'asphyxia (airway obstruction, aspirated blood)';
       if (Math.max(this.tensionP.L, this.tensionP.R) > 0.5) return 'tension pneumothorax';
+      // lungs largely intact but too little air moving: the drive or the airway failed
+      if (0.5 * (this.lungs.L + this.lungs.R) > 0.6 && this.breathing * this.airway < 0.5) return 'hypoventilation (cervical spinal cord / airway injury)';
       return 'respiratory failure (lung injuries)';
     }
     if (this.cav.pericardium > 120 && loss < 0.3) return 'cardiac tamponade';
@@ -1453,7 +1459,9 @@ export class InjurySystem {
       const k = segKind(seg.name);
       const ground = !other;
       // footfalls: a sole landing on the floor (stepping, staggering, even a ~1 m jump down) loads
-      // the heel pad and shoe with 2-3 body weights; that is locomotion, not trauma
+      // the heel pad and shoe with 2-3 body weights; that is locomotion, not trauma. (This is the
+      // only footfall rule: harder landings, objects striking the foot and side impacts go through
+      // the foot's tolerances in BLUNT.)
       if (ground && k === 'foot' && imp.speed < 5 && mine.localDirToWorld(_v0.set(0, -1, 0), _v1).y < -0.6) continue;
       let material = ground ? 'concrete' : otherShape && otherShape.material ? otherShape.material : 'default';
       if (other && other.userData && other.userData.ragdoll) material = 'flesh';

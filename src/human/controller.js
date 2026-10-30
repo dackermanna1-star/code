@@ -234,8 +234,19 @@ export class HumanController {
     this.events.push({ type: 'mode', from: this.mode, to: m, time: this.time });
     this.mode = m;
     this.modeTime = 0;
-    if (m !== 'balance') this.step = null;
-    if (m === 'getup') this.gu = null;
+    if (m !== 'balance') {
+      this.step = null;
+      // standing reactions do not carry over into a fall or a get-up (and from there back into
+      // the next stand): no windmilling arms or head snap left over from before
+      this.wmAmount = 0;
+      if (this.wmDir) this.wmDir.setZero();
+      if (this.snap) this.snap.t0 = -9;
+      if (this.attention) this.attention.until = 0;
+    }
+    if (m === 'getup') {
+      this.gu = null;
+      this.guReplans = 0;
+    }
   }
 
   /** Back to standing balance after a dip (fresh balance-controller state from the current pose). */
@@ -400,7 +411,11 @@ export class HumanController {
       }
       // landed only once the head has come to rest too: the bracing arms and the neck keep
       // protecting it until then (releasing them as the chest touches drops the face on the floor)
-      const settled = S.torsoGround && this.rd.computeCOMVelocity(_v0).length() < 0.6 && this.seg.head.body.vel.length() < 0.5;
+      let settled = S.torsoGround && this.rd.computeCOMVelocity(_v0).length() < 0.6 && this.seg.head.body.vel.length() < 0.5;
+      // going down from the knees, the arms let the chest down slowly: it is only over once the
+      // chest itself rests on the floor and the head is low (softening the neck and arms while
+      // they still hold the chest up would drop the face onto the concrete)
+      if (k) settled = settled && this.seg.chest.body.groundContact && this.seg.head.body.pos.y - this.world.groundY < 0.22;
       // a fall to the knees runs its own course (kneeling, going down onto the hands)
       if (settled || this.modeTime > (k ? 12 : 2.5)) this.setMode('ground');
     } else if (this.mode === 'ground') {
@@ -1616,10 +1631,33 @@ export class HumanController {
       k.phase = p;
       k.pt = 0;
     };
-    // knees on the floor (the knee is the end of both the thigh and the shin capsule)
-    if (k.down < 0 && (sg.shinL.body.groundContact || sg.shinR.body.groundContact || sg.thighL.body.groundContact || sg.thighR.body.groundContact)) {
+    // knees on the floor (the knee is the end of both the thigh and the shin capsule; with a broken
+    // femur or tibia the knee end may belong to the distal fragment)
+    const touches = (seg) => seg.body.groundContact || (seg.fractured ? seg.fractured.extra.some((b) => b.groundContact) : false);
+    if (k.down < 0 && (touches(sg.shinL) || touches(sg.shinR) || touches(sg.thighL) || touches(sg.thighR))) {
       k.down = k.t;
       toPhase('kneel');
+    }
+    // Toppling instead of dropping (no helper forces, or a body pitched by the shot): the trunk
+    // tipping well over before the knees are down, pitching fast, or the head travelling fast
+    // sideways - the protective fall (arms braced at the floor, chin tucked or face turned) takes
+    // over in the direction the body is actually going. A straight vertical drop onto the knees
+    // does not trigger it.
+    if (k.phase === 'drop' || k.phase === 'hands') {
+      const cw = ch.angVel, hv = sg.head.body.vel;
+      const tipRate = Math.hypot(cw.x, cw.z);
+      const headSide = Math.hypot(hv.x, hv.z);
+      if ((k.down < 0 && S.chestTilt > 0.6) || tipRate > 2.2 || (headSide > 1.4 && sg.head.body.pos.y - this.world.groundY > 0.3)) {
+        this.fallCause = 'balance';
+        const v = this.sens.comVel;
+        this.fallDir.set(v.x + hv.x, 0, v.z + hv.z);
+        if (this.fallDir.lengthSq() < 0.01) this.fallDir.set(Math.sin(k.yaw), 0, Math.cos(k.yaw));
+        this.fallDir.normalize();
+        this.modeTime = 0;
+        this.kneel = null;
+        this.doFalling(dt);
+        return;
+      }
     }
     // knocked over while on the knees (a shove, a blow, toppling backward): an ordinary protective
     // fall in the direction it is actually going takes over
@@ -1643,6 +1681,7 @@ export class HumanController {
     const able = this.ableToGetUp() && this.autoGetUp && this.assistGain >= 0.25;
     if (k.phase === 'kneel') {
       const hold = able ? 0.7 : 0.4 + 2.6 * vigor;
+      k.hold = hold;
       // tipping over regardless (pushed, or sagging back onto the heels): hands down at once
       if (k.pt > hold || S.chestTilt > 0.7 || S.pelvisH < 0.3) {
         toPhase('hands');
@@ -1675,7 +1714,10 @@ export class HumanController {
       k.both = planted === 2 ? k.both + dt : 0;
       // lowered at <= 0.9 rad/s until a hand is on the floor, then held where it is
       // (the last few centimetres: past ~75 deg the trunk keeps going slowly until a hand touches)
-      if (!planted) k.pitch = k.pitch < 1.3 ? approach(k.pitch, 1.3, 1.1 * dt) : approach(k.pitch, 1.62, 0.5 * dt);
+      // (the lean waits for the hands: while they are still well above the floor the trunk goes
+      // forward slowly, so it never outruns the arms reaching down)
+      const handLow = Math.min(sg.handL.body.pos.y, sg.handR.body.pos.y) - this.world.groundY < 0.22;
+      if (!planted) k.pitch = k.pitch < 1.3 ? approach(k.pitch, 1.3, (handLow ? 1.1 : 0.55) * dt) : approach(k.pitch, 1.62, 0.5 * dt);
       else k.pitch = approach(k.pitch, clamp(S.chestTilt, 0.9, 1.6), 0.6 * dt);
       const settled = this.rd.computeCOMVelocity(_v0).length() < 0.25;
       if ((k.both > 0.3 || (planted && k.pt > 1.6)) && settled) {
@@ -1792,7 +1834,11 @@ export class HumanController {
       pel.force.y += clamp((-0.3 - pel.vel.y) * 260, 0, 0.3 * M) * this.assistGain;
     }
     // ---- arms ----
-    if (down) {
+    // late in the kneel (about to go forward), or when the trunk starts tipping during the drop,
+    // the hands already reach down toward the floor ahead of the knees
+    const preReach = (k.phase === 'kneel' && k.pt > 0.5 * (k.hold || 0.7)) || (k.phase === 'drop' && S.chestTilt > 0.35);
+    if (preReach) k.topple = 1;
+    if (down || preReach) {
       this.fallDir.set(fx, 0, fz);
       this.kneelArms(k, dt, lw);
     } else this.relaxedArms(0.8, 0);
@@ -2432,12 +2478,22 @@ export class HumanController {
     return this.wokeAt === undefined ? 0 : Math.exp(-(this.time - this.wokeAt) / 15);
   }
 
-  /** Strict to start a get-up, lenient to keep going (hysteresis). */
+  /** A broken humerus or forearm (the bone physically split): that arm cannot prop the body. */
+  armBroken(s) {
+    return !!(this.seg['upperArm' + s].fractured || this.seg['forearm' + s].fractured);
+  }
+
+  /**
+   * Strict to start a get-up, lenient to keep going (hysteresis). Continuing still requires the
+   * legs to pass balance mode's own test (legsOk in updateMode), or the dummy would finish standing
+   * up only to be declared fallen on the next frame.
+   */
   ableToGetUp(continuing = false) {
     const k = continuing ? 0.7 : 1;
     return (
       Math.min(this.legStrength.L, this.legStrength.R) > 0.5 * k &&
-      Math.max(this.armStrength.L, this.armStrength.R) > 0.3 * k &&
+      this.legStrength.L + this.legStrength.R > 1.0 + (continuing ? 0.02 : 0.1) &&
+      Math.max(...SIDES.map((s) => (this.armBroken(s) ? 0 : this.armStrength[s]))) > 0.3 * k &&
       this.spineStrength > 0.45 * k &&
       this.balanceSkill > 0.4 * k &&
       this.pain < (continuing ? 0.97 : 0.88)
@@ -2521,7 +2577,7 @@ export class HumanController {
     if (ax.lengthSq() < 1e-4) ax.set(Math.sin(this.heading), 0, Math.cos(this.heading));
     ax.normalize();
     let kind = front.y < -0.5 ? 'prone' : front.y > 0.5 ? 'supine' : left.y > 0 ? 'sideR' : 'sideL';
-    const useArm = { L: this.armStrength.L > 0.3, R: this.armStrength.R > 0.3 };
+    const useArm = { L: this.armStrength.L > 0.3 && !this.armBroken('L'), R: this.armStrength.R > 0.3 && !this.armBroken('R') };
     // Already up on the knees (e.g. dropped onto them when the legs gave way, then onto the hands):
     // the get-up carries on from there, as people do, rather than lying down first.
     const gy = this.world.groundY, sg = this.seg;
@@ -2580,12 +2636,44 @@ export class HumanController {
     g.pace = approach(g.pace, this.getUpPace(), dt * 0.5);
     g.t += dt * g.pace;
     g.T += dt;
-    // an arm that gives out during the attempt (e.g. broken on the way) is no longer leaned on: it
-    // is guarded against the body, and the attempt carries on one-armed (or ends, see ableToGetUp)
+    // an arm that gives out during the attempt is no longer leaned on: it is guarded against the
+    // body and the attempt carries on one-armed (or ends below). A broken arm bone is dropped at
+    // once; plain weakness only after it has lasted a moment, so a transient flinch (a hit
+    // reaction recovers within ~0.5 s) does not cost the arm for the rest of the attempt.
     for (const s of SIDES) {
-      if (g.useArm[s] && this.armStrength[s] < 0.22) {
+      if (!g.useArm[s]) continue;
+      const broken = this.armBroken(s);
+      g.weakT = g.weakT || { L: 0, R: 0 };
+      g.weakT[s] = this.armStrength[s] < 0.3 ? g.weakT[s] + dt : 0;
+      if (broken || g.weakT[s] > 0.35) {
         g.useArm[s] = false;
         g.hand[s] = null;
+        // a hand that was being walked to its shoulder is not any more
+        if (g.start && g.start.moving === s) g.start.moving = null;
+      }
+    }
+    // the floor phases are pushed up from with the arms: with neither left, give up
+    if (!g.useArm.L && !g.useArm.R && /^(flat|push|quad)$/.test(g.phase)) {
+      this.failGetUp('no usable arm');
+      return;
+    }
+    // rolled over onto the side or back while pushing up (a lopsided push, a hand slipping): stop
+    // pushing at once and re-plan from the way the body now lies, as a person would, instead of
+    // holding a push-up posture that no longer fits until the phase times out
+    if ((g.phase === 'push' || g.phase === 'quad') && g.t > 0.25) {
+      const fy = this.seg.chest.body.localDirToWorld(FWD, _v0).y;
+      // (a lopsided moment on the way up is normal and is levelled again: only a chest that stays
+      // turned onto its side, or ends up facing the sky, counts as rolled over)
+      g.sideT = fy > -0.2 ? (g.sideT || 0) + dt : 0;
+      if (fy > 0.25 || g.sideT > 0.4) {
+        this.guReplans = (this.guReplans || 0) + 1;
+        if (this.guReplans > 2) {
+          this.failGetUp('rolled over');
+          return;
+        }
+        this.events.push({ type: 'getupReplan', phase: g.phase, time: this.time });
+        this.gu = this.beginGetUp();
+        return;
       }
     }
     g.dt = dt;
@@ -3095,6 +3183,7 @@ export class HumanController {
       }
     }
     // before a hand comes off the floor the weight goes onto the other three supports
+    if (g.start.moving && !g.hand[g.start.moving]) g.start.moving = null; // that arm gave out
     const mv = g.start.moving;
     let lifting = false;
     if (mv) {
@@ -3102,7 +3191,7 @@ export class HumanController {
       if (h.planted) {
         g.start.shift += dt * g.pace;
         const o = mv === 'L' ? 'R' : 'L';
-        const inside = !g.useArm[o] || this.insideTripod(g.hand[o].at, kn.L, kn.R, this.sens.com, 0.025);
+        const inside = !g.useArm[o] || !g.hand[o] || this.insideTripod(g.hand[o].at, kn.L, kn.R, this.sens.com, 0.025);
         if ((inside && g.start.shift > 0.3) || g.start.shift > 0.9) this.planHand(g, mv, one, true);
       } else lifting = true;
     }
@@ -3664,6 +3753,14 @@ export class HumanController {
     // muscles off: commit() uses tone ~0 so joints become passive tissue only
     for (const j of this.rd.jointList) {
       this.cmd[j.name].mode = DRIVE_RELATIVE;
+    }
+    // breathing goes on while unconscious (brain-stem drive): the diaphragm and intercostals lift
+    // the rib cage against the abdomen each breath - deeper and jerky as agonal gasps near death
+    if (this.alive && this.breath) {
+      const ch = this.seg.chest.body, ab = this.seg.abdomen.body;
+      ch.localDirToWorld(LAT, _v0).scale(-7 * this.breath);
+      ch.torque.add(_v0);
+      ab.torque.sub(_v0);
     }
   }
 

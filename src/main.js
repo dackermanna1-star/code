@@ -594,6 +594,24 @@ function injuryFx(person, ev) {
     case 'paralysis':
       ui.notify(`Dummy #${person.id}: spinal cord injury (${ev.level})`);
       break;
+    case 'arrest':
+      ui.notify(`Dummy #${person.id}: cardiac arrest (${ev.cause})`);
+      break;
+    case 'gasp':
+      // agonal breathing: a weak, low gasp
+      audio.grunt(0.15, head);
+      break;
+    case 'cough': {
+      audio.grunt(0.25, head);
+      // coughing up blood: a fine spray from the mouth
+      if (ev.blood && state.gore) {
+        const h = person.rd.segments.head.body;
+        const mouth = h.localToWorld(new Vec3(0, -0.05, 0.09), new Vec3());
+        const fwd = h.localDirToWorld(new Vec3(0, -0.2, 1), new Vec3()).normalize();
+        particles.spray(new THREE.Vector3(mouth.x, mouth.y, mouth.z), new THREE.Vector3(fwd.x, fwd.y, fwd.z), 10, 1.4, 0.5, 0.0006, 0.0018, 0, 0.03);
+      }
+      break;
+    }
   }
 }
 

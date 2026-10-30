@@ -87,6 +87,8 @@ joint targets (with analytic inverse kinematics), and drives the joints through 
 Muscle strength scales with consciousness, pain and injuries.
 
 - **Standing balance**
+  - Quiet standing with physiological postural sway (a few millimetres, slow) and occasional
+    weight shifts between the feet; no solver jitter.
   - Gravity-compensating joint torques.
   - The legs share the load by the lever rule.
   - Ankle torque is limited to what the foot's centre of pressure can deliver.
@@ -96,13 +98,24 @@ Muscle strength scales with consciousness, pain and injuries.
   - Cost-based choice of stepping foot, including crossover steps.
   - Swing-foot muscle springs, plant-on-arrival and landing absorption.
   - Settle steps tidy up an awkward stance afterwards.
+  - Staggering: successive steps with the trunk leaning along the push until the body is caught;
+    when the trunk is toppling the arms windmill to rotate it back.
 - **Balance assist:** Euphoria-style helper torques that fade out as soon as balance is lost. The
   settings slider scales them; set it to 0 for unassisted balance.
 - **Falling:** protective bracing. The arms reach toward the predicted landing point, then the
   planted hands act as yielding struts. When falling backwards the chin tucks.
+- **Falling to the knees:** when the legs give way (a leg or gut wound, a broken leg, blood loss)
+  the knees fold and the body drops onto them with the trunk upright, as in Euphoria. It kneels
+  for a moment, clutching the wound, then leans forward onto its hands; if it can, it gets up from
+  there, otherwise the arms let the chest down to the floor with the face turned aside. If the
+  trunk topples instead (no balance assist, a hard hit), it switches to the protective fall.
 - **Reflexes**
   - Startle at gunshots.
-  - Hit reactions: doubling over a torso wound, a leg buckling when hit, an arm dropping.
+  - Hit reactions: the struck segment recoils and the trunk snaps along the bullet's path, then
+    the balance controller recovers (a stagger step if needed); doubling over a gut wound, a leg
+    buckling when hit, an arm dropping.
+  - Light thrown objects are absorbed standing; heavy ones (a bowling ball, a dumbbell) can still
+    knock it down.
   - Protective blocking: the forearms come up into the path of incoming objects, after a
     perception delay of about 150 ms. The trunk dodges and the head turns away.
 - **Wound behaviour:** the dummy clutches its most painful wound with one or both hands. Hand
@@ -168,15 +181,29 @@ Muscle strength scales with consciousness, pain and injuries.
 
 **Physiology** runs continuously:
 
-- 5 L of blood volume.
-- Bleeding scales with blood pressure. It slows with clotting (arteries barely clot) and with
-  hand pressure.
-- Heart rate and blood pressure respond to blood loss, pain and adrenaline.
-- Oxygen saturation follows lung function, airway and breathing.
-- Reduced brain oxygen delivery leads to fainting, then brain damage.
-- Cardiac arrest results from exsanguination, a heart wound or hypoxia, and is followed by death.
+- **Circulation.** 5 L of blood, of which only the stressed volume drives venous return. Reflex
+  vasoconstriction holds blood pressure (with a racing pulse) up to about 30 % blood loss;
+  beyond about 40 % venous return and pressure collapse.
+- **Bleeding.** Every bleed is a leak in parallel with the circulation: the arterial leaks can
+  never exceed the cardiac output, the leaks of a limb share its feeding artery, and a hole in
+  the aorta drops the arterial pressure at once. Low-pressure oozing continues, so bleeding never
+  stalls. Clotting depends on the vessel (large arteries barely seal); severe trauma and shock
+  impair it. Hand pressure on a wound slows it.
+- **Shock spiral.** Low pressure and low oxygen starve the heart muscle and weaken the pump.
+- **Respiration.** Pneumothorax (closed, open, tension), haemothorax, airway injury, aspirated
+  blood and an expanding neck haematoma; a high spinal cord injury stops breathing and the
+  oxygen stores run out over about two minutes.
+- **Arrest and death.** No pulse, ventricular fibrillation from a heart wound, or severe hypoxia
+  stop the circulation; clinical death follows after a short agonal phase with gasps.
+- **Trauma burden.** Every injury is graded; ISS and NISS are shown in the monitor and feed into
+  shock, heart weakening and clotting failure.
 - Pain is masked by adrenaline and decays over time.
-- These states feed back into muscle strength, balance skill and behaviour.
+- These states feed back into muscle strength, balance skill, breathing and behaviour.
+
+Typical outcomes (measured by `tools/bench/lethality.mjs`): a magazine or a shotgun blast to the
+torso kills within about 10-20 s; a severed femoral or carotid artery within about 2 minutes;
+many limb wounds over a few minutes; a single wound to an arm or the side of a thigh, a jaw or
+a scalp graze is survivable.
 
 ### Rendering (`src/render`)
 
@@ -197,6 +224,19 @@ Muscle strength scales with consciousness, pain and injuries.
   and muzzle flash, ejected casings, and tracers.
 - **Sound:** all procedural, synthesised with Web Audio in `src/game/audio.js`, including a
   room reverb for the concrete arena.
+
+## Benchmarks
+
+Headless benchmarks measure the behaviour objectively (`bash tools/bench/all.sh` runs them all):
+
+| Script | Measures |
+| --- | --- |
+| `idle.mjs` | quiet standing: postural sway, foot slip, joint jitter |
+| `push.mjs` | push recovery from shoves of 30-80 N·s in six directions |
+| `throws.mjs` | thrown objects: light ones should be absorbed standing |
+| `getup.mjs`, `lying.mjs` | knock-downs and lying starts: getting up, first-attempt rate, time |
+| `kneelfall.mjs` | collapses after leg and gut wounds: knock-outs and head strikes |
+| `lethality.mjs` | gunshot lethality against physiological expectations |
 
 ## Project layout
 
