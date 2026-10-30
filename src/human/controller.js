@@ -1129,7 +1129,9 @@ export class HumanController {
           // capped near real hip-flexor strength (~150-200 N at the foot); eased off for the
           // touchdown so the leg places the foot instead of ramming it into the floor
           const late = st.planting || st.t / st.duration > 0.85;
-          spring.maxForce = (this.footSpringForce ?? 200) * this.legStrength[s] * this.tone * (late ? 0.45 : 1);
+          // (lifting the foot up and over an obstacle takes a harder pull)
+          const over = st.profile ? 1 + clamp(st.profileTop * 3, 0, 0.7) : 1;
+          spring.maxForce = (this.footSpringForce ?? 200) * over * this.legStrength[s] * this.tone * (late ? 0.45 : 1);
         }
         // knee points along the pelvis' own facing (blended with the intended heading) so the
         // swing hip never has to twist the thigh hard against the pelvis
@@ -1148,7 +1150,7 @@ export class HumanController {
         const sg = this.swingGain ?? 0.8;
         this.gains('hip' + s, sg);
         this.cmd['hip' + s].d *= 1.25;
-        this.cmd['hip' + s].tmax = 160; // hip flexor/extensor strength of a swinging leg
+        this.cmd['hip' + s].tmax = st.profile ? 220 : 160; // hip flexor/extensor strength of a swinging leg
         if (ph < 0.7 && !st.planting) this.feedForward('hip' + s, legOut.thigh, dt);
         else this.cmd['hip' + s].d *= st.planting ? 2.5 : 1.6;
         _q0.multiplyConjA(legOut.thigh, legOut.shin);
@@ -1518,7 +1520,7 @@ export class HumanController {
     if (this.step.kind === 'walk') {
       // over an obstacle the swing takes a little longer (the foot goes up and over)
       this.loco.buildProfile(this.step);
-      if (this.step.profile) this.step.duration += clamp(0.35 * this.step.profileTop, 0, 0.14);
+      if (this.step.profile) this.step.duration += clamp(0.5 * this.step.profileTop, 0, 0.18);
     } else if (kind === 'settle') {
       this.step.duration = clamp(0.3 + 0.35 * dist, 0.32, 0.5);
       this.step.lift = clamp(0.035 + 0.08 * dist, 0.04, 0.08);
@@ -1621,7 +1623,9 @@ export class HumanController {
     }
     out.x = sc.x + hx * fwd + lx * left - hx * 0.058;
     out.z = sc.z + hz * fwd + lz * left - hz * 0.058;
-    out.y = this.floorAt(out.x + hx * 0.06, out.z + hz * 0.06, sc.y) + 0.085;
+    // among obstacles a catch step too is put on a flat spot (not on top of a log or an edge)
+    if (this.world.staticBodies.length && this.step) this.loco.terrainAdjust(this.step, out, hx, hz, sc.y);
+    else out.y = this.floorAt(out.x + hx * 0.06, out.z + hz * 0.06, sc.y) + 0.085;
     return penalty;
   }
 
@@ -1654,12 +1658,12 @@ export class HumanController {
     if (st.t / st.duration < 0.8 && !st.planting) {
       _v2.copy(st.target);
       this.planStepTarget(st.target);
-      if (st.kind === 'walk') {
-        if (!st.profileAt || _v2.distanceTo(st.target) > 0.03) {
-          this.loco.buildProfile(st);
-          st.profileAt = true;
-        }
-      } else if (st.kind !== 'settle') {
+      // the swing's clearance over whatever lies between here and the landing spot (any step)
+      if (this.world.staticBodies.length && (!st.profileAt || _v2.distanceTo(st.target) > 0.03)) {
+        this.loco.buildProfile(st);
+        st.profileAt = true;
+      }
+      if (st.kind !== 'walk' && st.kind !== 'settle') {
         // the swing time follows the step length as the landing spot is re-planned (a step that
         // has to grow from 0.25 to 0.6 m cannot keep the timing of the short one: the foot would
         // be flung at 3 m/s and overshoot)
@@ -1675,7 +1679,7 @@ export class HumanController {
     const cur = this.ankleWorld(st.foot, _v1);
     // (not for walking steps: their swing is timed to arrive, and an early plant jumps the
     // reference ahead and flings the foot 15-20 cm past the spot)
-    if (!st.planting && phase > 0.45 && st.kind !== 'settle' && st.kind !== 'walk') {
+    if (!st.planting && phase > 0.45 && st.kind !== 'settle' && st.kind !== 'walk' && !st.profile) {
       const dx = st.target.x - st.start.x, dz = st.target.z - st.start.z;
       const len2 = dx * dx + dz * dz;
       if (len2 > 0.01) {
@@ -1706,7 +1710,18 @@ export class HumanController {
       return;
     }
     // horizontal: fast early, settle late (minimum-jerk-like); vertical: lift then plant
-    const sx = smoothstep(0.05, 0.85, phase);
+    let sx = smoothstep(0.05, 0.85, phase);
+    if (st.profile) {
+      // over an obstacle the foot only moves on as far as its height allows (it goes up first,
+      // then over: a toe dragged into a kerb or a log is a trip); the swing clock waits for it
+      const uGate = this.loco.progressGate(st, this.ankleWorld(st.foot, _v1).y);
+      // (and once it is up, the foot travels on at a swing's speed, not in a jump)
+      const D = Math.max(0.2, Math.hypot(st.target.x - st.start.x, st.target.z - st.start.z));
+      const u = Math.min(clamp(sx, st.u || 0, Math.max(st.u || 0, uGate)), (st.u || 0) + (3.2 * dt) / D);
+      if (u < sx - 0.02) st.t -= dt * 0.6;
+      st.u = u;
+      sx = u;
+    }
     st.ankleNow.lerpVectors(st.start, st.target, sx);
     if (st.kind === 'walk') {
       // the swinging foot passes the stance foot a little wide (no brushing the ankles)
@@ -1729,7 +1744,7 @@ export class HumanController {
     const liftPhase = clamp(phase / 0.9, 0, 1);
     st.ankleNow.y = lerp(st.start.y, st.target.y, sx) + st.lift * Math.pow(Math.sin(Math.PI * liftPhase), 0.7);
     // over an obstacle: never below the clearance profile (the whole sole passes above it)
-    if (st.kind === 'walk' && st.profile && phase < 0.95) st.ankleNow.y = Math.max(st.ankleNow.y, this.loco.profileAt(st, sx));
+    if (st.profile && phase < 0.95) st.ankleNow.y = Math.max(st.ankleNow.y, this.loco.profileAt(st, sx));
     // reach down gently until contact (a deep target below the floor makes the leg kick off it)
     if (phase > 0.9) st.ankleNow.y = Math.min(st.ankleNow.y, st.target.y - Math.min(0.02, (phase - 0.9) * 0.15));
     st.yaw = st.startYaw + wrapAngle((st.kind === 'walk' && st.turnTo !== undefined ? st.turnTo : this.heading) - st.startYaw) * sx;

@@ -216,7 +216,9 @@ export class Locomotion {
     const vArrive = Math.sqrt(2 * 0.75 * Math.max(0, remaining - 0.12));
     // a sharp turn is mostly made first, in a few slow turning steps
     const turn = clamp(1 - (Math.abs(err) - 0.3) / 0.6, 0, 1);
-    let vt = Math.min(vmax, vArrive) * turn * crowdSlow;
+    // people slow down to step over or onto something
+    const obstacleSlow = this.obstacleAhead ? 0.7 : 10;
+    let vt = Math.min(vmax, vArrive, obstacleSlow) * turn * crowdSlow;
     if (this.pause > 0) vt = 0;
     this.speed = approach(this.speed, vt, (vt > this.speed ? 0.8 : 1.6) * dt);
 
@@ -454,7 +456,8 @@ export class Locomotion {
     this.violation.set(hx * vf + lx * vl, 0, hz * vf + lz * vl);
     // a shove or a hit asks for more than a walking step can give: this one becomes a catch step
     // (crossovers allowed) and walking resumes once the balance is back
-    if (Math.hypot(vf, vl) > 0.2 && st.t > 0.03) {
+    // (around obstacles the footholds are deliberately off the pendulum's choice: only a big miss)
+    if (Math.hypot(vf, vl) > (this.obstacleAhead ? 0.35 : 0.2) && st.t > 0.03) {
       this.violation.setZero();
       if (globalThis.__walkDebug) console.log('toCatch', st.foot, 'raw', rawF.toFixed(2), rawL.toFixed(2), 'clamped', fwd.toFixed(2), lat.toFixed(2), 'phase', (st.t / st.duration).toFixed(2));
       st.kind = 'catch';
@@ -473,7 +476,9 @@ export class Locomotion {
   footprint(ax, az, hx, hz, ref, res) {
     const lx = hz, lz = -hx;
     let lo = Infinity, hi = -Infinity;
-    const pts = [[-HEEL + 0.015, 0], [0.06, 0.04], [0.06, -0.04], [TOE - 0.02, 0.03], [TOE - 0.02, -0.03], [0.02, 0]];
+    // (with a few cm to spare all round: the foot never lands exactly where it was sent)
+    // (more ahead of the toes: the next swing has to get this foot's toes up and over)
+    const pts = [[-HEEL - 0.05, 0], [0.06, 0.06], [0.06, -0.06], [TOE + 0.1, 0.04], [TOE + 0.1, -0.04], [0.02, 0], [TOE - 0.05, 0], [TOE + 0.04, 0]];
     for (const [f, l] of pts) {
       const y = this.ctl.floorAt(ax + hx * f + lx * l, az + hz * f + lz * l, ref);
       if (y < lo) lo = y;
@@ -500,10 +505,19 @@ export class Locomotion {
       return out;
     }
     const x0 = out.x, z0 = out.z;
+    // which way to move it: the side chosen before; a swing already set to cross something keeps
+    // crossing; otherwise past the obstacle if that is still a normal stride (people lengthen the
+    // step rather than stop short and then have to cross from right in front of it)
+    let pref = st.terrainSide || (st.profile ? 1 : 0);
+    if (!pref) {
+      const sc = this.ctl.soleCenter(st.stance, _c);
+      const len = (x0 - sc.x) * hx + (z0 - sc.z) * hz;
+      pref = len < 0.45 ? 1 : -1;
+    }
     let found = false;
     for (let k = 1; k <= 10 && !found; k++) {
       const d = k * 0.035;
-      const order = st.terrainSide > 0 ? [d, -d] : [-d, d];
+      const order = pref > 0 ? [d, -d] : [-d, d];
       for (const s of order) {
         if (ok(x0 + hx * s, z0 + hz * s)) {
           out.x = x0 + hx * s;
@@ -541,10 +555,11 @@ export class Locomotion {
       const u = k / N;
       const ax = sx + dx * u, az = sz + dz * u;
       let hi = -Infinity;
-      for (const f of [-HEEL, 0, 0.08, 0.15, TOE]) hi = Math.max(hi, c.floorAt(ax + ux * f, az + uz * f, ref));
+      for (const f of [-HEEL - 0.03, 0, 0.08, 0.15, TOE, TOE + 0.05]) hi = Math.max(hi, c.floorAt(ax + ux * f, az + uz * f, ref));
       const base = lerp(st.start.y, st.target.y, u) - ANKLE_H;
       if (hi > base + 0.015) any = true;
-      prof[k] = hi + ANKLE_H + 0.05;
+      // (the toes hang below the ankle-heel line when the foot is not lifted level: some margin)
+      prof[k] = hi + ANKLE_H + 0.065;
     }
     if (!any) {
       st.profile = null;
@@ -561,13 +576,27 @@ export class Locomotion {
     st.profileTop = Math.max(...tmp) - Math.max(st.start.y, st.target.y);
   }
 
-  /** Lowest allowed ankle height at swing progress u (0..1), or -Infinity without a profile. */
-  profileAt(st, u) {
+  /** Furthest swing progress (0..1) the foot may make with its ankle at height `ay`. */
+  progressGate(st, ay) {
+    const prof = st.profile;
+    if (!prof) return 1;
+    const N = prof.length - 1;
+    for (let k = Math.ceil((st.u || 0) * N); k <= N; k++) if (prof[k] > ay + 0.05) return Math.max(0, (k - 1) / N);
+    return 1;
+  }
+
+  /**
+   * Ankle height to aim for at swing progress u (0..1): the clearance needed over the next stretch
+   * (the foot rises ahead of what it has to clear), or -Infinity without a profile.
+   */
+  profileAt(st, u, ahead = 0.2) {
     const prof = st.profile;
     if (!prof) return -Infinity;
     const N = prof.length - 1;
     const f = clamp(u, 0, 1) * N, k = Math.min(N - 1, Math.floor(f)), t = f - k;
-    return prof[k] * (1 - t) + prof[k + 1] * t;
+    let m = prof[k] * (1 - t) + prof[k + 1] * t;
+    for (let j = k + 1; j <= Math.min(N, Math.ceil((u + ahead) * N)); j++) m = Math.max(m, prof[j]);
+    return m;
   }
 
   /**
