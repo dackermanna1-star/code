@@ -107,7 +107,7 @@ details.sources td { padding: 3px 14px 3px 0; border-bottom: 1px solid var(--lin
       <button id="theme" title="Switch light/dark">◐</button>
     </div>
     <div class="row">
-      <label class="ctl">Max starting pay $<input type="number" id="maxPay" step="1000" min="0"></label>
+      <label class="ctl"><span id="payLabel">Max starting pay $</span><input type="number" id="maxPay" step="1000" min="0"></label>
       <label class="ctl">Max drive
         <select id="maxMiles"><option>5</option><option>8</option><option>10</option><option>12</option><option>15</option></select> mi</label>
       <label class="ctl">Posted within
@@ -119,7 +119,7 @@ details.sources td { padding: 3px 14px 3px 0; border-bottom: 1px solid var(--lin
     <div class="row">
       <label class="chk"><input type="checkbox" id="onlyNew"> New since last run</label>
       <label class="chk"><input type="checkbox" id="onlyEntry"> Says entry-level</label>
-      <label class="chk"><input type="checkbox" id="hideTalk"> Little talking only</label>
+      <label class="chk" id="hideTalkWrap"><input type="checkbox" id="hideTalk"> Little talking only</label>
       <label class="chk"><input type="checkbox" id="hideNoPay"> Hide “pay not listed”</label>
       <label class="chk"><input type="checkbox" id="hideClear"> Hide “clearance eligible”</label>
       <label class="chk"><input type="checkbox" id="showHidden"> Show hidden &amp; applied</label>
@@ -142,15 +142,22 @@ details.sources td { padding: 3px 14px 3px 0; border-bottom: 1px solid var(--lin
 <script>
 const DATA = /*__JOB_DATA__*/null;
 const $ = (id) => document.getElementById(id);
+const EASY = !!(DATA && DATA.settings.mode === "easy");
+const K = EASY ? "jfe-" : "jf-";   // separate saved settings for each mode
 const store = {
   get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
 };
-let marks = store.get("jf-marks", {});   // id -> "applied" | "hidden"
+let marks = store.get(K + "marks", {});   // id -> "applied" | "hidden"
 
 function fmtMoney(n) { return "$" + Math.round(n).toLocaleString(); }
+function fmtHour(n) { return "$" + (n / 2080).toFixed(2); }
 function payText(j) {
   if (!j.payMin) return "Pay not listed";
+  if (EASY) {
+    if (j.payMax && j.payMax > j.payMin) return fmtHour(j.payMin) + " – " + fmtHour(j.payMax) + "/hr";
+    return fmtHour(j.payMin) + "/hr";
+  }
   if (j.payMax && j.payMax > j.payMin) return fmtMoney(j.payMin) + " – " + fmtMoney(j.payMax) + "/yr";
   return fmtMoney(j.payMin) + "/yr";
 }
@@ -166,13 +173,20 @@ function esc(s) { return String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;",
 function init() {
   if (!DATA) { $("list").innerHTML = '<p class="empty">No data. Run “Find Jobs” to build this report.</p>'; return; }
   const s = DATA.settings;
-  $("sub").textContent = "Entry-level office jobs near " + s.centers.join(", ") + " · updated " + DATA.generated;
-  $("maxPay").value = store.get("jf-maxPay", s.maxPay);
-  $("maxMiles").value = String(store.get("jf-maxMiles", s.maxMiles));
+  if (EASY) {
+    document.title = "Easy Job Finder";
+    document.querySelector("header h1").textContent = "Easy Job Finder";
+    $("payLabel").textContent = "Min starting pay $/hr ";
+    $("maxPay").step = "0.5";
+  }
+  $("sub").textContent = (EASY ? "Easy hourly jobs ($" + s.minHourly + "+/hr, no fast food, restaurant or warehouse) near "
+                               : "Entry-level office jobs near ") + s.centers.join(", ") + " · updated " + DATA.generated;
+  $("maxPay").value = store.get(K + "maxPay", EASY ? s.minHourly : s.maxPay);
+  $("maxMiles").value = String(store.get(K + "maxMiles", s.maxMiles));
   if (![...$("maxMiles").options].some(o => o.value === $("maxMiles").value)) $("maxMiles").value = "15";
-  ["onlyNew","onlyEntry","hideTalk","hideNoPay","hideClear","showHidden"].forEach(id => $(id).checked = store.get("jf-" + id, false));
-  $("sort").value = store.get("jf-sort", "score");
-  $("maxAge").value = String(store.get("jf-maxAge", "9999"));
+  ["onlyNew","onlyEntry","hideTalk","hideNoPay","hideClear","showHidden"].forEach(id => $(id).checked = store.get(K + id, false));
+  $("sort").value = store.get(K + "sort", "score");
+  $("maxAge").value = String(store.get(K + "maxAge", "9999"));
   const comps = [...new Set(DATA.jobs.map(j => j.company))].sort();
   comps.forEach(c => { const o = document.createElement("option"); o.value = c; o.textContent = c; $("company").appendChild(o); });
 
@@ -190,25 +204,27 @@ function init() {
     const cur = document.documentElement.getAttribute("data-theme");
     const dark = cur ? cur === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
     document.documentElement.setAttribute("data-theme", dark ? "light" : "dark");
-    store.set("jf-theme", dark ? "light" : "dark");
+    store.set(K + "theme", dark ? "light" : "dark");
   });
-  const th = store.get("jf-theme", null); if (th) document.documentElement.setAttribute("data-theme", th);
+  const th = store.get(K + "theme", null); if (th) document.documentElement.setAttribute("data-theme", th);
   render();
 }
 function save() {
-  store.set("jf-maxPay", Number($("maxPay").value) || DATA.settings.maxPay);
-  store.set("jf-maxMiles", Number($("maxMiles").value));
-  store.set("jf-maxAge", $("maxAge").value);
-  store.set("jf-sort", $("sort").value);
-  ["onlyNew","onlyEntry","hideTalk","hideNoPay","hideClear","showHidden"].forEach(id => store.set("jf-" + id, $(id).checked));
+  store.set(K + "maxPay", Number($("maxPay").value) || (EASY ? DATA.settings.minHourly : DATA.settings.maxPay));
+  store.set(K + "maxMiles", Number($("maxMiles").value));
+  store.set(K + "maxAge", $("maxAge").value);
+  store.set(K + "sort", $("sort").value);
+  ["onlyNew","onlyEntry","hideTalk","hideNoPay","hideClear","showHidden"].forEach(id => store.set(K + id, $(id).checked));
 }
 function filtered() {
   const q = $("q").value.trim().toLowerCase();
-  const maxPay = Number($("maxPay").value) || Infinity, maxMiles = Number($("maxMiles").value);
+  const payLimit = Number($("maxPay").value), maxMiles = Number($("maxMiles").value);
   const maxAge = Number($("maxAge").value), sched = $("sched").value, comp = $("company").value;
   let out = DATA.jobs.filter(j => {
     if (!$("showHidden").checked && marks[j.id]) return false;
-    if (j.payMin && j.payMin > maxPay) return false;
+    if (payLimit && j.payMin) {
+      if (EASY ? j.payMin / 2080 < payLimit - 0.001 : j.payMin > payLimit) return false;
+    }
     if (j.miles !== null && j.miles > maxMiles) return false;
     if (maxAge < 9999 && (j.age === null || j.age === undefined || j.age > maxAge)) return false;
     if (sched === "pt" && !j.partTime) return false;
@@ -243,9 +259,9 @@ function card(j) {
              j.talk === "some" ? '<span class="chip warn">Some talking</span>' : '<span class="chip bad">Lots of talking</span>');
   if (j.years !== null && j.years !== undefined) chips.push(`<span class="chip">${j.years === 0 ? "No experience needed" : j.years + "+ yr experience"}</span>`);
   if (j.partTime) chips.push('<span class="chip">Part time</span>');
-  if (j.duties) chips.push(`<span class="chip ${j.duties > 18 ? "warn" : ""}">${j.duties} listed duties</span>`);
+  if (j.duties && !EASY) chips.push(`<span class="chip ${j.duties > 18 ? "warn" : ""}">${j.duties} listed duties</span>`);
   if (j.clearance === "obtainable") chips.push('<span class="chip warn">Must be clearance-eligible</span>');
-  const closes = j.closes ? ` · <span>Closes ${esc(j.closes)}</span>` : "";
+  const closes = j.closes ? ` · <span>${/^closes/i.test(j.closes) ? "" : "Closes "}${esc(j.closes)}</span>` : "";
   return `<div class="card ${m ? "dim" : ""}" data-id="${esc(j.id)}">
     <div class="top">
       <div>
@@ -281,7 +297,7 @@ $("list").addEventListener("click", (e) => {
   if (act === "more") { c.classList.toggle("open"); b.textContent = c.classList.contains("open") ? "Less" : "Details"; return; }
   marks[id] = marks[id] === act ? undefined : act;
   if (!marks[id]) delete marks[id];
-  store.set("jf-marks", marks); render();
+  store.set(K + "marks", marks); render();
 });
 function downloadCsv() {
   const cols = ["score","isNew","title","company","place","miles","payMin","payMax","posted","closes","years","talk","url"];

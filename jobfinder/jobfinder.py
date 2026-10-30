@@ -166,6 +166,65 @@ GOVJOBS_AGENCIES = [
     ("City of Alexandria", "alexandria"),
 ]
 
+# -----------------------------------------------------------------------------
+# "EASY JOBS" MODE - double-click "Find Easy Jobs.command".
+# Hourly jobs you can start without experience: retail, cashier, front desk,
+# bank teller, gyms, hotels, pet care, county part-time jobs...
+# No fast food, restaurant serving or warehouse work.
+# -----------------------------------------------------------------------------
+
+# Hide jobs whose pay STARTS below this (per hour).
+EASY_MIN_HOURLY = 18
+
+# Hide jobs paying more than this per hour to start - those are professional
+# jobs (analysts, recruiters...), not easy ones.
+EASY_MAX_STARTING_HOURLY = 30
+
+# Hide jobs that ask for more than this many years of experience.
+EASY_MAX_YEARS_EXPERIENCE = 1
+
+# Hide cashier, customer service, sales, front desk, receptionist, teller jobs.
+EASY_HIDE_CUSTOMER_FACING = True
+
+EASY_WORKDAY_SITES = [
+    ("Target", "target.wd5.myworkdayjobs.com", "target", "targetcareers"),
+    ("TJ Maxx / Marshalls / HomeGoods (TJX)", "tjx.wd1.myworkdayjobs.com", "tjx", "tjx_External"),
+    ("Wegmans", "wegmans.wd1.myworkdayjobs.com", "wegmans", "Wegmans"),
+    ("Whole Foods Market", "wholefoods.wd5.myworkdayjobs.com", "wholefoods", "wholefoods"),
+    ("Life Time (fitness clubs)", "lifetime.wd1.myworkdayjobs.com", "lifetime", "lifetime"),
+    ("Michaels", "michaels.wd5.myworkdayjobs.com", "michaels", "External"),
+    ("Burlington", "burlington.wd5.myworkdayjobs.com", "burlington", "burlingtoncareers"),
+    ("Five Below", "fivebelow.wd1.myworkdayjobs.com", "fivebelow", "fivebelowcareers"),
+    ("Dollar Tree / Family Dollar", "dollartree.wd5.myworkdayjobs.com", "dollartree", "dollartreeus"),
+    ("Uniqlo", "fastretailing.wd3.myworkdayjobs.com", "fastretailing", "retail_us_Uniqlo"),
+    ("Nordstrom", "nordstrom.wd501.myworkdayjobs.com", "nordstrom", "nordstrom_careers"),
+    ("Coach / Kate Spade (Tapestry)", "tapestry.wd108.myworkdayjobs.com", "tapestry", "tapestry_careers"),
+    ("Ann Taylor / LOFT / Talbots", "knitwellgroup.wd1.myworkdayjobs.com", "knitwellgroup", "US_Retail_Jobs"),
+    ("Kay / Zales / Jared (Signet)", "signetjewelers.wd1.myworkdayjobs.com", "signetjewelers", "signetjeweleryretailsales"),
+    ("Vans (VF Corp)", "vfc.wd5.myworkdayjobs.com", "vfc", "vans_careers"),
+    ("Swarovski", "swarovski.wd3.myworkdayjobs.com", "swarovski", "swarovski"),
+    ("Chanel", "cc.wd3.myworkdayjobs.com", "cc", "ChanelCareers"),
+    ("CarMax", "carmax.wd1.myworkdayjobs.com", "carmax", "External"),
+    ("AAA Club Alliance", "aaamidatlantic.wd5.myworkdayjobs.com", "aaamidatlantic", "AAAMidAtlantic"),
+    ("WeWork", "wework.wd1.myworkdayjobs.com", "wework", "WeWork"),
+    ("HEI Hotels & Resorts", "heihotels.wd12.myworkdayjobs.com", "heihotels", "External_Career_Site"),
+    ("Benchmark Hotels", "benchmark.wd1.myworkdayjobs.com", "benchmark", "PGH_Careers"),
+    ("Banfield Pet Hospital", "mvh.wd115.myworkdayjobs.com", "mvh", "BFCareers"),
+    ("Destination Pet", "destinationpet.wd5.myworkdayjobs.com", "destinationpet", "DPEC"),
+    ("Truist (bank)", "truist.wd1.myworkdayjobs.com", "truist", "Careers"),
+    ("PNC (bank)", "pnc.wd5.myworkdayjobs.com", "pnc", "External"),
+    ("M&T Bank", "mtb.wd5.myworkdayjobs.com", "mtb", "MTB"),
+    ("JLL", "jll.wd1.myworkdayjobs.com", "jll", "jllcareers"),
+    ("Cushman & Wakefield", "cw.wd1.myworkdayjobs.com", "cw", "External"),
+    ("Greystar (apartments)", "greystar.wd1.myworkdayjobs.com", "greystar", "External"),
+    ("Metropolitan Washington Airports Authority", "mwaa.wd1.myworkdayjobs.com", "mwaa", "MWAA"),
+    ("Labcorp", "labcorp.wd1.myworkdayjobs.com", "labcorp", "External"),
+]
+
+EASY_GREENHOUSE_BOARDS = [
+    ("Sunrise Senior Living", "sunrise"),
+]
+
 # =============================================================================
 # (Nothing below needs changing.)
 # =============================================================================
@@ -193,6 +252,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT_DIR = os.path.join(HERE, "output")
 TODAY = dt.date.today()
+MODE = "office"   # or "easy" (set by --easy)
 UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
 
 _print_lock = threading.Lock()
@@ -485,6 +545,7 @@ ENTRY_SIGNALS = re.compile(
 
 TALK_WORDS = re.compile(
     r"phone|telephone|calls?\b|front desk|greet|receptionist|walk[- ]in|in person|"
+    r"cashier|cash register|\bregister\b|checkout|point of sale|\bpos\b|"
     r"customer service|customer[- ]facing|client[- ]facing|public[- ]facing|"
     r"point of contact|inbound|outbound|cold call|sales|presentations?|"
     r"interact(ing|ion)? with (the public|customers|clients|patients|students|visitors)|"
@@ -595,10 +656,63 @@ def count_duties(desc_html):
     return len(re.findall(r"(?i)<li[\s>]", desc_html or ""))
 
 
+# "Easy jobs" mode: simple hourly jobs...
+EASY_TITLE_GOOD = re.compile(
+    r"cashier|sales|retail|store|team member|associate|customer|guest|front desk|front end|"
+    r"receptionist|concierge|greeter|teller|banker|clerk|office assistant|administrative|"
+    r"\badmin\b|file|mail|library|\bpage\b|recreation|camp|lifeguard|attendant|usher|"
+    r"ticket|member|leasing|stylist|merchandis|fitting room|photo|kennel|animal|\bpets?\b|"
+    r"bather|veterinary assistant|client service|kids|child ?care|nursery|tutor|"
+    r"instructional assistant|\baide\b|specimen|valet|parking|\blot\b|porter|car wash|"
+    r"consultant|representative|ambassador|night audit|\bagent\b|coordinator|assistant|"
+    r"helper|data entry|records|scanning|shopper|gift wrap|seasonal|support|crew|staff", re.I)
+
+# ...but not these (fast food / restaurant, warehouse, skilled, licensed or management).
+EASY_TITLE_BAD = re.compile(
+    r"restaurant|fast food|crew member|\bcook\b|chef|kitchen|dish|food|server|waiter|"
+    r"waitress|busser|bartender|barista|\bhost(ess)?\b|\bdeli\b|bakery|baker|butcher|meat|"
+    r"seafood|sushi|pizza|culinary|catering|\bcafe\b|café|coffee|beverage|dining|snack|"
+    r"concession|grill|warehouse|distribution|fulfillment|picker|packer|packing|"
+    r"material handl|loader|unloader|forklift|order selector|\bsort|package handler|"
+    r"stocker|\bstock\b|inventory|replenish|receiving|freight|overnight|truck|\bdriver\b|"
+    r"delivery|courier|janitor|custodian|housekeep|\bclean|maintenance|mechanic|technician|"
+    r"\btire|lube|install|construction|laborer|landscap|groundskeeper|security|\bguard\b|"
+    r"police|sheriff|nurse|\bcna\b|\brn\b|\blpn\b|medical assistant|phlebotom|pharmac|"
+    r"dental|therapist|physician|caregiver|home health|teacher|instructor|trainer|\bcoach\b|"
+    r"manager|\bmgr\b|supervisor|director|\blead\b|senior|\bsr\.?\b|key ?holder|engineer|"
+    r"developer|analyst|accountant|attorney|executive|outside sales|commission only|"
+    r"\bintern\b|clinical|surgical|optician|optometr|licensed|\bcdl\b|welder|electric|"
+    r"plumb|hvac|painter|carpenter|cosmetolog|\bhair|barber|\bnail|esthetic|massage|"
+    r"machine operator|equipment operator|\b(ii|iii|iv)\b|specialist|officer|"
+    r"collections|underwrit|loan officer|mortgage|financial advisor|wealth|"
+    r"emergency|paramedic|\bemt\b|firefight|crossing guard|stocking|inbound|outbound|"
+    r"backroom|processing associate|unload|lifecafe|bistro|asset protection|"
+    r"loss prevention|collector|\bleaf|trash|refuse|labor|scientist|recruit|strategist|"
+    r"principal|programmer|brokerage|real estate|nutrition|case manag|support coordinat|"
+    r"team coordinat|enrollment|\bassociate,|, associate|data|risk|finance|accounting", re.I)
+
+
+EASY_CUSTOMER_FACING = re.compile(
+    r"cashier|checkout|front end|customer|guest|client|member|front desk|receptionist|"
+    r"concierge|greeter|teller|banker|\bsales\b|salesperson|seller|stylist|consultant|"
+    r"call cent|contact cent|leasing|ambassador|representative|\brep\b|service desk|"
+    r"help ?desk|usher|ticket|box office|valet|patient access|registration|"
+    r"\bagent\b|universal|personal shopper|jewelry|beauty advisor|fashion advisor|"
+    r"selling|community associate|engagement", re.I)
+
+
+def easy_title_ok(title):
+    if EASY_HIDE_CUSTOMER_FACING and EASY_CUSTOMER_FACING.search(title):
+        return False
+    return bool(EASY_TITLE_GOOD.search(title)) and not EASY_TITLE_BAD.search(title)
+
+
 def title_ok(title):
     """Quick screen on the job title only."""
     if not title:
         return False
+    if MODE == "easy":
+        return easy_title_ok(title)
     if TITLE_INTERN.search(title) and not INCLUDE_INTERNSHIPS:
         return False
     if HIDE_TALK_HEAVY_TITLES and TITLE_TALKY.search(title):
@@ -666,10 +780,16 @@ def evaluate(job):
     if job.get("age") is None:
         job["age"] = parse_age_days(job.get("posted"))
 
+    easy = MODE == "easy"
+    max_years = EASY_MAX_YEARS_EXPERIENCE if easy else MAX_YEARS_EXPERIENCE
     reason = None
-    if lo and lo > MAX_STARTING_PAY:
+    if easy and lo and lo < EASY_MIN_HOURLY * 2080 - 1:
+        reason = f"pay starts at ${lo / 2080:.2f}/hr"
+    elif easy and lo and lo > EASY_MAX_STARTING_HOURLY * 2080:
+        reason = f"professional job (pay starts at ${lo / 2080:.2f}/hr)"
+    elif not easy and lo and lo > MAX_STARTING_PAY:
         reason = f"pay starts at ${lo:,.0f}"
-    elif job["years"] is not None and job["years"] > MAX_YEARS_EXPERIENCE:
+    elif job["years"] is not None and job["years"] > max_years:
         reason = f"asks for {job['years']}+ years"
     elif HIDE_CLEARANCE_REQUIRED and job["clearance"] == "required":
         reason = "needs an existing clearance"
@@ -682,7 +802,14 @@ def evaluate(job):
     # Score 0-100: higher = better fit.
     sc = 50
     sc += 15 if job["entry"] else 0
-    sc += {"low": 10, "some": 0, "high": -15}[job["talk"]]
+    if easy:
+        if re.search(r"no (prior )?experience|will train|training provided|flexible", text, re.I):
+            sc += 10
+        if lo and lo >= 20 * 2080:
+            sc += 5
+        sc += {"low": 10, "some": 0, "high": -10}[job["talk"]]
+    else:
+        sc += {"low": 10, "some": 0, "high": -15}[job["talk"]]
     if job["years"] is not None:
         sc += {0: 10, 1: 8, 2: 3}.get(job["years"], 0)
     if lo:
@@ -795,7 +922,7 @@ def workday_source(company, host, tenant, site):
         for r in ex.map(detail, cands):
             if r:
                 results.append(r)
-    log(f"  {company}: {len(postings)} local postings, {len(cands)} office-type titles, {len(results)} nearby")
+    log(f"  {company}: {len(postings)} local postings, {len(cands)} matching titles, {len(results)} nearby")
     return results
 
 
@@ -866,7 +993,7 @@ def govjobs_source(name, agency):
 
     with ThreadPoolExecutor(4) as ex:
         results = list(ex.map(detail, results))
-    log(f"  {name}: {len(seen)} postings, {len(results)} office-type nearby")
+    log(f"  {name}: {len(seen)} postings, {len(results)} matching nearby")
     return results
 
 
@@ -922,7 +1049,7 @@ def nova_source():
 
     with ThreadPoolExecutor(4) as ex:
         res = [r for r in ex.map(detail, cands.items()) if r]
-    log(f"  NOVA: {len(links)} postings, {len(res)} office-type")
+    log(f"  NOVA: {len(links)} postings, {len(res)} matching")
     return res
 
 
@@ -972,7 +1099,7 @@ def amazon_source():
         offset += 100
         if not jobs or offset >= min(hits or 0, 3000):
             break
-    log(f"  Amazon: {len(seen)} postings in area, {len(res)} office-type nearby")
+    log(f"  Amazon: {len(seen)} postings in area, {len(res)} matching nearby")
     return res
 
 
@@ -1014,7 +1141,7 @@ def microsoft_source():
 
     with ThreadPoolExecutor(4) as ex:
         res = [r for r in ex.map(detail, cands) if r]
-    log(f"  Microsoft: {len(pos)} postings in area, {len(res)} office-type nearby")
+    log(f"  Microsoft: {len(pos)} postings in area, {len(res)} matching nearby")
     return res
 
 
@@ -1056,7 +1183,7 @@ def carahsoft_source():
 
     with ThreadPoolExecutor(4) as ex:
         res = [r for r in ex.map(detail, links) if r]
-    log(f"  Carahsoft: {len(links)} pages, {len(res)} office-type")
+    log(f"  Carahsoft: {len(links)} pages, {len(res)} matching")
     return res
 
 
@@ -1084,7 +1211,7 @@ def greenhouse_source(company, board):
                            miles=round(near[1], 1), center=near[2], posted=posted[:10],
                            age=parse_age_days(posted[:10]), text=strip_html(desc),
                            desc_html=desc, source="Greenhouse"))
-    log(f"  {company}: {len(d.get('jobs') or [])} postings, {len(res)} office-type nearby")
+    log(f"  {company}: {len(d.get('jobs') or [])} postings, {len(res)} matching nearby")
     return res
 
 
@@ -1116,7 +1243,7 @@ def lever_source(company, board):
                            miles=round(near[1], 1), center=near[2], posted=posted,
                            age=parse_age_days(posted), pay_text=pay, text=strip_html(desc),
                            desc_html=desc, time_type=cat.get("commitment", ""), source="Lever"))
-    log(f"  {company}: {len(d)} postings, {len(res)} office-type nearby")
+    log(f"  {company}: {len(d)} postings, {len(res)} matching nearby")
     return res
 
 
@@ -1184,7 +1311,7 @@ def usajobs_source():
                            text=strip_html(desc), desc_html=desc,
                            time_type=", ".join(s.get("Name", "") for s in m.get("PositionSchedule") or []),
                            source="USAJOBS"))
-    log(f"  USAJOBS: {len(items)} postings, {len(res)} office-type nearby")
+    log(f"  USAJOBS: {len(items)} postings, {len(res)} matching nearby")
     return res
 
 
@@ -1192,16 +1319,20 @@ def usajobs_source():
 # Report
 # -----------------------------------------------------------------------------
 
+def _prefix():
+    return "easy-" if MODE == "easy" else ""
+
+
 def load_seen():
     try:
-        with open(os.path.join(OUT_DIR, "seen.json")) as f:
+        with open(os.path.join(OUT_DIR, _prefix() + "seen.json")) as f:
             return json.load(f)
     except (OSError, ValueError):
         return {}
 
 
 def save_seen(seen):
-    with open(os.path.join(OUT_DIR, "seen.json"), "w") as f:
+    with open(os.path.join(OUT_DIR, _prefix() + "seen.json"), "w") as f:
         json.dump(seen, f)
 
 
@@ -1232,18 +1363,19 @@ def write_report(kept, dropped, stats):
     rows.sort(key=lambda r: (-r["score"], r["age"] if r["age"] is not None else 999))
     data = {"generated": dt.datetime.now().strftime("%A, %B %d, %Y at %I:%M %p"),
             "jobs": rows, "stats": stats, "dropped": len(dropped),
-            "settings": {"maxPay": MAX_STARTING_PAY, "maxMiles": MAX_DRIVE_MILES,
+            "settings": {"mode": MODE, "minHourly": EASY_MIN_HOURLY,
+                         "maxPay": MAX_STARTING_PAY, "maxMiles": MAX_DRIVE_MILES,
                          "maxAge": MAX_AGE_DAYS, "maxYears": MAX_YEARS_EXPERIENCE,
                          "centers": list(CENTERS)}}
     with open(os.path.join(HERE, "report_template.html"), encoding="utf-8") as f:
         tpl = f.read()
     blob = json.dumps(data).replace("</", "<\\/")
     out = tpl.replace("/*__JOB_DATA__*/null", blob)
-    path = os.path.join(OUT_DIR, "jobs.html")
+    path = os.path.join(OUT_DIR, _prefix() + "jobs.html")
     with open(path, "w", encoding="utf-8") as f:
         f.write(out)
     # Also a spreadsheet-friendly copy.
-    with open(os.path.join(OUT_DIR, "jobs.csv"), "w", newline="", encoding="utf-8") as f:
+    with open(os.path.join(OUT_DIR, _prefix() + "jobs.csv"), "w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
         w.writerow(["Score", "New", "Title", "Company", "Location", "Est. drive miles", "Pay",
                     "Posted", "Closes", "Years exp", "Talking", "Clearance", "Link"])
@@ -1261,8 +1393,11 @@ def write_report(kept, dropped, stats):
 # -----------------------------------------------------------------------------
 
 def main():
-    global SSL_CTX, MAX_DRIVE_MILES, MAX_STARTING_PAY, MAX_AGE_DAYS
+    global SSL_CTX, MAX_DRIVE_MILES, MAX_STARTING_PAY, MAX_AGE_DAYS, MODE, EASY_MIN_HOURLY
     ap = argparse.ArgumentParser(description="Find entry-level office jobs near Reston/Herndon/Fairfax VA.")
+    ap.add_argument("--easy", action="store_true",
+                    help="find easy hourly jobs ($18+/hr retail, front desk, banks...) instead of office jobs")
+    ap.add_argument("--min-hourly", type=float, help=f"easy mode: min starting pay per hour (default {EASY_MIN_HOURLY})")
     ap.add_argument("--no-open", action="store_true", help="don't open the report in a browser")
     ap.add_argument("--only", help="comma list of sources: workday,greenhouse (incl. Lever),gov,nova,amazon,microsoft,carahsoft,usajobs")
     ap.add_argument("--company", help="only Workday companies whose name contains this text")
@@ -1277,26 +1412,36 @@ def main():
         MAX_STARTING_PAY = args.max_pay
     if args.days:
         MAX_AGE_DAYS = args.days
+    if args.min_hourly:
+        EASY_MIN_HOURLY = args.min_hourly
+    if args.easy:
+        MODE = "easy"
 
     os.makedirs(OUT_DIR, exist_ok=True)
     SSL_CTX = _ssl_context()
-    only = set((args.only or "workday,greenhouse,gov,nova,amazon,microsoft,carahsoft,usajobs").split(","))
+    default_sources = "workday,greenhouse,gov,nova" if MODE == "easy" else \
+        "workday,greenhouse,gov,nova,amazon,microsoft,carahsoft,usajobs"
+    only = set((args.only or default_sources).split(","))
+    workday_sites = EASY_WORKDAY_SITES if MODE == "easy" else WORKDAY_SITES
+    greenhouse_boards = EASY_GREENHOUSE_BOARDS if MODE == "easy" else GREENHOUSE_BOARDS
+    lever_boards = [] if MODE == "easy" else LEVER_BOARDS
 
     t0 = time.time()
-    log("Searching job sites - this usually takes 3-6 minutes.")
+    log("Searching for " + ("easy hourly jobs ($%g+/hr)" % EASY_MIN_HOURLY if MODE == "easy"
+                            else "entry-level office jobs") + " - this usually takes 3-6 minutes.")
     log("Your job list will open in your web browser when it's done.\n")
     tasks = []
     if "workday" in only:
-        for c in WORKDAY_SITES:
+        for c in workday_sites:
             if args.company and args.company.lower() not in c[0].lower():
                 continue
             tasks.append((c[0], workday_source, c))
     if "greenhouse" in only:
-        for name, board in GREENHOUSE_BOARDS:
+        for name, board in greenhouse_boards:
             if args.company and args.company.lower() not in name.lower():
                 continue
             tasks.append((name, greenhouse_source, (name, board)))
-        for name, board in LEVER_BOARDS:
+        for name, board in lever_boards:
             if args.company and args.company.lower() not in name.lower():
                 continue
             tasks.append((name, lever_source, (name, board)))
@@ -1339,7 +1484,7 @@ def main():
 
     path = write_report(kept, dropped, sorted(stats, key=lambda s: -s["found"]))
     if args.debug:
-        with open(os.path.join(OUT_DIR, "debug.json"), "w") as f:
+        with open(os.path.join(OUT_DIR, _prefix() + "debug.json"), "w") as f:
             json.dump([{k: v for k, v in j.items() if k not in ("desc_html",)} for j in jobs], f, indent=1)
     mins = (time.time() - t0) / 60
     log(f"\nDone in {mins:.1f} min. {len(kept)} jobs match "

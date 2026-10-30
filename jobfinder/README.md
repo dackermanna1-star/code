@@ -5,6 +5,23 @@ entry-level, white-collar office jobs at big employers within about 15 miles' dr
 Reston, Herndon or Fairfax. You review the postings and apply yourself; the program
 never applies for you.
 
+## Two modes
+
+- **Find Jobs**: entry-level office jobs, up to $58K a year. Most of this README is about this mode.
+- **Find Easy Jobs**: easy hourly jobs that start at **$18/hr or more**. It skips fast food,
+  restaurant, warehouse and stocking jobs. By default it also skips cashier, customer service,
+  sales, front desk and bank teller jobs. Examples of what it finds: vet/kennel assistants,
+  visual merchandisers, lifeguards, locker-room and pickleball attendants, daycare and preschool
+  aides, recreation assistants, and lab assistants. It searches Target, TJ Maxx/Marshalls/HomeGoods,
+  Wegmans, Whole Foods, Life Time, Michaels, Burlington, Five Below, Dollar Tree, Uniqlo,
+  Nordstrom, Coach, Ann Taylor/LOFT, Kay/Zales, Vans, CarMax, AAA, WeWork, hotels, Banfield,
+  banks, JLL, Greystar, Dulles airport (MWAA), Labcorp, Sunrise Senior Living, and the county
+  and NOVA job boards. Its report opens as `output/easy-jobs.html`.
+  Its settings are in the **"EASY JOBS" MODE** section of `jobfinder.py`: `EASY_MIN_HOURLY`,
+  `EASY_MAX_STARTING_HOURLY`, `EASY_MAX_YEARS_EXPERIENCE`, `EASY_HIDE_CUSTOMER_FACING`
+  and `EASY_WORKDAY_SITES`. To allow cashier and customer service jobs again, set
+  `EASY_HIDE_CUSTOMER_FACING = False`.
+
 ## What it searches (about 100 employers)
 
 - **Big companies' own career sites:**
@@ -54,14 +71,14 @@ CSV file.
      ```
 
      ```bash
-     chmod +x "Find Jobs.command" "Open Last Report.command"
+     chmod +x "Find Jobs.command" "Find Easy Jobs.command" "Open Last Report.command"
      ```
 
 3. A Terminal window shows progress for each site. When it's done (usually 3–6
    minutes), the report opens in your browser.
 
 Run it every day or two. Jobs you haven't seen before are marked **NEW**.
-**Open Last Report** reopens the latest report without searching again.
+**Open Last Report** reopens the latest report from each mode without searching again.
 
 ## Settings
 
