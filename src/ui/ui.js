@@ -72,6 +72,7 @@ export class UI {
     mk('Follow', 'follow', 'Camera follows the selected dummy (B)');
     mk('Physics', 'debug', 'Show colliders, centre of mass and support polygon (V)');
     bar.appendChild(el('span', 'sep'));
+    mk('First person', 'fps', 'First-person mode in the sandbox: every gun, knife, bat, fists (Tab)');
     const sv = mk('▶ Survival', 'survival', 'First-person survival: hold the subway platform against the dead (P)');
     sv.classList.add('survival');
     this.root.appendChild(bar);
@@ -165,6 +166,8 @@ export class UI {
     };
     toggle('tracers', 'Tracers', true);
     toggle('gore', 'Gore', true);
+    toggle('rdr', 'RDR reactions', false);
+    toggle('killcam', 'Kill cam', true);
     box.appendChild(toggles);
     this.root.appendChild(box);
   }

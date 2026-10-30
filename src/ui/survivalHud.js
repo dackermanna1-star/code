@@ -76,8 +76,10 @@ function el(tag, cls, parent, html) {
 }
 
 export class SurvivalHud {
-  constructor(parent = document.body, handlers = {}) {
+  /** opts.sandbox: the sandbox's first-person mode (no waves or score; its own start screen). */
+  constructor(parent = document.body, handlers = {}, opts = {}) {
     this.h = handlers;
+    this.sandbox = !!opts.sandbox;
     if (!document.getElementById('sv-css')) {
       const st = document.createElement('style');
       st.id = 'sv-css';
@@ -105,7 +107,12 @@ export class SurvivalHud {
     this.waveEl = el('div', 'wave', top, '');
     this.leftEl = el('div', 'left', top, '');
     this.bossEl = el('div', 'boss', top, '<div class="lbl">BRUTE</div><div class="bar"><b style="width:100%"></b></div>');
+    if (this.sandbox) top.style.display = 'none';
+    // the dummy in the sights (sandbox): name and state
+    this.target = el('div', '', root);
+    this.target.style.cssText = 'position:absolute;left:50%;top:calc(50% + 34px);transform:translateX(-50%);font-size:11px;letter-spacing:1px;opacity:0.8;text-align:center;text-shadow:0 1px 3px #000;white-space:pre';
     const tr = el('div', 'tr', root);
+    if (this.sandbox) tr.style.display = 'none';
     this.scoreEl = el('div', 'score', tr, '0');
     this.statsEl = el('div', 'stats', tr, '');
     this.feed = el('div', 'feed', tr);
@@ -116,7 +123,18 @@ export class SurvivalHud {
     // screens
     this.start = el('div', 'screen', root);
     const sc = el('div', 'card', this.start);
-    sc.innerHTML = `<h1>ASHGROVE</h1><h2>SURVIVAL — THE LAST STATION</h2>
+    if (this.sandbox) {
+      sc.innerHTML = `<h1>FIRST PERSON</h1><h2>SANDBOX — LIVE FIRE</h2>
+      <p>Guns, a knife, a bat and your fists against the dummies.<br>Sniper hits on the head or chest go to the kill cam.</p>
+      <div class="keys">
+        <b>Mouse / touchpad</b><span>look</span><b>Click</b><span>fire / attack (hold: power swing)</span>
+        <b>E</b><span>aim down sights · knife: stab</span><b>W A S D · Shift</b><span>move · sprint</span>
+        <b>C / Ctrl · Space</b><span>crouch · jump / climb</span><b>R</b><span>reload</span>
+        <b>1-6</b><span>pistol, revolver, shotgun, SMG, rifle, sniper</span><b>7 · 8 · 9</b><span>knife · bat · fists</span>
+        <b>F</b><span>kick (stomp someone lying in front)</span><b>N</b><span>spawn a dummy in front</span>
+        <b>Esc</b><span>pause · settings</span><b>Tab</b><span>back to the orbit view</span>
+      </div>`;
+    } else sc.innerHTML = `<h1>ASHGROVE</h1><h2>SURVIVAL — THE LAST STATION</h2>
       <p>The trains still run. They bring the dead.<br>Hold the platform as long as you can.</p>
       <div class="keys">
         <b>Mouse / touchpad</b><span>look</span><b>Click</b><span>fire</span>
@@ -128,7 +146,7 @@ export class SurvivalHud {
       </div>`;
     const sb = el('div', '', sc);
     el('button', '', sb, 'CLICK TO START').onclick = () => this.h.resume && this.h.resume();
-    el('button', 'alt', sb, 'BACK TO SANDBOX').onclick = () => this.h.exit && this.h.exit();
+    el('button', 'alt', sb, this.sandbox ? 'ORBIT VIEW' : 'BACK TO SANDBOX').onclick = () => this.h.exit && this.h.exit();
     this.pause = el('div', 'screen', root);
     const pc = el('div', 'card', this.pause);
     pc.innerHTML = '<h1>PAUSED</h1><h2 class="pw"></h2>';
@@ -136,17 +154,32 @@ export class SurvivalHud {
     const set = el('div', 'set', pc);
     this.sens = this.slider(set, 'Mouse sensitivity', 0.4, 3, 1, 0.05, (v) => this.h.setting && this.h.setting('sensitivity', v));
     this.fov = this.slider(set, 'Field of view', 60, 100, 78, 1, (v) => this.h.setting && this.h.setting('fov', v));
-    this.horde = this.slider(set, 'Horde size (max at once)', 4, 16, 10, 1, (v) => this.h.setting && this.h.setting('maxAlive', v));
+    if (!this.sandbox) this.horde = this.slider(set, 'Horde size (max at once)', 4, 16, 10, 1, (v) => this.h.setting && this.h.setting('maxAlive', v));
     this.vol = this.slider(set, 'Volume', 0, 1, 0.7, 0.05, (v) => this.h.setting && this.h.setting('volume', v));
     const lab = el('label', '', set, 'Hold E to aim (instead of toggle)');
     lab.style.gridColumn = '1 / 3';
     this.holdBox = el('input', '', set);
     this.holdBox.type = 'checkbox';
     this.holdBox.onchange = () => this.h.setting && this.h.setting('adsHold', this.holdBox.checked);
+    if (this.sandbox) {
+      const lab2 = el('label', '', set, 'RDR reactions (stagger, active hits)');
+      lab2.style.gridColumn = '1 / 3';
+      this.rdrBox = el('input', '', set);
+      this.rdrBox.type = 'checkbox';
+      this.rdrBox.onchange = () => this.h.setting && this.h.setting('rdr', this.rdrBox.checked);
+      el('span', '', set, 'Kill cam');
+      this.camSel = el('select', '', set);
+      for (const [v, t] of [['sniper', 'Sniper kill shots'], ['always', 'Every sniper hit'], ['all', 'Any gun, head shots'], ['off', 'Off']]) {
+        const o = el('option', '', this.camSel, t);
+        o.value = v;
+      }
+      this.camSel.style.pointerEvents = 'auto';
+      this.camSel.onchange = () => this.h.setting && this.h.setting('killcam', this.camSel.value);
+    }
     const pb = el('div', '', pc);
     el('button', '', pb, 'RESUME').onclick = () => this.h.resume && this.h.resume();
-    el('button', 'alt', pb, 'RESTART').onclick = () => this.h.restart && this.h.restart();
-    el('button', 'alt', pb, 'BACK TO SANDBOX').onclick = () => this.h.exit && this.h.exit();
+    if (!this.sandbox) el('button', 'alt', pb, 'RESTART').onclick = () => this.h.restart && this.h.restart();
+    el('button', 'alt', pb, this.sandbox ? 'ORBIT VIEW' : 'BACK TO SANDBOX').onclick = () => this.h.exit && this.h.exit();
     this.over = el('div', 'screen', root);
     const oc = el('div', 'card', this.over);
     oc.innerHTML = '<h1 style="color:#ff5b5b">YOU DIED</h1><h2>THE STATION FELL SILENT</h2><div class="res"></div>';
@@ -220,11 +253,20 @@ export class SurvivalHud {
     this.vig.style.opacity = pl.alive ? Math.max(0, 1 - hp / 45) * 0.9 : 1;
     this.root.classList.toggle('dead', !pl.alive);
     const gun = ar.gun;
-    this.ammo.innerHTML = `${gun.ammo} <small>/ ${gun.spare}</small>`;
-    this.ammo.style.color = gun.ammo === 0 ? '#ff6b6b' : gun.ammo <= gun.mag * 0.25 ? '#ffd166' : '';
+    if (gun.melee) {
+      // melee: no ammunition - show the wind-up of a power blow instead
+      const M = ar.melee;
+      const ch = M && M.phase === 'charge' ? M.charge : 0;
+      this.ammo.innerHTML = ch > 0 ? `<small>POWER</small> ${Math.round(ch * 100)}%` : '';
+      this.ammo.style.color = ch >= 1 ? '#ff6b6b' : '';
+      this.hint.textContent = gun.charge ? 'HOLD CLICK — POWER BLOW' : gun.type === 'knife' ? 'CLICK SLASH · E STAB' : '';
+    } else {
+      this.ammo.innerHTML = this.sandbox ? `${gun.ammo} <small>/ ∞</small>` : `${gun.ammo} <small>/ ${gun.spare}</small>`;
+      this.ammo.style.color = gun.ammo === 0 ? '#ff6b6b' : gun.ammo <= gun.mag * 0.25 ? '#ffd166' : '';
+      this.hint.textContent = ar.state === 'reload' ? 'RELOADING' : gun.ammo === 0 && gun.spare === 0 ? 'NO AMMO' : gun.ammo <= gun.mag * 0.25 ? 'R — RELOAD' : '';
+    }
     this.gun.textContent = gun.w.label;
-    this.hint.textContent = ar.state === 'reload' ? 'RELOADING' : gun.ammo === 0 && gun.spare === 0 ? 'NO AMMO' : gun.ammo <= gun.mag * 0.25 ? 'R — RELOAD' : '';
-    const slots = ar.guns.map((x, i) => `<span class="${i === ar.index ? 'on' : ''}">${i + 1} ${x.w.label.split(' ')[0].toUpperCase()}</span>`).join('');
+    const slots = ar.guns.map((x, i) => `<span class="${i === ar.index ? 'on' : ''}">${i + 1} ${x.w.label.split(' ').pop().toUpperCase()}</span>`).join('');
     if (slots !== this._slots) {
       this.slots.innerHTML = slots;
       this._slots = slots;
@@ -237,6 +279,11 @@ export class SurvivalHud {
     xs[2].style.left = `${-gap - 9}px`;
     xs[3].style.left = `${gap}px`;
     this.xh.style.opacity = ar.adsAmount > 0.6 || pl.sprinting ? 0 : 1;
+    if (!g) {
+      this.hpLbl.style.display = this.hpBar.style.display = this.stBar.style.display = s.showHealth ? '' : 'none';
+      this.tickTimers(dt, pl);
+      return;
+    }
     // wave panel
     if (g.state === 'intro') this.waveEl.textContent = 'GET READY';
     else this.waveEl.textContent = `WAVE ${g.wave}${g.spec && g.spec.boss ? ' · BOSS' : ''}`;
@@ -246,6 +293,10 @@ export class SurvivalHud {
     const boss = g.boss();
     this.bossEl.style.display = boss ? 'block' : 'none';
     if (boss) this.bossEl.querySelector('b').style.width = `${Math.max(0, boss.injury.hp / boss.injury.hpMax) * 100}%`;
+    this.tickTimers(dt, pl);
+  }
+
+  tickTimers(dt, pl) {
     // damage direction arcs
     for (let i = 0; i < this.hurtArcs.length; i++) {
       const h = pl.hurt[i], a = this.hurtArcs[i];

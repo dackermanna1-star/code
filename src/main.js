@@ -23,6 +23,8 @@ import { createObstacleMesh, disposeObstacleMesh, createObstacleGhost, setObstac
 import { WalkMarkers, goalsAhead } from './render/walkMarkers.js';
 import { UI, WEAPON_KEYS, THROW_KEYS } from './ui/ui.js';
 import { SurvivalMode } from './modes/survivalMode.js';
+import { FpsSandboxMode } from './modes/fpsSandbox.js';
+import { KillCam } from './modes/killCam.js';
 import { zombieLook, ZombieGear } from './render/zombieGear.js';
 
 const FIXED = 1 / 60;
@@ -438,6 +440,9 @@ function doAction(act) {
     case 'survival':
       enterSurvival();
       break;
+    case 'fps':
+      enterFps();
+      break;
     case 'debug':
       state.debug = !state.debug;
       dbg.setVisible(state.debug);
@@ -478,6 +483,13 @@ function setSetting(key, v) {
       break;
     case 'gore':
       state.gore = v;
+      break;
+    case 'rdr':
+      sandbox.setReactions(v ? 'rdr' : 'realistic');
+      ui.notify(v ? 'RDR reactions: bigger hits, head shots stagger before they drop' : 'Realistic reactions');
+      break;
+    case 'killcam':
+      killCam.mode = v ? 'sniper' : 'off';
       break;
   }
 }
@@ -529,7 +541,7 @@ function fireWeapon() {
   const { origin, dir } = pointerRay();
   // muzzle sits a little ahead of the eye
   origin.addScaled(dir, 0.25);
-  sandbox.fire(type, origin, dir);
+  if (!killCam.tryStart(type, origin, dir, null)) sandbox.fire(type, origin, dir);
   viewmodel.fire(w.recoil);
   // view kick
   const kick = w.kick * (0.6 + 0.4 * Math.random());
@@ -572,7 +584,11 @@ renderer.domElement.addEventListener('pointermove', (e) => {
 renderer.domElement.addEventListener('pointerenter', () => (state.pointerIn = true));
 renderer.domElement.addEventListener('pointerleave', () => (state.pointerIn = false));
 renderer.domElement.addEventListener('pointerdown', (e) => {
-  if (mode === 'survival') return;
+  if (mode === 'survival' || mode === 'fps') return;
+  if (killCam.active) {
+    killCam.skip();
+    return;
+  }
   updatePointer(e);
   audio.unlock();
   if (e.button !== 0) return;
@@ -621,7 +637,16 @@ window.addEventListener('pointerup', (e) => {
 
 window.addEventListener('keydown', (e) => {
   if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
-  if (mode === 'survival') return;
+  if (mode === 'survival' || mode === 'fps') return;
+  if (killCam.active) {
+    killCam.skip();
+    return;
+  }
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    enterFps();
+    return;
+  }
   audio.unlock();
   const k = e.key.toLowerCase();
   state.keys.add(k);
@@ -668,6 +693,7 @@ window.addEventListener('resize', () => {
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
   viewmodel.setAspect(camera.aspect);
+  killCam.setAspect(camera.aspect);
   particles.setViewportHeight(window.innerHeight * renderer.getPixelRatio(), camera.fov);
 });
 particles.setViewportHeight(window.innerHeight * renderer.getPixelRatio(), camera.fov);
@@ -677,6 +703,12 @@ particles.setViewportHeight(window.innerHeight * renderer.getPixelRatio(), camer
 const _tv = new THREE.Vector3();
 
 function muzzleWorld(out) {
+  if (mode === 'fps') {
+    fpsMode.view.muzzleCameraSpace(_tv);
+    out.copy(_tv);
+    fpsMode.camera.localToWorld(out);
+    return out;
+  }
   viewmodel.muzzleCameraSpace(_tv);
   out.copy(_tv);
   camera.localToWorld(out);
@@ -722,6 +754,8 @@ function handleFx(e) {
       break;
     }
     case 'shot': {
+      // (the kill cam's round has already been seen flying: no second report or tracer)
+      if (e.by === 'killcam') break;
       audio.gunshot(e.weapon, e.origin);
       const mw = muzzleWorld(new THREE.Vector3());
       effects.muzzleLight(mw, WEAPONS[e.weapon].recoil > 2 ? 1.4 : 1);
@@ -942,6 +976,93 @@ function exitSurvival() {
   last = performance.now();
 }
 
+// sniper kill cam (both views of the sandbox)
+const killCam = new KillCam({
+  renderer, audio, canvas: renderer.domElement,
+  sandbox: () => sandbox,
+  scene: () => scene,
+  xray: (person) => xrayFor(person),
+  ghost: (person, on) => ghostFor(person, on),
+  hideUi: (on) => {
+    if (mode === 'sandbox') ui.root.style.visibility = on ? 'hidden' : '';
+    if (mode === 'fps') fpsMode.hud.root.style.visibility = on ? 'hidden' : '';
+    viewmodel.visible = !on && viewmodel.type !== null;
+  },
+});
+/** X-ray rig of a person for the kill cam (none until the X-ray module is in). */
+function xrayFor(person) {
+  return null;
+}
+function ghostFor(person, on) {}
+
+// first person in the sandbox (Tab)
+const scopeEl = document.createElement('div');
+scopeEl.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:12;opacity:0;background:radial-gradient(circle at center, rgba(0,0,0,0) 0, rgba(0,0,0,0) 38vmin, #000 38.4vmin)';
+scopeEl.innerHTML = '<div style="position:absolute;left:50%;top:12%;bottom:12%;width:1.5px;background:#000;transform:translateX(-50%)"></div><div style="position:absolute;top:50%;left:calc(50% - 38vmin);right:calc(50% - 38vmin);height:1.5px;background:#000;transform:translateY(-50%)"></div><div style="position:absolute;left:50%;top:50%;width:6px;height:6px;margin:-3px 0 0 -3px;border-radius:50%;background:#d22"></div>';
+document.body.appendChild(scopeEl);
+const fpsMode = new FpsSandboxMode({
+  renderer, OM, audio, ui, envMap: arena.envMap, killCam,
+  sandbox: () => sandbox,
+  exitFps: () => exitFps(),
+  stepSim: () => stepSim(),
+  afterSim: (simDt, dtReal, cam) => afterSim(simDt, dtReal, cam),
+  renderWorld: (cam) => {
+    renderer.clear();
+    renderer.render(scene, cam);
+  },
+  setScope: (a) => {
+    scopeEl.style.opacity = a > 0.92 ? 1 : 0;
+  },
+  spawnInFront: (pl) => {
+    const f = pl.forward(new Vec3());
+    const p = sandbox.freeSpot(new Vec3(pl.pos.x + f.x * 3.2, 0, pl.pos.z + f.z * 3.2));
+    const person = sandbox.spawnPerson(p, Math.atan2(pl.pos.x - p.x, pl.pos.z - p.z));
+    state.selected = person;
+  },
+});
+function enterFps() {
+  if (mode !== 'sandbox') return;
+  if (!meshShared) {
+    ui.notify('Still building the body mesh — one moment');
+    return;
+  }
+  audio.unlock();
+  state.firing = false;
+  sandbox.endGrab();
+  viewmodel.setWeapon(null);
+  mode = 'fps';
+  fpsMode.enter();
+}
+function exitFps() {
+  if (mode !== 'fps') return;
+  fpsMode.exit();
+  scopeEl.style.opacity = 0;
+  mode = 'sandbox';
+  setTool(state.tool);
+  // the orbit camera picks up from where the player stood
+  const pl = fpsMode.player;
+  controls.target.set(pl.pos.x - Math.sin(pl.yaw) * 2, 0.9, pl.pos.z - Math.cos(pl.yaw) * 2);
+  camera.position.set(pl.pos.x + Math.sin(pl.yaw) * 1.5, pl.pos.y + 1.8, pl.pos.z + Math.cos(pl.yaw) * 1.5);
+  controls.update();
+  last = performance.now();
+}
+
+/** After the world has been stepped: events, people, props, particles (shared by the views). */
+function afterSim(simDt, dtReal, cam) {
+  for (const e of sandbox.drainFx()) {
+    killCam.onFx(e);
+    handleFx(e);
+  }
+  const alpha = clamp(acc / FIXED, 0, 1);
+  updateRenders(simDt, dtReal, alpha);
+  for (const [o, m] of propMeshes) interpPose(o.body, alpha, m);
+  particles.update(simDt);
+  effects.update(simDt);
+  decals.flush();
+  arena.focus(cam.position);
+  camera.getWorldDirection(_fwd);
+}
+
 // ---------------------------------------------------------------------------------------------
 // main loop
 let acc = 0;
@@ -972,6 +1093,25 @@ function frame(now) {
   last = now;
   if (mode === 'survival') {
     survival.frame(now, dtReal);
+    return;
+  }
+  if (mode === 'fps') {
+    fpsMode.frame(now, dtReal);
+    return;
+  }
+  if (killCam.active) {
+    // the kill cam owns time and the camera
+    const ts = killCam.update(dtReal);
+    acc += dtReal * ts;
+    let simDt = 0;
+    while (acc >= FIXED) {
+      stepSim();
+      acc -= FIXED;
+      simDt += FIXED;
+    }
+    afterSim(simDt, dtReal, killCam.active ? killCam.camera : camera);
+    renderer.clear();
+    renderer.render(scene, killCam.active ? killCam.camera : camera);
     return;
   }
   // automatic weapons keep firing while the button is held
@@ -1121,6 +1261,10 @@ window.__sim = {
   get mode() {
     return mode;
   },
+  fpsMode,
+  killCam,
+  enterFps,
+  exitFps,
   scene,
   renderer,
   camera,

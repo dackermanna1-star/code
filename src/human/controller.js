@@ -121,6 +121,11 @@ export class HumanController {
     this.violationAssist = 1; // strength of the nudge that keeps walking footholds within reach
     this.fearless = false; // no startle, no dodging (the undead)
     this.armDriver = null; // optional arm behaviour (dt) => void, run after the built-in arm layer
+    // 'realistic', or 'rdr': reactions as in Red Dead Redemption's Euphoria - bigger, more active
+    // flinches and stumbles when hit, and a body killed on its feet (a head shot) staggers a
+    // couple of steps on dying legs before it drops
+    this.reactions = 'realistic';
+    this.dying = null;
     this.assist = 1;
     this.alive = true;
     this.conscious = true;
@@ -454,6 +459,21 @@ export class HumanController {
   updateMode(dt) {
     const S = this.sens;
     if (!this.alive) {
+      // RDR: killed while standing, the muscles do not all let go at once - the legs carry the
+      // body a step or two along the blow, the head and arms already slack, then it folds
+      if (this.reactions === 'rdr' && !this.dying && this.mode === 'balance' && this.modeTime > 0.05) {
+        // (which way the blow is carrying the body: the dying lean follows it)
+        const v = this.sens.comVel, vl = Math.hypot(v.x, v.z);
+        this.dying = { t: 0, dur: 0.6 + 0.7 * this.rng(), dir: vl > 0.05 ? new Vec3(v.x / vl, 0, v.z / vl) : null };
+      }
+      const D = this.dying;
+      if (D && !D.done && this.mode === 'balance') {
+        D.t += dt;
+        const u = clamp(D.t / D.dur, 0, 1);
+        this.toneTarget = 1 - 0.8 * u;
+        if (u >= 1 || this.sens.pelvisH < 0.6 || this.sens.upTilt > 0.75) D.done = true;
+        else return;
+      }
       this.toneTarget = 0;
       this.setMode('dead');
       return;
@@ -575,6 +595,14 @@ export class HumanController {
 
   regionStrength(name) {
     const last = name[name.length - 1];
+    if (this.dying && !this.dying.done) {
+      // dying on its feet: neck and arms go first, the legs last (they buckle at the end)
+      const u = clamp(this.dying.t / this.dying.dur, 0, 1);
+      if (name.startsWith('hip') || name.startsWith('knee') || name.startsWith('ankle')) return this.legStrength[last] * (1 - 0.75 * u * u);
+      if (name.startsWith('shoulder') || name.startsWith('elbow') || name.startsWith('wrist')) return 0.12;
+      if (name.startsWith('neck')) return 0.08;
+      return this.spineStrength * (0.75 - 0.45 * u);
+    }
     if (name.startsWith('hip') || name.startsWith('knee') || name.startsWith('ankle')) return this.legStrength[last];
     if (name.startsWith('shoulder') || name.startsWith('elbow') || name.startsWith('wrist')) return this.armStrength[last];
     if (name.startsWith('neck')) return this.neckStrength;
@@ -964,7 +992,9 @@ export class HumanController {
     const threat = clamp((S.cpDist - 0.05 - running * (0.12 + 0.3 * v0)) / 0.35, 0, 1);
     const tilt = clamp((S.upTilt - this.assistTilt - running * 0.1) / 0.35, 0, 1);
     const assistGoal = Math.max(clamp(1 - Math.max(threat, tilt), 0, 1), this.step || this.recentStep ? (this.stepAssist ?? 0.45) * (1 - tilt) : 0) * Math.min(this.legStrength.L, this.legStrength.R) * skill;
-    this.assist = approach(this.assist, assistGoal, dt * 4);
+    // (dying on its feet: nothing holds it up but its failing muscles)
+    const dyingK = this.dying && !this.dying.done ? 0.25 * (1 - clamp(this.dying.t / this.dying.dur, 0, 1)) : 1;
+    this.assist = approach(this.assist, assistGoal * dyingK, dt * (dyingK < 1 ? 12 : 4));
 
     // intended facing direction: it only drifts toward the feet while quietly standing, so a body
     // twisted by a step or an impact is turned back instead of the heading chasing the twist
@@ -1251,7 +1281,7 @@ export class HumanController {
     _v0.set(S.cp.x - S.cpClosest.x, 0, S.cp.z - S.cpClosest.z);
     // walking runs with the capture point ahead of the feet: only what goes beyond that is a threat
     const cpOut = Math.max(0, S.cpDist - (walk ? 0.12 + 0.3 * speed : 0));
-    let lean = 0, leanSide = 0;
+    let lean = 0, leanSide = 0, twist = 0;
     if (cpOut > 0 && cpOut < 1) {
       _v0.normalize();
       // into heading frame
@@ -1288,6 +1318,14 @@ export class HumanController {
       const d = this.snap.dir;
       lean += (-d.x * sn + d.z * c) * e;
       leanSide += -(d.x * c + d.z * sn) * e;
+      if (this.snap.twist) twist += this.snap.twist * Math.exp(-(this.time - this.snap.t0) / 0.3);
+    }
+    if (this.dying && !this.dying.done && this.dying.dir) {
+      // dying on its feet: the trunk goes with the blow (and the legs have to follow it)
+      const u = clamp(this.dying.t / this.dying.dur, 0, 1), d = this.dying.dir;
+      const c = Math.cos(-this.heading), sn = Math.sin(-this.heading), k = 0.35 * Math.sin(Math.PI * Math.min(1, u * 1.6));
+      lean += (-d.x * sn + d.z * c) * k;
+      leanSide += -(d.x * c + d.z * sn) * k;
     }
     // dodge: lean the trunk away from an incoming object's path
     if (this.threat && this.threat.tti < 0.6) {
@@ -1297,7 +1335,7 @@ export class HumanController {
       lean += clamp(fz * 0.3, -0.25, 0.25);
       leanSide += clamp(-fx * 0.3, -0.25, 0.25);
     }
-    this.standingSpine(lean, leanSide, this.heading, 1);
+    this.standingSpine(lean, leanSide, this.heading + twist, 1);
     const flail = clamp(cpOut * 2.5, 0, 1);
     this.flail = flail;
     this.relaxedArms(1, walk ? this.loco.armSwing() : 0);
@@ -1397,7 +1435,8 @@ export class HumanController {
   /** Called by the injury model when the body is struck (bullet or blunt impact). */
   onHit(info) {
     if (!this.alive || !this.conscious) return;
-    const s = info.strength;
+    const rdr = this.reactions === 'rdr';
+    const s = info.strength * (rdr ? 1.5 : 1);
     // a blow that was seen coming finds the body braced: much less of a startle
     const braced = info.kind !== 'bullet' && this.time - (this.lastThreatTime ?? -9) < 0.5;
     this.startle = Math.min(1.2, this.startle + (braced ? 0.15 + 0.3 * s : 0.4 + 0.6 * s));
@@ -1427,7 +1466,22 @@ export class HumanController {
         sn.dir.set(info.dir.x, 0, info.dir.z);
         if (sn.dir.lengthSq() > 1e-6) sn.dir.normalize();
         sn.t0 = this.time;
-        sn.amp = Math.min(0.35, 0.12 + 0.2 * s);
+        sn.amp = Math.min(rdr ? 0.6 : 0.35, (0.12 + 0.2 * s) * (rdr ? 1.8 : 1));
+        sn.twist = 0;
+      }
+      if (rdr && info.kind === 'bullet' && /^(chest|upperArm|forearm|hand)/.test(name)) {
+        // a round in the shoulder or the side of the chest spins the trunk round toward that side
+        const sn = this.snap || (this.snap = { dir: new Vec3(), t0: -9, amp: 0 });
+        if (this.time - sn.t0 > 0.02) {
+          sn.dir.set(info.dir.x, 0, info.dir.z);
+          if (sn.dir.lengthSq() > 1e-6) sn.dir.normalize();
+          sn.t0 = this.time;
+          sn.amp = Math.min(0.45, 0.15 + 0.25 * s);
+        }
+        const off = hb.pos.x - this.seg.chest.body.pos.x, offz = hb.pos.z - this.seg.chest.body.pos.z;
+        // (which side of the trunk it struck, seen along the shot)
+        const across = off * info.dir.z - offz * info.dir.x;
+        sn.twist = clamp(-across * 6, -0.5, 0.5) * (0.6 + 0.4 * Math.min(1, s));
       }
     }
     this.events.push({ type: 'hit', segment: name, strength: s, time: this.time });

@@ -31,7 +31,7 @@ export class Sandbox {
     this.fxQueue = [];
     this.time = 0;
     this.rng = opts.rng ?? Math.random;
-    this.settings = { forceScale: 1, bleedScale: 1, assist: 1, painReactions: true };
+    this.settings = { forceScale: 1, bleedScale: 1, assist: 1, painReactions: true, reactions: 'realistic' };
     this.grab = null;
     this.shoves = [];
     this.viewer = null; // camera position (people glance at it)
@@ -57,6 +57,7 @@ export class Sandbox {
     const injury = new InjurySystem(rd, ctl, { rng: this.rng, bleedScale: this.settings.bleedScale, undead: opts.undead, hp: opts.hp, armor: opts.armor });
     const person = { id: this.nextId++, rd, ctl, injury, seen: new Map(), look: opts.look || null, zombie: null, knockback: opts.knockback ?? 1 };
     this.applyAssist(person);
+    ctl.reactions = this.settings.reactions;
     this.people.push(person);
     if (opts.zombie) person.zombie = new ZombieBrain(this, person, opts.zombie);
     this.fx({ type: 'personAdded', person });
@@ -133,6 +134,12 @@ export class Sandbox {
   setAssist(a) {
     this.settings.assist = clamp(a, 0, 1);
     for (const p of this.people) this.applyAssist(p);
+  }
+
+  /** 'realistic' or 'rdr' (Red Dead style: bigger, more active reactions; see HumanController). */
+  setReactions(mode) {
+    this.settings.reactions = mode;
+    for (const p of this.people) p.ctl.reactions = mode;
   }
 
   setBleedScale(s) {
@@ -345,6 +352,27 @@ export class Sandbox {
       const proj = makeProjectile(w);
       const res = traceProjectile(ctx, origin, d, proj);
       paths.push({ from: origin.clone(), to: res.end, dir: d, hits: res.hits || [] });
+    }
+    // RDR: the hit person is also thrown by the shot (Euphoria games exaggerate a round's push -
+    // a real one carries ~3 N*s); once per person and shot, scaled by how heavy the round is
+    if (this.settings.reactions === 'rdr') {
+      const seen = new Set();
+      const k = { pistol: 14, revolver: 22, shotgun: 6, smg: 11, rifle: 20, sniper: 34 }[weaponType] ?? 14;
+      for (const p of paths) {
+        for (const h of p.hits) {
+          if (seen.has(h.person) || h.armor) continue;
+          seen.add(h.person);
+          const sg = h.person.rd.segments[h.seg];
+          if (!sg) continue;
+          const J = new Vec3(p.dir.x, p.dir.y * 0.3, p.dir.z).normalize().scale(k * (h.person.knockback ?? 1));
+          if (h.seg === 'head' || h.seg === 'neck') {
+            // a head shot jerks the whole upper body back (the legs then stagger under it)
+            const ch = h.person.rd.segments.chest.body;
+            sg.body.applyImpulse(J.clone().scale(0.35), sg.body.pos);
+            ch.applyImpulse(J.scale(0.9), ch.pos);
+          } else sg.body.applyImpulse(J, sg.body.pos);
+        }
+      }
     }
     // everyone nearby flinches at the report (the dead and the undead do not)
     for (const p of this.people) {

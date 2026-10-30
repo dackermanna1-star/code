@@ -17,9 +17,48 @@ export const LOADOUT = [
   { type: 'smg', mag: 32, reserve: 224, reload: 1.85, ads: 1.4, kickUp: 0.009, kickSide: 0.008, adsSpread: 0.45, hipSpread: 2.0 },
 ];
 
+/** Melee items: no ammunition; LMB attacks (bat and fists: hold to wind up a power blow). */
+const MELEE_ITEMS = {
+  knife: { type: 'knife', melee: true, w: { label: 'Combat knife', rpm: 0, auto: false, spread: 0, recoil: 0 }, ads: 1, light: 'slash', alt: 'stab' },
+  bat: { type: 'bat', melee: true, charge: true, w: { label: 'Baseball bat', rpm: 0, auto: false, spread: 0, recoil: 0 }, ads: 1, light: 'swing', heavy: 'swing' },
+  fists: { type: 'fists', melee: true, charge: true, w: { label: 'Fists', rpm: 0, auto: false, spread: 0, recoil: 0 }, ads: 1, light: 'jab', heavy: 'haymaker' },
+};
+
+/** The sandbox's first-person kit: every gun, then the melee items (keys 1-9). */
+export const SANDBOX_LOADOUT = [
+  LOADOUT[0],
+  { type: 'revolver', mag: 6, reserve: 60, reload: 2.4, ads: 1.3, kickUp: 0.045, kickSide: 0.012, adsSpread: 0.3, hipSpread: 2.2 },
+  LOADOUT[2],
+  LOADOUT[3],
+  LOADOUT[1],
+  { type: 'sniper', mag: 5, reserve: 40, reload: 2.7, ads: 2.2, kickUp: 0.055, kickSide: 0.01, adsSpread: 0.1, hipSpread: 14, bolt: true },
+  MELEE_ITEMS.knife,
+  MELEE_ITEMS.bat,
+  MELEE_ITEMS.fists,
+];
+
+/**
+ * Timing of the melee moves (s): wind-up, strike (when it can connect), recovery. The view model
+ * module may supply its own (setMoves) so the animation and the hit window agree.
+ */
+export const DEFAULT_MOVES = {
+  slash: { windup: 0.08, strike: 0.14, recover: 0.28 },
+  stab: { windup: 0.12, strike: 0.12, recover: 0.3 },
+  swing: { windup: 0.22, strike: 0.2, recover: 0.45, chargeTime: 0.9 },
+  jab: { windup: 0.06, strike: 0.1, recover: 0.22 },
+  haymaker: { windup: 0.22, strike: 0.14, recover: 0.42, chargeTime: 0.7 },
+  stomp: { windup: 0.22, strike: 0.14, recover: 0.38 },
+  kick: { windup: 0.2, strike: 0.14, recover: 0.36 },
+};
+
 export class Arsenal {
-  constructor() {
-    this.guns = LOADOUT.map((d) => ({ ...d, w: WEAPONS[d.type], ammo: d.mag, spare: d.reserve, cool: 0 }));
+  /** opts.infinite: reserves never run out (the sandbox). */
+  constructor(loadout = LOADOUT, opts = {}) {
+    this.guns = loadout.map((d) => (d.melee ? { ...d, ammo: 0, spare: 0, mag: 0, cool: 0 } : { ...d, w: WEAPONS[d.type], ammo: d.mag, spare: d.reserve, cool: 0 }));
+    this.infinite = !!opts.infinite;
+    this.moves = { ...DEFAULT_MOVES };
+    this.melee = null; // the melee move under way: { move, phase, t, charge, power, hit, side }
+    this.meleeSide = 1;
     this.index = 0;
     this.prevIndex = 1;
     this.state = 'equip'; // idle | reload | equip | holster | pump
@@ -61,8 +100,74 @@ export class Arsenal {
     this.select(this.prevIndex);
   }
 
+  /** Timing of the melee moves (see DEFAULT_MOVES), e.g. from the view model. */
+  setMoves(moves) {
+    for (const k in moves) this.moves[k] = { ...this.moves[k], ...moves[k] };
+  }
+
+  /** Start a melee move now (wind-up first); `charge` 0..1 for a held power blow. */
+  startMove(move, charge = 0) {
+    this.melee = { move, phase: 'windup', t: 0, charge, power: 0.45 + 0.55 * charge, hit: false, side: (this.meleeSide = -this.meleeSide) };
+    this.events.push({ type: 'meleeStart', move, charge });
+  }
+
+  /** A kick (or a stomp on someone lying in front) - with any weapon in hand. */
+  kick(stomp = false) {
+    if (this.melee || this.state === 'holster' || this.state === 'equip') return false;
+    if (this.state === 'reload') this.state = 'idle';
+    this.startMove(stomp ? 'stomp' : 'kick', 0.6);
+    return true;
+  }
+
+  /** Advance the melee move under way (strike phase: the host sweeps the striking point). */
+  updateMelee(dt, trigger, alt) {
+    const g = this.gun;
+    let M = this.melee;
+    if (!M) {
+      if (!g.melee || this.state !== 'idle') return;
+      const press = trigger && !this.triggerHeld, altPress = alt && !this.altHeld;
+      if (g.type === 'knife') {
+        if (press) this.startMove('slash');
+        else if (altPress) this.startMove('stab');
+      } else if (press) {
+        // hold to wind up a power blow; a tap is a quick one
+        this.melee = M = { move: g.heavy, phase: 'charge', t: 0, charge: 0, power: 0.45, hit: false, side: (this.meleeSide = -this.meleeSide), held: 0 };
+        this.events.push({ type: 'meleeCharge', move: g.heavy });
+      }
+      return;
+    }
+    M.t += dt;
+    const T = this.moves[M.move] || DEFAULT_MOVES.swing;
+    if (M.phase === 'charge') {
+      M.held += dt;
+      const ct = this.moves[g.heavy] ? this.moves[g.heavy].chargeTime || 0.8 : 0.8;
+      M.charge = clamp((M.held - 0.12) / ct, 0, 1);
+      if (!trigger) {
+        // a quick tap: a jab (fists) or a light swing; held: the full wind-up's power
+        if (g.light !== g.heavy && M.held < 0.16) M.move = g.light;
+        M.power = 0.45 + 0.55 * M.charge;
+        M.phase = 'windup';
+        M.t = 0;
+        this.events.push({ type: 'meleeStart', move: M.move, charge: M.charge });
+      }
+      return;
+    }
+    if (M.phase === 'windup' && M.t >= T.windup) {
+      M.phase = 'strike';
+      M.t = 0;
+      this.events.push({ type: 'meleeStrike', move: M.move, power: M.power });
+    } else if (M.phase === 'strike' && M.t >= T.strike) {
+      M.phase = 'recover';
+      M.t = 0;
+    } else if (M.phase === 'recover' && M.t >= T.recover) {
+      this.melee = null;
+      this.events.push({ type: 'meleeEnd', move: M.move });
+    }
+  }
+
   reload() {
     const g = this.gun;
+    if (g.melee || this.melee) return;
     if (this.state !== 'idle' || g.ammo >= g.mag || g.spare <= 0) return;
     this.state = 'reload';
     this.t = 0;
@@ -73,6 +178,7 @@ export class Arsenal {
   /** How far a round strays (multiplier on the weapon's spread) given the stance and motion. */
   spreadScale(player) {
     const g = this.gun;
+    if (g.melee) return 0;
     const s = clamp(player.speed / 3.3, 0, 1.6);
     let k = g.hipSpread + (g.adsSpread - g.hipSpread) * this.adsAmount;
     k *= 1 + 0.9 * s * (1 - 0.5 * this.adsAmount) + 0.25 * this.shotsInBurst * (g.w.auto ? 0.25 : 0);
@@ -85,11 +191,20 @@ export class Arsenal {
    * Per frame. Returns true when a round goes off this frame (the caller fires it and applies the
    * recoil from `recoil()`). trigger: held this frame; sprinting: the gun is down while sprinting.
    */
-  update(dt, trigger, sprinting) {
+  update(dt, trigger, sprinting, alt = false) {
     this.events.length = 0;
     this.t += dt;
     const g = this.gun;
     g.cool = Math.max(0, g.cool - dt);
+    if (this.infinite && !g.melee) g.spare = Math.max(g.spare, g.mag * 3);
+    // melee: its own little state machine (kicks and stomps run with any weapon in hand)
+    if (this.melee || g.melee) {
+      this.adsAmount = Math.max(0, this.adsAmount - dt * 6);
+      if (this.state === 'idle' || this.melee) this.updateMelee(dt, trigger && !sprinting, alt && !sprinting);
+      this.triggerHeld = trigger;
+      this.altHeld = alt;
+      if (this.melee || this.state === 'idle') return false;
+    }
     // aim down the sights (not while sprinting or reloading a long gun's magazine)
     const canAim = !sprinting && this.state !== 'holster' && this.state !== 'equip';
     const want = this.ads && canAim ? 1 : 0;
@@ -174,12 +289,14 @@ export class Arsenal {
         break;
     }
     this.triggerHeld = trigger;
+    this.altHeld = alt;
     return fired;
   }
 
   /** View kick of the round just fired: { up, side } (rad). */
   recoil(rng = Math.random) {
     const g = this.gun;
+    if (g.melee) return { up: 0, side: 0 };
     const aim = 1 - 0.35 * this.adsAmount;
     return { up: g.kickUp * aim * (0.8 + 0.4 * rng()), side: g.kickSide * aim * (rng() * 2 - 1) };
   }
