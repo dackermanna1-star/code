@@ -9,6 +9,7 @@ import MeshWorker from './render/meshWorker.js?worker&inline';
 import { Sandbox } from './game/sandbox.js';
 import { WEAPONS } from './game/weapons.js';
 import { THROWABLES } from './game/throwables.js';
+import { OBSTACLES, OBSTACLE_KEYS } from './game/obstacles.js';
 import { AudioEngine } from './game/audio.js';
 import { createRenderer, Arena } from './render/arena.js';
 import { FloorDecals } from './render/floorDecals.js';
@@ -18,6 +19,8 @@ import { Effects } from './render/effects.js';
 import { ViewModel } from './render/viewmodel.js';
 import { DebugDraw, interpPose } from './render/debugDraw.js';
 import * as OM from './render/objectMeshes.js';
+import { createObstacleMesh, disposeObstacleMesh, createObstacleGhost, setObstacleGhostColor, obstacleFootprint } from './render/obstacleMeshes.js';
+import { WalkMarkers, goalsAhead } from './render/walkMarkers.js';
 import { UI, WEAPON_KEYS, THROW_KEYS } from './ui/ui.js';
 
 const FIXED = 1 / 60;
@@ -55,6 +58,7 @@ const audio = new AudioEngine({ volume: 0.7 });
 const dbg = new DebugDraw(scene);
 dbg.setVisible(false);
 const balanceViz = createBalanceViz(scene);
+const walkMarkers = new WalkMarkers(scene);
 
 const state = {
   tool: 'w:pistol',
@@ -74,6 +78,9 @@ const state = {
   pointerPx: { x: window.innerWidth / 2, y: window.innerHeight / 2 },
   grabDepth: 0,
   keys: new Set(),
+  pointerIn: false,
+  obstacleType: OBSTACLE_KEYS[0],
+  obstacleYaw: 0,
 };
 
 const ui = new UI(document.body, { onTool: setTool, onAction: doAction, onSetting: setSetting });
@@ -162,6 +169,163 @@ function makePropMesh(type) {
 }
 
 // ---------------------------------------------------------------------------------------------
+// fixed obstacles and the placement ghost
+const obstacleMeshes = new Map();
+const ghosts = new Map(); // type -> preview group (one shown at a time)
+const GHOST_OK = 0xbfe6ff, GHOST_BAD = 0xff4d4d;
+
+function ghostOf(type) {
+  let g = ghosts.get(type);
+  if (!g) {
+    g = createObstacleGhost(type);
+    g.visible = false;
+    scene.add(g);
+    ghosts.set(type, g);
+  }
+  return g;
+}
+
+function hideGhosts() {
+  for (const g of ghosts.values()) g.visible = false;
+}
+
+/** Where the pointer ray meets the floor (obstacles stand on it), or null. */
+function floorPoint(origin, dir) {
+  if (dir.y > -1e-3) return null;
+  const t = -origin.y / dir.y;
+  return t < 80 ? origin.clone().addScaled(dir, t) : null;
+}
+
+/** First person with a body part inside an obstacle footprint at `pos`/`yaw` (placing it there would crush them). */
+function personInFootprint(type, pos, yaw) {
+  const fp = obstacleFootprint(type), m = 0.08;
+  const c = Math.cos(yaw), s = Math.sin(yaw);
+  for (const p of sandbox.people) {
+    for (const b of p.rd.allBodies()) {
+      const dx = b.pos.x - pos.x, dz = b.pos.z - pos.z;
+      const lx = c * dx - s * dz, lz = s * dx + c * dz;
+      if (b.pos.y < fp.height + 0.15 && lx > fp.minX - m && lx < fp.maxX + m && lz > fp.minZ - m && lz < fp.maxZ + m) return p;
+    }
+  }
+  return null;
+}
+
+/** Ghost preview of the obstacle tool: placement at the pointer, or (shift) the obstacle to remove. */
+function updateGhost() {
+  hideGhosts();
+  if (!state.tool.startsWith('o:') || !state.pointerIn) return;
+  const { origin, dir } = pointerRay();
+  if (state.keys.has('shift')) {
+    const hit = sandbox.pick(origin, dir, 80);
+    const ob = hit && hit.body ? sandbox.obstacleOfBody(hit.body) : null;
+    if (!ob) return;
+    const g = ghostOf(ob.type);
+    g.position.set(ob.body.pos.x, ob.body.pos.y, ob.body.pos.z);
+    g.quaternion.set(ob.body.rot.x, ob.body.rot.y, ob.body.rot.z, ob.body.rot.w);
+    setObstacleGhostColor(GHOST_BAD);
+    g.visible = true;
+    return;
+  }
+  const type = state.tool.slice(2);
+  const p = floorPoint(origin, dir);
+  if (!p) return;
+  const g = ghostOf(type);
+  g.position.set(p.x, 0, p.z);
+  g.rotation.set(0, state.obstacleYaw, 0);
+  setObstacleGhostColor(personInFootprint(type, p, state.obstacleYaw) ? GHOST_BAD : GHOST_OK);
+  g.visible = true;
+}
+
+function obstacleClick(shift) {
+  const { origin, dir } = pointerRay();
+  if (shift) {
+    const hit = sandbox.pick(origin, dir, 80);
+    const ob = hit && hit.body ? sandbox.obstacleOfBody(hit.body) : null;
+    if (ob) {
+      sandbox.removeObstacle(ob);
+      ui.notify(`${ob.def.label} removed`);
+    }
+    return;
+  }
+  const type = state.tool.slice(2);
+  const p = floorPoint(origin, dir);
+  if (!p) return;
+  const who = personInFootprint(type, p, state.obstacleYaw);
+  if (who) {
+    ui.notify(`Too close to Dummy #${who.id}`);
+    return;
+  }
+  sandbox.addObstacle(type, p, state.obstacleYaw);
+  audio.impact(OBSTACLES[type].material, 0.5, p);
+}
+
+// ---------------------------------------------------------------------------------------------
+// walking orders
+/** Who a walk order goes to: the selected dummy, else the nearest one standing. */
+function walkerFor(point) {
+  if (state.selected && sandbox.people.includes(state.selected)) return state.selected;
+  let best = null, bd = Infinity;
+  for (const p of sandbox.people) {
+    if (p.ctl.mode !== 'balance') continue;
+    const d = Math.hypot(p.rd.pelvis.pos.x - point.x, p.rd.pelvis.pos.z - point.z);
+    if (d < bd) {
+      bd = d;
+      best = p;
+    }
+  }
+  return best;
+}
+
+/** Send `person` to `point`; with `append` the point becomes the next goal after the current ones. */
+function sendWalk(person, point, append = false) {
+  if (!person.ctl.alive || !person.ctl.conscious) {
+    ui.notify(`Dummy #${person.id} is ${person.ctl.alive ? 'unconscious' : 'dead'}`);
+    return null;
+  }
+  const nav = person.ctl.nav;
+  const ahead = append ? goalsAhead(nav) : [];
+  let path;
+  if (!ahead.length) path = sandbox.walkTo(person, point);
+  else if (ahead.length === nav.goals.length) path = sandbox.walkTo(person, point, { append: true });
+  else {
+    // the walk's goal list still holds the goals already passed: re-issue the ones ahead
+    const goals = [...ahead.map((g) => nav.goals[g]), point];
+    path = sandbox.walkTo(person, goals[0]);
+    for (let k = 1; path && k < goals.length; k++) path = sandbox.walkTo(person, goals[k], { append: true });
+  }
+  state.selected = person;
+  if (!path) ui.notify("Can't get there");
+  else ui.notify(ahead.length ? `Dummy #${person.id}: waypoint ${person.ctl.nav.goals.length}` : `Dummy #${person.id} walking`);
+  return path;
+}
+
+function walkClick(shift) {
+  const { origin, dir } = pointerRay();
+  const hit = sandbox.pick(origin, dir, 80);
+  if (!hit) return;
+  if (hit.person) {
+    state.selected = hit.person;
+    ui.notify(`Dummy #${hit.person.id} selected`);
+    return;
+  }
+  const person = walkerFor(hit.point);
+  if (person) sendWalk(person, hit.point, shift);
+}
+
+// walks that ended badly get a short note (arrivals and stops are visible enough)
+const reportedWalks = new WeakSet();
+const WALK_END_NOTE = { stuck: 'stuck, gave up', unreachable: "can't get there", 'too injured': 'too injured to walk on' };
+
+function checkWalks() {
+  for (const p of sandbox.people) {
+    const nav = p.ctl.nav;
+    if (!nav || !nav.done || reportedWalks.has(nav)) continue;
+    reportedWalks.add(nav);
+    if (WALK_END_NOTE[nav.status]) ui.notify(`Dummy #${p.id}: ${WALK_END_NOTE[nav.status]}`);
+  }
+}
+
+// ---------------------------------------------------------------------------------------------
 // tools & actions
 function setTool(id) {
   state.tool = id;
@@ -169,6 +333,11 @@ function setTool(id) {
   viewmodel.setWeapon(id.startsWith('w:') ? id.slice(2) : null);
   if (id.startsWith('w:')) ui.notify(`${WEAPONS[id.slice(2)].label} — ${WEAPONS[id.slice(2)].round}`);
   else if (id.startsWith('t:')) ui.notify(`${THROWABLES[id.slice(2)].label} (${THROWABLES[id.slice(2)].mass} kg) — click to throw, shift+click to drop`);
+  else if (id === 'walk') ui.notify('Walk — click a dummy to select it, click a spot to send it there, shift+click adds a waypoint');
+  else if (id.startsWith('o:')) {
+    state.obstacleType = id.slice(2);
+    ui.notify(`${OBSTACLES[id.slice(2)].label} (${OBSTACLES[id.slice(2)].note}) — click to place, Z rotates, shift+click removes`);
+  }
 }
 
 function facingCamera(p) {
@@ -193,6 +362,22 @@ function doAction(act) {
       sandbox.clearObjects();
       effects.clearDebris();
       ui.notify('Props cleared');
+      break;
+    case 'stopWalk': {
+      const p = state.selected && sandbox.people.includes(state.selected) ? state.selected : null;
+      if (p && p.ctl.nav && !p.ctl.nav.done) {
+        sandbox.stopWalking(p);
+        ui.notify(`Dummy #${p.id} stopped`);
+      }
+      break;
+    }
+    case 'course':
+      sandbox.buildCourse();
+      ui.notify('Test course built — walk a dummy across it');
+      break;
+    case 'clearObstacles':
+      sandbox.clearObstacles();
+      ui.notify('Obstacles cleared');
       break;
     case 'pause':
       state.paused = !state.paused;
@@ -345,7 +530,12 @@ function throwProp(shift) {
 renderer.domElement.addEventListener('contextmenu', (e) => e.preventDefault());
 renderer.domElement.addEventListener('pointermove', (e) => {
   updatePointer(e);
+  state.pointerIn = true;
+  if (e.shiftKey) state.keys.add('shift');
+  else state.keys.delete('shift');
 });
+renderer.domElement.addEventListener('pointerenter', () => (state.pointerIn = true));
+renderer.domElement.addEventListener('pointerleave', () => (state.pointerIn = false));
 renderer.domElement.addEventListener('pointerdown', (e) => {
   updatePointer(e);
   audio.unlock();
@@ -381,6 +571,10 @@ renderer.domElement.addEventListener('pointerdown', (e) => {
     renderer.domElement.setPointerCapture(e.pointerId);
   } else if (t.startsWith('t:')) {
     throwProp(e.shiftKey);
+  } else if (t === 'walk') {
+    walkClick(e.shiftKey);
+  } else if (t.startsWith('o:')) {
+    obstacleClick(e.shiftKey);
   }
 });
 window.addEventListener('pointerup', (e) => {
@@ -397,11 +591,23 @@ window.addEventListener('keydown', (e) => {
   if (k >= '1' && k <= '6') setTool('w:' + WEAPON_KEYS[+k - 1]);
   else if (k === 'g') setTool('grab');
   else if (k === 'f') setTool('shove');
+  else if (k === 'm') setTool('walk');
+  else if (k === 'x') doAction('stopWalk');
   else if (k === 'q' || k === 'e') {
     const cur = state.tool.startsWith('t:') ? THROW_KEYS.indexOf(state.tool.slice(2)) : -1;
     const n = THROW_KEYS.length;
     const next = cur < 0 ? 0 : (cur + (k === 'e' ? 1 : n - 1)) % n;
     setTool('t:' + THROW_KEYS[next]);
+  } else if (k === 'o') {
+    // first press: the obstacle type used last; then cycle (shift: backwards)
+    const n = OBSTACLE_KEYS.length;
+    const cur = state.tool.startsWith('o:') ? OBSTACLE_KEYS.indexOf(state.tool.slice(2)) : -1;
+    const next = cur < 0 ? OBSTACLE_KEYS.indexOf(state.obstacleType) : (cur + (e.shiftKey ? n - 1 : 1)) % n;
+    setTool('o:' + OBSTACLE_KEYS[next]);
+  } else if (k === 'z') {
+    // placement turn in 45 degree steps (shift: the other way)
+    state.obstacleYaw = (state.obstacleYaw + (e.shiftKey ? -1 : 1) * (Math.PI / 4) + 2 * Math.PI) % (2 * Math.PI);
+    if (state.tool.startsWith('o:')) ui.notify(`Rotation ${Math.round((state.obstacleYaw * 180) / Math.PI)}°`);
   } else if (k === ' ') {
     e.preventDefault();
     doAction('pause');
@@ -457,6 +663,21 @@ function handleFx(e) {
       const m = propMeshes.get(e.object);
       if (m) scene.remove(m);
       propMeshes.delete(e.object);
+      break;
+    }
+    case 'obstacleAdded': {
+      const b = e.obstacle.body;
+      const m = createObstacleMesh(e.obstacle.type);
+      m.position.set(b.pos.x, b.pos.y, b.pos.z);
+      m.quaternion.set(b.rot.x, b.rot.y, b.rot.z, b.rot.w);
+      scene.add(m);
+      obstacleMeshes.set(e.obstacle, m);
+      break;
+    }
+    case 'obstacleRemoved': {
+      const m = obstacleMeshes.get(e.obstacle);
+      if (m) disposeObstacleMesh(m);
+      obstacleMeshes.delete(e.obstacle);
       break;
     }
     case 'shot': {
@@ -715,6 +936,12 @@ function frame(now) {
   controls.update();
   arena.focus(sel ? sel.rd.pelvis.pos : controls.target);
 
+  // walking overlay and the obstacle placement preview
+  checkWalks();
+  walkMarkers.setVisible(!ui.hidden);
+  walkMarkers.update(dtReal, sandbox.people, sel || null, sandbox.world, state.tool === 'walk');
+  updateGhost();
+
   // view model aims along the pointer ray
   raycaster.setFromCamera(state.pointer, camera);
   const dirCam = raycaster.ray.direction.clone().transformDirection(camera.matrixWorldInverse);
@@ -790,6 +1017,7 @@ requestAnimationFrame(frame);
 window.__sim = {
   ready: false,
   sandbox,
+  scene,
   renderer,
   camera,
   controls,
@@ -825,5 +1053,31 @@ window.__sim = {
       effects.update(FIXED);
     }
     decals.flush();
+  },
+  /** Send dummy `i` walking to floor point (x, z); returns the route as [x, y, z] waypoints, or null. */
+  walkTo(i, x, z, append = false) {
+    const p = sandbox.people[i];
+    if (!p) return null;
+    const path = sendWalk(p, new Vec3(x, sandbox.world.surfaceAt(x, z, 5), z), append);
+    return path ? path.map((q) => [q.x, q.y, q.z]) : null;
+  },
+  stopWalk(i) {
+    const p = sandbox.people[i];
+    if (p) sandbox.stopWalking(p);
+  },
+  addObstacle(type, x, z, yaw = 0) {
+    const ob = sandbox.addObstacle(type, new Vec3(x, 0, z), yaw);
+    return ob ? ob.id : null;
+  },
+  course() {
+    sandbox.buildCourse();
+    return sandbox.obstacles.length;
+  },
+  /** Per person: mode, walking state and the last walk's status ('walking', 'arrived', 'stuck', ...). */
+  walkState() {
+    return sandbox.people.map((p) => {
+      const nav = p.ctl.nav, pel = p.rd.pelvis.pos;
+      return { id: p.id, mode: p.ctl.mode, walking: p.ctl.walking, status: nav ? nav.status : null, x: pel.x, y: pel.y, z: pel.z, goals: nav ? nav.goals.length : 0 };
+    });
   },
 };

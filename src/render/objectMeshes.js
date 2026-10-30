@@ -2702,3 +2702,6 @@ export function disposeObjectMeshes() {
   for (const v of _cache.values()) visit(v);
   _cache.clear();
 }
+
+// Building blocks shared with the other procedural render modules (obstacle meshes)
+export { cached, genTextures, tfbm, pnoise2, tcell, hex3, mix3, mixInto, smooth, woodTextures, getMat };

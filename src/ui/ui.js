@@ -1,14 +1,17 @@
 import { WEAPONS } from '../game/weapons.js';
 import { THROWABLES } from '../game/throwables.js';
+import { OBSTACLES, OBSTACLE_KEYS } from '../game/obstacles.js';
 
 /**
- * DOM interface: tool palette (interaction, firearms, throwables), simulation controls, settings
- * and a live medical monitor of the selected person (vitals, blood volume, injury log).
+ * DOM interface: tool palette (interaction, walking, obstacles, firearms, throwables), simulation
+ * controls, settings and a live medical monitor of the selected person (vitals, blood volume,
+ * injury log).
  */
 
 const ICON = {
   grab: '<path d="M8 13V5.5a1.5 1.5 0 0 1 3 0V12m0-1V4.5a1.5 1.5 0 0 1 3 0V12m0-6.5a1.5 1.5 0 0 1 3 0V13m0-4.5a1.5 1.5 0 0 1 3 0V15a6 6 0 0 1-6 6h-1.5a6 6 0 0 1-5-2.7L4.6 14.6a1.6 1.6 0 0 1 2.6-1.8L8 14"/>',
   shove: '<path d="M4 12h11M11 7l5 5-5 5M19 5v14"/>',
+  walk: '<circle cx="5.5" cy="18.5" r="2"/><path d="M7.5 18.5H13a3 3 0 0 0 0-6h-2a3 3 0 0 1 0-6h3M18 21V3l4 2.5L18 8"/>',
 };
 
 const WEAPON_KEYS = ['pistol', 'revolver', 'shotgun', 'smg', 'rifle', 'sniper'];
@@ -34,7 +37,8 @@ export class UI {
     this.hint = el('div', 'hint');
     this.hint.innerHTML =
       '<b>Left click</b> use tool &nbsp; <b>Right drag</b> orbit &nbsp; <b>Shift+right / middle drag</b> pan &nbsp; <b>Wheel</b> zoom &nbsp; <b>WASD</b> move &nbsp; <b>Shift+click</b> drop prop<br>' +
-      '<b>1-6</b> firearms &nbsp; <b>G</b> grab &nbsp; <b>F</b> shove &nbsp; <b>Q/E</b> props &nbsp; <b>Space</b> pause &nbsp; <b>T</b> slow motion &nbsp; <b>.</b> step &nbsp; <b>R</b> reset &nbsp; <b>N</b> spawn &nbsp; <b>C</b> clear &nbsp; <b>H</b> hide UI';
+      '<b>1-6</b> firearms &nbsp; <b>G</b> grab &nbsp; <b>F</b> shove &nbsp; <b>Q/E</b> props &nbsp; <b>Space</b> pause &nbsp; <b>T</b> slow motion &nbsp; <b>.</b> step &nbsp; <b>R</b> reset &nbsp; <b>N</b> spawn &nbsp; <b>C</b> clear &nbsp; <b>H</b> hide UI<br>' +
+      '<b>M</b> walk (click a dummy, then a spot; <b>shift</b> adds a waypoint) &nbsp; <b>X</b> stop &nbsp; <b>O</b> obstacles (<b>Z</b> rotate, <b>shift</b> removes)';
     this.root.appendChild(this.hint);
     this.crosshair = el('div', 'crosshair');
     this.root.appendChild(this.crosshair);
@@ -81,16 +85,38 @@ export class UI {
       bar.appendChild(s);
       return grid;
     };
-    const tool = (grid, id, label, sub, icon) => {
+    const tool = (grid, id, label, sub, icon, title) => {
       const b = el('button', 'tool');
       b.innerHTML = (icon ? `<svg viewBox="0 0 24 24">${icon}</svg>` : '') + `<span class="tl">${label}</span>` + (sub ? `<span class="ts">${sub}</span>` : '');
+      if (title) b.title = title;
       b.addEventListener('click', () => this.h.onTool(id));
       grid.appendChild(b);
       this.buttons.set('tool:' + id, b);
     };
+    // a row of small action buttons under a group's tools
+    const actions = (grid, list) => {
+      const row = el('div', 'tool-acts');
+      for (const [act, label, title] of list) {
+        const b = el('button', 'btn', label);
+        b.title = title;
+        b.addEventListener('click', () => this.h.onAction(act));
+        row.appendChild(b);
+        this.buttons.set(act, b);
+      }
+      grid.appendChild(row);
+    };
     const g1 = section('Interact');
     tool(g1, 'grab', 'Grab', 'drag body parts', ICON.grab);
     tool(g1, 'shove', 'Shove', 'push with force', ICON.shove);
+    const gm = section('Move');
+    tool(gm, 'walk', 'Walk', 'send a dummy somewhere', ICON.walk, 'Walk (M): click a dummy to select it, click the floor or an obstacle to walk there, shift+click adds a waypoint');
+    actions(gm, [['stopWalk', 'Stop', 'Stop the selected dummy (X)']]);
+    const go = section('Obstacles');
+    for (const k of OBSTACLE_KEYS) tool(go, 'o:' + k, OBSTACLES[k].label, OBSTACLES[k].note, null, `Place a ${OBSTACLES[k].label.toLowerCase()} (O cycles, Z rotates, shift+click removes)`);
+    actions(go, [
+      ['course', 'Course', 'Build the test course east of the spawn point'],
+      ['clearObstacles', 'Clear obstacles', 'Remove every obstacle'],
+    ]);
     const g2 = section('Firearms');
     WEAPON_KEYS.forEach((k, i) => tool(g2, 'w:' + k, `${i + 1} · ${WEAPONS[k].label}`, WEAPONS[k].round));
     const g3 = section('Throw');
@@ -204,6 +230,10 @@ export class UI {
     this.root.classList.toggle('hidden');
   }
 
+  get hidden() {
+    return this.root.classList.contains('hidden');
+  }
+
   /** Live monitor, called every frame (internally throttled). */
   updateHud(person, dt, label) {
     this.drawEcg(person, dt);
@@ -251,6 +281,7 @@ export class UI {
     if (person.ctl.alive && person.ctl.conscious) {
       const c = person.ctl;
       let b = { balance: c.step ? 'stepping to recover' : 'standing', falling: 'falling, bracing', ground: 'down', getup: 'getting up' }[c.mode] || c.mode;
+      if (c.mode === 'balance' && c.walking) b = 'walking';
       if (c.threat && c.threat.tti < 0.65) b = 'flinching from incoming object';
       else if (c.mode === 'ground' && c.pain > 0.6) b = 'down, in pain';
       flags.push(['info', `Behaviour: ${b}`]);
