@@ -107,12 +107,16 @@ Muscle strength scales with consciousness, pain and injuries.
     perception delay of about 150 ms. The trunk dodges and the head turns away.
 - **Wound behaviour:** the dummy clutches its most painful wound with one or both hands. Hand
   pressure reduces the bleeding.
-- **On the ground:** pain-driven curling and writhing.
+- **On the ground:** calm when it hardly hurts. Curling and writhing grow with pain. Unable to get
+  up and in bad pain, it turns onto its side away from the injury and curls up.
 - **Getting up:** when a fallen dummy is able (strong enough legs and arms, pain not too high) it
   gets back up after a short rest. It rolls onto its front, pushes up to hands and knees, kneels
-  up, brings one foot forward, then squats and rises. Each phase is IK targets driven by the
-  muscles, with helper forces scaled by the balance assist. Too much pain, a broken limb or
-  paralysis keeps it down.
+  up and brings one foot forward into a half kneel. It then rises over the front foot and steps
+  the back foot up beside it. With a broken arm it gets up on the other arm. If an attempt
+  topples over, the protective fall reflexes take over. Each phase is driven by the muscles: IK
+  targets, plus joint torques that carry the weight over whatever hands, knees and feet touch
+  the floor. The helper forces are small and scale with the balance assist. A broken leg, too
+  much pain, heavy blood loss or paralysis keeps it down. After a knockout it is dazed and slower.
 - **Breathing:** the trunk breathes. The rate and depth rise with pain, blood loss and low
   oxygen, and breathing stops with a high spinal cord injury or death.
 - **Loss of control:** unconsciousness and death release muscle tone over about 0.3 s, into a
