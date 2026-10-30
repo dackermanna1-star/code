@@ -15,6 +15,13 @@ const ICON = {
 };
 
 const WEAPON_KEYS = ['pistol', 'revolver', 'shotgun', 'smg', 'rifle', 'sniper'];
+// melee tools (keys 7-0): weapon, label, what it does
+const MELEE_TOOLS = [
+  ['knife', 'Knife', 'stab · shift: slash'],
+  ['bat', 'Baseball bat', 'hold to wind up'],
+  ['fists', 'Fists', 'tap: jab · hold: haymaker'],
+  ['boot', 'Boot', 'kick · stamp if down'],
+];
 const THROW_KEYS = Object.keys(THROWABLES);
 
 function el(tag, cls, html) {
@@ -123,6 +130,8 @@ export class UI {
     ]);
     const g2 = section('Firearms');
     WEAPON_KEYS.forEach((k, i) => tool(g2, 'w:' + k, `${i + 1} · ${WEAPONS[k].label}`, WEAPONS[k].round));
+    const gx = section('Melee');
+    MELEE_TOOLS.forEach(([k, label, sub], i) => tool(gx, 'm:' + k, `${(i + 7) % 10} · ${label}`, sub, null, `${label}: click a dummy (hold the button to put more into it)`));
     const g3 = section('Throw');
     for (const k of THROW_KEYS) tool(g3, 't:' + k, THROWABLES[k].label, `${THROWABLES[k].mass >= 1 ? THROWABLES[k].mass.toFixed(1) + ' kg' : Math.round(THROWABLES[k].mass * 1000) + ' g'}`);
     this.root.appendChild(bar);
@@ -355,4 +364,4 @@ export class UI {
   }
 }
 
-export { WEAPON_KEYS, THROW_KEYS };
+export { WEAPON_KEYS, THROW_KEYS, MELEE_TOOLS };

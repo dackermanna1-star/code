@@ -136,7 +136,8 @@ export class Arsenal {
       }
       return;
     }
-    M.t += dt;
+    // (a blow that lands slows the rest of the swing down, or stops it dead: the host sets M.rate)
+    M.t += M.phase === 'strike' ? dt * (M.rate ?? 1) : dt;
     const T = this.moves[M.move] || DEFAULT_MOVES.swing;
     if (M.phase === 'charge') {
       M.held += dt;
@@ -156,7 +157,7 @@ export class Arsenal {
       M.phase = 'strike';
       M.t = 0;
       this.events.push({ type: 'meleeStrike', move: M.move, power: M.power });
-    } else if (M.phase === 'strike' && M.t >= T.strike) {
+    } else if (M.phase === 'strike' && (M.t >= T.strike || M.done)) {
       M.phase = 'recover';
       M.t = 0;
     } else if (M.phase === 'recover' && M.t >= T.recover) {

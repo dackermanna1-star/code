@@ -21,7 +21,7 @@ import { DebugDraw, interpPose } from './render/debugDraw.js';
 import * as OM from './render/objectMeshes.js';
 import { createObstacleMesh, disposeObstacleMesh, createObstacleGhost, setObstacleGhostColor, obstacleFootprint } from './render/obstacleMeshes.js';
 import { WalkMarkers, goalsAhead } from './render/walkMarkers.js';
-import { UI, WEAPON_KEYS, THROW_KEYS } from './ui/ui.js';
+import { UI, WEAPON_KEYS, THROW_KEYS, MELEE_TOOLS } from './ui/ui.js';
 import { SurvivalMode } from './modes/survivalMode.js';
 import { FpsSandboxMode } from './modes/fpsSandbox.js';
 import { KillCam } from './modes/killCam.js';
@@ -76,6 +76,7 @@ const state = {
   throwPower: 1,
   shoveImpulse: 60,
   firing: false,
+  melee: null, // a melee tool blow being wound up (button held)
   lastShot: -1,
   selected: null,
   pointer: new THREE.Vector2(),
@@ -352,6 +353,10 @@ function setTool(id) {
   if (id.startsWith('w:')) ui.notify(`${WEAPONS[id.slice(2)].label} — ${WEAPONS[id.slice(2)].round}`);
   else if (id.startsWith('t:')) ui.notify(`${THROWABLES[id.slice(2)].label} (${THROWABLES[id.slice(2)].mass} kg) — click to throw, shift+click to drop`);
   else if (id === 'walk') ui.notify('Walk — click a dummy to select it, click a spot to send it there, shift+click adds a waypoint');
+  else if (id.startsWith('m:')) {
+    const m = MELEE_TOOLS.find((x) => x[0] === id.slice(2));
+    ui.notify(`${m[1]} — ${m[2]}; click a dummy, hold the button to put more into the blow`);
+  }
   else if (id.startsWith('o:')) {
     state.obstacleType = id.slice(2);
     ui.notify(`${OBSTACLES[id.slice(2)].label} (${OBSTACLES[id.slice(2)].note}) — click to place, Z rotates, shift+click removes`);
@@ -621,6 +626,9 @@ renderer.domElement.addEventListener('pointerdown', (e) => {
     state.firing = true;
     fireWeapon();
     renderer.domElement.setPointerCapture(e.pointerId);
+  } else if (t.startsWith('m:')) {
+    state.melee = { tool: t.slice(2), t0: performance.now(), shift: e.shiftKey };
+    renderer.domElement.setPointerCapture(e.pointerId);
   } else if (t.startsWith('t:')) {
     throwProp(e.shiftKey);
   } else if (t === 'walk') {
@@ -633,7 +641,52 @@ window.addEventListener('pointerup', (e) => {
   if (e.button !== 0) return;
   state.firing = false;
   sandbox.endGrab();
+  if (state.melee && mode === 'sandbox') {
+    const m = state.melee;
+    state.melee = null;
+    meleeClick(m.tool, clamp(((performance.now() - m.t0) / 1000 - 0.1) / 0.8, 0, 1), m.shift || e.shiftKey);
+  }
 });
+
+/**
+ * Melee tool: a blow at the pointed spot from the camera's side, with the weapon's speed and mass
+ * for the charge (how long the button was held). The boot stamps on a body lying on the floor and
+ * kicks a standing one; the knife stabs (shift: a slash across the spot).
+ */
+function meleeClick(weapon, charge, shift) {
+  const { origin, dir } = pointerRay();
+  const hit = sandbox.pick(origin, dir, 60);
+  const p = hit && hit.body ? personOfBody(hit.body) : null;
+  if (!p) {
+    audio.whoosh(weapon === 'bat' ? 14 + 16 * charge : 8, null);
+    return;
+  }
+  const P = hit.point, d = dir.clone();
+  const opts = { charge, by: 'tool' };
+  let from, to;
+  if (weapon === 'boot' && P.y < 0.45 && p.ctl.mode !== 'balance') {
+    // a stamp from above, the sole across the body
+    from = new Vec3(P.x, P.y + 0.45, P.z);
+    to = new Vec3(P.x, P.y - 0.12, P.z);
+    const ax = new Vec3(d.x, 0, d.z);
+    opts.axis = ax.lengthSq() > 1e-6 ? ax.normalize() : new Vec3(0, 0, 1);
+  } else if (weapon === 'knife' && shift) {
+    // a slash: the edge drawn across the spot, the blade pointing into the body
+    const right = new Vec3().crossVectors(d, new Vec3(0, 1, 0)).normalize();
+    from = P.clone().addScaled(right, -0.22).addScaled(d, -0.02);
+    to = P.clone().addScaled(right, 0.22).addScaled(d, -0.02);
+    opts.mode = 'slash';
+    opts.into = d.clone();
+  } else {
+    from = P.clone().addScaled(d, -0.4);
+    to = P.clone().addScaled(d, 0.15);
+    if (weapon === 'knife') opts.mode = 'stab';
+  }
+  audio.whoosh(weapon === 'bat' ? 14 + 16 * charge : weapon === 'fists' ? 9 + 3 * charge : 8, P);
+  const r = sandbox.meleeStrike(weapon, from, to, opts);
+  state.selected = p;
+  if (!r.hits.length) ui.notify('Missed');
+}
 
 window.addEventListener('keydown', (e) => {
   if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
@@ -651,6 +704,8 @@ window.addEventListener('keydown', (e) => {
   const k = e.key.toLowerCase();
   state.keys.add(k);
   if (k >= '1' && k <= '6') setTool('w:' + WEAPON_KEYS[+k - 1]);
+  else if (k >= '7' && k <= '9') setTool('m:' + MELEE_TOOLS[+k - 7][0]);
+  else if (k === '0') setTool('m:' + MELEE_TOOLS[3][0]);
   else if (k === 'g') setTool('grab');
   else if (k === 'f') setTool('shove');
   else if (k === 'm') setTool('walk');
@@ -796,6 +851,51 @@ function handleFx(e) {
     case 'injury':
       injuryFx(e.person, e.event);
       break;
+    case 'meleeHit':
+      meleeFx(e);
+      break;
+  }
+}
+
+/** Sound, blood and (for a bone-breaking full-power blow) a beat of slow motion with the X-ray. */
+function meleeFx(e) {
+  const P = new THREE.Vector3(e.point.x, e.point.y, e.point.z);
+  const n = new THREE.Vector3(e.normal.x, e.normal.y, e.normal.z);
+  const d = new THREE.Vector3(e.dir.x, e.dir.y, e.dir.z);
+  const it = clamp(e.energy / 250, 0.25, 1);
+  const breaks = e.fractures || [];
+  state.selected = e.person;
+  if (e.kind === 'blunt') {
+    if (e.weapon === 'bat') audio.impact('wood', it, e.point);
+    audio.impact('flesh', it, e.point);
+    if (breaks.length) audio.boneCrack(clamp(0.6 + 0.2 * breaks.length, 0.6, 1), e.point);
+    // a broken nose or a split brow bleeds at once
+    if (state.gore && (breaks.some((f) => /nasal|zygoma|maxilla|mandible|skull/.test(f.label || '')) || (e.seg === 'head' && e.energy > 300))) {
+      particles.spray(P, n, 8 + Math.round(10 * it), 1.2 + 1.5 * it, 0.6, 0.0006, 0.002, 0, 0.04);
+      particles.addMist(P, n, 6, 0.8, 0xa01414, 0.02, 0.25);
+    }
+  } else {
+    audio.splat(e.kind === 'stab' ? 0.7 : 0.45, e.point);
+    if (state.gore) {
+      // a cut sprays along the stroke and off the edge; a stab spurts as the blade comes out
+      const along = d.clone().addScaled(n, 0.5).normalize();
+      particles.spray(P, e.kind === 'stab' ? n : along, e.kind === 'stab' ? 14 : 22, e.kind === 'stab' ? 1.6 : 2.4, 0.55, 0.0005, 0.0022, 0, 0.06);
+      if ((e.structures || []).some((s) => /carotid|jugular|artery|aorta|heart/.test(s))) particles.spray(P, n, 30, 3.2, 0.25, 0.0008, 0.003, 0, 0.02);
+    }
+  }
+  // bullet time for a blow that breaks the ribs, the skull or the jaw, or knocks the lights out
+  const big = (e.charge ?? 0) >= 0.75 || e.weapon === 'boot';
+  const bones = breaks.some((f) => /ribs|skull|sternum|mandible|cervical/.test(f.label || ''));
+  if (big && (bones || e.ko || e.killed) && killCam.impactMoment(e.person, bones ? 1.2 : 0.9)) {
+    const rig = killCam.moment && killCam.moment.xray;
+    if (rig) {
+      const E = e.energy * 4;
+      for (const f of breaks) {
+        const at = f.pointW || e.point;
+        if (/skull/.test(f.label) && rig.shatterSkull) rig.shatterSkull(at, e.dir, E);
+        else if (rig.breakBone) rig.breakBone(f.segName || e.seg || 'chest', at, e.dir, E, f);
+      }
+    }
   }
 }
 
@@ -883,7 +983,7 @@ function injuryFx(person, ev) {
       break;
     }
     case 'fracture':
-      if (!ev.physical) audio.boneCrack(0.7, head);
+      if (!ev.physical) audio.boneCrack(0.7, ev.pointW || head);
       break;
     case 'grunt':
       audio.grunt(ev.intensity, head);

@@ -6,9 +6,13 @@ import { FpsView } from '../render/fpsView.js';
 import { FpsInput } from '../fps/input.js';
 import { SurvivalHud } from '../ui/survivalHud.js';
 import { WEAPONS } from '../game/weapons.js';
+import { meleeParams } from '../game/melee.js';
 
 const FIXED = 1 / 60;
+// what strikes in each move
+const MOVE_WEAPON = { slash: 'knife', stab: 'knife', swing: 'bat', jab: 'fists', haymaker: 'fists', stomp: 'boot', kick: 'boot' };
 const _v = new THREE.Vector3();
+const Y = new Vec3(0, 1, 0);
 const _f = new THREE.Vector3();
 
 /**
@@ -26,7 +30,7 @@ export class FpsSandboxMode {
     this.shake = 0;
     this.fov = 78;
     this.lean = 0;
-    this.meleePrev = null;
+    this.strike = null; // the blow under way: { M, weapon, charge, mode, s: MeleeStriker, pose }
   }
 
   build() {
@@ -82,6 +86,7 @@ export class FpsSandboxMode {
   }
 
   exit() {
+    this.endStrike();
     this.input.unlock();
     this.input.enabled = false;
     this.hud.show(false);
@@ -219,7 +224,7 @@ export class FpsSandboxMode {
     for (const e of ar.events) this.onArsenalEvent(e);
     if (fired) this.shoot();
     if (ar.melee && ar.melee.phase === 'strike') this.meleeStep();
-    else this.meleePrev = null;
+    else this.endStrike();
     const k = Math.exp(-FIXED * 9);
     this.recoil.p *= k;
     this.recoil.y *= k;
@@ -273,36 +278,109 @@ export class FpsSandboxMode {
   }
 
   /** Strike phase of a melee move: sweep the striking point through the world. */
+  /**
+   * One physics step of a blow: the striking geometry of the move where it is now goes to the
+   * sandbox's melee striker, which finds what it hits and resolves the impacts physically. The swing
+   * goes on at the speed it has left (a bat stops dead on a head, carries on through an arm).
+   */
   meleeStep() {
     const h = this.host, ar = this.arsenal, M = ar.melee;
-    if (!h.meleeSweep) return;
-    const cur = this.strikePoint(new Vec3());
-    if (this.meleePrev && !M.done) {
-      const res = h.meleeSweep(M.move, this.meleePrev, cur, M.power, this.player, M);
-      if (res && res.hit) {
-        M.hit = true;
-        if (this.view.meleeImpact) this.view.meleeImpact(res.strength ?? 1);
-        this.shake = Math.max(this.shake, clamp(0.25 + 0.6 * (res.strength ?? 0.5), 0.2, 0.9));
-        if (res.stop) M.done = true;
-      }
+    const weapon = MOVE_WEAPON[M.move] || 'fists';
+    if (!this.strike || this.strike.M !== M) {
+      this.endStrike();
+      const mode = M.move === 'stab' ? 'stab' : M.move === 'slash' ? 'slash' : null;
+      const charge = mode ? 0.7 : clamp((M.power - 0.45) / 0.55, 0, 1);
+      this.strike = { M, weapon, charge, mode, s: h.sandbox().meleeStriker(weapon, { charge, mode, by: 'player' }), pose: { a: new Vec3(), b: new Vec3() }, target: M.move === 'stomp' ? this.stompTarget() : null };
     }
-    this.meleePrev = cur.clone();
+    const S = this.strike;
+    if (M.done) return;
+    this.strikePose(S, S.pose);
+    const prm = meleeParams(weapon, S.charge);
+    const r = S.s.update(S.pose, FIXED, { speed: (S.mode === 'stab' ? prm.stabSpeed : prm.speed) * S.s.speedLeft });
+    if (r.hits.length) {
+      M.hit = true;
+      const strength = clamp(r.hits.reduce((acc, x) => acc + (x.energy || 100), 0) / 300, 0.2, 1);
+      if (this.view.meleeImpact) this.view.meleeImpact(strength, r.stopped);
+      this.shake = Math.max(this.shake, 0.2 + 0.55 * strength);
+      M.rate = r.stopped ? 0 : Math.max(0.3, r.speedLeft);
+      if (r.stopped) M.done = true;
+    }
   }
 
-  /** World position of the striking point (bat sweet spot, blade tip, knuckles, boot sole). */
-  strikePoint(out) {
-    if (this.view.meleeCameraSpace) {
-      this.view.meleeCameraSpace(_v);
-      this.camera.updateMatrixWorld();
-      _v.applyMatrix4(this.camera.matrixWorld);
-      return out.set(_v.x, _v.y, _v.z);
+  endStrike() {
+    if (!this.strike) return;
+    this.strike.s.end();
+    this.strike = null;
+  }
+
+  /**
+   * World pose of the striking geometry where the move has it now: the bat's barrel (start -> tip),
+   * the blade (guard -> point), the knuckles, the boot's sole (heel -> toe). The viewmodel can supply
+   * it (meleePose) to match its animation; otherwise each move follows its own path through the
+   * crosshair.
+   */
+  strikePose(S, out) {
+    const pl = this.player, M = S.M, T = this.arsenal.moves[M.move];
+    const u = clamp(M.t / (T ? T.strike : 0.2), 0, 1);
+    if (this.view.meleePose && this.view.meleePose(M.move, u, M.side, out, this.camera)) return out;
+    const e = pl.eye(), E = new Vec3(e.x, e.y, e.z);
+    const cy = Math.cos(pl.yaw), sy = Math.sin(pl.yaw), cp = Math.cos(pl.pitch), sp = Math.sin(pl.pitch);
+    const f = new Vec3(-sy * cp, sp, -cy * cp), r = new Vec3(cy, 0, -sy), up = new Vec3().crossVectors(r, f);
+    const fh = new Vec3(-sy, 0, -cy), side = M.side || 1;
+    const arc = (th, rad) => new Vec3().copy(f).scale(Math.cos(th)).addScaled(r, Math.sin(th)).scale(rad);
+    switch (M.move) {
+      case 'swing': {
+        // a flat arc that reaches the crosshair while the bat is still coming round (40 degrees
+        // before the end of its sweep): it meets the body driving into it, as a real swing does,
+        // instead of brushing across it. The barrel lies along the radius.
+        const R = 0.95, tc = 0.7 * side;
+        const C = E.clone().addScaled(up, -0.1).addScaled(f, R * (1 - Math.cos(tc))).addScaled(r, -R * Math.sin(tc));
+        const d = arc(side * lerp(1.7, -0.6, u), 1);
+        const P = C.addScaled(d, R);
+        out.a.copy(P).addScaled(d, -0.34);
+        out.b.copy(P).addScaled(d, 0.16);
+        return out;
+      }
+      case 'slash': {
+        const d = arc(side * lerp(1.0, -0.95, u), 1);
+        out.b.copy(E).addScaled(up, -0.12).addScaled(d, 0.66);
+        out.a.copy(out.b).addScaled(d, -0.17);
+        return out;
+      }
+      case 'stab':
+        out.b.copy(E).addScaled(up, -0.08).addScaled(r, 0.05).addScaled(f, lerp(0.25, 0.8, u));
+        out.a.copy(out.b).addScaled(f, -0.17);
+        return out;
+      case 'jab':
+        out.a.copy(E).addScaled(up, lerp(-0.14, -0.04, u)).addScaled(r, 0.12 * side * (1 - u)).addScaled(f, lerp(0.2, 0.74, u));
+        out.b.copy(out.a);
+        return out;
+      case 'haymaker':
+        // a hook: in from the side on a curve, through the crosshair and a little past it
+        out.a.copy(E).addScaled(up, -0.06).add(arc(side * lerp(1.4, -0.2, u), 0.7));
+        out.b.copy(out.a);
+        return out;
+      case 'kick': {
+        // a front kick: the sole comes up and forward, toes up
+        const P = new Vec3(pl.pos.x, pl.pos.y, pl.pos.z).addScaled(fh, lerp(0.15, 0.85, u));
+        P.y += lerp(0.35, 0.95, u);
+        out.a.copy(P).addScaled(Y, -0.08);
+        out.b.copy(P).addScaled(Y, 0.19);
+        return out;
+      }
+      case 'stomp': {
+        // straight down on whatever is lying in front, the foot along the look direction
+        const t = S.target ? S.target.point : new Vec3(pl.pos.x, pl.pos.y, pl.pos.z).addScaled(fh, 0.7);
+        const P = new Vec3(t.x, pl.pos.y + lerp(0.6, -0.05, u), t.z);
+        if (S.target) P.y = Math.max(P.y, t.y - 0.25);
+        out.a.copy(P).addScaled(fh, -0.08);
+        out.b.copy(P).addScaled(fh, 0.19);
+        return out;
+      }
     }
-    // (fallback: an arc in front of the eye)
-    const pl = this.player, M = this.arsenal.melee;
-    const u = M ? clamp(M.t / 0.2, 0, 1) : 0;
-    const a = pl.yaw + (0.9 - 1.8 * u) * (M ? M.side : 1);
-    const e = pl.eye();
-    return out.set(e.x - Math.sin(a) * 0.75, e.y - 0.25, e.z - Math.cos(a) * 0.75);
+    out.a.copy(E).addScaled(f, 0.6);
+    out.b.copy(out.a);
+    return out;
   }
 
   onArsenalEvent(e) {
