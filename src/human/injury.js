@@ -850,6 +850,7 @@ export class InjurySystem {
       this.conscious = false;
       this.events.push({ type: 'ko' });
       this.log('Knocked unconscious', 2);
+      this.ctl?.onKnockOut?.(this.concussion);
     }
   }
 
@@ -864,6 +865,7 @@ export class InjurySystem {
     this.rhythm = 'asystole';
     this.events.push({ type: 'death', cause });
     this.log(`DEATH: ${cause}`, 3);
+    this.ctl?.onDeath?.(cause);
   }
 
   /**

@@ -86,3 +86,53 @@ test('kill cam: a sniper head shot is flown in, applied on arrival, and hands ba
   assert.ok(real > 2 && real < 8);
   assert.equal(p.injury.alive, false, 'the round arrived');
 });
+
+function steps(sb, seconds, cb) {
+  for (let i = 0, n = Math.round(seconds * 60); i < n; i++) {
+    sb.step(1 / 60);
+    sb.drainFx();
+    if (cb) cb(i / 60);
+  }
+}
+
+test('a concussive knockout can lock the arms in the fencing posture, then they drop', () => {
+  let seen = 0;
+  for (let seed = 1; seed <= 4; seed++) {
+    const { sb, p } = standing(seed, 'realistic');
+    p.injury.knockOut(12, 0.95);
+    const F = p.ctl.fencing;
+    if (!F) continue;
+    seen++;
+    const rd = p.rd, hand = rd.segments['hand' + F.ext].body, ch = rd.segments.chest.body;
+    let held = 0, n = 0;
+    steps(sb, F.dur + 2.5, (t) => {
+      if (t < 2 || t > F.dur) return;
+      const fwd = ch.localDirToWorld(new Vec3(0, 0, 1), new Vec3());
+      n++;
+      if (hand.pos.clone().sub(ch.pos).dot(fwd) > 0.35 && hand.pos.y > 0.15) held++;
+    });
+    assert.ok(held > 0.8 * n, `seed ${seed}: the ${F.ext} arm held up ${held}/${n} frames`);
+    assert.equal(p.ctl.fencing, null);
+    assert.ok(hand.pos.y < 0.2, `seed ${seed}: the arm still raised (${hand.pos.y.toFixed(2)} m) after the reflex`);
+  }
+  assert.ok(seen >= 2, `fencing posture in ${seen}/4 knockouts`);
+});
+
+test('after brain death the cord fires a few spasms, then the body lies still', () => {
+  const { sb, p } = standing(3, 'realistic');
+  sb.fire('sniper', p.rd.segments.head.body.pos.clone().add(new Vec3(0.3, 0.1, 12)), new Vec3(-0.3, -0.1, -12).normalize());
+  assert.equal(p.injury.alive, false);
+  assert.ok(p.ctl.twitches && p.ctl.twitches.list.length >= 3, 'spasms scheduled for a brain death');
+  let late = 0, worst = 0;
+  steps(sb, 8, (t) => {
+    if (t < 2.2) return;
+    for (const b of p.rd.allBodies()) {
+      const v = b.vel.length();
+      worst = Math.max(worst, v);
+      if (t < 6) late = Math.max(late, v);
+    }
+  });
+  assert.ok(late > 0.2, `no visible spasm after the body was down (peak ${late.toFixed(2)} m/s)`);
+  assert.ok(worst < 3, `a spasm flung a limb at ${worst.toFixed(2)} m/s`);
+  assert.equal(p.ctl.twitches, null);
+});

@@ -125,6 +125,8 @@ export class HumanController {
     // flinches and stumbles when hit, and a body killed on its feet (a head shot) staggers a
     // couple of steps on dying legs before it drops
     this.reactions = 'realistic';
+    this.fencing = null; // tonic arm posture after a concussive knockout
+    this.twitches = null; // post-mortem spinal reflex spasms
     this.dying = null;
     this.assist = 1;
     this.alive = true;
@@ -231,6 +233,7 @@ export class HumanController {
   }
 
   resetState() {
+    this.fencing = this.twitches = null;
     this.mode = 'balance';
     this.modeTime = 0;
     this.tone = 1;
@@ -614,9 +617,13 @@ export class HumanController {
     for (const j of this.rd.jointList) {
       const c = this.cmd[j.name];
       const str = this.regionStrength(j.name);
-      const act = tone * str * c.act;
+      // (a reflex drives a muscle directly, without the brain's tone)
+      const act = Math.max(tone * str * c.act, c.reflex || 0);
+      c.reflex = 0;
       // passive tissue: weak spring toward the commanded pose + viscous damping
-      const kp = 3, dp = 0.9, tp = 12;
+      // (viscosity grows with the muscle mass around the joint; it is what makes a limp body come
+      // to rest like a heavy sack instead of swinging on like a puppet)
+      const kp = 3, dp = 0.9 + 0.006 * j.userData.def.tmax * (1 - tone), tp = 12;
       j.driveMode = act < 0.02 ? DRIVE_RELATIVE : c.mode;
       if (act < 0.02) {
         // fully limp: hold current relative pose softly (no muscle target)
@@ -4069,12 +4076,13 @@ export class HumanController {
     }
   }
 
-  doLimp() {
+  doLimp(dt = 1 / 60) {
     this.assist = 0;
     // muscles off: commit() uses tone ~0 so joints become passive tissue only
     for (const j of this.rd.jointList) {
       this.cmd[j.name].mode = DRIVE_RELATIVE;
     }
+    this.applyReflexes(dt);
     // breathing goes on while unconscious (brain-stem drive): the diaphragm and intercostals lift
     // the rib cage against the abdomen each breath - deeper and jerky as agonal gasps near death
     if (this.alive && this.breath) {
@@ -4082,6 +4090,118 @@ export class HumanController {
       ch.localDirToWorld(LAT, _v0).scale(-7 * this.breath);
       ch.torque.add(_v0);
       ab.torque.sub(_v0);
+    }
+  }
+
+  // ------------------------------------------------------------------------------------------
+  // Involuntary motor activity of an injured brain and spinal cord (it needs no muscle tone):
+  //  - the fencing response: a concussive knockout often locks the arms for a few seconds, the arm
+  //    on the side the face turns to stretched out toward the sky, the other flexed at the chest
+  //    (the tonic posture of knocked-out fighters);
+  //  - post-mortem spasms: after brain death the cord keeps firing for a few seconds - a leg kicks,
+  //    a foot beats (clonus), an arm flexes, the trunk shudders once or twice.
+  onKnockOut(concussion) {
+    if (!this.alive || this.rng() > 0.85 * smoothstep(0.5, 0.9, concussion)) return;
+    // the arm on the side the face turns to extends (asymmetric tonic neck reflex)
+    const ch = this.seg.chest.body, hd = this.seg.head.body;
+    ch.localDirToWorld(LAT, _v0);
+    hd.localDirToWorld(FWD, _v1);
+    const turn = _v0.dot(_v1);
+    const ext = Math.abs(turn) > 0.15 ? (turn > 0 ? 'L' : 'R') : this.rng() < 0.5 ? 'L' : 'R';
+    this.fencing = { t: 0, dur: 2 + 4 * this.rng() * concussion, ext, both: this.rng() < 0.3 };
+  }
+
+  onDeath(cause) {
+    this.fencing = null;
+    const brain = /brain|head|skull|cranial|cervical/.test(cause || '');
+    const n = brain ? 3 + Math.floor(this.rng() * 5) : this.rng() < 0.45 ? 1 + Math.floor(this.rng() * 3) : 0;
+    if (!n) return;
+    const kinds = ['kick', 'kick', 'foot', 'arm', 'hand', 'trunk'];
+    const list = [];
+    let t = 0.9 + 0.6 * this.rng(); // (once the body is down)
+    for (let i = 0; i < n; i++) {
+      const kind = kinds[Math.floor(this.rng() * kinds.length)];
+      list.push({ t, kind, side: this.rng() < 0.5 ? 'L' : 'R', dur: kind === 'foot' ? 0.5 : kind === 'trunk' ? 0.26 : 0.16 + 0.1 * this.rng(), amp: (0.6 + 0.4 * this.rng()) * Math.exp(-t / 5), sign: this.rng() < 0.5 ? 1 : -1 });
+      t += 0.25 + 1.5 * this.rng();
+    }
+    this.twitches = { t: 0, list };
+  }
+
+  /** Internal muscle torque `tau` about a joint-frame axis (equal and opposite on the parent). */
+  jointTorque(name, axis, tau) {
+    const j = this.jt[name];
+    if (!j || !j.enabled || !tau) return;
+    _q0.multiplyQuats(j.parent.rot, j.frameP);
+    _v0.copy(axis).applyQuat(_q0).scale(tau);
+    j.child.torque.add(_v0);
+    j.parent.torque.sub(_v0);
+  }
+
+  /** Sign of a hinge/swing range's larger excursion (the flexion side of a knee or an elbow). */
+  flexSign(name, key) {
+    const r = this.jt[name]?.limits?.[key];
+    return r && r[0] + r[1] < 0 ? -1 : 1;
+  }
+
+  applyReflexes(dt) {
+    const F = this.fencing;
+    if (F && this.alive && !this.conscious) {
+      F.t += dt;
+      const a = 0.8 * smoothstep(0, 0.12, F.t) * (1 - smoothstep(F.dur, F.dur + 0.8, F.t));
+      if (a <= 0.01 && F.t > F.dur) this.fencing = null;
+      else {
+        const ch = this.seg.chest.body;
+        const S = this._fence || (this._fence = { fwd: new Vec3(), up: new Vec3(), lat: new Vec3(), wrist: new Vec3(), pole: new Vec3() });
+        ch.localDirToWorld(FWD, S.fwd);
+        ch.localDirToWorld(UP, S.up);
+        ch.localDirToWorld(LAT, S.lat);
+        for (const s of SIDES) {
+          if (s === F.ext || F.both) {
+            const sg = s === 'L' ? 1 : -1;
+            const reach = 0.95 * (this.geo['A1' + s] + this.geo['A2' + s]);
+            ch.localToWorld(this.geo['shoulderAnchor' + s], S.wrist);
+            S.wrist.addScaled(S.fwd, 0.86 * reach).addScaled(S.up, 0.4 * reach).addScaled(S.lat, 0.12 * sg * reach);
+            S.pole.copy(S.lat).scale(sg).addScaled(S.up, -0.6);
+            this.reachArm(s, S.wrist, S.pole, 1);
+          } else this.guardArm(s, 1.3);
+          for (const n of ['shoulder', 'elbow', 'wrist']) this.cmd[n + s].reflex = a;
+        }
+      }
+    } else if (F && (this.conscious || !this.alive)) this.fencing = null;
+
+    const T = this.twitches;
+    if (T && !this.alive) {
+      T.t += dt;
+      let left = false;
+      for (const w of T.list) {
+        const u = (T.t - w.t) / w.dur;
+        if (u < 0) { left = true; continue; }
+        if (u > 1) continue;
+        left = true;
+        const p = Math.sin(Math.PI * u) * w.amp, s = w.side;
+        switch (w.kind) {
+          case 'kick': // flexor withdrawal: the hip and the knee jerk up
+            this.jointTorque('knee' + s, UP, this.flexSign('knee' + s, 'twist') * 30 * p);
+            this.jointTorque('hip' + s, LAT, this.flexSign('hip' + s, 'swingX') * 40 * p);
+            break;
+          case 'foot': // ankle clonus: a few beats at ~6 Hz
+            this.jointTorque('ankle' + s, UP, w.sign * 5 * Math.sin(Math.PI * 6 * u) * w.amp);
+            break;
+          case 'arm':
+            this.jointTorque('elbow' + s, UP, this.flexSign('elbow' + s, 'twist') * 9 * p);
+            this.jointTorque('shoulder' + s, LAT, w.sign * 6 * p);
+            break;
+          case 'hand':
+            this.jointTorque('wrist' + s, LAT, w.sign * 0.5 * p);
+            break;
+          case 'trunk': // a shudder through the back and neck
+            this.jointTorque('lumbar', LAT, -this.flexSign('lumbar', 'swingX') * 25 * p);
+            this.jointTorque('thoracic', LAT, -this.flexSign('thoracic', 'swingX') * 15 * p);
+            this.jointTorque('neckBase', LAT, -this.flexSign('neckBase', 'swingX') * 4 * p);
+            break;
+        }
+      }
+      if (!left) this.twitches = null;
     }
   }
 
