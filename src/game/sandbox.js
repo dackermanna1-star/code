@@ -6,6 +6,8 @@ import { HumanController } from '../human/controller.js';
 import { InjurySystem } from '../human/injury.js';
 import { THROWABLES, createThrowableBody, applyDrag, launch } from './throwables.js';
 import { WEAPONS, makeProjectile, traceProjectile, spreadDirections, raycastPeople } from './weapons.js';
+import { OBSTACLES, createObstacleBody, obstacleRadius } from './obstacles.js';
+import { NavGrid } from './navigation.js';
 
 const G = new Vec3(0, -9.81, 0);
 
@@ -21,6 +23,9 @@ export class Sandbox {
     this.world.onBodyRemoved = (b) => this.onBodyRemoved(b);
     this.people = [];
     this.objects = [];
+    this.obstacles = [];
+    this.obstacleVersion = 0;
+    this.nav = new NavGrid(this.world);
     this.fxQueue = [];
     this.time = 0;
     this.rng = opts.rng ?? Math.random;
@@ -81,15 +86,19 @@ export class Sandbox {
     for (const p of this.people) p.injury.bleedScale = s;
   }
 
-  /** Free spawn spot near `around` that keeps clear of other people. */
+  /** Free spawn spot near `around` that keeps clear of other people and of obstacles. */
   freeSpot(around = new Vec3()) {
-    for (let i = 0; i < 40; i++) {
+    for (let i = 0; i < 60; i++) {
       const p = i === 0 ? around.clone() : new Vec3(around.x + (this.rng() - 0.5) * 6, 0, around.z + (this.rng() - 0.5) * 6);
-      if (this.people.every((q) => Math.hypot(q.rd.pelvis.pos.x - p.x, q.rd.pelvis.pos.z - p.z) > 1.2)) return p;
+      p.y = 0;
+      const clearOfPeople = this.people.every((q) => Math.hypot(q.rd.pelvis.pos.x - p.x, q.rd.pelvis.pos.z - p.z) > 1.2);
+      const clearOfProps = this.obstacles.every((o) => Math.hypot(o.body.pos.x - p.x, o.body.pos.z - p.z) > obstacleRadius(o.type) + 0.45);
+      if (clearOfPeople && clearOfProps) return p;
     }
     return new Vec3(around.x + 2, 0, around.z);
   }
 
+  /** Clears people and loose props; the obstacle layout stays (rebuild a course, then retry it). */
   resetAll() {
     for (const p of [...this.people]) this.removePerson(p);
     this.clearObjects();
@@ -138,6 +147,119 @@ export class Sandbox {
     // keep the count of loose props bounded
     if (this.objects.length > 60) this.removeObject(this.objects[0]);
     return obj;
+  }
+
+  // ------------------------------------------------------------------------------------------
+  // Fixed obstacles
+  addObstacle(type, pos, yaw = 0) {
+    if (!OBSTACLES[type]) return null;
+    const body = createObstacleBody(type, new Vec3(pos.x, 0, pos.z), yaw);
+    this.world.addBody(body);
+    const ob = { id: this.nextObstacleId = (this.nextObstacleId || 0) + 1, type, def: OBSTACLES[type], body, yaw };
+    body.userData.obstacleRef = ob;
+    this.obstacles.push(ob);
+    this.obstacleVersion++;
+    this.fx({ type: 'obstacleAdded', obstacle: ob });
+    this.replanAll();
+    return ob;
+  }
+
+  removeObstacle(ob) {
+    this.world.removeBody(ob.body);
+    this.obstacles = this.obstacles.filter((o) => o !== ob);
+    this.obstacleVersion++;
+    this.fx({ type: 'obstacleRemoved', obstacle: ob });
+    this.replanAll();
+  }
+
+  clearObstacles() {
+    for (const o of [...this.obstacles]) this.removeObstacle(o);
+  }
+
+  /** The obstacle whose body is `body` (e.g. from a pick), or null. */
+  obstacleOfBody(body) {
+    return (body && body.userData && body.userData.obstacleRef) || null;
+  }
+
+  /** A ready-made test course east of the spawn point: log, kerb, plank, stairs, step and a crate. */
+  buildCourse() {
+    this.clearObstacles();
+    const E = Math.PI / 2; // props face +x (the walking direction across the course)
+    this.addObstacle('log', new Vec3(2.2, 0, -1.5), E);
+    this.addObstacle('curb', new Vec3(3.5, 0, -1.5), E);
+    this.addObstacle('plank', new Vec3(4.6, 0, -1.5), E);
+    this.addObstacle('stairs', new Vec3(7.0, 0, -1.5), E);
+    this.addObstacle('step', new Vec3(10.0, 0, -1.5), E);
+    this.addObstacle('crate', new Vec3(5.0, 0, 1.2), 0.3);
+    this.addObstacle('crate', new Vec3(5.6, 0, 2.0), -0.2);
+  }
+
+  // ------------------------------------------------------------------------------------------
+  // Walking: route planning on the obstacle height grid; the gait is the person's controller
+  /**
+   * Send `person` walking to `point` (world). With `append`, the point is added after the current
+   * goal. Returns the planned route (waypoints) or null when the spot cannot be reached.
+   */
+  walkTo(person, point, opts = {}) {
+    const ctl = person.ctl;
+    const goals = opts.append && ctl.nav && ctl.nav.goals ? [...ctl.nav.goals, point.clone()] : [point.clone()];
+    const route = this.planRoute(person.rd.pelvis.pos, goals);
+    if (!route) return null;
+    ctl.walkTo(route.path, goals, { speed: opts.speed });
+    return route.path;
+  }
+
+  stopWalking(person) {
+    person.ctl.stopWalk();
+  }
+
+  planRoute(from, goals) {
+    this.nav.rebuild(this.obstacleVersion);
+    const path = [];
+    let a = from;
+    for (const g of goals) {
+      const seg = this.nav.findPath(a, g);
+      if (!seg) return null;
+      path.push(...seg);
+      a = seg[seg.length - 1];
+    }
+    return { path };
+  }
+
+  /** Re-route everyone who is on the way somewhere (after the obstacles changed, or a fall). */
+  replanAll() {
+    for (const p of this.people) if (p.ctl.nav && !p.ctl.nav.done) this.replan(p);
+  }
+
+  replan(person) {
+    const nav = person.ctl.nav;
+    const route = this.planRoute(person.rd.pelvis.pos, nav.goals.slice(nav.goalIndex || 0));
+    if (route) person.ctl.updateRoute(route.path);
+    else person.ctl.stopWalk('unreachable');
+  }
+
+  /** Per-frame walking bookkeeping: re-plan when needed, keep walkers from bumping into others. */
+  updateWalkers(dt) {
+    for (const p of this.people) {
+      const ctl = p.ctl;
+      const nav = ctl.nav;
+      if (!nav || nav.done) continue;
+      if (nav.needsReplan) {
+        nav.needsReplan = false;
+        this.replan(p);
+      }
+      // crowd: other people within reach, as moving discs the walker steers around
+      const crowd = (ctl.crowd || (ctl.crowd = []));
+      crowd.length = 0;
+      const me = p.rd.pelvis.pos;
+      for (const q of this.people) {
+        if (q === p) continue;
+        const o = q.rd.pelvis.pos;
+        if (Math.hypot(o.x - me.x, o.z - me.z) > 3) continue;
+        const v = q.rd.pelvis.vel;
+        crowd.push({ x: o.x, z: o.z, vx: v.x, vz: v.z, r: q.ctl.mode === 'balance' ? 0.32 : 0.7 });
+      }
+    }
   }
 
   // ------------------------------------------------------------------------------------------
@@ -261,6 +383,7 @@ export class Sandbox {
   step(dt) {
     this.time += dt;
     const world = this.world;
+    this.updateWalkers(dt);
     for (const p of this.people) {
       this.perceive(p, dt);
       p.ctl.update(dt);
@@ -290,7 +413,8 @@ export class Sandbox {
       const oA = A.userData && A.userData.object, oB = B && B.userData && B.userData.object;
       const pA = A.userData && A.userData.ragdoll, pB = B && B.userData && B.userData.ragdoll;
       const matA = imp.shapeA ? imp.shapeA.material : 'default';
-      const matB = B ? (imp.shapeB ? imp.shapeB.material : 'default') : 'concrete';
+      // a fixed prop is reported like the floor (bodyB null) but keeps its own material
+      const matB = imp.shapeB ? imp.shapeB.material : B ? 'default' : 'concrete';
       // breakables
       for (const [o, other] of [[oA, B], [oB, A]]) {
         if (!o || o.broken || !o.def.breakSpeed) continue;

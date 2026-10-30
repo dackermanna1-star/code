@@ -83,6 +83,7 @@ export class World {
     this.groundRestitution = opts.groundRestitution ?? 0.1;
     this.groundMaterial = 'concrete';
     this.bodies = [];
+    this.staticBodies = []; // fixed props (obstacles): contacts with them behave like the floor's
     this.joints = [];
     this.constraints = []; // generic constraints with solvePosition/solveVelocity
     this.contacts = [];
@@ -115,17 +116,21 @@ export class World {
   addBody(b) {
     b.world = this;
     if (!this.bodies.includes(b)) this.bodies.push(b);
+    if (b.isStatic && !this.staticBodies.includes(b)) this.staticBodies.push(b);
     b.framePos.copy(b.pos);
     b.frameRot.copy(b.rot);
     b.prevPos.copy(b.pos);
     b.prevRot.copy(b.rot);
     for (const s of b.shapes) s.updateWorld(b.pos, b.rot);
+    b.computeAABB(0, this.margin * 2);
     return b;
   }
 
   removeBody(b) {
     const i = this.bodies.indexOf(b);
     if (i >= 0) this.bodies.splice(i, 1);
+    const k = this.staticBodies.indexOf(b);
+    if (k >= 0) this.staticBodies.splice(k, 1);
     this.joints = this.joints.filter((j) => j.parent !== b && j.child !== b);
     this.constraints = this.constraints.filter((c) => c.body !== b);
     b.world = null;
@@ -298,6 +303,26 @@ export class World {
   }
 
   _addContact(sA, sB, ax, ay, az, bx, by, bz, nx, ny, nz) {
+    // A fixed prop is part of the floor as far as the solver is concerned: the moving body becomes
+    // A and touches a fixed world point, so it gets the ground's persistent friction anchors and its
+    // support shows up in groundContact / groundImpulse (feet standing on a step, a body lying
+    // across a log) exactly as on the floor.
+    let fixed = null;
+    if (sB && (sA.body.invMass === 0 || sB.body.invMass === 0)) {
+      if (sA.body.invMass === 0) {
+        const ts = sA;
+        sA = sB;
+        sB = ts;
+        let t = ax; ax = bx; bx = t;
+        t = ay; ay = by; by = t;
+        t = az; az = bz; bz = t;
+        nx = -nx;
+        ny = -ny;
+        nz = -nz;
+      }
+      fixed = sB;
+      sB = null;
+    }
     // canonical pair order so that contacts of one body pair form a contiguous manifold
     if (sB && sB.body.id < sA.body.id) {
       const ts = sA;
@@ -321,7 +346,7 @@ export class World {
     c.bodyA = A;
     c.bodyB = B;
     c.shapeA = sA;
-    c.shapeB = sB;
+    c.shapeB = sB || fixed;
     c.n.set(nx, ny, nz);
     _pA.set(ax, ay, az);
     A.worldToLocal(_pA, c.rA);
@@ -329,17 +354,28 @@ export class World {
     if (B) B.worldToLocal(_pB, c.rB);
     else c.rB.copy(_pB);
     c.lambdaN = 0;
-    const fa = sA.friction, fb = sB ? sB.friction : this.groundFriction;
+    const sO = sB || fixed;
+    const fa = sA.friction, fb = sO ? sO.friction : this.groundFriction;
     c.friction = Math.sqrt(fa * fb);
     c.staticFriction = c.friction * 1.15;
-    c.restitution = Math.max(sA.restitution, sB ? sB.restitution : this.groundRestitution);
-    c.compliance = Math.max(sA.compliance ?? 0, sB ? sB.compliance ?? 0 : 0);
+    c.restitution = Math.max(sA.restitution, sO ? sO.restitution : this.groundRestitution);
+    c.compliance = Math.max(sA.compliance ?? 0, sO ? sO.compliance ?? 0 : 0);
     c.key = -1;
     c.anchor = null;
     c.impact = null;
     const sharp = sA.type === SHAPE_BOX && sA.radius <= 0.02;
-    if (!sB && this.collector.feature >= 0 && (sharp || this.materialAnchors)) {
-      c.key = sA.id * 16 + this.collector.feature;
+    let feature = this.collector.feature;
+    if (fixed) {
+      // anchors pin horizontal motion, so only on a supporting (upward facing) surface; the feature
+      // is the octant of the touching point in the shape's frame (box corners, capsule ends)
+      feature = -1;
+      if (ny > 0.6) {
+        _v2.set(ax - sA.wPos.x, ay - sA.wPos.y, az - sA.wPos.z);
+        feature = 8 + (_v2.dot(sA.ax) > 0 ? 1 : 0) + (_v2.dot(sA.ay) > 0 ? 2 : 0) + (_v2.dot(sA.az) > 0 ? 4 : 0);
+      }
+    }
+    if (!sB && feature >= 0 && (sharp || this.materialAnchors)) {
+      c.key = sA.id * 16 + feature;
       let an = this.anchors.get(c.key);
       _v2.copy(c.rA).applyQuat(A.prevRot).add(A.prevPos);
       // re-use an anchor across brief contact gaps (rocking feet) if the feature lands close to it
@@ -865,4 +901,39 @@ export class World {
     const hits = this.raycastAll(origin, dir, maxDist, filter);
     return hits.length ? hits[0] : null;
   }
+
+  /**
+   * Height of the supporting surface straight below (x, fromY, z): the top of a fixed prop or the
+   * floor. Optionally fills `out` with { y, body, ny } (ny: vertical component of the normal).
+   * Allocation-free; meant for the motor controllers' terrain queries.
+   */
+  surfaceAt(x, z, fromY = 10, out = null) {
+    let best = this.groundY, body = null, ny = 1;
+    if (this.staticBodies.length) {
+      _sO.set(x, fromY, z);
+      for (const b of this.staticBodies) {
+        if (b.aabbMin.x > x || b.aabbMax.x < x || b.aabbMin.z > z || b.aabbMax.z < z || b.aabbMin.y > fromY || b.aabbMax.y < best) continue;
+        for (const s of b.shapes) {
+          if (!s.collides || s.aabbMax.y < best || s.aabbMin.y > fromY) continue;
+          if (!rayShape(s, _sO, _sD, fromY - best, _sHit) || _sHit.tIn < 0) continue;
+          const y = fromY - _sHit.tIn;
+          if (y > best) {
+            best = y;
+            body = b;
+            ny = _sHit.normal.y;
+          }
+        }
+      }
+    }
+    if (out) {
+      out.y = best;
+      out.body = body;
+      out.ny = ny;
+    }
+    return best;
+  }
 }
+
+const _sO = new Vec3();
+const _sD = new Vec3(0, -1, 0);
+const _sHit = { tIn: 0, tOut: 0, normal: new Vec3(), normalSet: false };

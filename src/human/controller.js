@@ -2,6 +2,7 @@ import { Vec3, Quat, clamp, lerp, smoothstep, approach, noise1, wrapAngle } from
 import { DRIVE_RELATIVE, DRIVE_WORLD, RelativePointSpring } from '../physics/joints.js';
 import { landmark, DIRS } from './anatomy.js';
 import { twoBoneIK, makeIKResult, boneRotation } from './ik.js';
+import { Locomotion } from './locomotion.js';
 
 const G = 9.81;
 const UP = new Vec3(0, 1, 0);
@@ -140,6 +141,9 @@ export class HumanController {
       this.footSpring[s] = sp;
       this.world.addConstraint(sp);
     }
+    this.loco = new Locomotion(this);
+    this.nav = null; // walking route: { path, goals, start, i, done, status, ... }
+    this.crowd = null; // other people nearby (set by the sandbox) for walking around them
     this.cmd = {};
     for (const j of ragdoll.jointList) {
       const def = j.userData.def;
@@ -155,8 +159,11 @@ export class HumanController {
       com: new Vec3(),
       comVel: new Vec3(),
       cp: new Vec3(),
+      cpB: new Vec3(), // capture point without the swing leg (see sense)
       footContact: { L: false, R: false },
       footLoad: { L: 0, R: 0 },
+      footFloor: { L: 0, R: 0 }, // height of the surface each foot stands on (or is above)
+      floorY: 0,
       support: [],
       cpDist: 0,
       cpClosest: { x: 0, z: 0 },
@@ -249,6 +256,45 @@ export class HumanController {
     }
   }
 
+  // ------------------------------------------------------------------------------------------
+  // Walking orders (the route comes from the sandbox's planner; see locomotion.js for the gait)
+  walkTo(path, goals = null, opts = {}) {
+    if (!path || !path.length) return;
+    const pel = this.seg.pelvis.body.pos;
+    this.nav = {
+      path: path.map((p) => p.clone()),
+      goals: (goals || [path[path.length - 1]]).map((g) => g.clone()),
+      goalEnds: opts.goalEnds || null,
+      goalIndex: 0,
+      start: new Vec3(pel.x, 0, pel.z),
+      i: 0,
+      done: false,
+      status: 'walking',
+      needsReplan: false,
+      speed: opts.speed,
+    };
+    this.loco.begin();
+  }
+
+  /** New route for the current walk (after a re-plan); keeps the gait going. */
+  updateRoute(path, goalEnds = null) {
+    if (!this.nav || !path || !path.length) return;
+    const pel = this.seg.pelvis.body.pos;
+    this.nav.path = path.map((p) => p.clone());
+    this.nav.start = new Vec3(pel.x, 0, pel.z);
+    this.nav.i = 0;
+    if (goalEnds) this.nav.goalEnds = goalEnds;
+  }
+
+  stopWalk(status = 'stopped') {
+    if (!this.nav || this.nav.done) return;
+    this.loco.finish(status);
+  }
+
+  get walking() {
+    return !!this.nav && !this.nav.done && this.loco.active;
+  }
+
   /** Back to standing balance after a dip (fresh balance-controller state from the current pose). */
   resumeBalance() {
     const pel = this.seg.pelvis.body;
@@ -266,7 +312,25 @@ export class HumanController {
     const rd = this.rd, S = this.sens;
     rd.computeCOM(S.com);
     rd.computeCOMVelocity(S.comVel);
-    const gy = this.world.groundY;
+    // the floor under each foot: where its sole touches (the floor, a step, a kerb), else the
+    // surface straight below it
+    let floor = Infinity;
+    for (const s of SIDES) {
+      const fb = this.seg['foot' + s].body;
+      let y;
+      if (fb.groundContactUsed) {
+        y = 0;
+        for (let k = 0; k < fb.groundContactUsed; k++) y += fb.groundContactPoints[k].y;
+        y /= fb.groundContactUsed;
+      } else y = this.world.surfaceAt(fb.pos.x, fb.pos.z, fb.pos.y + 0.02);
+      S.footFloor[s] = y;
+      if (fb.groundContact) floor = Math.min(floor, y);
+    }
+    // standing height reference: the lower of the supporting feet, else what is below the pelvis
+    const pb = this.seg.pelvis.body;
+    if (floor === Infinity) floor = this.world.surfaceAt(pb.pos.x, pb.pos.z, pb.pos.y);
+    S.floorY = floor;
+    const gy = floor;
     const h = Math.max(0.3, S.com.y - gy);
     const w0 = Math.sqrt(G / h);
     S.w0 = w0;
@@ -285,12 +349,34 @@ export class HumanController {
         for (let i = 0; i < 4; i++) {
           _v0.set(i & 1 ? e.x : -e.x, -e.y - sh.radius, i & 2 ? e.z + sh.radius * 0.5 : -e.z - sh.radius * 0.5).add(sh.localPos);
           fb.localToWorld(_v0, _v1);
-          if (_v1.y < gy + 0.03) pts.push({ x: _v1.x, z: _v1.z });
+          if (_v1.y < S.footFloor[s] + 0.03) pts.push({ x: _v1.x, z: _v1.z });
         }
       }
     }
     S.support = convexHull(pts);
     S.cpDist = polygonDistance(S.support, S.cp.x, S.cp.z, S.cpClosest);
+    // capture point of the body the stance leg carries: a swinging leg's own fast motion (internal,
+    // ~16% of the mass at up to 4 m/s) makes the whole-body capture point surge and fall back
+    // within one swing, so foot placement is planned from the rest of the body
+    if (this.step) {
+      const sw = this.step.foot;
+      let m = 0;
+      _v2.setZero();
+      _v3.setZero();
+      for (const sg of rd.segList) {
+        const n = sg.name;
+        if (n.endsWith(sw) && (n.startsWith('thigh') || n.startsWith('shin') || n.startsWith('foot'))) continue;
+        for (let k = -1; k < (sg.fractured ? sg.fractured.extra.length : 0); k++) {
+          const b = k < 0 ? sg.body : sg.fractured.extra[k];
+          _v2.addScaled(b.pos, b.mass);
+          _v3.addScaled(b.vel, b.mass);
+          m += b.mass;
+        }
+      }
+      _v2.scale(1 / m);
+      _v3.scale(1 / m);
+      S.cpB.set(_v2.x + _v3.x / w0, gy, _v2.z + _v3.z / w0);
+    } else S.cpB.copy(S.cp);
     S.comDist = polygonDistance(S.support, S.com.x, S.com.z, {});
     const pel = this.seg.pelvis.body, chest = this.seg.chest.body, head = this.seg.head.body;
     _v0.set(0, 1, 0).applyQuat(pel.rot);
@@ -328,6 +414,7 @@ export class HumanController {
     }
     this.breath = this.alive && this.respiration > 0 ? Math.sin(this.breathPhase || 0) * this.respiration : 0;
     this.updateMode(dt);
+    this.loco.update(dt);
     // global tone dynamics: muscles relax over ~0.3 s on death / knockout, recover slower
     const rate = this.toneTarget < this.tone ? 3.5 : 1.2;
     this.tone = approach(this.tone, this.toneTarget, rate * dt);
@@ -524,9 +611,19 @@ export class HumanController {
       pel.torque.add(_v1);
       // vertical support (experimental): holds the pelvis near standing height
       if (this.vAssist) {
-        const target = this.world.groundY + this.geo.pelvisBindY - 0.02;
+        const target = (this.standFloor ?? this.world.groundY) + this.geo.pelvisBindY - 0.02;
         const fy = clamp((target - pel.pos.y) * 3000 - pel.vel.y * 300, 0, this.vAssist * this.rd.totalMass * G) * this.assist;
         pel.force.y += fy;
+      }
+      // walking: a gentle helper force toward the commanded speed along the route (like the
+      // upright torques it fades out with lost balance, so trips and stumbles stay physical)
+      const lo = this.loco;
+      if (lo.stepping && (lo.speed > 0.05 || this.sens.comVel.length() > 0.2)) {
+        const v = this.sens.comVel, d = lo.dir, M = this.rd.totalMass;
+        const along = v.x * d.x + v.z * d.z;
+        const F = clamp((lo.speed - along) * 1.5 * M, -0.05 * M * G, 0.07 * M * G) * this.assistGain * this.assist;
+        pel.force.x += d.x * F;
+        pel.force.z += d.z * F;
       }
       if (this.chestAssist) {
         const ch = this.seg.chest.body;
@@ -707,8 +804,12 @@ export class HumanController {
       foot.localDirToWorld(FWD, _v3);
       let pitch = ax * _v2.x + az * _v2.z;
       let roll = ax * _v3.x + az * _v3.z;
-      // shin pitch < 0 (restoring a forward lean) loads the toes (~16 cm lever); > 0 loads the heel
-      pitch = clamp(pitch, -fn * 0.16, fn * 0.05);
+      // shin pitch < 0 (restoring a forward lean) loads the toes (~16 cm lever); > 0 loads the heel.
+      // Walking, the stance leg is a strut the body vaults over (the centre of pressure rolls from
+      // the heel to the forefoot, it is not held at the toes against the fall: that would brake
+      // every step)
+      const walkStance = this.loco.stepping && (this.step ? this.step.kind === 'walk' : Math.hypot(S.comVel.x, S.comVel.z) > 0.3);
+      pitch = walkStance ? clamp(pitch, -fn * 0.07, fn * 0.04) : clamp(pitch, -fn * 0.16, fn * 0.05);
       roll = clamp(roll, -fn * 0.045, fn * 0.045);
       tau.set(_v2.x * pitch + _v3.x * roll, 0, _v2.z * pitch + _v3.z * roll).scale(str);
       shin.torque.add(tau);
@@ -827,7 +928,7 @@ export class HumanController {
     {
       const yL = this.footYaw('L'), yR = this.footYaw('R');
       const fy = Math.atan2(Math.sin(yL) + Math.sin(yR), Math.cos(yL) + Math.cos(yR));
-      const quiet = !this.step && S.footContact.L && S.footContact.R && Math.hypot(S.comVel.x, S.comVel.z) < 0.1;
+      const quiet = !this.step && !this.loco.active && S.footContact.L && S.footContact.R && Math.hypot(S.comVel.x, S.comVel.z) < 0.1;
       if (quiet) this.heading += clamp(wrapAngle(fy - this.heading), -0.35 * dt, 0.35 * dt);
     }
 
@@ -835,7 +936,11 @@ export class HumanController {
     const dsup = S.footContact.L && S.footContact.R;
     this.recentStep = this.time - this.lastStepEnd < 0.6;
     const speed = Math.hypot(S.comVel.x, S.comVel.z);
-    if (!this.step) {
+    const walk = this.loco.stepping;
+    if (!this.step && walk && this.loco.gait(dt)) {
+      // walking: the gait starts the steps (and shifts the weight before the first one)
+      this.settleFoot = null;
+    } else if (!this.step) {
       // reactive (catch) step when the capture point leaves the base of support
       const outward = S.cpDist > 0 && (S.cp.x - S.cpClosest.x) * S.comVel.x + (S.cp.z - S.cpClosest.z) * S.comVel.z > 0;
       const supported = S.cpDist < 1e3;
@@ -860,7 +965,8 @@ export class HumanController {
       wsum += w;
     }
     _v0.scale(1 / wsum); // desired COM ground position (support centre)
-    if (stanceSides.length === 1) {
+    const shifting = !this.step && this.loco.shiftTarget(_v0);
+    if (stanceSides.length === 1 && !shifting) {
       // standing on one foot: aim slightly inside its centre (toward the body midline)
       const o = this.soleCenter(stanceSides[0] === 'L' ? 'R' : 'L', _v1);
       const dx = o.x - _v0.x, dz = o.z - _v0.z, dl = Math.hypot(dx, dz) || 1;
@@ -882,7 +988,19 @@ export class HumanController {
       if (!this.step && !this.settleFoot) this.posturalSway(dt, speed, _v0);
     }
     const pelTarget = this._pelTarget || (this._pelTarget = new Vec3());
-    if (this.step && this.step.kind !== 'settle') {
+    // walking along (stepping or between steps, not while shifting the weight to set off): the
+    // body vaults over the stance leg, nothing holds it back
+    const vaulting = walk && !shifting && (this.step ? this.step.kind === 'walk' : speed > 0.3);
+    if (vaulting) {
+      pelTarget.set(pel.pos.x + S.comVel.x * dt, 0, pel.pos.z + S.comVel.z * dt);
+      // only sideways toward the stance foot (a little): the next foothold does the rest
+      const lx = Math.cos(this.heading), lz = -Math.sin(this.heading);
+      const e = ((_v0.x - S.com.x) * lx + (_v0.z - S.com.z) * lz) * (this.step ? 0.1 : 0);
+      pelTarget.x += lx * e;
+      pelTarget.z += lz * e;
+      this.comInt.setZero();
+      if (this.cdes) this.cdes.set(S.com.x, 0, S.com.z);
+    } else if (this.step && this.step.kind !== 'settle') {
       // reactive single support: don't fight the pendulum; keep height & posture
       pelTarget.set(pel.pos.x + S.comVel.x * dt, 0, pel.pos.z + S.comVel.z * dt);
       pelTarget.x += (_v0.x - S.com.x) * 0.15;
@@ -918,7 +1036,13 @@ export class HumanController {
     // smoothed standing height; never follows a sagging pelvis down (that would make the stance
     // knee fold and pull the foot off the floor), but is capped above the current height so a
     // deep crouch is straightened gradually instead of launching the body
-    let desiredY = this.world.groundY + g.pelvisBindY - crouch;
+    // standing on a step or a kerb: the height is measured from the (higher) stance surface; the
+    // reach limits below keep a leg planted lower down extended, not lifted off
+    let floorBase = -Infinity;
+    for (const s of stanceSides) floorBase = Math.max(floorBase, S.footFloor[s]);
+    if (!S.footContact.L && !S.footContact.R) floorBase = S.floorY;
+    this.standFloor = floorBase;
+    let desiredY = floorBase + g.pelvisBindY - crouch - (walk ? 0.012 : 0);
     // every stance leg must be able to reach its planted foot (wide stances lower the pelvis), and a
     // swing leg must be able to reach its landing spot (long catch steps become a lunge). That
     // includes a foot about to be unloaded for a settle step: during the weight shift it is the far
@@ -942,13 +1066,18 @@ export class HumanController {
       desiredY = Math.min(desiredY, reachY);
     }
     if (this.pelvisYTarget === undefined) this.pelvisYTarget = pel.pos.y;
-    // descend promptly when needed, rise slowly
-    this.pelvisYTarget = desiredY < this.pelvisYTarget ? approach(this.pelvisYTarget, desiredY, 0.8 * dt) : approach(this.pelvisYTarget, desiredY, 0.25 * dt);
+    // descend promptly when needed, rise slowly (walking up a step: as fast as the climb needs)
+    // (going up: the stance surface is higher than the one the trailing foot left)
+    const climb = walk && this.loco.speed > 0.1 && floorBase - Math.min(S.footFloor.L, S.footFloor.R, this.lowFloor ?? floorBase) > 0.04;
+    this.lowFloor = this.step ? Math.min(S.footFloor[this.step.stance], this.lowFloor ?? 9) : Math.min(S.footFloor.L, S.footFloor.R);
+    this.pelvisYTarget = desiredY < this.pelvisYTarget ? approach(this.pelvisYTarget, desiredY, 0.8 * dt) : approach(this.pelvisYTarget, desiredY, (climb ? 0.55 : 0.25) * dt);
     // just after a foot strike the legs absorb (yield) instead of pushing the body back up
     const sinceLand = this.time - this.lastStepEnd;
     // in single support the stance leg only holds height: extending it hard mid-swing hops the
-    // body off the floor and the unloaded stance foot then skids
-    const upCap = sinceLand < 0.25 && !this.step ? 0.005 : this.step ? 0.012 : 0.045;
+    // body off the floor and the unloaded stance foot then skids (going up stairs it has to lift
+    // the body by the height of the step, though)
+    const rising = climb && this.pelvisYTarget > pel.pos.y + 0.02;
+    const upCap = rising ? 0.03 : sinceLand < 0.25 && !this.step ? 0.005 : this.step ? 0.012 : 0.045;
     if (sinceLand < 0.02 && !this.step) this.pelvisYTarget = Math.min(this.pelvisYTarget, pel.pos.y);
     // vertical damping: never let the legs throw the body upward
     pelTarget.y = Math.min(this.pelvisYTarget, pel.pos.y + upCap) - clamp((pel.vel.y - 0.15) * 0.1, 0, 0.05);
@@ -962,7 +1091,7 @@ export class HumanController {
     }
     // pelvis orientation: upright facing heading; hip strategy lean from CP error
     const pelRot = this._pelRot || (this._pelRot = new Quat());
-    yawQuat(this.heading, pelRot);
+    yawQuat(this.heading + (walk ? this.loco.pelvisYaw() : 0), pelRot);
 
     // ---------------- legs -----------------
     const legOut = this._legOut || (this._legOut = { thigh: new Quat(), shin: new Quat(), reach: 0 });
@@ -1020,7 +1149,7 @@ export class HumanController {
         _v1.copy(g['hipAnchor' + s]).applyQuat(pelRot).add(pelTarget);
         this.ankleWorld(s, _v2);
         // a stance foot that lost the floor reaches back down for it
-        if (!S.footContact[s]) _v2.y = Math.max(Math.min(_v2.y - 0.02, this.world.groundY + 0.12), this.world.groundY + 0.075);
+        if (!S.footContact[s]) _v2.y = Math.max(Math.min(_v2.y - 0.02, S.footFloor[s] + 0.12), S.footFloor[s] + 0.075);
         _v3.set(Math.sin(this.heading), 0, Math.cos(this.heading));
         this.legIK(s, _v1, _v2, _v3, legOut);
         // The stance hip holds the thigh-pelvis angle the IK asks for (pelvis upright over the planted
@@ -1046,14 +1175,17 @@ export class HumanController {
         yawQuat(this.footYaw(s), _q1);
         _q0.multiplyConjA(legOut.shin, _q1);
         this.setRel('ankle' + s, _q0);
-        this.gains('ankle' + s, 1);
+        // walking over it, the shin rolls forward over the planted foot: a stiff ankle servo would
+        // hold it back (and with it the whole body, through a centre of pressure under the toes)
+        this.gains('ankle' + s, vaulting ? 0.3 : 1);
       }
     }
 
     // ---------------- upper body -----------------
     // hip strategy: lean trunk against the capture-point error, arms out when threatened
     _v0.set(S.cp.x - S.cpClosest.x, 0, S.cp.z - S.cpClosest.z);
-    const cpOut = Math.max(0, S.cpDist);
+    // walking runs with the capture point ahead of the feet: only what goes beyond that is a threat
+    const cpOut = Math.max(0, S.cpDist - (walk ? 0.12 + 0.3 * speed : 0));
     let lean = 0, leanSide = 0;
     if (cpOut > 0 && cpOut < 1) {
       _v0.normalize();
@@ -1065,6 +1197,15 @@ export class HumanController {
       leanSide = clamp(-fx * cpOut * 1.2, -0.2, 0.2);
     }
     lean += 0.06 * this.startle + 0.25 * this.painHunch();
+    if (walk) {
+      // walking posture: a slight forward lean that grows with speed; over a hurt leg the trunk
+      // leans toward it while it carries the weight (less load on the painful hip: a limp)
+      lean += 0.03 + 0.035 * Math.min(speed, 1.4);
+      if (this.step) {
+        const st = this.step.stance, hurt = clamp((0.92 - this.legStrength[st]) / 0.4, 0, 1);
+        leanSide += (st === 'L' ? -1 : 1) * 0.09 * hurt;
+      }
+    }
     // hit reaction: double over around a torso wound, sag toward a wounded leg
     const fl = this.flinch;
     if (fl.amount > 0.02) {
@@ -1094,7 +1235,7 @@ export class HumanController {
     this.standingSpine(lean, leanSide, this.heading, 1);
     const flail = clamp(cpOut * 2.5, 0, 1);
     this.flail = flail;
-    this.relaxedArms(1, 0);
+    this.relaxedArms(1, walk ? this.loco.armSwing() : 0);
     // Toppling: windmill the arms (the shoulder torques that spin them in the direction of the
     // fall rotate the trunk back the other way) - only while the trunk is actually rotating away,
     // since steady circling stores no extra angular momentum and would just shift the COM about
@@ -1234,7 +1375,7 @@ export class HumanController {
   soleCenter(s, out) {
     const fb = this.seg['foot' + s].body;
     out.set(0, 0, -0.012).applyQuat(fb.rot).add(fb.pos);
-    out.y = this.world.groundY;
+    out.y = this.sens.footFloor[s];
     return out;
   }
 
@@ -1347,9 +1488,14 @@ export class HumanController {
       toePitch: 0,
       lift: 0.08,
     };
+    if (kind === 'walk') this.loco.setupStep(this.step);
     this.planStepTarget(this.step.target);
     const dist = Math.hypot(this.step.target.x - start.x, this.step.target.z - start.z);
-    if (kind === 'settle') {
+    if (this.step.kind === 'walk') {
+      // over an obstacle the swing takes a little longer (the foot goes up and over)
+      this.loco.buildProfile(this.step);
+      if (this.step.profile) this.step.duration += clamp(0.35 * this.step.profileTop, 0, 0.14);
+    } else if (kind === 'settle') {
       this.step.duration = clamp(0.3 + 0.35 * dist, 0.32, 0.5);
       this.step.lift = clamp(0.035 + 0.08 * dist, 0.04, 0.08);
     } else {
@@ -1381,19 +1527,21 @@ export class HumanController {
    * Point of the stance foot's sole the centre of pressure can reach that is closest to the capture
    * point (inset from the edges). Used as the inverted-pendulum pivot during single support.
    */
-  stancePivot(stance, out) {
+  stancePivot(stance, out, walking = false) {
     const S = this.sens;
     const fb = this.seg['foot' + stance].body;
     const sh = fb.shapes[0];
-    fb.worldToLocal(_v1.set(S.cp.x, fb.pos.y, S.cp.z), _v2);
+    const cp = walking ? S.cpB : S.cp;
+    fb.worldToLocal(_v1.set(cp.x, fb.pos.y, cp.z), _v2);
     _v2.sub(sh.localPos);
     const ex = sh.halfExtents.x - 0.015, ez = sh.halfExtents.z - 0.02;
     _v2.x = clamp(_v2.x, -ex, ex);
-    _v2.z = clamp(_v2.z, -ez, ez);
+    // a walking stance foot is not used to brake (see applyLegSupport): pivot around mid-foot
+    _v2.z = walking ? clamp(_v2.z, -0.03, 0.02) : clamp(_v2.z, -ez, ez);
     _v2.y = 0;
     _v2.add(sh.localPos);
     fb.localToWorld(_v2, out);
-    out.y = this.world.groundY;
+    out.y = this.sens.footFloor[stance];
     return out;
   }
 
@@ -1449,19 +1597,26 @@ export class HumanController {
     }
     out.x = sc.x + hx * fwd + lx * left - hx * 0.058;
     out.z = sc.z + hz * fwd + lz * left - hz * 0.058;
-    out.y = this.world.groundY + 0.085;
+    out.y = this.floorAt(out.x + hx * 0.06, out.z + hz * 0.06, sc.y) + 0.085;
     return penalty;
+  }
+
+  /** Surface height for a foot placed around (x, z), seen from about the stance foot's level. */
+  floorAt(x, z, ref = this.sens.floorY) {
+    return this.world.surfaceAt(x, z, Math.max(ref, this.sens.floorY) + 0.45);
   }
 
   planStepTarget(out) {
     const st = this.step;
+    if (st.kind === 'walk') return this.loco.planTarget(st, out);
     if (st.kind === 'settle') {
       // natural stance width beside the stance foot
       const p = this.soleCenter(st.stance, _v0);
       const hx = Math.sin(this.heading), hz = Math.cos(this.heading);
       const lx = hz, lz = -hx;
       const sd = st.foot === 'L' ? 1 : -1;
-      out.set(p.x + lx * 0.21 * sd - hx * 0.058, this.world.groundY + 0.085, p.z + lz * 0.21 * sd - hz * 0.058);
+      out.set(p.x + lx * 0.21 * sd - hx * 0.058, 0, p.z + lz * 0.21 * sd - hz * 0.058);
+      out.y = this.floorAt(out.x + hx * 0.06, out.z + hz * 0.06, p.y) + 0.085;
       return out;
     }
     this.captureTarget(st.foot, st.stance, Math.max(0.05, st.duration - st.t), out, st.crossSign || 0);
@@ -1473,8 +1628,14 @@ export class HumanController {
     const st = this.step, S = this.sens;
     st.t += dt;
     if (st.t / st.duration < 0.8 && !st.planting) {
+      _v2.copy(st.target);
       this.planStepTarget(st.target);
-      if (st.kind !== 'settle') {
+      if (st.kind === 'walk') {
+        if (!st.profileAt || _v2.distanceTo(st.target) > 0.03) {
+          this.loco.buildProfile(st);
+          st.profileAt = true;
+        }
+      } else if (st.kind !== 'settle') {
         // the swing time follows the step length as the landing spot is re-planned (a step that
         // has to grow from 0.25 to 0.6 m cannot keep the timing of the short one: the foot would
         // be flung at 3 m/s and overshoot)
@@ -1488,7 +1649,9 @@ export class HumanController {
     // plant on arrival: once the real foot has reached its landing spot, stop travelling and put
     // it straight down (a swing that keeps going would overshoot and brake the body too hard)
     const cur = this.ankleWorld(st.foot, _v1);
-    if (!st.planting && phase > 0.45 && st.kind !== 'settle') {
+    // (not for walking steps: their swing is timed to arrive, and an early plant jumps the
+    // reference ahead and flings the foot 15-20 cm past the spot)
+    if (!st.planting && phase > 0.45 && st.kind !== 'settle' && st.kind !== 'walk') {
       const dx = st.target.x - st.start.x, dz = st.target.z - st.start.z;
       const len2 = dx * dx + dz * dz;
       if (len2 > 0.01) {
@@ -1532,10 +1695,15 @@ export class HumanController {
     }
     const liftPhase = clamp(phase / 0.9, 0, 1);
     st.ankleNow.y = lerp(st.start.y, st.target.y, sx) + st.lift * Math.pow(Math.sin(Math.PI * liftPhase), 0.7);
+    // over an obstacle: never below the clearance profile (the whole sole passes above it)
+    if (st.kind === 'walk' && st.profile && phase < 0.95) st.ankleNow.y = Math.max(st.ankleNow.y, this.loco.profileAt(st, sx));
     // reach down gently until contact (a deep target below the floor makes the leg kick off it)
-    if (phase > 0.9) st.ankleNow.y = st.target.y - Math.min(0.02, (phase - 0.9) * 0.15);
+    if (phase > 0.9) st.ankleNow.y = Math.min(st.ankleNow.y, st.target.y - Math.min(0.02, (phase - 0.9) * 0.15));
     st.yaw = st.startYaw + wrapAngle(this.heading - st.startYaw) * sx;
-    st.toePitch = phase < 0.75 ? -0.22 * smoothstep(0, 0.25, phase) : -0.22 * (1 - smoothstep(0.75, 0.95, phase));
+    if (st.kind === 'walk') {
+      // toe-off (toes down), toes up through the swing for clearance, heel strike at touchdown
+      st.toePitch = phase < 0.18 ? lerp(0.32, -0.1, phase / 0.18) : phase < 0.7 ? -0.1 : lerp(-0.1, -0.24, smoothstep(0.7, 0.95, phase));
+    } else st.toePitch = phase < 0.75 ? -0.22 * smoothstep(0, 0.25, phase) : -0.22 * (1 - smoothstep(0.75, 0.95, phase));
     const contact = S.footContact[st.foot];
     const near = Math.hypot(this.ankleWorld(st.foot, _v1).x - st.target.x, _v1.z - st.target.z) < 0.07;
     if ((phase > 0.8 && contact) || (phase > 0.5 && contact && near) || phase > 1.5) this.endStep(st);
