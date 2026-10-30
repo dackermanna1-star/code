@@ -14,6 +14,17 @@ riot gear every fifth wave. The zombies are the same simulated people as the san
 the same ragdoll, muscles, balance and gait, with an undead injury model and a brain that hunts
 you. They stagger when they are shot, fall when their legs are shot out, and get back up.
 
+Press **Tab** (or *First person* in the top bar) to walk the sandbox yourself, shooter style,
+with every gun, a knife, a baseball bat, your fists, kicks and stamps. A sniper round that is
+going to hit someone can turn into a **bullet cam**: time stops, the camera rides the round to
+its target, and the impact plays out in extreme slow motion with an X-ray of the skull, ribs and
+organs it breaks. Melee blows are physical too. A wound-up bat swing to the chest breaks ribs,
+and the X-ray shows them break in slow motion. A haymaker to the chin can knock a dummy out cold
+(sometimes into the *fencing response*, arms locked toward the sky), and a stamp on a downed
+head can crack the skull. With *RDR reactions* (settings panel) the dummies react to being shot
+more theatrically, in the manner of Red Dead Redemption: a head-shot body staggers a step or two
+on dying legs before it drops.
+
 ```bash
 npm install
 npm run dev
@@ -46,6 +57,8 @@ npm run build:single
 | Mouse wheel | Zoom |
 | W A S D | Move the camera |
 | 1 – 6 | Pistol, revolver, shotgun, SMG, assault rifle, sniper rifle |
+| 7 – 0 | Knife (shift+click slashes), baseball bat, fists, boot (kicks a standing dummy, stamps on one lying down). Hold the button to wind up the blow |
+| Tab | First-person mode |
 | G / F | Grab / shove |
 | Q / E | Previous / next throwable |
 | Space | Pause |
@@ -60,7 +73,26 @@ npm run build:single
 | H | Hide the interface |
 
 The settings panel adjusts balance assist, throw power, shove impulse, bullet momentum (real
-values by default, up to 6× for exaggerated effects), bleeding rate and sound volume.
+values by default, up to 6× for exaggerated effects), bleeding rate and sound volume. It also
+has the *RDR reactions* switch and the *Kill cam* switch for sniper shots. Any key skips a
+running kill cam.
+
+### First-person sandbox
+
+Tab from the sandbox; click into the view to start. Esc pauses.
+
+| Input | Action |
+| --- | --- |
+| Mouse / touchpad | Look |
+| Left click | Fire. Melee: a tap is a quick swing or a jab; hold to wind up a full bat swing or a haymaker, release to strike |
+| E (or right click) | Aim down the sights; with the knife, stab (left click slashes) |
+| W A S D, Shift, C / Ctrl, Space | Move, sprint, crouch, jump or climb |
+| 1 – 9, Q, wheel | Pistol, revolver, shotgun, SMG, rifle, sniper rifle (4.5× scope), knife, bat, fists; last weapon; next / previous |
+| F | Kick, or a stamp when someone is lying in front of you |
+| R | Reload |
+| N | A new dummy in front of you |
+| Tab | Back to the orbit view |
+| Esc | Pause: sensitivity, field of view, volume, hold-to-aim, RDR reactions, kill cam (sniper shots, every sniper hit, any head shot, off) |
 
 ### Survival mode
 
@@ -197,7 +229,22 @@ Muscle strength scales with consciousness, pain and injuries.
 - **Breathing:** the trunk breathes. The rate and depth rise with pain, blood loss and low
   oxygen, and breathing stops with a high spinal cord injury or death.
 - **Loss of control:** unconsciousness and death release muscle tone over about 0.3 s, into a
-  full ragdoll.
+  full ragdoll. The passive viscosity of the joints grows with the muscle mass around them as the
+  tone goes, so a limp body comes to rest like a heavy sack rather than swinging on like a
+  puppet.
+- **Reaction styles.** *Realistic* (the default): a round through the brain drops the body at
+  once, and a hit is a flinch and a stumble. *RDR*: a fatal hit leaves the body on its feet for
+  0.6-1.3 s. Tone fades, the legs give way gradually and the balance assist lets go, so the body
+  staggers a step or two with the blow before it collapses. Flinches are bigger, a shoulder or a
+  flank hit twists the trunk round, and the shot carries an extra, artistic impulse.
+- **Reflexes without a brain.** These drive muscles directly, bypassing the lost tone:
+  - *Fencing response:* a concussive knockout can lock the arms for a few seconds, as in
+    knocked-out fighters. The arm on the side the face turns to stretches out toward the sky and
+    the other is flexed at the chest.
+  - *Post-mortem spasms:* after brain death the spinal cord fires a few spasms once the body is
+    down: the flexor withdrawal of a leg, a few beats of ankle clonus, an arm or a hand flexing,
+    a shudder through the back. They are internal muscle torques of plausible size and fade over
+    a few seconds.
 
 ### Injuries and physiology (`src/human/injury.js`, `organs.js`)
 
@@ -268,6 +315,68 @@ Typical outcomes (measured by `tools/bench/lethality.mjs`): a magazine or a shot
 torso kills within about 10-20 s; a severed femoral or carotid artery within about 2 minutes;
 many limb wounds over a few minutes; a single wound to an arm or the side of a thigh, a jaw or
 a scalp graze is survivable.
+
+### Melee (`src/game/melee.js`)
+
+A blow is swept, not scripted. Every physics step the game hands the striker the world-space
+striking geometry where it is now: the bat's barrel, the knife's blade, the knuckles, the boot's
+sole. The striker sweeps it from where it was, finds the first contact with each body part, and
+resolves the collision as an impulse between two effective masses:
+
+- **the weapon's** at the point that hits: a bat pivoting in the hands, a fist with the arm and
+  the trunk's rotation behind it, a stamp with the leg and the body's weight;
+- **the struck part's** at the point it is hit, plus the share of the body that moves with it
+  during a contact of a few milliseconds.
+
+A part lying on the floor cannot get out of the way and is crushed against it. The injury model
+gets the closing speed, the masses and the stiffness of the striker, and works out from them the
+peak force of the blow, its duration, and what breaks:
+
+- **Ribs:** each rib is counted, and can be displaced, segmental or a flail segment. Breaks lead
+  on to lung contusion and pneumothorax.
+- **Skull:** fractures can be depressed or basal.
+- **Face and neck:** nose, cheekbone, jaw, larynx, cervical spine.
+- **Collarbone, sternum, hands, pelvis**, and long bones, which break physically in the ragdoll.
+- **Head:** concussion, knockout, brain bleeds.
+- **Soft tissue:** bruises, incised wounds and stab tracks with their own length and depth that
+  open the vessels and organs they reach.
+
+The weapon loses the momentum it gives away: a bat stops dead on a head but carries on through a
+parrying forearm, and the first-person swing goes on at the speed it has left. Some calibration
+points (several seeds each, see `test/melee.test.js`):
+
+| Strike | Result |
+| --- | --- |
+| A jab (7 m/s) | no knockouts, no fractures |
+| A full haymaker (11 m/s) | knocks out 7 in 8 to the chin; breaks the nose |
+| A fist to the liver | drops a dummy to its knees |
+| A bat to the ribs at 14 / 22 / 30 m/s | 1 / 2 / 3 ribs broken. At 30 m/s also displaced ribs, lung contusion, sometimes a pneumothorax; the dummy goes down |
+| A bat to the temple at 30 m/s | fatal |
+| A bat to the temple at 14 m/s | a knockout and, mostly, a brain bleed that kills within minutes |
+| A full stamp on a lying head | the first breaks the nose and the back of the skull, the second kills |
+| A slash across the throat | both carotids and the trachea open, about 40 mL/s |
+| A stab to the chest | through the sternum into the heart and a lung |
+
+Hanging arms shield the side of the chest, as they do in life: a swing from the side often
+breaks the arm instead.
+
+### Kill cam (`src/modes/killCam.js`)
+
+When a sniper round is about to hit someone, the shot can go to the kill cam: always for a head,
+three times in four for the chest, less often elsewhere. The *Kill cam* setting can make it
+every hit, or any gun's head shots. The sequence:
+
+1. The world stops, and a modelled 7.62 mm round flies the real line of fire with the camera
+   riding just behind it, rolling slowly round its line.
+2. As it closes in, the victim's flesh turns to glass and the skeleton and organs show.
+3. The real round is fired through the physics at the moment of arrival, so the wound, the
+   fractures and the reaction are the simulation's own.
+4. The camera holds a beat, then orbits the wound at 3-8 % speed while the X-ray shows what the
+   round did (a skull bursting, a rib snapping, an organ torn).
+5. Time ramps back up.
+
+A bone-breaking melee blow gets a shorter *impact moment*: a second of slow motion with the
+X-ray, seen from where the player stands.
 
 ### Rendering (`src/render`)
 
@@ -360,20 +469,22 @@ Headless benchmarks measure the behaviour objectively (`bash tools/bench/all.sh`
 | `volley.mjs` | time to death after volleys of N rounds to the torso and thighs |
 | `walk.mjs` | walking to targets in eight directions, over single obstacles and the test course |
 | `zombies.mjs` | zombies chasing a moving player for 30 s: unprovoked falls per zombie-minute, hits |
+| `corpse.mjs` | ragdoll quality after several kinds of deaths: joint-limit overshoot, floor and self interpenetration, time to rest, residual jitter |
 
 ## Project layout
 
 ```
 src/physics   XPBD engine: math, bodies, shapes, collision, joints, world
 src/human     anatomy, ragdoll, IK, motor controller, body sculpt + mesher, organs, injury model
-src/game      sandbox (simulation orchestration), weapons, throwables, obstacles, route
+src/game      sandbox (simulation orchestration), weapons, melee, throwables, obstacles, route
               planner, audio; survival mode: subway station and trains, flow field, waves
-src/fps       first-person player, guns, input
-src/modes     the survival mode's runtime (hosted by main.js)
+src/fps       first-person player, guns and melee moves, input
+src/modes     runtimes hosted by main.js: survival mode, first-person sandbox, kill cam
 src/render    arena, skinned body, blood, floor decals, effects, view model, prop and obstacle
               meshes, walking markers; subway station, first-person hands, zombie gear
 src/ui        interface and styles; survival HUD
-test          physics, ragdoll, injury, walking, zombie and survival tests (node --test)
+test          physics, ragdoll, injury, walking, zombie, survival, melee and reaction tests
+              (node --test)
 tools         headless helpers (simulation runner, screenshot and filmstrip scripts)
 ```
 
