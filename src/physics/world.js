@@ -79,6 +79,9 @@ export class World {
     this.substeps = opts.substeps ?? 20;
     this.groundY = 0;
     this.groundHalfSize = opts.groundHalfSize ?? 12;
+    // the floor is the plane y = groundY over this rectangle (outside it things fall: track pits)
+    const h = this.groundHalfSize;
+    this.groundRect = opts.groundRect ? { ...opts.groundRect } : { minX: -h, maxX: h, minZ: -h, maxZ: h };
     this.groundFriction = opts.groundFriction ?? 0.85;
     this.groundRestitution = opts.groundRestitution ?? 0.1;
     this.groundMaterial = 'concrete';
@@ -111,6 +114,17 @@ export class World {
     this.kineticRelease = opts.kineticRelease ?? true; // a sliding rounded manifold: kinetic friction only
     this.anchorRestSpeed = opts.anchorRestSpeed ?? 0.1; // m/s: rounded features are pinned only below this
     this.onBodyRemoved = null;
+  }
+
+  /** Floor rectangle (world x/z bounds of the y = groundY plane). */
+  setGroundRect(minX, minZ, maxX, maxZ) {
+    this.groundRect = { minX, maxX, minZ, maxZ };
+  }
+
+  /** Is (x, z) over the floor plane? */
+  overGround(x, z) {
+    const g = this.groundRect;
+    return x >= g.minX && x <= g.maxX && z >= g.minZ && z <= g.maxZ;
   }
 
   addBody(b) {
@@ -296,7 +310,7 @@ export class World {
     for (const b of this.bodies) {
       if (b.invMass === 0 || b.aabbMin.y > gy + 0.5) continue;
       for (const s of b.shapes) {
-        if (s.collides) collideGround(s, this.groundY, this.groundHalfSize, col);
+        if (s.collides) collideGround(s, this.groundY, this.groundRect, col);
       }
     }
     this.stats.contacts = this.numContacts;
@@ -888,7 +902,7 @@ export class World {
       const t = (this.groundY - origin.y) / dir.y;
       if (t > 0 && t < maxDist) {
         const p = new Vec3().copy(origin).addScaled(dir, t);
-        if (Math.abs(p.x) <= this.groundHalfSize && Math.abs(p.z) <= this.groundHalfSize) {
+        if (this.overGround(p.x, p.z)) {
           hits.push({ body: null, shape: null, tIn: t, tOut: t + 1, point: p, normal: new Vec3(0, 1, 0), ground: true });
         }
       }
@@ -908,7 +922,8 @@ export class World {
    * Allocation-free; meant for the motor controllers' terrain queries.
    */
   surfaceAt(x, z, fromY = 10, out = null) {
-    let best = this.groundY, body = null, ny = 1;
+    // (outside the floor rectangle there is nothing below but whatever props are there)
+    let best = this.overGround(x, z) ? this.groundY : -1e3, body = null, ny = 1;
     if (this.staticBodies.length) {
       _sO.set(x, fromY, z);
       for (const b of this.staticBodies) {

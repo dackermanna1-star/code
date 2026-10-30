@@ -34,6 +34,7 @@ export class Sandbox {
     this.grab = null;
     this.shoves = [];
     this.viewer = null; // camera position (people glance at it)
+    this.player = null; // first-person player (see setPlayer)
     this.nextId = 1;
   }
 
@@ -276,23 +277,49 @@ export class Sandbox {
   }
 
   // ------------------------------------------------------------------------------------------
-  fire(weaponType, origin, dir) {
+  /**
+   * Fire `weaponType` from `origin` along `dir`. opts.spreadScale scales the weapon's own spread
+   * (aimed fire < 1, hip fire or on the move > 1). Returns the bullet paths; each path lists the
+   * people it went through (`hits`: [{person, seg}]) for hit markers.
+   */
+  fire(weaponType, origin, dir, opts = {}) {
     const w = WEAPONS[weaponType];
-    const dirs = spreadDirections(dir, w.spread, w.pellets, this.rng);
+    const dirs = spreadDirections(dir, w.spread * (opts.spreadScale ?? 1), w.pellets, this.rng);
     const ctx = { world: this.world, people: this.people, shape: this.shape, forceScale: this.settings.forceScale, fx: (e) => this.fx(e) };
     const paths = [];
     for (const d of dirs) {
       const proj = makeProjectile(w);
       const res = traceProjectile(ctx, origin, d, proj);
-      paths.push({ from: origin.clone(), to: res.end, dir: d });
+      paths.push({ from: origin.clone(), to: res.end, dir: d, hits: res.hits || [] });
     }
-    // everyone nearby flinches at the report
+    // everyone nearby flinches at the report (the dead and the undead do not)
     for (const p of this.people) {
+      if (p.ctl.fearless) continue;
       const d = p.rd.segments.head.body.pos.distanceTo(origin);
       p.ctl.startle = Math.min(1, p.ctl.startle + clamp(1.2 - d / 15, 0.15, 0.8));
     }
-    this.fx({ type: 'shot', weapon: weaponType, origin: origin.clone(), dir: dir.clone(), paths });
+    this.fx({ type: 'shot', weapon: weaponType, origin: origin.clone(), dir: dir.clone(), paths, by: opts.by || null });
     return paths;
+  }
+
+  // ------------------------------------------------------------------------------------------
+  // The first-person player (set by the FPS mode): { pos (feet), eye, vel, radius, height,
+  // alive, health, damage(amount, from, kind) }. Zombies go for it; it is not a ragdoll.
+  setPlayer(player) {
+    this.player = player;
+  }
+
+  /** Something (a zombie) hits the player: `amount` health points from world point `from`. */
+  hitPlayer(amount, from, kind = 'hit', by = null) {
+    const pl = this.player;
+    if (!pl || !pl.alive) return;
+    if (typeof pl.damage === 'function') pl.damage(amount, from, kind);
+    this.fx({ type: 'playerHit', amount, from: from.clone(), kind, by });
+  }
+
+  /** Push a person (e.g. the player walking into a zombie): a force on the pelvis for one frame. */
+  pushPerson(person, force) {
+    person.rd.pelvis.force.add(force);
   }
 
   // ------------------------------------------------------------------------------------------

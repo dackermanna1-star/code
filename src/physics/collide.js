@@ -519,24 +519,24 @@ export function collideShapes(sA, sB, col) {
   }
 }
 
-// Ground: half-space y <= groundY bounded to a square arena |x|,|z| <= half.
-function groundPoint(s, x, y, z, r, groundY, half, col) {
+// Ground: half-space y <= groundY bounded to the floor rectangle `rect` {minX, maxX, minZ, maxZ}.
+function groundPoint(s, x, y, z, r, groundY, rect, col) {
   if (y - r > groundY + col.margin) return;
-  if (Math.abs(x) > half || Math.abs(z) > half) return;
+  if (x < rect.minX || x > rect.maxX || z < rect.minZ || z > rect.maxZ) return;
   col.add(s, null, x, y - r, z, x, groundY, z, 0, 1, 0);
 }
 
-export function collideGround(s, groundY, half, col) {
+export function collideGround(s, groundY, rect, col) {
   if (s.aabbMin.y > groundY + col.margin) return;
   const r = s.radius;
   if (s.type === SHAPE_SPHERE) {
     col.feature = 0;
-    groundPoint(s, s.wPos.x, s.wPos.y, s.wPos.z, r, groundY, half, col);
+    groundPoint(s, s.wPos.x, s.wPos.y, s.wPos.z, r, groundY, rect, col);
   } else if (s.type === SHAPE_CAPSULE) {
     col.feature = 0;
-    groundPoint(s, s.p0.x, s.p0.y, s.p0.z, r, groundY, half, col);
+    groundPoint(s, s.p0.x, s.p0.y, s.p0.z, r, groundY, rect, col);
     col.feature = 1;
-    groundPoint(s, s.p1.x, s.p1.y, s.p1.z, r, groundY, half, col);
+    groundPoint(s, s.p1.x, s.p1.y, s.p1.z, r, groundY, rect, col);
   } else {
     const c = s.wPos, e = s.halfExtents, ax = s.ax, ay = s.ay, az = s.az;
     for (let i = 0; i < 8; i++) {
@@ -547,7 +547,7 @@ export function collideGround(s, groundY, half, col) {
       const y = c.y + ax.y * sx + ay.y * sy + az.y * sz;
       const z = c.z + ax.z * sx + ay.z * sy + az.z * sz;
       col.feature = i;
-      groundPoint(s, x, y, z, r, groundY, half, col);
+      groundPoint(s, x, y, z, r, groundY, rect, col);
     }
   }
   col.feature = -1;

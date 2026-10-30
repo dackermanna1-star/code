@@ -133,6 +133,7 @@ export function traceProjectile(ctx, origin, dir, proj, maxDist = 120) {
   hits.sort((a, b) => a.tIn - b.tIn);
   let end = new Vec3().copy(origin).addScaled(dir, maxDist);
   const hitPeople = new Set();
+  const hitList = []; // [{person, seg}] in the order the bullet went through them
   for (const h of hits) {
     if (proj.pen <= 0) break;
     if (h.type === 'flesh') {
@@ -145,6 +146,7 @@ export function traceProjectile(ctx, origin, dir, proj, maxDist = 120) {
       const J = new Vec3().copy(dir).scale(proj.mass * dv * forceScale);
       h.body.applyImpulse(J, entry);
       hitPeople.add(h.person);
+      hitList.push({ person: h.person, seg: h.seg.name });
       fx({
         type: 'fleshHit', person: h.person, body: h.body, seg: h.seg, entry, exit: res.stopped ? null : exit, dir: dir.clone(),
         energy: res.deposited, highVelocity: proj.speed0 > 600, entryWound: res.entryWound, exitWound: res.exitWound,
@@ -189,7 +191,7 @@ export function traceProjectile(ctx, origin, dir, proj, maxDist = 120) {
       break;
     }
   }
-  return { end, hitPeople };
+  return { end, hitPeople, hits: hitList };
 }
 
 /** Pellet / bullet directions with angular spread (radians, roughly Gaussian). */
