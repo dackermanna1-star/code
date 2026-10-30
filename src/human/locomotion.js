@@ -11,6 +11,9 @@ const ANKLE_H = 0.085; // ankle joint above the sole
 const BALL = new Vec3(0, -0.03, 0.09); // ball of the foot (sole, under the toe joints) in the foot frame
 const HEEL = 0.06, TOE = 0.2; // sole extent behind / ahead of the ankle
 const MAX_RISE = 0.25; // highest step up (or down) a foot is put on
+// sole samples [ahead of the ankle, left of it] (m): heel to toes with a margin (the heel may hang
+// a little over a stair's edge)
+const FOOT_SAMPLES = [[-0.07, 0], [0.04, 0.06], [0.04, -0.06], [0.12, 0], [0.2, 0.04], [0.2, -0.04], [0.24, 0], [0.27, 0]];
 
 /**
  * Goal-directed walking on top of the balance controller. Nothing here plays back a gait cycle:
@@ -472,20 +475,30 @@ export class Locomotion {
     return out;
   }
 
-  /** Sole outline samples (heel, mid, toe; medial/lateral) of a foot with its ankle at (ax, az). */
+  /**
+   * Sole outline samples of a foot with its ankle at (ax, az): lo/hi of the surface under the sole
+   * (with a few cm to spare: the foot never lands exactly where it was sent) and `front`, the
+   * highest surface a little in front of the toes.
+   */
   footprint(ax, az, hx, hz, ref, res) {
     const lx = hz, lz = -hx;
-    let lo = Infinity, hi = -Infinity;
-    // (with a few cm to spare all round: the foot never lands exactly where it was sent)
-    // (more ahead of the toes: the next swing has to get this foot's toes up and over)
-    const pts = [[-HEEL - 0.05, 0], [0.06, 0.06], [0.06, -0.06], [TOE + 0.1, 0.04], [TOE + 0.1, -0.04], [0.02, 0], [TOE - 0.05, 0], [TOE + 0.04, 0]];
-    for (const [f, l] of pts) {
+    let lo = Infinity, hi = -Infinity, front = -Infinity;
+    for (const [f, l] of FOOT_SAMPLES) {
       const y = this.ctl.floorAt(ax + hx * f + lx * l, az + hz * f + lz * l, ref);
       if (y < lo) lo = y;
       if (y > hi) hi = y;
     }
+    for (const f of [TOE + 0.08, TOE + 0.11]) front = Math.max(front, this.ctl.floorAt(ax + hx * f, az + hz * f, ref));
+    // ...and whether that is somewhere to stand (a stair tread, a platform: it stays up for a
+    // foot's length) rather than something to step over (a plank, a log, a narrow kerb)
+    let standable = true;
+    if (front > hi + 0.02) {
+      for (let f = TOE + 0.1; f <= TOE + 0.34 && standable; f += 0.06) if (this.ctl.floorAt(ax + hx * f, az + hz * f, ref) < front - 0.02) standable = false;
+    }
     res.lo = lo;
     res.hi = hi;
+    res.front = front;
+    res.standable = standable;
     return res;
   }
 
@@ -496,12 +509,19 @@ export class Locomotion {
    */
   terrainAdjust(st, out, hx, hz, ref) {
     const res = this._fp || (this._fp = { lo: 0, hi: 0 });
+    // a good foothold: flat under the sole, reachable, and not right in front of something to be
+    // stepped over (the next swing needs room to get the toes up and over it); right in front of a
+    // stair or a platform is fine - that is where one steps up from
     const ok = (x, z) => {
       this.footprint(x, z, hx, hz, ref, res);
-      return res.hi - res.lo < 0.03 && Math.abs(res.hi - ref) <= MAX_RISE;
+      return res.hi - res.lo < 0.03 && Math.abs(res.hi - ref) <= MAX_RISE && (res.front - res.hi < 0.02 || (res.standable && res.front - res.hi < MAX_RISE));
     };
-    if (!this.ctl.world.staticBodies.length || ok(out.x, out.z)) {
-      out.y = (this.ctl.world.staticBodies.length ? res.hi : this.ctl.world.groundY) + ANKLE_H;
+    if (!this.ctl.world.staticBodies.length) {
+      out.y = this.ctl.world.groundY + ANKLE_H;
+      return out;
+    }
+    if (ok(out.x, out.z)) {
+      out.y = res.hi + ANKLE_H;
       return out;
     }
     const x0 = out.x, z0 = out.z;
@@ -528,7 +548,25 @@ export class Locomotion {
         }
       }
     }
-    if (!found) this.footprint(x0, z0, hx, hz, ref, res);
+    if (!found) {
+      // nothing good nearby: a shorter step onto anything flat and reachable (never a spot the foot
+      // cannot get to - say the top of a flight of stairs - nor one up in the air)
+      const flat = (x, z) => {
+        this.footprint(x, z, hx, hz, ref, res);
+        return res.hi - res.lo < 0.03 && Math.abs(res.hi - ref) <= MAX_RISE;
+      };
+      for (let k = 11; k <= 22 && !found; k++) {
+        if (flat(x0 - hx * k * 0.035, z0 - hz * k * 0.035)) {
+          out.x = x0 - hx * k * 0.035;
+          out.z = z0 - hz * k * 0.035;
+          found = true;
+        }
+      }
+      if (!found) {
+        this.footprint(x0, z0, hx, hz, ref, res);
+        res.hi = Math.min(res.hi, ref + MAX_RISE);
+      }
+    }
     out.y = res.hi + ANKLE_H;
     return out;
   }

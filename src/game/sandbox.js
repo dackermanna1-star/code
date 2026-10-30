@@ -10,6 +10,7 @@ import { OBSTACLES, createObstacleBody, obstacleRadius } from './obstacles.js';
 import { NavGrid } from './navigation.js';
 
 const G = new Vec3(0, -9.81, 0);
+export const COURSE_Z = -3.5; // the obstacle course runs along this line (clear of the spawn point)
 
 /**
  * The simulation: one physics world with people (ragdoll + motor controller + injury model) and
@@ -181,17 +182,21 @@ export class Sandbox {
     return (body && body.userData && body.userData.obstacleRef) || null;
   }
 
-  /** A ready-made test course east of the spawn point: log, kerb, plank, stairs, step and a crate. */
+  /**
+   * A ready-made test course along z = COURSE_Z, walked from west (x = -9) to east: plank, kerb,
+   * log and a step platform, with a pair of crates across the line further on to walk around.
+   */
   buildCourse() {
     this.clearObstacles();
-    const E = Math.PI / 2; // props face +x (the walking direction across the course)
-    this.addObstacle('log', new Vec3(2.2, 0, -1.5), E);
-    this.addObstacle('curb', new Vec3(3.5, 0, -1.5), E);
-    this.addObstacle('plank', new Vec3(4.6, 0, -1.5), E);
-    this.addObstacle('stairs', new Vec3(7.0, 0, -1.5), E);
-    this.addObstacle('step', new Vec3(10.0, 0, -1.5), E);
-    this.addObstacle('crate', new Vec3(5.0, 0, 1.2), 0.3);
-    this.addObstacle('crate', new Vec3(5.6, 0, 2.0), -0.2);
+    const E = Math.PI / 2; // props face +x (the walking direction along the course)
+    const z = COURSE_Z;
+    this.addObstacle('plank', new Vec3(-6.5, 0, z), E);
+    this.addObstacle('curb', new Vec3(-4.0, 0, z), E);
+    this.addObstacle('log', new Vec3(-1.5, 0, z), E);
+    this.addObstacle('step', new Vec3(1.8, 0, z), E);
+    this.addObstacle('crate', new Vec3(5.0, 0, z - 0.1), 0.3);
+    this.addObstacle('crate', new Vec3(5.2, 0, z + 0.75), -0.2);
+    return { start: new Vec3(-9, 0, z), end: new Vec3(8.5, 0, z) };
   }
 
   // ------------------------------------------------------------------------------------------
@@ -205,7 +210,7 @@ export class Sandbox {
     const goals = opts.append && ctl.nav && ctl.nav.goals ? [...ctl.nav.goals, point.clone()] : [point.clone()];
     const route = this.planRoute(person.rd.pelvis.pos, goals);
     if (!route) return null;
-    ctl.walkTo(route.path, goals, { speed: opts.speed });
+    ctl.walkTo(route.path, goals, { speed: opts.speed, goalEnds: route.goalEnds });
     return route.path;
   }
 
@@ -215,15 +220,16 @@ export class Sandbox {
 
   planRoute(from, goals) {
     this.nav.rebuild(this.obstacleVersion);
-    const path = [];
+    const path = [], goalEnds = [];
     let a = from;
     for (const g of goals) {
       const seg = this.nav.findPath(a, g);
       if (!seg) return null;
       path.push(...seg);
+      goalEnds.push(path.length - 1); // index of the waypoint that is this goal
       a = seg[seg.length - 1];
     }
-    return { path };
+    return { path, goalEnds };
   }
 
   /** Re-route everyone who is on the way somewhere (after the obstacles changed, or a fall). */
@@ -233,9 +239,13 @@ export class Sandbox {
 
   replan(person) {
     const nav = person.ctl.nav;
-    const route = this.planRoute(person.rd.pelvis.pos, nav.goals.slice(nav.goalIndex || 0));
-    if (route) person.ctl.updateRoute(route.path);
-    else person.ctl.stopWalk('unreachable');
+    const g0 = nav.goalIndex || 0;
+    const route = this.planRoute(person.rd.pelvis.pos, nav.goals.slice(g0));
+    if (!route) return person.ctl.stopWalk('unreachable');
+    // (the route now starts at goal g0: keep goal indices absolute)
+    person.ctl.updateRoute(route.path, route.goalEnds);
+    nav.goals = nav.goals.slice(g0);
+    nav.goalIndex = 0;
   }
 
   /** Per-frame walking bookkeeping: re-plan when needed, keep walkers from bumping into others. */

@@ -178,8 +178,8 @@ export class NavGrid {
           if (closed[kk]) continue;
           const dh = Math.abs(h[kk] - hk);
           if (dh > this.maxRise) continue;
-          // a step up or down costs a little extra effort (~20 cm of level walking for a kerb)
-          const c = (di && dj ? Math.SQRT2 : 1) + (dh > 0.03 ? 1 + 4 * dh : 0);
+          // a step up or down costs a little extra effort (~15 cm of level walking for a kerb)
+          const c = (di && dj ? Math.SQRT2 : 1) + (dh > 0.03 ? 0.6 + 4 * dh : 0);
           const ng = gScore[k] + c;
           if (ng < gScore[kk]) {
             gScore[kk] = ng;

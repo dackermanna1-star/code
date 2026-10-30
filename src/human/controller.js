@@ -1714,9 +1714,14 @@ export class HumanController {
     if (st.profile) {
       // over an obstacle the foot only moves on as far as its height allows (it goes up first,
       // then over: a toe dragged into a kerb or a log is a trip); the swing clock waits for it
-      const uGate = this.loco.progressGate(st, this.ankleWorld(st.foot, _v1).y);
-      // (and once it is up, the foot travels on at a swing's speed, not in a jump)
+      const ay = this.ankleWorld(st.foot, _v1).y;
       const D = Math.max(0.2, Math.hypot(st.target.x - st.start.x, st.target.z - st.start.z));
+      if (st.u === undefined) {
+        // (a profile that appears mid-swing - the plan changed - starts from where the foot is)
+        st.u = clamp(((_v1.x - st.start.x) * (st.target.x - st.start.x) + (_v1.z - st.start.z) * (st.target.z - st.start.z)) / (D * D), 0, 1);
+      }
+      const uGate = this.loco.progressGate(st, ay);
+      // (and once it is up, the foot travels on at a swing's speed, not in a jump)
       const u = Math.min(clamp(sx, st.u || 0, Math.max(st.u || 0, uGate)), (st.u || 0) + (3.2 * dt) / D);
       if (u < sx - 0.02) st.t -= dt * 0.6;
       st.u = u;

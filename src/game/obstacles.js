@@ -11,33 +11,14 @@ import { Shape } from '../physics/shapes.js';
  *   curb    - 12 cm kerb: stepped over or onto
  *   log     - 22 cm round log: stepped over (its top is not a place to stand)
  *   step    - 18 cm platform: stepped up onto and down off
- *   stairs  - three 15 cm steps up to a landing and three down the other side
  *   crate   - 70 cm crate: too tall to step over, walked around
  *   plank   - 5 cm board: a trip hazard when not stepped over
  */
-function stairParts(rise = 0.15, tread = 0.3, steps = 3, landing = 0.8, width = 1.2) {
-  const parts = [];
-  const total = steps * tread * 2 + landing;
-  let z = -total / 2;
-  for (let i = 1; i <= steps; i++) {
-    parts.push({ box: [width, rise * i, tread], at: [0, (rise * i) / 2, z + tread / 2] });
-    z += tread;
-  }
-  parts.push({ box: [width, rise * steps, landing], at: [0, (rise * steps) / 2, z + landing / 2] });
-  z += landing;
-  for (let i = steps; i >= 1; i--) {
-    parts.push({ box: [width, rise * i, tread], at: [0, (rise * i) / 2, z + tread / 2] });
-    z += tread;
-  }
-  return parts;
-}
-
 export const OBSTACLES = {
-  curb: { label: 'Curb', note: '12 cm kerb', material: 'concrete', friction: 0.9, parts: [{ box: [1.4, 0.12, 0.22], at: [0, 0.06, 0] }] },
-  log: { label: 'Log', note: '22 cm log', material: 'wood', friction: 0.7, parts: [{ cyl: 0.11, len: 1.5, at: [0, 0.11, 0] }] },
-  plank: { label: 'Plank', note: '5 cm board', material: 'wood', friction: 0.75, parts: [{ box: [1.6, 0.05, 0.25], at: [0, 0.025, 0] }] },
-  step: { label: 'Step', note: '18 cm platform', material: 'concrete', friction: 0.9, parts: [{ box: [1.4, 0.18, 1.0], at: [0, 0.09, 0] }] },
-  stairs: { label: 'Stairs', note: '3 steps up, 3 down', material: 'concrete', friction: 0.9, parts: stairParts() },
+  curb: { label: 'Curb', note: '12 cm kerb', material: 'concrete', friction: 0.9, parts: [{ box: [2.0, 0.12, 0.22], at: [0, 0.06, 0] }] },
+  log: { label: 'Log', note: '22 cm log', material: 'wood', friction: 0.7, parts: [{ cyl: 0.11, len: 2.0, at: [0, 0.11, 0] }] },
+  plank: { label: 'Plank', note: '5 cm board', material: 'wood', friction: 0.75, parts: [{ box: [2.0, 0.05, 0.25], at: [0, 0.025, 0] }] },
+  step: { label: 'Step', note: '18 cm platform', material: 'concrete', friction: 0.9, parts: [{ box: [2.0, 0.18, 1.2], at: [0, 0.09, 0] }] },
   crate: { label: 'Crate', note: '70 cm crate', material: 'wood', friction: 0.7, parts: [{ box: [0.7, 0.7, 0.7], at: [0, 0.35, 0] }] },
 };
 
