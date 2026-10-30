@@ -1,9 +1,8 @@
 /**
- * obstacleMeshes.js — visuals for the fixed walking obstacles (kerb, log, plank, step, stairs,
- * crate). Built from the same part list as the physics shapes (OBSTACLES[type].parts, in the
+ * obstacleMeshes.js — visuals for the fixed walking obstacles (kerb, log, plank, step, crate). Built from the same part list as the physics shapes (OBSTACLES[type].parts, in the
  * prop's frame: y up from the floor), so feet visibly land on the surfaces they stand on.
  *
- *  - Concrete (kerb, step, stairs): worn grey concrete, arrises darkened a little (only edges of
+ *  - Concrete (kerb, step): worn grey concrete, arrises darkened a little (only edges of
  *    the solid's outline: faces that continue into a neighbouring part are left clean) and a
  *    contact darkening where the concrete meets the floor.
  *  - Wood: a bark log with lighter end-grain caps, a pair of pine boards, a large plank crate (the

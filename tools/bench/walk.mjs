@@ -1,7 +1,7 @@
 // Walking benchmark: send the dummy to points in every direction (and over the obstacle course),
 // report arrivals, falls, time and pace. Usage: node tools/bench/walk.mjs [case ...] [--seeds=N]
-// Cases: dirs (8 targets 5 m away), far (12 m), course (the obstacle course), or a single
-// "x,z" target. Each case runs in its own worker thread.
+// Cases: dirs (8 targets 5 m away), far (10 m), obstacles (log, curb, plank, step one at a time;
+// obs:<type> for one), course (the obstacle course), or a single "x,z" target. Each case runs in its own worker thread.
 import { Worker, isMainThread, parentPort, workerData } from 'node:worker_threads';
 import { fileURLToPath } from 'node:url';
 import { scene, run, report, Vec3 } from './common.mjs';
@@ -14,8 +14,8 @@ function cases(names) {
     if (n === 'dirs') for (const d of DIRS) out.push({ name: `dir${d}`, x: 5 * Math.sin((d * Math.PI) / 180), z: 5 * Math.cos((d * Math.PI) / 180), T: 16 });
     else if (n === 'far') out.push({ name: 'far', x: 2, z: 10, T: 20 });
     else if (n === 'course') out.push({ name: 'course', x: 8.5, z: -3.5, T: 40, course: true, start: [-9, -3.5], yaw: Math.PI / 2 });
-    else if (n === 'obstacles') for (const o of ['log', 'curb', 'plank', 'step']) out.push({ name: o, obstacle: o, x: o === 'stairs' ? 6.5 : 5, z: 0, T: o === 'stairs' ? 25 : 16, start: [0, 0], yaw: Math.PI / 2 });
-    else if (n.startsWith('obs:')) out.push({ name: n.slice(4), obstacle: n.slice(4), x: n.slice(4) === 'stairs' ? 6.5 : 5, z: 0, T: n.slice(4) === 'stairs' ? 25 : 16, start: [0, 0], yaw: Math.PI / 2 });
+    else if (n === 'obstacles') for (const o of ['log', 'curb', 'plank', 'step']) out.push({ name: o, obstacle: o, x: 5, z: 0, T: 16, start: [0, 0], yaw: Math.PI / 2 });
+    else if (n.startsWith('obs:')) out.push({ name: n.slice(4), obstacle: n.slice(4), x: 5, z: 0, T: 16, start: [0, 0], yaw: Math.PI / 2 });
     else if (/^-?[\d.]+,-?[\d.]+$/.test(n)) {
       const [x, z] = n.split(',').map(Number);
       out.push({ name: n, x, z, T: 20 });
@@ -27,15 +27,15 @@ function cases(names) {
 function simulate(c, seed) {
   const { sb, person } = scene(seed);
   const custom = c.course || c.obstacle;
-  if (c.course) sb.buildCourse();
-  // a single obstacle 2.5 m ahead (the stairs' foot 2 m ahead), across the way
-  if (c.obstacle) sb.addObstacle(c.obstacle, new Vec3(c.obstacle === 'stairs' ? 3.3 : 2.5, 0, 0), Math.PI / 2);
+  const course = c.course ? sb.buildCourse() : null;
+  // a single obstacle 2.5 m ahead, across the way
+  if (c.obstacle) sb.addObstacle(c.obstacle, new Vec3(2.5, 0, 0), Math.PI / 2);
   if (custom) sb.removePerson(person);
   const p = custom ? sb.spawnPerson(new Vec3(c.start[0], 0, c.start[1]), c.yaw) : person;
   if (custom) run(sb, 1);
   const ctl = p.ctl;
   // (the course goes over the step platform: via a waypoint on top of it)
-  if (c.course) sb.walkTo(p, new Vec3(1.8, 0, c.z));
+  if (c.course) sb.walkTo(p, course.via);
   const path = sb.walkTo(p, new Vec3(c.x, 0, c.z), { append: !!c.course });
   if (!path) return { case: c.name, seed, ok: false, reason: 'no path' };
   let falls = 0, steps = 0, catches = 0, tEnd = null, status = 'walking', dist = 0;

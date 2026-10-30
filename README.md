@@ -2,8 +2,9 @@
 
 A browser sandbox for physically simulated human reactions, in the spirit of NaturalMotion's
 Euphoria. A sculpted, anatomically proportioned dummy stands on a flat test arena, keeps its
-balance with its own muscles, and reacts to whatever you do to it: shoves, thrown objects,
-gunshots. All of its movement comes from simulated muscles and physics, with no canned animations.
+balance with its own muscles, walks wherever you send it (over kerbs, logs and boards and up onto
+platforms), and reacts to whatever you do to it: shoves, thrown objects, gunshots. All of its
+movement comes from simulated muscles and physics, with no canned animations.
 Injuries persist and have physiological consequences: bleeding, fractures, paralysis, loss of
 consciousness, death.
 
@@ -45,6 +46,9 @@ npm run build:single
 | `.` | Step one frame while paused |
 | T | Slow motion (0.25×) |
 | R / N / C | Reset / spawn another dummy / clear props |
+| M | Walk tool: click a dummy to select it, click a spot to send it there, shift+click adds a waypoint |
+| X | Stop the selected dummy walking |
+| O / shift+O | Obstacle tool: next / previous obstacle (Z rotates the placement, shift+click removes one) |
 | B | Follow camera |
 | V | Physics view: colliders, centre of mass, capture point, support polygon |
 | H | Hide the interface |
@@ -64,6 +68,9 @@ iteration per substep.
 - **Contacts:** non-penetration, Coulomb friction with static and dynamic phases, torsional patch
   friction, and restitution with a velocity threshold.
 - **Floor friction:** persistent friction anchors on the floor, so planted feet don't creep.
+- **Fixed obstacles:** contacts with static props are solved like floor contacts (anchors included),
+  so a foot on a step is as planted as one on the floor; `World.surfaceAt` gives the height of the
+  surface under any point for the controllers.
 - **Joints:** ball-and-socket joints with anatomical swing/twist limits (elliptical swing cones).
 - **Muscle drives:** implicit spring-damper drives with torque caps. They can target a pose
   relative to the parent, a world orientation, or hold the parent's orientation (for stance legs).
@@ -100,8 +107,32 @@ Muscle strength scales with consciousness, pain and injuries.
   - Settle steps tidy up an awkward stance afterwards.
   - Staggering: successive steps with the trunk leaning along the push until the body is caught;
     when the trunk is toppling the arms windmill to rotate it back.
+- **Walking** (`src/human/locomotion.js`): a goal-directed gait built from balance steps, with no
+  gait cycle played back.
+  - Each walking step lands where the capture point says, offset so the body keeps travelling:
+    the foot goes behind the predicted capture point by `b = v·T / (e^(ωT) − 1)` (the next step
+    is again one stride ahead) and to the outside by enough to sway from foot to foot. A push or
+    a hit simply moves the next footholds; a hard one turns the step into a catch step and the
+    walk resumes once the balance is back.
+  - The capture point is planned from the body the stance leg carries, without the swinging leg,
+    whose own momentum would make the landing spot surge and fall back within a swing.
+  - The stance leg is a strut the body vaults over: its ankle does not hold the body back, and the
+    trailing foot rolls onto its ball (heel-off and push-off), which keeps the leg long instead of
+    dropping the pelvis into a crouch.
+  - Gait initiation with a weight shift, turning with the steps (the inside foot first, up to
+    about 0.6 rad per step on the spot), arm swing with the opposite leg, pelvic rotation, a
+    walking lean, slowing down to arrive, and a limp over a hurt leg. The speed (about 1.1 m/s)
+    drops with leg wounds, pain and blood loss; too weak, it stops.
+  - Routes come from an A* planner over a height grid of the arena: steps and logs are crossed,
+    crates are walked around. People walking past each other give way.
+  - Footholds are checked against the terrain: flat under the sole, not on an edge or the top of
+    a log, and not right in front of something that has to be stepped over. The swing foot
+    clears what is under its path (it goes up first, then over) and walkers slow down for
+    obstacles. Stairs are not handled yet.
 - **Balance assist:** Euphoria-style helper torques that fade out as soon as balance is lost. The
-  settings slider scales them; set it to 0 for unassisted balance.
+  settings slider scales them; set it to 0 for unassisted balance. While walking, the same helper
+  adds a small force toward the walking speed, and a sideways nudge while a planned foothold is
+  out of a natural stride's reach.
 - **Falling:** protective bracing. The arms reach toward the predicted landing point, then the
   planted hands act as yielding struts. When falling backwards the chin tucks.
 - **Falling to the knees:** when the legs give way (a leg or gut wound, a broken leg, blood loss)
@@ -238,14 +269,17 @@ Headless benchmarks measure the behaviour objectively (`bash tools/bench/all.sh`
 | `kneelfall.mjs` | collapses after leg and gut wounds: knock-outs and head strikes |
 | `lethality.mjs` | gunshot lethality against physiological expectations |
 | `volley.mjs` | time to death after volleys of N rounds to the torso and thighs |
+| `walk.mjs` | walking to targets in eight directions, over single obstacles and the test course |
 
 ## Project layout
 
 ```
 src/physics   XPBD engine: math, bodies, shapes, collision, joints, world
 src/human     anatomy, ragdoll, IK, motor controller, body sculpt + mesher, organs, injury model
-src/game      sandbox (simulation orchestration), weapons, throwables, audio
-src/render    arena, skinned body, blood, floor decals, effects, view model, prop meshes
+src/game      sandbox (simulation orchestration), weapons, throwables, obstacles, route
+              planner, audio
+src/render    arena, skinned body, blood, floor decals, effects, view model, prop and obstacle
+              meshes, walking markers
 src/ui        interface and styles
 test          physics, ragdoll and injury tests (node --test)
 tools         headless helpers (simulation runner, screenshot and filmstrip scripts)

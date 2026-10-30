@@ -1,6 +1,5 @@
 import { Vec3, clamp, lerp, smoothstep, approach, wrapAngle } from '../physics/math.js';
 
-const SIDES = ['L', 'R'];
 const other = (s) => (s === 'L' ? 'R' : 'L');
 const _a = new Vec3();
 const _b = new Vec3();
@@ -12,7 +11,7 @@ const BALL = new Vec3(0, -0.03, 0.09); // ball of the foot (sole, under the toe 
 const HEEL = 0.06, TOE = 0.2; // sole extent behind / ahead of the ankle
 const MAX_RISE = 0.25; // highest step up (or down) a foot is put on
 // sole samples [ahead of the ankle, left of it] (m): heel to toes with a margin (the heel may hang
-// a little over a stair's edge)
+// a little over a step's edge)
 const FOOT_SAMPLES = [[-0.07, 0], [0.04, 0.06], [0.04, -0.06], [0.12, 0], [0.2, 0.04], [0.2, -0.04], [0.24, 0], [0.27, 0]];
 
 /**
@@ -205,10 +204,12 @@ export class Locomotion {
         const side = this.dir.x * rz - this.dir.z * rx > 0 ? 1 : -1;
         sx += -this.dir.z * side * w + (rx / d) * w * 0.5;
         sz += this.dir.x * side * w + (rz / d) * w * 0.5;
-        if (ahead > 0 && Math.abs(this.dir.x * rz - this.dir.z * rx) < reach) crowdSlow = Math.min(crowdSlow, clamp((d - reach) / 1.0, 0, 1));
+        // slow down behind someone in the way - but keep stepping, or the walk could never turn
+        // aside (two people meeting head-on would stand nose to nose)
+        if (ahead > 0 && Math.abs(this.dir.x * rz - this.dir.z * rx) < reach) crowdSlow = Math.min(crowdSlow, clamp((d - reach) / 1.0, 0.35, 1));
       }
-      this.dir.x += sx * 0.8;
-      this.dir.z += sz * 0.8;
+      this.dir.x += sx * 1.2;
+      this.dir.z += sz * 1.2;
       this.dir.normalize();
     }
 
@@ -462,7 +463,6 @@ export class Locomotion {
     // (around obstacles the footholds are deliberately off the pendulum's choice: only a big miss)
     if (Math.hypot(vf, vl) > (this.obstacleAhead ? 0.35 : 0.2) && st.t > 0.03) {
       this.violation.setZero();
-      if (globalThis.__walkDebug) console.log('toCatch', st.foot, 'raw', rawF.toFixed(2), rawL.toFixed(2), 'clamped', fwd.toFixed(2), lat.toFixed(2), 'phase', (st.t / st.duration).toFixed(2));
       st.kind = 'catch';
       this.pause = Math.max(this.pause, 0.8);
       this.nextFoot = null;
@@ -694,5 +694,3 @@ export class Locomotion {
     return clamp(d * 0.14, -0.09, 0.09) * clamp(v / 0.8, 0, 1);
   }
 }
-
-export { SIDES };

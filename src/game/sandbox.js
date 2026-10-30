@@ -196,7 +196,8 @@ export class Sandbox {
     this.addObstacle('step', new Vec3(1.8, 0, z), E);
     this.addObstacle('crate', new Vec3(5.0, 0, z - 0.1), 0.3);
     this.addObstacle('crate', new Vec3(5.2, 0, z + 0.75), -0.2);
-    return { start: new Vec3(-9, 0, z), end: new Vec3(8.5, 0, z) };
+    // (a walker sent from start to end goes via the top of the step platform)
+    return { start: new Vec3(-9, 0, z), via: new Vec3(1.8, 0, z), end: new Vec3(8.5, 0, z) };
   }
 
   // ------------------------------------------------------------------------------------------
@@ -207,7 +208,9 @@ export class Sandbox {
    */
   walkTo(person, point, opts = {}) {
     const ctl = person.ctl;
-    const goals = opts.append && ctl.nav && ctl.nav.goals ? [...ctl.nav.goals, point.clone()] : [point.clone()];
+    // (appending extends a walk still under way, from the goal it is heading for)
+    const nav = ctl.nav;
+    const goals = opts.append && nav && !nav.done ? [...nav.goals.slice(nav.goalIndex || 0), point.clone()] : [point.clone()];
     const route = this.planRoute(person.rd.pelvis.pos, goals);
     if (!route) return null;
     ctl.walkTo(route.path, goals, { speed: opts.speed, goalEnds: route.goalEnds });

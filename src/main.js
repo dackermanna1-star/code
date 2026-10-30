@@ -371,10 +371,26 @@ function doAction(act) {
       }
       break;
     }
-    case 'course':
-      sandbox.buildCourse();
-      ui.notify('Test course built — walk a dummy across it');
+    case 'course': {
+      // build it, put a fresh dummy at the west end and send it across (over the step platform)
+      const c = sandbox.buildCourse();
+      const start = sandbox.freeSpot(c.start);
+      const p = sandbox.spawnPerson(start, Math.PI / 2);
+      state.selected = p;
+      setTool('walk');
+      camera.position.set(start.x + 1.5, 1.9, start.z + 4.2);
+      controls.target.set(start.x + 1.5, 0.9, start.z);
+      controls.update();
+      if (!state.follow) doAction('follow');
+      // give it a moment to find its feet before setting off
+      setTimeout(() => {
+        if (!sandbox.people.includes(p)) return;
+        sandbox.walkTo(p, c.via);
+        sandbox.walkTo(p, c.end, { append: true });
+      }, 900);
+      ui.notify(`Test course built — Dummy #${p.id} is walking it`);
       break;
+    }
     case 'clearObstacles':
       sandbox.clearObstacles();
       ui.notify('Obstacles cleared');
