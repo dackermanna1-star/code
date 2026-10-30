@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Job Finder</title>
+<style>
+:root {
+  --bg: #f6f7f9; --panel: #ffffff; --text: #1d2330; --muted: #5f6b7d; --line: #e3e7ee;
+  --accent: #2f6fdf; --accent-weak: #e8f0fd; --good: #1f8a4c; --good-weak: #e5f5ec;
+  --warn: #a8640a; --warn-weak: #fdf2e1; --bad: #b4332f; --bad-weak: #fbe9e8;
+  --chip: #eef1f5; --shadow: 0 1px 2px rgba(20,30,50,.06), 0 2px 8px rgba(20,30,50,.05);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #12151b; --panel: #1b2029; --text: #e7eaf0; --muted: #9aa5b5; --line: #2c3340;
+    --accent: #6d9dff; --accent-weak: #1f2b44; --good: #4cc27f; --good-weak: #17311f;
+    --warn: #f0b04f; --warn-weak: #3a2c14; --bad: #f07a74; --bad-weak: #3a1a19;
+    --chip: #252b36; --shadow: none;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #12151b; --panel: #1b2029; --text: #e7eaf0; --muted: #9aa5b5; --line: #2c3340;
+  --accent: #6d9dff; --accent-weak: #1f2b44; --good: #4cc27f; --good-weak: #17311f;
+  --warn: #f0b04f; --warn-weak: #3a2c14; --bad: #f07a74; --bad-weak: #3a1a19;
+  --chip: #252b36; --shadow: none;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text);
+  font: 15px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+.wrap { max-width: 1040px; margin: 0 auto; padding: 24px 16px 64px; }
+header h1 { margin: 0 0 4px; font-size: 26px; letter-spacing: -.01em; }
+header p { margin: 0; color: var(--muted); }
+.summary { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 18px; }
+.stat { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; box-shadow: var(--shadow); }
+.stat b { font-size: 18px; display: block; }
+.stat span { color: var(--muted); font-size: 12.5px; }
+.filters { position: sticky; top: 0; z-index: 5; background: var(--bg); padding: 10px 0 12px; border-bottom: 1px solid var(--line); margin-bottom: 14px; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.row + .row { margin-top: 8px; }
+input[type=search], input[type=number], select {
+  background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 8px;
+  padding: 7px 9px; font: inherit; font-size: 14px; }
+input[type=search] { flex: 1 1 240px; min-width: 0; }
+input[type=number] { width: 104px; }
+label.ctl { display: inline-flex; gap: 6px; align-items: center; font-size: 13.5px; color: var(--muted); }
+label.chk { display: inline-flex; gap: 6px; align-items: center; font-size: 13.5px; background: var(--panel);
+  border: 1px solid var(--line); border-radius: 999px; padding: 5px 10px; cursor: pointer; user-select: none; }
+button { font: inherit; font-size: 13.5px; border-radius: 8px; border: 1px solid var(--line);
+  background: var(--panel); color: var(--text); padding: 6px 10px; cursor: pointer; }
+button:hover { border-color: var(--accent); }
+button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+.count { color: var(--muted); font-size: 13.5px; margin: 0 0 10px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px;
+  margin-bottom: 10px; box-shadow: var(--shadow); }
+.card.dim { opacity: .55; }
+.top { display: flex; gap: 12px; justify-content: space-between; align-items: flex-start; }
+.title { font-weight: 650; font-size: 16.5px; color: var(--accent); text-decoration: none; }
+.title:hover { text-decoration: underline; }
+.company { font-weight: 600; margin-top: 2px; }
+.score { flex: none; text-align: center; min-width: 52px; border-radius: 10px; padding: 4px 6px;
+  background: var(--accent-weak); color: var(--accent); font-weight: 700; }
+.score small { display: block; font-weight: 500; font-size: 10.5px; opacity: .8; }
+.meta { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 8px 0 6px; color: var(--muted); font-size: 13.5px; }
+.meta b { color: var(--text); font-weight: 600; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
+.chip { font-size: 12px; padding: 2px 8px; border-radius: 999px; background: var(--chip); color: var(--muted); }
+.chip.new { background: var(--accent); color: #fff; font-weight: 600; }
+.chip.good { background: var(--good-weak); color: var(--good); }
+.chip.warn { background: var(--warn-weak); color: var(--warn); }
+.chip.bad { background: var(--bad-weak); color: var(--bad); }
+.snip { color: var(--muted); font-size: 13.5px; margin: 6px 0 0; display: none; }
+.card.open .snip { display: block; }
+.actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.actions a.apply { text-decoration: none; }
+.empty { text-align: center; color: var(--muted); padding: 40px 0; }
+details.sources { margin-top: 28px; color: var(--muted); font-size: 13.5px; }
+details.sources table { border-collapse: collapse; margin-top: 8px; }
+details.sources td { padding: 3px 14px 3px 0; border-bottom: 1px solid var(--line); }
+.note { color: var(--muted); font-size: 12.5px; margin-top: 18px; }
+@media (max-width: 600px) {
+  .wrap { padding: 16px 16px 48px; }
+  header h1 { font-size: 22px; }
+  .filters { position: static; }
+  .score { min-width: 44px; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Job Finder</h1>
+    <p id="sub"></p>
+  </header>
+  <div class="summary" id="summary"></div>
+
+  <div class="filters">
+    <div class="row">
+      <input type="search" id="q" placeholder="Search titles, companies, towns, duties…">
+      <select id="sort" aria-label="Sort">
+        <option value="score">Best match first</option>
+        <option value="new">Newest first</option>
+        <option value="miles">Closest first</option>
+        <option value="pay">Lowest starting pay first</option>
+        <option value="payhi">Highest starting pay first</option>
+      </select>
+      <button id="theme" title="Switch light/dark">◐</button>
+    </div>
+    <div class="row">
+      <label class="ctl">Max starting pay $<input type="number" id="maxPay" step="1000" min="0"></label>
+      <label class="ctl">Max drive
+        <select id="maxMiles"><option>5</option><option>8</option><option>10</option><option>12</option><option>15</option></select> mi</label>
+      <label class="ctl">Posted within
+        <select id="maxAge"><option value="3">3 days</option><option value="7">7 days</option><option value="14">14 days</option><option value="30">30 days</option><option value="9999" selected>any time</option></select></label>
+      <label class="ctl">Schedule
+        <select id="sched"><option value="">Full or part time</option><option value="ft">Full time</option><option value="pt">Part time</option></select></label>
+      <select id="company" aria-label="Company"><option value="">All companies</option></select>
+    </div>
+    <div class="row">
+      <label class="chk"><input type="checkbox" id="onlyNew"> New since last run</label>
+      <label class="chk"><input type="checkbox" id="onlyEntry"> Says entry-level</label>
+      <label class="chk"><input type="checkbox" id="hideTalk"> Little talking only</label>
+      <label class="chk"><input type="checkbox" id="hideNoPay"> Hide “pay not listed”</label>
+      <label class="chk"><input type="checkbox" id="hideClear"> Hide “clearance eligible”</label>
+      <label class="chk"><input type="checkbox" id="showHidden"> Show hidden &amp; applied</label>
+      <button id="csv">Download spreadsheet</button>
+    </div>
+  </div>
+
+  <p class="count" id="count"></p>
+  <div id="list"></div>
+
+  <details class="sources">
+    <summary>Sites searched this run</summary>
+    <table id="srcTable"></table>
+  </details>
+  <p class="note">Drive distances are estimates (straight-line × 1.2) to the nearest of your chosen towns. Pay, years of
+    experience and “talking” are read automatically from each posting, so always skim the full posting before you apply.
+    Your “Applied” and “Hide” clicks are saved in this browser.</p>
+</div>
+
+<script>
+const DATA = /*__JOB_DATA__*/null;
+const $ = (id) => document.getElementById(id);
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+};
+let marks = store.get("jf-marks", {});   // id -> "applied" | "hidden"
+
+function fmtMoney(n) { return "$" + Math.round(n).toLocaleString(); }
+function payText(j) {
+  if (!j.payMin) return "Pay not listed";
+  if (j.payMax && j.payMax > j.payMin) return fmtMoney(j.payMin) + " – " + fmtMoney(j.payMax) + "/yr";
+  return fmtMoney(j.payMin) + "/yr";
+}
+function ageText(j) {
+  if (j.posted === "rolling") return "Always open (rolling)";
+  if (j.age === null || j.age === undefined) return j.posted ? "Posted " + j.posted : "Post date unknown";
+  if (j.age <= 0) return "Posted today";
+  if (j.age === 1) return "Posted yesterday";
+  return "Posted " + j.age + " days ago";
+}
+function esc(s) { return String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+
+function init() {
+  if (!DATA) { $("list").innerHTML = '<p class="empty">No data. Run “Find Jobs” to build this report.</p>'; return; }
+  const s = DATA.settings;
+  $("sub").textContent = "Entry-level office jobs near " + s.centers.join(", ") + " · updated " + DATA.generated;
+  $("maxPay").value = store.get("jf-maxPay", s.maxPay);
+  $("maxMiles").value = String(store.get("jf-maxMiles", s.maxMiles));
+  if (![...$("maxMiles").options].some(o => o.value === $("maxMiles").value)) $("maxMiles").value = "15";
+  ["onlyNew","onlyEntry","hideTalk","hideNoPay","hideClear","showHidden"].forEach(id => $(id).checked = store.get("jf-" + id, false));
+  $("sort").value = store.get("jf-sort", "score");
+  $("maxAge").value = String(store.get("jf-maxAge", "9999"));
+  const comps = [...new Set(DATA.jobs.map(j => j.company))].sort();
+  comps.forEach(c => { const o = document.createElement("option"); o.value = c; o.textContent = c; $("company").appendChild(o); });
+
+  const n = DATA.jobs.length, nNew = DATA.jobs.filter(j => j.isNew).length;
+  const nEntry = DATA.jobs.filter(j => j.entry).length, nComp = comps.length;
+  $("summary").innerHTML = [[n, "matching jobs"], [nNew, "new since last run"], [nEntry, "say entry-level"], [nComp, "employers"]]
+    .map(([v, l]) => `<div class="stat"><b>${v}</b><span>${l}</span></div>`).join("");
+  $("srcTable").innerHTML = DATA.stats.map(r => `<tr><td>${esc(r.source)}</td><td>${r.found} kept</td></tr>`).join("") +
+    `<tr><td>Hidden for pay/experience/clearance/age</td><td>${DATA.dropped}</td></tr>`;
+
+  ["q","sort","maxPay","maxMiles","maxAge","sched","company","onlyNew","onlyEntry","hideTalk","hideNoPay","hideClear","showHidden"]
+    .forEach(id => $(id).addEventListener(id === "q" || id === "maxPay" ? "input" : "change", () => { save(); render(); }));
+  $("csv").addEventListener("click", downloadCsv);
+  $("theme").addEventListener("click", () => {
+    const cur = document.documentElement.getAttribute("data-theme");
+    const dark = cur ? cur === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+    document.documentElement.setAttribute("data-theme", dark ? "light" : "dark");
+    store.set("jf-theme", dark ? "light" : "dark");
+  });
+  const th = store.get("jf-theme", null); if (th) document.documentElement.setAttribute("data-theme", th);
+  render();
+}
+function save() {
+  store.set("jf-maxPay", Number($("maxPay").value) || DATA.settings.maxPay);
+  store.set("jf-maxMiles", Number($("maxMiles").value));
+  store.set("jf-maxAge", $("maxAge").value);
+  store.set("jf-sort", $("sort").value);
+  ["onlyNew","onlyEntry","hideTalk","hideNoPay","hideClear","showHidden"].forEach(id => store.set("jf-" + id, $(id).checked));
+}
+function filtered() {
+  const q = $("q").value.trim().toLowerCase();
+  const maxPay = Number($("maxPay").value) || Infinity, maxMiles = Number($("maxMiles").value);
+  const maxAge = Number($("maxAge").value), sched = $("sched").value, comp = $("company").value;
+  let out = DATA.jobs.filter(j => {
+    if (!$("showHidden").checked && marks[j.id]) return false;
+    if (j.payMin && j.payMin > maxPay) return false;
+    if (j.miles !== null && j.miles > maxMiles) return false;
+    if (maxAge < 9999 && (j.age === null || j.age === undefined || j.age > maxAge)) return false;
+    if (sched === "pt" && !j.partTime) return false;
+    if (sched === "ft" && j.partTime) return false;
+    if (comp && j.company !== comp) return false;
+    if ($("onlyNew").checked && !j.isNew) return false;
+    if ($("onlyEntry").checked && !j.entry) return false;
+    if ($("hideTalk").checked && j.talk !== "low") return false;
+    if ($("hideNoPay").checked && !j.payMin) return false;
+    if ($("hideClear").checked && j.clearance) return false;
+    if (q && !(j.title + " " + j.company + " " + j.location + " " + j.place + " " + j.snippet).toLowerCase().includes(q)) return false;
+    return true;
+  });
+  const s = $("sort").value, age = j => (j.age === null || j.age === undefined) ? 999 : j.age;
+  const pay = j => j.payMin || Infinity;
+  out.sort({
+    score: (a, b) => b.score - a.score || age(a) - age(b),
+    new: (a, b) => age(a) - age(b) || b.score - a.score,
+    miles: (a, b) => (a.miles ?? 99) - (b.miles ?? 99) || b.score - a.score,
+    pay: (a, b) => pay(a) - pay(b),
+    payhi: (a, b) => (b.payMin || 0) - (a.payMin || 0),
+  }[s]);
+  return out;
+}
+function card(j) {
+  const m = marks[j.id];
+  const chips = [];
+  if (j.isNew) chips.push('<span class="chip new">NEW</span>');
+  if (m === "applied") chips.push('<span class="chip good">Applied</span>');
+  if (j.entry) chips.push('<span class="chip good">Says entry-level</span>');
+  chips.push(j.talk === "low" ? '<span class="chip good">Little talking</span>' :
+             j.talk === "some" ? '<span class="chip warn">Some talking</span>' : '<span class="chip bad">Lots of talking</span>');
+  if (j.years !== null && j.years !== undefined) chips.push(`<span class="chip">${j.years === 0 ? "No experience needed" : j.years + "+ yr experience"}</span>`);
+  if (j.partTime) chips.push('<span class="chip">Part time</span>');
+  if (j.duties) chips.push(`<span class="chip ${j.duties > 18 ? "warn" : ""}">${j.duties} listed duties</span>`);
+  if (j.clearance === "obtainable") chips.push('<span class="chip warn">Must be clearance-eligible</span>');
+  const closes = j.closes ? ` · <span>Closes ${esc(j.closes)}</span>` : "";
+  return `<div class="card ${m ? "dim" : ""}" data-id="${esc(j.id)}">
+    <div class="top">
+      <div>
+        <a class="title" href="${esc(j.url)}" target="_blank" rel="noopener">${esc(j.title)}</a>
+        <div class="company">${esc(j.company)}</div>
+      </div>
+      <div class="score" title="How well it fits your criteria">${j.score}<small>match</small></div>
+    </div>
+    <div class="meta">
+      <span>📍 <b>${esc(j.place)}</b>${j.miles !== null ? " · ~" + j.miles + " mi from " + esc(j.center) : ""}</span>
+      <span>💵 <b>${esc(payText(j))}</b></span>
+      <span>🗓 ${esc(ageText(j))}${closes}</span>
+    </div>
+    <div class="chips">${chips.join("")}</div>
+    <p class="snip">${esc(j.snippet)}<br><small>${esc(j.location)}</small></p>
+    <div class="actions">
+      <a class="apply" href="${esc(j.url)}" target="_blank" rel="noopener"><button class="primary">Open posting</button></a>
+      <button data-act="more">Details</button>
+      <button data-act="applied">${m === "applied" ? "Undo applied" : "Mark applied"}</button>
+      <button data-act="hidden">${m === "hidden" ? "Unhide" : "Hide"}</button>
+    </div>
+  </div>`;
+}
+function render() {
+  const jobs = filtered();
+  $("count").textContent = `Showing ${jobs.length} of ${DATA.jobs.length} jobs`;
+  $("list").innerHTML = jobs.length ? jobs.map(card).join("") :
+    '<p class="empty">No jobs match these filters. Try a higher pay limit, a longer drive, or “any time”.</p>';
+}
+$("list").addEventListener("click", (e) => {
+  const b = e.target.closest("button[data-act]"); if (!b) return;
+  const c = b.closest(".card"), id = c.dataset.id, act = b.dataset.act;
+  if (act === "more") { c.classList.toggle("open"); b.textContent = c.classList.contains("open") ? "Less" : "Details"; return; }
+  marks[id] = marks[id] === act ? undefined : act;
+  if (!marks[id]) delete marks[id];
+  store.set("jf-marks", marks); render();
+});
+function downloadCsv() {
+  const cols = ["score","isNew","title","company","place","miles","payMin","payMax","posted","closes","years","talk","url"];
+  const rows = [cols.join(",")].concat(filtered().map(j => cols.map(c => {
+    const v = j[c] === null || j[c] === undefined ? "" : String(j[c]);
+    return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
+  }).join(",")));
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([rows.join("\n")], {type: "text/csv"}));
+  a.download = "jobs.csv"; a.click();
+}
+init();
+</script>
+</body>
+</html>
