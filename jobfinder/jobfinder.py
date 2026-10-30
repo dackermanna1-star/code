@@ -1283,7 +1283,8 @@ def main():
     only = set((args.only or "workday,greenhouse,gov,nova,amazon,microsoft,carahsoft,usajobs").split(","))
 
     t0 = time.time()
-    log("Searching job sites - this usually takes 3-10 minutes.\n")
+    log("Searching job sites - this usually takes 3-6 minutes.")
+    log("Your job list will open in your web browser when it's done.\n")
     tasks = []
     if "workday" in only:
         for c in WORKDAY_SITES:
@@ -1345,7 +1346,13 @@ def main():
         f"({len(dropped)} more were hidden for pay/experience/clearance/age).")
     log(f"Report: {path}")
     if not args.no_open:
-        webbrowser.open("file://" + urllib.parse.quote(path))
+        log("\nOpening your job list in your web browser...")
+        log("(If it doesn't appear, double-click 'Open Last Report' in the jobfinder folder.)")
+        opened = False
+        if sys.platform == "darwin":
+            opened = subprocess.run(["open", path]).returncode == 0
+        if not opened:
+            webbrowser.open("file://" + urllib.parse.quote(path))
 
 
 if __name__ == "__main__":
