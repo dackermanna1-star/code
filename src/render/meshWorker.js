@@ -5,6 +5,7 @@ import { buildBodyMesh } from '../human/bodyMesh.js';
 self.onmessage = (e) => {
   const shape = new BodyShape(e.data.segNames);
   const m = buildBodyMesh(shape, e.data.opts || {});
+  m.tag = e.data.tag || 'full';
   const transfer = [m.positions.buffer, m.normals.buffer, m.surface.buffer, m.indices.buffer, m.skinIndex.buffer, m.skinWeight.buffer, m.segment.buffer, m.region.buffer];
   self.postMessage(m, transfer);
 };

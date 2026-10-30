@@ -192,7 +192,8 @@ let woundIds = 1;
 
 // Undead damage: location multiplier and bonus for vital structures hit (see bulletThrough)
 const UNDEAD_LOC = { head: 2, neck: 1.5, chest: 1, abdomen: 0.9, pelvis: 0.9, upperArm: 0.45, forearm: 0.4, hand: 0.25, thigh: 0.6, shin: 0.5, foot: 0.3 };
-const UNDEAD_VITAL = { heart: 90, artery: 25, vein: 10, cord: 60, lung: 15, organ: 15, bone: 12 };
+const UNDEAD_VITAL = { heart: 30, artery: 12, vein: 4, cord: 25, lung: 6, organ: 6, bone: 5 };
+const UNDEAD_VITAL_MAX = 45;
 
 export class InjurySystem {
   constructor(ragdoll, controller, opts = {}) {
@@ -720,7 +721,7 @@ export class InjurySystem {
       // is worth ~3 pistol rounds rather than 6), more where it matters, plus vital structures hit
       let vital = 0;
       for (const x of hit.structures) vital += (UNDEAD_VITAL[x.s.kind] || 0) * (x.direct ? 1 : 0.4);
-      const dmg = (Math.pow(deposited, 0.7) + vital) * (UNDEAD_LOC[kind] ?? 1);
+      const dmg = (Math.pow(deposited, 0.7) + Math.min(vital, UNDEAD_VITAL_MAX)) * (UNDEAD_LOC[kind] ?? 1);
       this.hp -= dmg;
       hit.damage = dmg;
       if (this.hp <= 0) this.kill('destroyed');

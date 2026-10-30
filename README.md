@@ -8,6 +8,12 @@ movement comes from simulated muscles and physics, with no canned animations.
 Injuries persist and have physiological consequences: bleeding, fractures, paralysis, loss of
 consciousness, death.
 
+It also has a first-person **survival mode** (the red *▶ Survival* button, or P). You hold the
+platform of a subway station while trains bring in the dead, wave after wave, with a brute in
+riot gear every fifth wave. The zombies are the same simulated people as the sandbox's dummies:
+the same ragdoll, muscles, balance and gait, with an undead injury model and a brain that hunts
+you. They stagger when they are shot, fall when their legs are shot out, and get back up.
+
 ```bash
 npm install
 npm run dev
@@ -55,6 +61,24 @@ npm run build:single
 
 The settings panel adjusts balance assist, throw power, shove impulse, bullet momentum (real
 values by default, up to 6× for exaggerated effects), bleeding rate and sound volume.
+
+### Survival mode
+
+Click into the view to start (the mouse is captured; Esc pauses and shows the settings).
+
+| Input | Action |
+| --- | --- |
+| Mouse / touchpad | Look |
+| Left click | Fire |
+| E | Aim down the sights (toggles; *Hold E to aim* in the pause menu makes it hold-to-aim; right click works too) |
+| W A S D | Move |
+| Shift | Sprint (stamina) |
+| C / Ctrl | Crouch |
+| Space | Jump; climb a ledge (the platform edge from the tracks, a bench) |
+| R | Reload |
+| 1 – 4, Q, wheel | Pistol, assault rifle, shotgun, SMG; last weapon; next / previous |
+| F | Shove the zombie in front of you |
+| Esc | Pause: sensitivity, field of view, horde size, volume, restart, back to the sandbox |
 
 ## What is simulated
 
@@ -129,6 +153,15 @@ Muscle strength scales with consciousness, pain and injuries.
     a log, and not right in front of something that has to be stepped over. The swing foot
     clears what is under its path (it goes up first, then over) and walkers slow down for
     obstacles. Stairs are not handled yet.
+  - Above about 1.3 m/s the same gait becomes a run (no flight phase: a fast, lurching jog at up
+    to about 1.9 m/s). The swing takes a larger share of the stride. The foot's path is spread
+    over the whole swing and its landing spot is committed early, because a target that still
+    moves late in a fast swing flings the foot 20–30 cm past it. Late swing is braked harder. A
+    pelvis yaw stabiliser stands in for the counter-rotating trunk and arms (a leg flung forward
+    at 8 m/s otherwise twists the pelvis by up to 60° each stride). The trailing foot is let go
+    rather than crouched after. Steering stays near the direction of travel, so turns are made
+    over several strides with a slow-down. A stride that falls short slows the runner down
+    instead of breaking off into a stumble.
 - **Balance assist:** Euphoria-style helper torques that fade out as soon as balance is lost. The
   settings slider scales them; set it to 0 for unassisted balance. While walking, the same helper
   adds a small force toward the walking speed, and a sideways nudge while a planned foothold is
@@ -256,6 +289,62 @@ a scalp graze is survivable.
 - **Sound:** all procedural, synthesised with Web Audio in `src/game/audio.js`, including a
   room reverb for the concrete arena.
 
+### Survival mode (`src/game/survival.js`, `subway.js`, `src/fps`, `src/human/zombie.js`)
+
+- **The station:** an island platform between two tracks, with columns, benches, a stairwell and
+  tunnel mouths. Every solid is a box, and the same list serves the ragdoll physics (as static
+  bodies that behave like the floor), the player's collision, and the zombies' flow field. The
+  platform floor is the world's floor plane clipped to a rectangle (`World.setGroundRect`), so
+  anything that goes over the edge drops 1.15 m onto the track bed.
+- **Trains** brake in from the tunnel at about 15 m/s and stop with their doors facing the
+  platform. While stopped, their floors and walls become part of the physics and of the zombies'
+  walkable area. They wait until everyone aboard has got off, then close and leave. A moving
+  train throws whatever is on the rails in front of it (zombies shot into the pit, or the player)
+  and kills it.
+- **Waves:** about 5 + 2.6n zombies arrive a car-load per train. Runners appear from wave 2 and
+  make up a growing share. A brute boss comes every fifth wave (two from wave 10) and announces
+  itself. At most `maxAlive` (10 by default, set in the pause menu) are up at a time; the rest
+  wait for later trains. Clearing a wave restocks ammunition, and health returns after five
+  seconds without being hit. Score counts kills (headshots ×1.5, trains count), plus wave
+  bonuses; the best score is kept.
+- **Zombies** (`ZombieBrain`):
+  - Pursuit: they follow a flow field toward the player (a bucketed Dijkstra re-run four times a
+    second, with routes reduced to a few line-of-sight waypoints). They lead a moving target,
+    spread out round it instead of queueing, and ease off for turns they cannot make at speed.
+  - Attacks: they swing one arm then the other at it, with hit checks against the player's
+    capsule. Against a dummy the blow is a real collision.
+  - Gait: walkers shamble at about 0.85 m/s and runners run at 1.7–1.9 m/s with their own running
+    gait (see Walking). Brutes are slow, strong (muscle strength ×1.35) and hard to knock about
+    (bullet impulse ×0.35).
+  - Balance help: their Euphoria-style balance helpers are a little stronger than a living
+    person's, so they rarely stumble over their own feet. The helpers still fade out the moment a
+    zombie is really knocked off balance. In `tools/bench/zombies.mjs` (runners circling after a
+    player, a mixed group after a player darting about, walkers after a retreating one, a horde
+    of six), they fell unprovoked 3 times in 45 zombie-minutes, never in the horde. That costs
+    about 1 ms of simulation per zombie per frame.
+- **Undead injuries:** no circulation, pain, shock or knock-outs. A zombie has hit points worn down
+  by the energy each round deposits (sub-linear, so a rifle round is worth about two pistol
+  rounds), plus a bonus for vital structures hit, scaled by location. That works out to about
+  three pistol rounds or two rifle rounds to the torso, or one close shotgun blast. A round
+  through the brain, brain stem or cervical cord drops it at once. Fractures, torn muscle and
+  severed nerves still cripple it; a zombie with its legs shot out goes down. The brute's
+  helmet stops rounds until it is shot off, and its vest takes 70% of a torso round's energy.
+- **The player** (`src/fps/player.js`): a capsule that walks, sprints on stamina, crouches,
+  jumps, and climbs ledges up to chest height. It is not a ragdoll, but walking into a zombie
+  shoulders it aside through a force on its pelvis, and F shoves one hard enough to stagger it.
+- **Guns** (`src/fps/arsenal.js`): pistol, assault rifle, pump shotgun (loaded shell by shell) and
+  SMG, firing the sandbox's ballistics. Each has a magazine and reserve, reloads, fire rate,
+  spread by stance and motion (aimed, hip, moving, airborne, crouched), and recoil that is half
+  a permanent kick and half a punch that springs back.
+- **Hands view model** (`src/render/fpsView.js`): gloved hands on the grip and on the handguard or
+  pump, with sleeves. Poses for hip, aimed (the weapon's sight line on the eye), sprint, reload
+  (the support hand goes to the magazine), and weapon switch. Sway, bob, a landing dip, breathing
+  and spring recoil sit on top.
+- **Looks:** zombies use a lighter body mesh (about 43k triangles instead of 153k) and a skin
+  shader that dresses them by region of the sculpt pose. Torn, filthy clothes, rot blotches,
+  veins, dried blood and clouded eyes are varied per zombie. Corpses that have stopped moving
+  are taken out of the physics but keep lying where they fell (the oldest are cleared away).
+
 ## Benchmarks
 
 Headless benchmarks measure the behaviour objectively (`bash tools/bench/all.sh` runs them all):
@@ -270,6 +359,7 @@ Headless benchmarks measure the behaviour objectively (`bash tools/bench/all.sh`
 | `lethality.mjs` | gunshot lethality against physiological expectations |
 | `volley.mjs` | time to death after volleys of N rounds to the torso and thighs |
 | `walk.mjs` | walking to targets in eight directions, over single obstacles and the test course |
+| `zombies.mjs` | zombies chasing a moving player for 30 s: unprovoked falls per zombie-minute, hits |
 
 ## Project layout
 
@@ -277,11 +367,13 @@ Headless benchmarks measure the behaviour objectively (`bash tools/bench/all.sh`
 src/physics   XPBD engine: math, bodies, shapes, collision, joints, world
 src/human     anatomy, ragdoll, IK, motor controller, body sculpt + mesher, organs, injury model
 src/game      sandbox (simulation orchestration), weapons, throwables, obstacles, route
-              planner, audio
+              planner, audio; survival mode: subway station and trains, flow field, waves
+src/fps       first-person player, guns, input
+src/modes     the survival mode's runtime (hosted by main.js)
 src/render    arena, skinned body, blood, floor decals, effects, view model, prop and obstacle
-              meshes, walking markers
-src/ui        interface and styles
-test          physics, ragdoll and injury tests (node --test)
+              meshes, walking markers; subway station, first-person hands, zombie gear
+src/ui        interface and styles; survival HUD
+test          physics, ragdoll, injury, walking, zombie and survival tests (node --test)
 tools         headless helpers (simulation runner, screenshot and filmstrip scripts)
 ```
 

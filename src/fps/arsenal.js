@@ -98,7 +98,15 @@ export class Arsenal {
     let fired = false;
     switch (this.state) {
       case 'equip':
-        if (this.t > 0.42) this.state = 'idle';
+        if (this.t > 0.42) {
+          this.state = 'idle';
+          // a switch asked for while drawing: carry it out now
+          if (this.pending !== null && this.pending !== this.index) {
+            this.state = 'holster';
+            this.t = 0;
+            this.events.push({ type: 'holster', gun: this.gun });
+          } else this.pending = null;
+        }
         break;
       case 'holster':
         if (this.t > 0.28) {

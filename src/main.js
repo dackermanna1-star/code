@@ -23,6 +23,7 @@ import { createObstacleMesh, disposeObstacleMesh, createObstacleGhost, setObstac
 import { WalkMarkers, goalsAhead } from './render/walkMarkers.js';
 import { UI, WEAPON_KEYS, THROW_KEYS } from './ui/ui.js';
 import { SurvivalMode } from './modes/survivalMode.js';
+import { zombieLook, ZombieGear } from './render/zombieGear.js';
 
 const FIXED = 1 / 60;
 const WOUND_KIND = { entry: 0, exit: 1, laceration: 2, bruise: 3, abrasion: 4 };
@@ -91,12 +92,19 @@ ui.setTime(1, false);
 // ---------------------------------------------------------------------------------------------
 // body mesh (generated in a worker) and per-person render state
 let meshShared = null;
+// a lighter body mesh (~43k instead of ~153k triangles) for the crowds of the survival mode
+let meshLod = null;
+const LOD_OPTS = { h: 0.014, fine: 0.45 };
 let renders = new Map();
 ui.setLoading(true);
 // generate prop/weapon textures in idle slices now rather than on the first throw
 if (typeof OM.preloadObjectMeshes === 'function') setTimeout(() => OM.preloadObjectMeshes().catch(() => {}), 300);
 
 function onMeshReady(data) {
+  if (data.tag === 'lod') {
+    meshLod = { data, adjacency: buildAdjacency(data), vhash: buildVertexHash(data) };
+    return;
+  }
   meshShared = { data, adjacency: buildAdjacency(data), vhash: buildVertexHash(data) };
   for (const p of sandbox.people) attachRender(p);
   ui.setLoading(false);
@@ -104,7 +112,10 @@ function onMeshReady(data) {
 }
 function buildMeshHere() {
   // fallback when workers are unavailable (e.g. some file:// setups): build on the main thread
-  setTimeout(() => onMeshReady(buildBodyMesh(new BodyShape(segNames))), 50);
+  setTimeout(() => {
+    onMeshReady(buildBodyMesh(new BodyShape(segNames)));
+    setTimeout(() => onMeshReady({ ...buildBodyMesh(new BodyShape(segNames), LOD_OPTS), tag: 'lod' }), 50);
+  }, 50);
 }
 try {
   const worker = new MeshWorker();
@@ -114,20 +125,20 @@ try {
     buildMeshHere();
   };
   worker.postMessage({ segNames });
+  worker.postMessage({ segNames, opts: LOD_OPTS, tag: 'lod' });
 } catch (e) {
   console.warn('mesh worker unavailable', e);
   buildMeshHere();
 }
 
-// skin of the undead (the survival mode's zombies): grey-green, waxy, darker on the big ones
-const LOOK_COLOR = { walker: 0x9aa48b, runner: 0xa8a99a, brute: 0x7d806f };
-
 function attachRender(person) {
   if (!meshShared || renders.has(person)) return;
-  const hm = new HumanMesh(meshShared.data, person.rd, shape, person.look ? { color: LOOK_COLOR[person.look] ?? 0x9aa48b } : {});
+  const ms = person.zombie && meshLod ? meshLod : meshShared;
+  const hm = new HumanMesh(ms.data, person.rd, shape, person.look ? zombieLook(person) : {});
   scene.add(hm.mesh);
-  const skin = new SkinBlood(hm, meshShared, particles, decals, person);
-  const r = { hm, skin, decals: [], decalsDirty: true, decalTimer: 0 };
+  const gear = person.zombie ? new ZombieGear(person, scene) : null;
+  const skin = new SkinBlood(hm, ms, particles, decals, person);
+  const r = { hm, skin, gear, decals: [], decalsDirty: true, decalTimer: 0 };
   renders.set(person, r);
   // wounds that happened before the mesh was ready
   for (const w of person.injury.wounds) addWoundDecal(person, r, w);
@@ -141,6 +152,7 @@ function detachRender(person) {
   if (!r) return;
   scene.remove(r.hm.mesh);
   r.hm.dispose();
+  if (r.gear) r.gear.dispose();
   renders.delete(person);
 }
 
@@ -820,6 +832,13 @@ function injuryFx(person, ev) {
   const r = renders.get(person);
   const head = person.rd.segments.head.body.pos;
   switch (ev.type) {
+    case 'armor':
+      if (ev.part === 'helmet' && ev.left === 0 && r && r.gear) {
+        const v = person.rd.segments.head.body.vel;
+        r.gear.dropHelmet(v.lengthSq() > 0.01 ? v : new Vec3(Math.random() - 0.5, 0, Math.random() - 0.5), (x, z) => sandbox.world.surfaceAt(x, z, 3));
+        audio.impact('metal', 0.9, head);
+      }
+      break;
     case 'wound':
       if (r) addWoundDecal(person, r, ev.wound);
       break;
@@ -874,6 +893,7 @@ function updateRenders(simDt, dtReal, alpha) {
       r.frozenPosed = true;
     }
     if (simDt > 0 && !person.frozen) r.skin.update(simDt, shape);
+    if (r.gear) r.gear.update(person.frozen ? 1 : alpha, simDt);
     r.decalTimer -= dtReal;
     if (r.decalsDirty || r.decalTimer <= 0) {
       for (const d of r.decals) d.age = d.wound.age;
@@ -883,7 +903,9 @@ function updateRenders(simDt, dtReal, alpha) {
     }
     const inj = person.injury;
     const loss = 1 - inj.blood / 5000;
-    r.hm.setPhysiology(clamp((loss - 0.1) * 2.5, 0, 1) + (inj.alive ? 0 : 0.3), clamp((0.9 - inj.spo2) * 3, 0, 1));
+    // (the undead keep their own grey-green: no living pallor or cyanosis on top)
+    if (person.zombie) r.hm.setPhysiology(inj.alive ? 0.08 : 0.2, 0.15);
+    else r.hm.setPhysiology(clamp((loss - 0.1) * 2.5, 0, 1) + (inj.alive ? 0 : 0.3), clamp((0.9 - inj.spo2) * 3, 0, 1));
   }
 }
 

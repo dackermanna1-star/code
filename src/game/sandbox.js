@@ -318,8 +318,10 @@ export class Sandbox {
       const crowd = (ctl.crowd || (ctl.crowd = []));
       crowd.length = 0;
       const me = p.rd.pelvis.pos;
+      // (a zombie does not step round the one it is going for)
+      const prey = p.zombie && p.zombie.target ? p.zombie.target.person : null;
       for (const q of this.people) {
-        if (q === p) continue;
+        if (q === p || q === prey) continue;
         const o = q.rd.pelvis.pos;
         if (Math.hypot(o.x - me.x, o.z - me.z) > 3) continue;
         const v = q.rd.pelvis.vel;

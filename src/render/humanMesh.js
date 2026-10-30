@@ -67,6 +67,63 @@ float fbm(vec3 p) {
   return s;
 }
 
+uniform vec4 uZombie;   // x on, y seed, z rot, w gore
+uniform vec3 uShirt;
+uniform vec3 uPants;
+uniform vec3 uShoes;
+uniform float uSleeves;
+
+// The undead's look in sculpt space (feet at y = 0, facing +z, left = +x; shoulders at 1.43, hips
+// at 0.93, elbows at 1.14 and |x| ~ 0.24 in the bind pose). Returns how much of the point is cloth.
+float zombieShade(vec3 P, inout vec3 col) {
+  float sd = uZombie.y * 17.0;
+  float n1 = fbm(P * 9.0 + sd), n2 = vnoise(P * 35.0 + sd * 1.7), n3 = fbm(P * 3.0 - sd);
+  float ax = abs(P.x);
+  // skin: blotches of rot (purple-green), darker veins, a waxy sheen gone
+  float rot = smoothstep(0.55, 0.75, n3 + 0.15 * n2) * uZombie.z;
+  col = mix(col, vec3(0.31, 0.27, 0.33) * (0.7 + 0.3 * n2), rot * 0.75);
+  float vein = 1.0 - smoothstep(0.0, 0.035, abs(vnoise(P * vec3(14.0, 22.0, 14.0) + sd) - 0.5));
+  col *= 1.0 - 0.22 * vein * uZombie.z;
+  // regions of the clothes
+  bool armZone = ax > 0.2 && P.y > 0.85 && P.y < 1.47;
+  float sleeveEnd = mix(1.47, 1.13, uSleeves); // short sleeves to the elbow
+  bool sleeve = armZone && P.y > sleeveEnd;
+  bool torso = !armZone && P.y > 0.95 && P.y < 1.44 + 0.03 * smoothstep(0.1, 0.0, ax);
+  bool legs = P.y > 0.11 && P.y <= 0.99 && !armZone;
+  bool feet = P.y <= 0.11;
+  float c = 0.0;
+  vec3 cc = col;
+  if (torso || sleeve) { cc = uShirt; c = 1.0; }
+  else if (legs) { cc = uPants; c = 1.0; }
+  else if (feet) { cc = uShoes; c = 1.0; }
+  if (c > 0.0 && !feet) {
+    // torn: holes and ragged edges show the skin underneath; filth everywhere
+    float tear = n1 + 0.2 * n2 - (torso ? 0.0 : 0.05);
+    float hole = smoothstep(0.79, 0.82, tear);
+    float edge = smoothstep(0.74, 0.79, tear) - hole;
+    cc *= 0.55 + 0.6 * fbm(P * 14.0 + sd * 3.0);
+    cc = mix(cc, cc * vec3(0.55, 0.45, 0.35), smoothstep(0.4, 0.8, n3) * 0.6);
+    // weave
+    cc *= 0.94 + 0.06 * sin(P.x * 900.0) * sin(P.y * 900.0);
+    cc = mix(cc, cc * 0.35, edge);
+    c *= 1.0 - hole;
+  }
+  col = mix(col, cc, c);
+  // dried blood: round the mouth, down the chin and the shirt front
+  float mouth = smoothstep(0.05, 0.0, length((P - vec3(0.0, 1.635, 0.105)) * vec3(1.0, 1.3, 1.5)));
+  float drip = smoothstep(0.08, 0.0, ax) * step(P.z, 0.25) * step(0.0, P.z) * smoothstep(1.66, 1.3, P.y) * step(1.05, P.y)
+    * smoothstep(0.45, 0.65, fbm(vec3(P.x * 20.0, P.y * 4.0, sd)));
+  float gore = clamp(mouth * 0.9 + drip * 0.8 + smoothstep(0.72, 0.8, n3 + 0.2 * n2) * 0.6, 0.0, 1.0) * uZombie.w;
+  col = mix(col, vec3(0.14, 0.02, 0.015) * (0.7 + 0.5 * n2), gore);
+  // clouded eyes
+  for (int i = 0; i < 2; i++) {
+    vec3 E = vec3(i == 0 ? 0.031 : -0.031, 1.686, 0.087);
+    float e = smoothstep(0.012, 0.006, length(P - E));
+    col = mix(col, vec3(0.86, 0.85, 0.72), e);
+  }
+  return c * (1.0 - gore * 0.5);
+}
+
 // Accumulates wound appearance at this skin point.
 // returns: rgb = colour to blend, a = blend amount; wet = wetness, depth = darkening of the hole
 vec4 woundShade(vec3 P, out float wet, out float hole) {
@@ -137,6 +194,11 @@ vec4 woundShade(vec3 P, out float wet, out float hole) {
 }
 `;
 
+/**
+ * Skin material. opts.zombie = { shirt, pants, shoes ([r,g,b] 0..1), seed, sleeves (0 none .. 1
+ * to the elbow), rot (0..1), gore (0..1) } dresses the body in torn, filthy clothes (by region of
+ * the sculpt pose) over grey-green, blotched skin with dried blood round the mouth and clouded eyes.
+ */
 export function createSkinMaterial(opts = {}) {
   const mat = new THREE.MeshPhysicalMaterial({
     color: new THREE.Color(opts.color ?? 0xd2b8a3),
@@ -152,11 +214,17 @@ export function createSkinMaterial(opts = {}) {
   woundTex.minFilter = THREE.NearestFilter;
   woundTex.magFilter = THREE.NearestFilter;
   woundTex.needsUpdate = true;
+  const z = opts.zombie || null;
   const uniforms = {
     uWounds: { value: woundTex },
     uWoundCount: { value: 0 },
     uPallor: { value: 0 },
     uCyanosis: { value: 0 },
+    uZombie: { value: new THREE.Vector4(z ? 1 : 0, z ? z.seed ?? 0 : 0, z ? z.rot ?? 0.6 : 0, z ? z.gore ?? 0.5 : 0) },
+    uShirt: { value: new THREE.Vector3(...(z && z.shirt ? z.shirt : [0.5, 0.5, 0.5])) },
+    uPants: { value: new THREE.Vector3(...(z && z.pants ? z.pants : [0.2, 0.22, 0.3])) },
+    uShoes: { value: new THREE.Vector3(...(z && z.shoes ? z.shoes : [0.08, 0.07, 0.06])) },
+    uSleeves: { value: z ? z.sleeves ?? 1 : 0 },
   };
   mat.userData.uniforms = uniforms;
   mat.onBeforeCompile = (shader) => {
@@ -172,6 +240,8 @@ export function createSkinMaterial(opts = {}) {
         // subtle skin variation, pallor from blood loss and cyanosis from hypoxia
         float skinN = vnoise(vModelPos * 40.0);
         diffuseColor.rgb *= 0.95 + 0.1 * skinN;
+        float cloth = 0.0;
+        if (uZombie.x > 0.5) cloth = zombieShade(vModelPos, diffuseColor.rgb);
         diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.78, 0.76, 0.74) * dot(diffuseColor.rgb, vec3(0.33)) * 1.25, uPallor * 0.55);
         diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vec3(0.72, 0.8, 1.05), uCyanosis * 0.6);
         float woundWet, woundHole;
@@ -188,6 +258,7 @@ export function createSkinMaterial(opts = {}) {
       .replace(
         '#include <roughnessmap_fragment>',
         `#include <roughnessmap_fragment>
+        roughnessFactor = mix(roughnessFactor, 0.95, cloth);
         roughnessFactor = mix(roughnessFactor, 0.3, skinWet);`,
       )
       .replace(
@@ -199,7 +270,7 @@ export function createSkinMaterial(opts = {}) {
       );
   };
   // the injected code differs from a plain physical material
-  mat.customProgramCacheKey = () => 'ragdoll-skin-v2';
+  mat.customProgramCacheKey = () => 'ragdoll-skin-v3';
   return mat;
 }
 

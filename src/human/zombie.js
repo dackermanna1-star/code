@@ -10,15 +10,15 @@ import { Vec3, Quat, clamp, lerp, smoothstep, wrapAngle } from '../physics/math.
  */
 export const ZOMBIE_KINDS = {
   walker: {
-    label: 'Walker', speed: 0.85, hp: 230, drive: [2.0, 0.12], lean: 0.2, reach: 0.95,
+    label: 'Walker', speed: 0.85, hp: 260, drive: [2.0, 0.12], lean: 0.2, reach: 0.95,
     damage: 12, cooldown: 1.15, windup: 0.22, strike: 0.2, arms: 'reach', knockback: 1, score: 100,
   },
   runner: {
-    label: 'Runner', speed: 2.0, hp: 150, drive: [3, 0.3], lean: 0.15, reach: 0.9,
+    label: 'Runner', speed: 2.0, hp: 170, drive: [3, 0.3], lean: 0.15, reach: 0.9,
     damage: 9, cooldown: 0.75, windup: 0.14, strike: 0.16, arms: 'pump', knockback: 1, score: 150,
   },
   brute: {
-    label: 'Brute', speed: 1.1, hp: 1900, drive: [2.6, 0.22], lean: 0.12, reach: 1.05,
+    label: 'Brute', speed: 1.1, hp: 2200, drive: [2.6, 0.22], lean: 0.12, reach: 1.05,
     damage: 30, cooldown: 1.6, windup: 0.32, strike: 0.22, arms: 'wide', knockback: 0.35, score: 1500,
     armor: { helmet: 4, vest: 0.7 }, boss: true, strength: 1.35,
   },
@@ -235,7 +235,6 @@ export class ZombieBrain {
 
   /** The swinging hand reached the target? (the player: a capsule; a dummy: its real bodies) */
   checkHit(A, t) {
-    const ctl = this.p.ctl;
     const hand = this.p.rd.segments['hand' + A.side].body;
     const hp = hand.pos;
     if (t.player) {
@@ -264,7 +263,7 @@ export class ZombieBrain {
         best = sg.body;
       }
     }
-    if (best && bd < 0.2) {
+    if (best && bd < 0.24) {
       A.hit = true;
       _a.copy(hand.vel);
       _a.y = Math.max(_a.y, 0);
@@ -273,7 +272,6 @@ export class ZombieBrain {
       else _a.set(t.pos.x - this.p.rd.pelvis.pos.x, 0.2, t.pos.z - this.p.rd.pelvis.pos.z).normalize().scale(this.def.damage * 0.9);
       best.applyImpulse(_a, hp);
       this.sb.fx({ type: 'zombieHit', person: this.p, victim: t.person, point: hp.clone(), kind: this.kind });
-      ctl.events.push({ type: 'zombieHit' });
     }
   }
 

@@ -283,6 +283,15 @@ export class SubwayScene {
     scene.add(sp);
     scene.add(sp.target);
     this.spot = sp;
+    // the trains' lamps and door spill come from a fixed pool (adding a light to the scene would
+    // recompile every material the moment a train comes in)
+    this.trainLights = [];
+    for (let i = 0; i < 2; i++) {
+      const head = new THREE.SpotLight(0xfff0cc, 0, 60, 0.45, 0.5, 1.2);
+      const spill = new THREE.PointLight(0xe8f0dc, 0, 9, 1.6);
+      scene.add(head, head.target, spill);
+      this.trainLights.push({ head, spill, train: null });
+    }
   }
 
   buildStation() {
@@ -643,16 +652,11 @@ export class SubwayScene {
       sign.rotation.y = e > 0 ? Math.PI / 2 : -Math.PI / 2;
       g.add(sign);
     }
-    const head = new THREE.SpotLight(0xfff0cc, 60, 60, 0.45, 0.5, 1.2);
-    head.position.set(train.dir * (half + 0.2), 0.6, zc);
-    head.target.position.set(train.dir * (half + 30), -0.6, zc);
-    g.add(head, head.target);
-    // the cars' own interior light spills onto the platform through the open doors
-    const spill = new THREE.PointLight(0xe8f0dc, 0, 9, 1.6);
-    spill.position.set(0, 1.8, zc);
-    g.add(spill);
+    // a pooled headlight (and the interior light spilling onto the platform through the doors)
+    const slot = this.trainLights.find((l) => !l.train) || null;
+    if (slot) slot.train = train;
     this.scene.add(g);
-    const rec = { g, doors, head, spill };
+    const rec = { g, doors, slot, zc, half };
     this.trainMeshes.set(train, rec);
     return rec;
   }
@@ -660,6 +664,11 @@ export class SubwayScene {
   removeTrain(train) {
     const t = this.trainMeshes.get(train);
     if (!t) return;
+    if (t.slot) {
+      t.slot.train = null;
+      t.slot.head.intensity = 0;
+      t.slot.spill.intensity = 0;
+    }
     this.scene.remove(t.g);
     t.g.traverse((o) => {
       if (o.geometry) o.geometry.dispose();
@@ -687,8 +696,14 @@ export class SubwayScene {
       t.g.position.x = tr.x;
       const open = tr.doorOpen;
       for (const d of t.doors) d.m.position.x = d.x0 + d.leaf * open * (CAR.doorWidth / 2 - 0.02);
-      t.spill.intensity = 5 * open;
-      t.head.intensity = tr.state === 'stopped' ? 15 : 60;
+      if (t.slot) {
+        const { head, spill } = t.slot;
+        head.position.set(tr.x + tr.dir * (t.half + 0.2), 0.6, t.zc);
+        head.target.position.set(tr.x + tr.dir * (t.half + 30), -0.6, t.zc);
+        head.intensity = tr.state === 'stopped' ? 15 : 60;
+        spill.position.set(tr.x, 1.8, t.zc);
+        spill.intensity = 5 * open;
+      }
     }
     for (const [tr] of this.trainMeshes) if (!trains || !trains.includes(tr)) this.removeTrain(tr);
   }
