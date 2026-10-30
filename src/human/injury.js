@@ -1,5 +1,5 @@
 import { Vec3, clamp, smoothstep, makeRng } from '../physics/math.js';
-import { buildAnatomy, pathToStructure, boneAxis, issRegion } from './organs.js';
+import { buildAnatomy, pathToStructure, boneAxis, issRegion, ribsNear, ellipsoidDistance, segSegDistance } from './organs.js';
 
 /**
  * Injury and physiology model for one person.
@@ -15,6 +15,14 @@ import { buildAnatomy, pathToStructure, boneAxis, issRegion } from './organs.js'
  * Blunt trauma: impacts measured by the physics (thrown objects, falls, the floor) are converted
  * into peak forces from the contact impulse and a contact time that depends on both materials, then
  * compared against tissue tolerances (bruising, fractures, concussion, organ rupture).
+ *
+ * Melee trauma (meleeHit; game/melee.js resolves the collision): the peak force of a blow follows
+ * from the closing speed, the masses that collide and the stiffness of the tissue and the striker in
+ * series; it breaks individual ribs (displaced ends tear the lung, ribs broken in two places make a
+ * flail chest), the skull by region (a depressed fracture contuses the brain, a haematoma under it
+ * kills over minutes), the face (bleeding into the airway), long bones (which break physically). The
+ * head's rotation knocks out. Knives cut along the line where the moving blade crosses the skin, as
+ * deep as it went in (vessels, nerves, trachea under it), or drive a stab channel into the anatomy.
  *
  * Physiology runs continuously and is built from first principles rather than timers:
  * - circulation (Guyton): only the "stressed" part of the blood volume generates the filling
@@ -195,6 +203,85 @@ const UNDEAD_LOC = { head: 2, neck: 1.5, chest: 1, abdomen: 0.9, pelvis: 0.9, up
 const UNDEAD_VITAL = { heart: 30, artery: 12, vein: 4, cord: 25, lung: 6, organ: 6, bone: 5 };
 const UNDEAD_VITAL_MAX = 45;
 
+// ------------------------------------------------------------------------------------------------
+// Melee trauma (game/melee.js resolves the collision; InjurySystem.meleeHit takes it from there)
+
+// Local contact stiffness of the struck tissue (N/m) under a fist- or bat-sized striker. In series
+// with the striker's own stiffness it sets the peak force of a blow, F = v * sqrt(k * m) (m: reduced
+// mass of what collides), and its duration pi * sqrt(m / k): the scalp over the skull and the shin
+// and ulna under thin skin are stiff, the belly and the thigh soft, the nose's cartilage gives.
+const MELEE_K = {
+  head: 0.8e6, face: 0.45e6, nose: 0.15e6, neck: 0.06e6, chest: 0.15e6, abdomen: 0.05e6, pelvis: 0.4e6,
+  upperArm: 0.12e6, forearm: 0.35e6, hand: 0.4e6, thigh: 0.08e6, shin: 0.5e6, foot: 0.4e6,
+};
+
+// Peak-force fracture tolerances (N) under a localised blow (~20 cm² contact; a smaller contact
+// concentrates the stress, see boneTolerance): skull vault by region (the temporal squama is the
+// thinnest, the occiput the thickest), facial skeleton, larynx, sternum, clavicle, and long-bone
+// shafts struck across (a "nightstick" fracture of a parrying ulna, a bumper fracture of the tibia).
+const BONE_TOL = {
+  temple: 5000, forehead: 6000, parietal: 5500, vertex: 6000, occiput: 7000,
+  nose: 2600, cheek: 2800, maxilla: 4200, jaw: 3800, chin: 4400,
+  larynx: 1800, 'cervical vertebrae': 6000, sternum: 5500, clavicle: 2400, scapula: 5200, pelvis: 6500,
+  humerus: 4200, 'radius/ulna': 2900, 'hand bones': 2200, femur: 7500, tibia: 4200, 'foot bones': 3200,
+};
+const SKULL_REGIONS = new Set(['temple', 'forehead', 'parietal', 'vertex', 'occiput']);
+const FACE_BONE = { nose: 'nasal bones', cheek: 'zygoma', maxilla: 'maxilla', jaw: 'mandible', chin: 'mandible' };
+const FACE_AIS = { nose: 1, cheek: 2, maxilla: 2, jaw: 2, chin: 2 };
+const HEAD_REGION_LABEL = { temple: 'temporal', forehead: 'frontal', parietal: 'parietal', vertex: 'parietal (vertex)', occiput: 'occipital' };
+const HEAD_CENTRE = new Vec3(0, 1.69, -0.005); // bind
+
+// Load (N) one rib takes before it breaks: the short, thick upper ribs and the springy floating ribs
+// are hard to break, 4-9 at the side of the chest break most easily; the back of the cage is covered
+// by thick muscle and the scapula, the front ends by the cartilage.
+const RIB_TOL = [0, 2600, 2200, 1600, 1250, 1250, 1250, 1250, 1250, 1250, 1400, 1700, 1900];
+const RIB_SHARE = 0.75; // of a blow on the chest wall carried by the ribs under it
+// force (N) of a blow that gives a full-strength hit reaction
+const REACT_F = { head: 3500, neck: 2500, chest: 6000, abdomen: 3500, pelvis: 6000, upperArm: 4000, forearm: 3500, hand: 2500, thigh: 5000, shin: 4000, foot: 4000 };
+// the neck and its muscles take part of a blow to the head (more of a twist than of a push)
+const HEAD_LIN_COUPLING = 1.3, HEAD_ROT_COUPLING = 1.7;
+// Knockout: the brain is strained above all by rotation of the head, least tolerated about the
+// vertical axis (a hook to the jaw twists it), better when it nods or tilts (BrIC critical
+// velocities scale ~43 : 56 : 66 rad/s). These head angular velocities (rad/s) and the linear
+// acceleration (g) each knock out about half of those struck, scaled by where the blow lands: the
+// jaw is a lever that turns the head, the frontal bone is thick and the neck braces against it.
+const KO_AXIAL = 36, KO_SAGITTAL = 48, KO_CORONAL = 56, KO_G = 180;
+const KO_REGION = { chin: 1, jaw: 1, maxilla: 0.95, nose: 0.9, cheek: 1, temple: 1.3, forehead: 0.75, parietal: 0.95, vertex: 0.85, occiput: 1 };
+// knife: energy to get the point through the skin (J, for a sharp blade), drag of the blade through
+// soft tissue (N), and the energy to get through bone where a thrust meets it (J)
+const STAB_SKIN = 2.5, STAB_DRAG = 140;
+const STAB_BONE = {
+  skull: 120, temple: 35, orbit: 20, mandible: 60, 'cervical vertebrae': 160, 'thoracic vertebrae': 160, 'lumbar vertebrae': 160,
+  clavicle: 70, scapula: 50, pelvis: 100, sacrum: 120, rib: 25, sternum: 60, 'hand bones': 40, 'foot bones': 50,
+  femur: 400, humerus: 300, tibia: 300, 'radius/ulna': 150,
+};
+
+const logistic = (x) => 1 / (1 + Math.exp(-x));
+
+/** Fracture tolerance `tol` (N, ~20 cm² contact) for a contact of `area` m². */
+function boneTolerance(tol, area) {
+  return tol * Math.pow(clamp((area || 0.002) / 0.002, 0.25, 4), 0.3);
+}
+
+/** Region of the head a blow lands on (bind point on the head; the face looks along +z). */
+function headRegion(p) {
+  const ax = Math.abs(p.x), y = p.y, z = p.z;
+  if (y < 1.622 && z > -0.035) return ax < 0.028 && z > 0.045 ? (y > 1.592 ? 'maxilla' : 'chin') : 'jaw';
+  if (z > 0.082 && ax < 0.024 && y > 1.625 && y < 1.69) return 'nose';
+  if (z > 0.035 && y < 1.69) return ax > 0.03 ? 'cheek' : 'maxilla';
+  if (ax > 0.05 && y > 1.655 && y < 1.75 && z > -0.04 && z < 0.065) return 'temple';
+  if (z > 0.04) return 'forehead';
+  if (z < -0.055) return 'occiput';
+  if (y > 1.765) return 'vertex';
+  return 'parietal';
+}
+
+/** Signed distance from a bind point to an anatomy structure's surface. */
+function structDistance(p, s) {
+  if (s.type === 'tube') return segSegDistance(p, p, s.a, s.b).dist - s.r;
+  return ellipsoidDistance(p, s.c, s.r);
+}
+
 export class InjurySystem {
   constructor(ragdoll, controller, opts = {}) {
     this.rd = ragdoll;
@@ -302,6 +389,16 @@ export class InjurySystem {
     this.bruiseCooldown = new Map();
     this.pendingBreaks = [];
     this.boneBleedQ = {}; // bone ('segment:bone') -> fracture haemorrhage already assigned, mL/s
+    // melee trauma
+    this.tbi = 0; // traumatic brain injury 0..1 (1: fatal) from blows to the head
+    this.ichRate = 0; // growth of tbi per second from an intracranial haematoma
+    this.skullFx = []; // skull fracture sites {region, depressed, pB}
+    this.ribFx = []; // rib fracture sites {side, n, theta, displaced, segmental}
+    this.flail = { L: false, R: false };
+    this.chestWall = { L: 1, R: 1 }; // breathing mechanics of each side of the chest wall
+    this.splint = 0; // breathing held shallow by the pain of broken ribs
+    this.neckSprain = 0; // 0..1
+    this.holds = []; // hit reactions that last (see addHold)
   }
 
   // ------------------------------------------------------------------------------------------
@@ -878,7 +975,7 @@ export class InjurySystem {
     const side = sideOf(segName);
     const k = segKind(segName);
     const s = clamp(strength, 0, 1.2);
-    const pen = kind === 'bullet';
+    const pen = kind === 'bullet' || kind === 'stab';
     const legs = (a) => {
       this.buckle.L = Math.min(this.buckle.L, 1 - a * s);
       this.buckle.R = Math.min(this.buckle.R, 1 - a * s);
@@ -1054,6 +1151,13 @@ export class InjurySystem {
     this.buckle.trunk = rec(this.buckle.trunk, 1.6);
     this.buckle.arms.L = rec(this.buckle.arms.L, 1.2);
     this.buckle.arms.R = rec(this.buckle.arms.R, 1.2);
+    if (this.holds.length) this.applyHolds();
+    // a haematoma under a fractured skull grows: coma, then the brain stem herniates
+    if (this.ichRate > 0 && this.alive && !this.undead) {
+      this.tbi += this.ichRate * dt;
+      if (this.tbi > 0.55) this.knockOut(3, 0.9);
+      if (this.tbi >= 1) this.kill('traumatic brain injury (intracranial haemorrhage)');
+    }
 
     // ---------------- death ----------------
     if (this.alive && !this.undead) {
@@ -1330,7 +1434,8 @@ export class InjurySystem {
       if (this.ptx[s] < this.ptxTarget[s]) this.ptx[s] = Math.min(this.ptxTarget[s], this.ptx[s] + dt * this.ptxRate[s]);
       // a pleural cavity holds up to ~3 L of blood; the haemothorax compresses the lung
       const htx = smoothstep(300, 1800, this.cav['pleura' + s]);
-      this.lungs[s] = this.parench[s] * (1 - 0.92 * this.ptx[s]) * (1 - 0.8 * htx);
+      // (a flail segment moves in when the chest expands: that side draws in little air)
+      this.lungs[s] = this.parench[s] * (1 - 0.92 * this.ptx[s]) * (1 - 0.8 * htx) * this.chestWall[s];
       // the trauma scores grade what the chest injury has become: massive haemothorax (> 1 L) is
       // AIS 4, a tension pneumothorax AIS 5
       if (this.cav['pleura' + s] > 1000) this.gradeOnce('chest', 4, 'massive haemothorax');
@@ -1355,6 +1460,8 @@ export class InjurySystem {
     // without brain-stem perfusion only agonal gasps remain
     const agonal = this.arrestTime >= 0 || this.delivery < 0.15;
     let vent = alive ? this.breathing * this.airway * (this.conscious ? 1 : 0.85) : 0;
+    // broken ribs hurt with every breath: it is kept shallow while awake
+    if (this.conscious) vent *= 1 - this.splint;
     if (agonal) vent *= 0.15;
     this.vent = vent;
     const lungFn = 0.5 * (this.lungs.L + this.lungs.R);
@@ -1437,7 +1544,7 @@ export class InjurySystem {
       ctl.armStrength[s] = clamp(am * fracArm(s) * (s === 'L' ? P.armsL : P.armsR) * this.nerve['arm' + s] * (1 - 0.7 * weak) * this.buckle.arms[s], 0, 1);
     }
     ctl.spineStrength = clamp(P.trunk * (1 - 0.7 * weak) * this.buckle.trunk * (1 - 0.3 * m('abdomen')), 0, 1);
-    ctl.neckStrength = clamp(P.neck * (1 - 0.6 * weak), 0, 1);
+    ctl.neckStrength = clamp(P.neck * (1 - 0.6 * weak) * (1 - 0.6 * this.neckSprain), 0, 1);
     ctl.balanceSkill = this.undead ? 1 : clamp((1 - 0.7 * this.concussion) * (1 - 0.6 * weak) * (1 - 0.3 * this.pain), 0.05, 1);
     this.concussion = Math.max(0, this.concussion - dt / 240);
     if (this.undead) {
@@ -1545,6 +1652,975 @@ export class InjurySystem {
   }
 
   // ------------------------------------------------------------------------------------------
+  // Melee trauma
+
+  /**
+   * A melee blow; game/melee.js works out the collision. body: the struck body; pointW: where it
+   * landed on the skin; dirW: unit direction into the body. info (from the collision):
+   *   kind 'blunt' | 'cut' | 'stab', weapon, label;
+   *   vn: closing speed (m/s), speed: relative speed (m/s);
+   *   J: impulse the tissue takes (N s; a part crushed against the floor takes the striker's whole
+   *     momentum), Jw: the blow's impulse vector on the free part (head kinematics), energy (J);
+   *   mHard: striker mass behind the force peak (kg), mB: effective mass of the struck part (kg; huge
+   *     when the floor is behind it), kW: striker stiffness (N/m), maxForce (N), area (m²),
+   *   span: contact length along the striker (m), radius (m), axisW: striker axis or null,
+   *   backed: 0..1 how much the floor is behind the struck part, sharpness;
+   *   cut: { pathW, normalsW, depth, length } for a cut (the line the edge drew on the skin);
+   *   stab: { dirW, energy, length, width, edgeW } for a stab.
+   * Blunt: peak force F = v sqrt(k m) from the tissue's and the striker's stiffness k (in series) and
+   * the reduced mass m of the colliding parts, compared with the tolerances of the bones under it
+   * (each rib, the skull by region, the face, long bones, which break physically); the brain is hurt
+   * by the head's acceleration (rotation above all: knockouts) and by fractures pressed into it.
+   * Returns { kind, force (N), tau (s), energy (J), fractures: [{label, seg, pointW, ...}], ko,
+   * killed, wounds, structures: [labels], depth (m), armor, damage (undead hp) }.
+   */
+  meleeHit(body, pointW, dirW, info) {
+    const seg = body.userData && body.userData.segment;
+    if (!seg) return null;
+    const res = { kind: info.kind, force: 0, tau: 0, energy: info.energy || 0, fractures: [], ko: false, killed: false, wounds: [], structures: [], depth: 0, armor: null, damage: 0 };
+    const wasConscious = this.conscious, wasAlive = this.alive;
+    const c = {
+      body, seg, name: seg.name, k: segKind(seg.name), pointW, dirW, info, res,
+      pB: this.toBind(body, pointW, new Vec3()), dB: body.worldDirToLocal(dirW, new Vec3()).normalize(),
+      bleeds: [], woundPain: 0, painAdd: 0, vital: 0, log: [], scale: 1,
+    };
+    const armor = this.meleeArmor(c);
+    if (armor === 'stopped') {
+      this.reactToHit(seg.name, 0.3, dirW, 'blunt');
+      this.log(`${info.label || 'Blow'} stopped by the ${res.armor}`, 1);
+    } else if (info.kind === 'cut' && info.cut) this.meleeCut(c);
+    else if (info.kind === 'stab' && info.stab) this.meleeStab(c);
+    else this.meleeBlunt(c);
+    if (this.undead && this.alive && armor !== 'stopped') {
+      // wrecking a zombie: the tissue destroyed plus what it hit, more where it matters
+      const dmg = (Math.pow(Math.max(res.energy, 0), 0.7) + Math.min(c.vital, UNDEAD_VITAL_MAX)) * (UNDEAD_LOC[c.k] ?? 1) * c.scale;
+      this.hp -= dmg;
+      res.damage = dmg;
+      if (this.hp <= 0) this.kill('destroyed');
+    }
+    res.ko = wasConscious && !this.conscious && this.alive;
+    res.killed = wasAlive && !this.alive;
+    return res;
+  }
+
+  /** Armour: a helmet or a vest stops a blade; a helmet spreads a blow over the skull, a vest softens it. */
+  meleeArmor(c) {
+    const a = this.armor;
+    if (!a || !this.alive) return null;
+    const blunt = c.info.kind === 'blunt';
+    if (c.k === 'head' && a.helmet > 0) {
+      c.res.armor = 'helmet';
+      if (!blunt) return 'stopped';
+      c.scale = 0.3;
+      return 'reduced';
+    }
+    if ((c.k === 'chest' || c.k === 'abdomen') && a.vest > 0) {
+      c.res.armor = 'vest';
+      if (!blunt) return 'stopped';
+      c.scale = 1 - 0.6 * a.vest;
+      return 'reduced';
+    }
+    return null;
+  }
+
+  /**
+   * A hit reaction that lasts: hold the hit-reaction buckles down (legs / legL / legR / trunk /
+   * armL / armR: floor 0..1) from `t0` s after now for `dur` s, adding `pain` (on `painSeg`) when it
+   * starts. A liver shot drops the body to its knees after a moment; a concussive blow leaves
+   * rubbery legs; broken ribs fold the trunk.
+   */
+  addHold(h) {
+    const t0 = this.time + (h.t0 || 0);
+    this.holds.push({ ...h, t0, t1: t0 + (h.dur || 1) });
+  }
+
+  applyHolds() {
+    const B = this.buckle;
+    for (const h of this.holds) {
+      if (this.time < h.t0) continue;
+      if (h.pain && !h.painDone) {
+        h.painDone = true;
+        this.addPain(h.pain, h.painSeg);
+        if (this.conscious && this.alive) this.events.push({ type: 'grunt', intensity: 1 });
+      }
+      const legs = h.legs ?? 1;
+      B.L = Math.min(B.L, h.legL ?? legs);
+      B.R = Math.min(B.R, h.legR ?? legs);
+      if (h.trunk !== undefined) B.trunk = Math.min(B.trunk, h.trunk);
+      if (h.armL !== undefined) B.arms.L = Math.min(B.arms.L, h.armL);
+      if (h.armR !== undefined) B.arms.R = Math.min(B.arms.R, h.armR);
+    }
+    this.holds = this.holds.filter((h) => this.time < h.t1);
+  }
+
+  meleeBlunt(c) {
+    const { info, res, k, name } = c;
+    c.region = k === 'head' ? headRegion(c.pB) : k;
+    // tissue under the striker (a broad sole bears on the bony face around the nose)
+    const tk = c.region === 'nose' ? ((info.area || 0) > 0.0035 ? 'face' : 'nose') : FACE_BONE[c.region] ? 'face' : k;
+    const kS = 1 / (1 / (MELEE_K[tk] ?? 0.2e6) + 1 / (info.kW || 1e6));
+    const muP = (info.mHard * info.mB) / (info.mHard + info.mB);
+    const F0 = Math.min(info.vn * Math.sqrt(kS * muP), info.maxForce ?? Infinity);
+    const F = F0 * c.scale;
+    c.F = F;
+    c.tau = Math.PI * Math.sqrt(muP / kS);
+    res.force = F;
+    res.tau = c.tau;
+    res.energy *= c.scale;
+    this.tissueEnergy += res.energy;
+    if (res.armor === 'helmet' && F0 > 8000) {
+      this.armor.helmet--;
+      this.events.push({ type: 'armor', part: 'helmet', left: this.armor.helmet });
+      if (this.armor.helmet === 0) this.log('Helmet knocked off', 2);
+    }
+    if (k === 'head') this.bluntHead(c);
+    else if (k === 'neck') this.bluntNeck(c);
+    else if (k === 'chest' || k === 'abdomen') this.bluntTrunk(c);
+    else this.bluntLimb(c);
+    // contusion where it landed (a deep one bleeds into the tissue: haematoma); it carries the pain
+    // and the bleeding of what broke under it
+    const T = BLUNT[k];
+    const sev = clamp((F - T.bruise * 0.6) / (2.5 * T.bruise), 0, 1);
+    if (F > T.bruise * 2) c.bleeds.push(this.makeBleed(0.25 * sev, 'tissue', { ext: 0, cav: 'tissue' }));
+    if (sev > 0 || c.bleeds.length || c.woundPain > 0) {
+      const nOut = c.dB.clone().negate();
+      const w = this.addWound({
+        body: c.body, seg: c.seg, kind: 'bruise', local: c.body.worldToLocal(c.pointW, new Vec3()), normal: nOut, dir: c.dB.clone(),
+        radius: 0.016 + 0.024 * sev + 0.12 * (info.span || 0), severity: clamp(0.3 + sev, 0, 1), bleeds: c.bleeds,
+        pain: 0.05 + 0.5 * sev + c.woundPain, cause: info.label || 'blow', energy: res.energy,
+      });
+      res.wounds.push(w);
+    }
+    this.addPain(PAIN_BY_SEGMENT[k] * (0.1 + 0.9 * sev) + c.painAdd, name);
+    this.muscle[name] = clamp(Math.max(this.muscle[name] || 0, 0.3 * sev), 0, 1);
+    if (F > T.bruise * 1.3 || c.log.length) {
+      const worst = c.log.reduce((m, x) => Math.max(m, x[1]), sev > 0.5 ? 2 : 1);
+      this.log(`${info.label || 'Blow'} to the ${SEGMENT_LABEL[name] || name} (${(F / 1000).toFixed(1)} kN)`, worst);
+      this.addAIS(issRegion(name), sev > 0.6 ? 2 : 1, 'contusion');
+    }
+    for (const [t, s] of c.log) this.log(`  ${t}`, s);
+    if (F > T.bruise * 0.7) this.reactToHit(name, clamp(F / (REACT_F[k] || 4000), 0.12, 1.2), c.dirW, 'blunt');
+  }
+
+  /** A blow to the head: skull and facial bones, the brain (knockout, injury), the neck. */
+  bluntHead(c) {
+    const { info, F } = c;
+    const area = info.area || 0.002;
+    let worst = this.headSite(c, c.region, c.pB, F, area);
+    // pinned against the floor (a stamp), the head is crushed between the blow and the floor
+    const backed = info.backed || 0;
+    if (backed > 0.3) {
+      const q = new Vec3().subVectors(HEAD_CENTRE, c.pB).add(HEAD_CENTRE);
+      const r2 = this.headSite(c, headRegion(q), q, F * backed, 0.0025, true);
+      if (r2 && (!worst || r2.x > worst.x)) worst = r2;
+    }
+    // the scalp splits over the bone; the brow and the cheekbone split under a punch
+    if ((SKULL_REGIONS.has(c.region) && F > 3800) || ((c.region === 'cheek' || (c.region === 'forehead' && c.pB.y < 1.715)) && F > 2600)) this.scalpLaceration(c, c.pB, F / 3800);
+    if (!this.alive) return;
+    // the brain: the head's acceleration (its rotation above all) knocks out; a pinned head cannot
+    // accelerate, the brain is compressed instead
+    const kin = this.headKinematics(c.body, c.pointW, info.Jw, c.tau);
+    let s = Math.hypot(kin.wy / KO_AXIAL, kin.wx / KO_SAGITTAL, kin.wz / KO_CORONAL, kin.acc / 9.81 / KO_G) * (KO_REGION[c.region] ?? 1) * (1 - 0.8 * backed);
+    if (backed > 0.3) s = Math.max(s, (1.3 * F * backed) / boneTolerance(BONE_TOL.occiput, 0.0025));
+    if (worst) s += worst.depressed ? 1.2 : 0.4;
+    s *= 1 + 0.6 * this.concussion; // a concussed brain goes out more easily
+    this.concussion = clamp(this.concussion + 0.25 * s * s, 0, 1);
+    c.res.head = { load: s, omega: kin.omega, g: kin.acc / 9.81 };
+    if (this.rng() < logistic((s - 1) / 0.1)) this.knockOut(4 + 30 * clamp(s - 0.85, 0, 2) + 8 * this.rng(), clamp(0.4 + 0.3 * s, 0, 1));
+    else if (s > 0.55) {
+      // rubbery legs: a concussive blow that does not quite knock out (near the threshold: a flash
+      // knockdown)
+      const a = clamp((s - 0.55) / 0.45, 0, 1);
+      this.addHold({ legs: 0.85 - 0.5 * a * a, dur: 0.4 + 1.4 * a });
+    }
+    if (s > 1.3) this.tbi += 0.08 * (s - 1.3); // diffuse axonal injury
+    if (backed > 0.3) this.tbi += 0.1 * clamp((F * backed) / 8000, 0, 2); // crushed
+    if (s > 0.5) {
+      c.log.push([s > 1 ? 'concussion' : 'mild concussion', 2]);
+      this.addAIS('head', s > 1.6 ? 3 : 2, 'concussion');
+    }
+    // the neck: a violent twist of the head sprains it, an extreme one breaks it
+    const om = kin.omega * (1 - backed);
+    if (om > 60) {
+      const sp = clamp((om - 60) / 60, 0.2, 1);
+      if (sp > this.neckSprain) {
+        this.neckSprain = sp;
+        c.log.push(['cervical sprain (whiplash)', 1]);
+        this.addAIS('head', 1, 'cervical sprain');
+      }
+      this.addPain(0.4 * sp, 'neck');
+      if (om > 110 && this.rng() < smoothstep(110, 170, om)) this.cervicalFracture(c, 0.35);
+    }
+    this.checkBrain(c);
+  }
+
+  /**
+   * What a blow does to the head (with the neck behind it): angular velocity (rad/s) in the head's
+   * frame (wx nodding, wy turning about the vertical, wz tilting sideways), speed (m/s) and mean
+   * acceleration (m/s²) over the contact.
+   */
+  headKinematics(body, pointW, Jw, tau) {
+    if (!Jw) return { omega: 0, wx: 0, wy: 0, wz: 0, dv: 0, acc: 0 };
+    const r = _v0.subVectors(pointW, body.pos);
+    const L = _v1.crossVectors(r, Jw);
+    body.invInertiaMul(L, _v2);
+    body.worldDirToLocal(_v2, _v2).scale(1 / HEAD_ROT_COUPLING);
+    const dv = Jw.length() / (body.mass * HEAD_LIN_COUPLING);
+    return { omega: _v2.length(), wx: _v2.x, wy: _v2.y, wz: _v2.z, dv, acc: dv / Math.max(tau, 1e-3) };
+  }
+
+  /**
+   * Skull or facial fracture where a blow (or, under a stamp, the floor) bears on the head at bind
+   * point p with force F (N). Returns { region, depressed, x: F / tolerance } for a skull fracture.
+   */
+  headSite(c, region, p, F, area, floorSide = false) {
+    const seg = c.seg;
+    const pW = floorSide ? c.body.localToWorld(_v0.subVectors(p, this.bodyBindPos(c.body)), new Vec3()) : c.pointW.clone();
+    if (SKULL_REGIONS.has(region)) {
+      const prior = this.skullFx.length > 0;
+      // (a skull already broken gives way more easily)
+      const thr = boneTolerance(BONE_TOL[region], area) * (prior ? 0.75 : 1);
+      if (!(this.rng() < logistic((F - thr) / (0.1 * thr)))) return null;
+      const x = F / thr;
+      const depressed = x > 1.6 || (area < 0.0015 && x > 1.25) || (prior && x > 1.2);
+      this.skullFx.push({ region, depressed, pB: p.clone() });
+      // the brain under it: a depressed fragment contuses and tears it
+      this.tbi += depressed ? 0.3 + 0.2 * Math.max(0, x - 1.25) * (region === 'temple' ? 1.25 : 1) : 0.08;
+      c.vital += depressed ? 40 : 15;
+      // haematoma: the middle meningeal artery runs under the temple (epidural), bridging veins tear
+      if (!this.undead && this.rng() < (region === 'temple' ? 0.85 : depressed ? 0.55 : 0.15)) {
+        this.ichRate = Math.max(this.ichRate, 0.0025 + 0.004 * clamp(x - 1, 0, 2));
+        c.log.push(['intracranial haemorrhage', 3]);
+      }
+      const open = depressed && (x > 2 || this.rng() < 0.4);
+      this.meleeFracture(seg, 'skull', open, pW, { depressed, region, floor: floorSide }, c.res, depressed ? 3 : 2, 'head');
+      if (open) this.scalpLaceration(c, p, x);
+      c.painAdd += 0.5;
+      c.log.push([`${depressed ? 'depressed' : 'linear'} ${HEAD_REGION_LABEL[region]} skull fracture${floorSide ? ' (against the floor)' : ''}`, 3]);
+      return { region, depressed, x };
+    }
+    const label = FACE_BONE[region];
+    if (!label) return null;
+    const thr = boneTolerance(BONE_TOL[region], area);
+    if (!(this.rng() < logistic((F - thr) / (0.1 * thr)))) return null;
+    // facial fractures bleed into the nose and mouth: lying unconscious, the blood runs into the airway
+    const q = region === 'nose' ? 1.2 + 1.3 * clamp(F / thr - 1, 0, 1) : region === 'maxilla' ? 2.5 : region === 'cheek' ? 0.5 : 1.3;
+    const air = region === 'cheek' ? 0.1 : region === 'nose' ? 0.35 : 0.6;
+    c.bleeds.push(this.makeBleed(q, 'tissue', { art: 0.5, ext: region === 'nose' ? 0.7 : region === 'cheek' ? 0.6 : 0.4, cav: 'tissue', air, label }));
+    const open = region === 'jaw' || region === 'chin' || region === 'maxilla'; // into the mouth
+    this.meleeFracture(seg, label, open, pW, { region, floor: floorSide }, c.res, FACE_AIS[region], 'face');
+    c.painAdd += 0.4;
+    c.woundPain += 0.3;
+    c.log.push([`${label} broken${air > 0.3 ? ' (bleeding into the airway)' : ''}`, 2]);
+    return null;
+  }
+
+  /** The skin split over bone by a blow (scalp, brow): a laceration that bleeds freely. */
+  scalpLaceration(c, p, x) {
+    if (c.lacerated) return;
+    c.lacerated = true;
+    const sev = clamp(x - 0.7, 0.2, 1);
+    const nOut = c.dB.clone().negate();
+    const dir = c.info.axisW ? c.body.worldDirToLocal(c.info.axisW, new Vec3()) : nOut.anyPerpendicular(new Vec3());
+    dir.addScaled(nOut, -dir.dot(nOut));
+    if (dir.lengthSq() < 1e-8) nOut.anyPerpendicular(dir);
+    dir.normalize();
+    const w = this.addWound({
+      body: c.body, seg: c.seg, kind: 'laceration', local: p.clone().sub(this.bodyBindPos(c.body)), normal: nOut, dir,
+      radius: 0.005 + 0.006 * sev, severity: 0.5 + 0.5 * sev, bleeds: [this.makeBleed(0.6 + 1.4 * sev, 'scalp', { art: 0.4, ext: 0.97, cav: 'tissue' })],
+      pain: 0.15, cause: c.info.label || 'blow', energy: 0,
+    });
+    c.res.wounds.push(w);
+    c.log.push([c.region === 'cheek' || c.region === 'forehead' ? 'skin split over the bone' : 'scalp laceration', 1]);
+  }
+
+  /** Brain injury from blows: fatal at 1 (0.8 wrecks a zombie's brain); a severe one is a coma. */
+  checkBrain(c) {
+    if (!this.alive) return;
+    if (this.tbi > 0.35) this.addAIS('head', this.tbi > 0.7 ? 5 : 4, 'traumatic brain injury');
+    if (this.undead) {
+      if (this.tbi >= 0.8) this.kill('skull crushed');
+      return;
+    }
+    if (this.tbi >= 1) this.kill('massive head trauma (skull fracture, brain injury)');
+    else if (this.tbi > 0.5) this.knockOut(60 + 240 * (this.tbi - 0.5), 1);
+    if (c) c.res.tbi = this.tbi;
+  }
+
+  cervicalFracture(c, pCord) {
+    const neck = this.rd.segments.neck;
+    this.meleeFracture(neck, 'cervical vertebrae', false, c.pointW, {}, c.res, 2, 'head');
+    const q = this.boneBleed('neck', 'cervical vertebrae', FRACTURE_BLEED['cervical vertebrae']);
+    if (q > 0) c.bleeds.push(this.makeBleed(q, 'bone', { art: 0.3, ext: 0, cav: 'neck' }));
+    c.log.push(['cervical spine fractured', 3]);
+    if (this.rng() < pCord) this.spinalInjury(this.rng() < 0.75 ? 'C5' : 'C1');
+  }
+
+  /** The throat (larynx), the side of the neck (carotid sinus), the cervical spine. */
+  bluntNeck(c) {
+    const { F, pB, info } = c;
+    const area = info.area || 0.002;
+    if (pB.z > -0.005 && Math.abs(pB.x) < 0.028) {
+      // the larynx crushed against the spine: a fractured thyroid cartilage swells shut
+      const thr = boneTolerance(BONE_TOL.larynx, area);
+      if (this.rng() < logistic((F - thr) / (0.12 * thr))) {
+        this.airwayInjury = Math.min(this.airwayInjury, F > 2 * thr ? 0.35 : 0.6);
+        c.bleeds.push(this.makeBleed(0.5, 'tissue', { art: 0.4, ext: 0, cav: 'neck', air: 0.6 }));
+        this.meleeFracture(c.seg, 'larynx', false, c.pointW, {}, c.res, 3, 'head');
+        c.painAdd += 0.6;
+        c.log.push(['larynx fractured (airway)', 3]);
+      }
+    } else if (pB.z > -0.03 && this.alive && F > 1400 && this.rng() < 0.1 + 0.35 * smoothstep(1400, 3000, F)) {
+      // the carotid sinus: a blow to the side of the neck drops the blood pressure for a moment
+      this.knockOut(2 + 5 * this.rng(), 0.2);
+      c.log.push(['carotid sinus reflex (stunned)', 1]);
+    }
+    const thr = boneTolerance(BONE_TOL['cervical vertebrae'], area) * (pB.z < -0.03 ? 1 : 1.3);
+    if (this.rng() < logistic((F - thr) / (0.1 * thr))) this.cervicalFracture(c, 0.3);
+  }
+
+  /** Chest and upper abdomen: ribs, sternum, collarbone, lungs, heart, liver / spleen / kidneys. */
+  bluntTrunk(c) {
+    const { F, pB, info, k } = c;
+    const area = info.area || 0.002;
+    // how far the contact reaches up and down the body (a bat held upright lies across many ribs)
+    const axB = info.axisW ? c.body.worldDirToLocal(info.axisW, new Vec3()) : null;
+    const h = (info.radius || 0.03) + (axB ? 0.5 * Math.abs(axB.y) * (info.span || 0) : 0);
+    const ribs = this.ribFractures(c, F, h);
+    const front = pB.z > 0.0;
+    if (k === 'chest') {
+      if (front && Math.abs(pB.x) < 0.035 && pB.y > 1.2 && pB.y < 1.46) {
+        const thr = boneTolerance(BONE_TOL.sternum, area);
+        if (this.rng() < logistic((F - thr) / (0.1 * thr))) {
+          this.meleeFracture(c.seg, 'sternum', false, c.pointW, {}, c.res, 2, 'chest');
+          c.woundPain += 0.4;
+          c.painAdd += 0.3;
+          c.log.push(['sternum fractured', 2]);
+        }
+        if (F > 7000) {
+          this.cardiac = Math.min(this.cardiac, 0.85);
+          this.addAIS('chest', 3, 'cardiac contusion');
+          c.log.push(['cardiac contusion', 2]);
+          if (this.rng() < 0.08) this.ventricularFibrillation('cardiac contusion');
+        }
+      }
+      // commotio cordis: a blow over the heart at the wrong moment of the beat
+      if (front && pB.x > -0.03 && pB.x < 0.085 && pB.y > 1.22 && pB.y < 1.36 && F > 1000 && F < 7000 && this.alive && this.rng() < 0.03) {
+        this.ventricularFibrillation('commotio cordis');
+        c.log.push(['commotio cordis (ventricular fibrillation)', 3]);
+      }
+      // the collarbone (a blow down onto the shoulder) and the shoulder blade
+      for (const s of this.bySeg.chest) {
+        if (s.bone !== 'clavicle' && s.bone !== 'scapula') continue;
+        if (structDistance(pB, s) > (s.bone === 'clavicle' ? 0.035 : 0.04)) continue;
+        const thr = boneTolerance(BONE_TOL[s.bone], area);
+        if (!(this.rng() < logistic((F - thr) / (0.1 * thr)))) continue;
+        this.meleeFracture(c.seg, s.label, false, c.pointW, { side: s.side }, c.res, 2, 'chest');
+        c.woundPain += 0.3;
+        c.log.push([`${s.label} broken`, 2]);
+        if (s.bone === 'clavicle') this.addHold({ ['arm' + s.side]: 0.25, dur: 4 });
+      }
+      // the lung under a violent blow
+      if (F > 7000) {
+        const sd = pB.x >= 0 ? 'L' : 'R';
+        this.parench[sd] = Math.max(0.1, this.parench[sd] - clamp(0.12 + 0.12 * (F / 7000 - 1), 0.12, 0.4));
+        this.addAIS('chest', 3, 'lung contusion');
+        c.log.push([`${sd === 'L' ? 'left' : 'right'} lung contusion`, 2]);
+      }
+    }
+    this.bluntAbdomen(c, ribs.length > 0);
+    if (ribs.length && this.alive && !this.undead) {
+      // broken ribs fold the trunk round them; several (with displaced ends) take the legs as well:
+      // the stagger first, then down to the knees
+      const n = ribs.length, bad = n >= 3 || (n >= 2 && ribs.some((r) => r.displaced));
+      this.addHold({ t0: bad ? 0.3 : 0.1, trunk: 0.4, legs: bad ? 0.28 : 0.65, dur: bad ? 1.4 + 0.3 * n : 0.8, pain: 0.3 * n, painSeg: 'chest' });
+    }
+  }
+
+  /** Solid organs under a blow to the upper abdomen or the lower ribs; liver shot, solar plexus. */
+  bluntAbdomen(c, overRibs) {
+    const { F, pB } = c;
+    if (pB.y > 1.27) return;
+    for (const s of this.bySeg.abdomen) {
+      if (s.kind !== 'organ' || s.type !== 'ellipsoid') continue;
+      // the load reaching an organ falls off with its depth under the skin; ribs over it take a share
+      const d = Math.max(0, ellipsoidDistance(pB, s.c, s.r));
+      if (d > 0.06) continue;
+      const tol = s.name === 'liver' ? 3800 : s.name === 'spleen' ? 3200 : 4000;
+      const Fo = F * Math.exp(-d / 0.04) * (overRibs ? 0.6 : 1);
+      if (Fo <= tol) continue;
+      const sev = clamp((Fo - tol) / tol + 0.3, 0.2, 1);
+      const prev = this.structSev[s.name] || 0;
+      const total = 1 - (1 - prev) * (1 - sev);
+      this.structSev[s.name] = total;
+      const q = s.bleed * (total - prev) * 0.8;
+      if (q > 0) c.bleeds.push(this.makeBleed(q, 'organ', { art: s.art, ext: 0, cav: s.cav, side: s.side || 'L', label: s.label }));
+      c.res.structures.push(s.label);
+      c.vital += 6;
+      c.painAdd += 0.5;
+      this.addAIS('abdomen', sev > 0.6 ? s.ais[1] : s.ais[0] + 1, s.label + ' laceration');
+      c.log.push([`${s.label} ruptured (internal bleeding)`, 2]);
+    }
+    if (!this.alive || this.undead) return;
+    const liver = this.bySeg.abdomen.find((s) => s.name === 'liver');
+    if (liver && pB.x < 0.01 && ellipsoidDistance(pB, liver.c, liver.r) < 0.05 && F > 900 && this.rng() < smoothstep(900, 2400, F)) {
+      // the liver shot: a vagal reflex - after a moment the legs go and the body folds to its
+      // knees, in agony, and stays down
+      const a = clamp(F / 3000, 0.3, 1.5);
+      this.addHold({ t0: 0.25 + 0.35 * this.rng(), dur: 2.5 + 3 * a * (0.6 + 0.4 * this.rng()), legs: 0.2, trunk: 0.45, pain: 1.4, painSeg: 'abdomen' });
+      c.woundPain += 0.4;
+      c.log.push(['liver shot', 1]);
+    } else if (pB.z > 0.02 && Math.abs(pB.x) < 0.045 && pB.y > 1.14 && pB.y < 1.24 && F > 1000) {
+      // the solar plexus: winded, doubled over
+      this.addHold({ dur: 1.5 + 2 * clamp(F / 3000, 0, 1), trunk: 0.3, legs: F > 2500 ? 0.3 : 0.6, pain: 0.6, painSeg: 'abdomen' });
+      this.events.push({ type: 'cough', blood: false });
+      c.log.push(['winded (solar plexus)', 1]);
+    }
+  }
+
+  /**
+   * Ribs broken by a blow at c.pB (force F, contact reaching h m up and down the body): the ribs
+   * under the contact share the load (the nearest the most) and each breaks beyond its tolerance; a
+   * rib broken again away from its first break is broken in two places (segmental). Returns the new
+   * fractures [{side, n, theta, displaced, segmental}].
+   */
+  ribFractures(c, F, h) {
+    const p = c.pB;
+    const cand = ribsNear(p).filter((r) => r.bony && Math.abs(r.dy) < 0.08 && r.radial > 0.8 && r.radial < 1.75);
+    if (!cand.length) return [];
+    const sigma = Math.max(0.016, h * 0.8);
+    let wsum = 0;
+    for (const r of cand) wsum += (r.w = Math.exp(-(r.dy * r.dy) / (sigma * sigma)));
+    const norm = Math.max(wsum, 1);
+    const out = [];
+    for (const r of cand) {
+      const Fr = (F * RIB_SHARE * r.w) / norm;
+      const tol = RIB_TOL[r.n] * (r.theta < 0.8 ? 1.5 : r.theta > 2.4 ? 1.2 : 1);
+      if (Fr < tol * (0.88 + 0.24 * this.rng())) continue;
+      const displaced = Fr > 1.7 * tol || (Fr > 1.3 * tol && this.rng() < 0.35);
+      const sites = this.ribFx.filter((x) => x.side === r.side && x.n === r.n);
+      const same = sites.find((x) => Math.abs(x.theta - r.theta) < 0.35);
+      if (same) {
+        if (displaced && !same.displaced) {
+          same.displaced = true;
+          out.push({ side: r.side, n: r.n, theta: r.theta, displaced: true, segmental: same.segmental, again: true });
+        }
+        continue;
+      }
+      const f = { side: r.side, n: r.n, theta: r.theta, displaced, segmental: sites.length > 0 };
+      for (const x of sites) x.segmental = true;
+      this.ribFx.push(f);
+      out.push(f);
+    }
+    if (!out.length) return out;
+    const side = out[0].side, sideName = side === 'L' ? 'left' : 'right';
+    // torn intercostal vessels bleed into the pleural space (haemothorax)
+    for (const f of out) {
+      if (f.again) continue;
+      const q = this.boneBleed('chest', `rib ${f.side}${f.n}`, 0.3);
+      if (q > 0) c.bleeds.push(this.makeBleed(q, 'bone', { art: 0.5, ext: 0, cav: 'pleura', side, label: `rib ${f.n}` }));
+    }
+    // the sharp ends of displaced ribs tear the lung
+    const disp = out.filter((f) => f.displaced).length;
+    if (disp && this.rng() < 1 - Math.pow(0.7, disp)) {
+      this.ptxTarget[side] = Math.max(this.ptxTarget[side], 0.35 + 0.4 * this.rng());
+      this.ptxRate[side] = Math.max(this.ptxRate[side], 1 / 35);
+      if (!this.tension[side] && this.rng() < 0.12) this.tension[side] = true;
+      this.addAIS('chest', 3, 'pneumothorax');
+      c.log.push([`${sideName} pneumothorax (rib fragment)`, 2]);
+    }
+    // one entry per side in the fracture list
+    const mine = this.ribFx.filter((x) => x.side === side);
+    const broken = [...new Set(mine.map((x) => x.n))].sort((a, b) => a - b);
+    let entry = this.fractures.find((x) => x.seg === 'chest' && x.label === 'ribs' && x.side === side);
+    if (!entry) {
+      entry = { seg: 'chest', label: 'ribs', side, open: false, physical: false, ribs: [] };
+      this.fractures.push(entry);
+    }
+    entry.ribs = broken;
+    entry.displaced = mine.some((x) => x.displaced);
+    this.addAIS('chest', broken.length >= 3 ? 3 : 2, `rib fractures (${sideName})`);
+    this.splint = Math.min(0.35, 0.05 * this.ribFx.length);
+    this.addPain(0.4 + 0.25 * out.length, 'chest');
+    c.woundPain += 0.3 + 0.12 * out.length;
+    c.painAdd += 0.2;
+    c.vital += 4 * out.length;
+    // flail chest: three or more adjacent ribs broken in two places (or five or more broken, most of
+    // them displaced): the loose segment moves in as the chest expands
+    if (!this.flail[side]) {
+      let run = 0, flail = false;
+      for (let n = 1; n <= 12; n++) {
+        run = mine.some((x) => x.n === n && x.segmental) ? run + 1 : 0;
+        if (run >= 3) flail = true;
+      }
+      if (!flail && broken.length >= 5 && mine.filter((x) => x.displaced).length >= 3) flail = true;
+      if (flail) {
+        this.flail[side] = true;
+        this.chestWall[side] = 0.55;
+        this.parench[side] = Math.max(0.1, this.parench[side] - 0.2);
+        this.addAIS('chest', this.flail.L && this.flail.R ? 5 : 3, 'flail chest');
+        c.log.push([`${sideName} flail chest`, 3]);
+      }
+    }
+    const list = out.map((f) => `${f.n}${f.displaced ? ' (displaced)' : ''}`).join(', ');
+    c.log.push([`${sideName} rib${out.length > 1 ? 's' : ''} ${list} broken`, 2]);
+    const ribs = out.map((f) => ({ side: f.side, n: f.n, displaced: f.displaced, segmental: f.segmental }));
+    const pointW = c.pointW.clone();
+    this.events.push({ type: 'fracture', seg: this.rd.segments.chest, segName: 'chest', label: 'ribs', ribs, pointW, displaced: disp > 0, flail: this.flail[side], open: false, physical: false });
+    c.res.fractures.push({ label: 'ribs', seg: 'chest', ribs, pointW, displaced: disp > 0, flail: this.flail[side] });
+    return out;
+  }
+
+  /** Limbs and pelvis: long bones break physically, hands, feet and the pelvis are recorded. */
+  bluntLimb(c) {
+    const { F, k, name, seg, info } = c;
+    const area = info.area || 0.002;
+    const label = k === 'pelvis' ? 'pelvis' : seg.bone ? seg.bone.name : k === 'hand' ? 'hand bones' : k === 'foot' ? 'foot bones' : null;
+    if (!label) return;
+    const thr = boneTolerance(BONE_TOL[label] ?? 4000, area);
+    const side = sideOf(name);
+    if (seg.bone) {
+      if (!seg.fractured && !this.pendingBreaks.some((b) => b.seg === seg) && this.rng() < logistic((F - thr) / (0.1 * thr))) {
+        // it breaks where it was struck (a parrying forearm: the ulna, a "nightstick" fracture)
+        const ax = boneAxis(name);
+        let t = 0.5;
+        if (ax) {
+          const ab = _v1.subVectors(ax.b, ax.a);
+          t = clamp(_v2.subVectors(c.pB, ax.a).dot(ab) / ab.lengthSq(), 0, 1);
+        }
+        const open = F > 2.4 * thr;
+        this.queueBreak(seg, t, open);
+        const q = this.boneBleed(name, label, FRACTURE_BLEED[label] ?? 0.3);
+        if (q > 0) c.bleeds.push(this.makeBleed(q, 'bone', { art: 0.3, ext: open ? 0.3 : 0, cav: 'tissue' }));
+        c.res.fractures.push({ label, seg: name, physical: true, open, pointW: c.pointW.clone() });
+        c.vital += 10;
+        c.painAdd += 0.6;
+        c.log.push([`${label} broken${open ? ' (open)' : ''}`, 2]);
+      }
+    } else if (this.rng() < logistic((F - thr) / (0.1 * thr))) {
+      const q = this.boneBleed(name, label, FRACTURE_BLEED[label] ?? 0.3);
+      if (q > 0) c.bleeds.push(this.makeBleed(q, 'bone', { art: 0.3, ext: 0, cav: k === 'pelvis' ? 'retro' : 'tissue' }));
+      this.meleeFracture(seg, label, false, c.pointW, {}, c.res, label === 'pelvis' ? 3 : 2);
+      c.vital += 5;
+      c.woundPain += 0.3;
+      c.log.push([`${label} broken`, 2]);
+    }
+    if (!this.alive || this.undead) return;
+    // a blow to the thigh or the shin makes that leg give ("dead leg"); one to the arm numbs it
+    const a = clamp(F / thr, 0, 1.5);
+    if ((k === 'thigh' || k === 'shin' || k === 'pelvis') && a > 0.45) {
+      if (k !== 'pelvis') this.muscle[name] = clamp(Math.max(this.muscle[name] || 0, 0.3 * a), 0, 1);
+      const legs = clamp(1 - 0.6 * a, 0.2, 0.8);
+      this.addHold(side ? { ['leg' + side]: legs, dur: 0.4 + 0.8 * a } : { legs, dur: 0.4 + 0.5 * a });
+    } else if ((k === 'upperArm' || k === 'forearm' || k === 'hand') && a > 0.4) this.addHold({ ['arm' + side]: 0.25, dur: 0.6 + a });
+  }
+
+  /**
+   * A bone broken by a melee blow (a long-bone shaft breaks physically instead: queueBreak).
+   * Recorded once per bone in the fracture list and the trauma scores; every new break (another
+   * site, or the same bone now depressed / open) is published for the visuals and sounds as
+   * { type: 'fracture', seg, segName, label, open, physical: false, pointW, ...extra }.
+   */
+  meleeFracture(seg, label, open, pointW, extra = {}, res = null, ais = 2, region = null) {
+    const prev = this.fractures.find((f) => f.seg === seg.name && f.label === label);
+    const where = SEGMENT_LABEL[seg.name] || seg.name;
+    if (!prev) {
+      this.fractures.push({ seg: seg.name, label, open, physical: false, ...extra });
+      this.log(`${open ? 'Open' : 'Closed'} fracture: ${label}${extra.depressed ? ' (depressed)' : ''} (${where})`, 2);
+      this.addPain(0.8, seg.name);
+      if (label === 'pelvis') this.muscle.pelvis = Math.max(this.muscle.pelvis || 0, 0.6);
+    } else {
+      if (extra.depressed && !prev.depressed) {
+        prev.depressed = true;
+        this.log(`Fracture now depressed: ${label} (${where})`, 3);
+      }
+      if (open && !prev.open) prev.open = true;
+    }
+    this.addAIS(region || issRegion(seg.name, { kind: 'bone' }), Math.min(ais + (open ? 1 : 0), 5), label);
+    const pW = pointW ? pointW.clone() : null;
+    this.events.push({ type: 'fracture', seg, segName: seg.name, label, open, physical: false, pointW: pW, ...extra });
+    if (res) res.fractures.push({ label, seg: seg.name, open, pointW: pW, ...extra });
+  }
+
+  /**
+   * Incised wound: the edge drawn along the skin (info.cut: the line as world points with outward
+   * normals, and the depth the blade reached). Everything within the blade's reach under the line
+   * is cut: vessels (an opened carotid or jugular bleeds torrentially, a radial artery steadily),
+   * nerves, the trachea, an eye. The cut is deepest just after the blade went in and tails off.
+   */
+  meleeCut(c) {
+    const { info, res, body, seg, name, k } = c;
+    const cut = info.cut;
+    const bp = this.bodyBindPos(body);
+    const pts = cut.pathW.map((p) => this.toBind(body, p, new Vec3()));
+    const nrm = cut.normalsW.map((n) => body.worldDirToLocal(n, new Vec3()).normalize());
+    const N = pts.length;
+    let L = 0;
+    for (let i = 1; i < N; i++) L += pts[i].distanceTo(pts[i - 1]);
+    L = Math.max(L, 0.005);
+    const D = cut.depth;
+    // (the depth along the cut as the blade went in and came out, or the usual shape of an incision:
+    // deepest just after the blade went in, tailing off)
+    const depthAt = (i) => {
+      if (cut.depths && cut.depths.length === N) return cut.depths[i];
+      if (N < 2) return 0.6 * D;
+      const u = i / (N - 1);
+      return D * clamp(2.5 * (u + 0.1), 0.25, 1) * (1 - 0.75 * u * u);
+    };
+    const ends = pts.map((p, i) => p.clone().addScaled(nrm[i], -depthAt(i)));
+    const side = c.pB.x >= 0 ? 'L' : 'R';
+    const found = [];
+    const a = new Vec3(), b = new Vec3();
+    for (const s of this.bySeg[name] || []) {
+      let best = Infinity, at = 0;
+      for (let i = 0; i < N; i++) {
+        const d = pathToStructure(pts[i], ends[i], s).dist;
+        if (d < best) {
+          best = d;
+          at = i;
+        }
+      }
+      for (let i = 0; i + 1 < N; i++) {
+        for (const f of [0.45, 1]) {
+          a.lerpVectors(pts[i], ends[i], f);
+          b.lerpVectors(pts[i + 1], ends[i + 1], f);
+          const d = pathToStructure(a, b, s).dist;
+          if (d < best) {
+            best = d;
+            at = i + 0.5;
+          }
+        }
+      }
+      if (best > 0.001) continue;
+      const through = best < -0.4 * (s.type === 'tube' ? s.r : 0.004);
+      found.push({ s, sev: through ? 1 : 0.55, at: Math.round(at), through });
+    }
+    const bleeds = []; // { at, b }
+    let painAdd = 0, trachea = false;
+    for (const h of found) {
+      const s = h.s;
+      if (s.kind === 'brain' || s.kind === 'brainstem' || s.kind === 'heart') continue; // behind bone
+      const prev = this.structSev[s.name] || 0;
+      const total = 1 - (1 - prev) * (1 - h.sev);
+      this.structSev[s.name] = total;
+      const added = total - prev;
+      res.structures.push(s.label || s.name);
+      if (s.ais && s.kind !== 'bone') this.addAIS(issRegion(name, s), s.ais[h.through ? 1 : 0], s.label);
+      switch (s.kind) {
+        case 'artery':
+        case 'vein': {
+          const q = s.bleed * added;
+          if (q > 0) bleeds.push({ at: h.at, b: this.makeBleed(q, s.kind, { ext: Math.max(s.external ?? 0.8, 0.85), cav: s.cav || 'tissue', side: s.side || side, label: s.label, full: s.bleed }) });
+          if (added > 0.02) c.log.push([`${s.label} ${h.through ? 'severed' : 'opened'}`, q > 15 ? 3 : 2]);
+          c.vital += (UNDEAD_VITAL[s.kind] || 0) * h.sev;
+          break;
+        }
+        case 'nerve':
+          this.nerve[s.limb] = Math.min(this.nerve[s.limb], 1 - s.loss * h.sev);
+          c.log.push([`${s.label} cut`, 2]);
+          painAdd += 0.4;
+          break;
+        case 'airway':
+          this.airwayInjury = Math.min(this.airwayInjury, h.through ? 0.5 : 0.75);
+          trachea = true;
+          c.log.push(['trachea opened', 3]);
+          painAdd += 0.3;
+          break;
+        case 'eye':
+          c.log.push([`${s.label} cut`, 2]);
+          painAdd += 0.6;
+          break;
+        case 'face':
+        case 'oral':
+          bleeds.push({ at: h.at, b: this.makeBleed(s.bleed * added * 0.6, 'tissue', { art: s.art, ext: 0.8, cav: s.cav, side, air: s.air, label: s.label }) });
+          break;
+        case 'lung': {
+          // through the chest wall: air sucked in through the wound (open pneumothorax)
+          const sd = s.side;
+          this.parench[sd] = Math.max(0.05, this.parench[sd] - 0.08);
+          bleeds.push({ at: h.at, b: this.makeBleed(s.bleed * added, 'lung', { art: 0, ext: s.external, cav: 'pleura', side: sd, air: s.air }) });
+          this.ptxTarget[sd] = Math.max(this.ptxTarget[sd], 0.6);
+          this.ptxRate[sd] = Math.max(this.ptxRate[sd], 1 / 15);
+          this.openChest[sd] = true;
+          c.log.push([`${s.label} opened (sucking chest wound)`, 3]);
+          break;
+        }
+        case 'organ':
+        case 'gut':
+          bleeds.push({ at: h.at, b: this.makeBleed(s.bleed * added * 0.5, s.kind === 'organ' ? 'organ' : 'tissue', { art: s.art, ext: s.external, cav: s.cav, side: s.side || side, label: s.label }) });
+          c.log.push([`${s.label} cut`, 2]);
+          painAdd += 0.4;
+          c.vital += 6;
+          break;
+        case 'cord':
+          if (h.through) {
+            this.spinalInjury(s.level);
+            c.log.push([`${s.label} severed`, 3]);
+            c.vital += 25;
+          }
+          break;
+        case 'bone':
+        case 'skull':
+          c.log.push([`cut to the bone (${s.label})`, 1]);
+          break;
+        default:
+          break;
+      }
+    }
+    if (trachea) for (const x of bleeds) if (x.b.cav === 'neck') x.b.air = Math.max(x.b.air, 0.35);
+    // the incision itself: skin, fat and muscle (the scalp and face bleed freely); shown as a row of
+    // slits along the line, the cut vessels bleeding from where they were opened
+    const mult = k === 'head' ? 2 : k === 'neck' ? 1.4 : k === 'hand' || k === 'foot' ? 1.3 : 1;
+    const qT = 0.035 * (L * 100) * (0.4 + D * 100) * mult;
+    const nDec = clamp(Math.round(L / 0.035), 1, 6);
+    const radius = clamp(L / (2 * nDec * 2.9), 0.0035, 0.012);
+    const wounds = [];
+    for (let j = 0; j < nDec; j++) {
+      const i = N > 1 ? Math.round(((j + 0.5) / nDec) * (N - 1)) : 0;
+      const dir = new Vec3().subVectors(pts[Math.min(N - 1, i + 1)], pts[Math.max(0, i - 1)]);
+      if (dir.lengthSq() < 1e-10) nrm[i].anyPerpendicular(dir);
+      dir.normalize();
+      wounds.push({
+        i,
+        w: {
+          body, seg, kind: 'laceration', local: pts[i].clone().sub(bp), normal: nrm[i].clone(), dir, radius,
+          severity: clamp(0.35 + D / 0.03, 0.35, 1), bleeds: [this.makeBleed(qT / nDec, k === 'head' ? 'scalp' : 'tissue', { art: 0.4, ext: 0.95, cav: 'tissue' })],
+          pain: 0, cause: info.label || 'knife', energy: res.energy / nDec, incised: true, length: L, depth: D,
+        },
+      });
+    }
+    for (const x of bleeds) {
+      let best = wounds[0];
+      for (const w of wounds) if (Math.abs(w.i - x.at) < Math.abs(best.i - x.at)) best = w;
+      best.w.bleeds.push(x.b);
+    }
+    const pain = PAIN_BY_SEGMENT[k] * clamp(0.25 + L * 3 + D * 12, 0.25, 1.1) + painAdd;
+    wounds[0].w.pain = pain;
+    for (const { w } of wounds) {
+      this.addWound(w);
+      res.wounds.push(w);
+    }
+    this.addPain(pain, name);
+    this.muscle[name] = clamp((this.muscle[name] || 0) + 0.04 + 0.25 * clamp(D / 0.03, 0, 1), 0, 1);
+    this.tissueEnergy += res.energy;
+    const where = SEGMENT_LABEL[name] || name;
+    this.addAIS(issRegion(name), L > 0.1 || D > 0.012 ? 2 : 1, 'incised wound, ' + where);
+    this.addAIS('external', 1, 'skin');
+    let total = qT;
+    for (const x of bleeds) total += x.b.q;
+    this.log(`Knife wound (incised), ${where}: ${(L * 100).toFixed(0)} cm long, ${(D * 100).toFixed(1)} cm deep`, total > 15 ? 3 : total > 3 ? 2 : 1);
+    for (const [t, s] of c.log) this.log(`  ${t}`, s);
+    res.depth = D;
+    res.length = L;
+    this.reactToHit(name, clamp(0.3 + D / 0.04 + total / 40, 0.2, 1.1), c.dirW, 'cut');
+  }
+
+  /**
+   * Stab wound: the point driven in along info.stab.dirW with info.stab.energy joules. The skin takes
+   * a few joules, the blade's drag through tissue the rest; bone in the way stops the point unless
+   * the thrust can get through it (a rib often turns it, the skull nearly always, except through the
+   * thin temple or the back of the orbit). The channel hits what lies on it, as a bullet's does but
+   * without a cavity: a stabbed heart bleeds into its pericardial sac (tamponade), a lung collapses,
+   * the liver, vessels and nerves are cut.
+   */
+  meleeStab(c) {
+    const { info, res, body, seg, name, k } = c;
+    const st = info.stab;
+    const entryB = c.pB.clone();
+    const dB = body.worldDirToLocal(st.dirW, new Vec3()).normalize();
+    let E = st.energy;
+    const eSkin = STAB_SKIN * (1.6 - (info.sharpness ?? 0.9));
+    let depth, stoppedBy = null, costs = 0;
+    const passed = [];
+    if (E <= eSkin) {
+      depth = 0.003 + 0.007 * (E / eSkin);
+      stoppedBy = 'skin';
+    } else {
+      E -= eSkin;
+      const maxD = st.length * 0.97;
+      depth = Math.min(maxD, E / STAB_DRAG);
+      for (const b of this.stabBlocks(c, entryB, dB, maxD)) {
+        if (b.at >= depth) break;
+        if (E - costs - STAB_DRAG * b.at < b.cost) {
+          depth = b.at + 0.002;
+          stoppedBy = b.label;
+          break;
+        }
+        costs += b.cost;
+        passed.push(b);
+        depth = Math.min(maxD, Math.max(b.at + 0.002, (E - costs) / STAB_DRAG));
+      }
+    }
+    const endB = entryB.clone().addScaled(dB, depth);
+    res.energy = Math.min(st.energy, eSkin + costs + STAB_DRAG * depth);
+    this.tissueEnergy += res.energy;
+    const side = entryB.x >= 0 ? 'L' : 'R';
+    const bleeds = [];
+    let painAdd = 0, trachea = false;
+    const skull = passed.find((b) => b.label === 'skull' || b.label === 'temple' || b.label === 'orbit');
+    for (const s of this.bySeg[name] || []) {
+      if (s.kind === 'bone' || s.kind === 'skull') continue;
+      if ((s.kind === 'brain' || s.kind === 'brainstem') && !skull) continue;
+      const r = pathToStructure(entryB, endB, s);
+      if (r.dist > 0.25 * (st.width || 0.03) + 0.002) continue;
+      const direct = r.dist <= 0.002;
+      // (the edges cut what lies beside the blade, nothing beyond its point)
+      if (!direct && r.at > 0.97) continue;
+      const sev = direct ? 1 : 0.4;
+      const prev = this.structSev[s.name] || 0;
+      const total = 1 - (1 - prev) * (1 - sev);
+      this.structSev[s.name] = total;
+      const added = total - prev;
+      res.structures.push(s.label || s.name);
+      if (s.ais) this.addAIS(issRegion(name, s), s.ais[direct ? 1 : 0], s.label);
+      c.vital += (UNDEAD_VITAL[s.kind] || 0) * (direct ? 1 : 0.4);
+      switch (s.kind) {
+        case 'brain':
+          if (this.undead || (direct && depth - skull.at > 0.025)) this.kill('stab wound to the brain');
+          else {
+            this.knockOut(60 + 120 * this.rng(), 1);
+            this.tbi += 0.5;
+          }
+          c.log.push([`brain ${direct ? 'penetrated' : 'injured'}`, 3]);
+          break;
+        case 'brainstem':
+          this.kill('brain stem destroyed');
+          c.log.push(['brain stem destroyed', 3]);
+          break;
+        case 'eye':
+          c.log.push([`${s.label} destroyed`, 2]);
+          painAdd += 0.6;
+          break;
+        case 'face':
+        case 'oral':
+          bleeds.push(this.makeBleed(s.bleed * added * 0.7, 'tissue', { art: s.art, ext: s.external, cav: s.cav, side, air: s.air, label: s.label }));
+          c.log.push([`${s.label} stabbed`, 2]);
+          painAdd += 0.3;
+          break;
+        case 'cord':
+          if (direct) {
+            this.spinalInjury(s.level);
+            c.log.push([`${s.label} severed`, 3]);
+          }
+          break;
+        case 'heart': {
+          // the small hole in the pericardium holds the blood in: tamponade
+          this.cardiac = Math.min(this.cardiac * (prev > 0 ? 0.8 : 1), direct ? 0.55 : 0.8);
+          const q = s.bleed * added * 0.45;
+          bleeds.push(this.makeBleed(q * 0.6, 'heart', { ext: 0, cav: 'pericardium', label: 'heart' }));
+          bleeds.push(this.makeBleed(q * 0.4, 'heart', { ext: s.external, cav: 'pleura', side: 'L', label: 'heart' }));
+          if (direct && this.rng() < 0.1) this.ventricularFibrillation('stab wound to the heart');
+          c.log.push([direct ? 'heart stabbed' : 'pericardium cut', 3]);
+          painAdd += 0.4;
+          break;
+        }
+        case 'lung': {
+          const sd = s.side;
+          this.parench[sd] = Math.max(0.05, this.parench[sd] - (direct ? 0.15 : 0.05));
+          bleeds.push(this.makeBleed(s.bleed * added, 'lung', { art: 0, ext: s.external, cav: 'pleura', side: sd, air: s.air }));
+          this.ptxTarget[sd] = Math.max(this.ptxTarget[sd], direct ? 0.5 + 0.35 * this.rng() : 0.3);
+          this.ptxRate[sd] = Math.max(this.ptxRate[sd], 1 / 40);
+          if (direct && !this.tension[sd] && this.rng() < 0.2) this.tension[sd] = true;
+          c.log.push([`${s.label} punctured (pneumothorax)`, 2]);
+          break;
+        }
+        case 'airway':
+          this.airwayInjury = Math.min(this.airwayInjury, direct ? 0.55 : 0.8);
+          trachea = true;
+          c.log.push(['trachea punctured', 2]);
+          painAdd += 0.3;
+          break;
+        case 'artery':
+        case 'vein': {
+          const q = s.bleed * added;
+          bleeds.push(this.makeBleed(q, s.kind, { ext: s.external, cav: s.cav, side: s.side || side, label: s.label, full: s.bleed }));
+          if (added > 0.02) c.log.push([`${s.label} ${direct ? 'severed' : 'nicked'}`, q > 15 ? 3 : 2]);
+          break;
+        }
+        case 'organ':
+        case 'gut':
+          bleeds.push(this.makeBleed(s.bleed * added * (s.kind === 'organ' ? 0.6 : 1), s.kind === 'organ' ? 'organ' : 'tissue', { art: s.art, ext: s.external, cav: s.cav, side: s.side || side, label: s.label }));
+          painAdd += s.kind === 'gut' ? 0.45 : 0.3;
+          c.log.push([`${s.label} stabbed`, 2]);
+          break;
+        case 'nerve':
+          this.nerve[s.limb] = Math.min(this.nerve[s.limb], 1 - s.loss * (direct ? 1 : 0.5));
+          c.log.push([`${s.label} cut`, 2]);
+          painAdd += 0.4;
+          break;
+        default:
+          break;
+      }
+    }
+    if (trachea) for (const b of bleeds) if (b.cav === 'neck') b.air = Math.max(b.air, 0.35);
+    for (const b of passed) c.log.push([`blade went through the ${b.label}${b.label === 'rib' ? ` (rib ${b.rib.n})` : ''}`, 1]);
+    if (skull) this.meleeFracture(seg, 'skull', true, c.pointW, { penetrating: true, region: skull.label }, res, 3, 'head');
+    if (stoppedBy && stoppedBy !== 'skin') c.log.push([`blade stopped by the ${stoppedBy}`, 1]);
+    // the channel through skin and muscle; the wound is a slit as wide as the blade
+    bleeds.push(this.makeBleed(0.25 + 3 * depth, k === 'head' ? 'scalp' : 'tissue', { art: 0.4, ext: TISSUE_EXT[k] ?? 0.75, cav: TISSUE_CAV[k] || 'tissue', side }));
+    const edge = st.edgeW ? body.worldDirToLocal(st.edgeW, new Vec3()) : dB.anyPerpendicular(new Vec3());
+    edge.addScaled(dB, -edge.dot(dB));
+    if (edge.lengthSq() < 1e-8) dB.anyPerpendicular(edge);
+    edge.normalize();
+    const pain = PAIN_BY_SEGMENT[k] * clamp(0.45 + depth * 4, 0.45, 1.2) + painAdd;
+    const w = this.addWound({
+      body, seg, kind: 'laceration', local: entryB.clone().sub(this.bodyBindPos(body)), normal: dB.clone().negate(), dir: edge,
+      radius: clamp(0.004 + 0.12 * (st.width || 0.03), 0.005, 0.01), severity: clamp(0.4 + depth / 0.12, 0.4, 1), bleeds, pain,
+      cause: info.label || 'knife', energy: res.energy, stab: true, depth,
+    });
+    res.wounds.push(w);
+    this.addPain(pain, name);
+    this.muscle[name] = clamp((this.muscle[name] || 0) + 0.08 + depth * 1.5, 0, 1);
+    const where = SEGMENT_LABEL[name] || name;
+    this.addAIS(issRegion(name), depth > 0.03 ? 2 : 1, 'stab wound, ' + where);
+    this.addAIS('external', 1, 'skin');
+    let total = 0;
+    for (const b of bleeds) total += b.q;
+    this.log(`Stab wound, ${where} (${(depth * 100).toFixed(0)} cm deep)`, total > 15 ? 3 : total > 3 ? 2 : 1);
+    for (const [t, s] of c.log) this.log(`  ${t}`, s);
+    res.depth = depth;
+    res.stoppedBy = stoppedBy;
+    this.reactToHit(name, clamp(0.4 + depth / 0.12, 0.3, 1.2), st.dirW, 'stab');
+  }
+
+  /** Bone along a stab channel, in order: [{ at (m under the skin), cost (J), label, rib }]. */
+  stabBlocks(c, entryB, dB, maxDepth) {
+    const out = [];
+    const p = new Vec3();
+    const bones = (this.bySeg[c.name] || []).filter((s) => s.kind === 'bone' || s.kind === 'skull');
+    const seen = new Set();
+    let skullLabel = 'skull';
+    if (c.k === 'head') {
+      // the temporal squama is thin, the back of the orbit thinner still
+      const eye = (this.bySeg.head || []).some((s) => s.kind === 'eye' && structDistance(entryB, s) < 0.02);
+      skullLabel = eye ? 'orbit' : headRegion(entryB) === 'temple' ? 'temple' : 'skull';
+    }
+    const ribsToo = c.k === 'chest' || c.k === 'abdomen';
+    for (let x = 0.002; x <= maxDepth + 1e-9; x += 0.002) {
+      p.copy(entryB).addScaled(dB, x);
+      for (const s of bones) {
+        if (seen.has(s) || structDistance(p, s) > 0) continue;
+        seen.add(s);
+        const label = s.kind === 'skull' ? skullLabel : s.bone || s.label;
+        out.push({ at: x, cost: STAB_BONE[label] ?? 100, label });
+      }
+      if (ribsToo) {
+        const r = ribsNear(p)[0];
+        const key = r.side + r.n;
+        if (!seen.has(key) && r.bony && Math.abs(r.dy) < 0.0065 && Math.abs(r.radial - 1) * 0.12 < 0.006) {
+          seen.add(key);
+          // the point often slips off a rib into the space between
+          out.push({ at: x, cost: this.rng() < 0.5 ? STAB_BONE.rib : 6, label: 'rib', rib: r });
+        }
+      }
+    }
+    // the sternum covers the front of the heart
+    if (c.k === 'chest' && entryB.z > 0.02 && Math.abs(entryB.x) < 0.03 && entryB.y > 1.22 && entryB.y < 1.45) out.push({ at: 0.012, cost: STAB_BONE.sternum, label: 'sternum' });
+    out.sort((u, w) => u.at - w.at);
+    return out;
+  }
+
+  // ------------------------------------------------------------------------------------------
   /** Vital signs and injury list for the HUD. */
   vitals() {
     const lossFrac = 1 - this.blood / BLOOD_VOLUME;
@@ -1562,6 +2638,9 @@ export class InjurySystem {
     if (this.breathing < 0.1 && this.alive) conditions.push('Apnoea (respiratory paralysis)');
     if (this.autonomic < 0.5 && pulse) conditions.push('Neurogenic shock');
     if (this.cav.peritoneum + this.cav.retro > 500) conditions.push('Intra-abdominal haemorrhage');
+    for (const s of ['L', 'R']) if (this.flail[s]) conditions.push(`Flail chest (${s === 'L' ? 'left' : 'right'})`);
+    if (this.skullFx.length) conditions.push(this.skullFx.some((f) => f.depressed) ? 'Depressed skull fracture' : 'Skull fracture');
+    if (this.ichRate > 0 && this.alive) conditions.push('Intracranial haemorrhage');
     return {
       status: this.status,
       alive: this.alive,
