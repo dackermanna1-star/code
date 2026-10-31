@@ -391,7 +391,8 @@ export class TowerFx {
     // dirt, wood, concrete: a dust puff and thrown fragments
     const puff = m === 'concrete' ? R.concrete : R.dust;
     const chip = m === 'wood' ? R.wood : m === 'concrete' ? R.concrete : R.dirt;
-    for (let i = 0; i < 9; i++) {
+    // (no dust cloud off the ground itself: just the thrown clods)
+    for (let i = 0; m !== 'dirt' && i < 9; i++) {
       spray(_v, nx, ny, nz, 0.6);
       const sp = rnd(0.6, 2.4);
       S.spawn(x, y, z, _v.x * sp, _v.y * sp + 0.3, _v.z * sp, rnd(0.7, 1.4), rnd(0.15, 0.3), rnd(0.6, 1.1), m === 'concrete' ? R.smokeLight : puff, 2.6, -0.1, GROW_EASE);
