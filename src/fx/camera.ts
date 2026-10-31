@@ -108,8 +108,20 @@ export class CameraRig {
       let cpos = s.focus.clone().add(relR);
       cpos = this.resolveCollision(s.focus, cpos);
       const e = this.cineBlend * this.cineBlend * (3 - 2 * this.cineBlend);
-      pos.lerp(cpos, e);
+      // swing around the action on an arc (never through the fighters): interpolate the look point
+      // linearly and the camera offset spherically
+      const focusA = look.clone();
+      const offA = pos.clone().sub(focusA);
+      const offB = cpos.clone().sub(s.focus);
+      const lenA = offA.length(), lenB = offB.length();
+      const dirA = offA.divideScalar(Math.max(lenA, 1e-4));
+      const dirB = offB.divideScalar(Math.max(lenB, 1e-4));
+      const q = new THREE.Quaternion().setFromUnitVectors(dirA, dirB);
+      const qe = new THREE.Quaternion().slerp(q, e);
+      const dir = dirA.clone().applyQuaternion(qe);
       look.lerp(s.focus, e);
+      pos = look.clone().addScaledVector(dir, Math.max(1.5, lerp(lenA, lenB, e)));
+      pos = this.resolveCollision(look, pos);
       fov = lerp(fov, s.fov, e);
       if (s.t > s.duration + s.blendOut) {
         this.shot = null;

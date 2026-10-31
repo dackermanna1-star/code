@@ -246,8 +246,8 @@ export class FX {
       const vx = dir.x * s + rand(-1, 1) * spread * s;
       const vy = dir.y * s + rand(-0.2, 1) * spread * s + rand(0.3, 1.6);
       const vz = dir.z * s + rand(-1, 1) * spread * s;
-      const big = Math.random() < 0.12;
-      const size = (big ? rand(0.018, 0.03) : rand(0.004, 0.013)) * (0.7 + amount * 0.45);
+      const big = Math.random() < 0.08;
+      const size = (big ? rand(0.012, 0.022) : rand(0.0025, 0.008)) * (0.75 + amount * 0.35);
       const shade = rand(0.16, 0.26);
       const idx = this.drops.spawn(p.x + rand(-0.03, 0.03), p.y + rand(-0.03, 0.03), p.z + rand(-0.03, 0.03), vx, vy, vz, size, shade, 0.012, 0.01, 1, 3, { grav: 11, drag: 0.15, stretch: 0.045, fade: false });
       if (idx >= 0) this.dropRadius[idx] = size;
@@ -330,8 +330,8 @@ export class FX {
         const sp = Math.hypot(vx, vz);
         _v.set(x, 0.01, z);
         const hdir = sp > 0.05 ? new THREE.Vector3(vx / sp, 0, vz / sp) : null;
-        const r = rad * (1.5 + Math.min(4, Math.hypot(vx, vy, vz)) * 0.4);
-        g.blood.splat(_v, r, r > 0.03 && Math.random() < 0.5 ? SPLAT.splash : SPLAT.drop, rand(0.75, 1), UP, hdir, hdir ? Math.min(2.6, sp * 0.4) : 0);
+        const r = rad * (1.1 + Math.min(4, Math.hypot(vx, vy, vz)) * 0.28);
+        g.blood.splat(_v, r, r > 0.02 && Math.random() < 0.6 ? SPLAT.splash : SPLAT.drop, rand(0.7, 1), UP, hdir, hdir ? Math.min(2.8, sp * 0.45) : 0);
         landed = true;
       } else if (Math.abs(x) > HALF_W - 0.02 || Math.abs(z) > HALF_D - 0.02) {
         // wall hit

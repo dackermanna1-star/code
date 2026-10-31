@@ -75,7 +75,8 @@ void main() {
     amount = max(amount, sat);
     thick = amount * 0.25;
   } else if (type == 2) { // pool
-    float edge = dist + (n - 0.5) * 0.45 + (lsNoise(vec3(p / r * 7.0, seed)) - 0.5) * 0.08;
+    float lobes = lsNoise(vec3(p / r * 1.3, seed * 0.7)) - 0.5;
+    float edge = dist + lobes * 0.75 + (n - 0.5) * 0.35 + (lsNoise(vec3(p / r * 7.0, seed)) - 0.5) * 0.08;
     amount = 1.0 - smoothstep(0.82, 1.0, edge);
     thick = amount * (0.55 + 0.45 * (1.0 - smoothstep(0.0, 0.9, dist)));
   } else if (type == 3) { // smear streak
@@ -351,9 +352,23 @@ export class BloodAtlas {
   /** Start a pool that grows over time (e.g. under a corpse). */
   addPool(x: number, z: number, rMax: number, duration: number, delay = 0) {
     this.pools.push({ x, y: 0.01, z, r: Math.min(0.05, rMax), rMax, rate: rMax / Math.max(0.5, duration), seed: Math.random() * 100, delay });
+    // a couple of offset lobes so pools spread irregularly (blood runs along the floor)
+    const lobes = 1 + Math.floor(Math.random() * 2);
+    for (let i = 0; i < lobes; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const d = rMax * (0.45 + Math.random() * 0.35);
+      const r2 = rMax * (0.4 + Math.random() * 0.3);
+      this.pools.push({ x: x + Math.cos(a) * d, y: 0.01, z: z + Math.sin(a) * d, r: 0.03, rMax: r2, rate: r2 / Math.max(0.5, duration * 1.3), seed: Math.random() * 100, delay: delay + duration * 0.2 });
+    }
   }
 
+  private poolAcc = 0;
   update(dt: number) {
+    // growing pools change slowly: redraw them at ~20 Hz (MAX blending makes skipped frames lossless)
+    this.poolAcc += dt;
+    if (this.poolAcc < 0.05) return;
+    dt = this.poolAcc;
+    this.poolAcc = 0;
     for (let i = this.pools.length - 1; i >= 0; i--) {
       const p = this.pools[i];
       if (p.delay > 0) {
@@ -458,8 +473,8 @@ ${NOISE_GLSL}`,
   float cov = smoothstep(0.04, 0.24, amt + (n - 0.5) * 0.06);
   float dark = clamp(amt * 0.9 + b.g * 0.9 - 0.25, 0.0, 1.0);
   // thin blood stains the surface (multiplicative), thick blood is its own dark glossy layer
-  vec3 stain = diffuseColor.rgb * vec3(0.42, 0.07, 0.06) + vec3(0.035, 0.0, 0.0);
-  vec3 thick = mix(vec3(0.13, 0.006, 0.005), vec3(0.045, 0.0, 0.0), dark);
+  vec3 stain = diffuseColor.rgb * vec3(0.3, 0.04, 0.035) + vec3(0.03, 0.0, 0.0);
+  vec3 thick = mix(vec3(0.09, 0.004, 0.004), vec3(0.03, 0.0, 0.0), dark);
   vec3 bc = mix(stain, thick, smoothstep(0.15, 0.6, amt + b.g * 0.5));
   float rim = cov * (1.0 - smoothstep(0.2, 0.45, amt)) * 0.35;
   bc *= 1.0 - rim;
@@ -472,7 +487,7 @@ ${NOISE_GLSL}`,
         .replace(
           '#include <roughnessmap_fragment>',
           `#include <roughnessmap_fragment>
-roughnessFactor = mix(roughnessFactor, mix(0.82, 0.16, lsThick), lsBlood);`,
+roughnessFactor = mix(roughnessFactor, mix(0.85, 0.3, lsThick), lsBlood);`,
         );
     };
     mat.customProgramCacheKey = () => 'ls-blood-surface';

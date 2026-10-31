@@ -257,5 +257,7 @@ export async function runTest(game: Game, params: URLSearchParams) {
   if (mem) result.heapMB = Math.round(mem.usedJSHeapSize / 1048576);
   w.__result = result;
   console.log('RESULT ' + JSON.stringify(result));
+  // drain queued GPU work (software GL can lag far behind long simulations)
+  game.renderer.gl.getContext().finish();
   w.__ready = true;
 }

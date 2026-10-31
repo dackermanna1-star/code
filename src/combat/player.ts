@@ -544,12 +544,23 @@ export class Player extends Fighter {
   // ------------------------------------------------------------------ paired helper
   startPaired(e: Enemy, pair: PairedClip, action: PlayerAction, speed = 1) {
     const g = this.game;
-    const dx = e.x - this.x, dz = e.z - this.z;
-    const dist = Math.hypot(dx, dz) || 1;
-    const yaw = yawFromDir(dx, dz);
+    let dx = e.x - this.x, dz = e.z - this.z;
+    let dist = Math.hypot(dx, dz) || 1;
+    let yaw = yawFromDir(dx, dz);
     // split the distance mismatch between both characters
     const mis = (dist - pair.dist * e.scale) * 0.5;
-    const ox = this.x + (dx / dist) * mis, oz = this.z + (dz / dist) * mis;
+    let ox = this.x + (dx / dist) * mis, oz = this.z + (dz / dist) * mis;
+    if (e.downRag) {
+      // a body on the floor can't move: the attacker covers the whole gap, lining up on the head
+      e.downRag.read();
+      const head = e.downRag.pos[2];
+      dx = head.x - this.x;
+      dz = head.z - this.z;
+      dist = Math.hypot(dx, dz) || 1;
+      yaw = yawFromDir(dx, dz);
+      ox = head.x - (dx / dist) * pair.dist;
+      oz = head.z - (dz / dist) * pair.dist;
+    }
     this.partner = e;
     this.paired = e;
     e.enterPaired(this);
