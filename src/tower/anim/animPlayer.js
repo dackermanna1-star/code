@@ -790,10 +790,11 @@ export class AnimPlayer {
     this.setBone(leg.thigh, leg.thighBindInv, d1x, d1y, d1z, ax, ay, az);
     this.setBone(leg.shin, leg.shinBindInv, d2x, d2y, d2z, ax, ay, az);
     // joints / bodies of thigh, shin, foot
-    const segs = this.segs, bp = this.bindPos, Jb = sk.J, P = this.pos;
+    const bp = this.bindPos, Jb = sk.J, P = this.pos;
     J[leg.shin * 3] = mx; J[leg.shin * 3 + 1] = my; J[leg.shin * 3 + 2] = mz;
     J[leg.foot * 3] = ex; J[leg.foot * 3 + 1] = ey; J[leg.foot * 3 + 2] = ez;
-    for (const s of [leg.thigh, leg.shin, leg.foot]) {
+    for (let k = 0; k < 3; k++) {
+      const s = k === 0 ? leg.thigh : k === 1 ? leg.shin : leg.foot;
       const s3 = s * 3, s4 = s * 4;
       const vx = bp[s3] - Jb[s3], vy = bp[s3 + 1] - Jb[s3 + 1], vz = bp[s3 + 2] - Jb[s3 + 2];
       const rx = rot[s4], ry = rot[s4 + 1], rz = rot[s4 + 2], rw = rot[s4 + 3];
@@ -802,7 +803,6 @@ export class AnimPlayer {
       P[s3 + 1] = J[s3 + 1] + vy + rw * ty2 + (rz * tx2 - rx * tz2);
       P[s3 + 2] = J[s3 + 2] + vz + rw * tz2 + (rx * ty2 - ry * tx2);
     }
-    void segs;
   }
 
   /**

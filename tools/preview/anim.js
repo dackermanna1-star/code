@@ -23,7 +23,11 @@ const params = new URLSearchParams(location.search);
 const W = +(params.get('w') || innerWidth), H = +(params.get('h') || innerHeight);
 const renderer = new THREE.WebGLRenderer({ antialias: false, preserveDrawingBuffer: true });
 renderer.setPixelRatio(1);
-renderer.setSize(W, H);
+// ?retro=N renders at 1/N resolution, upscaled with nearest filtering (the game renders at 270-480 px)
+const RETRO = +(params.get('retro') || 1);
+renderer.setSize(Math.round(W / RETRO), Math.round(H / RETRO), false);
+renderer.domElement.style.width = W + 'px';
+renderer.domElement.style.height = H + 'px';
 renderer.shadowMap.enabled = true;
 document.body.appendChild(renderer.domElement);
 const scene = new THREE.Scene();
@@ -271,6 +275,71 @@ function updateSkeleton(a) {
   a.skel.visible = state.skel;
 }
 
+// P: the hand-off cycle on actor 0 - walking, knocked limp into the physics (it falls with the
+// momentum it had), lies there, then blendFromPhysics() eases it into getup (on its back) or crawl
+// (on its front) from where it lies, and it walks on.
+const demo = { on: false, phase: '', t: 0, push: 0 };
+function startDemo() {
+  const a = actors[0];
+  if (!a) return;
+  if (demo.inWorld) {
+    demo.inWorld.removeFromWorld();
+    demo.inWorld = null;
+  }
+  if (source) source.scene.visible = false;
+  demo.on = true;
+  demo.phase = 'walk';
+  demo.t = 0;
+  a.player.play('walk', { fade: 0.2 });
+}
+function stepDemo(a, dt) {
+  demo.t += dt;
+  if (demo.phase === 'walk') {
+    const v = a.player.groundSpeed;
+    a.root.pos.x += Math.sin(a.root.yaw) * v * dt;
+    a.root.pos.z += Math.cos(a.root.yaw) * v * dt;
+    a.player.update(dt, a.root);
+    if (demo.t > 1.2) {
+      // shot: into the physics with the velocities the animation left on the bodies, plus a shove
+      a.rd.addToWorld();
+      demo.inWorld = a.rd;
+      const k = demo.push = (demo.push + 1) % 2;
+      const chest = a.rd.segments.chest.body;
+      chest.vel.x += k ? 0 : 1.2;
+      chest.vel.z += k ? -2.6 : 0.4;
+      a.rd.segments.head.body.vel.z += k ? -1.5 : 0.3;
+      demo.phase = 'physics';
+      demo.t = 0;
+    }
+  } else if (demo.phase === 'physics') {
+    world.step(dt); // (the world keeps framePos/frameRot for render interpolation)
+    if (demo.t > 2.2) {
+      a.rd.removeFromWorld();
+      demo.inWorld = null;
+      const facing = a.player.bodyFacing();
+      const clip = facing === 'down' ? 'crawl' : 'getup';
+      a.player.rootFromBodies(a.root, clip);
+      a.player.play(clip, { fade: 0, restart: true });
+      a.player.blendFromPhysics(0.45);
+      demo.phase = clip;
+      demo.t = 0;
+    }
+  } else if (demo.phase === 'getup' || demo.phase === 'crawl') {
+    if (demo.phase === 'crawl') {
+      const v = a.player.groundSpeed;
+      a.root.pos.x += Math.sin(a.root.yaw) * v * dt;
+      a.root.pos.z += Math.cos(a.root.yaw) * v * dt;
+    }
+    a.player.update(dt, a.root);
+    if ((demo.phase === 'getup' && a.player.finished) || (demo.phase === 'crawl' && demo.t > 2.5)) {
+      a.player.play(demo.phase === 'getup' ? 'walk' : 'crawl', { fade: 0.35 });
+      demo.phase = 'walk';
+      demo.t = -1.5;
+    }
+  }
+  a.visual.update(1, dt);
+}
+
 function stepCrowd(dt) {
   const t0 = performance.now();
   for (const a of actors) {
@@ -290,6 +359,11 @@ function stepCrowd(dt) {
 
 function step(dt) {
   if (state.crowd) return stepCrowd(dt);
+  if (demo.on && actors[0]) {
+    stepDemo(actors[0], dt);
+    updateSkeleton(actors[0]);
+    return;
+  }
   const info = CLIP_INFO[state.clip];
   for (const a of actors) {
     if (state.moving && info.speed > 0) {
@@ -415,7 +489,10 @@ addEventListener('keydown', (e) => {
     state.userCam = false;
     if (state.film) rebuild();
   } else if (k === 'x' || k === 'X') state.skel = !state.skel;
-  else if (k === 'r' || k === 'R') {
+  else if (k === 'p' || k === 'P') {
+    if (demo.on) demo.on = false;
+    else startDemo();
+  } else if (k === 'r' || k === 'R') {
     state.crowd = state.crowd ? 0 : 80;
     rebuild();
     camera.position.set(0, 22, 0.01);
@@ -458,10 +535,12 @@ window.__sim = {
     if (o.rig !== undefined) state.rig = o.rig;
     if (o.moving !== undefined) state.moving = o.moving;
     if (o.trail !== undefined) state.trail = o.trail;
+    if (o.demo !== undefined && !o.demo) demo.on = false;
     if (o.clip) state.clip = o.clip;
     if (JSON.stringify([state.kind, state.film, state.lineup, state.crowd, filmYaw(), filmSpacing(), actors.length]) !== before || o.rebuild) rebuild();
     else if (!state.crowd) setClip(state.clip);
     state.paused = true;
+    if (o.demo) startDemo();
     if (state.crowd) {
       timing.anim = timing.vis = timing.render = 0;
       timing.n = 0;
@@ -483,6 +562,7 @@ window.__sim = {
       state.userCam = true;
     }
     renderer.render(scene, camera);
+    if (demo.on) return { demo: demo.phase, t: demo.t };
     if (state.crowd) {
       const n = Math.max(1, timing.n);
       return { crowd: actors.length, animMs: timing.anim / n, visMs: timing.vis / n, calls: renderer.info.render.calls, tris: renderer.info.render.triangles };
