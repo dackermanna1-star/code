@@ -36,6 +36,7 @@ export class CameraRig {
   sensitivity = 1;
   invertY = false;
   private idleTime = 0;
+  private collK = 1;
 
   constructor(aspect: number, public arena: Arena) {
     this.camera = new THREE.PerspectiveCamera(this.fovBase, aspect, 0.05, 120);
@@ -81,9 +82,13 @@ export class CameraRig {
     // ---- orbit camera position
     const cp = Math.cos(this.pitch);
     const offs = new THREE.Vector3(Math.sin(this.yaw) * cp, Math.sin(this.pitch), Math.cos(this.yaw) * cp);
-    let d = this.dist;
-    let pos = this.focus.clone().addScaledVector(offs, d);
-    // collision against arena bounds & tall obstacles
+    const d = this.dist;
+    const wantPos = this.focus.clone().addScaledVector(offs, d);
+    // collision against arena bounds & tall obstacles: pull in fast, ease back out slowly
+    const solved = this.resolveCollision(this.focus, wantPos.clone());
+    const ck = solved.distanceTo(this.focus) / Math.max(0.01, wantPos.distanceTo(this.focus));
+    this.collK = ck < this.collK ? damp(this.collK, ck, 30, realDt) : damp(this.collK, ck, 3.5, realDt);
+    let pos = this.focus.clone().addScaledVector(wantPos.sub(this.focus), Math.min(this.collK, ck + 0.02));
     pos = this.resolveCollision(this.focus, pos);
     let look = this.focus.clone();
     let fov = this.fovBase;

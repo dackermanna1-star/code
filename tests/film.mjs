@@ -9,6 +9,7 @@ const base = process.env.BASE_URL ?? 'http://localhost:5173/';
 const browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
 const page = await browser.newPage({ viewport: { width: Number(w), height: Number(h) } });
 page.on('pageerror', (e) => console.log(`[pageerror] ${e.message}`));
+page.on('console', (m) => { if (m.text().startsWith('cam ')) console.log(m.text()); });
 await page.goto(base + '?' + query, { waitUntil: 'load' });
 await page.waitForFunction(() => window.__ready === true, null, { timeout: 180000 });
 const files = [];

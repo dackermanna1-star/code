@@ -101,6 +101,16 @@ export async function runTest(game: Game, params: URLSearchParams) {
     game.addFighter(e);
     return e;
   };
+  if (name === 'merged') {
+    game.arena.group.traverse((o) => {
+      if (o.name !== 'staticMerged') return;
+      const m = o as THREE.Mesh;
+      m.geometry.computeBoundingBox();
+      const b = m.geometry.boundingBox!;
+      const mat = m.material as THREE.MeshStandardMaterial;
+      console.log(`merged color=${mat.color?.getHexString()} verts=${m.geometry.attributes.position.count} min=${b.min.toArray().map((v) => v.toFixed(1))} max=${b.max.toArray().map((v) => v.toFixed(1))}`);
+    });
+  }
   if (name === 'arena') {
     for (let i = 0; i < frames; i++) {
       game.input.virtual = { moveX: 0, moveY: i > 20 && i < 80 ? 1 : 0 };
@@ -186,6 +196,8 @@ export async function runTest(game: Game, params: URLSearchParams) {
           game.step(dt);
         }
         game.renderFrame();
+        const c = game.cam;
+        console.log(`cam yaw=${c.yaw.toFixed(2)} pitch=${c.pitch.toFixed(2)} dist=${c.dist.toFixed(2)} pos=${c.camera.position.toArray().map((v) => v.toFixed(2)).join(',')} cine=${c.inCinematic} action=${game.player.action}`);
       },
     };
     game.renderFrame();

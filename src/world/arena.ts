@@ -201,8 +201,9 @@ export class Arena {
       upperGeos.push(upGeo);
       // trim strip between brick and siding
       const trim = new THREE.Mesh(new THREE.BoxGeometry(w.len, 0.12, 0.12), new THREE.MeshStandardMaterial({ color: 0x2a2c2e, roughness: 0.5, metalness: 0.6 }));
-      trim.position.copy(c).setY(lowerH);
-      trim.rotation.y = Math.atan2(inward.x, inward.z) + Math.PI / 2;
+      trim.position.copy(c).setY(lowerH).addScaledVector(inward, 0.06);
+      // box long axis (X) must run along the wall direction u: Ry(t) maps X -> (cos t, 0, -sin t)
+      trim.rotation.y = Math.atan2(-w.u.z, w.u.x);
       this.group.add(trim);
     }
     const wallMesh = new THREE.Mesh(mergeGeos(wallGeos), wallMat);

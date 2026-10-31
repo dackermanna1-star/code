@@ -170,6 +170,13 @@ export class Enemy extends Fighter {
         break;
       case 'paired':
       case 'grabbed':
+        // a knocked-down body stays physical during ground takedowns
+        if (this.downRag) {
+          this.downRag.update(dt);
+          this.downRag.rootPos(_v);
+          this.x = _v.x;
+          this.z = _v.z;
+        }
         break;
     }
     if (this.anim.mode === 'loco') {
@@ -218,6 +225,12 @@ export class Enemy extends Fighter {
     this.faceTowards(this.x + this.vx, this.z + this.vz, 8, dt);
     this.anim.locoIn.guard = 0.4;
     if (d < 0.5 || this.stateTime > 6) {
+      if (!this.game.arena.inside(this.x, this.z, 0.4)) {
+        // safety: never leave anyone stuck outside the arena
+        this.x = this.enterX;
+        this.z = this.enterZ;
+        this.anim.initAt(this.x, this.z, this.yaw);
+      }
       this.ghostWalls = false;
       this.setState('circle');
     }
@@ -427,7 +440,7 @@ export class Enemy extends Fighter {
     g.director.note('strikes');
     // boss phase changes
     if (this.cfg.boss) g.bosses.onBossDamaged(this);
-    if (h.noReact || this.state === 'paired') return 'hit';
+    if (h.noReact || this.state === 'paired' || this.state === 'grabbed') return 'hit';
     // ---- reactions
     if (absorbs) {
       this.absorbed++;
@@ -587,6 +600,11 @@ export class Enemy extends Fighter {
   exitPaired(next: EnemyState = 'circle') {
     this.paired = null;
     if (!this.alive) return;
+    if (this.downRag) {
+      // still on the floor (e.g. survived a ground takedown): continue the get-up flow
+      this.setState('down');
+      return;
+    }
     if (this.state === 'paired' || this.state === 'grabbed') {
       if (this.anim.mode === 'clip' && this.clip && !this.clip.done) {
         // let the victim track finish as a reaction

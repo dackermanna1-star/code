@@ -286,6 +286,7 @@ export class HUD {
   update(dt: number, realDt: number) {
     const g = this.game;
     const p = g.player;
+    this.root.style.display = g.started ? '' : 'none';
     this.hp.style.width = `${Math.max(0, (p.hp / p.maxHp) * 100)}%`;
     this.guard.style.width = `${Math.max(0, p.guard)}%`;
     const need = p.charges === 0 ? 6 : 8;
