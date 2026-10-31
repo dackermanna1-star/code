@@ -337,7 +337,7 @@ export class HoldoutFront {
         break;
       case 'rise': {
         const p = e.pos;
-        c.fx.dust(new Vec3(p.x, 0.05, p.z));
+        c.fx.dust(new Vec3(p.x, 0.05, p.z), 0.5);
         c.fx.impact(new Vec3(p.x + (Math.random() - 0.5) * 0.4, 0.02, p.z + (Math.random() - 0.5) * 0.4), new Vec3(0, 1, 0), 'dirt');
         if (Math.random() < 0.6) A.zombieGroan(e.zombie.kind, p);
         break;
@@ -560,7 +560,7 @@ export class HoldoutFront {
       A.bulletImpact(mat, f.point, f.point.distanceTo(this.game.player.pos));
     } else if (f.type === 'impact' && (f.ragdollA || f.ragdollB) && f.ground && f.speed > 2.5) {
       A.bodyFall(f.point, clamp(f.speed / 6, 0.3, 1));
-      c.fx.dust(f.point);
+      c.fx.bodyDust(f.point, f.speed);
     } else if (f.type === 'meleeHit') {
       A.eng.impact('flesh', 0.8, f.point || null);
       this.shake = Math.max(this.shake, 0.3);

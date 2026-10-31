@@ -693,7 +693,7 @@ function onSandboxFx(f) {
     if (r) r.v.addFracture(info.seg, info.fragment, info.pointBind, info.axisBind);
   } else if (f.type === 'impact' && (f.ragdollA || f.ragdollB) && f.ground && f.speed > 2.5) {
     audio.bodyFall(f.point, clamp(f.speed / 6, 0.3, 1));
-    fx.dust(f.point);
+    fx.bodyDust(f.point, f.speed);
   }
 }
 

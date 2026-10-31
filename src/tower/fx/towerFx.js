@@ -321,7 +321,8 @@ export class TowerFx {
       this._light(x, y, z, 0xffc070, 60, 0.06, 12);
     }
     // thin wisps drifting away from the muzzle
-    const ns = opts.suppressed ? 3 : opts.brake ? 8 : 5;
+    // (the hands' own guns, fired many times a second: just a wisp)
+    const ns = opts.noFlash ? 1 : opts.suppressed ? 3 : opts.brake ? 8 : 5;
     for (let i = 0; i < ns; i++) {
       spray(_v, dx, dy + 0.1, dz, 0.3);
       const sp = rnd(0.5, 1.8);
@@ -424,15 +425,30 @@ export class TowerFx {
     }
   }
 
-  /** A dust puff (a body hitting the ground, a near miss). */
-  dust(pos) {
+  /** A dust puff (a barricade torn down, a zombie rising). amount 0..1 scales its size and count. */
+  dust(pos, amount = 1) {
     const S = this.soft;
-    for (let i = 0; i < 9; i++) {
+    const n = Math.max(1, Math.round(5 * amount));
+    for (let i = 0; i < n; i++) {
       const a = Math.random() * Math.PI * 2;
-      const sp = rnd(0.4, 1.6);
-      S.spawn(pos.x + Math.cos(a) * 0.3, Math.max(0.1, pos.y), pos.z + Math.sin(a) * 0.3, Math.cos(a) * sp, rnd(0.2, 0.7), Math.sin(a) * sp,
-        rnd(1.4, 2.4), rnd(0.35, 0.55), rnd(1.1, 1.7), R.dust, 1.4, -0.05, GROW_EASE);
+      const sp = rnd(0.3, 1.1) * (0.6 + 0.4 * amount);
+      S.spawn(pos.x + Math.cos(a) * 0.25, Math.max(0.08, pos.y), pos.z + Math.sin(a) * 0.25, Math.cos(a) * sp, rnd(0.1, 0.4), Math.sin(a) * sp,
+        rnd(0.8, 1.4), rnd(0.18, 0.3) * (0.6 + 0.4 * amount), rnd(0.55, 0.9) * (0.6 + 0.4 * amount), R.dust, 0.9, -0.05, GROW_EASE);
     }
+  }
+
+  /**
+   * A body hitting the ground: a faint puff, only for a hard landing and at most one per spot every
+   * second or so (a falling corpse strikes the ground with every limb).
+   */
+  bodyDust(pos, speed) {
+    if (speed < 4) return;
+    const now = performance.now();
+    const R2 = this._recentDust || (this._recentDust = []);
+    for (let i = R2.length - 1; i >= 0; i--) if (now - R2[i].t > 1200) R2.splice(i, 1);
+    for (const r of R2) if (Math.abs(r.x - pos.x) < 1.5 && Math.abs(r.z - pos.z) < 1.5) return;
+    R2.push({ x: pos.x, z: pos.z, t: now });
+    this.dust(pos, Math.min(0.6, (speed - 4) / 6 + 0.25));
   }
 
   /** A spent case thrown out of the action along dir (world space), tumbling, landing with a tink. */
