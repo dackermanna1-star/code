@@ -249,9 +249,15 @@ export function barn(bank, spec) {
 /** Silo: corrugated cylinder, domed cap, cage ladder. */
 export function silo(bank, s) {
   bank.at(s.pos[0], 0, s.pos[1], 0);
-  const C = bank.b('corr');
-  C.setColor(0.86, 0.86, 0.84);
-  C.cyl(0, 0, 0, s.r, s.h, { seg: 16, caps: '', uv: [1.0, 1.0] });
+  const C = bank.b('concrete');
+  C.setColor(0.92, 0.9, 0.86);
+  C.vc = (wx, wy) => 0.8 + 0.2 * Math.min(1, wy / 4) - 0.15 * smooth01(s.h * 0.6, s.h, wy);
+  C.cyl(0, 0, 0, s.r, s.h, { seg: 16, caps: '', uv: [2.2, 1.6] });
+  C.vc = null;
+  // steel hoops round the staves
+  const Hp = bank.b('steel');
+  Hp.setColor(0.55, 0.5, 0.45);
+  for (let y = 1.2; y < s.h; y += 1.6) Hp.cyl(0, y, 0, s.r + 0.03, 0.06, { seg: 16, caps: '', uv: [1, 1] });
   // cap: a shallow cone in two steps
   const S = bank.b('steel');
   S.setColor(0.8, 0.8, 0.8);
@@ -492,7 +498,7 @@ export function gasStation(bank, G, shop) {
   for (const t of G.tanks) {
     bank.at(t.pos[0], 0, t.pos[1], t.yaw);
     const P2 = bank.b('paint');
-    P2.setColor(0.85, 0.84, 0.8);
+    P2.setColor(0.62, 0.61, 0.57);
     P2.hcyl(0, t.r + 0.4, 0, t.r, t.len, { seg: 12, atlas: { tex: [64, 64], side: [0, 0, 32, 32], top: [0, 0, 32, 32] } });
     const Cc2 = bank.b('concrete');
     Cc2.setColor(0.8, 0.78, 0.74);

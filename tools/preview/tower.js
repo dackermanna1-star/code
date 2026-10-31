@@ -167,11 +167,41 @@ window.__tower = {
     retro.render(level.scene, cam);
     WORLD.uFogParams.value.copy(saved);
   },
+  /** Render from an arbitrary camera position looking at a target (debug close-ups). */
+  freeView(px, py, pz, tx, ty, tz, fov = 50) {
+    const cam = new THREE.PerspectiveCamera(fov, camera.aspect, 0.05, 1500);
+    cam.position.set(px, py, pz);
+    cam.lookAt(tx, ty, tz);
+    cam.updateMatrixWorld();
+    level.update(0, cam);
+    retro.render(level.scene, cam);
+  },
   /** The painted macro map as a data URL (debug). */
   macroURL() {
     const g = level.scene.getObjectByName('ground');
     return g.userData.uniforms.tMacro.value.image.toDataURL();
   },
   stats: () => level.stats(),
+  /** A 1.8 m test figure (dark clothes) standing at (x, z), facing the tower. */
+  dummy(x, z) {
+    const g = new THREE.Group();
+    const m = new THREE.MeshLambertMaterial({ color: 0x3a3632 });
+    const skin = new THREE.MeshLambertMaterial({ color: 0x8a7a6a });
+    const box = (w, h, d, px, py, pz, mat = m) => {
+      const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+      b.position.set(px, py, pz);
+      g.add(b);
+    };
+    box(0.16, 0.85, 0.18, -0.11, 0.43, 0);
+    box(0.16, 0.85, 0.18, 0.11, 0.43, 0);
+    box(0.42, 0.62, 0.24, 0, 1.17, 0);
+    box(0.1, 0.62, 0.12, -0.28, 1.2, 0.08);
+    box(0.1, 0.62, 0.12, 0.28, 1.2, 0.08);
+    box(0.2, 0.24, 0.22, 0, 1.62, 0, skin);
+    g.position.set(x, 0, z);
+    g.rotation.y = Math.atan2(-x, -z);
+    level.scene.add(g);
+    return g;
+  },
 };
 requestAnimationFrame(frame);

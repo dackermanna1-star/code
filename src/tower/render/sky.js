@@ -265,16 +265,17 @@ function bolt() {
       p.set([x0, y0, z0, x1, y1, z1], n * 6);
       n++;
     };
-    const dist = 380;
-    let x = Math.cos(a) * dist, z = Math.sin(a) * dist, y = 120;
-    const steps = 22;
+    const dist = 420;
+    const top = 150 + R() * 60;
+    let x = Math.cos(a) * dist, z = Math.sin(a) * dist, y = top;
+    const steps = 26;
     for (let i = 0; i < steps; i++) {
-      const nx = x + (R() - 0.5) * 14, ny = y - (120 + 10) / steps, nz = z + (R() - 0.5) * 14;
+      const nx = x + (R() - 0.5) * 18, ny = y - (top + 10) / steps, nz = z + (R() - 0.5) * 18;
       seg(x, y, z, nx, ny, nz);
-      if (R() < 0.18) {
+      if (R() < 0.2) {
         let bx = nx, by = ny, bz = nz;
-        for (let j = 0; j < 4; j++) {
-          const qx = bx + (R() - 0.5) * 16, qy = by - 5 - R() * 4, qz = bz + (R() - 0.5) * 16;
+        for (let j = 0; j < 3; j++) {
+          const qx = bx + (R() - 0.5) * 22, qy = by - 7 - R() * 6, qz = bz + (R() - 0.5) * 22;
           seg(bx, by, bz, qx, qy, qz);
           bx = qx;
           by = qy;

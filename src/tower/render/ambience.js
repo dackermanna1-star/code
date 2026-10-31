@@ -13,6 +13,7 @@ import { riverZ, riverW } from '../level/layout.js';
 
 const _v = new THREE.Vector3();
 const _vp = new THREE.Vector4();
+const FLAP = [1, 2, 3, 2]; // wingbeat frames
 
 const BAYER_GLSL = /* glsl */ `
 float bayer4(ivec2 p) {
@@ -57,21 +58,31 @@ export class Crows {
         uniform float uViewH;
         varying vec2 vInfo;
         varying vec3 vWorldPos;
+        varying float vSize;
         void main() {
           vInfo = info;
           vec4 wp = modelMatrix * vec4(position, 1.0);
           vWorldPos = wp.xyz;
           vec4 mv = viewMatrix * wp;
           gl_Position = projectionMatrix * mv;
-          gl_PointSize = clamp(1.25 * projectionMatrix[1][1] * uViewH * 0.5 / max(-mv.z, 0.1), 2.0, 96.0);
+          float s = 1.25 * projectionMatrix[1][1] * uViewH * 0.5 / max(-mv.z, 0.1);
+          vSize = s;
+          gl_PointSize = clamp(s, 1.0, 96.0);
         }`,
       fragmentShader: /* glsl */ `
         uniform sampler2D map;
         uniform vec3 uDark;
         varying vec2 vInfo;
         varying vec3 vWorldPos;
+        varying float vSize;
         ${FOG_PARS}
         void main() {
+          if (vSize < 5.0) {
+            // a speck: one or two dark pixels (a 16-texel sprite would alias into a dot pattern)
+            if (vSize > 2.0 && length(gl_PointCoord - 0.5) > 0.3) discard;
+            gl_FragColor = vec4(applyWorldFog(uDark, vWorldPos), 1.0);
+            return;
+          }
           vec2 pc = gl_PointCoord;
           if (vInfo.y < 0.0) pc.x = 1.0 - pc.x;
           vec4 t = texture2D(map, vec2((vInfo.x + pc.x) * 0.25, 1.0 - pc.y));
@@ -110,7 +121,9 @@ export class Crows {
   update(dt, camera, t) {
     dt = Math.min(dt, 0.1);
     const right = _v.set(1, 0, 0).applyQuaternion(camera.quaternion);
-    for (const b of this.birds) {
+    const B = this.birds;
+    for (let i = 0; i < B.length; i++) {
+      const b = B[i];
       if (b.state === 0) {
         b.pos.copy(b.perch);
         b.peck -= dt;
@@ -163,7 +176,7 @@ export class Crows {
       if (b.pos.y < 0.2) b.pos.y = 0.2;
       // wings: flap, with glides when level and fast
       const gliding = b.state === 1 && Math.abs(b.vel.y) < 0.8 && Math.sin(t * 0.9 + b.phase) > 0.3;
-      b.frame = gliding ? 2 : [1, 2, 3, 2][Math.floor((t * 9 + b.phase) % 4)];
+      b.frame = gliding ? 2 : FLAP[Math.floor((t * 9 + b.phase) % 4)];
       const sx = b.vel.x * right.x + b.vel.z * right.z;
       if (Math.abs(sx) > 0.3) b.flip = sx > 0 ? 1 : -1;
     }
@@ -171,14 +184,15 @@ export class Crows {
   }
 
   _sync() {
-    const P = this.posArr, I = this.infoArr;
-    this.birds.forEach((b, i) => {
+    const P = this.posArr, I = this.infoArr, B = this.birds;
+    for (let i = 0; i < B.length; i++) {
+      const b = B[i];
       P[i * 3] = b.pos.x;
       P[i * 3 + 1] = b.pos.y;
       P[i * 3 + 2] = b.pos.z;
       I[i * 2] = b.frame ?? 0;
       I[i * 2 + 1] = b.flip;
-    });
+    }
     const g = this.points.geometry;
     g.attributes.position.needsUpdate = true;
     g.attributes.info.needsUpdate = true;
@@ -190,7 +204,7 @@ export class Crows {
 
 export function fireflies(L) {
   const R = rng(919);
-  const N = 260;
+  const N = 150;
   const pos = new Float32Array(N * 3), info = new Float32Array(N * 3);
   let k = 0;
   while (k < N) {
@@ -233,7 +247,7 @@ export function fireflies(L) {
         gl_Position = projectionMatrix * mv;
         float blink = pow(max(0.0, sin(uTime * (0.8 + info.z) + info.x * 3.0)), 10.0);
         vA = blink * uK;
-        gl_PointSize = -mv.z < 30.0 ? 2.0 : 1.0;
+        gl_PointSize = -mv.z < 14.0 ? 2.0 : 1.0;
       }`,
     fragmentShader: /* glsl */ `
       varying float vA;
@@ -243,7 +257,7 @@ export function fireflies(L) {
         if (vA < 0.02) discard;
         vec3 dir;
         float f = worldFogAmount(vWorldPos, dir);
-        gl_FragColor = vec4(vec3(1.0, 0.95, 0.45) * vA * 2.2 * (1.0 - f), 1.0);
+        gl_FragColor = vec4(vec3(0.75, 1.0, 0.35) * vA * 1.3 * (1.0 - f), 1.0);
       }`,
     transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false,
   });
@@ -302,16 +316,80 @@ export function dust(L, T) {
       ${BAYER_GLSL}
       void main() {
         float g = texture2D(map, gl_PointCoord).r * vA * uK;
-        if (g < bayer4(ivec2(gl_FragCoord.xy)) * 0.5) discard;
-        gl_FragColor = vec4(applyWorldFog(uColor, vWorldPos), 1.0);
+        if (g < 0.004) discard;
+        gl_FragColor = vec4(applyWorldFog(uColor, vWorldPos), g);
       }`,
-    toneMapped: false,
+    transparent: true, depthWrite: false, toneMapped: false,
   });
   const pts = new THREE.Points(geo, mat);
   pts.frustumCulled = false;
   pts.onBeforeRender = (renderer) => {
     renderer.getCurrentViewport(_vp);
     mat.uniforms.uViewH.value = _vp.w;
+  };
+  return pts;
+}
+
+/**
+ * Halos round lamps (night only): one additive point sprite per light, sized in metres, with an
+ * on/off weight per sprite (setOn(i, k)) and an optional flicker. list: [{ pos, color, size, flicker }]
+ */
+export function glows(list, T) {
+  const N = Math.max(1, list.length);
+  const pos = new Float32Array(N * 3), col = new Float32Array(N * 3), info = new Float32Array(N * 3);
+  list.forEach((g, i) => {
+    pos.set(g.pos, i * 3);
+    col.set(g.color, i * 3);
+    info.set([g.size ?? 3, g.flicker ?? 0, g.on ?? 1], i * 3);
+  });
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  geo.setAttribute('gcol', new THREE.BufferAttribute(col, 3));
+  geo.setAttribute('info', new THREE.BufferAttribute(info, 3));
+  const uniforms = { map: { value: T.glow }, uViewH: { value: 360 } };
+  for (const key of Object.keys(WORLD)) uniforms[key] = WORLD[key];
+  const mat = new THREE.ShaderMaterial({
+    uniforms,
+    vertexShader: /* glsl */ `
+      attribute vec3 gcol;
+      attribute vec3 info;
+      uniform float uTime;
+      uniform float uNight;
+      uniform float uViewH;
+      varying vec3 vCol;
+      varying vec3 vWorldPos;
+      void main() {
+        vWorldPos = position;
+        vec4 mv = viewMatrix * vec4(position, 1.0);
+        gl_Position = projectionMatrix * mv;
+        float fl = info.y > 0.0 ? 0.75 + 0.25 * sin(uTime * 19.0 + position.x) * sin(uTime * 5.3 + position.z) : 1.0;
+        if (info.y > 0.5 && sin(uTime * 0.9 + position.x) > 0.93) fl *= 0.15;
+        vCol = gcol * fl * info.z * (0.15 + 0.85 * uNight);
+        gl_PointSize = clamp(info.x * projectionMatrix[1][1] * uViewH * 0.5 / max(-mv.z, 0.5), 2.0, 160.0);
+      }`,
+    fragmentShader: /* glsl */ `
+      uniform sampler2D map;
+      varying vec3 vCol;
+      varying vec3 vWorldPos;
+      ${FOG_PARS}
+      void main() {
+        float g = texture2D(map, gl_PointCoord).r;
+        vec3 dir;
+        float f = worldFogAmount(vWorldPos, dir);
+        gl_FragColor = vec4(vCol * g * (1.0 - f * 0.7), 1.0);
+      }`,
+    transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false,
+  });
+  const pts = new THREE.Points(geo, mat);
+  pts.frustumCulled = false;
+  pts.renderOrder = 6;
+  pts.onBeforeRender = (renderer) => {
+    renderer.getCurrentViewport(_vp);
+    mat.uniforms.uViewH.value = _vp.w;
+  };
+  pts.userData.setOn = (i, k) => {
+    info[i * 3 + 2] = k;
+    geo.attributes.info.needsUpdate = true;
   };
   return pts;
 }

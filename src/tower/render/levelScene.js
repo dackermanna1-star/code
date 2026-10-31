@@ -8,7 +8,7 @@ import { house, barn, silo, church, store, shed, crypt, gasStation, waterTower, 
 import { wreck } from './vehicles.js';
 import { buildVegetation } from './vegetation.js';
 import { tower, compound, valleyProps, lampPosts, makeGates, makeTrapFactory, makeFloodlights } from './props.js';
-import { Crows, fireflies, dust, rain } from './ambience.js';
+import { Crows, fireflies, dust, rain, glows } from './ambience.js';
 
 /**
  * LAST LOOKOUT's world: the valley, the tower, the sky and the weather, built from LAYOUT.
@@ -54,7 +54,7 @@ const TOD = {
   exposure: [1.0, 1.02, 1.1, 1.22, 1.28],
 };
 const GRADE = {
-  lift: [[0.03, 0.01, 0.05], [0.03, 0.01, 0.055], [0.02, 0.02, 0.06], [0.015, 0.025, 0.065], [0.015, 0.025, 0.065]],
+  lift: [[0.012, 0.0, 0.025], [0.012, 0.0, 0.03], [0.01, 0.01, 0.04], [0.008, 0.016, 0.05], [0.008, 0.016, 0.05]],
   gain: [[1.05, 0.99, 0.92], [1.06, 0.97, 0.9], [0.98, 0.97, 1.02], [0.93, 0.98, 1.08], [0.92, 0.98, 1.08]],
   sat: [0.94, 0.95, 0.9, 0.86, 0.85],
 };
@@ -104,6 +104,7 @@ export function buildLevelScene(LAYOUT, opts = {}) {
     cabinIn: lambert({ map: T.cabinPine }, { interior: true, key: 'cabinIn' }),
     roofGreen: lambert({ map: T.greenShingles }, { wet: 0.2 }),
     paint: lambert({ map: T.car }, { wet: 0.15 }),
+    trim: lambert({ map: T.trim }, { wet: 0.2 }),
     grating: lambert({ map: T.grating, alphaTest: 0.5, side: DS }),
     chain: lambert({ map: T.chainLink, alphaTest: 0.5, side: DS }),
     planks: lambert({ map: T.greyPlanks }, { wet: 0.25 }),
@@ -138,7 +139,7 @@ export function buildLevelScene(LAYOUT, opts = {}) {
     gate: lambert({ map: T.greyPlanks, vertexColors: false }, { wet: 0.2 }),
     wire: unlit({ color: 0x2a2622, vertexColors: false }),
     lens: unlit({ color: 0xeef4ff, intensity: 3, vertexColors: false }),
-    pool: unlit({ map: T.pool, blending: 'add', color: 0xdce8ff, intensity: 0.55, nightOnly: true, polygonOffset: true, vertexColors: false }),
+    pool: unlit({ map: T.pool, blending: 'add', color: 0xd4dcf0, intensity: 0.22, nightOnly: true, polygonOffset: true, vertexColors: false }),
     sodiumPool: unlit({ map: T.pool, blending: 'add', color: 0xff8a30, intensity: 0.5, nightOnly: true, polygonOffset: true, vertexColors: false }),
     lampHead: unlit({ color: 0xffffff, intensity: 2.6, nightOnly: true, flicker: false }),
     lampFlicker: unlit({ color: 0xffffff, intensity: 2.6, nightOnly: true, flicker: true }),
@@ -173,10 +174,10 @@ export function buildLevelScene(LAYOUT, opts = {}) {
       ${FOG_PARS}
       void main() {
         vec3 V = normalize(cameraPosition - vWorldPos);
-        float edge = pow(abs(dot(normalize(vN), V)), 1.6);
-        float along = (1.0 - smoothstep(0.0, 1.0, vAlong)) * smoothstep(0.0, 0.05, vAlong);
-        float motes = 0.85 + 0.15 * sin(vWorldPos.x * 3.1 + uTime * 0.7) * sin(vWorldPos.z * 2.7 - uTime * 0.5 + vWorldPos.y * 4.0);
-        float k = uK * edge * along * motes * (0.05 + 0.18 * uNight) * (1.0 + uRain * 1.6);
+        float edge = pow(abs(dot(normalize(vN), V)), 2.6);
+        float along = pow(1.0 - smoothstep(0.0, 1.0, vAlong), 1.6) * smoothstep(0.0, 0.04, vAlong);
+        float motes = 0.8 + 0.2 * sin(vWorldPos.x * 3.1 + uTime * 0.7) * sin(vWorldPos.z * 2.7 - uTime * 0.5 + vWorldPos.y * 4.0);
+        float k = uK * edge * along * motes * (0.012 + 0.05 * uNight) * (1.0 + uRain * 2.2);
         vec3 dir;
         float f = worldFogAmount(vWorldPos, dir);
         gl_FragColor = vec4(vec3(0.75, 0.82, 1.0) * k * (1.0 - f * 0.8), 1.0);
@@ -208,7 +209,7 @@ export function buildLevelScene(LAYOUT, opts = {}) {
   scene.add(lantern);
   const spots = [];
   for (let i = 0; i < 3; i++) {
-    const s = new THREE.SpotLight(0xe6eeff, 0, 70, 0.42, 0.55, 2);
+    const s = new THREE.SpotLight(0xdde6f6, 0, 70, 0.42, 0.7, 2);
     s.position.set(0, -100, 0);
     s.target.position.set(0, -101, 0);
     s.userData.active = false;
@@ -271,6 +272,9 @@ export function buildLevelScene(LAYOUT, opts = {}) {
       const [w, d] = b.size;
       bank.at(b.pos[0], 0, b.pos[1], b.yaw);
       if (b.type === 'church') {
+        // candlelight in the open doorway of the steeple, facing the tower
+        const sz0 = d / 2 + 1.9;
+        G.quad([-0.7, 0.3, sz0 + 1.84], [0.7, 0.3, sz0 + 1.84], [0.7, 2.7, sz0 + 1.84], [-0.7, 2.7, sz0 + 1.84], [0, 0], [1, 0], [1, 1], [0, 1], [0, 0, 1]);
         for (const sx of [1, -1]) {
           for (let k = 0; k < 4; k++) {
             const z = -d / 2 + 2.6 + k * ((d - 5.2) / 3);
@@ -426,6 +430,17 @@ export function buildLevelScene(LAYOUT, opts = {}) {
   scene.add(gates.mesh);
   const flood = makeFloodlights(L, M, spots);
   scene.add(flood.group);
+  // halos: the valley's lamps (always on at night) then the floodlight lenses (when bought)
+  const glowList = S.lamps.map((l) => ({
+    pos: [l.pos[0], l.pos[1] - 0.15, l.pos[2]],
+    color: l.kind === 'sodium' ? [1.0, 0.55, 0.18] : l.kind === 'fluoro' ? [0.55, 0.8, 0.7] : [1.0, 0.75, 0.45],
+    size: l.kind === 'fluoro' ? 7 : 3.2, flicker: l.flicker ?? 0,
+  }));
+  const glowBase = glowList.length;
+  for (const m of L.floodlightMounts) glowList.push({ pos: m.pos, color: [0.8, 0.88, 1.0], size: 2.6, on: 0 });
+  const halos = glows(glowList, T);
+  scene.add(halos);
+  const floodIndex = Object.fromEntries(L.floodlightMounts.map((m, i) => [m.id, glowBase + i]));
   const trapFactory = makeTrapFactory(M);
   const traps = new THREE.Group();
   traps.name = 'traps';
@@ -450,7 +465,7 @@ export function buildLevelScene(LAYOUT, opts = {}) {
   windDir.set(0.94, 0.34).normalize();
   let flash = 0, nextBolt = 8, flashSeq = 0;
   const flashTimes = [0, 0.09, 0.22, 0.31];
-  const grade = { exposure: 1, lift: [0, 0, 0], gamma: [1, 1, 1], gain: [1, 1, 1], saturation: 1, contrast: 1.04, vignette: 1 };
+  const grade = { exposure: 1, lift: [0, 0, 0], gamma: [1, 1, 1], gain: [1, 1, 1], saturation: 1, contrast: 1.1, vignette: 1 };
   scene.userData.retroGrade = grade;
   const base = { hemiI: 1, sunI: 1, fogFar: 600, mist: 0.006 };
   const _col = new THREE.Color(), _col2 = new THREE.Color();
@@ -511,19 +526,21 @@ export function buildLevelScene(LAYOUT, opts = {}) {
     const r = rainAmt;
     SKY.uCloudCover.value = lerp(0.44, 0.97, r);
     sun.intensity = base.sunI * (1 - 0.85 * r);
-    hemi.intensity = base.hemiI * (1 - 0.18 * r) + flash * 2.2;
-    WORLD.uFogParams.value.set(lerp(base.fogFar, 330, r), 1, lerp(base.mist, base.mist + 0.02, r), 6);
+    hemi.intensity = base.hemiI * (1 - 0.3 * r) + flash * 2.2;
+    WORLD.uFogParams.value.set(lerp(base.fogFar, 470, r), 1, lerp(base.mist, base.mist + 0.009, r), 6);
     WORLD.uRain.value = r;
     WORLD.uFlash.value = flash * 0.9;
     WORLD.uWindAmp.value = windAmp + r * 0.35;
     // overcast: greyer sky and haze
     if (r > 0) {
-      _col.setRGB(0.24, 0.25, 0.3).multiplyScalar(1 - 0.75 * WORLD.uNight.value);
+      _col.setRGB(0.085, 0.09, 0.11).multiplyScalar(1 - 0.7 * WORLD.uNight.value);
       SKY.uSkyMid.value.lerp(_col, r * 0.7);
       SKY.uSkyZenith.value.lerp(_col, r * 0.5);
       WORLD.uFogColor.value.lerp(_col, r * 0.55);
       SKY.uCloudLit.value.lerp(_col2.copy(_col).multiplyScalar(1.3), r * 0.8);
       SKY.uCloudDark.value.lerp(_col2.copy(_col).multiplyScalar(0.6), r * 0.8);
+      SKY.uAlpenglow.value.multiplyScalar(1 - 0.85 * r);
+      SKY.uMtnFar.value.lerp(_col, r * 0.5);
     }
     scene.fog.color.copy(WORLD.uFogColor.value).lerp(WORLD.uFogSunColor.value, 0.12);
     scene.fog.far = WORLD.uFogParams.value.x;
@@ -534,6 +551,12 @@ export function buildLevelScene(LAYOUT, opts = {}) {
 
   function setRain(a) {
     rainAmt = Math.min(1, Math.max(0, a || 0));
+    if (rainAmt <= 0.45) {
+      // the storm passes: no flash left hanging
+      flash = 0;
+      flashSeq = 0;
+      sky.bolt.visible = false;
+    }
     setTimeOfDay(tod);
   }
 
@@ -560,7 +583,7 @@ export function buildLevelScene(LAYOUT, opts = {}) {
     const fl = 0.86 + 0.08 * Math.sin(time * 13.1) * Math.sin(time * 7.7 + 1.3) + 0.06 * Math.sin(time * 23.3);
     lantern.intensity = (0.9 + 2.6 * night) * fl;
     M.lanternGlass.uniforms.uIntensity.value = (1.2 + 1.6 * night) * fl;
-    for (const s of spots) if (s.userData.active) s.intensity = (40 + 520 * night) * (1 - 0.15 * rainAmt);
+    for (const s of spots) if (s.userData.active) s.intensity = (25 + 230 * night) * (1 - 0.15 * rainAmt);
     // weather: lightning when it storms
     if (rainAmt > 0.45) {
       nextBolt -= dt;
@@ -650,8 +673,14 @@ export function buildLevelScene(LAYOUT, opts = {}) {
       return rainAmt;
     },
     setWind,
-    addFloodlight: (id) => flood.add(id),
-    removeFloodlight: (id) => flood.remove(id),
+    addFloodlight: (id) => {
+      if (floodIndex[id] !== undefined) halos.userData.setOn(floodIndex[id], 1);
+      return flood.add(id);
+    },
+    removeFloodlight: (id) => {
+      if (floodIndex[id] !== undefined) halos.userData.setOn(floodIndex[id], 0);
+      flood.remove(id);
+    },
     placeTrapMesh,
     removeTrapMesh,
     gateMesh,

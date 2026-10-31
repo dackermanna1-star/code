@@ -127,7 +127,7 @@ function cabin(bank, L, wires) {
   W.setColor(1, 1, 1);
   const In = bank.b('cabinIn');
   In.setColor(1, 1, 1);
-  const P = bank.b('paint');
+  const P = bank.b('trim');
   const t = 0.1;
   // floor (inside boards) and its underside
   In.quad([-H, fy, H], [H, fy, H], [H, fy, -H], [-H, fy, -H], [-H / 2.4, H / 2.4], [H / 2.4, H / 2.4], [H / 2.4, -H / 2.4], [-H / 2.4, -H / 2.4], [0, 1, 0]);
@@ -146,12 +146,12 @@ function cabin(bank, L, wires) {
     panel(In, ix, (lin + eav) / 2, iz, -nx, -nz, len, eav - lin, [[0, 0], [uvw, 0], [uvw, 0.15], [0, 0.15]]);
     // the sill board (white trim), proud inside and out
     P.setColor(0.6, 0.58, 0.54);
-    P.box(nx * (H - 0.05), sill + 0.025, nz * (H - 0.05), nx ? 0.3 : 2 * H + 0.1, 0.05, nz ? 0.3 : 2 * H + 0.1, { atlas: PAINT });
-    P.box(nx * (H - 0.03), lin - 0.03, nz * (H - 0.03), nx ? 0.18 : 2 * H, 0.06, nz ? 0.18 : 2 * H, { atlas: PAINT });
+    P.box(nx * (H - 0.05), sill + 0.025, nz * (H - 0.05), nx ? 0.3 : 2 * H + 0.1, 0.05, nz ? 0.3 : 2 * H + 0.1, { uv: [0.6, 0.6], split: false });
+    P.box(nx * (H - 0.03), lin - 0.03, nz * (H - 0.03), nx ? 0.18 : 2 * H, 0.06, nz ? 0.18 : 2 * H, { uv: [0.6, 0.6], split: false });
   }
   // corner posts
   P.setColor(0.62, 0.6, 0.56);
-  for (const sx of [-1, 1]) for (const sz of [-1, 1]) P.box(sx * (H - 0.07), (fy + eav) / 2, sz * (H - 0.07), 0.15, eav - fy, 0.15, { atlas: PAINT });
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) P.box(sx * (H - 0.07), (fy + eav) / 2, sz * (H - 0.07), 0.15, eav - fy, 0.15, { uv: [0.6, 0.6], split: false });
   // ceiling
   In.quad([-H, eav - 0.02, -H], [H, eav - 0.02, -H], [H, eav - 0.02, H], [-H, eav - 0.02, H], [0, 0], [1.6, 0], [1.6, 1.6], [0, 1.6], [0, -1, 0]);
   // hip roof: four triangles from the eaves (overhang 0.42) to the peak, fascia, soffits
@@ -173,7 +173,7 @@ function cabin(bank, L, wires) {
   P.setColor(0.86, 0.84, 0.78);
   for (const [a, b] of sides) {
     const mx = (a[0] + b[0]) / 2, mz = (a[2] + b[2]) / 2;
-    P.box(mx, ey - 0.06, mz, Math.abs(b[0] - a[0]) + 0.08 || 0.08, 0.14, Math.abs(b[2] - a[2]) + 0.08 || 0.08, { atlas: PAINT });
+    P.box(mx, ey - 0.06, mz, Math.abs(b[0] - a[0]) + 0.08 || 0.08, 0.14, Math.abs(b[2] - a[2]) + 0.08 || 0.08, { uv: [1.2, 1.2], split: false });
   }
   // lightning rod, finial
   const S = bank.b('steel');
@@ -206,6 +206,20 @@ function cabin(bank, L, wires) {
   interior(bank, L, wires);
 }
 
+/** One sandbag: a squashed, slightly tapered octagonal bag lying along local x. */
+export function sandbag(bank, x, y, z, len = 0.55, yaw = 0, mat = 'sandbag') {
+  bank.push().local(x, y, z, yaw);
+  bank.push().local(0, 0, 0, 0, 0, 0);
+  const m = bank.xf.m;
+  m.multiply(new THREE.Matrix4().makeScale(1, 0.46, 1.2));
+  bank.xf.nm.getNormalMatrix(m);
+  const B = bank.b(mat);
+  B.setColor(1, 1, 1);
+  B.hcyl(0, 0, 0, 0.15, len, { seg: 8, uv: [0.7, 0.7], phase: Math.PI / 8 });
+  bank.pop();
+  bank.pop();
+}
+
 /** The lookout's things: sandbag rest, ammo crates, radio, cot, lantern, the map, cans. */
 function interior(bank, L, wires) {
   const C = L.tower.cabin;
@@ -213,13 +227,10 @@ function interior(bank, L, wires) {
   const Pi = bank.b('propsIn');
   Pi.setColor(1, 1, 1);
   // sandbag rifle rest on the south sill (off-centre, so the middle of the window stays clear)
-  const Sb = bank.b('sandbag');
-  Sb.setColor(1, 1, 1);
   const sy = sill + 0.05;
-  Sb.box(0.85, sy + 0.08, H - 0.08, 0.6, 0.16, 0.32, { uv: [0.7, 0.7], split: false });
-  Sb.box(1.35, sy + 0.08, H - 0.08, 0.5, 0.16, 0.3, { uv: [0.7, 0.7], split: false });
-  Sb.box(1.1, sy + 0.23, H - 0.1, 0.55, 0.14, 0.28, { uv: [0.7, 0.7], split: false });
-  Sb.box(-1.45, sy + 0.07, -H + 0.08, 0.5, 0.14, 0.3, { uv: [0.7, 0.7], split: false });
+  for (const [x, y, z, len, yaw] of [[0.82, sy + 0.08, H - 0.08, 0.58, 0.05], [1.36, sy + 0.08, H - 0.07, 0.5, -0.08], [1.1, sy + 0.22, H - 0.1, 0.55, 0.12], [-1.45, sy + 0.07, -H + 0.08, 0.5, 0.1]]) {
+    sandbag(bank, x, y, z, len, yaw);
+  }
   // ammo crates stacked in the north-west corner, an open one with boxes
   Pi.box(-1.45, fy + 0.18, -1.3, 0.62, 0.36, 0.42, { atlas: { tex: PROPS_TEX, all: PROP_UV.crate, top: PROP_UV.crateTop } });
   Pi.box(-1.42, fy + 0.54, -1.32, 0.6, 0.36, 0.4, { atlas: { tex: PROPS_TEX, all: PROP_UV.crate, top: PROP_UV.crateTop } });

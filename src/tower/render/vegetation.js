@@ -39,9 +39,9 @@ function cardGeometry() {
     for (const [s, y, u, v] of corners) {
       const x = s * ax, z = s * az;
       pos.push(x, y, z);
-      // bulge: the card's facing (+z for the first card) plus the offset from the crown's centre
-      const fx = -az, fz = ax; // card normal
-      const n = new THREE.Vector3(x * 1.4 + fx * 0.9, (y - 0.45) * 1.1, z * 1.4 + fz * 0.9).normalize();
+      // bulge toward the viewer (+z, turned to face the tower) plus the offset from the crown's
+      // centre; the crossed card uses the same field so it never flares edge-on in a side light
+      const n = new THREE.Vector3(x * 1.4, (y - 0.45) * 1.1, 0.9 + z * 0.6).normalize();
       nrm.push(n.x, n.y, n.z);
       uv.push(u, v);
       sway.push(y * y);
@@ -264,8 +264,8 @@ export function buildVegetation(L, bank, mats) {
 
   // ---- grass tufts and reeds (instanced)
   const tufts = [];
-  for (let k = 0; k < 5200 && tufts.length < 1400; k++) {
-    const r = 9 + Math.pow(R(), 0.8) * 90, a = R() * 6.28;
+  for (let k = 0; k < 5200 && tufts.length < 700; k++) {
+    const r = 9 + Math.pow(R(), 0.9) * 42, a = R() * 6.28;
     const x = Math.cos(a) * r, z = Math.sin(a) * r;
     if (Math.abs(x) < 9 && Math.abs(z) < 9) continue;
     if (!clear(x, z, 1.5) || inField(x, z, -1) && !S.fields.some((f) => (f.kind === 'pasture' || f.kind === 'fallow') && x > f.minX && x < f.maxX && z > f.minZ && z < f.maxZ)) continue;
