@@ -1,0 +1,11 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Last Lookout - animation preview</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #16141a; overflow: hidden; font: 12px/1.4 monospace; color: #d8d2c4; }
+  #hud { position: fixed; left: 8px; top: 6px; white-space: pre; pointer-events: none; text-shadow: 0 1px 0 #000; }
+  #keys { position: fixed; right: 8px; top: 6px; white-space: pre; pointer-events: none; color: #9b958a; text-align: right; }
+  canvas { display: block; image-rendering: pixelated; }
+</style></head>
+<body><div id="hud"></div><div id="keys">←/→ clip   ↑/↓ kind   1-9 kind   S slow-mo   space pause
+M moving/in place   F filmstrip   G source rig   C camera   X skeleton   T footprints   K all kinds   N new seeds</div>
+<script type="module" src="./anim.js"></script></body></html>
