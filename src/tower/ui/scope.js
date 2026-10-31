@@ -15,6 +15,7 @@ import { formatRange, formatZoom, formatSpeed, frac } from './format.js';
 
 const BAYER4 = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map((v) => (v + 0.5) / 16);
 const CELL = 2; // CSS px per mask pixel
+const NO_WIND = Object.freeze({ speed: 0, dirScreen: 0 });
 
 function windArrow() {
   return sprite('windArrow', 18, 18, (P) => {
@@ -74,6 +75,7 @@ export class ScopeOverlay {
 
     this.readouts = [this.rng, this.zoom, this.wind, this.brth, this.tags];
     this.k = 1;
+    this.cache = { range: null, zoom: null, wind: null, dir: null };
     this.w = 0;
     this.h = 0;
     this.dpr = 1;
@@ -303,20 +305,39 @@ export class ScopeOverlay {
     const oy = amp * (Math.sin(t * 1.7 + 0.5) * 0.6 + Math.sin(t * 3.3) * 0.4);
     const sc = 1 + 1.6 * e * e + this.kick * 0.035;
     setStyle(this.mask, 'transform', `translate(${ox.toFixed(1)}px,${(oy + this.kick * 6).toFixed(1)}px) scale(${sc.toFixed(4)})`);
-    setStyle(this.el, 'opacity', Math.min(1, s * 1.6).toFixed(3));
-    const ro = s > 0.75 ? (s - 0.75) / 0.25 : 0;
-    const roS = ro.toFixed(2);
-    setStyle(this.ret, 'opacity', (s > 0.5 ? (s - 0.5) / 0.5 : 0).toFixed(2));
-    for (const r of this.readouts) setStyle(r, 'opacity', roS);
+    const sq = Math.round(s * 100);
+    if (sq !== this.cache.s) {
+      this.cache.s = sq;
+      setStyle(this.el, 'opacity', Math.min(1, s * 1.6).toFixed(3));
+      const roS = (s > 0.75 ? (s - 0.75) / 0.25 : 0).toFixed(2);
+      setStyle(this.ret, 'opacity', (s > 0.5 ? (s - 0.5) / 0.5 : 0).toFixed(2));
+      for (const r of this.readouts) setStyle(r, 'opacity', roS);
+    }
     // readouts
-    const hasRange = S.rangeM !== null && S.rangeM !== undefined && Number.isFinite(S.rangeM);
-    setText(this.rngV, formatRange(S.rangeM));
-    setStyle(this.rngV, 'opacity', hasRange ? '1' : '0.45');
-    setText(this.zoomV, formatZoom(S.zoom));
-    const wind = S.wind || {};
-    setText(this.windV, formatSpeed(wind.speed));
-    const dir = num(wind.dirScreen);
-    setStyle(this.windArrow, 'transform', `rotate(${(-dir).toFixed(3)}rad)`);
+    // text only when the shown value changes (no strings built per frame)
+    const C = this.cache;
+    const rq = Number.isFinite(S.rangeM) ? Math.round(S.rangeM) : -1;
+    if (rq !== C.range) {
+      C.range = rq;
+      setText(this.rngV, formatRange(S.rangeM));
+      setStyle(this.rngV, 'opacity', rq >= 0 ? '1' : '0.45');
+    }
+    const zq = Math.round(num(S.zoom, 1) * 10);
+    if (zq !== C.zoom) {
+      C.zoom = zq;
+      setText(this.zoomV, formatZoom(S.zoom));
+    }
+    const wind = S.wind || NO_WIND;
+    const wq = Math.round(num(wind.speed) * 10);
+    if (wq !== C.wind) {
+      C.wind = wq;
+      setText(this.windV, formatSpeed(wind.speed));
+    }
+    const dq = Math.round(num(wind.dirScreen) * 100);
+    if (dq !== C.dir) {
+      C.dir = dq;
+      setStyle(this.windArrow, 'transform', `rotate(${(-dq / 100).toFixed(2)}rad)`);
+    }
     const br = frac(S.breath ?? 1);
     this.brthBar.set(br);
     this.brthBar.tick(dt);

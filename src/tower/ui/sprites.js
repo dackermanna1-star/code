@@ -235,6 +235,9 @@ export function hudIcon(id) {
       P.r(1, 2, 10, 9, D).r(2, 3, 3, 7, A).r(7, 3, 3, 7, A).r(1, 5, 10, 1, PAL.amberL);
     } else if (id === 'cabin') {
       P.r(5, 1, 2, 2, A).r(3, 3, 6, 1, A).r(2, 4, 8, 1, A).r(3, 5, 6, 6, D).r(5, 7, 2, 4, A);
+    } else if (id === 'heart') {
+      P.r(2, 2, 3, 1, PAL.redL).r(7, 2, 3, 1, PAL.redL).r(1, 3, 10, 3, PAL.red).r(2, 6, 8, 1, PAL.red).r(3, 7, 6, 1, PAL.red).r(4, 8, 4, 1, PAL.redD).r(5, 9, 2, 1, PAL.redD);
+      P.p(2, 3, PAL.bone).p(3, 3, PAL.redL);
     } else if (id === 'lungs') {
       P.r(5, 1, 2, 5, A).r(2, 4, 3, 6, A).r(7, 4, 3, 6, A).r(1, 6, 1, 3, D).r(10, 6, 1, 3, D).r(3, 3, 2, 1, D).r(7, 3, 2, 1, D);
     } else if (id === 'focus') {

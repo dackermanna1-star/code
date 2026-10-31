@@ -65,7 +65,7 @@ export class Shop {
     const st = normalizeShopState(state);
     const wasVisible = this.visible;
     // feedback for the action that led to this refresh
-    if (this.pending && wasVisible) {
+    if (this.pending && (wasVisible || this.pending.action === 'place')) {
       const p = this.pending;
       if (st.cash < p.cash - 0.5) {
         this._toast(`${p.verb} ${p.name}  -${formatCash(p.cash - st.cash)}`);
@@ -218,7 +218,7 @@ export class Shop {
     const verb = action === 'upgrade' ? 'UPGRADED' : action === 'repair' ? 'REPAIRED' : action === 'refill' ? 'REFILLED' : 'BOUGHT';
     this.pending = { cash: this.state.cash, name: it.name, action, kind: it.kind, verb };
     if (call[0] === 'onPlace') {
-      this.pending = null;
+      this.pending.verb = 'PLACED';
       this.ui('place');
     }
     this.fire(...call);

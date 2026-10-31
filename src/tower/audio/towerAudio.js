@@ -750,10 +750,15 @@ export class TowerAudio {
 
   _firePlace(f, tau = 0.08) {
     const d = this._dist(f);
+    const pan = this._panOf(f);
+    // setListener runs every frame: skip unless the fire moved in the mix
+    if (f.d !== undefined && Math.abs(d - f.d) < 0.5 && Math.abs(pan - f.p) < 0.02) return;
+    f.d = d;
+    f.p = pan;
     const now = this.ctx.currentTime;
     f.g.gain.setTargetAtTime(0.9 * distanceGain(d), now, tau);
     f.lp.frequency.setTargetAtTime(airCutoff(d), now, 0.1);
-    if (f.pan) f.pan.pan.setTargetAtTime(this._panOf(f), now, 0.05);
+    if (f.pan) f.pan.pan.setTargetAtTime(pan, now, 0.05);
   }
 
   _fireStop(f) {
@@ -880,6 +885,10 @@ export class TowerAudio {
       H.near = Math.max(0, num(nearest, 999));
       const prox = clamp(1.15 - H.near / 220, 0.12, 1);
       const amt = clamp(H.count / 45, 0, 1) ** 0.6 * prox;
+      // called every frame: only touch the audio graph when the mix really changes
+      if (Math.abs(amt - (H.amt ?? -1)) < 0.01 && Math.abs(prox - (H.prox ?? -1)) < 0.02 && (amt > 0) === !!this.beds.horde) return;
+      H.amt = amt;
+      H.prox = prox;
       this._bed('horde', 0.32 * amt, 1.2);
       const b = this.beds.horde;
       if (b && b.lp) b.lp.frequency.setTargetAtTime(380 + 2600 * prox * prox, this.ctx.currentTime, 0.8);

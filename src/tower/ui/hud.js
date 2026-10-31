@@ -158,9 +158,9 @@ export class TowerHud {
     this.gateBar = new SegBar(c1);
     this.gateVal = el('div', 'val', m1, '100%');
     const m2 = el('div', 'meter', bl);
-    iconCanvas(m2, 'cabin');
+    iconCanvas(m2, 'heart');
     const c2 = el('div', '', m2);
-    el('div', 'lbl', c2, 'LOOKOUT');
+    el('div', 'lbl', c2, 'VITALS');
     this.hpBar = new SegBar(c2, 'hp');
     this.hpVal = el('div', 'val', m2, '100');
 
