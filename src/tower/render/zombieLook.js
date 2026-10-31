@@ -1,16 +1,18 @@
 // LAST LOOKOUT — how the zombies look. A low-poly version of the engine's own sculpted body (the
 // same SDF the ballistics trace, polygonised coarse: ~5k triangles), skinned by the sandbox's
 // HumanMesh so wounds, blood, fractures and the X-ray kill cam keep working, dressed by a retro
-// shader: chunky "pixel-art" clothes and rot computed per sculpt-space texel, posterised colour,
-// shape changes per kind done as vertex displacement in sculpt space (bloater's belly, gaunt
-// screamers, bulky bosses, a hanging jaw). Gear (helmets, vests, the bomb suit's visor and collar)
-// is one merged, vertex-coloured mesh per body part. Draw calls per zombie: body 1 + gear <= 2.
+// shader: chunky "pixel-art" clothes, rot and dried blood decided per texel of a texture-like grid
+// laid round each limb, in a few flat shades; shape changes per kind are vertex displacement in
+// sculpt space (bloater's belly, gaunt climbers and screamers, bulky bosses, a hanging jaw). Gear
+// (helmets, vests, the bomb suit's visor and collar, the climber's hood) is one merged,
+// vertex-coloured mesh per body part. Draw calls per zombie: body 1 + gear <= 2.
 //
 //   await prepareZombieMeshes();                       // once (worker; ~50 ms off the main thread)
 //   const v = createZombieVisual(person, kind, scene);  // person = { id, rd, ... }
 //   v.update(alpha)  // every frame, after the bodies were posed / stepped
 //   v.setWounds(list), v.setPhysiology(pallor, cyanosis), v.addFracture(seg, frag, point, axis)
-//   v.setHidden(on), v.dispose(); v.hm is the HumanMesh (XRayRig.setGhost(v.hm, on))
+//   v.setHidden(on), v.setGearVisible(on), v.dropHelmet(dir), v.dispose()
+//   v.hm is the HumanMesh (XRayRig.setGhost(v.hm, on) for the kill cam)
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { HumanMesh, MAX_WOUNDS } from '../../render/humanMesh.js';
@@ -96,17 +98,21 @@ const SHOES = [0x2a1e16, 0x1a1a1c, 0x4a3a2a, 0x3a3430];
 const HAIR = [0x2a1e14, 0x14110e, 0x5a4a32, 0x8a7a5a, 0x3a2a1c, 0x9a9890, 0x6a3a1a];
 const SKINS = [0x6f7a5e, 0x7a8066, 0x66705a, 0x7e7a64, 0x5e6652, 0x747c6c];
 
+export const ZOMBIE_KINDS = ['walker', 'runner', 'crawler', 'climber', 'bloater', 'screamer', 'armored', 'brute', 'juggernaut'];
+
 /**
- * Look parameters per kind (all colours 0..1). shirtPat: 0 plain, 1 plaid, 2 stripes, 3 tracksuit,
- * 4 rags; pants: 0 trousers, 1 overalls, 2 shorts, 3 tracksuit, 4 suit (whole body: bomb suit);
- * sleeves: 0 none .. 1 long; hood, hair, bald; shape: bloat, inflate, thin, jaw.
+ * Look parameters of one zombie of `kind` (varied by id). Colours are display values 0..1.
+ * shirtPat: 0 plain, 1 plaid, 2 stripes, 3 tracksuit, 4 rags; pantsStyle: 0 trousers, 1 overalls,
+ * 2 shorts, 3 track pants, 4 bomb suit (whole body); sleeves: 0 none .. 1 long; crop: the shirt ends
+ * at this height (the bloater's belly shows); hood, bald, longHair; rot, gore, tear: 0..1; shape:
+ * bloat, inflate (bulk), thin, jaw (hanging); gear: null | 'riot' | 'riotHeavy' | 'eod' | 'hood'.
  */
 export function zombieStyle(kind, id = 1) {
   const r = rng(id * 7919 + kind.length * 31);
   const s = {
     kind, seed: r(), skin: hex(pick(r, SKINS)), shirt: hex(pick(r, SHIRTS)), shirt2: hex(pick(r, SHIRTS2)),
     pants: hex(pick(r, PANTS)), shoes: hex(pick(r, SHOES)), hair: hex(pick(r, HAIR)),
-    shirtPat: pick(r, [0, 0, 1, 1, 2]), pants2: 0, pantsStyle: pick(r, [0, 0, 0, 1, 2]), sleeves: pick(r, [1, 1, 0.25, 0.25, 0]),
+    shirtPat: pick(r, [0, 0, 1, 1, 2]), pantsStyle: pick(r, [0, 0, 0, 1, 2]), sleeves: pick(r, [1, 1, 0.25, 0.25, 0]),
     hood: 0, bald: r() < 0.25 ? 1 : 0, rot: 0.35 + 0.5 * r(), gore: 0.3 + 0.6 * r(), tear: 0.25 + 0.4 * r(),
     crop: 0, longHair: 0,
     bloat: 0, inflate: 0, thin: 0, jaw: 0.15 * r(), pale: 0, veins: 0, gear: null, castShadow: false,
@@ -132,7 +138,7 @@ export function zombieStyle(kind, id = 1) {
       s.skin = hex(0x8a9078); s.thin = 0.55; s.tear = 0.2; s.gore = 0.5; s.gear = 'hood';
       break;
     case 'bloater':
-      s.bloat = 1; s.inflate = 0.3; s.pale = 0.75; s.veins = 1; s.sleeves = 0; s.shirtPat = 0; s.crop = 1.19;
+      s.bloat = 1; s.inflate = 0.3; s.veins = 1; s.sleeves = 0; s.shirtPat = 0; s.crop = 1.19;
       s.shirt = hex(0xc0b48c); s.skin = hex(0x8f9a66); s.pale = 0.1; s.tear = 0.45; s.rot = 0.8; s.bald = 1; s.gore = 0.3;
       s.pants = hex(pick(r, [0x4a4234, 0x3a4a5a, 0x5a4a3a]));
       break;
@@ -170,6 +176,7 @@ varying vec3 vModelNrm;
 uniform vec4 uShape;   // x bloat, y inflate, z thin, w jaw
 // how far to push a sculpt-space point along its normal for this kind
 float zShape(vec3 P) {
+  if (uShape.x + uShape.y + uShape.z == 0.0) return 0.0; // plain walkers: no work per vertex
   float ax = abs(P.x);
   // the bloater's belly: a big ball on the front of the abdomen, its flanks and the back
   float belly = exp(-pow(length((P - vec3(0.0, 1.06, 0.06)) * vec3(1.0, 1.25, 1.1)) / 0.2, 2.0));
@@ -667,6 +674,10 @@ export function createZombieVisual(person, kind, scene, opts = {}) {
       hidden = !!on;
       mesh.visible = !hidden;
       for (const g of gear) g.mesh.visible = !hidden;
+    },
+    /** Show / hide the gear alone (e.g. while the X-ray kill cam ghosts the body). */
+    setGearVisible(on) {
+      for (const g of gear) g.mesh.visible = !!on && !hidden;
     },
     dispose() {
       scene.remove(object);
