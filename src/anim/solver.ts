@@ -182,7 +182,9 @@ export function solvePose(def: SkeletonDef, prm: PoseParams, out: Pose, fkOut?: 
       const dx = tgt.x - hipJ.x, dz = tgt.z - hipJ.z, dy = tgt.y - hipJ.y;
       const h2 = L * L - dx * dx - dz * dz;
       if (h2 > 0) {
-        const need = -Math.sqrt(h2) - dy; // negative => lower hips
+        // hip height at which this leg is exactly extended is tgt.y + sqrt(h2);
+        // if the hip joint is above that, lower the hips by the difference (negative = lower)
+        const need = dy + Math.sqrt(h2);
         if (need < drop) drop = need;
       }
     }

@@ -133,6 +133,14 @@ export function runSheetViewer(params: URLSearchParams) {
       aAnim.update(dt, ap.rootX, ap.rootZ, ap.rootYaw);
     }
     if (!pair) tAnim.update(1 / 60, 0, reach, Math.PI);
+    if (params.get('dbg') === '1') {
+      const pr = ap.params;
+      const e = new THREE.Euler().setFromQuaternion(pr.hipsRot, 'YXZ');
+      const f = (v: THREE.Vector3) => v.toArray().map((x) => x.toFixed(2)).join(',');
+      console.log(`t=${t.toFixed(2)} hips=${f(pr.hipsPos)} hipsR=${[e.x, e.y, e.z].map((x) => ((x * 180) / Math.PI).toFixed(0)).join(',')} lh=${f(pr.hands[0].pos)} rh=${f(pr.hands[1].pos)} lf=${f(pr.feet[0].pos)} rf=${f(pr.feet[1].pos)} mode=${aAnim.mode}`);
+      const fk = aAnim.fk;
+      console.log(`   FK handL=${f(fk.pos[B.handL])} handR=${f(fk.pos[B.handR])} elbowL=${f(fk.pos[B.farmL])} shL=${f(fk.pos[B.uarmL])} chest=${f(fk.pos[B.chest])} head=${f(fk.pos[B.head])} hips=${f(fk.pos[B.hips])}`);
+    }
     aModel.group.position.set(ap.rootX, 0, ap.rootZ);
     aModel.group.rotation.y = ap.rootYaw;
     tModel.group.position.set(tAnim.rootX, 0, tAnim.rootZ);

@@ -47,6 +47,11 @@ export const BRAWL: Omit<Key, 't'> = {
 
 export const k = (t: number, base: Omit<Key, 't'>, over: Partial<Key> = {}): Key => {
   const out: Key = { ...base, ...over, t } as Key;
+  // an explicit torso override replaces the base stance's spine/chest split
+  if (over.torso) {
+    if (!over.spine) delete out.spine;
+    if (!over.chest) delete out.chest;
+  }
   if (over.lh) out.lh = { ...(base.lh ?? {}), ...over.lh } as KeyHand;
   if (over.rh) out.rh = { ...(base.rh ?? {}), ...over.rh } as KeyHand;
   if (over.lf) out.lf = { ...(base.lf ?? {}), ...over.lf } as KeyFoot;
