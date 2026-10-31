@@ -10,6 +10,7 @@ import { Sandbox } from '../src/game/sandbox.js';
 import { FpsPlayer } from '../src/fps/player.js';
 import { Arsenal, SANDBOX_LOADOUT } from '../src/fps/arsenal.js';
 import { FpsSandboxMode } from '../src/modes/fpsSandbox.js';
+import { MELEE_MOVES } from '../src/render/fpsView.js';
 
 const shape = new BodyShape(new Ragdoll(new World()).segList.map((s) => s.name));
 const FIXED = 1 / 60;
@@ -23,6 +24,10 @@ function setup(seed, dist, aim) {
   m.host = { sandbox: () => sb };
   m.player = new FpsPlayer({ z: dist });
   m.arsenal = new Arsenal(SANDBOX_LOADOUT, { infinite: true });
+  // the moves timed as the viewmodel animates them (as FpsSandboxMode.build does)
+  const moves = {};
+  for (const [k, v] of Object.entries(MELEE_MOVES)) moves[k] = { windup: v.windup, strike: v.strike, recover: v.recover, chargeTime: v.charge, hitWindow: v.hitWindow };
+  m.arsenal.setMoves(moves);
   m.view = {};
   m.shake = 0;
   m.strike = null;

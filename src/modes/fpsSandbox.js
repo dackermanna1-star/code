@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { Vec3, clamp, lerp } from '../physics/math.js';
 import { FpsPlayer } from '../fps/player.js';
 import { Arsenal, SANDBOX_LOADOUT } from '../fps/arsenal.js';
-import { FpsView } from '../render/fpsView.js';
+import { FpsView, MELEE_MOVES } from '../render/fpsView.js';
 import { FpsInput } from '../fps/input.js';
 import { SurvivalHud } from '../ui/survivalHud.js';
 import { WEAPONS } from '../game/weapons.js';
@@ -41,8 +41,13 @@ export class FpsSandboxMode {
     this.camera = new THREE.PerspectiveCamera(this.fov, window.innerWidth / window.innerHeight, 0.03, 200);
     this.view = new FpsView(h.OM, this.camera.aspect);
     this.view.setEnvironment(h.envMap);
-    if (this.view.constructor.MELEE_MOVES || h.meleeMoves) this.arsenal.setMoves(h.meleeMoves || this.view.constructor.MELEE_MOVES);
+    // the moves' timing comes from their animations (the hit window: when the blow can land)
+    const moves = {};
+    for (const [k, m] of Object.entries(MELEE_MOVES)) moves[k] = { windup: m.windup, strike: m.strike, recover: m.recover, chargeTime: m.charge, hitWindow: m.hitWindow };
+    this.arsenal.setMoves(moves);
     this.view.setWeapon(this.arsenal.gun.type);
+    // build every gun and melee item now rather than on the first switch to each
+    setTimeout(() => this.view.preload && this.view.preload(), 0);
     this.input = new FpsInput(h.renderer.domElement);
     this.input.onLockChange = (locked) => this.onLock(locked);
     this.hud = new SurvivalHud(document.body, {
@@ -294,6 +299,11 @@ export class FpsSandboxMode {
     }
     const S = this.strike;
     if (M.done) return;
+    // only while the drawn weapon is where it can connect (the move's hit window)
+    const T = this.arsenal.moves[M.move], hw = (T && T.hitWindow) || [0, 1];
+    const u = clamp(M.t / (T ? T.strike : 0.2), 0, 1);
+    if (u < hw[0] || u > hw[1]) return;
+    S.u = (u - hw[0]) / Math.max(1e-3, hw[1] - hw[0]);
     this.strikePose(S, S.pose);
     const prm = meleeParams(weapon, S.charge);
     const r = S.s.update(S.pose, FIXED, { speed: (S.mode === 'stab' ? prm.stabSpeed : prm.speed) * S.s.speedLeft });
@@ -320,9 +330,8 @@ export class FpsSandboxMode {
    * crosshair.
    */
   strikePose(S, out) {
-    const pl = this.player, M = S.M, T = this.arsenal.moves[M.move];
-    const u = clamp(M.t / (T ? T.strike : 0.2), 0, 1);
-    if (this.view.meleePose && this.view.meleePose(M.move, u, M.side, out, this.camera)) return out;
+    const pl = this.player, M = S.M;
+    const u = S.u ?? 0; // progress through the hit window
     const e = pl.eye(), E = new Vec3(e.x, e.y, e.z);
     const cy = Math.cos(pl.yaw), sy = Math.sin(pl.yaw), cp = Math.cos(pl.pitch), sp = Math.sin(pl.pitch);
     const f = new Vec3(-sy * cp, sp, -cy * cp), r = new Vec3(cy, 0, -sy), up = new Vec3().crossVectors(r, f);
@@ -330,10 +339,10 @@ export class FpsSandboxMode {
     const arc = (th, rad) => new Vec3().copy(f).scale(Math.cos(th)).addScaled(r, Math.sin(th)).scale(rad);
     switch (M.move) {
       case 'swing': {
-        // a flat arc that reaches the crosshair while the bat is still coming round (40 degrees
-        // before the end of its sweep): it meets the body driving into it, as a real swing does,
-        // instead of brushing across it. The barrel lies along the radius.
-        const R = 0.95, tc = 0.7 * side;
+        // a flat arc that reaches the crosshair while the bat is still coming round (66 degrees
+        // before the end of its sweep): it meets the body squarely, driving into it, instead of
+        // brushing across the front and catching the hanging arm. The barrel lies along the radius.
+        const R = 0.95, tc = 1.15 * side;
         const C = E.clone().addScaled(up, -0.1).addScaled(f, R * (1 - Math.cos(tc))).addScaled(r, -R * Math.sin(tc));
         const d = arc(side * lerp(1.7, -0.6, u), 1);
         const P = C.addScaled(d, R);
@@ -445,6 +454,7 @@ export class FpsSandboxMode {
       ads: ar.adsAmount, sprint: pl.sprinting, speed: pl.speed, step: pl.stepPhase, onGround: pl.onGround, crouch: pl.crouch,
       look: inp.look, landed: pl.landed, state: ar.state, stateT: ar.t, reloadTime: g.reload || 1, perShell: !!g.perShell,
       melee: M ? { move: M.move, phase: M.phase, t: M.t, charge: M.charge, hit: M.hit } : null,
+      empty: !g.melee && g.ammo === 0, pitch: pl.pitch,
     });
     pl.landed = 0;
     this.view.setLighting(1);

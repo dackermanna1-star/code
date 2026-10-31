@@ -108,7 +108,6 @@ export class Arsenal {
   /** Start a melee move now (wind-up first); `charge` 0..1 for a held power blow. */
   startMove(move, charge = 0) {
     this.melee = { move, phase: 'windup', t: 0, charge, power: 0.45 + 0.55 * charge, hit: false, side: (this.meleeSide = -this.meleeSide) };
-    this.events.push({ type: 'meleeStart', move, charge });
   }
 
   /** A kick (or a stomp on someone lying in front) - with any weapon in hand. */
@@ -119,7 +118,12 @@ export class Arsenal {
     return true;
   }
 
-  /** Advance the melee move under way (strike phase: the host sweeps the striking point). */
+  /**
+   * Advance the melee move under way (strike phase: the host sweeps the striking point). A click
+   * starts the wind-up of the weapon's heavy blow at once. Let go within 0.16 s and it becomes the
+   * light one (fists: a jab); keep holding past the wind-up and the blow charges ('charge'
+   * phase, charge 0..1 over the move's chargeTime) until the button is released.
+   */
   updateMelee(dt, trigger, alt) {
     const g = this.gun;
     let M = this.melee;
@@ -130,33 +134,37 @@ export class Arsenal {
         if (press) this.startMove('slash');
         else if (altPress) this.startMove('stab');
       } else if (press) {
-        // hold to wind up a power blow; a tap is a quick one
-        this.melee = M = { move: g.heavy, phase: 'charge', t: 0, charge: 0, power: 0.45, hit: false, side: (this.meleeSide = -this.meleeSide), held: 0 };
+        this.startMove(g.heavy);
+        this.melee.held = 0;
+        this.melee.holding = true;
         this.events.push({ type: 'meleeCharge', move: g.heavy });
       }
       return;
     }
     // (a blow that lands slows the rest of the swing down, or stops it dead: the host sets M.rate)
     M.t += M.phase === 'strike' ? dt * (M.rate ?? 1) : dt;
-    const T = this.moves[M.move] || DEFAULT_MOVES.swing;
-    if (M.phase === 'charge') {
-      M.held += dt;
-      const ct = this.moves[g.heavy] ? this.moves[g.heavy].chargeTime || 0.8 : 0.8;
-      M.charge = clamp((M.held - 0.12) / ct, 0, 1);
-      if (!trigger) {
-        // a quick tap: a jab (fists) or a light swing; held: the full wind-up's power
-        if (g.light !== g.heavy && M.held < 0.16) M.move = g.light;
-        M.power = 0.45 + 0.55 * M.charge;
-        M.phase = 'windup';
-        M.t = 0;
-        this.events.push({ type: 'meleeStart', move: M.move, charge: M.charge });
+    if (M.holding) {
+      if (trigger) M.held += dt;
+      else {
+        M.holding = false;
+        // a quick tap: the light blow (a jab) instead of the heavy one
+        if (g.light && g.light !== M.move && M.held < 0.16 && M.phase === 'windup') M.move = g.light;
       }
-      return;
     }
+    const T = this.moves[M.move] || DEFAULT_MOVES.swing;
     if (M.phase === 'windup' && M.t >= T.windup) {
-      M.phase = 'strike';
       M.t = 0;
-      this.events.push({ type: 'meleeStrike', move: M.move, power: M.power });
+      if (M.holding && T.chargeTime) {
+        M.phase = 'charge';
+        return;
+      }
+      this.beginStrike(M);
+    } else if (M.phase === 'charge') {
+      M.charge = clamp(M.t / T.chargeTime, 0, 1);
+      if (!M.holding) {
+        M.t = 0;
+        this.beginStrike(M);
+      }
     } else if (M.phase === 'strike' && (M.t >= T.strike || M.done)) {
       M.phase = 'recover';
       M.t = 0;
@@ -164,6 +172,13 @@ export class Arsenal {
       this.melee = null;
       this.events.push({ type: 'meleeEnd', move: M.move });
     }
+  }
+
+  beginStrike(M) {
+    M.phase = 'strike';
+    M.power = 0.45 + 0.55 * M.charge;
+    this.events.push({ type: 'meleeStart', move: M.move, charge: M.charge });
+    this.events.push({ type: 'meleeStrike', move: M.move, power: M.power });
   }
 
   reload() {
