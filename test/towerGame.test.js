@@ -45,7 +45,13 @@ function shootAt(g, z, seg = 'head', rifle = null) {
   const p = z.person.rd.segments[seg].body.pos.clone();
   const e = eyeFor(p);
   const d = p.distanceTo(e);
-  p.y += 0.5 * 9.81 * (d / 800) ** 2;
+  const tf = d / 790;
+  p.y += 0.5 * 9.81 * tf * tf;
+  // lead a walking target by the round's flight time
+  if (z.animated && z.state === 'walk') {
+    p.x += Math.sin(z.facing) * z.speed() * tf;
+    p.z += Math.cos(z.facing) * z.speed() * tf;
+  }
   return g.fire(e, p.sub(e).normalize());
 }
 
