@@ -177,6 +177,7 @@ export class UI {
     toggle('gore', 'Gore', true);
     toggle('rdr', 'RDR reactions', false);
     toggle('killcam', 'Kill cam', true);
+    toggle('xray', 'X-ray', false);
     box.appendChild(toggles);
     this.root.appendChild(box);
   }

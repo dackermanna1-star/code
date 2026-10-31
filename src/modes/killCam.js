@@ -88,10 +88,12 @@ export class KillCam {
     if (!hit || !hit.person || !hit.body || !hit.person.ctl.alive) return false;
     const seg = hit.body.userData && hit.body.userData.segment ? hit.body.userData.segment.name : '';
     const dist = hit.t;
-    if (dist < 4) return false;
+    // (the round needs a little way to fly: the camera starts 0.6 m along it)
+    if (dist < 1.5) return false;
     const head = seg === 'head' || seg === 'neck';
     if (weapon !== 'sniper' && !head) return false;
-    const chance = this.mode === 'always' ? 1 : head ? 1 : seg === 'chest' ? 0.75 : seg === 'abdomen' || seg === 'pelvis' ? 0.4 : 0.25;
+    // every sniper hit on the head or trunk; a limb now and then ('always': every hit)
+    const chance = this.mode === 'always' || head || /chest|abdomen|pelvis/.test(seg) ? 1 : 0.4;
     if (Math.random() > chance) return false;
     this.start(weapon, origin, dir, hit, seg, view);
     return true;
@@ -184,8 +186,10 @@ export class KillCam {
     const ramp = 0.4;
     if (M.t > M.dur && !M.off) {
       M.off = true;
-      if (M.xray && M.xray.setVisible) M.xray.setVisible(false, 0.4);
-      if (this.host.ghost) this.host.ghost(M.person, false);
+      if (!(this.host.xrayOn && this.host.xrayOn())) {
+        if (M.xray && M.xray.setVisible) M.xray.setVisible(false, 0.4);
+        if (this.host.ghost) this.host.ghost(M.person, false);
+      }
       if (!this.active) this.setLook('none');
     }
     if (M.t > M.dur + ramp) {
@@ -218,8 +222,9 @@ export class KillCam {
   finish() {
     const h = this.host;
     if (this.bullet) h.scene().remove(this.bullet);
-    if (this.state && this.state.xray && this.state.xray.setVisible) this.state.xray.setVisible(false, 0.35);
-    if (this.state && this.state.ghost) this.state.ghost(false);
+    const keep = this.host.xrayOn && this.host.xrayOn();
+    if (!keep && this.state && this.state.xray && this.state.xray.setVisible) this.state.xray.setVisible(false, 0.35);
+    if (!keep && this.state && this.state.ghost) this.state.ghost(false);
     this.setLook('none');
     this.active = false;
     this.timeScale = 1;
@@ -302,8 +307,10 @@ export class KillCam {
       if (S.t > xrayT) {
         S.phase = PHASES.ramp;
         S.t = 0;
-        if (S.xray && S.xray.setVisible) S.xray.setVisible(false, 0.5);
-        if (S.ghost) S.ghost(false);
+        if (!(h.xrayOn && h.xrayOn())) {
+          if (S.xray && S.xray.setVisible) S.xray.setVisible(false, 0.5);
+          if (S.ghost) S.ghost(false);
+        }
         this.setLook('none');
       }
     } else {

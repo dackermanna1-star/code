@@ -59,6 +59,7 @@ npm run build:single
 | 1 – 6 | Pistol, revolver, shotgun, SMG, assault rifle, sniper rifle |
 | 7 – 0 | Knife (shift+click slashes), baseball bat, fists, boot (kicks a standing dummy, stamps on one lying down). Hold the button to wind up the blow |
 | Tab | First-person mode |
+| K | X-ray view of every dummy on / off (skeleton and organs through glass skin) |
 | G / F | Grab / shove |
 | Q / E | Previous / next throwable |
 | Space | Pause |
@@ -91,6 +92,7 @@ Tab from the sandbox; click into the view to start. Esc pauses.
 | F | Kick, or a stamp when someone is lying in front of you |
 | R | Reload |
 | N | A new dummy in front of you |
+| K | X-ray view on / off |
 | Tab | Back to the orbit view |
 | Esc | Pause: sensitivity, field of view, volume, hold-to-aim, RDR reactions, kill cam (sniper shots, every sniper hit, any head shot, off) |
 
@@ -362,8 +364,8 @@ breaks the arm instead.
 
 ### Kill cam (`src/modes/killCam.js`)
 
-When a sniper round is about to hit someone, the shot can go to the kill cam: always for a head,
-three times in four for the chest, less often elsewhere. The *Kill cam* setting can make it
+When a sniper round is about to hit someone at least 1.5 m away, the shot goes to the kill cam:
+always for the head and trunk, now and then for a limb. The *Kill cam* setting can make it
 every hit, or any gun's head shots. The sequence:
 
 1. The world stops, and a modelled 7.62 mm round flies the real line of fire with the camera

@@ -213,6 +213,7 @@ export class FpsSandboxMode {
       else if (k === 'KeyR') ar.reload();
       else if (k === 'KeyF') ar.kick(this.stompTarget() !== null);
       else if (k === 'KeyN') h.spawnInFront(pl);
+      else if (k === 'KeyK') h.toggleXray();
       else if (k === 'Tab') {
         h.exitFps();
         return;

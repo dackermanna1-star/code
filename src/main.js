@@ -78,6 +78,7 @@ const state = {
   shoveImpulse: 60,
   firing: false,
   melee: null, // a melee tool blow being wound up (button held)
+  xray: false, // X-ray view of the dummies (K)
   lastShot: -1,
   selected: null,
   pointer: new THREE.Vector2(),
@@ -500,6 +501,9 @@ function setSetting(key, v) {
       sandbox.setReactions(v ? 'rdr' : 'realistic');
       ui.notify(v ? 'RDR reactions: bigger hits, head shots stagger before they drop' : 'Realistic reactions');
       break;
+    case 'xray':
+      toggleXray(v);
+      break;
     case 'killcam':
       killCam.mode = v ? 'sniper' : 'off';
       break;
@@ -743,6 +747,7 @@ window.addEventListener('keydown', (e) => {
   else if (k === 'b') doAction('follow');
   else if (k === 'v') doAction('debug');
   else if (k === 'h') ui.toggleHidden();
+  else if (k === 'k') toggleXray();
   else if (k === 'p') doAction('survival');
 });
 window.addEventListener('keyup', (e) => state.keys.delete(e.key.toLowerCase()));
@@ -781,6 +786,11 @@ function handleFx(e) {
   switch (e.type) {
     case 'personAdded':
       attachRender(e.person);
+      if (state.xray && mode !== 'survival') {
+        const rig = xrayFor(e.person);
+        if (rig) rig.setVisible(true, 0.3);
+        ghostFor(e.person, true);
+      }
       if (!state.selected) state.selected = e.person;
       break;
     case 'personRemoved':
@@ -1096,6 +1106,7 @@ const killCam = new KillCam({
   scene: () => scene,
   xray: (person) => xrayFor(person),
   ghost: (person, on) => ghostFor(person, on),
+  xrayOn: () => state.xray,
   hideUi: (on) => {
     if (mode === 'sandbox') ui.root.style.visibility = on ? 'hidden' : '';
     if (mode === 'fps') fpsMode.hud.root.style.visibility = on ? 'hidden' : '';
@@ -1116,6 +1127,19 @@ function xrayFor(person) {
 function ghostFor(person, on) {
   const r = renders.get(person);
   if (r) XRayRig.setGhost(r.hm, on);
+}
+/** X-ray view of every dummy on/off (K): glass skin over the skeleton and organs. */
+function toggleXray(on = !state.xray) {
+  state.xray = on;
+  for (const p of sandbox.people) {
+    const rig = xrayFor(p);
+    if (!rig) continue;
+    rig.setVisible(on, 0.3);
+    ghostFor(p, on);
+  }
+  const b = ui.buttons.get('set:xray');
+  if (b) b.classList.toggle('on', on);
+  ui.notify(on ? 'X-ray on (K)' : 'X-ray off');
 }
 // the X-ray's shared skeleton and organ geometry takes about a second to build: do it in slices
 // while the sandbox idles after loading
@@ -1139,6 +1163,7 @@ const fpsMode = new FpsSandboxMode({
   setScope: (a) => {
     scopeEl.style.opacity = a > 0.92 ? 1 : 0;
   },
+  toggleXray: () => toggleXray(),
   spawnInFront: (pl) => {
     const f = pl.forward(new Vec3());
     const p = sandbox.freeSpot(new Vec3(pl.pos.x + f.x * 3.2, 0, pl.pos.z + f.z * 3.2));
