@@ -105,7 +105,10 @@ function frame(now) {
   if (keys.has('KeyX')) zoom = Math.max(1, zoom / (1 + dt * 1.5));
   applyCamera();
   level.update(dt, camera);
-  retro.render(level.scene, camera);
+  if (overlay) {
+    retro.render(level.scene, camera, false);
+    retro.renderOverlay(overlay.scene, overlay.cam);
+  } else retro.render(level.scene, camera);
   fpsAcc += dt;
   fpsN++;
   if (fpsAcc > 0.5) {
@@ -203,5 +206,29 @@ window.__tower = {
     level.scene.add(g);
     return g;
   },
+};
+// ?zombie: real engine bodies with the zombie skin shader round the valley; ?overlay: a stand-in
+// viewmodel drawn with renderOverlay
+let overlay = null;
+if (params.has('zombie') || params.has('overlay')) {
+  window.__tower.ready = false;
+  import('./towerZombies.js').then((Z) => {
+    if (params.has('zombie')) {
+      window.__tower.zombies = Z.addZombies(level.scene, [[-6, -32], [-3.5, -33.5], [2, -150], [5, -248], [96, -100], [-2, -9.6], [9.6, 1]]);
+    }
+    if (params.has('overlay')) overlay = Z.overlayScene();
+    window.__tower.ready = true;
+  });
+}
+const _render = window.__tower.render;
+window.__tower.render = () => {
+  const r = _render();
+  if (overlay) {
+    overlay.cam.aspect = camera.aspect;
+    overlay.cam.updateProjectionMatrix();
+    retro.render(level.scene, camera, false);
+    retro.renderOverlay(overlay.scene, overlay.cam);
+  }
+  return r;
 };
 requestAnimationFrame(frame);

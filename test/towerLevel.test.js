@@ -176,7 +176,7 @@ test('level: buildWalkGrid agrees with isWalkable', () => {
 test('level & render modules: no DOM at module load', async () => {
   assert.equal(typeof globalThis.document, 'undefined');
   assert.equal(typeof globalThis.window, 'undefined');
-  const mods = ['retro', 'textures', 'levelScene', 'sky', 'props', 'ambience'];
+  const mods = ['retro', 'textures', 'levelScene', 'sky', 'props', 'ambience', 'terrain', 'geom', 'worldMat', 'buildings', 'vehicles', 'vegetation'];
   for (const m of mods) {
     const mod = await import(`../src/tower/render/${m}.js`);
     assert.ok(Object.keys(mod).length > 0, `${m}.js exports something`);

@@ -981,7 +981,7 @@ function trim() {
     const grain = fbm(x / 1.5, y / 9, 32 / 1.5, 32 / 9, 2, 211);
     P.white(0.55 + 0.3 * grain + (hash2(x, y, 212) - 0.5) * 0.06, c);
     const peel = fbm(x / 2, y / 2, 16, 16, 3, 213);
-    if (peel > 0.74) P.greyWood(0.45 + grain * 0.3, c);
+    if (peel > 0.8) P.greyWood(0.5 + grain * 0.25, c);
   });
   return p.quantize(16);
 }

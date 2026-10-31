@@ -200,7 +200,8 @@ export class RetroRenderer {
   _fit(lines) {
     const W = this.renderer.domElement.width, H = this.renderer.domElement.height;
     if (this.integerScale) {
-      const s = Math.max(1, Math.round(H / lines));
+      // never fewer lines than asked for: the biggest whole block size that still gives them
+      const s = Math.max(1, Math.floor(H / lines));
       return { s, w: Math.ceil(W / s), h: Math.ceil(H / s), W, H };
     }
     const s = Math.max(1, H / lines);

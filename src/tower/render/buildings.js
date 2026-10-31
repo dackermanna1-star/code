@@ -1,5 +1,4 @@
-import * as THREE from 'three';
-import { SIGN_UV, PROP_UV, rng, hash2 } from './textures.js';
+import { SIGN_UV, rng, hash2 } from './textures.js';
 
 /**
  * Buildings of the valley, merged into a Bank (one builder per material). Houses are four wall

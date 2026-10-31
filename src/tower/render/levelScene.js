@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { createTextures, PROP_UV, rng } from './textures.js';
-import { WORLD, lambert, unlit, patchWorld, FOG_PARS } from './worldMat.js';
+import { WORLD, lambert, unlit, FOG_PARS } from './worldMat.js';
 import { Bank } from './geom.js';
 import { SKY, buildSky, updateSky } from './sky.js';
 import { buildGround, buildWater, roadStrip, groundY } from './terrain.js';
@@ -13,14 +13,41 @@ import { Crows, fireflies, dust, rain, glows } from './ambience.js';
 /**
  * LAST LOOKOUT's world: the valley, the tower, the sky and the weather, built from LAYOUT.
  *
- *   const level = buildLevelScene(LAYOUT, { onLightning(delay, pos) {} });
+ *   const level = buildLevelScene(LAYOUT, { onLightning(delaySeconds, [x, y, z]) {} });
  *   level.setTimeOfDay(0.1);  level.setRain(0);
- *   // each frame (before rendering):
+ *   // each frame, before rendering (allocation-free):
  *   level.update(dt, camera);
+ *   retro.render(level.scene, camera);
+ *
+ * Returns {
+ *   scene                       THREE.Scene (add zombies / FX to it; scene.fog is a THREE.Fog kept
+ *                               in step with the world's own fog, scene.userData.retroGrade the grade)
+ *   update(dt, camera)          clock, wind sway, sky follow, crows, lightning, lantern flicker...
+ *   setTimeOfDay(t)             0 dusk .. 1 deep night (sun, sky, fog, lights, stars, moon, lamps)
+ *   timeOfDay, rain             current values (getters)
+ *   sunDir                      THREE.Vector3 toward the key light (the sun, after ~0.43 the moon)
+ *   setRain(a)                  0..1: streaks, overcast, denser haze, wet ground, storms > 0.45
+ *   setWind(dx, dz, speed)      wind direction (unit-ised) and speed m/s (sway, flags, windsock, mill)
+ *   addFloodlight(mountId)      -> the THREE.SpotLight driving it (first three) or its Group (faked)
+ *   removeFloodlight(mountId)
+ *   placeTrapMesh(kind, pos, yaw) -> Object3D ('wire' 6 m coil along local x | 'mine' | 'barrel' |
+ *                               'sentry': userData.yaw = the turning Group (barrel along local -z),
+ *                               userData.muzzle = an Object3D at the muzzle). pos: [x, y, z] |
+ *                               [x, z] | {x, y, z}; yaw: rotation.y
+ *   removeTrapMesh(obj)
+ *   gateMesh(gateId)            -> { setDamage(0..1), break(), setSteel(on), damage, broken }
+ *                               (setDamage below 1 after a break() repairs the gate)
+ *   scare(pos)                  crows near pos (within ~85 m) take off, wheel round, settle back
+ *   stats()                     { draws, tris, ... } of the whole scene (debug)
+ *   groundY(x, z)               mesh ground height (0 on the playfield, the river channel below)
+ *   lights, materials           for tuning
+ * }
  *
  * Static world: merged per material (~45 draw calls) + instanced vegetation; four real dynamic
  * lights at most (the cabin lantern + three floodlight spots), the rest are emissive glows and
- * additive ground pools. No shadow maps: the long dusk shadows are baked into the ground.
+ * additive ground pools. No shadow maps: the long dusk shadows are baked into the ground. The
+ * light set never changes, so materials never recompile mid-game; call
+ * renderer.compileAsync(level.scene, camera) while loading to avoid first-frame hitches.
  */
 
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -40,8 +67,8 @@ const TOD = {
   fog: [0x8a7488, 0x6e5a74, 0x3a3a5a, 0x1e2440, 0x161c30],
   fogSun: [0xf0a060, 0xe07848, 0x6a4a62, 0x2c3654, 0x26324e],
   fogGlow: [7, 8, 8, 10, 10],
-  fogFar: [900, 820, 700, 600, 560],
-  mist: [0.004, 0.006, 0.011, 0.016, 0.018],
+  fogFar: [1000, 900, 740, 620, 580],
+  mist: [0.0025, 0.004, 0.009, 0.014, 0.016],
   zenith: [0x3a3c6a, 0x2c2e58, 0x161c3c, 0x0a1026, 0x070b1c],
   mid: [0x8a6e8a, 0x6a5276, 0x2e3054, 0x18213a, 0x121a30],
   cloudDark: [0x4a3a54, 0x3a2c48, 0x1e1e34, 0x10142a, 0x0c101e],
@@ -59,11 +86,14 @@ const GRADE = {
   sat: [0.94, 0.95, 0.9, 0.86, 0.85],
 };
 
+const KEY = { i: 0, k: 0 };
 function keyAt(t) {
   t = Math.min(1, Math.max(0, t));
   let i = 0;
   while (i < KEYS.length - 2 && t > KEYS[i + 1]) i++;
-  return [i, (t - KEYS[i]) / (KEYS[i + 1] - KEYS[i])];
+  KEY.i = i;
+  KEY.k = (t - KEYS[i]) / (KEYS[i + 1] - KEYS[i]);
+  return KEY;
 }
 const _ca = new THREE.Color(), _cb = new THREE.Color();
 function lerpHex(arr, i, k, out) {
@@ -124,7 +154,6 @@ export function buildLevelScene(LAYOUT, opts = {}) {
     sandbag: lambert({ map: T.sandbag }, { wet: 0.3 }),
     hay: lambert({ map: T.hay }, { wet: 0.25 }),
     bark: lambert({ map: T.bark }, { wet: 0.2 }),
-    leaves: lambert({ map: T.foliage, alphaTest: 0.5, side: DS }, { sway: true, wet: 0.15 }),
     stone: lambert({ map: T.stone }, { wet: 0.25 }),
     corn: lambert({ map: T.corn, alphaTest: 0.5, side: DS }, { sway: true, wet: 0.15 }),
     asphalt: poly(lambert({ map: T.asphalt }, { wet: 0.35 }), -2, -4),
@@ -325,7 +354,7 @@ export function buildLevelScene(LAYOUT, opts = {}) {
     for (const [dx, dz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) C.beam([lanternPos.x + dx * 0.06, lanternPos.y - 0.11, lanternPos.z + dz * 0.06], [lanternPos.x + dx * 0.06, lanternPos.y + 0.12, lanternPos.z + dz * 0.06], 0.012);
     C.cyl(lanternPos.x, lanternPos.y + 0.1, lanternPos.z, 0.08, 0.06, { seg: 6, r1: 0.03, caps: 'top', uv: [1, 1] });
   }
-  const staticMeshes = bank.meshes(M, scene);
+  bank.meshes(M, scene);
   const poolMeshes = pools.meshes(M, scene);
   for (const m of poolMeshes) m.renderOrder = 3;
   // wires: one line set
@@ -473,7 +502,7 @@ export function buildLevelScene(LAYOUT, opts = {}) {
 
   function setTimeOfDay(t) {
     tod = Math.min(1, Math.max(0, t));
-    const [i, k] = keyAt(tod);
+    const { i, k } = keyAt(tod);
     // the sun's disc sinks below the western ridge; the moon rises in the south-east
     const elev = lerp(4.6, -26, smooth(0, 1, tod) ** 0.8) * (Math.PI / 180);
     const ce = Math.cos(elev);
@@ -571,7 +600,6 @@ export function buildLevelScene(LAYOUT, opts = {}) {
   // ---------------------------------------------------------------------------------------------
   // per frame
 
-  const tmpV = new THREE.Vector3();
   function update(dt, camera) {
     dt = Math.min(Math.max(dt, 0), 0.1);
     time += dt;

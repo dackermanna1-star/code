@@ -101,7 +101,7 @@ export class Crows {
 
   /** Every flock within `radius` of pos takes off (and some more, farther, at random). */
   scare(pos, radius = 85) {
-    const px = pos.x ?? pos[0], py = pos.y ?? (pos.length > 2 ? pos[1] : 0), pz = pos.z ?? (pos.length > 2 ? pos[2] : pos[1]);
+    const px = pos.x ?? pos[0], pz = pos.z ?? (pos.length > 2 ? pos[2] : pos[1]);
     for (const b of this.birds) {
       const d = Math.hypot(b.perch.x - px, b.perch.z - pz);
       if (d > radius && !(d < radius * 1.8 && this.R() < 0.25)) continue;

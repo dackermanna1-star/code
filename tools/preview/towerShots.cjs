@@ -1,6 +1,8 @@
 // Screenshots of the Last Lookout world preview (headless Chromium, software GL).
 // node tools/preview/towerShots.cjs <outDir> '<json list of shots>' [width] [height] [port]
-//   shot: { name, yaw, pitch, zoom, t, rain, floods, traps, lean, gate: [id, damage | 'break'], crows, step }
+//   shot: { name, yaw, pitch, zoom, t, rain, floods, traps, lean, gate: [id, damage | 'break'], crows, step,
+//           dummies: [[x, z], ...], free: [px, py, pz, tx, ty, tz, fov] }
+//   extra query (7th arg), e.g. 'zombie&overlay' to stand engine bodies round the valley
 // Needs the dev server: npx vite --config vite.tower.config.js --port 5181
 const { chromium } = require('playwright');
 const fs = require('fs');
@@ -9,13 +11,14 @@ const fs = require('fs');
   const out = process.argv[2] || 'shots';
   const shots = JSON.parse(process.argv[3] || '[{"name":"west","yaw":90,"pitch":-6}]');
   const width = +(process.argv[4] || 960), height = +(process.argv[5] || 540), port = +(process.argv[6] || 5181);
+  const extra = process.argv[7] ? `&${process.argv[7]}` : '';
   fs.mkdirSync(out, { recursive: true });
   const browser = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
   const page = await browser.newPage({ viewport: { width, height }, deviceScaleFactor: 1 });
   const logs = [];
   page.on('console', (m) => logs.push(`[${m.type()}] ${m.text()}`));
   page.on('pageerror', (e) => logs.push(`[pageerror] ${e.message}\n${e.stack}`));
-  await page.goto(`http://127.0.0.1:${port}/tools/preview/tower.html?still&dpr=1`, { waitUntil: 'load', timeout: 180000 });
+  await page.goto(`http://127.0.0.1:${port}/tools/preview/tower.html?still&dpr=1${extra}`, { waitUntil: 'load', timeout: 180000 });
   try {
     await page.waitForFunction(() => window.__tower && window.__tower.ready, null, { timeout: 240000 });
   } catch (e) {

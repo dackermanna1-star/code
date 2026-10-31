@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { riverZ, riverW, channelY } from '../level/layout.js';
 import { lambert, WORLD, FOG_PARS } from './worldMat.js';
 import { SKY, SKY_GLSL } from './sky.js';
-import { vnoise, hash2, rng } from './textures.js';
+import { vnoise, rng } from './textures.js';
 
 /**
  * The ground: one curvilinear grid (rows follow the river's banks so the channel is crisp with few
@@ -130,12 +130,6 @@ export function smoothLine(pts, step = 4) {
     }
   }
   out.push(pts[pts.length - 1].slice());
-  return out;
-}
-
-function riverPts(x0, x1, off = 0) {
-  const out = [];
-  for (let x = x0; x <= x1; x += 4) out.push([x, riverZ(x) + off]);
   return out;
 }
 

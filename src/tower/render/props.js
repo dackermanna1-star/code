@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { Bank } from './geom.js';
-import { SIGN_UV, PROP_UV, rng, hash2 } from './textures.js';
+import { SIGN_UV, PROP_UV, rng } from './textures.js';
 import { smoothLine, groundY } from './terrain.js';
 
 /**
@@ -14,7 +14,6 @@ import { smoothLine, groundY } from './terrain.js';
  */
 
 const PROPS_TEX = [128, 128];
-const SIGNS_TEX = [256, 256];
 const pa = (k) => ({ tex: PROPS_TEX, all: PROP_UV[k] });
 const PAINT = { tex: [64, 64], all: [0, 0, 32, 32] };
 

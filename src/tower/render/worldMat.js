@@ -90,10 +90,14 @@ gl_Position = projectionMatrix * mvPosition;
  * emissiveFrag (after emissivemap_fragment), outFrag (before the fog), key }
  */
 export function patchWorld(mat, opts = {}) {
-  const key = ['world', opts.sway ? 's' : '', opts.wet ? `w${opts.wet}` : '', opts.interior ? 'i' : '', opts.dirMul ?? '', opts.indirectMul ?? '', opts.key ?? ''].join('|');
+  // (wetness is a per-material uniform so materials that differ only in it share one program)
+  const key = ['world', opts.sway ? 's' : '', opts.wet ? 'w' : '', opts.interior ? 'i' : '', opts.dirMul ?? '', opts.indirectMul ?? '', opts.key ?? ''].join('|');
+  const wet = { value: opts.wet ?? 0 };
+  mat.userData.wet = wet;
   mat.fog = false;
   mat.onBeforeCompile = (shader) => {
     for (const k of Object.keys(WORLD)) shader.uniforms[k] = WORLD[k];
+    shader.uniforms.uWet = wet;
     if (opts.uniforms) Object.assign(shader.uniforms, opts.uniforms);
     let vs = shader.vertexShader, fs = shader.fragmentShader;
     vs = vs.replace('#include <common>', `#include <common>
@@ -110,11 +114,12 @@ uniform float uRain;
 uniform float uNight;
 uniform float uTime;
 uniform float uDirInterior;
+uniform float uWet;
 ${FOG_PARS}
 ${opts.fragPars ?? ''}`);
     if (opts.mapFrag) fs = fs.replace('#include <map_fragment>', opts.mapFrag);
     let after = opts.colorFrag ?? '';
-    if (opts.wet) after += `\n diffuseColor.rgb *= 1.0 - uRain * ${(+opts.wet).toFixed(3)};`;
+    if (opts.wet) after += `\n diffuseColor.rgb *= 1.0 - uRain * uWet;`;
     if (after) fs = fs.replace('#include <color_fragment>', `#include <color_fragment>\n${after}`);
     if (opts.emissiveFrag) fs = fs.replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>\n${opts.emissiveFrag}`);
     const indirect = opts.interior ? '0.62' : opts.indirectMul;

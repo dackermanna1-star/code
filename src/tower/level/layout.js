@@ -111,11 +111,6 @@ function waterRects(x0, x1, bridges) {
 // Scenery (what the meshes are built from). Building yaw: rotation about +Y (THREE rotation.y);
 // a building's front (door side) is its local +Z, i.e. world (sin yaw, cos yaw).
 
-/** yaw that turns local +Z toward (tx, tz) from (x, z) */
-function face(x, z, tx = 0, tz = 0) {
-  return Math.atan2(tx - x, tz - z);
-}
-
 const BRIDGES = [
   { id: 'farm', kind: 'wood', x: -55, z0: riverZ(-55) - 12, z1: riverZ(-55) + 12, half: 2.6 },
   { id: 'highway', kind: 'concrete', x: 60, z0: riverZ(60) - 12.5, z1: riverZ(60) + 12.5, half: 4.3 },
