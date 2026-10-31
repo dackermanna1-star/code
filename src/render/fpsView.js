@@ -928,7 +928,7 @@ function gripPoint(G, a, b, f) {
 const POWER = [0, 3, 0, 0, 0, 0, 0, 0, 0, -3, 0, 0, 0, -7, 0, 0, 0, 0, 0, 5, 5];
 const GUNS = {
   pistol: {
-    hip: { p: [0.085, -0.148, -0.42], r: [2, 3, 0] }, // a compressed ready: arms out, gun low and centred
+    hip: { p: [0.07, -0.115, -0.47], r: [0, 4, 3] }, // arms out, the gun just below the line of sight, turned in a touch
     sight: { rear: [0, 0.0836, 0.0015], front: [0, 0.0834, -0.1497], dist: 0.34 },
     grip: { c: [0, -0.005, -0.0035], g: rake(18), h: [0.0152, 0.046, 0.0285], r: 0.008 },
     frame: [{ box: { c: [0, 0.042, -0.06], h: [0.0125, 0.008, 0.095], r: 0.003 } }, { box: { c: [0, 0.066, -0.075], h: [0.0132, 0.018, 0.088], r: 0.003 } }],
@@ -944,7 +944,7 @@ const GUNS = {
     lift: [-0.045, 0.055, 0.04],
   },
   revolver: {
-    hip: { p: [0.09, -0.152, -0.43], r: [2, 3, 0] },
+    hip: { p: [0.075, -0.12, -0.48], r: [0, 4, 3] },
     sight: { rear: [0, 0.0805, -0.0265], front: [0, 0.0842, -0.1735], dist: 0.34 },
     grip: { c: [0, -0.009, -0.0006], g: rake(11), h: [0.018, 0.042, 0.023], r: 0.01 },
     frame: [{ box: { c: [0, 0.05, -0.07], h: [0.0125, 0.025, 0.1], r: 0.004 } }],
@@ -959,7 +959,7 @@ const GUNS = {
     tilt: [28, -10, -30],
   },
   rifle: {
-    hip: { p: [0.14, -0.19, -0.34], r: [2, 2.5, -2] }, // shouldered low: the sights well under the eye
+    hip: { p: [0.115, -0.17, -0.52], r: [5, 4.5, 5] }, // shouldered low, turned in and canted toward the target, as shooters draw it
     sight: { rear: [0, 0.143, -0.056], front: [0, 0.143, -0.1145], dist: 0.115 },
     grip: { c: [0, 0.0, 0.0011], g: rake(17), h: [0.014, 0.046, 0.0148], r: 0.007 },
     frame: [{ box: { c: [0, 0.068, -0.05], h: [0.012, 0.014, 0.085], r: 0.003 } }],
@@ -974,7 +974,7 @@ const GUNS = {
     tilt: [16, -10, -28],
   },
   smg: {
-    hip: { p: [0.14, -0.19, -0.34], r: [2, 2.5, -2] },
+    hip: { p: [0.115, -0.17, -0.5], r: [5, 4.5, 5] },
     sight: { rear: [0, 0.133, 0.036], front: [0, 0.1335, -0.2635], dist: 0.072 },
     grip: { c: [0, -0.021, 0.0035], g: rake(7), h: [0.014, 0.04, 0.0235], r: 0.009 },
     frame: [{ box: { c: [0, 0.088, -0.06], h: [0.0145, 0.022, 0.12], r: 0.004 } }],
@@ -990,7 +990,7 @@ const GUNS = {
     tilt: [16, -10, -28],
   },
   shotgun: {
-    hip: { p: [0.14, -0.18, -0.33], r: [2, 2.5, -2] },
+    hip: { p: [0.12, -0.155, -0.44], r: [3, 6, 5] },
     sight: { rear: [0, 0.0462, -0.021], front: [0, 0.0437, -0.688], dist: 0.28 },
     grip: { c: [0, 0.0005, 0.0], g: rake(52), h: [0.019, 0.032, 0.017], r: 0.012 },
     frame: [{ box: { c: [0, 0.02, -0.12], h: [0.0125, 0.025, 0.105], r: 0.003 } }, { box: { c: [0, -0.012, 0.028], h: [0.019, 0.024, 0.02], r: 0.012 } }],
@@ -1004,7 +1004,7 @@ const GUNS = {
     tilt: [10, -12, -40],
   },
   sniper: {
-    hip: { p: [0.14, -0.18, -0.33], r: [2, 2.5, -2] },
+    hip: { p: [0.12, -0.155, -0.44], r: [3, 6, 5] },
     sight: { rear: [0, 0.131, 0.0135], front: [0, 0.131, -0.3415], dist: 0.07, scope: true },
     grip: { c: [0, -0.0065, 0.0006], g: rake(4), h: [0.022, 0.03, 0.02], r: 0.01 },
     frame: [{ box: { c: [0, 0.035, -0.08], h: [0.02, 0.014, 0.1], r: 0.004 } }],
@@ -1302,7 +1302,8 @@ export class FpsView {
   constructor(factory, aspect) {
     this.factory = factory;
     this.scene = new THREE.Scene();
-    this.camera = new THREE.PerspectiveCamera(56, aspect, 0.01, 10);
+    // (a narrower lens than the world's: less stretch on the gun and the arms, as shooters do it)
+    this.camera = new THREE.PerspectiveCamera(50, aspect, 0.01, 10);
     this.hemi = new THREE.HemisphereLight(0xdfe6ff, 0x302820, 1.1);
     this.scene.add(this.hemi);
     this.key = new THREE.DirectionalLight(0xfff2dd, 1.6);
