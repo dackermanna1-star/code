@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { loadWradArms } from './wradArms.js';
 import { makeRoundCone, roundCone, coneT, ellipsoid, roundBox, smin, smax, meshSDF, makeFrame, toFrame, createMeleeModel, BOOT } from './meleeModels.js';
 
 /**
@@ -926,6 +927,12 @@ function gripPoint(G, a, b, f) {
 }
 
 const POWER = [0, 3, 0, 0, 0, 0, 0, 0, 0, -3, 0, 0, 0, -7, 0, 0, 0, 0, 0, 5, 5];
+/** Hand shapes (the 21-number pose: per finger MCP, abduction, PIP, DIP; thumb across, out, roll, MCP, IP). */
+const GRIP_PRESET = {
+  trigger: [26, 0, 62, 30, 70, 0, 84, 44, 72, -2, 84, 44, 74, -6, 80, 40, 38, 25, -55, 34, 24],
+  support: [46, 2, 58, 28, 48, 0, 60, 30, 50, -2, 60, 30, 52, -5, 58, 28, 30, 10, 0, 6, 4],
+  cup: [44, 3, 54, 24, 47, 0, 56, 26, 50, -2, 56, 26, 52, -5, 54, 24, 26, 20, -50, 12, 10],
+};
 const GUNS = {
   pistol: {
     hip: { p: [0.07, -0.115, -0.47], r: [0, 4, 3] }, // arms out, the gun just below the line of sight, turned in a touch
@@ -959,6 +966,7 @@ const GUNS = {
     tilt: [28, -10, -30],
   },
   rifle: {
+    under: [0, 0.085, -0.3], // the support hand's place under the handguard
     hip: { p: [0.115, -0.17, -0.52], r: [5, 4.5, 5] }, // shouldered low, turned in and canted toward the target, as shooters draw it
     sight: { rear: [0, 0.143, -0.056], front: [0, 0.143, -0.1145], dist: 0.115 },
     grip: { c: [0, 0.0, 0.0011], g: rake(17), h: [0.014, 0.046, 0.0148], r: 0.007 },
@@ -974,6 +982,7 @@ const GUNS = {
     tilt: [16, -10, -28],
   },
   smg: {
+    under: [0, 0.0835, -0.207], // the support hand's place under the handguard
     hip: { p: [0.115, -0.17, -0.5], r: [5, 4.5, 5] },
     sight: { rear: [0, 0.133, 0.036], front: [0, 0.1335, -0.2635], dist: 0.072 },
     grip: { c: [0, -0.021, 0.0035], g: rake(7), h: [0.014, 0.04, 0.0235], r: 0.009 },
@@ -990,6 +999,7 @@ const GUNS = {
     tilt: [16, -10, -28],
   },
   shotgun: {
+    under: [0, 0.0045, -0.37], // the support hand's place under the handguard
     hip: { p: [0.12, -0.155, -0.44], r: [3, 6, 5] },
     sight: { rear: [0, 0.0462, -0.021], front: [0, 0.0437, -0.688], dist: 0.28 },
     grip: { c: [0, 0.0005, 0.0], g: rake(52), h: [0.019, 0.032, 0.017], r: 0.012 },
@@ -1004,6 +1014,7 @@ const GUNS = {
     tilt: [10, -12, -40],
   },
   sniper: {
+    under: [0, 0.0445, -0.27], // the support hand's place under the handguard
     hip: { p: [0.12, -0.155, -0.44], r: [3, 6, 5] },
     sight: { rear: [0, 0.131, 0.0135], front: [0, 0.131, -0.3415], dist: 0.07, scope: true },
     grip: { c: [0, -0.0065, 0.0006], g: rake(4), h: [0.022, 0.03, 0.02], r: 0.01 },
@@ -1319,6 +1330,17 @@ export class FpsView {
     this.armR = new ArmRig(1, this.gloveMat, this.sleeveMat);
     this.armL = new ArmRig(-1, this.gloveMat, this.sleeveMat);
     this.scene.add(this.armR.root, this.armL.root);
+    // the arms themselves: WRAD ARMS (CC0) once loaded, in place of the procedural gloves
+    if (typeof window !== 'undefined') {
+      loadWradArms().then((a) => {
+        if (!a) return;
+        this.scene.remove(this.armR.root, this.armL.root);
+        this.scene.add(a.root);
+        this.armR = a.right;
+        this.armL = a.left;
+        this.wrad = a;
+      });
+    }
     this.kits = {};
     this.kit = null;
     this.type = null;
@@ -1515,6 +1537,26 @@ export class FpsView {
     preL[17] = L.thumb[1];
     preL[18] = L.thumb[2];
     kit.poseL = solveGrip(-1, kit.gripL, shapeL, preL);
+    // clean, even hand shapes in place of the contact solve's (which closes each joint until it
+    // touches and leaves fingers at odd angles): a firing grip with the index along the trigger,
+    // a support hand wrapped round the handguard, or cupped under the firing hand on a handgun
+    kit.poseR = Float32Array.from(GRIP_PRESET.trigger);
+    kit.poseRFire = Float32Array.from(GRIP_PRESET.trigger);
+    kit.poseRFire[0] += 6;
+    kit.poseRFire[2] += 14;
+    kit.poseRFire[3] += 6;
+    kit.poseL = Float32Array.from(L.cup ? GRIP_PRESET.cup : GRIP_PRESET.support);
+    if (spec.under) {
+      // long guns: the support hand palm-up under the handguard, the wrist below and to the left,
+      // the fingers wrapping up its far side (gun model space)
+      const c = new THREE.Vector3(...spec.under);
+      const z = new THREE.Vector3(1, 0.28, -0.4).normalize();
+      const y = new THREE.Vector3(-0.35, -0.94, 0);
+      y.addScaledVector(z, -y.dot(z)).normalize();
+      const x = new THREE.Vector3().crossVectors(y, z);
+      const W = c.clone().add(new THREE.Vector3(-0.045, -0.078, 0.035));
+      kit.gripL = new THREE.Matrix4().makeBasis(x, y, z).setPosition(W);
+    }
     kit.gripRInv = kit.gripR.clone().invert();
     // reload hands: on the magazine, the slide, the charging handle, a shell, the cylinder
     kit.magAxis = new THREE.Vector3(...(spec.mag ? spec.mag.axis : [0, 1, 0])).normalize();

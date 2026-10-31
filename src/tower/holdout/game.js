@@ -224,8 +224,8 @@ export class HoldoutHorde extends Horde {
 
   stepAnimated(z, dt) {
     const G = this.game, F = G.chase, root = z.root, p = root.pos, pl = G.player, P = pl.pos;
-    if (!z.alive) {
-      this.wake(z, { mode: 'falling' });
+    if (!z.alive || z.person.injury.dying) {
+      this.wake(z, { mode: z.alive ? 'balance' : 'falling' });
       return;
     }
     // out of the ground at spawn
@@ -706,7 +706,7 @@ export class HoldoutGame {
         z.lastHit = { by: 'player', time: this.time, head, gun: g.type, order: seen.size };
         this.addPoints(POINTS.hit, 'hit');
         if (fury && z.alive) z.person.injury.kill('fury');
-        this.emit({ type: 'hit', zombie: z, head, kill: !z.alive, armor: !!h.armor });
+        this.emit({ type: 'hit', zombie: z, head, kill: !z.alive || !!z.person.injury.dying, armor: !!h.armor });
       }
     }
     if (seen.size) this.stats.hits++;

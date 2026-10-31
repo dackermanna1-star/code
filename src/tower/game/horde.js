@@ -146,6 +146,8 @@ export class Horde {
       undead: true, hp: def.hp, armor: def.armor ? { ...def.armor } : undefined, look: kind, knockback: def.boss ? 0.35 : 1,
     });
     person.towerKind = kind;
+    // a head shot does not drop them on the spot: a stumble, the legs go, then down (Red Dead)
+    person.injury.deathStumble = def.boss ? [0.9, 1.6] : [0.45, 1.25];
     const ctl = person.ctl;
     ctl.fearless = true;
     ctl.assistTilt = 0.24;
@@ -226,6 +228,10 @@ export class Horde {
       return;
     }
     const kind = z.kind;
+    if (z.person.injury.dying) {
+      this.wake(z, { mode: 'balance', cause: 'shot' });
+      return;
+    }
     switch (z.state) {
       case 'walk': {
         const dir = this._dir;
@@ -512,6 +518,8 @@ export class Horde {
       this.game.zombieDied(z);
       return;
     }
+    // mortally hit and stumbling: no getting back into a clip, it is going down
+    if (z.person.injury.dying) return;
     const v = ctl.sens.comVel;
     const vh = Math.hypot(v.x, v.z);
     const pressure = this.physicalCount > this.maxPhysical;

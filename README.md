@@ -601,6 +601,14 @@ rebuild and field kits. You start under the tower with a pistol and 500 points.
   - **Bounty:** double points for 20 s.
   - **Shockwave:** a ring that drops every one of the dead on the map.
 
+- **Deaths:** a zombie shot through the brain does not drop on the spot. The round snaps its head
+  back, and it stumbles a step or two while its legs go before it falls dead (0.5 to 1.3 s; bosses
+  longer). This applies in both modes.
+- **Hands:** the first-person arms are WRAD ARMS by wriks (CC0,
+  [wriks.itch.io/wrad-arms](https://wriks.itch.io/wrad-arms)). The rigged arms are driven by the
+  hands' grip frames with a two-bone arm IK. The fingers use clean grip shapes: a firing grip, a
+  support hand palm-up under the handguard, and a cupped hand on handguns.
+
 Headless checks: `test/holdout.test.js` (the chase, rounds, points, barricades, guns, the crate,
 the bench, field kits, pickups, grenades, the player's bounds, cost per step).
 

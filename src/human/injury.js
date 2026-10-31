@@ -306,6 +306,7 @@ export class InjurySystem {
 
   reset() {
     this.time = 0;
+    this.dying = null;
     this.hp = this.hpMax;
     this.wounds = [];
     this.events = [];
@@ -617,7 +618,7 @@ export class InjurySystem {
           break;
         case 'brain':
           brainHit = true;
-          if (direct || sev > 0.25 || this.undead) this.kill('gunshot wound to the brain');
+          if (direct || sev > 0.25 || this.undead) this.mortal('gunshot wound to the brain');
           else {
             this.knockOut(30 + 90 * sev, 0.9);
             this.brainDamage = Math.max(this.brainDamage, 0.6 * sev);
@@ -627,7 +628,7 @@ export class InjurySystem {
         case 'brainstem':
           brainHit = true;
           if (direct || sev > 0.3 || this.undead) {
-            this.kill('brain stem destroyed');
+            this.mortal('brain stem destroyed');
             toLog.push(['brain stem destroyed', 3]);
           } else {
             this.knockOut(60 + 120 * sev, 1);
@@ -957,8 +958,26 @@ export class InjurySystem {
     }
   }
 
+  /**
+   * A mortal wound to the brain. Undead with `deathStumble` = [min, max] seconds do not drop on
+   * the spot (Red Dead style): the shot snaps the head back, the legs go out from under them over
+   * a stumbling step or two, then they die. Everyone else dies now.
+   */
+  mortal(cause) {
+    if (!this.alive || this.dying) return;
+    const D = this.deathStumble;
+    if (!this.undead || !D) {
+      this.kill(cause);
+      return;
+    }
+    const dur = D[0] + (D[1] - D[0]) * this.rng();
+    this.dying = { cause, t0: this.time, at: this.time + dur, dur };
+    this.events.push({ type: 'mortal', cause, dur });
+  }
+
   kill(cause) {
     if (!this.alive) return;
+    this.dying = null;
     this.alive = false;
     this.conscious = false;
     this.deathCause = cause;
@@ -1168,6 +1187,7 @@ export class InjurySystem {
     }
 
     // ---------------- death ----------------
+    if (this.dying && this.alive && this.time >= this.dying.at) this.kill(this.dying.cause);
     if (this.alive && !this.undead) {
       if (this.arrestTime >= 0 && this.time - this.arrestTime > AGONAL_TIME) this.kill(this.arrestCause || 'cardiac arrest');
       else if (this.brainDamage >= 1) this.kill('hypoxic brain injury');
@@ -1554,6 +1574,18 @@ export class InjurySystem {
     ctl.spineStrength = clamp(P.trunk * (1 - 0.7 * weak) * this.buckle.trunk * (1 - 0.3 * m('abdomen')), 0, 1);
     ctl.neckStrength = clamp(P.neck * (1 - 0.6 * weak) * (1 - 0.6 * this.neckSprain), 0, 1);
     ctl.balanceSkill = this.undead ? 1 : clamp((1 - 0.7 * this.concussion) * (1 - 0.6 * weak) * (1 - 0.3 * this.pain), 0.05, 1);
+    if (this.dying) {
+      // mortally hit, still on its feet for a moment: the arms drop, the head lolls, the legs fold
+      const u = clamp((this.time - this.dying.t0) / this.dying.dur, 0, 1);
+      const legs = 1 - 0.9 * smoothstep(0.15, 1, u);
+      for (const s of ['L', 'R']) {
+        ctl.legStrength[s] *= legs;
+        ctl.armStrength[s] *= 0.25;
+      }
+      ctl.neckStrength *= 0.15;
+      ctl.spineStrength *= 1 - 0.7 * u;
+      ctl.balanceSkill *= 1 - 0.6 * u;
+    }
     this.concussion = Math.max(0, this.concussion - dt / 240);
     if (this.undead) {
       ctl.wounds = [];

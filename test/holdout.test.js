@@ -447,3 +447,40 @@ test('30 animated zombies chasing the player cost little per step', () => {
 });
 
 void raycastPeople;
+
+test('a head shot does not drop them on the spot: they stumble on for a moment, then go down dead', () => {
+  let ok = 0, tried = 0;
+  for (const seed of [21, 22, 23, 24]) {
+    const g = game(seed);
+    const z = g.horde.spawnRising('walker', new Vec3(0, 0, -8), 0, 260, 'walk');
+    run(g, 2.5, idle, () => {
+      g.player.health = g.player.maxHealth;
+    });
+    let mortal = null;
+    for (let k = 0; k < 4 && !mortal; k++) {
+      g.arsenal.state = 'idle';
+      g.gun.cool = 0;
+      g.arsenal.adsAmount = 1;
+      aimAt(g, z.person.rd.segments.head.body.pos);
+      const inp = idle();
+      inp.fire = true;
+      inp.ads = true;
+      run(g, 0.4, (t) => (t < DT ? inp : idle()), (t, ev) => {
+        g.player.health = g.player.maxHealth;
+        for (const e of ev) if (e.type === 'sandbox' && e.fx.type === 'injury' && e.fx.event.type === 'mortal') mortal = { t: g.time, p: z.person.rd.pelvis.pos.clone() };
+      });
+    }
+    if (!mortal) continue;
+    tried++;
+    const stillUp = z.alive || g.time - mortal.t > 0.3;
+    let deadAt = null;
+    run(g, 3, idle, () => {
+      g.player.health = g.player.maxHealth;
+      if (deadAt === null && !z.alive) deadAt = g.time;
+    });
+    const moved = Math.hypot(z.person.rd.pelvis.pos.x - mortal.p.x, z.person.rd.pelvis.pos.z - mortal.p.z);
+    if (stillUp && deadAt !== null && deadAt - mortal.t > 0.3 && deadAt - mortal.t < 2 && moved > 0.25 && z.person.rd.pelvis.pos.y < 0.5) ok++;
+  }
+  assert.ok(tried >= 2, `brain hits in ${tried}/4`);
+  assert.ok(ok >= tried - 1, `stumbled then dropped in ${ok}/${tried}`);
+});
