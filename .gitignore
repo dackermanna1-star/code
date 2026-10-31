@@ -28,3 +28,4 @@ remappedSrc/
 # python
 __pycache__/
 *.pyc
+dist/
