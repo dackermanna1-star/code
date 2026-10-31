@@ -25,7 +25,7 @@ function gaitFor(person) {
 }
 
 let nextZid = 1;
-const ANIMATED = new Set(['walk', 'attack', 'vault', 'toLeg', 'climb', 'top']);
+const ANIMATED = new Set(['walk', 'attack', 'fence', 'getup', 'toLeg', 'climb', 'top']);
 
 export class Zombie {
   constructor(horde, person, kind, anim, opts) {
@@ -79,8 +79,8 @@ export class Zombie {
 
   clipFor() {
     if (this.state === 'attack') return this.attackClip || 'attack';
-    if (this.state === 'climb') return 'climb';
-    if (this.state === 'vault') return 'vault';
+    if (this.state === 'climb' || this.state === 'fence') return 'climb';
+    if (this.state === 'getup') return 'getup';
     if (this.state === 'top') return 'attack';
     if (this.mode !== 'walk') return this.mode;
     if (this.alertUntil > this.horde.time) return 'sprint';
@@ -231,7 +231,7 @@ export class Horde {
         const dir = this._dir;
         let steer = false;
         // climbers leave the field near the compound and head for their leg
-        if (kind === 'climber' && z.mode === 'walk') steer = this.climberSteer(z, dir);
+        if (kind === 'climber' && z.mode !== 'crawl') steer = this.climberSteer(z, dir);
         if (!steer && !F.direction(p.x, p.z, dir)) dir.set(-p.x, 0, -p.z).normalize();
         const sep = this.separation(z, this._sep);
         dir.x += sep.x * 0.9;
@@ -285,20 +285,35 @@ export class Horde {
         }
         break;
       }
-      case 'vault': {
+      case 'fence': {
+        // up the chain-link, then over the top - as a body, physically
         const c = z.climb;
-        c.t += dt;
-        const u = clamp(c.t / 1.3, 0, 1);
-        p.x = c.from.x + (c.to.x - c.from.x) * u;
-        p.z = c.from.z + (c.to.z - c.from.z) * u;
-        p.y = Math.sin(Math.PI * u) * 1.6;
-        if (u >= 1) {
-          p.y = 0;
-          z.state = 'toLeg';
-          z.playClip();
+        p.x = c.fence.x;
+        p.z = c.fence.z;
+        p.y = Math.min(c.fenceTop, p.y + z.def.climbSpeed * 1.4 * z.speedVar * dt);
+        root.yaw = c.inYaw;
+        z.syncRate(z.def.climbSpeed * 1.4 * z.speedVar);
+        if (p.y >= c.fenceTop - 1e-3) {
+          this.poseAnimated(z, dt);
+          this.wake(z, { mode: 'falling', cause: 'fence' });
+          // the trunk goes over first, the legs follow: it tips over the top and drops inside
+          for (const b of z.person.rd.allBodies()) {
+            const over = b.pos.y > c.fenceH ? 2.6 : 1.1;
+            b.vel.x += c.n.x * over;
+            b.vel.z += c.n.z * over;
+            b.vel.y += 0.9;
+          }
+          return;
         }
         break;
       }
+      case 'getup':
+        // the get-up clip plays out where it lies, then on it goes
+        if (z.anim.finished) {
+          z.state = 'walk';
+          z.playClip();
+        }
+        break;
       case 'toLeg': {
         const c = z.climb;
         _v0.set(c.foot.x - p.x, 0, c.foot.z - p.z);
@@ -361,6 +376,13 @@ export class Horde {
   /** Climbers: near the compound, leave the field and head for the fence by their leg. */
   climberSteer(z, dir) {
     const R = this.layout.compound.rect, p = z.root.pos;
+    if (p.x > R.minX + 0.2 && p.x < R.maxX - 0.2 && p.z > R.minZ + 0.2 && p.z < R.maxZ - 0.2) {
+      // over the fence already (it flopped in): straight for a leg
+      if (!z.climb) z.climb = this.planClimb(z);
+      z.state = 'toLeg';
+      z.playClip();
+      return true;
+    }
     const dx = Math.max(R.minX - p.x, 0, p.x - R.maxX), dz = Math.max(R.minZ - p.z, 0, p.z - R.maxZ);
     if (Math.hypot(dx, dz) > 9) return false;
     if (!z.climb) z.climb = this.planClimb(z);
@@ -368,10 +390,10 @@ export class Horde {
     _v0.set(c.from.x - p.x, 0, c.from.z - p.z);
     const d = _v0.length();
     if (d < 0.25) {
-      z.state = 'vault';
-      c.t = 0;
-      z.facing = Math.atan2(c.to.x - c.from.x, c.to.z - c.from.z);
-      z.root.yaw = z.facing;
+      z.state = 'fence';
+      p.y = 0;
+      z.facing = c.inYaw;
+      z.root.yaw = c.inYaw;
       z.playClip();
       return true;
     }
@@ -394,19 +416,25 @@ export class Horde {
     const ox = Math.sign(leg[0]) || 1, oz = Math.sign(leg[1]) || 1;
     // over the fence on the side facing the zombie, near the leg's corner
     const sideX = Math.abs(p.x) - Math.abs(leg[0]) > Math.abs(p.z) - Math.abs(leg[1]);
-    const fx = sideX ? (ox > 0 ? R.maxX : R.minX) : leg[0] + ox * 1.2;
-    const fz = sideX ? leg[1] + oz * 1.2 : oz > 0 ? R.maxZ : R.minZ;
-    const nx = sideX ? ox : 0, nz = sideX ? 0 : oz;
-    const off = 0.42 / Math.SQRT2;
+    const fx = sideX ? (ox > 0 ? R.maxX : R.minX) : leg[0] + ox * 1.4;
+    const fz = sideX ? leg[1] + oz * 1.4 : oz > 0 ? R.maxZ : R.minZ;
+    const n = new Vec3(sideX ? -ox : 0, 0, sideX ? 0 : -oz); // into the compound
+    // the leg's near (outer) face: the climb clip grips just in front of root.pos
+    const dl = new Vec3(ox, 0, oz).normalize();
+    // (the clip grips ~4-11 cm in front of root.pos: keep the hands on the surface, not in it,
+    // or the solver throws the body off when it goes physical)
+    const face = 0.16 + 0.13;
     return {
-      leg: best,
-      from: new Vec3(fx + nx * 0.7, 0, fz + nz * 0.7),
-      to: new Vec3(fx - nx * 0.7, 0, fz - nz * 0.7),
-      foot: new Vec3(leg[0] + ox * off, 0, leg[1] + oz * off),
-      top: new Vec3(top[0] + ox * off * 1.6, top[1], top[2] + oz * off * 1.6),
+      leg: best, n,
+      from: new Vec3(fx - n.x * 0.55, 0, fz - n.z * 0.55),
+      fence: new Vec3(fx - n.x * 0.2, 0, fz - n.z * 0.2),
+      fenceTop: Math.max(0.6, (L.compound.fenceHeight || 2.2) - 0.5), // hips over the top
+      fenceH: L.compound.fenceHeight || 2.2,
+      inYaw: Math.atan2(n.x, n.z),
+      foot: new Vec3(leg[0] + dl.x * face, 0, leg[1] + dl.z * face),
+      top: new Vec3(top[0] + dl.x * face, top[1], top[2] + dl.z * face),
       topY: top[1] - 1.75,
-      yaw: Math.atan2(-ox, -oz),
-      t: 0,
+      yaw: Math.atan2(-dl.x, -dl.z),
     };
   }
 
@@ -501,12 +529,23 @@ export class Horde {
       this.recover(z, 'crawl');
       return;
     }
-    // too long on the floor (a botched get-up): the clip gets it up
-    if (z.downT > (pressure ? 3 : 7) || z.physT > 14) this.recover(z, gait || 'walk');
+    // on its back for a moment: the get-up clip (cheaper than the physical get-up); face down it
+    // gets up physically, or gives up and crawls
+    if (ctl.mode !== 'getup' && z.downT > (pressure ? 0.8 : 1.6)) {
+      const f = z.anim.bodyFacing();
+      if (f === 'up') {
+        this.recover(z, gait || 'walk', { getup: true });
+        return;
+      }
+    }
+    if (z.downT > (pressure ? 3 : 8) || z.physT > 16) this.recover(z, 'crawl');
   }
 
-  /** Hand a physical zombie back to its clip, blending from where its body lies now. */
-  recover(z, gait) {
+  /**
+   * Hand a physical zombie back to a clip, blending from where its body is now: straight into its
+   * gait when it is on its feet, the get-up clip when it lies on its back, crawling otherwise.
+   */
+  recover(z, gait, opts = {}) {
     const person = z.person;
     // fragments ride rigidly with their segment while animated
     z.fragments.length = 0;
@@ -522,16 +561,19 @@ export class Horde {
         });
       }
     }
-    z.anim.rootFromBodies(z.root);
+    z.mode = gait === 'crawl' || gait === 'limpL' || gait === 'limpR' ? gait : 'walk';
+    const getup = !!opts.getup && z.mode !== 'crawl';
+    z.state = getup ? 'getup' : 'walk';
+    const clip = getup ? 'getup' : z.clipFor();
+    z.anim.rootFromBodies(z.root, clip);
     z.root.pos.y = 0;
     z.facing = z.root.yaw;
-    z.mode = gait === 'crawl' || gait === 'limpL' || gait === 'limpR' ? gait : 'walk';
-    z.state = 'walk';
-    z.climb = null;
+    z.climb = null; // (a climber re-plans from wherever it got up)
     this.sb.setDormant(person, true);
-    z.playClip(true);
-    z.anim.blendFromPhysics(z.mode === 'crawl' ? 0.7 : 0.4);
-    this.game.emit({ type: 'zombieRecovered', zombie: z, gait: z.mode });
+    z.anim.play(clip, { fade: 0 });
+    z.clipName = clip;
+    z.anim.blendFromPhysics(z.mode === 'crawl' ? 0.7 : 0.45);
+    this.game.emit({ type: 'zombieRecovered', zombie: z, gait: z.mode, getup });
   }
 
   stepCorpse(z, dt) {

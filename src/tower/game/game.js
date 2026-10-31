@@ -13,7 +13,7 @@ import { Horde } from './horde.js';
 import { Ballistics } from './ballistics.js';
 import { Defences } from './defences.js';
 import { Director } from './director.js';
-import { StubAnimPlayer, STUB_CLIP_INFO } from './stubAnim.js';
+import { AnimPlayer, CLIP_INFO } from '../anim/animPlayer.js';
 
 const UP = new Vec3(0, 1, 0);
 
@@ -66,6 +66,11 @@ export class RifleState {
 
   step(dt) {
     this.t += dt;
+    // the bolt thrown (or the action cycling): brass out
+    if (this.state === 'cycling' && !this.cycled && this.t >= (this.def.action === 'bolt' ? Math.min(0.32, this.cycle * 0.4) : 0.02)) {
+      this.cycled = true;
+      this.game.emit({ type: 'cycle', rifle: this.id, bolt: this.def.action === 'bolt' });
+    }
     if (this.state === 'cycling' && this.t >= this.cycle) {
       this.state = 'idle';
       if (this.ammo === 0) this.reload();
@@ -80,6 +85,7 @@ export class RifleState {
     this.ammo--;
     this.state = 'cycling';
     this.t = 0;
+    this.cycled = false;
   }
 
   reload() {
@@ -104,8 +110,8 @@ export class TowerGame {
     this.sb.setAssist(1);
     for (const c of this.layout.colliders) this.sb.world.addBody(staticBox(c));
     this.field = new GateField(this.layout, this.isWalkable);
-    this.makeAnim = opts.makeAnim ?? ((rd) => new StubAnimPlayer(rd));
-    this.clipInfo = opts.clipInfo ?? STUB_CLIP_INFO;
+    this.makeAnim = opts.makeAnim ?? ((rd, seed) => new AnimPlayer(rd, { seed }));
+    this.clipInfo = opts.clipInfo ?? CLIP_INFO;
     this.events = [];
     this.time = 0;
     this.horde = new Horde(this, { maxPhysical: opts.maxPhysical ?? 10 });

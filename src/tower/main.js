@@ -37,7 +37,7 @@ function writeSave(s) {
   }
 }
 const save = loadSave();
-save.settings = { sensitivity: 1, scopeSensitivity: 1, invertY: false, volume: 0.8, music: 0.6, quality: 'medium', showFps: false, killcam: true, ...(save.settings || {}) };
+save.settings = { mouseSens: 1, scopeSens: 1, invertY: false, masterVol: 0.85, musicVol: 0.6, sfxVol: 1, quality: 'medium', showFps: false, killcam: true, ...(save.settings || {}) };
 
 // ---------------------------------------------------------------------------------------------
 // the game
@@ -61,10 +61,11 @@ const camera = new THREE.PerspectiveCamera(BASE_FOV, window.innerWidth / window.
 camera.rotation.order = 'YXZ';
 const view = new FpsView(OM, camera.aspect);
 view.setWeapon('sniper');
-const fx = new TowerFx(scene);
 const audio = new TowerAudio();
-audio.setVolume(save.settings.volume);
-prepareZombieMeshes();
+audio.setMix({ master: save.settings.masterVol, music: save.settings.musicVol, sfx: save.settings.sfxVol });
+const fx = new TowerFx(scene, { onCasing: (p) => audio.casing(p) });
+let meshesReady = false;
+prepareZombieMeshes().then(() => (meshesReady = true));
 function resize() {
   const w = window.innerWidth, h = window.innerHeight;
   retro.setSize(w, h);
@@ -110,6 +111,7 @@ const visuals = new Map(); // zombie -> { v, decals, dirty, t }
 function attachVisual(z) {
   if (visuals.has(z)) return;
   const v = createZombieVisual(z.person, z.kind, scene);
+  v.zombie = z;
   v.object.userData.zombie = true;
   v.object.traverse((o) => (o.userData.zombie = true));
   if (thermalOn) {
@@ -164,6 +166,7 @@ const killCam = new KillCam({
   ghost: (person, on) => {
     const z = person.towerZombie, r = z && visuals.get(z);
     if (r && r.v.hm) XRayRig.setGhost(r.v.hm, on);
+    if (r && r.v.setGearVisible) r.v.setGearVisible(!on);
   },
   hideUi: (on) => {
     document.body.classList.toggle('killcam', on);
@@ -204,37 +207,33 @@ game.killcam = {
 // HUD
 let hudRoot = null;
 const hud = new TowerHud(document.body, {
-  onStart: () => startRun(false),
-  onContinue: () => startRun(true),
+  onStart: (o) => startRun(!!(o && o.continue)),
   onResume: () => resume(),
   onQuit: () => toTitle(),
   onRestart: () => startRun(false),
   onSetting: (k, v) => setSetting(k, v),
-  onShopBuy: (cat, id) => shopBuy(cat, id),
-  onShopEquip: (cat, id) => {
-    if (id === undefined) {
-      id = cat;
-      cat = catOf(id);
-    }
-    game.equip(cat, id);
-    refreshShop();
-  },
+  onShopBuy: (id, info) => shopBuy(id, info),
   onShopClose: () => closeShop(),
-  onPlace: (kind) => beginPlacement(kind),
-});
+  onPlace: (id) => buyAndPlace(id),
+  onUi: (kind) => audio.ui(kind),
+}, { audio, settings: save.settings });
 hudRoot = hud.root || null;
 
 function setSetting(k, v) {
   save.settings[k] = v;
   writeSave(save);
-  if (k === 'volume') audio.setVolume(v);
-  if (k === 'quality') retro.setQuality(v);
+  if (k === 'masterVol' || k === 'musicVol' || k === 'sfxVol') audio.setMix({ master: save.settings.masterVol, music: save.settings.musicVol, sfx: save.settings.sfxVol });
+  if (k === 'quality') {
+    retro.setQuality(v);
+    game.horde.maxPhysical = v === 'low' ? 7 : v === 'high' ? 12 : 10;
+  }
 }
 
 // ---------------------------------------------------------------------------------------------
 // input
 const input = { yaw: Math.PI, pitch: -0.12, scoped: false, scopeHold: false, firing: false, breath: false, keys: new Set() };
 let locked = false;
+window.addEventListener('pointerdown', () => audio.unlock());
 canvas.addEventListener('click', () => {
   if (phase() === 'play' || placing) canvas.requestPointerLock();
 });
@@ -246,7 +245,7 @@ document.addEventListener('mousemove', (e) => {
   if (!locked) return;
   if (Math.abs(e.movementX) > 300 || Math.abs(e.movementY) > 300) return;
   const zoomK = 1 / lerp(1, game.zoom, scopeView) ** 0.92;
-  const sens = 0.0022 * (scopeView > 0.5 ? save.settings.scopeSensitivity : save.settings.sensitivity) * zoomK;
+  const sens = 0.0022 * (scopeView > 0.5 ? save.settings.scopeSens : save.settings.mouseSens) * zoomK;
   input.yaw -= e.movementX * sens;
   input.pitch = clamp(input.pitch - e.movementY * sens * (save.settings.invertY ? -1 : 1), -1.45, 0.75);
 });
@@ -297,7 +296,7 @@ let breath = 1, breathShake = 0, holding = false;
 let thermal = false;
 let swayT = 0;
 let recoil = 0, shake = 0;
-let placing = null, placeYaw = 0, placeGhost = null;
+let placing = null, placeYaw = 0, placeGhost = null, placeRefund = 0;
 let fpsAvg = 60;
 let overView = null; // the camera turning to the broken gate
 const aimDir = new Vec3();
@@ -311,6 +310,13 @@ function phase() {
 
 function startRun(cont) {
   audio.unlock();
+  if (!meshesReady) {
+    prepareZombieMeshes().then(() => {
+      meshesReady = true;
+      startRun(cont);
+    });
+    return;
+  }
   for (const z of [...visuals.keys()]) detachVisual(z);
   game.newRun(cont && save.run ? save.run : null);
   for (const t of trapMeshes.values()) level.removeTrapMesh(t);
@@ -335,7 +341,7 @@ function toTitle() {
   started = false;
   paused = false;
   document.exitPointerLock();
-  hud.showTitle({ bestWave: save.bestWave || 0, bestScore: save.bestScore || 0, canContinue: !!save.run });
+  hud.showTitle({ bestWave: save.bestWave || 0, bestScore: save.bestScore || 0, continueWave: save.run ? save.run.wave : 0 });
   audio.music('calm');
 }
 
@@ -353,7 +359,12 @@ function resume() {
 // ---------------------------------------------------------------------------------------------
 // shop and placement
 function shopState() {
-  return { cash: game.cash, wave: game.director.wave, owned: game.owned, equipped: game.equipped, gate: game.gate, sentry: game.defences.sentry };
+  const D = game.defences;
+  const placed = {
+    wire: D.wires.length, mine: D.mines.length, barrel: D.barrels.length, floodlight: D.floodlights.size,
+    sentry: D.sentry ? 1 : 0, steelGate: game.owned.defences.steelGate || 0,
+  };
+  return { cash: game.cash, wave: game.director.wave, owned: { ...game.owned, defences: placed }, equipped: game.equipped, gate: game.gate, sentry: D.sentry };
 }
 function openShop() {
   document.exitPointerLock();
@@ -368,19 +379,22 @@ function refreshShop() {
 function catOf(id) {
   return RIFLES[id] ? 'rifle' : AMMO[id] ? 'ammo' : UPGRADES[id] ? 'upgrade' : DEFENCES[id] ? 'defence' : null;
 }
-function shopBuy(cat, id) {
-  if (id === undefined) {
-    id = cat;
-    cat = catOf(id);
-  }
-  const r = game.buy(cat, id);
-  audio.ui(r.ok ? 'buy' : 'error');
-  if (r.ok && r.place) {
-    beginPlacement(id);
-    return r;
-  }
+function shopBuy(id, info = {}) {
+  const cat = catOf(id);
+  const r = info.action === 'equip' ? game.equip(cat, id) : game.buy(cat, id);
+  audio.ui(r.ok ? (info.action === 'equip' ? 'equip' : 'buy') : 'error');
   refreshShop();
   return r;
+}
+/** PLACE on a defence card: pay for one and put it down from the tower (refunded if cancelled). */
+function buyAndPlace(id) {
+  const r = game.buy('defence', id);
+  audio.ui(r.ok ? 'buy' : 'error');
+  if (!r.ok || !r.place) {
+    refreshShop();
+    return;
+  }
+  beginPlacement(id, DEFENCES[id].price);
 }
 function closeShop() {
   hud.hideShop();
@@ -388,13 +402,19 @@ function closeShop() {
   canvas.requestPointerLock();
 }
 
-function beginPlacement(kind) {
+function beginPlacement(kind, refund = 0) {
   placing = kind;
+  placeRefund = refund;
   placeYaw = input.yaw;
   hud.hideShop();
   canvas.requestPointerLock();
 }
 function endPlacement() {
+  // (put back what was paid for and not placed)
+  if (placing && game.owned.defences[placing] > 0 && placeRefund) {
+    game.owned.defences[placing]--;
+    game.cash += placeRefund;
+  }
   placing = null;
   if (placeGhost) {
     level.removeTrapMesh(placeGhost);
@@ -415,7 +435,11 @@ function placeHere() {
   if (!p) return;
   const r = game.placeTrap(placing, p, placeYaw);
   audio.ui(r.ok ? 'place' : 'error');
-  if (r.ok && !(game.owned.defences[placing] > 0)) endPlacement();
+  if (!r.ok) hud.event({ type: 'alert', text: r.msg.toUpperCase() });
+  if (r.ok && !(game.owned.defences[placing] > 0)) {
+    placeRefund = 0;
+    endPlacement();
+  }
 }
 
 const trapMeshes = new Map();
@@ -430,6 +454,7 @@ function onTrapPlaced(t) {
 // ---------------------------------------------------------------------------------------------
 // events from the game
 let bossZombie = null;
+let waveStartHs = 0;
 const groanT = new Map();
 function onEvent(e) {
   switch (e.type) {
@@ -442,13 +467,14 @@ function onEvent(e) {
       break;
     case 'fire': {
       audio.rifle(e.rifle, { suppressed: e.suppressed });
+      hud.event({ type: 'shot' });
       view.fire(WEAPONS[RIFLES[e.rifle].weapon].recoil, scopeAmt);
       recoil += RIFLES[e.rifle].kick;
       shake = Math.min(1, shake + RIFLES[e.rifle].kick * 4);
       const mz = new Vec3().copy(e.origin).addScaled(e.dir, 0.9);
       mz.y -= 0.08;
-      fx.muzzle(mz, e.dir);
-      level.scare(e.origin);
+      fx.muzzle(mz, e.dir, { suppressed: e.suppressed, brake: e.rifle === 'anvil', size: e.rifle === 'anvil' ? 1.6 : 1 });
+      if (!e.suppressed) level.scare(e.origin);
       break;
     }
     case 'dry':
@@ -460,6 +486,13 @@ function onEvent(e) {
     case 'reloadEnd':
       audio.magIn(game.rifle.id);
       break;
+    case 'cycle': {
+      audio.bolt(game.rifle.id);
+      const cp = EYE.clone().addScaled(aimDir, 0.45);
+      cp.y -= 0.12;
+      fx.shellCasing(cp, new Vec3(Math.cos(input.yaw), 0.4, -Math.sin(input.yaw)));
+      break;
+    }
     case 'impact':
       audio.bulletImpact(e.material, e.point, e.dist);
       fx.impact(e.point, e.normal || new Vec3(0, 1, 0), e.material);
@@ -467,11 +500,17 @@ function onEvent(e) {
       break;
     case 'hit':
       hud.event({ type: 'hit', head: e.head, kill: false });
+      audio.hitMarker(e.head, false);
       if (e.point) fx.tracer(EYE, e.point);
       if (e.head && !e.armor) audio.headshotCrack(e.point || e.zombie.person.rd.segments.head.body.pos);
       break;
     case 'armor':
-      audio.bulletImpact('metal', e.point, 100);
+      audio.bulletImpact('metal', e.point, e.point.distanceTo(EYE));
+      if (e.part === 'helmet' && e.left === 0) {
+        const r = visuals.get(e.zombie);
+        if (r && r.v.dropHelmet) r.v.dropHelmet(new Vec3(Math.random() - 0.5, 1, Math.random() - 0.5), () => 0);
+        hud.event({ type: 'alert', text: 'HELMET OFF' });
+      }
       fx.impact(e.point, new Vec3(0, 1, 0), 'metal');
       break;
     case 'kill': {
@@ -480,6 +519,7 @@ function onEvent(e) {
       hud.event({ type: 'bonus', text: e.bonuses.length ? e.bonuses.join(' · ') : ENEMIES[e.zombie.kind].name.toUpperCase(), cash: e.cash, pos: p.clone() });
       hud.event({ type: 'killfeed', text: `${ENEMIES[e.zombie.kind].name}${e.head ? ' · headshot' : ''}${e.dist ? ` · ${Math.round(e.dist)} m` : ''}` });
       if (e.bonuses.length) audio.cash();
+      hud.event({ type: 'cash', amount: e.cash });
       if (e.zombie === bossZombie) bossZombie = null;
       break;
     }
@@ -502,6 +542,7 @@ function onEvent(e) {
       break;
     case 'playerHurt':
       hud.event({ type: 'playerHurt' });
+      audio.playerHurt(1 - e.hp / game.player.max);
       break;
     case 'scream':
       audio.zombieScream(e.pos);
@@ -531,10 +572,14 @@ function onEvent(e) {
       else level.removeFloodlight(e.id);
       break;
     case 'sentryFire':
-      audio.rifle('sentry', { suppressed: false });
-      fx.muzzle(e.pos, e.dir);
+      audio.sentry(e.pos);
+      fx.muzzle(e.pos, e.dir, { size: 0.7 });
+      break;
+    case 'sentryEmpty':
+      hud.event({ type: 'alert', text: 'SENTRY OUT OF AMMUNITION' });
       break;
     case 'waveStart':
+      waveStartHs = game.stats.headshots;
       hud.event({ type: 'wave', n: e.n, boss: e.bosses.length ? e.bosses.join(' & ') : null });
       audio.waveSiren();
       audio.music(e.bosses.length ? 'boss' : 'fight');
@@ -544,7 +589,7 @@ function onEvent(e) {
       audio.bossRoar(e.zombie.kind, e.zombie.root.pos);
       break;
     case 'waveCleared':
-      hud.event({ type: 'cleared', n: e.n, bonus: e.bonus });
+      hud.event({ type: 'cleared', n: e.n, kills: e.kills, headshots: game.stats.headshots - (waveStartHs || 0), bonus: e.bonus });
       audio.waveCleared();
       audio.music('calm');
       break;
@@ -556,13 +601,14 @@ function onEvent(e) {
       break;
     case 'over': {
       document.exitPointerLock();
-      const score = e.stats.cashEarned;
+      const score = e.stats.cashEarned + e.stats.kills * 10 + e.wave * 250;
+      const newBest = score > (save.bestScore || 0) || e.wave > (save.bestWave || 0);
       save.bestWave = Math.max(save.bestWave || 0, e.wave);
       save.bestScore = Math.max(save.bestScore || 0, score);
       save.run = null;
       writeSave(save);
       audio.music('off');
-      const showOver = () => hud.showGameOver({ reason: e.reason, wave: e.wave, ...e.stats, score, bestWave: save.bestWave, bestScore: save.bestScore, accuracy: e.stats.shots ? e.stats.hits / e.stats.shots : 0 });
+      const showOver = () => hud.showGameOver({ cause: e.reason, wave: e.wave, ...e.stats, score, best: { wave: save.bestWave, score: save.bestScore }, newBest, accuracy: e.stats.shots ? e.stats.hits / e.stats.shots : 0 });
       if (e.reason === 'gate') {
         audio.gateBreak();
         const gate = LAYOUT.compound.gates[game.over.gate || 0];
@@ -691,7 +737,7 @@ function frame(now) {
         r.v.update(1);
         r.frozen = true;
       }
-    } else r.v.update(alpha);
+    } else r.v.update(alpha, dtReal);
     r.t -= dtReal;
     if (r.dirty && r.t <= 0) {
       for (const d of r.decals) d.age = d.wound.age;
@@ -738,11 +784,12 @@ function frame(now) {
   hud.update(dtReal, {
     cash: game.cash, wave: game.director.wave, phase: game.over ? 'over' : game.director.phase, alive: game.horde.aliveCount, toKill: game.director.toKill,
     gate: game.gate, player: game.player,
-    rifle: { id: R.id, name: RIFLES[R.id].name, mag: R.mag, ammo: R.ammo, reloading: R.state === 'reload', bolting: R.state === 'cycling' },
+    rifle: { id: R.id, name: RIFLES[R.id].name, mag: R.mag, magSize: R.mag, ammo: R.ammo, reloading: R.state === 'reload', bolting: R.state === 'cycling' },
+    countdown: game.director.phase === 'intro' || game.director.phase === 'cleared' ? Math.max(0, game.director.timer) : null,
     ammoType: { id: A, name: AMMO[A].name, count: A === 'fmj' ? Infinity : game.owned.ammo[A] || 0 },
     scope: killCam.active ? 0 : scopeView, zoom: game.zoom, killcam: killCam.active, rangeM: game.upgradeLevel('rangefinder') && scopeView > 0.5 ? rangeUnderCrosshair() : null,
     wind: { speed: game.wind.length(), dirScreen: windSide }, breath, holding, sway: swayAmp / 0.0018,
-    focus: game.focus, focusActive: game.focusActive, boss, placing, thermal, timeOfDay: game.timeOfDay, fps: Math.round(fpsAvg),
+    focus: game.focus, focusActive: game.focusActive, boss, placing, thermal: thermal && scopeView > 0.5, timeOfDay: game.timeOfDay, fps: save.settings.showFps ? Math.round(fpsAvg) : null,
   });
 
   // --- render
