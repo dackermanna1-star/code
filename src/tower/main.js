@@ -780,7 +780,11 @@ function frame(now) {
   // --- HUD
   const R = game.rifle, A = game.equipped.ammo;
   const boss = bossZombie && bossZombie.alive ? { name: ENEMIES[bossZombie.kind].name, hp: Math.max(0, bossZombie.person.injury.hp), max: ENEMIES[bossZombie.kind].hp } : null;
-  const windSide = Math.atan2(game.wind.z, game.wind.x) - Math.atan2(-Math.cos(input.yaw), -Math.sin(input.yaw));
+  // the wind on screen: counter-clockwise from screen-right (right = along the view's right axis,
+  // up = away from the viewer)
+  const wR = game.wind.x * Math.cos(input.yaw) - game.wind.z * Math.sin(input.yaw);
+  const wF = -game.wind.x * Math.sin(input.yaw) - game.wind.z * Math.cos(input.yaw);
+  const windSide = Math.atan2(wF, wR);
   hud.update(dtReal, {
     cash: game.cash, wave: game.director.wave, phase: game.over ? 'over' : game.director.phase, alive: game.horde.aliveCount, toKill: game.director.toKill,
     gate: game.gate, player: game.player,
