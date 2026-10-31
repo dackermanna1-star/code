@@ -80,8 +80,8 @@ export const ENEMIES = {
   bloater: { name: 'Bloater', hp: 300, speed: 0.8, clip: 'walk', gate: 6, cash: 60, from: 6, burst: { radius: 5, power: 1.1 } },
   screamer: { name: 'Screamer', hp: 220, speed: 1.3, clip: 'walk2', gate: 4, cash: 80, from: 8, scream: { radius: 70, dur: 9 } },
   armored: { name: 'Armoured', hp: 320, speed: 1.1, clip: 'walk', gate: 6, cash: 70, from: 7, armor: { helmet: 4, vest: 0.7 } },
-  brute: { name: 'Brute', hp: 2200, speed: 1.1, clip: 'walk2', gate: 30, cash: 600, boss: true, armor: { helmet: 4, vest: 0.7 } },
-  juggernaut: { name: 'Juggernaut', hp: 5200, speed: 0.55, clip: 'walk', gate: 60, cash: 1500, boss: true, armor: { helmet: 8, vest: 0.95 } },
+  brute: { name: 'Brute', hp: 1800, speed: 1.1, clip: 'walk2', gate: 28, cash: 600, boss: true, armor: { helmet: 4, vest: 0.7 } },
+  juggernaut: { name: 'Juggernaut', hp: 3200, speed: 0.6, clip: 'walk', gate: 45, cash: 1500, boss: true, armor: { helmet: 6, vest: 0.9 } },
 };
 
 /** Rewards on top of an enemy's cash (multipliers add). */
@@ -101,7 +101,7 @@ export const PLAYER = { hp: 100, climberDps: 18, startCash: 300 };
 
 /** Wave rules: how many of what, how fast, which boss. */
 export const WAVES = {
-  count: (n) => Math.round(10 + n * 4 + n * n * 0.3),
+  count: (n) => Math.round(10 + n * 5 + n * n * 0.35),
   maxAlive: (n) => Math.min(25 + n * 5, 90),
   spawnInterval: (n) => Math.max(0.25, 1.5 - n * 0.08), // s between spawns while topping up
   /** Relative weights of the kinds that can appear in wave n. */
