@@ -64,8 +64,8 @@ export const STYLES = {
     rotJoint(pose, 'head', [0, 0, 1], 0.1 + 0.06 * step);
     const sw = 0.12 * Math.sin(u * TAU);
     reach(pose, {
-      dirL: vnorm([0.18, -0.42 + sw, 0.9]), dirR: vnorm([-0.12, -0.6 - sw, 0.78]),
-      w: 0.75, elbow: 0.45, droop: 0.6,
+      dirL: vnorm([0.16, -0.26 + sw, 0.95]), dirR: vnorm([-0.1, -0.42 - sw, 0.9]),
+      w: 0.85, elbow: 0.4, droop: 0.6,
     });
   },
 

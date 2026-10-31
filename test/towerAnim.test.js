@@ -334,6 +334,40 @@ test('cross-fades are smooth', () => {
   assert.ok(w2 < own * 1.15 + 0.01, `largest step fading into idle ${(w2 * 100).toFixed(1)} cm`);
 });
 
+test('hand-off to physics: the posed bodies drop into the world joined and moving as they were', () => {
+  for (const clip of ['walk', 'sprint', 'crawl']) {
+    const w = new World({ substeps: 20 });
+    const rd = new Ragdoll(w);
+    const player = new AnimPlayer(rd, { seed: 4 });
+    player.play(clip, { fade: 0 });
+    const root = { pos: { x: 0, y: 0, z: 0 }, yaw: 0.4 };
+    for (let i = 0; i < 60; i++) {
+      root.pos.x += Math.sin(0.4) * CLIP_INFO[clip].speed * player.rate * player.var.rate / 60;
+      root.pos.z += Math.cos(0.4) * CLIP_INFO[clip].speed * player.rate * player.var.rate / 60;
+      player.update(1 / 60, root);
+    }
+    // joints are exactly connected in the animated pose
+    let gap = 0;
+    for (const j of rd.jointList) gap = Math.max(gap, j.worldAnchor(new Vec3()).distanceTo(j.child.localToWorld(j.anchorC, new Vec3())));
+    assert.ok(gap < 1e-6, `${clip}: joint anchors apart by ${gap}`);
+    const p0 = rd.computeCOMVelocity(new Vec3());
+    rd.addToWorld();
+    for (let i = 0; i < 30; i++) w.step(1 / 60);
+    let vmax = 0;
+    for (const b of rd.bodies) {
+      assert.ok(b.pos.isFinite() && b.vel.isFinite(), `${clip}: physics blew up`);
+      vmax = Math.max(vmax, b.vel.length());
+    }
+    assert.ok(vmax < 12, `${clip}: a body flies off at ${vmax.toFixed(1)} m/s`);
+    // the body carried its momentum into the physics (it kept going the way it walked)
+    const horiz = Math.hypot(p0.x, p0.z);
+    if (horiz > 0.5) {
+      const travelled = (rd.pelvis.pos.x - root.pos.x) * Math.sin(0.4) + (rd.pelvis.pos.z - root.pos.z) * Math.cos(0.4);
+      assert.ok(travelled > 0, `${clip}: kept moving forward after the hand-off (${travelled.toFixed(2)} m)`);
+    }
+  }
+});
+
 test('performance: 80 animated zombies per frame', () => {
   const zs = [];
   const clips = ['walk', 'walk2', 'jog', 'sprint', 'idle', 'attack', 'crawl', 'climb', 'limpL', 'push'];

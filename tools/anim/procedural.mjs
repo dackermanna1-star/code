@@ -77,13 +77,13 @@ function crawl() {
       head: mul(rx(-0.32 + 0.06 * pull), rz(0.12 + 0.05 * lr)),
       // legs dragging: apart, turned out, knees soft, toes pointed; the left one pushes weakly
       thighL: mul(ry(-0.3), rz(0.16), rx(0.06)),
-      thighR: mul(ry(0.32), rz(-0.2), rx(0.02)),
+      thighR: mul(ry(0.32), rz(-0.2), rx(-0.05)),
       shinL: rx(0.3 + 0.22 * Math.max(0, Math.sin(u * TAU + 1.2))),
-      shinR: rx(0.14),
+      shinR: rx(0.42 + 0.08 * Math.sin(u * TAU)),
       footL: rx(0.55),
-      footR: rx(0.62),
+      footR: rx(0.45),
     };
-    const pose = localPose([0.03 * lr, 0.135 + 0.012 * Math.max(0, pull), 0.035 * Math.sin(u * TAU * 2 - 0.6)], pelvisRot, local);
+    const pose = localPose([0.03 * lr, 0.122 + 0.012 * Math.max(0, pull), 0.035 * Math.sin(u * TAU * 2 - 0.6)], pelvisRot, local);
     // arms: each hand plants ahead and pulls back at the crawl speed, then reaches again
     for (const [side, off] of [['L', 0], ['R', 0.5]]) {
       const ph = (u + off) % 1;
@@ -91,11 +91,11 @@ function crawl() {
       let z, y;
       if (ph < stanceFrac) {
         z = zFront - reachLen * (ph / stanceFrac);
-        y = 0.04;
+        y = 0.07;
       } else {
         const s = (ph - stanceFrac) / (1 - stanceFrac);
         z = lerp(zFront - reachLen, zFront, smooth(s));
-        y = 0.04 + 0.17 * Math.sin(Math.PI * s);
+        y = 0.07 + 0.15 * Math.sin(Math.PI * s);
       }
       const x = sx * (0.25 - 0.03 * Math.sin(Math.PI * Math.min(1, ph / stanceFrac)));
       // hand flat on the ground while it pulls, clawing forward while it reaches: blended across

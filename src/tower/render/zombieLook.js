@@ -108,6 +108,7 @@ export function zombieStyle(kind, id = 1) {
     pants: hex(pick(r, PANTS)), shoes: hex(pick(r, SHOES)), hair: hex(pick(r, HAIR)),
     shirtPat: pick(r, [0, 0, 1, 1, 2]), pants2: 0, pantsStyle: pick(r, [0, 0, 0, 1, 2]), sleeves: pick(r, [1, 1, 0.25, 0.25, 0]),
     hood: 0, bald: r() < 0.25 ? 1 : 0, rot: 0.35 + 0.5 * r(), gore: 0.3 + 0.6 * r(), tear: 0.25 + 0.4 * r(),
+    crop: 0, longHair: 0,
     bloat: 0, inflate: 0, thin: 0, jaw: 0.15 * r(), pale: 0, veins: 0, gear: null, castShadow: false,
   };
   switch (kind) {
@@ -125,17 +126,19 @@ export function zombieStyle(kind, id = 1) {
       break;
     case 'climber':
       s.hood = 1; s.shirtPat = 0; s.sleeves = 1; s.pantsStyle = 0;
-      s.shirt = hex(pick(r, [0x1e1e22, 0x24282a, 0x2a2420, 0x1a2024]));
-      s.pants = hex(pick(r, [0x18181a, 0x222226, 0x1e1c1a]));
-      s.skin = hex(0x6e7466); s.thin = 0.55; s.tear = 0.2;
+      s.shirt = hex(pick(r, [0x5a5e66, 0x4e5a52, 0x625648, 0x4a4e5e]));
+      s.shirt2 = hex(0x9a9a94);
+      s.pants = hex(pick(r, [0x2e3440, 0x34343a, 0x3a342a]));
+      s.skin = hex(0x8a9078); s.thin = 0.55; s.tear = 0.2; s.gore = 0.5; s.gear = 'hood';
       break;
     case 'bloater':
-      s.bloat = 1; s.inflate = 0.25; s.pale = 0.7; s.veins = 1; s.sleeves = 0; s.shirtPat = 0;
-      s.shirt = hex(0xc8c0a8); s.skin = hex(0xbab8a4); s.tear = 0.5; s.rot = 0.6;
+      s.bloat = 1; s.inflate = 0.3; s.pale = 0.75; s.veins = 1; s.sleeves = 0; s.shirtPat = 0; s.crop = 1.19;
+      s.shirt = hex(0xc0b48c); s.skin = hex(0x8f9a66); s.pale = 0.1; s.tear = 0.45; s.rot = 0.8; s.bald = 1; s.gore = 0.3;
+      s.pants = hex(pick(r, [0x4a4234, 0x3a4a5a, 0x5a4a3a]));
       break;
     case 'screamer':
-      s.thin = 0.8; s.jaw = 1; s.tear = 0.85; s.shirtPat = 4; s.sleeves = pick(r, [0.25, 0]);
-      s.skin = hex(0xa6aca6); s.pale = 0.4; s.bald = 0; s.hair = hex(pick(r, [0x1a1612, 0x6a6a64, 0x2e2418]));
+      s.thin = 0.8; s.jaw = 1; s.tear = 0.85; s.shirtPat = 4; s.sleeves = pick(r, [0.25, 0]); s.longHair = 1;
+      s.skin = hex(0x9aa098); s.pale = 0.45; s.veins = 0.5; s.bald = 0; s.hair = hex(pick(r, [0x1a1612, 0x5a5a54, 0x2e2418]));
       s.shirt = hex(pick(r, [0x8a8070, 0x6a6458, 0x7a6a5a])); s.gore = 0.8;
       break;
     case 'armored':
@@ -175,7 +178,7 @@ float zShape(vec3 P) {
   float torso = (1.0 - armZ) * smoothstep(0.86, 0.96, P.y) * (1.0 - smoothstep(1.46, 1.52, P.y));
   float limbs = armZ + (1.0 - smoothstep(0.84, 0.95, P.y)) * smoothstep(0.1, 0.2, P.y);
   float head = smoothstep(1.52, 1.56, P.y);
-  float d = uShape.x * (0.16 * belly + 0.05 * flank);
+  float d = uShape.x * (0.2 * belly + 0.07 * flank);
   // bulk: chest, shoulders, arms and thighs (bosses)
   d += uShape.y * (0.035 * torso + 0.022 * limbs * (1.0 - smoothstep(0.55, 0.75, ax)) + 0.01 * head);
   // gaunt: limbs and torso thinner, sunken cheeks
@@ -194,6 +197,7 @@ uniform float uCyanosis;
 uniform vec4 uKind;    // x seed, y rot, z gore, w tear
 uniform vec4 uStyle;   // x shirt pattern, y pants style, z sleeves, w hood
 uniform vec4 uStyle2;  // x bald, y pale, z veins, w jaw
+uniform vec4 uStyle3;  // x crop (shirt ends at this height: a belly shows), y long stringy hair
 uniform vec3 uSkin, uShirt, uShirt2, uPants, uShoes, uHair;
 varying float vBlood;
 varying vec3 vModelPos;
@@ -216,6 +220,8 @@ float dith(vec3 C) {
   return (c.x * 2.0 + c.y + 0.5) / 4.0;
 }
 float steps(float v, vec3 C) { return step(dith(C), v); }
+
+bool torso_belly(vec3 P) { return P.y > 0.99 && P.y < 1.2 && P.z > -0.05 && abs(P.x) < 0.2; }
 
 // Clothes and skin at sculpt-space point P (feet at y = 0, facing +z, left = +x; the arms stick out
 // 45 degrees from the shoulders at (+-0.18, 1.43), the legs hang from the hips at (+-0.088, 0.925)).
@@ -257,14 +263,20 @@ vec3 zombieColor(vec3 P, vec3 N, out float cloth) {
   float rotM = steps(smoothstep(0.55, 0.78, big + 0.2 * mid) * uKind.y * 1.3, C);
   col = mix(col, uSkin * vec3(0.7, 0.6, 0.72), rotM);
   float veinM = (1.0 - smoothstep(0.0, 0.05, abs(vn3(vec3(C.xy * 0.35, C.z + sd)) - 0.5))) * uStyle2.z;
-  col = mix(col, vec3(0.34, 0.38, 0.5), step(0.5, veinM) * 0.7);
+  col = mix(col, vec3(0.36, 0.26, 0.42), step(0.5, veinM) * 0.75);
   col = mix(col, vec3(0.84, 0.83, 0.78), uStyle2.y * 0.4);
+  if (uStyle3.x > 0.0 && torso_belly(P)) {
+    float marks = step(0.82, fract(P.y * 30.0 + 0.3 * sin(P.x * 40.0))) * step(0.35, abs(P.x) * 4.0);
+    col = mix(col, vec3(0.62, 0.5, 0.56), marks * 0.6);
+    col = mix(col, vec3(0.42, 0.5, 0.36), smoothstep(0.55, 0.8, big) * 0.5); // green-black rot, ready to burst
+  }
   cloth = 0.0;
   vec3 cc = col;
   float pat = uStyle.x, pst = uStyle.y;
   bool sleeve = arm && !hand && ta < uStyle.z * 0.56;
   bool collar = torso && Q.z > 0.0 && P.y > 1.37 - 0.3 * ax && ax < 0.07 && pat < 3.5 && pst < 3.5;
-  if ((torso && !collar) || sleeve) {
+  bool belly = torso && uStyle3.x > 0.0 && P.y < uStyle3.x && P.y > 0.99;
+  if ((torso && !collar && !belly) || sleeve) {
     cc = uShirt;
     if (pat > 0.5 && pat < 1.5) {          // plaid / flannel
       vec2 g = mod(C.xy, 5.0);
@@ -280,6 +292,7 @@ vec3 zombieColor(vec3 P, vec3 N, out float cloth) {
       cc = mix(uShirt, uShirt * 0.75 + 0.08, steps(smoothstep(0.4, 0.7, big), C));
     }
     if (sleeve && ta > uStyle.z * 0.56 - CELL) cc *= 0.7; // hem
+    if (torso && uStyle3.x > 0.0 && P.y < uStyle3.x + CELL) cc *= 0.7; // rolled-up hem over the belly
     cloth = 1.0;
   }
   if (pst > 0.5 && pst < 1.5 && torso) {   // overalls: bib, straps and back panel
@@ -311,7 +324,8 @@ vec3 zombieColor(vec3 P, vec3 N, out float cloth) {
     if (!face) { cc = uShirt * (Q.z > 0.02 && P.y > 1.7 ? 0.6 : 0.95); cloth = 1.0; }
   }
   if (head && uStyle.w < 0.5 && uStyle2.x < 0.5) {          // hair
-    bool hair = P.y > 1.715 - 0.07 * smoothstep(0.0, -0.08, Q.z) || (Q.z < -0.035 && P.y > 1.6);
+    bool hair = P.y > 1.715 - 0.07 * smoothstep(0.0, -0.08, Q.z) || (Q.z < -0.035 && P.y > 1.6)
+      || (uStyle3.y > 0.5 && (Q.z < 0.02 || ax > 0.06) && P.y > 1.52 && mod(C.x, 2.0) < 1.5 - step(0.7, n1));
     if (hair && !(Q.z > 0.07 && P.y < 1.75)) { cc = uHair * (0.85 + 0.25 * steps(n1, C)); cloth = 0.5; }
   }
   if (cloth > 0.0) {
@@ -343,7 +357,7 @@ vec3 zombieColor(vec3 P, vec3 N, out float cloth) {
   float drip = (1.0 - step(0.035 + 0.03 * uKind.z, ax + 0.02 * vn3(vec3(0.0, C.y * 0.4, sd)))) * step(0.02, Q.z) * step(P.y, 1.59) * step(dripLen, P.y)
     * step(0.45, vn3(vec3(C.x * 0.7, C.y * 0.12, sd)));
   float splash = step(0.9 - 0.06 * uKind.z, vn3(vec3(C.xy * 0.3, C.z * 3.0 + sd * 2.0)) * 0.8 + mid * 0.3);
-  float gore = clamp(chin * step(0.35, uKind.z) + drip * step(0.55, uKind.z) + splash, 0.0, 1.0);
+  float gore = clamp(chin * step(0.35, uKind.z) + drip * step(0.55, uKind.z) * step(uStyle3.x, 0.0) + splash, 0.0, 1.0);
   col = mix(col, vec3(0.24, 0.035, 0.03) * (0.85 + 0.2 * n1), gore);
   return col;
 }
@@ -411,6 +425,7 @@ export function createZombieMaterial(style) {
     uStyle: { value: new THREE.Vector4(style.shirtPat, style.pantsStyle, style.sleeves, style.hood) },
     uStyle2: { value: new THREE.Vector4(style.bald, style.pale, style.veins, style.jaw) },
     uShape: { value: new THREE.Vector4(style.bloat, style.inflate, style.thin, style.jaw) },
+    uStyle3: { value: new THREE.Vector4(style.crop, style.longHair, 0, 0) },
     uSkin: { value: v3(style.skin) },
     uShirt: { value: v3(style.shirt) },
     uShirt2: { value: v3(style.shirt2) },
@@ -453,7 +468,7 @@ export function createZombieMaterial(style) {
         diffuseColor.rgb = pow(max(diffuseColor.rgb, vec3(0.0)), vec3(2.2));`,
       );
   };
-  mat.customProgramCacheKey = () => 'tower-zombie-v1';
+  mat.customProgramCacheKey = () => 'tower-zombie-v2';
   return mat;
 }
 
@@ -505,6 +520,12 @@ function buildGear(type) {
       for (const sx of [-1, 1]) parts.chest.push(colored(place(new THREE.SphereGeometry(1, 8, 5, 0, Math.PI * 2, 0, Math.PI * 0.5), { p: [sx * 0.2, 0.08, -0.01], s: [0.09, 0.06, 0.1], r: [0, 0, -sx * 0.5] }), plate));
       parts.chest.push(colored(place(new THREE.CylinderGeometry(0.1, 0.13, 0.08, 10), { p: [0, 0.17, -0.01] }), darker));
     }
+  } else if (type === 'hood') {
+    // the climber's hood: a cowl over the back and crown of the head, down the sides to the jaw,
+    // a little peak over the brow; the face stays open
+    const cloth = 0x3c3f46;
+    parts.head.push(colored(place(new THREE.SphereGeometry(1, 9, 7, Math.PI * 0.62, Math.PI * 1.76, 0, Math.PI * 0.78), { p: [0, 0.03, -0.012], s: [0.105, 0.118, 0.118] }), cloth));
+    parts.head.push(colored(place(new THREE.ConeGeometry(0.05, 0.05, 6, 1, true), { p: [0, 0.135, 0.02], r: [-1.2, 0, 0] }), 0x2e3036));
   } else if (type === 'eod') {
     // bomb-disposal helmet: a big rounded shell with a flat visor
     parts.head.push(colored(place(new THREE.SphereGeometry(1, 10, 8), { p: [0, 0.02, -0.01], s: [0.16, 0.17, 0.175] }), olive));
@@ -530,14 +551,30 @@ function getGearMaterial() {
 const _p = new THREE.Vector3();
 const _q = new THREE.Quaternion();
 const _q2 = new THREE.Quaternion();
+const _s1 = new THREE.Vector3(1, 1, 1);
 // gear offsets in the body frame (body frames are world-aligned in the bind pose)
 const GEAR_OFFSET = { head: [0, 0.0, -0.005], chest: [0, 0.0, 0.004] };
+const CULL_RADIUS = 1.3; // every part of the body stays within this of the pelvis
+
+/** Interpolated body pose (framePos/frameRot -> pos/rot by alpha) into _p / _q, allocation free. */
+function bodyPose(b, alpha) {
+  const fp = b.framePos, p = b.pos;
+  _p.set(fp.x + (p.x - fp.x) * alpha, fp.y + (p.y - fp.y) * alpha, fp.z + (p.z - fp.z) * alpha);
+  const fr = b.frameRot, r = b.rot;
+  if (alpha >= 1) _q.set(r.x, r.y, r.z, r.w);
+  else {
+    _q.set(fr.x, fr.y, fr.z, fr.w);
+    _q2.set(r.x, r.y, r.z, r.w);
+    _q.slerp(_q2, alpha);
+  }
+}
 
 // ------------------------------------------------------------------------------------------------
 
 /**
  * A zombie's visual: skinned low-poly body + gear. person: { id, rd } (the ragdoll); kind: one of
  * walker, runner, crawler, climber, bloater, screamer, armored, brute, juggernaut.
+ * opts: { style (from zombieStyle, to override), castShadow }.
  */
 export function createZombieVisual(person, kind, scene, opts = {}) {
   if (!shared) throw new Error('createZombieVisual: await prepareZombieMeshes() first');
@@ -549,12 +586,15 @@ export function createZombieVisual(person, kind, scene, opts = {}) {
   geo.setAttribute('position', shared.attrs.position);
   geo.setAttribute('normal', shared.attrs.normal);
   geo.setIndex(shared.attrs.index);
-  // bounds: the mesh follows the bodies; culling is done per frame from the pelvis
-  hm.mesh.castShadow = !!(opts.castShadow ?? style.castShadow);
-  hm.mesh.receiveShadow = false;
+  const mesh = hm.mesh;
+  mesh.castShadow = !!(opts.castShadow ?? style.castShadow);
+  mesh.receiveShadow = false;
+  // culled like any mesh: a sphere round the pelvis, kept up to date in update()
+  mesh.frustumCulled = true;
+  mesh.boundingSphere = new THREE.Sphere(new THREE.Vector3(), CULL_RADIUS);
   const object = new THREE.Group();
   object.name = 'zombie:' + kind;
-  object.add(hm.mesh);
+  object.add(mesh);
   const gear = [];
   if (style.gear) {
     const G = buildGear(style.gear);
@@ -562,28 +602,38 @@ export function createZombieVisual(person, kind, scene, opts = {}) {
       if (!G[part]) continue;
       const m = new THREE.Mesh(G[part], getGearMaterial());
       m.matrixAutoUpdate = false;
-      m.castShadow = hm.mesh.castShadow;
+      m.castShadow = mesh.castShadow;
       object.add(m);
       gear.push({ mesh: m, body: person.rd.segments[part].body, off: GEAR_OFFSET[part], part });
     }
   }
+  const loose = []; // gear knocked off, tumbling to the floor
   scene.add(object);
   let hidden = false;
+  const pelvis = person.rd.segments.pelvis.body;
   const visual = {
     object, hm, kind, style, gear,
-    update(alpha = 1) {
+    /** Follow the bodies (interpolated framePos/frameRot -> pos/rot by alpha), animated or physical. */
+    update(alpha = 1, dt = 1 / 60) {
+      for (const l of loose) tumble(l, dt);
       if (hidden) return;
-      hm.update(alpha);
+      const bones = hm.bones, bodies = hm.boneBodies;
+      for (let i = 0; i < bones.length; i++) {
+        const b = bodies[i];
+        if (!b) continue;
+        bodyPose(b, alpha);
+        bones[i].matrixWorld.compose(_p, _q, _s1);
+      }
+      if (hm.bloodDirty) {
+        hm.bloodAttr.needsUpdate = true;
+        hm.bloodDirty = false;
+      }
+      bodyPose(pelvis, alpha);
+      mesh.boundingSphere.center.copy(_p);
       for (const g of gear) {
-        if (g.loose) continue;
-        const b = g.body;
-        _p.set(b.framePos.x + (b.pos.x - b.framePos.x) * alpha, b.framePos.y + (b.pos.y - b.framePos.y) * alpha, b.framePos.z + (b.pos.z - b.framePos.z) * alpha);
-        _q.set(b.frameRot.x, b.frameRot.y, b.frameRot.z, b.frameRot.w);
-        _q2.set(b.rot.x, b.rot.y, b.rot.z, b.rot.w);
-        _q.slerp(_q2, alpha);
+        bodyPose(g.body, alpha);
         g.mesh.matrix.makeRotationFromQuaternion(_q);
-        const o = g.off;
-        const e = g.mesh.matrix.elements;
+        const o = g.off, e = g.mesh.matrix.elements;
         e[12] = _p.x + e[0] * o[0] + e[4] * o[1] + e[8] * o[2];
         e[13] = _p.y + e[1] * o[0] + e[5] * o[1] + e[9] * o[2];
         e[14] = _p.z + e[2] * o[0] + e[6] * o[1] + e[10] * o[2];
@@ -599,19 +649,24 @@ export function createZombieVisual(person, kind, scene, opts = {}) {
     addFracture(seg, fragment, pointBind, axisBind) {
       return hm.addFracture(seg, fragment, pointBind, axisBind);
     },
-    /** The helmet comes off (e.g. shot off): returns its mesh so the game can throw it. */
-    detachHelmet() {
+    /**
+     * The helmet comes off (shot off): it flies along dir (world, {x,y,z}) and tumbles to the floor
+     * (floorAt(x, z) -> height, default 0). Returns false when there is no helmet.
+     */
+    dropHelmet(dir, floorAt = null) {
       const i = gear.findIndex((g) => g.part === 'head');
-      if (i < 0) return null;
-      const g = gear[i];
-      gear.splice(i, 1);
+      if (i < 0) return false;
+      const g = gear.splice(i, 1)[0];
       g.mesh.matrix.decompose(g.mesh.position, g.mesh.quaternion, g.mesh.scale);
       g.mesh.matrixAutoUpdate = true;
-      return g.mesh;
+      const l = Math.hypot(dir.x, dir.z) || 1;
+      loose.push({ mesh: g.mesh, v: new THREE.Vector3((dir.x / l) * 2.5, 2.2, (dir.z / l) * 2.5), w: new THREE.Vector3(8 * (Math.random() - 0.5), 0, 8 * (Math.random() - 0.5)), floorAt, rest: false });
+      return true;
     },
     setHidden(on) {
       hidden = !!on;
-      object.visible = !hidden;
+      mesh.visible = !hidden;
+      for (const g of gear) g.mesh.visible = !hidden;
     },
     dispose() {
       scene.remove(object);
@@ -623,6 +678,24 @@ export function createZombieVisual(person, kind, scene, opts = {}) {
     },
   };
   return visual;
+}
+
+function tumble(l, dt) {
+  if (l.rest) return;
+  const m = l.mesh;
+  l.v.y -= 9.81 * dt;
+  m.position.addScaledVector(l.v, dt);
+  m.rotation.x += l.w.x * dt;
+  m.rotation.z += l.w.z * dt;
+  const fy = (l.floorAt ? l.floorAt(m.position.x, m.position.z) : 0) + 0.07;
+  if (m.position.y < fy) {
+    m.position.y = fy;
+    l.v.y *= -0.3;
+    l.v.x *= 0.6;
+    l.v.z *= 0.6;
+    l.w.multiplyScalar(0.5);
+    if (Math.abs(l.v.y) < 0.4) l.rest = true;
+  }
 }
 
 /** Triangle count of the shared body (after prepareZombieMeshes). */

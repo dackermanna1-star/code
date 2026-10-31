@@ -107,7 +107,7 @@ function soleLow(body, side) {
 }
 
 const world = new World();
-const state = { trail: params.get('trail') === '1', clip: params.get('clip') || 'walk', kind: params.get('kind') || 'walker', slow: 1, paused: false, moving: params.get('moving') !== '0', film: params.get('film') === '1', rig: true, skel: false, cam: 0, seedBase: +(params.get('seed') || 1) };
+const state = { crowd: +(params.get('crowd') || 0), trail: params.get('trail') === '1', clip: params.get('clip') || 'walk', kind: params.get('kind') || 'walker', slow: 1, paused: false, moving: params.get('moving') !== '0', film: params.get('film') === '1', rig: true, skel: false, cam: 0, seedBase: +(params.get('seed') || 1) };
 let actors = [];
 let source = null; // { scene, mixer, actions, glb }
 const sources = {};
@@ -144,8 +144,40 @@ function clearActors() {
   actors = [];
 }
 
+const KIND_CLIP = { walker: 'walk', runner: 'sprint', crawler: 'crawl', climber: 'jog', bloater: 'walk', screamer: 'walk2', armored: 'walk', brute: 'walk2', juggernaut: 'walk' };
+const KIND_SPEED = { walker: 0.9, runner: 3.4, crawler: 0.45, climber: 2.2, bloater: 0.6, screamer: 1.0, armored: 0.85, brute: 1.1, juggernaut: 0.55 };
+const crowdMix = ['walker', 'walker', 'walker', 'walker', 'walker', 'runner', 'crawler', 'climber', 'bloater', 'screamer', 'armored', 'walker'];
+function spawnCrowd(n) {
+  for (let i = 0; i < n; i++) {
+    const kind = i === 0 ? 'juggernaut' : i === 1 ? 'brute' : crowdMix[i % crowdMix.length];
+    const a = makeActor(kind, state.seedBase + i * 31, 0);
+    a.crowd = true;
+    placeCrowd(a, true);
+    actors.push(a);
+  }
+}
+function placeCrowd(a, first) {
+  const ang = Math.random() * Math.PI * 2, r = first ? 6 + Math.random() * 40 : 40 + Math.random() * 6;
+  a.root.pos.x = Math.cos(ang) * r;
+  a.root.pos.z = Math.sin(ang) * r;
+  a.root.pos.y = 0;
+  a.root.yaw = Math.atan2(-a.root.pos.x, -a.root.pos.z);
+  const clip = KIND_CLIP[a.kind];
+  a.player.play(clip, { fade: 0, restart: true });
+  a.player.setRate(a.player.rateFor(clip, KIND_SPEED[a.kind]));
+  a.player.first = true;
+  a.player.releaseFeet();
+}
+const timing = { anim: 0, vis: 0, render: 0, n: 0 };
+
 function rebuild() {
   clearActors();
+  if (state.crowd) {
+    spawnCrowd(state.crowd);
+    window.__leg.visible = false;
+    if (source) source.scene.visible = false;
+    return;
+  }
   const film = state.film;
   if (state.lineup) {
     // every kind side by side
@@ -213,7 +245,7 @@ async function loadSource(name) {
     const act = source.mixer.clipAction(clip);
     act.play();
     source.action = act;
-    source.scene.visible = !state.film;
+    source.scene.visible = !state.film && !state.crowd && !state.lineup;
     source.scene.position.set(-1.1, 0, 0);
   } catch (e) {
     console.warn('source rig unavailable', e.message || e);
@@ -232,7 +264,25 @@ function updateSkeleton(a) {
   a.skel.visible = state.skel;
 }
 
+function stepCrowd(dt) {
+  const t0 = performance.now();
+  for (const a of actors) {
+    const v = KIND_SPEED[a.kind] * a.player.var.rate;
+    a.root.pos.x += Math.sin(a.root.yaw) * v * dt;
+    a.root.pos.z += Math.cos(a.root.yaw) * v * dt;
+    if (Math.hypot(a.root.pos.x, a.root.pos.z) < 3) placeCrowd(a, false);
+    a.player.update(dt, a.root);
+  }
+  const t1 = performance.now();
+  for (const a of actors) a.visual.update(1, dt);
+  const t2 = performance.now();
+  timing.anim += t1 - t0;
+  timing.vis += t2 - t1;
+  timing.n++;
+}
+
 function step(dt) {
+  if (state.crowd) return stepCrowd(dt);
   const info = CLIP_INFO[state.clip];
   for (const a of actors) {
     if (state.moving && info.speed > 0) {
@@ -275,6 +325,11 @@ function step(dt) {
 
 const hud = document.getElementById('hud');
 function updateHud() {
+  if (state.crowd) {
+    const n = Math.max(1, timing.n);
+    hud.textContent = `crowd: ${actors.length} zombies   anim ${(timing.anim / n).toFixed(2)} ms   visuals ${(timing.vis / n).toFixed(2)} ms   render(cpu) ${(timing.render / n).toFixed(2)} ms   draw calls ${renderer.info.render.calls}   tris ${renderer.info.render.triangles}`;
+    return;
+  }
   const a = actors[0];
   const info = CLIP_INFO[state.clip];
   const ms = zombieMeshStats();
@@ -319,9 +374,11 @@ function frame() {
   const dt = Math.min(0.05, (now - last) / 1000);
   last = now;
   if (!state.paused && actors.length) step(dt * state.slow);
-  if (state.follow !== false && actors.length && !state.userCam) camView();
+  if (state.follow !== false && actors.length && !state.userCam && !state.crowd) camView();
   updateHud();
+  const r0 = performance.now();
   renderer.render(scene, camera);
+  if (state.crowd) timing.render += performance.now() - r0;
   requestAnimationFrame(frame);
 }
 
@@ -351,6 +408,14 @@ addEventListener('keydown', (e) => {
     state.userCam = false;
     if (state.film) rebuild();
   } else if (k === 'x' || k === 'X') state.skel = !state.skel;
+  else if (k === 'r' || k === 'R') {
+    state.crowd = state.crowd ? 0 : 80;
+    rebuild();
+    camera.position.set(0, 22, 0.01);
+    controls.target.set(0, 0, 18);
+    controls.update();
+    state.userCam = true;
+  }
   else if (k === 'k' || k === 'K') {
     state.lineup = !state.lineup;
     rebuild();
@@ -374,8 +439,9 @@ window.__sim = {
   },
   /** Deterministic setup: clip, kind, film (6 phases side by side), time t (s), camera view index. */
   async set(o = {}) {
-    const before = JSON.stringify([state.kind, state.film, state.lineup, filmYaw(), filmSpacing(), actors.length]);
+    const before = JSON.stringify([state.kind, state.film, state.lineup, state.crowd, filmYaw(), filmSpacing(), actors.length]);
     if (o.lineup !== undefined) state.lineup = o.lineup;
+    if (o.crowd !== undefined) state.crowd = o.crowd;
     if (o.kind) state.kind = o.kind;
     if (o.film !== undefined) state.film = o.film;
     if (o.cam !== undefined) {
@@ -386,9 +452,13 @@ window.__sim = {
     if (o.moving !== undefined) state.moving = o.moving;
     if (o.trail !== undefined) state.trail = o.trail;
     if (o.clip) state.clip = o.clip;
-    if (JSON.stringify([state.kind, state.film, state.lineup, filmYaw(), filmSpacing(), actors.length]) !== before || o.rebuild) rebuild();
-    else setClip(state.clip);
+    if (JSON.stringify([state.kind, state.film, state.lineup, state.crowd, filmYaw(), filmSpacing(), actors.length]) !== before || o.rebuild) rebuild();
+    else if (!state.crowd) setClip(state.clip);
     state.paused = true;
+    if (state.crowd) {
+      timing.anim = timing.vis = timing.render = 0;
+      timing.n = 0;
+    }
     if (o.t) {
       // run up to time t in small steps (foot locks settle like in play)
       const n = Math.ceil(o.t / (1 / 60));
@@ -406,6 +476,10 @@ window.__sim = {
       state.userCam = true;
     }
     renderer.render(scene, camera);
+    if (state.crowd) {
+      const n = Math.max(1, timing.n);
+      return { crowd: actors.length, animMs: timing.anim / n, visMs: timing.vis / n, calls: renderer.info.render.calls, tris: renderer.info.render.triangles };
+    }
     return { clip: state.clip, kind: state.kind, t: actors[0] && actors[0].player.time };
   },
   step(dt, n = 1) {
