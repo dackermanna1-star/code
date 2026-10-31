@@ -10,22 +10,22 @@
 export const RIFLES = {
   m91: {
     name: 'M91 Bolt', round: '7.62×54R', weapon: 'boltAction', price: 0, mag: 5, action: 'bolt', cycle: 1.05,
-    reload: 3.2, zoom: 4, sway: 1, kick: 0.05, suppressed: false,
+    reload: 3.2, zoom: 6, sway: 1, kick: 0.05, suppressed: false,
     desc: 'A century-old bolt-action. Accurate, honest, slow to work.',
   },
   sr10: {
     name: 'SR-10 Marksman', round: '7.62×51', weapon: 'marksman', price: 2500, mag: 10, action: 'semi', cycle: 0.3,
-    reload: 2.6, zoom: 6, sway: 0.85, kick: 0.045, suppressed: false,
+    reload: 2.6, zoom: 8, sway: 0.85, kick: 0.045, suppressed: false,
     desc: 'Semi-automatic: work through a crowd without taking your eye off the glass.',
   },
   whisper: {
     name: 'Whisper .338', round: '.338 Lapua', weapon: 'whisper', price: 4800, mag: 5, action: 'bolt', cycle: 0.9,
-    reload: 3.0, zoom: 8, sway: 0.75, kick: 0.06, suppressed: true,
+    reload: 3.0, zoom: 10, sway: 0.75, kick: 0.06, suppressed: true,
     desc: 'Suppressed long-range rifle. Hits like a truck; the dead do not hear where it came from.',
   },
   anvil: {
     name: 'Anvil .50', round: '.50 BMG', weapon: 'anvil', price: 9500, mag: 5, action: 'semi', cycle: 0.55,
-    reload: 3.8, zoom: 10, sway: 1.15, kick: 0.12, suppressed: false,
+    reload: 3.8, zoom: 12, sway: 1.15, kick: 0.12, suppressed: false,
     desc: 'Anti-materiel rifle. Through armour, through bone, through the next three of them.',
   },
 };

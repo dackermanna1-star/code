@@ -180,6 +180,8 @@ export class TowerGame {
   step(dt) {
     if (this.over) return;
     this.time += dt;
+    // (shots fired between steps - the kill cam's round - are booked before anyone's death is)
+    for (const e of this.sb.drainFx()) this.onSandboxFx(e);
     // weather drifts
     this.wind.x += (this.windTarget.x - this.wind.x) * dt * 0.2;
     this.wind.z += (this.windTarget.z - this.wind.z) * dt * 0.2;
