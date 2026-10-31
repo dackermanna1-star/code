@@ -122,6 +122,35 @@ export class Sandbox {
     this.fx({ type: 'personFrozen', person });
   }
 
+  /**
+   * Dormant: the person's ragdoll is out of the physics world and is posed from outside every frame
+   * (an animated character); bullets still hit its anatomy (see raycastPeople). Waking puts the
+   * bodies and joints back with whatever velocities they were given and restarts the controller
+   * (opts.mode: 'balance' to stay on its feet, 'falling' when it was knocked off them).
+   */
+  setDormant(person, on, opts = {}) {
+    if (!!person.dormant === on) return;
+    const rd = person.rd, w = this.world;
+    if (on) {
+      if (this.grab && rd.allBodies().includes(this.grab.body)) this.endGrab();
+      rd.removeFromWorld();
+      for (const s of ['L', 'R']) w.removeConstraint(person.ctl.footSpring[s]);
+      person.dormant = true;
+      return;
+    }
+    for (const b of rd.allBodies()) {
+      w.addBody(b);
+      b.wake();
+    }
+    for (const j of rd.jointList) w.addJoint(j);
+    for (const j of rd.fractureJoints) w.addJoint(j);
+    for (const s of ['L', 'R']) w.addConstraint(person.ctl.footSpring[s]);
+    person.dormant = false;
+    const ctl = person.ctl;
+    ctl.resetState();
+    if (opts.mode && opts.mode !== 'balance') ctl.setMode(opts.mode);
+  }
+
   applyAssist(person) {
     const a = this.settings.assist;
     const c = person.ctl;
@@ -527,6 +556,7 @@ export class Sandbox {
     const world = this.world;
     this.updateWalkers(dt);
     for (const p of this.people) {
+      if (p.dormant) continue;
       if (p.zombie) p.zombie.update(dt);
       else this.perceive(p, dt);
       p.ctl.update(dt);
@@ -540,7 +570,7 @@ export class Sandbox {
     for (const o of this.objects) applyDrag(o.body, o.def);
     world.step(dt);
     // impacts: blunt trauma, breakage, sounds
-    for (const p of this.people) p.injury.processImpacts(world);
+    for (const p of this.people) if (!p.dormant) p.injury.processImpacts(world);
     this.handleImpacts();
     for (const p of this.people) {
       p.injury.update(dt);

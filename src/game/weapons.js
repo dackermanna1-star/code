@@ -30,6 +30,23 @@ export const WEAPONS = {
     label: 'Sniper rifle', round: '.308 Win FMJ', mass: 0.0097, speed: 830, diameter: 0.0078, pen: 0.85,
     pellets: 1, spread: 0.0004, rpm: 45, auto: false, recoil: 3.2, kick: 0.16,
   },
+  // the Last Lookout rifles (ap: through helmets and most of a vest)
+  boltAction: {
+    label: 'M91 bolt rifle', round: '7.62×54R FMJ', mass: 0.0096, speed: 820, diameter: 0.0078, pen: 0.85,
+    pellets: 1, spread: 0.0003, rpm: 57, auto: false, recoil: 3.0, kick: 0.15,
+  },
+  marksman: {
+    label: 'SR-10 marksman rifle', round: '7.62×51 FMJ', mass: 0.0097, speed: 840, diameter: 0.0078, pen: 0.85,
+    pellets: 1, spread: 0.0004, rpm: 200, auto: false, recoil: 2.6, kick: 0.12,
+  },
+  whisper: {
+    label: 'Whisper .338', round: '.338 Lapua FMJ', mass: 0.0162, speed: 880, diameter: 0.0086, pen: 1.15,
+    pellets: 1, spread: 0.0002, rpm: 66, auto: false, recoil: 3.6, kick: 0.17,
+  },
+  anvil: {
+    label: 'Anvil .50', round: '.50 BMG FMJ', mass: 0.042, speed: 890, diameter: 0.0127, pen: 1.9,
+    pellets: 1, spread: 0.0003, rpm: 110, auto: false, recoil: 6, kick: 0.3, ap: true,
+  },
 };
 
 export function makeProjectile(w) {
@@ -46,6 +63,7 @@ export function makeProjectile(w) {
     pen: w.pen,
     pen0: w.pen,
     fragmenting: !!w.fragmenting,
+    ap: !!w.ap,
   };
 }
 
@@ -74,8 +92,15 @@ const _rec = { tIn: 0, tOut: 0 };
 export function raycastPeople(people, shape, origin, dir, maxDist) {
   const hits = [];
   for (const person of people) {
+    // (cheap reject: the ray passes nowhere near this person's pelvis)
+    const pc = person.rd.pelvis.pos;
+    const tc = (pc.x - origin.x) * dir.x + (pc.y - origin.y) * dir.y + (pc.z - origin.z) * dir.z;
+    if (tc < -1.6 || tc > maxDist + 1.6) continue;
+    const ex = origin.x + dir.x * tc - pc.x, ey = origin.y + dir.y * tc - pc.y, ez = origin.z + dir.z * tc - pc.z;
+    if (ex * ex + ey * ey + ez * ez > 1.7 * 1.7 && !person.rd.extraBodies.length) continue;
     for (const body of person.rd.allBodies()) {
-      if (!body.world) continue;
+      // (a dormant person is posed from outside: its bodies are out of the world but solid to shots)
+      if (!body.world && !person.dormant) continue;
       // cheap reject against the collider bounds of the last step
       const pad = 0.04;
       let t0 = 0, t1 = maxDist;

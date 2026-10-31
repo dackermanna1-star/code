@@ -845,11 +845,17 @@ export class InjurySystem {
       a.helmet--;
       this.events.push({ type: 'armor', part: 'helmet', left: a.helmet });
       if (a.helmet === 0) this.log('Helmet shot off', 2);
-      return 'stopped';
+      if (!proj.ap) return 'stopped';
+      // an armour-piercing core goes on through, a good deal slower
+      proj.energy *= 0.65;
+      proj.pen *= 0.75;
+      proj.speed = proj.speed0 * Math.sqrt(proj.energy / proj.energy0);
+      return 'reduced';
     }
     if ((k === 'chest' || k === 'abdomen') && a.vest > 0) {
-      proj.energy *= 1 - a.vest;
-      proj.pen *= 1 - a.vest;
+      const v = proj.ap ? a.vest * 0.25 : a.vest;
+      proj.energy *= 1 - v;
+      proj.pen *= 1 - v;
       proj.speed = proj.speed0 * Math.sqrt(proj.energy / proj.energy0);
       this.events.push({ type: 'armor', part: 'vest' });
       return 'reduced';
