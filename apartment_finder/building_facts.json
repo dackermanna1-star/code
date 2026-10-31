@@ -1,0 +1,98 @@
+{
+  "_about": "Hand-verified building facts used by finder.py (style, year built, stories, reviews). Checked 2026-10-31. 'style' == 'garden' is rejected; year_built < --min-year is rejected unless fully_renovated.",
+  "properties": {
+    "Passport Apartments Herndon": {
+      "rent_com_id": "lc5901527",
+      "style": "podium mid-rise",
+      "year_built": 2022,
+      "stories": 6,
+      "elevator": true,
+      "reviews": "RentCafe 4.5 (22); Birdeye 3.8 (132); Yelp 2.8 (6). Complaints: fire alarms, elevator outages, leaks in heavy rain, visitor parking.",
+      "fees": "Trash $35/mo; amenity fee $400/yr; admin $250 one-time; parking $25-75/mo optional.",
+      "sources": [
+        "https://www.cbgbuildingcompany.com/projects/passport-nova/",
+        "https://www.simpsonpropertygroup.com/apartments/herndon-virginia/passport-apartments-herndon/"
+      ]
+    },
+    "The Point at Ridgeline": {
+      "rent_com_id": "lc5901597",
+      "style": "mid-rise",
+      "year_built": 2019,
+      "stories": 5,
+      "elevator": true,
+      "reviews": "ApartmentRatings 4.7; Yelp 3.9 (13). Complaints: thin walls/noise, sirens, balcony flooding, garage door, visitor parking fee.",
+      "fees": "Trash $15/mo; utility admin $4.51/mo; water/sewer billed with rent; amenity $500 one-time; garage parking $75.",
+      "notes": "Plans marked (WDU) are Fairfax County Workforce Dwelling Units (80/100/120% AMI).",
+      "sources": ["https://www.fairfaxcounty.gov/housing/node/816"]
+    },
+    "The Point at Monroe Place": {
+      "rent_com_id": "lc5914101",
+      "style": "mid-rise",
+      "year_built": 2008,
+      "stories": 4,
+      "elevator": true,
+      "reviews": "ApartmentRatings 4.7; Birdeye 3.8 (101); Yelp 4.0 (9). Complaints: fee increases, compact washer/dryer, pool heating, small gym.",
+      "fees": "Valet trash ~$35/mo; utility admin ~$4.50/mo; water/sewer billed with rent; amenity $500 move-in + $300/yr renewal; parking $45-60.",
+      "sources": ["https://rebusinessonline.com/ara-newmark-brokers-sale-of-luxury-apartment-community-in-virginia/"]
+    },
+    "Ashton at Dulles Corner": {
+      "rent_com_id": "lc6251017",
+      "style": "4-story elevator buildings (garden-complex layout, borderline)",
+      "year_built": 2007,
+      "stories": 4,
+      "elevator": true,
+      "reviews": "Google 3.7 (721, shown on Bozzuto page); ApartmentRatings 3.8 (297); Apartments.com 4.2 (135); Yelp 2.4 (61). Complaints: slow maintenance, water outages, fire alarms, thin walls.",
+      "fees": "Fixed $44.05/mo (valet trash, trash, stormwater, admin, pest) + usage water/sewer/gas; amenity $250/lease.",
+      "notes": "rent.com shows total price incl. $44.05 fixed fees; official base rent is ~$45 lower.",
+      "sources": ["https://www.bozzuto.com/apartments-for-rent/va/herndon/ashton-at-dulles-corner/floor-plans"]
+    },
+    "The Point at Herndon": {
+      "rent_com_id": "lc5908302",
+      "style": "garden",
+      "year_built": 2004,
+      "stories": 4,
+      "reviews": "Apartments.com 2.8 (19); Yelp 2.9 (9).",
+      "sources": ["https://properties.berkadia.com/?p=490579"]
+    },
+    "Skymark": {
+      "rent_com_id": "lc5915993",
+      "style": "high-rise",
+      "year_built": 2024,
+      "stories": 39,
+      "elevator": true,
+      "reviews": "ApartmentRatings 4.6 (4); Apartments.com 1 review (1 star). Complaints: slow management, long elevator waits.",
+      "fees": "Internet $60 + trash $25 + admin $6.64 = $91.64/mo required; amenity $500/lease.",
+      "notes": "All sub-$2,180 1BRs are WDU (income-restricted, $1,995 base). Cheapest market-rate 1BR $2,240.",
+      "sources": ["https://www.bxp.com/properties/skymark", "https://www.skymarkreston.com/floor-plans"]
+    },
+    "Faraday Park": {
+      "rent_com_id": "lc5920846",
+      "style": "mid-rise",
+      "year_built": 2021,
+      "stories": 7,
+      "elevator": true,
+      "reviews": "Google 4.5 (225); Apartments.com/ForRent 4.8 (256). Complaints: low light, limited storage, garage vandalism, noise.",
+      "fees": "Trash $15 + admin $6.64/mo; water/sewer usage; amenity $500/lease.",
+      "notes": "Only sub-$2,180 1BR is a junior (JR) plan whose bedroom appears windowless. Cheapest regular 1BR $2,373.",
+      "sources": ["https://www.faradaypark.com/floor-plans/", "https://www.ffxnow.com/2022/04/20/second-tower-at-restons-faraday-park-completed-open-for-pre-leasing/"]
+    },
+    "Camden Monument Place": {
+      "rent_com_id": "lc5965644",
+      "style": "mid-rise",
+      "year_built": 2007,
+      "stories": 4,
+      "elevator": true,
+      "reviews": "Yelp 2.7 (55); Birdeye 3.5 (79). Complaints: noise, fees.",
+      "fees": "Tech package $127 + trash $32.50 + garage $35 = $194.50/mo required.",
+      "notes": "rent.com prices are 15-month-lease prices; 12-month quotes are ~$290-300 higher (none under $2,180).",
+      "sources": ["https://www.camdenliving.com/apartments/fairfax-va/camden-monument-place/available-apartments"]
+    },
+    "Camden Fair Lakes": {"rent_com_id": "lc5966760", "style": "manor buildings with elevators", "year_built": 1998, "stories": 4, "sources": ["https://www.cbgbuildingcompany.com/projects/camden-fair-lakes-phase-i/"]},
+    "Avalon Reston Landing": {"rent_com_id": "lc5965611", "style": "garden", "year_built": 1999},
+    "J Harbor Park at North Point": {"rent_com_id": "lc6850213", "style": "garden", "year_built": 1997, "stories": 4, "sources": ["https://www.citybiz.co/?p=139927"]},
+    "Cortland at Dulles": {"rent_com_id": "lc6451893", "style": "garden", "year_built": 2000},
+    "Woodland Park": {"rent_com_id": "lc7014393", "style": "garden", "year_built": 2001, "stories": 4, "sources": ["https://www.point2homes.com/US/Apartment-Buildings/VA/Herndon/Woodland-Park-1-0.html"]},
+    "The Landing at Herndon": {"rent_com_id": "lc6451970", "style": "garden", "year_built": 1991, "stories": 3},
+    "Halstead Chantilly": {"rent_com_id": "lc6802649", "style": "garden"}
+  }
+}

@@ -458,6 +458,8 @@ def write_report(path, stamp, zips, ceiling, keep, unverified, restricted, junio
               f"- Style: {p.style}; built {fx.get('year_built', '?')}; "
               f"{fx.get('stories', '?')} stories; manager {p.manager or 'n/a'}",
               f"- Reviews: {fx.get('reviews', 'not verified')}",
+              f"- Required fees: {fx.get('fees', 'not verified')}",
+              *([f"- Note: {fx['notes']}"] if fx.get("notes") else []),
               f"- Special: {p.deal or 'none listed'}",
               f"- Amenities ({p.amenity_count}): {', '.join(p.amenities)}",
               f"- Feed updated {p.updated_at} - {p.url}"]
