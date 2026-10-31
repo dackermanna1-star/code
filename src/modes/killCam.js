@@ -68,6 +68,7 @@ export class KillCam {
     this.state = null;
     this.vignette = null;
     this.moment = null;
+    this.momentNow = 1;
   }
 
   setAspect(a) {
@@ -147,18 +148,17 @@ export class KillCam {
     if (e.type !== 'fleshHit' || e.person !== this.state.person) return;
     const S = this.state, rig = S.xray;
     if (!rig) return;
-    const dir = e.dir, entry = e.entry, exit = e.exit || e.entry;
-    const E = e.energy || 1000;
-    if (rig.bulletTrack && e.exit) rig.bulletTrack(entry, exit);
-    const kinds = e.structures || [];
+    const dir = e.dir, entry = e.entry, exit = e.exit || null;
+    const E = Math.max(e.energy || 1000, 600);
+    rig.bulletTrack(entry, exit || entry.clone().addScaled(dir, 0.12));
+    const kinds = e.structures || [], parts = e.parts || [];
     const seg = e.seg ? e.seg.name : S.seg;
-    if (seg === 'head' && (kinds.includes('brain') || kinds.includes('skull') || kinds.includes('brainstem'))) {
-      if (rig.shatterSkull) rig.shatterSkull(exit, dir, E);
-    } else if (kinds.includes('bone') || seg === 'chest' || seg === 'pelvis') {
-      if (rig.breakBone) rig.breakBone(seg, entry, dir, E);
-    }
-    for (const k of ['heart', 'lung']) if (kinds.includes(k) && rig.damageOrgan) rig.damageOrgan(k === 'lung' ? (entry.x - e.person.rd.segments.chest.body.pos.x >= 0 ? 'lung L' : 'lung R') : 'heart', entry, dir, E);
-    if (kinds.includes('organ') && rig.damageOrgan) rig.damageOrgan('liver', entry, dir, E);
+    if (seg === 'head' && (kinds.includes('brain') || kinds.includes('skull') || kinds.includes('brainstem'))) rig.shatterSkull(entry, dir, E);
+    else if (kinds.includes('bone') || seg === 'chest' || seg === 'pelvis') rig.breakBone(seg, entry, dir, E, { exit });
+    // what the round tore on its way (organs.js names; the rig ignores what it does not draw)
+    parts.forEach((name, i) => {
+      if (/heart|lung|organ|gut|brain/.test(kinds[i])) rig.damageOrgan(name, entry, dir, E);
+    });
   }
 
   /**
@@ -179,7 +179,7 @@ export class KillCam {
   /** Per real-time frame: the time scale of a running impact moment (1 when there is none). */
   momentScale(dt) {
     const M = this.moment;
-    if (!M) return 1;
+    if (!M) return (this.momentNow = 1);
     M.t += dt;
     const ramp = 0.4;
     if (M.t > M.dur && !M.off) {
@@ -190,9 +190,14 @@ export class KillCam {
     }
     if (M.t > M.dur + ramp) {
       this.moment = null;
-      return 1;
+      return (this.momentNow = 1);
     }
-    return M.t < M.dur ? lerp(0.05, 0.1, M.t / M.dur) : lerp(0.1, 1, ((M.t - M.dur) / ramp) ** 2);
+    return (this.momentNow = M.t < M.dur ? lerp(0.05, 0.1, M.t / M.dur) : lerp(0.1, 1, ((M.t - M.dur) / ramp) ** 2));
+  }
+
+  /** How fast the world runs this frame as far as the kill cam is concerned (0 = frozen). */
+  worldScale() {
+    return this.active ? this.timeScale : this.moment ? this.momentNow ?? 1 : 1;
   }
 
   /** Skip to the end (a key press). */
@@ -271,6 +276,7 @@ export class KillCam {
         if (S.ghost) S.ghost(true);
         this.setLook('xray');
       }
+      this.timeScale = 0;
       if (u >= 1) {
         S.phase = PHASES.impact;
         S.t = 0;
@@ -319,6 +325,7 @@ export class KillCam {
     cam.lookAt(P.x, P.y - 0.05 * tt, P.z);
     cam.fov = 46;
     cam.updateProjectionMatrix();
+    this.timeScale = ts;
     return ts;
   }
 }

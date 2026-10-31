@@ -25,6 +25,7 @@ import { UI, WEAPON_KEYS, THROW_KEYS, MELEE_TOOLS } from './ui/ui.js';
 import { SurvivalMode } from './modes/survivalMode.js';
 import { FpsSandboxMode } from './modes/fpsSandbox.js';
 import { KillCam } from './modes/killCam.js';
+import { XRayRig } from './render/xray.js';
 import { zombieLook, ZombieGear } from './render/zombieGear.js';
 
 const FIXED = 1 / 60;
@@ -99,6 +100,7 @@ let meshShared = null;
 let meshLod = null;
 const LOD_OPTS = { h: 0.014, fine: 0.45 };
 let renders = new Map();
+const xrays = new Map(); // X-ray rigs (kill cam), per person
 ui.setLoading(true);
 // generate prop/weapon textures in idle slices now rather than on the first throw
 if (typeof OM.preloadObjectMeshes === 'function') setTimeout(() => OM.preloadObjectMeshes().catch(() => {}), 300);
@@ -151,6 +153,11 @@ function attachRender(person) {
 }
 
 function detachRender(person) {
+  const xr = xrays.get(person);
+  if (xr) {
+    xr.dispose();
+    xrays.delete(person);
+  }
   const r = renders.get(person);
   if (!r) return;
   scene.remove(r.hm.mesh);
@@ -889,11 +896,13 @@ function meleeFx(e) {
   if (big && (bones || e.ko || e.killed) && killCam.impactMoment(e.person, bones ? 1.2 : 0.9)) {
     const rig = killCam.moment && killCam.moment.xray;
     if (rig) {
-      const E = e.energy * 4;
+      // (a blunt blow cracks and caves bone in rather than bursting it: modest debris)
+      const E = clamp(e.energy * 2, 300, 1200);
       for (const f of breaks) {
         const at = f.pointW || e.point;
-        if (/skull/.test(f.label) && rig.shatterSkull) rig.shatterSkull(at, e.dir, E);
-        else if (rig.breakBone) rig.breakBone(f.segName || e.seg || 'chest', at, e.dir, E, f);
+        const seg = f.segName || e.seg || 'chest';
+        if (/ribs/.test(f.label)) rig.breakBone('chest', at, e.dir, E, { blunt: true, count: f.ribs ? f.ribs.length : 1 });
+        else rig.breakBone(/skull|nasal|zygoma|maxilla|mandible/.test(f.label) ? 'head' : seg, at, e.dir, E, { blunt: true });
       }
     }
   }
@@ -1020,12 +1029,16 @@ function injuryFx(person, ev) {
 
 /** People meshes: pose from the bodies, skin blood, wound decals, pallor. */
 function updateRenders(simDt, dtReal, alpha) {
+  // (X-ray debris moves smoothly in slow motion: real time scaled, not whole physics steps)
+  const xdt = dtReal * killCam.worldScale() * (mode === 'sandbox' ? (state.paused ? 0 : state.timeScale) : 1);
   for (const [person, r] of renders) {
     if (!person.frozen) r.hm.update(alpha);
     else if (!r.frozenPosed) {
       r.hm.update(1);
       r.frozenPosed = true;
     }
+    const xr = xrays.get(person);
+    if (xr) xr.update(Math.min(xdt, 0.05), alpha);
     if (simDt > 0 && !person.frozen) r.skin.update(simDt, shape);
     if (r.gear) r.gear.update(person.frozen ? 1 : alpha, simDt);
     r.decalTimer -= dtReal;
@@ -1089,11 +1102,24 @@ const killCam = new KillCam({
     viewmodel.visible = !on && viewmodel.type !== null;
   },
 });
-/** X-ray rig of a person for the kill cam (none until the X-ray module is in). */
+/** X-ray rig of a person (skeleton, organs, damage) for the kill cam, built on first use. */
 function xrayFor(person) {
-  return null;
+  if (!renders.has(person)) return null;
+  let rig = xrays.get(person);
+  if (!rig) {
+    rig = new XRayRig(person, scene, { floorY: sandbox.world.groundY });
+    xrays.set(person, rig);
+  }
+  return rig;
 }
-function ghostFor(person, on) {}
+/** The person's skin as a translucent glass shell (on) or its own skin again (off). */
+function ghostFor(person, on) {
+  const r = renders.get(person);
+  if (r) XRayRig.setGhost(r.hm, on);
+}
+// the X-ray's shared skeleton and organ geometry takes about a second to build: do it in slices
+// while the sandbox idles after loading
+setTimeout(() => XRayRig.prebuildAsync(), 2500);
 
 // first person in the sandbox (Tab)
 const scopeEl = document.createElement('div');

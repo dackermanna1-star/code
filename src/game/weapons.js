@@ -162,7 +162,7 @@ export function traceProjectile(ctx, origin, dir, proj, maxDist = 120) {
         type: 'fleshHit', person: h.person, body: h.body, seg: h.seg, entry, exit: res.stopped ? null : exit, dir: dir.clone(),
         energy: res.deposited, highVelocity: proj.speed0 > 600, entryWound: res.entryWound, exitWound: res.exitWound,
         head: h.seg.name === 'head', bone: res.structures.some((x) => x.s.kind === 'bone' && x.direct),
-        structures: res.structures.map((x) => x.s.kind),
+        structures: res.structures.map((x) => x.s.kind), parts: res.structures.map((x) => x.s.name),
       });
       if (res.stopped) {
         end = res.endW;
