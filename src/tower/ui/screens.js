@@ -250,7 +250,7 @@ export class Screens {
       const val = vals[r.spec.key];
       if (r.bar) r.bar.set(settingFraction(r.spec, val), true);
       if (r.opts) for (const o of r.opts._items) o.classList.toggle('on', o._v === val);
-      r.v.textContent = settingText(r.spec, val);
+      r.v.textContent = r.spec.type === 'range' ? settingText(r.spec, val) : '';
     }
   }
 
@@ -271,7 +271,8 @@ export class Screens {
     } else this.art.stop();
   }
 
-  resize(w, h) {
+  resize(w, h, k = 1) {
+    this.k = k;
     if (this.art.running) {
       this.art.resize(w, h);
       this.art.render(0);
@@ -281,7 +282,8 @@ export class Screens {
 
   _sizeLogo(w) {
     const lw = this.logo.width;
-    const s = Math.max(1, Math.min(3, Math.floor((w * 0.5) / lw)));
+    // the title column is zoomed by the UI scale: size the logo in its units
+    const s = Math.max(1, Math.min(3, Math.floor((w * 0.5) / (lw * (this.k || 1)))));
     this.logo.style.width = `${lw * s}px`;
     this.logo.style.height = `${this.logo.height * s}px`;
   }

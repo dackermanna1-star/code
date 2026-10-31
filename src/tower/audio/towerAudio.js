@@ -332,8 +332,9 @@ export class TowerAudio {
     const v = this._ui(55, 0.8);
     if (!v) return;
     try {
-      this._click(v, v.t, 4300, 5, 0.5, 0.004, v.out);
-      this._click(v, v.t + 0.014, 2600, 3, 0.16, 0.008, v.out);
+      this._click(v, v.t, 4000, 3, 1.6, 0.004, v.out);
+      this._click(v, v.t + 0.014, 2500, 2.5, 0.6, 0.008, v.out);
+      v.toneHit(v.out, { t: v.t, f0: 1900, f1: 1500, peak: 0.08, att: 0.0005, tau: 0.01 });
     } finally {
       v.commit();
     }
@@ -397,12 +398,12 @@ export class TowerAudio {
   headshotCrack(pos) {
     if (!this._ok() || !this.eng._allow('ll-hs', 0.06, 2)) return;
     try {
-      const v = this.eng._voice(92, this._place(pos, 6), { send: 0.12, level: 1, propagate: false });
+      const v = this.eng._voice(92, this._toward(pos, 2.4), { send: 0.12, level: 1.25, propagate: false });
       if (!v) return;
       try {
         const t = v.t, o = v.out;
-        v.noiseHit(o, { t, peak: 0.55, att: 0.0002, tau: 0.0016, filters: [['highpass', 4200, -3]] });
-        v.noiseHit(o, { t, peak: 0.75, att: 0.0003, tau: 0.007, filters: [['bandpass', vary(2100, 0.1), 1.1]] });
+        v.noiseHit(o, { t, peak: 0.7, att: 0.0002, tau: 0.0018, filters: [['highpass', 4200, -3]] });
+        v.noiseHit(o, { t, peak: 0.9, att: 0.0003, tau: 0.008, filters: [['bandpass', vary(2100, 0.1), 1.1]] });
         v.bankHit(o, 'crunch', { t: t + 0.001, rate: rand(1, 1.2), peak: 0.55, filters: [['lowpass', 6000, -3]] });
         v.toneHit(o, { t, f0: 170, f1: 58, glideT: 0.07, peak: 0.62, att: 0.002, tau: 0.05 });
         v.noiseHit(o, { buf: 'pink', t, peak: 0.55, att: 0.001, tau: 0.04, filters: [['bandpass', 430, 0.9]] });
@@ -771,7 +772,7 @@ export class TowerAudio {
 
   /** A body hitting the ground (intensity 0..1). */
   bodyFall(pos, i = 1) {
-    this._later(pos, () => this.eng.bodyFall(clamp(num(i, 1), 0, 1), this._place(pos)));
+    this._later(pos, () => this.eng.bodyFall(clamp(num(i, 1), 0, 1) * 0.75, this._place(pos)));
   }
 
   /** A bone snapping (intensity 0..1). */
@@ -879,7 +880,7 @@ export class TowerAudio {
       H.near = Math.max(0, num(nearest, 999));
       const prox = clamp(1.15 - H.near / 220, 0.12, 1);
       const amt = clamp(H.count / 45, 0, 1) ** 0.6 * prox;
-      this._bed('horde', 0.9 * amt, 1.2);
+      this._bed('horde', 0.32 * amt, 1.2);
       const b = this.beds.horde;
       if (b && b.lp) b.lp.frequency.setTargetAtTime(380 + 2600 * prox * prox, this.ctx.currentTime, 0.8);
     } catch (e) {
@@ -1031,7 +1032,7 @@ export class TowerAudio {
   waveSiren() {
     if (!this._ok() || !this.eng._allow('ll-siren', 4, 1)) return;
     try {
-      const v = this.eng._voice(96, this._place({ x: 0, y: 30, z: 0 }, 18), { send: 0.9, level: 0.9, propagate: false });
+      const v = this.eng._voice(96, this._toward({ x: 0.5, y: 40, z: -1 }, 3), { send: 0.9, level: 1.1, propagate: false });
       if (!v) return;
       try {
         const ctx = this.ctx, t = v.t, up = 2.4, hold = 2, down = 2.6, end = t + up + hold + down;
@@ -1042,8 +1043,8 @@ export class TowerAudio {
         }
         const g = v.gain(0);
         g.gain.setValueAtTime(0, t);
-        g.gain.linearRampToValueAtTime(0.16, t + up * 0.6);
-        g.gain.setValueAtTime(0.16, t + up + hold);
+        g.gain.linearRampToValueAtTime(0.3, t + up * 0.6);
+        g.gain.setValueAtTime(0.3, t + up + hold);
         g.gain.linearRampToValueAtTime(0, end);
         const sat = v.shaper(this.eng._curve(1.6));
         const bp = v.filter('bandpass', 900, 0.8);
@@ -1083,7 +1084,7 @@ export class TowerAudio {
   waveCleared() {
     if (!this._ok() || !this.eng._allow('ll-clear', 2, 1)) return;
     try {
-      const v = this.eng._voice(95, null, { send: 0, level: 0.9, propagate: false, bus: this.musicBus });
+      const v = this.eng._voice(95, null, { send: 0, level: 1.25, propagate: false, bus: this.musicBus });
       if (!v) return;
       try {
         const t = v.t;
@@ -1133,7 +1134,7 @@ export class TowerAudio {
       C.n = now - C.t < 1.4 ? Math.min(C.n + 1, 6) : 0;
       C.t = now;
       const p = 2 ** (C.n / 12);
-      const v = this._ui(70, 0.9);
+      const v = this._ui(70, 0.65);
       if (!v) return;
       try {
         const t = v.t, o = v.out;
@@ -1169,7 +1170,7 @@ export class TowerAudio {
     if (!this._ok() || !this.eng._allow('ll-ui:' + kind, 0.03, 2)) return;
     try {
       if (kind === 'cleared') return; // waveCleared() plays the sting
-      const v = this._ui(kind === 'deny' || kind === 'alarm' ? 75 : 50, 0.6);
+      const v = this._ui(kind === 'deny' || kind === 'alarm' ? 75 : 50, kind === 'deny' || kind === 'alarm' ? 0.8 : 1.6);
       if (!v) return;
       try {
         const t = v.t, o = v.out;
@@ -1186,9 +1187,9 @@ export class TowerAudio {
           g.connect(o);
         };
         switch (kind) {
-          case 'hover': blip(2200, 0, 0.012, 0.035); break;
-          case 'tick': blip(3000, 0, 0.01, 0.04); break;
-          case 'click': this._click(v, t, 1500, 1.4, 0.3, 0.004, o); blip(880, 0, 0.03, 0.05); break;
+          case 'hover': blip(2200, 0, 0.014, 0.06); break;
+          case 'tick': blip(3000, 0, 0.012, 0.06); break;
+          case 'click': this._click(v, t, 1500, 1.4, 0.8, 0.004, o); blip(880, 0, 0.03, 0.07); break;
           case 'tab': blip(1600, 0, 0.02, 0.05); blip(2400, 0.045, 0.02, 0.045); break;
           case 'open':
             blip(200, 0, 0.14, 0.05, 'sine', 1300);
@@ -1351,8 +1352,9 @@ export class TowerAudio {
       const v = this.eng._voice(48, this._place(pos, 3), { send: 0.2, level: 0.8 });
       if (!v) return;
       try {
-        v.bankHit(v.out, 'metal', { t: v.t, rate: rand(0.45, 0.7), peak: 0.22, tau: 0.08 });
-        v.toneHit(v.out, { t: v.t, f0: 140, f1: 90, glideT: 0.04, peak: 0.15, att: 0.002, tau: 0.03 });
+        v.bankHit(v.out, 'metal', { t: v.t, rate: rand(0.45, 0.7), peak: 0.5, tau: 0.09 });
+        v.toneHit(v.out, { t: v.t, f0: 140, f1: 90, glideT: 0.04, peak: 0.35, att: 0.002, tau: 0.03 });
+        v.noiseHit(v.out, { buf: 'pink', t: v.t + 0.12, peak: 0.25, att: 0.003, tau: 0.03, filters: [['bandpass', 900, 1.2]] });
       } finally {
         v.commit();
       }
@@ -1406,11 +1408,11 @@ export class TowerAudio {
       glide(o.frequency, t, on ? 1800 : 5200, on ? 6200 : 1500, 0.32);
       const g = v.gain(0);
       g.gain.setValueAtTime(0, t);
-      g.gain.linearRampToValueAtTime(0.03, t + 0.05);
+      g.gain.linearRampToValueAtTime(0.08, t + 0.05);
       g.gain.linearRampToValueAtTime(0, t + 0.38);
       o.connect(g);
       g.connect(v.out);
-      this._click(v, t, 2500, 2, 0.15, 0.004, v.out);
+      this._click(v, t, 2500, 2, 0.45, 0.004, v.out);
     } finally {
       v.commit();
     }
@@ -1607,6 +1609,20 @@ export class TowerAudio {
     return o;
   }
 
+  /** A virtual point on pos's bearing at a fixed distance (near-field cues that keep their direction). */
+  _toward(pos, dist) {
+    const L = this.eng._listener;
+    if (!pos || !L.set) return null;
+    const dx = num(pos.x, L.x) - L.x, dy = num(pos.y, L.y) - L.y, dz = num(pos.z, L.z) - L.z;
+    const d = Math.hypot(dx, dy, dz);
+    if (d < 1e-3) return null;
+    const o = this._vp;
+    o.x = L.x + (dx / d) * dist;
+    o.y = L.y + (dy / d) * dist;
+    o.z = L.z + (dz / d) * dist;
+    return o;
+  }
+
   /** Runs fn after the sound from pos has had time to arrive. */
   _later(pos, fn) {
     if (!this._ok()) return;
@@ -1681,7 +1697,7 @@ export class TowerAudio {
       const s2 = t + clamp(0.3 * Math.sqrt(60 / bpm), 0.16, 0.36);
       const lp = v.filter('lowpass', 260, -3);
       lp.connect(v.out);
-      const lvl = 0.3 + 0.12 * clamp((bpm - 60) / 80, 0, 1);
+      const lvl = 0.12 + 0.08 * clamp((bpm - 60) / 80, 0, 1);
       v.toneHit(lp, { t, f0: 60, f1: 42, glideT: 0.08, peak: lvl, att: 0.012, tau: 0.05 });
       v.noiseHit(lp, { buf: 'brown', t, peak: lvl * 0.8, att: 0.01, tau: 0.045, filters: [['lowpass', 200, 0]] });
       v.toneHit(lp, { t: s2, f0: 76, f1: 58, glideT: 0.05, peak: lvl * 0.7, att: 0.008, tau: 0.035 });

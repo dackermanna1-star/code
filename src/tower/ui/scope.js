@@ -32,16 +32,17 @@ export class ScopeOverlay {
     this.ret = el('canvas', 'ret', this.el);
     this.ret.style.imageRendering = 'auto';
     // readouts
-    this.rng = el('div', 'ro rng', this.el);
+    this.layer = el('div', 'ro-layer', this.el);
+    this.rng = el('div', 'ro rng', this.layer);
     el('span', 'lbl', this.rng, 'RANGE');
     const rv = el('div', '', this.rng);
     rv.style.position = 'relative';
     this.rngGhost = el('div', 'v ghost', rv, '888 m');
     this.rngV = el('div', 'v', rv, '---');
-    this.zoom = el('div', 'ro zoom', this.el);
+    this.zoom = el('div', 'ro zoom', this.layer);
     el('span', 'lbl', this.zoom, 'ZOOM');
     this.zoomV = el('div', 'v', this.zoom, '4.0×');
-    this.wind = el('div', 'ro wind', this.el);
+    this.wind = el('div', 'ro wind', this.layer);
     el('span', 'lbl', this.wind, 'WIND');
     const wl = el('div', '', this.wind);
     this.windArrow = el('canvas', '', wl);
@@ -50,7 +51,7 @@ export class ScopeOverlay {
     this.windArrow.height = wa.height;
     this.windArrow.getContext('2d').drawImage(wa, 0, 0);
     this.windV = el('span', 'v', wl, '0.0 m/s');
-    this.brth = el('div', 'ro brth', this.el);
+    this.brth = el('div', 'ro brth', this.layer);
     this.brthLbl = el('span', 'lbl', this.brth, 'BREATH');
     const brow = el('div', 'brow', this.brth);
     const lungs = el('canvas', '', brow);
@@ -67,11 +68,12 @@ export class ScopeOverlay {
     fi.getContext('2d').drawImage(fic, 0, 0);
     this.fgBar = new SegBar(this.fg);
     el('span', 'key', this.fg, 'F');
-    this.tags = el('div', 'ro tags', this.el);
+    this.tags = el('div', 'ro tags', this.layer);
     this.tagThermal = el('span', 'tag th hide', this.tags, 'THERMAL · WHT');
     this.tagFocus = el('span', 'tag fo hide', this.tags, 'FOCUS');
 
     this.readouts = [this.rng, this.zoom, this.wind, this.brth, this.tags];
+    this.k = 1;
     this.w = 0;
     this.h = 0;
     this.dpr = 1;
@@ -84,9 +86,11 @@ export class ScopeOverlay {
   }
 
   /** Lays out and redraws both canvases for a viewport of w×h CSS px at the given DPR. */
-  resize(w, h, dpr) {
+  /** k: the UI scale (the readout layer is zoomed by it; positions are given in viewport px). */
+  resize(w, h, dpr, k = 1) {
     this.w = w;
     this.h = h;
+    this.k = k;
     this.dpr = Math.max(1, Math.min(3, dpr || 1));
     const R = (this.R = Math.round(Math.min(w, h) * 0.47));
     const cx = w / 2, cy = h / 2;
@@ -94,34 +98,26 @@ export class ScopeOverlay {
     this._drawReticle();
     // readout positions
     const side = cx - R;
-    const wide = side >= 190;
-    const pos = (e, x, y) => {
-      e.style.left = `${Math.round(x)}px`;
-      e.style.top = `${Math.round(y)}px`;
+    const wide = side >= 200 * k;
+    const px = (v) => `${Math.round(v / k)}px`;
+    const place = (e, o) => {
+      e.style.left = o.left !== undefined ? px(o.left) : 'auto';
+      e.style.right = o.right !== undefined ? px(o.right) : 'auto';
+      e.style.top = px(o.top);
+      e.style.transform = 'none';
     };
     // off the vertical post: range low-right inside the glass, tags high-left
-    pos(this.rng, cx + R * 0.2, cy + R * 0.6);
-    this.rng.style.transform = 'none';
-    this.tags.style.left = 'auto';
-    this.tags.style.right = `${Math.round(w - (cx - R * 0.12))}px`;
-    this.tags.style.top = `${Math.round(cy - R * 0.62)}px`;
-    this.tags.style.transform = 'none';
+    place(this.rng, { left: cx + R * 0.2, top: cy + R * 0.6 });
+    place(this.tags, { right: w - (cx - R * 0.12), top: cy - R * 0.62 });
     if (wide) {
-      this.wind.style.right = `${Math.round(w - (cx - R - 36))}px`;
-      this.wind.style.left = 'auto';
-      this.wind.style.top = `${Math.round(cy - 70)}px`;
-      pos(this.zoom, cx + R + 36, cy - 70);
-      this.brth.style.left = 'auto';
-      this.brth.style.right = `${Math.round(w - (cx - R - 36))}px`;
-      this.brth.style.top = `${Math.round(cy + 40)}px`;
-      this.brth.style.transform = 'none';
+      const gap = 36 * k;
+      place(this.wind, { right: w - (cx - R - gap), top: cy - 70 * k });
+      place(this.zoom, { left: cx + R + gap, top: cy - 70 * k });
+      place(this.brth, { right: w - (cx - R - gap), top: cy + 40 * k });
     } else {
-      this.wind.style.left = 'auto';
-      this.wind.style.right = '24px';
-      this.wind.style.top = `${Math.round(h - 150)}px`;
-      pos(this.zoom, 24, h - 150);
-      pos(this.brth, cx - 100, h - 34);
-      this.brth.style.transform = 'none';
+      place(this.wind, { right: w - 24 * k, top: h - 150 * k });
+      place(this.zoom, { left: 24 * k, top: h - 150 * k });
+      place(this.brth, { left: cx - 100 * k, top: h - 34 * k });
     }
     this.vis = -1;
   }
@@ -332,7 +328,7 @@ export class ScopeOverlay {
     this.fgBar.tick(dt);
     toggle(this.fg, 'full', fo >= 0.999);
     toggle(this.tagThermal, 'hide', !S.thermal);
-    toggle(this.tagFocus, 'hide', !S.focusActive);
+    toggle(this.tagFocus, 'hide', true); // the letterbox label says it
   }
 }
 

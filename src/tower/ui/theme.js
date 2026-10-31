@@ -29,7 +29,9 @@ export function themeCSS(noiseUrl, grungeUrl = noiseUrl) {
   --amber: ${C.amber}; --amber-hi: ${C.amberHi}; --amber-dim: ${C.amberDim}; --amber-deep: ${C.amberDeep};
   --bone: ${C.bone}; --khaki: ${C.khaki}; --rust: ${C.rust}; --rust-dim: ${C.rustDim}; --green: ${C.green};
   --o0: ${C.olive0}; --o1: ${C.olive1}; --o2: ${C.olive2}; --o3: ${C.olive3}; --o4: ${C.olive4};
-  --noise: url(${noiseUrl}); --grunge: url(${grungeUrl}); }
+  --noise: url(${noiseUrl}); --grunge: url(${grungeUrl}); --ui: 1; }
+.ll .play, .ll .ro-layer, .ll .shop .frame, .ll .scr .win, .ll .title-col, .ll .credits, .ll .shop .toast { zoom: var(--ui); }
+.ll .ro-layer { position: absolute; inset: 0; }
 .ll * { box-sizing: border-box; }
 .ll canvas { image-rendering: pixelated; image-rendering: crisp-edges; }
 .ll .pxc { image-rendering: pixelated; }
@@ -171,7 +173,7 @@ export function themeCSS(noiseUrl, grungeUrl = noiseUrl) {
 .ll .vig { position: absolute; inset: 0; opacity: 0; pointer-events: none;
   background: radial-gradient(ellipse at center, rgba(0,0,0,0) 48%, rgba(150,10,0,.55) 82%, rgba(90,0,0,.9) 100%); }
 .ll .lowhp { position: absolute; inset: 0; opacity: 0; pointer-events: none;
-  background: radial-gradient(ellipse at center, rgba(0,0,0,0) 58%, rgba(120,0,0,.5) 100%); }
+  background: radial-gradient(ellipse at center, rgba(0,0,0,0) 42%, rgba(130,0,0,.55) 78%, rgba(90,0,0,.85) 100%); }
 .ll .gatefx { position: absolute; left: 0; right: 0; bottom: 0; height: 34%; opacity: 0; pointer-events: none;
   background: linear-gradient(0deg, rgba(255,140,30,.38), rgba(255,140,30,0)); }
 .ll .focusfx { position: absolute; inset: 0; opacity: 0; pointer-events: none; transition: opacity .25s;
@@ -301,13 +303,17 @@ export function themeCSS(noiseUrl, grungeUrl = noiseUrl) {
 .ll .shop .tabs .hint { margin-left: auto; font-size: 12px; color: var(--khaki); letter-spacing: 1px; }
 .ll .shop .cards { flex: 1; min-height: 0; overflow: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(268px, 1fr));
   gap: 14px; padding: 8px 6px 8px 8px; align-content: start; scrollbar-width: thin; scrollbar-color: var(--o4) transparent; }
-.ll .card { position: relative; padding: 12px 14px 12px; display: flex; flex-direction: column; gap: 6px; cursor: pointer; min-height: 0; }
+.ll .card { position: relative; padding: 12px 14px 12px; display: flex; flex-direction: column; gap: 6px; cursor: pointer; }
 .ll .card.pn { position: relative; }
 .ll .card .ic { height: 60px; display: flex; align-items: center; justify-content: center; margin: 2px 0 4px;
   background: radial-gradient(ellipse at center, rgba(255,180,58,.08), rgba(0,0,0,0) 70%); }
 .ll .card .nm { font-size: 16px; color: var(--bone); letter-spacing: 1px; }
 .ll .card .tg { font-size: 12px; color: var(--amber); min-height: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ll .card .ds { font-size: 12px; color: var(--khaki); line-height: 16px; min-height: 64px; }
+.ll .card .ds { font-size: 12px; color: var(--khaki); line-height: 16px; min-height: 32px; }
+.ll .cards.t-rifles .card .ds { min-height: 64px; }
+.ll .cards.t-ammo .card .ds { min-height: 48px; }
+.ll .cards:not(.t-rifles) .card { gap: 4px; padding-top: 8px; }
+.ll .cards:not(.t-rifles) .card .ic { height: 54px; margin: 0 0 2px; }
 .ll .card .st { display: grid; grid-template-columns: 106px 1fr auto; gap: 4px 8px; align-items: center; font-size: 12px; margin-top: 2px; }
 .ll .card .st .k { color: var(--khaki); }
 .ll .card .st .t { color: var(--bone); min-width: 44px; text-align: right; }
@@ -316,7 +322,8 @@ export function themeCSS(noiseUrl, grungeUrl = noiseUrl) {
 .ll .card .pips { display: flex; gap: 4px; }
 .ll .card .pips i { width: 14px; height: 8px; border: 2px solid var(--amber-dim); }
 .ll .card .pips i.on { background: var(--amber); border-color: var(--amber); }
-.ll .card .act { margin-top: auto; padding-top: 8px; display: flex; gap: 8px; align-items: center; justify-content: space-between; }
+.ll .card .act { margin-top: auto; padding-top: 8px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; }
+.ll .card .btn { padding: 7px 12px 5px; }
 .ll .card .price { font-size: 16px; color: var(--amber-hi); }
 .ll .card .price.no { color: var(--rust); }
 .ll .card .reason { font-size: 12px; color: var(--rust); letter-spacing: 1px; }

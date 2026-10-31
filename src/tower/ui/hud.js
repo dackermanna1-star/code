@@ -42,6 +42,17 @@ function iconCanvas(parent, id, cls = '') {
   return c;
 }
 
+/**
+ * UI scale for small viewports, snapped so the pixel font stays on whole device pixels: 0.75
+ * only where a CSS pixel is two device pixels or more.
+ */
+export function uiScaleFor(w, h, dpr = 1) {
+  const raw = Math.min(w / 1280, h / 780);
+  if (raw >= 0.94) return 1;
+  if (dpr >= 1.5) return raw < 0.6 ? 0.5 : 0.75;
+  return raw < 0.72 ? 0.5 : 1;
+}
+
 /** Upper case, but metres stay 'm' ('LONG SHOT 238 m'). */
 function upperKeepUnits(s) {
   return String(s ?? '').toUpperCase().replace(/(\d)\s?M\b/g, '$1 m').replace(/ M\/S\b/g, ' m/s');
@@ -245,7 +256,8 @@ export class TowerHud {
       const left = Number.isFinite(S.toKill) ? S.toKill : S.alive;
       setText(this.leftEl, Number.isFinite(left) ? `${left} HOSTILE${left === 1 ? '' : 'S'} LEFT` : '');
     }
-    const tq = Math.round(frac(S.timeOfDay) * 20);
+    L.todValue = frac(S.timeOfDay);
+    const tq = Math.round(L.todValue * 20);
     if (tq !== L.tod) {
       L.tod = tq;
       const t = tq / 20;
@@ -272,7 +284,7 @@ export class TowerHud {
     this.gateBar.tick(dt);
     this.hpBar.tick(dt);
     if (p > 0 && p < 0.3 && S.phase !== 'over') {
-      const pulse = 0.45 + 0.35 * Math.sin(this.t * 7.5) ** 2 * (1 - p / 0.3);
+      const pulse = (0.55 + 0.45 * Math.sin(this.t * 5.2) ** 2) * (0.55 + 0.45 * (1 - p / 0.3));
       setStyle(this.lowhp, 'opacity', pulse.toFixed(2));
     } else setStyle(this.lowhp, 'opacity', '0');
     // rifle / rounds
@@ -488,8 +500,10 @@ export class TowerHud {
     this.sizeDirty = false;
     const w = innerWidth, h = innerHeight;
     this.dpr = typeof devicePixelRatio === 'number' ? devicePixelRatio : 1;
-    this.scope.resize(w, h, this.dpr);
-    this.screens.resize(w, h);
+    this.uiScale = uiScaleFor(w, h, this.dpr);
+    this.root.style.setProperty('--ui', String(this.uiScale));
+    this.scope.resize(w, h, this.dpr, this.uiScale);
+    this.screens.resize(w, h, this.uiScale);
   }
 
   _key(e) {

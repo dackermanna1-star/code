@@ -19,8 +19,88 @@ const _e = new THREE.Euler();
 const _m = new THREE.Matrix4();
 const _s = new THREE.Vector3(1, 1, 1);
 const _up = new THREE.Vector3(0, 1, 0);
+const _xAxis = new THREE.Vector3(1, 0, 0);
 
 const MAX_EMITTERS = 12;
+const MAX_FLASHES = 3;
+const FLASH_VARIANTS = 4;
+
+/**
+ * Pixel-art muzzle flash atlas, drawn into a DataTexture (no canvas: runs in Node): row 0 holds
+ * FLASH_VARIANTS front-on stars, row 1 the matching side-on flame cones. 32x32 cells.
+ */
+function flashAtlas() {
+  const C = 32, W = C * FLASH_VARIANTS, H = C * 2;
+  const data = new Uint8Array(W * H * 4);
+  const pal = [[255, 255, 245], [255, 236, 150], [255, 196, 80], [240, 120, 30], [150, 50, 10]];
+  const put = (x, y, k) => {
+    if (x < 0 || y < 0 || x >= W || y >= H) return;
+    const o = (y * W + x) * 4;
+    if (data[o + 3] && data[o + 3] >= 255 - k * 40) return; // keep the brighter colour
+    const c = pal[Math.min(pal.length - 1, k)];
+    data[o] = c[0];
+    data[o + 1] = c[1];
+    data[o + 2] = c[2];
+    data[o + 3] = 255 - k * 40;
+  };
+  let seed = 7;
+  const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+  for (let v = 0; v < FLASH_VARIANTS; v++) {
+    const ox = v * C;
+    // front-on star: a hot core and 5-7 tapering spikes
+    const cx = ox + 15.5, cy = 15.5;
+    for (let y = 0; y < C; y++) {
+      for (let x = 0; x < C; x++) {
+        const d = Math.hypot(ox + x - cx, y - cy);
+        if (d < 2.6) put(ox + x, y, 0);
+        else if (d < 4.2) put(ox + x, y, 1);
+        else if (d < 5.4 && rnd() < 0.7) put(ox + x, y, 2);
+      }
+    }
+    const spikes = 5 + Math.floor(rnd() * 3);
+    const a0 = rnd() * Math.PI * 2;
+    for (let s = 0; s < spikes; s++) {
+      const a = a0 + (s / spikes) * Math.PI * 2 + (rnd() - 0.5) * 0.5;
+      const len = 8 + rnd() * 7.5;
+      for (let r = 2; r < len; r += 0.5) {
+        const w = Math.max(0, 1.6 * (1 - r / len));
+        const k = r < len * 0.35 ? 1 : r < len * 0.7 ? 2 : 3;
+        for (let t = -w; t <= w; t += 0.5) {
+          put(Math.round(cx + Math.cos(a) * r - Math.sin(a) * t), Math.round(cy + Math.sin(a) * r + Math.cos(a) * t), k);
+        }
+      }
+    }
+    // side-on flame cone along +x of the cell (the muzzle at the left edge)
+    for (let x = 0; x < C; x++) {
+      const u = x / (C - 1);
+      const half = 2 + 9 * Math.sin(Math.PI * Math.min(1, u * 1.15)) ** 0.8 * (0.75 + 0.5 * rnd());
+      for (let y = 0; y < C; y++) {
+        const d = Math.abs(y - 15.5);
+        if (d > half) continue;
+        const e = d / half;
+        if (e > 0.75 && rnd() < 0.45) continue;
+        const k = u < 0.18 && e < 0.5 ? 0 : e < 0.35 ? 1 : e < 0.7 ? 2 : u > 0.75 ? 4 : 3;
+        put(ox + x, C + y, k);
+      }
+    }
+  }
+  const tex = new THREE.DataTexture(data, W, H, THREE.RGBAFormat);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.magFilter = tex.minFilter = THREE.NearestFilter;
+  tex.generateMipmaps = false;
+  tex.flipY = false;
+  tex.needsUpdate = true;
+  return tex;
+}
+
+/** A unit quad whose UVs cover one variant cell of the atlas row (0 front, 1 side). */
+function cellQuad(row) {
+  const g = new THREE.PlaneGeometry(1, 1);
+  const uv = g.attributes.uv;
+  // DataTexture rows run top-down in memory with flipY off: v = 0 is the first row of data
+  for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) / FLASH_VARIANTS, (row + (1 - uv.getY(i))) / 2);
+  return g;
+}
 const MAX_TRACERS = 32;
 const MAX_CASINGS = 16;
 const MAX_RINGS = 4;
@@ -84,7 +164,7 @@ export class TowerFx {
     // casings
     const cg = new THREE.CylinderGeometry(0.0055, 0.0055, 0.048, 6, 1);
     cg.rotateZ(Math.PI / 2);
-    this.casingMat = new THREE.MeshLambertMaterial({ color: 0xc89b3c, emissive: 0x3a2808 });
+    this.casingMat = new THREE.MeshLambertMaterial({ color: 0xd8aa48, emissive: 0x6a4a12 });
     this.casingMesh = new THREE.InstancedMesh(cg, this.casingMat, MAX_CASINGS);
     this.casingMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     this.casingMesh.count = 0;
@@ -104,6 +184,29 @@ export class TowerFx {
       this.lights.push({ l, t: 0, life: 0, peak: 0 });
     }
     this._casePos = new THREE.Vector3();
+    // muzzle flashes: a camera-facing star plus two crossed flame cones along the barrel
+    this.flashTex = flashAtlas();
+    this.flashes = [];
+    const front = cellQuad(0);
+    const side = cellQuad(1);
+    side.translate(0.5, 0, 0); // the cone starts at the muzzle
+    for (let i = 0; i < MAX_FLASHES; i++) {
+      const map = this.flashTex.clone();
+      map.needsUpdate = true;
+      const mat = new THREE.MeshBasicMaterial({ map, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, fog: false, side: THREE.DoubleSide, alphaTest: 0.02 });
+      const star = new THREE.Mesh(front, mat);
+      const s1 = new THREE.Mesh(side, mat);
+      const s2 = new THREE.Mesh(side, mat);
+      s2.rotation.x = Math.PI / 2;
+      const axis = new THREE.Group();
+      axis.add(s1, s2);
+      const g = new THREE.Group();
+      g.add(star, axis);
+      g.visible = false;
+      for (const m of [star, s1, s2]) m.renderOrder = 8;
+      scene.add(g);
+      this.flashes.push({ g, star, axis, mat, t: 0, life: 0.05 });
+    }
   }
 
   // -------------------------------------------------------------------------------------------
@@ -118,6 +221,7 @@ export class TowerFx {
     this._tracers(dt);
     this._rings(dt);
     this._casings(dt);
+    this._flashes(dt, camera);
     for (const L of this.lights) {
       if (L.t >= L.life) continue;
       L.t += dt;
@@ -200,23 +304,28 @@ export class TowerFx {
     const dx = dir.x, dy = dir.y, dz = dir.z;
     const x = pos.x, y = pos.y, z = pos.z;
     if (!opts.suppressed) {
-      G.spawn(x + dx * 0.05, y + dy * 0.05, z + dz * 0.05, 0, 0, 0, 0.055, 0.22, 0.32, R.flash);
-      for (let i = 1; i <= 3; i++) {
-        const d = i * 0.13;
-        G.spawn(x + dx * d, y + dy * d, z + dz * d, dx * 2, dy * 2, dz * 2, 0.045, 0.2 - i * 0.04, 0.08, R.flash);
+      const size = opts.size ?? (opts.brake ? 0.42 : 0.3);
+      this._flash(x, y, z, dx, dy, dz, size, !!opts.brake);
+      // a few hot sparks of burning powder
+      for (let i = 0; i < 4; i++) {
+        spray(_v, dx, dy, dz, 0.25);
+        const sp = rnd(6, 14);
+        G.spawn(x + dx * 0.1, y + dy * 0.1, z + dz * 0.1, _v.x * sp, _v.y * sp, _v.z * sp, rnd(0.06, 0.14), 0.012, 0.006, R.spark, 0.5, 2);
       }
       if (opts.brake) {
-        // muzzle brake: flames thrown out sideways
+        // muzzle brake: gas and flame thrown out sideways
         _v.set(dx, dy, dz).cross(_up).normalize();
-        for (const s of [-1, 1]) G.spawn(x + _v.x * s * 0.08, y, z + _v.z * s * 0.08, _v.x * s * 6, 0.5, _v.z * s * 6, 0.07, 0.16, 0.24, R.flash, 6);
+        for (const s of [-1, 1]) G.spawn(x + _v.x * s * 0.05, y, z + _v.z * s * 0.05, _v.x * s * 5, 0.4, _v.z * s * 5, 0.06, 0.05, 0.12, R.flash, 8);
       }
       this._light(x, y, z, 0xffc070, 60, 0.06, 12);
     }
-    const ns = opts.suppressed ? 3 : 7;
+    // thin wisps drifting away from the muzzle
+    const ns = opts.suppressed ? 3 : opts.brake ? 8 : 5;
     for (let i = 0; i < ns; i++) {
-      spray(_v, dx, dy + 0.15, dz, 0.35);
-      const sp = rnd(0.6, 2.2);
-      S.spawn(x + dx * 0.1, y + dy * 0.1, z + dz * 0.1, _v.x * sp, _v.y * sp + 0.2, _v.z * sp, rnd(1.4, 2.6), rnd(0.05, 0.09), rnd(0.35, 0.6), R.smokeLight, 1.8, -0.12, GROW_EASE);
+      spray(_v, dx, dy + 0.1, dz, 0.3);
+      const sp = rnd(0.5, 1.8);
+      const o = rnd(0.05, 0.2);
+      S.spawn(x + dx * o, y + dy * o, z + dz * o, _v.x * sp, _v.y * sp + 0.15, _v.z * sp, rnd(1.2, 2.2), rnd(0.015, 0.03), rnd(0.16, 0.3), R.smokeLight, 1.6, -0.12, GROW_EASE);
     }
   }
 
@@ -357,6 +466,7 @@ export class TowerFx {
     for (const t of this.tracers) t.on = false;
     for (const c of this.casings) c.on = false;
     for (const r of this.rings) r.m.visible = false;
+    for (const f of this.flashes) f.g.visible = false;
     for (const L of this.lights) {
       L.t = L.life;
       L.l.intensity = 0;
@@ -375,6 +485,12 @@ export class TowerFx {
       r.m.material.dispose();
     }
     for (const L of this.lights) this.scene.remove(L.l);
+    for (const f of this.flashes) {
+      this.scene.remove(f.g);
+      f.mat.map.dispose();
+      f.mat.dispose();
+    }
+    this.flashTex.dispose();
   }
 
   // -------------------------------------------------------------------------------------------
@@ -438,8 +554,8 @@ export class TowerFx {
           const px = Math.cos(a) * rr, pz = Math.sin(a) * rr;
           // tangential roll plus a slow outward drift
           const sp = rnd(0.25, 0.6);
-          S.spawn(E.x + px, E.y + rnd(0.4, 1.4), E.z + pz, -Math.sin(a) * sp + Math.cos(a) * 0.15, rnd(0.05, 0.25), Math.cos(a) * sp + Math.sin(a) * 0.15,
-            rnd(3.5, 5.5), rnd(2.4, 3.4), rnd(5, 7.5) * Math.min(1.5, 0.6 + E.r * 0.12), R.gas, 0.15, -0.02, GROW_EASE);
+          S.spawn(E.x + px, E.y + rnd(0.3, 2.2), E.z + pz, -Math.sin(a) * sp + Math.cos(a) * 0.15, rnd(0.1, 0.4), Math.cos(a) * sp + Math.sin(a) * 0.15,
+            rnd(3.5, 5.5), rnd(2.2, 3.2), rnd(4.5, 7) * Math.min(1.5, 0.6 + E.r * 0.12), R.gas, 0.15, -0.03, GROW_EASE);
         }
       }
     }
@@ -559,6 +675,44 @@ export class TowerFx {
     }
     mesh.count = n;
     if (n) mesh.instanceMatrix.needsUpdate = true;
+  }
+
+  _flash(x, y, z, dx, dy, dz, size, brake) {
+    let F = this.flashes[0];
+    for (const f of this.flashes) {
+      if (!f.g.visible) {
+        F = f;
+        break;
+      }
+    }
+    F.g.visible = true;
+    F.t = 0;
+    F.life = rnd(0.04, 0.06);
+    F.g.position.set(x, y, z);
+    F.mat.map.offset.set(Math.floor(Math.random() * FLASH_VARIANTS) / FLASH_VARIANTS, 0);
+    // the cones lie along the barrel (local +x -> dir), rolled at random
+    _v.set(dx, dy, dz).normalize();
+    _q.setFromUnitVectors(_xAxis, _v);
+    F.axis.quaternion.copy(_q);
+    F.axis.rotateX(Math.random() * Math.PI);
+    F.axis.scale.set(size * (brake ? 0.8 : 1.5), size * (brake ? 1.2 : 0.7), size * (brake ? 1.2 : 0.7));
+    F.star.scale.setScalar(size * rnd(0.85, 1.15));
+    F.spin = Math.random() * Math.PI * 2;
+    F.mat.opacity = 1;
+  }
+
+  _flashes(dt, camera) {
+    for (const F of this.flashes) {
+      if (!F.g.visible) continue;
+      F.t += dt;
+      if (F.t >= F.life) {
+        F.g.visible = false;
+        continue;
+      }
+      if (camera) F.star.quaternion.copy(camera.quaternion);
+      F.star.rotateZ(F.spin);
+      F.mat.opacity = 1 - (F.t / F.life) * 0.5;
+    }
   }
 
   _light(x, y, z, color, peak, life, dist) {

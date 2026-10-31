@@ -122,6 +122,7 @@ export class Shop {
   _render() {
     this.tabBtns.forEach((b, i) => b.classList.toggle('on', i === this.tab));
     const items = (this.items = shopItems(SHOP_TABS[this.tab].id, this.state));
+    this.cardsEl.className = 'cards t-' + SHOP_TABS[this.tab].id;
     if (this.sel >= items.length) this.sel = Math.max(0, items.length - 1);
     const scroll = this.cardsEl.scrollTop;
     this.cardsEl.textContent = '';
@@ -162,7 +163,7 @@ export class Shop {
     } else if (it.reason) el('span', 'reason', act, it.reason);
     else el('span', '', act, '');
     const btns = el('div', 'btns', act);
-    if (it.secondary) {
+    if (it.secondary && it.secondary.enabled) {
       const b2 = el('button', 'btn alt', btns, it.secondary.label);
       if (!it.secondary.enabled) b2.disabled = true;
       b2.addEventListener('click', (e) => {

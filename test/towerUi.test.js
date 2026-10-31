@@ -16,6 +16,16 @@ import { TowerAudio, distanceGain, airCutoff, soundDelay, RIFLE_SOUND } from '..
 import { TowerFx } from '../src/tower/fx/towerFx.js';
 import { RAMPS } from '../src/tower/fx/particles.js';
 
+test('UI scale snaps so the pixel font stays on whole device pixels', async () => {
+  const { uiScaleFor } = await import('../src/tower/ui/hud.js');
+  assert.equal(uiScaleFor(1440, 900, 2), 1);
+  assert.equal(uiScaleFor(1280, 800, 1), 1);
+  assert.equal(uiScaleFor(1024, 640, 2), 0.75);
+  assert.equal(uiScaleFor(1024, 640, 1), 1, 'no fractional font pixels on a 1x display');
+  assert.equal(uiScaleFor(640, 400, 2), 0.5);
+  assert.equal(uiScaleFor(640, 400, 1), 0.5);
+});
+
 test('UI, audio and FX modules import in Node without touching the DOM', async () => {
   assert.equal(typeof globalThis.window, 'undefined');
   assert.equal(typeof globalThis.document, 'undefined');

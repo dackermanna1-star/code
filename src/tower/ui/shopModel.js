@@ -130,7 +130,7 @@ function ammoItem(id, st) {
   }
   priced(it, a.price, st.cash);
   it.action = 'buy';
-  it.actionLabel = `BUY ×${a.pack}`;
+  it.actionLabel = `BUY ${a.pack}`;
   it.enabled = it.affordable;
   it.status = equipped ? 'equipped' : count > 0 ? 'owned' : 'available';
   if (count > 0) it.secondary = { action: 'equip', label: equipped ? 'LOADED' : 'LOAD', enabled: !equipped };
