@@ -274,7 +274,8 @@ export class Horde {
         }
         // hold the slot (the crowd still shoves a little)
         root.yaw = Math.atan2(-g.normal[0], -g.normal[1]);
-        const k = z.rank === 0 ? 1 : 0.5;
+        // (the front rank does the work; a crawler can only claw at the bottom of the gate)
+        const k = (z.rank === 0 ? 1 : 0.5) * (z.mode === 'crawl' ? 0.4 : 1);
         H.gateDps[z.gate] += z.def.gate * k;
         H.gateCount[z.gate]++;
         z.attackT += dt;

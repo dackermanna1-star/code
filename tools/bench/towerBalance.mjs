@@ -36,7 +36,9 @@ function botStep(dt) {
     }
   }
   if (!best) return;
-  const seg = best.def.boss ? 'chest' : 'head';
+  // armour: the legs (a downed boss crawls and can barely hurt the gate)
+  const armoured = best.def.armor && best.person.injury.armor && best.person.injury.armor.helmet > 0;
+  const seg = armoured ? (rng() < 0.5 ? 'thighL' : 'thighR') : 'head';
   const p = best.person.rd.segments[seg].body.pos.clone();
   const d = p.distanceTo(eye);
   if (d > 260) return;

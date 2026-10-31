@@ -587,6 +587,7 @@ function onEvent(e) {
     case 'boss':
       bossZombie = e.zombie;
       audio.bossRoar(e.zombie.kind, e.zombie.root.pos);
+      hud.event({ type: 'alert', text: e.zombie.kind === 'juggernaut' ? 'JUGGERNAUT · ARMOURED · TAKE OUT ITS LEGS' : 'BRUTE · HELMET AND VEST · AP ROUNDS OR THE LEGS' });
       break;
     case 'waveCleared':
       hud.event({ type: 'cleared', n: e.n, kills: e.kills, headshots: game.stats.headshots - (waveStartHs || 0), bonus: e.bonus });
