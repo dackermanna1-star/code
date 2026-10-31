@@ -47,6 +47,14 @@ public final class JjkCommand {
 			return 1;
 		}));
 
+		root.then(Commands.literal("qte").then(Commands.literal("test").executes(ctx -> {
+			ServerPlayer p = ctx.getSource().getPlayerOrException();
+			com.jjkshowdown.qte.QteManager.start(p, com.jjkshowdown.qte.QteManager.Kind.PRESS, com.jjkshowdown.qte.QteManager.Key.DODGE, 40, 1, 0, 0,
+					"qte.jjkshowdown.practice", o -> JjkNetwork.notify(p, Payloads.Notify.INFO,
+							Component.translatable("command.jjkshowdown.qte_result", o.name()), 0xFFFFFF));
+			return 1;
+		})));
+
 		LiteralArgumentBuilder<CommandSourceStack> character = Commands.literal("character").requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS));
 		for (CharacterType t : CharacterType.values()) {
 			character.then(Commands.literal(t.id())

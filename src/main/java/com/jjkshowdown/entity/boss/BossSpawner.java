@@ -32,6 +32,7 @@ public final class BossSpawner {
 		boss.setYHeadRot(yaw);
 		boss.setTarget(player);
 		level.addFreshEntity(boss);
+		boss.playIntro(player);
 		Fx.burst(level, type == CharacterType.GOJO ? ModParticles.BLUE_SPARK : ModParticles.CE_WISP_RED, spot.add(0, 1, 0), 80, 0.8);
 		Fx.particles(level, ModParticles.IMPACT_FLASH, spot.add(0, 1, 0), 2, 0.2, 0);
 		Fx.sound(level, spot, ModSounds.CINEMATIC_HIT, 2.5f, 0.8f);

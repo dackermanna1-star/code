@@ -366,13 +366,13 @@ public class DomainEntity extends Entity {
 				if (clashing && t == rival) continue;
 				float scale = Sorcerers.hasAmplification(t) ? 0.5f : 1.0f;
 				Vec3 c = t.getBoundingBox().getCenter();
-				if ((activeTicks + t.getId()) % 5 == 0) {
-					TechniqueDamage.hurt(t, ModDamageTypes.SURE_HIT, this, owner, 1.6f * power * scale, true);
+				if ((activeTicks + t.getId()) % 10 == 0) {
+					TechniqueDamage.hurt(t, ModDamageTypes.SURE_HIT, this, owner, 1.2f * power * scale, true);
 					Fx.particles(level, ModParticles.SLASH, c, 1, 0.4, 0.0);
 					Fx.particles(level, ModParticles.BLOOD, c, 3, 0.3, 0.1);
 				}
 				if ((activeTicks + t.getId()) % 20 == 0) {
-					TechniqueDamage.hurt(t, ModDamageTypes.SURE_HIT, this, owner, (2.5f + t.getMaxHealth() * 0.035f) * power * scale, true);
+					TechniqueDamage.hurt(t, ModDamageTypes.SURE_HIT, this, owner, (1.5f + Math.min(4f, t.getMaxHealth() * 0.02f)) * power * scale, true);
 					Fx.particles(level, ModParticles.SLASH_RED, c, 3, 0.5, 0.0);
 					Fx.sound(level, c, ModSounds.SHRINE_SLASH, 0.9f, 0.8f + random.nextFloat() * 0.4f);
 				}

@@ -205,14 +205,19 @@ public abstract class SorcererBoss extends Monster {
 		if (!initialized) initBoss(level);
 		bossEvent.setProgress(getHealth() / getMaxHealth());
 		if (finisherCooldown > 0) finisherCooldown--;
-		if (!introPlayed && getTarget() instanceof ServerPlayer p && p.distanceTo(this) < 32) {
-			introPlayed = true;
-			Cinematics.play(level, CinematicType.BOSS_INTRO, this, p, null);
-			Casting.voice(this, Sorcerers.state(this), character == CharacterType.GOJO ? VoiceLine.GOJO_INTRO : VoiceLine.SUKUNA_INTRO, 1.0f);
-		}
+		if (!introPlayed && getTarget() instanceof ServerPlayer p && p.distanceTo(this) < 32) playIntro(p);
 		if (phase() == 1 && JjkConfig.get().ai.bossPhaseTwo && getHealth() < getMaxHealth() * 0.5f) {
 			enterPhaseTwo(level);
 		}
+	}
+
+	/** Rival introduction: name card cinematic and a moment of composure before the fight starts. */
+	public void playIntro(ServerPlayer p) {
+		if (introPlayed || !(level() instanceof ServerLevel level)) return;
+		introPlayed = true;
+		decisionTimer = 30;
+		Cinematics.play(level, CinematicType.BOSS_INTRO, this, p, null);
+		Casting.voice(this, Sorcerers.state(this), character == CharacterType.GOJO ? VoiceLine.GOJO_INTRO : VoiceLine.SUKUNA_INTRO, 1.0f);
 	}
 
 	protected void enterPhaseTwo(ServerLevel level) {
@@ -228,8 +233,10 @@ public abstract class SorcererBoss extends Monster {
 		Fx.sound(level, position(), ModSounds.CINEMATIC_HIT, 3.0f, 0.8f);
 		LivingEntity t = getTarget();
 		Cinematics.play(level, CinematicType.PHASE_TWO, this, t, () -> {
-			if (getTarget() instanceof ServerPlayer p && p.isAlive()) {
+			if (isAlive() && !isRemoved() && getTarget() instanceof ServerPlayer p && p.isAlive()) {
 				QteManager.start(p, QteManager.Kind.MASH, QteManager.Key.ATTACK, 50, 12, 0, 0, "qte.jjkshowdown.push_back", o -> {
+					// the rival may have been defeated (or the player may have died) while the prompt was up
+					if (!isAlive() || isRemoved() || !p.isAlive()) return;
 					if (o == QteManager.Outcome.SUCCESS) {
 						SorcererState bs = Sorcerers.state(this);
 						bs.staggerTicks = Math.max(bs.staggerTicks, 40);
@@ -310,7 +317,9 @@ public abstract class SorcererBoss extends Monster {
 		if (!(getTarget() instanceof ServerPlayer p) || !(level() instanceof ServerLevel)) return;
 		if (ability == Abilities.HOLLOW_PURPLE) {
 			QteManager.start(p, QteManager.Kind.PRESS, QteManager.Key.DODGE, 26, 1, 0, 0, "qte.jjkshowdown.evade_purple",
-					o -> evade(p, projectile.getDeltaMovement(), o));
+					o -> {
+						if (p.isAlive()) evade(p, projectile.getDeltaMovement(), o);
+					});
 		}
 	}
 
@@ -325,8 +334,9 @@ public abstract class SorcererBoss extends Monster {
 		Vec3 dir = p.position().subtract(position()).normalize();
 		QteManager.start(p, QteManager.Kind.PRESS, QteManager.Key.DODGE, 18, 1, 0, 0, "qte.jjkshowdown.evade_slash", o -> {
 			awaitingQte = false;
-			evade(p, dir, o);
-			if (isAlive()) fire.run();
+			if (!isAlive() || isRemoved()) return;
+			if (p.isAlive()) evade(p, dir, o);
+			fire.run();
 		});
 	}
 
@@ -491,7 +501,7 @@ public abstract class SorcererBoss extends Monster {
 
 		@Override
 		public boolean canUse() {
-			return getTarget() != null && getTarget().isAlive();
+			return getTarget() != null && getTarget().isAlive() && (introPlayed || !(getTarget() instanceof ServerPlayer));
 		}
 
 		@Override

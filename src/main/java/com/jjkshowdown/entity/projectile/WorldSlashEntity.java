@@ -127,7 +127,7 @@ public class WorldSlashEntity extends TechniqueProjectile {
 		Destruction.cutPlane(level, o.add(f.scale(start)), f, e, end - start, halfWidth, 0.3, owner, 80f, 0.03f);
 		if (tickCount == 1) {
 			JjkNetwork.shakeAround(level, o, 96, 1.6f, 30);
-			JjkNetwork.flashAround(level, o, 80, 0.8f, 10, 0xFFFFFF);
+			JjkNetwork.flashAround(level, o, 80, 0.45f, 8, 0xFFFFFF);
 		}
 	}
 

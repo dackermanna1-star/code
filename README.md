@@ -7,6 +7,20 @@ sorcerers and fight AI versions of each other.
 > **Version note:** the request asked for "Minecraft 1.12.11", which does not exist. Fabric Loader 0.19.2 is
 > contemporary with **Minecraft 1.21.11** (released December 2025), so the mod targets 1.21.11.
 
+
+| | |
+|---|---|
+| ![Character selection](docs/screenshots/character_select.jpg) | ![Unlimited Void](docs/screenshots/unlimited_void.jpg) |
+| *Character selection with live models* | *Inside Unlimited Void* |
+| ![Malevolent Shrine](docs/screenshots/malevolent_shrine.jpg) | ![Domain clash](docs/screenshots/domain_clash.jpg) |
+| *Malevolent Shrine* | *Player vs. rival domain clash* |
+| ![Hollow Purple](docs/screenshots/hollow_purple_cinematic.jpg) | ![Infinity](docs/screenshots/infinity_holds_arrows.jpg) |
+| *Hollow Purple cinematic* | *Infinity holding skeleton arrows mid-air* |
+| ![QTE](docs/screenshots/quick_time_event.jpg) | ![Rivals](docs/screenshots/rivals_heian_sukuna.jpg) |
+| *Quick-time event* | *Rival Gojo and Heian-era Sukuna* |
+
+*(Screenshots from the automated client test: software rendering, 854×480.)*
+
 ---
 
 ## Installation (players)
@@ -159,6 +173,7 @@ Blindfold** (wearable; awakens the Six Eyes for a non-sorcerer). Both are crafta
 | `/jjk duel <gojo\|sukuna>` | Summon a rival |
 | `/jjk domain end` · `/jjk restore` | Collapse all domains · restore all destroyed terrain now |
 | `/jjk difficulty <easy\|normal\|hard\|nightmare>` · `/jjk config reload` | Difficulty / reload config |
+| `/jjk qte test` | Practice quick-time event |
 
 ## Configuration
 
@@ -166,7 +181,7 @@ In game: **K** (or *Settings* on the character screen). Two tabs:
 
 * **Client** (`config/jjkshowdown/client.json`): particle quality (low/medium/high/ultra), screen shake, flashes,
   cinematics on/off, auto-skip, letterbox, QTEs on/off, voice lines, subtitles, music, character skins, Six Eyes
-  outlines, domain atmosphere, callouts, HUD scale/side, double-tap dodge.
+  outlines, domain atmosphere, callouts, HUD scale and layout (centred action bar or a bottom corner), double-tap dodge.
 * **Gameplay** (`config/jjkshowdown/common.json`, editable by the single-player host or an operator; on dedicated
   servers edit the file and run `/jjk config reload`): difficulty preset, progression mode and XP rate, technique
   damage, cooldowns, CE max/regen/cost, per-technique damage/cooldown/cost/enabled (file only), domain
@@ -177,6 +192,26 @@ In game: **K** (or *Settings* on the character screen). Two tabs:
 
 Difficulty presets scale rival damage and health, damage players take, AI reaction time, dodge/guard chances,
 aggression, QTE windows, clash strength and ultimate cooldowns; the individual sliders multiply on top.
+
+## How it was verified
+
+* `./gradlew build` compiles everything and runs **9 server GameTests** (all passing): Infinity stops melee and
+  arrows but not the World-Cutting Slash; Domain Amplification pierces Infinity; blasts crater terrain and the
+  journal restores it; Dismantle cuts soft blocks; Unlimited Void builds its dome and floor, paralyses a mob, collapses,
+  restores the terrain and burns out Infinity; two domains clash and one shatters; the two rivals fight each other
+  for 20 s; player progression and character stats apply and are removed.
+* `xvfb-run ./gradlew runClientGameTest` plays through the mod in a real (software-rendered) client and saves
+  ~30 screenshots to `build/run/clientGameTest/screenshots/`: character select, intro cinematic, HUD, Infinity
+  holding arrows, Blue, Red, Hollow Purple (charge, cinematic, launch), Unlimited Void, Dismantle, Fuga,
+  Malevolent Shrine, World-Cutting Slash, rival intro, a QTE, a player-vs-rival domain clash, both rival models and
+  Heian Sukuna.
+* The release jar was booted on a stock Fabric Loader 0.19.2 / Minecraft 1.21.11 dedicated server with Fabric API,
+  where the two rivals fought for ~40 s without a single error.
+
+**Limitations worth knowing:** sound was checked by analysis (format, loudness, clean loops), not by ear, because
+the build machine has no audio device; voice lines are synthesized (Piper TTS + processing), not the anime cast;
+visual testing used software rendering at 854×480; multiplayer was tested as a dedicated server with AI fighters,
+not with several human clients.
 
 ## Project layout
 

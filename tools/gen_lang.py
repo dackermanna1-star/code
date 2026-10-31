@@ -94,7 +94,7 @@ hud = {
 for k, v in hud.items():
     put(f"hud.{NS}.{k}", v)
 for k, v in {"evade_purple": "EVADE THE HOLLOW PURPLE!", "evade_slash": "DODGE THE WORLD-CUTTING SLASH!", "finisher": "FINISH THEM — strike on the ring!",
-             "push_back": "PUSH BACK!"}.items():
+             "push_back": "PUSH BACK!", "practice": "PRACTICE — press the key in time!"}.items():
     put(f"qte.{NS}.{k}", v)
 
 # ------------------------------------------------------------------ messages
@@ -119,6 +119,7 @@ cmd = {
     "mastery_get": "%s — mastery %s (%s / %s XP)", "fingers": "Set fingers of %s player(s) to %s", "energy_filled": "Filled cursed energy of %s player(s)",
     "cooldowns_reset": "Reset cooldowns of %s player(s)", "duel": "%s has appeared!", "restored": "Restored %s block(s)",
     "domains_ended": "Collapsed %s domain(s)", "config_reloaded": "Jujutsu Showdown config reloaded", "difficulty": "Difficulty set to %s",
+    "qte_result": "Quick-time event result: %s",
 }
 for k, v in cmd.items():
     put(f"command.{NS}.{k}", v)

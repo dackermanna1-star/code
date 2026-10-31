@@ -125,19 +125,60 @@ public class JjkClientGameTest implements FabricClientGameTest {
 			ctx.waitTicks(3);
 			ctx.takeScreenshot("19_world_slash");
 			ctx.waitTicks(40);
-			// rival boss
+			// rival boss: intro, a practice QTE, then a domain clash against the rival
 			sp.getServer().runCommand("jjk cooldowns reset @a");
+			sp.getServer().runCommand("jjk energy fill @a");
+			sp.getServer().runCommand("effect give @a minecraft:resistance 600 3 true");
 			sp.getServer().runCommand("execute as @p at @s run jjk duel gojo");
 			ctx.waitTicks(30);
 			ctx.takeScreenshot("20_rival_intro");
 			ctx.waitFor(mc -> !CameraDirector.isActive(), 400);
-			ctx.waitTicks(40);
-			ctx.takeScreenshot("21_rival_fight");
-			ctx.waitTicks(100);
-			ctx.takeScreenshot("22_rival_fight_later");
+			sp.getServer().runCommand("execute as @p run jjk qte test");
+			ctx.waitTicks(10);
+			ctx.takeScreenshot("21_qte_prompt");
+			ctx.getInput().pressKey(Keybinds.DODGE);
+			ctx.waitTicks(4);
+			ctx.takeScreenshot("22_qte_result");
+			ctx.waitTicks(20);
+			sp.getServer().runCommand("jjk energy fill @a");
+			sp.getServer().runCommand("jjk cooldowns reset @a");
+			press(ctx, AbilitySlot.DOMAIN);
+			ctx.waitFor(mc -> CameraDirector.isActive(), 60);
+			ctx.waitFor(mc -> !CameraDirector.isActive(), 300);
+			ctx.waitFor(mc -> ClientState.clash != null || CameraDirector.isActive(), 200);
+			ctx.waitTicks(10);
+			ctx.takeScreenshot("23_clash_cinematic");
+			ctx.waitFor(mc -> !CameraDirector.isActive(), 300);
+			for (int i = 0; i < 12; i++) {
+				press(ctx, AbilitySlot.DOMAIN);
+				ctx.waitTicks(2);
+			}
+			ctx.takeScreenshot("24_domain_clash");
+			ctx.waitTicks(80);
+			ctx.takeScreenshot("25_clash_later");
+			ctx.waitTicks(200);
+			ctx.takeScreenshot("26_after_clash");
+			// rival gallery: Gojo and Sukuna, then Sukuna's Heian-era true form (phase two)
+			sp.getServer().runCommand("jjk domain end");
+			sp.getServer().runCommand("kill @e[type=jjkshowdown:gojo]");
+			ctx.waitTicks(10);
+			if (ctx.tryClickScreenButton("deathScreen.respawn")) ctx.waitTicks(40);
+			sp.getServer().runCommand("effect clear @a");
+			sp.getServer().runCommand("jjk cooldowns reset @a");
+			ctx.waitTicks(20);
+			sp.getServer().runCommand("tp @a 0 -60 0 0 10");
+			sp.getServer().runCommand("summon jjkshowdown:sukuna 1.6 -60 5 {NoAI:1b,Rotation:[180f,0f]}");
+			sp.getServer().runCommand("summon jjkshowdown:gojo -1.6 -60 5 {NoAI:1b,Rotation:[180f,0f]}");
+			ctx.waitTicks(30);
+			ctx.takeScreenshot("27_rivals_portrait");
+			sp.getServer().runCommand("damage @e[type=jjkshowdown:sukuna,limit=1] 260");
+			ctx.waitTicks(5);
+			ctx.waitFor(mc -> !CameraDirector.isActive(), 300);
+			ctx.waitTicks(20);
+			ctx.takeScreenshot("28_heian_sukuna");
 			ctx.setScreen(() -> new JjkConfigScreen(null));
 			ctx.waitTicks(10);
-			ctx.takeScreenshot("23_config_screen");
+			ctx.takeScreenshot("29_config_screen");
 			ctx.setScreen(() -> null);
 		}
 	}

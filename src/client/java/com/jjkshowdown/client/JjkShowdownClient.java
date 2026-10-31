@@ -83,6 +83,7 @@ public class JjkShowdownClient implements ClientModInitializer {
 				mc.setScreen(new com.jjkshowdown.client.screen.CharacterSelectScreen(true));
 			}
 			ScreenFx.tick();
+			FirstPersonFx.tick(mc);
 			CameraDirector.tick();
 			QteClient.tick();
 			DomainClientState.tick();

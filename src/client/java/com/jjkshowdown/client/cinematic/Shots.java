@@ -100,7 +100,7 @@ public final class Shots {
 					k(0.65f, Frame.ANCHOR, 4.0, 1.8, 0.5, Look.ANCHOR_CHEST, 60),
 					k(1.00f, Frame.ANCHOR, 6.0, 2.5, 6.0, Look.AHEAD, 75)),
 					List.of(new Title(0.20f, 1.0f, TitleStyle.TECHNIQUE, "", "ability.jjkshowdown.world_slash", "ability.jjkshowdown.world_slash.jp")),
-					0xFFFFFF, 0.9f);
+					0, -1);
 			case DOMAIN_CLASH -> new Sequence(List.of(
 					k(0.00f, Frame.PAIR, 9.0, 2.5, 0.0, Look.MID, 70),
 					k(0.50f, Frame.PAIR, 7.0, 1.8, 0.0, Look.MID, 62),

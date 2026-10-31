@@ -38,6 +38,7 @@ public final class Mastery {
 
 	/** Generic damage scaling from mastery (+6% per level) and Sukuna's fingers (+2.5% each). */
 	public static float powerMultiplier(LivingEntity e) {
+		if (!(e instanceof Player)) return 1.0f; // rivals scale through difficulty instead
 		SorcererData d = Sorcerers.data(e);
 		float m = 1.0f + 0.06f * (effective(e) - 1);
 		if (d.character() == CharacterType.SUKUNA) m *= 1.0f + 0.025f * d.fingers();

@@ -186,7 +186,7 @@ public final class OverlayRenderer {
 		if (c.active() && involved(c)) {
 			KeyMapping key = Keybinds.ABILITY.get(AbilitySlot.DOMAIN);
 			float s = 1.3f + 0.15f * Mth.sin((now + partial) * 2.4f);
-			centered(g, font, Component.translatable("hud.jjkshowdown.mash", key.getTranslatedKeyMessage()), w / 2, (int) (h * 0.68f), s, 0xFFFFD040);
+			centered(g, font, Component.translatable("hud.jjkshowdown.mash", key.getTranslatedKeyMessage()), w / 2, y + bh + 34, s, 0xFFFFD040);
 		}
 	}
 
@@ -298,7 +298,8 @@ public final class OverlayRenderer {
 		float a = Mth.clamp((s.duration() - age) / 10f, 0, 1) * Mth.clamp(age / 3f, 0, 1);
 		Component line = Component.empty().append(s.speaker().copy().withColor(s.color())).append(Component.literal(": ")).append(s.line());
 		int tw = font.width(line);
-		int y = CameraDirector.isActive() ? h - (int) (h * 0.12f) + 4 : h - 150;
+		boolean clashing = ClientState.clash != null && ClientState.clash.active();
+		int y = CameraDirector.isActive() ? h - (int) (h * 0.12f) + 4 : clashing ? h - 128 : h - 150;
 		g.fill(w / 2 - tw / 2 - 6, y - 4, w / 2 + tw / 2 + 6, y + 12, argb(0.6f * a, 0x000000));
 		g.drawCenteredString(font, line, w / 2, y, argb(a, 0xFFFFFF));
 	}

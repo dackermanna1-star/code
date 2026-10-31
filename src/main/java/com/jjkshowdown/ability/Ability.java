@@ -94,7 +94,10 @@ public abstract class Ability {
 		SorcererState s = Sorcerers.state(caster);
 		if (s.zoneTicks > 0) d *= 1.25f;
 		if (s.counterTicks > 0) d *= 1.25f;
-		if (caster instanceof SorcererBoss boss) d *= boss.damageScale();
+		if (caster instanceof SorcererBoss boss) {
+			d *= boss.damageScale();
+			if (slot == AbilitySlot.ULTIMATE) d *= 0.7f;
+		}
 		return d;
 	}
 

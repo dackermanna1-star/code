@@ -34,6 +34,15 @@ import net.minecraft.world.phys.Vec3;
 public class JjkGameTests {
 	private static final float EPS = 0.001f;
 
+	/** Remove fighters and their domains so nothing leaks into later test batches. */
+	private static void cleanup(net.minecraft.world.entity.LivingEntity... fighters) {
+		for (var f : fighters) {
+			DomainEntity d = DomainManager.ownedBy(f);
+			if (d != null) d.discard();
+			f.discard();
+		}
+	}
+
 	/** Keep a generous area ticking: blinks, dashes and knockback carry fighters far outside the test structure. */
 	private static void forceArena(GameTestHelper h, int chunkRadius) {
 		ServerLevel level = h.getLevel();
@@ -154,6 +163,7 @@ public class JjkGameTests {
 			SorcererState st = Sorcerers.state(g);
 			h.assertTrue(st.burnoutTicks > 0, "domain burns out the technique");
 			h.assertTrue(!AbilityHandler.press(g, AbilitySlot.TOGGLE), "Infinity cannot be used during burnout");
+			cleanup(g);
 			h.succeed();
 		});
 	}
@@ -188,6 +198,7 @@ public class JjkGameTests {
 			h.assertTrue(resolved, "clash resolved");
 			System.out.println("[JJK-TEST] clash resolved: gojoDomain=" + dom[0].phase() + "/" + dom[0].isRemoved() + " sukunaDomain=" + dom[1].phase() + "/"
 					+ dom[1].isRemoved() + " voidIntegrity=" + dom[0].integrity());
+			cleanup(g, s);
 		});
 	}
 
@@ -211,7 +222,9 @@ public class JjkGameTests {
 		h.runAfterDelay(400, () -> {
 			System.out.println("[JJK-TEST] rivals: gojo " + gh + " -> " + g.getHealth() + " (alive=" + g.isAlive() + "), sukuna " + sh + " -> " + s.getHealth()
 					+ " (alive=" + s.isAlive() + "), gojoCE=" + CursedEnergy.get(g) + " sukunaCE=" + CursedEnergy.get(s));
-			h.assertTrue(g.getHealth() < gh || s.getHealth() < sh || !g.isAlive() || !s.isAlive(), "the rivals actually fought");
+			boolean fought = g.getHealth() < gh || s.getHealth() < sh || !g.isAlive() || !s.isAlive();
+			cleanup(g, s);
+			h.assertTrue(fought, "the rivals actually fought");
 			h.succeed();
 		});
 	}
