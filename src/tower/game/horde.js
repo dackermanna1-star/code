@@ -25,6 +25,7 @@ function gaitFor(person) {
 }
 
 let nextZid = 1;
+const ANIMATED = new Set(['walk', 'attack', 'vault', 'toLeg', 'climb', 'top']);
 
 export class Zombie {
   constructor(horde, person, kind, anim, opts) {
@@ -61,8 +62,9 @@ export class Zombie {
     return this.person.injury.alive;
   }
 
+  /** Posed by its clip (not physical, not a corpse). */
   get animated() {
-    return this.state !== 'phys' && this.state !== 'dead' && this.state !== 'frozen';
+    return ANIMATED.has(this.state);
   }
 
   /** Ground speed the zombie means to move at now. */
@@ -254,6 +256,22 @@ export class Horde {
       }
       case 'attack': {
         const g = F.gates[z.gate];
+        if (this.game.over && this.game.over.reason === 'gate') {
+          // the gate is down: in they pour, toward the tower's foot
+          _v0.set(-p.x, 0, -p.z);
+          const d = _v0.length();
+          if (d > 3.2 + z.rank) {
+            _v0.scale(1 / d);
+            z.facing = Math.atan2(_v0.x, _v0.z);
+            root.yaw = z.facing;
+            const s = z.speed() * 1.3;
+            p.x += _v0.x * s * dt;
+            p.z += _v0.z * s * dt;
+            if (z.anim.clip !== 'walk' && z.anim.clip !== z.def.clip) z.anim.play(z.def.clip, { fade: 0.3 });
+            z.syncRate(s);
+          } else if (z.anim.clip !== 'attack') z.anim.play('attack', { fade: 0.3 });
+          break;
+        }
         // hold the slot (the crowd still shoves a little)
         root.yaw = Math.atan2(-g.normal[0], -g.normal[1]);
         const k = z.rank === 0 ? 1 : 0.5;

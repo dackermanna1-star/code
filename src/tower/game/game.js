@@ -178,7 +178,9 @@ export class TowerGame {
   // -------------------------------------------------------------------------------------------
   /** One fixed physics step. */
   step(dt) {
-    if (this.over) return;
+    // (after the gate falls the horde still floods in for a few seconds: the end, seen)
+    if (this.over && !(this.over.reason === 'gate' && this.over.t < 8)) return;
+    if (this.over) this.over.t += dt;
     this.time += dt;
     // (shots fired between steps - the kill cam's round - are booked before anyone's death is)
     for (const e of this.sb.drainFx()) this.onSandboxFx(e);
@@ -420,6 +422,7 @@ export class TowerGame {
   // -------------------------------------------------------------------------------------------
   damageGate(amount, perGate) {
     if (this.over) return;
+    this.lastGate = perGate.indexOf(Math.max(...perGate));
     this.gate.hp = Math.max(0, this.gate.hp - amount);
     this.gateHitT = (this.gateHitT || 0) - amount;
     if (this.gateHitT <= 0) {
@@ -442,7 +445,7 @@ export class TowerGame {
 
   gameOver(reason) {
     if (this.over) return;
-    this.over = { reason, wave: this.director.wave, stats: { ...this.stats } };
+    this.over = { reason, wave: this.director.wave, stats: { ...this.stats }, t: 0, gate: this.lastGate ?? 0 };
     this.director.phase = 'over';
     this.emit({ type: 'over', reason, wave: this.director.wave, stats: this.over.stats });
   }

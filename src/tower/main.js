@@ -12,7 +12,7 @@ import { XRayRig } from '../render/xray.js';
 import { LAYOUT, isWalkable } from './level/layout.js';
 import { TowerGame } from './game/game.js';
 import { RIFLES, AMMO, ENEMIES, WAVES, UPGRADES, DEFENCES } from './catalog.js';
-import { WEAPONS } from '../game/weapons.js';
+import { WEAPONS, raycastPeople } from '../game/weapons.js';
 import { RetroRenderer, buildLevelScene, prepareZombieMeshes, createZombieVisual, AnimPlayer, CLIP_INFO, TowerHud, TowerAudio, TowerFx } from './parts.js';
 
 const FIXED = 1 / 60;
@@ -75,11 +75,51 @@ function resize() {
 }
 
 // ---------------------------------------------------------------------------------------------
+// thermal sight: the world cold and grey, bodies white hot (material swap, one pass, walls still
+// hide what is behind them)
+const COLD = new THREE.MeshBasicMaterial({ color: 0x2b2f2c, fog: true });
+const COLD_SKY = new THREE.Color(0x0d0f0e);
+const HOT = new THREE.MeshBasicMaterial({ color: 0xf4f8f0 });
+const savedMats = new Map();
+let thermalOn = false;
+function setThermal(on) {
+  if (on === thermalOn) return;
+  thermalOn = on;
+  if (on) {
+    savedMats.clear();
+    scene.traverse((o) => {
+      if (!o.isMesh && !o.isInstancedMesh && !o.isPoints && !o.isLine) return;
+      savedMats.set(o, o.material);
+      const hot = !!o.userData.zombie || !!(o.parent && o.parent.userData && o.parent.userData.zombie);
+      o.material = hot ? HOT : o.isPoints || o.isLine ? o.material : COLD;
+    });
+    savedMats.bg = scene.background;
+    scene.background = COLD_SKY;
+    canvas.style.filter = 'grayscale(1) contrast(1.35) brightness(1.05)';
+  } else {
+    for (const [o, m] of savedMats) o.material = m;
+    scene.background = savedMats.bg;
+    savedMats.clear();
+    canvas.style.filter = '';
+  }
+}
+
+// ---------------------------------------------------------------------------------------------
 // zombie visuals
 const visuals = new Map(); // zombie -> { v, decals, dirty, t }
 function attachVisual(z) {
   if (visuals.has(z)) return;
   const v = createZombieVisual(z.person, z.kind, scene);
+  v.object.userData.zombie = true;
+  v.object.traverse((o) => (o.userData.zombie = true));
+  if (thermalOn) {
+    v.object.traverse((o) => {
+      if (o.isMesh) {
+        savedMats.set(o, o.material);
+        o.material = HOT;
+      }
+    });
+  }
   visuals.set(z, { v, decals: [], dirty: false, t: 0 });
 }
 function detachVisual(z) {
@@ -146,7 +186,9 @@ game.killcam = {
     const head = seg === 'head' || seg === 'neck';
     const dist = b.travelled + hit.t;
     const last = game.director.toKill <= 1 && game.director.phase === 'fight';
-    const want = (z.def.boss && z.person.injury.hp < 900) || (head && (dist > 170 || last || game.rng() < 0.12)) || (last && dist > 60);
+    let lined = 0;
+    for (const h of raycastPeople(sb.people, sb.shape, origin, dir, hit.t + 25)) if (h.person.injury.alive && h.person.towerZombie) lined++;
+    const want = (z.def.boss && z.person.injury.hp < 900) || (head && (dist > 170 || last || game.rng() < 0.12)) || (last && dist > 60) || lined >= 3;
     if (!want) return false;
     game.wakeAlong(origin, dir, hit.t + 30);
     game.killcamShot = b.shot;
@@ -257,6 +299,7 @@ let swayT = 0;
 let recoil = 0, shake = 0;
 let placing = null, placeYaw = 0, placeGhost = null;
 let fpsAvg = 60;
+let overView = null; // the camera turning to the broken gate
 const aimDir = new Vec3();
 
 function phase() {
@@ -278,6 +321,7 @@ function startRun(cont) {
   for (const id of game.defences.floodlights) level.addFloodlight(id);
   started = true;
   paused = false;
+  overView = null;
   hud.hideScreens();
   if (cont && save.run) openShop();
   else {
@@ -517,9 +561,17 @@ function onEvent(e) {
       save.bestScore = Math.max(save.bestScore || 0, score);
       save.run = null;
       writeSave(save);
-      if (e.reason === 'gate') audio.gateBreak();
       audio.music('off');
-      hud.showGameOver({ reason: e.reason, wave: e.wave, ...e.stats, score, bestWave: save.bestWave, bestScore: save.bestScore, accuracy: e.stats.shots ? e.stats.hits / e.stats.shots : 0 });
+      const showOver = () => hud.showGameOver({ reason: e.reason, wave: e.wave, ...e.stats, score, bestWave: save.bestWave, bestScore: save.bestScore, accuracy: e.stats.shots ? e.stats.hits / e.stats.shots : 0 });
+      if (e.reason === 'gate') {
+        audio.gateBreak();
+        const gate = LAYOUT.compound.gates[game.over.gate || 0];
+        level.gateMesh(gate.id).break();
+        // look down at the breach while they pour in, then the verdict
+        overView = { t: 0, from: { yaw: input.yaw, pitch: input.pitch }, gate };
+        input.scoped = false;
+        setTimeout(showOver, 5500);
+      } else showOver();
       break;
     }
     case 'sandbox':
@@ -585,6 +637,17 @@ function frame(now) {
   recoil *= Math.exp(-dtReal * 6);
   shake *= Math.exp(-dtReal * 4);
   const shk = shake * shake * 0.02;
+  if (overView) {
+    overView.t += dtReal;
+    const gx = (overView.gate.a[0] + overView.gate.b[0]) / 2, gz = (overView.gate.a[1] + overView.gate.b[1]) / 2;
+    const dx = gx - EYE.x, dz = gz - EYE.z, dy = -EYE.y;
+    const k = Math.min(1, overView.t / 2.5);
+    const e = k * k * (3 - 2 * k);
+    let d = Math.atan2(-dx, -dz) - overView.from.yaw;
+    d = Math.atan2(Math.sin(d), Math.cos(d));
+    input.yaw = overView.from.yaw + d * e;
+    input.pitch = overView.from.pitch + (Math.atan2(dy, Math.hypot(dx, dz)) - overView.from.pitch) * e;
+  }
   camera.position.set(EYE.x, EYE.y, EYE.z);
   camera.rotation.set(input.pitch + sy + recoil + Math.sin(now * 0.05) * shk, input.yaw + sx + Math.sin(now * 0.043) * shk, 0);
   const fov = lerp(BASE_FOV, BASE_FOV / game.zoom, scopeView);
@@ -642,6 +705,9 @@ function frame(now) {
   level.update(dtReal * Math.max(ts, 0.05), camera);
   fx.update(dtReal * Math.max(ts, 0.05), camera);
   if (placing) updatePlacementGhost();
+  setThermal(thermal && scopeView > 0.5 && !killCam.active);
+  const S = game.defences.sentry, sm = S && trapMeshes.get(S);
+  if (sm) sm.rotation.y = S.yaw;
 
   // --- sound
   audio.setListener(EYE, aimDir);
