@@ -445,10 +445,21 @@ X-ray, seen from where the player stands.
   SMG, firing the sandbox's ballistics. Each has a magazine and reserve, reloads, fire rate,
   spread by stance and motion (aimed, hip, moving, airborne, crouched), and recoil that is half
   a permanent kick and half a punch that springs back.
-- **Hands view model** (`src/render/fpsView.js`): gloved hands on the grip and on the handguard or
-  pump, with sleeves. Poses for hip, aimed (the weapon's sight line on the eye), sprint, reload
-  (the support hand goes to the magazine), and weapon switch. Sway, bob, a landing dip, breathing
-  and spring recoil sit on top.
+- **Hands view model** (`src/render/fpsView.js`, `meleeModels.js`):
+  - **The hands** are anatomical tactical gloves: palm pads, knuckles, three-joint fingers and a
+    thumb, a moulded knuckle guard, cuffs and sleeves. They are a signed-distance sculpt meshed
+    once and skinned to 17 bones. A contact solver closes every finger round the grip it holds
+    and puts the index finger on the trigger.
+  - **Aiming:** the sight line of every gun was measured, so at full ADS the rear and front
+    sights (or the red dot) sit exactly on the screen centre. The sniper rifle's eye goes into
+    its 4.5× scope.
+  - **Reloads** show the magazine coming out, falling and a new one going in. The shotgun loads
+    shell by shell, the sniper's bolt cycles after each shot, and an empty pistol's slide locks
+    back and is released.
+  - **Melee:** the knife, the bat and bare fists have their own wind-up, charge, strike and
+    recovery animations, with a hit-stop when a blow lands. Kicks and stamps show the boot
+    whatever is in the hands.
+  - Sway, bob, a landing dip, breathing and spring recoil sit on top of every pose.
 - **Looks:** zombies use a lighter body mesh (about 43k triangles instead of 153k) and a skin
   shader that dresses them by region of the sculpt pose. Torn, filthy clothes, rot blotches,
   veins, dried blood and clouded eyes are varied per zombie. Corpses that have stopped moving
