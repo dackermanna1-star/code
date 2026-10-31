@@ -4,3 +4,6 @@ dist/
 .DS_Store
 ragdoll-lab.html
 .claude/worktrees/
+dist-tower/
+last-lookout.html
+tools/anim/cache/

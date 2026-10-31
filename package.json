@@ -9,7 +9,9 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "node --test test/*.test.js",
-    "build:single": "vite build && node tools/inline.mjs dist ragdoll-lab.html"
+    "build:single": "vite build && node tools/inline.mjs dist ragdoll-lab.html",
+    "dev:tower": "vite --config vite.tower.config.js",
+    "build:tower": "vite build --config vite.tower.config.js && node tools/inline.mjs dist-tower last-lookout.html tower.html"
   },
   "dependencies": {
     "three": "0.186.1"

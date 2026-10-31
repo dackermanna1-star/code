@@ -1,13 +1,14 @@
 // Inline the production build (dist/) into one self-contained HTML file that runs from disk.
-// Usage: npm run build:single   ->   ragdoll-lab.html
+// Usage: npm run build:single -> ragdoll-lab.html; npm run build:tower -> last-lookout.html
 import { readFileSync, writeFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
 const dist = process.argv[2] || 'dist';
 const out = process.argv[3] || 'ragdoll-lab.html';
+const page = process.argv[4] || 'index.html';
 const assets = join(dist, 'assets');
 const files = readdirSync(assets);
-let html = readFileSync(join(dist, 'index.html'), 'utf8');
+let html = readFileSync(join(dist, page), 'utf8');
 for (const f of files.filter((f) => f.endsWith('.css'))) {
   const css = readFileSync(join(assets, f), 'utf8');
   html = html.replace(new RegExp(`<link rel="stylesheet"[^>]*${f}[^>]*>`), () => `<style>\n${css}\n</style>`);
