@@ -202,6 +202,34 @@ test('locked stance feet do not slide while the root moves at the clip speed', (
   }
 });
 
+test('turning: on the spot and walking a circle, the planted feet pivot instead of twisting the hips', () => {
+  for (const [clip, turnRate] of [['idle', 1.2], ['walk', 0.7], ['jog', 0.9], ['attack', -1.0]]) {
+    const z = makePlayer(14, clip);
+    let worst = { e: 0 };
+    const v = CLIP_INFO[clip].speed;
+    for (let i = 0; i < 240; i++) {
+      const dt = 1 / 60;
+      z.root.yaw += turnRate * dt;
+      z.root.pos.x += Math.sin(z.root.yaw) * v * z.player.rate * z.player.var.rate * dt;
+      z.root.pos.z += Math.cos(z.root.yaw) * v * z.player.rate * z.player.var.rate * dt;
+      z.player.update(dt, z.root);
+      const w = worstExcess(z.rd);
+      if (w.e > worst.e) worst = w;
+    }
+    assert.ok(worst.e < 10 * D2R, `${clip} turning: ${(worst.e / D2R).toFixed(1)} deg past the limit at ${worst.name}`);
+  }
+});
+
+test('a teleported root starts afresh (no velocity spike)', () => {
+  const z = makePlayer(2, 'walk');
+  drive(z, 'walk', 1);
+  z.root.pos.x += 30;
+  z.player.update(1 / 60, z.root);
+  for (const b of z.rd.bodies) assert.ok(b.vel.length() < 1e-9 && b.framePos.distanceTo(b.pos) < 1e-9);
+  drive(z, 'walk', 0.5);
+  for (const b of z.rd.bodies) assert.ok(b.vel.length() < 8);
+});
+
 test('no NaN; finite velocities for the physics hand-off, for any frame time', () => {
   for (const clip of CLIPS) {
     const z = makePlayer(11, clip);
@@ -247,6 +275,7 @@ test('blendFromPhysics eases a fallen body back into the clip and converges to i
     const p = b.pos.clone().sub(new Vec3(1.5, 0, -2)).applyQuat(q).add(new Vec3(1.5, 0.12, -2));
     z.rd.bodies[i].setPose(p, new Quat().multiplyQuats(q, b.rot));
   });
+  assert.equal(z.player.bodyFacing(), 'up', 'lying on its back');
   const root = { pos: { x: 0, y: 0, z: 0 }, yaw: 0 };
   z.player.rootFromBodies(root, 'getup');
   assert.ok(Math.hypot(root.pos.x - 1.5, root.pos.z + 2) < 1.2, `root near the body (${root.pos.x.toFixed(2)}, ${root.pos.z.toFixed(2)})`);
@@ -269,6 +298,20 @@ test('blendFromPhysics eases a fallen body back into the clip and converges to i
     dq = Math.max(dq, 2 * Math.acos(Math.min(1, Math.abs(b.rot.dot(ref.rd.bodies[i].rot)))));
   });
   assert.ok(dp < 0.02 && dq < 2 * D2R, `converged to the clip (${(dp * 100).toFixed(1)} cm, ${(dq / D2R).toFixed(1)} deg)`);
+});
+
+test('bodyFacing tells standing, face-down and face-up poses apart; groundSpeed matches the clip', () => {
+  const s = makePlayer(3, 'walk');
+  drive(s, 'walk', 0.5);
+  assert.equal(s.player.bodyFacing(), 'upright');
+  assert.ok(Math.abs(s.player.groundSpeed - CLIP_INFO.walk.speed * s.player.var.rate) < 1e-9);
+  const c = makePlayer(3, 'crawl');
+  drive(c, 'crawl', 0.5);
+  assert.equal(c.player.bodyFacing(), 'down');
+  const g = makePlayer(3, 'getup');
+  g.player.play('getup', { fade: 0 });
+  g.player.update(0, g.root);
+  assert.equal(g.player.bodyFacing(), 'up');
 });
 
 test('rootFromBodies recovers the root of an animated pose', () => {

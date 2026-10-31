@@ -102,6 +102,7 @@ function qnormAt(q, o) {
 const MAX_LOCK = 0.45; // a planted foot slides once the clip wants it further away than this (m)
 const MAX_HIP_EXT = 0.52; // hip extension (rad) past which a planted foot is let go forward
 const MAX_DROP = 0.15; // the most the pelvis comes down to let a leg reach its planted foot (m)
+const MAX_TWIST = 0.35; // a planted foot pivots round with a body turning further than this (rad)
 const smooth01 = (x) => (x <= 0 ? 0 : x >= 1 ? 1 : x * x * (3 - 2 * x));
 
 function rng(seed) {
@@ -124,10 +125,12 @@ class Layer {
   constructor() {
     this.clip = null;
     this.t = 0;
-    this.rate = 1;
     this.mirror = false;
     this.prevT = 0;
     this.done = false;
+    this.rootPrevX = 0;
+    this.rootPrevY = 0;
+    this.rootPrevZ = 0;
   }
 }
 
@@ -198,6 +201,7 @@ export class AnimPlayer {
     this._evPool = [];
     for (let i = 0; i < 8; i++) this._evPool.push({ type: '', foot: '', hand: '', clip: '' });
     this.lastRootX = 0;
+    this.lastRootY = 0;
     this.lastRootZ = 0;
     this.lastRootYaw = 0;
     this.play('idle', { fade: 0 });
@@ -214,6 +218,31 @@ export class AnimPlayer {
   /** True once a one-shot clip (vault, getup) has reached its end. */
   get finished() {
     return this.layers[0].done;
+  }
+
+  /**
+   * Ground speed (m/s) the current clip covers at the current playback rate, this zombie's own rate
+   * variation included: move the root at this and the feet match the ground exactly (any other
+   * speed works too - the planted feet hold - but strides then look long or short).
+   */
+  get groundSpeed() {
+    const c = this.layers[0].clip;
+    return c ? c.speed * this.rate * this.var.rate : 0;
+  }
+
+  /**
+   * How the bodies lie right now (for choosing the clip to blend into after a fall):
+   * 'up' (on the back: getup), 'down' (on the front: crawl), 'side', or 'upright'.
+   */
+  bodyFacing() {
+    // the pelvis: a hunched zombie's chest faces the ground, its pelvis does not
+    const p = this.rd.segments.pelvis.body.rot;
+    const upY = 1 - 2 * (p.x * p.x + p.z * p.z); // body +Y, world y
+    const frontY = 2 * (p.y * p.z - p.w * p.x); // body +Z, world y
+    if (upY > 0.55) return 'upright';
+    if (frontY > 0.4) return 'up';
+    if (frontY < -0.4) return 'down';
+    return 'side';
   }
 
   /**
@@ -394,6 +423,16 @@ export class AnimPlayer {
   update(dt, root) {
     if (!(dt > 0)) dt = 0;
     this.events.length = 0;
+    // a root that jumped (spawned, moved by the game) starts afresh: no velocity spike, feet free
+    if (!this.first) {
+      const jx = root.pos.x - this.lastRootX, jz = root.pos.z - this.lastRootZ;
+      const jy = root.pos.y - this.lastRootY;
+      const maxJump = 1 + 50 * dt; // faster than anything walks or is carried by root motion
+      if (jx * jx + jz * jz + jy * jy > maxJump * maxJump) {
+        this.first = true;
+        this.releaseFeet();
+      }
+    }
     const n = this.n;
     const L0 = this.layers[0], L1 = this.layers[1];
     const rate = this.rate * this.var.rate;
@@ -483,6 +522,10 @@ export class AnimPlayer {
     else this.releaseFeet();
     this.writeBodies(dt);
     this.first = false;
+    this.lastRootX = root.pos.x;
+    this.lastRootY = root.pos.y;
+    this.lastRootZ = root.pos.z;
+    this.lastRootYaw = root.yaw;
   }
 
   /** rot/pel <- blend toward (rotB, pelB) by weight w (w = 1 gives B). */
@@ -594,6 +637,7 @@ export class AnimPlayer {
         f.lx = ax + f.ox * w;
         f.lz = az + f.oz * w;
         f.release = 0;
+        f.yaw = root.yaw;
       } else if (f.locked && !stance) {
         // lift-off: keep the offset and let it decay over the swing
         f.locked = false;
@@ -606,10 +650,19 @@ export class AnimPlayer {
         const ox = f.lx - ax, oz = f.lz - az;
         const d = Math.sqrt(ox * ox + oz * oz);
         if (d > MAX_LOCK) {
-          // the root and the clip disagree too much (turning on the spot, pushed back): slide
+          // the root and the clip disagree too much (pushed back, dragged on): slide
           const k = MAX_LOCK / d;
           f.lx = ax + ox * k;
           f.lz = az + oz * k;
+        }
+        // turning on a planted foot: past ~20 degrees the foot pivots round with the body
+        let dyaw = root.yaw - f.yaw;
+        dyaw -= Math.round(dyaw / 6.283185307) * 6.283185307;
+        if (dyaw > MAX_TWIST || dyaw < -MAX_TWIST) {
+          const k = Math.min(1, dt * 6);
+          f.lx += (ax - f.lx) * k;
+          f.lz += (az - f.lz) * k;
+          f.yaw += dyaw * k;
         }
         // how far the pelvis must come down for this leg to reach its planted foot
         const hi = leg.thigh * 3;

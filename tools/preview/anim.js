@@ -67,6 +67,12 @@ scene.add(sun.target);
   leg.visible = false;
   scene.add(leg);
   window.__leg = leg;
+  // a 1 m ledge for the vault (ClimbUp_1m)
+  const ledge = new THREE.Mesh(new THREE.BoxGeometry(1.6, 1.0, 2.0), new THREE.MeshLambertMaterial({ color: 0x6e665a }));
+  ledge.position.set(0, 0.5, 2.15);
+  ledge.visible = false;
+  scene.add(ledge);
+  window.__ledge = ledge;
 }
 
 // footprints: where each foot's sole touched the ground (smeared prints = sliding feet)
@@ -208,6 +214,7 @@ function setClip(name) {
     updateSkeleton(a);
   });
   window.__leg.visible = name === 'climb';
+  window.__ledge.visible = name === 'vault' && !state.film && !state.lineup;
   clearPrints();
   loadSource(name);
 }
