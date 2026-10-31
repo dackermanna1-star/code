@@ -385,6 +385,8 @@ def main() -> int:
             reasons.append(f"built {yb} (older than {args.min_year})")
         if p.senior or p.restricted_property:
             reasons.append("senior or income-restricted property")
+        if p.facts.get("reject"):
+            reasons.append(p.facts["reject"])
         under = [u for u in p.one_bed_units if u.rent < ceiling]
         market = [u for u in under if u.kind == "market"]
         if not market:
