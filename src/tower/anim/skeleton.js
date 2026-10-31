@@ -57,6 +57,8 @@ export function skeleton(rd) {
       thighBindInv: bindBasisInv(thighDir, kAxis),
       shinBindInv: bindBasisInv(shinDir, kAxis),
       ankle: [ankle.x, ankle.y, ankle.z],
+      // bind angle between the shin (ankle -> knee) and the foot's forward axis (+Z)
+      ankleAngle: Math.acos(-shinDir[2]),
     };
   }
   // sole of the foot box (bind, world): the four bottom corners of the rounded box

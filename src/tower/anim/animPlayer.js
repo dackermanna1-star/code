@@ -100,7 +100,8 @@ function qnormAt(q, o) {
 }
 
 const MAX_LOCK = 0.45; // a planted foot slides once the clip wants it further away than this (m)
-const MAX_HIP_EXT = 0.52; // hip extension (rad) past which a planted foot is let go forward
+const MAX_HIP_EXT = 0.42; // hip extension (rad) past which a planted foot comes off the ground
+const MAX_DORSI = 0.3; // ankle dorsiflexion (rad) past which a planted foot comes off the ground
 const MAX_DROP = 0.15; // the most the pelvis comes down to let a leg reach its planted foot (m)
 const MAX_TWIST = 0.35; // a planted foot pivots round with a body turning further than this (rad)
 const smooth01 = (x) => (x <= 0 ? 0 : x >= 1 ? 1 : x * x * (3 - 2 * x));
@@ -192,7 +193,8 @@ export class AnimPlayer {
     this.physPel = new Float64Array(3);
     // foot locks
     this.feet = ['L', 'R'].map((s, k) => ({
-      side: s, k, locked: false, lx: 0, lz: 0, ox: 0, oz: 0, release: 0, releaseDur: 0.2, lift: 0,
+      side: s, k, locked: false, blocked: false, lx: 0, lz: 0, ox: 0, oz: 0, release: 0, releaseDur: 0.2, lift: 0,
+      c: 0, lowY: 0, yaw: 0,
     }));
     this.pelvisDrop = 0;
     this.groundY = opts.groundY ?? 0;
@@ -598,9 +600,12 @@ export class AnimPlayer {
       const L = this.layers[0];
       const ph = (L.t / L.clip.duration) * 6.283 * (L.clip.loop ? 2 : 1) + V.lollPhase;
       const loll = Math.sin(ph) * V.loll * head;
-      this.turnJoint(I.neck, 0, 0, 1, (V.tilt * 0.5 + loll * 0.6) * head);
-      this.turnJoint(I.head, 0, 0, 1, (V.tilt * 0.5 + loll * 0.4) * head);
-      this.turnJoint(I.head, 1, 0, 0, (V.nod + Math.cos(ph) * V.loll * 0.5) * head);
+      // mostly at the base of the neck: the upper neck joint has little range left in most clips
+      const nod = (V.nod + Math.cos(ph) * V.loll * 0.5) * head;
+      this.turnJoint(I.neck, 0, 0, 1, (V.tilt + loll) * 0.85 * head);
+      this.turnJoint(I.head, 0, 0, 1, (V.tilt + loll) * 0.15 * head);
+      this.turnJoint(I.neck, 1, 0, 0, nod * 0.7);
+      this.turnJoint(I.head, 1, 0, 0, nod * 0.3);
     }
   }
 
@@ -631,7 +636,8 @@ export class AnimPlayer {
       const ax = J[ai], az = J[ai + 2];
       f.lowY = this.soleLow(leg, f.side);
       const stance = c > 0.5;
-      if (stance && !f.locked) {
+      if (!stance) f.blocked = false;
+      if (stance && !f.locked && !f.blocked) {
         f.locked = true;
         const w = smooth01(f.release);
         f.lx = ax + f.ox * w;
@@ -639,12 +645,7 @@ export class AnimPlayer {
         f.release = 0;
         f.yaw = root.yaw;
       } else if (f.locked && !stance) {
-        // lift-off: keep the offset and let it decay over the swing
-        f.locked = false;
-        f.ox = f.lx - ax;
-        f.oz = f.lz - az;
-        f.release = 1;
-        f.releaseDur = 0.22;
+        this.liftOff(f, ax, az);
       }
       if (f.locked) {
         const ox = f.lx - ax, oz = f.lz - az;
@@ -707,13 +708,36 @@ export class AnimPlayer {
       const ty = want > 0 ? ay + want : ay + want * smooth01((f.c - 0.3) / 0.4);
       f.lift = ty - ay;
       if (Math.abs(tx - ax) + Math.abs(ty - ay) + Math.abs(tz - az) > 1e-5) this.legIK(f.side, tx, ty, tz);
-      // a planted foot left too far behind (root faster than the clip): the hip would over-extend,
-      // so the foot gives way and slides after the body
-      if (f.locked && this.hipExtension(leg) > MAX_HIP_EXT) {
-        f.lx += (ax - f.lx) * 0.2;
-        f.lz += (az - f.lz) * 0.2;
+      // a planted foot the body has run past (hip over-extended, or the shin leaning so far over
+      // it the ankle would break): it comes off the ground early, as a foot does at toe-off
+      if (f.locked && (this.hipExtension(leg) > MAX_HIP_EXT || this.dorsiflexion(leg) > MAX_DORSI)) {
+        this.liftOff(f, ax, az);
+        f.blocked = true; // no new plant until this stance is over
       }
     }
+  }
+
+  /** Lift a planted foot: keep its offset from the clip's foot and let it decay over the swing. */
+  liftOff(f, ax, az) {
+    f.locked = false;
+    f.ox = f.lx - ax;
+    f.oz = f.lz - az;
+    f.release = 1;
+    f.releaseDur = 0.22;
+  }
+
+  /** Ankle dorsiflexion past the bind pose (rad): shin leaning forward over the foot. */
+  dorsiflexion(leg) {
+    const J = this.joint, w = this.wrot;
+    const ki = leg.shin * 3, ai = leg.foot * 3;
+    let ux = J[ki] - J[ai], uy = J[ki + 1] - J[ai + 1], uz = J[ki + 2] - J[ai + 2];
+    const ul = Math.sqrt(ux * ux + uy * uy + uz * uz) || 1;
+    // foot forward = R_foot * (0, 0, 1)
+    const o = leg.foot * 4;
+    const qx = w[o], qy = w[o + 1], qz = w[o + 2], qw = w[o + 3];
+    const fx = 2 * (qx * qz + qw * qy), fy = 2 * (qy * qz - qw * qx), fz = 1 - 2 * (qx * qx + qy * qy);
+    const c = (ux * fx + uy * fy + uz * fz) / ul;
+    return leg.ankleAngle - Math.acos(c < -1 ? -1 : c > 1 ? 1 : c);
   }
 
   /** Extension of a hip (rad, + = thigh behind the pelvis) from the posed thigh and pelvis. */

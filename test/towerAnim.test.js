@@ -220,6 +220,24 @@ test('turning: on the spot and walking a circle, the planted feet pivot instead 
   }
 });
 
+test('fuzz: random clips, fades, rates, turns, frame times and physics blends stay finite', () => {
+  let s = 12345;
+  const rnd = () => ((s = (s * 1103515245 + 12345) >>> 0) / 4294967296);
+  const z = makePlayer(77, 'walk');
+  for (let i = 0; i < 1500; i++) {
+    const r = rnd();
+    if (r < 0.03) z.player.play(CLIPS[Math.floor(rnd() * CLIPS.length)], { fade: rnd() * 0.5, rate: 0.3 + rnd() * 1.5 });
+    else if (r < 0.035) z.player.blendFromPhysics(rnd() * 0.6);
+    else if (r < 0.04) z.player.setRate(rnd() < 0.2 ? 0 : rnd() * 2);
+    const dt = rnd() < 0.1 ? 0.0005 : rnd() * 0.05;
+    z.root.yaw += (rnd() - 0.5) * 0.2;
+    z.root.pos.x += (rnd() - 0.5) * 0.1;
+    z.root.pos.z += rnd() * 0.08;
+    z.player.update(dt, z.root);
+    for (const b of z.rd.bodies) assert.ok(b.pos.isFinite() && b.rot.isFinite() && b.vel.isFinite() && b.angVel.isFinite());
+  }
+});
+
 test('a teleported root starts afresh (no velocity spike)', () => {
   const z = makePlayer(2, 'walk');
   drive(z, 'walk', 1);
