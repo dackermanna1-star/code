@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Last Lookout: world preview</title>
+    <style>
+      html, body { margin: 0; height: 100%; overflow: hidden; background: #0b0a0e; font: 12px/1.4 monospace; color: #d8d0c0; }
+      #app { position: fixed; inset: 0; }
+      #hud { position: fixed; left: 8px; top: 8px; background: rgba(10, 8, 12, 0.6); padding: 6px 8px; white-space: pre; pointer-events: none; }
+      #hud.hidden { display: none; }
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+    <div id="hud"></div>
+    <script type="module" src="./tower.js"></script>
+  </body>
+</html>
