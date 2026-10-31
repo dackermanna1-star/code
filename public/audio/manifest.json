@@ -1,0 +1,1287 @@
+{
+  "version": 1,
+  "categories": {
+    "punch_light": [
+      "audio/punch_light/punch_light_01.wav",
+      "audio/punch_light/punch_light_02.wav",
+      "audio/punch_light/punch_light_03.wav",
+      "audio/punch_light/punch_light_04.wav",
+      "audio/punch_light/punch_light_05.wav",
+      "audio/punch_light/punch_light_06.wav",
+      "audio/punch_light/punch_light_07.wav",
+      "audio/punch_light/punch_light_08.wav"
+    ],
+    "punch_heavy": [
+      "audio/punch_heavy/punch_heavy_01.wav",
+      "audio/punch_heavy/punch_heavy_02.wav",
+      "audio/punch_heavy/punch_heavy_03.wav",
+      "audio/punch_heavy/punch_heavy_04.wav",
+      "audio/punch_heavy/punch_heavy_05.wav",
+      "audio/punch_heavy/punch_heavy_06.wav",
+      "audio/punch_heavy/punch_heavy_07.wav",
+      "audio/punch_heavy/punch_heavy_08.wav"
+    ],
+    "kick": [
+      "audio/kick/kick_01.wav",
+      "audio/kick/kick_02.wav",
+      "audio/kick/kick_03.wav",
+      "audio/kick/kick_04.wav",
+      "audio/kick/kick_05.wav",
+      "audio/kick/kick_06.wav"
+    ],
+    "body_hit": [
+      "audio/body_hit/body_hit_01.wav",
+      "audio/body_hit/body_hit_02.wav",
+      "audio/body_hit/body_hit_03.wav",
+      "audio/body_hit/body_hit_04.wav",
+      "audio/body_hit/body_hit_05.wav",
+      "audio/body_hit/body_hit_06.wav"
+    ],
+    "face_crunch": [
+      "audio/face_crunch/face_crunch_01.wav",
+      "audio/face_crunch/face_crunch_02.wav",
+      "audio/face_crunch/face_crunch_03.wav",
+      "audio/face_crunch/face_crunch_04.wav",
+      "audio/face_crunch/face_crunch_05.wav",
+      "audio/face_crunch/face_crunch_06.wav"
+    ],
+    "bone_break": [
+      "audio/bone_break/bone_break_01.wav",
+      "audio/bone_break/bone_break_02.wav",
+      "audio/bone_break/bone_break_03.wav",
+      "audio/bone_break/bone_break_04.wav",
+      "audio/bone_break/bone_break_05.wav",
+      "audio/bone_break/bone_break_06.wav",
+      "audio/bone_break/bone_break_07.wav",
+      "audio/bone_break/bone_break_08.wav"
+    ],
+    "block": [
+      "audio/block/block_01.wav",
+      "audio/block/block_02.wav",
+      "audio/block/block_03.wav",
+      "audio/block/block_04.wav",
+      "audio/block/block_05.wav",
+      "audio/block/block_06.wav"
+    ],
+    "parry": [
+      "audio/parry/parry_01.wav",
+      "audio/parry/parry_02.wav",
+      "audio/parry/parry_03.wav",
+      "audio/parry/parry_04.wav",
+      "audio/parry/parry_05.wav"
+    ],
+    "whoosh_light": [
+      "audio/whoosh_light/whoosh_light_01.wav",
+      "audio/whoosh_light/whoosh_light_02.wav",
+      "audio/whoosh_light/whoosh_light_03.wav",
+      "audio/whoosh_light/whoosh_light_04.wav",
+      "audio/whoosh_light/whoosh_light_05.wav",
+      "audio/whoosh_light/whoosh_light_06.wav"
+    ],
+    "whoosh_heavy": [
+      "audio/whoosh_heavy/whoosh_heavy_01.wav",
+      "audio/whoosh_heavy/whoosh_heavy_02.wav",
+      "audio/whoosh_heavy/whoosh_heavy_03.wav",
+      "audio/whoosh_heavy/whoosh_heavy_04.wav",
+      "audio/whoosh_heavy/whoosh_heavy_05.wav",
+      "audio/whoosh_heavy/whoosh_heavy_06.wav"
+    ],
+    "sword_swing": [
+      "audio/sword_swing/sword_swing_01.wav",
+      "audio/sword_swing/sword_swing_02.wav",
+      "audio/sword_swing/sword_swing_03.wav",
+      "audio/sword_swing/sword_swing_04.wav"
+    ],
+    "sword_clash": [
+      "audio/sword_clash/sword_clash_01.wav",
+      "audio/sword_clash/sword_clash_02.wav",
+      "audio/sword_clash/sword_clash_03.wav",
+      "audio/sword_clash/sword_clash_04.wav",
+      "audio/sword_clash/sword_clash_05.wav",
+      "audio/sword_clash/sword_clash_06.wav"
+    ],
+    "blade_flesh": [
+      "audio/blade_flesh/blade_flesh_01.wav",
+      "audio/blade_flesh/blade_flesh_02.wav",
+      "audio/blade_flesh/blade_flesh_03.wav",
+      "audio/blade_flesh/blade_flesh_04.wav"
+    ],
+    "club_hit": [
+      "audio/club_hit/club_hit_01.wav",
+      "audio/club_hit/club_hit_02.wav",
+      "audio/club_hit/club_hit_03.wav",
+      "audio/club_hit/club_hit_04.wav"
+    ],
+    "wood_break": [
+      "audio/wood_break/wood_break_01.wav",
+      "audio/wood_break/wood_break_02.wav",
+      "audio/wood_break/wood_break_03.wav",
+      "audio/wood_break/wood_break_04.wav",
+      "audio/wood_break/wood_break_05.wav",
+      "audio/wood_break/wood_break_06.wav"
+    ],
+    "metal_hit": [
+      "audio/metal_hit/metal_hit_01.wav",
+      "audio/metal_hit/metal_hit_02.wav",
+      "audio/metal_hit/metal_hit_03.wav",
+      "audio/metal_hit/metal_hit_04.wav",
+      "audio/metal_hit/metal_hit_05.wav",
+      "audio/metal_hit/metal_hit_06.wav"
+    ],
+    "body_fall": [
+      "audio/body_fall/body_fall_01.wav",
+      "audio/body_fall/body_fall_02.wav",
+      "audio/body_fall/body_fall_03.wav",
+      "audio/body_fall/body_fall_04.wav",
+      "audio/body_fall/body_fall_05.wav",
+      "audio/body_fall/body_fall_06.wav"
+    ],
+    "footstep": [
+      "audio/footstep/footstep_01.wav",
+      "audio/footstep/footstep_02.wav",
+      "audio/footstep/footstep_03.wav",
+      "audio/footstep/footstep_04.wav",
+      "audio/footstep/footstep_05.wav",
+      "audio/footstep/footstep_06.wav",
+      "audio/footstep/footstep_07.wav",
+      "audio/footstep/footstep_08.wav"
+    ],
+    "squish": [
+      "audio/squish/squish_01.wav",
+      "audio/squish/squish_02.wav",
+      "audio/squish/squish_03.wav",
+      "audio/squish/squish_04.wav",
+      "audio/squish/squish_05.wav",
+      "audio/squish/squish_06.wav"
+    ],
+    "grunt_attack": [
+      "audio/grunt_attack/grunt_attack_01.wav",
+      "audio/grunt_attack/grunt_attack_02.wav",
+      "audio/grunt_attack/grunt_attack_03.wav",
+      "audio/grunt_attack/grunt_attack_04.wav",
+      "audio/grunt_attack/grunt_attack_05.wav",
+      "audio/grunt_attack/grunt_attack_06.wav",
+      "audio/grunt_attack/grunt_attack_07.wav",
+      "audio/grunt_attack/grunt_attack_08.wav"
+    ],
+    "grunt_pain": [
+      "audio/grunt_pain/grunt_pain_01.wav",
+      "audio/grunt_pain/grunt_pain_02.wav",
+      "audio/grunt_pain/grunt_pain_03.wav",
+      "audio/grunt_pain/grunt_pain_04.wav",
+      "audio/grunt_pain/grunt_pain_05.wav",
+      "audio/grunt_pain/grunt_pain_06.wav",
+      "audio/grunt_pain/grunt_pain_07.wav",
+      "audio/grunt_pain/grunt_pain_08.wav"
+    ],
+    "death": [
+      "audio/death/death_01.wav",
+      "audio/death/death_02.wav",
+      "audio/death/death_03.wav",
+      "audio/death/death_04.wav",
+      "audio/death/death_05.wav",
+      "audio/death/death_06.wav"
+    ],
+    "announcer": [
+      "audio/announcer/announcer_fight.wav",
+      "audio/announcer/announcer_round_1.wav",
+      "audio/announcer/announcer_round_2.wav",
+      "audio/announcer/announcer_round_3.wav",
+      "audio/announcer/announcer_final_round.wav",
+      "audio/announcer/announcer_ready.wav",
+      "audio/announcer/announcer_begin.wav",
+      "audio/announcer/announcer_prepare_yourself.wav",
+      "audio/announcer/announcer_combo.wav",
+      "audio/announcer/announcer_combo_breaker.wav",
+      "audio/announcer/announcer_flawless_victory.wav",
+      "audio/announcer/announcer_you_win.wav",
+      "audio/announcer/announcer_you_lose.wav",
+      "audio/announcer/announcer_game_over.wav",
+      "audio/announcer/announcer_winner.wav",
+      "audio/announcer/announcer_time.wav"
+    ],
+    "ambience": [
+      "audio/ambience/ambience_01.wav",
+      "audio/ambience/ambience_02.wav"
+    ]
+  },
+  "files": {
+    "audio/punch_light/punch_light_01.wav": {
+      "duration": 0.317,
+      "pack": "37-hitspunches",
+      "original": "hits/hit10.mp3.flac",
+      "note": "bright jab (left channel of a dual-mono file) [left channel]"
+    },
+    "audio/punch_light/punch_light_02.wav": {
+      "duration": 0.406,
+      "pack": "37-hitspunches",
+      "original": "hits/hit11.mp3.flac",
+      "note": "snappy jab (left channel) [left channel]"
+    },
+    "audio/punch_light/punch_light_03.wav": {
+      "duration": 0.382,
+      "pack": "37-hitspunches",
+      "original": "hits/hit12.mp3.flac",
+      "note": "crisp jab (right channel) [right channel]"
+    },
+    "audio/punch_light/punch_light_04.wav": {
+      "duration": 0.477,
+      "pack": "37-hitspunches",
+      "original": "hits/hit13.mp3.flac",
+      "note": "jab (left channel) [left channel]"
+    },
+    "audio/punch_light/punch_light_05.wav": {
+      "duration": 0.314,
+      "pack": "37-hitspunches",
+      "original": "hits/hit15.mp3.flac",
+      "note": "jab (left channel) [left channel]"
+    },
+    "audio/punch_light/punch_light_06.wav": {
+      "duration": 0.279,
+      "pack": "37-hitspunches",
+      "original": "hits/hit18.mp3.flac",
+      "note": "light hit (left channel) [left channel]"
+    },
+    "audio/punch_light/punch_light_07.wav": {
+      "duration": 0.313,
+      "pack": "40-wet-towel-clubpoundhitattack-sounds",
+      "original": "wet_towel_on_body/wet_towel_on_body-15.flac",
+      "note": "wet slap"
+    },
+    "audio/punch_light/punch_light_08.wav": {
+      "duration": 0.24,
+      "pack": "40-wet-towel-clubpoundhitattack-sounds",
+      "original": "wet_towel_on_body/wet_towel_on_body-23.flac",
+      "note": "short wet slap [end faded (source stops abruptly)]"
+    },
+    "audio/punch_heavy/punch_heavy_01.wav": {
+      "duration": 0.437,
+      "pack": "punch",
+      "original": "qubodupPunch/qubodupPunch01.flac",
+      "note": "heavy punch"
+    },
+    "audio/punch_heavy/punch_heavy_02.wav": {
+      "duration": 0.427,
+      "pack": "punch",
+      "original": "qubodupPunch/qubodupPunch04.flac",
+      "note": "heavy punch"
+    },
+    "audio/punch_heavy/punch_heavy_03.wav": {
+      "duration": 0.43,
+      "pack": "punch",
+      "original": "qubodupPunch/qubodupPunch05.flac",
+      "note": "heavy punch"
+    },
+    "audio/punch_heavy/punch_heavy_04.wav": {
+      "duration": 0.347,
+      "pack": "37-hitspunches",
+      "original": "hits/hit26.mp3.flac",
+      "note": "heavy body punch"
+    },
+    "audio/punch_heavy/punch_heavy_05.wav": {
+      "duration": 0.288,
+      "pack": "37-hitspunches",
+      "original": "hits/hit27.mp3.flac",
+      "note": "heavy punch"
+    },
+    "audio/punch_heavy/punch_heavy_06.wav": {
+      "duration": 0.288,
+      "pack": "37-hitspunches",
+      "original": "hits/hit28.mp3.flac",
+      "note": "heavy punch, very sharp attack"
+    },
+    "audio/punch_heavy/punch_heavy_07.wav": {
+      "duration": 0.277,
+      "pack": "37-hitspunches",
+      "original": "hits/hit29.mp3.flac",
+      "note": "heavy punch"
+    },
+    "audio/punch_heavy/punch_heavy_08.wav": {
+      "duration": 0.589,
+      "pack": "37-hitspunches",
+      "original": "hits/hit02.mp3.flac",
+      "note": "haymaker thump (right channel) [right channel]"
+    },
+    "audio/kick/kick_01.wav": {
+      "duration": 0.426,
+      "pack": "punch",
+      "original": "qubodupPunch/qubodupPunch03.flac",
+      "note": "deep thud (lowest-centroid punch of the pack)"
+    },
+    "audio/kick/kick_02.wav": {
+      "duration": 0.422,
+      "pack": "punch",
+      "original": "qubodupPunch/qubodupPunch02.flac",
+      "note": "deep thud"
+    },
+    "audio/kick/kick_03.wav": {
+      "duration": 0.353,
+      "pack": "37-hitspunches",
+      "original": "hits/hit10.mp3.flac",
+      "note": "deep body thud (right channel) [right channel]"
+    },
+    "audio/kick/kick_04.wav": {
+      "duration": 0.458,
+      "pack": "12-wet-towel-hittingfallingpunching-floor-sounds",
+      "original": "wet_towel_on_floor/wet_towel_on_floor-03.flac",
+      "note": "deep wet thud"
+    },
+    "audio/kick/kick_05.wav": {
+      "duration": 0.135,
+      "pack": "100-cc0-sfx-2",
+      "original": "sfx100v2_hit_02.ogg",
+      "note": "short heavy hit"
+    },
+    "audio/kick/kick_06.wav": {
+      "duration": 0.5,
+      "pack": "37-hitspunches",
+      "original": "hits/hit07.mp3.flac",
+      "note": "heavy thump pitched down 3 semitones (substitute) [left channel, pitch -3 st, shortened with fade]"
+    },
+    "audio/body_hit/body_hit_01.wav": {
+      "duration": 0.379,
+      "pack": "40-wet-towel-clubpoundhitattack-sounds",
+      "original": "wet_towel_on_body/wet_towel_on_body-04.flac",
+      "note": "wet body thump"
+    },
+    "audio/body_hit/body_hit_02.wav": {
+      "duration": 0.339,
+      "pack": "40-wet-towel-clubpoundhitattack-sounds",
+      "original": "wet_towel_on_body/wet_towel_on_body-06.flac",
+      "note": "wet body thump"
+    },
+    "audio/body_hit/body_hit_03.wav": {
+      "duration": 0.331,
+      "pack": "40-wet-towel-clubpoundhitattack-sounds",
+      "original": "wet_towel_on_body/wet_towel_on_body-25.flac",
+      "note": "wet body thump"
+    },
+    "audio/body_hit/body_hit_04.wav": {
+      "duration": 0.468,
+      "pack": "40-wet-towel-clubpoundhitattack-sounds",
+      "original": "wet_towel_on_body/wet_towel_on_body-26.flac",
+      "note": "wet body thump"
+    },
+    "audio/body_hit/body_hit_05.wav": {
+      "duration": 0.569,
+      "pack": "40-wet-towel-clubpoundhitattack-sounds",
+      "original": "wet_towel_on_body/wet_towel_on_body-34.flac",
+      "note": "wet body thump, longer"
+    },
+    "audio/body_hit/body_hit_06.wav": {
+      "duration": 0.464,
+      "pack": "impact",
+      "original": "qubodupImpact/qubodupImpactMeat02.flac",
+      "note": "meaty impact"
+    },
+    "audio/face_crunch/face_crunch_01.wav": {
+      "duration": 0.275,
+      "pack": "break-pumpkin",
+      "original": "pumpkin_break_01.ogg",
+      "note": "pumpkin smash (crunchy, bone-like)"
+    },
+    "audio/face_crunch/face_crunch_02.wav": {
+      "duration": 0.279,
+      "pack": "break-pumpkin",
+      "original": "pumpkin_break_02.ogg",
+      "note": "pumpkin smash (left channel) [left channel]"
+    },
+    "audio/face_crunch/face_crunch_03.wav": {
+      "duration": 0.403,
+      "pack": "various-sound-effects-0",
+      "original": "snd_splathit.wav",
+      "note": "wet splat hit"
+    },
+    "audio/face_crunch/face_crunch_04.wav": {
+      "duration": 0.6,
+      "pack": "37-hitspunches + fleshy-bone-breaksnap-sfx",
+      "original": "hits/hit05.mp3.flac + Wet Break 2.wav",
+      "note": "layered: punch + wet bone crack",
+      "layers": [
+        {
+          "pack": "37-hitspunches",
+          "original": "hits/hit05.mp3.flac",
+          "ch": 0
+        },
+        {
+          "pack": "fleshy-bone-breaksnap-sfx",
+          "original": "Wet Break 2.wav",
+          "gain_db": -6,
+          "offset_ms": 12
+        }
+      ]
+    },
+    "audio/face_crunch/face_crunch_05.wav": {
+      "duration": 0.499,
+      "pack": "37-hitspunches + break-pumpkin",
+      "original": "hits/hit30.mp3.flac + pumpkin_break_02.ogg",
+      "note": "layered: heavy punch + pumpkin crunch (right channel)",
+      "layers": [
+        {
+          "pack": "37-hitspunches",
+          "original": "hits/hit30.mp3.flac"
+        },
+        {
+          "pack": "break-pumpkin",
+          "original": "pumpkin_break_02.ogg",
+          "ch": 1,
+          "gain_db": -3,
+          "offset_ms": 3
+        }
+      ]
+    },
+    "audio/face_crunch/face_crunch_06.wav": {
+      "duration": 0.479,
+      "pack": "various-sound-effects-0",
+      "original": "snd_splat.wav",
+      "note": "wet splat"
+    },
+    "audio/bone_break/bone_break_01.wav": {
+      "duration": 0.311,
+      "pack": "deep-bone-crackbreak-sfx",
+      "original": "Deep Break 9.wav",
+      "note": "deep crack"
+    },
+    "audio/bone_break/bone_break_02.wav": {
+      "duration": 0.537,
+      "pack": "deep-bone-crackbreak-sfx",
+      "original": "Deep Break 5.wav",
+      "note": "deep crack, crackly"
+    },
+    "audio/bone_break/bone_break_03.wav": {
+      "duration": 0.648,
+      "pack": "deep-bone-crackbreak-sfx",
+      "original": "Deep Break 1.wav",
+      "note": "deep crack"
+    },
+    "audio/bone_break/bone_break_04.wav": {
+      "duration": 0.363,
+      "pack": "deep-bone-crackbreak-sfx",
+      "original": "Deep Break 6.wav",
+      "note": "deep crack"
+    },
+    "audio/bone_break/bone_break_05.wav": {
+      "duration": 0.827,
+      "pack": "fleshy-bone-breaksnap-sfx",
+      "original": "Wet Break 1.wav",
+      "note": "fleshy snap"
+    },
+    "audio/bone_break/bone_break_06.wav": {
+      "duration": 0.672,
+      "pack": "fleshy-bone-breaksnap-sfx",
+      "original": "Wet Break 5.wav",
+      "note": "fleshy snap"
+    },
+    "audio/bone_break/bone_break_07.wav": {
+      "duration": 0.733,
+      "pack": "fleshy-bone-breaksnap-sfx",
+      "original": "Wet Break 7.wav",
+      "note": "fleshy snap"
+    },
+    "audio/bone_break/bone_break_08.wav": {
+      "duration": 0.407,
+      "pack": "fleshy-bone-breaksnap-sfx",
+      "original": "Wet Break 9.wav",
+      "note": "short fleshy snap"
+    },
+    "audio/block/block_01.wav": {
+      "duration": 0.362,
+      "pack": "10-impactshield-blocks",
+      "original": "impact.1.ogg",
+      "note": "dull guarded impact"
+    },
+    "audio/block/block_02.wav": {
+      "duration": 0.276,
+      "pack": "10-impactshield-blocks",
+      "original": "impact.4.ogg",
+      "note": "dull guarded impact"
+    },
+    "audio/block/block_03.wav": {
+      "duration": 0.344,
+      "pack": "10-impactshield-blocks",
+      "original": "impact.6.ogg",
+      "note": "dull guarded impact"
+    },
+    "audio/block/block_04.wav": {
+      "duration": 0.254,
+      "pack": "10-impactshield-blocks",
+      "original": "impact.8.ogg",
+      "note": "dull guarded impact, low"
+    },
+    "audio/block/block_05.wav": {
+      "duration": 0.25,
+      "pack": "10-impactshield-blocks",
+      "original": "impact.9.ogg",
+      "note": "dull guarded impact"
+    },
+    "audio/block/block_06.wav": {
+      "duration": 0.316,
+      "pack": "thwack-sounds",
+      "original": "PCM/thwack-07.wav",
+      "note": "dull thwack"
+    },
+    "audio/parry/parry_01.wav": {
+      "duration": 0.205,
+      "pack": "medieval-sound-effects-weapon-impacts",
+      "original": "Dagger Katana Blade on Blade.wav",
+      "note": "dagger vs katana deflect [slice 4.08-4.30s]"
+    },
+    "audio/parry/parry_02.wav": {
+      "duration": 0.214,
+      "pack": "medieval-sound-effects-weapon-impacts",
+      "original": "Axe Sabre Blade on Hilt.wav",
+      "note": "blade on hilt deflect [slice 1.06-1.31s]"
+    },
+    "audio/parry/parry_03.wav": {
+      "duration": 0.515,
+      "pack": "20-sword-sound-effects-attacks-and-clashes",
+      "original": "sword_clash.4.ogg",
+      "note": "short blade clash"
+    },
+    "audio/parry/parry_04.wav": {
+      "duration": 0.26,
+      "pack": "40-wet-towel-clubpoundhitattack-sounds",
+      "original": "wet_towel_on_body/wet_towel_on_body-24.flac",
+      "note": "sharp slap deflect"
+    },
+    "audio/parry/parry_05.wav": {
+      "duration": 0.172,
+      "pack": "medieval-sound-effects-weapon-impacts",
+      "original": "Mace Spear Haft.wav",
+      "note": "hard knock on a wooden haft (staff parry) [slice 2.98-3.19s]"
+    },
+    "audio/whoosh_light/whoosh_light_01.wav": {
+      "duration": 0.106,
+      "pack": "swishes-sound-pack",
+      "original": "swishes/swish-10.wav",
+      "note": "light swish"
+    },
+    "audio/whoosh_light/whoosh_light_02.wav": {
+      "duration": 0.094,
+      "pack": "swishes-sound-pack",
+      "original": "swishes/swish-11.wav",
+      "note": "light swish"
+    },
+    "audio/whoosh_light/whoosh_light_03.wav": {
+      "duration": 0.102,
+      "pack": "rpg-sound-pack",
+      "original": "RPG Sound Pack/battle/swing2.wav",
+      "note": "light swing"
+    },
+    "audio/whoosh_light/whoosh_light_04.wav": {
+      "duration": 0.365,
+      "pack": "swish-bamboo-stick-weapon-swhoshes",
+      "original": "swosh-12.flac",
+      "note": "bamboo stick swish"
+    },
+    "audio/whoosh_light/whoosh_light_05.wav": {
+      "duration": 0.331,
+      "pack": "swish-bamboo-stick-weapon-swhoshes",
+      "original": "swosh-17.flac",
+      "note": "bamboo stick swish"
+    },
+    "audio/whoosh_light/whoosh_light_06.wav": {
+      "duration": 0.276,
+      "pack": "swish-bamboo-stick-weapon-swhoshes",
+      "original": "swosh-22.flac",
+      "note": "bamboo stick swish"
+    },
+    "audio/whoosh_heavy/whoosh_heavy_01.wav": {
+      "duration": 0.571,
+      "pack": "swish-bamboo-stick-weapon-swhoshes",
+      "original": "swosh-03.flac",
+      "note": "heavy low swoosh"
+    },
+    "audio/whoosh_heavy/whoosh_heavy_02.wav": {
+      "duration": 0.505,
+      "pack": "swish-bamboo-stick-weapon-swhoshes",
+      "original": "swosh-13.flac",
+      "note": "heavy low swoosh"
+    },
+    "audio/whoosh_heavy/whoosh_heavy_03.wav": {
+      "duration": 0.313,
+      "pack": "swish-bamboo-stick-weapon-swhoshes",
+      "original": "swosh-05.flac",
+      "note": "heavy swoosh"
+    },
+    "audio/whoosh_heavy/whoosh_heavy_04.wav": {
+      "duration": 0.669,
+      "pack": "swish-bamboo-stick-weapon-swhoshes",
+      "original": "swosh-24.flac",
+      "note": "long heavy swoosh [end faded (source stops abruptly)]"
+    },
+    "audio/whoosh_heavy/whoosh_heavy_05.wav": {
+      "duration": 0.551,
+      "pack": "3-melee-sounds",
+      "original": "melee sounds/melee sound.wav",
+      "note": "heavy melee swing"
+    },
+    "audio/whoosh_heavy/whoosh_heavy_06.wav": {
+      "duration": 0.136,
+      "pack": "swishes-sound-pack",
+      "original": "swishes/swish-7.wav",
+      "note": "short heavy swish"
+    },
+    "audio/sword_swing/sword_swing_01.wav": {
+      "duration": 0.53,
+      "pack": "3-melee-sounds",
+      "original": "melee sounds/sword sound.wav",
+      "note": "sword swing whoosh"
+    },
+    "audio/sword_swing/sword_swing_02.wav": {
+      "duration": 0.434,
+      "pack": "20-sword-sound-effects-attacks-and-clashes",
+      "original": "sword - StarNinjas/sword.6.ogg",
+      "note": "blade swing 'shing'"
+    },
+    "audio/sword_swing/sword_swing_03.wav": {
+      "duration": 0.398,
+      "pack": "swish-bamboo-stick-weapon-swhoshes + 20-sword-sound-effects-attacks-and-clashes",
+      "original": "swosh-15.flac + sword - StarNinjas/sword.8.ogg",
+      "note": "layered: swoosh + blade ring",
+      "layers": [
+        {
+          "pack": "swish-bamboo-stick-weapon-swhoshes",
+          "original": "swosh-15.flac"
+        },
+        {
+          "pack": "20-sword-sound-effects-attacks-and-clashes",
+          "original": "sword - StarNinjas/sword.8.ogg",
+          "gain_db": -7,
+          "offset_ms": 10
+        }
+      ]
+    },
+    "audio/sword_swing/sword_swing_04.wav": {
+      "duration": 0.278,
+      "pack": "swish-bamboo-stick-weapon-swhoshes + 20-sword-sound-effects-attacks-and-clashes",
+      "original": "swosh-11.flac + sword - StarNinjas/sword.2.ogg",
+      "note": "layered: swoosh + blade ring",
+      "layers": [
+        {
+          "pack": "swish-bamboo-stick-weapon-swhoshes",
+          "original": "swosh-11.flac"
+        },
+        {
+          "pack": "20-sword-sound-effects-attacks-and-clashes",
+          "original": "sword - StarNinjas/sword.2.ogg",
+          "gain_db": -8,
+          "offset_ms": 15
+        }
+      ]
+    },
+    "audio/sword_clash/sword_clash_01.wav": {
+      "duration": 0.48,
+      "pack": "medieval-sound-effects-weapon-impacts",
+      "original": "Norse Sword Katana Blade on Blade.wav",
+      "note": "norse sword vs katana [slice 13.84-14.34s]"
+    },
+    "audio/sword_clash/sword_clash_02.wav": {
+      "duration": 0.515,
+      "pack": "medieval-sound-effects-weapon-impacts",
+      "original": "Norse Sword Katana Blade on Blade.wav",
+      "note": "norse sword vs katana [slice 14.84-15.37s]"
+    },
+    "audio/sword_clash/sword_clash_03.wav": {
+      "duration": 0.238,
+      "pack": "medieval-sound-effects-weapon-impacts",
+      "original": "Sabre Katana Blade on Blade.wav",
+      "note": "sabre vs katana [slice 12.27-12.53s]"
+    },
+    "audio/sword_clash/sword_clash_04.wav": {
+      "duration": 0.27,
+      "pack": "medieval-sound-effects-weapon-impacts",
+      "original": "Sabre Norse Sword Blade on Blade.wav",
+      "note": "sabre vs norse sword [slice 12.44-12.74s]"
+    },
+    "audio/sword_clash/sword_clash_05.wav": {
+      "duration": 0.839,
+      "pack": "20-sword-sound-effects-attacks-and-clashes",
+      "original": "sword_clash.1.ogg",
+      "note": "ringing knife clash"
+    },
+    "audio/sword_clash/sword_clash_06.wav": {
+      "duration": 0.9,
+      "pack": "20-sword-sound-effects-attacks-and-clashes",
+      "original": "sword_clash.9.ogg",
+      "note": "long ringing clash [shortened with fade]"
+    },
+    "audio/blade_flesh/blade_flesh_01.wav": {
+      "duration": 0.588,
+      "pack": "cut-peel-a-pumpkin",
+      "original": "cut_pumpkin_01.ogg",
+      "note": "knife cut into pumpkin (right channel) [right channel, slice 1.44-2.12s]"
+    },
+    "audio/blade_flesh/blade_flesh_02.wav": {
+      "duration": 0.472,
+      "pack": "cut-peel-a-pumpkin",
+      "original": "cut_pumpkin_03.ogg",
+      "note": "knife cut into pumpkin (left channel) [left channel, slice 0.99-1.47s]"
+    },
+    "audio/blade_flesh/blade_flesh_03.wav": {
+      "duration": 0.311,
+      "pack": "80-cc0-rpg-sfx + squish-sounds-effects",
+      "original": "blade_03.ogg + squish_03.mp3",
+      "note": "layered: blade slash + wet squish",
+      "layers": [
+        {
+          "pack": "80-cc0-rpg-sfx",
+          "original": "blade_03.ogg"
+        },
+        {
+          "pack": "squish-sounds-effects",
+          "original": "squish_03.mp3",
+          "gain_db": -3,
+          "offset_ms": 5
+        }
+      ]
+    },
+    "audio/blade_flesh/blade_flesh_04.wav": {
+      "duration": 0.296,
+      "pack": "80-cc0-rpg-sfx + squish-sounds-effects",
+      "original": "blade_01.ogg + squish_05.mp3",
+      "note": "layered: blade slash + wet squish",
+      "layers": [
+        {
+          "pack": "80-cc0-rpg-sfx",
+          "original": "blade_01.ogg"
+        },
+        {
+          "pack": "squish-sounds-effects",
+          "original": "squish_05.mp3",
+          "gain_db": -4,
+          "offset_ms": 5
+        }
+      ]
+    },
+    "audio/club_hit/club_hit_01.wav": {
+      "duration": 0.348,
+      "pack": "40-wet-towel-clubpoundhitattack-sounds + 100-cc0-metal-and-wood-sfx",
+      "original": "wet_towel_on_body/wet_towel_on_body-05.flac + wood_hit_05.ogg",
+      "note": "layered: body thump + wood knock",
+      "layers": [
+        {
+          "pack": "40-wet-towel-clubpoundhitattack-sounds",
+          "original": "wet_towel_on_body/wet_towel_on_body-05.flac"
+        },
+        {
+          "pack": "100-cc0-metal-and-wood-sfx",
+          "original": "wood_hit_05.ogg",
+          "gain_db": -3
+        }
+      ]
+    },
+    "audio/club_hit/club_hit_02.wav": {
+      "duration": 0.354,
+      "pack": "40-wet-towel-clubpoundhitattack-sounds + 75-cc0-breaking-falling-hit-sfx",
+      "original": "wet_towel_on_body/wet_towel_on_body-29.flac + bfh1_wood_hit_03.ogg",
+      "note": "layered: body thump + wood knock",
+      "layers": [
+        {
+          "pack": "40-wet-towel-clubpoundhitattack-sounds",
+          "original": "wet_towel_on_body/wet_towel_on_body-29.flac"
+        },
+        {
+          "pack": "75-cc0-breaking-falling-hit-sfx",
+          "original": "bfh1_wood_hit_03.ogg",
+          "gain_db": -3
+        }
+      ]
+    },
+    "audio/club_hit/club_hit_03.wav": {
+      "duration": 0.43,
+      "pack": "40-wet-towel-clubpoundhitattack-sounds + 100-cc0-metal-and-wood-sfx",
+      "original": "wet_towel_on_body/wet_towel_on_body-12.flac + wood_hammer_01.ogg",
+      "note": "layered: body thump + wood hammer",
+      "layers": [
+        {
+          "pack": "40-wet-towel-clubpoundhitattack-sounds",
+          "original": "wet_towel_on_body/wet_towel_on_body-12.flac"
+        },
+        {
+          "pack": "100-cc0-metal-and-wood-sfx",
+          "original": "wood_hammer_01.ogg",
+          "gain_db": -4
+        }
+      ]
+    },
+    "audio/club_hit/club_hit_04.wav": {
+      "duration": 0.29,
+      "pack": "thwack-sounds",
+      "original": "PCM/thwack-06.wav",
+      "note": "thwack"
+    },
+    "audio/wood_break/wood_break_01.wav": {
+      "duration": 1.0,
+      "pack": "35-wooden-crackshitsdestructions",
+      "original": "wood_impact/impactwood22.mp3.flac",
+      "note": "wooden smash [shortened with fade]"
+    },
+    "audio/wood_break/wood_break_02.wav": {
+      "duration": 0.96,
+      "pack": "35-wooden-crackshitsdestructions",
+      "original": "wood_impact/impactwood23.mp3.flac",
+      "note": "wooden smash"
+    },
+    "audio/wood_break/wood_break_03.wav": {
+      "duration": 1.0,
+      "pack": "35-wooden-crackshitsdestructions",
+      "original": "wood_impact/impactwood03.mp3.flac",
+      "note": "big wooden crash [shortened with fade]"
+    },
+    "audio/wood_break/wood_break_04.wav": {
+      "duration": 0.994,
+      "pack": "75-cc0-breaking-falling-hit-sfx",
+      "original": "bfh1_breaking_01.ogg",
+      "note": "breaking with debris"
+    },
+    "audio/wood_break/wood_break_05.wav": {
+      "duration": 0.393,
+      "pack": "100-cc0-metal-and-wood-sfx",
+      "original": "wood_breaking_01.ogg",
+      "note": "wood breaking"
+    },
+    "audio/wood_break/wood_break_06.wav": {
+      "duration": 0.286,
+      "pack": "75-cc0-breaking-falling-hit-sfx",
+      "original": "bfh1_wood_breaking_03.ogg",
+      "note": "short wood break"
+    },
+    "audio/metal_hit/metal_hit_01.wav": {
+      "duration": 0.34,
+      "pack": "100-cc0-metal-and-wood-sfx",
+      "original": "metal_slam_01.ogg",
+      "note": "heavy metal slam"
+    },
+    "audio/metal_hit/metal_hit_02.wav": {
+      "duration": 1.2,
+      "pack": "metal-impact-sounds",
+      "original": "bong1.wav",
+      "note": "resonant steel drum bong [shortened with fade]"
+    },
+    "audio/metal_hit/metal_hit_03.wav": {
+      "duration": 0.269,
+      "pack": "75-cc0-breaking-falling-hit-sfx",
+      "original": "bfh1_metal_hit_05.ogg",
+      "note": "low metal hit"
+    },
+    "audio/metal_hit/metal_hit_04.wav": {
+      "duration": 0.471,
+      "pack": "metal-interactions",
+      "original": "metal_interactions/metal_interaction2.wav",
+      "note": "heavy metal clank [end faded (source stops abruptly)]"
+    },
+    "audio/metal_hit/metal_hit_05.wav": {
+      "duration": 0.495,
+      "pack": "metal-impact-sounds",
+      "original": "thud2.wav",
+      "note": "metal thud"
+    },
+    "audio/metal_hit/metal_hit_06.wav": {
+      "duration": 0.669,
+      "pack": "100-cc0-sfx-2",
+      "original": "sfx100v2_metal_hit_01.ogg",
+      "note": "ringing metal hit"
+    },
+    "audio/body_fall/body_fall_01.wav": {
+      "duration": 0.465,
+      "pack": "12-wet-towel-hittingfallingpunching-floor-sounds",
+      "original": "wet_towel_on_floor/wet_towel_on_floor-01.flac",
+      "note": "body fall"
+    },
+    "audio/body_fall/body_fall_02.wav": {
+      "duration": 0.492,
+      "pack": "12-wet-towel-hittingfallingpunching-floor-sounds",
+      "original": "wet_towel_on_floor/wet_towel_on_floor-06.flac",
+      "note": "body fall"
+    },
+    "audio/body_fall/body_fall_03.wav": {
+      "duration": 0.507,
+      "pack": "12-wet-towel-hittingfallingpunching-floor-sounds",
+      "original": "wet_towel_on_floor/wet_towel_on_floor-07.flac",
+      "note": "body fall"
+    },
+    "audio/body_fall/body_fall_04.wav": {
+      "duration": 0.503,
+      "pack": "12-wet-towel-hittingfallingpunching-floor-sounds",
+      "original": "wet_towel_on_floor/wet_towel_on_floor-08.flac",
+      "note": "body fall"
+    },
+    "audio/body_fall/body_fall_05.wav": {
+      "duration": 0.49,
+      "pack": "12-wet-towel-hittingfallingpunching-floor-sounds + 75-cc0-breaking-falling-hit-sfx",
+      "original": "wet_towel_on_floor/wet_towel_on_floor-02.flac + bfh1_hit_02.ogg",
+      "note": "layered: body fall + deep thud (heavier)",
+      "layers": [
+        {
+          "pack": "12-wet-towel-hittingfallingpunching-floor-sounds",
+          "original": "wet_towel_on_floor/wet_towel_on_floor-02.flac"
+        },
+        {
+          "pack": "75-cc0-breaking-falling-hit-sfx",
+          "original": "bfh1_hit_02.ogg",
+          "gain_db": -9
+        }
+      ]
+    },
+    "audio/body_fall/body_fall_06.wav": {
+      "duration": 0.8,
+      "pack": "12-wet-towel-hittingfallingpunching-floor-sounds + various-sound-effects-0",
+      "original": "wet_towel_on_floor/wet_towel_on_floor-10.flac + snd_enemyland.wav",
+      "note": "layered: body fall + heavy landing thud",
+      "layers": [
+        {
+          "pack": "12-wet-towel-hittingfallingpunching-floor-sounds",
+          "original": "wet_towel_on_floor/wet_towel_on_floor-10.flac"
+        },
+        {
+          "pack": "various-sound-effects-0",
+          "original": "snd_enemyland.wav",
+          "gain_db": -6
+        }
+      ]
+    },
+    "audio/footstep/footstep_01.wav": {
+      "duration": 0.357,
+      "pack": "fantozzis-footsteps-grasssand-stone",
+      "original": "Fantozzi-footsteps/flac/Fantozzi-StoneL1.flac",
+      "note": "stone step, left foot"
+    },
+    "audio/footstep/footstep_02.wav": {
+      "duration": 0.348,
+      "pack": "fantozzis-footsteps-grasssand-stone",
+      "original": "Fantozzi-footsteps/flac/Fantozzi-StoneR1.flac",
+      "note": "stone step, right foot [end faded (source stops abruptly)]"
+    },
+    "audio/footstep/footstep_03.wav": {
+      "duration": 0.296,
+      "pack": "fantozzis-footsteps-grasssand-stone",
+      "original": "Fantozzi-footsteps/flac/Fantozzi-StoneL2.flac",
+      "note": "stone step, left foot [end faded (source stops abruptly)]"
+    },
+    "audio/footstep/footstep_04.wav": {
+      "duration": 0.303,
+      "pack": "fantozzis-footsteps-grasssand-stone",
+      "original": "Fantozzi-footsteps/flac/Fantozzi-StoneR2.flac",
+      "note": "stone step, right foot [end faded (source stops abruptly)]"
+    },
+    "audio/footstep/footstep_05.wav": {
+      "duration": 0.165,
+      "pack": "different-steps-on-wood-stone-leaves-gravel-and-mud",
+      "original": "stone01.ogg",
+      "note": "stone step, duller"
+    },
+    "audio/footstep/footstep_06.wav": {
+      "duration": 0.335,
+      "pack": "fantozzis-footsteps-grasssand-stone",
+      "original": "Fantozzi-footsteps/flac/Fantozzi-StoneR3.flac",
+      "note": "stone step, right foot [end faded (source stops abruptly)]"
+    },
+    "audio/footstep/footstep_07.wav": {
+      "duration": 0.198,
+      "pack": "100-cc0-sfx-2",
+      "original": "sfx100v2_footstep_01.ogg",
+      "note": "hard-soled step [end faded (source stops abruptly)]"
+    },
+    "audio/footstep/footstep_08.wav": {
+      "duration": 0.218,
+      "pack": "100-cc0-sfx-2",
+      "original": "sfx100v2_footstep_02.ogg",
+      "note": "hard-soled step"
+    },
+    "audio/squish/squish_01.wav": {
+      "duration": 0.284,
+      "pack": "squish-sounds-effects",
+      "original": "squish_02.mp3",
+      "note": "squish"
+    },
+    "audio/squish/squish_02.wav": {
+      "duration": 0.262,
+      "pack": "squish-sounds-effects",
+      "original": "squish_04.mp3",
+      "note": "squish"
+    },
+    "audio/squish/squish_03.wav": {
+      "duration": 0.323,
+      "pack": "squish-sounds-effects",
+      "original": "squish_06.mp3",
+      "note": "squish"
+    },
+    "audio/squish/squish_04.wav": {
+      "duration": 0.705,
+      "pack": "8-wet-squish-slurp-impacts",
+      "original": "impsplat/impactsplat03.mp3.flac",
+      "note": "wet slurp impact"
+    },
+    "audio/squish/squish_05.wav": {
+      "duration": 0.43,
+      "pack": "8-wet-squish-slurp-impacts",
+      "original": "impsplat/impactsplat07.mp3.flac",
+      "note": "wet squish impact"
+    },
+    "audio/squish/squish_06.wav": {
+      "duration": 0.661,
+      "pack": "various-sound-effects-0",
+      "original": "snd_splurt.wav",
+      "note": "splurt"
+    },
+    "audio/grunt_attack/grunt_attack_01.wav": {
+      "duration": 0.386,
+      "pack": "15-vocal-male-strainhurtpainjump-sounds",
+      "original": "slightscream-01.flac",
+      "note": "male effort grunt"
+    },
+    "audio/grunt_attack/grunt_attack_02.wav": {
+      "duration": 0.322,
+      "pack": "15-vocal-male-strainhurtpainjump-sounds",
+      "original": "slightscream-02.flac",
+      "note": "male effort grunt"
+    },
+    "audio/grunt_attack/grunt_attack_03.wav": {
+      "duration": 0.427,
+      "pack": "15-vocal-male-strainhurtpainjump-sounds",
+      "original": "slightscream-07.flac",
+      "note": "male effort grunt [end faded (source stops abruptly)]"
+    },
+    "audio/grunt_attack/grunt_attack_04.wav": {
+      "duration": 0.39,
+      "pack": "15-vocal-male-strainhurtpainjump-sounds",
+      "original": "slightscream-08.flac",
+      "note": "male effort grunt"
+    },
+    "audio/grunt_attack/grunt_attack_05.wav": {
+      "duration": 0.273,
+      "pack": "15-vocal-male-strainhurtpainjump-sounds",
+      "original": "slightscream-11.flac",
+      "note": "short male effort grunt"
+    },
+    "audio/grunt_attack/grunt_attack_06.wav": {
+      "duration": 0.353,
+      "pack": "15-vocal-male-strainhurtpainjump-sounds",
+      "original": "slightscream-12.flac",
+      "note": "short male effort grunt"
+    },
+    "audio/grunt_attack/grunt_attack_07.wav": {
+      "duration": 0.55,
+      "pack": "playersounds-1-by-emopreben",
+      "original": "Playersounds - Wav/Playersounds - Track 9 - Jump.wav",
+      "note": "male jump/effort grunt"
+    },
+    "audio/grunt_attack/grunt_attack_08.wav": {
+      "duration": 0.325,
+      "pack": "playersounds-1-by-emopreben",
+      "original": "Playersounds - Wav/Playersounds - Track 10 - Jump2.wav",
+      "note": "male jump/effort grunt"
+    },
+    "audio/grunt_pain/grunt_pain_01.wav": {
+      "duration": 0.589,
+      "pack": "15-vocal-male-strainhurtpainjump-sounds",
+      "original": "slightscream-05.flac",
+      "note": "male pain grunt"
+    },
+    "audio/grunt_pain/grunt_pain_02.wav": {
+      "duration": 0.688,
+      "pack": "15-vocal-male-strainhurtpainjump-sounds",
+      "original": "slightscream-10.flac",
+      "note": "male pain grunt, longer"
+    },
+    "audio/grunt_pain/grunt_pain_03.wav": {
+      "duration": 0.506,
+      "pack": "15-vocal-male-strainhurtpainjump-sounds",
+      "original": "slightscream-14.flac",
+      "note": "male pain grunt"
+    },
+    "audio/grunt_pain/grunt_pain_04.wav": {
+      "duration": 0.434,
+      "pack": "pain-sounds-by-emopreben",
+      "original": "Painsounds v2 - Track 1 - Arrrch.ogg",
+      "note": "male pain 'arrrch' [end faded (source stops abruptly)]"
+    },
+    "audio/grunt_pain/grunt_pain_05.wav": {
+      "duration": 0.632,
+      "pack": "pain-sounds-by-emopreben",
+      "original": "Painsounds v2 - Track 3 - Huuurh.ogg",
+      "note": "male pain 'huuurh' [end faded (source stops abruptly)]"
+    },
+    "audio/grunt_pain/grunt_pain_06.wav": {
+      "duration": 0.607,
+      "pack": "man-hurt-sounds",
+      "original": "ManHurt.ogg",
+      "note": "male hurt grunt [slice 0.94-1.54s]"
+    },
+    "audio/grunt_pain/grunt_pain_07.wav": {
+      "duration": 0.597,
+      "pack": "man-hurt-sounds",
+      "original": "ManHurt.ogg",
+      "note": "male hurt grunt [slice 2.11-2.72s]"
+    },
+    "audio/grunt_pain/grunt_pain_08.wav": {
+      "duration": 0.512,
+      "pack": "grunts-male-death-and-pain",
+      "original": "death pain grunts.wav",
+      "note": "male pain grunt [slice 29.84-30.35s]"
+    },
+    "audio/death/death_01.wav": {
+      "duration": 2.0,
+      "pack": "grunts-male-death-and-pain",
+      "original": "death pain grunts.wav",
+      "note": "male death groan [slice 3.94-6.14s, shortened with fade]"
+    },
+    "audio/death/death_02.wav": {
+      "duration": 1.7,
+      "pack": "grunts-male-death-and-pain",
+      "original": "death pain grunts.wav",
+      "note": "male death groan [slice 14.44-16.15s]"
+    },
+    "audio/death/death_03.wav": {
+      "duration": 2.0,
+      "pack": "grunts-male-death-and-pain",
+      "original": "death pain grunts.wav",
+      "note": "male death groan [slice 20.33-22.39s, shortened with fade]"
+    },
+    "audio/death/death_04.wav": {
+      "duration": 1.415,
+      "pack": "grunts-male-death-and-pain",
+      "original": "death pain grunts.wav",
+      "note": "male death groan [slice 35.94-37.37s]"
+    },
+    "audio/death/death_05.wav": {
+      "duration": 1.753,
+      "pack": "grunts-male-death-and-pain",
+      "original": "death pain grunts.wav",
+      "note": "male death groan [slice 47.36-49.12s]"
+    },
+    "audio/death/death_06.wav": {
+      "duration": 1.507,
+      "pack": "man-hurt-sounds",
+      "original": "ManHurt.ogg",
+      "note": "male dying groan [slice 4.96-6.48s]"
+    },
+    "audio/announcer/announcer_fight.wav": {
+      "duration": 0.698,
+      "pack": "voiceover-pack-fighter-40-taunts",
+      "original": "Audio/fight.ogg",
+      "note": "\"fight\"",
+      "phrase": "fight"
+    },
+    "audio/announcer/announcer_round_1.wav": {
+      "duration": 1.281,
+      "pack": "voiceover-pack-fighter-40-taunts",
+      "original": "Audio/round_1.ogg",
+      "note": "\"round 1\"",
+      "phrase": "round_1"
+    },
+    "audio/announcer/announcer_round_2.wav": {
+      "duration": 1.329,
+      "pack": "voiceover-pack-fighter-40-taunts",
+      "original": "Audio/round_2.ogg",
+      "note": "\"round 2\"",
+      "phrase": "round_2"
+    },
+    "audio/announcer/announcer_round_3.wav": {
+      "duration": 1.363,
+      "pack": "voiceover-pack-fighter-40-taunts",
+      "original": "Audio/round_3.ogg",
+      "note": "\"round 3\"",
+      "phrase": "round_3"
+    },
+    "audio/announcer/announcer_final_round.wav": {
+      "duration": 1.542,
+      "pack": "voiceover-pack-fighter-40-taunts",
+      "original": "Audio/final_round.ogg",
+      "note": "\"final round\"",
+      "phrase": "final_round"
+    },
+    "audio/announcer/announcer_ready.wav": {
+      "duration": 0.92,
+      "pack": "voiceover-pack-fighter-40-taunts",
+      "original": "Audio/ready.ogg",
+      "note": "\"ready\"",
+      "phrase": "ready"
+    },
+    "audio/announcer/announcer_begin.wav": {
+      "duration": 1.07,
+      "pack": "voiceover-pack-fighter-40-taunts",
+      "original": "Audio/begin.ogg",
+      "note": "\"begin\"",
+      "phrase": "begin"
+    },
+    "audio/announcer/announcer_prepare_yourself.wav": {
+      "duration": 1.594,
+      "pack": "voiceover-pack-fighter-40-taunts",
+      "original": "Audio/prepare_yourself.ogg",
+      "note": "\"prepare yourself\"",
+      "phrase": "prepare_yourself"
+    },
+    "audio/announcer/announcer_combo.wav": {
+      "duration": 0.989,
+      "pack": "voiceover-pack-fighter-40-taunts",
+      "original": "Audio/combo.ogg",
+      "note": "\"combo\"",
+      "phrase": "combo"
+    },
+    "audio/announcer/announcer_combo_breaker.wav": {
+      "duration": 1.437,
+      "pack": "voiceover-pack-fighter-40-taunts",
+      "original": "Audio/combo_breaker.ogg",
+      "note": "\"combo breaker\"",
+      "phrase": "combo_breaker"
+    },
+    "audio/announcer/announcer_flawless_victory.wav": {
+      "duration": 1.684,
+      "pack": "voiceover-pack-fighter-40-taunts",
+      "original": "Audio/flawless_victory.ogg",
+      "note": "\"flawless victory\"",
+      "phrase": "flawless_victory"
+    },
+    "audio/announcer/announcer_you_win.wav": {
+      "duration": 1.087,
+      "pack": "voiceover-pack-fighter-40-taunts",
+      "original": "Audio/you_win.ogg",
+      "note": "\"you win\"",
+      "phrase": "you_win"
+    },
+    "audio/announcer/announcer_you_lose.wav": {
+      "duration": 1.212,
+      "pack": "voiceover-pack-fighter-40-taunts",
+      "original": "Audio/you_lose.ogg",
+      "note": "\"you lose\"",
+      "phrase": "you_lose"
+    },
+    "audio/announcer/announcer_game_over.wav": {
+      "duration": 1.621,
+      "pack": "voiceover-pack-fighter-40-taunts",
+      "original": "Audio/game_over.ogg",
+      "note": "\"game over\"",
+      "phrase": "game_over"
+    },
+    "audio/announcer/announcer_winner.wav": {
+      "duration": 1.29,
+      "pack": "voiceover-pack-fighter-40-taunts",
+      "original": "Audio/winner.ogg",
+      "note": "\"winner\"",
+      "phrase": "winner"
+    },
+    "audio/announcer/announcer_time.wav": {
+      "duration": 0.927,
+      "pack": "voiceover-pack-fighter-40-taunts",
+      "original": "Audio/time.ogg",
+      "note": "\"time\"",
+      "phrase": "time"
+    },
+    "audio/ambience/ambience_01.wav": {
+      "duration": 40.0,
+      "pack": "factory-ambiance",
+      "original": "Factory.ogg",
+      "note": "industrial factory ambience loop [20-62s, 2s equal-power loop crossfade, 22050 Hz]",
+      "loop": true
+    },
+    "audio/ambience/ambience_02.wav": {
+      "duration": 30.0,
+      "pack": "amb-rain-loop-1",
+      "original": "amb_rain_loop_1.wav",
+      "note": "steady rain loop [4-36s, 2s equal-power loop crossfade, 22050 Hz]",
+      "loop": true
+    }
+  }
+}

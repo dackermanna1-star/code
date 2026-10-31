@@ -1,0 +1,71 @@
+:root { --red: #d8332a; --gold: #ffcf4a; --ink: #f2ede6; --dim: #9a948c; --panel: rgba(12, 10, 10, 0.82); }
+#hud { position: fixed; inset: 0; pointer-events: none; font-family: 'Arial Narrow', 'Helvetica Neue', Arial, sans-serif; color: var(--ink); user-select: none; z-index: 5; }
+#hud .tl { position: absolute; left: 22px; top: 18px; width: min(360px, 40vw); }
+#hud .bar { height: 14px; background: rgba(0,0,0,.55); border: 1px solid rgba(255,255,255,.18); transform: skewX(-18deg); overflow: hidden; }
+#hud .bar > i { display: block; height: 100%; background: linear-gradient(90deg, #8e1410, var(--red)); transition: width .12s linear; }
+#hud .bar.guard { height: 5px; margin-top: 4px; width: 70%; }
+#hud .bar.guard > i { background: linear-gradient(90deg, #1d4e7a, #5fa8e8); }
+#hud .label { font: 700 11px/1 'Arial Narrow', Arial, sans-serif; letter-spacing: .22em; color: var(--dim); margin: 0 0 5px 2px; }
+#hud .pips { display: flex; gap: 6px; margin-top: 9px; }
+#hud .pips span { width: 22px; height: 8px; transform: skewX(-18deg); background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.2); }
+#hud .pips span.on { background: var(--gold); box-shadow: 0 0 10px rgba(255,200,60,.7); }
+#hud .pips span.prog { background: linear-gradient(90deg, rgba(255,207,74,.55) var(--p), rgba(255,255,255,.12) var(--p)); }
+#hud .tr { position: absolute; right: 24px; top: 16px; text-align: right; }
+#hud .wave { font: 900 30px/1 Impact, 'Arial Black', sans-serif; letter-spacing: .06em; }
+#hud .score { font: 700 16px/1.2 'Courier New', monospace; color: var(--gold); margin-top: 4px; }
+#hud .left { font: 700 12px/1.3 Arial, sans-serif; color: var(--dim); letter-spacing: .15em; }
+#hud .combo { position: absolute; right: 34px; top: 34%; text-align: right; opacity: 0; transition: opacity .2s; }
+#hud .combo.on { opacity: 1; }
+#hud .combo .n { font: 900 64px/0.9 Impact, 'Arial Black', sans-serif; color: var(--ink); text-shadow: 0 0 18px rgba(255,80,40,.35), 3px 3px 0 #000; }
+#hud .combo .n small { font-size: 28px; color: var(--gold); margin-right: 4px; }
+#hud .combo .m { font: 700 15px/1.4 Arial, sans-serif; color: var(--gold); letter-spacing: .2em; }
+#hud .combo .t { height: 3px; background: rgba(255,255,255,.15); margin-top: 6px; }
+#hud .combo .t > i { display: block; height: 100%; background: var(--gold); }
+#hud .combo.pop .n { animation: pop .18s ease-out; }
+@keyframes pop { 0% { transform: scale(1.35); } 100% { transform: scale(1); } }
+#hud .toast { position: absolute; left: 50%; top: 21%; transform: translateX(-50%); font: 900 26px/1 Impact, 'Arial Black', sans-serif; letter-spacing: .12em; text-shadow: 2px 2px 0 #000, 0 0 16px rgba(0,0,0,.6); white-space: nowrap; opacity: 0; transition: opacity .25s, transform .25s; }
+#hud .toast.on { opacity: 1; transform: translateX(-50%) scale(1.04); }
+#hud .banner { position: absolute; left: 0; right: 0; top: 38%; text-align: center; opacity: 0; transition: opacity .6s; }
+#hud .banner.on { opacity: 1; }
+#hud .banner .big { font: 900 clamp(48px, 9vw, 110px)/1 Impact, 'Arial Black', sans-serif; letter-spacing: .08em; color: var(--ink); text-shadow: 5px 5px 0 #000; }
+#hud .banner .sub { font: 700 18px/1.6 Arial, sans-serif; letter-spacing: .3em; color: var(--red); }
+#hud .boss { position: absolute; left: 50%; bottom: 46px; transform: translateX(-50%); width: min(620px, 70vw); display: none; }
+#hud .boss.on { display: block; }
+#hud .boss .name { font: 900 18px/1 Impact, 'Arial Black', sans-serif; letter-spacing: .25em; text-align: center; margin-bottom: 6px; color: #ffd0c0; text-shadow: 2px 2px 0 #000; }
+#hud .boss .bar { height: 12px; }
+#hud .hint { position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%); font: 600 14px/1.4 Arial, sans-serif; letter-spacing: .05em; color: #e8e2d8; background: rgba(0,0,0,.55); padding: 6px 14px; border-left: 3px solid var(--red); opacity: 0; transition: opacity .4s; max-width: 90vw; text-align: center; }
+#hud .hint.on { opacity: 1; }
+#hud .prompt { position: absolute; left: 50%; bottom: 96px; transform: translateX(-50%); font: 700 15px/1 Arial, sans-serif; letter-spacing: .12em; color: var(--ink); text-shadow: 1px 1px 0 #000; opacity: 0; transition: opacity .15s; }
+#hud .prompt.on { opacity: 1; }
+#hud .prompt b { display: inline-block; min-width: 22px; padding: 3px 6px; margin-right: 6px; border: 1px solid rgba(255,255,255,.6); text-align: center; }
+#hud .ind { position: absolute; width: 46px; height: 46px; margin: -23px 0 0 -23px; display: flex; align-items: center; justify-content: center; font: 900 26px/1 Impact, sans-serif; }
+#hud .ind .ring { position: absolute; inset: 0; border-radius: 50%; border: 3px solid currentColor; opacity: .85; }
+#hud .ind.counter { color: #fff6c8; text-shadow: 0 0 12px #ffd24a, 0 0 2px #000; }
+#hud .ind.counter .ring { border-color: rgba(255,226,120,.9); box-shadow: 0 0 12px rgba(255,200,60,.6); }
+#hud .ind.unblock { color: #ff3b2e; text-shadow: 0 0 14px #ff2010, 0 0 2px #000; }
+#hud .ind.unblock .ring { border-color: rgba(255,60,40,.95); box-shadow: 0 0 14px rgba(255,40,20,.7); }
+#hud .ind.target { width: 14px; height: 14px; margin: -7px 0 0 -7px; font-size: 13px; color: rgba(255,255,255,.75); }
+#hud .fps { position: absolute; left: 8px; bottom: 6px; font: 11px monospace; color: #9f9; text-shadow: 1px 1px 0 #000; white-space: pre; }
+#hud .dmg { position: absolute; inset: 0; box-shadow: inset 0 0 140px rgba(160,0,0,0); transition: box-shadow .3s; }
+.menu { position: fixed; inset: 0; z-index: 10; display: none; align-items: center; justify-content: center; background: radial-gradient(ellipse at center, rgba(20,8,8,.55), rgba(0,0,0,.92)); font-family: Arial, sans-serif; color: var(--ink); }
+.menu.on { display: flex; }
+.menu .card { width: min(720px, 92vw); max-height: 90vh; overflow: auto; padding: 28px 32px; background: var(--panel); border: 1px solid rgba(255,255,255,.08); border-top: 3px solid var(--red); }
+.menu h1 { margin: 0; font: 900 clamp(48px, 10vw, 104px)/0.9 Impact, 'Arial Black', sans-serif; letter-spacing: .04em; text-shadow: 5px 5px 0 #000; }
+.menu h1 span { color: var(--red); }
+.menu h2 { margin: 0 0 14px; font: 900 34px/1 Impact, 'Arial Black', sans-serif; letter-spacing: .08em; }
+.menu .tag { font: 700 13px/1.6 Arial, sans-serif; letter-spacing: .35em; color: var(--dim); margin: 10px 0 20px; }
+.menu button { pointer-events: auto; cursor: pointer; display: block; width: 100%; margin: 8px 0; padding: 12px 16px; font: 900 18px/1 Impact, 'Arial Black', sans-serif; letter-spacing: .14em; color: var(--ink); background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.12); text-align: left; transition: background .15s, border-color .15s; }
+.menu button:hover, .menu button:focus-visible { background: rgba(216,51,42,.35); border-color: var(--red); outline: none; }
+.menu button.primary { background: var(--red); border-color: var(--red); }
+.menu table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.menu td { padding: 5px 4px; border-bottom: 1px solid rgba(255,255,255,.06); }
+.menu td:first-child { color: var(--gold); font-weight: 700; white-space: nowrap; width: 38%; }
+.menu .row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 7px 0; border-bottom: 1px solid rgba(255,255,255,.06); font-size: 14px; }
+.menu .row select, .menu .row input[type=range] { pointer-events: auto; }
+.menu select { background: #1a1414; color: var(--ink); border: 1px solid rgba(255,255,255,.2); padding: 4px 6px; }
+.menu .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 22px; margin: 14px 0 18px; font-size: 15px; }
+.menu .stats b { color: var(--gold); float: right; }
+.menu .small { font-size: 12px; color: var(--dim); line-height: 1.6; margin-top: 12px; }
+.menu .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+@media (max-width: 640px) { .menu .cols, .menu .stats { grid-template-columns: 1fr; } #hud .combo .n { font-size: 44px; } }
+.loading { position: fixed; inset: 0; z-index: 20; display: flex; align-items: center; justify-content: center; background: #050505; color: #aaa; font: 700 14px Arial, sans-serif; letter-spacing: .3em; }
