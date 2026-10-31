@@ -38,6 +38,7 @@ const fs = require('fs');
       if (s.traps && !T._traps) { T.traps(); T._traps = true; }
       if (!s.traps && T._traps) { T.traps(); T._traps = false; }
       if (s.dummies && !T._d) { for (const [x, z] of s.dummies) T.dummy(x, z); T._d = true; }
+      T.thermal(!!s.thermal);
       if (s.gate) T.level.gateMesh(s.gate[0])[s.gate[1] === 'break' ? 'break' : 'setDamage'](s.gate[1]);
       T.view(s.yaw ?? 90, s.pitch ?? -6, s.zoom ?? 1, s.lean ?? 0);
       if (s.crows) T.level.scare(T.camera.position);

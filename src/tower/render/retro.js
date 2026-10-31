@@ -47,6 +47,7 @@ uniform vec3 uGamma;
 uniform vec3 uGain;
 uniform float uSaturation;
 uniform float uContrast;
+uniform float uThermal;   // 0..1: white-hot thermal palette (hot things = bright: give bodies emissive)
 
 float bayer4(ivec2 p) {
   int x = p.x & 3, y = p.y & 3;
@@ -83,6 +84,13 @@ void main() {
   c = pow(max(c, 0.0), 1.0 / uGamma);
   float l = dot(c, vec3(0.299, 0.587, 0.114));
   c = mix(vec3(l), c, uSaturation);
+  if (uThermal > 0.0) {
+    // white-hot: the cold world sinks to dark grey-green, warm things blow out to white
+    float h = clamp(pow(l, 0.75) * 1.6 - 0.08, 0.0, 1.0);
+    vec3 th = mix(vec3(0.04, 0.06, 0.05), vec3(0.92, 0.97, 0.9), h * h * (3.0 - 2.0 * h));
+    th += (fract(sin(dot(tp, vec2(12.9898, 78.233)) + uMap.y) * 43758.5453) - 0.5) * 0.05;
+    c = mix(c, th, uThermal);
+  }
   c = (c - 0.5) * uContrast + 0.5;
   // vignette (on the low-res grid so it dithers with everything else)
   vec2 q = (tp + 0.5) / uInternal - 0.5;
@@ -144,6 +152,7 @@ export class RetroRenderer {
       uGain: { value: new THREE.Vector3(1, 1, 1) },
       uSaturation: { value: 1 },
       uContrast: { value: 1 },
+      uThermal: { value: 0 },
     };
     this.baseVignette = this.uniforms.uVignette.value;
     const mat = new THREE.ShaderMaterial({
@@ -184,6 +193,11 @@ export class RetroRenderer {
     if (k === this.scopeBoost) return;
     this.scopeBoost = k;
     this._layout();
+  }
+
+  /** Thermal sight: 0 off .. 1 full white-hot palette (sensor noise flickers per frame). */
+  setThermal(k) {
+    this.uniforms.uThermal.value = Math.min(1, Math.max(0, k || 0));
   }
 
   /** Bits per channel (5 = PS-era 15-bit colour) and dither strength. */
@@ -279,6 +293,7 @@ export class RetroRenderer {
   /** Upscale + grade + dither the low-res target onto the canvas. */
   present() {
     const r = this.renderer;
+    if (this.uniforms.uThermal.value > 0) this.uniforms.uMap.value.y = (this.uniforms.uMap.value.y + 1.618) % 64; // noise seed
     r.setRenderTarget(null);
     r.render(this.postScene, this.postCam);
   }

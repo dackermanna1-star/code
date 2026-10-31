@@ -204,7 +204,13 @@ window.__tower = {
     g.position.set(x, 0, z);
     g.rotation.y = Math.atan2(-x, -z);
     level.scene.add(g);
+    (this.dummyMats ??= []).push(m, skin);
     return g;
+  },
+  /** Thermal sight on/off: the retro palette plus warm (emissive) test figures. */
+  thermal(on) {
+    retro.setThermal(on ? 1 : 0);
+    for (const m of this.dummyMats ?? []) m.emissive.setScalar(on ? 0.75 : 0);
   },
 };
 // ?zombie: real engine bodies with the zombie skin shader round the valley; ?overlay: a stand-in
