@@ -322,12 +322,12 @@ export class TowerFx {
     }
     // thin wisps drifting away from the muzzle
     // (the hands' own guns, fired many times a second: just a wisp)
-    const ns = opts.noFlash ? 1 : opts.suppressed ? 3 : opts.brake ? 8 : 5;
+    const ns = opts.noFlash ? (Math.random() < 0.3 ? 1 : 0) : opts.suppressed ? 1 : opts.brake ? 2 : 2;
     for (let i = 0; i < ns; i++) {
       spray(_v, dx, dy + 0.1, dz, 0.3);
       const sp = rnd(0.5, 1.8);
       const o = rnd(0.05, 0.2);
-      S.spawn(x + dx * o, y + dy * o, z + dz * o, _v.x * sp, _v.y * sp + 0.15, _v.z * sp, rnd(1.2, 2.2), rnd(0.015, 0.03), rnd(0.16, 0.3), R.smokeLight, 1.6, -0.12, GROW_EASE);
+      S.spawn(x + dx * o, y + dy * o, z + dz * o, _v.x * sp, _v.y * sp + 0.15, _v.z * sp, rnd(0.8, 1.5), rnd(0.01, 0.02), rnd(0.09, 0.17), R.smokeLight, 1.6, -0.12, GROW_EASE);
     }
   }
 
@@ -428,12 +428,14 @@ export class TowerFx {
   /** A dust puff (a barricade torn down, a zombie rising). amount 0..1 scales its size and count. */
   dust(pos, amount = 1) {
     const S = this.soft;
-    const n = Math.max(1, Math.round(5 * amount));
+    // (kept very faint: a wisp or two)
+    if (Math.random() > 0.3 + 0.4 * amount) return;
+    const n = Math.max(1, Math.round(1.5 * amount));
     for (let i = 0; i < n; i++) {
       const a = Math.random() * Math.PI * 2;
       const sp = rnd(0.3, 1.1) * (0.6 + 0.4 * amount);
       S.spawn(pos.x + Math.cos(a) * 0.25, Math.max(0.08, pos.y), pos.z + Math.sin(a) * 0.25, Math.cos(a) * sp, rnd(0.1, 0.4), Math.sin(a) * sp,
-        rnd(0.8, 1.4), rnd(0.18, 0.3) * (0.6 + 0.4 * amount), rnd(0.55, 0.9) * (0.6 + 0.4 * amount), R.dust, 0.9, -0.05, GROW_EASE);
+        rnd(0.5, 0.9), rnd(0.1, 0.16) * (0.6 + 0.4 * amount), rnd(0.3, 0.5) * (0.6 + 0.4 * amount), R.dust, 0.9, -0.05, GROW_EASE);
     }
   }
 
