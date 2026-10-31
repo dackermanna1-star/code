@@ -135,8 +135,12 @@ export class Game {
         this.hud.setFeedVisible(this.feedVisible);
       },
       onFullscreen: () => {
-        if (document.fullscreenElement) void document.exitFullscreen();
-        else void this.root.requestFullscreen?.();
+        try {
+          if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+          else this.root.requestFullscreen?.().catch(() => this.screens.toast('Fullscreen is not available here'));
+        } catch {
+          /* fullscreen unsupported */
+        }
       },
       onAutoContinue: (v) => (this.autoContinue = v),
       onLoadSeed: (code) => {
@@ -146,7 +150,12 @@ export class Game {
       },
       onCopyLink: () => {
         const url = `${location.origin}${location.pathname}#seed=${seedToCode(this.seed)}`;
-        navigator.clipboard?.writeText(url).then(() => this.screens.toast('Battle link copied'), () => this.screens.toast(url));
+        const code = seedToCode(this.seed);
+        try {
+          navigator.clipboard.writeText(url).then(() => this.screens.toast('Battle link copied'), () => this.screens.toast(`Seed ${code}`));
+        } catch {
+          this.screens.toast(`Seed ${code}`);
+        }
       },
     });
     this.audio.setMasterVolume(this.volume);
