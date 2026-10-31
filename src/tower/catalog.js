@@ -73,13 +73,13 @@ export const DEFENCE_ORDER = ['repair', 'wire', 'mine', 'barrel', 'floodlight', 
  * with; gate: gate damage per second while battering; cash: reward; from: first wave it appears.
  */
 export const ENEMIES = {
-  walker: { name: 'Walker', hp: 260, speed: 0.9, clip: 'walk', gate: 5, cash: 20, from: 1 },
-  runner: { name: 'Runner', hp: 170, speed: 3.4, clip: 'sprint', gate: 4, cash: 35, from: 3 },
+  walker: { name: 'Walker', hp: 260, speed: 1.2, clip: 'walk', gate: 5, cash: 20, from: 1 },
+  runner: { name: 'Runner', hp: 170, speed: 3.6, clip: 'sprint', gate: 4, cash: 35, from: 3 },
   crawler: { name: 'Crawler', hp: 200, speed: 0.45, clip: 'crawl', gate: 3, cash: 25, from: 4 },
-  climber: { name: 'Climber', hp: 160, speed: 2.2, clip: 'jog', climbSpeed: 0.75, cash: 50, from: 4 },
-  bloater: { name: 'Bloater', hp: 300, speed: 0.6, clip: 'walk', gate: 6, cash: 60, from: 6, burst: { radius: 5, power: 1.1 } },
-  screamer: { name: 'Screamer', hp: 220, speed: 1.0, clip: 'walk2', gate: 4, cash: 80, from: 8, scream: { radius: 70, dur: 9 } },
-  armored: { name: 'Armoured', hp: 320, speed: 0.85, clip: 'walk', gate: 6, cash: 70, from: 7, armor: { helmet: 4, vest: 0.7 } },
+  climber: { name: 'Climber', hp: 160, speed: 2.4, clip: 'jog', climbSpeed: 0.75, cash: 50, from: 4 },
+  bloater: { name: 'Bloater', hp: 300, speed: 0.8, clip: 'walk', gate: 6, cash: 60, from: 6, burst: { radius: 5, power: 1.1 } },
+  screamer: { name: 'Screamer', hp: 220, speed: 1.3, clip: 'walk2', gate: 4, cash: 80, from: 8, scream: { radius: 70, dur: 9 } },
+  armored: { name: 'Armoured', hp: 320, speed: 1.1, clip: 'walk', gate: 6, cash: 70, from: 7, armor: { helmet: 4, vest: 0.7 } },
   brute: { name: 'Brute', hp: 2200, speed: 1.1, clip: 'walk2', gate: 30, cash: 600, boss: true, armor: { helmet: 4, vest: 0.7 } },
   juggernaut: { name: 'Juggernaut', hp: 5200, speed: 0.55, clip: 'walk', gate: 60, cash: 1500, boss: true, armor: { helmet: 8, vest: 0.95 } },
 };
@@ -101,9 +101,9 @@ export const PLAYER = { hp: 100, climberDps: 18, startCash: 300 };
 
 /** Wave rules: how many of what, how fast, which boss. */
 export const WAVES = {
-  count: (n) => Math.round(8 + n * 3.5 + n * n * 0.25),
-  maxAlive: (n) => Math.min(30 + n * 4, 80),
-  spawnInterval: (n) => Math.max(0.35, 2.2 - n * 0.12), // s between spawns while topping up
+  count: (n) => Math.round(10 + n * 4 + n * n * 0.3),
+  maxAlive: (n) => Math.min(25 + n * 5, 90),
+  spawnInterval: (n) => Math.max(0.25, 1.5 - n * 0.08), // s between spawns while topping up
   /** Relative weights of the kinds that can appear in wave n. */
   mix(n) {
     const w = { walker: 10 };

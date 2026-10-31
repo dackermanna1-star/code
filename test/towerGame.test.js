@@ -120,8 +120,8 @@ test('barbed wire trips a walker into physics; a landmine throws and wrecks the 
   const gt = LAYOUT.compound.gates[2];
   const w = nearGate(2, 32);
   g.owned.defences.wire = 1;
-  // the wire across the path (perpendicular to the gate's normal)
-  assert.ok(g.placeTrap('wire', w, Math.atan2(gt.normal[1], gt.normal[0])).ok);
+  // the wire across the path (perpendicular to the gate's normal: direction (cos yaw, -sin yaw))
+  assert.ok(g.placeTrap('wire', w, Math.atan2(-gt.normal[0], -gt.normal[1])).ok);
   let tripped = false;
   run(g, 20, (t, ev) => {
     if (ev.some((e) => e.type === 'tripped')) tripped = true;
@@ -165,4 +165,50 @@ test('80 animated zombies cost little per physics step', () => {
   run(g, 3);
   const ms = (performance.now() - t0) / 180;
   assert.ok(ms < 6, `${ms.toFixed(2)} ms per step for 80 animated zombies`);
+});
+
+test('the shop: rifles, ammo, upgrades, defences, placement rules; a run saves and restores', () => {
+  const g = game(11);
+  g.cash = 20000;
+  assert.ok(g.buy('rifle', 'sr10').ok);
+  assert.equal(g.rifle.id, 'sr10');
+  assert.ok(g.buy('ammo', 'ap').ok);
+  assert.equal(g.owned.ammo.ap, 15);
+  assert.ok(g.equip('ammo', 'ap').ok);
+  assert.ok(g.buy('upgrade', 'magazine').ok);
+  assert.equal(g.rifle.mag, 15);
+  assert.ok(!g.buy('upgrade', 'magazine').ok, 'maxed');
+  const r = g.buy('defence', 'mine');
+  assert.ok(r.ok && r.place === 'ground');
+  assert.ok(!g.placeTrap('mine', new Vec3(240, 0, 240)).ok, 'outside the trap zone');
+  assert.ok(g.placeTrap('mine', new Vec3(20, 0, 40)).ok);
+  assert.ok(!g.placeTrap('mine', new Vec3(22, 0, 40)).ok, 'none left');
+  g.gate.hp = 400;
+  assert.ok(g.buy('defence', 'repair').ok);
+  assert.ok(g.gate.hp > 400);
+  assert.ok(g.buy('defence', 'sentry').ok && g.defences.sentry);
+  const s = JSON.parse(JSON.stringify(g.serialize()));
+  const g2 = game(12);
+  g2.newRun(s);
+  assert.equal(g2.cash, g.cash);
+  assert.ok(g2.owned.rifles.has('sr10'));
+  assert.equal(g2.defences.mines.length, 1);
+  assert.ok(g2.defences.sentry);
+  assert.equal(g2.director.phase, 'shop');
+});
+
+test('a wave runs from its intro to the shop', () => {
+  const g = game(13);
+  g.director.phase = 'title';
+  assert.ok(g.nextWave());
+  const kinds = new Set();
+  run(g, 120, (t, ev) => {
+    for (const e of ev) if (e.type === 'zombieSpawned') kinds.add(e.zombie.kind);
+    // a perfect marksman: everything dies as soon as it appears
+    for (const z of g.horde.list) if (z.alive && z.animated) z.person.injury.kill('test');
+    if (g.director.phase === 'shop') return false;
+  });
+  assert.equal(g.director.phase, 'shop');
+  assert.ok(g.stats.kills >= g.director.total, `${g.stats.kills} kills of ${g.director.total}`);
+  assert.ok(kinds.has('walker'));
 });
