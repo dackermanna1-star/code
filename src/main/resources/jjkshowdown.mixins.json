@@ -1,0 +1,12 @@
+{
+	"required": true,
+	"minVersion": "0.8",
+	"package": "com.jjkshowdown.mixin",
+	"compatibilityLevel": "JAVA_21",
+	"mixins": [
+		"LivingEntityMixin",
+		"MobMixin",
+		"PlayerMixin"
+	],
+	"injectors": { "defaultRequire": 1 }
+}

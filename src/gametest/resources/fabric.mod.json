@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "id": "jjkshowdown-test",
+  "version": "1.0.0",
+  "name": "Jujutsu Showdown GameTests",
+  "environment": "*",
+  "entrypoints": {
+    "fabric-gametest": [
+      "com.jjkshowdown.test.JjkGameTests"
+    ],
+    "fabric-client-gametest": [
+      "com.jjkshowdown.test.JjkClientGameTest"
+    ]
+  },
+  "depends": {
+    "jjkshowdown": "*"
+  }
+}

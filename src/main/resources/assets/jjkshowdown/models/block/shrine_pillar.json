@@ -1,0 +1,7 @@
+{
+  "parent": "minecraft:block/cube_column",
+  "textures": {
+    "end": "jjkshowdown:block/shrine_pillar_top",
+    "side": "jjkshowdown:block/shrine_pillar"
+  }
+}

@@ -1,0 +1,650 @@
+{
+  "gojo.infinity_on": {
+    "sounds": [
+      {
+        "name": "jjkshowdown:gojo/infinity_on"
+      }
+    ],
+    "subtitle": "subtitles.jjkshowdown.gojo.infinity_on"
+  },
+  "gojo.infinity_off": {
+    "sounds": [
+      {
+        "name": "jjkshowdown:gojo/infinity_off"
+      }
+    ],
+    "subtitle": "subtitles.jjkshowdown.gojo.infinity_off"
+  },
+  "gojo.infinity_block": {
+    "sounds": [
+      {
+        "name": "jjkshowdown:gojo/infinity_block"
+      }
+    ],
+    "subtitle": "subtitles.jjkshowdown.gojo.infinity_block"
+  },
+  "gojo.blue_cast": {
+    "sounds": [
+      {
+        "name": "jjkshowdown:gojo/blue_cast"
+      }
+    ],
+    "subtitle": "subtitles.jjkshowdown.gojo.blue_cast"
+  },
+  "gojo.blue_loop": {
+    "sounds": [
+      {
+        "name": "jjkshowdown:gojo/blue_loop"
+      }
+    ],
+    "subtitle": "subtitles.jjkshowdown.gojo.blue_loop"
+  },
+  "gojo.red_charge": {
+    "sounds": [
+      {
+        "name": "jjkshowdown:gojo/red_charge"
+      }
+    ],
+    "subtitle": "subtitles.jjkshowdown.gojo.red_charge"
+  },
+  "gojo.red_fire": {
+    "sounds": [
+      {
+        "name": "jjkshowdown:gojo/red_fire"
+      }
+    ],
+    "subtitle": "subtitles.jjkshowdown.gojo.red_fire"
+  },
+  "gojo.red_impact": {
+    "sounds": [
+      {
+        "name": "jjkshowdown:gojo/red_impact",
+        "attenuation_distance": 64
+      }
+    ],
+    "subtitle": "subtitles.jjkshowdown.gojo.red_impact"
+  },
+  "gojo.purple_charge": {
+    "sounds": [
+      {
+        "name": "jjkshowdown:gojo/purple_charge"
+      }
+    ],
+    "subtitle": "subtitles.jjkshowdown.gojo.purple_charge"
+  },
+  "gojo.purple_fire": {
+    "sounds": [
+      {
+        "name": "jjkshowdown:gojo/purple_fire",
+        "attenuation_distance": 64
+      }
+    ],
+    "subtitle": "subtitles.jjkshowdown.gojo.purple_fire"
+  },
+  "gojo.blink": {
+    "sounds": [
+      {
+        "name": "jjkshowdown:gojo/blink"
+      }
+    ],
+    "subtitle": "subtitles.jjkshowdown.gojo.blink"
+  },
+  "gojo.void_activate": {
+    "sounds": [
+      {
+        "name": "jjkshowdown:gojo/void_activate",
+        "attenuation_distance": 64
+      }
+    ],
+    "subtitle": "subtitles.jjkshowdown.gojo.void_activate"
+  },
+  "gojo.void_ambient": {
+    "sounds": [
+      {
+        "name": "jjkshowdown:gojo/void_ambient"
+      }
+    ],
+    "subtitle": "subtitles.jjkshowdown.gojo.void_ambient"
+  },
+  "sukuna.dismantle": {
+    "sounds": [
+      {
+        "name": "jjkshowdown:sukuna/dismantle"
+      }
+    ],
+    "subtitle": "subtitles.jjkshowdown.sukuna.dismantle"
+  },
+  "sukuna.dismantle_barrage": {
+    "sounds": [
+      {
+        "name": "jjkshowdown:sukuna/dismantle_barrage"
+      }
+    ],
+    "subtitle": "subtitles.jjkshowdown.sukuna.dismantle_barrage"
+  },
+  "sukuna.cleave": {
+    "sounds": [
+      {
+        "name": "jjkshowdown:sukuna/cleave"
+      }
+    ],
+    "subtitle": "subtitles.jjkshowdown.sukuna.cleave"
+  },
+  "sukuna.fuga_charge": {
+    "sounds": [
+      {
+        "name": "jjkshowdown:sukuna/fuga_charge"
+      }
+    ],
+    "subtitle": "subtitles.jjkshowdown.sukuna.fuga_charge"
+  },
+  "sukuna.fuga_fire": {
+    "sounds": [
+      {
+        "name": "jjkshowdown:sukuna/fuga_fire"
+      }
+    ],
+    "subtitle": "subtitles.jjkshowdown.sukuna.fuga_fire"
+  },
+  "sukuna.fuga_explode": {
+    "sounds": [
+      {
+        "name": "jjkshowdown:sukuna/fuga_explode",
+        "attenuation_distance": 64
+      }
+    ],
+    "subtitle": "subtitles.jjkshowdown.sukuna.fuga_explode"
+  },
+  "sukuna.world_slash_charge": {
+    "sounds": [
+      {
+        "name": "jjkshowdown:sukuna/world_slash_charge"
+      }
+    ],
+    "subtitle": "subtitles.jjkshowdown.sukuna.world_slash_charge"
+  },
+  "sukuna.world_slash": {
+    "sounds": [
+      {
+        "name": "jjkshowdown:sukuna/world_slash",
+        "attenuation_distance": 64
+      }
+    ],
+    "subtitle": "subtitles.jjkshowdown.sukuna.world_slash"
+  },
+  "sukuna.shrine_activate": {
+    "sounds": [
+      {
+        "name": "jjkshowdown:sukuna/shrine_activate",
+        "attenuation_distance": 64
+      }
+    ],
+    "subtitle": "subtitles.jjkshowdown.sukuna.shrine_activate"
+  },
+  "sukuna.shrine_ambient": {
+    "sounds": [
+      {
+        "name": "jjkshowdown:sukuna/shrine_ambient"
+      }
+    ],
+    "subtitle": "subtitles.jjkshowdown.sukuna.shrine_ambient"
+  },
+  "sukuna.shrine_slash": {
+    "sounds": [
+      {
+        "name": "jjkshowdown:sukuna/shrine_slash"
+      }
+    ],
+    "subtitle": "subtitles.jjkshowdown.sukuna.shrine_slash"
+  },
+  "sukuna.amplification_on": {
+    "sounds": [
+      {
+        "name": "jjkshowdown:sukuna/amplification_on"
+      }
+    ],
+    "subtitle": "subtitles.jjkshowdown.sukuna.amplification_on"
+  },
+  "combat.punch_light": {
+    "sounds": [
+      {
+        "name": "jjkshowdown:combat/punch_light"
+      }
+    ],
+    "subtitle": "subtitles.jjkshowdown.combat.punch_light"
+  },
+  "combat.punch_heavy": {
+    "sounds": [
+      {
+        "name": "jjkshowdown:combat/punch_heavy"
+      }
+    ],
+    "subtitle": "subtitles.jjkshowdown.combat.punch_heavy"
+  },
+  "combat.combo_finisher": {
+    "sounds": [
+      {
+        "name": "jjkshowdown:combat/combo_finisher"
+      }
+    ],
+    "subtitle": "subtitles.jjkshowdown.combat.combo_finisher"
+  },
+  "combat.black_flash": {
+    "sounds": [
+      {
+        "name": "jjkshowdown:combat/black_flash"
+      }
+    ],
+    "subtitle": "subtitles.jjkshowdown.combat.black_flash"
+  },
+  "combat.dodge": {
+    "sounds": [
+      {
+        "name": "jjkshowdown:combat/dodge"
+      }
+    ],
+    "subtitle": "subtitles.jjkshowdown.combat.dodge"
+  },
+  "combat.block": {
+    "sounds": [
+      {
+        "name": "jjkshowdown:combat/block"
+      }
+    ],
+    "subtitle": "subtitles.jjkshowdown.combat.block"
+  },
+  "combat.parry": {
+    "sounds": [
+      {
+        "name": "jjkshowdown:combat/parry"
+      }
+    ],
+    "subtitle": "subtitles.jjkshowdown.combat.parry"
+  },
+  "combat.counter": {
+    "sounds": [
+      {
+        "name": "jjkshowdown:combat/counter"
+      }
+    ],
+    "subtitle": "subtitles.jjkshowdown.combat.counter"
+  },
+  "combat.double_jump": {
+    "sounds": [
+      {
+        "name": "jjkshowdown:combat/double_jump"
+      }
+    ],
+    "subtitle": "subtitles.jjkshowdown.combat.double_jump"
+  },
+  "combat.slam": {
+    "sounds": [
+      {
+        "name": "jjkshowdown:combat/slam"
+      }
+    ],
+    "subtitle": "subtitles.jjkshowdown.combat.slam"
+  },
+  "combat.finisher": {
+    "sounds": [
+      {
+        "name": "jjkshowdown:combat/finisher"
+      }
+    ],
+    "subtitle": "subtitles.jjkshowdown.combat.finisher"
+  },
+  "combat.rct": {
+    "sounds": [
+      {
+        "name": "jjkshowdown:combat/rct"
+      }
+    ],
+    "subtitle": "subtitles.jjkshowdown.combat.rct"
+  },
+  "domain.clash": {
+    "sounds": [
+      {
+        "name": "jjkshowdown:domain/clash",
+        "attenuation_distance": 64
+      }
+    ],
+    "subtitle": "subtitles.jjkshowdown.domain.clash"
+  },
+  "domain.shatter": {
+    "sounds": [
+      {
+        "name": "jjkshowdown:domain/shatter",
+        "attenuation_distance": 64
+      }
+    ],
+    "subtitle": "subtitles.jjkshowdown.domain.shatter"
+  },
+  "domain.barrier_form": {
+    "sounds": [
+      {
+        "name": "jjkshowdown:domain/barrier_form"
+      }
+    ],
+    "subtitle": "subtitles.jjkshowdown.domain.barrier_form"
+  },
+  "domain.clash_win": {
+    "sounds": [
+      {
+        "name": "jjkshowdown:domain/clash_win"
+      }
+    ],
+    "subtitle": "subtitles.jjkshowdown.domain.clash_win"
+  },
+  "ui.qte_prompt": {
+    "sounds": [
+      {
+        "name": "jjkshowdown:ui/qte_prompt"
+      }
+    ],
+    "subtitle": "subtitles.jjkshowdown.ui.qte_prompt"
+  },
+  "ui.qte_success": {
+    "sounds": [
+      {
+        "name": "jjkshowdown:ui/qte_success"
+      }
+    ],
+    "subtitle": "subtitles.jjkshowdown.ui.qte_success"
+  },
+  "ui.qte_fail": {
+    "sounds": [
+      {
+        "name": "jjkshowdown:ui/qte_fail"
+      }
+    ],
+    "subtitle": "subtitles.jjkshowdown.ui.qte_fail"
+  },
+  "ui.select": {
+    "sounds": [
+      {
+        "name": "jjkshowdown:ui/select"
+      }
+    ],
+    "subtitle": "subtitles.jjkshowdown.ui.select"
+  },
+  "ui.level_up": {
+    "sounds": [
+      {
+        "name": "jjkshowdown:ui/level_up"
+      }
+    ],
+    "subtitle": "subtitles.jjkshowdown.ui.level_up"
+  },
+  "ui.cinematic_hit": {
+    "sounds": [
+      {
+        "name": "jjkshowdown:ui/cinematic_hit"
+      }
+    ],
+    "subtitle": "subtitles.jjkshowdown.ui.cinematic_hit"
+  },
+  "music.battle_gojo": {
+    "sounds": [
+      {
+        "name": "jjkshowdown:music/battle_gojo",
+        "stream": true
+      }
+    ]
+  },
+  "music.battle_sukuna": {
+    "sounds": [
+      {
+        "name": "jjkshowdown:music/battle_sukuna",
+        "stream": true
+      }
+    ]
+  },
+  "music.unlimited_void": {
+    "sounds": [
+      {
+        "name": "jjkshowdown:music/unlimited_void",
+        "stream": true
+      }
+    ]
+  },
+  "music.malevolent_shrine": {
+    "sounds": [
+      {
+        "name": "jjkshowdown:music/malevolent_shrine",
+        "stream": true
+      }
+    ]
+  },
+  "voice.gojo.domain": {
+    "sounds": [
+      {
+        "name": "jjkshowdown:voice/gojo/domain",
+        "attenuation_distance": 40
+      }
+    ]
+  },
+  "voice.gojo.honored_one": {
+    "sounds": [
+      {
+        "name": "jjkshowdown:voice/gojo/honored_one",
+        "attenuation_distance": 40
+      }
+    ]
+  },
+  "voice.gojo.blue": {
+    "sounds": [
+      {
+        "name": "jjkshowdown:voice/gojo/blue",
+        "attenuation_distance": 40
+      }
+    ]
+  },
+  "voice.gojo.red": {
+    "sounds": [
+      {
+        "name": "jjkshowdown:voice/gojo/red",
+        "attenuation_distance": 40
+      }
+    ]
+  },
+  "voice.gojo.purple": {
+    "sounds": [
+      {
+        "name": "jjkshowdown:voice/gojo/purple",
+        "attenuation_distance": 40
+      }
+    ]
+  },
+  "voice.gojo.purple_incantation": {
+    "sounds": [
+      {
+        "name": "jjkshowdown:voice/gojo/purple_incantation",
+        "attenuation_distance": 40
+      }
+    ]
+  },
+  "voice.gojo.nah_id_win": {
+    "sounds": [
+      {
+        "name": "jjkshowdown:voice/gojo/nah_id_win",
+        "attenuation_distance": 40
+      }
+    ]
+  },
+  "voice.gojo.strongest": {
+    "sounds": [
+      {
+        "name": "jjkshowdown:voice/gojo/strongest",
+        "attenuation_distance": 40
+      }
+    ]
+  },
+  "voice.gojo.intro": {
+    "sounds": [
+      {
+        "name": "jjkshowdown:voice/gojo/intro",
+        "attenuation_distance": 40
+      }
+    ]
+  },
+  "voice.gojo.taunt": {
+    "sounds": [
+      {
+        "name": "jjkshowdown:voice/gojo/taunt",
+        "attenuation_distance": 40
+      }
+    ]
+  },
+  "voice.gojo.victory": {
+    "sounds": [
+      {
+        "name": "jjkshowdown:voice/gojo/victory",
+        "attenuation_distance": 40
+      }
+    ]
+  },
+  "voice.gojo.defeat": {
+    "sounds": [
+      {
+        "name": "jjkshowdown:voice/gojo/defeat",
+        "attenuation_distance": 40
+      }
+    ]
+  },
+  "voice.gojo.select": {
+    "sounds": [
+      {
+        "name": "jjkshowdown:voice/gojo/select",
+        "attenuation_distance": 40
+      }
+    ]
+  },
+  "voice.gojo.infinity": {
+    "sounds": [
+      {
+        "name": "jjkshowdown:voice/gojo/infinity",
+        "attenuation_distance": 40
+      }
+    ]
+  },
+  "voice.gojo.clash": {
+    "sounds": [
+      {
+        "name": "jjkshowdown:voice/gojo/clash",
+        "attenuation_distance": 40
+      }
+    ]
+  },
+  "voice.sukuna.domain": {
+    "sounds": [
+      {
+        "name": "jjkshowdown:voice/sukuna/domain",
+        "attenuation_distance": 40
+      }
+    ]
+  },
+  "voice.sukuna.dismantle": {
+    "sounds": [
+      {
+        "name": "jjkshowdown:voice/sukuna/dismantle",
+        "attenuation_distance": 40
+      }
+    ]
+  },
+  "voice.sukuna.cleave": {
+    "sounds": [
+      {
+        "name": "jjkshowdown:voice/sukuna/cleave",
+        "attenuation_distance": 40
+      }
+    ]
+  },
+  "voice.sukuna.fuga": {
+    "sounds": [
+      {
+        "name": "jjkshowdown:voice/sukuna/fuga",
+        "attenuation_distance": 40
+      }
+    ]
+  },
+  "voice.sukuna.incantation": {
+    "sounds": [
+      {
+        "name": "jjkshowdown:voice/sukuna/incantation",
+        "attenuation_distance": 40
+      }
+    ]
+  },
+  "voice.sukuna.world_slash": {
+    "sounds": [
+      {
+        "name": "jjkshowdown:voice/sukuna/world_slash",
+        "attenuation_distance": 40
+      }
+    ]
+  },
+  "voice.sukuna.know_your_place": {
+    "sounds": [
+      {
+        "name": "jjkshowdown:voice/sukuna/know_your_place",
+        "attenuation_distance": 40
+      }
+    ]
+  },
+  "voice.sukuna.stand_proud": {
+    "sounds": [
+      {
+        "name": "jjkshowdown:voice/sukuna/stand_proud",
+        "attenuation_distance": 40
+      }
+    ]
+  },
+  "voice.sukuna.intro": {
+    "sounds": [
+      {
+        "name": "jjkshowdown:voice/sukuna/intro",
+        "attenuation_distance": 40
+      }
+    ]
+  },
+  "voice.sukuna.taunt": {
+    "sounds": [
+      {
+        "name": "jjkshowdown:voice/sukuna/taunt",
+        "attenuation_distance": 40
+      }
+    ]
+  },
+  "voice.sukuna.victory": {
+    "sounds": [
+      {
+        "name": "jjkshowdown:voice/sukuna/victory",
+        "attenuation_distance": 40
+      }
+    ]
+  },
+  "voice.sukuna.defeat": {
+    "sounds": [
+      {
+        "name": "jjkshowdown:voice/sukuna/defeat",
+        "attenuation_distance": 40
+      }
+    ]
+  },
+  "voice.sukuna.select": {
+    "sounds": [
+      {
+        "name": "jjkshowdown:voice/sukuna/select",
+        "attenuation_distance": 40
+      }
+    ]
+  },
+  "voice.sukuna.clash": {
+    "sounds": [
+      {
+        "name": "jjkshowdown:voice/sukuna/clash",
+        "attenuation_distance": 40
+      }
+    ]
+  }
+}

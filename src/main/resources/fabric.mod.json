@@ -1,0 +1,25 @@
+{
+	"schemaVersion": 1,
+	"id": "jjkshowdown",
+	"version": "${version}",
+	"name": "Jujutsu Showdown: Gojo vs. Sukuna",
+	"description": "Play as Satoru Gojo or Ryomen Sukuna: Limitless, Infinity, Blue, Red, Hollow Purple, Unlimited Void, Dismantle, Cleave, Fuga, World-Cutting Slash, Malevolent Shrine, domain clashes, cinematic combat and rival boss AI.",
+	"authors": ["jjkshowdown"],
+	"license": "All-Rights-Reserved",
+	"icon": "assets/jjkshowdown/icon.png",
+	"environment": "*",
+	"entrypoints": {
+		"main": ["com.jjkshowdown.JjkShowdown"],
+		"client": ["com.jjkshowdown.client.JjkShowdownClient"]
+	},
+	"mixins": [
+		"jjkshowdown.mixins.json",
+		{ "config": "jjkshowdown.client.mixins.json", "environment": "client" }
+	],
+	"depends": {
+		"fabricloader": ">=${loader_version}",
+		"minecraft": "~${minecraft_version}",
+		"java": ">=21",
+		"fabric-api": "*"
+	}
+}

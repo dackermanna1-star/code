@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    " N ",
+    "BRB",
+    " W "
+  ],
+  "key": {
+    "N": "minecraft:nether_wart",
+    "B": "minecraft:bone",
+    "R": "minecraft:rotten_flesh",
+    "W": "minecraft:wither_rose"
+  },
+  "result": {
+    "id": "jjkshowdown:sukuna_finger",
+    "count": 1
+  }
+}
