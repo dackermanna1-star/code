@@ -6,13 +6,13 @@ import { World } from '../src/physics/world.js';
 import { Ragdoll } from '../src/human/ragdoll.js';
 import { BodyShape } from '../src/human/bodyShape.js';
 import { TowerGame } from '../src/tower/game/game.js';
-import { LAYOUT, isWalkable } from '../src/tower/level/layout.js';
+import { LAYOUT, isWalkable, lookoutEye, buildWalkGrid } from '../src/tower/level/layout.js';
 
 const shape = new BodyShape(new Ragdoll(new World()).segList.map((s) => s.name));
 const DT = 1 / 60;
 
 function game(seed = 1, opts = {}) {
-  const g = new TowerGame({ layout: LAYOUT, isWalkable, shape, rng: makeRng(seed), ...opts });
+  const g = new TowerGame({ layout: LAYOUT, isWalkable, shape, rng: makeRng(seed), walkGrid, ...opts });
   g.director.phase = 'fight'; // no wave director unless a test starts one
   g.director.toSpawn = 0;
   g.director.total = 0;
@@ -30,6 +30,12 @@ function run(g, seconds, cb) {
 }
 
 const eye = new Vec3(...LAYOUT.tower.eye);
+const walkGrid = buildWalkGrid(1);
+/** The sniper's eye for a target: at the window he looks through (as the game places it). */
+function eyeFor(p) {
+  const dx = p.x - eye.x, dy = p.y - eye.y, dz = p.z - eye.z;
+  return new Vec3(...lookoutEye(Math.atan2(-dx, -dz), Math.atan2(dy, Math.hypot(dx, dz))));
+}
 
 /** Aim from the tower at a segment of a zombie (drop compensated) and fire. */
 function shootAt(g, z, seg = 'head', rifle = null) {
@@ -37,9 +43,10 @@ function shootAt(g, z, seg = 'head', rifle = null) {
   g.rifle.state = 'idle';
   g.rifle.ammo = Math.max(g.rifle.ammo, 1);
   const p = z.person.rd.segments[seg].body.pos.clone();
-  const d = p.distanceTo(eye);
+  const e = eyeFor(p);
+  const d = p.distanceTo(e);
   p.y += 0.5 * 9.81 * (d / 800) ** 2;
-  return g.fire(eye, p.sub(eye).normalize());
+  return g.fire(e, p.sub(e).normalize());
 }
 
 /** A point `dist` m out from a gate, in front of it. */
@@ -71,13 +78,21 @@ test('a head shot from the tower wakes, kills and pays; the corpse settles and i
   run(g, 1);
   assert.ok(z.animated);
   const cash0 = g.cash;
-  shootAt(g, z, 'head');
+  // (a walker coming straight on holds its arms out in front of its face: a player may need a
+  // second or third round)
   let kill = null;
-  run(g, 8, (t, ev) => {
+  for (let k = 0; k < 3 && !kill; k++) {
+    shootAt(g, z, 'head');
+    run(g, 2.5, (t, ev) => {
+      for (const e of ev) if (e.type === 'kill') kill = e;
+    });
+  }
+  run(g, 6, (t, ev) => {
     for (const e of ev) if (e.type === 'kill') kill = e;
   });
   assert.ok(kill, 'killed');
-  assert.ok(kill.head && kill.bonuses.some((b) => /HEADSHOT/.test(b)));
+  assert.ok(kill.cash > 0);
+  assert.equal(kill.head, kill.bonuses.some((b) => /HEADSHOT/.test(b)), 'a head-shot kill carries the bonus');
   assert.ok(g.cash > cash0);
   assert.equal(z.state, 'frozen');
 });

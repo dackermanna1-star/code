@@ -109,7 +109,7 @@ export class TowerGame {
     this.sb = new Sandbox({ shape: opts.shape, rng: this.rng, groundHalfSize: 270, substeps: opts.substeps ?? 20 });
     this.sb.setAssist(1);
     for (const c of this.layout.colliders) this.sb.world.addBody(staticBox(c));
-    this.field = new GateField(this.layout, this.isWalkable);
+    this.field = new GateField(this.layout, this.isWalkable, { grid: opts.walkGrid || null });
     this.makeAnim = opts.makeAnim ?? ((rd, seed) => new AnimPlayer(rd, { seed }));
     this.clipInfo = opts.clipInfo ?? CLIP_INFO;
     this.events = [];
@@ -122,6 +122,8 @@ export class TowerGame {
     this.killcam = null; // set by the front end: { consider(bullet, origin, dir) -> bool }
     this.wind = new Vec3();
     this.windTarget = new Vec3();
+    this.rain = 0;
+    this.rainTarget = 0;
     this.timeOfDay = 0;
     this.timeOfDayTarget = 0;
     this.newRun();
@@ -194,6 +196,7 @@ export class TowerGame {
     this.wind.x += (this.windTarget.x - this.wind.x) * dt * 0.2;
     this.wind.z += (this.windTarget.z - this.wind.z) * dt * 0.2;
     this.timeOfDay += clamp(this.timeOfDayTarget - this.timeOfDay, -dt * 0.02, dt * 0.02);
+    this.rain += clamp(this.rainTarget - this.rain, -dt * 0.03, dt * 0.03);
     this.rifle.step(dt);
     this.horde.step(dt);
     this.director.step(dt);
@@ -528,6 +531,8 @@ export class TowerGame {
     const speed = n < 4 ? 0 : Math.min(7, 1 + this.rng() * (n * 0.45));
     const a = this.rng() * Math.PI * 2;
     this.windTarget.set(Math.cos(a) * speed, 0, Math.sin(a) * speed);
+    // now and then a storm rolls down the valley (from wave 6)
+    this.rainTarget = n >= 6 && this.rng() < 0.3 ? 0.45 + this.rng() * 0.45 : 0;
   }
 
   // -------------------------------------------------------------------------------------------

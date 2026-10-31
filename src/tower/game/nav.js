@@ -9,13 +9,18 @@ import { Vec3 } from '../../physics/math.js';
 const SQ2 = Math.SQRT2;
 
 export class GateField {
+  /**
+   * opts.grid: a prebuilt walkability grid { minX, minZ, cell, nx, nz, data } (the level's
+   * rasterised colliders - much faster than asking isWalkable for every cell).
+   */
   constructor(layout, isWalkable, opts = {}) {
-    const B = layout.bounds;
-    this.res = opts.res ?? 1;
-    this.minX = B.minX;
-    this.minZ = B.minZ;
-    this.nx = Math.ceil((B.maxX - B.minX) / this.res);
-    this.nz = Math.ceil((B.maxZ - B.minZ) / this.res);
+    const B = layout.bounds, G = opts.grid || null;
+    this.res = G ? G.cell : opts.res ?? 1;
+    this.minX = G ? G.minX : B.minX;
+    this.minZ = G ? G.minZ : B.minZ;
+    this.nx = G ? G.nx : Math.ceil((B.maxX - B.minX) / this.res);
+    this.nz = G ? G.nz : Math.ceil((B.maxZ - B.minZ) / this.res);
+    this.grid = G;
     const n = this.nx * this.nz;
     this.free = new Uint8Array(n);
     this.dist = new Float32Array(n).fill(Infinity);
@@ -40,9 +45,12 @@ export class GateField {
 
   build(isWalkable) {
     const { nx, nz, res, free, dist, gate } = this;
-    for (let j = 0; j < nz; j++) {
-      const z = this.minZ + (j + 0.5) * res;
-      for (let i = 0; i < nx; i++) free[j * nx + i] = isWalkable(this.minX + (i + 0.5) * res, z) ? 1 : 0;
+    if (this.grid) free.set(this.grid.data);
+    else {
+      for (let j = 0; j < nz; j++) {
+        const z = this.minZ + (j + 0.5) * res;
+        for (let i = 0; i < nx; i++) free[j * nx + i] = isWalkable(this.minX + (i + 0.5) * res, z) ? 1 : 0;
+      }
     }
     // binary heap of (dist, cell)
     const n = nx * nz;

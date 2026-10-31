@@ -9,7 +9,7 @@ import * as OM from '../render/objectMeshes.js';
 import { FpsView } from '../render/fpsView.js';
 import { KillCam } from '../modes/killCam.js';
 import { XRayRig } from '../render/xray.js';
-import { LAYOUT, isWalkable } from './level/layout.js';
+import { LAYOUT, isWalkable, lookoutEye, buildWalkGrid, isWater } from './level/layout.js';
 import { TowerGame } from './game/game.js';
 import { RIFLES, AMMO, ENEMIES, WAVES, UPGRADES, DEFENCES } from './catalog.js';
 import { WEAPONS, raycastPeople } from '../game/weapons.js';
@@ -18,7 +18,9 @@ import { RetroRenderer, buildLevelScene, prepareZombieMeshes, createZombieVisual
 const FIXED = 1 / 60;
 const SAVE_KEY = 'lastLookout.v1';
 const BASE_FOV = 72;
-const EYE = new Vec3(...LAYOUT.tower.eye);
+// the sniper's eye: at the window he looks through, leaning out when looking down (smoothed)
+const EYE = new Vec3(...lookoutEye(Math.PI, -0.12));
+const eyeTarget = [0, 0, 0];
 
 // ---------------------------------------------------------------------------------------------
 // persistence
@@ -45,7 +47,7 @@ const segNames = new Ragdoll(new World()).segList.map((s) => s.name);
 const shape = new BodyShape(segNames);
 const game = new TowerGame({
   layout: LAYOUT, isWalkable, shape, rng: makeRng((Math.random() * 1e9) | 0),
-  makeAnim: (rd, seed) => new AnimPlayer(rd, { seed }), clipInfo: CLIP_INFO,
+  makeAnim: (rd, seed) => new AnimPlayer(rd, { seed }), clipInfo: CLIP_INFO, walkGrid: buildWalkGrid(1),
   maxPhysical: save.settings.quality === 'low' ? 7 : save.settings.quality === 'high' ? 12 : 10,
 });
 
@@ -55,7 +57,11 @@ const app = document.getElementById('app');
 const retro = new RetroRenderer(app, { quality: save.settings.quality });
 const renderer = retro.renderer;
 const canvas = renderer.domElement;
-const level = buildLevelScene(LAYOUT, { renderer });
+const level = buildLevelScene(LAYOUT, {
+  renderer,
+  // thunder rolls in at the speed of sound after the flash
+  onLightning: (delay, p) => setTimeout(() => audio.explosion(new Vec3(p[0], p[1], p[2]), 2.2), delay * 1000),
+});
 const scene = level.scene;
 const camera = new THREE.PerspectiveCamera(BASE_FOV, window.innerWidth / window.innerHeight, 0.05, 1200);
 camera.rotation.order = 'YXZ';
@@ -96,12 +102,12 @@ function setThermal(on) {
     });
     savedMats.bg = scene.background;
     scene.background = COLD_SKY;
-    canvas.style.filter = 'grayscale(1) contrast(1.35) brightness(1.05)';
+    retro.setThermal(1);
   } else {
     for (const [o, m] of savedMats) o.material = m;
     scene.background = savedMats.bg;
     savedMats.clear();
-    canvas.style.filter = '';
+    retro.setThermal(0);
   }
 }
 
@@ -493,11 +499,13 @@ function onEvent(e) {
       fx.shellCasing(cp, new Vec3(Math.cos(input.yaw), 0.4, -Math.sin(input.yaw)));
       break;
     }
-    case 'impact':
-      audio.bulletImpact(e.material, e.point, e.dist);
-      fx.impact(e.point, e.normal || new Vec3(0, 1, 0), e.material);
+    case 'impact': {
+      const water = e.material === 'dirt' && isWater(e.point.x, e.point.z);
+      audio.bulletImpact(water ? 'water' : e.material, e.point, e.dist);
+      fx.impact(e.point, e.normal || new Vec3(0, 1, 0), water ? 'water' : e.material);
       fx.tracer(EYE, e.point);
       break;
+    }
     case 'hit':
       hud.event({ type: 'hit', head: e.head, kill: false });
       audio.hitMarker(e.head, false);
@@ -535,7 +543,11 @@ function onEvent(e) {
       for (const gt of LAYOUT.compound.gates) level.gateMesh(gt.id).setDamage(1 - e.hp / e.max);
       break;
     case 'gateRepaired':
-      for (const gt of LAYOUT.compound.gates) level.gateMesh(gt.id).setDamage(1 - e.hp / e.max);
+      for (const gt of LAYOUT.compound.gates) {
+        const gm = level.gateMesh(gt.id);
+        if (e.steel) gm.setSteel(true);
+        gm.setDamage(1 - e.hp / e.max);
+      }
       break;
     case 'climberTop':
       audio.zombieScream(e.zombie.root.pos);
@@ -695,6 +707,11 @@ function frame(now) {
     input.yaw = overView.from.yaw + d * e;
     input.pitch = overView.from.pitch + (Math.atan2(dy, Math.hypot(dx, dz)) - overView.from.pitch) * e;
   }
+  lookoutEye(input.yaw, input.pitch, eyeTarget);
+  const ke = 1 - Math.exp(-dtReal / 0.15);
+  EYE.x += (eyeTarget[0] - EYE.x) * ke;
+  EYE.y += (eyeTarget[1] - EYE.y) * ke;
+  EYE.z += (eyeTarget[2] - EYE.z) * ke;
   camera.position.set(EYE.x, EYE.y, EYE.z);
   camera.rotation.set(input.pitch + sy + recoil + Math.sin(now * 0.05) * shk, input.yaw + sx + Math.sin(now * 0.043) * shk, 0);
   const fov = lerp(BASE_FOV, BASE_FOV / game.zoom, scopeView);
@@ -749,12 +766,14 @@ function frame(now) {
   }
   for (const rig of xrays.values()) rig.update(dtReal * (killCam.active ? killCam.timeScale : 1), alpha);
   level.setTimeOfDay(game.timeOfDay);
+  level.setRain(game.rain);
+  level.setWind(game.wind.x, game.wind.z, game.wind.length());
   level.update(dtReal * Math.max(ts, 0.05), camera);
   fx.update(dtReal * Math.max(ts, 0.05), camera);
   if (placing) updatePlacementGhost();
   setThermal(thermal && scopeView > 0.5 && !killCam.active);
   const S = game.defences.sentry, sm = S && trapMeshes.get(S);
-  if (sm) sm.rotation.y = S.yaw;
+  if (sm && sm.userData.yaw) sm.userData.yaw.rotation.y = S.yaw + Math.PI; // (barrel along local -z)
 
   // --- sound
   audio.setListener(EYE, aimDir);
@@ -774,7 +793,7 @@ function frame(now) {
       }
     }
     audio.horde(count, nearest);
-    audio.ambience(game.timeOfDay, game.wind.length(), 0);
+    audio.ambience(game.timeOfDay, game.wind.length(), game.rain);
     audio.heartbeat(game.player.hp < 40 ? 90 + (40 - game.player.hp) * 2 : 0);
   }
 
@@ -798,17 +817,19 @@ function frame(now) {
   });
 
   // --- render
+  retro.setScopeBoost(scopeView > 0.5 && !killCam.active ? 2 : 1);
   if (killCam.active) {
     retro.render(scene, killCam.camera);
   } else {
-    retro.render(scene, camera);
-    if (ph !== 'title' && !placing) {
+    const rifle = ph !== 'title' && !placing && scopeView < 0.98;
+    retro.render(scene, camera, !rifle);
+    if (rifle) {
       view.update(dtReal, {
         ads: scopeAmt, sprint: false, speed: 0, step: 0, onGround: true, crouch: 0, look: { dx: 0, dy: 0 }, landed: 0,
         state: R.state === 'reload' ? 'reload' : 'idle', stateT: R.t, reloadTime: R.reloadTime, perShell: false, empty: R.ammo === 0, pitch: input.pitch, melee: null,
       });
       view.setLighting(lerp(1, 0.35, game.timeOfDay));
-      if (scopeView < 0.98) retro.renderOverlay(view.scene, view.camera);
+      retro.renderOverlay(view.scene, view.camera);
     }
   }
   requestAnimationFrame(frame);
@@ -838,6 +859,8 @@ function updatePlacementGhost() {
 
 // ---------------------------------------------------------------------------------------------
 resize();
+// compile the world's shaders while the title is up (no hitch on the first frame of the run)
+if (renderer.compileAsync) renderer.compileAsync(scene, camera).catch(() => {});
 toTitle();
 requestAnimationFrame(frame);
 window.__tower = { game, input, killCam, camera, level, visuals, hud, startRun, openShop, closeShop, retro, WAVES, get scopeView() { return scopeView; }, setAim(yaw, pitch) { input.yaw = yaw; input.pitch = pitch; } };

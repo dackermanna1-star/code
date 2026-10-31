@@ -4,15 +4,16 @@
 // health, cash. Usage: node tools/bench/towerBalance.mjs [--waves=N] [--skill=0..1] [--seed=N]
 import { Vec3, makeRng } from '../../src/physics/math.js';
 import { TowerGame } from '../../src/tower/game/game.js';
-import { LAYOUT, isWalkable } from '../../src/tower/level/layout.js';
+import { LAYOUT, isWalkable, lookoutEye, buildWalkGrid } from '../../src/tower/level/layout.js';
 import { RIFLES, UPGRADES } from '../../src/tower/catalog.js';
 import { bodyShape } from './common.mjs';
 
 const arg = (k, d) => +(process.argv.find((a) => a.startsWith(`--${k}=`))?.split('=')[1] ?? d);
 const WAVES = arg('waves', 12), SKILL = arg('skill', 0.6), SEED = arg('seed', 1);
 const rng = makeRng(SEED * 31 + 7);
-const g = new TowerGame({ layout: LAYOUT, isWalkable, shape: bodyShape(), rng: makeRng(SEED) });
-const eye = new Vec3(...LAYOUT.tower.eye);
+const g = new TowerGame({ layout: LAYOUT, isWalkable, shape: bodyShape(), rng: makeRng(SEED), walkGrid: buildWalkGrid(1) });
+const centre = new Vec3(...LAYOUT.tower.eye);
+const eye = new Vec3();
 const gauss = () => Math.sqrt(-2 * Math.log(rng() + 1e-9)) * Math.cos(2 * Math.PI * rng());
 
 function threat(z) {
@@ -40,6 +41,11 @@ function botStep(dt) {
   const armoured = best.def.armor && best.person.injury.armor && best.person.injury.armor.helmet > 0;
   const seg = armoured ? (rng() < 0.5 ? 'thighL' : 'thighR') : 'head';
   const p = best.person.rd.segments[seg].body.pos.clone();
+  // (from the window he looks through, as in the game)
+  {
+    const dx = p.x - centre.x, dy = p.y - centre.y, dz = p.z - centre.z;
+    eye.set(...lookoutEye(Math.atan2(-dx, -dz), Math.atan2(dy, Math.hypot(dx, dz))));
+  }
   const d = p.distanceTo(eye);
   if (d > 260) return;
   // a decent player: drop and lead right on average, error grows with range and target speed
