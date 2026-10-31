@@ -164,7 +164,7 @@ export class Simulation {
     this.tickEvents = [];
     const [f0, f1] = this.fighters;
 
-    if (this.inIntro) {
+    if (this.tick <= this.introTicks) {
       for (const f of this.fighters) f.stateT++;
       if (this.tick === this.introTicks) this.beginFight();
       return;
