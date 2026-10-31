@@ -25,6 +25,7 @@ import { Enemy } from './ai/enemy';
 import { Weapon, WeaponBatch } from './combat/weapons';
 import { HUD } from './ui/hud';
 import { HitInfo, makeHit } from './combat/types';
+import { Props } from './world/props';
 
 export class Game {
   settings: Settings;
@@ -62,6 +63,7 @@ export class Game {
   weaponBatch: WeaponBatch;
   hud: HUD | null = null;
   thrown: { e: Enemy; t: number; dir: THREE.Vector3; hitWall?: boolean }[] = [];
+  props!: Props;
   onCorpse: ((r: CorpseRecord) => void) | null = null;
   started = false;
   over = false;
@@ -113,6 +115,7 @@ export class Game {
     this.scene.add(this.corpses.group);
     this.death = new DeathSystem(this);
     this.fx = new FX(this, PRESETS[this.settings.quality].maxParticles);
+    this.props = new Props(this);
     this.player = new Player(this, this.lib, this.lib.get('player'));
     this.player.spawn(0, 2, Math.PI);
     this.player.hp = this.player.maxHp = 100;
@@ -261,6 +264,7 @@ export class Game {
     this.physics.update(dt);
     this.death.update(dt);
     this.updateThrown(dt);
+    this.props.update(dt);
     for (const f of this.fighters) f.animate(dt);
     for (const w of this.weapons) w.update(dt);
     this.arena.update(realDt * ts);
@@ -332,6 +336,7 @@ export class Game {
       const pelvis = rag.pos[0];
       const v = rag.parts[0].rb!.linvel();
       const speed = Math.hypot(v.x, v.z);
+      this.props.checkBody(pelvis, speed);
       // bowl over other enemies
       for (const o of this.enemies()) {
         if (o === e || !o.alive || o.down || o.paired || o.cfg.boss) continue;
