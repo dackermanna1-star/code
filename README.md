@@ -5,7 +5,8 @@ escalating waves of thugs, armed enforcers, brutes, elite martial artists, minib
 three-phase boss in a moonlit warehouse — Arkham-style flow, Assassin's Creed counters,
 Spider-Man finishers and Sifu-style technique, with **bodies and blood that never disappear**.
 
-Built with **three.js** (rendering) + **Rapier** (physics), TypeScript and Vite.
+Built with **three.js** (rendering) + **Rapier** (props, debris, weapons) and the **Ragdoll Lab
+"euphoria" active-ragdoll engine** (bodies), TypeScript and Vite.
 Everything visual is procedural (characters, textures, animation); audio is CC0.
 
 ## Run it
@@ -81,8 +82,35 @@ hunch, limp, clutch their side and hang back; broken arms dangle and change thei
 strikes, reactions, get-ups, paired counters/finishers authored as two synchronized tracks);
 procedural locomotion with planted feet (no foot sliding), toe-off and stance-aware stepping;
 **inertialized transitions** (velocity-matched offset decay) on every clip/locomotion/ragdoll
-switch so nothing ever pops; spring-based secondary motion for hit reactions; Rapier ragdolls
-for knockdowns, throws and deaths, with blended get-ups from wherever the body landed.
+switch so nothing ever pops; spring-based secondary motion for hit reactions; active
+(euphoria-style) ragdolls for staggers, knockdowns, throws and deaths — see below.
+
+**Active ragdolls (euphoria engine)** — knocked-about bodies are simulated by the Ragdoll Lab
+engine (`src/world/euphoria/`): an XPBD rigid-body solver with a 17-segment, 75 kg muscle-driven
+human whose controller balances, takes catch-steps, windmills its arms, braces for falls with
+outstretched hands, writhes and clutches its wounds on the floor, gets back up by itself (roll
+over → push up → kneel → lunge → stand) and, when killed on its feet, has its muscle tone drain
+away in a dying stagger, with death twitches. The bridge (`bridge.ts`) hands a character over
+from animation with its exact pose and per-limb momentum and writes the simulated pose back onto
+the 22-bone skeleton every frame (render-interpolated, clavicles shrug with raised arms).
+In play:
+* **Heavy blows** can trigger a *physical stagger*: the body tries to step out of it — it
+  recovers and blends back into the fight, or it goes down (more likely when hurt, and when a
+  wall, prop or pile of bodies is in the way).
+* **Knockdowns / throws** fall with protective arms; healthy enemies then use the animated
+  get-up from wherever they lie, hurt ones struggle up physically (slow and vulnerable).
+* **Deaths:** beaten to death on the feet → dying collapse; finishers / big hits → instantly
+  limp. Blows push the struck part and travel into the torso, so heads snap and bodies spin.
+* **World coupling:** arena walls, pillars and crate stacks are static colliders; every settled
+  corpse becomes one too (bodies pile up and trip over the dead); oil drums and crates are
+  two-way proxies of the Rapier props (falling bodies topple drums, smash crates and drape over
+  them); standing fighters are kinematic capsules — a body crashing into an enemy makes them
+  stumble or go down. Impacts drive body-fall / limb-slap sounds, dust, and blood where a head
+  hits the floor or a wall.
+* **Budget:** substeps and the number of simultaneous active bodies scale with the quality
+  preset (7–14 substeps, 4–12 bodies); substeps also adapt to a per-step time budget, and extra
+  bodies beyond the cap fall back to passive Rapier ragdolls. Settings → *Active ragdolls*
+  switches the whole system back to classic Rapier ragdolls.
 
 **Look** — PS2-style low-poly skinned characters generated in code (29 outfit variants: hair,
 facial hair, headwear, jackets, armour, tattoos, scars) with hand-painted-style canvas
@@ -93,13 +121,13 @@ textures, warm sodium lamps vs. cold moonlight, HDR bloom, ACES grade, grain and
 Nothing is ever despawned, faded or capped. Instead the expensive representation is converted
 into a cheap one:
 
-* **Bodies:** a dying enemy is a Rapier ragdoll until it settles (sleeping / calm for 0.45 s).
+* **Bodies:** a dying enemy is an active ragdoll until it settles (calm for 0.5 s).
   Its final skinned pose is then baked on the CPU into static geometry and appended to a
   spatially chunked batch (4×4 arena cells, growable buffers, compact attributes: half-float
   bind positions, int8 normals, uint16 UVs). Each corpse keeps its outfit (texture-array layer),
   every wound/bruise/blood splatter (per-corpse wound row in a float data texture, evaluated in
   the same shader as live characters) and gets simplified static colliders so later ragdolls
-  pile onto it instead of through it. Corpses receive but don't cast shadows; a contact-shadow
+  pile onto it instead of through it (in both physics worlds). Corpses receive but don't cast shadows; a contact-shadow
   AO blob is painted under each one instead. A coarse height field of all bodies lets live
   fighters plant their feet on top of bodies instead of clipping through. Draw calls grow by
   one per ~30 bodies; physics cost of a settled body is a sleeping static collider.
@@ -143,7 +171,10 @@ node tests/film.mjs "test=film&enemy=club&n=2&warm=40&framing=-2.8" tests/out/fi
 ```
 
 `test=waves` runs the real wave game with a scripted bot (counters, dodges, finishers),
-`test=stress` bakes N ragdoll corpses plus blood and measures frame cost, `test=film` captures
+`test=stress` bakes N ragdoll corpses plus blood and measures frame cost (then drops fresh
+active ragdolls onto the pile), `test=euph&mode=knock|stagger|death|pile|prop` films one
+scripted active-ragdoll reaction from a fixed witness camera (`pgu=1` forces the physical
+get-up, `ragdolls=classic` switches engines), `test=film` captures
 consecutive gameplay frames into a contact sheet, `test=duel&enemy=elite` isolates one
 archetype. Debug viewers: `?viewer=sheet&clip=roundhouse` (strike contact sheet),
 `?viewer=sheet&pair=fin_roundhouse` (paired clips), `?viewer=loco&path=circle&speed=4`
@@ -156,7 +187,8 @@ src/anim/        skeleton, IK solver, clip system, locomotion, animator, clip li
 src/character/   procedural mesh, outfits, canvas textures, wound-aware material
 src/combat/      fighter base, player controller, combat resolver, moves, weapons, deaths
 src/ai/          enemy brain, archetypes, director, waves, bosses
-src/world/       arena, blood atlas, corpse baking, Rapier physics, ragdolls, textures
+src/world/       arena, blood atlas, corpse baking, Rapier physics, ragdolls, props, textures
+src/world/euphoria/  Ragdoll Lab active-ragdoll engine (engine.js) and its game bridge
 src/fx/          particles (blood, sparks, dust, debris), camera rig
 src/audio/       sample engine with synth layers, procedural adaptive music
 src/ui/          HUD, menus, settings
@@ -167,4 +199,5 @@ tests/           headless runners (results, screenshots, film strips)
 ## Credits
 
 See [CREDITS.md](CREDITS.md). All sound effects are CC0 (OpenGameArt); three.js (MIT) and
-Rapier (Apache-2.0) are used as libraries. Everything else was made for this project.
+Rapier (Apache-2.0) are used as libraries; the active-ragdoll engine comes from the Ragdoll Lab.
+Everything else was made for this project.

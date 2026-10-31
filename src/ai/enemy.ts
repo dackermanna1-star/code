@@ -1,18 +1,21 @@
 import * as THREE from 'three';
 import { Fighter } from '../combat/fighter';
 import { ClipEvent, getClip } from '../anim/clip';
-import { HitInfo, HitResult } from '../combat/types';
+import { HitInfo, HitResult, makeHit } from '../combat/types';
 import { ArchetypeCfg } from './archetypes';
 import { ENEMY_ATTACKS, EnemyAttack } from '../combat/moves';
 import { angleDiff, chance, clamp, damp, pick, rand, weightedPick, wrapAngle, yawFromDir } from '../core/math';
-import { Ragdoll } from '../world/ragdoll';
+import type { RagdollLike } from '../world/ragdollTypes';
+import { ActiveRagdoll } from '../world/euphoria/bridge';
 import { B } from '../anim/skeleton';
 import type { Game } from '../game';
 import type { CharacterLibrary, Variant } from '../character/library';
 import { Weapon } from '../combat/weapons';
 
 export type EnemyState =
-  | 'enter' | 'circle' | 'approach' | 'attack' | 'recover' | 'react' | 'stunned' | 'down' | 'getup' | 'paired' | 'dodge' | 'block' | 'taunt' | 'retreat' | 'grabbed';
+  | 'enter' | 'circle' | 'approach' | 'attack' | 'recover' | 'react' | 'stunned' | 'down' | 'getup' | 'paired' | 'dodge' | 'block' | 'taunt' | 'retreat' | 'grabbed'
+  /** Physically stumbling (active ragdoll trying to keep its balance). */
+  | 'stagger';
 
 const _v = new THREE.Vector3();
 
@@ -32,8 +35,10 @@ export class Enemy extends Fighter {
   enterX = 0;
   enterZ = 0;
   stunT = 0;
-  downRag: Ragdoll | null = null;
+  downRag: RagdollLike | null = null;
   downT = 0;
+  /** This knockdown ends with the active ragdoll struggling up by itself (hurt / random). */
+  physGetUp = false;
   absorbed = 0;
   absorbT = 0;
   blocks = 0;
@@ -142,6 +147,9 @@ export class Enemy extends Fighter {
         break;
       case 'down':
         this.doDown(dt);
+        break;
+      case 'stagger':
+        this.doStagger(dt);
         break;
       case 'attack':
       case 'recover':
@@ -403,7 +411,7 @@ export class Enemy extends Fighter {
     if (this.state === 'dodge' && this.invuln > 0) return 'dodged';
     const attacker = h.attacker as Fighter | null;
     const fromFront = attacker ? Math.abs(this.angleTo(attacker)) < 1.25 : true;
-    const vulnerable = this.stun > 0 || this.state === 'stunned' || this.state === 'down' || this.state === 'paired' || this.state === 'grabbed';
+    const vulnerable = this.stun > 0 || this.state === 'stunned' || this.state === 'down' || this.state === 'stagger' || this.state === 'paired' || this.state === 'grabbed';
     // ---- defensive options
     if (!vulnerable && !h.finisher && !h.unblockable && fromFront && this.state !== 'attack' && this.state !== 'react') {
       const guardBreak = h.strength >= 1.0 && (h.kind === 'kick' || h.kind === 'blunt');
@@ -440,6 +448,19 @@ export class Enemy extends Fighter {
     g.director.note('strikes');
     // boss phase changes
     if (this.cfg.boss) g.bosses.onBossDamaged(this);
+    // ---- bodies under physics (down / staggering / ground takedown): the blow moves the body itself
+    const phys = this.downRag instanceof ActiveRagdoll ? this.downRag : null;
+    if (phys && (this.state === 'down' || this.state === 'stagger' || this.state === 'paired' || this.state === 'grabbed')) {
+      const imp = g.combat.impulseFor(h, 70 * this.scale * this.scale).multiplyScalar(this.state === 'stagger' ? 0.3 : 0.32);
+      phys.hit(imp, h.point, undefined, h.strength);
+      this.applyCondition(phys);
+      if (this.state === 'stagger' && (h.knockdown || h.strength >= 1.05 || h.launch > 1.5)) {
+        phys.forceFall(h.dir);
+        if (h.launch > 0) phys.launch(h.dir.clone().multiplyScalar(h.launch * 0.5).setY(h.launch * 0.2), 1.5);
+        this.enterDown();
+      }
+      return 'hit';
+    }
     if (h.noReact || this.state === 'paired' || this.state === 'grabbed') return 'hit';
     // ---- reactions
     if (absorbs) {
@@ -457,8 +478,18 @@ export class Enemy extends Fighter {
     }
     g.director.cancel(this);
     if (this.state === 'attack') this.token = false;
-    if (h.knockdown || (h.strength >= 1.15 && chance(0.55)) || (h.launch > 2.5 && chance(0.5))) {
+    if (h.knockdown || (h.launch > 2.5 && chance(0.5))) {
       this.knockdown(h);
+      return 'hit';
+    }
+    // heavy blows: the body is thrown off balance and physics decides whether it stumbles or falls
+    if (h.strength >= 1.15 && chance(0.55)) {
+      if (this.canStagger()) this.physStagger(h, 0.5);
+      else this.knockdown(h);
+      return 'hit';
+    }
+    if (h.strength >= 0.8 && this.canStagger() && chance(this.injured ? 0.5 : 0.2)) {
+      this.physStagger(h, 0.27);
       return 'hit';
     }
     const clip = g.combat.reactionClip(this, h);
@@ -488,19 +519,162 @@ export class Enemy extends Fighter {
     this.bleedRate += 1.5;
   }
 
+  /** Active ragdolls available for staggers (bosses keep their scripted reactions). */
+  private canStagger() {
+    const g = this.game;
+    return !this.cfg.boss && g.settings.ragdolls === 'euphoria' && g.euphoria.capacity > 1;
+  }
+
+  /** Physiology for the active ragdoll: pain, weakened / broken limbs, painted wounds to clutch. */
+  applyCondition(r: ActiveRagdoll) {
+    const hpF = clamp(this.hp / this.maxHp, 0, 1);
+    const pain = clamp(0.12 + (1 - hpF) * 0.68 + this.bleedRate * 0.04, 0, this.alive ? 0.8 : 1);
+    const leg = this.injured ? 0.85 : 1;
+    r.setCondition({
+      pain,
+      legL: this.brokenLeg > 0 ? 0.55 : leg,
+      legR: this.brokenLeg < 0 ? 0.55 : leg,
+      armL: this.brokenArm > 0 ? 0.04 : 1,
+      armR: this.brokenArm < 0 ? 0.04 : 1,
+      balance: this.injured ? 0.75 : 1,
+    });
+    r.setWounds(this.model.wounds);
+  }
+
+  /** Hand the body to the active ragdoll for a physical stumble; it either catches itself or goes down. */
+  physStagger(h: HitInfo, impScale: number) {
+    const g = this.game;
+    g.director.cancel(this);
+    this.token = false;
+    const rag = g.makeRagdoll(this, 0.9);
+    if (!(rag instanceof ActiveRagdoll)) {
+      rag.dispose();
+      this.knockdown(h);
+      return;
+    }
+    this.applyCondition(rag);
+    const imp = g.combat.impulseFor(h, 70 * this.scale * this.scale).multiplyScalar(impScale);
+    rag.hit(imp, h.point, undefined, h.strength);
+    g.euphoria.count('stagger');
+    this.downRag = rag;
+    this.ragdoll = rag;
+    this.anim.toExternal(rag, 0.05);
+    this.setState('stagger');
+    this.down = false;
+    this.downT = 0;
+    this.solid = false;
+  }
+
+  private doStagger(dt: number) {
+    const r = this.downRag;
+    if (!(r instanceof ActiveRagdoll)) {
+      this.setState('circle');
+      return;
+    }
+    this.downT += dt;
+    r.rootPos(_v);
+    this.x = _v.x;
+    this.z = _v.z;
+    r.pelvisVel(_v);
+    this.vx = _v.x;
+    this.vz = _v.z;
+    if (r.grounded) {
+      this.enterDown();
+      return;
+    }
+    if ((r.upright && this.downT > 0.5) || (this.downT > 3.5 && r.mode === 'balance')) this.recoverFromRagdoll();
+  }
+
+  private wantsPhysGetUp() {
+    if (this.cfg.boss) return false;
+    return this.injured || this.hp < this.maxHp * 0.55 ? chance(0.75) : chance(0.2);
+  }
+
+  /** A falling / flying body crashed into this standing enemy (impulse from the active-ragdoll world). */
+  bodyBump(imp: THREE.Vector3) {
+    if (!this.alive || this.downRag || this.paired || this.cfg.boss) return;
+    if (this.state === 'enter' || this.state === 'getup' || this.state === 'dodge') return;
+    const g = this.game;
+    const mag = Math.hypot(imp.x, imp.z);
+    const dir = new THREE.Vector3(imp.x, 0, imp.z).divideScalar(mag || 1);
+    const point = new THREE.Vector3(this.x - dir.x * 0.15, 0.95 * this.scale, this.z - dir.z * 0.15);
+    const h = makeHit({ dir, point, damage: Math.min(12, mag * 0.1), strength: clamp(mag / 70, 0.5, 1.4), kind: 'slam', region: 'chest', knockdown: mag > 85, attacker: g.player });
+    g.director.cancel(this);
+    if (h.knockdown || !this.canStagger()) {
+      this.hp -= h.damage;
+      if (this.hp <= 0) {
+        this.die(h);
+        return;
+      }
+      this.knockdown(h);
+    } else {
+      this.physStagger(h, 0);
+      const r = this.downRag as RagdollLike | null;
+      if (r instanceof ActiveRagdoll) r.hit(imp.clone().multiplyScalar(0.8), point, 'pelvis', h.strength);
+    }
+    g.audio.play('body_hit', { pos: point, vol: clamp(mag / 80, 0.3, 1) });
+  }
+
+  /** A paired move grabs a physically staggering enemy: hand the body straight back to animation. */
+  releaseStagger() {
+    const r = this.downRag;
+    if (!(r instanceof ActiveRagdoll) || this.state !== 'stagger') return;
+    r.pelvisPos(_v);
+    this.x = _v.x;
+    this.z = _v.z;
+    this.yaw = r.heading();
+    this.anim.update(0, this.x, this.z, this.yaw);
+    r.dispose();
+    this.downRag = null;
+    this.ragdoll = null;
+    this.down = false;
+    this.solid = true;
+    this.toLoco(0.12);
+    this.setState('circle');
+  }
+
+  /** A physical stumble turned into a fall. */
+  private enterDown() {
+    if (this.state === 'down') return;
+    if (this.state === 'stagger') this.game.euphoria.count('staggerFell');
+    this.physGetUp = this.wantsPhysGetUp();
+    this.setState('down');
+    this.down = true;
+    this.downT = 0;
+    this.solid = false;
+    if (this.weapon && chance(0.45)) this.weapon.drop(new THREE.Vector3(rand(-1.5, 1.5), 2, rand(-1.5, 1.5)));
+  }
+
   knockdown(h: HitInfo) {
     const g = this.game;
     g.director.cancel(this);
     this.token = false;
-    const rag = new Ragdoll(g.physics, {
-      def: this.def, fk: this.anim.fk, prevFk: this.anim.prevFk, dt: 1 / 60, rootX: this.x, rootZ: this.z, rootYaw: this.yaw, vel: new THREE.Vector3(this.vx, 0, this.vz).multiplyScalar(0.5), scale: this.scale,
-    });
-    const imp = g.combat.impulseFor(h, 70 * this.scale * this.scale);
-    rag.impulse(imp.multiplyScalar(0.55), h.point);
-    if (h.launch > 0) rag.launch(h.dir.clone().multiplyScalar(h.launch * 0.6).setY(h.launch * 0.25), 2);
+    const imp = g.combat.impulseFor(h, 70 * this.scale * this.scale).multiplyScalar(0.55);
+    const launch = h.launch > 0 ? h.dir.clone().multiplyScalar(h.launch * 0.6).setY(h.launch * 0.25) : null;
+    if (this.downRag) {
+      // already under physics (staggering / getting up): push it over
+      const r = this.downRag;
+      if (r instanceof ActiveRagdoll) {
+        r.hit(imp, h.point, undefined, h.strength);
+        r.forceFall(h.dir);
+      } else r.impulse(imp, h.point);
+      if (launch) r.launch(launch, 2);
+      this.enterDown();
+      return;
+    }
+    const rag = g.makeRagdoll(this, 0.5);
+    if (rag instanceof ActiveRagdoll) {
+      this.applyCondition(rag);
+      rag.hit(imp, h.point, undefined, h.strength);
+      rag.forceFall(h.dir);
+      rag.buckle(0.8, 0.3);
+    } else rag.impulse(imp, h.point);
+    if (launch) rag.launch(launch, 2);
     this.downRag = rag;
     this.ragdoll = rag;
     this.anim.toExternal(rag, 0.03);
+    this.physGetUp = rag instanceof ActiveRagdoll && this.wantsPhysGetUp();
+    g.euphoria.count(rag instanceof ActiveRagdoll ? 'knockdown' : 'knockdownClassic');
     this.setState('down');
     this.down = true;
     this.downT = 0;
@@ -517,14 +691,55 @@ export class Enemy extends Fighter {
     this.x = _v.x;
     this.z = _v.z;
     const minDown = this.cfg.boss ? 1.0 : 2.2;
+    if (r instanceof ActiveRagdoll) {
+      if (Math.floor(this.downT * 2) !== Math.floor((this.downT - dt) * 2)) this.applyCondition(r);
+      if (r.upright && this.downT > minDown * 0.5) {
+        this.recoverFromRagdoll();
+        return;
+      }
+      if (this.physGetUp) {
+        // hurt: the controller struggles up on its own (roll over, push up, kneel, rise) - slow and vulnerable
+        r.ctl.autoGetUp = this.downT > minDown - 1.3;
+        if ((this.downT > minDown + 5.5 && r.mode !== 'getup') || this.downT > minDown + 9) this.getUp();
+      } else {
+        // the fall, the tumble and the writhing are physical; the get-up itself is the animated one
+        r.ctl.autoGetUp = false;
+        if (this.downT > minDown && r.mode !== 'falling') this.getUp();
+      }
+      return;
+    }
     if ((r.settled && this.downT > minDown) || this.downT > 5) this.getUp();
+  }
+
+  /** The active ragdoll is standing again: blend back into locomotion from its exact pose. */
+  recoverFromRagdoll() {
+    const r = this.downRag;
+    if (!(r instanceof ActiveRagdoll)) return;
+    this.game.euphoria.count(this.state === 'stagger' ? 'staggerRecovered' : 'physGetUp');
+    r.pelvisPos(_v);
+    this.x = _v.x;
+    this.z = _v.z;
+    this.yaw = r.heading();
+    r.pelvisVel(_v);
+    this.vx = _v.x * 0.5;
+    this.vz = _v.z * 0.5;
+    this.anim.update(0, this.x, this.z, this.yaw);
+    r.dispose();
+    this.downRag = null;
+    this.ragdoll = null;
+    this.down = false;
+    this.solid = true;
+    this.toLoco(0.22);
+    this.setState('circle');
+    this.invuln = 0.25;
+    this.attackCooldown = Math.max(this.attackCooldown, rand(0.5, 1.1));
   }
 
   getUp() {
     const r = this.downRag;
     if (!r) return;
-    r.read();
-    const pelvis = r.pos[0], head = r.pos[2];
+    this.game.euphoria.count(this.physGetUp ? 'physGetUpBailed' : 'animGetUp');
+    const pelvis = r.pelvisPos(new THREE.Vector3()), head = r.headPos(new THREE.Vector3());
     const up = r.faceUp();
     const yaw = up ? yawFromDir(pelvis.x - head.x, pelvis.z - head.z) : yawFromDir(head.x - pelvis.x, head.z - pelvis.z);
     this.x = pelvis.x;

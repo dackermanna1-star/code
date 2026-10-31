@@ -13,6 +13,7 @@ export type PlayerAction = 'free' | 'attack' | 'counter' | 'finisher' | 'dodge' 
 
 const _v = new THREE.Vector3();
 const _v2 = new THREE.Vector3();
+const _hp = new THREE.Vector3();
 
 const WEAPON_MOVES: Record<string, { clip: string; reach: number; damage: number; strength: number; kind: 'blunt' | 'blade'; region: 'head' | 'chest' | 'gut'; bleed: number; speed: number }[]> = {
   club: [
@@ -544,6 +545,7 @@ export class Player extends Fighter {
   // ------------------------------------------------------------------ paired helper
   startPaired(e: Enemy, pair: PairedClip, action: PlayerAction, speed = 1) {
     const g = this.game;
+    e.releaseStagger();
     let dx = e.x - this.x, dz = e.z - this.z;
     let dist = Math.hypot(dx, dz) || 1;
     let yaw = yawFromDir(dx, dz);
@@ -552,8 +554,7 @@ export class Player extends Fighter {
     let ox = this.x + (dx / dist) * mis, oz = this.z + (dz / dist) * mis;
     if (e.downRag) {
       // a body on the floor can't move: the attacker covers the whole gap, lining up on the head
-      e.downRag.read();
-      const head = e.downRag.pos[2];
+      const head = e.downRag.headPos(new THREE.Vector3());
       dx = head.x - this.x;
       dz = head.z - this.z;
       dist = Math.hypot(dx, dz) || 1;
@@ -596,7 +597,8 @@ export class Player extends Fighter {
   tryFinisher() {
     const g = this.game;
     // ground takedown on a downed enemy nearby (free)
-    const downed = this.selectTarget(2.6, (e) => e.state === 'down' && !!e.downRag);
+    // (a body that is already kneeling / rising on its own is not a ground target any more)
+    const downed = this.selectTarget(2.6, (e) => e.state === 'down' && !!e.downRag && e.downRag.headPos(_hp).y < 0.55);
     if (downed) {
       this.startPaired(downed, PAIRS.get('gt_stomp')!, 'takedown');
       this.stats.takedowns++;

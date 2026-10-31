@@ -26,6 +26,11 @@ import { Weapon, WeaponBatch } from './combat/weapons';
 import { HUD } from './ui/hud';
 import { HitInfo, makeHit } from './combat/types';
 import { Props } from './world/props';
+import { ActiveRagdoll, EuphoriaImpact, EuphoriaSim } from './world/euphoria/bridge';
+import { Shape, Vec3 } from './world/euphoria/engine.js';
+import { Ragdoll } from './world/ragdoll';
+import type { RagdollLike } from './world/ragdollTypes';
+import { Pose, PoseFK } from './anim/pose';
 
 export class Game {
   settings: Settings;
@@ -50,6 +55,8 @@ export class Game {
   params: URLSearchParams;
   testMode = false;
   physics = new Physics();
+  /** Active-ragdoll ("euphoria") simulation from the Ragdoll Lab engine. */
+  euphoria!: EuphoriaSim;
   corpses!: CorpseSystem;
   death!: DeathSystem;
   fx!: FX;
@@ -79,6 +86,8 @@ export class Game {
     const q = params.get('quality');
     if (q === 'low' || q === 'medium' || q === 'high' || q === 'ultra') this.settings.quality = q;
     this.debug = params.get('debug') === '1';
+    const rg = params.get('ragdolls');
+    if (rg === 'classic' || rg === 'euphoria') this.settings.ragdolls = rg;
     this.renderer = new Renderer(container, this.settings);
     const preset = PRESETS[this.settings.quality];
     this.input = new Input(this.renderer.gl.domElement);
@@ -111,6 +120,9 @@ export class Game {
 
   async init() {
     await this.physics.init(this.arena);
+    const preset = PRESETS[this.settings.quality];
+    this.euphoria = new EuphoriaSim(this.arena, preset.ragdollSubsteps, preset.maxActiveRagdolls);
+    this.euphoria.onImpact = (i) => this.onBodyImpact(i);
     this.corpses = new CorpseSystem(this.lib, this.physics, this.blood);
     this.scene.add(this.corpses.group);
     this.death = new DeathSystem(this);
@@ -118,9 +130,15 @@ export class Game {
     this.props = new Props(this);
     this.player = new Player(this, this.lib, this.lib.get('player'));
     this.player.spawn(0, 2, Math.PI);
+    this.addBodyProxy(this.player);
     this.player.hp = this.player.maxHp = 100;
     this.player.model.uniforms.uRim.value.set(0.35, 0.5, 0.8, 0.22);
     this.fighters.push(this.player);
+    // JIT-compile the active-ragdoll solver before the first fight
+    {
+      const def = this.player.def;
+      this.euphoria.prewarm(def, new PoseFK().compute(new Pose().setRest(def), def));
+    }
     this.cam.yaw = 0;
     this.applySettings();
     if (!this.params.get('test')) {
@@ -262,6 +280,7 @@ export class Game {
     for (const f of this.fighters) if (f.alive) f.move(dt);
     this.separate();
     this.physics.update(dt);
+    this.euphoria.update(dt);
     this.death.update(dt);
     this.updateThrown(dt);
     this.props.update(dt);
@@ -322,6 +341,50 @@ export class Game {
     }
   }
 
+  /**
+   * Physics body for a fighter leaving animation control: an active (euphoria) ragdoll when
+   * enabled and within the per-quality budget, otherwise a passive Rapier ragdoll.
+   */
+  makeRagdoll(f: Fighter, velScale = 0.6, opts: { classic?: boolean; vy?: number } = {}): RagdollLike {
+    const init = {
+      def: f.def,
+      fk: f.anim.fk,
+      prevFk: f.anim.prevFk,
+      dt: Math.max(1 / 120, f.anim.lastDt),
+      rootX: f.x,
+      rootZ: f.z,
+      rootYaw: f.yaw,
+      vel: new THREE.Vector3(f.vx, opts.vy ?? 0, f.vz).multiplyScalar(velScale),
+      scale: f.scale,
+    };
+    const room = this.euphoria.capacity + (f === this.player ? 2 : 0);
+    if (!opts.classic && this.settings.ragdolls === 'euphoria' && room > 0) return new ActiveRagdoll(this.euphoria, init);
+    return new Ragdoll(this.physics, init);
+  }
+
+  /** Sounds / dust / blood when an active ragdoll's body parts hit the world. */
+  private onBodyImpact(i: EuphoriaImpact) {
+    const sp = i.speed;
+    const vol = clamp((sp - 1) / 4.5, 0.12, 1);
+    const torso = i.seg === 'pelvis' || i.seg === 'abdomen' || i.seg === 'chest';
+    if (torso || i.seg === 'head' || sp > 3.2) this.audio.play('body_fall', { pos: i.point, vol: vol * (torso ? 0.95 : 0.6), pitch: torso ? 1 : 1.15 });
+    else if (sp > 1.5) this.audio.play('footstep', { pos: i.point, vol: vol * 0.55 });
+    if (i.material === 'metal' && sp > 1.8) this.audio.play('metal_hit', { pos: i.point, vol: vol * 0.55 });
+    if (i.other === 'floor' && sp > 2.4 && torso) this.fx.dust(i.point.clone().setY(0.03), clamp(sp / 7, 0.25, 0.9));
+    if (i.other === 'prop' && sp > 2.2) this.cam.addTrauma(0.05);
+    // a head slamming into the floor or a wall leaves blood on it
+    if (i.seg === 'head' && sp > 3.4 && (i.other === 'floor' || i.other === 'static')) {
+      this.audio.play('face_crunch', { pos: i.point, vol: vol * 0.7 });
+      let n = new THREE.Vector3(0, 1, 0);
+      if (i.other === 'static') {
+        const surf = this.arena.nearestSurface(i.point.x, i.point.z, 0.6);
+        if (surf) n = surf.normal.clone();
+      }
+      this.blood.splat(i.point.clone().addScaledVector(n, 0.02), 0.12 + sp * 0.025, SPLAT.splash, 0.8, n);
+      this.cam.addTrauma(0.12);
+    }
+  }
+
   private updateThrown(dt: number) {
     for (let i = this.thrown.length - 1; i >= 0; i--) {
       const t = this.thrown[i];
@@ -332,9 +395,8 @@ export class Game {
         this.thrown.splice(i, 1);
         continue;
       }
-      rag.read();
-      const pelvis = rag.pos[0];
-      const v = rag.parts[0].rb!.linvel();
+      const pelvis = rag.pelvisPos(new THREE.Vector3());
+      const v = rag.pelvisVel(new THREE.Vector3());
       const speed = Math.hypot(v.x, v.z);
       this.props.checkBody(pelvis, speed);
       // bowl over other enemies
@@ -428,6 +490,44 @@ export class Game {
 
   addFighter(f: Fighter) {
     this.fighters.push(f);
+    this.addBodyProxy(f);
+  }
+
+  /**
+   * Standing fighters as kinematic capsules in the active-ragdoll world: falling / flying bodies
+   * collide with the people around them instead of passing through, and a body crashing into a
+   * standing enemy hands over its momentum (the enemy stumbles physically or goes down).
+   */
+  private addBodyProxy(f: Fighter) {
+    const s = f.scale;
+    const shape = Shape.capsule(0.21 * s * Math.sqrt(f.def.spec.bulk), 0.5 * s, { localPos: new Vec3(0, 0.88 * s, 0), friction: 0.5, restitution: 0.05, material: 'flesh' });
+    const pose = { p: new THREE.Vector3(), q: new THREE.Quaternion() };
+    const bump = new THREE.Vector3();
+    let bumpT = -1;
+    this.euphoria.addProxy(
+      shape,
+      75 * s * s,
+      () => {
+        if (!this.fighters.includes(f)) return null;
+        // ragdolled / dead: parked out of the world
+        pose.p.set(f.x, f.ragdoll || !f.alive ? -100 : 0, f.z);
+        return pose;
+      },
+      (imp) => {
+        if (!f.alive || f.ragdoll) return;
+        if (this.time - bumpT > 0.25) bump.set(0, 0, 0);
+        bumpT = this.time;
+        bump.add(imp);
+        const mag = Math.hypot(bump.x, bump.z);
+        if (f instanceof Enemy && mag > 26) {
+          f.bodyBump(bump.clone());
+          bump.set(0, 0, 0);
+        } else if (f === this.player && mag > 45) {
+          this.cam.addTrauma(0.15);
+          bump.set(0, 0, 0);
+        }
+      },
+    );
   }
   removeFighter(f: Fighter) {
     const i = this.fighters.indexOf(f);

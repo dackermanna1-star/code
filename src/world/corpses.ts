@@ -3,7 +3,7 @@ import { BONE_COUNT, B } from '../anim/skeleton';
 import { createCharacterMaterial, MAX_WOUNDS, Wound } from '../character/material';
 import { CharacterLibrary, CharacterModel, Variant } from '../character/library';
 import { G, groups, Physics, RAPIER } from './physics';
-import { Ragdoll } from './ragdoll';
+import type { CorpseShape } from './ragdollTypes';
 import { BloodAtlas, SPLAT } from './bloodAtlas';
 import { HALF_D, HALF_W } from './arena';
 
@@ -199,7 +199,7 @@ export class CorpseSystem {
    * Bake a dead character (its current skinned pose) into permanent static geometry.
    * The model must have its final pose applied and matrices updated.
    */
-  bake(model: CharacterModel, ragdoll: Ragdoll | null, cause: string, time: number): CorpseRecord {
+  bake(model: CharacterModel, shapes: CorpseShape[] | null, cause: string, time: number): CorpseRecord {
     const variant: Variant = model.variant;
     const geo = variant.geometry;
     model.group.updateMatrixWorld(true);
@@ -214,7 +214,7 @@ export class CorpseSystem {
     this.records.push(rec);
     this.writeWounds(id, wounds);
     this.emitGeometry(rec, model, geo);
-    if (ragdoll) this.addColliders(ragdoll);
+    if (shapes?.length) this.addColliders(shapes);
     // contact shadows / AO under body parts
     const up = new THREE.Vector3(0, 1, 0);
     for (const b of [B.hips, B.chest, B.head, B.shinL, B.shinR, B.farmL, B.farmR]) {
@@ -331,26 +331,22 @@ export class CorpseSystem {
   }
 
   /** Static simplified colliders where the body lies, so later ragdolls land on top. */
-  private addColliders(r: Ragdoll) {
+  private addColliders(shapes: CorpseShape[]) {
     const w = this.physics.world;
     const body = w.createRigidBody(RAPIER.RigidBodyDesc.fixed());
-    const use = ['pelvis', 'chest', 'head', 'thighL', 'thighR'];
-    r.read();
-    r.parts.forEach((p, i) => {
-      if (!use.includes(p.name) || !p.rb) return;
-      const col = p.rb.collider(0);
-      if (!col) return;
-      const t = col.translation();
-      const q = col.rotation();
+    const up = new THREE.Vector3(0, 1, 0);
+    for (const s of shapes) {
+      const c = s.a.clone().add(s.b).multiplyScalar(0.5);
+      const len = s.a.distanceTo(s.b);
       let cd: RAPIER.ColliderDesc;
-      const shape = col.shape;
-      if (shape.type === RAPIER.ShapeType.Ball) cd = RAPIER.ColliderDesc.ball((shape as RAPIER.Ball).radius * 0.9);
-      else if (shape.type === RAPIER.ShapeType.Capsule) cd = RAPIER.ColliderDesc.capsule((shape as RAPIER.Capsule).halfHeight, (shape as RAPIER.Capsule).radius * 0.85);
-      else return;
-      cd.setTranslation(t.x, Math.max(t.y, 0.05), t.z).setRotation(q).setFriction(0.9).setCollisionGroups(groups(G.CORPSE, G.RAGDOLL | G.PROP | G.DEBRIS));
+      if (s.kind === 'ball' || len < 1e-3) cd = RAPIER.ColliderDesc.ball(s.radius);
+      else {
+        const q = new THREE.Quaternion().setFromUnitVectors(up, s.b.clone().sub(s.a).normalize());
+        cd = RAPIER.ColliderDesc.capsule(len / 2, s.radius).setRotation({ x: q.x, y: q.y, z: q.z, w: q.w });
+      }
+      cd.setTranslation(c.x, Math.max(c.y, 0.05), c.z).setFriction(0.9).setCollisionGroups(groups(G.CORPSE, G.RAGDOLL | G.PROP | G.DEBRIS));
       w.createCollider(cd, body);
-      void i;
-    });
+    }
     this.colliderBodies++;
   }
 

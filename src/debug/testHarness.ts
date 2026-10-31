@@ -4,6 +4,7 @@ import { Enemy } from '../ai/enemy';
 import { ARCHETYPES } from '../ai/archetypes';
 import { rand } from '../core/math';
 import { Archetype } from '../character/variants';
+import { makeHit } from '../combat/types';
 
 /** Drive the player like a competent human (for automated playtests). */
 export class Bot {
@@ -154,6 +155,8 @@ export async function runTest(game: Game, params: URLSearchParams) {
       if (i % 600 === 0) console.log(`t=${(i / 60).toFixed(0)}s wave=${game.waves.wave} corpses=${game.corpses.count} enemies=${game.enemies().filter((e) => e.alive).length} hp=${game.player.hp.toFixed(0)} combo=${game.player.bestCombo}`);
       if (!game.player.alive && !god) break;
     }
+    const ec = game.euphoria.counters;
+    result.euphoria = { created: ec.created, peak: ec.peak, steps: ec.steps, avgStepMs: +(ec.stepMsTotal / Math.max(1, ec.steps)).toFixed(3), worstStepMs: +ec.worstStepMs.toFixed(2), statics: game.euphoria.staticCount, ...game.euphoria.events };
     result.wave = game.waves.wave;
     result.playerHp = game.player.hp;
     result.stats = game.player.stats;
@@ -202,6 +205,91 @@ export async function runTest(game: Game, params: URLSearchParams) {
     };
     game.renderFrame();
   }
+  if (name === 'euph') {
+    // scripted active-ragdoll reactions for filming: mode = stagger | knock | death | throw | pile
+    const mode = params.get('mode') ?? 'knock';
+    const key = params.get('enemy') ?? 'brawler';
+    game.player.x = 0;
+    game.player.z = 1.6;
+    game.player.yaw = Math.PI;
+    game.cam.yaw = 0;
+    const es: Enemy[] = [];
+    const n = mode === 'pile' ? 5 : 1;
+    if (mode === 'prop') {
+      // knock an enemy into an oil drum
+      const d = game.props.list[Number(params.get('prop') ?? 0)].body.translation();
+      game.player.x = d.x + 2.3;
+      game.player.z = d.z;
+      es.push(spawnEnemy(key, d.x + 0.85, d.z));
+    } else for (let i = 0; i < n; i++) es.push(spawnEnemy(key, mode === 'pile' ? (i - 2) * 0.35 : 0, mode === 'pile' ? -0.6 - i * 0.25 : -0.4));
+    game.started = true;
+    for (const e of es) {
+      e.attackCooldown = 1e9;
+      e.stunNow(100); // dazed in place: a still target to film
+    }
+    game.cam.framingDist = Number(params.get('framing') ?? -1.8);
+    let frame = 0;
+    const fire = () => {
+      const p = game.player;
+      for (const [i, e] of es.entries()) {
+        if (!e.alive) continue;
+        const at = frame === 30 + i * 4;
+        if (!at) continue;
+        const dir = new THREE.Vector3(e.x - p.x, 0, e.z - p.z).normalize();
+        const head = new THREE.Vector3();
+        e.bodyPoint(mode === 'stagger' ? 'chest' : 'head', head);
+        const h = makeHit({ dir, point: head, damage: 5, strength: 1.1, kind: 'punch', region: 'head', attacker: p, knockdown: mode !== 'stagger', launch: mode === 'throw' ? 4 : 0 });
+        if (mode === 'stagger') e.physStagger(h, Number(params.get('imp') ?? 0.42));
+        else if (mode === 'death' || mode === 'pile') {
+          e.hp = 1;
+          e.takeHit({ ...h, damage: 50, knockdown: false });
+        } else {
+          e.knockdown(h);
+          const pgu = params.get('pgu');
+          if (pgu !== null) e.physGetUp = pgu === '1';
+        }
+      }
+    };
+    const stepOne = () => {
+      for (const e of es) e.attackCooldown = 1e9;
+      fire();
+      game.step(dt);
+      frame++;
+      if (frame % 30 === 0) {
+        const e = es[0];
+        const r = e.downRag as unknown as { mode?: string; getUpPhase?: string | null; ctl?: { sens: { pelvisH: number } } } | null;
+        if (mode === 'prop') {
+          const pb = game.props.list[Number(params.get('prop') ?? 0)].body;
+          const t = pb.translation(), lv = pb.linvel();
+          console.log(`prop pos=${t.x.toFixed(2)},${t.y.toFixed(2)},${t.z.toFixed(2)} speed=${Math.hypot(lv.x, lv.y, lv.z).toFixed(2)}`);
+        }
+        console.log(`f=${frame} state=${e.state} alive=${e.alive} mode=${r?.mode ?? '-'} gu=${r?.getUpPhase ?? '-'} pelvisH=${r?.ctl?.sens.pelvisH.toFixed(2) ?? '-'} active=${game.euphoria.actives.length} stepMs=${game.euphoria.stepMs.toFixed(2)} sub=${game.euphoria.world.substeps}`);
+      }
+    };
+    // fixed side-on witness camera on the first enemy (camera rig would sit behind the player)
+    const camAng = Number(params.get('camang') ?? 1.35);
+    const camDist = Number(params.get('camdist') ?? 3.4);
+    const look = new THREE.Vector3(es[0].x, 0.75, es[0].z);
+    const placeCam = () => {
+      const c = game.cam.camera;
+      c.position.set(look.x + Math.sin(camAng) * camDist, 1.45, look.z + Math.cos(camAng) * camDist);
+      c.lookAt(look);
+    };
+    (window as unknown as { __film: { step: (k: number) => void } }).__film = {
+      step(k: number) {
+        for (let i = 0; i < k; i++) stepOne();
+        if (params.get('track') === '1') {
+          const e = es[0];
+          look.lerp(new THREE.Vector3(e.x, 0.75, e.z), 0.5);
+        }
+        placeCam();
+        game.renderFrame();
+      },
+    };
+    for (let i = 0; i < Number(params.get('warm') ?? 20); i++) stepOne();
+    if (params.get('run')) for (let i = 0; i < frames; i++) stepOne();
+    game.renderFrame();
+  }
   if (name === 'stress') {
     // populate many permanent corpses and blood quickly, then measure frame cost
     const target = Number(params.get('corpses') ?? 200);
@@ -237,6 +325,27 @@ export async function runTest(game: Game, params: URLSearchParams) {
     times.sort((a, b) => a - b);
     result.frameMsMedian = times[30];
     result.frameMsP90 = times[54];
+    // cost of fresh active ragdolls falling into the crowded floor (lab world now holds every corpse)
+    const ec = game.euphoria.counters;
+    const before = { steps: ec.steps, ms: ec.stepMsTotal };
+    const keys2 = Object.keys(ARCHETYPES).filter((k) => !ARCHETYPES[k].boss);
+    const late: Enemy[] = [];
+    for (let i = 0; i < 6; i++) late.push(spawnEnemy(keys2[i % keys2.length], rand(-6, 6), rand(-6, 6)));
+    for (let i = 0; i < 2; i++) game.step(dt);
+    for (const e of late) {
+      e.hp = 1;
+      e.takeHit(makeHit({ dir: new THREE.Vector3(rand(-1, 1), 0, rand(-1, 1)).normalize(), point: new THREE.Vector3(e.x, 1.6, e.z), damage: 50, strength: 1, attacker: game.player }));
+    }
+    const ftimes: number[] = [];
+    for (let i = 0; i < 120; i++) {
+      const a = performance.now();
+      game.step(dt);
+      ftimes.push(performance.now() - a);
+    }
+    ftimes.sort((a, b) => a - b);
+    result.activeFrameMsMedian = +ftimes[60].toFixed(2);
+    result.activeFrameMsP90 = +ftimes[108].toFixed(2);
+    result.euphoriaAfterPile = { steps: ec.steps - before.steps, avgStepMs: +((ec.stepMsTotal - before.ms) / Math.max(1, ec.steps - before.steps)).toFixed(3), statics: game.euphoria.staticCount, bodies: game.euphoria.world.bodies.length };
   }
   result.ms = Math.round(performance.now() - t0);
   result.corpses = game.corpses?.count ?? 0;

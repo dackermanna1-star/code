@@ -222,6 +222,7 @@ export class HUD {
     row('Bloom', chk(s.bloom, (v) => apply((x) => (x.bloom = v))));
     row('Film grain', chk(s.filmGrain, (v) => apply((x) => (x.filmGrain = v))));
     row('Impact FX (chromatic)', chk(s.motionFx, (v) => apply((x) => (x.motionFx = v))));
+    row('Active ragdolls (euphoria)', chk(s.ragdolls === 'euphoria', (v) => apply((x) => (x.ragdolls = v ? 'euphoria' : 'classic'))));
     row('Camera shake', rng(0, 1.5, 0.05, s.cameraShake, (v) => apply((x) => (x.cameraShake = v))));
     row('Mouse sensitivity', rng(0.2, 3, 0.05, s.mouseSensitivity, (v) => apply((x) => (x.mouseSensitivity = v))));
     row('Invert Y', chk(s.invertY, (v) => apply((x) => (x.invertY = v))));
@@ -398,7 +399,7 @@ export class HUD {
         `${this.fpsVal.toFixed(0)} fps  scale ${(g.renderer.pixelRatio).toFixed(2)}\n` +
         `corpses ${g.corpses.count}  verts ${(g.corpses.totalVerts / 1000).toFixed(0)}k  splats ${g.blood.totalSplats}\n` +
         `draws ${g.renderer.sceneStats.calls}  tris ${(g.renderer.sceneStats.triangles / 1000).toFixed(0)}k  particles ${g.fx.liveParticles}\n` +
-        `ragdolls ${g.death.dying.length}  weapons ${g.weapons.length}  debris ${g.fx.wood.total + g.fx.bone.total}` +
+        `ragdolls ${g.death.dying.length}  active ${g.euphoria.actives.length} (${g.euphoria.stepMs.toFixed(1)}ms x${g.euphoria.world.substeps})  weapons ${g.weapons.length}  debris ${g.fx.wood.total + g.fx.bone.total}` +
         (mem ? `\nheap ${(mem.usedJSHeapSize / 1048576).toFixed(0)} MB` : '');
     } else this.fpsEl.textContent = '';
     void dt;

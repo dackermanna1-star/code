@@ -62,7 +62,7 @@ export class Animator {
   private halflife = 0.08;
   private pending = false;
   private pendingHL = 0.08;
-  private lastDt = 1 / 60;
+  lastDt = 1 / 60;
   // secondary springs (scaled-axis in parent frame)
   private sx: THREE.Vector3[] = [];
   private sv: THREE.Vector3[] = [];

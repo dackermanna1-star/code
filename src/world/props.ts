@@ -3,6 +3,7 @@ import type { Game } from '../game';
 import { G, groups, RAPIER } from './physics';
 import { crateTexture, drumTexture } from './textures';
 import { rand } from '../core/math';
+import { Shape } from './euphoria/engine.js';
 
 interface Prop {
   kind: 'drum' | 'crate';
@@ -46,7 +47,24 @@ export class Props {
     cd.setMass(kind === 'drum' ? 18 : 9).setFriction(0.7).setRestitution(0.15).setCollisionGroups(groups(G.PROP, G.STATIC | G.CORPSE | G.RAGDOLL | G.PROP));
     g.physics.world.createCollider(cd, body);
     body.sleep();
-    this.list.push({ kind, mesh, body, broken: false, lastHit: 0, half });
+    const prop: Prop = { kind, mesh, body, broken: false, lastHit: 0, half };
+    this.list.push(prop);
+    // mirror into the active-ragdoll world: bodies land on / tumble over props and shove them back
+    const r = kind === 'drum' ? 0.1 : 0.01;
+    const shape = Shape.box(half.x - r, half.y - r, half.z - r, { radius: r, friction: 0.6, restitution: 0.1, material: kind === 'drum' ? 'metal' : 'wood' });
+    const pose = { p: new THREE.Vector3(), q: new THREE.Quaternion() };
+    g.euphoria.addProxy(
+      shape,
+      kind === 'drum' ? 18 : 9,
+      () => {
+        if (prop.broken) return null;
+        const t = body.translation(), q = body.rotation();
+        pose.p.set(t.x, t.y, t.z);
+        pose.q.set(q.x, q.y, q.z, q.w);
+        return pose;
+      },
+      (imp, at) => body.applyImpulseAtPoint({ x: imp.x, y: imp.y, z: imp.z }, { x: at.x, y: at.y, z: at.z }, true),
+    );
   }
 
   update(dt: number) {

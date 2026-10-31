@@ -7,7 +7,7 @@ import { Wound } from '../character/material';
 import { angleDiff, clamp, rotY, wrapAngle, yawFromDir } from '../core/math';
 import { HitInfo, HitResult } from './types';
 import type { Game } from '../game';
-import type { Ragdoll } from '../world/ragdoll';
+import type { RagdollLike } from '../world/ragdollTypes';
 import type { Weapon } from './weapons';
 
 let NEXT_ID = 1;
@@ -71,7 +71,7 @@ export abstract class Fighter implements AimProvider {
   brokenArm = 0; // 1 left, -1 right
   brokenLeg = 0;
   scale = 1;
-  ragdoll: Ragdoll | null = null;
+  ragdoll: RagdollLike | null = null;
   weapon: Weapon | null = null;
   abstract team: 'player' | 'enemy';
 

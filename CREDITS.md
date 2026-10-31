@@ -52,7 +52,8 @@ All sound effects in `public/audio/` were cut, converted and normalised from the
 | Library | License | Use |
 |---|---|---|
 | [three.js](https://threejs.org) | MIT | Rendering |
-| [Rapier](https://rapier.rs) (`@dimforge/rapier3d-compat`) | Apache-2.0 | Physics, ragdolls |
+| [Rapier](https://rapier.rs) (`@dimforge/rapier3d-compat`) | Apache-2.0 | Props, debris, weapons, classic ragdolls |
+| Ragdoll Lab active-ragdoll engine (`src/world/euphoria/engine.js`) | provided by the project owner | XPBD solver + balance / bracing / get-up controller for bodies |
 | [Vite](https://vitejs.dev) | MIT | Dev server and build |
 
 ## Art and animation

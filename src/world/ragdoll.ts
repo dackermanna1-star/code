@@ -4,6 +4,8 @@ import { B, BONE_COUNT, PARENT, SkeletonDef } from '../anim/skeleton';
 import { Pose, PoseFK } from '../anim/pose';
 import { ExternalPose } from '../anim/animator';
 import { rotY } from '../core/math';
+import type { CorpseShape, RagdollInit, RagdollLike } from './ragdollTypes';
+export type { RagdollInit } from './ragdollTypes';
 
 interface Part {
   name: string;
@@ -36,20 +38,9 @@ const _q2 = new THREE.Quaternion();
 const _qi = new THREE.Quaternion();
 const Y = new THREE.Vector3(0, 1, 0);
 
-export interface RagdollInit {
-  def: SkeletonDef;
-  fk: PoseFK; // root-space FK of the current pose
-  prevFk?: PoseFK; // previous frame (for velocities)
-  dt: number;
-  rootX: number;
-  rootZ: number;
-  rootYaw: number;
-  vel: THREE.Vector3; // whole-body velocity (world)
-  scale: number;
-}
-
-/** Physics ragdoll that can drive an Animator (ExternalPose). */
-export class Ragdoll implements ExternalPose {
+/** Passive physics ragdoll (Rapier) that can drive an Animator (ExternalPose). */
+export class Ragdoll implements ExternalPose, RagdollLike {
+  readonly active = false;
   parts: Part[] = [];
   joints: RAPIER.ImpulseJoint[] = [];
   /** Body world transforms at the last read. */
@@ -211,6 +202,41 @@ export class Ragdoll implements ExternalPose {
   /** Pelvis ground position. */
   rootPos(out: THREE.Vector3) {
     return out.copy(this.pos[0]).setY(0);
+  }
+  pelvisPos(out: THREE.Vector3) {
+    return out.copy(this.pos[0]);
+  }
+  chestPos(out: THREE.Vector3) {
+    return out.copy(this.pos[1]);
+  }
+  headPos(out: THREE.Vector3) {
+    return out.copy(this.pos[2]);
+  }
+  pelvisVel(out: THREE.Vector3) {
+    const rb = this.parts[0].rb;
+    return rb ? toV(rb.linvel(), out) : out.set(0, 0, 0);
+  }
+  /** Simplified static colliders for the settled corpse (pelvis, chest, head, thighs). */
+  corpseShapes(): CorpseShape[] {
+    const out: CorpseShape[] = [];
+    const use = ['pelvis', 'chest', 'head', 'thighL', 'thighR'];
+    for (const p of this.parts) {
+      if (!use.includes(p.name) || !p.rb) continue;
+      const col = p.rb.collider(0);
+      if (!col) continue;
+      const t = toV(col.translation(), new THREE.Vector3());
+      t.y = Math.max(t.y, 0.05);
+      const q = toQ(col.rotation(), new THREE.Quaternion());
+      const shape = col.shape;
+      if (shape.type === RAPIER.ShapeType.Ball) {
+        out.push({ kind: 'ball', a: t.clone(), b: t.clone(), radius: (shape as RAPIER.Ball).radius * 0.9 });
+      } else if (shape.type === RAPIER.ShapeType.Capsule) {
+        const c = shape as RAPIER.Capsule;
+        const ax = new THREE.Vector3(0, c.halfHeight, 0).applyQuaternion(q);
+        out.push({ kind: 'capsule', a: t.clone().sub(ax), b: t.clone().add(ax), radius: c.radius * 0.85 });
+      }
+    }
+    return out;
   }
   /** Is the body lying face up? */
   faceUp() {
