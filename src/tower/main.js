@@ -821,16 +821,19 @@ function frame(now) {
   if (killCam.active) {
     retro.render(scene, killCam.camera);
   } else {
-    const rifle = ph !== 'title' && !placing && scopeView < 0.98;
-    retro.render(scene, camera, !rifle);
-    if (rifle) {
+    // (the viewmodel always runs - it owns how far the eye is into the scope - but is only drawn
+    // while the eye is not in it)
+    const live = ph !== 'title' && !placing;
+    if (live) {
       view.update(dtReal, {
         ads: scopeAmt, sprint: false, speed: 0, step: 0, onGround: true, crouch: 0, look: { dx: 0, dy: 0 }, landed: 0,
         state: R.state === 'reload' ? 'reload' : 'idle', stateT: R.t, reloadTime: R.reloadTime, perShell: false, empty: R.ammo === 0, pitch: input.pitch, melee: null,
       });
       view.setLighting(lerp(1, 0.35, game.timeOfDay));
-      retro.renderOverlay(view.scene, view.camera);
     }
+    const rifle = live && scopeView < 0.98;
+    retro.render(scene, camera, !rifle);
+    if (rifle) retro.renderOverlay(view.scene, view.camera);
   }
   requestAnimationFrame(frame);
 }
