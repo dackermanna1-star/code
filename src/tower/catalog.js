@@ -73,7 +73,7 @@ export const DEFENCE_ORDER = ['repair', 'wire', 'mine', 'barrel', 'floodlight', 
  * with; gate: gate damage per second while battering; cash: reward; from: first wave it appears.
  */
 export const ENEMIES = {
-  walker: { name: 'Walker', hp: 260, speed: 1.2, clip: 'walk', gate: 5, cash: 20, from: 1 },
+  walker: { name: 'Walker', hp: 260, speed: 1.35, clip: 'walk', gate: 5, cash: 20, from: 1 },
   runner: { name: 'Runner', hp: 170, speed: 3.6, clip: 'sprint', gate: 4, cash: 35, from: 3 },
   crawler: { name: 'Crawler', hp: 200, speed: 0.45, clip: 'crawl', gate: 3, cash: 25, from: 4 },
   climber: { name: 'Climber', hp: 160, speed: 2.4, clip: 'jog', climbSpeed: 0.75, cash: 50, from: 4 },

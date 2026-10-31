@@ -92,9 +92,32 @@ export class Director {
     return 'walker';
   }
 
+  /**
+   * Where the next group comes from: mostly out of the woods at the valley's edge, but a third of
+   * them closer in - out of the corn, from behind the farm buildings, across the fields (100-150 m)
+   * - so a wave keeps coming at you instead of trickling in over minutes.
+   */
   spawnPoint() {
-    const S = this.game.layout.spawns;
-    return S[Math.floor(this.game.rng() * S.length)];
+    const game = this.game, rng = game.rng, L = game.layout;
+    const S = L.spawns;
+    const far = S[Math.floor(rng() * S.length)];
+    if (this.wave < 2 || rng() > 0.35) return far;
+    const corn = L.cover && L.cover.cornfield;
+    for (let k = 0; k < 12; k++) {
+      let x, z;
+      if (corn && corn.length && rng() < 0.4) {
+        const c = corn[Math.floor(rng() * corn.length)];
+        x = c.minX + rng() * (c.maxX - c.minX);
+        z = c.minZ + rng() * (c.maxZ - c.minZ);
+      } else {
+        const a = Math.atan2(far.pos[1], far.pos[0]) + (rng() - 0.5) * 0.8, r = 100 + rng() * 50;
+        x = Math.cos(a) * r;
+        z = Math.sin(a) * r;
+      }
+      const d = Math.hypot(x, z);
+      if (d > 85 && game.isWalkable(x, z) && isFinite(game.field.distanceAt(x, z))) return { id: 'near', pos: [x, z], dir: [-x / d, -z / d], label: 'near' };
+    }
+    return far;
   }
 
   spawnGroup(n) {
