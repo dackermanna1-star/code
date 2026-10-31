@@ -274,7 +274,7 @@ export class FX {
     }
   }
   impactFlash(p: THREE.Vector3, strength = 1, color = [1, 0.9, 0.75]) {
-    this.add.spawn(p.x, p.y, p.z, 0, 0, 0, 0.18 + strength * 0.35, color[0] * 2.2, color[1] * 2.2, color[2] * 2.2, 0.9, 0.09 + strength * 0.05, { grow: 4 * strength });
+    this.add.spawn(p.x, p.y, p.z, 0, 0, 0, 0.08 + strength * 0.14, color[0] * 1.8, color[1] * 1.8, color[2] * 1.8, 0.75, 0.06 + strength * 0.03, { grow: 1.6 * strength });
     // shock ring particles
     for (let i = 0; i < 6 + strength * 6; i++) {
       const a = rand(0, Math.PI * 2);

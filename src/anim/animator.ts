@@ -71,6 +71,7 @@ export class Animator {
   /** Extra per-bone local rotation overrides (e.g. broken limbs), applied post. */
   postRot: (THREE.Quaternion | null)[] = new Array(BONE_COUNT).fill(null);
   initialized = false;
+  ground: ((x: number, z: number) => number) | null = null;
 
   constructor(public def: SkeletonDef, public model: CharacterModel) {
     for (let i = 0; i < BONE_COUNT; i++) {
@@ -132,6 +133,7 @@ export class Animator {
 
   playClip(clip: Clip, opt: PlayOptions = {}): ClipPlayer {
     const p = new ClipPlayer(clip);
+    p.ground = this.ground;
     p.speed = opt.speed ?? 1;
     p.aim = opt.aim ?? null;
     if (opt.entryHalflife !== undefined) p.entryHalflife = opt.entryHalflife;

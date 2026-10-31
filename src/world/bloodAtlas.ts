@@ -465,13 +465,14 @@ ${NOISE_GLSL}`,
   bc *= 1.0 - rim;
   diffuseColor.rgb = mix(diffuseColor.rgb, bc, cov);
   lsBlood = cov;
-  lsThick = clamp(b.g + amt * 0.3, 0.0, 1.0);
+  // only thick, fresh pools are glossy; thin stains soak into the concrete (matte)
+  lsThick = clamp(b.g * 1.6 - 0.15, 0.0, 1.0);
 }`,
         )
         .replace(
           '#include <roughnessmap_fragment>',
           `#include <roughnessmap_fragment>
-roughnessFactor = mix(roughnessFactor, mix(0.38, 0.06, lsThick), lsBlood);`,
+roughnessFactor = mix(roughnessFactor, mix(0.82, 0.16, lsThick), lsBlood);`,
         );
     };
     mat.customProgramCacheKey = () => 'ls-blood-surface';

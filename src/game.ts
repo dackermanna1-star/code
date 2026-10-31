@@ -22,7 +22,7 @@ import { Director } from './ai/director';
 import { WaveManager } from './ai/waves';
 import { BossManager } from './ai/bosses';
 import { Enemy } from './ai/enemy';
-import { Weapon } from './combat/weapons';
+import { Weapon, WeaponBatch } from './combat/weapons';
 import { HUD } from './ui/hud';
 import { HitInfo, makeHit } from './combat/types';
 
@@ -59,12 +59,15 @@ export class Game {
   waves: WaveManager;
   bosses: BossManager;
   weapons: Weapon[] = [];
+  weaponBatch: WeaponBatch;
   hud: HUD | null = null;
   thrown: { e: Enemy; t: number; dir: THREE.Vector3; hitWall?: boolean }[] = [];
   onCorpse: ((r: CorpseRecord) => void) | null = null;
   started = false;
   over = false;
   debug = false;
+  preStep: ((dt: number) => void) | null = null;
+  godMode = false;
   private enemyCache: Enemy[] = [];
   private enemyCacheFrame = -1;
 
@@ -97,6 +100,7 @@ export class Game {
     this.director = new Director(this);
     this.waves = new WaveManager(this);
     this.bosses = new BossManager(this);
+    this.weaponBatch = new WeaponBatch(this.scene);
     // context loss: rebuild persistent blood from the splat log
     this.renderer.gl.domElement.addEventListener('webglcontextrestored', () => {
       this.blood.needsRestore = true;
@@ -137,9 +141,22 @@ export class Game {
       this.renderer.gl.domElement.addEventListener('click', () => {
         if (this.started && !this.paused && !this.over) this.input.requestLock();
       });
+      // the browser consumes Esc to release pointer lock: treat that as a pause request
+      this.input.onLockLost = () => {
+        if (this.started && !this.paused && !this.over && !this.preStep) this.setPaused(true);
+      };
+      window.addEventListener('blur', () => {
+        if (this.started && !this.paused && !this.over && !this.preStep) this.setPaused(true);
+      });
       this.hud.show('title');
     }
     if (!this.params.get('test') || this.params.get('audio') === '1') await this.audio.init();
+    // compile all shaders up front (characters, corpses, particles, blood surfaces)
+    try {
+      this.renderer.gl.compile(this.scene, this.cam.camera);
+    } catch {
+      /* compile is an optimization only */
+    }
   }
 
   applySettings() {
@@ -163,8 +180,13 @@ export class Game {
     this.waves.start(Number(this.params.get('wave') ?? 1));
   }
 
+  private lastPauseToggle = 0;
   setPaused(p: boolean) {
-    if (this.over) return;
+    if (this.over || p === this.paused) return;
+    // Esc can arrive both as keydown and as a pointer-lock release; ignore the duplicate
+    const now = performance.now();
+    if (now - this.lastPauseToggle < 250) return;
+    this.lastPauseToggle = now;
     this.paused = p;
     if (p) {
       this.input.exitLock();
@@ -210,6 +232,8 @@ export class Game {
     this.realTime += realDt;
     this.input.update(realDt);
     if (this.paused) return;
+    this.preStep?.(realDt);
+    if (this.godMode) this.player.hp = Math.max(this.player.hp, 40);
     let ts = 1;
     if (this.slowmo) {
       this.slowmo.t += realDt;
@@ -455,5 +479,14 @@ export async function startGame(params: URLSearchParams) {
     await t.runTest(game, params);
     return;
   }
+  if (params.get('bot') === '1') {
+    // attract/demo mode: the scripted bot plays the real game
+    const t = await import('./debug/testHarness');
+    const bot = new t.Bot(game);
+    game.preStep = (dt) => bot.update(dt);
+    if (params.get('god') === '1') game.godMode = true;
+    game.beginRun();
+  }
   game.start();
+  (window as unknown as { __ready: boolean }).__ready = true;
 }

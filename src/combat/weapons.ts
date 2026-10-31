@@ -9,11 +9,19 @@ export type WeaponKind = 'knife' | 'club' | 'sword';
 
 const DUR: Record<WeaponKind, number> = { knife: 14, club: 9, sword: 16 };
 
+let MATS: { steel: THREE.MeshStandardMaterial; dark: THREE.MeshStandardMaterial; wood: THREE.MeshStandardMaterial } | null = null;
+function mats() {
+  MATS ??= {
+    steel: new THREE.MeshStandardMaterial({ color: 0xc8ccd2, metalness: 0.9, roughness: 0.28 }),
+    dark: new THREE.MeshStandardMaterial({ color: 0x1a1612, roughness: 0.8 }),
+    wood: new THREE.MeshStandardMaterial({ color: 0x8a6034, roughness: 0.75 }),
+  };
+  return MATS;
+}
+
 function buildMesh(kind: WeaponKind): { group: THREE.Group; length: number; half: THREE.Vector3 } {
   const g = new THREE.Group();
-  const steel = new THREE.MeshStandardMaterial({ color: 0xc8ccd2, metalness: 0.9, roughness: 0.28 });
-  const dark = new THREE.MeshStandardMaterial({ color: 0x1a1612, roughness: 0.8 });
-  const wood = new THREE.MeshStandardMaterial({ color: 0x8a6034, roughness: 0.75 });
+  const { steel, dark, wood } = mats();
   let length = 0.3;
   if (kind === 'knife') {
     const handle = new THREE.Mesh(new THREE.BoxGeometry(0.022, 0.11, 0.03), dark);
@@ -58,6 +66,92 @@ function buildMesh(kind: WeaponKind): { group: THREE.Group; length: number; half
 
 const _v = new THREE.Vector3();
 const _q = new THREE.Quaternion();
+const _m = new THREE.Matrix4();
+
+/**
+ * Settled weapons on the floor are drawn as instances (one InstancedMesh per weapon part),
+ * so any number of dropped weapons costs a constant number of draw calls. Never removed.
+ */
+export class WeaponBatch {
+  private parts = new Map<string, { mesh: THREE.InstancedMesh; owners: (Weapon | null)[] }[]>();
+  constructor(public scene: THREE.Scene) {}
+  private ensure(kind: WeaponKind, template: THREE.Group) {
+    let list = this.parts.get(kind);
+    if (!list) {
+      list = [];
+      template.children.forEach((c) => {
+        const m = c as THREE.Mesh;
+        const geo = m.geometry.clone();
+        // bake the part's local transform into the geometry
+        m.updateMatrix();
+        geo.applyMatrix4(m.matrix);
+        const im = new THREE.InstancedMesh(geo, m.material as THREE.Material, 64);
+        im.count = 0;
+        im.castShadow = true;
+        im.receiveShadow = true;
+        im.frustumCulled = false;
+        this.scene.add(im);
+        list!.push({ mesh: im, owners: [] });
+      });
+      this.parts.set(kind, list);
+    }
+    return list;
+  }
+  add(w: Weapon) {
+    const list = this.ensure(w.kind, w.group);
+    w.group.updateMatrixWorld(true);
+    // whole-weapon world matrix (parts carry their own local transforms in geometry)
+    _m.compose(w.group.position, w.group.quaternion, w.group.scale);
+    for (const part of list) {
+      let im = part.mesh;
+      if (im.count >= im.instanceMatrix.count) {
+        const bigger = new THREE.InstancedMesh(im.geometry, im.material, im.instanceMatrix.count * 2);
+        for (let i = 0; i < im.count; i++) {
+          im.getMatrixAt(i, _mm);
+          bigger.setMatrixAt(i, _mm);
+        }
+        bigger.count = im.count;
+        bigger.castShadow = im.castShadow;
+        bigger.receiveShadow = true;
+        bigger.frustumCulled = false;
+        this.scene.add(bigger);
+        this.scene.remove(im);
+        im.dispose();
+        part.mesh = im = bigger;
+      }
+      im.setMatrixAt(im.count, _m);
+      im.count++;
+      im.instanceMatrix.needsUpdate = true;
+      part.owners.push(w);
+    }
+    w.batchIndex = list[0].mesh.count - 1;
+  }
+  remove(w: Weapon) {
+    const list = this.parts.get(w.kind);
+    if (!list || w.batchIndex < 0) return;
+    const i = w.batchIndex;
+    for (const part of list) {
+      const im = part.mesh;
+      const last = im.count - 1;
+      if (i !== last) {
+        im.getMatrixAt(last, _mm);
+        im.setMatrixAt(i, _mm);
+        part.owners[i] = part.owners[last];
+      }
+      part.owners.pop();
+      im.count--;
+      im.instanceMatrix.needsUpdate = true;
+    }
+    const moved = list[0].owners[i];
+    if (moved) moved.batchIndex = i;
+    w.batchIndex = -1;
+  }
+  get total() {
+    const l = [...this.parts.values()];
+    return l.reduce((a, parts) => a + (parts[0]?.mesh.count ?? 0), 0);
+  }
+}
+const _mm = new THREE.Matrix4();
 
 export class Weapon {
   group: THREE.Group;
@@ -69,6 +163,9 @@ export class Weapon {
   broken = false;
   thrown: { target: Fighter | null; t: number } | null = null;
   bloody = 0;
+  /** Index in the static weapon batch when settled on the floor (-1 = live object). */
+  batchIndex = -1;
+  private restT = 0;
 
   constructor(public game: Game, public kind: WeaponKind) {
     const m = buildMesh(kind);
@@ -80,6 +177,7 @@ export class Weapon {
 
   /** Attach to a fighter's right hand. */
   attach(f: Fighter) {
+    this.unbatch();
     this.detachBody();
     this.holder = f;
     f.weapon = this;
@@ -183,13 +281,35 @@ export class Weapon {
     if (holder) holder.weapon = null;
   }
 
+  private unbatch() {
+    if (this.batchIndex >= 0) {
+      this.game.weaponBatch.remove(this);
+      this.group.visible = true;
+      if (!this.group.parent) this.game.scene.add(this.group);
+    }
+  }
+
   update(dt: number) {
-    if (this.body) {
+    if (this.body && this.batchIndex < 0) {
       const t = this.body.translation();
       const r = this.body.rotation();
       this.group.position.set(t.x, t.y, t.z);
       this.group.quaternion.set(r.x, r.y, r.z, r.w);
-      // settled weapons: freeze body (stays as prop, keeps collision)
+      // settled on the floor: become a static instance (constant draw calls), keep the sleeping body
+      const lv = this.body.linvel();
+      if (this.body.isSleeping() || Math.hypot(lv.x, lv.y, lv.z) < 0.03) this.restT += dt;
+      else this.restT = 0;
+      if (this.restT > 0.6 && !this.thrown) {
+        this.game.weaponBatch.add(this);
+        this.group.visible = false;
+      }
+    } else if (this.body && this.batchIndex >= 0 && !this.body.isSleeping()) {
+      // something knocked it: wake up as a live object again
+      const lv = this.body.linvel();
+      if (Math.hypot(lv.x, lv.y, lv.z) > 0.2) {
+        this.unbatch();
+        this.restT = 0;
+      }
     }
     if (this.thrown) {
       this.thrown.t += dt;

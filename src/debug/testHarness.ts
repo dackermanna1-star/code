@@ -164,6 +164,32 @@ export async function runTest(game: Game, params: URLSearchParams) {
     }
     result.stats = game.player.stats;
   }
+  if (name === 'film') {
+    // set up a fight, then let the runner step + screenshot frame by frame
+    const key = params.get('enemy') ?? 'brawler';
+    const n = Number(params.get('n') ?? 3);
+    for (let i = 0; i < n; i++) spawnEnemy(key, rand(-3.5, 3.5), -2.5 - i * 0.8);
+    const bot = new Bot(game);
+    game.started = true;
+    game.cam.framingDist = Number(params.get('framing') ?? 0);
+    const warm = Number(params.get('warm') ?? 120);
+    for (let i = 0; i < warm; i++) {
+      bot.update(dt);
+      game.player.hp = Math.max(game.player.hp, 50);
+      game.step(dt);
+    }
+    (window as unknown as { __film: { step: (k: number) => void } }).__film = {
+      step(k: number) {
+        for (let i = 0; i < k; i++) {
+          bot.update(dt);
+          game.player.hp = Math.max(game.player.hp, 50);
+          game.step(dt);
+        }
+        game.renderFrame();
+      },
+    };
+    game.renderFrame();
+  }
   if (name === 'stress') {
     // populate many permanent corpses and blood quickly, then measure frame cost
     const target = Number(params.get('corpses') ?? 200);

@@ -313,6 +313,8 @@ export class ClipPlayer {
   aim: AimProvider | null = null;
   /** Character scale applied to all clip-space distances. */
   scale = 1;
+  /** Ground height provider (bodies on the floor) for planted feet. */
+  ground: ((x: number, z: number) => number) | null = null;
   /** Initial foot world positions (clip start), to keep continuity. */
   footStart: [THREE.Vector3, THREE.Vector3] = [new THREE.Vector3(), new THREE.Vector3()];
   footStartYaw: [number, number] = [0, 0];
@@ -388,16 +390,17 @@ export class ClipPlayer {
         const samePlace = Math.abs(f.p[0] - first.p[0]) < 1e-4 && Math.abs(f.p[2] - first.p[2]) < 1e-4 && f.p[1] < 1e-4;
         if (usingStart && (i === 0 || samePlace)) {
           const st = this.footStart[side];
-          this.footWorld[side].push({ x: st.x, y: 0, z: st.z, yaw: this.footStartYaw[side] });
+          this.footWorld[side].push({ x: st.x, y: this.ground ? this.ground(st.x, st.z) : 0, z: st.z, yaw: this.footStartYaw[side] });
           continue;
         }
         usingStart = false;
         const w = this.warpWeight(keys[i].t);
         const [x, z] = this.clipToWorldXZ(f.p[0], f.p[2]);
+        const fx = x + this.warpX * w, fz = z + this.warpZ * w;
         this.footWorld[side].push({
-          x: x + this.warpX * w,
-          z: z + this.warpZ * w,
-          y: f.p[1] * this.scale,
+          x: fx,
+          z: fz,
+          y: f.p[1] * this.scale + (f.p[1] < 0.02 && this.ground ? this.ground(fx, fz) : 0),
           yaw: this.originYaw + f.yaw * DEG + this.warpYaw * w,
         });
       }
@@ -571,7 +574,7 @@ export class ClipPlayer {
       const f1 = fk(k1), f2 = fk(k2);
       let x: number, y: number, z: number;
       const moved = Math.abs(a.x - b.x) + Math.abs(a.z - b.z) > 1e-4 || Math.abs(a.y - b.y) > 1e-4;
-      const grounded = a.y < 0.02 && b.y < 0.02;
+      const grounded = a.y < 0.35 && b.y < 0.35 && Math.abs(a.y - b.y) < 0.3 && (k1 === k2 || (fk(k1).p[1] < 0.02 && fk(k2).p[1] < 0.02));
       if (!moved) {
         x = a.x;
         y = a.y;
@@ -581,7 +584,7 @@ export class ClipPlayer {
         x = lerp(a.x, b.x, ss);
         z = lerp(a.z, b.z, ss);
         const dist = Math.hypot(b.x - a.x, b.z - a.z);
-        y = Math.sin(Math.PI * s) * Math.min(f2.lift, 0.03 + dist * 0.35);
+        y = a.y + (b.y - a.y) * ss + Math.sin(Math.PI * s) * Math.min(f2.lift, 0.03 + dist * 0.35);
       } else {
         const p0 = fw[i0], p3 = fw[i3];
         x = cr(p0.x, a.x, b.x, p3.x);
@@ -592,7 +595,7 @@ export class ClipPlayer {
       const pitch = lerp(f1.pitch, f2.pitch, s);
       // heel lift: when a grounded foot pitches toes-down, the ankle rotates up about the ball of the foot
       let heelY = 0, heelBack = 0;
-      if (pitch > 0 && y < 0.05) {
+      if (pitch > 0 && y < 0.36) {
         const L = def.footLen * 0.85;
         heelY = Math.sin(pitch * DEG) * L;
         heelBack = (1 - Math.cos(pitch * DEG)) * L;

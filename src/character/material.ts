@@ -168,7 +168,7 @@ ${WOUND_EVAL_GLSL}
       .replace(
         '#include <roughnessmap_fragment>',
         `#include <roughnessmap_fragment>
-roughnessFactor = mix(roughnessFactor, 0.22, lsBloodAmt);
+roughnessFactor = mix(roughnessFactor, 0.42, lsBloodAmt);
 `,
       )
       .replace(

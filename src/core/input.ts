@@ -29,6 +29,8 @@ export class Input {
   private padPrev: boolean[] = [];
   time = 0;
   enabled = true;
+  /** Called when pointer lock is released by the browser (e.g. Esc). */
+  onLockLost: (() => void) | null = null;
   /** For automated tests/bots. */
   virtual: { moveX: number; moveY: number } | null = null;
 
@@ -74,12 +76,20 @@ export class Input {
       }
     });
     document.addEventListener('pointerlockchange', () => {
+      const was = this.pointerLocked;
       this.pointerLocked = document.pointerLockElement === el;
+      if (was && !this.pointerLocked) this.onLockLost?.();
     });
   }
 
   requestLock() {
-    if (!this.pointerLocked) this.el.requestPointerLock?.();
+    if (this.pointerLocked) return;
+    try {
+      const r = this.el.requestPointerLock?.() as unknown as Promise<void> | undefined;
+      if (r && typeof r.catch === 'function') r.catch(() => undefined);
+    } catch {
+      /* pointer lock needs a user gesture; the next click will retry */
+    }
   }
   exitLock() {
     if (document.pointerLockElement) document.exitPointerLock();

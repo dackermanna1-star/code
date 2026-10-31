@@ -163,7 +163,8 @@ export class Renderer {
     this.gl.toneMapping = THREE.NoToneMapping;
     this.gl.autoClear = true;
     container.appendChild(this.gl.domElement);
-    this.hdr = this.gl.extensions.has('EXT_color_buffer_float') || this.gl.extensions.has('EXT_color_buffer_half_float') || true;
+    // HDR targets need float color buffers; fall back to 8-bit targets where unsupported
+    this.hdr = this.gl.extensions.has('EXT_color_buffer_float') || this.gl.extensions.has('EXT_color_buffer_half_float');
     this.blackTex = new THREE.DataTexture(new Uint8Array([0, 0, 0, 255]), 1, 1);
     this.blackTex.needsUpdate = true;
     const geo = new THREE.PlaneGeometry(2, 2);
@@ -209,8 +210,9 @@ export class Renderer {
     this.width = rw;
     this.height = rh;
     this.sceneRT?.dispose();
+    const rtType = this.hdr ? THREE.HalfFloatType : THREE.UnsignedByteType;
     this.sceneRT = new THREE.WebGLRenderTarget(rw, rh, {
-      type: THREE.HalfFloatType,
+      type: rtType,
       samples: this.preset.msaa,
       depthBuffer: true,
       minFilter: THREE.LinearFilter,
@@ -222,7 +224,7 @@ export class Renderer {
     this.bloomUpRTs = [];
     let bw = Math.max(1, rw >> 1), bh = Math.max(1, rh >> 1);
     for (let i = 0; i < 5; i++) {
-      const opts = { type: THREE.HalfFloatType, depthBuffer: false, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter };
+      const opts = { type: rtType, depthBuffer: false, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter };
       this.bloomRTs.push(new THREE.WebGLRenderTarget(bw, bh, opts));
       this.bloomUpRTs.push(new THREE.WebGLRenderTarget(bw, bh, opts));
       bw = Math.max(1, bw >> 1);

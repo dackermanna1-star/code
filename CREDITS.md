@@ -46,3 +46,16 @@ All sound effects in `public/audio/` were cut, converted and normalised from the
 | Voiceover Pack: Fighter (40+ taunts) | Kenney | CC0 | https://opengameart.org/content/voiceover-pack-fighter-40-taunts |
 
 <!-- audio-credits:end -->
+
+## Libraries
+
+| Library | License | Use |
+|---|---|---|
+| [three.js](https://threejs.org) | MIT | Rendering |
+| [Rapier](https://rapier.rs) (`@dimforge/rapier3d-compat`) | Apache-2.0 | Physics, ragdolls |
+| [Vite](https://vitejs.dev) | MIT | Dev server and build |
+
+## Art and animation
+
+All character meshes, textures, environment art, animations and music are generated
+procedurally by the game's own code — no third-party models or animation files are used.

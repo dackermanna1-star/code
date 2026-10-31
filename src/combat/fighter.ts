@@ -79,6 +79,9 @@ export abstract class Fighter implements AimProvider {
     this.model = new CharacterModel(lib, variant);
     this.def = variant.def;
     this.anim = new Animator(this.def, this.model);
+    const ground = (x: number, z: number) => this.game.corpses?.heightAt(x, z) ?? 0;
+    this.anim.ground = ground;
+    this.anim.loco.ground = ground;
     this.scale = this.def.scale;
     this.radius = 0.36 * this.def.scale * Math.max(1, this.def.spec.bulk * 0.95);
   }

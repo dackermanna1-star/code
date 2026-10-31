@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { BloodAtlas, FaceKind, SPLAT } from './bloodAtlas';
 import { brickTexture, concreteTexture, crateTexture, graffitiTexture, metalSidingTexture, pillarTexture, radialTexture } from './textures';
 import { RNG } from '../core/math';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 
 export interface Obstacle {
   minX: number;
@@ -368,6 +369,52 @@ export class Arena {
 
     // ---------------------------------------------------------------- static floor paint & grime (persistent, into atlas)
     this.paintFloorDecals();
+    this.mergeStatic();
+  }
+
+  /**
+   * Merge static decor meshes that share a look into single draw calls (excluding swinging lamps,
+   * paintable surfaces and transparent decals). Cuts ~120 draw calls (and shadow-pass calls) to ~15.
+   */
+  private mergeStatic() {
+    this.group.updateMatrixWorld(true);
+    const lampPivots = new Set(this.lamps.map((l) => l.pivot));
+    const buckets = new Map<string, { mat: THREE.Material; geos: THREE.BufferGeometry[]; cast: boolean; recv: boolean; meshes: THREE.Mesh[] }>();
+    const isUnderLamp = (o: THREE.Object3D) => {
+      for (let p: THREE.Object3D | null = o; p; p = p.parent) if (lampPivots.has(p)) return true;
+      return false;
+    };
+    this.group.traverse((o) => {
+      const m = o as THREE.Mesh;
+      if (!m.isMesh || (m as unknown as THREE.InstancedMesh).isInstancedMesh) return;
+      if (isUnderLamp(m)) return;
+      const geo = m.geometry;
+      if (geo.attributes.bloodUv || !geo.index || !geo.attributes.uv || !geo.attributes.normal) return;
+      const mat = m.material as THREE.MeshStandardMaterial;
+      if (Array.isArray(m.material) || mat.transparent) return;
+      const key = [mat.type, mat.color?.getHexString(), mat.roughness, mat.metalness, mat.map?.uuid ?? '', mat.side, (mat as unknown as THREE.MeshBasicMaterial).isMeshBasicMaterial ? 'b' : 's'].join('|');
+      let b = buckets.get(key);
+      if (!b) buckets.set(key, (b = { mat, geos: [], cast: false, recv: false, meshes: [] }));
+      const g = geo.clone();
+      for (const name of Object.keys(g.attributes)) if (name !== 'position' && name !== 'normal' && name !== 'uv') g.deleteAttribute(name);
+      g.applyMatrix4(m.matrixWorld);
+      b.geos.push(g);
+      b.cast ||= m.castShadow;
+      b.recv ||= m.receiveShadow;
+      b.meshes.push(m);
+    });
+    for (const b of buckets.values()) {
+      if (b.meshes.length < 2) continue;
+      const merged = mergeGeometries(b.geos, false);
+      if (!merged) continue;
+      for (const m of b.meshes) m.removeFromParent();
+      const mesh = new THREE.Mesh(merged, b.mat);
+      mesh.castShadow = b.cast;
+      mesh.receiveShadow = b.recv;
+      mesh.matrixAutoUpdate = false;
+      mesh.name = 'staticMerged';
+      this.group.add(mesh);
+    }
   }
 
   /** Box faces (4 sides + optional top) as paintable quads. */

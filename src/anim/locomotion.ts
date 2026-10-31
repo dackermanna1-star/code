@@ -94,6 +94,9 @@ export class Locomotion {
   holdSm = 0;
   tauntSm = 0;
   bob = 0;
+  /** Ground height provider (bodies on the floor). */
+  ground: ((x: number, z: number) => number) | null = null;
+  private groundSm = 0;
 
   constructor() {
     const mk = (): FootState => ({ pos: new THREE.Vector3(), yaw: 0, swing: false, from: new THREE.Vector3(), fromYaw: 0, t: 0, dur: 0.2, lift: 0.08, plantedTime: 1 });
@@ -204,13 +207,15 @@ export class Locomotion {
           const ss = smoothstep(0, 1, s);
           f.pos.x = lerp(f.from.x, _v.x, ss);
           f.pos.z = lerp(f.from.z, _v.z, ss);
-          f.pos.y = Math.sin(Math.PI * s) * f.lift * (1 - this.limpSm * (i === 0 ? 0.6 : 0));
+          const g0 = this.ground ? this.ground(f.from.x, f.from.z) : 0;
+          const g1 = this.ground ? this.ground(f.pos.x, f.pos.z) : 0;
+          f.pos.y = g0 + (g1 - g0) * ss + Math.sin(Math.PI * s) * (f.lift + Math.abs(g1 - g0) * 0.6) * (1 - this.limpSm * (i === 0 ? 0.6 : 0));
           f.yaw = lerpAngle(f.fromYaw, homeYaw[i], ss);
           f.t = s;
         } else {
           if (f.swing) {
             f.swing = false;
-            f.pos.y = 0;
+            f.pos.y = this.ground ? this.ground(f.pos.x, f.pos.z) : 0;
             f.plantedTime = 0;
           }
           f.plantedTime += dt;
@@ -230,11 +235,13 @@ export class Locomotion {
           const ss = smoothstep(0, 1, s);
           f.pos.x = lerp(f.from.x, tgt.x, ss);
           f.pos.z = lerp(f.from.z, tgt.z, ss);
-          f.pos.y = Math.sin(Math.PI * s) * f.lift;
+          const g0 = this.ground ? this.ground(f.from.x, f.from.z) : 0;
+          const g1 = this.ground ? this.ground(f.pos.x, f.pos.z) : 0;
+          f.pos.y = g0 + (g1 - g0) * ss + Math.sin(Math.PI * s) * (f.lift + Math.abs(g1 - g0) * 0.6);
           f.yaw = lerpAngle(f.fromYaw, homeYaw[i], ss);
           if (s >= 1) {
             f.swing = false;
-            f.pos.y = 0;
+            f.pos.y = g1;
             f.plantedTime = 0;
           }
         } else f.plantedTime += dt;
@@ -299,9 +306,13 @@ export class Locomotion {
     fc.multiplyScalar(0.5);
     const [fcx, fcz] = rotY(fc.x - inp.rootX, fc.z - inp.rootZ, -inp.rootYaw);
     const hipOverFeet = 0.55 * (1 - runK);
+    // standing on bodies: raise the hips by the lowest planted foot's ground height
+    const planted = this.feet.filter((f) => !f.swing);
+    const gLow = this.ground && planted.length ? Math.min(0.4, ...planted.map((f) => f.pos.y)) : 0;
+    this.groundSm = lerp(this.groundSm, Math.max(0, gLow), 1 - Math.exp(-8 * dt));
     prm.hipsPos.set(
       lerp(0, fcx, hipOverFeet) + sway * S,
-      def.offsets[B.hips].y + (crouch + runBob + idleBob - stepBob - limpDip) * S,
+      def.offsets[B.hips].y + (crouch + runBob + idleBob - stepBob - limpDip) * S + this.groundSm * 0.85,
       lerp(0, fcz, hipOverFeet * 0.6) + clamp(lvz * 0.02, -0.04, 0.08) * S,
     );
     const pelvisYaw = lerp(st.hipsYaw, 0, runK) + Math.sin(ph) * 9 * gk;

@@ -62,6 +62,11 @@ export class CorpseSystem {
   totalVerts = 0;
   colliderBodies = 0;
   castShadows = false;
+  /** Coarse height field of all bodies on the floor (10 cm cells) so live feet step on top of them. */
+  readonly hfRes = 0.1;
+  hfW = Math.ceil((HALF_W * 2) / 0.1);
+  hfH = Math.ceil((HALF_D * 2) / 0.1);
+  heights = new Float32Array(this.hfW * this.hfH);
 
   constructor(public lib: CharacterLibrary, public physics: Physics, public blood: BloodAtlas) {
     const { material, corpseUniforms } = createCharacterMaterial(lib.atlas, true);
@@ -71,6 +76,19 @@ export class CorpseSystem {
     this.woundTex = this.makeWoundTex();
     corpseUniforms.uCorpseWounds.value = this.woundTex;
     this.group.name = 'corpses';
+    // tiny placeholder so the corpse shader is compiled during loading (no hitch on the first kill)
+    const warm = new THREE.BufferGeometry();
+    warm.setAttribute('position', new THREE.BufferAttribute(new Float32Array(9), 3));
+    warm.setAttribute('normal', new THREE.BufferAttribute(new Int8Array(9), 3, true));
+    warm.setAttribute('uv', new THREE.BufferAttribute(new Uint16Array(6), 2, true));
+    warm.setAttribute('aBindPos', new THREE.Float16BufferAttribute(new Uint16Array(9), 3));
+    warm.setAttribute('aSkin', new THREE.BufferAttribute(new Uint8Array(3), 1, true));
+    warm.setAttribute('aCorpseId', new THREE.BufferAttribute(new Uint16Array(3), 1, false));
+    warm.setAttribute('aLayer', new THREE.BufferAttribute(new Uint8Array(3), 1, false));
+    const wm = new THREE.Mesh(warm, this.material);
+    wm.frustumCulled = false;
+    wm.position.set(0, -5, 0);
+    this.group.add(wm);
   }
 
   private makeWoundTex() {
@@ -270,6 +288,25 @@ export class CorpseSystem {
       chunk.cid[base + v] = rec.id;
       chunk.layer[base + v] = model.variant.layer;
     }
+    // rasterize this body into the height field (max height per cell, slightly dilated, capped)
+    const hf = this.heights;
+    for (let v = 0; v < nv; v++) {
+      const o = (base + v) * 3;
+      const x = chunk.pos[o], y = chunk.pos[o + 1], z = chunk.pos[o + 2];
+      const cx = Math.floor((x + HALF_W) / this.hfRes), cz = Math.floor((z + HALF_D) / this.hfRes);
+      const h = Math.min(0.32, y * 0.9);
+      for (let dz = -1; dz <= 1; dz++) {
+        const zz = cz + dz;
+        if (zz < 0 || zz >= this.hfH) continue;
+        for (let dx = -1; dx <= 1; dx++) {
+          const xx = cx + dx;
+          if (xx < 0 || xx >= this.hfW) continue;
+          const hh = dx === 0 && dz === 0 ? h : h * 0.7;
+          const i = zz * this.hfW + xx;
+          if (hh > hf[i]) hf[i] = hh;
+        }
+      }
+    }
     const ib = chunk.indices;
     for (let i = 0; i < index.count; i++) chunk.idx[ib + i] = index.getX(i) + base;
     chunk.verts += nv;
@@ -315,6 +352,17 @@ export class CorpseSystem {
       void i;
     });
     this.colliderBodies++;
+  }
+
+  /** Bilinear height of bodies at (x, z). */
+  heightAt(x: number, z: number) {
+    const fx = (x + HALF_W) / this.hfRes - 0.5, fz = (z + HALF_D) / this.hfRes - 0.5;
+    const ix = Math.floor(fx), iz = Math.floor(fz);
+    if (ix < 0 || iz < 0 || ix >= this.hfW - 1 || iz >= this.hfH - 1) return 0;
+    const tx = fx - ix, tz = fz - iz;
+    const W = this.hfW, h = this.heights;
+    const a = h[iz * W + ix], b = h[iz * W + ix + 1], c = h[(iz + 1) * W + ix], d = h[(iz + 1) * W + ix + 1];
+    return (a * (1 - tx) + b * tx) * (1 - tz) + (c * (1 - tx) + d * tx) * tz;
   }
 
   get count() {
