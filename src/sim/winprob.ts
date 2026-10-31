@@ -8,13 +8,14 @@ import type { Simulation } from './simulation';
  * Coefficients were fitted offline by logistic regression on headless battles (tools/balance.ts --fit).
  */
 export const WINPROB_COEF = {
-  hp: 3.6,
-  hpRatio: 1.4,
-  energy: 0.25,
-  wrath: 0.45,
-  guard: 0.12,
-  lastStand: 0.35,
-  ascended: 0.35,
+  hp: 2.17,
+  hpRatio: 2.15,
+  energy: 0.32,
+  wrath: 0.33,
+  guard: 0.08,
+  lastStand: 0.49,
+  // Fitted value is slightly negative (fighters tend to ascend when behind); clamped for display sanity.
+  ascended: 0.05,
 };
 
 export function winProbFeatures(sim: Simulation): number[] {

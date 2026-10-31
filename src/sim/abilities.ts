@@ -78,7 +78,7 @@ export const ABILITIES: Record<AbilityId, AbilityBehavior> = {
 
   flashCut: {
     def: D('flashCut', {
-      name: 'Flash Cut', slot: 'mobility', startup: 7, active: 9, recovery: 16, energy: 20, cd: 230, range: [60, 340],
+      name: 'Flash Cut', slot: 'mobility', startup: 7, active: 9, recovery: 15, energy: 18, cd: 210, range: [60, 340],
       clip: 'ab.flashCut', iframes: [6, 16], description: 'A blinding dash straight through the enemy, cutting as you pass.',
       hit: H({ damage: 90, guard: 26, hitstun: 30, kbx: -260, kby: -380, level: 3, tag: 'cut' }),
       hitbox: { ax: -30, ay: -80, bx: 30, by: -70, r: 30 }, sfx: 'slash_hit',
@@ -125,7 +125,7 @@ export const ABILITIES: Record<AbilityId, AbilityBehavior> = {
 
   galeAscent: {
     def: D('galeAscent', {
-      name: 'Gale Ascent', slot: 'mobility', startup: 5, active: 2, recovery: 3, energy: 14, cd: 250, range: [0, 260],
+      name: 'Gale Ascent', slot: 'mobility', startup: 5, active: 2, recovery: 4, energy: 16, cd: 300, range: [0, 260],
       clip: 'ab.galeAscent', iframes: [0, 8], description: 'A cyclone hurls you skyward, blasting away anyone close.',
     }),
     roles: ['escape', 'antiair', 'gapclose'],
@@ -137,7 +137,7 @@ export const ABILITIES: Record<AbilityId, AbilityBehavior> = {
         f.y = Math.min(f.y, -2);
         f.vy = -1750;
         f.vx = away * 360;
-        sim.explode(f, f.x, f.y - 50, 95, H({ damage: 30, guard: 14, hitstun: 26, kbx: 520, kby: -700, launch: true, level: 2, tag: 'wind' }), 'ab.galeAscent', { selfSafe: true });
+        sim.explode(f, f.x, f.y - 50, 90, H({ damage: 24, guard: 12, hitstun: 26, kbx: 520, kby: -700, launch: true, level: 2, tag: 'wind' }), 'ab.galeAscent', { selfSafe: true });
         void opp;
       }
     },
@@ -180,7 +180,7 @@ export const ABILITIES: Record<AbilityId, AbilityBehavior> = {
         const sp = 1060 * (f.def.aspect === 'tempest' ? 1.15 : 1);
         sim.spawnProjectile(f, {
           x: h.x, y: h.y, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp, r: 12, style: 'bolt', life: 110, power: 0.8,
-          hit: H({ damage: 22, guard: 7, hitstun: 13, blockstun: 9, kbx: 110, level: 1 }), source: 'ab.barrage',
+          hit: H({ damage: 24, guard: 7, hitstun: 13, blockstun: 9, kbx: 110, level: 1 }), source: 'ab.barrage',
         });
       }
     },
@@ -205,7 +205,7 @@ export const ABILITIES: Record<AbilityId, AbilityBehavior> = {
         }
         sim.spawnProjectile(f, {
           x: f.x + f.facing * 50, y, vx, vy, r: 40, style: 'crescent', life: 130, power: 2.4, grounded: f.grounded,
-          hit: H({ damage: 80, guard: 30, hitstun: 30, kbx: 420, kby: -480, knockdown: true, level: 3, tag: 'cut' }), source: 'ab.crescentWave',
+          hit: H({ damage: 88, guard: 30, hitstun: 30, kbx: 420, kby: -480, knockdown: true, level: 3, tag: 'cut' }), source: 'ab.crescentWave',
         });
       }
     },
@@ -345,7 +345,7 @@ export const ABILITIES: Record<AbilityId, AbilityBehavior> = {
 
   bindingChains: {
     def: D('bindingChains', {
-      name: 'Binding Chains', slot: 'special', startup: 14, active: 1, recovery: 18, energy: 25, cd: 460, range: [100, 1100],
+      name: 'Binding Chains', slot: 'special', startup: 14, active: 1, recovery: 16, energy: 22, cd: 430, range: [100, 1100],
       clip: 'ab.chains', air: true, description: 'Spectral chains erupt beneath the foe and bind them in place.',
     }),
     roles: ['setup', 'trap', 'punish'],
@@ -354,7 +354,7 @@ export const ABILITIES: Record<AbilityId, AbilityBehavior> = {
         const opp = sim.opponentOf(f);
         sim.spawnZone(f, {
           kind: 'chains', x: opp.x, y: 0, r: 70, warn: 18, active: 6, trackUntil: 9, trackSpeed: 600,
-          hit: H({ damage: 28, guard: 12, hitstun: 70, kbx: 0, kby: 0, level: 2, tag: 'bind', unblockable: false }), source: 'ab.bindingChains',
+          hit: H({ damage: 30, guard: 12, hitstun: 80, kbx: 0, kby: 0, level: 2, tag: 'bind', unblockable: false }), source: 'ab.bindingChains',
           fullHeight: true, maxHeight: 220,
         });
       }
@@ -383,8 +383,8 @@ export const ABILITIES: Record<AbilityId, AbilityBehavior> = {
 
   titanSlam: {
     def: D('titanSlam', {
-      name: 'Titan Slam', slot: 'special', startup: 10, active: 40, recovery: 16, energy: 18, cd: 280, range: [100, 650],
-      clip: 'ab.titanSlam', description: 'Leap skyward and crash down, sending shockwaves along the earth.',
+      name: 'Titan Slam', slot: 'special', startup: 10, active: 40, recovery: 14, energy: 18, cd: 280, range: [100, 650],
+      clip: 'ab.titanSlam', iframes: [4, 18], description: 'Leap skyward and crash down, sending shockwaves along the earth.',
     }),
     roles: ['gapclose', 'zoning', 'punish'],
     update(sim, f, a) {
@@ -397,6 +397,12 @@ export const ABILITIES: Record<AbilityId, AbilityBehavior> = {
         const dist = clamp(opp.x - f.x, -560, 560);
         f.vx = dist / 0.75;
       }
+      // Steer toward the target while airborne (hard to simply walk away from).
+      if (!f.grounded && af < 8) {
+        const opp = sim.opponentOf(f);
+        const want = clamp((opp.x - f.x) / 0.35, -900, 900);
+        f.vx += (want - f.vx) * 0.12;
+      }
       if (af >= 8 && !f.grounded) f.vy = Math.max(f.vy, 1400);
       if (af >= a.def.active - 1 && !f.grounded) a.frame = a.def.startup + a.hold + a.def.active - 2; // hold until landing
     },
@@ -404,11 +410,11 @@ export const ABILITIES: Record<AbilityId, AbilityBehavior> = {
       if (a.data.landed) return;
       a.data.landed = 1;
       f.vx = 0;
-      sim.explode(f, f.x, -20, 130, H({ damage: 116, guard: 36, hitstun: 30, kbx: 380, kby: -700, knockdown: true, level: 4 }), 'ab.titanSlam', { selfSafe: true });
+      sim.explode(f, f.x, -20, 150, H({ damage: 126, guard: 36, hitstun: 30, kbx: 380, kby: -700, knockdown: true, level: 4 }), 'ab.titanSlam', { selfSafe: true });
       for (const dir of [-1, 1]) {
         sim.spawnProjectile(f, {
           x: f.x + dir * 70, y: -34, vx: dir * 1050, vy: 0, r: 34, style: 'shockwave', life: 55, grounded: true, power: 2,
-          hit: H({ damage: 72, guard: 22, hitstun: 26, kbx: 300, kby: -520, knockdown: true, level: 2 }), source: 'ab.titanSlam', reflectable: false,
+          hit: H({ damage: 80, guard: 22, hitstun: 26, kbx: 300, kby: -520, knockdown: true, level: 2 }), source: 'ab.titanSlam', reflectable: false,
         });
       }
       sim.emit({ type: 'crater', x: f.x, r: 120 });
@@ -418,16 +424,16 @@ export const ABILITIES: Record<AbilityId, AbilityBehavior> = {
 
   bladeStorm: {
     def: D('bladeStorm', {
-      name: 'Blade Storm', slot: 'special', startup: 10, active: 6, recovery: 10, energy: 30, cd: 520, range: [150, 1400],
+      name: 'Blade Storm', slot: 'special', startup: 10, active: 6, recovery: 12, energy: 34, cd: 620, range: [150, 1400],
       clip: 'ab.bladeStorm', air: true, description: 'Six spectral blades orbit you, shield you, then fire one by one.',
     }),
     roles: ['zoning', 'defense'],
     update(sim, f, a) {
       if (activeFrame(a) === 0) {
-        for (let i = 0; i < 5; i++) {
+        for (let i = 0; i < 4; i++) {
           sim.spawnProjectile(f, {
             x: f.x, y: f.y - 70, vx: 0, vy: 0, r: 16, style: 'blade', life: 240, power: 1.2,
-            orbitR: 95, orbitAng: (i / 5) * Math.PI * 2, orbitSpeed: 5.2, releaseTick: sim.tick + 42 + i * 7, armedIn: 0,
+            orbitR: 95, orbitAng: (i / 4) * Math.PI * 2, orbitSpeed: 5.2, releaseTick: sim.tick + 48 + i * 8, armedIn: 0,
             hit: H({ damage: 22, guard: 8, hitstun: 15, kbx: 150, kby: -80, level: 2, tag: 'cut' }), source: 'ab.bladeStorm',
           });
         }
@@ -468,7 +474,7 @@ export const ABILITIES: Record<AbilityId, AbilityBehavior> = {
 
   mirrorWard: {
     def: D('mirrorWard', {
-      name: 'Mirror Ward', slot: 'defense', startup: 2, active: 40, recovery: 12, energy: 15, cd: 240, range: [0, 2600],
+      name: 'Mirror Ward', slot: 'defense', startup: 2, active: 44, recovery: 10, energy: 12, cd: 200, range: [0, 2600],
       clip: 'ab.mirrorWard', air: true, description: 'A shimmering ward that reflects projectiles and repels strikes.',
     }),
     roles: ['defense', 'counter'],
@@ -491,7 +497,7 @@ export const ABILITIES: Record<AbilityId, AbilityBehavior> = {
 
   counterStance: {
     def: D('counterStance', {
-      name: 'Iai Counter', slot: 'defense', startup: 2, active: 54, recovery: 18, energy: 14, cd: 300, range: [0, 400],
+      name: 'Iai Counter', slot: 'defense', startup: 2, active: 60, recovery: 18, energy: 14, cd: 300, range: [0, 400],
       clip: 'ab.counter', description: 'A still, perfect stance. Any strike that comes is answered by death.',
     }),
     roles: ['counter', 'defense'],
@@ -521,7 +527,7 @@ export const ABILITIES: Record<AbilityId, AbilityBehavior> = {
 
   chronoRewind: {
     def: D('chronoRewind', {
-      name: 'Chrono Rewind', slot: 'defense', startup: 5, active: 1, recovery: 18, energy: 30, cd: 860, range: [0, 2600],
+      name: 'Chrono Rewind', slot: 'defense', startup: 5, active: 1, recovery: 18, energy: 30, cd: 980, range: [0, 2600],
       clip: 'ab.rewind', air: true, iframes: [0, 24], description: 'Unwind the last two seconds of your own fate.',
     }),
     roles: ['heal', 'escape'],
@@ -530,7 +536,7 @@ export const ABILITIES: Record<AbilityId, AbilityBehavior> = {
         const h = f.history.length > 120 ? f.history[f.history.length - 120] : f.history[0];
         if (h) {
           const fromX = f.x, fromY = f.y;
-          const healed = Math.max(0, Math.min(h.hp, f.hp + 0.13 * f.maxHp) - f.hp);
+          const healed = Math.max(0, Math.min(h.hp, f.hp + 0.1 * f.maxHp) - f.hp);
           f.hp += healed;
           f.stats.healing += healed;
           const p = sim.clampToArena(h.x, h.y);
@@ -550,16 +556,16 @@ export const ABILITIES: Record<AbilityId, AbilityBehavior> = {
 
   secondWind: {
     def: D('secondWind', {
-      name: 'Second Wind', slot: 'defense', startup: 28, active: 1, recovery: 10, energy: 0, cd: 820, range: [500, 2600],
+      name: 'Second Wind', slot: 'defense', startup: 28, active: 1, recovery: 10, energy: 0, cd: 900, range: [500, 2600],
       clip: 'ab.secondWind', description: 'Breathe in the divine: restore health, energy and guard.',
     }),
     roles: ['heal'],
     update(sim, f, a) {
       if (activeFrame(a) === 0) {
-        f.addBuff('regen', 120, 35);
+        f.addBuff('regen', 120, 23);
         f.gainEnergy(20);
         f.guard = C.GUARD;
-        sim.emit({ type: 'heal', side: f.side, amount: 70 });
+        sim.emit({ type: 'heal', side: f.side, amount: 46 });
       }
     },
   },
@@ -632,8 +638,8 @@ export const ABILITIES: Record<AbilityId, AbilityBehavior> = {
       if (activeFrame(a) === 0) {
         const opp = sim.opponentOf(f);
         sim.spawnZone(f, {
-          kind: 'lance', x: opp.x, y: 0, r: 108, warn: 70, active: 9, trackUntil: 50, trackSpeed: 400,
-          hit: H({ damage: 255, guard: 100, hitstun: 50, kbx: 200, kby: -900, launch: true, level: 4, unblockable: true }), source: 'ab.heavensLance',
+          kind: 'lance', x: opp.x, y: 0, r: 112, warn: 64, active: 9, trackUntil: 46, trackSpeed: 420,
+          hit: H({ damage: 272, guard: 100, hitstun: 50, kbx: 200, kby: -900, launch: true, level: 4, unblockable: true }), source: 'ab.heavensLance',
           fullHeight: true,
         });
       }
@@ -654,8 +660,8 @@ export const ABILITIES: Record<AbilityId, AbilityBehavior> = {
         const opp = sim.opponentOf(f);
         const x = clamp(opp.x + Math.sign(opp.x - f.x || 1) * 120, -sim.arena.halfWidth + 220, sim.arena.halfWidth - 220);
         sim.spawnZone(f, {
-          kind: 'blackhole', x, y: -170, r: 240, warn: 80, active: 6, pull: 2400,
-          hit: H({ damage: 262, guard: 100, hitstun: 50, kbx: 400, kby: -1000, launch: true, level: 4, unblockable: true }), source: 'ab.blackHole',
+          kind: 'blackhole', x, y: -170, r: 270, warn: 66, active: 6, pull: 2700,
+          hit: H({ damage: 280, guard: 100, hitstun: 50, kbx: 400, kby: -1000, launch: true, level: 4, unblockable: true }), source: 'ab.blackHole',
         });
       }
     },
@@ -693,7 +699,7 @@ export const ABILITIES: Record<AbilityId, AbilityBehavior> = {
       if (activeFrame(a) === 0) {
         const opp = sim.opponentOf(f);
         sim.spawnZone(f, {
-          kind: 'cataclysm', x: opp.x, y: 0, r: 320, warn: 72, active: 10, trackUntil: 48, trackSpeed: 330,
+          kind: 'cataclysm', x: opp.x, y: 0, r: 340, warn: 66, active: 10, trackUntil: 48, trackSpeed: 330,
           hit: H({ damage: 260, guard: 100, hitstun: 50, kbx: 700, kby: -1100, launch: true, level: 4, unblockable: true }), source: 'ab.cataclysm',
         });
       }

@@ -110,6 +110,8 @@ export class Director {
   private victoryPushed = false;
   private introCalloutDone = false;
   private sfxMuted = false;
+  /** Bright arenas need a higher bloom threshold to stay readable. */
+  private bright: boolean;
 
   constructor(
     private sim: Simulation,
@@ -127,6 +129,7 @@ export class Director {
     this.introVariant = this.rng.pick(['standoff', 'descent', 'walkin', 'powerup', 'teleport'] as IntroVariant[]);
     this.sideColor = [ASPECT_PALETTES[sim.fighters[0].def.aspect].primary, ASPECT_PALETTES[sim.fighters[1].def.aspect].primary];
     this.sideLight = [ASPECT_PALETTES[sim.fighters[0].def.aspect].secondary, ASPECT_PALETTES[sim.fighters[1].def.aspect].secondary];
+    this.bright = sim.arena.theme === 'celestial' || sim.arena.theme === 'sanctum' || sim.arena.theme === 'frostveil';
   }
 
   /* ================================================================== */
@@ -461,7 +464,7 @@ export class Director {
         this.loop('beam', { aspect: e.aspect, intensity: 0.8 });
         this.arena.lightFlash(ASPECT_PALETTES[e.aspect].primary, 0.8, F[e.side].x);
         this.cam.addTrauma(0.3);
-        this.bloomBoost = Math.max(this.bloomBoost, 0.6);
+        this.bloomBoost = Math.max(this.bloomBoost, 0.25);
         break;
       case 'beamEnd':
         if (!sim.beams.some((b) => !b.dead && b.id !== e.id)) this.stopLoop('beam');
@@ -677,8 +680,8 @@ export class Director {
     if (y > -140) this.arena.addScorch(x, r * 0.6, aspect ? ASPECT_PALETTES[aspect].primary : '#ff9040');
     if (big) {
       this.hitStop(0.1);
-      this.impact(2, null);
-      this.bloomBoost = 1;
+      this.impact(0, null);
+      this.bloomBoost = Math.max(this.bloomBoost, 0.5);
     }
   }
 
@@ -713,8 +716,8 @@ export class Director {
         this.vfx.explosion(x, -40, r, owner !== null ? this.sim.fighters[owner].def.aspect : null);
         this.wave(x, -60, 900, 0.16, 1.1);
         this.cam.addTrauma(1);
-        this.flashOn([1, 0.85, 0.6], 0.8);
-        this.impact(2, owner);
+        this.flashOn([1, 0.85, 0.6], 0.6);
+        this.impact(0, owner);
         this.hitStop(0.16);
         this.arena.lightFlash(col, 1, x);
         break;
@@ -742,7 +745,7 @@ export class Director {
         this.sfx('explosion_big', { pan: this.pan(x), intensity: 0.9 });
         this.wave(x, y, 700, 0.14, 0.9);
         this.cam.addTrauma(0.7);
-        this.impact(2, owner);
+        this.impact(0, owner);
         break;
       case 'colossus':
         this.sfx('whoosh_heavy', { intensity: 1 });
@@ -820,10 +823,8 @@ export class Director {
           this.audio.musicStinger('clash');
           this.feedKey('beamStruggle:start', 0);
           this.moment('Beams collide — a struggle of wills', undefined);
-          this.bloomBoost = 1;
         } else if (e.beat === 'surge') {
           this.cam.addTrauma(0.12);
-          this.flashOn([1, 1, 1], 0.08);
           const s = ((e.v ?? 0.5) - 0.5) * 2; // + favours fighter 0
           this.struggleV = this.toScreenStruggle(0, s);
           this.struggleUntil = this.now + 0.5;
@@ -834,7 +835,7 @@ export class Director {
           if (e.beat === 'overwhelm') {
             this.sfx('explosion_big', { intensity: 1, pan: this.pan(e.x) });
             this.vfx.explosion(e.x, e.y, 260, F[e.a].def.aspect);
-            this.impact(2, e.a);
+            this.impact(0, e.a);
             this.hitStop(0.16);
             this.slowmo(0.3, 0.5, 0.4);
             this.wave(e.x, e.y, 700, 0.14, 0.9);
@@ -847,7 +848,7 @@ export class Director {
             this.vfx.explosion(e.x, e.y, 320, null);
             this.wave(e.x, e.y, 800, 0.15, 1);
             this.cam.addTrauma(1);
-            this.impact(2, null);
+            this.impact(0, null);
             this.feedKey('beamStruggle:mutual', 0);
           } else if (e.beat === 'escape') {
             this.callout('ESCAPE', e.a, 'md');
@@ -1121,7 +1122,7 @@ export class Director {
       case 'beam':
         this.vfx.finisherBeam(e.x, e.y, v, col, 0.7);
         this.sfx('beam_fire', { aspect: W.def.aspect, intensity: 1 });
-        this.bloomBoost = 1;
+        this.bloomBoost = Math.max(this.bloomBoost, 0.3);
         this.cam.addTrauma(0.5);
         break;
       case 'beamPulse':
@@ -1519,7 +1520,9 @@ export class Director {
     p.chromatic = 0.06 + this.chroma;
     // Bloom.
     this.bloomBoost = Math.max(0, this.bloomBoost - dt * 1.5);
-    p.bloomStrength = 0.95 + this.bloomBoost * 0.8;
+    const beams = this.sim.beams.length > 0 ? 1 : 0;
+    p.bloomStrength = (0.9 + this.bloomBoost * 0.6) * (beams ? 0.75 : 1);
+    p.bloomThreshold = this.bright ? 0.7 : 0.55;
     // Impact frames.
     if (this.impactT > 0) {
       this.impactT -= dt;

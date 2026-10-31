@@ -464,7 +464,7 @@ export class CounterSlashSeq implements Sequence {
       A.setState('hitstun');
       sim.emit({ type: 'seq', kind: 'counter', beat: 'impact', a: D.side, b: A.side, x: A.x, y: A.y - 70 });
       applyHit(sim, D, A, {
-        attacker: D.side, defender: A.side, hit: H({ damage: 190, hitstun: 44, kbx: 520, kby: -760, launch: true, level: 4 }),
+        attacker: D.side, defender: A.side, hit: H({ damage: 205, hitstun: 44, kbx: 520, kby: -760, launch: true, level: 4 }),
         x: A.x, y: A.y - 70, dirX: Math.sign(A.x - D.x) || 1, source: 'counterSlash', kind: 'sequence', height: 'unblockable',
       });
       D.stats.reads++;
@@ -509,7 +509,7 @@ export class ThousandCutsSeq implements Sequence {
       A.faceToward(D.x);
       setAnim(A, 'tc.cut');
       sim.emit({ type: 'seq', kind: 'thousandCuts', beat: 'cut', a: A.side, b: D.side, x: D.x, y: D.y - 60, v: ang });
-      dealDamage(sim, A, D, Math.min(D.hp, 24 * sim.damageScale * A.damageMult), { kind: 'sequence', source: 'thousandCuts', counter: false, level: 2, x: D.x, y: D.y - 60 });
+      dealDamage(sim, A, D, Math.min(D.hp, 22 * sim.damageScale * A.damageMult), { kind: 'sequence', source: 'thousandCuts', counter: false, level: 2, x: D.x, y: D.y - 60 });
       D.comboHits++;
     }
     if (this.t === 62) {
@@ -527,7 +527,7 @@ export class ThousandCutsSeq implements Sequence {
       D.setState('hitstun');
       sim.emit({ type: 'seq', kind: 'thousandCuts', beat: 'release', a: A.side, b: D.side, x: D.x, y: D.y - 60 });
       applyHit(sim, A, D, {
-        attacker: A.side, defender: D.side, hit: H({ damage: 110, hitstun: 50, kbx: 300, kby: -900, launch: true, level: 4 }),
+        attacker: A.side, defender: D.side, hit: H({ damage: 100, hitstun: 50, kbx: 300, kby: -900, launch: true, level: 4 }),
         x: D.x, y: D.y - 60, dirX: Math.sign(D.x - A.x) || 1, source: 'thousandCuts', kind: 'sequence', height: 'unblockable',
       });
     }
@@ -560,7 +560,7 @@ export class TransformSeq implements Sequence {
     if (!f.grounded) f.vy = 0;
     if (this.t === 26) sim.emit({ type: 'seq', kind: 'transform', beat: 'surge', a: f.side, b: sim.opponentOf(f).side, x: f.x, y: f.y - 60 });
     if (this.t === 48) {
-      f.addBuff('ascended', 720, 1);
+      f.addBuff('ascended', 640, 1);
       f.gainEnergy(50);
       f.guard = C.GUARD;
       sim.emit({ type: 'transform', side: f.side, on: true });

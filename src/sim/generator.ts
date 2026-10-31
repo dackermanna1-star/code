@@ -44,11 +44,11 @@ export const PERSONALITY_INFO: Record<PersonalityId, { name: string; blurb: stri
   },
   sentinel: {
     name: 'Sentinel', blurb: 'An immovable wall that punishes every mistake.',
-    base: { aggression: 0.42, patience: 0.72, risk: 0.3, trickery: 0.25, zoning: 0.35, defense: 0.75, adaptivity: 0.55, reaction: 9, precision: 0.6, temperature: 0.42 },
+    base: { aggression: 0.44, patience: 0.68, risk: 0.3, trickery: 0.25, zoning: 0.35, defense: 0.7, adaptivity: 0.55, reaction: 9, precision: 0.58, temperature: 0.42 },
   },
   zealot: {
     name: 'Zealot', blurb: 'Rains divine fire from afar; hates being cornered.',
-    base: { aggression: 0.45, patience: 0.55, risk: 0.5, trickery: 0.45, zoning: 0.95, defense: 0.55, adaptivity: 0.55, reaction: 9, precision: 0.72, temperature: 0.45 },
+    base: { aggression: 0.48, patience: 0.55, risk: 0.5, trickery: 0.45, zoning: 0.9, defense: 0.58, adaptivity: 0.6, reaction: 8, precision: 0.78, temperature: 0.42 },
   },
 };
 

@@ -359,7 +359,7 @@ export class Fighter {
     if (def.energyCost) this.spendEnergy(def.energyCost);
     if (def.wrathCost) this.wrath = Math.max(0, this.wrath - def.wrathCost);
     if (def.cooldown) {
-      const cdMult = this.def.aspect === 'chrono' ? 0.78 : 1;
+      const cdMult = this.def.aspect === 'chrono' ? 0.85 : 1;
       this.cooldowns.set(def.id, Math.round(def.cooldown * cdMult));
     }
     if (def.lungeStartup && this.grounded) this.vx = this.facing * def.lungeStartup * this.speedMult * (def.kind === 'dashAttack' ? 1 : 0.6);
@@ -650,7 +650,7 @@ export class Fighter {
     for (const b of this.buffs) {
       b.t--;
       if (b.id === 'burn' && sim.tick % 15 === 0 && this.hp > 1) {
-        const d = Math.min(this.hp - 1, 1.6 * b.v * sim.damageScale);
+        const d = Math.min(this.hp - 1, 1.3 * b.v * sim.damageScale);
         this.hp -= d;
         this.stats.damageTaken += d;
         sim.fighters[b.src].stats.damageDealt += d;
@@ -670,6 +670,12 @@ export class Fighter {
     // Resources.
     if (this.energyDelay > 0) this.energyDelay--;
     else if (this.state !== 'charge') this.gainEnergy((C.ENERGY_REGEN * (this.hasBuff('ascended') ? 2 : 1) * sim.energyRegenMult) * DT);
+    // Radiance: divine light slowly mends wounds while not under attack.
+    if (this.def.aspect === 'radiance' && sim.tick - this.lastHitTick > 120 && this.hp > 0 && this.hp < this.maxHp && !this.scripted) {
+      const heal = Math.min(this.maxHp - this.hp, 1.6 * DT);
+      this.hp += heal;
+      this.stats.healing += heal;
+    }
     if (this.state === 'charge') this.gainEnergy(C.CHARGE_RATE * DT);
     if (this.guardDelay > 0) this.guardDelay--;
     else if (this.state !== 'block') this.guard = Math.min(C.GUARD, this.guard + C.GUARD_REGEN * DT);

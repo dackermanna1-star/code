@@ -172,11 +172,12 @@ const S: Record<AbilityId, Scorer> = {
   },
   titanSlam: (c, id) => {
     if (!between(c.dist, 200, 640)) return null;
-    let s = 0.25 + c.traits.aggression * 0.4;
-    if (c.openFor >= 30) s += 1.3;
-    if (c.oppCharging) s += 1.0;
-    if (c.plan === 'rushdown') s += 0.3;
-    return { score: s, req: req(id), why: 'gapclose' };
+    let s = 0.05 + c.traits.aggression * 0.2;
+    if (c.openFor >= 26) s += 1.4;
+    if (c.oppCharging) s += 1.1;
+    if (c.oppKnockdown) s += 0.5;
+    if (c.plan === 'rushdown' && c.ov.state === 'action' && c.ov.action?.kind === 'ability') s += 0.6;
+    return { score: s, req: req(id), why: c.openFor >= 26 ? 'punish' : 'gapclose' };
   },
   bladeStorm: (c, id) => {
     let s = 0.25 + c.traits.zoning * 0.4;

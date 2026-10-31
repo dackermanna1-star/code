@@ -524,10 +524,12 @@ export class Simulation {
       opp.vx = dir * 950;
       opp.vy = -420;
       opp.pendingKnockdown = true;
-      const d = 20;
-      opp.hp = Math.max(1, opp.hp - d);
-      opp.stats.damageTaken += d;
-      f.stats.damageDealt += d;
+      if (opp.hp > 1) {
+        const d = Math.min(opp.hp - 1, 20);
+        opp.hp -= d;
+        opp.stats.damageTaken += d;
+        f.stats.damageDealt += d;
+      }
     }
   }
 
@@ -720,6 +722,7 @@ export class Simulation {
     if (this.decided) return;
     this.decided = true;
     this.winner = winner.side;
+    this.winProb0 = winner.side === 0 ? 1 : 0;
     this.koTick = this.tick;
     loser.hp = 0;
     this.endTimeStop();

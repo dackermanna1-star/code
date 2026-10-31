@@ -630,8 +630,8 @@ export class Animator {
   private updateChain(f: Fighter, dt: number): void {
     const acc = this.accessory;
     if (acc === 'halo' || acc === 'horns') return;
-    const N = acc === 'cape' ? 7 : acc === 'longhair' ? 8 : acc === 'headband' ? 5 : acc === 'ponytail' ? 6 : 9;
-    const seg = acc === 'cape' ? 10 : acc === 'scarf' ? 9 : acc === 'headband' ? 6 : 7;
+    const N = acc === 'cape' ? 7 : acc === 'longhair' ? 8 : acc === 'headband' ? 5 : acc === 'ponytail' ? 6 : 8;
+    const seg = acc === 'cape' ? 10 : acc === 'scarf' ? 8 : acc === 'headband' ? 6 : 7;
     const [ax, ay] = this.chainAnchor();
     if (this.chain.length !== N) {
       this.chain = Array.from({ length: N }, (_, i) => ({ x: ax - this.facing * seg * i, y: ay + i * 2, px: ax - this.facing * seg * i, py: ay + i * 2 }));

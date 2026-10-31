@@ -183,6 +183,7 @@ export class Brain implements Controller {
 
   private reactionDelay(me: Fighter): number {
     let d = this.traits.reaction;
+    if (me.def.aspect === 'chrono') d -= 2; // precognition
     if (me.hasBuff('blind')) d += 6;
     if (me.hasBuff('ascended')) d -= 1;
     return Math.max(5, d);

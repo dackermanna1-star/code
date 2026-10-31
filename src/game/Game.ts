@@ -428,7 +428,7 @@ export class Game {
       const id = f.def.abilities[slot];
       const def = ABILITIES[id].def;
       const cd = f.cooldowns.get(def.id) ?? 0;
-      const total = (def.cooldown ?? 1) * (f.def.aspect === 'chrono' ? 0.78 : 1);
+      const total = (def.cooldown ?? 1) * (f.def.aspect === 'chrono' ? 0.85 : 1);
       return { name: def.name, slot, cooldown: clamp(cd / Math.max(1, total), 0, 1), ready: cd <= 0 && f.canAfford(def), glyph: ABILITY_GLYPH[id] };
     });
     return {
