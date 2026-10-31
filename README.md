@@ -467,6 +467,82 @@ X-ray, seen from where the player stands.
   veins, dried blood and clouded eyes are varied per zombie. Corpses that have stopped moving
   are taken out of the physics but keep lying where they fell (the oldest are cleared away).
 
+## Last Lookout (`tower.html`, `src/tower`)
+
+A second game built on the same engine: a tower-defence sniper game with stylised late-90s
+graphics and the full physics underneath. You sit in a fire-lookout cabin 22 m up a steel tower in
+a dead farm valley and never move. You look round, scope in and shoot. The dead walk in from the
+valley's edges toward the fenced compound at the tower's foot and batter its gates, and climbers
+go up the tower legs. There are waves, bosses every fifth wave (the Brute, the Juggernaut), cash
+for every kill and a shop between waves.
+
+```bash
+npm run dev:tower
+```
+
+Then open <http://127.0.0.1:5174/tower.html>.
+
+```bash
+npm run build:tower
+```
+
+This writes `last-lookout.html`, one self-contained file.
+
+| Input | Action |
+| --- | --- |
+| Mouse | Look (the pointer is captured; Esc pauses) |
+| Right mouse (hold) / E (toggle) | Scope in |
+| Left click | Fire. Unscoped, the round goes roughly where the rifle points |
+| Shift (scoped) | Hold your breath: the sway almost stops, until you run out of air |
+| R | Reload |
+| T | Next ammunition type (FMJ, hollow point, armour-piercing, explosive) |
+| F | Focus: a few seconds of bullet time (the meter fills with kills, faster with head shots) |
+| V | Thermal sight (an upgrade) |
+| 1 – 4 | The rifles you own |
+| Space | Skip a kill cam |
+| Placing a defence | Click the ground under the crosshair; R turns barbed wire; Esc stops |
+
+- **Animated until hit, a ragdoll after.** An unhurt zombie is animated. Motion-capture clips
+  (CC0, Quaternius' *Universal Animation Library*) are retargeted offline onto the ragdoll's own
+  17-segment skeleton and pose its bodies kinematically every step, out of the physics world.
+  Bullets still hit the exact anatomy, because the ballistics ray-cast the posed segments.
+  - **When it switches:** the moment a zombie is shot, blasted or trips on barbed wire, its bodies
+    join the physics world with the clip's velocities, and the Euphoria-style controller and the
+    injury model take over.
+  - **If it recovers:** a zombie that regains its feet blends back into its clip. It limps on a
+    bad leg and crawls on two. One lying on its back plays a get-up clip. The dead settle and are
+    frozen out of the physics.
+  - **Cost:** about 7 µs per animated zombie per frame, with at most about 10 physical ragdolls
+    at a time.
+- **Climbers** climb the fence and tip over it as real ragdolls, get up inside the compound and
+  go up a tower leg. Shot off, they fall 15 m.
+- **Specials:** screamers send the crowd running, and bloaters burst. Armoured zombies need
+  armour-piercing rounds or a shot to the legs.
+- **Ballistics:** a round is flown for real, with drag, gravity, wind and about a third of a
+  second to 250 m, so you hold over and lead. When it reaches a person, everyone on its line wakes
+  up as a ragdoll and the engine's ballistics resolve the penetration, so one .50 round can go
+  through three of them.
+- **Navigation:** one distance field over the 500 m valley toward the gates is computed at load,
+  and every zombie walks downhill on it.
+- **Defences:**
+  - barbed wire that physically trips the walkers;
+  - landmines;
+  - fuel barrels to shoot, with chain reactions;
+  - floodlights for the night waves;
+  - a sentry gun at the gate.
+- **Bullet cam:** long head shots, bosses, the last of a wave and rounds lined up through a crowd
+  get the kill cam with the X-ray, as in the sandbox.
+- **Look and sound:**
+  - a low-resolution render with ordered dithering and quantised colour;
+  - pixel textures and a pixel-font HUD;
+  - a scope with a mil-dot reticle and a rangefinder;
+  - all sound synthesised: rifles with valley echoes, impacts arriving after the speed-of-sound
+    delay, the horde's murmur, an air-raid siren between waves, generative music.
+
+Headless checks: `test/towerGame.test.js` (the game core), `test/towerAnim.test.js` (clips and
+player), `test/towerUi.test.js` (HUD and shop logic) and `tools/bench/towerBalance.mjs` (a
+simulated sniper plays the waves).
+
 ## Benchmarks
 
 Headless benchmarks measure the behaviour objectively (`bash tools/bench/all.sh` runs them all):
@@ -493,6 +569,8 @@ src/game      sandbox (simulation orchestration), weapons, melee, throwables, ob
               planner, audio; survival mode: subway station and trains, flow field, waves
 src/fps       first-person player, guns and melee moves, input
 src/modes     runtimes hosted by main.js: survival mode, first-person sandbox, kill cam
+src/tower     Last Lookout: game core (game/), animation (anim/), HUD and audio (ui/, audio/),
+              effects (fx/), level (level/), renderer and looks (render/), entry main.js
 src/render    arena, skinned body, blood, floor decals, effects, view model, prop and obstacle
               meshes, walking markers; subway station, first-person hands, zombie gear
 src/ui        interface and styles; survival HUD
