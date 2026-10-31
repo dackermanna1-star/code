@@ -157,6 +157,7 @@ export function approach(cur, target, rate, dt) {
 
 /** Game-over title by how the run ended. */
 export function gameOverTitle(stats) {
+  if (stats && stats.mode === 'holdout') return 'THE DEAD HAVE YOU';
   const goal = stats && stats.goal;
   if (stats && stats.wave >= (goal || Infinity)) return 'THE NIGHT IS OVER';
   return stats && stats.cause === 'gate' ? 'THE GATE HAS FALLEN' : 'THE LOOKOUT HAS FALLEN';

@@ -543,6 +543,67 @@ Headless checks: `test/towerGame.test.js` (the game core), `test/towerAnim.test.
 player), `test/towerUi.test.js` (HUD and shop logic) and `tools/bench/towerBalance.mjs` (a
 simulated sniper plays the waves).
 
+### HOLDOUT (`src/tower/holdout`)
+
+Last Lookout's second mode, chosen from the title menu. You are on foot in the same valley:
+endless, ever harder rounds of the dead, with points for every hit and kill. Points buy your way
+through barricades into more of the valley, guns, a gamble on a supply crate, a gunsmith's
+rebuild and field kits. You start under the tower with a pistol and 500 points.
+
+| Input | Action |
+| --- | --- |
+| Mouse | Look (Esc pauses) |
+| W A S D, Shift | Move, sprint |
+| Space, C | Jump (and climb onto low things), crouch |
+| Left mouse | Fire |
+| Right mouse / E | Aim down the sights (the M24 has a scope) |
+| R | Reload |
+| 1 – 3, Q, wheel | Switch guns |
+| F | Use or buy whatever the prompt shows |
+| V | Kick (a stomp on someone lying in front) |
+| G | Throw a grenade (two more each round, up to four) |
+
+- **Rounds:** each round has more of the dead, tougher (16% more hit points a round, up to six times) and faster.
+  Walkers soon jog and later sprint. Runners come from round 3, crawlers from round 5, bloaters
+  from round 6, screamers from round 8 and armoured zombies from round 9. A Brute comes every
+  seventh round, and a Juggernaut with it from round 21.
+- **The dead:** they claw their way out of the ground near you and chase you down. Their
+  attack clip's blow lands on its hit frame: about 30 damage at first, 60 later. Your health comes
+  back after a few seconds out of reach.
+  - **How they find you:** one distance field toward the player covers all the open ground. It
+    is rebuilt a slice at a time as you move, so a few hundred zombies cost nothing extra to route.
+    Within a few metres with a clear line, they come straight at you.
+  - **Hits and kicks:** a hit wakes a zombie into a full ragdoll. The engine's ballistics and
+    injury model decide the rest: head shots kill, and limbs break so a zombie limps or crawls.
+    A kick knocks the dead over, as in the sandbox.
+- **Points:** 10 a hit, 50 a kill, 50 more for a head shot, 100 for a kick or stomp kill.
+- **Areas:** seven areas, opened through ten barricades (1000 – 2500 points each):
+  - the Lookout, where you start;
+  - the Farm, the Highway, the Corn, the Orchard and the River;
+  - Hollow Creek, the burnt village.
+
+  A barricade between two areas you have already opened comes down by itself. Each area adds
+  new places where the dead rise.
+- **Guns:** M9 pistol, .357 revolver, MP-5K SMG, M870 shotgun, AR-15 rifle and M24 sniper.
+  - **Boards:** guns hang on boards around the valley. Buying a gun you already have refills it
+    at half price.
+  - **The supply crate** (950) gives a random gun. After a few rolls it moves somewhere else.
+  - **The gunsmith's bench** in Hollow Creek (5000) rebuilds the gun in your hand. A rebuilt gun
+    does 2.2× the damage, goes deeper through a crowd, fires faster and has a bigger magazine.
+- **Field kits:**
+  - **Kevlar:** 200 health.
+  - **Quick Hands:** half-time reloads.
+  - **Third Arm:** a third gun.
+  - **Adrenaline:** longer sprints, faster healing.
+- **Pickups** (dropped now and then by the dead):
+  - **Ammo cache:** refills every gun and your grenades.
+  - **Fury:** one-hit kills for 20 s.
+  - **Bounty:** double points for 20 s.
+  - **Shockwave:** a ring that drops every one of the dead on the map.
+
+Headless checks: `test/holdout.test.js` (the chase, rounds, points, barricades, guns, the crate,
+the bench, field kits, pickups, grenades, the player's bounds, cost per step).
+
 ## Benchmarks
 
 Headless benchmarks measure the behaviour objectively (`bash tools/bench/all.sh` runs them all):
@@ -570,7 +631,8 @@ src/game      sandbox (simulation orchestration), weapons, melee, throwables, ob
 src/fps       first-person player, guns and melee moves, input
 src/modes     runtimes hosted by main.js: survival mode, first-person sandbox, kill cam
 src/tower     Last Lookout: game core (game/), animation (anim/), HUD and audio (ui/, audio/),
-              effects (fx/), level (level/), renderer and looks (render/), entry main.js
+              effects (fx/), level (level/), renderer and looks (render/), the HOLDOUT mode
+              (holdout/: areas, game core, chase field, props, HUD, front end), entry main.js
 src/render    arena, skinned body, blood, floor decals, effects, view model, prop and obstacle
               meshes, walking markers; subway station, first-person hands, zombie gear
 src/ui        interface and styles; survival HUD

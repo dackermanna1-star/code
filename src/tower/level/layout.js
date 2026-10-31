@@ -578,9 +578,10 @@ export function isWater(x, z) {
 /**
  * A walkability grid sampled at cell centres (same answer as isWalkable there), built by
  * rasterising the colliders instead of testing each one per cell: fast enough for 0.5 m cells.
+ * opts.skip(collider): leave a collider out (Holdout: the compound's gates stand open).
  * Returns { minX, minZ, cell, nx, nz, data: Uint8Array (1 = walkable) }.
  */
-export function buildWalkGrid(cell = 1, grow = 0.35) {
+export function buildWalkGrid(cell = 1, grow = 0.35, opts = {}) {
   const B = LAYOUT.bounds;
   const nx = Math.floor((B.maxX - B.minX) / cell), nz = Math.floor((B.maxZ - B.minZ) / cell);
   const data = new Uint8Array(nx * nz);
@@ -593,7 +594,7 @@ export function buildWalkGrid(cell = 1, grow = 0.35) {
     }
   }
   for (const c of LAYOUT.colliders) {
-    if (c.c[1] - c.h[1] > 1.2) continue;
+    if (c.c[1] - c.h[1] > 1.2 || (opts.skip && opts.skip(c))) continue;
     const cy = Math.cos(c.yaw || 0), sy = Math.sin(c.yaw || 0);
     const ex = c.h[0] + grow, ez = c.h[2] + grow;
     const rx = Math.abs(cy) * ex + Math.abs(sy) * ez, rz = Math.abs(sy) * ex + Math.abs(cy) * ez;

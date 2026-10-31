@@ -14,6 +14,7 @@ import { TowerGame } from './game/game.js';
 import { RIFLES, AMMO, ENEMIES, WAVES, UPGRADES, DEFENCES } from './catalog.js';
 import { WEAPONS, raycastPeople } from '../game/weapons.js';
 import { RetroRenderer, buildLevelScene, prepareZombieMeshes, createZombieVisual, AnimPlayer, CLIP_INFO, TowerHud, TowerAudio, TowerFx } from './parts.js';
+import { HoldoutFront } from './holdout/front.js';
 
 const FIXED = 1 / 60;
 const SAVE_KEY = 'lastLookout.v1';
@@ -212,11 +213,13 @@ game.killcam = {
 // ---------------------------------------------------------------------------------------------
 // HUD
 let hudRoot = null;
+let mode = 'tower'; // 'tower' (Last Lookout) | 'holdout' (the on-foot mode)
+let holdout = null;
 const hud = new TowerHud(document.body, {
-  onStart: (o) => startRun(!!(o && o.continue)),
-  onResume: () => resume(),
+  onStart: (o) => (o && o.mode === 'holdout' ? enterHoldout() : startRun(!!(o && o.continue))),
+  onResume: () => (mode === 'holdout' ? holdout.resume() : resume()),
   onQuit: () => toTitle(),
-  onRestart: () => startRun(false),
+  onRestart: () => (mode === 'holdout' ? holdout.newRun() : startRun(false)),
   onSetting: (k, v) => setSetting(k, v),
   onShopBuy: (id, info) => shopBuy(id, info),
   onShopClose: () => closeShop(),
@@ -233,6 +236,43 @@ function setSetting(k, v) {
     retro.setQuality(v);
     game.horde.maxPhysical = v === 'low' ? 7 : v === 'high' ? 12 : 10;
   }
+  if (holdout && holdout.built) holdout.applySettings();
+}
+
+// ---------------------------------------------------------------------------------------------
+// HOLDOUT: the on-foot mode in the same valley (holdout/front.js runs the frame while it is on)
+holdout = new HoldoutFront({
+  retro, level, camera, view, audio, fx, hud, OM, shape, createZombieVisual, prepareZombieMeshes,
+  save, writeSave, quality: () => save.settings.quality,
+});
+function enterHoldout() {
+  audio.unlock();
+  if (!meshesReady) {
+    prepareZombieMeshes().then(() => {
+      meshesReady = true;
+      enterHoldout();
+    });
+    return;
+  }
+  // put the tower's run away: its dead, its traps
+  started = false;
+  paused = false;
+  for (const z of [...visuals.keys()]) detachVisual(z);
+  game.horde.clear();
+  game.drainEvents();
+  for (const t of trapMeshes.values()) level.removeTrapMesh(t);
+  trapMeshes.clear();
+  overView = null;
+  mode = 'holdout';
+  holdout.enter();
+}
+function exitHoldout() {
+  if (mode !== 'holdout') return;
+  holdout.exit();
+  mode = 'tower';
+  input.fireQueued = false;
+  input.scoped = false;
+  input.scopeHold = false;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -344,10 +384,11 @@ function startRun(cont) {
 }
 
 function toTitle() {
+  exitHoldout();
   started = false;
   paused = false;
   document.exitPointerLock();
-  hud.showTitle({ bestWave: save.bestWave || 0, bestScore: save.bestScore || 0, continueWave: save.run ? save.run.wave : 0 });
+  hud.showTitle({ bestWave: save.bestWave || 0, bestScore: save.bestScore || 0, continueWave: save.run ? save.run.wave : 0, holdoutBest: save.holdoutBest || 0 });
   audio.music('calm');
 }
 
@@ -667,6 +708,11 @@ function frame(now) {
   const dtReal = Math.min(0.1, (now - last) / 1000);
   last = now;
   fpsAvg = lerp(fpsAvg, 1 / Math.max(dtReal, 1e-3), 0.05);
+  if (mode === 'holdout') {
+    holdout.frame(now, dtReal);
+    requestAnimationFrame(frame);
+    return;
+  }
   const ph = phase();
   killCamCooldown = Math.max(0, killCamCooldown - dtReal);
 
@@ -866,4 +912,4 @@ resize();
 if (renderer.compileAsync) renderer.compileAsync(scene, camera).catch(() => {});
 toTitle();
 requestAnimationFrame(frame);
-window.__tower = { game, input, killCam, camera, level, visuals, hud, startRun, openShop, closeShop, retro, WAVES, get scopeView() { return scopeView; }, setAim(yaw, pitch) { input.yaw = yaw; input.pitch = pitch; } };
+window.__tower = { game, input, killCam, camera, level, visuals, hud, startRun, openShop, closeShop, retro, WAVES, holdout, enterHoldout, get scopeView() { return scopeView; }, setAim(yaw, pitch) { input.yaw = yaw; input.pitch = pitch; } };

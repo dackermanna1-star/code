@@ -64,6 +64,7 @@ export function makeProjectile(w) {
     pen0: w.pen,
     fragmenting: !!w.fragmenting,
     ap: !!w.ap,
+    dmg: w.dmg ?? 1, // multiplier on the wrecking damage done to the undead (souped-up guns)
   };
 }
 
@@ -75,6 +76,7 @@ const MATERIAL_PEN = {
   bowling: { cost: 2.8, solid: 1 },
   brick: { cost: 9, solid: 1 },
   glass: { cost: 1.5, solid: 0.15 },
+  chainlink: { cost: 2, solid: 0.03 }, // wire mesh: mostly air
   melon: { cost: 0.9, solid: 1 },
   rubber: { cost: 1.5, solid: 0.05 },
   baseball: { cost: 1.4, solid: 1 },

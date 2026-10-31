@@ -305,7 +305,8 @@ export class TowerFx {
     const x = pos.x, y = pos.y, z = pos.z;
     if (!opts.suppressed) {
       const size = opts.size ?? (opts.brake ? 0.42 : 0.3);
-      this._flash(x, y, z, dx, dy, dz, size, !!opts.brake);
+      // (opts.noFlash: the hands draw their own flash; the world gets the light, sparks and smoke)
+      if (!opts.noFlash) this._flash(x, y, z, dx, dy, dz, size, !!opts.brake);
       // a few hot sparks of burning powder
       for (let i = 0; i < 4; i++) {
         spray(_v, dx, dy, dz, 0.25);

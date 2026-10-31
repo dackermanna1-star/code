@@ -375,7 +375,8 @@ export class Sandbox {
    */
   fire(weaponType, origin, dir, opts = {}) {
     const w = WEAPONS[weaponType];
-    const dirs = spreadDirections(dir, w.spread * (opts.spreadScale ?? 1), w.pellets, this.rng);
+    // (opts.dirs: the pellets' directions already drawn by the caller)
+    const dirs = opts.dirs || spreadDirections(dir, w.spread * (opts.spreadScale ?? 1), w.pellets, this.rng);
     const ctx = { world: this.world, people: this.people, shape: this.shape, forceScale: this.settings.forceScale, fx: (e) => this.fx(e) };
     const paths = [];
     for (const d of dirs) {

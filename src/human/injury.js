@@ -818,7 +818,7 @@ export class InjurySystem {
       // is worth ~3 pistol rounds rather than 6), more where it matters, plus vital structures hit
       let vital = 0;
       for (const x of hit.structures) vital += (UNDEAD_VITAL[x.s.kind] || 0) * (x.direct ? 1 : 0.4);
-      const dmg = (Math.pow(deposited, 0.7) + Math.min(vital, UNDEAD_VITAL_MAX)) * (UNDEAD_LOC[kind] ?? 1);
+      const dmg = (Math.pow(deposited, 0.7) + Math.min(vital, UNDEAD_VITAL_MAX)) * (UNDEAD_LOC[kind] ?? 1) * (proj.dmg ?? 1);
       this.hp -= dmg;
       hit.damage = dmg;
       if (this.hp <= 0) this.kill('destroyed');

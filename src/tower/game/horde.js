@@ -152,7 +152,7 @@ export class Horde {
     if (def.boss) ctl.strengthScale = kind === 'juggernaut' ? 1.6 : 1.35;
     sb.setDormant(person, true);
     const anim = this.game.makeAnim(person.rd, (this.rng() * 1e9) | 0);
-    const z = new Zombie(this, person, kind, anim, { pos, yaw });
+    const z = new (this.ZombieClass || Zombie)(this, person, kind, anim, { pos, yaw });
     person.towerZombie = z;
     this.list.push(z);
     // first pose, so it is drawn and hittable at once

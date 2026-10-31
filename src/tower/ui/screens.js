@@ -127,12 +127,8 @@ export class Screens {
     this.pauseSub = el('h2', '', pw, 'THE VALLEY WAITS');
     const pc = el('div', 'cols', pw);
     this.pauseMenu = new Menu(pc, ui);
-    const keys = el('div', 'keys', pc);
-    for (const [k, v] of CONTROLS) {
-      const kk = el('span', 'k', keys);
-      el('span', 'key', kk, k);
-      el('span', '', keys, v);
-    }
+    this.pauseKeys = el('div', 'keys', pc);
+    this._fillKeys(CONTROLS);
 
     // ---- settings
     const S = (this.settings = el('div', 'scr', parent));
@@ -297,12 +293,13 @@ export class Screens {
     }
     const cont = meta.continueWave ?? (meta.canContinue ? meta.wave : null);
     this.titleMenu.set([
-      { label: 'START RUN', run: () => this.fire('onStart', { continue: false }) },
+      { label: 'START RUN', note: 'THE TOWER', run: () => this.fire('onStart', { continue: false }) },
+      { label: 'HOLDOUT', note: meta.holdoutBest ? `BEST ROUND ${pad(meta.holdoutBest)}` : 'ON FOOT · ENDLESS', run: () => this.fire('onStart', { mode: 'holdout' }) },
       { label: 'CONTINUE', note: cont ? `WAVE ${pad(cont)}` : 'NO SAVED RUN', disabled: !cont, run: () => this.fire('onStart', { continue: true }) },
       { label: 'SETTINGS', run: () => this.openSettings('title') },
       { label: 'CREDITS', run: () => this.openCredits() },
     ]);
-    if (cont) this.titleMenu.select(1, false);
+    if (cont) this.titleMenu.select(2, false);
     const bw = meta.bestWave ?? (meta.best && meta.best.wave) ?? 0;
     const bs = meta.bestScore ?? (meta.best && meta.best.score) ?? 0;
     this.best.innerHTML = bw ? `BEST WAVE <b>${pad(bw)}</b> &nbsp;·&nbsp; BEST SCORE <b>${groupThousands(bs)}</b>` : 'NO RECORD YET · THE VALLEY IS WAITING';
@@ -310,7 +307,21 @@ export class Screens {
     this._show('title');
   }
 
+  /** The controls legend beside the pause menu (HOLDOUT has its own). */
+  _fillKeys(list) {
+    if (this._keysFor === list) return;
+    this._keysFor = list;
+    const keys = this.pauseKeys;
+    keys.textContent = '';
+    for (const [k, v] of list) {
+      const kk = el('span', 'k', keys);
+      el('span', 'key', kk, k);
+      el('span', '', keys, v);
+    }
+  }
+
   showPause(meta = {}) {
+    this._fillKeys(meta.controls || CONTROLS);
     this.pauseMenu.set([
       { label: 'RESUME', run: () => this.fire('onResume') },
       { label: 'SETTINGS', run: () => this.openSettings('pause') },
@@ -318,6 +329,7 @@ export class Screens {
       { label: 'QUIT TO TITLE', run: () => this.fire('onQuit') },
     ]);
     const bits = [];
+    if (meta.round) bits.push(`ROUND ${pad(meta.round)}`);
     if (meta.wave) bits.push(`WAVE ${pad(meta.wave)}`);
     if (meta.cash !== undefined) bits.push(formatCash(meta.cash));
     this.pauseSub.textContent = bits.length ? bits.join(' · ') : 'THE VALLEY WAITS';
@@ -352,6 +364,29 @@ export class Screens {
     this.overSub.textContent = stats.cause === 'gate' ? `OVERRUN ON WAVE ${pad(wave)}` : `KILLED IN THE CABIN ON WAVE ${pad(wave)}`;
     const acc = stats.accuracy !== undefined ? `${Math.round(stats.accuracy * 100)}%` : formatAccuracy(stats.hits, stats.shots);
     const best = stats.best || {};
+    if (stats.mode === 'holdout') {
+      // (HOLDOUT, on foot: rounds instead of waves, points instead of cash)
+      this.overSub.textContent = `THE DEAD TOOK YOU ON ROUND ${pad(stats.round ?? 0)}`;
+      const H = [
+        ['ROUNDS SURVIVED', pad(stats.rounds ?? 0), stats.newBest],
+        ['KILLS', groupThousands(stats.kills ?? 0)],
+        ['HEADSHOTS', groupThousands(stats.headshots ?? 0)],
+        ['POINTS EARNED', groupThousands(stats.earned ?? 0)],
+        ['BARRICADES CLEARED', groupThousands(stats.doors ?? 0)],
+        ['ACCURACY', acc],
+        ['BEST', `ROUND ${pad(best.round ?? 0)}`],
+      ];
+      this.overStats.textContent = '';
+      for (const [k, v, hi] of H) {
+        el('span', 'k', this.overStats, k);
+        el('span', 'v' + (hi ? ' hi' : ''), this.overStats, v);
+      }
+      this.overStamp.classList.toggle('hide', !stats.newBest);
+      this._overSel(1, false);
+      this.back = null;
+      this._show('over');
+      return;
+    }
     const rows = [
       ['WAVE REACHED', pad(wave), stats.newBest],
       ['KILLS', groupThousands(stats.kills ?? 0)],
