@@ -125,6 +125,8 @@ export interface CharacterMaterialUniforms {
   uFlash: { value: number };
   uLayer: { value: number };
   uAtlas: { value: THREE.DataArrayTexture | null };
+  /** 0..1 share of pixels dithered away (a fighter between the camera and the player). */
+  uFade: { value: number };
 }
 
 /**
@@ -142,6 +144,7 @@ export function createCharacterMaterial(atlas: THREE.DataArrayTexture, corpse = 
     uFlash: { value: 0 },
     uLayer: { value: 0 },
     uAtlas: { value: atlas },
+    uFade: { value: 0 },
   };
   const corpseUniforms = {
     uCorpseWounds: { value: null as THREE.DataTexture | null },
@@ -178,6 +181,7 @@ varying vec3 vBindPos;
 varying vec2 vCharUv;
 uniform vec4 uRim;
 uniform float uFlash;
+uniform float uFade;
 uniform sampler2DArray uAtlas;
 ${corpse ? 'flat varying int vCorpseId;\nflat varying float vLayer;\nuniform highp sampler2D uCorpseWounds;' : `uniform float uLayer;\nuniform vec4 uWounds[${MAX_WOUNDS}];\nuniform vec4 uWoundInfo[${MAX_WOUNDS}];\nuniform int uWoundCount;`}
 float lsBloodAmt = 0.0;
@@ -198,7 +202,8 @@ ${WOUND_EVAL_GLSL}
 {
   // a body right in front of the lens (one flung at the camera, a corpse the camera backs into)
   // dissolves instead of filling the screen
-  float lsNear = 1.0 - smoothstep(0.3, 0.85, length(vViewPosition));
+  // (and a fighter standing between the camera and the player thins out, so the player shows)
+  float lsNear = max(1.0 - smoothstep(0.3, 0.85, length(vViewPosition)), uFade);
   if (lsNear > 0.0 && lsNear > lsBayer4(gl_FragCoord.xy)) discard;
 }
 `,

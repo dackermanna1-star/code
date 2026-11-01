@@ -37,6 +37,7 @@ export class CameraRig {
   invertY = false;
   private idleTime = 0;
   private collK = 1;
+  private crowdPitch = -0.15;
 
   constructor(aspect: number, public arena: Arena) {
     this.camera = new THREE.PerspectiveCamera(this.fovBase, aspect, 0.05, 120);
@@ -79,9 +80,12 @@ export class CameraRig {
     this.focus.addScaledVector(this.focusVel, realDt);
     if (this.focus.distanceTo(desired) > 4) this.focus.copy(desired);
 
-    // ---- orbit camera position
-    const cp = Math.cos(this.pitch);
-    const offs = new THREE.Vector3(Math.sin(this.yaw) * cp, Math.sin(this.pitch), Math.cos(this.yaw) * cp);
+    // ---- orbit camera position (a little higher over a crowd, to see over the nearest heads)
+    const crowd = nearbyEnemies >= 2 ? 0.3 + Math.min(0.16, (nearbyEnemies - 1) * 0.04) : -0.15;
+    this.crowdPitch = damp(this.crowdPitch, crowd, 1.2, realDt);
+    const pitch = Math.max(this.pitch, this.crowdPitch);
+    const cp = Math.cos(pitch);
+    const offs = new THREE.Vector3(Math.sin(this.yaw) * cp, Math.sin(pitch), Math.cos(this.yaw) * cp);
     const d = this.dist;
     const wantPos = this.focus.clone().addScaledVector(offs, d);
     // collision against arena bounds & tall obstacles: pull in fast, ease back out slowly

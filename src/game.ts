@@ -367,6 +367,7 @@ export class Game {
       this.cam.framingDist = 1.4;
     }
     this.cam.update(dt, realDt, focus, lx, ly, near, Math.hypot(this.player.vx, this.player.vz) > 0.5);
+    this.thinOccluders(realDt);
     // audio listener
     const right = new THREE.Vector3(1, 0, 0).applyQuaternion(this.cam.camera.quaternion);
     this.audio.setListener(this.cam.camera.position, right);
@@ -671,6 +672,38 @@ export class Game {
           b.shove(nx * push * ((2 * wb) / tw), nz * push * ((2 * wb) / tw));
         }
       }
+    }
+  }
+
+  /**
+   * Fighters standing between the camera and the player (a brute stepping in front of the lens,
+   * someone circling behind you on the camera side) thin out to a dither so the player always
+   * reads. Not the ones fighting at arm's length or locked in a move with the player, and not
+   * during a cinematic shot, which frames the action on purpose.
+   */
+  private thinOccluders(realDt: number) {
+    const cam = this.cam.camera.position;
+    const p = this.player;
+    const k = 1 - Math.exp(-12 * realDt);
+    for (const f of this.fighters) {
+      if (f === p) continue;
+      let want = 0;
+      const near = Math.hypot(f.x - p.x, f.z - p.z) < 1.35;
+      if (f.alive && !near && !f.paired && p.alive && !this.cam.inCinematic) {
+        const r = 0.36 * f.scale, h = 1.9 * f.scale;
+        const dx = p.x - cam.x, dz = p.z - cam.z;
+        const len2 = Math.max(1e-6, dx * dx + dz * dz);
+        const t = ((f.x - cam.x) * dx + (f.z - cam.z) * dz) / len2;
+        if (t > 0.02 && t < 0.92) {
+          const ox = cam.x + dx * t - f.x, oz = cam.z + dz * t - f.z;
+          // the sight lines to the player's hips and chest at that point
+          const y1 = cam.y + (0.95 - cam.y) * t, y2 = cam.y + (1.45 - cam.y) * t;
+          if (ox * ox + oz * oz < r * r && Math.min(y1, y2) < h && Math.max(y1, y2) > 0.1) want = 0.62;
+        }
+      }
+      const u = f.model.uniforms.uFade;
+      u.value += (want - u.value) * k;
+      if (want === 0 && u.value < 0.02) u.value = 0;
     }
   }
 

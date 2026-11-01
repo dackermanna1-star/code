@@ -223,7 +223,9 @@ export async function runTest(game: Game, params: URLSearchParams) {
     // set up a fight, then let the runner step + screenshot frame by frame
     const key = params.get('enemy') ?? 'brawler';
     const n = Number(params.get('n') ?? 3);
-    for (let i = 0; i < n; i++) spawnEnemy(key, rand(-3.5, 3.5), -2.5 - i * 0.8);
+    // wave=N films the real wave (mixed enemies, the director) instead of n of one kind
+    if (params.get('wave')) game.waves.start(Number(params.get('wave')));
+    else for (let i = 0; i < n; i++) spawnEnemy(key, rand(-3.5, 3.5), -2.5 - i * 0.8);
     const bot = new Bot(game);
     game.started = true;
     game.cam.framingDist = Number(params.get('framing') ?? 0);

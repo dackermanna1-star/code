@@ -279,7 +279,11 @@ export class Enemy extends Fighter {
       if (chance(0.4)) this.orbitDir *= -1;
       this.ringR = this.injured ? rand(4.5, 6) : rand(2.6, 4.4);
     }
-    const ang = Math.atan2(this.x - p.x, this.z - p.z) + this.orbitDir * 0.35;
+    let ang = Math.atan2(this.x - p.x, this.z - p.z) + this.orbitDir * 0.35;
+    // keep out of the camera's line of sight to the player while sizing them up: a thug parked
+    // between the lens and the player hides the fight (they still attack from anywhere)
+    const fromCam = wrapAngle(ang - this.game.cam.yaw);
+    if (Math.abs(fromCam) < 0.85) ang += (fromCam >= 0 ? 1 : -1) * (0.85 - Math.abs(fromCam)) * 1.2;
     let tx = p.x + Math.sin(ang) * this.ringR;
     let tz = p.z + Math.cos(ang) * this.ringR;
     // separation from other enemies
