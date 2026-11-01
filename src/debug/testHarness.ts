@@ -332,6 +332,60 @@ export async function runTest(game: Game, params: URLSearchParams) {
     if (params.get('run')) for (let i = 0; i < frames; i++) stepOne();
     game.renderFrame();
   }
+  if (name === 'moves') {
+    // scripted player movement for reviewing locomotion: idle, run, stop, sharp turn, blocked
+    // strafe and backpedal, half-stick walk; side camera tracking the player
+    const p = game.player;
+    game.started = true;
+    const inp = game.input;
+    const script: [number, number, number, boolean][] = [
+      // until (s), moveX, moveY, block  (camera basis: moveY = away from the camera)
+      [1.2, 0, 0, false],
+      [2.8, 0, 1, false],
+      [3.6, 0, 0, false],
+      [5.0, 1, -0.3, false],
+      [5.8, 0, 0, false],
+      [7.2, -1, 0, true],
+      [8.4, 0, -1, true],
+      [9.0, 0, 0, false],
+      [11.0, 0.3, 0.25, false],
+      [12.0, 0, 0, false],
+    ];
+    let frame = 0;
+    let blocking = false;
+    const stepOne = () => {
+      const t = frame * dt;
+      const seg = script.find((sg) => t < sg[0]) ?? script[script.length - 1];
+      inp.virtual = { moveX: seg[1], moveY: seg[2] };
+      if (seg[3] && !blocking) inp.press('block');
+      if (!seg[3] && blocking) inp.release('block');
+      blocking = seg[3];
+      game.step(dt);
+      frame++;
+    };
+    const camAng = Number(params.get('camang') ?? 1.57);
+    const camDist = Number(params.get('camdist') ?? 4.2);
+    const look = new THREE.Vector3(p.x, 0.9, p.z);
+    (window as unknown as { __film: { step: (k: number) => void } }).__film = {
+      step(k: number) {
+        for (let i = 0; i < k; i++) stepOne();
+        look.lerp(new THREE.Vector3(p.x, 0.9, p.z), 0.6);
+        const c = game.cam.camera;
+        c.position.set(look.x + Math.sin(camAng) * camDist, 1.5, look.z + Math.cos(camAng) * camDist);
+        c.lookAt(look);
+        game.renderFrame();
+      },
+    };
+    for (let i = 0; i < Number(params.get('warm') ?? 0); i++) stepOne();
+    const probe = params.get('probe') === '1' ? new (await import('./animProbe')).AnimProbe(game) : null;
+    if (params.get('run')) {
+      for (let i = 0; i < frames; i++) {
+        stepOne();
+        probe?.sample(dt);
+      }
+      if (probe) console.log('PROBE ' + JSON.stringify(probe.report(frames * dt)));
+    }
+  }
   if (name === 'wounds') {
     // a beaten face and body up close: cuts, a bloody nose, bruises
     const key = params.get('enemy') ?? 'brawler';

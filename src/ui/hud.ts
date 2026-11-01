@@ -411,6 +411,7 @@ export class HUD {
         break;
       case 'gameplay':
         tog('Active ragdolls (euphoria)', s.ragdolls === 'euphoria', (v) => apply((x) => (x.ragdolls = v ? 'euphoria' : 'classic')));
+        tog('Motion-captured movement', s.mocap, (v) => apply((x) => (x.mocap = v)));
         tog('Tutorial tips', s.showHints, (v) => apply((x) => (x.showHints = v)));
         tog('FPS / stats overlay', s.fpsCounter, (v) => apply((x) => (x.fpsCounter = v)));
         break;

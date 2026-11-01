@@ -99,14 +99,36 @@ export abstract class Fighter implements AimProvider {
   // ------------------------------------------------------------------ aim
   aimPoint(p: AimPoint, out: THREE.Vector3): boolean {
     if (p.startsWith('p.')) {
-      const partner = this.paired;
-      if (!partner) return false;
       const b = PARTNER_BONES[p];
       if (b === undefined) return false;
+      const partner = this.paired;
+      const cached = this.aimCache.get(p);
+      // a partner thrown or knocked into a ragdoll mid-move no longer follows the paired track:
+      // hold the point where it was let go, so the hands ease off instead of jumping (a body that
+      // was already on the floor when the move began is tracked live)
+      const mode = partner?.anim.mode;
+      const physical = mode === 'external' || mode === 'frozen';
+      const wasAnimated = this.aimLiveMode !== null && this.aimLiveMode !== 'external' && this.aimLiveMode !== 'frozen';
+      if (!partner || (physical && wasAnimated)) {
+        if (!cached) return false;
+        out.copy(cached);
+        return true;
+      }
       partner.anim.boneWorld(b, out);
+      if (cached) cached.copy(out);
+      else this.aimCache.set(p, out.clone());
+      this.aimLiveMode = mode ?? null;
       return true;
     }
     return this.bodyPoint(p, out);
+  }
+  /** Last partner points seen during a paired move (held once the partner is released). */
+  private aimCache = new Map<string, THREE.Vector3>();
+  private aimLiveMode: string | null = null;
+  /** Forget partner points (a new paired move begins). */
+  clearAimCache() {
+    this.aimCache.clear();
+    this.aimLiveMode = null;
   }
   /** World position of a body point of THIS fighter. */
   bodyPoint(p: string, out: THREE.Vector3): boolean {

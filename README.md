@@ -78,7 +78,18 @@ openings, and adapts: counter-heavy players see more unblockables and feints. In
 hunch, limp, clutch their side and hang back; broken arms dangle and change their moveset.
 15 authored waves introduce mechanics gradually, then endless mode scales forever.
 
-**Animation** — fully procedural: an IK pose solver drives every limb; 72 authored motions (117 clips with mirrors and paired tracks:
+**Motion capture** — the player character moves on real motion capture from the CMU Graphics
+Lab database: a boxer's guard idle, walk, jog, run and sprint cycles, a backward walk and
+side-steps (`tools/mocap/convert.py` extracts seamless, phase-aligned cycles and retargets them to
+leg- and arm-length-normalised effector tracks). At runtime they are blended by speed and
+direction on one gait clock, cadence and stride are warped to the real speed, the legs turn into
+the travel direction, planted feet are locked in the world (with quick re-steps when the body
+turns away from them), and a guard, block or weapon grip is laid over the arms — all solved
+through the same IK as everything else, so the motion fits the character and blends into the
+procedural combat moves. Settings → *Motion-captured movement* switches back to the procedural
+gait.
+
+**Animation** — an IK pose solver drives every limb; 72 authored motions (117 clips with mirrors and paired tracks:
 strikes, reactions, get-ups, paired counters/finishers authored as two synchronized tracks);
 procedural locomotion with planted feet (no foot sliding) driven by a human gait model — walk
 and run cadence / duty factor from biomechanics data, heel strike and toe-off rolling over the
@@ -220,7 +231,10 @@ scripted active-ragdoll reaction from a fixed witness camera (`pgu=1` forces the
 get-up, `ragdolls=classic` switches engines), `test=film` captures
 consecutive gameplay frames into a contact sheet, `test=duel&enemy=elite` isolates one
 archetype, `test=pools&h=2.3&tilt=3.2` grows pools and rivulets on an empty floor, and
-`test=wounds` renders a beaten face up close (`wait=600` to see bruises mature). Debug viewers: `?viewer=sheet&clip=roundhouse` (strike contact sheet),
+`test=wounds` renders a beaten face up close (`wait=600` to see bruises mature), `test=moves`
+drives the player through a scripted idle / run / turn / blocked strafe / walk sequence for
+reviewing locomotion (`run=1&probe=1` measures it), and `?viewer=loco&mocap=1` strobes the
+motion-captured gait. Debug viewers: `?viewer=sheet&clip=roundhouse` (strike contact sheet),
 `?viewer=sheet&pair=fin_roundhouse` (paired clips), `?viewer=loco&path=circle&speed=4`
 (locomotion strobe), `?viewer=pose&all=1` (all character variants).
 

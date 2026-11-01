@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { B, SkeletonDef } from './skeleton';
 import { makeParams, pivotOffset, PoseParams } from './solver';
 import { angleDiff, clamp, clamp01, DEG, eulerDeg, lerp, rotY, smoothstep, wrapAngle } from '../core/math';
+import type { MocapDriver } from './mocapLoco';
 
 export type LocoStyle = 'fight' | 'brawl' | 'relaxed' | 'injured' | 'heavy' | 'weapon1h' | 'weapon2h' | 'agile' | 'master';
 
@@ -55,7 +56,7 @@ interface FootState {
   rk: number;
 }
 
-interface StanceDef {
+export interface StanceDef {
   feet: [[number, number, number], [number, number, number]]; // x, z, yaw(deg)
   hipsY: number;
   hipsYaw: number;
@@ -120,6 +121,8 @@ export class Locomotion {
   bob = 0;
   /** Ground height provider (bodies on the floor). */
   ground: ((x: number, z: number) => number) | null = null;
+  /** Motion-captured driver (player): replaces the procedural gait when set. */
+  mocap: MocapDriver | null = null;
   private groundSm = 0;
   private rhythmic = false;
   private legYaw = 0;
@@ -154,6 +157,7 @@ export class Locomotion {
       this.feet[i].plantedTime = 0.1;
     }
     this.prevYaw = rootYaw;
+    this.mocap?.init(this, feet, yaws);
   }
 
   private stance(style: LocoStyle): StanceDef {
@@ -190,6 +194,7 @@ export class Locomotion {
       this.styleCur = inp.style;
     }
     const st = this.currentStance(dt);
+    if (this.mocap) return this.mocap.update(this, inp, def, st, dt);
     const fightStyle = inp.style !== 'relaxed' && inp.style !== 'injured';
 
     // ------------------------------------------------------------- gait model

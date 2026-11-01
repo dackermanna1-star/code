@@ -19,6 +19,8 @@ export interface Settings {
   bloodDetail: 'standard' | 'high'; // never removes blood; only resolution/particle counts
   /** 'euphoria' = active, self-balancing ragdolls (Ragdoll Lab engine); 'classic' = passive Rapier ragdolls. */
   ragdolls: 'euphoria' | 'classic';
+  /** Motion-captured locomotion for the player character (else the procedural gait). */
+  mocap: boolean;
 }
 
 export interface QualityPreset {
@@ -63,6 +65,7 @@ export function defaultSettings(): Settings {
     fpsCounter: false,
     bloodDetail: 'high',
     ragdolls: 'euphoria',
+    mocap: true,
   };
 }
 

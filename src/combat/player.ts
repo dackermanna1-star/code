@@ -546,6 +546,8 @@ export class Player extends Fighter {
   startPaired(e: Enemy, pair: PairedClip, action: PlayerAction, speed = 1) {
     const g = this.game;
     e.releaseStagger();
+    this.clearAimCache();
+    e.clearAimCache();
     let dx = e.x - this.x, dz = e.z - this.z;
     let dist = Math.hypot(dx, dz) || 1;
     let yaw = yawFromDir(dx, dz);

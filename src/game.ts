@@ -5,6 +5,7 @@ import { Input } from './core/input';
 import { CameraRig } from './fx/camera';
 import { Arena, HALF_D, HALF_W } from './world/arena';
 import { BloodAtlas, SPLAT } from './world/bloodAtlas';
+import { MocapDriver } from './anim/mocapLoco';
 import { CharacterLibrary } from './character/library';
 import { Archetype, registerVariants } from './character/variants';
 import { registerAllClips } from './anim/lib';
@@ -133,6 +134,9 @@ export class Game {
       if (this.started) this.audio.crack(p);
     };
     this.player = new Player(this, this.lib, this.lib.get('player'));
+    const mc = this.params.get('mocap');
+    if (mc === '0' || mc === '1') this.settings.mocap = mc === '1';
+    this.applyMocap();
     this.player.spawn(0, 2, Math.PI);
     this.addBodyProxy(this.player);
     this.player.hp = this.player.maxHp = 100;
@@ -206,6 +210,7 @@ export class Game {
     this.cam.invertY = s.invertY;
     this.audio.volumes = { master: s.masterVolume, sfx: s.sfxVolume, music: s.musicVolume };
     this.audio.applyVolumes();
+    if (this.player) this.applyMocap();
   }
 
   beginRun() {
@@ -564,6 +569,18 @@ export class Game {
   removeFighter(f: Fighter) {
     const i = this.fighters.indexOf(f);
     if (i >= 0) this.fighters.splice(i, 1);
+  }
+
+  /** Player locomotion source: motion capture (default) or the procedural gait. */
+  applyMocap() {
+    const loco = this.player.anim.loco;
+    if (this.settings.mocap && !loco.mocap) {
+      loco.mocap = new MocapDriver();
+      const feet: [THREE.Vector3, THREE.Vector3] = [new THREE.Vector3(), new THREE.Vector3()];
+      loco.footWorld(0, feet[0]);
+      loco.footWorld(1, feet[1]);
+      loco.mocap.init(loco, feet, [loco.feet[0].yaw, loco.feet[1].yaw]);
+    } else if (!this.settings.mocap) loco.mocap = null;
   }
 
   separate() {

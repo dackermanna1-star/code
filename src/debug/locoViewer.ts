@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { CharacterLibrary, CharacterModel } from '../character/library';
 import { registerVariants } from '../character/variants';
+import { MocapDriver } from '../anim/mocapLoco';
 import { Animator } from '../anim/animator';
 import { registerAllClips } from '../anim/lib';
 import { getClip } from '../anim/clip';
@@ -53,6 +54,7 @@ export function runLocoViewer(params: URLSearchParams) {
   if (path === 'line' || path === 'stopgo') { x = -4; yaw = Math.PI / 2; }
   if (path === 'strafe' || path === 'back' || path === 'diag') { x = -2; yaw = 0; }
   if (path === 'circle') { x = 3; z = 0; yaw = 0; }
+  if (params.get('mocap') === '1') anim.loco.mocap = new MocapDriver();
   anim.initAt(x, z, yaw);
   const dt = 1 / 60;
   let tNext = Number(params.get('first') ?? 0.3);
@@ -95,6 +97,12 @@ export function runLocoViewer(params: URLSearchParams) {
       if (anim.clip.done) anim.toLoco(0.1);
     }
     anim.update(dt, x, z, yaw);
+    if (params.get('dbgarm') === '1' && step % 15 === 0) {
+      const fk = anim.fk, d = anim.def;
+      const B_ = { ua: 7, ha: 9 };
+      const sh = fk.pos[B_.ua], hand = fk.pos[B_.ha], tgt = anim.loco.params.hands[0].pos;
+      console.log(`arm step=${step} shoulder=${sh.x.toFixed(2)},${sh.y.toFixed(2)},${sh.z.toFixed(2)} hand=${hand.x.toFixed(2)},${hand.y.toFixed(2)},${hand.z.toFixed(2)} target=${tgt.x.toFixed(2)},${tgt.y.toFixed(2)},${tgt.z.toFixed(2)} reach=${(tgt.distanceTo(sh) / (d.lenUpperArm + d.lenForeArm)).toFixed(2)} armLen=${(d.lenUpperArm + d.lenForeArm).toFixed(3)} guardSm=${anim.loco.guardSm.toFixed(2)}`);
+    }
     live.group.position.set(x, 0, z);
     live.group.rotation.y = yaw;
     if (!film && t >= tNext && snaps.length < 40) {
