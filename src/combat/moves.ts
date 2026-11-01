@@ -51,6 +51,12 @@ export interface EnemyAttack {
   knockdown?: boolean;
   weapon?: 'knife' | 'club' | 'sword';
   bleed?: number;
+  /** Not a plain melee hit: what happens at the clip's contact instead (see BossBrain). */
+  special?: 'knife_throw' | 'shockwave';
+  /** Minimum warning time for this attack (s), above the usual one. */
+  tell?: number;
+  /** Poisoned blade: the hit keeps hurting for a few seconds. */
+  venom?: boolean;
 }
 
 export const ENEMY_ATTACKS: Record<string, EnemyAttack> = {
@@ -76,4 +82,12 @@ export const ENEMY_ATTACKS: Record<string, EnemyAttack> = {
   elite_spin: { clip: 'spinkick', kind: 'kick', region: 'gut', reach: 1.05, damage: 20, strength: 1.2, unblockable: true, weight: 0.5, startRange: 2.25, knockdown: true },
   elite_side: { clip: 'sidekick', kind: 'kick', region: 'chest', reach: 1.1, damage: 14, strength: 1.0, unblockable: false, weight: 0.7, startRange: 2.25 },
   elite_fly: { clip: 'flyknee', kind: 'knee', region: 'head', reach: 0.62, damage: 18, strength: 1.1, unblockable: true, weight: 0.4, startRange: 5.5, knockdown: true },
+  // ---- boss signature moves (weight 0: only ever chosen by a boss brain's combo scripts)
+  kael_round_r: { clip: 'roundhouse', kind: 'kick', region: 'head', reach: 1.0, damage: 20, strength: 1.2, unblockable: true, weight: 0, startRange: 2.15, knockdown: true },
+  kael_side_r: { clip: 'sidekick', kind: 'kick', region: 'chest', reach: 1.1, damage: 18, strength: 1.2, unblockable: true, weight: 0, startRange: 2.25, knockdown: true },
+  kael_palm_r: { clip: 'stun_palm', kind: 'palm', region: 'chest', reach: 0.8, damage: 16, strength: 1.3, unblockable: true, weight: 0, startRange: 1.7, knockdown: true },
+  kael_shockwave: { clip: 'stun_palm', kind: 'palm', region: 'chest', reach: 0.8, damage: 26, strength: 1.5, unblockable: true, weight: 0, startRange: 9, special: 'shockwave', tell: 1.0 },
+  viper_slash: { clip: 'e_knife_slash', kind: 'blade', region: 'chest', reach: 0.85, damage: 12, strength: 0.6, unblockable: false, weight: 0, startRange: 2.4, weapon: 'knife', bleed: 0.8, venom: true },
+  viper_stab_r: { clip: 'e_knife_stab', kind: 'blade', region: 'gut', reach: 0.85, damage: 18, strength: 0.8, unblockable: true, weight: 0, startRange: 3.4, weapon: 'knife', bleed: 1, venom: true },
+  viper_throw: { clip: 'e_knife_slash', kind: 'blade', region: 'chest', reach: 0.85, damage: 11, strength: 0.6, unblockable: true, weight: 0, startRange: 12, special: 'knife_throw', bleed: 0.7, venom: true, tell: 0.55 },
 };

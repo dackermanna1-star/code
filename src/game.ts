@@ -27,6 +27,7 @@ import { Weapon, WeaponBatch } from './combat/weapons';
 import { HUD } from './ui/hud';
 import { HitInfo, makeHit } from './combat/types';
 import { Props } from './world/props';
+import { Projectiles } from './combat/projectiles';
 import { ActiveRagdoll, EuphoriaImpact, EuphoriaSim } from './world/euphoria/bridge';
 import { Shape, Vec3 } from './world/euphoria/engine.js';
 import { Ragdoll } from './world/ragdoll';
@@ -72,6 +73,7 @@ export class Game {
   hud: HUD | null = null;
   thrown: { e: Enemy; t: number; dir: THREE.Vector3; hitWall?: boolean }[] = [];
   props!: Props;
+  projectiles!: Projectiles;
   onCorpse: ((r: CorpseRecord) => void) | null = null;
   started = false;
   over = false;
@@ -131,6 +133,7 @@ export class Game {
     this.death = new DeathSystem(this);
     this.fx = new FX(this, PRESETS[this.settings.quality].maxParticles);
     this.props = new Props(this);
+    this.projectiles = new Projectiles(this);
     this.arena.onSpark = (p) => {
       this.fx.sparks(p, new THREE.Vector3(0, -1, 0), 16);
       if (this.started) this.audio.crack(p);
@@ -350,6 +353,7 @@ export class Game {
     this.death.update(dt);
     this.updateThrown(dt);
     this.props.update(dt);
+    this.projectiles.update(dt);
     for (const f of this.fighters) f.animate(dt);
     for (const w of this.weapons) w.update(dt);
     this.arena.update(realDt * ts);

@@ -22,7 +22,8 @@ export class Bot {
     const now = g.time;
     // defensive reactions first
     const ctr = g.director.findCounterable();
-    if (ctr && ctr.hitTime - now < 0.22 && this.actT <= 0) {
+    // (bosses only take perfect counters: the bot waits for the last moment on them)
+    if (ctr && ctr.hitTime - now < (ctr.enemy.brain ? 0.13 : 0.22) && this.actT <= 0) {
       inp.press('counter');
       inp.release('counter');
       this.actT = 0.12;
@@ -164,11 +165,23 @@ export async function runTest(game: Game, params: URLSearchParams) {
       };
     }
     const probe = params.get('probe') === '1' ? new (await import('./animProbe')).AnimProbe(game) : null;
+    // boss=1: when the wave's boss died and what the fight cost the bot
+    const bossRep = { start: -1, end: -1, dmg0: 0, dmg: 0, name: '', counters0: 0, counters: 0, hits0: 0, hits: 0 };
     for (let i = 0; i < frames; i++) {
       bot.update(dt);
       if (god) game.player.hp = Math.max(game.player.hp, 60);
       game.step(dt);
       probe?.sample(dt);
+      if (params.get('boss') === '1') {
+        const b = game.bosses.active;
+        if (b && bossRep.start < 0) Object.assign(bossRep, { start: game.time, dmg0: game.player.stats.damageTaken, name: b.cfg.key, counters0: game.player.stats.counters, hits0: game.player.stats.hits, brain: b.brain });
+        if (!b && bossRep.start >= 0 && bossRep.end < 0) {
+          Object.assign(bossRep, { end: game.time, dmg: game.player.stats.damageTaken - bossRep.dmg0, counters: game.player.stats.counters - bossRep.counters0, hits: game.player.stats.hits - bossRep.hits0 });
+          const st = (bossRep as unknown as { brain?: { stats: Record<string, number> } }).brain?.stats ?? {};
+          console.log('BOSS ' + JSON.stringify({ name: bossRep.name, seconds: +(bossRep.end - bossRep.start).toFixed(1), damageTaken: Math.round(bossRep.dmg), counters: bossRep.counters, hits: bossRep.hits, brain: Object.fromEntries(Object.entries(st).map(([k, v]) => [k, Math.round(v)])) }));
+          break;
+        }
+      }
       if (i % 600 === 0) console.log(`t=${(i / 60).toFixed(0)}s wave=${game.waves.wave} corpses=${game.corpses.count} enemies=${game.enemies().filter((e) => e.alive).length} hp=${game.player.hp.toFixed(0)} combo=${game.player.bestCombo}`);
       if (!game.player.alive && !god) break;
     }

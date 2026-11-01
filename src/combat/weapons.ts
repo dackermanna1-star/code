@@ -19,7 +19,7 @@ function mats() {
   return MATS;
 }
 
-function buildMesh(kind: WeaponKind): { group: THREE.Group; length: number; half: THREE.Vector3 } {
+export function buildMesh(kind: WeaponKind): { group: THREE.Group; length: number; half: THREE.Vector3 } {
   const g = new THREE.Group();
   const { steel, dark, wood } = mats();
   let length = 0.3;

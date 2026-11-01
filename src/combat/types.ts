@@ -20,6 +20,7 @@ export interface HitInfo {
   stun: number; // seconds of stun applied
   noReact?: boolean; // paired clips handle the reaction
   breakArm?: number; // 1 left, -1 right
+  venom?: boolean; // poisoned blade: keeps hurting for a few seconds
 }
 
 export function makeHit(p: Partial<HitInfo> & { dir: THREE.Vector3; point: THREE.Vector3 }): HitInfo {

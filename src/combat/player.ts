@@ -62,6 +62,8 @@ export class Player extends Fighter {
   variety = new Set<string>();
   stats = { hits: 0, counters: 0, perfectCounters: 0, dodges: 0, perfectDodges: 0, finishers: 0, kills: 0, damageTaken: 0, blocks: 0, takedowns: 0, envKills: 0, weaponKills: 0, disarms: 0, boneBreaks: 0 };
   regenDelay = 0;
+  /** Seconds of poison left (Viper's blade). */
+  venom = 0;
   lastFinisher = '';
   onComboBreak: ((c: number) => void) | null = null;
 
@@ -130,6 +132,14 @@ export class Player extends Fighter {
     this.guard = Math.min(100, this.guard + dt * (inp.isHeld('block') ? 6 : 18));
     this.regenDelay -= dt;
     if (this.regenDelay < 0 && this.hp < this.maxHp && this.game.waves.betweenWaves) this.hp = Math.min(this.maxHp, this.hp + dt * 6);
+    // Viper's poison: it keeps eating at you for a few seconds (never the last point of health)
+    if (this.venom > 0 && this.alive) {
+      this.venom -= dt;
+      const d = Math.min(dt * 2.6, Math.max(0, this.hp - 1));
+      this.hp -= d;
+      this.stats.damageTaken += d;
+      this.game.renderer.fx.red = Math.max(this.game.renderer.fx.red, 0.18);
+    }
     this.anim.locoIn.block = 0;
     if (this.weapon && this.weapon.broken) this.weapon = null;
 
@@ -596,6 +606,19 @@ export class Player extends Fighter {
     const e = inc.enemy;
     const remain = inc.hitTime - g.time;
     this.counterPerfect = remain < 0.17;
+    if (e.brain && !this.counterPerfect) {
+      // a boss reads an early counter: the hands meet, nothing lands, and it comes straight back
+      g.director.cancel(e);
+      g.director.note('whiffedCounters');
+      this.play('p_block_hit', { halflife: 0.06, originYaw: yawFromDir(e.x - this.x, e.z - this.z) });
+      this.action = 'hit';
+      this.stateTime = 0;
+      g.audio.play('block', { pos: _v.set((e.x + this.x) / 2, 1.4, (e.z + this.z) / 2), vol: 0.9 });
+      g.fx.impactFlash(_v, 0.5, [1, 0.9, 0.7]);
+      g.hitStop(0.04);
+      e.brain.onBadCounter();
+      return true;
+    }
     g.director.cancel(e);
     g.director.note('counters');
     this.stats.counters++;
@@ -607,7 +630,11 @@ export class Player extends Fighter {
     // choose counter by enemy's attack
     let name: string;
     const atk = e.attackDef;
-    if (e.weapon || atk?.weapon) name = 'ctr_disarm';
+    if (e.brain) {
+      // no arm-breaks, hip tosses or disarms for a grandmaster: a clean strike, then the opening
+      name = pick(['ctr_elbow', 'ctr_palm'].filter((o) => o !== this.history[this.history.length - 1]));
+      e.brain.onCountered();
+    } else if (e.weapon || atk?.weapon) name = 'ctr_disarm';
     else if (atk?.kind === 'kick') name = pick(['ctr_palm', 'ctr_elbow']);
     else {
       const opts = ['ctr_elbow', 'ctr_palm', 'ctr_armbreak', 'ctr_throw'];
@@ -703,8 +730,15 @@ export class Player extends Fighter {
       g.hud?.feed('BUILD A COMBO FOR A FINISHER');
       return;
     }
-    const e = this.selectTarget(4.0);
-    if (!e) return;
+    // a boss can't be finished on its feet: only in the opening after a perfect counter or when
+    // it runs out of breath (the charge is kept; the minions are fair game)
+    const open = (x: Enemy) => !x.brain || x.state === 'stunned';
+    const e = this.selectTarget(4.0, open);
+    if (!e) {
+      const boss = this.selectTarget(4.0, (x) => !!x.brain);
+      if (boss) g.hud?.toast(`${boss.cfg.label} IS GUARDED — PERFECT COUNTER FIRST`, '#ffd24a', 1.0);
+      return;
+    }
     // environmental: victim close to a wall/pillar/crates behind it (relative to player)
     const away = new THREE.Vector3(e.x - this.x, 0, e.z - this.z).normalize();
     const surf = g.arena.nearestSurface(e.x, e.z, 1.9);
@@ -999,6 +1033,10 @@ export class Player extends Fighter {
     this.hp -= h.damage;
     this.stats.damageTaken += h.damage;
     this.regenDelay = 4;
+    if (h.venom) {
+      if (this.venom <= 0) g.hud?.toast('POISONED', '#7dffa8', 0.9);
+      this.venom = 3.5;
+    }
     if (attacker) g.hud?.damageFrom(attacker.x, attacker.z);
     g.director.note('hitsTaken');
     this.breakCombo();

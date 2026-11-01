@@ -22,12 +22,12 @@ const WAVES: WaveDef[] = [
   { comp: [['brawler', 3], ['bruiser', 1], ['knife', 2]], hint: 'Vault over brutes (SPACE toward them) to daze them' },
   { comp: [['brawler', 3], ['defender', 2], ['club', 1]], hint: 'Guards block punches — kicks, stuns and throws (E) break guard' },
   { comp: [['brawler', 2], ['agile', 2], ['bruiser', 1], ['sword', 2]] },
-  { comp: [['agile', 2], ['knife', 2]], boss: 'viper', title: 'VIPER' },
+  { comp: [['agile', 2], ['knife', 2]], boss: 'viper', title: 'VIPER', hint: 'Bosses only take PERFECT counters · dodge her thrown knives · her blade is poisoned' },
   { comp: [['elite', 2], ['brawler', 3], ['defender', 1]], hint: 'Fighters chain combos and feint — watch the telegraph' },
   { comp: [['bruiser', 2], ['elite', 2], ['sword', 2], ['brawler', 2]] },
   { comp: [['elite', 3], ['defender', 2], ['agile', 2], ['club', 1]] },
   { comp: [['bruiser', 2], ['elite', 3], ['sword', 2], ['knife', 2]] },
-  { comp: [['elite', 2]], boss: 'master', title: 'GRANDMASTER KAEL', hint: 'Perfect counters stagger the Grandmaster · punish him when exhausted' },
+  { comp: [['elite', 2]], boss: 'master', title: 'GRANDMASTER KAEL', hint: 'Only perfect counters land on Kael · finishers only when he is stunned · get clear of his chi blast' },
 ];
 
 export class WaveManager {

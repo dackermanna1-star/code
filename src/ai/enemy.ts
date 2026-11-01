@@ -6,6 +6,7 @@ import { ArchetypeCfg } from './archetypes';
 import { ENEMY_ATTACKS, EnemyAttack } from '../combat/moves';
 import { angleDiff, chance, clamp, damp, lerp, pick, rand, weightedPick, wrapAngle, yawFromDir } from '../core/math';
 import { DIFFICULTY } from '../core/settings';
+import type { BossBrain } from './bossKits';
 import type { RagdollLike } from '../world/ragdollTypes';
 import { ActiveRagdoll } from '../world/euphoria/bridge';
 import { B } from '../anim/skeleton';
@@ -52,6 +53,13 @@ export class Enemy extends Fighter {
   token = false;
   tokenDelay = 0;
   attackDef: EnemyAttack | null = null;
+  /** A boss's scripted behaviour (null for the rank and file). */
+  brain: BossBrain | null = null;
+  /** Attacks still to come in the current scripted combo (bosses). */
+  comboQueue: string[] = [];
+  private comboLen = 0;
+  /** One-off minimum warning for the next attack (s). */
+  private tellOverride = 0;
   attackCombo = 0;
   attackCooldown = rand(1, 2.5);
   orbitDir = Math.random() < 0.5 ? -1 : 1;
@@ -151,6 +159,7 @@ export class Enemy extends Fighter {
     this.absorbT -= dt;
     if (this.absorbT <= 0) this.absorbed = 0;
     this.vaulted = Math.max(0, this.vaulted - dt);
+    this.brain?.update(dt);
     // bleeding trail
     if (this.bleedRate > 0.2) {
       this.bleedTimer -= dt * this.bleedRate;
@@ -257,12 +266,21 @@ export class Enemy extends Fighter {
     const next = this.clipEndState;
     if (this.state === 'attack') {
       this.game.director.cancel(this);
-      // elite combos: chain next attack immediately
-      if (this.attackCombo > 1 && this.player.alive && this.distTo(this.player) < 3.2 && !this.injured) {
+      // a boss's scripted combo runs to its end; elite combos chain while in reach
+      if (this.comboQueue.length && this.player.alive) {
         this.attackCombo--;
         this.startAttack(true);
         return;
       }
+      if (!this.brain && this.attackCombo > 1 && this.player.alive && this.distTo(this.player) < 3.2 && !this.injured) {
+        this.attackCombo--;
+        this.startAttack(true);
+        return;
+      }
+      this.brain?.comboEnded(this.comboLen);
+      this.comboLen = 0;
+      // (the next approach picks its attack afresh: the first choice used to stick for good)
+      this.attackDef = null;
       this.token = false;
       this.attackCooldown = rand(1.2, 2.8) / this.game.director.aggression;
     }
@@ -294,6 +312,7 @@ export class Enemy extends Fighter {
   }
 
   private doCircle(dt: number) {
+    if (this.brain?.circle(dt)) return;
     const p = this.player;
     const li = this.anim.locoIn;
     li.guard = 1;
@@ -380,11 +399,15 @@ export class Enemy extends Fighter {
 
   private doApproach(dt: number) {
     const p = this.player;
-    if (!this.attackDef) this.attackDef = this.chooseAttack();
-    const a = this.attackDef;
+    if (!this.attackDef) {
+      if (this.brain) this.brain.beginCombo();
+      else this.attackDef = this.chooseAttack();
+    }
+    const a = this.attackDef!;
     const d = this.distTo(p);
     if (d <= a.startRange || this.stateTime > 3.5) {
-      this.attackCombo = Math.round(rand(this.cfg.comboHits[0], this.cfg.comboHits[1]));
+      if (!this.brain) this.attackCombo = Math.round(rand(this.cfg.comboHits[0], this.cfg.comboHits[1]));
+      this.comboLen = 0;
       this.startAttack(false);
       return;
     }
@@ -396,10 +419,35 @@ export class Enemy extends Fighter {
     this.anim.locoIn.guard = 0.8;
   }
 
+  /**
+   * A boss's scripted attack, now: `queue` = the strikes that follow it, `tell` = a minimum
+   * warning for this one.
+   */
+  bossAttack(key: string, opt: { queue?: string[]; tell?: number } = {}) {
+    const a = ENEMY_ATTACKS[key];
+    if (!a || !this.alive || this.paired || this.downRag) return;
+    this.attackDef = a;
+    this.comboQueue = opt.queue ? [...opt.queue] : [];
+    this.attackCombo = this.comboQueue.length + 1;
+    this.comboLen = 0;
+    this.tellOverride = opt.tell ?? 0;
+    this.token = true;
+    this.startAttack(false);
+  }
+  /** Play a clip as a state (boss brains: dodges, blocks). */
+  bossPlay(name: string, state: EnemyState) {
+    this.game.director.cancel(this);
+    this.comboQueue = [];
+    this.playState(name, state, { originYaw: yawFromDir(this.player.x - this.x, this.player.z - this.z), halflife: 0.06 });
+    this.clipEndState = 'circle';
+  }
+
   startAttack(chained: boolean) {
     const p = this.player;
-    const a = chained ? this.chooseAttack() : this.attackDef ?? this.chooseAttack();
+    const queued = chained && this.comboQueue.length ? ENEMY_ATTACKS[this.comboQueue.shift()!] : null;
+    const a = queued ?? (chained ? this.chooseAttack() : this.attackDef ?? this.chooseAttack());
     this.attackDef = a;
+    this.comboLen++;
     const dir = this.game.director;
     // strikes get snappier with the waves, within limits (it's the warning time below that keeps
     // late waves fair, not slower strikes)
@@ -415,7 +463,8 @@ export class Enemy extends Fighter {
     // (a fighter's jab at full speed lands in 80 ms; the load-up stretches to fill the difference)
     const natural = clip.hitT / speed;
     const mods = DIFFICULTY[this.game.settings.difficulty] ?? DIFFICULTY.fighter;
-    let tell = (this.cfg.boss ? (chained ? 0.38 : 0.46) : chained ? 0.42 : 0.52) * mods.tell;
+    let tell = Math.max((this.cfg.boss ? (chained ? 0.38 : 0.46) : chained ? 0.42 : 0.52) * mods.tell, (a.tell ?? 0) * mods.tell, this.tellOverride * mods.tell);
+    this.tellOverride = 0;
     // two attacks that can't both be countered never land together: this one waits its turn
     const now = this.game.time;
     for (const inc of dir.incoming) {
@@ -449,6 +498,10 @@ export class Enemy extends Fighter {
       g.director.cancel(this);
       const p = this.player;
       const a = this.attackDef;
+      if (a.special) {
+        this.brain?.special(a);
+        return;
+      }
       const d = this.distTo(p);
       const facing = Math.abs(this.angleTo(p)) < 1.2;
       if (!p.alive || d > a.reach + 0.75 || !facing) {
@@ -465,6 +518,7 @@ export class Enemy extends Fighter {
         unblockable: a.unblockable,
         knockdown: !!a.knockdown,
         bleed: a.bleed ?? 0.3,
+        venom: a.venom,
       });
       const res = p.takeHit(hit);
       g.combat.feedback(this, p, hit, res);
@@ -472,7 +526,7 @@ export class Enemy extends Fighter {
         // overextended: brief vulnerability
         if (res === 'dodged') this.stun = 0.4;
       }
-      if (this.weapon && (res === 'hit' || res === 'blocked')) this.weapon.wear(0.5);
+      if (this.weapon && !this.cfg.boss && (res === 'hit' || res === 'blocked')) this.weapon.wear(0.5);
       if (ev.shockwave) {
         g.cam.addTrauma(0.4);
         g.fx.dust(new THREE.Vector3(this.x + Math.sin(this.yaw) * 0.8, 0, this.z + Math.cos(this.yaw) * 0.8), 2);
@@ -491,7 +545,8 @@ export class Enemy extends Fighter {
     const vulnerable = this.stun > 0 || this.state === 'stunned' || this.state === 'down' || this.state === 'stagger' || this.state === 'paired' || this.state === 'grabbed';
     // ---- defensive options
     if (!vulnerable && !h.finisher && !h.unblockable && fromFront && this.state !== 'attack' && this.state !== 'react') {
-      const guardBreak = h.strength >= 1.0 && (h.kind === 'kick' || h.kind === 'blunt');
+      // (kicks and blunt weapons break a guard - not a grandmaster's)
+      const guardBreak = h.strength >= 1.0 && (h.kind === 'kick' || h.kind === 'blunt') && !this.brain;
       if (this.cfg.block > 0 && !guardBreak && chance(this.cfg.block * (this.injured ? 0.5 : 1))) {
         this.blocks++;
         this.playState('r_block', 'block', { target: attacker, halflife: 0.06 });
@@ -514,9 +569,10 @@ export class Enemy extends Fighter {
     if (vulnerable) dmg *= 1.25;
     const absorbs = this.cfg.needsStun && !vulnerable && !h.finisher && h.kind !== 'slam' && h.kind !== 'throw';
     if (absorbs) dmg *= 0.35;
-    if (this.cfg.boss && h.finisher && h.damage >= 999) dmg = this.maxHp * 0.22; // bosses survive finishers until low
+    if (this.cfg.boss && h.finisher && h.damage >= 999) dmg = this.maxHp * (this.brain ? 0.09 : 0.16); // bosses survive finishers (a heavy blow, not a fifth of their life)
     this.hp -= dmg;
     this.lastHitBy = g.time;
+    if (this.brain) this.brain.count(h.finisher ? 'dmgFinisher' : this.state === 'paired' ? 'dmgCounter' : this.state === 'stunned' ? 'dmgStunned' : this.state === 'attack' ? 'dmgArmour' : 'dmgStrike', dmg);
     if (h.breakArm && !this.brokenArm) this.breakArm(h.breakArm as number);
     if (this.hp <= 0) {
       this.die(h);
@@ -525,6 +581,11 @@ export class Enemy extends Fighter {
     g.director.note('strikes');
     // boss phase changes
     if (this.cfg.boss) g.bosses.onBossDamaged(this);
+    // a boss answers a flurry in its own way
+    if (this.brain && !h.finisher && this.state !== 'paired' && this.brain.onHurt()) {
+      g.director.cancel(this);
+      return 'hit';
+    }
     // ---- bodies under physics (down / staggering / ground takedown): the blow moves the body itself
     const phys = this.downRag instanceof ActiveRagdoll ? this.downRag : null;
     if (phys && (this.state === 'down' || this.state === 'stagger' || this.state === 'paired' || this.state === 'grabbed')) {
@@ -539,6 +600,12 @@ export class Enemy extends Fighter {
       return 'hit';
     }
     if (h.noReact || this.state === 'paired' || this.state === 'grabbed') return 'hit';
+    // a boss in the middle of a combo doesn't flinch out of it (hyper armour): the blow lands, the
+    // body sways, the combo goes on - mashing through a boss's attacks is how you get hit
+    if (this.brain && this.state === 'attack' && !h.finisher) {
+      this.anim.hitImpulse(h.dir, h.strength * 0.45, h.region);
+      return 'hit';
+    }
     // ---- reactions
     if (absorbs) {
       this.absorbed++;
@@ -555,12 +622,13 @@ export class Enemy extends Fighter {
     }
     g.director.cancel(this);
     if (this.state === 'attack') this.token = false;
-    if (h.knockdown || (h.launch > 2.5 && chance(0.5))) {
+    // (a boss only goes down when caught off balance - stunned or exhausted)
+    if ((h.knockdown || (h.launch > 2.5 && chance(0.5))) && (!this.brain || this.state === 'stunned')) {
       this.knockdown(h);
       return 'hit';
     }
     // heavy blows: the body is thrown off balance and physics decides whether it stumbles or falls
-    if (h.strength >= 1.15 && chance(0.55)) {
+    if (h.strength >= 1.15 && chance(0.55) && (!this.brain || this.state === 'stunned')) {
       if (this.canStagger()) this.physStagger(h, 0.5);
       else this.knockdown(h);
       return 'hit';
@@ -875,6 +943,7 @@ export class Enemy extends Fighter {
     else this.playState('r_dodge_back', 'dodge', { originYaw: yaw, halflife: 0.05 });
     this.invuln = 0.4;
     this.clipEndState = 'circle';
+    this.brain?.onEvaded();
     return true;
   }
 
@@ -892,6 +961,12 @@ export class Enemy extends Fighter {
   exitPaired(next: EnemyState = 'circle') {
     this.paired = null;
     if (!this.alive) return;
+    if (this.brain && this.brain.stunAfterPaired > 0) {
+      // a perfect counter on a boss: the opening that follows it
+      const sec = this.brain.stunAfterPaired;
+      this.brain.stunAfterPaired = 0;
+      this.game.later(0.05, () => this.stunNow(sec));
+    }
     if (this.downRag) {
       // still on the floor (e.g. survived a ground takedown): continue the get-up flow
       this.setState('down');
