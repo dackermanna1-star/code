@@ -14,6 +14,8 @@ interface Dying {
   /** Next pained groan / bleed-out puddle while writhing. */
   groanT: number;
   puddleT: number;
+  /** Last smear points of the head and chest (a bleeding body sliding on the floor smears it). */
+  smear: [THREE.Vector3, THREE.Vector3] | null;
 }
 
 /** At most this many bodies writhe at once (each keeps an active ragdoll busy). */
@@ -70,7 +72,7 @@ export class DeathSystem {
     if (imp) rag.impulse(imp, at);
     f.anim.toExternal(rag, 0.03);
     f.ragdoll = rag;
-    this.dying.push({ f, rag, cause, bleedT: 0, groanT: 0.5 + Math.random() * 0.6, puddleT: 0.8 });
+    this.dying.push({ f, rag, cause, bleedT: 0, groanT: 0.5 + Math.random() * 0.6, puddleT: 0.8, smear: null });
     return rag;
   }
 
@@ -94,7 +96,7 @@ export class DeathSystem {
     rag.time = Math.min(rag.time, 3);
     f.anim.toExternal(rag, 0.03);
     f.ragdoll = rag;
-    this.dying.push({ f, rag, cause, bleedT: 0, groanT: 0.4 + Math.random() * 0.5, puddleT: 0.6 });
+    this.dying.push({ f, rag, cause, bleedT: 0, groanT: 0.4 + Math.random() * 0.5, puddleT: 0.6, smear: null });
     return rag;
   }
 
@@ -113,10 +115,40 @@ export class DeathSystem {
         g.fx?.bloodDrip(this._v, 1);
       }
       if (d.rag instanceof ActiveRagdoll && d.rag.inAgony) this.agony(d, d.rag, dt);
+      this.smears(d);
       if (d.rag.settled) {
         this.finalize(d);
         this.dying.splice(i, 1);
       }
+    }
+  }
+
+  /** A bleeding body sliding or rolling along the floor smears its blood behind it. */
+  private smears(d: Dying) {
+    const f = d.f;
+    const bloody = f.bleedRate > 0.25 || f.model.wounds.some((w) => w.type === 0 && w.intensity * w.radius > 0.02);
+    if (!bloody) return;
+    if (!d.smear) {
+      d.smear = [d.rag.headPos(new THREE.Vector3()), d.rag.chestPos(new THREE.Vector3())];
+      return;
+    }
+    const low = 0.3 * f.scale;
+    for (let k = 0; k < 2; k++) {
+      const p = k === 0 ? d.rag.headPos(this._v) : d.rag.chestPos(this._v);
+      const last = d.smear[k];
+      const dist = Math.hypot(p.x - last.x, p.z - last.z);
+      if (p.y > low || last.y > low) {
+        if (p.y > low) last.copy(p);
+        continue;
+      }
+      if (dist < 0.05) continue;
+      if (dist < 0.8) {
+        const r = (k === 0 ? 0.06 : 0.09) * f.scale;
+        const mid = new THREE.Vector3((p.x + last.x) / 2, 0.01, (p.z + last.z) / 2);
+        const dir = new THREE.Vector3(p.x - last.x, 0, p.z - last.z).normalize();
+        this.game.blood.splat(mid, r, SPLAT.smear, 0.75, new THREE.Vector3(0, 1, 0), dir, Math.max(0, dist / (2 * r) - 0.5));
+      }
+      last.copy(p);
     }
   }
 
@@ -169,7 +201,6 @@ export class DeathSystem {
       g.blood.addPool(src.x, src.z, (0.32 + severity * 0.6) * f.scale, 9 + severity * 14, 0.4);
       if (severity > 0.6) g.blood.addPool(chest.x + (Math.random() - 0.5) * 0.3, chest.z + (Math.random() - 0.5) * 0.3, 0.3 * f.scale, 16, 2.5);
     }
-    void SPLAT;
     d.rag.dispose();
     f.ragdoll = null;
     f.model.dispose();

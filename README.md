@@ -82,13 +82,21 @@ hunch, limp, clutch their side and hang back; broken arms dangle and change thei
 strikes, reactions, get-ups, paired counters/finishers authored as two synchronized tracks);
 procedural locomotion with planted feet (no foot sliding) driven by a human gait model — walk
 and run cadence / duty factor from biomechanics data, heel strike and toe-off rolling over the
-foot, a running flight phase with heel recovery and knee drive, pelvis twist and list, arms that
-counter-swing the legs, hips that turn towards the travel direction when circling (the chest
-stays on the opponent, legs never cross), immediate re-stepping when a foot is left behind,
-turn-on-the-spot stepping and a living guard idle (weight shifts, light bounce);
+ball of the foot (the foot pivots on its real contact point), a running flight phase with heel
+recovery and knee drive, pelvis twist and list, arms that counter-swing the legs, hips that turn
+towards the travel direction when circling (the chest stays on the opponent, legs never cross),
+early re-stepping when a foot is left behind, turn-on-the-spot stepping and a living guard idle
+(weight shifts, light bounce). Each swing runs on its own clock, so speeding up, slowing down or
+snapping round to a new target never throws a planted foot into mid-air;
 **inertialized transitions** (velocity-matched offset decay) on every clip/locomotion/ragdoll
-switch so nothing ever pops; spring-based secondary motion for hit reactions; active
-(euphoria-style) ragdolls for staggers, knockdowns, throws and deaths — see below.
+switch, with a **leg lock** that keeps planted feet exactly where the new pose puts them while
+the body blends (no skating between moves); strike timing curves that explode out of a settled
+wind-up and stay fast into contact instead of jumping in a single frame; an IK solver with memory
+(bend planes, hand roll and wrist twist stay continuous through singular poses, limb roll comes
+from the hinge axis so a fist pulled to the chin or a knee driven to the chest never flips);
+spring-based secondary motion for hit reactions; active (euphoria-style) ragdolls for staggers,
+knockdowns, throws and deaths — see below. An automated probe (`probe=1`) measures one-frame
+pops, hip jumps and foot skating over a bot playthrough.
 
 **Active ragdolls (euphoria engine)** — knocked-about bodies are simulated by the Ragdoll Lab
 engine (`src/world/euphoria/`): an XPBD rigid-body solver with a 17-segment, 75 kg muscle-driven
@@ -106,6 +114,10 @@ In play:
   get-up from wherever they lie, hurt ones struggle up physically (slow and vulnerable).
 * **Deaths:** beaten to death on the feet → dying collapse; finishers / big hits → instantly
   limp. Blows push the struck part and travel into the torso, so heads snap and bodies spin.
+* **Slow deaths:** a killing blow that isn't to the head (and doesn't launch the body) often
+  leaves the enemy writhing on the floor for a few seconds: the legs give, knees draw up, the
+  trunk curls round the wound and rocks on its side, hands clutch the wounds, groans weaken and
+  blood wells out underneath — until the strength drains away and the body goes limp.
 * **World coupling:** arena walls, pillars and crate stacks are static colliders; every settled
   corpse becomes one too (bodies pile up and trip over the dead); oil drums and crates are
   two-way proxies of the Rapier props (falling bodies topple drums, smash crates and drape over
@@ -128,6 +140,14 @@ a HUD with a damage-trail health bar, guard and finisher meters, tiered combo me
 counter / unblockable markers with off-screen arrows, damage-direction arcs, boss bar with phase
 marks, a pause screen with run stats, tabbed settings and a ranked results screen.
 
+**Wounds and blood** — fighters carry their damage: lacerations (a dark open slit in a smear
+of blood), bright glossy fresh blood that runs down the face and beads at the end, then dries
+darker and matte; bruises that come up hot red and swollen and deepen into a mottled purple core
+over the next seconds; spatter from other people's blood. On the floor, pools spread with lobed,
+fingered edges and lean downhill — the concrete falls gently towards the drains — then send thin
+veins of blood creeping away that branch, thin out and bead where they stop; bleeding bodies
+that slide or roll smear their blood behind them.
+
 **Look** — PS2-style low-poly skinned characters generated in code (29 outfit variants: hair,
 facial hair, headwear, jackets, armour, tattoos, scars) with hand-painted-style canvas
 textures, warm sodium lamps vs. cold moonlight, HDR bloom, ACES grade, grain and vignette.
@@ -149,10 +169,11 @@ into a cheap one:
   one per ~30 bodies; physics cost of a settled body is a sleeping static collider.
 * **Blood:** every static surface (floor, walls, pillars, crates) samples one persistent
   *blood atlas* render target via a unique second UV set. Droplets are simulated particles;
-  where they land they paint drops, splashes, wall drips, smears, growing pools and bloody
-  footprints directly into the atlas (additive / max blending, never cleared). Rendering cost
-  is constant regardless of how much blood exists. Every splat is also recorded in a compact
-  log so the atlas is rebuilt exactly after a WebGL context loss.
+  where they land they paint drops, splashes, wall drips, smears, growing pools, rivulets and
+  bloody footprints directly into the atlas (additive / max blending, never cleared). Rendering
+  cost is constant regardless of how much blood exists; growing pools and creeping rivulets are
+  redrawn only when they change a texel, on tight quads. Every splat is also recorded in a
+  compact log so the atlas is rebuilt exactly after a WebGL context loss.
 * **Weapons and debris** that come to rest become instances of shared instanced meshes.
 
 Measured in the headless software-GL test environment (no GPU): 300 permanent bodies
@@ -191,13 +212,15 @@ tests/out/arena` renders fixed-camera views of the arena, and the locomotion vie
 frame by frame: `node tests/film.mjs "viewer=loco&film=1&path=line&speed=1.6&style=relaxed&warm=60"
 tests/out/walk 16 4` (paths: line, strafe, back, diag, circle, turn, stopgo).
 
-`test=waves` runs the real wave game with a scripted bot (counters, dodges, finishers),
+`test=waves` runs the real wave game with a scripted bot (counters, dodges, finishers; add
+`probe=1` for the animation quality report: pops, hip jumps, foot slide by gait phase),
 `test=stress` bakes N ragdoll corpses plus blood and measures frame cost (then drops fresh
-active ragdolls onto the pile), `test=euph&mode=knock|stagger|death|pile|prop` films one
+active ragdolls onto the pile), `test=euph&mode=knock|stagger|death|agony|pile|prop` films one
 scripted active-ragdoll reaction from a fixed witness camera (`pgu=1` forces the physical
 get-up, `ragdolls=classic` switches engines), `test=film` captures
 consecutive gameplay frames into a contact sheet, `test=duel&enemy=elite` isolates one
-archetype. Debug viewers: `?viewer=sheet&clip=roundhouse` (strike contact sheet),
+archetype, `test=pools&h=2.3&tilt=3.2` grows pools and rivulets on an empty floor, and
+`test=wounds` renders a beaten face up close (`wait=600` to see bruises mature). Debug viewers: `?viewer=sheet&clip=roundhouse` (strike contact sheet),
 `?viewer=sheet&pair=fin_roundhouse` (paired clips), `?viewer=loco&path=circle&speed=4`
 (locomotion strobe), `?viewer=pose&all=1` (all character variants).
 
