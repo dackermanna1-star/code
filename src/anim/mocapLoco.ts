@@ -3,20 +3,23 @@ import data from './mocap/cmu.json';
 import { B, SkeletonDef } from './skeleton';
 import type { PoseParams } from './solver';
 import type { LocoInput, Locomotion, StanceDef } from './locomotion';
-import { clamp, clamp01, DEG, lerp, rotY, smoothstep, wrapAngle } from '../core/math';
+import { clamp, clamp01, DEG, lerp, rotY, smoothstep, springDamper, wrapAngle } from '../core/math';
 
 /**
- * Motion-captured locomotion for the player character.
+ * Motion-captured locomotion for every fighter (the player and the enemies).
  *
  * The tracks (src/anim/mocap/cmu.json, built by tools/mocap/convert.py from the CMU Graphics Lab
  * Motion Capture Database) are retargeted, root-relative and normalised by leg / arm length: a
- * boxing-stance idle loop plus gait cycles (walk, jog, run, sprint, backward walk, side-steps),
- * all starting at the left foot's touchdown. Each frame the driver
- *  - blends the idle with the cycles by speed and direction, cycles phase-locked to one clock,
+ * boxing-stance idle loop plus gait cycles (walk, jog, run, sprint, backward walk, side-step
+ * shuffles), all starting at the left foot's touchdown, with seamless loops and one fighter's
+ * posture. Each frame the driver
+ *  - samples the tracks on splines and blends the idle with the cycles by speed and direction
+ *    (cycles phase-locked to one clock; the direction weights glide, never swap),
  *  - warps cadence and stride so the clip speed matches the character's real speed,
  *  - turns the legs towards the travel direction when the facing lags behind it,
- *  - locks planted feet in world space (re-stepping when a locked foot is left too far behind),
- *  - layers the guard, the block and the look-at on the upper body,
+ *  - locks planted feet in world space (a foot left behind takes a step to catch up; a leg at full
+ *    stretch lowers the hips a little, on a spring),
+ *  - aims the knees over the toes, layers the guard, the block and the look-at on the upper body,
  * and hands the result to the IK solver as effector targets, so the motion fits this skeleton.
  */
 type V3 = [number, number, number];
@@ -26,14 +29,29 @@ interface MFrame {
   aL: V3; aR: V3; fL: Q4; fR: Q4; tL: number; tR: number; kL: V3; kR: V3;
   wL: V3; wR: V3; eL: V3; eR: V3; dL: V3; dR: V3; c: number;
 }
-interface MClip { name: string; kind: 'cycle' | 'loop'; dur: number; speed: number; dir: [number, number]; frames: MFrame[] }
+type FootKey = 'aL' | 'aR' | 'kL' | 'kR';
+interface MClip {
+  name: string; kind: 'cycle' | 'loop'; dur: number; speed: number; dir: [number, number]; frames: MFrame[];
+  /** Where each ankle / knee sits on average (x, z): stride warping scales the steps about it. */
+  mean: Record<FootKey, [number, number]>;
+}
 
 const CLIPS = new Map<string, MClip>((data as unknown as { clips: MClip[] }).clips.map((c) => [c.name, c]));
+const FEET: readonly FootKey[] = ['aL', 'aR', 'kL', 'kR'];
+for (const c of CLIPS.values()) {
+  const m = {} as MClip['mean'];
+  for (const k of FEET) m[k] = [c.frames.reduce((a, f) => a + f[k][0], 0) / c.frames.length, c.frames.reduce((a, f) => a + f[k][2], 0) / c.frames.length];
+  c.mean = m;
+}
 const clip = (n: string) => {
   const c = CLIPS.get(n);
   if (!c) throw new Error('mocap clip missing: ' + n);
   return c;
 };
+
+const VKEYS = ['aL', 'aR', 'kL', 'kR', 'wL', 'wR', 'eL', 'eR', 'dL', 'dR'] as const;
+const QKEYS = ['hq', 'sp', 'ch', 'nk', 'hd', 'fL', 'fR'] as const;
+const dot4 = (a: Q4, b: Q4) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2] + a[3] * b[3];
 
 /** Weighted accumulation of frames (quaternions sign-aligned, normalised at the end). */
 class Blend {
@@ -45,6 +63,7 @@ class Blend {
   v: Record<'aL' | 'aR' | 'kL' | 'kR' | 'wL' | 'wR' | 'eL' | 'eR' | 'dL' | 'dR', THREE.Vector3> = {
     aL: new THREE.Vector3(), aR: new THREE.Vector3(), kL: new THREE.Vector3(), kR: new THREE.Vector3(), wL: new THREE.Vector3(), wR: new THREE.Vector3(), eL: new THREE.Vector3(), eR: new THREE.Vector3(), dL: new THREE.Vector3(), dR: new THREE.Vector3(),
   };
+  m: Record<FootKey, THREE.Vector2> = { aL: new THREE.Vector2(), aR: new THREE.Vector2(), kL: new THREE.Vector2(), kR: new THREE.Vector2() };
   tL = 0;
   tR = 0;
   cL = 0;
@@ -52,49 +71,64 @@ class Blend {
   reset() {
     this.w = 0;
     this.hp.set(0, 0, 0);
+    for (const k of FEET) this.m[k].set(0, 0);
     for (const k in this.q) this.q[k as keyof Blend['q']].set(0, 0, 0, 0);
     for (const k in this.v) this.v[k as keyof Blend['v']].set(0, 0, 0);
     this.tL = this.tR = this.cL = this.cR = 0;
   }
-  /** Add clip `c` at fractional frame `fi` (wrapping) with weight `w`. */
+  /**
+   * Add clip `c` at fractional frame `fi` (wrapping) with weight `w`. Samples are joined by
+   * Catmull-Rom splines: straight lines between samples put a kink in every track at every
+   * sample (the hips jolting at the clip's sample rate), a cubic is smooth through them.
+   */
   add(c: MClip, fi: number, w: number) {
     if (w <= 1e-4) return;
     const n = c.frames.length;
-    const i0 = ((Math.floor(fi) % n) + n) % n;
-    const i1 = (i0 + 1) % n;
-    const t = fi - Math.floor(fi);
-    const a = c.frames[i0], b = c.frames[i1];
-    const L = (x: number, y: number) => x + (y - x) * t;
+    const fl = Math.floor(fi);
+    const i1 = ((fl % n) + n) % n;
+    const F = c.frames;
+    const a = F[(i1 + n - 1) % n], b = F[i1], cc = F[(i1 + 1) % n], d = F[(i1 + 2) % n];
+    const t = fi - fl, t2 = t * t, t3 = t2 * t;
+    const k0 = 0.5 * (-t3 + 2 * t2 - t), k1 = 0.5 * (3 * t3 - 5 * t2 + 2), k2 = 0.5 * (-3 * t3 + 4 * t2 + t), k3 = 0.5 * (t3 - t2);
+    const C = (x0: number, x1: number, x2: number, x3: number) => x0 * k0 + x1 * k1 + x2 * k2 + x3 * k3;
     this.w += w;
-    this.hp.x += L(a.hp[0], b.hp[0]) * w;
-    this.hp.y += L(a.hp[1], b.hp[1]) * w;
-    this.hp.z += L(a.hp[2], b.hp[2]) * w;
-    for (const k of ['aL', 'aR', 'kL', 'kR', 'wL', 'wR', 'eL', 'eR', 'dL', 'dR'] as const) {
-      const va = a[k], vb = b[k], o = this.v[k];
-      o.x += L(va[0], vb[0]) * w;
-      o.y += L(va[1], vb[1]) * w;
-      o.z += L(va[2], vb[2]) * w;
+    for (const k of FEET) {
+      this.m[k].x += c.mean[k][0] * w;
+      this.m[k].y += c.mean[k][1] * w;
     }
-    for (const k of ['hq', 'sp', 'ch', 'nk', 'hd', 'fL', 'fR'] as const) {
-      const qa = a[k], qb = b[k], o = this.q[k];
-      // nlerp neighbours, then sign-align with the running sum
-      let s = qa[0] * qb[0] + qa[1] * qb[1] + qa[2] * qb[2] + qa[3] * qb[3] < 0 ? -1 : 1;
-      const x = qa[0] + (qb[0] * s - qa[0]) * t, y = qa[1] + (qb[1] * s - qa[1]) * t, z = qa[2] + (qb[2] * s - qa[2]) * t, ww = qa[3] + (qb[3] * s - qa[3]) * t;
-      s = o.x * x + o.y * y + o.z * z + o.w * ww < 0 ? -1 : 1;
-      o.x += x * w * s;
-      o.y += y * w * s;
-      o.z += z * w * s;
-      o.w += ww * w * s;
+    this.hp.x += C(a.hp[0], b.hp[0], cc.hp[0], d.hp[0]) * w;
+    this.hp.y += C(a.hp[1], b.hp[1], cc.hp[1], d.hp[1]) * w;
+    this.hp.z += C(a.hp[2], b.hp[2], cc.hp[2], d.hp[2]) * w;
+    for (const k of VKEYS) {
+      const v0 = a[k], v1 = b[k], v2 = cc[k], v3 = d[k], o = this.v[k];
+      o.x += C(v0[0], v1[0], v2[0], v3[0]) * w;
+      o.y += C(v0[1], v1[1], v2[1], v3[1]) * w;
+      o.z += C(v0[2], v1[2], v2[2], v3[2]) * w;
     }
-    this.tL += L(a.tL, b.tL) * w;
-    this.tR += L(a.tR, b.tR) * w;
-    const ca = t < 0.5 ? a.c : b.c;
+    for (const k of QKEYS) {
+      const q1 = b[k], o = this.q[k];
+      // neighbours into q1's hemisphere, spline per component (renormalised in finish())
+      const q0 = a[k], q2 = cc[k], q3 = d[k];
+      const s0 = dot4(q0, q1) < 0 ? -1 : 1, s2 = dot4(q2, q1) < 0 ? -1 : 1, s3 = dot4(q3, q1) < 0 ? -1 : 1;
+      const x = C(q0[0] * s0, q1[0], q2[0] * s2, q3[0] * s3), y = C(q0[1] * s0, q1[1], q2[1] * s2, q3[1] * s3);
+      const z = C(q0[2] * s0, q1[2], q2[2] * s2, q3[2] * s3), ww = C(q0[3] * s0, q1[3], q2[3] * s2, q3[3] * s3);
+      // sign-align with the running sum
+      const s = o.x * x + o.y * y + o.z * z + o.w * ww < 0 ? -w : w;
+      o.x += x * s;
+      o.y += y * s;
+      o.z += z * s;
+      o.w += ww * s;
+    }
+    this.tL += C(a.tL, b.tL, cc.tL, d.tL) * w;
+    this.tR += C(a.tR, b.tR, cc.tR, d.tR) * w;
+    const ca = t < 0.5 ? b.c : cc.c;
     this.cL += (ca & 1 ? 1 : 0) * w;
     this.cR += (ca & 2 ? 1 : 0) * w;
   }
   finish() {
     const iw = 1 / Math.max(1e-6, this.w);
     this.hp.multiplyScalar(iw);
+    for (const k of FEET) this.m[k].multiplyScalar(iw);
     for (const k in this.v) this.v[k as keyof Blend['v']].multiplyScalar(iw);
     for (const k in this.q) {
       const q = this.q[k as keyof Blend['q']];
@@ -120,6 +154,8 @@ interface FootLock {
   step: number;
   sx: number;
   sz: number;
+  /** The twist the lock held at lift-off / a re-step's start, eased out from there. */
+  dyaw: number;
 }
 
 const _q = new THREE.Quaternion();
@@ -153,11 +189,17 @@ export class MocapDriver {
   private lvz = 0;
   private moveSm = 0;
   private legYaw = 0;
-  private lookSm = 0;
+  private lookSm = { x: 0, v: 0 };
   private runK = 0;
-  private dropSm = 0;
+  private drop = { x: 0, v: 0 };
+  private theta = 0;
+  private dirW = [1, 0, 0, 0];
   private locks: [FootLock, FootLock] = [mkLock(), mkLock()];
   private prevC = [1, 1];
+  private freeYaw = [0, 0];
+  private poleYaw = [0, 0];
+  private snapPole = true;
+  private limpC = 0;
   private initDone = false;
 
   /** Feet start locked where the previous animation left them (after a clip). */
@@ -175,6 +217,9 @@ export class MocapDriver {
     }
     this.prevC = [1, 1];
     this.initDone = true;
+    // (knees aim afresh; the hips start undipped - the animator blends from the clip's pose)
+    this.snapPole = true;
+    this.drop.x = this.drop.v = 0;
   }
 
   update(L: Locomotion, inp: LocoInput, def: SkeletonDef, st: StanceDef, dt: number): PoseParams {
@@ -189,28 +234,43 @@ export class MocapDriver {
     this.lvz += (lz - this.lvz) * kv;
     const sp = Math.hypot(this.lvx, this.lvz);
     const vn = sp / legLen; // legs per second
-    this.moveSm += (smoothstep(0.12 * S, 0.5 * S, sp) - this.moveSm) * (1 - Math.exp(-9 * dt));
+    // quick to get going, slower to settle back into the stance (a fighter edging about at a
+    // crawl doesn't flicker between the two)
+    const mv = smoothstep(0.12 * S, 0.5 * S, sp);
+    this.moveSm += (mv - this.moveSm) * (1 - Math.exp(-(mv > this.moveSm ? 8 : 3.5) * dt));
     const move = this.moveSm;
-    const theta = sp > 0.05 ? Math.atan2(this.lvx, this.lvz) : 0; // 0 forward, +pi/2 to the left
+    // travel direction relative to the facing (0 forward, +pi/2 to the left); a crawl's velocity
+    // points anywhere, so the direction only updates while really moving
+    if (sp > 0.08 * S) this.theta = Math.atan2(this.lvx, this.lvz);
+    const theta = this.theta;
     // directional clips only at walking pace; at speed the legs run forwards and turn instead
     const dirK = 1 - smoothstep(2.0, 3.0, vn);
     const at = Math.abs(theta);
-    let wF = 1, wS = 0, wB = 0;
+    let tF = 1, tS = 0, tB = 0;
     if (dirK > 0) {
       const SIDE = 104 * DEG, BACK = 173 * DEG;
       if (at <= SIDE) {
-        wS = at / SIDE;
-        wF = 1 - wS;
+        tS = at / SIDE;
+        tF = 1 - tS;
       } else {
-        wB = clamp01((at - SIDE) / (BACK - SIDE));
-        wS = 1 - wB;
-        wF = 0;
+        tB = clamp01((at - SIDE) / (BACK - SIDE));
+        tS = 1 - tB;
+        tF = 0;
       }
-      wF = lerp(1, wF, dirK);
-      wS *= dirK;
-      wB *= dirK;
+      tF = lerp(1, tF, dirK);
+      tS *= dirK;
+      tB *= dirK;
     }
-    const side = theta >= 0 ? this.cyc.sideL : this.cyc.sideR;
+    // the weights (forward, side-step left, side-step right, backwards) follow smoothly: turning
+    // from a left to a right side-step, or forwards to backwards, blends the clips rather than
+    // swapping one for the other between two frames (the hips jumped)
+    const dw = this.dirW, kd = 1 - Math.exp(-10 * dt);
+    dw[0] += (tF - dw[0]) * kd;
+    dw[1] += ((theta >= 0 ? tS : 0) - dw[1]) * kd;
+    dw[2] += ((theta >= 0 ? 0 : tS) - dw[2]) * kd;
+    dw[3] += (tB - dw[3]) * kd;
+    const [wF, wSL, wSR, wB] = dw;
+    const { sideL, sideR, back } = this.cyc;
     // forward chain by speed
     const chain = FWD_CHAIN.map((n) => this.cyc[n as keyof MocapDriver['cyc']]);
     const fw = [0, 0, 0, 0];
@@ -230,8 +290,8 @@ export class MocapDriver {
       dur += fw[i] * wF * chain[i].dur;
       nat += fw[i] * wF * chain[i].speed;
     }
-    dur += wS * side.dur + wB * this.cyc.back.dur;
-    nat += wS * side.speed + wB * this.cyc.back.speed;
+    dur += wSL * sideL.dur + wSR * sideR.dur + wB * back.dur;
+    nat += wSL * sideL.speed + wSR * sideR.speed + wB * back.speed;
     // match the real speed: half by cadence, half by stride length
     const r = vn > 1e-3 && nat > 1e-3 ? vn / nat : 1;
     const cad = clamp(Math.sqrt(r), 0.72, 1.3);
@@ -247,8 +307,9 @@ export class MocapDriver {
     bl.add(this.idle, (this.idleT / this.idle.dur) * this.idle.frames.length, idleW);
     if (move > 0) {
       for (let i = 0; i < 4; i++) bl.add(chain[i], this.phase * chain[i].frames.length, move * wF * fw[i]);
-      bl.add(side, this.phase * side.frames.length, move * wS);
-      bl.add(this.cyc.back, this.phase * this.cyc.back.frames.length, move * wB);
+      bl.add(sideL, this.phase * sideL.frames.length, move * wSL);
+      bl.add(sideR, this.phase * sideR.frames.length, move * wSR);
+      bl.add(back, this.phase * back.frames.length, move * wB);
     }
     bl.finish();
     if (this.bounce !== 1 && idleW > 0) bl.hp.y = lerp(bl.hp.y, IDLE_HIP_MEAN + (bl.hp.y - IDLE_HIP_MEAN) * this.bounce, idleW);
@@ -262,9 +323,12 @@ export class MocapDriver {
     const ly = this.legYaw;
     const cy = Math.cos(ly), sy = Math.sin(ly);
     const hx = bl.hp.x * legLen, hz = bl.hp.z * legLen;
-    const legXZ = (v: THREE.Vector3, out: THREE.Vector3, y: number) => {
+    const legXZ = (k: FootKey, out: THREE.Vector3, y: number) => {
+      const v = bl.v[k], m = bl.m[k];
       let x = v.x * legLen - hx, z = v.z * legLen - hz;
-      const along = x * tdx + z * tdz;
+      // longer / shorter steps: scale the foot's travel about its average place (not about the
+      // hips, which would also squeeze or spread the stance of a side-step)
+      const along = (v.x - m.x) * legLen * tdx + (v.z - m.y) * legLen * tdz;
       x += tdx * along * (warp - 1);
       z += tdz * along * (warp - 1);
       // rotate about the hips by the leg yaw
@@ -274,7 +338,8 @@ export class MocapDriver {
     this.runK = smoothstep(2.4, 3.4, vn) * move;
     const runK = this.runK;
     // a limp: the hips dip over the injured (left) leg while it carries the weight
-    const limpDip = L.limpSm * 0.035 * S * clamp01(bl.cL) * move;
+    this.limpC += (clamp01(bl.cL) - this.limpC) * (1 - Math.exp(-12 * dt));
+    const limpDip = L.limpSm * 0.035 * S * this.limpC * move;
     prm.hipsPos.set(hx, def.offsets[B.hips].y + bl.hp.y * legLen - L.hunchSm * 0.04 * S - limpDip, hz);
     _q.setFromAxisAngle(_Y, ly);
     prm.hipsRot.copy(_q).multiply(bl.q.hq);
@@ -286,8 +351,9 @@ export class MocapDriver {
     prm.neck.copy(bl.q.nk);
     prm.head.copy(bl.q.hd);
     // look towards the threat: spread over spine, chest and head
-    this.lookSm += wrapAngle(inp.look - this.lookSm) * (1 - Math.exp(-14 * dt));
-    const look = this.lookSm;
+    // (a spring: a new target starts the head turning smoothly instead of at full speed)
+    springDamper(this.lookSm, this.lookSm.x + wrapAngle(inp.look - this.lookSm.x), 0.07, dt);
+    const look = this.lookSm.x;
     const hunch = L.hunchSm * 14 * DEG;
     prm.spine.multiply(_q.setFromEuler(_e.set(hunch * 0.5, look * 0.15, 0)));
     prm.chest.multiply(_q.setFromEuler(_e.set(hunch * 0.5, look * 0.2, 0)));
@@ -299,20 +365,37 @@ export class MocapDriver {
       const side_ = i === 0 ? 'L' : 'R';
       const fp = prm.feet[i];
       const av = bl.v[('a' + side_) as 'aL'];
-      legXZ(av, fp.pos, def.ankleHeight + av.y * legLen);
+      legXZ(('a' + side_) as FootKey, fp.pos, def.ankleHeight + av.y * legLen);
       fp.rot.copy(i === 0 ? bl.q.fL : bl.q.fR).premultiply(_q.setFromAxisAngle(_Y, ly));
       fp.toe = clamp(i === 0 ? bl.tL : bl.tR, -10, 60);
       const kv3 = bl.v[('k' + side_) as 'kL'];
-      legXZ(kv3, _v, kv3.y * legLen);
-      fp.pole.set(_v.x - (hx + fp.pos.x) * 0.5, 0.15, _v.z - (hz + fp.pos.z) * 0.5);
-      if (fp.pole.lengthSq() < 1e-6) fp.pole.set(0, 0, 1);
+      legXZ(('k' + side_) as FootKey, _v, kv3.y * legLen);
+      // knee direction: the mocap knee, pulled towards the toes - a bent knee falling inwards
+      // (the step-together side-step, the stance) reads as knock-kneed
+      // (the mocap knee counts as much as it is clearly bent: on a straight leg its direction
+      // is noise; the toes always give a steady one)
+      let px = _v.x - (hx + fp.pos.x) * 0.5, pz = _v.z - (hz + fp.pos.z) * 0.5;
+      const pl = Math.hypot(px, pz);
+      const kw = 0.45 * smoothstep(0.02 * legLen, 0.08 * legLen, pl) / Math.max(pl, 1e-6);
+      const toe = footHeading(fp.rot), tw = 0.55 * footFlat(fp.rot);
+      px = px * kw + Math.sin(toe) * tw + sy * 0.08;
+      pz = pz * kw + Math.cos(toe) * tw + cy * 0.08;
+      // (followed, not jumped to: the knee never swings round in a frame)
+      const pa = Math.atan2(px, pz);
+      this.poleYaw[i] = this.snapPole ? pa : this.poleYaw[i] + wrapAngle(pa - this.poleYaw[i]) * (1 - Math.exp(-18 * dt));
+      fp.pole.set(Math.sin(this.poleYaw[i]), 0.02, Math.cos(this.poleYaw[i]));
       fp.swing = false;
       this.lockFoot(L, i, fp, inp, i === 0 ? bl.cL : bl.cR, legLen, dt);
     }
 
+    this.snapPole = false;
+
     // ------------------------------------------------------------- hip drop
-    // lower the hips (smoothly) when a leg can't reach its target - a locked foot left behind, a
-    // longer stride - before the arms are placed, so the hands ride down with the shoulders
+    // lower the hips a little when a leg can't reach its target (a locked foot left behind, a
+    // longer stride) - before the arms are placed, so the hands ride down with the shoulders.
+    // The dip eases in and out on a critically damped spring: chasing the target exponentially
+    // (fast down, slow up) kinked the hips' motion every time a foot locked or let go - a pop
+    // each step. What a small dip can't cover, the foot makes up with a step.
     {
       let want = 0;
       const reach = legLen * 0.985;
@@ -324,9 +407,40 @@ export class MocapDriver {
         const need = h2 > 0 ? dy + Math.sqrt(h2) : -0.3 * S;
         if (need < want) want = need;
       }
-      want = Math.max(want, -0.2 * S);
-      this.dropSm += (want - this.dropSm) * (1 - Math.exp(-(want < this.dropSm ? 30 : 9) * dt));
-      prm.hipsPos.y += this.dropSm;
+      springDamper(this.drop, Math.max(want, -0.05 * S), 0.07, dt);
+      prm.hipsPos.y += Math.min(0, this.drop.x);
+      // (the dip aims for a knee that's not quite straight; the leg only fails at full stretch)
+      const full = legLen * 0.999;
+      for (let i = 0; i < 2; i++) {
+        const fp = prm.feet[i];
+        const hj = _v.copy(def.offsets[i === 0 ? B.thighL : B.thighR]).applyQuaternion(prm.hipsRot).add(prm.hipsPos);
+        const dy = fp.pos.y - hj.y;
+        const r2 = full * full - dy * dy;
+        const dx = fp.pos.x - hj.x, dz = fp.pos.z - hj.z, d2 = dx * dx + dz * dz;
+        if (r2 > 0 && d2 > r2) {
+          // as far as the leg goes (the IK would stop there anyway); a foot clearly left behind
+          // steps to catch up - one foot at a time, from where it visibly is
+          const k = Math.sqrt(r2 / d2);
+          const excess = Math.sqrt(d2) * (1 - k);
+          fp.pos.x = hj.x + dx * k;
+          fp.pos.z = hj.z + dz * k;
+          const lk = this.locks[i];
+          if (lk.on && lk.step >= 1) {
+            lk.dyaw = wrapAngle(lk.yawW - this.freeYaw[i]);
+            L.feet[i].swing = true;
+            if (excess > 0.025 * S && this.locks[1 - i].step >= 1) {
+              const [wx, wz] = rotY(fp.pos.x, fp.pos.z, inp.rootYaw);
+              lk.step = 0;
+              lk.sx = inp.rootX + wx;
+              lk.sz = inp.rootZ + wz;
+            } else {
+              // only just out of reach: this is the push-off - the heel was coming up anyway,
+              // the foot lets go of the floor a moment early
+              lk.on = false;
+            }
+          }
+        }
+      }
     }
 
     // ------------------------------------------------------------- arms
@@ -359,7 +473,9 @@ export class MocapDriver {
         gz = lerp(gz, 0.24 * S, L.blockSm);
       }
       const weaponHand = (inp.style === 'weapon1h' && s === 1) || inp.style === 'weapon2h';
-      const gw = Math.max(guardOver, L.blockSm, weaponHand ? 1 : 0);
+      // (the boxer's own guard drops to his chest now and then: a third of the stance's guard
+      // keeps a fighter's hands up even standing)
+      const gw = Math.max(guardOver + fightGuard * 0.3 * (1 - move), L.blockSm, weaponHand ? 1 : 0);
       hp.pos.set(lerp(mx, gx, gw), lerp(my, gy, gw), lerp(mz, gz, gw)).applyQuaternion(_cQ).add(_chest);
       // hurt: a hand pressed to the injured side; a broken arm hangs; a taunt spreads the arms
       if (L.holdSm > 0.01 && Math.sign(inp.holdSide) === sg) hp.pos.lerp(_fwd.set(-sg * 0.02 * S, 1.05 * S, 0.12 * S), L.holdSm * 0.85);
@@ -387,11 +503,13 @@ export class MocapDriver {
   private lockFoot(L: Locomotion, i: number, fp: PoseParams['feet'][number], inp: LocoInput, contact: number, legLen: number, dt: number) {
     const k = this.locks[i];
     const f = L.feet[i];
-    const c = contact > 0.5 ? 1 : 0;
+    // (hysteresis: a blend of clips can hover around half contact)
+    const c = this.prevC[i] ? (contact > 0.35 ? 1 : 0) : contact > 0.65 ? 1 : 0;
     // free target in world
     const [wx, wz] = rotY(fp.pos.x, fp.pos.z, inp.rootYaw);
     const tx = inp.rootX + wx, tz = inp.rootZ + wz;
     const freeYawW = inp.rootYaw + footHeading(fp.rot);
+    this.freeYaw[i] = freeYawW;
     if (c && !this.prevC[i] && k.step >= 1) {
       // touchdown: plant right here (the lock starts where the foot is, so it can engage at once)
       k.on = true;
@@ -402,7 +520,10 @@ export class MocapDriver {
       f.plantedTime = 0;
       f.swing = false;
     } else if (!c && this.prevC[i]) {
+      // lift-off: the twist the lock held is let go of as it was (the free foot's heading isn't
+      // worth following once it pitches up into the swing)
       k.on = false;
+      k.dyaw = wrapAngle(k.yawW - freeYawW);
       f.swing = true;
     }
     this.prevC[i] = c;
@@ -411,15 +532,18 @@ export class MocapDriver {
       k.step = 0;
       k.sx = k.x;
       k.sz = k.z;
+      k.dyaw = wrapAngle(k.yawW - freeYawW);
       f.swing = true;
     }
-    let x = tx, z = tz, lift = 0;
+    let x = tx, z = tz, lift = 0, turn = k.w;
     if (k.step < 1) {
       k.step = Math.min(1, k.step + dt / 0.2);
       const s = smoothstep(0, 1, k.step);
       x = lerp(k.sx, tx, s);
       z = lerp(k.sz, tz, s);
       lift = Math.sin(Math.PI * k.step) * 0.07 * legLen;
+      // the foot turns to its new heading during the step (not at the start of it)
+      turn = 1 - s;
       if (k.step >= 1) {
         k.x = tx;
         k.z = tz;
@@ -439,9 +563,10 @@ export class MocapDriver {
     fp.pos.x = rx;
     fp.pos.z = rz;
     fp.pos.y += lift;
-    if (k.w > 0.01) {
+    if (k.step >= 1) turn = k.w;
+    if (turn > 0.01) {
       // planted feet don't spin on the floor
-      const dyaw = wrapAngle(k.yawW - freeYawW) * k.w;
+      const dyaw = (k.on && k.step >= 1 ? wrapAngle(k.yawW - freeYawW) : k.dyaw) * turn;
       fp.rot.premultiply(_q2.setFromAxisAngle(_Y, dyaw));
     }
     f.pos.set(x, 0, z);
@@ -454,20 +579,22 @@ export class MocapDriver {
 
 const _e = new THREE.Euler();
 const _hf = new THREE.Vector3();
-const _hu = new THREE.Vector3();
 /**
- * Heading of a foot on the floor. The toe direction alone is useless when the foot points down
- * (toe-off); the foot's up axis tilts the same way as it pitches, so their ground projections
- * summed give a heading defined at any pitch.
+ * Heading of a foot (the toe direction on the ground). Only meaningful while the foot is not
+ * pitched up or down steeply - planted, or weighted by footFlat() - which is all it's used for.
+ * (A formula switching to the up axis by the sign of the pitch made a rolled foot's heading jump
+ * by twice its roll whenever it passed through flat.)
  */
 function footHeading(q: THREE.Quaternion) {
   _hf.set(0, 0, 1).applyQuaternion(q);
-  _hu.set(0, 1, 0).applyQuaternion(q);
-  // toes down: the up axis leans forward; toes up: it leans back
-  const k = _hf.y < 0 ? 1 : -1;
-  return Math.atan2(_hf.x + _hu.x * k, _hf.z + _hu.z * k);
+  return Math.atan2(_hf.x, _hf.z);
+}
+/** 1 for a foot near flat, falling to 0 as it pitches towards vertical. */
+function footFlat(q: THREE.Quaternion) {
+  _hf.set(0, 0, 1).applyQuaternion(q);
+  return smoothstep(0.5, 0.85, Math.hypot(_hf.x, _hf.z));
 }
 
 function mkLock(): FootLock {
-  return { x: 0, z: 0, yawW: 0, w: 0, on: false, step: 1, sx: 0, sz: 0 };
+  return { x: 0, z: 0, yawW: 0, w: 0, on: false, step: 1, sx: 0, sz: 0, dyaw: 0 };
 }

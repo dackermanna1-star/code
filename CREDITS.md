@@ -67,10 +67,10 @@ The font files and their license texts are in `src/ui/fonts/` (see `OFL.txt`).
 
 ## Motion capture
 
-The player character's locomotion (stance idle, walk, jog, run, sprint, backward walk and
-side-steps) is retargeted from the **CMU Graphics Lab Motion Capture Database**,
+The fighters' locomotion (stance idle, walk, jog, run, sprint, backward walk and side
+shuffle) is retargeted from the **CMU Graphics Lab Motion Capture Database**,
 [mocap.cs.cmu.edu](http://mocap.cs.cmu.edu) — trials 13_17, 35_01, 35_17, 16_46, 09_06,
-141_31 and 143_40. The data used in this project was obtained from mocap.cs.cmu.edu. The
+141_31 and 141_33. The data used in this project was obtained from mocap.cs.cmu.edu. The
 database was created with funding from NSF EIA-0196217. The CMU terms allow the data to be
 included in products; it may not be resold on its own. `tools/mocap/convert.py` turns the
 original ASF/AMC files into the normalised tracks in `src/anim/mocap/cmu.json`.

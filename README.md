@@ -78,16 +78,21 @@ openings, and adapts: counter-heavy players see more unblockables and feints. In
 hunch, limp, clutch their side and hang back; broken arms dangle and change their moveset.
 15 authored waves introduce mechanics gradually, then endless mode scales forever.
 
-**Motion capture** — the player character moves on real motion capture from the CMU Graphics
-Lab database: a boxer's guard idle, walk, jog, run and sprint cycles, a backward walk and
-side-steps (`tools/mocap/convert.py` extracts seamless, phase-aligned cycles and retargets them to
-leg- and arm-length-normalised effector tracks). At runtime they are blended by speed and
-direction on one gait clock, cadence and stride are warped to the real speed, the legs turn into
-the travel direction, planted feet are locked in the world (with quick re-steps when the body
-turns away from them), and a guard, block or weapon grip is laid over the arms — all solved
-through the same IK as everything else, so the motion fits the character and blends into the
-procedural combat moves. Settings → *Motion-captured movement* switches back to the procedural
-gait.
+**Motion capture** — every fighter moves on real motion capture from the CMU Graphics Lab
+database: a boxer's guard idle, walk, jog, run and sprint cycles, a backward walk and a
+step-together side shuffle. `tools/mocap/convert.py` extracts phase-aligned cycles whose loops are
+seamless in position *and* velocity (the end cross-fades into the stride before it), retargets them
+to leg- and arm-length-normalised effector tracks, and gives them one fighter's build: pelvis
+tucked, lower back upright, no subject's sideways tilt, feet slightly turned out, the stiff-legged
+walkers on soft knees, the side shuffle shortened and the boxer's bounce calmed. At runtime the
+tracks are sampled on splines and blended by speed and direction on one gait clock (direction
+weights glide, so reversing a side-step never swaps clips between two frames), cadence and stride
+are warped to the real speed about each foot's own place, the legs turn into the travel direction,
+planted feet are locked in the world (a foot left behind takes a quick step to catch up; a leg at
+full stretch lowers the hips a little, on a spring, or lets the heel go early), the knees track
+over the toes, and a guard, block or weapon grip is laid over the arms — all solved through the
+same IK as everything else, so the motion fits the character and blends into the procedural combat
+moves. Settings → *Motion-captured movement* switches back to the procedural gait.
 
 **Animation** — an IK pose solver drives every limb; 72 authored motions (117 clips with mirrors and paired tracks:
 strikes, reactions, get-ups, paired counters/finishers authored as two synchronized tracks);
@@ -241,7 +246,8 @@ archetype, `test=pools&h=2.3&tilt=3.2` grows pools and rivulets on an empty floo
 `test=wounds` renders a beaten face up close (`wait=600` to see bruises mature), `test=moves`
 drives the player through a scripted idle / run / turn / blocked strafe / walk sequence for
 reviewing locomotion (`run=1&probe=1` measures it), and `?viewer=loco&mocap=1` strobes the
-motion-captured gait. Debug viewers: `?viewer=sheet&clip=roundhouse` (strike contact sheet),
+motion-captured gait (`path=ai` circles like an enemy; `stats=1` measures hip pops, posture and
+planted-foot slide instead of drawing). Debug viewers: `?viewer=sheet&clip=roundhouse` (strike contact sheet),
 `?viewer=sheet&pair=fin_roundhouse` (paired clips), `?viewer=loco&path=circle&speed=4`
 (locomotion strobe), `?viewer=pose&all=1` (all character variants).
 

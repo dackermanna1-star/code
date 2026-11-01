@@ -721,7 +721,12 @@ export class HUD {
     if (this.promptEl.innerHTML !== prompt) this.promptEl.innerHTML = prompt;
     this.promptEl.classList.toggle('on', prompt !== '');
     // ---- first-time hints
-    if (g.director.incoming.some((i) => i.counterable)) this.hint('A gold bolt above an enemy: press RMB (Y) to COUNTER — at the last moment for a perfect counter.', 'counter');
+    // the first counterable attack of the session: time slows on the window while the hint teaches it
+    const ctr = g.director.incoming.find((i) => i.counterable);
+    if (ctr && g.settings.showHints && !this.shownHints.has('counter') && ctr.hitTime - g.time < 0.5) {
+      g.slowMo(0.3, 0.75);
+      this.hint('A gold bolt above an enemy: press RMB (Y) to COUNTER — at the last moment for a perfect counter.', 'counter', 7);
+    }
     if (g.director.incoming.some((i) => !i.counterable)) this.hint('Red warnings cannot be countered — DODGE with SPACE (A).', 'red');
     // ---- fps / stats
     this.fpsAcc += realDt;

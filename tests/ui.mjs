@@ -36,7 +36,7 @@ await page.evaluate(() => { const b = [...document.querySelectorAll('.tabs butto
 await page.waitForTimeout(300);
 await shot('t_settings_audio');
 await page.evaluate(() => window.game.hud.show('controls'));
-await page.waitForTimeout(500);
+await page.waitForTimeout(1200);
 await shot('t_controls');
 await page.evaluate(() => window.game.hud.gameOver({ 'Wave reached': 9, Score: '48,210', Kills: 61, 'Bodies on the floor': 61, 'Best combo': 37, Counters: '22 (9 perfect)', Dodges: '14 (3 perfect)', Finishers: 18, Takedowns: 6, 'Environment kills': 3, 'Bones broken': 25, Disarms: 4 }, { grade: 'A', record: true }));
 await page.waitForTimeout(1500);
