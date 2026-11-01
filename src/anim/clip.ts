@@ -604,10 +604,15 @@ export class ClipPlayer {
         z = a.z;
       } else if (grounded) {
         const ss = smoothstep(0, 1, s);
-        x = lerp(a.x, b.x, ss);
-        z = lerp(a.z, b.z, ss);
         const dist = Math.hypot(b.x - a.x, b.z - a.z);
-        y = a.y + (b.y - a.y) * ss + Math.sin(Math.PI * s) * Math.min(f2.lift, 0.03 + dist * 0.35);
+        // a long move of a planted foot (a dodge, a lunge, a warp) is a step: off the floor before
+        // it travels, down again before it stops, and higher the further it goes - not a glide
+        const big = smoothstep(0.25, 0.8, dist);
+        const sh = lerp(ss, smoothstep(0.14, 0.9, s), big);
+        x = lerp(a.x, b.x, sh);
+        z = lerp(a.z, b.z, sh);
+        const lift = Math.max(Math.min(f2.lift, 0.03 + dist * 0.35), big * Math.min(0.15, dist * 0.11));
+        y = a.y + (b.y - a.y) * ss + Math.sin(Math.PI * s) * lift;
       } else {
         const p0 = fw[i0], p3 = fw[i3];
         x = cr(p0.x, a.x, b.x, p3.x);

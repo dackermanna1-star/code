@@ -182,8 +182,25 @@ uniform sampler2DArray uAtlas;
 ${corpse ? 'flat varying int vCorpseId;\nflat varying float vLayer;\nuniform highp sampler2D uCorpseWounds;' : `uniform float uLayer;\nuniform vec4 uWounds[${MAX_WOUNDS}];\nuniform vec4 uWoundInfo[${MAX_WOUNDS}];\nuniform int uWoundCount;`}
 float lsBloodAmt = 0.0;
 float lsWet = 0.0;
+// 4x4 ordered-dither threshold for the screen pixel
+float lsBayer4(vec2 fc) {
+  ivec2 q = ivec2(mod(fc, 4.0));
+  const float m[16] = float[16](0., 8., 2., 10., 12., 4., 14., 6., 3., 11., 1., 9., 15., 7., 13., 5.);
+  return (m[q.x + q.y * 4] + 0.5) / 16.0;
+}
 ${NOISE_GLSL}
 ${WOUND_EVAL_GLSL}
+`,
+      )
+      .replace(
+        '#include <clipping_planes_fragment>',
+        `#include <clipping_planes_fragment>
+{
+  // a body right in front of the lens (one flung at the camera, a corpse the camera backs into)
+  // dissolves instead of filling the screen
+  float lsNear = 1.0 - smoothstep(0.3, 0.85, length(vViewPosition));
+  if (lsNear > 0.0 && lsNear > lsBayer4(gl_FragCoord.xy)) discard;
+}
 `,
       )
       .replace(

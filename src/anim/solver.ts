@@ -130,6 +130,10 @@ export interface LimbState {
   back: THREE.Vector3;
   twist: number;
   valid: boolean;
+  /** Last roll references of the two bones (kept continuous, see rollSteady). */
+  up1: THREE.Vector3;
+  up2: THREE.Vector3;
+  upValid: boolean;
 }
 export class SolveState {
   arms: LimbState[] = [mkLimb(), mkLimb()];
@@ -137,15 +141,17 @@ export class SolveState {
   hipDrop = 0;
   reset() {
     this.hipDrop = 0;
-    for (const l of this.arms) l.valid = false;
-    for (const l of this.legs) l.valid = false;
+    for (const l of this.arms) l.valid = l.upValid = false;
+    for (const l of this.legs) l.valid = l.upValid = false;
   }
 }
 function mkLimb(): LimbState {
-  return { bend: new THREE.Vector3(), back: new THREE.Vector3(), twist: 0, valid: false };
+  return { bend: new THREE.Vector3(), back: new THREE.Vector3(), twist: 0, valid: false, up1: new THREE.Vector3(), up2: new THREE.Vector3(), upValid: false };
 }
 /** Largest turn (rad) of a limb's bend plane or a hand's roll in one solve. */
 const MAX_TURN = 0.42;
+/** Largest roll (rad) of an upper / lower limb bone about its own length in one solve. */
+const MAX_ROLL = 0.26;
 const _pb = new THREE.Vector3();
 const _cr = new THREE.Vector3();
 
@@ -153,7 +159,7 @@ const _cr = new THREE.Vector3();
  * Keep unit vector `v` (perpendicular to unit `axis`) continuous with `prev`: prefer `prev` when the
  * fresh answer is ill-conditioned (`quality` near 0), and limit the turn about `axis`.
  */
-function steady(v: THREE.Vector3, axis: THREE.Vector3, prev: THREE.Vector3, quality: number) {
+function steady(v: THREE.Vector3, axis: THREE.Vector3, prev: THREE.Vector3, quality: number, maxTurn = MAX_TURN) {
   _pb.copy(prev).addScaledVector(axis, -prev.dot(axis));
   const pl = _pb.length();
   if (pl < 1e-6) return;
@@ -165,10 +171,30 @@ function steady(v: THREE.Vector3, axis: THREE.Vector3, prev: THREE.Vector3, qual
     v.normalize();
   }
   const ang = Math.acos(clamp(v.dot(_pb), -1, 1));
-  if (ang > MAX_TURN) {
+  if (ang > maxTurn) {
     const sg = _cr.crossVectors(_pb, v).dot(axis) >= 0 ? 1 : -1;
-    v.copy(_pb).applyAxisAngle(axis, sg * MAX_TURN);
+    v.copy(_pb).applyAxisAngle(axis, sg * maxTurn);
   }
+}
+
+/**
+ * The bones' roll comes from the limb's hinge axis (limb axis x bend). Folded tight - a knee
+ * chambered to the chest for a kick, a fist pulled back to the shoulder - the limb axis is short
+ * and swings round with any small move of the hand or foot, and the hinge (so the roll of both
+ * bones) with it: the thigh spun a third of a turn in one frame. Each bone's roll is kept
+ * continuous instead: the previous one wins while the limb is folded, and it only turns so far
+ * per solve.
+ */
+function rollSteady(st: LimbState | undefined, fold: number) {
+  if (!st) return;
+  if (st.upValid) {
+    const q = smoothstep(0.1, 0.45, fold);
+    steady(_up1, _dir1, st.up1, q, MAX_ROLL);
+    steady(_up2, _dir2, st.up2, q, MAX_ROLL);
+  }
+  st.up1.copy(_up1);
+  st.up2.copy(_up2);
+  st.upValid = true;
 }
 
 /** Two-bone IK. Returns elbow/knee position in `outMid`, effective end in `outEnd`. */
@@ -333,6 +359,7 @@ export function solvePose(def: SkeletonDef, prm: PoseParams, out: Pose, fkOut?: 
     _dir1.subVectors(_mid, P[ua]).normalize();
     _dir2.subVectors(_end, _mid).normalize();
     limbUps(P[ua], _end, _bend, _dir1, _dir2);
+    rollSteady(ast, _end.distanceTo(P[ua]) / (l1 + l2));
     alignAxes(def.restDir[ua], def.restUp[ua], _dir1, _up1, W[ua]);
     alignAxes(def.restDir[fa], def.restUp[fa], _dir2, _up2, W[fa]);
     if (solverDebug.on) solverDebug.arms[side] = { pos: hp.pos.toArray(), pole: hp.pole.toArray(), sh: P[ua].toArray(), bend: _bend.toArray(), dir1: _dir1.toArray(), dir2: _dir2.toArray(), ua: W[ua].toArray(), cl: W[cl].toArray() };
@@ -371,6 +398,9 @@ export function solvePose(def: SkeletonDef, prm: PoseParams, out: Pose, fkOut?: 
         while (ang - prevT > Math.PI) ang -= Math.PI * 2;
         while (ang - prevT < -Math.PI) ang += Math.PI * 2;
         ang = clamp(ang, -Math.PI * 1.3, Math.PI * 1.3);
+        // and the forearm's share turns smoothly (a wrist swinging past half a turn, or the
+        // clamp above, otherwise jumped the forearm's roll a whole radian in one frame)
+        if (ast.valid && ast.twist !== 0) ang = prevT + clamp(ang - prevT, -2 * MAX_ROLL, 2 * MAX_ROLL);
         ast.twist = ang;
       }
       _q.setFromAxisAngle(ax, ang * 0.5);
@@ -392,6 +422,7 @@ export function solvePose(def: SkeletonDef, prm: PoseParams, out: Pose, fkOut?: 
     _dir1.subVectors(_mid, P[th]).normalize();
     _dir2.subVectors(_end, _mid).normalize();
     limbUps(P[th], _end, _bend, _dir1, _dir2);
+    rollSteady(state?.legs[side], _end.distanceTo(P[th]) / (def.lenThigh + def.lenShin));
     alignAxes(def.restDir[th], def.restUp[th], _dir1, _up1, W[th]);
     alignAxes(def.restDir[sh], def.restUp[sh], _dir2, _up2, W[sh]);
     P[sh].copy(_mid);

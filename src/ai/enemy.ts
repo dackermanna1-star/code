@@ -94,8 +94,20 @@ export class Enemy extends Fighter {
   releaseHold() {
     if (this.hold && this.clip) {
       this.hold = false;
-      this.clip.speed = this.cfg.attackSpeed * this.speedMul;
+      this.paceAttack();
     }
+  }
+  /**
+   * Attack pacing: the load-up of a strike (the first half of the way to contact) can run slower
+   * than the strike itself, so every attack - even a fighter's snapping jab late in the game -
+   * shows its intent long enough to be countered or dodged; contact and recovery keep full speed.
+   */
+  private atkSpeed = 1;
+  private windEnd = 0;
+  private windSpeed = 1;
+  private paceAttack() {
+    if (!this.clip || this.state !== 'attack' || this.hold) return;
+    this.clip.speed = this.clip.time < this.windEnd ? this.windSpeed : this.atkSpeed;
   }
 
   get player() {
@@ -167,6 +179,7 @@ export class Enemy extends Fighter {
       case 'block':
       case 'taunt':
         if (this.clip) {
+          this.paceAttack();
           if (this.state === 'attack' && this.feinting && this.clip.time > this.clip.clip.hitT * 0.55) {
             // feint: abort before contact
             this.feinting = false;
@@ -350,18 +363,35 @@ export class Enemy extends Fighter {
     const p = this.player;
     const a = chained ? this.chooseAttack() : this.attackDef ?? this.chooseAttack();
     this.attackDef = a;
-    const speed = this.cfg.attackSpeed * this.speedMul * (1 + (this.game.director.wave - 1) * 0.015) * (chained ? 1.15 : 1);
+    const dir = this.game.director;
+    // strikes get snappier with the waves, within limits (it's the warning time below that keeps
+    // late waves fair, not slower strikes)
+    const speed = Math.min(1.3, this.cfg.attackSpeed * this.speedMul * (1 + Math.min(0.1, (dir.wave - 1) * 0.008))) * (chained ? 1.1 : 1);
     const clip = getClip(a.clip);
     const cp = this.play(a.clip, { target: p, reach: a.reach, maxWarp: a.startRange > 4 ? 7 : 2.4, speed, halflife: 0.1 });
-    cp.speed = speed;
     this.setState('attack');
     this.clipEndState = 'circle';
     // feints for tricky enemies (more if the player counters a lot)
-    const feintChance = this.cfg.feint * (1 + this.game.director.counterBias * 2);
+    const feintChance = this.cfg.feint * (1 + dir.counterBias * 2);
     this.feinting = !chained && !a.unblockable && chance(feintChance);
-    // dodge-heavy players: delay the strike slightly
-    const hitDelay = clip.hitT / speed;
-    this.game.director.registerAttack(this, hitDelay, !a.unblockable, this.feinting);
+    // warning time: from the first twitch to contact, never less than a human can read and answer
+    // (a fighter's jab at full speed lands in 80 ms; the load-up stretches to fill the difference)
+    const natural = clip.hitT / speed;
+    let tell = this.cfg.boss ? (chained ? 0.38 : 0.46) : chained ? 0.42 : 0.52;
+    // two attacks that can't both be countered never land together: this one waits its turn
+    const now = this.game.time;
+    for (const inc of dir.incoming) {
+      if (inc.enemy === this || (inc.counterable && !a.unblockable)) continue;
+      const gap = now + Math.max(tell, natural) - inc.hitTime;
+      if (Math.abs(gap) < 0.32) tell = Math.max(tell, inc.hitTime - now + 0.32);
+    }
+    const extra = Math.max(0, tell - natural);
+    this.atkSpeed = speed;
+    this.windEnd = clip.hitT * 0.5;
+    this.windSpeed = extra > 0 ? this.windEnd / (this.windEnd / speed + extra) : speed;
+    cp.speed = this.windSpeed;
+    const hitDelay = natural + extra;
+    dir.registerAttack(this, hitDelay, !a.unblockable, this.feinting);
     if (chance(0.35)) this.game.audio.play('grunt_attack', { pos: new THREE.Vector3(this.x, 1.6, this.z), vol: 0.6, delay: hitDelay * 0.4 });
   }
 
@@ -390,7 +420,8 @@ export class Enemy extends Fighter {
       const hit = g.combat.makeStrike(this, p, {
         limb: String(ev.limb ?? 'rh'),
         region: a.region,
-        damage: a.damage * (1 + (g.director.wave - 1) * 0.04) * (this.phase > 1 ? 1.2 : 1),
+        // (harder-hitting as the waves go on, levelling off at +36% by wave 10)
+        damage: a.damage * (1 + Math.min(0.36, (g.director.wave - 1) * 0.04)) * (this.phase > 1 ? 1.2 : 1),
         strength: a.strength,
         kind: a.kind,
         unblockable: a.unblockable,
@@ -433,9 +464,9 @@ export class Enemy extends Fighter {
           this.attackDef = ENEMY_ATTACKS.punch;
           this.attackCombo = 1;
           this.clipEndState = 'circle';
-          setTimeout(() => {
+          g.later(0.12, () => {
             if (this.alive && this.state === 'block') this.startAttack(true);
-          }, 120);
+          });
         }
         return 'blocked';
       }

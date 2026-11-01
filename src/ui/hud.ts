@@ -241,6 +241,8 @@ export class HUD {
   show(id: string | null) {
     this.current = id;
     for (const [k, m] of Object.entries(this.menus)) m.classList.toggle('on', k === id);
+    // (update() doesn't run while paused: step the HUD aside here too)
+    this.root.style.display = this.game.started && !id ? '' : 'none';
     if (id === 'title') {
       let best = '';
       try {

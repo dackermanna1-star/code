@@ -9,7 +9,10 @@ import type { Enemy } from '../ai/enemy';
 import { Weapon } from './weapons';
 import { B } from '../anim/skeleton';
 
-export type PlayerAction = 'free' | 'attack' | 'counter' | 'finisher' | 'dodge' | 'vault' | 'hit' | 'down' | 'grab' | 'takedown' | 'stun' | 'throwing' | 'dead';
+export type PlayerAction = 'free' | 'dash' | 'attack' | 'counter' | 'finisher' | 'dodge' | 'vault' | 'hit' | 'down' | 'grab' | 'takedown' | 'stun' | 'throwing' | 'dead';
+
+/** Burst speed (m/s) of the few running steps that close a gap before a strike. */
+const DASH_SPEED = 7.5;
 
 const _v = new THREE.Vector3();
 const _v2 = new THREE.Vector3();
@@ -133,6 +136,9 @@ export class Player extends Fighter {
       case 'free':
         this.freeMove(dt);
         this.readActions();
+        break;
+      case 'dash':
+        this.doDash(dt);
         break;
       case 'attack':
       case 'stun':
@@ -321,9 +327,75 @@ export class Player extends Fighter {
     // mirror based on target side for lateral moves
     const side = this.angleTo(target) > 0.25 ? '_m' : chance(0.3) ? '_m' : '';
     const clipName = (getClip(move.clip + side) ? move.clip + side : move.clip);
+    // a strike closes a step's worth of distance by itself; further than that, a few running steps
+    // come first (a punch warped across metres slid the feet over the floor at 20 m/s)
+    if (!back && this.distTo(target) - move.reach > this.lungeReach(clipName, move) + 0.25) {
+      this.dash = { move, clip: clipName, t: 0 };
+      this.action = 'dash';
+      this.stateTime = 0;
+      this.curMove = null;
+      if (this.anim.mode !== 'loco') this.anim.toLoco(0.08);
+      return;
+    }
+    this.launchStrike(target, move, clipName, back);
+  }
+
+  private dash: { move: MoveDef; clip: string; t: number } | null = null;
+  private strikeSpeed(target: Enemy) {
+    return target.state === 'stunned' ? 1.25 : 1.05 + Math.min(0.25, this.combo * 0.015);
+  }
+  /** Ground a strike covers by itself: its lunge (root warp) at a believable speed. */
+  private lungeReach(clipName: string, move: MoveDef) {
+    const c = getClip(clipName);
+    const w = c.warp ? (c.warp[1] - c.warp[0]) / 1.15 : 0.1;
+    return (move.range === 'far' ? 10 : 6.5) * w + 0.3;
+  }
+  /** Closing in on a strike's target: running steps, then the strike once within its lunge. */
+  private doDash(dt: number) {
+    const g = this.game;
+    const inp = g.input;
+    const d = this.dash, tg = this.target;
+    if (!d || !tg || !tg.alive || tg.paired || tg.state === 'enter') {
+      this.dash = null;
+      this.toFree();
+      return;
+    }
+    d.t += dt;
+    // defence still comes first
+    if (inp.peek('counter', 0.2) && g.director.findCounterable()) {
+      this.dash = null;
+      this.tryCounter();
+      return;
+    }
+    if (inp.peek('dodge', 0.2)) {
+      inp.consume('dodge');
+      this.dash = null;
+      this.doDodge();
+      return;
+    }
+    const dx = tg.x - this.x, dz = tg.z - this.z;
+    const dist = Math.hypot(dx, dz) || 1e-3;
+    if (dist - d.move.reach <= this.lungeReach(d.clip, d.move) || d.t > 0.6) {
+      this.dash = null;
+      this.launchStrike(tg, d.move, d.clip, false);
+      return;
+    }
+    this.vx = damp(this.vx, (dx / dist) * DASH_SPEED, 14, dt);
+    this.vz = damp(this.vz, (dz / dist) * DASH_SPEED, 14, dt);
+    this.yaw = dampAngle(this.yaw, yawFromDir(dx, dz), 16, dt);
+    const li = this.anim.locoIn;
+    li.style = this.weapon ? 'weapon1h' : 'fight';
+    li.guard = 1;
+    li.block = 0;
+    li.look = 0;
+  }
+
+  private launchStrike(target: Enemy, move: MoveDef, clipName: string, back: boolean) {
+    const g = this.game;
+    this.vx = this.vz = 0;
     // agile/elite may evade (decided now so the whiff reads naturally)
     const evaded = target.stun <= 0 && target.state !== 'stunned' && target.tryEvade(this);
-    const speed = target.state === 'stunned' ? 1.25 : 1.05 + Math.min(0.25, this.combo * 0.015);
+    const speed = this.strikeSpeed(target);
     this.play(clipName, { target, reach: move.reach * (evaded ? 1.0 : 1), maxWarp: move.range === 'far' ? 7.5 : 4.2, back, halflife: 0.07, speed, entryHalflife: 0.06 });
     this.curMove = move;
     this.hitLanded = false;

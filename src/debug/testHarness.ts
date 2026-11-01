@@ -154,6 +154,15 @@ export async function runTest(game: Game, params: URLSearchParams) {
     }
     game.waves.start(Number(params.get('wave') ?? 1));
     const god = params.get('god') === '1';
+    // fair=1: how much warning enemy attacks give (registration to contact), per archetype
+    const tells: { k: string; d: number; c: boolean; t: number }[] = [];
+    if (params.get('fair') === '1') {
+      const orig = game.director.registerAttack.bind(game.director);
+      game.director.registerAttack = (e, hitDelay, counterable, feint) => {
+        tells.push({ k: e.cfg.key, d: hitDelay, c: counterable, t: game.time + hitDelay });
+        orig(e, hitDelay, counterable, feint);
+      };
+    }
     const probe = params.get('probe') === '1' ? new (await import('./animProbe')).AnimProbe(game) : null;
     for (let i = 0; i < frames; i++) {
       bot.update(dt);
@@ -164,6 +173,15 @@ export async function runTest(game: Game, params: URLSearchParams) {
       if (!game.player.alive && !god) break;
     }
     if (probe) console.log('PROBE ' + JSON.stringify(probe.report((frames * dt))));
+    if (tells.length) {
+      const by: Record<string, number[]> = {};
+      for (const x of tells) (by[x.k] ??= []).push(x.d);
+      const q = (a: number[], f: number) => [...a].sort((x, y) => x - y)[Math.min(a.length - 1, Math.floor(a.length * f))];
+      const hits = tells.map((x) => x.t).sort((a, b) => a - b);
+      let close = 0;
+      for (let i = 1; i < hits.length; i++) if (hits[i] - hits[i - 1] < 0.25) close++;
+      console.log('FAIR ' + JSON.stringify({ n: tells.length, wave: game.waves.wave, hp: Math.round(game.player.hp), dmgTaken: Math.round(game.player.stats.damageTaken), within250ms: close, byType: Object.fromEntries(Object.entries(by).map(([k, a]) => [k, { n: a.length, min: +q(a, 0).toFixed(3), p10: +q(a, 0.1).toFixed(3), med: +q(a, 0.5).toFixed(3) }])) }));
+    }
     if (params.get('rtime') === '1') {
       const gl = game.renderer.gl;
       for (let k = 0; k < 3; k++) {
@@ -392,6 +410,107 @@ export async function runTest(game: Game, params: URLSearchParams) {
       }
       if (probe) console.log('PROBE ' + JSON.stringify(probe.report(frames * dt)));
     }
+  }
+  if (name === 'clips') {
+    // every player strike against a still target, one after another; per bone and frame the
+    // swing (change of the bone's direction) and twist (roll about it) are split, and single-frame
+    // spikes of either are reported: limb flips, roll pops, one-frame snaps
+    const { PLAYER_STRIKES } = await import('../combat/moves');
+    const { getClip } = await import('../anim/clip');
+    const p = game.player;
+    const e = spawnEnemy(params.get('enemy') ?? 'brawler', 0, -1.6);
+    game.started = true;
+    const want = (params.get('list') ?? '').split(',').filter(Boolean);
+    const moves = PLAYER_STRIKES.flatMap((m) => [m, { ...m, clip: m.clip + '_m' }]).filter((m) => getClip(m.clip) && (!want.length || want.includes(m.clip)));
+    const extra = want.filter((c) => !moves.some((m) => m.clip === c) && getClip(c));
+    const PAIRS: [number, number][] = [
+      [B.hips, B.spine], [B.spine, B.chest], [B.chest, B.neck], [B.neck, B.head],
+      [B.uarmL, B.farmL], [B.farmL, B.handL], [B.uarmR, B.farmR], [B.farmR, B.handR],
+      [B.thighL, B.shinL], [B.shinL, B.footL], [B.thighR, B.shinR], [B.shinR, B.footR], [B.footL, B.toeL], [B.footR, B.toeR],
+    ];
+    const NAMES = ['hips', 'spine', 'chest', 'neck', 'uarmL', 'farmL', 'uarmR', 'farmR', 'thighL', 'shinL', 'thighR', 'shinR', 'footL', 'footR'];
+    const qW = new THREE.Quaternion(), qY = new THREE.Quaternion(), dq = new THREE.Quaternion();
+    const Y = new THREE.Vector3(0, 1, 0);
+    const out: { clip: string; worst: string[]; maxSwing: number; maxTwist: number }[] = [];
+    const runOne = (clip: string, range: string, reach: number) => {
+      const back = range === 'back';
+      const dist = range === 'far' ? 5 : range === 'close' ? 0.95 : 1.6;
+      p.x = 0; p.z = 0; p.vx = p.vz = 0;
+      p.yaw = back ? 0 : Math.PI;
+      p.anim.initAt(0, 0, p.yaw);
+      e.x = 0; e.z = -dist; e.vx = e.vz = 0; e.yaw = 0;
+      e.anim.initAt(e.x, e.z, e.yaw);
+      e.attackCooldown = 1e9;
+      e.stunNow(100);
+      for (let i = 0; i < 20; i++) game.step(dt);
+      const pq = (p as unknown as { play: (n: string, o: object) => unknown });
+      pq.play(clip, { target: e, reach, maxWarp: range === 'far' ? 7.5 : 4.2, back, halflife: 0.07, speed: 1.05, entryHalflife: 0.06 });
+      (p as unknown as { action: string }).action = 'attack';
+      (p as unknown as { curMove: unknown }).curMove = null;
+      const prevQ = PAIRS.map(() => new THREE.Quaternion());
+      const prevA = PAIRS.map(() => new THREE.Vector3());
+      const sw: number[][] = [], tw: number[][] = [], times: number[] = [];
+      for (let f = 0; f < 150; f++) {
+        game.step(dt);
+        const fk = p.anim.fk;
+        qY.setFromAxisAngle(Y, p.yaw);
+        const sR: number[] = [], tR: number[] = [];
+        PAIRS.forEach(([b, c], i) => {
+          qW.copy(qY).multiply(fk.rot[b]);
+          const a = new THREE.Vector3().subVectors(fk.pos[c], fk.pos[b]).applyQuaternion(qY).normalize();
+          if (f > 0) {
+            const swing = Math.acos(Math.min(1, Math.max(-1, a.dot(prevA[i]))));
+            dq.copy(qW).multiply(prevQ[i].clone().invert());
+            const vp = dq.x * a.x + dq.y * a.y + dq.z * a.z;
+            const twist = 2 * Math.atan2(Math.abs(vp), Math.abs(dq.w));
+            sR.push(swing / dt);
+            tR.push(twist / dt);
+          }
+          prevQ[i].copy(qW);
+          prevA[i].copy(a);
+        });
+        if (f > 0) {
+          sw.push(sR);
+          tw.push(tR);
+          times.push(p.anim.mode === 'clip' && p.anim.clip ? p.anim.clip.time : -1);
+        }
+        // dump=clip@t0-t1: per-frame effector params and limb geometry around a spike
+        const dump = params.get('dump');
+        if (dump && dump.startsWith(clip + '@') && p.anim.mode === 'clip' && p.anim.clip) {
+          const [t0, t1] = dump.slice(clip.length + 1).split('-').map(Number);
+          const ct = p.anim.clip.time;
+          if (ct >= t0 && ct <= t1) {
+            const pr = p.anim.clip.params;
+            const v = (x: THREE.Vector3) => `${x.x.toFixed(3)},${x.y.toFixed(3)},${x.z.toFixed(3)}`;
+            const bend = (r: number, m: number, en: number) => {
+              const ax = new THREE.Vector3().subVectors(fk.pos[en], fk.pos[r]).normalize();
+              const bm = new THREE.Vector3().subVectors(fk.pos[m], fk.pos[r]);
+              bm.addScaledVector(ax, -bm.dot(ax));
+              return v(bm.normalize());
+            };
+            console.log(`DUMP t=${ct.toFixed(3)} hips=${v(pr.hipsPos)} | footL pos=${v(pr.feet[0].pos)} pole=${v(pr.feet[0].pole)} bend=${bend(B.thighL, B.shinL, B.footL)} | footR pos=${v(pr.feet[1].pos)} pole=${v(pr.feet[1].pole)} bend=${bend(B.thighR, B.shinR, B.footR)} | handL pos=${v(pr.hands[0].pos)} pole=${v(pr.hands[0].pole)} bend=${bend(B.uarmL, B.farmL, B.handL)} roll=${pr.hands[0].roll.toFixed(0)} | handR pos=${v(pr.hands[1].pos)} pole=${v(pr.hands[1].pole)} bend=${bend(B.uarmR, B.farmR, B.handR)} roll=${pr.hands[1].roll.toFixed(0)}`);
+          }
+        }
+        if (p.anim.mode !== 'clip' && f > 5) break;
+      }
+      const worst: { w: number; s: string }[] = [];
+      let maxSwing = 0, maxTwist = 0;
+      for (const [kind, arr] of [['swing', sw], ['twist', tw]] as const) {
+        for (let t = 1; t < arr.length - 1; t++) {
+          for (let i = 0; i < PAIRS.length; i++) {
+            const w = arr[t][i], nb = Math.max(arr[t - 1][i], arr[t + 1][i], 3);
+            if (kind === 'swing') maxSwing = Math.max(maxSwing, w);
+            else maxTwist = Math.max(maxTwist, w);
+            if (w > (kind === 'twist' ? 10 : 14) && w > 2.4 * nb) worst.push({ w, s: `${NAMES[i]} ${kind} ${w.toFixed(0)} (${arr[t - 1][i].toFixed(0)}/${arr[t + 1][i].toFixed(0)}) t=${times[t].toFixed(3)}` });
+          }
+        }
+      }
+      worst.sort((a, b) => b.w - a.w);
+      out.push({ clip, worst: worst.slice(0, 6).map((x) => x.s), maxSwing: +maxSwing.toFixed(0), maxTwist: +maxTwist.toFixed(0) });
+    };
+    for (const m of moves) runOne(m.clip, m.range, m.reach);
+    for (const c of extra) runOne(c, 'mid', 0.9);
+    console.log('CLIPS ' + JSON.stringify(out));
   }
   if (name === 'wounds') {
     // a beaten face and body up close: cuts, a bloody nose, bruises

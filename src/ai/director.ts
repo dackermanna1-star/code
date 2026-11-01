@@ -29,8 +29,10 @@ export class Director {
 
   setWave(w: number) {
     this.wave = w;
-    this.maxAttackers = clamp(1 + Math.floor((w - 1) / 3), 1, 4);
-    this.aggression = clamp(0.45 + w * 0.035, 0.45, 0.95);
+    // (at most three on you at once, and the pressure levels off by wave 10: what changes after
+    // that is who comes at you, not how many at a time)
+    this.maxAttackers = clamp(1 + Math.floor((w - 1) / 4), 1, 3);
+    this.aggression = clamp(0.45 + w * 0.032, 0.45, 0.8);
   }
 
   note(kind: keyof Director['style'], amount = 1) {
