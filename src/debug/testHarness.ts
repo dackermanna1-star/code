@@ -431,6 +431,12 @@ export async function runTest(game: Game, params: URLSearchParams) {
       if (frame === 20) {
         (e as unknown as { attackDef: unknown }).attackDef = atk;
         e.attackCombo = 1;
+        const t0 = game.time;
+        const orig = e.onEvent.bind(e);
+        e.onEvent = (ev) => {
+          if (ev.type === 'hit') console.log(`EATK hit landed after ${(game.time - t0).toFixed(3)} s`);
+          orig(ev);
+        };
         e.startAttack(false);
         const inc = game.director.incoming.find((x) => x.enemy === e);
         console.log(`EATK tell=${inc ? (inc.hitTime - game.time).toFixed(3) : '?'}`);

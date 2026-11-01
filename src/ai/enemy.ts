@@ -4,7 +4,7 @@ import { ClipEvent, getClip } from '../anim/clip';
 import { HitInfo, HitResult, makeHit } from '../combat/types';
 import { ArchetypeCfg } from './archetypes';
 import { ENEMY_ATTACKS, EnemyAttack } from '../combat/moves';
-import { angleDiff, chance, clamp, damp, pick, rand, weightedPick, wrapAngle, yawFromDir } from '../core/math';
+import { angleDiff, chance, clamp, damp, lerp, pick, rand, weightedPick, wrapAngle, yawFromDir } from '../core/math';
 import { DIFFICULTY } from '../core/settings';
 import type { RagdollLike } from '../world/ragdollTypes';
 import { ActiveRagdoll } from '../world/euphoria/bridge';
@@ -13,6 +13,29 @@ import { MocapDriver } from '../anim/mocapLoco';
 import type { Game } from '../game';
 import type { CharacterLibrary, Variant } from '../character/library';
 import { Weapon } from '../combat/weapons';
+
+/** Share of the load-up (clip time) over which an attack accelerates into the strike. */
+const WIND_RAMP = 0.3;
+/**
+ * Load-up speed so that clip time [0, wind] takes `dur` seconds when its last WIND_RAMP part ramps
+ * linearly (in clip time) from that speed to the strike's `v2`: the hit lands exactly when the
+ * warning said it would.
+ */
+function windupSpeed(wind: number, v2: number, dur: number) {
+  const time = (v1: number) => {
+    const ramp = wind * WIND_RAMP;
+    const rampT = Math.abs(v2 - v1) < 1e-6 ? ramp / v1 : (ramp * Math.log(v2 / v1)) / (v2 - v1);
+    return (wind - ramp) / v1 + rampT;
+  };
+  let lo = 0.01, hi = v2;
+  if (time(hi) >= dur) return v2;
+  for (let i = 0; i < 30; i++) {
+    const mid = (lo + hi) / 2;
+    if (time(mid) > dur) lo = mid;
+    else hi = mid;
+  }
+  return (lo + hi) / 2;
+}
 
 export type EnemyState =
   | 'enter' | 'circle' | 'approach' | 'attack' | 'recover' | 'react' | 'stunned' | 'down' | 'getup' | 'paired' | 'dodge' | 'block' | 'taunt' | 'retreat' | 'grabbed'
@@ -110,7 +133,9 @@ export class Enemy extends Fighter {
   private windSpeed = 1;
   private paceAttack() {
     if (!this.clip || this.state !== 'attack' || this.hold) return;
-    this.clip.speed = this.clip.time < this.windEnd ? this.windSpeed : this.atkSpeed;
+    // the last part of the load-up accelerates into the strike instead of switching speed in a frame
+    const t = this.clip.time, r0 = this.windEnd * (1 - WIND_RAMP);
+    this.clip.speed = t < r0 ? this.windSpeed : t < this.windEnd ? lerp(this.windSpeed, this.atkSpeed, (t - r0) / (this.windEnd * WIND_RAMP)) : this.atkSpeed;
   }
 
   get player() {
@@ -401,7 +426,7 @@ export class Enemy extends Fighter {
     const extra = Math.max(0, tell - natural);
     this.atkSpeed = speed;
     this.windEnd = clip.hitT * 0.5;
-    this.windSpeed = extra > 0 ? this.windEnd / (this.windEnd / speed + extra) : speed;
+    this.windSpeed = extra > 0 ? windupSpeed(this.windEnd, speed, this.windEnd / speed + extra) : speed;
     cp.speed = this.windSpeed;
     const hitDelay = natural + extra;
     dir.registerAttack(this, hitDelay, !a.unblockable, this.feinting);
