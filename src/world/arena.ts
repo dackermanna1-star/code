@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { dressArena, Dressing, windowTexture } from './dressing';
 import { BloodAtlas, FaceKind, SPLAT } from './bloodAtlas';
 import { brickTexture, concreteTexture, crateTexture, graffitiTexture, metalSidingTexture, pillarTexture, radialTexture } from './textures';
 import { RNG } from '../core/math';
@@ -106,6 +107,12 @@ export class Arena {
   moon: THREE.DirectionalLight;
   hemi: THREE.HemisphereLight;
   dust: THREE.Points;
+  dressing!: Dressing;
+  /** Called when the faulty lamp spits sparks (world position). */
+  onSpark: ((p: THREE.Vector3) => void) | null = null;
+  private rainMesh: THREE.Mesh | null = null;
+  private sparkCd = 0;
+  private wasOff = false;
   time = 0;
   private rng = new RNG(99);
 
@@ -282,6 +289,7 @@ export class Arena {
 
     // ---------------------------------------------------------------- props (non-paintable decor)
     this.addDecor();
+    this.dressing = dressArena(this);
 
     // ---------------------------------------------------------------- ceiling & trusses
     const ceil = new THREE.Mesh(new THREE.PlaneGeometry(HALF_W * 2, HALF_D * 2), new THREE.MeshStandardMaterial({ color: 0x141518, roughness: 1 }));
@@ -301,19 +309,39 @@ export class Arena {
     }
 
     // ---------------------------------------------------------------- windows (moonlight)
-    const winMat = new THREE.MeshBasicMaterial({ color: 0x6f8fb8 });
+    const winMats = [windowTexture(31), windowTexture(32), windowTexture(33)].map((t) => new THREE.MeshBasicMaterial({ map: t, color: 0xb8c8e0 }));
     const winFrame = new THREE.MeshStandardMaterial({ color: 0x1a1c1e, roughness: 0.6 });
+    const rainGeos: THREE.BufferGeometry[] = [];
+    let wi = 0;
     for (let x = -10; x <= 10; x += 4) {
       for (const zs of [-1, 1]) {
-        const w = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 1.2), winMat);
+        const w = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 1.2), winMats[wi++ % winMats.length]);
         w.position.set(x, 5.6, zs * (HALF_D - 0.03));
         w.rotation.y = zs > 0 ? Math.PI : 0;
         this.group.add(w);
-        for (const dx of [-0.6, 0, 0.6]) {
-          const bar = new THREE.Mesh(new THREE.BoxGeometry(0.05, 1.25, 0.05), winFrame);
-          bar.position.set(x + dx, 5.6, zs * (HALF_D - 0.05));
-          this.group.add(bar);
+        // sill and lintel
+        for (const dy of [-0.66, 0.66]) {
+          const sill = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.1, 0.16), winFrame);
+          sill.position.set(x, 5.6 + dy, zs * (HALF_D - 0.07));
+          this.group.add(sill);
         }
+        // rain running down the glass (one merged, scrolling mesh)
+        const rg = new THREE.PlaneGeometry(2.4, 1.2);
+        rg.applyMatrix4(new THREE.Matrix4().makeRotationY(zs > 0 ? Math.PI : 0));
+        rg.translate(x, 5.6, zs * (HALF_D - 0.045));
+        const uv = rg.attributes.uv.array as Float32Array;
+        for (let i = 0; i < uv.length; i += 2) {
+          uv[i] = uv[i] * 2.4 + x * 0.37;
+          uv[i + 1] *= 0.6;
+        }
+        rainGeos.push(rg);
+      }
+    }
+    {
+      const merged = mergeGeometries(rainGeos, false);
+      if (merged) {
+        this.rainMesh = new THREE.Mesh(merged, new THREE.MeshBasicMaterial({ map: this.dressing.rain, transparent: true, depthWrite: false, opacity: 0.55, blending: THREE.AdditiveBlending, fog: false }));
+        this.group.add(this.rainMesh);
       }
     }
 
@@ -625,6 +653,12 @@ export class Arena {
 
   update(dt: number) {
     this.time += dt;
+    // rain on the glass, pulsing beacon, faint shimmer in the moon beams
+    if (this.rainMesh) (this.rainMesh.material as THREE.MeshBasicMaterial).map!.offset.y += dt * 0.35;
+    const bc = this.dressing.beacon.material as THREE.SpriteMaterial;
+    bc.opacity = 0.15 + 0.45 * Math.pow(0.5 + 0.5 * Math.sin(this.time * 3.1), 3);
+    (this.dressing.beams.material as THREE.MeshBasicMaterial).opacity = 0.05 + Math.sin(this.time * 0.37) * 0.01;
+    this.sparkCd -= dt;
     for (const l of this.lamps) {
       if (l.base > 0) {
         let k = 1;
@@ -632,6 +666,13 @@ export class Arena {
           const t = this.time + l.phase;
           const f = Math.sin(t * 13.0) * Math.sin(t * 7.3) * Math.sin(t * 2.1);
           k = f > 0.55 ? 0.15 : 0.92 + Math.sin(t * 40) * 0.05;
+          // the faulty lamp spits sparks as it cuts out
+          const off = k < 0.5;
+          if (off && !this.wasOff && this.sparkCd <= 0 && this.onSpark) {
+            this.sparkCd = 1.2;
+            this.onSpark(l.bulb.getWorldPosition(new THREE.Vector3()));
+          }
+          this.wasOff = off;
         }
         l.light.intensity = l.base * k;
         (l.bulb.material as THREE.MeshBasicMaterial).color.setScalar(0.4 + 0.6 * k).multiply(new THREE.Color(1, 0.88, 0.66));

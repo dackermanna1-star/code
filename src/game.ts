@@ -128,6 +128,10 @@ export class Game {
     this.death = new DeathSystem(this);
     this.fx = new FX(this, PRESETS[this.settings.quality].maxParticles);
     this.props = new Props(this);
+    this.arena.onSpark = (p) => {
+      this.fx.sparks(p, new THREE.Vector3(0, -1, 0), 16);
+      if (this.started) this.audio.crack(p);
+    };
     this.player = new Player(this, this.lib, this.lib.get('player'));
     this.player.spawn(0, 2, Math.PI);
     this.addBodyProxy(this.player);
@@ -206,6 +210,7 @@ export class Game {
 
   beginRun() {
     this.hud?.show(null);
+    this.cam.framingDist = 0;
     this.started = true;
     this.paused = false;
     this.audio.resume();
@@ -310,7 +315,10 @@ export class Game {
     for (const e of this.enemies()) if (e.alive && e.distTo(this.player) < 7) near++;
     const focus = new THREE.Vector3(this.player.x, 1.0, this.player.z);
     if (!this.started && !this.testMode) {
-      this.cam.yaw += realDt * 0.08;
+      // title screen: slow, low cinematic orbit around the fighter
+      this.cam.yaw += realDt * 0.05;
+      this.cam.pitch = damp(this.cam.pitch, 0.12, 1.5, realDt);
+      this.cam.framingDist = 1.4;
     }
     this.cam.update(dt, realDt, focus, lx, ly, near, Math.hypot(this.player.vx, this.player.vz) > 0.5);
     // audio listener
