@@ -80,7 +80,12 @@ hunch, limp, clutch their side and hang back; broken arms dangle and change thei
 
 **Animation** — fully procedural: an IK pose solver drives every limb; 72 authored motions (117 clips with mirrors and paired tracks:
 strikes, reactions, get-ups, paired counters/finishers authored as two synchronized tracks);
-procedural locomotion with planted feet (no foot sliding), toe-off and stance-aware stepping;
+procedural locomotion with planted feet (no foot sliding) driven by a human gait model — walk
+and run cadence / duty factor from biomechanics data, heel strike and toe-off rolling over the
+foot, a running flight phase with heel recovery and knee drive, pelvis twist and list, arms that
+counter-swing the legs, hips that turn towards the travel direction when circling (the chest
+stays on the opponent, legs never cross), immediate re-stepping when a foot is left behind,
+turn-on-the-spot stepping and a living guard idle (weight shifts, light bounce);
 **inertialized transitions** (velocity-matched offset decay) on every clip/locomotion/ragdoll
 switch so nothing ever pops; spring-based secondary motion for hit reactions; active
 (euphoria-style) ragdolls for staggers, knockdowns, throws and deaths — see below.
@@ -111,6 +116,17 @@ In play:
   preset (7–14 substeps, 4–12 bodies); substeps also adapt to a per-step time budget, and extra
   bodies beyond the cap fall back to passive Rapier ragdolls. Settings → *Active ragdolls*
   switches the whole system back to classic Rapier ragdolls.
+
+**Arena** — a moonlit warehouse: pallet racking with stock, lockers, a workbench, an overhead
+crane rail with chains, bulkhead wall lamps washing light down the walls, rain running down
+grimy factory windows with faint moon beams, a flickering lamp that sparks, a red beacon over
+the loading door, exit signs, hazard-striped thresholds, oil drums and crates you can knock
+over or smash.
+
+**Interface** — a cinematic title over the live arena, keyboard-navigable menus with UI sounds,
+a HUD with a damage-trail health bar, guard and finisher meters, tiered combo meter, kill feed,
+counter / unblockable markers with off-screen arrows, damage-direction arcs, boss bar with phase
+marks, a pause screen with run stats, tabbed settings and a ranked results screen.
 
 **Look** — PS2-style low-poly skinned characters generated in code (29 outfit variants: hair,
 facial hair, headwear, jackets, armour, tattoos, scars) with hand-painted-style canvas
@@ -169,6 +185,11 @@ node tests/run.mjs "test=stress&corpses=300" tests/out/stress.png 900
 ```bash
 node tests/film.mjs "test=film&enemy=club&n=2&warm=40&framing=-2.8" tests/out/film 12 5
 ```
+
+`node tests/ui.mjs tests/out/ui` screenshots every interface state, `node tests/arena.mjs
+tests/out/arena` renders fixed-camera views of the arena, and the locomotion viewer films gaits
+frame by frame: `node tests/film.mjs "viewer=loco&film=1&path=line&speed=1.6&style=relaxed&warm=60"
+tests/out/walk 16 4` (paths: line, strafe, back, diag, circle, turn, stopgo).
 
 `test=waves` runs the real wave game with a scripted bot (counters, dodges, finishers),
 `test=stress` bakes N ragdoll corpses plus blood and measures frame cost (then drops fresh

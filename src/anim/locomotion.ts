@@ -113,6 +113,7 @@ export class Locomotion {
   private groundSm = 0;
   private rhythmic = false;
   private legYaw = 0;
+  private idleShift = 0;
   private _home0 = new THREE.Vector3();
   private _home1 = new THREE.Vector3();
   private _walkArm = new THREE.Vector3();
@@ -449,23 +450,31 @@ export class Locomotion {
     const planted = this.feet.filter((f) => !f.swing);
     const gLow = this.ground && planted.length ? Math.min(0.4, ...planted.map((f) => f.pos.y)) : 0;
     this.groundSm = lerp(this.groundSm, Math.max(0, gLow), 1 - Math.exp(-8 * dt));
+    // idle life: a slow weight shift between the feet, and a light bounce on the balls of the
+    // feet for the nimble styles (each fighter has its own phase via this.time's random start)
+    const idleK = (1 - gk) * (1 - this.blockSm) * (1 - this.hunchSm * 0.6);
+    const nimble = inp.style === 'agile' || inp.style === 'master' || inp.style === 'fight';
+    const heavyStyle = inp.style === 'heavy' || inp.style === 'brawl';
+    const shift = Math.sin(t * (heavyStyle ? 0.55 : 0.8)) * (heavyStyle ? 0.03 : 0.022) * idleK * (fightStyle ? 1 : 0.5);
+    const bounce = nimble ? (Math.abs(Math.sin(t * 2.7)) - 0.6) * 0.012 * idleK : 0;
     prm.hipsPos.set(
-      lerp(0, fcx, hipOverFeet) + swayX,
-      def.offsets[B.hips].y + (crouch + runBob + walkBob + idleBob - stepBob - limpDip) * S + this.groundSm * 0.85,
+      lerp(0, fcx, hipOverFeet) + swayX + shift * S,
+      def.offsets[B.hips].y + (crouch + runBob + walkBob + idleBob - stepBob - limpDip + bounce) * S + this.groundSm * 0.85,
       lerp(0, fcz, hipOverFeet * 0.6) + clamp(lvz * 0.015, -0.04, 0.07) * S,
     );
+    this.idleShift = shift;
     // pelvis turns with the legs (the hip of the forward leg leads), lists towards the swing leg
     const pelvisTwist = clamp(-strideLR * lerp(9, 12, runK), -12, 12) * gk * (1 - shuffleK * 0.8);
     let list = 0;
     if (rhythmic) for (let i = 0; i < 2; i++) if (this.feet[i].swing) list += (i === 0 ? 1 : -1) * Math.sin(Math.PI * this.feet[i].t) * lerp(4, 2, runK);
     const pelvisYaw = lerp(st.hipsYaw, 0, Math.max(runK, gk * 0.6 * (1 - shuffleK))) + pelvisTwist + (legYaw / DEG) * 0.65;
     const pelvisPitch = st.hipsPitch + leanFwd * 0.25;
-    eulerDeg(pelvisPitch, pelvisYaw, -leanSide * 0.3 + list * gk, prm.hipsRot);
+    eulerDeg(pelvisPitch, pelvisYaw, -leanSide * 0.3 + list * gk - this.idleShift * 140, prm.hipsRot);
     const chestYawStance = lerp(st.chestYaw, 0, Math.max(runK, gk * 0.6 * (1 - shuffleK)));
     // shoulders counter-rotate against the pelvis so the chest stays square to the travel
     const counter = -pelvisTwist * lerp(1.15, 1.35, runK) - (legYaw / DEG) * 0.6;
     const spinePitch = lerp(st.spinePitch, lerp(3, 7, runK), Math.max(runK, gk * 0.5)) + leanFwd * 0.45 + breathe * 0.8;
-    eulerDeg(spinePitch * 0.5, chestYawStance * 0.5 + counter * 0.5 + inp.look * 0.15 / DEG, leanSide * 0.35 - list * 0.4 * gk, prm.spine);
+    eulerDeg(spinePitch * 0.5, chestYawStance * 0.5 + counter * 0.5 + inp.look * 0.15 / DEG, leanSide * 0.35 - list * 0.4 * gk + this.idleShift * 90, prm.spine);
     eulerDeg(spinePitch * 0.5 - breathe * 1.0, chestYawStance * 0.5 + counter * 0.5 + inp.look * 0.2 / DEG, leanSide * 0.35 - list * 0.3 * gk, prm.chest);
     // head stays level and on target
     const totalYaw = pelvisYaw + chestYawStance + counter + inp.look * 0.35 / DEG;

@@ -56,6 +56,15 @@ All sound effects in `public/audio/` were cut, converted and normalised from the
 | Ragdoll Lab active-ragdoll engine (`src/world/euphoria/engine.js`) | provided by the project owner | XPBD solver + balance / bracing / get-up controller for bodies |
 | [Vite](https://vitejs.dev) | MIT | Dev server and build |
 
+## Fonts
+
+| Font | Author | License | Use |
+|---|---|---|---|
+| [Anton](https://fonts.google.com/specimen/Anton) | The Anton Project Authors | SIL OFL 1.1 | Display titles and numbers |
+| [Barlow Condensed](https://fonts.google.com/specimen/Barlow+Condensed) | The Barlow Project Authors | SIL OFL 1.1 | Interface text |
+
+The font files and their license texts are in `src/ui/fonts/` (see `OFL.txt`).
+
 ## Art and animation
 
 All character meshes, textures, environment art, animations and music are generated
