@@ -584,10 +584,8 @@ export class Game {
           const nx = dx / d, nz = dz / d;
           const wa = a.anim.mode === 'clip' ? 0.3 : 1, wb = b.anim.mode === 'clip' ? 0.3 : 1;
           const tw = wa + wb;
-          a.x -= nx * push * ((2 * wa) / tw);
-          a.z -= nz * push * ((2 * wa) / tw);
-          b.x += nx * push * ((2 * wb) / tw);
-          b.z += nz * push * ((2 * wb) / tw);
+          a.shove(-nx * push * ((2 * wa) / tw), -nz * push * ((2 * wa) / tw));
+          b.shove(nx * push * ((2 * wb) / tw), nz * push * ((2 * wb) / tw));
         }
       }
     }

@@ -148,13 +148,16 @@ export async function runTest(game: Game, params: URLSearchParams) {
     game.started = true;
     game.waves.start(Number(params.get('wave') ?? 1));
     const god = params.get('god') === '1';
+    const probe = params.get('probe') === '1' ? new (await import('./animProbe')).AnimProbe(game) : null;
     for (let i = 0; i < frames; i++) {
       bot.update(dt);
       if (god) game.player.hp = Math.max(game.player.hp, 60);
       game.step(dt);
+      probe?.sample(dt);
       if (i % 600 === 0) console.log(`t=${(i / 60).toFixed(0)}s wave=${game.waves.wave} corpses=${game.corpses.count} enemies=${game.enemies().filter((e) => e.alive).length} hp=${game.player.hp.toFixed(0)} combo=${game.player.bestCombo}`);
       if (!game.player.alive && !god) break;
     }
+    if (probe) console.log('PROBE ' + JSON.stringify(probe.report((frames * dt))));
     const ec = game.euphoria.counters;
     result.euphoria = { created: ec.created, peak: ec.peak, steps: ec.steps, avgStepMs: +(ec.stepMsTotal / Math.max(1, ec.steps)).toFixed(3), worstStepMs: +ec.worstStepMs.toFixed(2), statics: game.euphoria.staticCount, ...game.euphoria.events };
     result.wave = game.waves.wave;

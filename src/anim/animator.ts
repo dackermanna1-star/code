@@ -1,10 +1,10 @@
 import * as THREE from 'three';
 import { B, BONE_COUNT, SkeletonDef } from './skeleton';
 import { Pose, PoseFK } from './pose';
-import { solvePose } from './solver';
+import { solvePose, SolveState, twoBoneIK } from './solver';
 import { Locomotion, LocoInput } from './locomotion';
 import { AimProvider, Clip, ClipEvent, ClipPlayer } from './clip';
-import { decaySpring, quatToScaledAxis, rotY, scaledAxisToQuat, clamp } from '../core/math';
+import { decaySpring, quatToScaledAxis, rotY, scaledAxisToQuat, clamp, smoothstep } from '../core/math';
 import { CharacterModel } from '../character/library';
 
 export type AnimMode = 'loco' | 'clip' | 'external' | 'frozen';
@@ -22,6 +22,7 @@ const _q2 = new THREE.Quaternion();
 const _v = new THREE.Vector3();
 const _v2 = new THREE.Vector3();
 const _e = new THREE.Euler();
+const _lk = { th: new THREE.Vector3(), tgt: new THREE.Vector3(), axis: new THREE.Vector3(), bend: new THREE.Vector3(), mid: new THREE.Vector3(), end: new THREE.Vector3(), b2: new THREE.Vector3(), d0: new THREE.Vector3(), d1: new THREE.Vector3(), q1: new THREE.Quaternion(), q2: new THREE.Quaternion(), qf: new THREE.Quaternion(), inv: new THREE.Quaternion() };
 
 export interface PlayOptions {
   /** World origin of the clip space. Defaults to the character's root. */
@@ -72,6 +73,10 @@ export class Animator {
   postRot: (THREE.Quaternion | null)[] = new Array(BONE_COUNT).fill(null);
   initialized = false;
   ground: ((x: number, z: number) => number) | null = null;
+  private srcFk = new PoseFK();
+  /** IK continuity memory (see SolveState). */
+  solveState = new SolveState();
+  private lockFk = new PoseFK();
 
   constructor(public def: SkeletonDef, public model: CharacterModel) {
     for (let i = 0; i < BONE_COUNT; i++) {
@@ -99,6 +104,7 @@ export class Animator {
     this.rootYaw = yaw;
     this.mode = 'loco';
     this.initialized = false;
+    this.solveState.reset();
   }
 
   /** Current world-space ankle ground positions and yaws from the last output. */
@@ -160,6 +166,7 @@ export class Animator {
       p.advance(opt.startTime);
       p.computeRoot();
     }
+    if (this.mode === 'external' || this.mode === 'frozen') this.solveState.reset();
     this.clip = p;
     this.mode = 'clip';
     this.external = null;
@@ -173,6 +180,7 @@ export class Animator {
     const yaws: [number, number] = [0, 0];
     this.feetWorld(feet, yaws);
     this.loco.init(feet, yaws, this.rootYaw);
+    if (this.mode === 'external' || this.mode === 'frozen') this.solveState.reset();
     this.mode = 'loco';
     this.clip = null;
     this.external = null;
@@ -262,13 +270,13 @@ export class Animator {
         li.rootZ = rootZ;
         li.rootYaw = rootYaw;
         const prm = this.loco.update(li, def);
-        solvePose(def, prm, this.src);
+        solvePose(def, prm, this.src, null, this.solveState);
         break;
       }
       case 'clip': {
         if (this.clip) {
           const prm = this.clip.evaluate(def);
-          solvePose(def, prm, this.src);
+          solvePose(def, prm, this.src, null, this.solveState);
         }
         break;
       }
@@ -354,12 +362,67 @@ export class Animator {
       const pr = this.postRot[i];
       if (pr) this.out.q[i].multiply(pr);
     }
+    // ---- leg lock: while the body blends between poses (or sways on its hip spring), the feet
+    // the source pose has on the floor stay exactly where it plants them - no skating
+    if ((this.mode === 'loco' || this.mode === 'clip') && (this.inertia || this.sx[0].lengthSq() > 1e-6)) this.lockLegs(def);
     this.lastDt = dt;
     const tmp = this.prevFk;
     this.prevFk = this.fk;
     this.fk = tmp;
     this.fk.compute(this.out, def);
     this.model.applyPose(this.out);
+  }
+
+  private lockLegs(def: SkeletonDef) {
+    const sfk = this.srcFk.compute(this.src, def);
+    // (a scratch FK: this.fk still holds last frame's result, which becomes prevFk)
+    const ofk = this.lockFk.compute(this.out, def);
+    const S = def.scale;
+    const L = _lk;
+    for (let side = 0; side < 2; side++) {
+      const th = side === 0 ? B.thighL : B.thighR;
+      const sh = side === 0 ? B.shinL : B.shinR;
+      const ft = side === 0 ? B.footL : B.footR;
+      const sA = sfk.pos[ft], oA = ofk.pos[ft];
+      // floor height under the source foot (bodies on the ground)
+      let gy = 0;
+      if (this.ground) {
+        const [wx, wz] = rotY(sA.x, sA.z, this.rootYaw);
+        gy = this.ground(this.rootX + wx, this.rootZ + wz);
+      }
+      const hs = sA.y - gy - def.ankleHeight, ho = oA.y - gy - def.ankleHeight;
+      // only feet the source has on (or just above) the floor, and only once the blended foot is
+      // close to it too (a kick blending out comes down first, then locks)
+      const w = (1 - smoothstep(0.03 * S, 0.1 * S, hs)) * (1 - smoothstep(0.05 * S, 0.16 * S, ho));
+      if (w < 1e-3) continue;
+      const P = L.th.copy(ofk.pos[th]);
+      const K = ofk.pos[sh];
+      L.tgt.copy(oA).lerp(sA, w);
+      // keep the blended knee's bend plane
+      L.axis.subVectors(oA, P).normalize();
+      L.bend.subVectors(K, P);
+      L.bend.addScaledVector(L.axis, -L.bend.dot(L.axis));
+      if (L.bend.lengthSq() < 1e-10) L.bend.set(0, 0, 1);
+      twoBoneIK(P, L.tgt, L.bend, def.lenThigh, def.lenShin, L.mid, L.end, L.b2);
+      // minimal rotations from the blended leg onto the re-solved one (identity when nothing moves)
+      L.d0.subVectors(K, P).normalize();
+      L.d1.subVectors(L.mid, P).normalize();
+      L.q1.setFromUnitVectors(L.d0, L.d1);
+      const Wth = L.qf.copy(L.q1).multiply(ofk.rot[th]);
+      L.inv.copy(ofk.rot[B.hips]).invert();
+      this.out.q[th].copy(L.inv).multiply(Wth);
+      // shin: follow the thigh, then turn onto the new shin direction
+      L.d0.subVectors(oA, K).normalize().applyQuaternion(L.q1);
+      L.d1.subVectors(L.end, L.mid).normalize();
+      L.q2.setFromUnitVectors(L.d0, L.d1).multiply(L.q1);
+      const Wsh = L.q2.multiply(ofk.rot[sh]);
+      L.inv.copy(Wth).invert();
+      this.out.q[sh].copy(L.inv).multiply(Wsh);
+      // foot orientation towards the source's planted foot
+      const Wft = L.q1.copy(ofk.rot[ft]).slerp(sfk.rot[ft], w);
+      L.inv.copy(Wsh).invert();
+      this.out.q[ft].copy(L.inv).multiply(Wft);
+    }
   }
 
   /** Advance clip time & collect events (call before computing root). */

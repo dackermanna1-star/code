@@ -52,7 +52,19 @@ export function decaySpring(x: number, v: number, halflife: number, dt: number):
 
 // ---------------------------------------------------------------- easing
 export type EaseName =
-  | 'linear' | 'smooth' | 'in' | 'out' | 'inout' | 'in3' | 'out3' | 'snap' | 'back' | 'hold' | 'expoIn';
+  | 'linear' | 'smooth' | 'in' | 'out' | 'inout' | 'in3' | 'out3' | 'snap' | 'back' | 'hold' | 'expoIn' | 'recoil';
+
+/**
+ * Integral of a trapezoid speed profile: speed ramps up from 0 over [0, c], holds, then eases down
+ * to r x full speed over the last e. Front-loaded but never a one-frame jump.
+ */
+function plateau(t: number, c: number, e: number, r: number) {
+  const V = 1 / (1 - c / 2 - (e * (1 - r)) / 2);
+  if (t < c) return (V * t * t) / (2 * c);
+  if (t < 1 - e) return V * (c / 2 + t - c);
+  const u = t - (1 - e);
+  return Math.min(1, V * (c / 2 + 1 - c - e + u - ((1 - r) * u * u) / (2 * e)));
+}
 
 export function ease(name: EaseName | undefined, t: number): number {
   t = clamp01(t);
@@ -68,13 +80,18 @@ export function ease(name: EaseName | undefined, t: number): number {
     case 'in3':
       return t * t * t;
     case 'expoIn':
-      return t === 0 ? 0 : Math.pow(2, 10 * t - 10);
+      // telegraphed strike: a slow start, then fast all the way into contact
+      return plateau(t, 0.5, 0.12, 0.55);
     case 'out':
       return 1 - (1 - t) * (1 - t);
     case 'out3':
       return 1 - Math.pow(1 - t, 3);
     case 'snap':
-      return t === 1 ? 1 : 1 - Math.pow(2, -10 * t);
+      // explosive strike: full speed within the first fifth, still fast at contact
+      return plateau(t, 0.2, 0.25, 0.35);
+    case 'recoil':
+      // retraction after a strike: starts from rest, quick, settles into the guard
+      return 1 - Math.pow(1 - Math.pow(t, 1.5), 2.5);
     case 'back': {
       const c1 = 1.70158 * 0.6;
       const c3 = c1 + 1;

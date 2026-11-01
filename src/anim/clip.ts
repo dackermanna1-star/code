@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { B, SkeletonDef } from './skeleton';
-import { makeParams, PoseParams } from './solver';
+import { makeParams, pivotOffset, PoseParams } from './solver';
 import { catmull, clamp01, DEG, ease, EaseName, eulerDeg, lerp, rotY, smoothstep, wrapAngle } from '../core/math';
 
 export type V3 = [number, number, number];
@@ -233,8 +233,31 @@ function mergeFoot(base: RKey['lf'], k: KeyFoot | undefined, first: boolean): RK
 
 export const CLIPS = new Map<string, Clip>();
 
+/**
+ * Phrase strike timing: the wind-up before a strike settles (ends at rest instead of at full speed,
+ * so the release is not a one-frame reversal), and the retraction after it starts from rest.
+ */
+function phraseStrikes(keys: RKey[]) {
+  const strike = (e: EaseName | undefined) => e === 'snap' || e === 'expoIn';
+  for (let i = 1; i < keys.length; i++) {
+    if (!strike(keys[i].e)) continue;
+    // a spin carries straight through the wind-up key: keep its momentum (no settle)
+    if (i >= 2) {
+      const dPrev = keys[i - 1].root[2] - keys[i - 2].root[2], dCur = keys[i].root[2] - keys[i - 1].root[2];
+      if (Math.abs(dPrev) > 40 && Math.abs(dCur) > 40 && Math.sign(dPrev) === Math.sign(dCur)) {
+        keys[i].e = 'out3';
+        continue;
+      }
+    }
+    const pe = keys[i - 1].e;
+    if (i - 1 > 0 && (pe === 'in' || pe === 'in3' || pe === 'linear')) keys[i - 1].e = 'smooth';
+    if (i + 1 < keys.length && keys[i + 1].e === 'out') keys[i + 1].e = 'recoil';
+  }
+}
+
 export function defineClip(name: string, spec: ClipSpec): Clip {
   const keys = resolve(spec);
+  phraseStrikes(keys);
   const dur = spec.dur ?? keys[keys.length - 1].t;
   const clip: Clip = {
     name,
@@ -593,15 +616,17 @@ export class ClipPlayer {
       }
       const yaw = lerpAngleRad(a.yaw, b.yaw, smoothstep(0, 1, s)) + rootInvYaw;
       const pitch = lerp(f1.pitch, f2.pitch, s);
-      // heel lift: when a grounded foot pitches toes-down, the ankle rotates up about the ball of the foot
-      let heelY = 0, heelBack = 0;
-      if (pitch > 0 && y < 0.36) {
-        const L = def.footLen * 0.85;
-        heelY = Math.sin(pitch * DEG) * L;
-        heelBack = (1 - Math.cos(pitch * DEG)) * L;
+      // a grounded foot pivots on its contact point: about the ball of the foot when the heel is up,
+      // about the heel when the toes are up (fades out as the foot leaves the floor)
+      let pivY = 0, pivF = 0;
+      if (y < 0.36) {
+        const k = 1 - smoothstep(0.16, 0.36, y);
+        const pv = pivotOffset(def, pitch);
+        pivY = pv[0] * k;
+        pivF = pv[1] * k;
       }
       const wyaw = yaw - rootInvYaw;
-      _v.set(x - Math.sin(wyaw) * heelBack, y + def.ankleHeight + heelY, z - Math.cos(wyaw) * heelBack);
+      _v.set(x + Math.sin(wyaw) * pivF, y + def.ankleHeight + pivY, z + Math.cos(wyaw) * pivF);
       // aim (kicks)
       const aimW = lerp(f1.aimW, f2.aimW, s);
       const aimP = f2.aim ?? f1.aim;

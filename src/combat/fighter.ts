@@ -271,6 +271,21 @@ export abstract class Fighter implements AimProvider {
     }
   }
 
+  /**
+   * Displace the root (collision separation). A clip carries the offset in its root correction,
+   * so its world-planted feet stay where they are instead of sliding with the body.
+   */
+  shove(dx: number, dz: number) {
+    this.x += dx;
+    this.z += dz;
+    const c = this.anim.mode === 'clip' ? this.anim.clip : null;
+    if (c) {
+      c.blockX += dx;
+      c.blockZ += dz;
+      c.computeRoot();
+    }
+  }
+
   /** Pose + render transform. */
   animate(dt: number) {
     if (this.anim.mode === 'loco') {
