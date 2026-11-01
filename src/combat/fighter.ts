@@ -292,6 +292,8 @@ export abstract class Fighter implements AimProvider {
       const [cx, cz] = this.game.arena.collide(this.x, this.z, this.radius, this.ghostWalls);
       this.x = cx;
       this.z = cz;
+      // (couches, carts and drums are walked round, not through)
+      this.game.props?.collideFighter(this);
     }
   }
 

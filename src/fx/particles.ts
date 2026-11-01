@@ -223,6 +223,9 @@ export class FX {
   add: ParticlePool;
   wood: Debris;
   bone: Debris;
+  /** Broken glass (flat shards that glint) and chunks (ceramic, plastic, trash, electronics). */
+  shard: Debris;
+  chunk: Debris;
   dropRadius: Float32Array;
   dropsLanded = 0;
 
@@ -236,6 +239,14 @@ export class FX {
     this.wood = new Debris(game.scene, splinter, new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.85 }));
     const chip = new THREE.BoxGeometry(0.012, 0.014, 0.01);
     this.bone = new Debris(game.scene, chip, new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.5 }), 1000);
+    const tri = new THREE.BufferGeometry();
+    tri.setAttribute('position', new THREE.Float32BufferAttribute([0, 0, 0.05, -0.035, 0, -0.03, 0.04, 0, -0.025, 0, 0.004, 0.05, 0.04, 0.004, -0.025, -0.035, 0.004, -0.03], 3));
+    tri.setIndex([0, 1, 2, 3, 4, 5, 0, 2, 4, 0, 4, 3, 1, 5, 4, 1, 4, 2, 0, 3, 5, 0, 5, 1]);
+    tri.computeVertexNormals();
+    this.shard = new Debris(game.scene, tri, new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.05, metalness: 0.4, envMapIntensity: 2 }), 1500);
+    const ico = new THREE.IcosahedronGeometry(0.03, 0);
+    ico.scale(1, 0.6, 0.8);
+    this.chunk = new Debris(game.scene, ico, new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.6, flatShading: true }), 1500);
   }
 
   /** Arterial/impact blood spray. dir = main direction (world, normalized). */
@@ -304,7 +315,7 @@ export class FX {
 
   dust(p: THREE.Vector3, amount = 1) {
     // (the rooftop is soaked: what would be dust is spray)
-    if (this.game.arena.map === 'rooftop' && p.y < 0.4) {
+    if (this.game.arena.wet && p.y < 0.4) {
       this.splash(p, amount);
       return;
     }
@@ -315,6 +326,28 @@ export class FX {
       this.soft.spawn(p.x + Math.cos(a) * 0.1, 0.05 + rand(0, 0.1), p.z + Math.sin(a) * 0.1, Math.cos(a) * s, rand(0.05, 0.4), Math.sin(a) * s, rand(0.15, 0.32) * (0.6 + amount * 0.5), 0.42, 0.4, 0.37, 0.32, rand(0.7, 1.4), { grow: 0.6, drag: 2.2 });
     }
   }
+  /** Something broke: pieces of it fly and stay where they land. */
+  shatter(p: THREE.Vector3, material: string, colors: number[], n: number, size: number, force = 1) {
+    const c = new THREE.Color();
+    const pool = material === 'glass' ? this.shard : material === 'wood' ? this.wood : this.chunk;
+    const k = 0.6 + force * 0.8;
+    for (let i = 0; i < n; i++) {
+      c.setHex(colors[i % colors.length]).multiplyScalar(rand(0.8, 1.15));
+      const off = new THREE.Vector3(rand(-1, 1) * size * 0.6, rand(-0.5, 1) * size * 0.6, rand(-1, 1) * size * 0.6);
+      const v = off.clone().normalize().multiplyScalar(rand(0.6, 2.4) * k).add(new THREE.Vector3(0, rand(0.5, 2.5) * k, 0));
+      const scale = material === 'glass' ? rand(0.4, 1.4) : material === 'wood' ? rand(0.25, 0.8) * Math.max(0.5, size * 1.6) : rand(0.5, 1.5) * Math.max(0.6, size * 2);
+      pool.spawn(p.clone().add(off), v, scale, c);
+    }
+    if (material === 'glass') {
+      // a glitter of tiny bright bits
+      for (let i = 0; i < 10; i++) this.add.spawn(p.x, p.y, p.z, rand(-2, 2), rand(0.5, 3), rand(-2, 2), rand(0.008, 0.016), 1.4, 1.6, 1.8, 0.8, rand(0.15, 0.35), { grav: 9.8, drag: 0.8 });
+    } else if (material === 'paper' || material === 'trash' || material === 'fabric') {
+      this.dust(p.clone().setY(0.05), 0.4);
+    } else if (material === 'ceramic') {
+      this.dust(p.clone().setY(Math.min(p.y, 0.3)), 0.7);
+    }
+  }
+
   woodBurst(p: THREE.Vector3, n = 24) {
     const c = new THREE.Color();
     for (let i = 0; i < n; i++) {
@@ -409,6 +442,8 @@ export class FX {
     }
     this.wood.update(dt);
     this.bone.update(dt);
+    this.shard.update(dt);
+    this.chunk.update(dt);
     this.drops.upload();
     this.soft.upload();
     this.add.upload();

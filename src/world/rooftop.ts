@@ -4,7 +4,9 @@ import { HALF_D, HALF_W, paintQuad } from './arena';
 import type { Arena } from './arena';
 import { BloodAtlas, SPLAT } from './bloodAtlas';
 import type { Dressing } from './dressing';
+import type { MapParts } from './mapKit';
 import { concreteTexture, radialTexture } from './textures';
+import { buildCity, buildStreet, neonTexture, skyTexture } from './city';
 import { RNG } from '../core/math';
 
 // ============================================================================ textures
@@ -119,115 +121,14 @@ function puddleTexture(seed: number, drains: [number, number][]) {
   t.channel = 1;
   return { map: t, pools };
 }
-/** A city block face at night: a grid of windows, some lit (warm, cold, television blue). */
-function facadeTexture(seed: number, tone: string) {
-  const W = 256, H = 512;
-  const rng = new RNG(seed);
-  const [c, x] = canvas(W, H);
-  x.fillStyle = tone;
-  x.fillRect(0, 0, W, H);
-  const cols = 6 + Math.floor(rng.next() * 4), rows = 16 + Math.floor(rng.next() * 8);
-  const cw = W / cols, rh = H / rows;
-  const lit = 0.1 + rng.next() * 0.2;
-  for (let j = 0; j < rows; j++) {
-    for (let i = 0; i < cols; i++) {
-      const on = rng.next() < lit;
-      const k = rng.next();
-      x.fillStyle = on ? (k < 0.6 ? `rgba(255,${190 + rng.next() * 40},${110 + rng.next() * 50},${0.7 + rng.next() * 0.3})` : k < 0.85 ? 'rgba(200,225,255,0.85)' : 'rgba(110,150,255,0.9)') : `rgba(10,12,18,${0.85})`;
-      x.fillRect(i * cw + cw * 0.18, j * rh + rh * 0.2, cw * 0.64, rh * 0.55);
-    }
-  }
-  const t = tex(c);
-  t.wrapS = t.wrapT = THREE.RepeatWrapping;
-  return t;
-}
-
-/** Glowing tube lettering on black (the bloom pass does the halo). */
-function neonTexture(lines: string[], color: string, w = 1024, h = 320) {
-  const [c, x] = canvas(w, h);
-  x.fillStyle = '#05040a';
-  x.fillRect(0, 0, w, h);
-  x.strokeStyle = 'rgba(80,70,90,0.6)';
-  x.lineWidth = 6;
-  x.strokeRect(10, 10, w - 20, h - 20);
-  x.textAlign = 'center';
-  x.textBaseline = 'middle';
-  const fs0 = Math.floor((h * 0.72) / lines.length);
-  lines.forEach((l, i) => {
-    // a smaller second line, every line fitted to the frame
-    let fs = i === 0 ? fs0 * 1.15 : fs0 * 0.7;
-    x.font = `800 ${fs}px "Arial Black", Impact, sans-serif`;
-    const tw = x.measureText(l).width;
-    if (tw > w * 0.88) fs *= (w * 0.88) / tw;
-    x.font = `800 ${fs}px "Arial Black", Impact, sans-serif`;
-    const y = h * (lines.length === 1 ? 0.5 : i === 0 ? 0.36 : 0.76);
-    x.shadowColor = color;
-    x.shadowBlur = 28;
-    x.fillStyle = color;
-    x.fillText(l, w / 2, y);
-    x.shadowBlur = 6;
-    x.fillStyle = '#ffffff';
-    x.globalAlpha = 0.65;
-    x.fillText(l, w / 2, y);
-    x.globalAlpha = 1;
-  });
-  return tex(c, true, false);
-}
-
-/**
- * Night sky over a city in the rain: a low overcast lit from below - dull violet overhead, a hot
- * magenta-amber glow at the horizon - with torn cloud base drifting through it.
- */
-function skyTexture(seed: number) {
-  const W = 1024, H = 512;
-  const rng = new RNG(seed);
-  const [c, x] = canvas(W, H);
-  const g = x.createLinearGradient(0, 0, 0, H);
-  g.addColorStop(0, '#0b0913');
-  g.addColorStop(0.3, '#151022');
-  g.addColorStop(0.44, '#2a1732');
-  g.addColorStop(0.495, '#56283e');
-  g.addColorStop(0.51, '#3e1e2c');
-  g.addColorStop(0.56, '#150c12');
-  g.addColorStop(1, '#060407');
-  x.fillStyle = g;
-  x.fillRect(0, 0, W, H);
-  // cloud base: soft lumps, brighter (city-lit) toward the horizon
-  for (let i = 0; i < 260; i++) {
-    const y = H * (0.08 + Math.pow(rng.next(), 0.6) * 0.4);
-    const k = y / (H * 0.5);
-    const cx = rng.next() * W, rw = 30 + rng.next() * 140, rh = 6 + rng.next() * 18 * k;
-    const lum = 16 + k * k * 46;
-    for (const ox of [0, W, -W]) {
-      const cg = x.createRadialGradient(cx + ox, y, 0, cx + ox, y, rw);
-      cg.addColorStop(0, `rgba(${lum * 1.15},${lum * 0.8},${lum * 1.25},${0.08 + rng.next() * 0.1})`);
-      cg.addColorStop(1, 'rgba(0,0,0,0)');
-      x.fillStyle = cg;
-      x.beginPath();
-      x.ellipse(cx + ox, y, rw, rh, 0, 0, Math.PI * 2);
-      x.fill();
-    }
-  }
-  const t = tex(c, true, false);
-  t.mapping = THREE.EquirectangularReflectionMapping;
-  return t;
-}
-
 // ============================================================================ build
-export interface RooftopParts {
-  moon: THREE.DirectionalLight;
-  hemi: THREE.HemisphereLight;
-  dust: THREE.Points;
-  dressing: Dressing;
-  update: (dt: number) => void;
-}
 
 /**
  * THE ROOFTOP: a tarred roof in the rain, high over a neon city. Same footprint as the warehouse
  * floor (the blood atlas, the AI and the camera all keep their bearings), but its edge is a knee-high
  * parapet - and beyond it, nothing: a body sent over it is gone for good.
  */
-export function buildRooftop(a: Arena, blood: BloodAtlas, pointLights: number, shadowMapSize: number): RooftopParts {
+export function buildRooftop(a: Arena, blood: BloodAtlas, pointLights: number, shadowMapSize: number): MapParts {
   const g = a.group;
   const rng = new RNG(7311);
   const S = blood.size;
@@ -252,6 +153,10 @@ export function buildRooftop(a: Arena, blood: BloodAtlas, pointLights: number, s
 
   // ---------------------------------------------------------------------- the look
   a.fog = { color: 0x120d18, density: 0.022 };
+  a.wet = true;
+  a.farPlane = 320;
+  // (no walls: the camera may hang out over the drop; the stair huts block it)
+  a.camBounds = { out: 3.5, maxY: 9, walls: true };
   const sky = skyTexture(3);
   a.background = sky;
   a.groundRect = { minX: -HALF_W - 0.4, maxX: HALF_W + 0.4, minZ: -HALF_D - 0.4, maxZ: HALF_D + 0.4 };
@@ -293,10 +198,11 @@ export function buildRooftop(a: Arena, blood: BloodAtlas, pointLights: number, s
   const doorLights: THREE.Vector3[] = [];
   type Side = { name: string; o: THREE.Vector3; u: THREE.Vector3; len: number; gap: [number, number]; out: THREE.Vector3 };
   const sides: Side[] = [
-    { name: 'north', o: new THREE.Vector3(HALF_W, 0, -HALF_D), u: new THREE.Vector3(-1, 0, 0), len: HALF_W * 2, gap: [HALF_W - 1.3, HALF_W + 1.3], out: new THREE.Vector3(0, 0, -1) },
-    { name: 'south', o: new THREE.Vector3(-HALF_W, 0, HALF_D), u: new THREE.Vector3(1, 0, 0), len: HALF_W * 2, gap: [HALF_W - 1.3, HALF_W + 1.3], out: new THREE.Vector3(0, 0, 1) },
-    { name: 'east', o: new THREE.Vector3(HALF_W, 0, HALF_D), u: new THREE.Vector3(0, 0, -1), len: HALF_D * 2, gap: [HALF_D - 1.1, HALF_D + 1.1], out: new THREE.Vector3(1, 0, 0) },
-    { name: 'west', o: new THREE.Vector3(-HALF_W, 0, -HALF_D), u: new THREE.Vector3(0, 0, 1), len: HALF_D * 2, gap: [HALF_D - 1.1, HALF_D + 1.1], out: new THREE.Vector3(-1, 0, 0) },
+    // (o = left end seen from inside, u to the right: the paintable inner face faces the roof)
+    { name: 'north', o: new THREE.Vector3(-HALF_W, 0, -HALF_D), u: new THREE.Vector3(1, 0, 0), len: HALF_W * 2, gap: [HALF_W - 1.3, HALF_W + 1.3], out: new THREE.Vector3(0, 0, -1) },
+    { name: 'south', o: new THREE.Vector3(HALF_W, 0, HALF_D), u: new THREE.Vector3(-1, 0, 0), len: HALF_W * 2, gap: [HALF_W - 1.3, HALF_W + 1.3], out: new THREE.Vector3(0, 0, 1) },
+    { name: 'east', o: new THREE.Vector3(HALF_W, 0, -HALF_D), u: new THREE.Vector3(0, 0, 1), len: HALF_D * 2, gap: [HALF_D - 1.1, HALF_D + 1.1], out: new THREE.Vector3(1, 0, 0) },
+    { name: 'west', o: new THREE.Vector3(-HALF_W, 0, HALF_D), u: new THREE.Vector3(0, 0, -1), len: HALF_D * 2, gap: [HALF_D - 1.1, HALF_D + 1.1], out: new THREE.Vector3(-1, 0, 0) },
   ];
   for (const sd of sides) {
     for (const [u0, u1] of [[0, sd.gap[0]], [sd.gap[1], sd.len]] as [number, number][]) {
@@ -612,78 +518,16 @@ export function buildRooftop(a: Arena, blood: BloodAtlas, pointLights: number, s
   }
 
   // ---------------------------------------------------------------------- the city
-  const beacons: THREE.Vector3[] = [];
-  {
-    const tones = ['#0e1016', '#12141a', '#16131a', '#0c0f14'];
-    const mats = tones.map((tn, i) => new THREE.MeshBasicMaterial({ map: facadeTexture(500 + i * 7, tn), color: 0xb8b0c0, fog: true }));
-    const geosBy: THREE.BufferGeometry[][] = mats.map(() => []);
-    for (let i = 0; i < 90; i++) {
-      const ang = (i / 90) * Math.PI * 2 + rng.next() * 0.06;
-      const ring = i % 3;
-      const r = ring === 0 ? 30 + rng.next() * 12 : ring === 1 ? 46 + rng.next() * 18 : 68 + rng.next() * 30;
-      const x = Math.cos(ang) * r, z = Math.sin(ang) * r * 0.9;
-      // we're high up: the near blocks sit below the roof (you look down on them), the far ones
-      // climb into a skyline
-      const top = ring === 0 ? -16 + rng.next() * 15 : ring === 1 ? -8 + rng.next() * 22 : 4 + rng.next() * 42;
-      const w = 7 + rng.next() * 11, d = 7 + rng.next() * 11;
-      const bottom = -60;
-      const h = top - bottom;
-      const geo = new THREE.BoxGeometry(w, h, d);
-      const uv = geo.attributes.uv.array as Float32Array;
-      for (let k = 0; k < uv.length; k += 2) {
-        uv[k] *= w / 8;
-        uv[k + 1] *= h / 16;
-      }
-      geo.translate(x, bottom + h / 2, z);
-      geosBy[i % mats.length].push(geo);
-      // aircraft-warning beacons on the tall ones
-      if (top > 18 && rng.next() < 0.5) beacons.push(new THREE.Vector3(x, top + 0.6, z));
-    }
-    mats.forEach((m, i) => {
-      const merged = mergeGeometries(geosBy[i], false);
-      if (merged) {
-        const mesh = new THREE.Mesh(merged, m);
-        mesh.matrixAutoUpdate = false;
-        g.add(mesh);
-        reflected.push(mesh);
-      }
-    });
-  }
-
-  // the street, a long way down: sodium lamps along the blocks, headlights and tail-lights
-  {
-    const S = 1024;
-    const [c, x] = canvas(S, S);
-    x.fillStyle = '#050406';
-    x.fillRect(0, 0, S, S);
-    const cell = S / 24;
-    for (let i = 0; i <= 24; i++) {
-      for (const horiz of [true, false]) {
-        const p0 = i * cell + (rng.next() - 0.5) * cell * 0.3;
-        // the road's own glow, then a lamp every few metres
-        x.fillStyle = 'rgba(120,70,30,0.35)';
-        if (horiz) x.fillRect(0, p0 - 3, S, 6);
-        else x.fillRect(p0 - 3, 0, 6, S);
-        for (let t = 0; t < S; t += 9 + rng.next() * 6) {
-          x.fillStyle = `rgba(255,${150 + rng.next() * 40},70,${0.5 + rng.next() * 0.4})`;
-          if (horiz) x.fillRect(t, p0 - 4, 2, 2);
-          else x.fillRect(p0 - 4, t, 2, 2);
-        }
-        // traffic: white heading one way, red the other
-        for (let k = 0; k < 6; k++) {
-          const t = rng.next() * S, len = 4 + rng.next() * 10;
-          x.fillStyle = rng.next() < 0.5 ? 'rgba(255,245,220,0.9)' : 'rgba(255,40,30,0.85)';
-          if (horiz) x.fillRect(t, p0 + (rng.next() < 0.5 ? -1 : 1), len, 1.5);
-          else x.fillRect(p0 + (rng.next() < 0.5 ? -1 : 1), t, 1.5, len);
-        }
-      }
-    }
-    const street = new THREE.Mesh(new THREE.PlaneGeometry(240, 240).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ map: tex(c, true, false), fog: false, color: 0x9a8a8a }));
-    street.position.y = -58;
-    street.matrixAutoUpdate = false;
-    street.updateMatrix();
-    g.add(street);
-  }
+  // we're high up: the near blocks sit below the roof (you look down on them), the far ones climb
+  // into a skyline; the street glows a long way down
+  const city = buildCity(g, rng, [
+    { n: 30, r0: 30, r1: 42, top0: -16, top1: -1 },
+    { n: 30, r0: 46, r1: 64, top0: -8, top1: 14 },
+    { n: 30, r0: 68, r1: 98, top0: 4, top1: 46 },
+  ]);
+  reflected.push(...city.meshes);
+  const beacons = city.beacons;
+  buildStreet(g, rng, -58);
 
   // moon
   const moonDir = new THREE.Vector3(0.5, 0.6, 0.62).normalize();

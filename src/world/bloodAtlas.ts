@@ -658,17 +658,25 @@ export class BloodAtlas {
   }
 
   /** Patch a standard material so it shows the persistent blood/paint/AO from the atlas. */
-  patchMaterial(mat: THREE.MeshStandardMaterial, opts: { paintColor?: THREE.Color; dirt?: number; lift?: number } = {}) {
+  /**
+   * Patch a standard material so it shows the persistent blood/paint/AO from the atlas.
+   * `overlay`: a non-tiling RGBA layer (graffiti, signage, stains) painted between the surface's own
+   * texture and the blood, sampled with the geometry's `ovUv` attribute (see setOverlayUv).
+   */
+  patchMaterial(mat: THREE.MeshStandardMaterial, opts: { paintColor?: THREE.Color; dirt?: number; lift?: number; overlay?: THREE.Texture | null } = {}) {
     const atlas = this.rt.texture;
     const paintColor = opts.paintColor ?? new THREE.Color(0.75, 0.72, 0.62);
+    const ov = opts.overlay ?? null;
+    if (ov) mat.defines = { ...(mat.defines ?? {}), LS_OVERLAY: '' };
     mat.onBeforeCompile = (shader) => {
       shader.uniforms.uBloodAtlas = { value: atlas };
       shader.uniforms.uPaintColor = { value: paintColor };
       // (a cold, dim set like the rooftop turns dark red to black: a little of its own red keeps it blood)
       shader.uniforms.uBloodLift = { value: opts.lift ?? 0 };
+      if (ov) shader.uniforms.uOverlay = { value: ov };
       shader.vertexShader = shader.vertexShader
-        .replace('#include <common>', '#include <common>\nattribute vec2 bloodUv;\nvarying vec2 vBloodUv;\nvarying vec3 vWPos;')
-        .replace('#include <begin_vertex>', '#include <begin_vertex>\nvBloodUv = bloodUv;\nvWPos = (modelMatrix * vec4(position, 1.0)).xyz;');
+        .replace('#include <common>', '#include <common>\nattribute vec2 bloodUv;\nvarying vec2 vBloodUv;\nvarying vec3 vWPos;\n#ifdef LS_OVERLAY\nattribute vec2 ovUv;\nvarying vec2 vOvUv;\n#endif')
+        .replace('#include <begin_vertex>', '#include <begin_vertex>\nvBloodUv = bloodUv;\nvWPos = (modelMatrix * vec4(position, 1.0)).xyz;\n#ifdef LS_OVERLAY\nvOvUv = ovUv;\n#endif');
       shader.fragmentShader = shader.fragmentShader
         .replace(
           '#include <common>',
@@ -678,13 +686,28 @@ uniform vec3 uPaintColor;
 uniform float uBloodLift;
 varying vec2 vBloodUv;
 varying vec3 vWPos;
+#ifdef LS_OVERLAY
+uniform sampler2D uOverlay;
+varying vec2 vOvUv;
+#endif
 float lsBlood = 0.0;
 float lsThick = 0.0;
+float lsPaint = 0.0;
 ${NOISE_GLSL}`,
         )
         .replace(
           '#include <map_fragment>',
           `#include <map_fragment>
+#ifdef LS_OVERLAY
+{
+  // painted on: the surface's own light and shade (mortar lines, grain) shows through the paint
+  vec4 ov = texture2D(uOverlay, vOvUv);
+  float baseL = dot(diffuseColor.rgb, vec3(0.299, 0.587, 0.114));
+  vec3 paint = ov.rgb * mix(1.0, clamp(baseL * 2.4, 0.55, 1.25), 0.32);
+  diffuseColor.rgb = mix(diffuseColor.rgb, paint, ov.a);
+  lsPaint = ov.a;
+}
+#endif
 {
   vec4 b = texture2D(uBloodAtlas, vBloodUv);
   float n = lsNoise(vWPos * 38.0);
@@ -710,6 +733,7 @@ ${NOISE_GLSL}`,
         .replace(
           '#include <roughnessmap_fragment>',
           `#include <roughnessmap_fragment>
+roughnessFactor = mix(roughnessFactor, roughnessFactor * 0.82, lsPaint);
 roughnessFactor = mix(roughnessFactor, mix(0.85, 0.24, lsThick), lsBlood);`,
         )
         .replace(
@@ -726,6 +750,6 @@ radiance *= 1.0 - lsBlood * 0.75;
 #endif`,
         );
     };
-    mat.customProgramCacheKey = () => 'ls-blood-surface';
+    mat.customProgramCacheKey = () => (ov ? 'ls-blood-surface-ov' : 'ls-blood-surface');
   }
 }

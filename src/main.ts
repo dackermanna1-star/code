@@ -12,6 +12,11 @@ async function boot() {
     m.runSheetViewer(params);
     return;
   }
+  if (viewer === 'graffiti') {
+    const m = await import('./debug/graffitiViewer');
+    await m.runGraffitiViewer(params);
+    return;
+  }
   if (viewer === 'loco') {
     const m = await import('./debug/locoViewer');
     m.runLocoViewer(params);

@@ -168,10 +168,10 @@ export class CameraRig {
     const dir = pos.clone().sub(focus);
     const len = dir.length();
     let tMin = 1;
-    const roof = this.arena.map === 'rooftop';
+    const cb = this.arena.camBounds;
     for (const o of this.arena.obstacles) {
-      // (the warehouse's walls are the clamp below; the rooftop's stair huts are real boxes)
-      if (o.kind === 'wall' && !roof) continue;
+      // (a room's walls are the clamp below; the rooftop's stair huts are real boxes)
+      if (o.kind === 'wall' && !cb.walls) continue;
       // (a knee-high parapet only matters to the low gameplay camera; a shot looks over it)
       if (o.h < 1.0 && (o.kind !== 'ledge' || cine)) continue;
       const t = segBox2D(focus.x, focus.z, pos.x, pos.z, o.minX - m, o.maxX + m, o.minZ - m, o.maxZ + m);
@@ -182,11 +182,9 @@ export class CameraRig {
       }
     }
     if (tMin < 1) pos = focus.clone().addScaledVector(dir, Math.max(0.15, tMin - 0.02 / Math.max(len, 1e-3)));
-    // the rooftop has no walls: the camera may hang out over the drop
-    const out = roof ? 3.5 : -m;
-    pos.x = clamp(pos.x, -HALF_W - out, HALF_W + out);
-    pos.z = clamp(pos.z, -HALF_D - out, HALF_D + out);
-    pos.y = clamp(pos.y, 0.3, roof ? 9 : WALL_H - 1.2);
+    pos.x = clamp(pos.x, -HALF_W - cb.out, HALF_W + cb.out);
+    pos.z = clamp(pos.z, -HALF_D - cb.out, HALF_D + cb.out);
+    pos.y = clamp(pos.y, 0.3, cb.maxY);
     return pos;
   }
 

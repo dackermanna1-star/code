@@ -24,7 +24,7 @@ export interface Settings {
   /** How hard the waves push: warning time, damage, how many attack at once, aggression. */
   difficulty: Difficulty;
   /** Which arena the run is fought in. */
-  map: 'warehouse' | 'rooftop';
+  map: 'warehouse' | 'rooftop' | 'alley' | 'apartment' | 'lab';
 }
 
 export type Difficulty = 'story' | 'fighter' | 'brutal';

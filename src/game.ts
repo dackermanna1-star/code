@@ -3,7 +3,7 @@ import { Renderer } from './render/renderer';
 import { DIFFICULTY, loadSettings, PRESETS, Settings } from './core/settings';
 import { Input } from './core/input';
 import { CameraRig } from './fx/camera';
-import { Arena, HALF_D, HALF_W } from './world/arena';
+import { Arena, HALF_D, HALF_W, isMapName, MAPS } from './world/arena';
 import { BloodAtlas, setDrains, SPLAT } from './world/bloodAtlas';
 import { MocapDriver } from './anim/mocapLoco';
 import { CharacterLibrary } from './character/library';
@@ -101,21 +101,19 @@ export class Game {
     this.blood = new BloodAtlas(preset.bloodAtlas, HALF_W * 2, HALF_D * 2);
     this.blood.renderer = this.renderer.gl;
     const mp = this.params.get('map');
-    if (mp === 'warehouse' || mp === 'rooftop') this.settings.map = mp;
+    if (isMapName(mp)) this.settings.map = mp;
     this.arena = new Arena(this.blood, preset.pointLights, preset.shadowMap, this.settings.map);
     this.scene.add(this.arena.group);
     setDrains(this.arena.drains);
-    if (this.arena.map === 'rooftop') this.lib.surface = { roughness: 0.52, env: 1.25 };
+    if (this.arena.wet) this.lib.surface = { roughness: 0.52, env: 1.25 };
     this.scene.fog = new THREE.FogExp2(this.arena.fog.color, this.arena.fog.density);
     this.scene.background = this.arena.background;
     this.scene.environment = this.arena.environment;
     this.cam = new CameraRig(window.innerWidth / window.innerHeight, this.arena);
     this.arena.view = this.cam.camera;
-    if (this.arena.map === 'rooftop') {
-      // the skyline, the moon and the storm are a long way off
-      this.cam.camera.far = 320;
-      this.cam.camera.updateProjectionMatrix();
-    }
+    // (outdoors the skyline, the moon and the storm are a long way off)
+    this.cam.camera.far = this.arena.farPlane;
+    this.cam.camera.updateProjectionMatrix();
     this.renderer.onResize = () => {
       this.cam.camera.aspect = window.innerWidth / Math.max(1, window.innerHeight);
       this.cam.camera.updateProjectionMatrix();
@@ -250,7 +248,7 @@ export class Game {
       this.scene.backgroundIntensity = 1 + fl * 4;
       this.scene.environmentIntensity = 1 + fl * 1.5;
     }
-    if (this.arena.map === 'rooftop' && this.started) {
+    if ((this.arena.map === 'rooftop' || this.arena.map === 'alley') && this.started) {
       this.sirenT -= dt;
       if (this.sirenT <= 0) {
         this.sirenT = 40 + Math.random() * 60;
@@ -431,7 +429,7 @@ export class Game {
 
   private footsteps() {
     // footstep sounds & bloody footprints from planted feet (cheap poll on locomotion plants)
-    const wet = this.arena.map === 'rooftop';
+    const wet = this.arena.wet;
     for (const f of this.fighters) {
       if (!f.alive || f.anim.mode !== 'loco') continue;
       const lo = f.anim.loco;
@@ -490,7 +488,7 @@ export class Game {
     const torso = i.seg === 'pelvis' || i.seg === 'abdomen' || i.seg === 'chest';
     if (torso || i.seg === 'head' || sp > 3.2) this.audio.play('body_fall', { pos: i.point, vol: vol * (torso ? 0.95 : 0.6), pitch: torso ? 1 : 1.15 });
     else if (sp > 1.5) this.audio.play('footstep', { pos: i.point, vol: vol * 0.55 });
-    if (this.arena.map === 'rooftop' && i.other === 'floor' && sp > 1.5) this.audio.splash(i.point, vol * (torso ? 1 : 0.5));
+    if (this.arena.wet && i.other === 'floor' && sp > 1.5) this.audio.splash(i.point, vol * (torso ? 1 : 0.5));
     if (i.material === 'metal' && sp > 1.8) this.audio.play('metal_hit', { pos: i.point, vol: vol * 0.55 });
     if (i.other === 'floor' && sp > 2.4 && torso) this.fx.dust(i.point.clone().setY(0.03), clamp(sp / 7, 0.25, 0.9));
     if (i.other === 'prop' && sp > 2.2) this.cam.addTrauma(0.05);
@@ -662,7 +660,7 @@ export class Game {
     const p = this.player;
     const stats = {
       Difficulty: this.settings.difficulty.toUpperCase(),
-      Arena: this.arena.map === 'rooftop' ? 'THE ROOFTOP' : 'THE WAREHOUSE',
+      Arena: MAPS.find((m) => m.id === this.arena.map)?.name ?? this.arena.map,
       'Wave reached': this.waves.wave,
       Score: p.score.toLocaleString(),
       Kills: p.stats.kills,
@@ -823,6 +821,15 @@ export async function startGame(params: URLSearchParams) {
   loading.className = 'loading';
   loading.innerHTML = '<div class="lg">LAST<br><span>STANCE</span></div><div class="lb"><i></i></div><div class="lt">PREPARING THE ARENA</div>';
   document.body.appendChild(loading);
+  // the arenas paint lettering into their textures (graffiti, signs): have the fonts first
+  try {
+    await Promise.race([
+      Promise.all([document.fonts.load("400 100px 'Anton'"), document.fonts.load("italic 800 60px 'Barlow Condensed'"), document.fonts.load("700 60px 'Barlow Condensed'")]),
+      new Promise((r) => setTimeout(r, 3000)),
+    ]);
+  } catch {
+    /* system fonts then */
+  }
   const game = new Game(app, params);
   (window as unknown as { game: Game }).game = game;
   await game.init();

@@ -1,6 +1,11 @@
 import * as THREE from 'three';
 import { dressArena, Dressing, windowTexture } from './dressing';
 import { buildRooftop } from './rooftop';
+import { buildAlley } from './alley';
+import { buildApartment } from './apartment';
+import { buildLab } from './lab';
+import type { MapParts } from './mapKit';
+import type { PropPlacement } from './props';
 import { BloodAtlas, FaceKind, SPLAT } from './bloodAtlas';
 import { brickTexture, concreteTexture, crateTexture, graffitiTexture, metalSidingTexture, pillarTexture, radialTexture } from './textures';
 import { RNG } from '../core/math';
@@ -38,11 +43,15 @@ export const HALF_W = 13;
 export const HALF_D = 11;
 export const WALL_H = 7;
 
-export type MapName = 'warehouse' | 'rooftop';
+export type MapName = 'warehouse' | 'rooftop' | 'alley' | 'apartment' | 'lab';
 export const MAPS: { id: MapName; name: string; blurb: string }[] = [
   { id: 'warehouse', name: 'THE WAREHOUSE', blurb: 'Moonlit concrete, pillars and crates' },
   { id: 'rooftop', name: 'THE ROOFTOP', blurb: 'Neon, rain and a long way down' },
+  { id: 'alley', name: 'THE ALLEY', blurb: 'Graffiti, garbage and power lines' },
+  { id: 'apartment', name: 'THE PENTHOUSE', blurb: 'A rich man\'s loft, and everything in it breaks' },
+  { id: 'lab', name: 'THE LAB', blurb: 'Security, specimens and something in the tank' },
 ];
+export const isMapName = (s: string | null): s is MapName => !!s && MAPS.some((m) => m.id === s);
 
 /** Build a quad with tiling uv (meters / tile) and blood atlas uv. */
 export function paintQuad(blood: BloodAtlas, origin: THREE.Vector3, u: THREE.Vector3, v: THREE.Vector3, w: number, h: number, tile: [number, number], kind: FaceKind, density: number, segU = 1, segV = 1) {
@@ -137,6 +146,8 @@ export class Arena {
     drums: [[-8.8, -7.6], [-8.2, -8.4], [8.9, 6.4], [9.4, -6.9], [-3.4, 9.7], [12.0, 1.5], [-12.1, -1.9]],
     crates: [[-6.0, 9.9, 0], [-5.2, 9.8, 0], [-5.6, 9.85, 0.75], [6.2, -9.9, 0], [10.6, 3.2, 0], [-10.4, -3.8, 0]],
   };
+  /** Dynamic props placed by kind (furniture, bottles, bins...). */
+  propList: PropPlacement[] = [];
   /** Low points the floor slopes towards (blood runs there). */
   drains: [number, number][] = [[-9.5, 4.5], [8.5, -3.0], [3.0, 8.6]];
   /** Per-frame animation of the map's own set dressing (rain, neon, fans). */
@@ -150,9 +161,23 @@ export class Arena {
   /** The game camera (weather that wants to be seen, like lightning, strikes where it looks). */
   view: THREE.Camera | null = null;
 
+  /** Rain-soaked fighters (glossier skin and cloth). */
+  wet = false;
+  /** Where the camera may go: metres past the walls (negative = inside), its ceiling, and whether
+   * 'wall' obstacles inside the room block it (the rooftop's stair huts). */
+  camBounds = { out: -0.35, maxY: WALL_H - 1.2, walls: false };
+  /** Camera far plane (outdoor maps see a long way). */
+  farPlane = 120;
+  /** The map's own bosses in place of the standard ones (wave boss key -> archetype key). */
+  bossMap: Record<string, string> = {};
+  /** The map's own enemy outfits (archetype -> variant names), registered by the game. */
+  roster: 'lab' | null = null;
+
   constructor(public blood: BloodAtlas, pointLights: number, shadowMapSize: number, public map: MapName = 'warehouse') {
-    if (map === 'rooftop') {
-      const r = buildRooftop(this, blood, pointLights, shadowMapSize);
+    const builders: Partial<Record<MapName, (a: Arena, b: BloodAtlas, pl: number, sm: number) => MapParts>> = { rooftop: buildRooftop, alley: buildAlley, apartment: buildApartment, lab: buildLab };
+    const build = builders[map];
+    if (build) {
+      const r = build(this, blood, pointLights, shadowMapSize);
       this.moon = r.moon;
       this.hemi = r.hemi;
       this.dust = r.dust;
@@ -183,7 +208,7 @@ export class Arena {
 
     // ---------------------------------------------------------------- walls
     const brick = brickTexture(12);
-    const wallMat = new THREE.MeshStandardMaterial({ map: brick, roughness: 0.92, color: 0xa09088 });
+    const wallMat = new THREE.MeshStandardMaterial({ map: brick, roughness: 0.92, color: 0x84766e });
     blood.patchMaterial(wallMat);
     const siding = metalSidingTexture(13);
     const sidingMat = new THREE.MeshStandardMaterial({ map: siding, roughness: 0.6, metalness: 0.35, color: 0x8a9096 });
@@ -191,11 +216,13 @@ export class Arena {
     const wallGeos: THREE.BufferGeometry[] = [];
     const upperGeos: THREE.BufferGeometry[] = [];
     type WallSpec = { origin: THREE.Vector3; u: THREE.Vector3; len: number; doorAt?: number; doorW?: number; doorH?: number; name: string };
+    // (origin = the wall's left end seen from inside, u runs to its right: u x up faces the room,
+    // so the paintable face is a front face from inside and takes blood)
     const walls: WallSpec[] = [
-      { name: 'north', origin: new THREE.Vector3(HALF_W, 0, -HALF_D), u: new THREE.Vector3(-1, 0, 0), len: HALF_W * 2, doorAt: HALF_W, doorW: 5, doorH: 4.2 },
-      { name: 'south', origin: new THREE.Vector3(-HALF_W, 0, HALF_D), u: new THREE.Vector3(1, 0, 0), len: HALF_W * 2, doorAt: HALF_W, doorW: 5, doorH: 4.2 },
-      { name: 'east', origin: new THREE.Vector3(HALF_W, 0, HALF_D), u: new THREE.Vector3(0, 0, -1), len: HALF_D * 2, doorAt: HALF_D, doorW: 2.2, doorH: 2.8 },
-      { name: 'west', origin: new THREE.Vector3(-HALF_W, 0, -HALF_D), u: new THREE.Vector3(0, 0, 1), len: HALF_D * 2, doorAt: HALF_D, doorW: 2.2, doorH: 2.8 },
+      { name: 'north', origin: new THREE.Vector3(-HALF_W, 0, -HALF_D), u: new THREE.Vector3(1, 0, 0), len: HALF_W * 2, doorAt: HALF_W, doorW: 5, doorH: 4.2 },
+      { name: 'south', origin: new THREE.Vector3(HALF_W, 0, HALF_D), u: new THREE.Vector3(-1, 0, 0), len: HALF_W * 2, doorAt: HALF_W, doorW: 5, doorH: 4.2 },
+      { name: 'east', origin: new THREE.Vector3(HALF_W, 0, -HALF_D), u: new THREE.Vector3(0, 0, 1), len: HALF_D * 2, doorAt: HALF_D, doorW: 2.2, doorH: 2.8 },
+      { name: 'west', origin: new THREE.Vector3(-HALF_W, 0, HALF_D), u: new THREE.Vector3(0, 0, -1), len: HALF_D * 2, doorAt: HALF_D, doorW: 2.2, doorH: 2.8 },
     ];
     const up = new THREE.Vector3(0, 1, 0);
     for (const w of walls) {

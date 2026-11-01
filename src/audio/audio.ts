@@ -276,7 +276,7 @@ export class AudioSys {
    * Looping beds for the map: the warehouse is factory hum with rain on the roof outside; the rooftop
    * is the rain itself, up close, over a low city rumble.
    */
-  startAmbience(map: 'warehouse' | 'rooftop' = 'warehouse') {
+  startAmbience(map: string = 'warehouse') {
     const c = this.ctx;
     if (!c || !this.loaded) return;
     const list = this.cats['ambience'] ?? [];
@@ -408,6 +408,94 @@ export class AudioSys {
     g.connect(this.amb);
     s.start(t, Math.random() * 3);
     s.stop(t + dur + 0.1);
+  }
+
+  /** A short burst of filtered noise (the building block of the synthesized breakage sounds). */
+  private noiseHit(t: number, type: BiquadFilterType, f0: number, f1: number, q: number, v: number, dur: number) {
+    const c = this.ctx!;
+    const s = c.createBufferSource();
+    s.buffer = this.noiseBuf;
+    const f = c.createBiquadFilter();
+    f.type = type;
+    f.frequency.setValueAtTime(f0, t);
+    f.frequency.exponentialRampToValueAtTime(Math.max(40, f1), t + dur);
+    f.Q.value = q;
+    const g = c.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(Math.max(0.0002, v), t + 0.004);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    s.connect(f);
+    f.connect(g);
+    g.connect(this.sfx);
+    s.start(t, Math.random() * 0.7, dur + 0.05);
+  }
+  /** Bright little rings: glass and china. */
+  private tinkles(t: number, n: number, lo: number, hi: number, v: number) {
+    const c = this.ctx!;
+    for (let i = 0; i < n; i++) {
+      const tt = t + Math.random() * 0.25 + i * 0.01;
+      const o = c.createOscillator();
+      o.type = 'sine';
+      o.frequency.setValueAtTime(lo + Math.random() * (hi - lo), tt);
+      const g = c.createGain();
+      g.gain.setValueAtTime(0.0001, tt);
+      g.gain.exponentialRampToValueAtTime(v * (0.4 + Math.random() * 0.6), tt + 0.002);
+      g.gain.exponentialRampToValueAtTime(0.0001, tt + 0.05 + Math.random() * 0.12);
+      o.connect(g);
+      g.connect(this.sfx);
+      o.start(tt);
+      o.stop(tt + 0.2);
+    }
+  }
+
+  /** Something broke: glass shatters, china smashes, screens pop, cardboard crumples, bags burst. */
+  shatter(material: string, pos: THREE.Vector3 | null, vol = 1) {
+    const c = this.ctx;
+    if (!c || !this.noiseBuf || c.state !== 'running') return;
+    const t = c.currentTime;
+    const v = vol * this.distGain(pos);
+    switch (material) {
+      case 'glass':
+        this.noiseHit(t, 'highpass', 2600, 1800, 0.7, 0.55 * v, 0.35);
+        this.noiseHit(t, 'bandpass', 5200, 3800, 2, 0.3 * v, 0.6);
+        this.tinkles(t + 0.02, 14, 3000, 7500, 0.12 * v);
+        break;
+      case 'electronics':
+        this.noiseHit(t, 'highpass', 2200, 1600, 0.7, 0.5 * v, 0.3);
+        this.noiseHit(t, 'lowpass', 900, 200, 0.7, 0.6 * v, 0.25);
+        this.tinkles(t + 0.02, 8, 2500, 6000, 0.1 * v);
+        break;
+      case 'ceramic':
+        this.noiseHit(t, 'bandpass', 2400, 1200, 1.4, 0.7 * v, 0.22);
+        this.tinkles(t + 0.01, 8, 1800, 4200, 0.12 * v);
+        break;
+      case 'paper':
+        this.noiseHit(t, 'bandpass', 1400, 600, 0.8, 0.45 * v, 0.3);
+        this.noiseHit(t + 0.08, 'bandpass', 1100, 500, 0.8, 0.3 * v, 0.25);
+        break;
+      case 'trash':
+      case 'fabric':
+        this.noiseHit(t, 'lowpass', 1200, 300, 0.7, 0.6 * v, 0.28);
+        this.play('squish', { pos, vol: 0.35 * vol, pitch: 0.7 });
+        break;
+      case 'wood':
+        this.play('wood_break', { pos, vol });
+        break;
+      default:
+        this.play('metal_hit', { pos, vol });
+    }
+  }
+  /** Glass or china knocked but not broken. */
+  clink(pos: THREE.Vector3 | null, vol = 0.5) {
+    const c = this.ctx;
+    if (!c || c.state !== 'running') return;
+    this.tinkles(c.currentTime, 2, 2200, 4800, 0.09 * vol * this.distGain(pos));
+  }
+  /** Something soft or plastic hits the floor. */
+  thudSoft(pos: THREE.Vector3 | null, vol = 0.5) {
+    const c = this.ctx;
+    if (!c || !this.noiseBuf || c.state !== 'running') return;
+    this.noiseHit(c.currentTime, 'lowpass', 700, 150, 0.7, 0.4 * vol * this.distGain(pos), 0.14);
   }
 
   /** Water underfoot / under a body: a short wet slap of filtered noise. */
