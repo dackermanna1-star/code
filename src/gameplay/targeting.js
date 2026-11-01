@@ -29,8 +29,9 @@ export function pickCombatTarget(c, chars, prefDirYaw, current) {
 export function interactionCandidates(game, p, prefYaw) {
   const out = [];
   const R = CONFIG.interact.radius + 0.6;
+  const fighting = p.combatTimer > 0 && p.combatTarget && !p.combatTarget.isDown && Math.hypot(p.combatTarget.x - p.x, p.combatTarget.z - p.z) < 5;
   for (const o of game.characters) {
-    if (o === p || o.isDown || o.state === 'grappled') continue;
+    if (fighting || o === p || o.isDown || o.state === 'grappled') continue;
     const d = Math.hypot(o.x - p.x, o.z - p.z);
     if (d > CONFIG.interact.talkReach + 0.6) continue;
     out.push({ kind: 'talk', ref: o, d, x: o.x, z: o.z, pri: 0.25 });

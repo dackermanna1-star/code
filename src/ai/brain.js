@@ -52,7 +52,7 @@ export class Brain {
       ax += -dz * Math.sign(side || 1) * -push; az += dx * Math.sign(side || 1) * -push;
     }
     dx += ax * 0.9; dz += az * 0.9;
-    const speed = opts.run ? c.maxSpeed('run') * 0.95 : clamp(1.45 + c.stats.agi / 120, 1.3, 2.1);
+    const speed = opts.run ? c.maxSpeed('run') * 0.95 : clamp(1.75 + c.stats.agi / 110, 1.6, 2.4);
     const slow = this.pathIdx >= this.path.length - 1 && d < 1.2 ? 0.6 : 1;
     c.setMove(dx, dz, speed * slow);
     return 'moving';
@@ -84,9 +84,12 @@ export class Brain {
     const c = this.c;
     this.pathAge += dt;
     if (c.state === 'ko' || c.state === 'down' || c.state === 'thrown' || c.state === 'getup' || c.state === 'grappled' || c.state === 'cuffed') { c.stop(); return; }
+    if (this.paused) { c.stop(); return; }
     this.thinkT -= dt;
     if (this.thinkT <= 0) { this.thinkT = CONFIG.ai.thinkInterval * this.rng.range(0.8, 1.25); this.think(); }
     if (this.fight && this.fight.target) this._fightTick(dt);
+    else if (c.flags.dispatch && this.game.rules && this.game.rules.tickGuard(this, dt)) { /* chasing an offender */ }
+    else if (this.goal && this.goal.type === 'follow') this._follow(dt);
     else if (this.goal && this.game.planner) this.game.planner.tick(this, dt);
     else if (this.goal) this._basicGoal(dt);
     else c.stop();
@@ -109,6 +112,14 @@ export class Brain {
     else if (!this.fight && !this.goal) this.goal = { type: 'wander', t: 0 };
   }
 
+  _follow(dt) {
+    const p = this.game.player, c = this.c;
+    if (!p || !this.game.social?.followers.has(c.id)) { this.goal = null; return; }
+    // Fight whoever is fighting the player
+    for (const o of this.game.characters) if (o !== c && o.combatTarget === p && o.combatTimer > 0 && !o.isDown && Math.hypot(o.x - c.x, o.z - c.z) < 10) { this.startFight(o, 'defend'); return; }
+    const d = Math.hypot(p.x - c.x, p.z - c.z);
+    if (d > 2.2) this.goTo(p.x, p.z, { arrive: 1.8, run: d > 5 }); else { c.stop(); if (this.rng.chance(0.02)) this.goal = null; }
+  }
   _basicGoal(dt) {
     const c = this.c, gl = this.goal;
     if (gl.type === 'wander') {

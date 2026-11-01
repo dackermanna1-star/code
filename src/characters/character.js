@@ -710,8 +710,9 @@ export class Character {
     const look = this.lookAt || (this.talkPartner) || (this.combatTarget && this.combatTimer > 0 ? this.combatTarget : null);
     if (look && !this.isDown) lookYaw = clamp(angleDiff(this.yaw, yawTo(look.x - this.x, look.z - this.z)), -1.1, 1.1);
     const moving = this.state === 'free' || this.state === 'action' || this.state === 'stagger' || this.state === 'grapple' || this.state === 'cuffed';
+    const treadmill = this.spot && this.spot.activity === 'treadmill' && this.spotPhase === 'use' ? 3.6 : 0;
     this.anim.update(dt, {
-      speed: moving ? sp : 0, vf: moving ? vf : 0, vs: moving ? vs : 0, turnRate: yawRate, accel: this.accel,
+      speed: moving ? sp : treadmill, vf: moving ? vf : treadmill, vs: moving ? vs : 0, turnRate: yawRate, accel: this.accel,
       combat: inCombat && moving, block: this.blocking, carry: this.held ? this.held.def.carry : null,
       lookYaw, sprint: this.sprinting && sp > 4.5, exhausted: this.stamina < CONFIG.stamina.exhaustedThreshold || this.energy < 10,
     });

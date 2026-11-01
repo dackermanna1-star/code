@@ -60,6 +60,7 @@ export class Simulation {
     this.time += dt;
     for (const ev of this.clock.advance(dt)) { this.events.emit('clock', ev); for (const s of this.systems) s.onClock?.(ev); }
     this._doors(dt);
+    this._curfewSweep();
     for (const s of this.systems) s.update?.(dt);
     for (const b of this.brains.values()) b.update(dt);
     for (const c of this.characters) c.update(dt);
@@ -72,7 +73,7 @@ export class Simulation {
     const clk = this.clock;
     for (const d of this.world.doors) {
       if (d.style === 'cell') d.scheduledOpen = !d.cell.startsWith('H') && clk.cellsOpen && !this.lockdown;
-      else if (d.id === 'd_yardgate') d.scheduledOpen = clk.yardOpen && !this.lockdown;
+      else if (d.id === 'd_yardgate') d.scheduledOpen = (clk.yardOpen || (clk.minutes >= 17 * 60 + 30 && clk.minutes < 17 * 60 + 50)) && !this.lockdown;
       let near = false;
       if (!d.scheduledOpen && !d.locked) {
         const [cx, cz] = d.center();
@@ -86,6 +87,23 @@ export class Simulation {
     }
   }
 
+  /** At lock time, stragglers the player can't see are quietly walked back to their cells. */
+  _curfewSweep() {
+    const m = this.clock.minutes;
+    const lockTime = m >= 21 * 60 + 28 && m < 21 * 60 + 40;
+    const yardClose = m >= 17 * 60 + 48 && m < 17 * 60 + 55;
+    if (!lockTime && !yardClose) return;
+    for (const c of this.characters) {
+      if (c.isPlayer || c.kind !== 'inmate' || c.state === 'ko' || c.flags.solitaryCell) continue;
+      const room = this.world.roomAt(c.x, c.z);
+      const misplaced = lockTime ? !(room && room.id === c.cell) : room && room.id === 'yard';
+      if (!misplaced || (this.isVisibleToPlayer && this.isVisibleToPlayer(c))) continue;
+      if (c.spot) c.leaveSpot(true);
+      if (lockTime && c.bed) c.place(c.bed.ax, c.bed.az);
+      else { const pt = this.world.randomPointIn('hall', this.rng, c); if (pt) c.place(pt[0], pt[1]); }
+      const b = this.brains.get(c.id); if (b) { b.path = null; if (this.planner) this.planner.endGoal(b); }
+    }
+  }
   /** Soft circle separation between characters (player is heavy; downed bodies don't block). */
   _separate() {
     const list = this.characters;

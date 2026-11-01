@@ -12,7 +12,7 @@ export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '
 export const OUT = path.join(ROOT, 'tests/e2e/out');
 fs.mkdirSync(OUT, { recursive: true });
 
-export async function launch({ port = 8123, width = 1280, height = 720, query = '' } = {}) {
+export async function launch({ port = 8123, width = 1280, height = 720, query = '?manual' } = {}) {
   const server = await startServer(port, true);
   const browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--autoplay-policy=no-user-gesture-required'] });
   const page = await browser.newPage({ viewport: { width, height } });

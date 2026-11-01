@@ -1,0 +1,141 @@
+{
+"ambience": [
+"ambience_01.mp3",
+"ambience_02.mp3"
+],
+"block": [
+"block_01.mp3",
+"block_02.mp3",
+"block_03.mp3",
+"block_04.mp3",
+"block_05.mp3",
+"block_06.mp3"
+],
+"body_fall": [
+"body_fall_01.mp3",
+"body_fall_02.mp3",
+"body_fall_03.mp3",
+"body_fall_04.mp3",
+"body_fall_05.mp3",
+"body_fall_06.mp3"
+],
+"body_hit": [
+"body_hit_01.mp3",
+"body_hit_02.mp3",
+"body_hit_03.mp3",
+"body_hit_04.mp3",
+"body_hit_05.mp3",
+"body_hit_06.mp3"
+],
+"club_hit": [
+"club_hit_01.mp3",
+"club_hit_02.mp3",
+"club_hit_03.mp3",
+"club_hit_04.mp3"
+],
+"face_crunch": [
+"face_crunch_01.mp3",
+"face_crunch_02.mp3",
+"face_crunch_03.mp3",
+"face_crunch_04.mp3",
+"face_crunch_05.mp3",
+"face_crunch_06.mp3"
+],
+"footstep": [
+"footstep_01.mp3",
+"footstep_02.mp3",
+"footstep_03.mp3",
+"footstep_04.mp3",
+"footstep_05.mp3",
+"footstep_06.mp3",
+"footstep_07.mp3",
+"footstep_08.mp3"
+],
+"grunt_attack": [
+"grunt_attack_01.mp3",
+"grunt_attack_02.mp3",
+"grunt_attack_03.mp3",
+"grunt_attack_04.mp3",
+"grunt_attack_05.mp3",
+"grunt_attack_06.mp3",
+"grunt_attack_07.mp3",
+"grunt_attack_08.mp3"
+],
+"grunt_pain": [
+"grunt_pain_01.mp3",
+"grunt_pain_02.mp3",
+"grunt_pain_03.mp3",
+"grunt_pain_04.mp3",
+"grunt_pain_05.mp3",
+"grunt_pain_06.mp3",
+"grunt_pain_07.mp3",
+"grunt_pain_08.mp3"
+],
+"kick": [
+"kick_01.mp3",
+"kick_02.mp3",
+"kick_03.mp3",
+"kick_04.mp3",
+"kick_05.mp3",
+"kick_06.mp3"
+],
+"metal_hit": [
+"metal_hit_01.mp3",
+"metal_hit_02.mp3",
+"metal_hit_03.mp3",
+"metal_hit_04.mp3",
+"metal_hit_05.mp3",
+"metal_hit_06.mp3"
+],
+"parry": [
+"parry_01.mp3",
+"parry_02.mp3",
+"parry_03.mp3",
+"parry_04.mp3",
+"parry_05.mp3"
+],
+"punch_heavy": [
+"punch_heavy_01.mp3",
+"punch_heavy_02.mp3",
+"punch_heavy_03.mp3",
+"punch_heavy_04.mp3",
+"punch_heavy_05.mp3",
+"punch_heavy_06.mp3",
+"punch_heavy_07.mp3",
+"punch_heavy_08.mp3"
+],
+"punch_light": [
+"punch_light_01.mp3",
+"punch_light_02.mp3",
+"punch_light_03.mp3",
+"punch_light_04.mp3",
+"punch_light_05.mp3",
+"punch_light_06.mp3",
+"punch_light_07.mp3",
+"punch_light_08.mp3"
+],
+"whoosh_heavy": [
+"whoosh_heavy_01.mp3",
+"whoosh_heavy_02.mp3",
+"whoosh_heavy_03.mp3",
+"whoosh_heavy_04.mp3",
+"whoosh_heavy_05.mp3",
+"whoosh_heavy_06.mp3"
+],
+"whoosh_light": [
+"whoosh_light_01.mp3",
+"whoosh_light_02.mp3",
+"whoosh_light_03.mp3",
+"whoosh_light_04.mp3",
+"whoosh_light_05.mp3",
+"whoosh_light_06.mp3"
+],
+"wood_break": [
+"wood_break_01.mp3",
+"wood_break_02.mp3",
+"wood_break_03.mp3",
+"wood_break_04.mp3",
+"wood_break_05.mp3",
+"wood_break_06.mp3"
+]
+}

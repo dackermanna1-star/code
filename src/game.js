@@ -15,6 +15,15 @@ import { Input } from './core/input.js';
 import { Simulation } from './sim.js';
 import { PlayerController } from './gameplay/player.js';
 import { HUD } from './ui/hud.js';
+import { DialogueUI } from './ui/dialogueUI.js';
+import { Menus } from './ui/menus.js';
+import { AudioEngine } from './audio/audio.js';
+import { installSystems } from './gameplay/systems.js';
+import { saveSlot, loadSlot, apply as applySave } from './save/save.js';
+import { SKIN_TONES, HAIR_COLORS, HAIR_STYLES, FACIAL } from './characters/appearance.js';
+import { CRIMES as CRIME_LIST } from './characters/roster.js';
+import { JOBS } from './gameplay/activities.js';
+import { ITEMS } from './world/items.js';
 import { CONFIG } from './config.js';
 import { RNG } from './core/random.js';
 
@@ -37,6 +46,23 @@ export class Game {
     this.acc = 0;
     this.crews = CREWS;
     this.menuOpen = false;
+    this.mode = 'title';
+    this.seed = opts.seed || 20260;
+    this.options = { master: 0.8, music: 0.35, sfx: 0.9, sensitivity: 1, invertY: false, autoCam: true, shake: true, timeSpeed: 'normal', quality: 'high' };
+    try { Object.assign(this.options, JSON.parse(localStorage.getItem('gravelmouth.options') || '{}')); } catch { /* ignore */ }
+  }
+  setOption(k, v) {
+    this.options[k] = v;
+    try { localStorage.setItem('gravelmouth.options', JSON.stringify(this.options)); } catch { /* ignore */ }
+    if (['master', 'music', 'sfx'].includes(k)) this.audio?.setVolume(k === 'sfx' ? 'sfx' : k, v);
+    if (k === 'sensitivity') this.cameraRig.sensitivity = v;
+    if (k === 'invertY') this.cameraRig.invertY = v;
+    if (k === 'autoCam') this.cameraRig.autoFollow = v;
+    if (k === 'timeSpeed' && this.sim) this.sim.clock.scale = CONFIG.time.minutesPerSecond[v];
+  }
+  setMenuOpen(v) {
+    this.menuOpen = v;
+    if (v && document.pointerLockElement) document.exitPointerLock?.();
   }
   get events() { return this.sim.events; }
   get characters() { return this.sim.characters; }
@@ -58,7 +84,9 @@ export class Game {
     this.scene = scene;
     this.input = new Input(window);
     this.materials = new MaterialLibrary(scene);
-    this.sim = new Simulation({ seed: this.opts.seed || 20260 });
+    this.sim = new Simulation({ seed: this.seed });
+    installSystems(this.sim, { sentence: { days: 21 } });
+    this.sim.clock.scale = CONFIG.time.minutesPerSecond[this.options.timeSpeed] || 1.5;
     this.sim.isVisibleToPlayer = (c) => this.isVisibleToPlayer(c);
     this.world = this.sim.world;
     this.cameraRig = new CameraRig(scene, this.world);
@@ -70,10 +98,20 @@ export class Game {
     this._spawnCast();
     this.controller = new PlayerController(this, this.player);
     this.hud = new HUD(this, this.uiRoot);
+    this.dialogue = this.sim.dialogue;
+    this.dialogueUI = new DialogueUI(this, this.uiRoot);
+    this.menus = new Menus(this, this.uiRoot);
+    this.audio = new AudioEngine();
+    for (const k of ['master', 'music', 'sfx']) this.audio.volumes[k === 'sfx' ? 'sfx' : k] = this.options[k];
+    this.cameraRig.sensitivity = this.options.sensitivity; this.cameraRig.invertY = this.options.invertY; this.cameraRig.autoFollow = this.options.autoCam;
+    const startAudio = () => { this.audio.init().then(() => this.audio.resume()); window.removeEventListener('pointerdown', startAudio); window.removeEventListener('keydown', startAudio); };
+    window.addEventListener('pointerdown', startAudio); window.addEventListener('keydown', startAudio);
     this._wireEvents();
     this.cameraRig.snapBehind(this.player);
+    if (this.opts.autostart) this.beginSentence(null);
+    else { this.menus.showTitle(); this.titleCamera(); }
     this.canvas.addEventListener('click', () => { if (!this.menuOpen && !this.input.pointerLocked && this.canvas.requestPointerLock) this.canvas.requestPointerLock()?.catch?.(() => {}); });
-    engine.runRenderLoop(() => this.frame());
+    if (!this.opts.manual) engine.runRenderLoop(() => this.frame());
     window.addEventListener('resize', () => engine.resize());
   }
 
@@ -126,18 +164,199 @@ export class Game {
 
   // ------------------------------------------------------------------ events
   _wireEvents() {
-    const ev = this.events;
+    const ev = this.events, hud = () => this.hud, au = () => this.audio;
+    const isP = (c) => c === this.player;
+    const near = (c) => c && Math.hypot(c.x - this.player.x, c.z - this.player.z) < 30;
+    const pos = (c) => c ? { x: c.x, z: c.z } : null;
     ev.on('hit', (e) => {
-      if (e.att === this.player || e.vic === this.player) this.cameraRig.shake(e.atk && e.atk.heavy ? 0.22 : 0.1);
+      const heavy = e.atk && e.atk.heavy;
+      if ((isP(e.att) || isP(e.vic)) && this.options.shake) this.cameraRig.shake(heavy ? 0.22 : 0.1);
+      if (!near(e.vic)) return;
+      const snd = e.result === 'blocked' ? 'block' : e.result === 'dodged' ? null : (e.atk && e.atk.sound) || 'punch_light';
+      if (snd) au()?.play(snd, { pos: pos(e.vic), vol: heavy ? 1 : 0.85, indoor: true });
+      if (e.result !== 'blocked' && e.result !== 'dodged' && Math.random() < (heavy ? 0.8 : 0.35)) au()?.play('grunt_pain', { pos: pos(e.vic), vol: 0.6, key: e.vic.id, minGap: 0.4, rate: e.vic.app.female ? 1.35 : 1 });
+      if (e.result === 'guardbreak') au()?.play('parry', { pos: pos(e.vic) });
+      if (isP(e.att) && e.result === 'ko') hud()?.toast(`${e.vic.short} is out cold!`, 'good', 2);
     });
-    ev.on('tooTired', (e) => { if (e.c === this.player) this.hud?.toast('Too winded!', 'warn', 1.2); });
-    ev.on('pickup', (e) => { if (e.c === this.player) this.hud?.toast(`Picked up: ${e.item.def.name}${e.item.def.contraband ? ' <b style="color:#e0a43a">(contraband)</b>' : ''}`, 'info', 1.8); });
-    ev.on('tooFar', (e) => { if (e.c === this.player) this.hud?.toast('Too far away', 'warn', 1); });
+    ev.on('swing', (e) => { if (near(e.c)) { au()?.play(e.atk.heavy ? 'whoosh_heavy' : 'whoosh_light', { pos: pos(e.c), vol: 0.6 }); if (Math.random() < 0.3) au()?.play('grunt_attack', { pos: pos(e.c), vol: 0.45, key: e.c.id, minGap: 0.6, rate: e.c.app.female ? 1.35 : 1 }); } });
+    ev.on('counter', (e) => { au()?.play('parry', { pos: pos(e.c) }); if (isP(e.c)) hud()?.toast('Countered!', 'good', 1.2); });
+    ev.on('knockdown', (e) => near(e.c) && au()?.play('body_fall', { pos: pos(e.c) }));
+    ev.on('land', (e) => near(e.c) && au()?.play('body_fall', { pos: pos(e.c), vol: 1 }));
+    ev.on('wallSlam', (e) => near(e.c) && au()?.play('punch_heavy', { pos: pos(e.c) }));
+    ev.on('grab', (e) => { if (isP(e.vic)) hud()?.toast('Grabbed! Mash to break free!', 'warn', 1.6); });
+    ev.on('itemImpact', (e) => { const it = e.item; if (Math.hypot(it.x - this.player.x, it.z - this.player.z) > 25) return; au()?.play(it.def.clang ? 'metal_hit' : it.def.heavy ? 'body_fall' : 'club_hit', { pos: it, vol: Math.min(1, e.speed / 8) * 0.7 }); });
+    ev.on('itemBreak', (e) => au()?.play('wood_break', { pos: e }));
+    ev.on('door', (e) => { if (e.ev && (e.door.amount === 0 || e.door.amount === 1) || !e.ev) return; const [x, z] = e.door.center(); if (e.door.style === 'cell' && e.door._snd !== e.ev) { e.door._snd = e.ev; if (Math.hypot(x - this.player.x, z - this.player.z) < 25) au()?.door({ x, z }, e.ev === 'closing'); } });
+    ev.on('tooTired', (e) => { if (isP(e.c)) hud()?.toast('Too winded!', 'warn', 1.2); });
+    ev.on('pickup', (e) => { if (isP(e.c)) { au()?.ui('click'); hud()?.toast(`${e.item.pocketOf ? 'Pocketed' : 'Picked up'}: ${e.item.def.name}${e.item.def.contraband ? ' <b class="c">(contraband)</b>' : ''}`, 'info', 1.8); } });
+    ev.on('tooFar', (e) => { if (isP(e.c)) hud()?.toast('Too far away', 'warn', 1); });
     ev.on('clock', (e) => {
-      if (e.type === 'period') { const p = this.sim.clock.period; this.hud?.announce(p.name, p.desc, 4); }
+      if (e.type !== 'period' || this.mode !== 'play') return;
+      const p = this.sim.clock.period;
+      hud()?.announce(p.name, p.desc, 4);
+      au()?.buzzer(); setTimeout(() => au()?.chime(), 2200);
     });
+    ev.on('say', (e) => { if (near(e.c) && Math.hypot(e.c.x - this.player.x, e.c.z - this.player.z) < 14) au()?.voice(e.text, 0.8 + ((e.c.def.seed || 3) % 7) / 10 + (e.c.app.female ? 0.45 : 0), pos(e.c), e.opts?.mood); });
+    // Prison systems feedback
+    ev.on('crime', (e) => { if (isP(e.c)) { hud()?.toast(`Spotted: <b>${e.def.name}</b>${e.witness ? ` — ${e.witness.short}` : ''}`, 'bad', 3); au()?.whistle(pos(e.witness)); } });
+    ev.on('arrestConfront', (e) => { if (isP(e.c)) this.dialogue.open(this.player, e.guard, 'arrest'); });
+    ev.on('punished', (e) => {
+      if (!isP(e.c)) return;
+      const r = e.result, parts = [];
+      if (r.fine) parts.push(`fined ${r.fine} ramen`); if (r.days) parts.push(`+${r.days} day${r.days > 1 ? 's' : ''} on your sentence`);
+      if (r.confiscated.length) parts.push(`confiscated: ${r.confiscated.join(', ')}`); if (r.solitary) parts.push(`${Math.round(r.solitary / 60)}h in solitary`);
+      hud()?.announce('Disciplinary Action', parts.join(' · ') || 'A warning. This time.', 6);
+      au()?.ui('bad');
+    });
+    ev.on('solitary', (e) => { if (isP(e.c)) { this.cameraRig.first = true; hud()?.toast('You\'ve been thrown in the Hole. Sleep to pass the time.', 'bad', 5); } });
+    ev.on('released', (e) => { if (isP(e.c)) { this.cameraRig.first = true; hud()?.toast('Released from solitary.', 'good', 3); } });
+    ev.on('bribed', (e) => { if (isP(e.c)) hud()?.toast(`Bribe accepted (${e.amount} ramen).`, 'good', 2.5); });
+    ev.on('paid', (e) => { if (isP(e.c)) { au()?.ui('coin'); hud()?.toast(`+${e.amount} ramen (${JOBS[e.job].name})`, 'good', 1.6); } });
+    ev.on('statGain', (e) => { if (isP(e.c) && e.value) { au()?.ui('level'); hud()?.toast(`${{ str: 'Strength', agi: 'Agility', tgh: 'Toughness', smt: 'Smarts' }[e.stat]} increased to <b>${e.value}</b>`, 'good', 2.5); } });
+    ev.on('respect', (e) => { if (isP(e.c)) hud()?.toast(`Respect +${e.gain}`, 'good', 2); });
+    ev.on('favorOffered', () => au()?.ui('good'));
+    ev.on('favorReady', (e) => hud()?.toast(`Favour complete — go see ${this.sim.byId.get(e.f.from)?.short}.`, 'good', 3.5));
+    ev.on('favorDone', (e) => { au()?.ui('coin'); hud()?.toast(`Favour done: +${e.f.reward} ramen`, 'good', 2.5); });
+    ev.on('recruited', (e) => hud()?.toast(`${e.npc.short} has your back now.`, 'good', 3));
+    ev.on('newDay', (e) => { if (this.mode === 'play') { hud()?.announce(`Day ${e.day}`, `${e.daysLeft} days left on your sentence.`, 5); this.saveGame('auto', true); } });
+    ev.on('parole', (e) => { if (this.mode === 'play') hud()?.announce('Parole Board', e.cut ? `Good conduct: ${e.cut} day${e.cut > 1 ? 's' : ''} taken off your sentence.` : 'Your conduct wasn\'t good enough for a reduction.', 6); });
+    ev.on('sentenceChange', (e) => { if (e.delta > 0 && this.mode === 'play') hud()?.toast(`Sentence extended by ${e.delta} day${e.delta > 1 ? 's' : ''}.`, 'bad', 3); });
+    ev.on('needWarn', (e) => { if (isP(e.c)) hud()?.toast(e.need === 'hunger' ? 'You\'re starving. Grab a tray at mealtime or buy a snack.' : 'You\'re exhausted. Get some sleep.', 'warn', 4); });
+    ev.on('wokeInfirmary', () => { this.cameraRig.first = true; hud()?.announce('Infirmary', 'You came to a few hours later. Your head is pounding.', 5); });
+    ev.on('gotMeal', () => hud()?.toast('Grab a seat and press R to eat (or just sit with your tray).', 'info', 3));
+    ev.on('mealDone', () => hud()?.toast('Clean plate. Hunger satisfied.', 'good', 2));
+    ev.on('notNow', (e) => { if (isP(e.c)) { au()?.ui('bad'); hud()?.toast(e.what, 'warn', 2.5); } });
+    ev.on('notYours', (e) => { if (isP(e.c)) hud()?.toast('That\'s not your bunk.', 'warn', 2); });
+    ev.on('broke', (e) => { if (isP(e.c)) { au()?.ui('bad'); hud()?.toast(`You need ${e.price} ramen.`, 'warn', 2); } });
+    ev.on('bought', (e) => { if (isP(e.c)) au()?.ui('coin'); });
+    ev.on('fenceCut', () => { hud()?.toast('The fence gives way. Go! Go!', 'warn', 3); });
+    ev.on('keycard', () => { au()?.ui('good'); hud()?.toast('Access granted.', 'info', 1.5); });
+    ev.on('activity', (e) => { if (isP(e.c) && e.label) hud()?.toast(`${e.label}… (move to stop)`, 'info', 2); });
+    ev.on('jobAssigned', (e) => hud()?.toast(`New job: ${JOBS[e.job].name}. Work detail is 07:30–11:30.`, 'good', 3.5));
+    ev.on('hassle', (e) => { if (isP(e.target)) { e.c.flags.hassling = e.demand; hud()?.toast(`${e.c.short} wants ${e.demand} ramen. Talk (E) to deal with it — or don't.`, 'warn', 4); } });
+    ev.on('dialogueClose', (e) => { if (e.npc) e.npc.flags.hassling = 0; this.dialogueUI.render(); });
+    ev.on('dialogueOpen', () => { this.dialogueUI.sel = 0; this.dialogueUI.render(); });
+    ev.on('dialogueBounce', () => au()?.ui('bad'));
+    ev.on('talkRequest', (e) => this.dialogue.open(e.a, e.b, 'talk', { hassle: e.b.flags.hassling ? { demand: e.b.flags.hassling } : null }));
+    ev.on('openVending', (e) => {
+      this.dialogueUI.openList('Vending Machine', e.stock.map((o) => ({ label: `${ITEMS[o.type].name}`, tag: `${o.price} ramen`, disabled: this.player.ramen < o.price, fn: () => { this.sim.economy.buy(this.player, o.type, o.price); return false; } })), `You have ${this.player.ramen} ramen`);
+    });
+    ev.on('jobBoard', () => {
+      this.dialogueUI.openList('Job Board', Object.entries(JOBS).map(([id, J]) => ({ label: `${J.name}${this.player.job === id ? ' (current)' : ''}`, tag: J.desc, disabled: this.player.job === id, fn: () => { this.player.job = id; this.events.emit('jobAssigned', { c: this.player, job: id }); return false; } })), 'Sign up for a work assignment');
+    });
+    ev.on('ending', (e) => { if (this.mode === 'play') { this.menus.showEnding(e); this.audio?.ui('level'); } });
   }
 
+  // ------------------------------------------------------------------ flow: title, intake, sentence
+  titleCamera() { this.mode = this.mode === 'play' ? 'play' : 'title'; this.cameraMode = 'title'; this.titleT = 0; this.input.enabled = false; }
+  previewSetup(s) {
+    this.mode = 'intake'; this.cameraMode = 'mugshot';
+    this._applySetup(s);
+    const p = this.player;
+    if (p.spot) p.leaveSpot(true);
+    p.place(38, 23.6, Math.PI);
+    p.setState('free'); p.stop();
+  }
+  _appearanceFrom(s) {
+    return randomAppearance(this.seed + 17, {
+      outfit: 'inmateA', female: s.female, build: s.build, skin: SKIN_TONES[s.skin], hair: HAIR_STYLES[s.hair], facial: s.female ? 'none' : FACIAL[s.facial],
+      idNumber: 'A-0417', glasses: false, bandana: null,
+    });
+  }
+  _applySetup(s) {
+    const p = this.player;
+    const app = this._appearanceFrom(s);
+    app.hair.color = HAIR_COLORS[s.hairColor]; app.facialColor = HAIR_COLORS[s.hairColor];
+    const key = JSON.stringify(s);
+    if (this._lastSetupKey === key) return;
+    this._lastSetupKey = key;
+    if (p.rig) { this.lighting.removeShadowCaster(p.rig.mesh); p.rig.dispose(); }
+    p.app = app; p.dims = rigDims(app);
+    p.anim = new Animator(p.dims, 77);
+    p.rig = new CharacterRig(this.scene, app, 'ch_player');
+    this.lighting.addShadowCaster(p.rig.mesh);
+    p.name = s.name || 'Inmate'; p.short = (s.name || 'Inmate').split(' ')[0];
+    p.radius = 0.3 + (app.build.girth - 1) * 0.22;
+  }
+  beginSentence(s) {
+    s = s || { name: 'Dale Pickett', female: false, skin: 2, hair: 2, hairColor: 1, facial: 1, build: 'average', crime: 0, days: 21 };
+    this.playerSetup = s;
+    this._applySetup(s);
+    const sim = this.sim, p = this.player;
+    sim.progression.sentence = { total: s.days, daysLeft: s.days, served: 0, crime: CRIME_LIST[s.crime] || 'Grand Theft Lawnmower' };
+    p.def.crime = sim.progression.sentence.crime;
+    this.menus.close();
+    this.mode = 'play'; this.cameraMode = 'follow';
+    this.input.enabled = true;
+    // Intake: arrive in the central hall at 06:00, greeted by the sergeant.
+    if (p.spot) p.leaveSpot(true);
+    p.place(38, 14.5, 0); p.setState('free');
+    this.cameraRig.yaw = 0; this.cameraRig.first = true;
+    const sgt = sim.byId.get('kettle');
+    if (sgt) {
+      sgt.place(38, 17.2, Math.PI);
+      const b = sim.brainOf(sgt); if (b) { b.goal = { type: 'post', x: 38, z: 17.2, yaw: Math.PI, until: sim.clock.total + 8, t: 0, period: '*' }; }
+      const lines = [`Welcome to Gravelmouth, ${p.short}. You're in cell ${p.cell}, Block A.`, 'Buzzers tell you where to be. Be there.', 'Keep your hands to yourself and your nose clean. Questions? Don\'t.'];
+      lines.forEach((l, i) => sim.timers.push({ t: 0.8 + i * 3.4, fn: () => sgt.say(l, 3.3) }));
+    }
+    this.hud.announce('Day 1 · Gravelmouth State Penitentiary', `${s.days} days for ${sim.progression.sentence.crime}.`, 6);
+    const tips = [
+      [6, 'WASD to move, mouse to look (click the game to capture the mouse). Shift to sprint.'],
+      [12, 'E talks, picks things up and uses furniture. Tab cycles between nearby targets.'],
+      [19, 'C opens your notebook: stats, people, favours, schedule and map.'],
+      [27, 'LMB punch, RMB kick, Q block — tap Q when ⚡ appears to counter. F grabs.'],
+    ];
+    for (const [t, text] of tips) sim.timers.push({ t, fn: () => this.hud.toast(text, 'info', 6) });
+    this.saveGame('auto', true);
+  }
+  quitToTitle() {
+    this.dialogue.close('bye');
+    this.mode = 'title';
+    this.menus.showTitle();
+    this.titleCamera();
+  }
+  saveGame(slot, quiet = false) {
+    if (this.mode !== 'play') return false;
+    const ok = saveSlot(this, slot);
+    if (!quiet) this.hud.toast(ok ? `Saved to ${slot === 'auto' ? 'autosave' : `slot ${slot}`}.` : 'Save failed (storage unavailable).', ok ? 'good' : 'bad', 2);
+    return ok;
+  }
+  loadGame(slot) {
+    const data = loadSlot(slot);
+    if (!data) { this.hud.toast('No save in that slot.', 'warn', 2); return false; }
+    if (data.playerSetup) this.beginSentence(data.playerSetup);
+    for (const t of [...this.sim.timers]) this.sim.timers.splice(0);
+    applySave(this, data);
+    this.menus.close();
+    this.cameraRig.first = true; this.cameraRig.snapBehind(this.player);
+    this.hud.toast('Game loaded.', 'good', 2);
+    return true;
+  }
+
+  _audioFrame(dt) {
+    const a = this.audio;
+    if (!a || !a.ready) return;
+    const cam = this.cameraRig.camera.position, p = this.player;
+    a.setListener(cam.x, cam.y, cam.z, this.cameraRig.yaw);
+    // Footsteps from the mocap gait phase (contact moments) for nearby characters
+    for (const c of this.sim.characters) {
+      const d = Math.hypot(c.x - cam.x, c.z - cam.z);
+      if (d > 14 || c.state === 'spot') continue;
+      const ph = c.anim.loco.phase, mw = c.anim.moveW;
+      const prev = c._stepPh ?? ph; c._stepPh = ph;
+      if (mw > 0.3 && Math.floor(prev * 2) !== Math.floor(ph * 2)) a.play('footstep', { pos: c, vol: 0.18 + Math.min(0.25, Math.hypot(c.vx, c.vz) * 0.05), key: c.id, minGap: 0.12, rate: c.app.build.girth > 1.15 ? 0.85 : 1 });
+    }
+    this._ambT = (this._ambT || 0) - dt;
+    if (this._ambT <= 0) {
+      this._ambT = 0.5;
+      let crowd = 0, fight = 0;
+      for (const c of this.sim.characters) { const d = Math.hypot(c.x - p.x, c.z - p.z); if (d < 16) crowd++; if (d < 14 && c.combatTimer > 4 && c.combatTarget) fight++; }
+      const indoor = this.world.ceilingAt(cam.x, cam.z) != null ? 1 : 0;
+      a.setAmbience(indoor, crowd, this.sim.clock.lightsOut ? 1 : 0);
+      a.setIntensity(Math.min(1, fight / 3 + (this.sim.rules.isWanted(p) ? 0.5 : 0)));
+      if (fight >= 3 && Math.random() < 0.2) a.cheer({ x: p.x, z: p.z }, 0.12);
+    }
+  }
   isVisibleToPlayer(c) {
     const p = this.player;
     if (!p) return false;
@@ -154,10 +373,16 @@ export class Game {
     const STEP = 1 / 60;
     this.acc = Math.min(this.acc + realDt, STEP * 5);
     let steps = 0;
+    this.menus.update();
+    this.dialogueUI.update();
+    const playing = this.mode === 'play' && !this.menuOpen;
+    const simulate = playing || this.mode === 'title';
+    this.input.enabled = playing && !this.dialogueUI.list;
     while (this.acc >= STEP && steps < 5) {
-      if (!this.menuOpen) { this.controller.update(STEP); this.sim.step(STEP); }
+      if (simulate) { if (playing) this.controller.update(STEP); else this.player.stop(); this.sim.step(STEP); }
       this.acc -= STEP; steps++;
     }
+    if (!simulate) this.acc = 0;
     this.present(realDt);
     this.input.endFrame();
   }
@@ -174,12 +399,25 @@ export class Game {
     for (const c of this.sim.characters) if (c.rig) c.rig.setOutline(tgt && tgt.kind === 'talk' && tgt.ref === c);
     this.itemView.update(this.sim.items.items, this);
     const p = this.player;
-    if (!this._debugFreeze) this.cameraRig.update(dt, this.menuOpen ? null : this.input, p, { lockTarget: p.lockTarget, talkPartner: this.dialogue?.active ? this.dialogue.npc : null, moving: Math.hypot(p.vx, p.vz) > 1 });
+    if (this._debugFreeze) { /* camera fixed by a test */ }
+    else if (this.cameraMode === 'title') {
+      this.titleT = (this.titleT || 0) + dt;
+      const a = this.titleT * 0.05;
+      const cam = this.cameraRig.camera;
+      cam.position.set(40 + Math.sin(a) * 34, 15 + Math.sin(a * 0.7) * 3, 84 + Math.cos(a) * 26);
+      cam.setTarget(new BABYLON.Vector3(38, 2, 66));
+    } else if (this.cameraMode === 'mugshot') {
+      const cam = this.cameraRig.camera;
+      cam.position.set(p.x - 0.55, p.y + 1.55, p.z - 2.4);
+      cam.setTarget(new BABYLON.Vector3(p.x - 0.55, p.y + 1.25, p.z));
+    } else this.cameraRig.update(dt, this.menuOpen || this.dialogueUI.list ? null : this.input, p, { lockTarget: p.lockTarget, talkPartner: this.dialogue?.active ? this.dialogue.npc : null, moving: Math.hypot(p.vx, p.vz) > 1 });
+    this._audioFrame(dt);
     const cam = this.cameraRig.camera.position;
     const indoor = this.world.ceilingAt(cam.x, cam.z) != null ? 1 : 0;
     const tod = this.lighting.update(dt, this.sim.clock.minutes, indoor, p ? new BABYLON.Vector3(p.x, 0, p.z) : cam, this.sim.clock.lightsOut);
     this.worldView.update(dt, tod);
-    this.hud.update(dt);
+    this.hud.setVisible(this.mode === 'play');
+    if (this.mode === 'play') this.hud.update(dt);
     this.scene.render();
   }
 
