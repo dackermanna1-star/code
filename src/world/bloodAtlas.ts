@@ -77,7 +77,7 @@ void main() {
   } else if (type == 2) { // pool: lobed, with viscous fingers reaching out along its edge
     float lobes = lsNoise(vec3(p / r * 1.3, seed * 0.7)) - 0.5;
     float ang = atan(p.y, p.x);
-    float fingers = pow(lsNoise(vec3(ang * 2.6, seed * 1.9, 3.0)), 3.0) * 0.5 + pow(lsNoise(vec3(ang * 6.5, seed * 0.37, 5.0)), 4.0) * 0.35;
+    float fingers = pow(lsNoise(vec3(ang * 2.6, seed * 1.9, 3.0)), 3.0) * 0.38 + pow(lsNoise(vec3(ang * 6.5, seed * 0.37, 5.0)), 4.0) * 0.3;
     // fine, continuous edge detail in atlas pixels (matches across overlapping pools)
     float fine = lsNoise(vec3(gl_FragCoord.xy * 0.21, seed * 0.1)) - 0.5;
     float edge = dist / (1.0 + fingers) + lobes * 0.55 + (n - 0.5) * 0.3 + fine * 0.07;
@@ -396,7 +396,7 @@ export class BloodAtlas {
   private emit(pos: THREE.Vector3, radius: number, type: number, intensity: number, normal: THREE.Vector3 | null, dir: THREE.Vector3 | null, stretch: number, seed: number, mode: 'add' | 'max') {
     const isPool = type === SPLAT.pool;
     // pools: fingers reach ~1.9 r, and the teardrop leans (1 + stretch) times further downhill only
-    const reach = type === SPLAT.splash ? 1.7 : type === SPLAT.smear ? 1.0 + stretch : type === SPLAT.drip ? 2.2 + stretch : isPool ? 1.9 : 1.15 + stretch;
+    const reach = type === SPLAT.splash ? 1.7 : type === SPLAT.smear ? 1.0 + stretch : type === SPLAT.drip ? 2.2 + stretch : isPool ? 1.75 : 1.15 + stretch;
     for (const f of this.faces) {
       _p.subVectors(pos, f.origin);
       const pd = _p.dot(f.n);
@@ -467,15 +467,15 @@ export class BloodAtlas {
    */
   addPool(x: number, z: number, rMax: number, duration: number, delay = 0, runs = -1) {
     floorFlow(x, z, _f);
-    const n = runs >= 0 ? runs : rMax > 0.4 ? 2 + Math.floor(Math.random() * 3) : rMax > 0.22 ? 1 + Math.floor(Math.random() * 2) : 0;
+    const n = runs >= 0 ? runs : rMax > 0.36 ? 2 + Math.floor(Math.random() * 2) : rMax > 0.2 ? 1 + Math.floor(Math.random() * 2) : 0;
     this.pools.push({ x, y: 0.01, z, r: Math.min(0.05, rMax), rMax, rate: rMax / Math.max(0.5, duration), seed: Math.random() * 100, delay, dx: _f.x, dz: _f.z, st: 0.25 + Math.random() * 0.45, runs: n, drawnR: 0 });
-    // a couple of offset lobes so pools spread irregularly (blood runs along the floor)
-    const lobes = 1 + Math.floor(Math.random() * 2);
+    // an offset lobe or two so pools spread irregularly (blood runs along the floor)
+    const lobes = Math.random() < 0.35 ? 0 : 1 + (Math.random() < 0.3 ? 1 : 0);
     for (let i = 0; i < lobes; i++) {
       // lobes favour the downhill side
       const a = Math.atan2(_f.z, _f.x) + (Math.random() - 0.5) * 2.4;
-      const d = rMax * (0.45 + Math.random() * 0.35);
-      const r2 = rMax * (0.4 + Math.random() * 0.3);
+      const d = rMax * (0.4 + Math.random() * 0.3);
+      const r2 = rMax * (0.3 + Math.random() * 0.25);
       const lx = x + Math.cos(a) * d, lz = z + Math.sin(a) * d;
       floorFlow(lx, lz, _f);
       this.pools.push({ x: lx, y: 0.01, z: lz, r: 0.03, rMax: r2, rate: r2 / Math.max(0.5, duration * 1.3), seed: Math.random() * 100, delay: delay + duration * 0.2, dx: _f.x, dz: _f.z, st: 0.2 + Math.random() * 0.4, runs: 0, drawnR: 0 });
@@ -537,8 +537,8 @@ export class BloodAtlas {
           // leave from the pool's final edge, further out on the downhill side (the pool leans that way)
           const down = Math.max(0, ca * p.dx + sa * p.dz);
           const reach = p.rMax * (0.82 + p.st * down * 0.9);
-          const scale = Math.min(1.4, p.rMax / 0.45);
-          this.addRivulet(p.x + ca * reach, p.z + sa * reach, ca + p.dx * 0.8, sa + p.dz * 0.8, (0.6 + Math.random() * 1.3) * scale, (0.017 + Math.random() * 0.014) * scale, 0.09 + Math.random() * 0.1, Math.random() * 2.5);
+          const scale = Math.min(1.2, Math.max(0.6, p.rMax / 0.4));
+          this.addRivulet(p.x + ca * reach, p.z + sa * reach, ca + p.dx * 0.8, sa + p.dz * 0.8, (0.45 + Math.random() * 1.0) * scale, (0.015 + Math.random() * 0.012) * scale, 0.08 + Math.random() * 0.08, Math.random() * 2.5);
         }
         p.runs = 0;
       }

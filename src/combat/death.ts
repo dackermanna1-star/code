@@ -172,7 +172,7 @@ export class DeathSystem {
       else rag.chestPos(this._v);
       if (this._v.y < 0.45) {
         this._v.y = 0.01;
-        g.blood.splat(this._v.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.12, 0, (Math.random() - 0.5) * 0.12)), (0.06 + Math.random() * 0.07) * d.f.scale, SPLAT.pool, 0.85, new THREE.Vector3(0, 1, 0));
+        g.blood.splat(this._v.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.1, 0, (Math.random() - 0.5) * 0.1)), (0.04 + Math.random() * 0.05) * d.f.scale, SPLAT.pool, 0.85, new THREE.Vector3(0, 1, 0));
       }
     }
   }
@@ -198,8 +198,8 @@ export class DeathSystem {
     f.anim.boneWorld(B.chest, chest);
     const src = bloodWounds.some((w) => w.pos.y > f.def.rest[B.neck].y) ? head : chest;
     if (src.y < 0.6) {
-      g.blood.addPool(src.x, src.z, (0.32 + severity * 0.6) * f.scale, 9 + severity * 14, 0.4);
-      if (severity > 0.6) g.blood.addPool(chest.x + (Math.random() - 0.5) * 0.3, chest.z + (Math.random() - 0.5) * 0.3, 0.3 * f.scale, 16, 2.5);
+      g.blood.addPool(src.x, src.z, (0.2 + severity * 0.3) * f.scale, 8 + severity * 12, 0.4);
+      if (severity > 0.75) g.blood.addPool(chest.x + (Math.random() - 0.5) * 0.25, chest.z + (Math.random() - 0.5) * 0.25, 0.17 * f.scale, 14, 2.5);
     }
     d.rag.dispose();
     f.ragdoll = null;
