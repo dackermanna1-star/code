@@ -137,6 +137,7 @@ export class TouchControls {
     const r = Math.min(1, d / STICK_R);
     const mag = r < DEAD ? 0 : (r - DEAD) / (1 - DEAD);
     this.input.touchMove = mag > 0 ? { x: dx / d, y: -dy / d, mag } : null;
+    this.input.lastDevice = 'touch';
     const sprint = d > STICK_R * SPRINT_AT;
     if (sprint !== this.sprinting) { this.sprinting = sprint; this.input.simulate('sprint', sprint); }
     const kx = d > 0 ? (dx / d) * Math.min(d, STICK_R) : 0, ky = d > 0 ? (dy / d) * Math.min(d, STICK_R) : 0;

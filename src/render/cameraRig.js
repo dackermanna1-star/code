@@ -48,10 +48,13 @@ export class CameraRig {
       this.pitch = damp(this.pitch, 0.3, 3, dt);
       pivotX = player.x * 0.8 + t.x * 0.2; pivotZ = player.z * 0.8 + t.z * 0.2;
       wantDist = Math.max(this.dist, 4.2);
-    } else if (this.autoFollow && ctx.moving && this.idleLook > 1.6) {
-      // Gentle drift behind the direction of travel, only while running forward-ish.
+    } else if (this.autoFollow && ctx.followInput && this.idleLook > 1.6) {
+      // Analog sticks only: drift in behind the runner while the stick points mostly forward.
+      // Keys and sideways/backward input never turn the camera, because movement is
+      // camera-relative and a swinging camera would bend the path the player is steering.
+      const m = ctx.followInput;
       const diff = angleDiff(this.yaw, player.yaw);
-      if (Math.abs(diff) < 2.0) this.yaw = dampAngle(this.yaw, player.yaw, 0.7, dt);
+      if (m.mag > 0.3 && m.y > 0.5 && Math.abs(diff) < 1.2) this.yaw = dampAngle(this.yaw, player.yaw, 0.6, dt);
     }
     if (player.isDown) pivotY = player.y + 0.6;
     const k = this.first ? 1 : 1 - Math.exp(-20 * dt), kv = this.first ? 1 : 1 - Math.exp(-11 * dt);

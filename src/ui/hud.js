@@ -30,12 +30,21 @@ export class HUD {
     this.root.appendChild(this.pockets);
     this.vignette = el('div', 'hurtvig');
     this.root.appendChild(this.vignette);
+    // Cut-to-black that fades back in, used whenever the player is moved instantly.
+    this.fader = el('div', 'fader');
+    this.root.insertBefore(this.fader, this.toasts);
     this.plates = new Map();
     this._v = new BABYLON.Vector3();
     this.toastList = [];
     this.lastHp = null;
   }
   setVisible(v) { this.root.style.display = v ? '' : 'none'; }
+  fadeIn(dur = 0.8) {
+    const f = this.fader;
+    f.style.transition = 'none'; f.style.opacity = '1';
+    void f.offsetWidth; // restart the transition from black
+    f.style.transition = `opacity ${dur}s ease-in 0.15s`; f.style.opacity = '0';
+  }
   toast(text, kind = 'info', dur = 3.2) {
     const t = el('div', `toast ${kind}`, text);
     this.toasts.appendChild(t);

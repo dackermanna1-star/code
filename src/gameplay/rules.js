@@ -44,7 +44,7 @@ export class Rules {
 
   /** Is this character allowed in this room right now? */
   allowedIn(c, room) {
-    if (!room || c.isStaff) return true;
+    if (!room || c.isStaff || c.flags.escort) return true;
     const clk = this.sim.clock, period = clk.period.id, r = room.restricted;
     if (room.cell) {
       if (room.solitary) return c.flags.solitaryCell === room.id;
@@ -81,7 +81,7 @@ export class Rules {
   }
   _scan(g) {
     for (const o of this.sim.characters) {
-      if (o === g || o.kind !== 'inmate' || o.state === 'ko') continue;
+      if (o === g || o.kind !== 'inmate' || o.state === 'ko' || o.flags.escort) continue;
       if (!this._canSee(g, o)) continue;
       // Fighting: the aggressor (or both) are guilty of assault.
       if (o.state === 'grapple') this.report(o, 'assault', g);
@@ -179,29 +179,63 @@ export class Rules {
     r.warrants.clear(); r.heat = Math.max(0, r.heat - 30);
     if (guard) { guard.flags.dispatch = null; this.sim.brainOf(guard)?.endFight(); }
     this.sim.events.emit('punished', { c, guard, result, how });
-    if (solitary > 0) this.sendToSolitary(c, solitary);
+    if (!c.isPlayer && (solitary > 0 || (escortCell && c.bed))) this._beginEscort(c, guard, solitary);
+    else if (solitary > 0) this.sendToSolitary(c, solitary);
     else if (escortCell && c.cell) this.sim.teleportToSpot?.(c, c.bed);
     return result;
   }
-  sendToSolitary(c, minutes) {
+  /** Arrested NPCs are cuffed and walked to their cell (or the Hole) by the arresting guard. The
+   *  hand-off completes on arrival, or as soon as the player can't see them, so nobody vanishes
+   *  on screen. The walk itself is driven by the brain (see Brain._escorted). */
+  _beginEscort(c, guard, solitary) {
+    const room = solitary > 0 ? this._freeSolitary() : null;
+    const dest = room ? this._cot(room) : c.bed;
+    c.flags.escort = { guard: guard || null, solitary, room: room ? room.id : null, dest: dest ? { ax: dest.ax, az: dest.az } : null, t: 0 };
+    if (c.spot) c.leaveSpot(true);
+    if (c.grapple) c.endGrapple('broken');
+    const b = this.sim.brainOf(c);
+    if (b) { b.endFight(); this.sim.planner?.endGoal(b); b.path = null; }
+    if (c.state !== 'ko' && !c.isDown) c.setState('cuffed');
+    if (guard && !guard.isPlayer) guard.flags.escorting = c;
+    this.sim.events.emit('escort', { c, guard, solitary });
+  }
+  finishEscort(c) {
+    const e = c.flags.escort;
+    if (!e) return;
+    c.flags.escort = null;
+    if (e.guard && e.guard.flags.escorting === c) e.guard.flags.escorting = null;
+    if (c.state === 'cuffed') c.setState('free');
+    if (e.solitary > 0) this.sendToSolitary(c, e.solitary, e.room);
+    else if (c.bed) this.sim.teleportToSpot?.(c, c.bed);
+  }
+  _freeSolitary(prefer) {
     const cells = this.sim.world.rooms.filter((r) => r.solitary);
-    const used = new Set(this.sim.characters.filter((x) => x.flags.solitaryCell).map((x) => x.flags.solitaryCell));
-    const room = cells.find((r) => !used.has(r.id)) || cells[0];
+    const used = new Set();
+    for (const x of this.sim.characters) { if (x.flags.solitaryCell) used.add(x.flags.solitaryCell); if (x.flags.escort?.room) used.add(x.flags.escort.room); }
+    if (prefer) { const r = cells.find((r) => r.id === prefer); if (r && !used.has(prefer)) return r; }
+    return cells.find((r) => !used.has(r.id)) || cells[0];
+  }
+  _cot(room) { return this.sim.world.spots.find((s) => s.cell === room.id && s.activity === 'sleep') || { ax: (room.rect[0] + room.rect[2]) / 2, az: room.rect[1] + 2 }; }
+  sendToSolitary(c, minutes, prefer) {
+    const room = this._freeSolitary(prefer);
     c.flags.solitaryCell = room.id;
     c.flags.solitaryUntil = this.sim.clock.total + minutes;
     const door = this.sim.world.doorById.get(room.doorId);
     if (door) { door.locked = true; door.amount = 0; }
     if (c.spot) c.leaveSpot(true);
     if (c.grapple) c.endGrapple('broken');
-    const cot = this.sim.world.spots.find((s) => s.cell === room.id && s.activity === 'sleep');
-    c.place(cot ? cot.ax : (room.rect[0] + room.rect[2]) / 2, cot ? cot.az : room.rect[1] + 2);
+    const cot = this._cot(room);
+    c.place(cot.ax, cot.az);
     if (c.state !== 'ko') c.setState('free');
+    this.sim.events.emit('teleport', { c, x: cot.ax, z: cot.az });
     this.sim.events.emit('solitary', { c, room, minutes });
   }
   lateUpdate() {
     const now = this.sim.clock.total;
     for (const c of this.sim.characters) {
       if (c.flags.solitaryUntil && now >= c.flags.solitaryUntil) {
+        const see = this.sim.canSee;
+        if (!c.isPlayer && see && (see(c.x, c.z) || (c.bed && see(c.bed.ax, c.bed.az)))) continue;
         const room = this.sim.world.roomById.get(c.flags.solitaryCell);
         const door = room && this.sim.world.doorById.get(room.doorId);
         if (door) door.locked = false;

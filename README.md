@@ -119,8 +119,10 @@ npm run build && npm run e2e:dist
 ```
 
 The e2e suite runs the game in manual-step mode, so its results are deterministic. It drives
-the real input layer. It checks that movement starts and stops crisply, that you face the right
-target in a cluster, that a guard steps in and makes the arrest after a fight, that the day's
+the real input layer. It checks that movement starts and stops crisply, that the character faces
+where it moves (also after a conversation), that holding a key runs straight, that everyone in
+view is drawn, that arrested inmates are walked off rather than teleported, that you face the
+right target in a cluster, that a guard steps in and makes the arrest after a fight, that the day's
 routine works (meals, sleep, recovery after a KO), that saves round-trip, that crowds don't get
 stuck, and how long a simulation step takes. The dist smoke test boots the bundled page on a
 desktop and on emulated phones in both orientations. It drives real mouse input, the

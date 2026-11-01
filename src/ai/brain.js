@@ -66,14 +66,16 @@ export class Brain {
       const moved = Math.hypot(c.x - this.lastPos[0], c.z - this.lastPos[1]);
       if (moved < 0.25) {
         this.stuckCount++;
+        const wp = this.path ? this.path[Math.min(this.pathIdx, this.path.length - 1)] : null;
         this.path = null;
-        // Nudge sideways, then if repeatedly stuck while unseen, hop to the next waypoint.
+        // Nudge sideways, then if repeatedly stuck, hop to the waypoint we were trying to reach,
+        // but only when the player can see neither where we are nor where we'd land.
         const a = this.rng.range(0, Math.PI * 2);
         c.vx += Math.cos(a) * 1.5; c.vz += Math.sin(a) * 1.5;
-        if (this.stuckCount > 3 && !this.game.isVisibleToPlayer?.(c) && this.pathTarget) {
-          const nw = this.game.world.nav.nearestWalkable(this.pathTarget[0], this.pathTarget[1], c, 6);
-          if (nw) c.place(nw[0], nw[1]);
-          this.stuckCount = 0;
+        if (this.stuckCount > 3 && wp) {
+          const see = this.game.canSee;
+          const nw = this.game.world.nav.nearestWalkable(wp[0], wp[1], c, 3);
+          if (nw && !(see && (see(c.x, c.z) || see(nw[0], nw[1])))) { c.place(nw[0], nw[1]); this.stuckCount = 0; }
         }
       } else this.stuckCount = Math.max(0, this.stuckCount - 1);
       this.stuckT = 0; this.lastPos = [c.x, c.z];
@@ -84,12 +86,14 @@ export class Brain {
   update(dt) {
     const c = this.c;
     this.pathAge += dt;
+    if (c.flags.escort) { this._escorted(dt); return; }
     if (c.state === 'ko' || c.state === 'down' || c.state === 'thrown' || c.state === 'getup' || c.state === 'grappled' || c.state === 'cuffed') { c.stop(); return; }
     if (this.paused) { c.stop(); return; }
     this.thinkT -= dt;
     if (this.thinkT <= 0) { this.thinkT = CONFIG.ai.thinkInterval * this.rng.range(0.8, 1.25); this.think(); }
     if (this.fight && this.fight.target) this._fightTick(dt);
     else if (c.flags.dispatch && this.game.rules && this.game.rules.tickGuard(this, dt)) { /* chasing an offender */ }
+    else if (c.flags.escorting) this._escortGuard(dt);
     else if (this.goal && this.goal.type === 'follow') this._follow(dt);
     else if (this.goal && this.game.planner) this.game.planner.tick(this, dt);
     else if (this.goal) this._basicGoal(dt);
@@ -111,6 +115,30 @@ export class Brain {
     }
     if (g.planner && !this.fight) g.planner.think(this);
     else if (!this.fight && !this.goal) this.goal = { type: 'wander', t: 0 };
+  }
+
+  /** In custody: shuffle (cuffed) to the cell or the Hole. Rules.finishEscort completes the
+   *  hand-off on arrival, or earlier once the player can't see us. */
+  _escorted(dt) {
+    const c = this.c, e = c.flags.escort, rules = this.game.rules;
+    e.t += dt;
+    const see = this.game.canSee;
+    const unseen = !see || (!see(c.x, c.z) && !(e.dest && see(e.dest.ax, e.dest.az)));
+    if ((e.t > 0.5 && unseen) || e.t > 150) { rules.finishEscort(c); return; }
+    if (c.state === 'ko' || c.state === 'down' || c.state === 'thrown' || c.state === 'getup' || c.state === 'grappled') { c.stop(); return; }
+    if (c.state !== 'cuffed') c.setState('cuffed');
+    const r = e.dest ? this.goTo(e.dest.ax, e.dest.az, { arrive: 0.6 }) : 'arrived';
+    if (r === 'arrived') { rules.finishEscort(c); return; }
+    this._stuckCheck(dt);
+  }
+  /** Walk a pace behind the prisoner we're escorting. */
+  _escortGuard(dt) {
+    const c = this.c, pr = c.flags.escorting;
+    if (!pr || !pr.flags.escort || pr.flags.escort.guard !== c) { c.flags.escorting = null; c.stop(); return; }
+    const bx = pr.x - Math.sin(pr.yaw) * 0.9, bz = pr.z - Math.cos(pr.yaw) * 0.9;
+    const d = Math.hypot(bx - c.x, bz - c.z);
+    if (d > 0.5) this.goTo(bx, bz, { arrive: 0.4, run: d > 4 });
+    else { c.stop(); c.faceYaw = yawTo(pr.x - c.x, pr.z - c.z); }
   }
 
   _follow(dt) {

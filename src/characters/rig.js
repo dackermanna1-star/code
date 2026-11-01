@@ -146,8 +146,10 @@ export class CharacterRig {
     mesh.skeleton = sk;
     mesh.numBoneInfluencers = 2;
     mesh.isPickable = false;
+    // A fixed local box generous enough for any pose (lying, reaching, being thrown). It must stay
+    // synced to the world matrix: with doNotSyncBoundingInfo the world box never follows the
+    // character, so culling tests where they first stood and people vanish on screen.
     mesh.setBoundingInfo(new BABYLON.BoundingInfo(new V3(-1.3, -0.4, -1.3), new V3(1.3, 2.4, 1.3)));
-    mesh.doNotSyncBoundingInfo = true;
     mesh.rotationQuaternion = null;
     this.vertexCount = g.pos.length / 3;
     this.tex = new BABYLON.DynamicTexture(`${name}_tex`, { width: TEX_W, height: TEX_H }, scene, true, BABYLON.Texture.TRILINEAR_SAMPLINGMODE);

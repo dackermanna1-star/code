@@ -28,6 +28,7 @@ export function installSystems(sim, opts = {}) {
     door.authorize = (agent) => {
       if (!agent) return false;
       if (agent.isStaff) return true;
+      if (agent.flags && agent.flags.escort) return true; // being walked somewhere by a guard
       const clk = sim.clock, period = clk.period.id, job = agent.job ?? agent.def?.job;
       switch (door.access) {
         case 'office': return clk.minutes >= 8 * 60 && clk.minutes < 16 * 60;
@@ -77,6 +78,7 @@ export function installSystems(sim, opts = {}) {
     if (c.spot) c.leaveSpot(true);
     c.place(spot.ax, spot.az, spot.yaw);
     if (c.state !== 'ko') c.setState('free');
+    sim.events.emit('teleport', { c, x: spot.ax, z: spot.az });
   };
   /** Jump the clock forward; NPCs snap to where their routine would have taken them. */
   sim.timeSkip = (minutes) => {

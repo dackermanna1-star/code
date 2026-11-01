@@ -81,7 +81,7 @@ export class Dialogue {
     const npc = this.npc, p = this.player;
     this.active = false;
     if (npc) { npc.talkPartner = null; if (npc.state === 'talk') npc.setState('free'); npc.faceYaw = null; const b = this.sim.brainOf(npc); if (b) b.paused = false; }
-    if (p) p.talkPartner = null;
+    if (p) { p.talkPartner = null; p.faceYaw = null; }
     if (reason === 'walkaway' && npc && this.mode === 'arrest') this.sim.rules.report(p, 'resisting', npc);
     else if (reason === 'walkaway' && npc && npc.kind === 'inmate' && Math.random() < 0.4) npc.say(pick(['Rude.', 'Whatever.', 'Okay then.', 'Nice talking to you too.']), 2);
     this.sim.events.emit('dialogueClose', { npc, reason });

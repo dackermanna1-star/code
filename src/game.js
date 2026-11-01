@@ -28,6 +28,7 @@ import { JOBS } from './gameplay/activities.js';
 import { ITEMS } from './world/items.js';
 import { CONFIG } from './config.js';
 import { RNG } from './core/random.js';
+import { angleDiff } from './core/mathutil.js';
 
 const SPOT_VERBS = {
   sleep: 'Lie down', toilet: 'Sit on toilet', wash: 'Wash up', write: 'Sit at desk', hangout: 'Sit down', phone: 'Use payphone',
@@ -104,6 +105,7 @@ export class Game {
     installSystems(this.sim, { sentence: { days: 21 } });
     this.sim.clock.scale = CONFIG.time.minutesPerSecond[this.options.timeSpeed] || 1.5;
     this.sim.isVisibleToPlayer = (c) => this.isVisibleToPlayer(c);
+    this.sim.canSee = (x, z) => this.canSee(x, z);
     this.world = this.sim.world;
     this.cameraRig = new CameraRig(scene, this.world);
     scene.activeCamera = this.cameraRig.camera;
@@ -236,6 +238,7 @@ export class Game {
       hud()?.announce('Disciplinary Action', parts.join(' · ') || 'A warning. This time.', 6);
       au()?.ui('bad');
     });
+    ev.on('teleport', (e) => { if (isP(e.c)) { this.cameraRig.first = true; hud()?.fadeIn(); } });
     ev.on('solitary', (e) => { if (isP(e.c)) { this.cameraRig.first = true; hud()?.toast('You\'ve been thrown in the Hole. Sleep to pass the time.', 'bad', 5); } });
     ev.on('released', (e) => { if (isP(e.c)) { this.cameraRig.first = true; hud()?.toast('Released from solitary.', 'good', 3); } });
     ev.on('bribed', (e) => { if (isP(e.c)) hud()?.toast(`Bribe accepted (${e.amount} ramen).`, 'good', 2.5); });
@@ -250,7 +253,7 @@ export class Game {
     ev.on('parole', (e) => { if (this.mode === 'play') hud()?.announce('Parole Board', e.cut ? `Good conduct: ${e.cut} day${e.cut > 1 ? 's' : ''} taken off your sentence.` : 'Your conduct wasn\'t good enough for a reduction.', 6); });
     ev.on('sentenceChange', (e) => { if (e.delta > 0 && this.mode === 'play') hud()?.toast(`Sentence extended by ${e.delta} day${e.delta > 1 ? 's' : ''}.`, 'bad', 3); });
     ev.on('needWarn', (e) => { if (isP(e.c)) hud()?.toast(e.need === 'hunger' ? 'You\'re starving. Grab a tray at mealtime or buy a snack.' : 'You\'re exhausted. Get some sleep.', 'warn', 4); });
-    ev.on('wokeInfirmary', () => { this.cameraRig.first = true; hud()?.announce('Infirmary', 'You came to a few hours later. Your head is pounding.', 5); });
+    ev.on('wokeInfirmary', () => { this.cameraRig.first = true; hud()?.fadeIn(1.2); hud()?.announce('Infirmary', 'You came to a few hours later. Your head is pounding.', 5); });
     ev.on('gotMeal', () => hud()?.toast('Grab a seat and press R to eat (or just sit with your tray).', 'info', 3));
     ev.on('mealDone', () => hud()?.toast('Clean plate. Hunger satisfied.', 'good', 2));
     ev.on('notNow', (e) => { if (isP(e.c)) { au()?.ui('bad'); hud()?.toast(e.what, 'warn', 2.5); } });
@@ -390,13 +393,28 @@ export class Game {
       if (fight >= 3 && Math.random() < 0.2) a.cheer({ x: p.x, z: p.z }, 0.12);
     }
   }
-  isVisibleToPlayer(c) {
+  /** Could the player notice something at (x, z)? Deliberately generous: anything near the
+   *  player, or inside the camera's view cone with a clear line from the camera or the player,
+   *  counts as seen. The simulation asks this before moving anyone instantly, so people never
+   *  pop in or out of existence on screen. */
+  canSee(x, z) {
+    const cam = this.cameraRig && this.cameraRig.camera;
+    if (!cam) return false;
     const p = this.player;
-    if (!p) return false;
-    const d = Math.hypot(c.x - p.x, c.z - p.z);
-    if (d > 30) return false;
-    return this.world.nav.sightClear(p.x, p.z, c.x, c.z);
+    if (p && this.mode === 'play' && Math.hypot(x - p.x, z - p.z) < 7) return true;
+    const cx = cam.position.x, cz = cam.position.z;
+    const dx = x - cx, dz = z - cz, d = Math.hypot(dx, dz);
+    if (d < 4) return true;
+    if (d > 80) return false;
+    const t = cam.getTarget();
+    const camYaw = Math.atan2(t.x - cx, t.z - cz);
+    const aspect = this.engine ? this.engine.getAspectRatio(cam) : 16 / 9;
+    const halfH = Math.atan(Math.tan(cam.fov / 2) * aspect) + 0.25;
+    if (Math.abs(angleDiff(camYaw, Math.atan2(dx, dz))) > halfH) return false;
+    const nav = this.world.nav;
+    return nav.sightClear(cx, cz, x, z) || (!!p && this.mode === 'play' && nav.sightClear(p.x, p.z, x, z));
   }
+  isVisibleToPlayer(c) { return this.canSee(c.x, c.z); }
 
   // ------------------------------------------------------------------ loop
   frame() {
@@ -443,7 +461,14 @@ export class Game {
       const cam = this.cameraRig.camera;
       cam.position.set(p.x - 0.55, p.y + 1.55, p.z - 2.4);
       cam.setTarget(new BABYLON.Vector3(p.x - 0.55, p.y + 1.25, p.z));
-    } else this.cameraRig.update(dt, this.menuOpen || this.dialogueUI.list ? null : this.input, p, { lockTarget: p.lockTarget, talkPartner: this.dialogue?.active ? this.dialogue.npc : null, moving: Math.hypot(p.vx, p.vz) > 1 });
+    } else this.cameraRig.update(dt, this.menuOpen || this.dialogueUI.list ? null : this.input, p, { lockTarget: p.lockTarget, talkPartner: this.dialogue?.active ? this.dialogue.npc : null, followInput: this.input.lastDevice !== 'keyboard' && Math.hypot(p.vx, p.vz) > 1 ? this.input.moveVector() : null });
+    // When walls push the camera right up behind the player, fade them out instead of filling the
+    // screen with the inside of their head.
+    if (p.rig) {
+      const cd = this.cameraMode === 'follow' ? this.cameraRig.curDist : 9;
+      const vis = cd < 1.15 ? Math.max(0.15, Math.min(1, (cd - 0.5) / 0.65)) : 1;
+      if (Math.abs(p.rig.mesh.visibility - vis) > 0.01) p.rig.mesh.visibility = vis;
+    }
     this._audioFrame(dt);
     const tod = this._updateLighting(dt);
     this.worldView.update(dt, tod);
@@ -455,10 +480,13 @@ export class Game {
   }
 
   // ------------------------------------------------------------------ debug helpers (tests)
-  /** Advance the simulation deterministically (no rendering), then present one frame. */
+  /** Advance the simulation deterministically, then present one frame. `present: true` also
+   *  presents after every step; `present: N` presents every N steps (camera follows at N×dt),
+   *  which keeps tests affordable where rendering is slow (software WebGL). */
   debugStep(seconds, opts = {}) {
     const STEP = 1 / 60;
     const n = Math.round(seconds / STEP);
+    const every = opts.present === true ? 1 : (typeof opts.present === 'number' ? Math.max(1, opts.present | 0) : 0);
     const t0 = performance.now();
     for (let i = 0; i < n; i++) {
       this.time += STEP;
@@ -468,7 +496,7 @@ export class Game {
       this.controller.update(STEP);
       this.sim.step(STEP);
       this._updateLighting(STEP);
-      if (opts.present) this.present(STEP);
+      if (every && (i + 1) % every === 0) this.present(STEP * every);
       this.input.endFrame();
     }
     const simMs = (performance.now() - t0) / Math.max(1, n);

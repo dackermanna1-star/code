@@ -99,9 +99,14 @@ The goal was controls that stay out of the way:
   lock-on.
 - **Dialogue** opens a side panel and frames the camera on both speakers. Replies take a number
   key, a click or a tap. Walking away for 0.35 s ends the conversation.
-- **Camera.** A third-person orbit that collides with walls and stays under ceilings. When you
-  leave the camera alone while running, it drifts in behind you. It also frames lock-on targets
-  and conversations.
+- **Camera.** A third-person orbit that collides with walls and stays under ceilings. With an
+  analog stick pushed mostly forward, it drifts in behind you. Keys never turn it, because
+  movement is camera-relative and a swinging camera would bend the path you're steering. It
+  frames lock-on targets and conversations, and fades your character out when walls push it
+  right up behind you.
+- **Facing.** Talking, picking things up and fighting can override which way a character faces.
+  An override that isn't refreshed every tick is dropped as soon as the character walks off on
+  its own, so nobody stays turned one way while running another.
 - **Devices.** Keyboard and mouse, gamepad (standard mapping) and touch all feed the same
   actions. When pointer lock is refused, dragging with the right mouse button turns the camera,
   and heavy attacks move to K.
@@ -118,11 +123,20 @@ backs off from targets that recently failed. Local avoidance, separation and a s
 crowds moving. The crowd e2e scenario counts NPCs that have a goal but haven't moved, and
 expects about none.
 
+The simulation sometimes moves someone instantly: rescuing a stuck NPC, sweeping stragglers
+into cells at lock-up, finishing an escort, or releasing someone from solitary. Each of these
+first asks the presentation layer whether the player could see either end of the jump. That
+check uses the camera's view cone and line of sight from the camera and the player. If either
+end might be on screen, the move waits. A stuck NPC only ever hops one waypoint. When the player
+is moved (arrest, waking in the infirmary), the screen cuts to black and fades back in.
+
 Guards see in a vision cone and hear fights within about 10 m when there's line of sight. When a
 guard catches a crime, they warn first. Anyone still attacking 0.6 s after the warning gets
 subdued. A crime adds heat, a fine, extra days or solitary. When the player is arrested, a
 dialogue offers four options: go quietly, slip the guard some ramen (if you have enough), talk
-your way out (a smarts check), or resist.
+your way out (a smarts check), or resist. Arrested NPCs are cuffed and walked to their cell or
+the Hole, with the guard a pace behind. They are placed there once they arrive or once the
+player can no longer see them.
 
 ## Prison day
 
@@ -165,12 +179,16 @@ By default one real second is 1.5 game minutes. Options offer 1 or 3 instead. Sl
   - a locked cell door keeps its inmate in
   - room lookup works
   - cutting the fence opens a route out
-- `npm run e2e` runs 13 Playwright scenarios against the real game. Latest results:
+- `npm run e2e` runs 17 Playwright scenarios against the real game. Latest results:
   - movement reaches 4.15 m/s in 0.2 s and stops in 0.16 s
   - a reversal turns around within 0.25 s
   - walls stop the player without tunnelling
   - the right item is picked from a cluster, and Tab cycles targets
   - E talks to the person in front, not the one beside them
+  - after a conversation, the character faces the way it moves
+  - holding a direction key runs straight, and the camera doesn't swing
+  - every character whose body is in view is drawn
+  - an arrested inmate walks off cuffed and is never teleported on screen
   - in a fight, a combo lands, a guard steps in and the arrest adds a day
   - a meal raises hunger from 30 to 47
   - sleeping wakes the player at 06:04 the next day

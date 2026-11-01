@@ -31,7 +31,7 @@ export class Character {
     this.vx = 0; this.vz = 0; this.vy = 0;
     this.radius = 0.3 + (app.build.girth - 1) * 0.22;
     this.moveX = 0; this.moveZ = 0; this.moveSpeed = 0;
-    this.faceYaw = null; this.turnRate = 0; this._prevYaw = 0; this._prevSpeed = 0; this.accel = 0;
+    this._faceYaw = null; this._faceAt = 0; this.turnRate = 0; this._prevYaw = 0; this._prevSpeed = 0; this.accel = 0;
     this.sprinting = false; this.walking = false;
     // Stats
     this.stats = { str: 30, agi: 30, tgh: 30, smt: 30, ...(def.stats || {}) };
@@ -68,6 +68,13 @@ export class Character {
   place(x, z, yaw = this.yaw) { this.x = x; this.z = z; this.yaw = yaw; this.vx = this.vz = 0; }
 
   /** Movement intent in world space. dir need not be normalized; speed in m/s. */
+  /** Facing override (look at a partner, an item, an opponent). Callers that need it while the
+   *  character moves must refresh it every tick: an override nobody refreshes is dropped once the
+   *  character walks off on its own (see _physics), so it can never leave someone stuck facing
+   *  one way while running another. */
+  get faceYaw() { return this._faceYaw; }
+  set faceYaw(v) { this._faceYaw = v; this._faceAt = this.game ? this.game.time : 0; }
+
   setMove(dx, dz, speed) {
     const l = Math.hypot(dx, dz);
     if (l < 1e-4 || speed <= 0) { this.moveX = 0; this.moveZ = 0; this.moveSpeed = 0; return; }
@@ -122,6 +129,8 @@ export class Character {
     const prev = this.state;
     this.state = s; this.stateT = 0;
     if (s === 'free') { this.anim.setPosture(null); }
+    if (s === 'cuffed' && prev !== 'cuffed') { this.stop(); this.anim.play('cuffed', undefined, { loop: true, full: false }); }
+    else if (prev === 'cuffed' && s !== 'cuffed' && this.anim.isPlaying('cuffed')) this.anim.stop(0.2);
     if (prev === 'spot' && s !== 'spot' && this.spot) this._releaseSpot();
   }
 
@@ -162,7 +171,8 @@ export class Character {
     if (opts.extraVX) { this.vx += opts.extraVX; this.vz += opts.extraVZ; }
     // Facing
     let target = null;
-    if (this.faceYaw != null) target = this.faceYaw;
+    if (this._faceYaw != null && des > 0.15 && this.game && this.game.time - this._faceAt > 0.25) this._faceYaw = null;
+    if (this._faceYaw != null) target = this._faceYaw;
     else if (lock && this.state !== 'stagger') target = yawTo(lock.x - this.x, lock.z - this.z);
     else if (des > 0.15) target = Math.atan2(dvx, dvz);
     if (target != null && !opts.noTurn) {

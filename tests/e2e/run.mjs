@@ -10,7 +10,7 @@ const step = (s) => G((s) => window.__game.debugStep(s), s);
 const key = async (a, down) => G(([a, d]) => window.__game.input.simulate(a, d), [a, down]);
 const tap = async (a) => { await key(a, true); await step(1 / 30); await key(a, false); await step(1 / 30); };
 async function scenario(name, fn) {
-  if (process.env.ONLY && !name.includes(process.env.ONLY)) return;
+  if (process.env.ONLY && !new RegExp(process.env.ONLY).test(name)) return;
   const t0 = Date.now();
   await reset(); await step(0.1);
   try { const info = await fn(); results.push({ name, ok: true, info, ms: Date.now() - t0 }); console.log(`✔ ${name}${info ? ` — ${info}` : ''}`); }
@@ -31,7 +31,7 @@ const reset = () => G(() => {
   const g = window.__game, sim = g.sim, p = g.player;
   g.dialogue.close('bye'); g.dialogueUI.closeList(); g.menus.close();
   for (const b of sim.brains.values()) { b.fight = null; b.paused = false; b.token = false; if (b.goal && b.goal.keepAcrossPeriods) b.goal = null; }
-  for (const c of sim.characters) { c.flags.dispatch = null; c.combatTimer = 0; c.combatTarget = null; c.lockTarget = null; if (c.state !== 'spot' && c.state !== 'ko') c.setState('free'); c.act = null; }
+  for (const c of sim.characters) { c.flags.dispatch = null; c.flags.escort = null; c.flags.escorting = null; c.faceYaw = null; c.combatTimer = 0; c.combatTarget = null; c.lockTarget = null; if (c.state !== 'spot' && c.state !== 'ko') c.setState('free'); c.act = null; }
   sim.attackers.clear();
   for (const r of sim.rules.record.values()) { r.warrants.clear(); r.heat = 0; }
   if (p.spot) p.leaveSpot(true);
@@ -142,12 +142,122 @@ try {
     return `talked to the middle of ${names.join(', ')}`;
   });
 
+  await scenario('after a conversation the player faces where they move', async () => {
+    await isolate(38, 40);
+    const r = await G(() => {
+      const g = window.__game, p = g.player, inp = g.input;
+      const npc = g.sim.byId.get('grandpa');
+      g.sim.brainOf(npc).paused = true;
+      npc.place(38, 42, Math.PI); p.place(38, 40.6, 0); g.cameraRig.yaw = 0; g.cameraRig.snapBehind(p);
+      g.debugStep(0.2, { present: 6 });
+      g.startConversation(p, npc); g.debugStep(1, { present: 6 });
+      const talking = !!g.dialogue.active;
+      inp.simulate('right', true); g.debugStep(1.2, { present: 6 }); inp.simulate('right', false);
+      const out = { talking, closed: !g.dialogue.active, faceYaw: p.faceYaw, yaw: p.yaw, velYaw: Math.atan2(p.vx, p.vz), speed: Math.hypot(p.vx, p.vz) };
+      g.debugStep(0.3);
+      g.sim.brainOf(npc).paused = false;
+      return out;
+    });
+    assert(r.talking && r.closed, 'conversation did not open and then close on walking away');
+    assert(r.faceYaw == null, `facing override left behind after the conversation: ${r.faceYaw}`);
+    assert(r.speed > 2, `not moving after the conversation (${r.speed.toFixed(2)} m/s)`);
+    const err = Math.abs(Math.atan2(Math.sin(r.yaw - r.velYaw), Math.cos(r.yaw - r.velYaw)));
+    assert(err < 0.3, `body faces ${r.yaw.toFixed(2)} but moves toward ${r.velYaw.toFixed(2)}`);
+    return `faces ${r.yaw.toFixed(2)}, moving toward ${r.velYaw.toFixed(2)}`;
+  });
+
+  await scenario('holding a direction key runs straight (camera does not swing)', async () => {
+    await isolate(30, 80);
+    const r = await G(() => {
+      const g = window.__game, p = g.player, inp = g.input;
+      p.place(30, 80, 0); g.cameraRig.yaw = 0; g.cameraRig.snapBehind(p); g.cameraRig.idleLook = 5; inp.lastDevice = 'keyboard';
+      g.debugStep(0.3, { present: 6 });
+      inp.simulate('right', true);
+      const heads = [];
+      for (let k = 0; k < 5; k++) { g.debugStep(0.5, { present: 6 }); heads.push(Math.atan2(p.vx, p.vz)); }
+      inp.simulate('right', false); g.debugStep(0.3);
+      return { heads, cam: g.cameraRig.yaw };
+    });
+    const drift = Math.max(...r.heads) - Math.min(...r.heads);
+    assert(drift < 0.1, `path bends while holding right: ${r.heads.map((h) => h.toFixed(2))}`);
+    assert(Math.abs(r.cam) < 0.05, `camera swung to ${r.cam.toFixed(2)}`);
+    return `heading drift ${drift.toFixed(3)} rad over 2.5 s`;
+  });
+
+  await scenario('everyone in view is drawn (no culling pop-outs)', async () => {
+    const r = await G(() => {
+      const g = window.__game, scene = g.scene, p = g.player;
+      let shouldDraw = 0, culled = 0;
+      for (const [x, z, yaw] of [[38, 30, 0], [38, 30, Math.PI], [20, 50, Math.PI / 2], [40, 85, 0]]) {
+        p.place(x, z, yaw); g.cameraRig.yaw = yaw; g.cameraRig.snapBehind(p);
+        for (let f = 0; f < 10; f++) {
+          g.debugStep(0.3);
+          const planes = BABYLON.Frustum.GetPlanes(scene.getTransformMatrix());
+          const am = scene.getActiveMeshes(), active = new Set(am.data.slice(0, am.length));
+          for (const c of g.characters) {
+            if (!c.rig) continue;
+            const bi = new BABYLON.BoundingInfo(new BABYLON.Vector3(c.x - 0.4, c.y, c.z - 0.4), new BABYLON.Vector3(c.x + 0.4, c.y + 1.9, c.z + 0.4));
+            if (!bi.isInFrustum(planes)) continue;
+            shouldDraw++;
+            if (!active.has(c.rig.mesh)) culled++;
+          }
+        }
+      }
+      return { shouldDraw, culled };
+    });
+    assert(r.shouldDraw > 50, `too few characters in view to judge (${r.shouldDraw})`);
+    assert(r.culled === 0, `${r.culled} of ${r.shouldDraw} in-view character frames were not drawn`);
+    return `${r.shouldDraw} in-view character frames, none culled`;
+  });
+
+  await scenario('arrested inmates are walked away, never teleported in view', async () => {
+    await isolate(38, 30);
+    const r = await G(() => {
+      const g = window.__game, sim = g.sim, p = g.player;
+      const npc = sim.byId.get('knuckles'), guard = sim.byId.get('reyes');
+      p.place(38, 26, 0); g.cameraRig.yaw = 0; g.cameraRig.snapBehind(p);
+      npc.place(38, 31, Math.PI); guard.place(39, 31.5, Math.PI);
+      g.debugStep(0.3, { present: 6 });
+      // Watch every instant move of the inmate: was either end actually visible on screen?
+      const cam = g.scene.activeCamera;
+      const seen = (x, y, z) => {
+        const planes = BABYLON.Frustum.GetPlanes(g.scene.getTransformMatrix());
+        const v = new BABYLON.Vector3(x, y + 1.3, z);
+        if (!planes.every((pl) => pl.dotCoordinate(v) >= 0)) return false;
+        const dir = v.subtract(cam.position), len = dir.length(); dir.normalize();
+        const hit = g.scene.pickWithRay(new BABYLON.Ray(cam.position.clone(), dir, len), (m) => m.isVisible && m.isEnabled() && !g.characters.some((c) => c.rig && c.rig.mesh === m) && !/sky/i.test(m.name));
+        return !(hit && hit.hit && hit.distance < len - 0.3);
+      };
+      const jumps = [];
+      const orig = npc.place;
+      npc.place = function (x, z, yaw) { if (Math.hypot(x - this.x, z - this.z) > 1) jumps.push({ from: seen(this.x, this.y, this.z), to: seen(x, this.y, z), d: Math.hypot(x - this.x, z - this.z) }); return orig.call(this, x, z, yaw); };
+      sim.rules.rec(npc).warrants.add('curfew');
+      sim.rules.arrest(npc, guard, 'comply');
+      g.debugStep(0.5, { present: 6 });
+      const cuffed = npc.state === 'cuffed', escorting = guard.flags.escorting === npc;
+      const start = [npc.x, npc.z];
+      let walked = 0, t = 0;
+      while (npc.flags.escort && t < 60) { g.debugStep(0.5); t += 0.5; walked = Math.max(walked, Math.hypot(npc.x - start[0], npc.z - start[1])); }
+      delete npc.place;
+      return { cuffed, escorting, walked, done: !npc.flags.escort, t, jumps, guardFree: !guard.flags.escorting, atBed: npc.bed ? Math.hypot(npc.x - npc.bed.ax, npc.z - npc.bed.az) : -1 };
+    });
+    assert(r.cuffed && r.escorting, `arrest did not start an escort (cuffed=${r.cuffed}, guard escorting=${r.escorting})`);
+    assert(r.walked > 1.5, `inmate did not walk while in view (${r.walked.toFixed(1)} m)`);
+    assert(r.done && r.guardFree, `escort did not finish in ${r.t}s`);
+    const visibleJumps = r.jumps.filter((j) => j.from || j.to);
+    assert(!visibleJumps.length, `teleported on screen: ${JSON.stringify(visibleJumps)}`);
+    return `walked ${r.walked.toFixed(1)} m cuffed, handed off after ${r.t}s, ${r.jumps.length} unseen jump(s)`;
+  });
+
   await scenario('combat: combo lands, guard intervenes, arrest resolves', async () => {
+    await isolate(38, 35);
     const r = await G(() => {
       const g = window.__game, p = g.player, sim = g.sim;
       p.place(38, 36, Math.PI); g.cameraRig.yaw = Math.PI;
       const v = sim.byId.get('whisper');
-      v.place(38, 34.8, 0); sim.brainOf(v).goal = null;
+      if (v.spot) v.leaveSpot(true);
+      v.setState('free'); v.place(38, 34.8, 0);
+      sim.brainOf(v).goal = { type: 'post', x: 38, z: 34.8, yaw: 0, until: 1e9, t: 0, period: '*', keepAcrossPeriods: true };
       const guard = sim.byId.get('reyes');
       guard.place(40.5, 33, -1.2); sim.brainOf(guard).goal = { type: 'post', x: 40.5, z: 33, yaw: -1.2, until: 1e9, t: 0, period: '*', keepAcrossPeriods: true };
       return { hp: v.hp };

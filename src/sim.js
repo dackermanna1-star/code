@@ -98,10 +98,11 @@ export class Simulation {
       if (c.isPlayer || c.kind !== 'inmate' || c.state === 'ko' || c.flags.solitaryCell) continue;
       const room = this.world.roomAt(c.x, c.z);
       const misplaced = lockTime ? !(room && room.id === c.cell) : room && room.id === 'yard';
-      if (!misplaced || (this.isVisibleToPlayer && this.isVisibleToPlayer(c))) continue;
+      if (!misplaced || c.flags.escort || (this.isVisibleToPlayer && this.isVisibleToPlayer(c))) continue;
+      const to = lockTime && c.bed ? [c.bed.ax, c.bed.az] : this.world.randomPointIn('hall', this.rng, c);
+      if (!to || (this.canSee && this.canSee(to[0], to[1]))) continue;
       if (c.spot) c.leaveSpot(true);
-      if (lockTime && c.bed) c.place(c.bed.ax, c.bed.az);
-      else { const pt = this.world.randomPointIn('hall', this.rng, c); if (pt) c.place(pt[0], pt[1]); }
+      c.place(to[0], to[1]);
       const b = this.brains.get(c.id); if (b) { b.path = null; if (this.planner) this.planner.endGoal(b); }
     }
   }
