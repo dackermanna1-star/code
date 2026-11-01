@@ -667,21 +667,24 @@ export class Character {
     if (this.spotPhase === 'enter') {
       const t = Math.min(1, this.spotT / ENTER), e = t * t * (3 - 2 * t);
       const [fx, fz, fyaw, fy] = this.spotFrom;
-      this.x = lerp(fx, s.x, e); this.z = lerp(fz, s.z, e); this.y = lerp(fy, s.y, e);
+      this.x = lerp(fx, s.x, e); this.z = lerp(fz, s.z, e); this.y = lerp(fy, this._spotY(s), e);
       this.yaw = fyaw + angleDiff(fyaw, s.yaw) * e;
       const posture = POSTURE_FOR[s.pose];
       if (posture) this.anim.setPosture(posture);
       if (t >= 1) { this.spotPhase = 'use'; this.spotT = 0; this.game.activityStart?.(this, s); }
     } else if (this.spotPhase === 'use') {
-      this.x = s.x; this.z = s.z; this.y = s.y; this.yaw = s.yaw;
+      this.x = s.x; this.z = s.z; this.y = this._spotY(s); this.yaw = s.yaw;
       this.game.activityTick?.(this, s, dt);
     } else if (this.spotPhase === 'leave') {
       const LEAVE = 0.35;
       const t = Math.min(1, this.spotT / LEAVE), e = t * t * (3 - 2 * t);
-      this.x = lerp(s.x, s.ax, e); this.z = lerp(s.z, s.az, e); this.y = lerp(s.y, 0, e);
+      this.x = lerp(s.x, s.ax, e); this.z = lerp(s.z, s.az, e); this.y = lerp(this._spotY(s), 0, e);
       if (t >= 1) { this.y = 0; this._releaseSpot(); this.setState('free'); }
     }
   }
+
+  /** Root height while using a spot: seats keep the feet on the floor (posture lowers the pelvis). */
+  _spotY(s) { return s.pose === 'sit' ? Math.max(0, s.y - 0.46) : s.y; }
 
   // ------------------------------------------------------------------------------------ social
   _updateTalk(dt) {

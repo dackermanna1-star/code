@@ -5,6 +5,7 @@ import { MaterialLibrary } from './render/materials.js';
 import { Lighting } from './render/lighting.js';
 import { WorldView } from './render/worldView.js';
 import { ItemView } from './render/itemView.js';
+import { FX } from './render/fx.js';
 import { CameraRig } from './render/cameraRig.js';
 import { CharacterRig } from './characters/rig.js';
 import { Animator } from './characters/animator.js';
@@ -94,6 +95,7 @@ export class Game {
     this.lighting = new Lighting(scene, this.cameraRig.camera, this.opts.quality || 'high');
     this.worldView = new WorldView(scene, this.world, this.materials, this.lighting);
     this.itemView = new ItemView(scene, this.materials, this.lighting);
+    this.fx = new FX(scene);
     this.sim.spawnItems();
     this._spawnCast();
     this.controller = new PlayerController(this, this.player);
@@ -174,18 +176,27 @@ export class Game {
       if (!near(e.vic)) return;
       const snd = e.result === 'blocked' ? 'block' : e.result === 'dodged' ? null : (e.atk && e.atk.sound) || 'punch_light';
       if (snd) au()?.play(snd, { pos: pos(e.vic), vol: heavy ? 1 : 0.85, indoor: true });
+      // Impact effects at the struck region
+      const v = e.vic, region = e.atk && e.atk.region;
+      const hy = v.y + (v.isDown ? 0.25 : region === 'gut' ? v.dims.hipH + 0.15 : region === 'chest' ? v.dims.hipH + 0.35 : v.dims.H * 1.6);
+      const dir = e.att ? [(v.x - e.att.x), (v.z - e.att.z)] : null;
+      const dl = dir ? Math.hypot(dir[0], dir[1]) || 1 : 1;
+      const d2 = dir ? [dir[0] / dl, dir[1] / dl] : null;
+      if (e.result === 'blocked') this.fx.burst('block', v.x - (d2 ? d2[0] * 0.3 : 0), hy, v.z - (d2 ? d2[1] * 0.3 : 0), 8, d2);
+      else if (e.result !== 'dodged') { this.fx.burst('hit', v.x, hy, v.z, heavy ? 16 : 8, d2); this.fx.burst('sweat', v.x, hy, v.z, heavy ? 10 : 5, d2); this.fx.flash(v, heavy ? 0.55 : 0.35); }
       if (e.result !== 'blocked' && e.result !== 'dodged' && Math.random() < (heavy ? 0.8 : 0.35)) au()?.play('grunt_pain', { pos: pos(e.vic), vol: 0.6, key: e.vic.id, minGap: 0.4, rate: e.vic.app.female ? 1.35 : 1 });
       if (e.result === 'guardbreak') au()?.play('parry', { pos: pos(e.vic) });
       if (isP(e.att) && e.result === 'ko') hud()?.toast(`${e.vic.short} is out cold!`, 'good', 2);
     });
     ev.on('swing', (e) => { if (near(e.c)) { au()?.play(e.atk.heavy ? 'whoosh_heavy' : 'whoosh_light', { pos: pos(e.c), vol: 0.6 }); if (Math.random() < 0.3) au()?.play('grunt_attack', { pos: pos(e.c), vol: 0.45, key: e.c.id, minGap: 0.6, rate: e.c.app.female ? 1.35 : 1 }); } });
     ev.on('counter', (e) => { au()?.play('parry', { pos: pos(e.c) }); if (isP(e.c)) hud()?.toast('Countered!', 'good', 1.2); });
-    ev.on('knockdown', (e) => near(e.c) && au()?.play('body_fall', { pos: pos(e.c) }));
-    ev.on('land', (e) => near(e.c) && au()?.play('body_fall', { pos: pos(e.c), vol: 1 }));
+    ev.on('knockdown', (e) => { if (near(e.c)) { au()?.play('body_fall', { pos: pos(e.c), delay: 0.25 }); setTimeout(() => this.fx.burst('dust', e.c.x, 0.1, e.c.z, 10), 280); } });
+    ev.on('ko', (e) => { this.fx.koStars(e.c, true); });
+    ev.on('land', (e) => { if (near(e.c)) { au()?.play('body_fall', { pos: pos(e.c), vol: 1 }); this.fx.burst('dust', e.c.x, 0.1, e.c.z, 14); } });
     ev.on('wallSlam', (e) => near(e.c) && au()?.play('punch_heavy', { pos: pos(e.c) }));
     ev.on('grab', (e) => { if (isP(e.vic)) hud()?.toast('Grabbed! Mash to break free!', 'warn', 1.6); });
     ev.on('itemImpact', (e) => { const it = e.item; if (Math.hypot(it.x - this.player.x, it.z - this.player.z) > 25) return; au()?.play(it.def.clang ? 'metal_hit' : it.def.heavy ? 'body_fall' : 'club_hit', { pos: it, vol: Math.min(1, e.speed / 8) * 0.7 }); });
-    ev.on('itemBreak', (e) => au()?.play('wood_break', { pos: e }));
+    ev.on('itemBreak', (e) => { au()?.play('wood_break', { pos: e }); this.fx.burst('debris', e.x, 1.0, e.z, 18); });
     ev.on('door', (e) => { if (e.ev && (e.door.amount === 0 || e.door.amount === 1) || !e.ev) return; const [x, z] = e.door.center(); if (e.door.style === 'cell' && e.door._snd !== e.ev) { e.door._snd = e.ev; if (Math.hypot(x - this.player.x, z - this.player.z) < 25) au()?.door({ x, z }, e.ev === 'closing'); } });
     ev.on('tooTired', (e) => { if (isP(e.c)) hud()?.toast('Too winded!', 'warn', 1.2); });
     ev.on('pickup', (e) => { if (isP(e.c)) { au()?.ui('click'); hud()?.toast(`${e.item.pocketOf ? 'Pocketed' : 'Picked up'}: ${e.item.def.name}${e.item.def.contraband ? ' <b class="c">(contraband)</b>' : ''}`, 'info', 1.8); } });
@@ -333,6 +344,11 @@ export class Game {
     return true;
   }
 
+  _updateLighting(dt) {
+    const cam = this.cameraRig.camera.position, p = this.player;
+    const indoor = this.world.ceilingAt(cam.x, cam.z) != null ? 1 : 0;
+    return this.lighting.update(dt, this.sim.clock.minutes, indoor, p ? new BABYLON.Vector3(p.x, 0, p.z) : cam, this.sim.clock.lightsOut);
+  }
   _audioFrame(dt) {
     const a = this.audio;
     if (!a || !a.ready) return;
@@ -412,10 +428,9 @@ export class Game {
       cam.setTarget(new BABYLON.Vector3(p.x - 0.55, p.y + 1.25, p.z));
     } else this.cameraRig.update(dt, this.menuOpen || this.dialogueUI.list ? null : this.input, p, { lockTarget: p.lockTarget, talkPartner: this.dialogue?.active ? this.dialogue.npc : null, moving: Math.hypot(p.vx, p.vz) > 1 });
     this._audioFrame(dt);
-    const cam = this.cameraRig.camera.position;
-    const indoor = this.world.ceilingAt(cam.x, cam.z) != null ? 1 : 0;
-    const tod = this.lighting.update(dt, this.sim.clock.minutes, indoor, p ? new BABYLON.Vector3(p.x, 0, p.z) : cam, this.sim.clock.lightsOut);
+    const tod = this._updateLighting(dt);
     this.worldView.update(dt, tod);
+    this.fx.update(dt);
     this.hud.setVisible(this.mode === 'play');
     if (this.mode === 'play') this.hud.update(dt);
     this.scene.render();
@@ -434,6 +449,7 @@ export class Game {
       this.dialogueUI.update();
       this.controller.update(STEP);
       this.sim.step(STEP);
+      this._updateLighting(STEP);
       if (opts.present) this.present(STEP);
       this.input.endFrame();
     }

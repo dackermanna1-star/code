@@ -122,8 +122,8 @@ export class Lighting {
     const outCol = mix3(moon, sunCol, daylight, new C3());
     const outDir = V3.Lerp(moonDir, sunDir, daylight).normalize();
     // Indoor fluorescent
-    const inCol = lightsOut ? new C3(0.55, 0.62, 0.85) : new C3(1.0, 0.98, 0.93);
-    const inI = lightsOut ? 0.38 : 1.0;
+    const inCol = lightsOut ? new C3(0.6, 0.68, 0.92) : new C3(1.0, 0.98, 0.93);
+    const inI = lightsOut ? 0.62 : 1.0;
     const inDir = new V3(0.32, -1, 0.22).normalize();
     this.key.direction = V3.Lerp(outDir, inDir, k).normalize();
     this.key.diffuse = mix3(outCol, inCol, k, b);
@@ -132,10 +132,10 @@ export class Lighting {
     // Hemispheric fill
     const skyDay = new C3(0.6, 0.68, 0.8), skyNight = new C3(0.13, 0.16, 0.26);
     const hemiOut = mix3(skyNight, skyDay, daylight, new C3());
-    const hemiIn = lightsOut ? new C3(0.2, 0.23, 0.32) : new C3(0.82, 0.81, 0.77);
+    const hemiIn = lightsOut ? new C3(0.32, 0.37, 0.5) : new C3(0.82, 0.81, 0.77);
     this.hemi.diffuse = mix3(hemiOut, hemiIn, k, c);
     this.hemi.groundColor = mix3(new C3(0.22, 0.2, 0.17).scale(lerp(0.3, 1, daylight)), lightsOut ? new C3(0.14, 0.14, 0.18) : new C3(0.6, 0.58, 0.54), k, new C3());
-    this.hemi.intensity = lerp(lerp(0.35, 0.62, daylight), lightsOut ? 0.45 : 0.58, k);
+    this.hemi.intensity = lerp(lerp(0.42, 0.62, daylight), lightsOut ? 0.55 : 0.58, k);
     // Sky & fog
     const zenith = mix3(new C3(0.02, 0.03, 0.08), new C3(0.28, 0.47, 0.75), daylight, new C3());
     const dusk = 1 - Math.abs(smoothstep(0.0, 0.5, elev) * 2 - 1) * 0.0;
@@ -143,7 +143,7 @@ export class Lighting {
     const horizon = mix3(new C3(0.06, 0.07, 0.12), horizonDay, daylight, new C3());
     void dusk;
     if (!this._lastSky || Math.abs(this._lastSky - minutes) > 3) { this._paintSky(zenith, horizon, horizon.scale(0.6)); this._lastSky = minutes; }
-    const fogOut = horizon, fogIn = lightsOut ? new C3(0.05, 0.06, 0.08) : new C3(0.32, 0.31, 0.28);
+    const fogOut = horizon, fogIn = lightsOut ? new C3(0.07, 0.08, 0.12) : new C3(0.32, 0.31, 0.28);
     this.scene.fogColor = mix3(fogOut, fogIn, k, new C3());
     this.scene.fogDensity = lerp(0.0045, 0.011, k);
     this.scene.clearColor = new BABYLON.Color4(this.scene.fogColor.r, this.scene.fogColor.g, this.scene.fogColor.b, 1);

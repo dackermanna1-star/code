@@ -63,6 +63,8 @@ export class Animator {
   /** Blend one FK layer (Euler pose `src`, channels from `bones`) into the FK accumulator. */
   _layer(src, bones, w, root) {
     if (w <= 0.0005) return;
+    // Whole-body postures rotate the pelvis (root pitch/roll), so the hips bone always joins.
+    if (root && !bones.includes(B.hips)) bones = [B.hips, ...bones];
     for (const b of bones) {
       const o = b * 3;
       if (this.fkW[b] <= 0) { this.fk[o] = src[o]; this.fk[o + 1] = src[o + 1]; this.fk[o + 2] = src[o + 2]; this.fkW[b] = w; }
@@ -114,6 +116,8 @@ export class Animator {
       const evT = clip.events.rep;
       if (evT != null && Math.floor(prevT - evT) !== Math.floor(this.postureT - evT)) this.events.push('rep');
       L.fill(0); sampleClip(clip, this.postureT, L, L);
+      // Seated postures drop the pelvis onto the seat for this body's leg length.
+      if (pname === 'sit') L[ROOT] = -(this.d.hipH - 0.5);
       this._layer(L, clipBones(clip), this.postureW, clip.mask.some((c) => c >= ROOT));
       if (!this.posture && this.postureW < 0.01) this.prevPosture = null;
     }
