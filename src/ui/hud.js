@@ -89,7 +89,7 @@ export class HUD {
       const s = this._project(t.x, y, t.z);
       this.prompt.style.display = s.behind ? 'none' : '';
       this.prompt.style.transform = `translate(${s.x}px, ${s.y}px) translate(-50%, -100%)`;
-      this.prompt.innerHTML = `<kbd>${g.input.lastDevice === 'gamepad' ? 'A' : 'E'}</kbd><span>${pr.verb}</span>${pr.more ? `<em><kbd>Tab</kbd> +${pr.more}</em>` : ''}`;
+      this.prompt.innerHTML = `<kbd>${g.touch?.active ? '✋' : g.input.lastDevice === 'gamepad' ? 'A' : 'E'}</kbd><span>${pr.verb}</span>${pr.more ? `<em><kbd>Tab</kbd> +${pr.more}</em>` : ''}`;
     } else this.prompt.style.display = 'none';
     // Nameplates / speech / counter flags for nearby characters
     const seen = new Set();

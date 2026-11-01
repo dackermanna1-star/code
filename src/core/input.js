@@ -36,6 +36,8 @@ export class Input {
     this.time = 0;
     this.enabled = true;
     this.pointerLocked = false;
+    this.dragLook = false;          // set when the browser refuses pointer lock
+    this.touchMove = null;          // {x, y, mag} from the on-screen stick
     this.lastDevice = 'keyboard';
     this.padIndex = -1;
     this.padAxes = [0, 0, 0, 0];
@@ -58,23 +60,59 @@ export class Input {
       this.down.delete(e.code);
       this._pendingEdges.push({ src: 'key', code: e.code, down: false });
     });
-    on(target, 'blur', () => { this.down.clear(); this.mouseDown.clear(); });
-    on(document, 'mousedown', (e) => {
-      if (e.target && e.target.closest && e.target.closest('.ui-interactive')) return;
-      this.mouseDown.add(e.button); this.lastDevice = 'keyboard';
-      this._pendingEdges.push({ src: 'mouse', code: e.button, down: true });
+    on(target, 'blur', () => {
+      // Release everything that was held so no key or button stays stuck after alt-tab.
+      for (const code of this.down) this._pendingEdges.push({ src: 'key', code, down: false });
+      this.down.clear(); this.dragging = false; this._mask = 0; this._uiBits = 0;
+      for (const b of this.mouseDown) this._pendingEdges.push({ src: 'mouse', code: b, down: false });
+      this.mouseDown.clear();
     });
-    on(document, 'mouseup', (e) => {
-      this.mouseDown.delete(e.button);
-      this._pendingEdges.push({ src: 'mouse', code: e.button, down: false });
-    });
-    on(document, 'mousemove', (e) => {
+    // Mouse buttons and motion are read from pointer events. Babylon cancels pointerdown on the
+    // canvas, and a cancelled pointerdown suppresses the legacy mousedown/mousemove/mouseup events
+    // while a button is held, so listening to those would drop clicks and freeze mouse-look.
+    // Buttons are tracked as a bitmask because a second button pressed while one is held arrives
+    // as a pointermove, not a pointerdown.
+    this._mask = 0; this._uiBits = 0;
+    const BITS = [[1, 0], [2, 2], [4, 1]];   // buttons bit -> MouseEvent.button
+    const onPointer = (e) => {
+      if (e.pointerType && e.pointerType !== 'mouse') return;
+      const mask = e.buttons | 0, changed = mask ^ this._mask;
+      if (changed) {
+        const overUI = !!(e.target && e.target.closest && e.target.closest('.ui-interactive'));
+        for (const [bit, button] of BITS) {
+          if (!(changed & bit)) continue;
+          if (mask & bit) {
+            if (overUI) { this._uiBits |= bit; continue; }
+            this.lastDevice = 'keyboard';
+            // Without mouse capture the right button turns the camera instead of a heavy attack (K still works).
+            if (this.dragLook && !this.pointerLocked && button === 2) { this.dragging = true; this._lastX = e.clientX; this._lastY = e.clientY; continue; }
+            this.mouseDown.add(button);
+            this._pendingEdges.push({ src: 'mouse', code: button, down: true });
+          } else {
+            if (this._uiBits & bit) { this._uiBits &= ~bit; continue; }
+            if (button === 2 && this.dragging) { this.dragging = false; continue; }
+            if (!this.mouseDown.has(button)) continue;
+            this.mouseDown.delete(button);
+            this._pendingEdges.push({ src: 'mouse', code: button, down: false });
+          }
+        }
+        this._mask = mask;
+      }
+      if (e.type !== 'pointermove') return;
       if (this.pointerLocked) { this.mouseDX += e.movementX || 0; this.mouseDY += e.movementY || 0; }
-      else if (this.dragLook && this.mouseDown.size) { this.mouseDX += e.movementX || 0; this.mouseDY += e.movementY || 0; }
-    });
+      else if (this.dragging) {
+        // movementX is the usual source; fall back to client deltas where it isn't reported.
+        this.mouseDX += e.movementX || (e.clientX - this._lastX); this.mouseDY += e.movementY || (e.clientY - this._lastY);
+        this._lastX = e.clientX; this._lastY = e.clientY;
+      }
+    };
+    on(document, 'pointerdown', onPointer);
+    on(document, 'pointermove', onPointer);
+    on(document, 'pointerup', onPointer);
     on(document, 'wheel', (e) => { if (!(e.target && e.target.closest && e.target.closest('.ui-scroll'))) this.wheel += Math.sign(e.deltaY); }, { passive: true });
     on(document, 'contextmenu', (e) => e.preventDefault());
     on(document, 'pointerlockchange', () => { this.pointerLocked = !!document.pointerLockElement; });
+    on(document, 'pointerlockerror', () => { this.dragLook = true; });
   }
 
   _isTyping(e) {
@@ -172,6 +210,8 @@ export class Input {
     const px = this.padAxes[0], py = -this.padAxes[1];
     const pm = Math.min(1, Math.hypot(px, py));
     if (pm > mag) { const l = Math.hypot(px, py) || 1; x = px / l; y = py / l; mag = pm; }
+    const t = this.touchMove;
+    if (t && t.mag > mag) { x = t.x; y = t.y; mag = t.mag; }
     return { x, y, mag };
   }
   lookVector(dt) {
@@ -201,6 +241,6 @@ export const BINDING_LABELS = {
   },
   gamepad: {
     move: 'L-Stick', sprint: 'RT', attack: 'X', heavy: 'Y', block: 'LT', dodge: 'B', grab: 'LB', interact: 'A',
-    drop: 'R-Stick btn', use: 'D-Up', lock: 'RB', cycle: 'D-Right', notebook: 'Back', map: 'Back', pause: 'Start', camera: 'R-Stick',
+    drop: 'L3', use: 'D-Up', lock: 'RB', cycle: 'D-Right', notebook: 'Back', map: 'Back', pause: 'Start', camera: 'R-Stick',
   },
 };

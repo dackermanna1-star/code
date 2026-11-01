@@ -166,7 +166,8 @@ export class Menus {
     const k = BINDING_LABELS.keyboard, p = BINDING_LABELS.gamepad;
     const rows = [['Move', 'move'], ['Sprint', 'sprint'], ['Camera', 'camera'], ['Punch / swing', 'attack'], ['Kick / heavy', 'heavy'], ['Block (tap at ⚡ to counter)', 'block'], ['Dodge', 'dodge'], ['Grab / throw held item', 'grab'], ['Talk / pick up / use', 'interact'], ['Drop item', 'drop'], ['Use item (eat, read)', 'use'], ['Lock on', 'lock'], ['Next target', 'cycle'], ['Notebook', 'notebook'], ['Map', 'map'], ['Pause', 'pause']];
     this._show('controls', `<div class="panel ctrls"><h2>Controls</h2><table>${rows.map(([l, a]) => `<tr><td>${l}</td><td><kbd>${k[a] || '—'}</kbd></td><td><kbd>${p[a] || '—'}</kbd></td></tr>`).join('')}</table>
-      <p class="tip">In a grapple: punch/kick for knees and headbutts, grab again to throw (steer with movement), dodge to shove away. When grabbed or knocked down, mash buttons to recover faster. 1–3 take items out of your pockets. Click the game to capture the mouse.</p>
+      <p class="tip">In a grapple: punch/kick for knees and headbutts, grab again to throw (steer with movement), dodge to shove away. When grabbed or knocked down, mash buttons to recover faster. 1–3 take items out of your pockets. Click the game to capture the mouse. If the page can't capture it, hold the right mouse button and drag to look, and use K for heavy attacks.</p>
+      <p class="tip"><b>Touch:</b> drag on the left half to move (push past the ring to sprint), drag on the right half to look. The ✋ button does whatever the prompt says: talk, pick up, sit, work. HIT, HEAVY, BLOCK, DODGE and GRAB fight; the small buttons pause, open the notebook and map, lock on, switch target, use and drop.</p>
       <div class="row"><button data-act="${back}" class="primary">Back</button></div></div>`);
   }
   showLoad(back = 'pause') {

@@ -18,6 +18,7 @@ import { PlayerController } from './gameplay/player.js';
 import { HUD } from './ui/hud.js';
 import { DialogueUI } from './ui/dialogueUI.js';
 import { Menus } from './ui/menus.js';
+import { TouchControls } from './ui/touch.js';
 import { AudioEngine } from './audio/audio.js';
 import { installSystems } from './gameplay/systems.js';
 import { saveSlot, loadSlot, apply as applySave } from './save/save.js';
@@ -64,6 +65,20 @@ export class Game {
   setMenuOpen(v) {
     this.menuOpen = v;
     if (v && document.pointerLockElement) document.exitPointerLock?.();
+  }
+  _capturePointer() {
+    if (this.menuOpen || this.input.pointerLocked || this.input.dragLook || this.touch?.active || !this.canvas.requestPointerLock) return;
+    try {
+      const r = this.canvas.requestPointerLock();
+      if (r && r.catch) r.catch(() => this._pointerLockRefused());
+    } catch { this._pointerLockRefused(); }
+  }
+  /** Embedded pages may refuse mouse capture: fall back to drag-to-look and say so once. */
+  _pointerLockRefused() {
+    this.input.dragLook = true;
+    if (this._toldDragLook || this.mode !== 'play') return;
+    this._toldDragLook = true;
+    this.hud?.toast('Mouse capture is blocked here: hold the right mouse button and drag to look (K for heavy attacks).', 'info', 7);
   }
   get events() { return this.sim.events; }
   get characters() { return this.sim.characters; }
@@ -112,7 +127,9 @@ export class Game {
     this.cameraRig.snapBehind(this.player);
     if (this.opts.autostart) this.beginSentence(null);
     else { this.menus.showTitle(); this.titleCamera(); }
-    this.canvas.addEventListener('click', () => { if (!this.menuOpen && !this.input.pointerLocked && this.canvas.requestPointerLock) this.canvas.requestPointerLock()?.catch?.(() => {}); });
+    this.touch = new TouchControls(this, this.uiRoot);
+    this.canvas.addEventListener('click', () => this._capturePointer());
+    document.addEventListener('pointerlockerror', () => this._pointerLockRefused());
     if (!this.opts.manual) engine.runRenderLoop(() => this.frame());
     window.addEventListener('resize', () => engine.resize());
   }
@@ -433,6 +450,7 @@ export class Game {
     this.fx.update(dt);
     this.hud.setVisible(this.mode === 'play');
     if (this.mode === 'play') this.hud.update(dt);
+    this.touch?.update();
     this.scene.render();
   }
 

@@ -8,7 +8,9 @@
     "serve": "node tools/serve.mjs",
     "build": "node tools/build.mjs",
     "test": "node --test tests/unit/*.test.mjs",
-    "e2e": "node tests/e2e/run.mjs"
+    "e2e": "node tests/e2e/run.mjs",
+    "e2e:dist": "node tests/e2e/dist.mjs",
+    "bench": "node tests/bench_sim.mjs"
   },
   "devDependencies": {
     "babylonjs": "7.54.3",

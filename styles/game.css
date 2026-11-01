@@ -3,9 +3,13 @@
   --panel: rgba(22, 26, 24, 0.82); --panel-solid: #1c211f; --line: rgba(243, 236, 214, 0.18);
   --accent: #e0a43a; --danger: #d9493b; --ok: #6fbf73; --info: #6aa9d8; --stamina: #e8c547; --health: #d9493b;
   --font-ui: 'Oswald', 'Arial Narrow', Impact, sans-serif; --font-body: 'Inter', system-ui, sans-serif; --font-type: 'Special Elite', 'Courier New', monospace;
+  --bg: #0d0f0e; color-scheme: dark;
 }
+/* The game has a single night-time look, so both color schemes resolve to the same dark tokens. */
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg: #0d0f0e; --ink: #f3ecd6; --panel: rgba(22, 26, 24, 0.82); color-scheme: dark; } }
+:root[data-theme="dark"] { --bg: #0d0f0e; --ink: #f3ecd6; --panel: rgba(22, 26, 24, 0.82); color-scheme: dark; }
 * { box-sizing: border-box; }
-html, body { margin: 0; height: 100%; overflow: hidden; background: #0d0f0e; color: var(--ink); font-family: var(--font-body); }
+html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); color: var(--ink); font-family: var(--font-body); overscroll-behavior: none; }
 #game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; outline: none; touch-action: none; }
 #ui { position: fixed; inset: 0; pointer-events: none; }
 .boot { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #0d0f0e; z-index: 50; transition: opacity 0.6s; }
@@ -96,6 +100,10 @@ kbd { display: inline-block; min-width: 20px; padding: 1px 6px; border-radius: 4
 /* ---------------------------------------------------------------- menus */
 .menus { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; pointer-events: auto; background: rgba(8,10,9,0.55); backdrop-filter: blur(2px); z-index: 20; }
 .menus.show { display: flex; }
+/* Scroll instead of clipping when a screen is taller than the viewport (phones in landscape);
+   auto margins keep short content centred without pushing tall content off the top. */
+.menus { overflow-y: auto; align-items: flex-start; padding: 12px 0; -webkit-overflow-scrolling: touch; }
+.menus > * { margin-top: auto; margin-bottom: auto; flex-shrink: 0; }
 .menus.title, .menus.intake-screen { background: linear-gradient(90deg, rgba(8,10,9,0.85), rgba(8,10,9,0.25) 60%, transparent); justify-content: flex-start; }
 .menus button { font-family: var(--font-ui); font-size: 17px; letter-spacing: 0.04em; color: var(--paper); background: rgba(30,34,32,0.92); border: 1px solid var(--line); border-radius: 4px; padding: 9px 16px; cursor: pointer; text-align: left; transition: background 0.12s, border-color 0.12s, transform 0.08s; }
 .menus button:hover:not([disabled]) { background: rgba(224,164,58,0.2); border-color: var(--accent); }
@@ -181,3 +189,70 @@ kbd { display: inline-block; min-width: 20px; padding: 1px 6px; border-radius: 4
 .endstats td { padding: 4px 0; border-bottom: 1px dashed rgba(0,0,0,0.2); }
 .endstats td:last-child { text-align: right; font-weight: 600; }
 .toast b.c { color: var(--accent); }
+
+/* ---------------------------------------------------------------- touch controls */
+.touch { position: fixed; inset: 0; display: none; pointer-events: none; z-index: 6; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+.touch.on { display: block; }
+.touch.on.hidden { display: none; }
+.tc-zone { position: absolute; pointer-events: auto; touch-action: none; }
+.tc-left { left: 0; bottom: 0; width: 45%; height: 72%; }
+.tc-right { right: 0; top: 0; width: 55%; height: 100%; }
+.tc-stick { position: absolute; left: 0; top: 0; width: 0; height: 0; opacity: 0; transition: opacity 0.12s; pointer-events: none; }
+.tc-stick::before { content: ''; position: absolute; left: -60px; top: -60px; width: 120px; height: 120px; border-radius: 50%; border: 2px solid rgba(243,236,214,0.35); background: rgba(10,12,11,0.25); }
+.tc-stick.live { opacity: 1; }
+.tc-stick.sprint::before { border-color: var(--stamina); }
+.tc-knob { position: absolute; left: -26px; top: -26px; width: 52px; height: 52px; border-radius: 50%; background: rgba(243,236,214,0.55); box-shadow: 0 2px 8px rgba(0,0,0,0.5); }
+.tc-btn { position: absolute; pointer-events: auto; touch-action: none; border-radius: 50%; border: 2px solid rgba(243,236,214,0.4); background: rgba(16,18,17,0.55); color: var(--paper); font-family: var(--font-ui); font-size: 12px; letter-spacing: 0.06em; display: flex; align-items: center; justify-content: center; padding: 0; -webkit-tap-highlight-color: transparent; }
+.tc-btn b { font-weight: 600; }
+.tc-btn.down { background: rgba(224,164,58,0.55); border-color: var(--accent); transform: scale(0.94); }
+.tc-act { position: absolute; right: max(14px, env(safe-area-inset-right)); bottom: max(14px, env(safe-area-inset-bottom)); width: 232px; height: 200px; pointer-events: none; }
+.tc-btn.attack { right: 6px; bottom: 6px; width: 86px; height: 86px; font-size: 15px; border-color: rgba(217,73,59,0.75); }
+.tc-btn.heavy { right: 102px; bottom: 2px; width: 62px; height: 62px; }
+.tc-btn.block { right: 92px; bottom: 76px; width: 60px; height: 60px; border-color: rgba(106,169,216,0.7); }
+.tc-btn.dodge { right: 8px; bottom: 104px; width: 62px; height: 62px; }
+.tc-btn.grab { right: 174px; bottom: 50px; width: 54px; height: 54px; }
+.tc-sys { position: absolute; left: 50%; top: max(12px, env(safe-area-inset-top)); transform: translateX(-50%); display: flex; gap: 8px; pointer-events: none; }
+.tc-sys .tc-btn { position: static; width: 40px; height: 40px; font-size: 17px; font-family: var(--font-body); }
+.tc-interact { right: max(14px, env(safe-area-inset-right)); bottom: calc(max(14px, env(safe-area-inset-bottom)) + 206px); width: auto; height: 44px; border-radius: 22px; padding: 0 16px 0 10px; gap: 8px; font-family: var(--font-body); font-size: 14px; letter-spacing: 0; border-color: var(--accent); background: rgba(18,20,19,0.86); display: none; max-width: 60vw; }
+.tc-interact span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tc-interact.show { display: flex; }
+.touch.in-dlg .tc-act, .touch.in-dlg .tc-sys .tc-btn:not(:first-child) { display: none; }
+.dlg { z-index: 8; }
+body.touch-ui .prompt kbd { background: var(--accent); }
+body.touch-ui .toasts { bottom: 230px; }
+body.touch-ui .pockets { bottom: auto; top: 150px; left: auto; right: 18px; flex-direction: column; align-items: flex-end; }
+
+/* ---------------------------------------------------------------- small screens */
+@media (max-width: 760px) and (orientation: portrait) {
+  .tc-sys { top: auto; bottom: calc(max(14px, env(safe-area-inset-bottom)) + 258px); left: auto; right: max(14px, env(safe-area-inset-right)); transform: none; flex-direction: column; }
+  body.touch-ui .pockets { top: 128px; right: 64px; }
+}
+@media (max-height: 520px) {
+  .idcard { transform: scale(0.78); transform-origin: 0 0; }
+  .clockcard { transform: scale(0.78); transform-origin: 100% 0; }
+  .needs { top: 128px; }
+  .dlg { max-height: calc(100vh - 20px); overflow: auto; padding: 10px 12px 8px; }
+  .dlg-log { max-height: 84px; margin: 8px 0 6px; }
+  .tc-sys { gap: 6px; }
+  .tc-sys .tc-btn { width: 36px; height: 36px; }
+  .tc-interact { right: calc(max(14px, env(safe-area-inset-right)) + 244px); bottom: max(16px, env(safe-area-inset-bottom)); max-width: 34vw; }
+  body.touch-ui .toasts { bottom: auto; top: 64px; }
+  body.touch-ui .pockets { top: 172px; left: 18px; right: auto; flex-direction: row; }
+}
+@media (max-width: 480px) {
+  .idcard { transform: scale(0.72); transform-origin: 0 0; }
+  .clockcard { transform: scale(0.72); transform-origin: 100% 0; }
+  .needs { top: 128px; width: 120px; }
+  .boot-title { font-size: 40px; }
+}
+@media (max-height: 520px) {
+  .logo { font-size: 40px; }
+  .tagline { margin: 4px 0 12px; font-size: 14px; }
+  .menu-col { gap: 5px; }
+  .menus button { padding: 6px 14px; font-size: 15px; }
+  .title-foot { margin-top: 10px; }
+  .paper { padding: 12px 16px; }
+  .paper .field { margin: 4px 0; }
+  .panel { padding: 14px 16px; max-height: calc(100vh - 24px); }
+  .nb-body { max-height: calc(100vh - 80px); }
+}
