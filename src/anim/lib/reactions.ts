@@ -117,7 +117,7 @@ export function registerReactions() {
     keys: [
       k(0, FIGHT),
       k(0.08, FIGHT, { e: 'out', root: [0, -0.1, 0], hips: [0, -0.15, -0.02], torso: [10, 0, 0] }),
-      k(0.24, FIGHT, { e: 'out', root: [0, -0.9, 0], hips: [0, -0.02, -0.06], torso: [-8, 0, 0], head: [6, 0, 0], lf: { p: [0.1, 0.06, -0.55] }, rf: { p: [-0.13, 0.04, -0.95] } }),
+      k(0.24, FIGHT, { e: 'out', root: [0, -0.9, 0], hips: [0, -0.02, -0.06], torso: [-8, 0, 0], head: [6, 0, 0], lf: { p: [0.1, 0, -0.55], lift: 0.09 }, rf: { p: [-0.13, 0, -0.95], lift: 0.09 } }),
       k(0.48, FIGHT, { root: [0, -1.0, 0], lf: { p: [0.1, 0, -0.75] }, rf: { p: [-0.13, 0, -1.1] } }),
     ],
     events: [{ t: 0.05, type: 'sfx', name: 'whoosh_light' }],
@@ -177,7 +177,7 @@ export function registerReactions() {
     keys: [
       k(0, FIGHT),
       k(0.06, FIGHT, { e: 'out', hips: [0, -0.15, 0.02], torso: [12, 0, 0] }),
-      k(0.22, FIGHT, { e: 'out', root: [0, -1.3, 0], hips: [0, -0.1, -0.06], torso: [-6, 0, 0], head: [8, 0, 0], lf: { p: [0.1, 0.04, -0.95], lift: 0.06 }, rf: { p: [-0.13, 0.02, -1.45], lift: 0.06 } }),
+      k(0.22, FIGHT, { e: 'out', root: [0, -1.3, 0], hips: [0, -0.1, -0.06], torso: [-6, 0, 0], head: [8, 0, 0], lf: { p: [0.1, 0, -0.95], lift: 0.1 }, rf: { p: [-0.13, 0, -1.45], lift: 0.1 } }),
       k(0.38, FIGHT, { root: [0, -1.35, 0], lf: { p: [0.1, 0, -1.15] }, rf: { p: [-0.13, 0, -1.5] } }),
     ],
     events: [{ t: 0.03, type: 'sfx', name: 'whoosh_light' }],

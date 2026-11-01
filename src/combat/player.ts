@@ -331,18 +331,24 @@ export class Player extends Fighter {
     const clipName = (getClip(move.clip + side) ? move.clip + side : move.clip);
     // a strike closes a step's worth of distance by itself; further than that, a few running steps
     // come first (a punch warped across metres slid the feet over the floor at 20 m/s)
-    if (!back && this.distTo(target) - move.reach > this.lungeReach(clipName, move) + 0.25) {
-      this.dash = { move, clip: clipName, t: 0 };
-      this.action = 'dash';
-      this.stateTime = 0;
-      this.curMove = null;
-      if (this.anim.mode !== 'loco') this.anim.toLoco(0.08);
+    const lunge = move.reach + this.lungeReach(clipName, move);
+    if (!back && this.distTo(target) > lunge + 0.25) {
+      this.startDash(target, lunge, () => this.launchStrike(target, move, clipName, false));
       return;
     }
     this.launchStrike(target, move, clipName, back);
   }
 
-  private dash: { move: MoveDef; clip: string; t: number } | null = null;
+  /** Closing in on a target before a move: `stop` is the distance it can start from. */
+  private dash: { stop: number; t: number; go: () => void } | null = null;
+  private startDash(target: Enemy, stop: number, go: () => void) {
+    this.target = target;
+    this.dash = { stop, t: 0, go };
+    this.action = 'dash';
+    this.stateTime = 0;
+    this.curMove = null;
+    if (this.anim.mode !== 'loco') this.anim.toLoco(0.08);
+  }
   private strikeSpeed(target: Enemy) {
     return target.state === 'stunned' ? 1.25 : 1.05 + Math.min(0.25, this.combo * 0.015);
   }
@@ -352,7 +358,7 @@ export class Player extends Fighter {
     const w = c.warp ? (c.warp[1] - c.warp[0]) / 1.15 : 0.1;
     return (move.range === 'far' ? 10 : 6.5) * w + 0.3;
   }
-  /** Closing in on a strike's target: running steps, then the strike once within its lunge. */
+  /** Closing in: running steps, then the move once within its own reach. */
   private doDash(dt: number) {
     const g = this.game;
     const inp = g.input;
@@ -377,9 +383,9 @@ export class Player extends Fighter {
     }
     const dx = tg.x - this.x, dz = tg.z - this.z;
     const dist = Math.hypot(dx, dz) || 1e-3;
-    if (dist - d.move.reach <= this.lungeReach(d.clip, d.move) || d.t > 0.6) {
+    if (dist <= d.stop || d.t > 0.6) {
       this.dash = null;
-      this.launchStrike(tg, d.move, d.clip, false);
+      d.go();
       return;
     }
     this.vx = damp(this.vx, (dx / dist) * DASH_SPEED, 14, dt);
@@ -677,8 +683,20 @@ export class Player extends Fighter {
     // (a body that is already kneeling / rising on its own is not a ground target any more)
     const downed = this.selectTarget(2.6, (e) => e.state === 'down' && !!e.downRag && e.downRag.headPos(_hp).y < 0.55);
     if (downed) {
-      this.startPaired(downed, PAIRS.get('gt_stomp')!, 'takedown');
-      this.stats.takedowns++;
+      const pair = PAIRS.get('gt_stomp')!;
+      const go = () => {
+        if (!downed.alive || downed.state !== 'down' || !downed.downRag || downed.paired) {
+          this.toFree();
+          return;
+        }
+        this.startPaired(downed, pair, 'takedown');
+        this.stats.takedowns++;
+      };
+      // (a couple of steps to the body first rather than gliding up to its head)
+      const head = downed.downRag!.headPos(_hp);
+      const stop = pair.dist + 0.45;
+      if (Math.hypot(head.x - this.x, head.z - this.z) > stop + 0.3) this.startDash(downed, stop, go);
+      else go();
       return;
     }
     if (this.charges <= 0) {
@@ -687,15 +705,12 @@ export class Player extends Fighter {
     }
     const e = this.selectTarget(4.0);
     if (!e) return;
-    this.charges--;
-    this.stats.finishers++;
     // environmental: victim close to a wall/pillar/crates behind it (relative to player)
     const away = new THREE.Vector3(e.x - this.x, 0, e.z - this.z).normalize();
     const surf = g.arena.nearestSurface(e.x, e.z, 1.9);
     let name: string;
     if (surf && surf.normal.dot(away) < -0.35) {
       name = 'env_slam';
-      this.envSurface = surf;
     } else if (this.weapon) {
       name = this.weapon.kind === 'club' ? 'fin_weapon_club' : 'fin_weapon_blade';
       if (!PAIRS.get(name)) name = 'fin_roundhouse';
@@ -703,10 +718,24 @@ export class Player extends Fighter {
       const opts = ['fin_roundhouse', 'fin_armknee', 'fin_palm', 'fin_sweep', 'fin_flyknee'];
       name = pick(opts.filter((o) => o !== this.lastFinisher));
     }
-    this.lastFinisher = name;
     const pair = PAIRS.get(name)!;
-    this.startPaired(e, pair, 'finisher');
-    g.hud?.toast(e.cfg.boss ? 'BRUTAL STRIKE' : 'FINISHER', '#ff5040', 0.9);
+    const go = () => {
+      if (!e.alive || e.paired || this.charges <= 0) {
+        this.toFree();
+        return;
+      }
+      this.charges--;
+      this.stats.finishers++;
+      this.lastFinisher = name;
+      if (name === 'env_slam') this.envSurface = surf;
+      this.startPaired(e, pair, 'finisher');
+      g.hud?.toast(e.cfg.boss ? 'BRUTAL STRIKE' : 'FINISHER', '#ff5040', 0.9);
+    };
+    // from across the floor, run in first: the paired move otherwise slid both fighters a metre and
+    // a half each to meet
+    const stop = pair.dist * e.scale + 0.7;
+    if (!e.downRag && this.distTo(e) > stop + 0.3) this.startDash(e, stop, go);
+    else go();
   }
   envSurface: ReturnType<Game['arena']['nearestSurface']> = null;
 
