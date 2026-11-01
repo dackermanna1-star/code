@@ -20,6 +20,8 @@ export class CharacterLibrary {
   variants: Variant[] = [];
   byName = new Map<string, Variant>();
   atlas!: THREE.DataArrayTexture;
+  /** Surface finish of skin and cloth (rain-soaked on the rooftop: glossier, catching the neon). */
+  surface = { roughness: 0.82, env: 1 };
   private canvases: HTMLCanvasElement[] = [];
 
   add(name: string, spec: Partial<BodySpec>, outfit: Outfit): Variant {
@@ -59,6 +61,8 @@ export class CharacterModel {
   constructor(public lib: CharacterLibrary, public variant: Variant) {
     this.def = variant.def;
     const { material, uniforms } = createCharacterMaterial(lib.atlas, false);
+    material.roughness = lib.surface.roughness;
+    material.envMapIntensity = lib.surface.env;
     uniforms.uLayer.value = variant.layer;
     this.material = material;
     this.uniforms = uniforms;

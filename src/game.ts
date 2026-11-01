@@ -105,10 +105,17 @@ export class Game {
     this.arena = new Arena(this.blood, preset.pointLights, preset.shadowMap, this.settings.map);
     this.scene.add(this.arena.group);
     setDrains(this.arena.drains);
+    if (this.arena.map === 'rooftop') this.lib.surface = { roughness: 0.52, env: 1.25 };
     this.scene.fog = new THREE.FogExp2(this.arena.fog.color, this.arena.fog.density);
     this.scene.background = this.arena.background;
     this.scene.environment = this.arena.environment;
     this.cam = new CameraRig(window.innerWidth / window.innerHeight, this.arena);
+    this.arena.view = this.cam.camera;
+    if (this.arena.map === 'rooftop') {
+      // the skyline, the moon and the storm are a long way off
+      this.cam.camera.far = 320;
+      this.cam.camera.updateProjectionMatrix();
+    }
     this.renderer.onResize = () => {
       this.cam.camera.aspect = window.innerWidth / Math.max(1, window.innerHeight);
       this.cam.camera.updateProjectionMatrix();
@@ -424,6 +431,7 @@ export class Game {
 
   private footsteps() {
     // footstep sounds & bloody footprints from planted feet (cheap poll on locomotion plants)
+    const wet = this.arena.map === 'rooftop';
     for (const f of this.fighters) {
       if (!f.alive || f.anim.mode !== 'loco') continue;
       const lo = f.anim.loco;
@@ -431,7 +439,14 @@ export class Game {
         const ft = lo.feet[i];
         if (!ft.swing && ft.plantedTime === 0) {
           const sp = Math.hypot(f.vx, f.vz);
-          if (sp > 0.6) this.audio.play('footstep', { pos: ft.pos, vol: clamp(sp / 5, 0.25, 1) * (f === this.player ? 0.8 : 0.5) });
+          if (sp > 0.6) {
+            const vol = clamp(sp / 5, 0.25, 1) * (f === this.player ? 0.8 : 0.5);
+            this.audio.play('footstep', { pos: ft.pos, vol });
+            if (wet) {
+              this.audio.splash(ft.pos, vol * 0.7);
+              if (sp > 3) this.fx.splash(ft.pos, 0.25);
+            }
+          }
           // bloody footprints: stepping in blood coats the sole for a few steps
           const cov = this.blood.coverageAt(ft.pos.x, ft.pos.z);
           const fs = f as Fighter & { bloodSteps?: number };
@@ -475,6 +490,7 @@ export class Game {
     const torso = i.seg === 'pelvis' || i.seg === 'abdomen' || i.seg === 'chest';
     if (torso || i.seg === 'head' || sp > 3.2) this.audio.play('body_fall', { pos: i.point, vol: vol * (torso ? 0.95 : 0.6), pitch: torso ? 1 : 1.15 });
     else if (sp > 1.5) this.audio.play('footstep', { pos: i.point, vol: vol * 0.55 });
+    if (this.arena.map === 'rooftop' && i.other === 'floor' && sp > 1.5) this.audio.splash(i.point, vol * (torso ? 1 : 0.5));
     if (i.material === 'metal' && sp > 1.8) this.audio.play('metal_hit', { pos: i.point, vol: vol * 0.55 });
     if (i.other === 'floor' && sp > 2.4 && torso) this.fx.dust(i.point.clone().setY(0.03), clamp(sp / 7, 0.25, 0.9));
     if (i.other === 'prop' && sp > 2.2) this.cam.addTrauma(0.05);

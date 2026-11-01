@@ -2,8 +2,9 @@
 
 A cinematic, free-flow martial-arts combat simulator for the browser. One fighter against
 escalating waves of thugs, armed enforcers, brutes, elite martial artists, minibosses and a
-three-phase boss in a moonlit warehouse — Arkham-style flow, Assassin's Creed counters,
-Spider-Man finishers and Sifu-style technique, with **bodies and blood that never disappear**.
+three-phase boss, in a moonlit warehouse or on a rain-lashed neon rooftop — Arkham-style flow,
+Assassin's Creed counters, Spider-Man finishers and Sifu-style technique, with **bodies and blood
+that never disappear**.
 
 Built with **three.js** (rendering) + **Rapier** (props, debris, weapons) and the **Ragdoll Lab
 "euphoria" active-ragdoll engine** (bodies), TypeScript and Vite.
@@ -73,8 +74,19 @@ motion, environmental head slams into walls/pillars/crates, ground stomps.
 
 **Enemies** — thugs, knife/bat/blade wielders, agile runners that evade, brutes that absorb
 blows until stunned, guards that block and riposte, elite fighters with combos and feints,
-plus The Butcher, Viper and Grandmaster Kael (three phases, minions, a sword, exhaustion
-windows). An AI director hands out attack tokens (at most three attackers at once),
+and three bosses. The Butcher is a brute writ large. Viper and Grandmaster Kael fight like
+bosses rather than thugs with more health: scripted combos that mix counterable (gold) and
+dodge-only (red) strikes, hyper armour through their own attacks, poise that makes them break
+away from a flurry, and only a *perfect* counter lands on them (an early one is read and
+punished; a perfect one stuns them for a punish window). Finishers only work on a stunned boss
+and take a slice, not the bar. **Viper** slips half your strikes and slashes back out of the
+dodge, throws poisoned knives from range (dodge them; a missed knife clatters down as a weapon
+you can pick up), backflips out of reach and, from phase two, vanishes in smoke to strike from
+behind. **Kael** guards most strikes and reverses early counters, picks up a sword and a flying
+knee from across the floor in phase two, and in phase three unleashes five-strike fury strings
+and a chi shockwave that blasts everyone near him; only then does he run out of breath. Each
+boss walks in on its own camera shot, and every phase change stops the fight for a beat. An AI
+director hands out attack tokens (at most three attackers at once),
 coordinates pincer attacks, punishes openings, and adapts: counter-heavy players see more
 unblockables and feints. Every attack telegraphs: its load-up always shows for at least half a
 second before contact (a little less for a combo follow-up), and two attacks you can't counter
@@ -152,11 +164,23 @@ In play:
   bodies beyond the cap fall back to passive Rapier ragdolls. Settings → *Active ragdolls*
   switches the whole system back to classic Rapier ragdolls.
 
-**Arena** — a moonlit warehouse: pallet racking with stock, lockers, a workbench, an overhead
-crane rail with chains, bulkhead wall lamps washing light down the walls, rain running down
-grimy factory windows with faint moon beams, a flickering lamp that sparks, a red beacon over
-the loading door, exit signs, hazard-striped thresholds, oil drums and crates you can knock
-over or smash.
+**Arenas** — pick one on the title screen (*ARENA*), or `?map=warehouse|rooftop`:
+* **The Warehouse** — moonlit concrete: pallet racking with stock, lockers, a workbench, an
+  overhead crane rail with chains, bulkhead wall lamps washing light down the walls, rain running
+  down grimy factory windows with faint moon beams, a flickering lamp that sparks, a red beacon
+  over the loading door, exit signs, hazard-striped thresholds, oil drums and crates you can knock
+  over or smash.
+* **The Rooftop** — a wet roof high over a neon city in a storm. Standing water collects at the
+  drains and mirrors the skyline, the signs and the moon (a reflection probe of the scene); the
+  NEON DRAGON billboard hums and stutters and washes the roof magenta, the HOTEL sign cyan; rain
+  falls in streaks and rings the puddles; lightning forks over the skyline and lifts the fog,
+  the sky and every reflection for a moment, and thunder rolls in after it. The city's near
+  blocks are below you, a street grid glows far below, sirens drift past. Fighters are soaked
+  (glossier skin and cloth catch the neon), bodies hitting the roof throw up spray, and
+  footsteps splash. Enemies come out of the stair huts or climb up the fire escapes. The edge is
+  only a knee-high parapet: **a heavy blow, a throw or a finisher near it sends an enemy over**
+  — they fall flailing into the street (OVER THE EDGE, double score) with a look over the lip
+  as they drop. Bodies, weapons, drums and blood that go over are gone for good.
 
 **Interface** — a cinematic title over the live arena, keyboard-navigable menus with UI sounds,
 a HUD with a damage-trail health bar, guard and finisher meters, tiered combo meter, kill feed,
@@ -244,7 +268,12 @@ tests/out/walk 16 4` (paths: line, strafe, back, diag, circle, turn, stopgo).
 
 `test=waves` runs the real wave game with a scripted bot (counters, dodges, finishers; add
 `probe=1` for the animation quality report: pops, hip jumps, foot slide by gait phase;
-`fair=1` reports how much warning enemy attacks gave, per archetype; `difficulty=story|brutal`),
+`fair=1` reports how much warning enemy attacks gave, per archetype; `boss=1` reports how a boss
+fight went; `difficulty=story|brutal`; `bosshp=0.3` starts a boss already in its later phases;
+`map=rooftop` plays it on the roof),
+`test=ledge&map=rooftop&mode=knock|death|stagger` drives an enemy into the parapet and logs the
+fall, `test=view&map=rooftop&px=0&pz=4&camyaw=0&campitch=0.25` renders a still of an arena from
+any spot (`bolt=1` brings a lightning strike straight away),
 `test=clips` replays every player strike against a still target and reports limb flips (bone
 swing / roll spikes; `list=roundhouse&dump=roundhouse@0.1-0.2` prints the IK effectors),
 `test=eatk&enemy=elite&atk=elite_jab&wave=14` films one enemy attack on a passive player,
@@ -269,7 +298,7 @@ src/anim/        skeleton, IK solver, clip system, locomotion, animator, clip li
 src/character/   procedural mesh, outfits, canvas textures, wound-aware material
 src/combat/      fighter base, player controller, combat resolver, moves, weapons, deaths
 src/ai/          enemy brain, archetypes, director, waves, bosses
-src/world/       arena, blood atlas, corpse baking, Rapier physics, ragdolls, props, textures
+src/world/       arenas (warehouse dressing, rooftop.ts), blood atlas, corpse baking, Rapier physics, ragdolls, props, textures
 src/world/euphoria/  Ragdoll Lab active-ragdoll engine (engine.js) and its game bridge
 src/fx/          particles (blood, sparks, dust, debris), camera rig
 src/audio/       sample engine with synth layers, procedural adaptive music

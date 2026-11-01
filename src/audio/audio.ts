@@ -410,6 +410,30 @@ export class AudioSys {
     s.stop(t + dur + 0.1);
   }
 
+  /** Water underfoot / under a body: a short wet slap of filtered noise. */
+  splash(pos: THREE.Vector3 | null, vol = 0.5) {
+    const c = this.ctx;
+    if (!c || !this.noiseBuf || c.state !== 'running') return;
+    const t = c.currentTime;
+    const s = c.createBufferSource();
+    s.buffer = this.noiseBuf;
+    s.playbackRate.value = 0.8 + Math.random() * 0.5;
+    const bp = c.createBiquadFilter();
+    bp.type = 'bandpass';
+    bp.frequency.setValueAtTime(1800 + Math.random() * 1400, t);
+    bp.frequency.exponentialRampToValueAtTime(700, t + 0.09);
+    bp.Q.value = 0.9;
+    const g = c.createGain();
+    const v = 0.32 * vol * this.distGain(pos);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(Math.max(0.0002, v), t + 0.006);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.11);
+    s.connect(bp);
+    bp.connect(g);
+    g.connect(this.sfx);
+    s.start(t, Math.random() * 0.8, 0.14);
+  }
+
   /** A siren a few blocks away: a slow wail, muffled by distance, drifting past. */
   siren(vol = 0.5) {
     const c = this.ctx;

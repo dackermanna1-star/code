@@ -781,7 +781,7 @@ export function buildRooftop(a: Arena, blood: BloodAtlas, pointLights: number, s
         gl_Position = projectionMatrix * mv;
       }`,
     fragmentShader: `uniform float uFlash; varying float vA;
-      void main() { gl_FragColor = vec4(vec3(0.62, 0.7, 0.85) * (1.0 + uFlash * 2.0), vA * (1.0 + uFlash)); }`,
+      void main() { gl_FragColor = vec4(vec3(0.62, 0.7, 0.85) * (1.0 + uFlash * 0.6), vA * (1.0 + uFlash * 0.4)); }`,
     transparent: true,
     depthWrite: false,
     blending: THREE.AdditiveBlending,
@@ -857,11 +857,54 @@ export function buildRooftop(a: Arena, blood: BloodAtlas, pointLights: number, s
     }
   }
 
+  // ---------------------------------------------------------------------- lightning bolts
+  // a jagged, forking ribbon over the skyline, drawn fresh for each strike that shows one
+  const boltMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(2.4, 2.5, 3.0), transparent: true, opacity: 0, depthWrite: false, fog: false, toneMapped: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide });
+  const boltMesh = new THREE.Mesh(new THREE.BufferGeometry(), boltMat);
+  boltMesh.frustumCulled = false;
+  boltMesh.visible = false;
+  g.add(boltMesh);
+  const _fwd = new THREE.Vector3();
+  const makeBolt = () => {
+    // mostly somewhere ahead of the camera, so it's seen
+    let ang = Math.random() * Math.PI * 2;
+    if (a.view && Math.random() < 0.8) {
+      a.view.getWorldDirection(_fwd);
+      ang = Math.atan2(_fwd.z, _fwd.x) + (Math.random() - 0.5) * 1.3;
+    }
+    const R = 120 + Math.random() * 40;
+    const radial = new THREE.Vector3(Math.cos(ang), 0, Math.sin(ang));
+    const side = new THREE.Vector3(-radial.z, 0, radial.x);
+    const pos: number[] = [];
+    const seg = (a: THREE.Vector3, b: THREE.Vector3, w: number) => {
+      const h = w / 2;
+      const a0 = a.clone().addScaledVector(side, -h), a1 = a.clone().addScaledVector(side, h);
+      const b0 = b.clone().addScaledVector(side, -h * 0.8), b1 = b.clone().addScaledVector(side, h * 0.8);
+      pos.push(a0.x, a0.y, a0.z, a1.x, a1.y, a1.z, b1.x, b1.y, b1.z, a0.x, a0.y, a0.z, b1.x, b1.y, b1.z, b0.x, b0.y, b0.z);
+    };
+    const branch = (from: THREE.Vector3, drop: number, w: number, depth: number, lean: number) => {
+      const p = from.clone();
+      const steps = 9 + Math.floor(Math.random() * 6);
+      for (let i = 0; i < steps; i++) {
+        const q = p.clone().addScaledVector(side, (Math.random() - 0.5) * 9 + lean).addScaledVector(radial, (Math.random() - 0.5) * 5);
+        q.y -= (drop / steps) * (0.6 + Math.random() * 0.8);
+        seg(p, q, w);
+        if (depth > 0 && Math.random() < 0.22) branch(q, drop * 0.35, w * 0.5, depth - 1, (Math.random() < 0.5 ? -1 : 1) * 3);
+        p.copy(q);
+        w *= 0.97;
+      }
+    };
+    branch(radial.clone().multiplyScalar(R).setY(85 + Math.random() * 20), 95, 1.3, 2, 0);
+    boltMesh.geometry.dispose();
+    boltMesh.geometry = new THREE.BufferGeometry();
+    boltMesh.geometry.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  };
+
   // ---------------------------------------------------------------------- weather & life
   const dust = new THREE.Points(new THREE.BufferGeometry(), new THREE.PointsMaterial());
   dust.visible = false;
   let time = 0;
-  let nextBolt = 6 + rng.next() * 8;
+  let nextBolt = new URLSearchParams(location.search).has('bolt') ? 0.05 : 6 + rng.next() * 8;
   let bolt = -1;
   const baseHemi = hemi.intensity, baseMoon = moon.intensity;
   const _m = new THREE.Matrix4();
@@ -902,6 +945,8 @@ export function buildRooftop(a: Arena, blood: BloodAtlas, pointLights: number, s
     if (nextBolt <= 0) {
       nextBolt = 11 + Math.random() * 16;
       bolt = 0;
+      boltMesh.visible = Math.random() < 0.65;
+      if (boltMesh.visible) makeBolt();
       const delay = 0.5 + Math.random() * 1.6;
       a.onThunder?.(delay, 0.5 + Math.random() * 0.5);
     }
@@ -909,8 +954,12 @@ export function buildRooftop(a: Arena, blood: BloodAtlas, pointLights: number, s
     if (bolt >= 0) {
       bolt += dt;
       flash = Math.max(0, 1 - Math.abs(bolt - 0.05) * 16) + 0.7 * Math.max(0, 1 - Math.abs(bolt - 0.22) * 14) + 0.45 * Math.max(0, 1 - Math.abs(bolt - 0.4) * 10);
-      if (bolt > 0.7) bolt = -1;
+      if (bolt > 0.7) {
+        bolt = -1;
+        boltMesh.visible = false;
+      }
     }
+    boltMat.opacity = Math.min(1, flash * 1.3);
     hemi.intensity = baseHemi * (1 + flash * 3.5);
     moon.intensity = baseMoon * (1 + flash * 2.5);
     rainMat.uniforms.uFlash.value = flash;

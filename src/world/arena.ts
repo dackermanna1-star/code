@@ -147,6 +147,8 @@ export class Arena {
   onThunder: ((delay: number, vol: number) => void) | null = null;
   /** Lightning brightness this frame (0: none); the game lifts the fog, sky and reflections with it. */
   flash = 0;
+  /** The game camera (weather that wants to be seen, like lightning, strikes where it looks). */
+  view: THREE.Camera | null = null;
 
   constructor(public blood: BloodAtlas, pointLights: number, shadowMapSize: number, public map: MapName = 'warehouse') {
     if (map === 'rooftop') {

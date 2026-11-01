@@ -70,6 +70,8 @@ export class CorpseSystem {
 
   constructor(public lib: CharacterLibrary, public physics: Physics, public blood: BloodAtlas) {
     const { material, corpseUniforms } = createCharacterMaterial(lib.atlas, true);
+    material.roughness = lib.surface.roughness;
+    material.envMapIntensity = lib.surface.env;
     this.material = material;
     this.corpseUniforms = corpseUniforms;
     this.woundData = new Float32Array(MAX_WOUNDS * 2 * 4 * this.woundRows);

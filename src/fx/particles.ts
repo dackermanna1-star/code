@@ -289,7 +289,25 @@ export class FX {
     }
     this.add.spawn(p.x, p.y, p.z, 0, 0, 0, 0.3, 3, 2.2, 1.2, 0.8, 0.07, { grow: 3 });
   }
+  /** Rain water thrown up off the wet roof: bright droplets that arc and fall, a low mist. */
+  splash(p: THREE.Vector3, amount = 1) {
+    const n = Math.round(5 + amount * 16);
+    for (let i = 0; i < n; i++) {
+      const a = rand(0, Math.PI * 2), s = rand(0.5, 2.0) * Math.sqrt(amount);
+      this.add.spawn(p.x + Math.cos(a) * 0.1, 0.03, p.z + Math.sin(a) * 0.1, Math.cos(a) * s, rand(1.0, 3.0) * Math.sqrt(amount), Math.sin(a) * s, rand(0.008, 0.018), 0.5, 0.56, 0.68, 0.75, rand(0.25, 0.55), { grav: 9.8, stretch: 0.025, drag: 0.8 });
+    }
+    for (let i = 0; i < 2 + amount * 3; i++) {
+      const a = rand(0, Math.PI * 2), s = rand(0.3, 0.9) * amount;
+      this.soft.spawn(p.x, 0.04, p.z, Math.cos(a) * s, rand(0.05, 0.25), Math.sin(a) * s, rand(0.15, 0.3) * (0.6 + amount * 0.5), 0.5, 0.53, 0.6, 0.16, rand(0.4, 0.8), { grow: 0.8, drag: 2.5 });
+    }
+  }
+
   dust(p: THREE.Vector3, amount = 1) {
+    // (the rooftop is soaked: what would be dust is spray)
+    if (this.game.arena.map === 'rooftop' && p.y < 0.4) {
+      this.splash(p, amount);
+      return;
+    }
     const n = Math.round(4 + amount * 8);
     for (let i = 0; i < n; i++) {
       const a = rand(0, Math.PI * 2);
