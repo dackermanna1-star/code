@@ -59,7 +59,8 @@ Taking a hit breaks your combo; finishers and perfect counters restore a little 
 ## What's in the box
 
 **Combat** — free-flow targeting with motion warping (strikes close the gap and land on the
-actual head/gut of the target), 14 contextual unarmed strikes (jabs, crosses, hooks,
+actual head/gut of the target; further than a lunge away, a few running steps come first),
+14 contextual unarmed strikes (jabs, crosses, hooks,
 uppercuts, elbows, clinch knees, front/side/roundhouse/spinning back kicks, flying knee, back
 elbow/back kick for enemies behind you), combo meter with variety multiplier, counters
 (catch-and-elbow, parry-palm, arm break, hip toss, weapon disarm) with perfect-timing bonuses
@@ -73,10 +74,16 @@ motion, environmental head slams into walls/pillars/crates, ground stomps.
 **Enemies** — thugs, knife/bat/blade wielders, agile runners that evade, brutes that absorb
 blows until stunned, guards that block and riposte, elite fighters with combos and feints,
 plus The Butcher, Viper and Grandmaster Kael (three phases, minions, a sword, exhaustion
-windows). An AI director hands out attack tokens, coordinates pincer attacks, punishes
-openings, and adapts: counter-heavy players see more unblockables and feints. Injured enemies
-hunch, limp, clutch their side and hang back; broken arms dangle and change their moveset.
-15 authored waves introduce mechanics gradually, then endless mode scales forever.
+windows). An AI director hands out attack tokens (at most three attackers at once),
+coordinates pincer attacks, punishes openings, and adapts: counter-heavy players see more
+unblockables and feints. Every attack telegraphs: its load-up always shows for at least half a
+second before contact (a little less for a combo follow-up), and two attacks you can't counter
+together never land at the same moment. Enemies sizing you up keep out of the camera's view of
+you, the camera rises over a crowd, and anyone who still steps in front of it thins out. Injured
+enemies hunch, limp, clutch their side and hang back; broken arms dangle and change their
+moveset. 15 authored waves introduce mechanics gradually, then endless mode scales forever.
+Settings → Gameplay → *Difficulty*: STORY (longer warnings, softer hits, fewer attackers),
+FIGHTER (default) or BRUTAL.
 
 **Motion capture** — every fighter moves on real motion capture from the CMU Graphics Lab
 database: a boxer's guard idle, walk, jog, run and sprint cycles, a backward walk and a
@@ -236,12 +243,16 @@ frame by frame: `node tests/film.mjs "viewer=loco&film=1&path=line&speed=1.6&sty
 tests/out/walk 16 4` (paths: line, strafe, back, diag, circle, turn, stopgo).
 
 `test=waves` runs the real wave game with a scripted bot (counters, dodges, finishers; add
-`probe=1` for the animation quality report: pops, hip jumps, foot slide by gait phase),
+`probe=1` for the animation quality report: pops, hip jumps, foot slide by gait phase;
+`fair=1` reports how much warning enemy attacks gave, per archetype; `difficulty=story|brutal`),
+`test=clips` replays every player strike against a still target and reports limb flips (bone
+swing / roll spikes; `list=roundhouse&dump=roundhouse@0.1-0.2` prints the IK effectors),
+`test=eatk&enemy=elite&atk=elite_jab&wave=14` films one enemy attack on a passive player,
 `test=stress` bakes N ragdoll corpses plus blood and measures frame cost (then drops fresh
 active ragdolls onto the pile), `test=euph&mode=knock|stagger|death|agony|pile|prop` films one
 scripted active-ragdoll reaction from a fixed witness camera (`pgu=1` forces the physical
 get-up, `ragdolls=classic` switches engines), `test=film` captures
-consecutive gameplay frames into a contact sheet, `test=duel&enemy=elite` isolates one
+consecutive gameplay frames into a contact sheet (`wave=12` films a real wave), `test=duel&enemy=elite` isolates one
 archetype, `test=pools&h=2.3&tilt=3.2` grows pools and rivulets on an empty floor, and
 `test=wounds` renders a beaten face up close (`wait=600` to see bruises mature), `test=moves`
 drives the player through a scripted idle / run / turn / blocked strafe / walk sequence for
