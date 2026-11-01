@@ -54,6 +54,7 @@ export class Quat implements XYZW {
   normalize(): this;
   setFromAxisAngle(axis: XYZ, angle: number): this;
   setFromUnitVectors(a: XYZ, b: XYZ): this;
+  setFromEuler(x: number, y: number, z: number, order?: string): this;
   toRotVec(out: Vec3): Vec3;
   setFromRotVec(v: XYZ): this;
   slerp(q: XYZW, t: number): this;
@@ -259,6 +260,13 @@ export class Controller {
   gu: { phase: string; kind: string; t: number } | null;
   events: { type: string; [k: string]: unknown }[];
   dying: { t: number; dur: number; done?: boolean } | null;
+  /** Called every step after the behaviour set its joint commands, right before they are applied. */
+  armDriver: ((dt: number) => void) | null;
+  breath: number;
+  /** Relative joint target (and optional gains) for this step. */
+  setRel(joint: string, q: XYZW, k?: number, d?: number, tmax?: number): void;
+  /** Scale a joint's gains from its definition. */
+  gains(joint: string, scale?: number): { k: number; d: number; tmax: number };
   constructor(rd: Ragdoll, opts?: { rng?: () => number });
   update(dt: number): void;
   setMode(m: ControllerMode): void;

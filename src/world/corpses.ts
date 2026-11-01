@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { BONE_COUNT, B } from '../anim/skeleton';
-import { createCharacterMaterial, MAX_WOUNDS, Wound } from '../character/material';
+import { createCharacterMaterial, MAX_WOUNDS, Wound, woundCode } from '../character/material';
 import { CharacterLibrary, CharacterModel, Variant } from '../character/library';
 import { G, groups, Physics, RAPIER } from './physics';
 import type { CorpseShape } from './ragdollTypes';
@@ -212,7 +212,7 @@ export class CorpseSystem {
     const pelvis = new THREE.Vector3().setFromMatrixPosition(model.bones[B.hips].matrixWorld);
     const rec: CorpseRecord = { id, variant: variant.id, x: pelvis.x, z: pelvis.z, bones, wounds, time, cause };
     this.records.push(rec);
-    this.writeWounds(id, wounds);
+    this.writeWounds(id, wounds, time);
     this.emitGeometry(rec, model, geo);
     if (shapes?.length) this.addColliders(shapes);
     // contact shadows / AO under body parts
@@ -227,7 +227,7 @@ export class CorpseSystem {
     return rec;
   }
 
-  private writeWounds(id: number, wounds: Wound[]) {
+  private writeWounds(id: number, wounds: Wound[], now: number) {
     this.ensureRows(id + 1);
     const row = id * MAX_WOUNDS * 2 * 4;
     const d = this.woundData;
@@ -235,7 +235,7 @@ export class CorpseSystem {
     wounds.slice(0, MAX_WOUNDS).forEach((w, i) => {
       const o = row + i * 8;
       d[o] = w.pos.x; d[o + 1] = w.pos.y; d[o + 2] = w.pos.z; d[o + 3] = w.radius;
-      d[o + 4] = w.type; d[o + 5] = w.intensity; d[o + 6] = w.seed; d[o + 7] = w.drip;
+      d[o + 4] = woundCode(w, now); d[o + 5] = w.intensity; d[o + 6] = w.seed; d[o + 7] = w.drip;
     });
     this.woundTex.needsUpdate = true;
   }

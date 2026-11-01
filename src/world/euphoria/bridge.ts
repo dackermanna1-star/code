@@ -18,7 +18,7 @@ import type { Pose, PoseFK } from '../../anim/pose';
 import type { Arena } from '../arena';
 import type { CorpseShape, RagdollInit, RagdollLike } from '../ragdollTypes';
 import type { Wound } from '../../character/material';
-import { clamp, rotY } from '../../core/math';
+import { clamp, rotY, smoothstep } from '../../core/math';
 
 /**
  * Bridge between the game and the Ragdoll Lab "euphoria" engine (engine.js):
@@ -356,6 +356,10 @@ export class EuphoriaSim {
 
 export type DeathStyle = 'collapse' | 'limp';
 
+const _wq = new Quat();
+const _wx = new Vec3(1, 0, 0);
+const _wv = new THREE.Vector3();
+
 /** A character driven by the lab's active-ragdoll controller. */
 export class ActiveRagdoll implements RagdollLike {
   readonly active = true;
@@ -456,6 +460,7 @@ export class ActiveRagdoll implements RagdollLike {
 
   // ------------------------------------------------------------------ stepping
   preStep(dt: number) {
+    if (this.agony) this.updateAgony(dt);
     if (this.buckleT > 0) {
       this.buckleT -= dt;
       if (this.buckleT <= 0) {
@@ -478,12 +483,13 @@ export class ActiveRagdoll implements RagdollLike {
     const c = this.ctl;
     if (c.mode === 'balance' && c.sens.upTilt < 0.4 && c.sens.pelvisH > 0.72 * this.scale && c.sens.comVel.length() < 0.6) this.standTime += dt;
     else this.standTime = 0;
-    if (this.dead) {
+    if (this.dead && !this.agony) {
+      this.deadTime += dt;
       let maxV = 0;
       for (const b of this.rd.bodies) maxV = Math.max(maxV, b.vel.length(), b.angVel.length() * 0.15);
       if (maxV < 0.14) this.calmTime += dt;
       else this.calmTime = 0;
-      if ((this.calmTime > 0.5 && this.time > 1.2) || this.time > 8) this.settled = true;
+      if ((this.calmTime > 0.5 && this.time > 1.2) || this.deadTime > 8) this.settled = true;
     }
   }
 
@@ -680,6 +686,141 @@ export class ActiveRagdoll implements RagdollLike {
       out.push({ body: seg.body, segment: seg, local, normal: new Vec3(nrm.x, nrm.y, nrm.z), priority: pr });
     }
     this.ctl.wounds = out;
+  }
+
+  /**
+   * Mortally wounded without a head injury: the legs go, the body hits the floor and writhes in
+   * pain clutching its wounds while its strength drains away over `dur` seconds - then it dies.
+   * (The lab controller's ground behaviour does the writhing: pain drives it, wounds steer the hands.)
+   */
+  dieSlowly(dur: number, cause = '') {
+    if (this.dead) return;
+    this.dead = true;
+    const c = this.ctl;
+    c.reactions = 'realistic';
+    c.conscious = true;
+    c.pain = 1; // in agony: and in no state to get back up (ableToGetUp needs pain < 0.88)
+    this.legBase.L = this.legBase.R = 0.16;
+    c.legStrength.L = c.legStrength.R = 0.16;
+    this.agony = { t: 0, dur, cause, spine: c.spineStrength, neck: c.neckStrength, arms: Math.max(c.armStrength.L, c.armStrength.R), seed: Math.random() * 100, side: Math.random() < 0.5 ? 1 : -1 };
+    c.armDriver = (h) => this.writhe(h);
+    if (c.mode === 'balance') {
+      const v = c.sens.comVel;
+      _v.set(v.x, 0, v.z);
+      if (_v.lengthSq() < 0.01) {
+        const q = this.rd.segments.chest.body.rot;
+        _v.set(0, 0, 1).applyQuaternion(_q.set(q.x, q.y, q.z, q.w)).setY(0);
+      }
+      this.forceFall(_v);
+    }
+    this.calmTime = 0;
+    this.settled = false;
+  }
+  /** Still writhing (a slow death in progress). */
+  get inAgony() {
+    return this.agony !== null;
+  }
+  /** 0..1 progress of a slow death (1 = gone). */
+  get agonyProgress() {
+    return this.agony ? clamp(this.agony.t / this.agony.dur, 0, 1) : 1;
+  }
+  private agony: { t: number; dur: number; cause: string; spine: number; neck: number; arms: number; seed: number; side: number } | null = null;
+  private deadTime = 0;
+  dbgWrithe = '';
+
+  private updateAgony(dt: number) {
+    const a = this.agony;
+    if (!a) return;
+    const c = this.ctl;
+    // the clock mostly runs once the body is down: the agony happens on the floor
+    a.t += c.mode === 'ground' ? dt : dt * 0.25;
+    const k = clamp(a.t / a.dur, 0, 1);
+    // pain holds, then ebbs in the last moments as the body gives up; strength drains throughout
+    c.pain = k < 0.7 ? 1 : 1 - 0.45 * ((k - 0.7) / 0.3);
+    const fade = 1 - 0.75 * k * k;
+    c.armStrength.L = Math.min(c.armStrength.L, a.arms * fade + 0.08);
+    c.armStrength.R = Math.min(c.armStrength.R, a.arms * fade + 0.08);
+    c.spineStrength = a.spine * (1 - 0.55 * k);
+    c.neckStrength = a.neck * (1 - 0.6 * k);
+    // legs fold under the fall; on the floor they have the strength to kick and draw up
+    const legs = c.mode === 'ground' ? 0.9 * (1 - 0.55 * k) : 0.16;
+    c.legStrength.L = c.legStrength.R = legs;
+    if (a.t >= a.dur) {
+      this.agony = null;
+      c.armDriver = null;
+      c.alive = false;
+      (c as unknown as { residualHold: number }).residualHold = 0.3;
+      c.onDeath(a.cause);
+      this.calmTime = 0;
+      this.deadTime = 0;
+    }
+  }
+
+  /**
+   * Agony on the floor, layered over the lab's ground behaviour (which keeps the hands on the
+   * wounds): waves of pain curl the body and draw the knees up, the legs push and kick in turn,
+   * the head lifts and turns, and the body rolls from side to side - all fading as it weakens.
+   */
+  private writhe(h: number) {
+    const a = this.agony;
+    const c = this.ctl;
+    if (!a || c.mode !== 'ground') return;
+    const k = clamp(a.t / a.dur, 0, 1);
+    const t = c.time, ph = a.seed;
+    // full strength for most of it, then the fight drains out of the body
+    const E = (1 - smoothstep(0.5, 1, k)) * clamp(c.modeTime / 0.4, 0, 1);
+    if (E < 0.02) return;
+    // spasms come in waves (two incommensurate rhythms)
+    const wave = 0.5 + 0.5 * Math.sin(t * 2.2 + ph) * Math.sin(t * 0.83 + ph * 1.7);
+    const curl = E * (0.5 + 0.5 * wave);
+    for (const s of ['L', 'R'] as const) {
+      const sg = s === 'L' ? 1 : -1;
+      const alt = Math.sin(t * (2.6 + 0.4 * wave) + ph + (s === 'L' ? 0 : Math.PI * 0.85));
+      const hip = -(0.3 + 1.25 * curl) + 0.5 * alt * E;
+      const knee = 0.5 + 1.5 * curl + 0.6 * Math.max(0, alt) * E;
+      c.setRel('hip' + s, _wq.setFromEuler(hip, 0.18 * sg * E * Math.sin(t * 1.3 + ph + sg), -0.1 * sg, 'XYZ'));
+      c.gains('hip' + s, 0.25 + 0.6 * E);
+      c.setRel('knee' + s, _wq.setFromAxisAngle(_wx, knee));
+      if (s === 'L') this.dbgWrithe = `E=${E.toFixed(2)} hipT=${hip.toFixed(2)} kneeT=${knee.toFixed(2)}`;
+      c.gains('knee' + s, 0.22 + 0.55 * E);
+      c.setRel('ankle' + s, _wq.setFromEuler(0.35 * E * Math.sin(t * 3.3 + sg + ph), 0, 0, 'XYZ'));
+      c.gains('ankle' + s, 0.2 + 0.3 * E);
+    }
+    // the trunk curls round the wound and twists; the head lifts, turns, drops back
+    c.setRel('lumbar', _wq.setFromEuler(0.42 * curl, 0.28 * E * Math.sin(t * 1.6 + ph), 0.22 * E * Math.sin(t * 1.15 + ph * 0.5), 'XYZ'));
+    c.gains('lumbar', 0.2 + 0.45 * E);
+    c.setRel('thoracic', _wq.setFromEuler(0.34 * curl - 0.03 * c.breath, 0.22 * E * Math.sin(t * 1.4 + ph + 1), 0.16 * E * Math.sin(t * 1.05 + ph), 'XYZ'));
+    c.gains('thoracic', 0.2 + 0.45 * E);
+    c.setRel('neckBase', _wq.setFromEuler(0.5 * curl + 0.18 * E * Math.sin(t * 2.4 + ph), 0.45 * E * Math.sin(t * 0.95 + ph), 0, 'XYZ'));
+    c.gains('neckBase', 0.3 + 0.5 * E);
+    c.setRel('neckTop', _wq.setFromEuler(0.25 * curl, 0.35 * E * Math.sin(t * 1.25 + ph * 2), 0, 'XYZ'));
+    c.gains('neckTop', 0.3 + 0.4 * E);
+    // curl up on one side and rock: drive the roll about the spine towards a target that sways
+    // around lying on that side (the lab's own roll convention: u = 0 face down, +-pi face up)
+    const chest = this.rd.segments.chest.body, pelvis = this.rd.segments.pelvis.body;
+    _wv.set(chest.pos.x - pelvis.pos.x, chest.pos.y - pelvis.pos.y, chest.pos.z - pelvis.pos.z);
+    const len = _wv.length();
+    if (len > 1e-4) {
+      _wv.multiplyScalar(1 / len);
+      _q.set(chest.rot.x, chest.rot.y, chest.rot.z, chest.rot.w);
+      const fy = _v.set(0, 0, 1).applyQuaternion(_q).y;
+      const ry = _v2.set(1, 0, 0).applyQuaternion(_q).y;
+      const u = Math.atan2(ry, -fy);
+      const spin = 0.5 * (chest.angVel.x * _wv.x + chest.angVel.y * _wv.y + chest.angVel.z * _wv.z + pelvis.angVel.x * _wv.x + pelvis.angVel.y * _wv.y + pelvis.angVel.z * _wv.z);
+      const target = a.side * (Math.PI / 2 + 0.5 * Math.sin(t * 0.7 + ph) + 0.18 * Math.sin(t * 1.9 + ph * 3));
+      let g = target - u;
+      while (g > Math.PI) g -= Math.PI * 2;
+      while (g < -Math.PI) g += Math.PI * 2;
+      const lim = Math.abs(g) > 0.6 ? 75 : 32;
+      const tq = clamp(70 * g - 18 * spin, -lim, lim) * E * this.scale ** 4;
+      chest.torque.x += _wv.x * tq * 0.6;
+      chest.torque.y += _wv.y * tq * 0.6;
+      chest.torque.z += _wv.z * tq * 0.6;
+      pelvis.torque.x += _wv.x * tq * 0.4;
+      pelvis.torque.y += _wv.y * tq * 0.4;
+      pelvis.torque.z += _wv.z * tq * 0.4;
+    }
+    void h;
   }
 
   /** Death: 'collapse' = the dying stagger of a fatally hurt person; 'limp' = instant loss of all tone. */

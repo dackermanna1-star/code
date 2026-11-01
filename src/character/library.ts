@@ -3,7 +3,7 @@ import { BodySpec, buildSkeletonDef, createBones, SkeletonDef } from '../anim/sk
 import { buildBodyGeometry } from './bodyMesh';
 import { Outfit } from './outfit';
 import { buildTextureArray, paintCharacterCanvas } from './texture';
-import { createCharacterMaterial, CharacterMaterialUniforms, MAX_WOUNDS, Wound, writeWounds } from './material';
+import { createCharacterMaterial, CharacterMaterialUniforms, MAX_WOUNDS, Wound, WOUND_MATURE, writeWounds } from './material';
 import { Pose, applyPoseToBones } from '../anim/pose';
 
 export interface Variant {
@@ -86,6 +86,8 @@ export class CharacterModel {
         o.intensity = Math.min(1, Math.max(o.intensity, w.intensity) + 0.15);
         o.radius = Math.min(o.radius * 1.12 + 0.004, Math.max(o.radius, w.radius) * 1.6);
         o.drip = Math.max(o.drip, w.drip);
+        // fresh blood over an old wound; a bruise struck again keeps deepening
+        if (w.born !== undefined) o.born = o.type === 1 ? Math.min(o.born ?? w.born, w.born) : w.born;
         this.woundsDirty = true;
         return;
       }
@@ -122,11 +124,15 @@ export class CharacterModel {
     this.woundsDirty = true;
   }
 
-  syncWounds() {
-    if (this.woundsDirty) {
-      writeWounds(this.uniforms, this.wounds);
-      this.woundsDirty = false;
-    }
+  private woundSyncT = 0;
+  /** Push wounds to the shader; while some are still maturing, refresh a few times a second. */
+  syncWounds(now = 0) {
+    if (!this.woundsDirty && now < this.woundSyncT) return;
+    writeWounds(this.uniforms, this.wounds, now);
+    this.woundsDirty = false;
+    let maturing = false;
+    for (const w of this.wounds) if (w.born !== undefined && now - w.born < WOUND_MATURE[w.type]) maturing = true;
+    this.woundSyncT = maturing ? now + 0.25 : Infinity;
   }
 
   dispose() {

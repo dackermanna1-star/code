@@ -5,6 +5,7 @@ import { ARCHETYPES } from '../ai/archetypes';
 import { rand } from '../core/math';
 import { Archetype } from '../character/variants';
 import { makeHit } from '../combat/types';
+import { B } from '../anim/skeleton';
 
 /** Drive the player like a competent human (for automated playtests). */
 export class Bot {
@@ -158,6 +159,19 @@ export async function runTest(game: Game, params: URLSearchParams) {
       if (!game.player.alive && !god) break;
     }
     if (probe) console.log('PROBE ' + JSON.stringify(probe.report((frames * dt))));
+    if (params.get('rtime') === '1') {
+      const gl = game.renderer.gl;
+      for (let k = 0; k < 3; k++) {
+        let t0 = performance.now();
+        game.blood.flush(gl);
+        const tf = performance.now() - t0;
+        t0 = performance.now();
+        game.renderFrame();
+        gl.getContext().finish();
+        console.log(`render ${k}: flush=${tf.toFixed(1)}ms frame=${(performance.now() - t0).toFixed(1)}ms pools=${game.blood.pools.length} rivulets=${game.blood.rivulets.length} corpses=${game.corpses.count}`);
+        game.step(dt);
+      }
+    }
     const ec = game.euphoria.counters;
     result.euphoria = { created: ec.created, peak: ec.peak, steps: ec.steps, avgStepMs: +(ec.stepMsTotal / Math.max(1, ec.steps)).toFixed(3), worstStepMs: +ec.worstStepMs.toFixed(2), statics: game.euphoria.staticCount, ...game.euphoria.events };
     result.wave = game.waves.wave;
@@ -240,10 +254,21 @@ export async function runTest(game: Game, params: URLSearchParams) {
         if (!at) continue;
         const dir = new THREE.Vector3(e.x - p.x, 0, e.z - p.z).normalize();
         const head = new THREE.Vector3();
-        e.bodyPoint(mode === 'stagger' ? 'chest' : 'head', head);
-        const h = makeHit({ dir, point: head, damage: 5, strength: 1.1, kind: 'punch', region: 'head', attacker: p, knockdown: mode !== 'stagger', launch: mode === 'throw' ? 4 : 0 });
+        e.bodyPoint(mode === 'stagger' || mode === 'agony' ? 'chest' : 'head', head);
+        const h = makeHit({ dir, point: head, damage: 5, strength: 1.1, kind: 'punch', region: mode === 'agony' ? 'gut' : 'head', attacker: p, knockdown: mode !== 'stagger', launch: mode === 'throw' ? 4 : 0 });
         if (mode === 'stagger') e.physStagger(h, Number(params.get('imp') ?? 0.42));
-        else if (mode === 'death' || mode === 'pile') {
+        else if (mode === 'agony') {
+          // a beating to the body: bruises and a bleeding gut wound, then the fatal blow
+          const pt = new THREE.Vector3();
+          e.bodyPoint('chest', pt);
+          e.woundAt(pt.clone().add(new THREE.Vector3(0.05, -0.18, 0.1)), 0, 0.07, 1, 0.18);
+          e.woundAt(pt.clone().add(new THREE.Vector3(-0.08, 0.05, 0.1)), 1, 0.09, 0.9);
+          e.bodyPoint('head', pt);
+          e.woundAt(pt.clone().add(new THREE.Vector3(0.05, 0.02, 0.08)), 1, 0.06, 0.9);
+          e.bleedRate = 3;
+          e.hp = 1;
+          e.takeHit({ ...h, damage: 50, knockdown: false });
+        } else if (mode === 'death' || mode === 'pile') {
           e.hp = 1;
           e.takeHit({ ...h, damage: 50, knockdown: false });
         } else {
@@ -258,7 +283,7 @@ export async function runTest(game: Game, params: URLSearchParams) {
       fire();
       game.step(dt);
       frame++;
-      if (frame % 30 === 0) {
+      if (frame % (Number(params.get('logEvery') ?? 30)) === 0) {
         const e = es[0];
         const r = e.downRag as unknown as { mode?: string; getUpPhase?: string | null; ctl?: { sens: { pelvisH: number } } } | null;
         if (mode === 'prop') {
@@ -266,6 +291,20 @@ export async function runTest(game: Game, params: URLSearchParams) {
           const t = pb.translation(), lv = pb.linvel();
           console.log(`prop pos=${t.x.toFixed(2)},${t.y.toFixed(2)},${t.z.toFixed(2)} speed=${Math.hypot(lv.x, lv.y, lv.z).toFixed(2)}`);
         }
+        const dr = e.ragdoll as unknown as { mode?: string; inAgony?: boolean; agonyProgress?: number; settled?: boolean; ctl?: { modeTime: number; legStrength: { L: number }; pain: number; tone: number; alive: boolean; conscious: boolean; sens: { pelvisH: number; upTilt: number } } } | null;
+        const fk = e.anim.fk;
+        const kneeAng = (th: number, sh: number, ft: number) => {
+          const a = fk.pos[sh].clone().sub(fk.pos[th]).normalize(), b = fk.pos[ft].clone().sub(fk.pos[sh]).normalize();
+          return (Math.acos(Math.max(-1, Math.min(1, a.dot(b)))) * 57.3).toFixed(0);
+        };
+        if (dr && !e.alive) {
+          const hipAng = (th: number, sh: number) => {
+            const sp = fk.pos[B.spine].clone().sub(fk.pos[B.hips]).normalize(), a = fk.pos[sh].clone().sub(fk.pos[th]).normalize();
+            return (180 - Math.acos(Math.max(-1, Math.min(1, sp.dot(a)))) * 57.3).toFixed(0);
+          };
+          console.log(`knees L=${kneeAng(B.thighL, B.shinL, B.footL)} R=${kneeAng(B.thighR, B.shinR, B.footR)} hipflex L=${hipAng(B.thighL, B.shinL)} R=${hipAng(B.thighR, B.shinR)} ${(dr as unknown as { dbgWrithe: string }).dbgWrithe}`);
+        }
+        if (dr && !e.alive) console.log(`f=${frame} dying mode=${dr.mode} agony=${dr.inAgony} k=${dr.agonyProgress?.toFixed(2)} settled=${dr.settled} corpses=${game.corpses.count} mt=${dr.ctl?.modeTime.toFixed(2)} leg=${dr.ctl?.legStrength.L.toFixed(2)} pain=${dr.ctl?.pain.toFixed(2)} tone=${dr.ctl?.tone.toFixed(2)} alive=${dr.ctl?.alive} cons=${dr.ctl?.conscious} pelvisH=${dr.ctl?.sens.pelvisH.toFixed(2)} tilt=${dr.ctl?.sens.upTilt.toFixed(2)}`);
         console.log(`f=${frame} state=${e.state} alive=${e.alive} mode=${r?.mode ?? '-'} gu=${r?.getUpPhase ?? '-'} pelvisH=${r?.ctl?.sens.pelvisH.toFixed(2) ?? '-'} active=${game.euphoria.actives.length} stepMs=${game.euphoria.stepMs.toFixed(2)} sub=${game.euphoria.world.substeps}`);
       }
     };
@@ -292,6 +331,70 @@ export async function runTest(game: Game, params: URLSearchParams) {
     for (let i = 0; i < Number(params.get('warm') ?? 20); i++) stepOne();
     if (params.get('run')) for (let i = 0; i < frames; i++) stepOne();
     game.renderFrame();
+  }
+  if (name === 'wounds') {
+    // a beaten face and body up close: cuts, a bloody nose, bruises
+    const key = params.get('enemy') ?? 'brawler';
+    const e = spawnEnemy(key, 0, -0.6);
+    game.started = true;
+    e.attackCooldown = 1e9;
+    // a still, relaxed subject (no AI, hands down)
+    (e as unknown as { think: (dt: number) => void }).think = () => {
+      e.vx = e.vz = 0;
+      e.anim.locoIn.style = 'relaxed';
+      e.anim.locoIn.guard = 0;
+      e.anim.locoIn.look = 0;
+    };
+    for (let i = 0; i < 30; i++) game.step(dt);
+    const P = (name: string, x: number, y: number, z: number) => {
+      const v = new THREE.Vector3();
+      e.bodyPoint(name, v);
+      // offsets in the fighter's facing frame
+      const c = Math.cos(e.yaw), sn = Math.sin(e.yaw);
+      return v.add(new THREE.Vector3(x * c + z * sn, y, -x * sn + z * c));
+    };
+    const beat = Number(params.get('beat') ?? 1);
+    if (beat > 0) {
+      e.woundAt(P('head', 0.035, 0.0, 0.02), 0, 0.025, 1, 0.12); // split brow
+      e.woundAt(P('jaw', 0.0, 0.035, 0.01), 0, 0.02, 0.9, 0.1); // bloody nose
+      e.woundAt(P('head', -0.045, -0.03, 0.0), 1, 0.05, 0.9); // swollen cheek
+      e.woundAt(P('head', 0.04, 0.01, 0.0), 1, 0.04, 0.8); // black eye
+      e.woundAt(P('jaw', -0.03, -0.01, 0.0), 0, 0.018, 0.8, 0.06); // split lip
+      e.woundAt(P('chest', 0.06, 0.0, 0.0), 1, 0.08, 0.9); // ribs
+      e.woundAt(P('gut', -0.05, 0.02, 0.0), 1, 0.07, 0.8);
+      e.woundAt(P('chest', -0.08, 0.05, 0.0), 2, 0.08, 0.8);
+    }
+    for (let i = 0; i < Number(params.get('wait') ?? 60); i++) game.step(dt);
+    const c = game.cam.camera;
+    const look = new THREE.Vector3();
+    e.bodyPoint(params.get('at') ?? 'head', look);
+    const dist = Number(params.get('dist') ?? 0.75);
+    const ang = e.yaw + Number(params.get('ang') ?? 0.35);
+    c.position.set(look.x + Math.sin(ang) * dist, look.y + Number(params.get('up') ?? 0.05), look.z + Math.cos(ang) * dist);
+    c.lookAt(look);
+    game.renderFrame();
+  }
+  if (name === 'pools') {
+    // blood pools spreading and running along the floor, seen from above
+    const cx = Number(params.get('x') ?? 0), cz = Number(params.get('z') ?? 0);
+    const n = Number(params.get('n') ?? 3);
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2;
+      game.blood.addPool(cx + Math.cos(a) * 1.1, cz + Math.sin(a) * 1.1, 0.35 + (i % 3) * 0.12, 9 + i * 2, i * 0.4);
+    }
+    game.player.x = cx + 6;
+    game.player.z = cz + 6;
+    if (params.get('manual') === '1') game.blood.addRivulet(cx - 1.5, cz - 1.6, 1, 0, 1.6, 0.025, 0.2, 0);
+    for (let i = 0; i < frames; i++) {
+      game.step(dt);
+      if (i % 120 === 0) console.log(`t=${(i * dt).toFixed(1)} pools=${game.blood.pools.length} rivulets=${game.blood.rivulets.length} log=${game.blood.logCount} ` + game.blood.rivulets.slice(0, 3).map((r) => `[${r.x.toFixed(2)},${r.z.toFixed(2)} vol=${r.vol.toFixed(2)} w=${r.w0.toFixed(3)} d=${r.delay.toFixed(1)}]`).join(' '));
+    }
+    const c = game.cam.camera;
+    const h = Number(params.get('h') ?? 4.5);
+    c.position.set(cx + 0.01, h, cz + Number(params.get('tilt') ?? 1.2));
+    c.lookAt(cx, 0, cz);
+    game.renderFrame();
+    result.rivulets = game.blood.rivulets.length;
   }
   if (name === 'stress') {
     // populate many permanent corpses and blood quickly, then measure frame cost

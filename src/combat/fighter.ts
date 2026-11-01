@@ -227,7 +227,7 @@ export abstract class Fighter implements AimProvider {
     // clamp local offset so wounds stay on the body surface region of that bone
     if (_v2.length() > 0.25 * this.scale) _v2.setLength(0.25 * this.scale);
     const bind = this.def.rest[best].clone().add(_v2);
-    const w: Wound = { pos: bind, radius: radius * this.scale, type, intensity, drip, seed: Math.random() * 50 };
+    const w: Wound = { pos: bind, radius: radius * this.scale, type, intensity, drip, seed: Math.random() * 50, born: this.game.time };
     this.model.addWound(w);
   }
 
@@ -295,7 +295,7 @@ export abstract class Fighter implements AimProvider {
     this.anim.update(dt, this.x, this.z, this.yaw);
     this.model.group.position.set(this.x, 0, this.z);
     this.model.group.rotation.y = this.yaw;
-    this.model.syncWounds();
+    this.model.syncWounds(this.game.time);
   }
 
   /** Local direction helpers. */

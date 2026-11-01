@@ -11,7 +11,13 @@ interface Dying {
   rag: RagdollLike;
   cause: string;
   bleedT: number;
+  /** Next pained groan / bleed-out puddle while writhing. */
+  groanT: number;
+  puddleT: number;
 }
+
+/** At most this many bodies writhe at once (each keeps an active ragdoll busy). */
+const MAX_AGONY = 3;
 
 /** Manages ragdolls of dying fighters until they settle and are baked into permanent corpses. */
 export class DeathSystem {
@@ -27,8 +33,20 @@ export class DeathSystem {
     return cause === 'beaten' || cause === 'bled' ? 'collapse' : 'limp';
   }
 
+  /**
+   * A slow death fits: the killing blow wasn't to the head, nothing launched the body, and the
+   * body has wounds to clutch. Head trauma, executions and big launches stay instantly limp.
+   */
+  private wantsAgony(f: Fighter, cause: string, region: string | undefined, violent: boolean) {
+    if (f === this.game.player || !region || region === 'head' || violent) return false;
+    if (this.dying.filter((d) => d.rag instanceof ActiveRagdoll && d.rag.inAgony).length >= MAX_AGONY) return false;
+    const wounds = f.model.wounds.filter((w) => w.type !== 2).length;
+    const p = (cause === 'finisher' ? 0.35 : 0.72) + Math.min(0.2, wounds * 0.04);
+    return Math.random() < p;
+  }
+
   /** Convert a fighter into a ragdoll. impulse: world N*s applied at point. */
-  kill(f: Fighter, cause: string, impulse?: THREE.Vector3, at?: THREE.Vector3, launch?: THREE.Vector3) {
+  kill(f: Fighter, cause: string, impulse?: THREE.Vector3, at?: THREE.Vector3, launch?: THREE.Vector3, region?: string) {
     if (f.dead) return null;
     f.alive = false;
     f.dead = true;
@@ -42,32 +60,41 @@ export class DeathSystem {
       // the active body is fully coupled through its joints: it needs about half the kick a loose ragdoll does
       imp = impulse?.clone().multiplyScalar(0.5);
       // a big launch or blow doesn't leave time for a dying stagger
-      const violent = (launch && launch.length() > 3) || (imp && imp.length() > 110);
-      rag.kill(violent ? 'limp' : DeathSystem.styleFor(cause), cause);
+      const violent = !!((launch && launch.length() > 3) || (imp && imp.length() > 110));
+      if (this.wantsAgony(f, cause, region, violent)) {
+        rag.dieSlowly(3.5 + Math.random() * 3.5, cause);
+        g.euphoria.count('agony');
+      } else rag.kill(violent ? 'limp' : DeathSystem.styleFor(cause), cause);
     }
     if (launch) rag.launch(rag instanceof ActiveRagdoll ? launch.clone().multiplyScalar(0.75) : launch, 3);
     if (imp) rag.impulse(imp, at);
     f.anim.toExternal(rag, 0.03);
     f.ragdoll = rag;
-    this.dying.push({ f, rag, cause, bleedT: 0 });
+    this.dying.push({ f, rag, cause, bleedT: 0, groanT: 0.5 + Math.random() * 0.6, puddleT: 0.8 });
     return rag;
   }
 
   /** Take over an existing (knockdown / stagger) ragdoll as a death ragdoll. */
-  adopt(f: Fighter, rag: RagdollLike, cause: string, impulse?: THREE.Vector3, at?: THREE.Vector3) {
+  adopt(f: Fighter, rag: RagdollLike, cause: string, impulse?: THREE.Vector3, at?: THREE.Vector3, region?: string) {
     if (f.dead) return rag;
     f.alive = false;
     f.dead = true;
     f.solid = false;
     f.hp = 0;
-    if (rag instanceof ActiveRagdoll) rag.kill(rag.grounded ? 'limp' : 'collapse', cause);
+    if (rag instanceof ActiveRagdoll) {
+      if (this.wantsAgony(f, cause, region, false)) {
+        rag.setWounds(f.model.wounds);
+        rag.dieSlowly(3 + Math.random() * 3, cause);
+        this.game.euphoria.count('agony');
+      } else rag.kill(rag.grounded ? 'limp' : 'collapse', cause);
+    }
     if (impulse) rag.impulse(impulse, at);
     rag.settled = false;
     rag.calmTime = 0;
     rag.time = Math.min(rag.time, 3);
     f.anim.toExternal(rag, 0.03);
     f.ragdoll = rag;
-    this.dying.push({ f, rag, cause, bleedT: 0 });
+    this.dying.push({ f, rag, cause, bleedT: 0, groanT: 0.4 + Math.random() * 0.5, puddleT: 0.6 });
     return rag;
   }
 
@@ -85,9 +112,35 @@ export class DeathSystem {
         d.f.anim.boneWorld(Math.random() < 0.5 ? B.head : B.chest, this._v);
         g.fx?.bloodDrip(this._v, 1);
       }
+      if (d.rag instanceof ActiveRagdoll && d.rag.inAgony) this.agony(d, d.rag, dt);
       if (d.rag.settled) {
         this.finalize(d);
         this.dying.splice(i, 1);
+      }
+    }
+  }
+
+  /** A slow death: groans that weaken, and blood welling out under the wounds as the body writhes. */
+  private agony(d: Dying, rag: ActiveRagdoll, dt: number) {
+    const g = this.game;
+    const k = rag.agonyProgress;
+    d.groanT -= dt;
+    if (d.groanT <= 0) {
+      d.groanT = 0.9 + Math.random() * 1.4 + k * 1.2;
+      rag.headPos(this._v);
+      g.audio.play('grunt_pain', { pos: this._v, vol: 0.55 * (1 - 0.6 * k), pitch: 0.82 - 0.12 * k, pitchVar: 0.06 });
+    }
+    d.puddleT -= dt;
+    if (d.puddleT <= 0 && rag.grounded) {
+      d.puddleT = 0.45 + Math.random() * 0.5;
+      // bleed from the worst wound's body part
+      const w = d.f.model.wounds.filter((x) => x.type === 0).sort((a, b) => b.intensity * b.radius - a.intensity * a.radius)[0];
+      const fromHead = w ? w.pos.y > d.f.def.rest[B.neck].y : false;
+      if (fromHead) rag.headPos(this._v);
+      else rag.chestPos(this._v);
+      if (this._v.y < 0.45) {
+        this._v.y = 0.01;
+        g.blood.splat(this._v.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.12, 0, (Math.random() - 0.5) * 0.12)), (0.06 + Math.random() * 0.07) * d.f.scale, SPLAT.pool, 0.85, new THREE.Vector3(0, 1, 0));
       }
     }
   }
@@ -99,7 +152,7 @@ export class DeathSystem {
     f.anim.update(0, f.x, f.z, f.yaw);
     f.model.group.position.set(f.x, 0, f.z);
     f.model.group.rotation.y = f.yaw;
-    f.model.syncWounds();
+    f.model.syncWounds(g.time);
     const shapes = d.rag.corpseShapes();
     const rec = g.corpses.bake(f.model, shapes, d.cause, g.time);
     // later active ragdolls land on (and stumble over) this body

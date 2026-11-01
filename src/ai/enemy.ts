@@ -768,10 +768,10 @@ export class Enemy extends Fighter {
     if (this.weapon) this.weapon.drop(new THREE.Vector3(rand(-1.5, 1.5) + h.dir.x * 2, 2.5, rand(-1.5, 1.5) + h.dir.z * 2));
     this.paired = null;
     if (this.downRag) {
-      g.death.adopt(this, this.downRag, 'ground', imp.multiplyScalar(0.5), h.point);
+      g.death.adopt(this, this.downRag, 'ground', imp.multiplyScalar(0.5), h.point, h.region);
       this.downRag = null;
     } else {
-      g.death.kill(this, h.finisher ? 'finisher' : 'beaten', imp, h.point, launch);
+      g.death.kill(this, h.finisher ? 'finisher' : 'beaten', imp, h.point, launch, h.region);
     }
     g.onEnemyKilled(this, h);
   }
