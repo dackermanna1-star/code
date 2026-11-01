@@ -154,6 +154,29 @@ export class AudioSys {
     src.onended = () => this.voices.set(cat, Math.max(0, (this.voices.get(cat) ?? 1) - 1));
   }
 
+  /** Short synthesized interface blips: focus move, confirm, back. */
+  ui(kind: 'move' | 'ok' | 'back') {
+    const c = this.ctx;
+    if (!c || !this.sfx || c.state !== 'running') return;
+    const t = c.currentTime;
+    const o = c.createOscillator();
+    const g = c.createGain();
+    const f = kind === 'ok' ? [330, 990] : kind === 'back' ? [520, 210] : [1250, 900];
+    o.type = kind === 'move' ? 'triangle' : 'square';
+    o.frequency.setValueAtTime(f[0], t);
+    o.frequency.exponentialRampToValueAtTime(f[1], t + (kind === 'ok' ? 0.09 : 0.06));
+    const peak = kind === 'move' ? 0.035 : 0.05;
+    const len = kind === 'ok' ? 0.2 : 0.08;
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(peak, t + 0.004);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + len);
+    o.connect(g);
+    g.connect(this.sfx);
+    o.start(t);
+    o.stop(t + len + 0.02);
+    if (kind === 'ok') this.thump(0.5);
+  }
+
   /** Low-frequency body thump layered under heavy impacts (adds weight). */
   thump(strength: number, pos?: THREE.Vector3 | null) {
     const c = this.ctx;

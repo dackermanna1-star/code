@@ -144,12 +144,14 @@ export class Game {
     if (!this.params.get('test')) {
       this.hud = new HUD(this);
       this.waves.onWaveStart = (w, def) => {
-        this.hud?.bannerShow(def.boss ? def.title ?? 'BOSS' : `WAVE ${w}`, def.boss ? `WAVE ${w}` : def.comp.reduce((a, c) => a + c[1], 0) + ' ENEMIES', 2.6);
+        const n = def.comp.reduce((a, c) => a + c[1], 0);
+        if (def.boss) this.hud?.bannerShow(def.title ?? 'BOSS', `WAVE ${w}`, 3.0, 'BOSS FIGHT', true);
+        else this.hud?.bannerShow(`WAVE ${w}`, `${n} ENEMIES`, 2.6, w === 1 ? 'SURVIVE' : 'INCOMING');
         if (def.hint) this.hud?.hint(def.hint, undefined, 9);
         this.audio.play('announcer', { file: def.boss ? 'audio/announcer/announcer_prepare_yourself.wav' : w === 1 ? 'audio/announcer/announcer_fight.wav' : 'audio/announcer/announcer_begin.wav', vol: 0.75 });
       };
       this.waves.onWaveClear = (w) => {
-        this.hud?.bannerShow('CLEARED', `WAVE ${w} · ${this.corpses.count} BODIES`, 2.2);
+        this.hud?.bannerShow('CLEARED', `${this.corpses.count} BODIES ON THE FLOOR`, 2.2, `WAVE ${w}`);
       };
       const onFirstGesture = () => {
         this.audio.resume();
@@ -157,6 +159,10 @@ export class Game {
       window.addEventListener('pointerdown', onFirstGesture);
       window.addEventListener('keydown', onFirstGesture);
       window.addEventListener('keydown', (e) => {
+        if (this.hud?.handleMenuKey(e)) {
+          e.preventDefault();
+          return;
+        }
         if ((e.code === 'Escape' || e.code === 'KeyP') && this.started && !this.over) this.setPaused(!this.paused);
       });
       this.renderer.gl.domElement.addEventListener('click', () => {
@@ -170,6 +176,14 @@ export class Game {
         if (this.started && !this.paused && !this.over && !this.preStep) this.setPaused(true);
       });
       this.hud.show('title');
+      let auto = false;
+      try {
+        auto = sessionStorage.getItem('last-stance-autostart') === '1';
+        sessionStorage.removeItem('last-stance-autostart');
+      } catch {
+        /* ignore */
+      }
+      if (auto) setTimeout(() => this.beginRun(), 50);
     }
     if (!this.params.get('test') || this.params.get('audio') === '1') await this.audio.init();
     // compile all shaders up front (characters, corpses, particles, blood surfaces)
@@ -437,10 +451,12 @@ export class Game {
 
   onEnemyKilled(e: Enemy, h: HitInfo) {
     const p = this.player;
-    p.score += Math.round(e.scoreValue * p.multiplier * (h.finisher ? 1.5 : 1));
+    const pts = Math.round(e.scoreValue * p.multiplier * (h.finisher ? 1.5 : 1));
+    p.score += pts;
+    if (!e.cfg.boss) this.hud?.feed(`${e.cfg.label.toUpperCase()} DOWN`, `+${pts.toLocaleString()}`);
     if (e.cfg.boss) {
       this.slowMo(0.15, 1.6);
-      this.hud?.bannerShow(`${e.cfg.label}`, 'DEFEATED', 3);
+      this.hud?.bannerShow(`${e.cfg.label}`, 'DEFEATED', 3, 'BOSS DOWN', true);
       this.audio.play('announcer', { file: 'audio/announcer/announcer_winner.wav', vol: 0.8 });
     }
   }
@@ -476,15 +492,23 @@ export class Game {
       'Bones broken': p.stats.boneBreaks,
       Disarms: p.stats.disarms,
     };
+    let record = false;
     try {
       const prev = JSON.parse(localStorage.getItem('last-stance-best') ?? 'null');
-      if (!prev || p.score > prev.score) localStorage.setItem('last-stance-best', JSON.stringify({ wave: this.waves.wave, score: p.score, kills: p.stats.kills }));
+      if (!prev || p.score > prev.score) {
+        record = p.score > 0;
+        localStorage.setItem('last-stance-best', JSON.stringify({ wave: this.waves.wave, score: p.score, kills: p.stats.kills }));
+      }
     } catch {
       /* ignore */
     }
+    // rank: how far you got, how well you flowed, how clean your defence was
+    const w = this.waves.wave;
+    const pts = w * 6 + Math.min(30, p.bestCombo * 0.6) + Math.min(15, p.stats.perfectCounters * 1.5) + Math.min(10, p.stats.finishers * 0.5);
+    const grade = pts >= 110 ? 'S' : pts >= 80 ? 'A' : pts >= 55 ? 'B' : pts >= 32 ? 'C' : 'D';
     setTimeout(() => {
       this.input.exitLock();
-      this.hud?.gameOver(stats);
+      this.hud?.gameOver(stats, { grade, record });
     }, 2600);
   }
 
@@ -571,13 +595,13 @@ export async function startGame(params: URLSearchParams) {
   const app = document.getElementById('app')!;
   const loading = document.createElement('div');
   loading.className = 'loading';
-  loading.textContent = 'LOADING';
-  loading.style.cssText = 'position:fixed;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;background:#050505;color:#aaa;font:700 14px Arial;letter-spacing:.3em';
+  loading.innerHTML = '<div class="lg">LAST<br><span>STANCE</span></div><div class="lb"><i></i></div><div class="lt">PREPARING THE ARENA</div>';
   document.body.appendChild(loading);
   const game = new Game(app, params);
   (window as unknown as { game: Game }).game = game;
   await game.init();
-  loading.remove();
+  loading.style.opacity = '0';
+  setTimeout(() => loading.remove(), 520);
   if (params.get('test')) {
     game.testMode = true;
     const t = await import('./debug/testHarness');

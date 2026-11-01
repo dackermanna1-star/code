@@ -605,7 +605,7 @@ export class Player extends Fighter {
       return;
     }
     if (this.charges <= 0) {
-      g.hud?.toast('BUILD COMBO FOR FINISHER', '#aaaaaa', 0.8);
+      g.hud?.feed('BUILD A COMBO FOR A FINISHER');
       return;
     }
     const e = this.selectTarget(4.0);
@@ -719,7 +719,7 @@ export class Player extends Fighter {
       g.audio.play('sword_clash', { pos: _v.set(e.x, 1.2, e.z) });
       g.fx.sparks(_v.set(e.x, 1.2, e.z), new THREE.Vector3(0, 1, 0), 16);
       this.stats.disarms++;
-      g.hud?.toast('DISARMED', '#9fd0ff', 0.8);
+      g.hud?.feed('DISARMED');
     }
   }
 
@@ -734,12 +734,12 @@ export class Player extends Fighter {
       w.attach(this);
       this.weapon = w;
       g.audio.play('block', { pos: _v.set(this.x, 1, this.z), vol: 0.5 });
-      g.hud?.toast(`${w.kind.toUpperCase()} EQUIPPED`, '#cfcfcf', 0.8);
+      g.hud?.feed(`${w.kind.toUpperCase()} EQUIPPED`);
       return;
     }
     if (!front) return;
     if (front.cfg.needsStun && front.state !== 'stunned') {
-      g.hud?.toast('TOO STRONG - STUN FIRST', '#ff9050', 0.8);
+      g.hud?.feed('TOO STRONG — STUN FIRST', 'Q');
       return;
     }
     if (front.weapon && front.state === 'attack') return;
@@ -856,7 +856,7 @@ export class Player extends Fighter {
     if (imminent) {
       this.stats.perfectDodges++;
       g.slowMo(0.3, 0.45);
-      g.hud?.toast('PERFECT DODGE', '#8fe8ff', 0.7);
+      g.hud?.feed('PERFECT DODGE');
       imminent.enemy.stun = Math.max(imminent.enemy.stun, 0.8);
       this.addCombo(0, 'pdodge');
       this.comboTimer = Math.max(this.comboTimer, 2.0);
@@ -893,6 +893,7 @@ export class Player extends Fighter {
     this.hp -= h.damage;
     this.stats.damageTaken += h.damage;
     this.regenDelay = 4;
+    if (attacker) g.hud?.damageFrom(attacker.x, attacker.z);
     g.director.note('hitsTaken');
     this.breakCombo();
     g.renderer.fx.red = Math.min(1, g.renderer.fx.red + 0.5);
