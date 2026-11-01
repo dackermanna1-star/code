@@ -237,6 +237,7 @@ export class Game {
     if (this.player) this.applyMocap();
   }
 
+  private pianoT = -9;
   private flashShown = 0;
   private sirenT = 25 + Math.random() * 30;
   /** Lightning lifts the fog, the sky and the wet reflections for a few frames; sirens, far off. */
@@ -490,6 +491,11 @@ export class Game {
     else if (sp > 1.5) this.audio.play('footstep', { pos: i.point, vol: vol * 0.55 });
     if (this.arena.wet && i.other === 'floor' && sp > 1.5) this.audio.splash(i.point, vol * (torso ? 1 : 0.5));
     if (i.material === 'metal' && sp > 1.8) this.audio.play('metal_hit', { pos: i.point, vol: vol * 0.55 });
+    // a body thrown onto the grand piano's keys
+    if (i.material === 'piano' && sp > 1.4 && this.time - this.pianoT > 0.6) {
+      this.pianoT = this.time;
+      this.audio.piano(i.point, vol);
+    }
     if (i.other === 'floor' && sp > 2.4 && torso) this.fx.dust(i.point.clone().setY(0.03), clamp(sp / 7, 0.25, 0.9));
     if (i.other === 'prop' && sp > 2.2) this.cam.addTrauma(0.05);
     // a head slamming into the floor or a wall leaves blood on it

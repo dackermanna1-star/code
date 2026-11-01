@@ -485,6 +485,33 @@ export class AudioSys {
         this.play('metal_hit', { pos, vol });
     }
   }
+  /** A body lands on a grand piano: a crashing cluster of low strings, ringing on. */
+  piano(pos: THREE.Vector3 | null, vol = 1) {
+    const c = this.ctx;
+    if (!c || c.state !== 'running') return;
+    const t = c.currentTime;
+    const v = 0.2 * vol * this.distGain(pos);
+    const base = 55 * Math.pow(2, Math.floor(Math.random() * 6) / 12);
+    for (const semi of [0, 1, 5, 6, 11, 13, 18]) {
+      for (const [type, mul, gain] of [['triangle', 1, 1], ['sine', 2.003, 0.35]] as [OscillatorType, number, number][]) {
+        const o = c.createOscillator();
+        o.type = type;
+        o.frequency.value = base * Math.pow(2, semi / 12) * mul * (1 + (Math.random() - 0.5) * 0.004);
+        const g = c.createGain();
+        const tt = t + Math.random() * 0.03;
+        g.gain.setValueAtTime(0.0001, tt);
+        g.gain.exponentialRampToValueAtTime(v * gain, tt + 0.006);
+        g.gain.exponentialRampToValueAtTime(v * gain * 0.3, tt + 0.25);
+        g.gain.exponentialRampToValueAtTime(0.0001, tt + 2.6);
+        o.connect(g);
+        g.connect(this.sfx);
+        o.start(tt);
+        o.stop(tt + 2.7);
+      }
+    }
+    this.noiseHit(t, 'lowpass', 600, 120, 0.7, v * 1.5, 0.12);
+  }
+
   /** Glass or china knocked but not broken. */
   clink(pos: THREE.Vector3 | null, vol = 0.5) {
     const c = this.ctx;

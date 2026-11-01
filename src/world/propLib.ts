@@ -254,7 +254,7 @@ export const PROP_KINDS: Record<string, PropKindDef> = {
     key: 'floorlamp', half: [0.2, 0.82, 0.2], mass: 4, material: 'metal', breakDv: 7, debris: [0xfff0d0, 0x2a2a2a], shove: 1.5,
     layers: () => [
       { parts: [part(Cy(0.18, 0.2, 0.04, 16), 0x1a1a1c, 0, -0.8, 0), part(Cy(0.015, 0.015, 1.4, 8), 0x1a1a1c, 0, -0.1, 0)], rough: 0.4, metal: 0.7 },
-      { parts: [part(Cy(0.12, 0.2, 0.28, 16, ), 0xfff0d8, 0, 0.66, 0)], rough: 0.9, emissive: 0xffd8a0, emissiveIntensity: 1.6, noShadow: true },
+      { parts: [part(Cy(0.12, 0.2, 0.28, 16, ), 0xfff0d8, 0, 0.66, 0)], rough: 0.9, emissive: 0xffd0a0, emissiveIntensity: 0.75, noShadow: true },
     ],
   },
   tv: {

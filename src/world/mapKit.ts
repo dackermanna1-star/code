@@ -364,3 +364,73 @@ export function makeNoise(seed: number, period = 16) {
   };
 }
 
+/**
+ * A fire (an oil drum, a hearth): licking flame sprites, rising embers and a breathing light.
+ * Returns the per-frame update.
+ */
+export function addFire(k: MapKit, at: THREE.Vector3, opts: { size?: number; light?: number; priority?: number; width?: number } = {}) {
+  const size = opts.size ?? 1;
+  const width = opts.width ?? 0.3;
+  const [c, x] = canvas(64, 128);
+  const gr = x.createRadialGradient(32, 96, 2, 32, 80, 60);
+  gr.addColorStop(0, 'rgba(255,240,180,1)');
+  gr.addColorStop(0.25, 'rgba(255,170,60,0.9)');
+  gr.addColorStop(0.6, 'rgba(220,60,10,0.45)');
+  gr.addColorStop(1, 'rgba(120,20,0,0)');
+  x.fillStyle = gr;
+  x.beginPath();
+  x.moveTo(32, 2);
+  x.quadraticCurveTo(60, 70, 50, 110);
+  x.quadraticCurveTo(32, 128, 14, 110);
+  x.quadraticCurveTo(4, 70, 32, 2);
+  x.fill();
+  const flameTex = tex(c, true, false);
+  const flames: { s: THREE.Sprite; ph: number; ox: number; oz: number }[] = [];
+  for (let i = 0; i < 7; i++) {
+    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: flameTex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false }));
+    k.g.add(s);
+    flames.push({ s, ph: Math.random() * 10, ox: (Math.random() - 0.5) * width, oz: (Math.random() - 0.5) * width * 0.6 });
+  }
+  const EMB = 30;
+  const embP = new Float32Array(EMB * 3), embV = new Float32Array(EMB * 3), embT = new Float32Array(EMB);
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(embP, 3));
+  const [ec, ex] = canvas(16, 16);
+  const eg = ex.createRadialGradient(8, 8, 0, 8, 8, 8);
+  eg.addColorStop(0, 'rgba(255,255,255,1)');
+  eg.addColorStop(1, 'rgba(255,255,255,0)');
+  ex.fillStyle = eg;
+  ex.fillRect(0, 0, 16, 16);
+  const embers = new THREE.Points(geo, new THREE.PointsMaterial({ color: 0xffa040, size: 0.035 * size, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, map: tex(ec, true, false) }));
+  embers.frustumCulled = false;
+  k.g.add(embers);
+  let light: THREE.PointLight | null = null;
+  const base = opts.light ?? 30;
+  k.light({ p: at.clone().setY(at.y + 0.5 * size), color: 0xff7a2a, intensity: base, distance: 10, decay: 1.6, priority: opts.priority ?? 10, use: (l) => (light = l) });
+  let time = 0;
+  return (dt: number) => {
+    time += dt;
+    for (const [i, f] of flames.entries()) {
+      const t = time * (3 + i * 0.4) + f.ph;
+      const h = (0.55 + Math.sin(t) * 0.18 + Math.sin(t * 2.3) * 0.08) * size;
+      f.s.scale.set((0.35 + Math.sin(t * 1.7) * 0.06) * size, h, 1);
+      f.s.position.set(at.x + f.ox + Math.sin(t * 0.9) * 0.05, at.y + h * 0.42, at.z + f.oz + Math.cos(t * 1.1) * 0.05);
+      (f.s.material as THREE.SpriteMaterial).opacity = 0.75 + Math.sin(t * 3.1) * 0.2;
+    }
+    for (let i = 0; i < EMB; i++) {
+      embT[i] -= dt;
+      if (embT[i] <= 0) {
+        embT[i] = 1 + Math.random() * 1.5;
+        embP.set([at.x + (Math.random() - 0.5) * width, at.y + 0.05, at.z + (Math.random() - 0.5) * width * 0.6], i * 3);
+        embV.set([(Math.random() - 0.5) * 0.4, (1.0 + Math.random() * 1.2) * size, (Math.random() - 0.5) * 0.4], i * 3);
+      }
+      embP[i * 3] += (embV[i * 3] + Math.sin(time * 3 + i) * 0.3) * dt;
+      embP[i * 3 + 1] += embV[i * 3 + 1] * dt;
+      embP[i * 3 + 2] += embV[i * 3 + 2] * dt;
+    }
+    (geo.attributes.position as THREE.BufferAttribute).needsUpdate = true;
+    const l = light as THREE.PointLight | null;
+    if (l) l.intensity = base * (0.8 + Math.sin(time * 11) * 0.08 + Math.sin(time * 23.7) * 0.07 + Math.sin(time * 5.3) * 0.08);
+  };
+}
+

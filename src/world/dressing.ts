@@ -83,7 +83,7 @@ function windowTexture(seed: number) {
 }
 
 /** Rain running down the glass (scrolls vertically). */
-function rainTexture() {
+export function rainTexture() {
   const W = 128, H = 256;
   const [c, ctx] = canvas(W, H);
   const rng = new RNG(77);

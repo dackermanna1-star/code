@@ -21,6 +21,8 @@ export interface Obstacle {
   name: string;
   /** Blocks fighters on foot only (no physics, camera or blood): the rooftop's open gateways. */
   ghost?: boolean;
+  /** What a body hitting it sounds like (the active-ragdoll world's impact material). */
+  material?: string;
 }
 export interface Door {
   x: number; // outside spawn point

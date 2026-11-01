@@ -13,7 +13,7 @@ import { RNG } from '../core/math';
 
 // ============================================================================ textures
 /** Old tenement brick: every brick its own colour, some burnt dark, chipped arrises, recessed mortar. */
-function brickTex(seed: number, pal: 'red' | 'brown' | 'yellow') {
+export function brickTex(seed: number, pal: 'red' | 'brown' | 'yellow') {
   const S = 512; // 2 m
   const rng = new RNG(seed);
   const [c, x] = canvas(S, S);

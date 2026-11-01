@@ -663,11 +663,13 @@ export class BloodAtlas {
    * `overlay`: a non-tiling RGBA layer (graffiti, signage, stains) painted between the surface's own
    * texture and the blood, sampled with the geometry's `ovUv` attribute (see setOverlayUv).
    */
-  patchMaterial(mat: THREE.MeshStandardMaterial, opts: { paintColor?: THREE.Color; dirt?: number; lift?: number; overlay?: THREE.Texture | null } = {}) {
+  patchMaterial(mat: THREE.MeshStandardMaterial, opts: { paintColor?: THREE.Color; dirt?: number; lift?: number; overlay?: THREE.Texture | null; glass?: boolean } = {}) {
     const atlas = this.rt.texture;
     const paintColor = opts.paintColor ?? new THREE.Color(0.75, 0.72, 0.62);
     const ov = opts.overlay ?? null;
     if (ov) mat.defines = { ...(mat.defines ?? {}), LS_OVERLAY: '' };
+    // (a window: clear glass, but blood on it is opaque)
+    if (opts.glass) mat.defines = { ...(mat.defines ?? {}), LS_GLASS: '' };
     mat.onBeforeCompile = (shader) => {
       shader.uniforms.uBloodAtlas = { value: atlas };
       shader.uniforms.uPaintColor = { value: paintColor };
@@ -728,7 +730,10 @@ ${NOISE_GLSL}`,
   lsBlood = cov;
   // only thick, fresh pools are glossy; thin stains soak into the concrete (matte)
   lsThick = clamp(b.g * 1.6 - 0.15, 0.0, 1.0);
-}`,
+}
+#ifdef LS_GLASS
+diffuseColor.a = max(diffuseColor.a, lsBlood * 0.94);
+#endif`,
         )
         .replace(
           '#include <roughnessmap_fragment>',
@@ -750,6 +755,6 @@ radiance *= 1.0 - lsBlood * 0.75;
 #endif`,
         );
     };
-    mat.customProgramCacheKey = () => (ov ? 'ls-blood-surface-ov' : 'ls-blood-surface');
+    mat.customProgramCacheKey = () => 'ls-blood-surface' + (ov ? '-ov' : '') + (opts.glass ? '-glass' : '');
   }
 }
