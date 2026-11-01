@@ -405,16 +405,10 @@ export function buildLab(a: Arena, blood: BloodAtlas, pointLights: number, shado
     for (const [w, d] of [[r * 2, r * 1.15], [r * 1.15, r * 2], [r * 1.7, r * 1.7]] as [number, number][]) k.block(TANK.x, TANK.z, w, d, 4.9, 'pillar', 'tank').material = 'metal';
     k.light({ p: new THREE.Vector3(TANK.x, 2.4, TANK.z + TANK.r + 0.4), color: 0x3aff8a, intensity: 26, distance: 9, priority: 10 });
   }
-  // bubbles in all the tanks
-  const bubbleTex = radialTexture(16, 'rgba(200,255,220,0.9)', 'rgba(160,255,200,0)');
-  const bubbles: { s: THREE.Sprite; x: number; z: number; r: number; y0: number; y1: number; t: number; sp: number }[] = [];
+  // bubbles in all the tanks (one points cloud for the lot)
+  const bubbles: { x: number; z: number; r: number; y0: number; y1: number; t: number; sp: number; on: boolean }[] = [];
   const addBubbles = (x: number, z: number, r: number, y0: number, y1: number, n: number) => {
-    for (let i = 0; i < n; i++) {
-      const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: bubbleTex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0.6 }));
-      s.scale.setScalar(0.05 + Math.random() * 0.06);
-      g.add(s);
-      bubbles.push({ s, x, z, r, y0, y1, t: Math.random(), sp: 0.15 + Math.random() * 0.25 });
-    }
+    for (let i = 0; i < n; i++) bubbles.push({ x, z, r, y0, y1, t: Math.random(), sp: 0.15 + Math.random() * 0.25, on: true });
   };
   addBubbles(TANK.x, TANK.z, TANK.r * 0.8, 0.6, 4.1, 26);
 
@@ -448,6 +442,13 @@ export function buildLab(a: Arena, blood: BloodAtlas, pointLights: number, shado
       li++;
     }
   }
+
+  const bubblePos = new Float32Array(bubbles.length * 3);
+  const bubbleGeo = new THREE.BufferGeometry();
+  bubbleGeo.setAttribute('position', new THREE.BufferAttribute(bubblePos, 3));
+  const bubblePts = new THREE.Points(bubbleGeo, new THREE.PointsMaterial({ color: 0xc8ffdc, size: 0.07, map: radialTexture(16, 'rgba(200,255,220,0.9)', 'rgba(160,255,200,0)'), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0.7 }));
+  bubblePts.frustumCulled = false;
+  g.add(bubblePts);
 
   // ---------------------------------------------------------------------- server racks (east wall)
   const ledCanvas = canvas(64, 256);
@@ -702,14 +703,18 @@ export function buildLab(a: Arena, blood: BloodAtlas, pointLights: number, shado
   const baseHemi = hemi.color.clone();
   const update = (dt: number) => {
     time += dt;
-    for (const b of bubbles) {
-      if (!b.s.visible) continue;
+    for (const [i, b] of bubbles.entries()) {
+      if (burst && b.on && Math.hypot(b.x - TANK.x, b.z - TANK.z) < 0.1) b.on = false;
+      if (!b.on) {
+        bubblePos[i * 3 + 1] = -50;
+        continue;
+      }
       b.t += dt * b.sp;
       if (b.t > 1) b.t -= 1;
       const ang = b.t * 9 + b.x * 3 + b.z;
-      b.s.position.set(b.x + Math.cos(ang) * b.r * 0.6, b.y0 + (b.y1 - b.y0) * b.t, b.z + Math.sin(ang) * b.r * 0.6);
+      bubblePos.set([b.x + Math.cos(ang) * b.r * 0.6, b.y0 + (b.y1 - b.y0) * b.t, b.z + Math.sin(ang) * b.r * 0.6], i * 3);
     }
-    if (burst) for (const b of bubbles) if (Math.hypot(b.x - TANK.x, b.z - TANK.z) < 0.1) b.s.visible = false;
+    (bubbleGeo.attributes.position as THREE.BufferAttribute).needsUpdate = true;
     if (!burst) {
       sleeper.position.y = Math.sin(time * 0.7) * 0.05;
       sleeper.rotation.y = Math.sin(time * 0.23) * 0.15;

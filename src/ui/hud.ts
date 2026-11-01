@@ -37,7 +37,7 @@ const TIERS: [number, string][] = [
   [5, 'FLOWING'],
 ];
 
-type MenuId = 'title' | 'pause' | 'settings' | 'controls' | 'gameover';
+type MenuId = 'title' | 'pause' | 'settings' | 'controls' | 'gameover' | 'arenas';
 
 export class HUD {
   root = el('div');
@@ -189,11 +189,7 @@ export class HUD {
     const mi = Math.max(0, MAPS.findIndex((m) => m.id === g.settings.map));
     tl.append(
       this.btn('FIGHT', () => g.beginRun(), 'primary'),
-      this.btn(`ARENA<small>${MAPS[mi].name}</small>`, () => {
-        g.settings.map = MAPS[(mi + 1) % MAPS.length].id;
-        saveSettings(g.settings);
-        location.reload();
-      }),
+      this.btn(`ARENA<small>${MAPS[mi].name}</small>`, () => this.show('arenas')),
       this.btn('SETTINGS', () => this.openSettings('title')),
       this.btn('CONTROLS', () => this.show('controls')),
     );
@@ -202,8 +198,24 @@ export class HUD {
     const best = el('div', 'best');
     best.id = 'bestline';
     t.append(best);
-    const tf = el('div', 'foot', '<span>Bodies and blood never disappear · 15 waves, three bosses, then endless · two arenas</span><span><b>CLICK</b> LOCKS THE MOUSE · <b>ESC</b> PAUSES</span>');
+    const tf = el('div', 'foot', '<span>Bodies and blood never disappear · five arenas · 15 waves and their bosses, then endless</span><span><b>CLICK</b> LOCKS THE MOUSE · <b>ESC</b> PAUSES</span>');
     this.menus.title.append(tf);
+    // ---- arenas: pick one (the world is rebuilt: a reload, straight back to the title)
+    const ar = this.mk('arenas', 'blur');
+    ar.append(el('div', 'kick', 'WHERE TO FIGHT'));
+    ar.append(el('h2', '', 'ARENA'));
+    const al = el('div', 'mlist');
+    for (const m of MAPS) {
+      const b = this.btn(`${m.name}<small>${m.blurb.toUpperCase()}</small>`, () => {
+        if (m.id === g.settings.map) return this.show('title');
+        g.settings.map = m.id;
+        saveSettings(g.settings);
+        location.reload();
+      }, m.id === g.settings.map ? 'primary' : '');
+      al.append(b);
+    }
+    al.append(this.btn('BACK', () => this.show('title'), '', 'back'));
+    ar.append(al);
     // ---- controls
     const c = this.mk('controls', 'blur');
     c.classList.add('wide');
@@ -309,7 +321,7 @@ export class HUD {
       return true;
     }
     if (e.code === 'Escape' || e.code === 'Backspace') {
-      if (this.current === 'settings' || this.current === 'controls') {
+      if (this.current === 'settings' || this.current === 'controls' || this.current === 'arenas') {
         btns[btns.length - 1].click();
         return true;
       }

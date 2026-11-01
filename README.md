@@ -1,10 +1,11 @@
 # LAST STANCE
 
 A cinematic, free-flow martial-arts combat simulator for the browser. One fighter against
-escalating waves of thugs, armed enforcers, brutes, elite martial artists, minibosses and a
-three-phase boss, in a moonlit warehouse or on a rain-lashed neon rooftop — Arkham-style flow,
-Assassin's Creed counters, Spider-Man finishers and Sifu-style technique, with **bodies and blood
-that never disappear**.
+escalating waves of thugs, armed enforcers, brutes, elite martial artists and bosses, in five
+arenas — a moonlit warehouse, a rain-lashed neon rooftop, a graffiti-covered back alley, a
+penthouse where everything breaks, and a containment lab with its own guards and monsters —
+Arkham-style flow, Assassin's Creed counters, Spider-Man finishers and Sifu-style technique,
+with **bodies and blood that never disappear**.
 
 Built with **three.js** (rendering) + **Rapier** (props, debris, weapons) and the **Ragdoll Lab
 "euphoria" active-ragdoll engine** (bodies), TypeScript and Vite.
@@ -76,8 +77,9 @@ motion, environmental head slams into walls/pillars/crates, ground stomps.
 
 **Enemies** — thugs, knife/bat/blade wielders, agile runners that evade, brutes that absorb
 blows until stunned, guards that block and riposte, elite fighters with combos and feints,
-and three bosses. The Butcher is a brute writ large. Viper and Grandmaster Kael fight like
-bosses rather than thugs with more health: scripted combos that mix counterable (gold) and
+and bosses: the Butcher, Viper and Grandmaster Kael (the lab has its own: the Warden and
+Subject Zero). The Butcher is a brute writ large. The others fight like bosses rather than thugs
+with more health: scripted combos that mix counterable (gold) and
 dodge-only (red) strikes, hyper armour through their own attacks, poise that makes them break
 away from a flurry, and only a *perfect* counter lands on them (an early one is read and
 punished; a perfect one stuns them for a punish window). Finishers only work on a stunned boss
@@ -86,8 +88,15 @@ dodge, throws poisoned knives from range (dodge them; a missed knife clatters do
 you can pick up), backflips out of reach and, from phase two, vanishes in smoke to strike from
 behind. **Kael** guards most strikes and reverses early counters, picks up a sword and a flying
 knee from across the floor in phase two, and in phase three unleashes five-strike fury strings
-and a chi shockwave that blasts everyone near him; only then does he run out of breath. Each
-boss walks in on its own camera shot, and every phase change stops the fight for a beat. An AI
+and a chi shockwave that blasts everyone near him; only then does he run out of breath.
+**The Warden** (the lab's head of security) fights in tight shock-baton strings — a hit jolts
+you, a block costs most of your guard — aims a taser at you with a red laser for a long moment
+before he fires (dodge it), and in phase two calls a lockdown and his men through every door.
+**Subject Zero** bursts out of his containment tank: a giant that shrugs off blows and stun
+strikes; sidestep his unblockable charge with something solid behind you and he ploughs into it
+and stands there stunned — that's your window; from phase two his two-fisted slam throws
+everything near him. A stun strike dazes a boss for under a second, and not again for eight.
+Each boss walks in on its own camera shot, and every phase change stops the fight for a beat. An AI
 director hands out attack tokens (at most three attackers at once),
 coordinates pincer attacks, punishes openings, and adapts: counter-heavy players see more
 unblockables and feints. Every attack telegraphs: its load-up always shows for at least half a
@@ -166,7 +175,13 @@ In play:
   bodies beyond the cap fall back to passive Rapier ragdolls. Settings → *Active ragdolls*
   switches the whole system back to classic Rapier ragdolls.
 
-**Arenas** — pick one on the title screen (*ARENA*), or `?map=warehouse|rooftop`:
+**Arenas** — pick one on the title screen (*ARENA*), or `?map=warehouse|rooftop|alley|apartment|lab`.
+All five share the same footprint (so the AI, the camera and the blood atlas keep their
+bearings) and are built from a shared kit (`mapKit.ts`): paintable floors and walls with doors
+(and gates nobody sees that keep fighters in), a non-tiling *overlay* painted between a
+surface's own texture and the blood (graffiti, signage, rugs, stains — it takes on the surface's
+light and shade), a point-light budget per quality preset, and a reflection probe of the finished
+room for glossy floors and glass.
 * **The Warehouse** — moonlit concrete: pallet racking with stock, lockers, a workbench, an
   overhead crane rail with chains, bulkhead wall lamps washing light down the walls, rain running
   down grimy factory windows with faint moon beams, a flickering lamp that sparks, a red beacon
@@ -183,6 +198,36 @@ In play:
   only a knee-high parapet: **a heavy blow, a throw or a finisher near it sends an enemy over**
   — they fall flailing into the street (OVER THE EDGE, double score) with a look over the lip
   as they drop. Bodies, weapons, drums and blood that go over are gone for good.
+* **The Alley** — a back lot behind tenements where three alleys meet, every wall layered with
+  procedural street art (`graffiti.ts`): full-colour pieces with clouds, 3D blocks, outlines,
+  fades and stripes, shines, drips and overspray, cartoon characters beside them, two-tone
+  throw-ups, hand-style tags with crowns and swooshes, cursive scribbles, stencils that keep their
+  bridges, wheat-pasted posters torn back to the ones beneath, grey buffs over old tags, and the
+  street's grime over all of it (`?viewer=graffiti&seed=N` paints a wall of it on its own). Brick
+  and painted block with normal maps, lit windows and a fire escape, dumpsters, a burnt-out car,
+  power lines sagging overhead (sneakers over the line), a fire in an oil drum, steam from the
+  sewer, floodlights and a dying fluorescent tube, a chain-link fence onto the alley beyond, the
+  street at the mouth with a streetlight and a liquor store's neon; cracked asphalt with oil,
+  a storm drain, litter, a chalk outline and puddles that reflect the lot; bins, bags, boxes,
+  tyres, pallets, cones and bottles to knock about.
+* **The Penthouse** — a loft forty floors up behind a wall of glass in the rain (blood sticks to
+  the glass), exposed brick with a fireplace, oak floors and rugs, a kitchen island, a dining
+  table, a grand piano (a body thrown onto it crashes a chord), art on the walls — and about fifty
+  physical props: chairs, stools, armchairs, a glass coffee table that shatters and leaves its
+  frame, lamps, plants, vases, bottles on every surface, the TV, a monitor, speakers, boxes.
+* **The Lab** — Argent Biosystems' containment level four: white panels and signage, glossy epoxy
+  with a hazard ring, server racks blinking, specimen tanks with things floating in them, benches
+  of glassware, a live monitor wall, a blast door, and in the middle a tank with something huge
+  asleep in it. Staffed by its own people (uniformed guards, techs in lab coats with scalpels,
+  black-ops, riot guards, escaped test subjects, mutants in chains) and its own bosses in place of
+  the Butcher and Viper; a lockdown sets the beacons sweeping, the room pulsing red and a klaxon
+  whooping.
+
+**Props** — every arena's loose objects come from one library (`propLib.ts`, 26 kinds): one
+instanced draw call per kind and layer, Rapier bodies mirrored into the active-ragdoll world
+(bodies land on them and shove them), impacts detected from sudden changes of velocity — they
+clatter, and glass, china, wood, screens and bags shatter into lasting debris with synthesized
+breakage sounds. Fighters on foot shove the small things and walk round the big ones.
 
 **Interface** — a cinematic title over the live arena, keyboard-navigable menus with UI sounds,
 a HUD with a damage-trail health bar, guard and finisher meters, tiered combo meter, kill feed,
@@ -291,7 +336,8 @@ reviewing locomotion (`run=1&probe=1` measures it), and `?viewer=loco&mocap=1` s
 motion-captured gait (`path=ai` circles like an enemy; `stats=1` measures hip pops, posture and
 planted-foot slide instead of drawing). Debug viewers: `?viewer=sheet&clip=roundhouse` (strike contact sheet),
 `?viewer=sheet&pair=fin_roundhouse` (paired clips), `?viewer=loco&path=circle&speed=4`
-(locomotion strobe), `?viewer=pose&all=1` (all character variants).
+(locomotion strobe), `?viewer=pose&all=1` (all character variants), `?viewer=graffiti&seed=N`
+(a wall of procedural street art).
 
 ## Project layout
 
@@ -300,7 +346,8 @@ src/anim/        skeleton, IK solver, clip system, locomotion, animator, clip li
 src/character/   procedural mesh, outfits, canvas textures, wound-aware material
 src/combat/      fighter base, player controller, combat resolver, moves, weapons, deaths
 src/ai/          enemy brain, archetypes, director, waves, bosses
-src/world/       arenas (warehouse dressing, rooftop.ts), blood atlas, corpse baking, Rapier physics, ragdolls, props, textures
+src/world/       arenas (warehouse + dressing, rooftop, alley, apartment, lab), mapKit, city, graffiti,
+                 prop library and props, blood atlas, corpse baking, Rapier physics, ragdolls, textures
 src/world/euphoria/  Ragdoll Lab active-ragdoll engine (engine.js) and its game bridge
 src/fx/          particles (blood, sparks, dust, debris), camera rig
 src/audio/       sample engine with synth layers, procedural adaptive music

@@ -248,6 +248,13 @@ export class Arena {
         const outP = mid.clone().addScaledVector(inward, -3.2);
         const inP = mid.clone().addScaledVector(inward, 1.6);
         this.doors.push({ x: outP.x, z: outP.z, ix: inP.x, iz: inP.z, yaw: Math.atan2(inward.x, inward.z), width: w.doorW! });
+        // a gate nobody sees across the doorway: fighters stay in (entrants walk through it)
+        {
+          const side = new THREE.Vector3(-inward.z, 0, inward.x);
+          const p0 = mid.clone().addScaledVector(side, -w.doorW! / 2).addScaledVector(inward, -0.3);
+          const p1 = mid.clone().addScaledVector(side, w.doorW! / 2);
+          this.obstacles.push({ minX: Math.min(p0.x, p1.x), maxX: Math.max(p0.x, p1.x), minZ: Math.min(p0.z, p1.z), maxZ: Math.max(p0.z, p1.z), h: 0.9, kind: 'wall', name: 'gate', ghost: true });
+        }
         // dark tunnel behind door
         const tunnel = new THREE.Mesh(new THREE.BoxGeometry(w.doorW! + 0.4, w.doorH! + 0.2, 6), new THREE.MeshStandardMaterial({ color: 0x050506, roughness: 1, side: THREE.BackSide }));
         tunnel.position.copy(mid).addScaledVector(inward, -3.0).setY(w.doorH! / 2);
