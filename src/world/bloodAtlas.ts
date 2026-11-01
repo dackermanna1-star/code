@@ -658,12 +658,14 @@ export class BloodAtlas {
   }
 
   /** Patch a standard material so it shows the persistent blood/paint/AO from the atlas. */
-  patchMaterial(mat: THREE.MeshStandardMaterial, opts: { paintColor?: THREE.Color; dirt?: number } = {}) {
+  patchMaterial(mat: THREE.MeshStandardMaterial, opts: { paintColor?: THREE.Color; dirt?: number; lift?: number } = {}) {
     const atlas = this.rt.texture;
     const paintColor = opts.paintColor ?? new THREE.Color(0.75, 0.72, 0.62);
     mat.onBeforeCompile = (shader) => {
       shader.uniforms.uBloodAtlas = { value: atlas };
       shader.uniforms.uPaintColor = { value: paintColor };
+      // (a cold, dim set like the rooftop turns dark red to black: a little of its own red keeps it blood)
+      shader.uniforms.uBloodLift = { value: opts.lift ?? 0 };
       shader.vertexShader = shader.vertexShader
         .replace('#include <common>', '#include <common>\nattribute vec2 bloodUv;\nvarying vec2 vBloodUv;\nvarying vec3 vWPos;')
         .replace('#include <begin_vertex>', '#include <begin_vertex>\nvBloodUv = bloodUv;\nvWPos = (modelMatrix * vec4(position, 1.0)).xyz;');
@@ -673,6 +675,7 @@ export class BloodAtlas {
           `#include <common>
 uniform sampler2D uBloodAtlas;
 uniform vec3 uPaintColor;
+uniform float uBloodLift;
 varying vec2 vBloodUv;
 varying vec3 vWPos;
 float lsBlood = 0.0;
@@ -708,6 +711,19 @@ ${NOISE_GLSL}`,
           '#include <roughnessmap_fragment>',
           `#include <roughnessmap_fragment>
 roughnessFactor = mix(roughnessFactor, mix(0.85, 0.24, lsThick), lsBlood);`,
+        )
+        .replace(
+          '#include <emissivemap_fragment>',
+          `#include <emissivemap_fragment>
+totalEmissiveRadiance += vec3(0.62, 0.015, 0.012) * uBloodLift * lsBlood;`,
+        )
+        .replace(
+          '#include <lights_fragment_maps>',
+          `#include <lights_fragment_maps>
+#if defined( RE_IndirectSpecular )
+// blood is dark: it shows the lights' highlights, not a pale copy of a bright sky
+radiance *= 1.0 - lsBlood * 0.75;
+#endif`,
         );
     };
     mat.customProgramCacheKey = () => 'ls-blood-surface';

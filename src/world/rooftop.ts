@@ -266,7 +266,7 @@ export function buildRooftop(a: Arena, blood: BloodAtlas, pointLights: number, s
   roofMap.repeat.set(3, 3);
   const wet = puddleTexture(57, a.drains);
   const roofMat = new THREE.MeshStandardMaterial({ map: roofMap, roughnessMap: wet.map, roughness: 1, metalness: 0.0, color: 0xc4c2cc, envMapIntensity: 1.5 });
-  blood.patchMaterial(roofMat);
+  blood.patchMaterial(roofMat, { lift: 0.07 });
   const floorGeo = paintQuad(blood, new THREE.Vector3(-HALF_W, 0, HALF_D), new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 0, -1), HALF_W * 2, HALF_D * 2, [8.7, 7.3], 'floor', floorDensity, 8, 8);
   {
     // whole-roof uv for the standing water (canvas x = world x, canvas y = world z)
@@ -287,7 +287,7 @@ export function buildRooftop(a: Arena, blood: BloodAtlas, pointLights: number, s
   const PH = 0.95, PT = 0.38;
   const conc = concreteTexture(17);
   const parMat = new THREE.MeshStandardMaterial({ map: conc, roughness: 0.75, color: 0x8d8a92, envMapIntensity: 1.2 });
-  blood.patchMaterial(parMat);
+  blood.patchMaterial(parMat, { lift: 0.07 });
   const copeMat = new THREE.MeshStandardMaterial({ color: 0x9a979e, roughness: 0.45, metalness: 0.1, envMapIntensity: 1.4 });
   const parGeos: THREE.BufferGeometry[] = [];
   const doorLights: THREE.Vector3[] = [];
@@ -478,7 +478,7 @@ export function buildRooftop(a: Arena, blood: BloodAtlas, pointLights: number, s
   {
     const x = 6.9, z = -5.6, w = 0.85;
     const stackMat = new THREE.MeshStandardMaterial({ map: concreteTexture(29), color: 0x7a4e40, roughness: 0.85 });
-    blood.patchMaterial(stackMat);
+    blood.patchMaterial(stackMat, { lift: 0.07 });
     const geos = a.boxFaces(blood, x, z, w, w, 2.6, floorDensity * 0.6, [w, 2.6], false, 2.2);
     const stack = new THREE.Mesh(mergeGeometries(geos, false)!, stackMat);
     add(stack);
