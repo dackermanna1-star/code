@@ -16,6 +16,8 @@ export interface FootParams {
   pole: THREE.Vector3; // knee direction hint (root space)
   rot: THREE.Quaternion; // foot orientation (root space)
   toe: number; // toe bend degrees (positive = toes bent up relative to foot)
+  /** Swinging foot: ignored by the automatic hip drop (the swing leg folds instead). */
+  swing?: boolean;
 }
 export interface PoseParams {
   hipsPos: THREE.Vector3;
@@ -67,6 +69,7 @@ export function copyParams(dst: PoseParams, src: PoseParams) {
     f.pole.copy(g.pole);
     f.rot.copy(g.rot);
     f.toe = g.toe;
+    f.swing = g.swing;
   }
   dst.shrug[0] = src.shrug[0];
   dst.shrug[1] = src.shrug[1];
@@ -175,6 +178,7 @@ export function solvePose(def: SkeletonDef, prm: PoseParams, out: Pose, fkOut?: 
   if (prm.autoHipDrop) {
     let drop = 0;
     for (let i = 0; i < 2; i++) {
+      if (prm.feet[i].swing) continue;
       const th = i === 0 ? B.thighL : B.thighR;
       const hipJ = _b.copy(off[th]).applyQuaternion(W[B.hips]).add(P[B.hips]);
       const tgt = prm.feet[i].pos;

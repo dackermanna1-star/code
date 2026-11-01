@@ -51,7 +51,7 @@ export function runLocoViewer(params: URLSearchParams) {
   anim.locoIn.guard = Number(params.get('guard') ?? 1);
   let x = 0, z = 0, yaw = 0;
   if (path === 'line' || path === 'stopgo') { x = -4; yaw = Math.PI / 2; }
-  if (path === 'strafe') { x = -2; yaw = 0; }
+  if (path === 'strafe' || path === 'back' || path === 'diag') { x = -2; yaw = 0; }
   if (path === 'circle') { x = 3; z = 0; yaw = 0; }
   anim.initAt(x, z, yaw);
   const dt = 1 / 60;
@@ -61,13 +61,16 @@ export function runLocoViewer(params: URLSearchParams) {
   let vx = 0, vz = 0;
   const clipName = params.get('clip');
   let t = 0;
-  for (let step = 0; step < totalSteps; step++) {
+  const film = params.get('film') === '1';
+  const simStep = (step: number) => {
     t = step * dt;
     let tvx = 0, tvz = 0;
     let tyaw = yaw;
     if (path === 'line') { tvx = t > 0.2 ? speed : 0; tyaw = Math.PI / 2; }
     if (path === 'stopgo') { tvx = t > 0.2 && t < 1.2 ? speed : 0; tyaw = Math.PI / 2; }
     if (path === 'strafe') { tvx = t > 0.2 ? speed : 0; tyaw = 0; }
+    if (path === 'back') { tvz = t > 0.2 ? -speed : 0; tyaw = 0; }
+    if (path === 'diag') { tvx = t > 0.2 ? speed * 0.7 : 0; tvz = t > 0.2 ? -speed * 0.7 : 0; tyaw = 0; }
     if (path === 'circle') {
       const ang = t * speed / 3;
       tvx = -Math.sin(ang) * speed; tvz = Math.cos(ang) * speed; tyaw = Math.atan2(tvx, tvz);
@@ -94,7 +97,7 @@ export function runLocoViewer(params: URLSearchParams) {
     anim.update(dt, x, z, yaw);
     live.group.position.set(x, 0, z);
     live.group.rotation.y = yaw;
-    if (t >= tNext && snaps.length < 40) {
+    if (!film && t >= tNext && snaps.length < 40) {
       tNext += every;
       const m = new CharacterModel(lib, variant);
       m.applyPose(anim.out as Pose);
@@ -103,10 +106,34 @@ export function runLocoViewer(params: URLSearchParams) {
       scene.add(m.group);
       snaps.push(m);
     }
-  }
-  live.group.visible = params.get('live') === '1';
+  };
   const camera = new THREE.PerspectiveCamera(Number(params.get('fov') ?? 35), window.innerWidth / window.innerHeight, 0.05, 200);
   const cam = params.get('cam') ?? 'side';
+  if (film) {
+    // frame-by-frame review: a camera that tracks the character from a fixed direction
+    let step = 0;
+    const dirs: Record<string, [number, number, number]> = { side: [0, 0.18, 1], '3q': [0.6, 0.3, 0.8], front: [1, 0.15, 0], back: [-1, 0.15, 0] };
+    const dv = new THREE.Vector3(...(dirs[cam] ?? dirs.side)).normalize();
+    const dist = Number(params.get('dist') ?? 4.2);
+    const place = () => {
+      const c = new THREE.Vector3(x, 0.95, z);
+      camera.position.copy(c).addScaledVector(dv, dist);
+      camera.lookAt(c);
+      renderer.render(scene, camera);
+    };
+    (window as unknown as { __film: { step: (k: number) => void } }).__film = {
+      step(k: number) {
+        for (let i = 0; i < k; i++) simStep(step++);
+        place();
+      },
+    };
+    for (let i = 0; i < Number(params.get('warm') ?? 0); i++) simStep(step++);
+    place();
+    (window as unknown as { __ready: boolean }).__ready = true;
+    return;
+  }
+  for (let step = 0; step < totalSteps; step++) simStep(step);
+  live.group.visible = params.get('live') === '1';
   const box = new THREE.Box3();
   for (const s of snaps) box.expandByPoint(s.group.position);
   const c = box.getCenter(new THREE.Vector3());
