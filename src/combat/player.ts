@@ -239,6 +239,7 @@ export class Player extends Fighter {
     const li = this.anim.locoIn;
     li.style = this.weapon ? 'weapon1h' : 'fight';
     li.guard = 1;
+    li.charge = 0;
     li.block = blocking ? 1 : 0;
     li.breath = this.hp < 35 ? 1 : 0.4;
     li.hunch = this.hp < 25 ? 0.3 : 0;
@@ -389,6 +390,7 @@ export class Player extends Fighter {
     li.guard = 1;
     li.block = 0;
     li.look = 0;
+    li.charge = 1;
   }
 
   private launchStrike(target: Enemy, move: MoveDef, clipName: string, back: boolean) {

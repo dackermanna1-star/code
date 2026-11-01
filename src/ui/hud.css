@@ -135,6 +135,10 @@ kbd, #hud .prompt b { display: inline-block; min-width: 24px; padding: 4px 7px 3
 #hud .ind svg { width: 26px; height: 26px; fill: currentColor; filter: drop-shadow(0 0 6px currentColor) drop-shadow(0 1px 0 #000); }
 #hud .ind.counter { color: #ffd84f; }
 #hud .ind.counter .ring { box-shadow: 0 0 14px rgba(255,200,60,.7), inset 0 0 10px rgba(255,200,60,.35); }
+/* the perfect-counter moment: the bolt flares white-hot */
+#hud .ind.counter.now { color: #fff6d6; }
+#hud .ind.counter.now .ring { border-width: 4px; box-shadow: 0 0 26px rgba(255,236,170,.95), inset 0 0 14px rgba(255,236,170,.6); }
+#hud .ind.counter.now svg { transform: scale(1.25); }
 #hud .ind.unblock { color: #ff3a2c; }
 #hud .ind.unblock .ring { border-radius: 4px; transform-origin: center; box-shadow: 0 0 14px rgba(255,40,20,.75); }
 #hud .ind.target { width: 18px; height: 12px; margin: -6px 0 0 -9px; }

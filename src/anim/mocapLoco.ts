@@ -200,6 +200,7 @@ export class MocapDriver {
   private poleYaw = [0, 0];
   private snapPole = true;
   private limpC = 0;
+  private chargeSm = 0;
   private initDone = false;
 
   /** Feet start locked where the previous animation left them (after a clip). */
@@ -451,7 +452,8 @@ export class MocapDriver {
     _chest.add(_v.copy(def.offsets[B.chest]).applyQuaternion(_sQ));
     // the boxing idle brings its own guard; walking clips swing the arms, so a guard is laid over
     // them in a fight (loosening when running); a block or a weapon always wins
-    const fightGuard = L.guardSm * (1 - runK * 0.9);
+    this.chargeSm += ((inp.charge ?? 0) - this.chargeSm) * (1 - Math.exp(-10 * dt));
+    const fightGuard = L.guardSm * (1 - runK * 0.9 * (1 - this.chargeSm));
     const guardOver = fightGuard * move;
     const t = L.time;
     for (let s = 0; s < 2; s++) {
@@ -570,7 +572,11 @@ export class MocapDriver {
       fp.rot.premultiply(_q2.setFromAxisAngle(_Y, dyaw));
     }
     f.pos.set(x, 0, z);
-    f.yaw = inp.rootYaw + footHeading(fp.rot);
+    // the heading others read (a clip starting from here plants this foot with it): the toes',
+    // where the foot is near flat; pitched up into the swing that's ill-defined (could point
+    // backwards), so the legs' own heading stands in
+    const base = inp.rootYaw + this.legYaw + (i === 0 ? 0.14 : -0.14);
+    f.yaw = base + wrapAngle(inp.rootYaw + footHeading(fp.rot) - base) * footFlat(fp.rot);
     if (!f.swing) f.plantedTime += dt;
     f.t = 0;
     if (!this.initDone) this.initDone = true;

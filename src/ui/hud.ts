@@ -680,6 +680,8 @@ export class HUD {
         const ring = d.firstElementChild as HTMLElement;
         ring.style.transform = `scale(${0.6 + k * 1.15})${inc.counterable ? '' : ' rotate(45deg)'}`;
         ring.style.opacity = String(0.35 + (1 - k) * 0.65);
+        // (inside the perfect-counter window: the same 0.17 s the counter itself uses)
+        d.classList.toggle('now', inc.counterable && inc.hitTime - now < 0.17 && inc.hitTime - now > -0.06);
       } else {
         // clamp onto an ellipse inside the screen edge, arrow pointing at the attacker
         let x = v.x, y = v.y;

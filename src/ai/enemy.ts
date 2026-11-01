@@ -54,6 +54,8 @@ export class Enemy extends Fighter {
   scoreValue = 100;
   vaulted = 0;
   private clipEndState: EnemyState = 'circle';
+  /** Side (+1 / -1) this enemy steps out of the camera's line of sight to the player, 0 = not in it. */
+  private camSide = 0;
 
   constructor(game: Game, lib: CharacterLibrary, variant: Variant, cfg: ArchetypeCfg) {
     super(game, lib, variant);
@@ -283,8 +285,13 @@ export class Enemy extends Fighter {
     let ang = Math.atan2(this.x - p.x, this.z - p.z) + this.orbitDir * 0.35;
     // keep out of the camera's line of sight to the player while sizing them up: a thug parked
     // between the lens and the player hides the fight (they still attack from anywhere)
+    // (which way to step out is chosen on the way in and kept: deciding afresh each frame flipped
+    // it whenever the thug stood right on the line, and he jittered)
     const fromCam = wrapAngle(ang - this.game.cam.yaw);
-    if (Math.abs(fromCam) < 0.85) ang += (fromCam >= 0 ? 1 : -1) * (0.85 - Math.abs(fromCam)) * 1.2;
+    if (Math.abs(fromCam) < 0.85) {
+      if (this.camSide === 0) this.camSide = Math.abs(fromCam) > 0.12 ? Math.sign(fromCam) : this.orbitDir;
+      ang += this.camSide * (0.85 - this.camSide * fromCam) * 1.2;
+    } else if (Math.abs(fromCam) > 1.0) this.camSide = 0;
     let tx = p.x + Math.sin(ang) * this.ringR;
     let tz = p.z + Math.cos(ang) * this.ringR;
     // separation from other enemies

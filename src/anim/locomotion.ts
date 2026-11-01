@@ -24,6 +24,8 @@ export interface LocoInput {
   holdSide: number; // -1 hold right side, 1 hold left side, 0 none (injured)
   brokenArm: number; // 0 none, 1 left, -1 right (limp arm)
   taunt: number; // 0..1 arms-wide taunt overlay
+  /** 0..1 closing in to strike: the guard stays up even at a sprint. */
+  charge?: number;
 }
 
 interface FootState {
