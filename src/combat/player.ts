@@ -14,6 +14,12 @@ export type PlayerAction = 'free' | 'dash' | 'attack' | 'counter' | 'finisher' |
 
 /** Burst speed (m/s) of the few running steps that close a gap before a strike. */
 const DASH_SPEED = 7.5;
+/** Finisher economy: at most two stored; combo hits per charge; recovery after an execution (s). */
+export const MAX_CHARGES = 2;
+const FIRST_CHARGE = 10;
+const NEXT_CHARGE = 14;
+const FINISHER_CD = 7;
+const TAKEDOWN_CD = 4.5;
 
 const _v = new THREE.Vector3();
 const _v2 = new THREE.Vector3();
@@ -48,6 +54,15 @@ export class Player extends Fighter {
   bestCombo = 0;
   charges = 0;
   chargeProgress = 0;
+  /**
+   * Executions are a reward, not a habit: after a finisher (or a ground takedown) the next one has
+   * to wait this long (s).
+   */
+  execCd = 0;
+  /** Combo hits needed for the next finisher charge (the first comes sooner). */
+  get chargeNeed() {
+    return this.charges === 0 ? FIRST_CHARGE : NEXT_CHARGE;
+  }
   guard = 100;
   curMove: MoveDef | null = null;
   weaponMove: (typeof WEAPON_MOVES)['club'][number] | null = null;
@@ -124,6 +139,7 @@ export class Player extends Fighter {
     this.stateTime += dt;
     this.invuln = Math.max(0, this.invuln - dt);
     this.whiffT = Math.max(0, this.whiffT - dt);
+    this.execCd = Math.max(0, this.execCd - dt);
     // combo timeout
     if (this.combo > 0) {
       this.comboTimer -= dt;
@@ -565,12 +581,15 @@ export class Player extends Fighter {
     this.bestCombo = Math.max(this.bestCombo, this.combo);
     this.stats.hits += n;
     this.variety.add(tag);
-    this.chargeProgress += n;
-    const need = this.charges === 0 ? 6 : 8;
-    if (this.chargeProgress >= need && this.charges < 3) {
-      this.chargeProgress -= need;
-      this.charges++;
-      this.game.hud?.flashFinisherReady();
+    // (a full meter stops filling: charges are earned within one unbroken combo, not banked)
+    if (this.charges < MAX_CHARGES) {
+      this.chargeProgress += n;
+      const need = this.chargeNeed;
+      if (this.chargeProgress >= need) {
+        this.chargeProgress = 0;
+        this.charges++;
+        this.game.hud?.flashFinisherReady();
+      }
     }
     this.multiplier = 1 + Math.floor(this.combo / 5) * 0.25 + Math.min(1, this.variety.size * 0.05);
     this.score += Math.round(10 * n * this.multiplier * (DIFFICULTY[this.game.settings.difficulty] ?? DIFFICULTY.fighter).score);
@@ -578,6 +597,8 @@ export class Player extends Fighter {
 
   breakCombo() {
     if (this.combo > 0) this.onComboBreak?.(this.combo);
+    // a broken combo loses the half-built charge (stored charges stay)
+    this.chargeProgress = 0;
     this.combo = 0;
     this.comboTimer = 0;
     this.variety.clear();
@@ -706,7 +727,11 @@ export class Player extends Fighter {
   // ------------------------------------------------------------------ finishers & takedowns
   tryFinisher() {
     const g = this.game;
-    // ground takedown on a downed enemy nearby (free)
+    if (this.execCd > 0) {
+      g.hud?.toast('FINISHER RECOVERING', '#9aa0a8', 0.6);
+      return;
+    }
+    // ground takedown on a downed enemy nearby (free, but it costs the same recovery)
     // (a body that is already kneeling / rising on its own is not a ground target any more)
     const downed = this.selectTarget(2.6, (e) => e.state === 'down' && !!e.downRag && e.downRag.headPos(_hp).y < 0.55);
     if (downed) {
@@ -718,6 +743,7 @@ export class Player extends Fighter {
         }
         this.startPaired(downed, pair, 'takedown');
         this.stats.takedowns++;
+        this.execCd = TAKEDOWN_CD;
       };
       // (a couple of steps to the body first rather than gliding up to its head)
       const head = downed.downRag!.headPos(_hp);
@@ -760,6 +786,7 @@ export class Player extends Fighter {
       }
       this.charges--;
       this.stats.finishers++;
+      this.execCd = FINISHER_CD;
       this.lastFinisher = name;
       if (name === 'env_slam') this.envSurface = surf;
       this.startPaired(e, pair, 'finisher');

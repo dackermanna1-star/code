@@ -3,6 +3,7 @@ import './hud.css';
 import type { Game } from '../game';
 import { PRESETS, QualityName, saveSettings, Settings } from '../core/settings';
 import { MAPS } from '../world/arena';
+import { MAX_CHARGES } from '../combat/player';
 
 const el = (tag: string, cls = '', html = '') => {
   const e = document.createElement(tag);
@@ -50,6 +51,7 @@ export class HUD {
   private gdFill = el('i');
   private pipsEl = el('div', 'pips');
   private pips: HTMLElement[] = [];
+  private pipsTxt = el('em', '', 'FINISHER READY');
   // wave block
   private waveB = el('b');
   private scoreEl = el('div', 'sc');
@@ -110,13 +112,13 @@ export class HUD {
     const hpBar = el('div', 'hpbar');
     hpBar.append(this.hpGhost, this.hpFill, el('s'));
     this.gdBar.append(this.gdFill);
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < MAX_CHARGES; i++) {
       const s = el('span');
       s.append(el('i'));
       this.pips.push(s);
       this.pipsEl.append(s);
     }
-    this.pipsEl.append(el('em', '', 'FINISHER READY'));
+    this.pipsEl.append(this.pipsTxt);
     this.pl.append(lbl, hpBar, this.gdBar, this.pipsEl);
     // ---- wave block
     const tr = el('div', 'tr');
@@ -585,13 +587,17 @@ export class HUD {
     this.pl.classList.toggle('low', hpF < 0.3 && p.alive);
     this.gdFill.style.width = `${Math.max(0, p.guard)}%`;
     this.gdBar.classList.toggle('broken', p.guard < 5);
-    const need = p.charges === 0 ? 6 : 8;
+    const need = p.chargeNeed;
     this.pips.forEach((s, i) => {
       s.classList.toggle('on', i < p.charges);
       const prog = i === p.charges ? Math.min(1, p.chargeProgress / need) : 0;
       s.style.setProperty('--p', `${prog * 100}%`);
     });
-    this.pipsEl.classList.toggle('ready', p.charges > 0);
+    const cool = p.execCd > 0;
+    this.pipsEl.classList.toggle('ready', p.charges > 0 && !cool);
+    this.pipsEl.classList.toggle('cool', cool && p.charges > 0);
+    const txt = cool ? 'RECOVERING' : 'FINISHER READY';
+    if (this.pipsTxt.textContent !== txt) this.pipsTxt.textContent = txt;
     // ---- wave / score
     const w = g.waves;
     this.waveB.textContent = w.wave > 0 ? String(w.wave) : '–';
@@ -733,9 +739,9 @@ export class HUD {
     if (p.alive && p.action === 'free') {
       const downed = p.selectTarget(2.6, (e) => e.state === 'down');
       const wp = g.weapons.find((x) => x.pickable && x.worldPos(v).distanceTo(_w.set(p.x, v.y, p.z)) < 1.4);
-      if (downed) prompt = '<b>F</b>GROUND TAKEDOWN';
+      if (downed && p.execCd <= 0) prompt = '<b>F</b>GROUND TAKEDOWN';
       else if (wp && !p.weapon) prompt = `<b>E</b>PICK UP ${wp.kind.toUpperCase()}`;
-      else if (p.charges > 0 && p.selectTarget(4)) prompt = '<b>F</b>FINISHER';
+      else if (p.charges > 0 && p.execCd <= 0 && p.selectTarget(4)) prompt = '<b>F</b>FINISHER';
       else if (p.weapon) prompt = '<b>G</b>THROW ' + p.weapon.kind.toUpperCase();
     } else if (p.action === 'grab') prompt = '<b>LMB</b>KNEE &nbsp;&nbsp; <b>E</b>THROW';
     if (this.promptEl.innerHTML !== prompt) this.promptEl.innerHTML = prompt;

@@ -59,12 +59,12 @@ export class Bot {
     const far = bd > 3.2;
     inp.virtual = { moveX: far ? dir.x * rx + dir.z * rz : (dir.x * rx + dir.z * rz) * 0.4, moveY: far ? dir.x * fx + dir.z * fz : (dir.x * fx + dir.z * fz) * 0.4 };
     if (this.actT > 0) return;
-    if (best.state === 'down' && bd < 2.4) {
+    if (best.state === 'down' && bd < 2.4 && p.execCd <= 0) {
       inp.press('finisher');
       this.actT = 0.6;
       return;
     }
-    if (p.charges > 0 && bd < 3.5 && Math.random() < 0.02) {
+    if (p.charges > 0 && p.execCd <= 0 && bd < 3.5 && Math.random() < 0.02) {
       inp.press('finisher');
       this.actT = 0.6;
       return;

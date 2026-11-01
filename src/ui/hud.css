@@ -47,6 +47,8 @@
 #hud .pips span.on i { display: none; }
 #hud .pips em { margin-left: 8px; font: 800 italic 13px/1 var(--ui); letter-spacing: .2em; color: var(--dim); opacity: 0; transition: opacity .2s, color .2s; text-shadow: var(--shadow); }
 #hud .pips.ready em { opacity: 1; color: var(--gold); animation: readyglow 1.2s ease-in-out infinite; }
+#hud .pips.cool span.on { background: rgba(255,201,74,.35); box-shadow: none; }
+#hud .pips.cool em { opacity: .7; color: var(--dim); }
 @keyframes readyglow { 0%, 100% { text-shadow: 0 0 6px rgba(255,190,60,.4), var(--shadow); } 50% { text-shadow: 0 0 16px rgba(255,190,60,.95), var(--shadow); } }
 
 /* wave / score block */

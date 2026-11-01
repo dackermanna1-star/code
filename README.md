@@ -49,12 +49,14 @@ URL options: `?quality=low|medium|high|ultra`, `?wave=10` (start at a wave), `?d
 | Space / A (Cross) | Dodge. Toward a nearby enemy = vault over them (dazes them) |
 | Q / B (Circle) | Stun strike — opens up brutes and guards for a beatdown |
 | E / RB | Grab (then LMB = knee, E = throw in your move direction) · pick up weapons |
-| F / LB / RT | Finisher (spends a charge) · ground takedown on downed enemies (free) |
+| F / LB / RT | Finisher (spends a charge) · ground takedown on downed enemies (no charge) |
 | G / Back | Throw your held weapon |
 | Esc / P / Start | Pause & settings |
 
 **Telegraphs:** ⚡ (gold ring shrinking to the hit) = counterable. Red **!** = unblockable — dodge it.
-Finisher charges fill from your combo (6 hits for the first, 8 for each more, max 3).
+Finisher charges are earned inside one unbroken combo (10 hits for the first, 14 more for the
+second, at most two stored); a broken combo loses the half-built one. After a finisher the next
+execution waits 7 s (4.5 s after a ground takedown) — the pips dim and read RECOVERING.
 Taking a hit breaks your combo; finishers and perfect counters restore a little health.
 
 ## What's in the box
