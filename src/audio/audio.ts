@@ -177,6 +177,28 @@ export class AudioSys {
     if (kind === 'ok') this.thump(0.5);
   }
 
+  /** A heartbeat (lub-dub) for low health. */
+  heartbeat(vol: number) {
+    const c = this.ctx;
+    if (!c || c.state !== 'running') return;
+    const t0 = c.currentTime;
+    for (const [dt, v, f] of [[0, 1, 62], [0.17, 0.7, 54]] as [number, number, number][]) {
+      const t = t0 + dt;
+      const o = c.createOscillator();
+      const g = c.createGain();
+      o.type = 'sine';
+      o.frequency.setValueAtTime(f, t);
+      o.frequency.exponentialRampToValueAtTime(f * 0.62, t + 0.12);
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(vol * v, t + 0.012);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.16);
+      o.connect(g);
+      g.connect(this.sfx);
+      o.start(t);
+      o.stop(t + 0.18);
+    }
+  }
+
   /** Low-frequency body thump layered under heavy impacts (adds weight). */
   thump(strength: number, pos?: THREE.Vector3 | null) {
     const c = this.ctx;

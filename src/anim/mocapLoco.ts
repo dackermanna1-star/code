@@ -134,6 +134,10 @@ const _chest = new THREE.Vector3();
 const _fwd = new THREE.Vector3();
 
 const FWD_CHAIN = ['walk', 'jog', 'run', 'sprint'];
+const IDLE_HIP_MEAN = (() => {
+  const f = clip('idle').frames;
+  return f.reduce((a, x) => a + x.hp[1], 0) / f.length;
+})();
 
 export class MocapDriver {
   private idle = clip('idle');
@@ -142,6 +146,9 @@ export class MocapDriver {
   /** Shared gait phase (0..1, 0 = left touchdown) and the idle loop clock. */
   phase = 0;
   private idleT = Math.random() * 2;
+  /** Per-character variety: idle tempo and how much of the boxer's bounce shows. */
+  idleRate = 1;
+  bounce = 1;
   private lvx = 0;
   private lvz = 0;
   private moveSm = 0;
@@ -229,8 +236,9 @@ export class MocapDriver {
     const r = vn > 1e-3 && nat > 1e-3 ? vn / nat : 1;
     const cad = clamp(Math.sqrt(r), 0.72, 1.3);
     const stride = clamp(r / cad, 0.3, 1.35);
-    if (move > 0.01) this.phase = (this.phase + (dt / Math.max(0.2, dur)) * cad) % 1;
-    this.idleT += dt;
+    const limpCad = lerp(1, 0.86, L.limpSm);
+    if (move > 0.01) this.phase = (this.phase + (dt / Math.max(0.2, dur)) * cad * limpCad) % 1;
+    this.idleT += dt * this.idleRate;
 
     // ------------------------------------------------------------- sample + blend
     const bl = this.blend;
@@ -243,6 +251,7 @@ export class MocapDriver {
       bl.add(this.cyc.back, this.phase * this.cyc.back.frames.length, move * wB);
     }
     bl.finish();
+    if (this.bounce !== 1 && idleW > 0) bl.hp.y = lerp(bl.hp.y, IDLE_HIP_MEAN + (bl.hp.y - IDLE_HIP_MEAN) * this.bounce, idleW);
 
     // ------------------------------------------------------------- body
     // stride warp along the travel direction, legs turned towards it when the facing lags
@@ -264,7 +273,9 @@ export class MocapDriver {
     };
     this.runK = smoothstep(2.4, 3.4, vn) * move;
     const runK = this.runK;
-    prm.hipsPos.set(hx, def.offsets[B.hips].y + bl.hp.y * legLen - L.hunchSm * 0.04 * S, hz);
+    // a limp: the hips dip over the injured (left) leg while it carries the weight
+    const limpDip = L.limpSm * 0.035 * S * clamp01(bl.cL) * move;
+    prm.hipsPos.set(hx, def.offsets[B.hips].y + bl.hp.y * legLen - L.hunchSm * 0.04 * S - limpDip, hz);
     _q.setFromAxisAngle(_Y, ly);
     prm.hipsRot.copy(_q).multiply(bl.q.hq);
     // the trunk keeps facing where the character faces: counter-turn the spine
@@ -350,6 +361,10 @@ export class MocapDriver {
       const weaponHand = (inp.style === 'weapon1h' && s === 1) || inp.style === 'weapon2h';
       const gw = Math.max(guardOver, L.blockSm, weaponHand ? 1 : 0);
       hp.pos.set(lerp(mx, gx, gw), lerp(my, gy, gw), lerp(mz, gz, gw)).applyQuaternion(_cQ).add(_chest);
+      // hurt: a hand pressed to the injured side; a broken arm hangs; a taunt spreads the arms
+      if (L.holdSm > 0.01 && Math.sign(inp.holdSide) === sg) hp.pos.lerp(_fwd.set(-sg * 0.02 * S, 1.05 * S, 0.12 * S), L.holdSm * 0.85);
+      if (inp.brokenArm === sg) hp.pos.set(sg * 0.24 * S, 0.82 * S, 0.06 * S + w.z * 0.05 * S);
+      if (L.tauntSm > 0.01) hp.pos.lerp(_fwd.set(sg * 0.5 * S, 1.35 * S, 0.25 * S), L.tauntSm);
       // elbow pole from the mocap elbow, towards the guard pole as the guard takes over
       const ex = shoulder.x + e.x * armLen - (shoulder.x + mx) * 0.5, ey = shoulder.y + e.y * armLen - (shoulder.y + my) * 0.5, ez = shoulder.z + e.z * armLen - (shoulder.z + mz) * 0.5;
       _v.set(ex, ey, ez).normalize().lerp(_fwd.set(sg * 0.35, -1, -0.2).normalize(), gw).applyQuaternion(_cQ);
@@ -392,7 +407,7 @@ export class MocapDriver {
     }
     this.prevC[i] = c;
     // left behind (sharp turn, a change of clip): step over to the free target
-    if (k.on && k.step >= 1 && Math.hypot(k.x - tx, k.z - tz) > 0.3 * legLen) {
+    if (k.on && k.step >= 1 && (Math.hypot(k.x - tx, k.z - tz) > 0.3 * legLen || Math.abs(wrapAngle(k.yawW - freeYawW)) > 0.6)) {
       k.step = 0;
       k.sx = k.x;
       k.sz = k.z;

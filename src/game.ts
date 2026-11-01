@@ -159,7 +159,8 @@ export class Game {
         this.audio.play('announcer', { file: def.boss ? 'audio/announcer/announcer_prepare_yourself.wav' : w === 1 ? 'audio/announcer/announcer_fight.wav' : 'audio/announcer/announcer_begin.wav', vol: 0.75 });
       };
       this.waves.onWaveClear = (w) => {
-        this.hud?.bannerShow('CLEARED', `${this.corpses.count} BODIES ON THE FLOOR`, 2.2, `WAVE ${w}`);
+        // let the final blow play out before the banner
+        this.later(1.1, () => this.hud?.bannerShow('CLEARED', `${this.corpses.count} BODIES ON THE FLOOR`, 2.2, `WAVE ${w}`));
       };
       const onFirstGesture = () => {
         this.audio.resume();
@@ -252,6 +253,39 @@ export class Game {
     return this.enemyCache;
   }
 
+  private beatT = 0;
+  /** Badly hurt: a heartbeat under the mix, faster and louder the closer to death. */
+  private heartbeat(realDt: number) {
+    const p = this.player;
+    const hpF = p.hp / p.maxHp;
+    if (!this.started || !p.alive || this.over || hpF >= 0.32) {
+      this.beatT = 0;
+      return;
+    }
+    this.beatT -= realDt;
+    if (this.beatT <= 0) {
+      const k = clamp((0.32 - hpF) / 0.32, 0, 1);
+      this.beatT = 60 / (72 + k * 58);
+      this.audio.heartbeat(0.35 + k * 0.45);
+    }
+  }
+
+  private timers: { t: number; fn: () => void }[] = [];
+  /** Run `fn` after `sec` seconds of real (unscaled, unpaused) time. */
+  later(sec: number, fn: () => void) {
+    this.timers.push({ t: sec, fn });
+  }
+  private tickTimers(realDt: number) {
+    for (let i = this.timers.length - 1; i >= 0; i--) {
+      const t = this.timers[i];
+      t.t -= realDt;
+      if (t.t <= 0) {
+        this.timers.splice(i, 1);
+        t.fn();
+      }
+    }
+  }
+
   slowMo(scale: number, dur: number) {
     this.slowmo = { scale, t: 0, dur };
   }
@@ -277,6 +311,8 @@ export class Game {
     this.realTime += realDt;
     this.input.update(realDt);
     if (this.paused) return;
+    this.tickTimers(realDt);
+    this.heartbeat(realDt);
     this.preStep?.(realDt);
     if (this.godMode) this.player.hp = Math.max(this.player.hp, 40);
     let ts = 1;
@@ -471,7 +507,32 @@ export class Game {
       this.slowMo(0.15, 1.6);
       this.hud?.bannerShow(`${e.cfg.label}`, 'DEFEATED', 3, 'BOSS DOWN', true);
       this.audio.play('announcer', { file: 'audio/announcer/announcer_winner.wav', vol: 0.8 });
+    } else if (this.waves.started && !this.waves.betweenWaves && this.waves.queue.length === 0 && !this.enemies().some((o) => o.alive)) {
+      this.finalBlow(e);
     }
+  }
+
+  /**
+   * The last enemy of a wave goes down: time stretches, the camera swings round the falling body
+   * on the impact, and the hit lands with a deep thump (a finisher keeps its own camera).
+   */
+  private finalBlow(e: Enemy) {
+    this.slowMo(0.22, 1.25);
+    this.hitStop(0.06);
+    this.cam.addTrauma(0.35);
+    this.renderer.fx.chroma = Math.max(this.renderer.fx.chroma, 0.7);
+    const at = new THREE.Vector3();
+    e.bodyPoint('chest', at);
+    this.audio.thump(1.6, at);
+    if (this.cam.inCinematic) return;
+    const p = this.player;
+    const dx = e.x - p.x, dz = e.z - p.z;
+    const d = Math.hypot(dx, dz) || 1;
+    // beside the line of the blow, low, looking across both fighters
+    const side = Math.random() < 0.5 ? 1 : -1;
+    const mid = new THREE.Vector3((p.x + e.x) / 2, 1.0, (p.z + e.z) / 2);
+    const pos = mid.clone().add(new THREE.Vector3((-dz / d) * side * 2.5, 0.15, (dx / d) * side * 2.5)).addScaledVector(new THREE.Vector3(dx / d, 0, dz / d), -0.4);
+    this.cam.playShot({ focus: mid, pos, fov: 44, duration: 0.9, blendIn: 0.12, blendOut: 0.6, orbit: 0.45 * side });
   }
 
   onWeaponThrownHit(w: Weapon, target: Fighter) {

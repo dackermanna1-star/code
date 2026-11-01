@@ -543,7 +543,8 @@ export class HUD {
   update(dt: number, realDt: number) {
     const g = this.game;
     const p = g.player;
-    this.root.style.display = g.started ? '' : 'none';
+    // the HUD steps aside while a menu (pause, settings, controls, results) is up
+    this.root.style.display = g.started && !this.current ? '' : 'none';
     if (g.started && !g.paused && !g.over) this.runTime += realDt;
     // ---- health (with a trailing "ghost" of recent damage)
     const maxHp = p.maxHp;

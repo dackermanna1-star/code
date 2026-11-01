@@ -8,6 +8,7 @@ import { angleDiff, chance, clamp, damp, pick, rand, weightedPick, wrapAngle, ya
 import type { RagdollLike } from '../world/ragdollTypes';
 import { ActiveRagdoll } from '../world/euphoria/bridge';
 import { B } from '../anim/skeleton';
+import { MocapDriver } from '../anim/mocapLoco';
 import type { Game } from '../game';
 import type { CharacterLibrary, Variant } from '../character/library';
 import { Weapon } from '../combat/weapons';
@@ -60,6 +61,13 @@ export class Enemy extends Fighter {
     this.scoreValue = cfg.score;
     this.state = 'enter';
     this.anim.locoIn.style = cfg.style;
+    if (game.settings.mocap) {
+      // motion-captured movement too, each with its own tempo; heavies bounce less
+      const m = new MocapDriver();
+      m.idleRate = rand(0.88, 1.12);
+      m.bounce = cfg.style === 'heavy' ? 0.45 : cfg.style === 'brawl' ? 0.75 : cfg.style === 'agile' ? 1.15 : 1;
+      this.anim.loco.mocap = m;
+    }
     this.model.uniforms.uRim.value.set(cfg.rim[0], cfg.rim[1], cfg.rim[2], cfg.boss ? 0.35 : 0.0);
     if (cfg.weapon) {
       const w = new Weapon(game, cfg.weapon);

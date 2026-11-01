@@ -294,6 +294,26 @@ def process(name, trial, kind, window):
             frames.append(f)
         last = frame_out(P, R, e, root, float(ysm[-1]), leg, arm, stand_hip, ankle_flat)
         loop_fix(frames, last)
+        # the boxer's feet shuffle and pivot all the time (~2 m/s); as an idle that reads as
+        # jitter, so the feet are planted at their average place and angle (heels lifted a
+        # little), while the hips, trunk and guard keep all of the bounce and weight shifts
+        for side in 'LR':
+            for key in ('a' + side, 'k' + side):
+                m = [sum(f[key][j] for f in frames) / len(frames) for j in range(3)]
+                for f in frames:
+                    f[key] = list(m)
+            qs = np.array([np.array(f['f' + side]) for f in frames])
+            ref = qs[0]
+            qs = np.array([q if np.dot(q, ref) >= 0 else -q for q in qs])
+            qm = qs.mean(axis=0)
+            qm = qm / np.linalg.norm(qm)
+            tm = sum(f['t' + side] for f in frames) / len(frames)
+            for f in frames:
+                f['f' + side] = qm
+                f['t' + side] = tm
+        for f in frames:
+            f['cL'] = 1.0
+            f['cR'] = 1.0
         # a lighter stance: less crouched, a softer bob
         mean = sum(f['hp'][1] for f in frames) / len(frames)
         for f in frames:
