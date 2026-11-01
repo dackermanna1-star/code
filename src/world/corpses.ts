@@ -154,7 +154,11 @@ export class CorpseSystem {
     g.setAttribute('position', new THREE.BufferAttribute(c.pos, 3));
     g.setAttribute('normal', new THREE.BufferAttribute(c.nor, 3, true));
     g.setAttribute('uv', new THREE.BufferAttribute(c.uv, 2, true));
-    g.setAttribute('aBindPos', new THREE.Float16BufferAttribute(c.bind, 3));
+    // Float16BufferAttribute copies the array it is given: write into ITS array from now on, or
+    // the bind positions never reach the GPU (and no wound can match a corpse vertex)
+    const bind = new THREE.Float16BufferAttribute(c.bind, 3);
+    c.bind = bind.array as Uint16Array;
+    g.setAttribute('aBindPos', bind);
     g.setAttribute('aSkin', new THREE.BufferAttribute(c.skin, 1, true));
     g.setAttribute('aCorpseId', new THREE.BufferAttribute(c.cid, 1, false));
     g.setAttribute('aLayer', new THREE.BufferAttribute(c.layer, 1, false));
@@ -225,6 +229,28 @@ export class CorpseSystem {
       }
     }
     return rec;
+  }
+
+  private matureT = 0;
+  /**
+   * Wounds keep maturing on the dead for a while (blood dries dull, bruises deepen): refresh the
+   * wound codes of recent corpses a couple of times a second.
+   */
+  updateWounds(now: number, dt: number) {
+    this.matureT -= dt;
+    if (this.matureT > 0) return;
+    this.matureT = 0.5;
+    let dirty = false;
+    for (let i = this.records.length - 1; i >= 0; i--) {
+      const r = this.records[i];
+      if (now - r.time > 40) break;
+      const row = r.id * MAX_WOUNDS * 2 * 4;
+      r.wounds.slice(0, MAX_WOUNDS).forEach((w, k) => {
+        this.woundData[row + k * 8 + 4] = woundCode(w, now);
+      });
+      dirty = true;
+    }
+    if (dirty) this.woundTex.needsUpdate = true;
   }
 
   private writeWounds(id: number, wounds: Wound[], now: number) {

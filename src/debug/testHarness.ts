@@ -147,6 +147,11 @@ export async function runTest(game: Game, params: URLSearchParams) {
     // bot plays the real wave game
     const bot = new Bot(game);
     game.started = true;
+    if (params.get('audio') === '1') {
+      game.audio.resume();
+      game.audio.startAmbience();
+      game.music.start();
+    }
     game.waves.start(Number(params.get('wave') ?? 1));
     const god = params.get('god') === '1';
     const probe = params.get('probe') === '1' ? new (await import('./animProbe')).AnimProbe(game) : null;
@@ -175,6 +180,8 @@ export async function runTest(game: Game, params: URLSearchParams) {
     const ec = game.euphoria.counters;
     result.euphoria = { created: ec.created, peak: ec.peak, steps: ec.steps, avgStepMs: +(ec.stepMsTotal / Math.max(1, ec.steps)).toFixed(3), worstStepMs: +ec.worstStepMs.toFixed(2), statics: game.euphoria.staticCount, ...game.euphoria.events };
     result.wave = game.waves.wave;
+    const mu = game.music as unknown as { bar: number; intensity: number };
+    result.audio = { state: game.audio.ctx?.state ?? 'none', bars: mu.bar, intensity: +mu.intensity.toFixed(2) };
     result.playerHp = game.player.hp;
     result.stats = game.player.stats;
     result.bestCombo = game.player.bestCombo;
@@ -408,6 +415,18 @@ export async function runTest(game: Game, params: URLSearchParams) {
       return v.add(new THREE.Vector3(x * c + z * sn, y, -x * sn + z * c));
     };
     const beat = Number(params.get('beat') ?? 1);
+    if (params.get('all') === '1') {
+      // large wounds and bruises everywhere: whichever way the body lands, they must show
+      for (const b of [B.head, B.chest, B.spine, B.hips, B.uarmL, B.uarmR, B.farmL, B.farmR, B.thighL, B.thighR, B.shinL, B.shinR]) {
+        const v = new THREE.Vector3();
+        e.anim.boneWorld(b, v);
+        for (const off of [[0, 0, 0.12], [0, 0, -0.12], [0.1, 0, 0], [-0.1, 0, 0]]) {
+          const c2 = Math.cos(e.yaw), sn2 = Math.sin(e.yaw);
+          const p = v.clone().add(new THREE.Vector3(off[0] * c2 + off[2] * sn2, 0.03, -off[0] * sn2 + off[2] * c2));
+          e.woundAt(p, b === B.head || b === B.chest ? 1 : 0, 0.09, 1, b === B.head ? 0.1 : 0);
+        }
+      }
+    }
     if (beat > 0) {
       e.woundAt(P('head', 0.035, 0.0, 0.02), 0, 0.025, 1, 0.12); // split brow
       e.woundAt(P('jaw', 0.0, 0.035, 0.01), 0, 0.02, 0.9, 0.1); // bloody nose
@@ -422,6 +441,22 @@ export async function runTest(game: Game, params: URLSearchParams) {
     const c = game.cam.camera;
     const look = new THREE.Vector3();
     e.bodyPoint(params.get('at') ?? 'head', look);
+    if (params.get('kill') === '1') {
+      // kill it and wait for the body to settle and bake into a corpse; then look at its head
+      const dir = new THREE.Vector3(0, 0, -1);
+      const hit = makeHit({ dir, point: look.clone(), damage: 500, strength: 0.6, kind: 'punch', region: 'head', attacker: game.player });
+      e.takeHit(hit);
+      const head = new THREE.Vector3();
+      for (let i = 0; i < 900 && game.death.dying.length > 0; i++) {
+        game.step(dt);
+        if (game.death.dying.length) e.anim.boneWorld(B.head, head);
+      }
+      console.log(`corpses=${game.corpses.count} dying=${game.death.dying.length}`);
+      const cs = game.corpses as unknown as { records: { wounds: unknown[] }[]; woundData: Float32Array; woundTex: THREE.DataTexture; corpseUniforms: { uCorpseWounds: { value: THREE.DataTexture } } };
+      const rec = cs.records[cs.records.length - 1];
+      console.log(`corpse wounds=${rec?.wounds.length} row0=${Array.from(cs.woundData.slice(0, 8)).map((x) => x.toFixed(3)).join(',')} texSame=${cs.corpseUniforms.uCorpseWounds.value === cs.woundTex} live=${e.model.wounds.length}`);
+      look.copy(head);
+    }
     const dist = Number(params.get('dist') ?? 0.75);
     const ang = e.yaw + Number(params.get('ang') ?? 0.35);
     c.position.set(look.x + Math.sin(ang) * dist, look.y + Number(params.get('up') ?? 0.05), look.z + Math.cos(ang) * dist);

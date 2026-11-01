@@ -159,6 +159,13 @@ fingered edges and lean downhill — the concrete falls gently towards the drain
 veins of blood creeping away that branch, thin out and bead where they stop; bleeding bodies
 that slide or roll smear their blood behind them.
 
+**Score** — a procedural adaptive soundtrack (no samples): a dark D-minor progression over a
+breathing pad and sub drone in a generated warehouse reverb, building with the fight from a
+pulsing kick and gated bass to a full synthesized kit, a plucked arpeggio and metal accents,
+with a distorted bass, a low choir and a ticking clock for bosses, and stingers for a wave
+starting, a wave cleared and a boss walking in. Badly hurt, a heartbeat sits under the mix; the
+last enemy of a wave goes down in slow motion with an orbiting shot.
+
 **Look** — PS2-style low-poly skinned characters generated in code (29 outfit variants: hair,
 facial hair, headwear, jackets, armour, tattoos, scars) with hand-painted-style canvas
 textures, warm sodium lamps vs. cold moonlight, HDR bloom, ACES grade, grain and vignette.

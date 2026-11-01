@@ -114,11 +114,13 @@ export class CameraRig {
       const offA = pos.clone().sub(focusA);
       const offB = cpos.clone().sub(s.focus);
       const lenA = offA.length(), lenB = offB.length();
-      const dirA = offA.divideScalar(Math.max(lenA, 1e-4));
-      const dirB = offB.divideScalar(Math.max(lenB, 1e-4));
-      const q = new THREE.Quaternion().setFromUnitVectors(dirA, dirB);
-      const qe = new THREE.Quaternion().slerp(q, e);
-      const dir = dirA.clone().applyQuaternion(qe);
+      // swing round in yaw at a blended elevation (a straight slerp between two far-apart views
+      // can arc over the top of the action and look straight down)
+      const yawA = Math.atan2(offA.x, offA.z), yawB = Math.atan2(offB.x, offB.z);
+      const pitA = Math.asin(clamp(offA.y / Math.max(lenA, 1e-4), -1, 1)), pitB = Math.asin(clamp(offB.y / Math.max(lenB, 1e-4), -1, 1));
+      const yw = yawA + wrapAngle(yawB - yawA) * e;
+      const pt = lerp(pitA, pitB, e);
+      const dir = new THREE.Vector3(Math.sin(yw) * Math.cos(pt), Math.sin(pt), Math.cos(yw) * Math.cos(pt));
       look.lerp(s.focus, e);
       pos = look.clone().addScaledVector(dir, Math.max(1.5, lerp(lenA, lenB, e)));
       pos = this.resolveCollision(look, pos);

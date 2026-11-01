@@ -155,12 +155,16 @@ export class Game {
         const n = def.comp.reduce((a, c) => a + c[1], 0);
         if (def.boss) this.hud?.bannerShow(def.title ?? 'BOSS', `WAVE ${w}`, 3.0, 'BOSS FIGHT', true);
         else this.hud?.bannerShow(`WAVE ${w}`, `${n} ENEMIES`, 2.6, w === 1 ? 'SURVIVE' : 'INCOMING');
+        this.music.stinger(def.boss ? 'boss' : 'wave');
         if (def.hint) this.hud?.hint(def.hint, undefined, 9);
         this.audio.play('announcer', { file: def.boss ? 'audio/announcer/announcer_prepare_yourself.wav' : w === 1 ? 'audio/announcer/announcer_fight.wav' : 'audio/announcer/announcer_begin.wav', vol: 0.75 });
       };
       this.waves.onWaveClear = (w) => {
         // let the final blow play out before the banner
-        this.later(1.1, () => this.hud?.bannerShow('CLEARED', `${this.corpses.count} BODIES ON THE FLOOR`, 2.2, `WAVE ${w}`));
+        this.later(1.1, () => {
+          this.hud?.bannerShow('CLEARED', `${this.corpses.count} BODIES ON THE FLOOR`, 2.2, `WAVE ${w}`);
+          this.music.stinger('clear');
+        });
       };
       const onFirstGesture = () => {
         this.audio.resume();
@@ -348,6 +352,7 @@ export class Game {
     for (const w of this.weapons) w.update(dt);
     this.arena.update(realDt * ts);
     this.blood.update(dt);
+    this.corpses.updateWounds(this.time, dt);
     this.fx.update(dt);
     this.footsteps();
     // camera
