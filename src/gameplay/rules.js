@@ -23,6 +23,20 @@ export class Rules {
     this.scanT = 0;
     this.log = [];
     sim.events.on('itemBreak', (e) => { if (e.by && e.item.def.durability < 900) this._witnessed(e.by, 'vandalism', e.x, e.z); });
+    // Any strike that lands in a guard's view is assault (striking a guard is worse).
+    sim.events.on('hit', (e) => {
+      const a = e.att;
+      if (!a || a.kind !== 'inmate' || e.result === 'dodged' || !e.vic || a === e.vic) return;
+      if (e.vic.kind === 'guard' && e.vic.flags.dispatch?.target !== a) { this.report(a, 'assaultOfficer', e.vic); return; }
+      if (this.sim.brainOf(a)?.fight?.reason === 'standUp' && Math.random() < 0.5) return;
+      // Fights are loud: guards nearby hear them (line of sight, any facing); further away they must be looking.
+      for (const g of this.sim.characters) {
+        if (g.kind !== 'guard' || g.isDown) continue;
+        const d = Math.hypot(g.x - a.x, g.z - a.z);
+        const heard = d < 10 && this.sim.world.nav.sightClear(g.x, g.z, a.x, a.z);
+        if (heard || this._canSee(g, a, 16)) { this.report(a, e.vic.kind === 'guard' ? 'assaultOfficer' : 'assault', g); break; }
+      }
+    });
   }
   rec(c) { if (!this.record.has(c.id)) this.record.set(c.id, { heat: 0, crimes: [], warrants: new Set(), arrests: 0 }); return this.record.get(c.id); }
   heat(c) { return this.rec(c).heat; }
@@ -70,8 +84,7 @@ export class Rules {
       if (o === g || o.kind !== 'inmate' || o.state === 'ko') continue;
       if (!this._canSee(g, o)) continue;
       // Fighting: the aggressor (or both) are guilty of assault.
-      if (o.act && o.act.type === 'attack' && o.act.target && o.act.target !== o) this.report(o, o.act.target.kind === 'guard' ? 'assaultOfficer' : 'assault', g);
-      else if (o.state === 'grapple') this.report(o, 'assault', g);
+      if (o.state === 'grapple') this.report(o, 'assault', g);
       if (o.held && o.held.def.contraband) this.report(o, 'contraband', g);
       const room = this.sim.world.roomAt(o.x, o.z);
       if (room && !this.allowedIn(o, room)) this.report(o, room.restricted === 'escape' || room.id === 'noman' ? 'escape' : !this.sim.clock.cellsOpen ? 'curfew' : 'trespass', g);
@@ -133,8 +146,11 @@ export class Rules {
     if (brain.fight) return false; // combat micro takes over
     if (dist > 1.7) { brain.goTo(t.x, t.z, { run: true, arrive: 1.4 }); return true; }
     g.stop(); g.faceYaw = yawTo(t.x - g.x, t.z - g.z);
-    // Separate fighters
-    if (t.act && t.act.type === 'attack') { brain.startFight(t, 'subdue'); return true; }
+    // Warn first; force only if they keep swinging after the warning.
+    const now = this.sim.time;
+    const swinging = t.lastAttackT && now - t.lastAttackT < 0.7;
+    if (!d.warnedAt && swinging) { d.warnedAt = now; g.say(pick(['Break it up! NOW!', 'Last warning, inmate!', 'Hands down!']), 2, { mood: 'angry', expr: 'angry' }); this.sim.events.emit('guardWarn', { guard: g, c: t }); return true; }
+    if (d.warnedAt && now - d.warnedAt < 1.6) { if (t.lastAttackT > d.warnedAt + 0.6) { brain.startFight(t, 'subdue'); this.report(t, 'resisting', g); } return true; }
     if (t.isPlayer) { if (!d.confronted) { d.confronted = true; this.sim.events.emit('arrestConfront', { guard: g, c: t }); } }
     else if (!d.confronted) {
       d.confronted = true;

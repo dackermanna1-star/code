@@ -10,6 +10,7 @@ import { Planner } from './planner.js';
 import { ACTIVITIES, JOBS, trainGain } from './activities.js';
 import { CONFIG } from '../config.js';
 import { yawTo } from '../core/mathutil.js';
+import { CLIPS } from '../characters/poses.js';
 
 export function installSystems(sim, opts = {}) {
   sim.social = new Social(sim);
@@ -21,6 +22,23 @@ export function installSystems(sim, opts = {}) {
   sim.planner = new Planner(sim, sim.rules);
   sim.playerWitnessed = [];
   sim.systems.push(sim.social, sim.rules, sim.progression, { update: (dt) => sim.dialogue.update(dt) }, new Needs(sim), new SleepManager(sim));
+
+  // ------------------------------------------------------------------ door access rules
+  for (const door of sim.world.doors) {
+    door.authorize = (agent) => {
+      if (!agent) return false;
+      if (agent.isStaff) return true;
+      const clk = sim.clock, period = clk.period.id, job = agent.job ?? agent.def?.job;
+      switch (door.access) {
+        case 'office': return clk.minutes >= 8 * 60 && clk.minutes < 16 * 60;
+        case 'kitchen': return job === 'kitchen' && ['work', 'breakfast', 'lunch', 'dinner'].includes(period);
+        case 'workshop': return job === 'workshop' && period === 'work';
+        // Anyone still out in the yard is let back in when it closes.
+        case 'yard': { const r = sim.world.roomAt(agent.x, agent.z); return !!r && (r.id === 'yard' || r.id === 'noman'); }
+        default: return false;
+      }
+    };
+  }
 
   // ------------------------------------------------------------------ spot rules
   sim.canUseSpot = (c, spot) => {
@@ -127,7 +145,12 @@ export function installSystems(sim, opts = {}) {
 }
 
 function setTimeoutSim(sim, seconds, fn) { sim.timers.push({ t: seconds, fn }); }
-function hasRep(A) { return !!A.perRep || !!A.job || ['benchPress', 'squat', 'pullup', 'situps'].includes(A.posture); }
+/** True when the activity's animation emits 'rep' events (otherwise reps run on a timer). */
+function hasRep(A) {
+  const clipRep = A.clip && CLIPS[A.clip] && CLIPS[A.clip].events.rep != null;
+  const postureRep = A.posture && CLIPS[A.posture] && CLIPS[A.posture].events.rep != null;
+  return !!(clipRep || postureRep);
+}
 
 function applyEffects(sim, c, fx, mult) {
   for (const [k, v] of Object.entries(fx)) {

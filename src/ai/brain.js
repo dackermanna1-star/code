@@ -29,6 +29,7 @@ export class Brain {
     if (!this.path && sameTarget && this.failUntil && g.time < this.failUntil) { c.stop(); return 'failed'; }
     const needPath = !this.path || !sameTarget || this.pathAge > 6;
     if (needPath) {
+      if (g.pathBudget !== undefined) { if (g.pathBudget <= 0) { if (!this.path) c.stop(); return 'moving'; } g.pathBudget--; }
       this.path = g.world.nav.findPath(c.x, c.z, x, z, c, opts.maxExpand || 25000);
       this.pathIdx = 0; this.pathTarget = [x, z]; this.pathAge = 0;
       if (!this.path) { c.stop(); this.failUntil = g.time + 2 + this.rng.next(); return 'failed'; }
@@ -176,6 +177,10 @@ export class Brain {
     if (!c.incoming || g.time - c.incoming.at > 0.6) f.reacted = false;
     if (f.blockUntil && g.time > f.blockUntil) { c.setBlock(false); f.blockUntil = 0; }
     if (t.state === 'ko') { this.endFight(); return; }
+    // Guards stop hitting once the inmate stops fighting back, and make the arrest instead.
+    if (f.reason === 'subdue' && t.state === 'free' && (!t.lastAttackT || g.time - t.lastAttackT > 2.5) && g.time - (c.lastAttackT || 0) > 1 && c.flags.dispatch) {
+      this.endFight(); c.flags.dispatch.confronted = false; c.flags.dispatch.warnedAt = 0; return;
+    }
     // Movement: close in / circle / keep distance
     if (c.state === 'free' || c.state === 'action') {
       if (d > want + 0.35) {

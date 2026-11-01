@@ -430,6 +430,8 @@ export class Game {
     for (let i = 0; i < n; i++) {
       this.time += STEP;
       this.input.beginFrame(this.time);
+      this.menus.update();
+      this.dialogueUI.update();
       this.controller.update(STEP);
       this.sim.step(STEP);
       if (opts.present) this.present(STEP);

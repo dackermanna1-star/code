@@ -225,7 +225,7 @@ export class Character {
     const dur = atk.dur / speedK;
     this.startAction({ type: 'attack', atk, name, dur, hitAt: atk.hitAt / speedK, anim: atk.anim, mirror: atk.mirror, full: atk.anim === 'kick' || atk.anim === 'stomp' || atk.anim === 'knee', target: tgt, moveMult: 0.18, hit: false });
     this.useStamina(atk.stam);
-    this.lastAttack = name; this.combatTimer = 6;
+    this.lastAttack = name; this.combatTimer = 6; this.lastAttackT = this.game.time;
     if (tgt) { tgt.notifyIncoming(this, this.act); }
     this.game.events.emit('swing', { c: this, atk });
     return true;

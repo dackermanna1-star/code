@@ -58,6 +58,7 @@ export class Simulation {
   step(dt) {
     if (this.paused) return;
     this.time += dt;
+    this.pathBudget = 6; // max A* searches per step; others wait a tick
     for (const ev of this.clock.advance(dt)) { this.events.emit('clock', ev); for (const s of this.systems) s.onClock?.(ev); }
     this._doors(dt);
     this._curfewSweep();

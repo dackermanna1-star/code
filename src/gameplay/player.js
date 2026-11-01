@@ -67,7 +67,9 @@ export class PlayerController {
     c.lockTarget = this.lock;
     // Interaction target (only when not mid-fight)
     this.candidates = interactionCandidates(g, c, prefYaw);
-    if (input.consume('cycle', 0.2) && this.candidates.length > 1) this.cycleIndex = (this.cycleIndex + 1) % this.candidates.length;
+    // Tab cycling stays valid only while the candidate set is the same one we cycled through.
+    if (this.cycleIndex && this.candidates[0]?.ref !== this.cycleAnchor) this.cycleIndex = 0;
+    if (input.consume('cycle', 0.2) && this.candidates.length > 1) { this.cycleIndex = (this.cycleIndex + 1) % this.candidates.length; this.cycleAnchor = this.candidates[0].ref; }
     const prev = this.interactTarget;
     let pick = this.candidates[Math.min(this.cycleIndex, this.candidates.length - 1)] || null;
     if (prev && pick && prev.ref !== pick.ref) {
