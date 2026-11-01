@@ -194,6 +194,35 @@ function drawPattern(p: Painter, r: Rect, o: Outfit, v0: number, v1: number) {
       p.band(r, v0, v1, c2, 0.2, 0.3);
       p.band(r, v0, v1, c2, 0.7, 0.8);
       break;
+    case 'uniform': {
+      // a security uniform: button placket, breast pockets, a gold badge, a name tag, a shoulder patch
+      const dark = shade(o.topColor, -0.35);
+      p.line(r, [[0.5, v0], [0.5, 0.97]], dark, 2.5, 0.9);
+      for (let v = v0 + 0.06; v < 0.95; v += 0.1) p.ellipse(r, 0.505, v, 0.006, 0.008, '#c8c8c0', 1);
+      for (const u of [0.4, 0.6]) {
+        p.band(r, 0.66, 0.78, shade(o.topColor, -0.12), u - 0.05, u + 0.05);
+        p.line(r, [[u - 0.05, 0.78], [u + 0.05, 0.78]], dark, 2, 0.9);
+      }
+      // the badge: a gold shield over the left breast
+      const [bx, by] = p.px(r, 0.6, 0.8);
+      ctx.fillStyle = '#d8b040';
+      ctx.beginPath();
+      ctx.moveTo(bx - 6, by - 7);
+      ctx.lineTo(bx + 6, by - 7);
+      ctx.lineTo(bx + 6, by + 1);
+      ctx.lineTo(bx, by + 8);
+      ctx.lineTo(bx - 6, by + 1);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = '#7a5a10';
+      ctx.fillRect(bx - 2, by - 3, 4, 4);
+      // name tag
+      p.band(r, 0.82, 0.86, '#e8e8e0', 0.33, 0.45);
+      // shoulder patches (sides)
+      p.ellipse(r, 0.25, 0.86, 0.025, 0.04, c2, 1);
+      p.ellipse(r, 0.75, 0.86, 0.025, 0.04, c2, 1);
+      break;
+    }
   }
 }
 
@@ -280,6 +309,24 @@ function drawTorso(p: Painter, o: Outfit) {
       }
       p.band(r, 0.93, 1.0, shade(tc, -0.25));
     }
+    if (top === 'coat') {
+      // a lab coat: open over a shirt and tie, lapels, pockets, a pen, a badge on a clip
+      p.band(r, beltV, 0.98, o.topColor2, 0.44, 0.56);
+      p.line(r, [[0.5, 0.95], [0.5, 0.62]], '#2a3a5a', 4, 0.9);
+      const lap = shade(tc, -0.12);
+      p.line(r, [[0.42, 1.0], [0.44, 0.7], [0.44, beltV]], lap, 5);
+      p.line(r, [[0.58, 1.0], [0.56, 0.7], [0.56, beltV]], lap, 5);
+      p.line(r, [[0.44, 0.7], [0.4, 0.82]], shade(tc, -0.25), 2);
+      p.line(r, [[0.56, 0.7], [0.6, 0.82]], shade(tc, -0.25), 2);
+      for (const u of [0.36, 0.64]) {
+        p.band(r, 0.34, 0.44, shade(tc, -0.08), u - 0.06, u + 0.06);
+        p.line(r, [[u - 0.06, 0.44], [u + 0.06, 0.44]], shade(tc, -0.3), 1.5);
+      }
+      p.band(r, 0.7, 0.78, shade(tc, -0.08), 0.6, 0.68);
+      p.line(r, [[0.63, 0.78], [0.63, 0.84]], '#1a3a8a', 2.5);
+      p.band(r, 0.6, 0.66, '#e8e8f0', 0.37, 0.43);
+      p.band(r, 0.63, 0.66, '#3a6ac8', 0.37, 0.43);
+    }
     if (top === 'gi') {
       // crossing lapels
       const lap = shade(tc, -0.15);
@@ -357,6 +404,14 @@ function drawLeg(p: Painter, o: Outfit) {
     p.band(r, 1 - 0.42, 1 - 0.38, shade(pc, -0.3));
   }
   if (o.extras.includes('kneepads')) p.band(r, 0.45, 0.6, o.extraColor, 0.3, 0.7);
+  if (o.top === 'coat') {
+    // the coat's skirts hang to the knee
+    const tc = o.topColor;
+    p.band(r, 0.5, 1.0, tc);
+    p.grain({ ...r, h: r.h * 0.5 }, tc, 0.08, 1.2);
+    p.band(r, 0.5, 0.53, shade(tc, -0.2));
+    p.line(r, [[0.5, 0.53], [0.5, 1.0]], shade(tc, -0.3), 2, 0.6);
+  }
   p.vshade(r, [[0, '#000000', 0.0], [0.9, '#000000', 0.0], [1, '#000000', 0.25]]);
   p.ushade(r, 0.2, [0.5]);
 }

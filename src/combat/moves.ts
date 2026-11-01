@@ -52,11 +52,13 @@ export interface EnemyAttack {
   weapon?: 'knife' | 'club' | 'sword';
   bleed?: number;
   /** Not a plain melee hit: what happens at the clip's contact instead (see BossBrain). */
-  special?: 'knife_throw' | 'shockwave';
+  special?: 'knife_throw' | 'shockwave' | 'taser' | 'slam';
   /** Minimum warning time for this attack (s), above the usual one. */
   tell?: number;
   /** Poisoned blade: the hit keeps hurting for a few seconds. */
   venom?: boolean;
+  /** A shock baton: a landed hit jolts (sparks, a stagger) - see BossBrain.landed. */
+  shock?: boolean;
 }
 
 export const ENEMY_ATTACKS: Record<string, EnemyAttack> = {
@@ -89,5 +91,16 @@ export const ENEMY_ATTACKS: Record<string, EnemyAttack> = {
   kael_shockwave: { clip: 'stun_palm', kind: 'palm', region: 'chest', reach: 0.8, damage: 26, strength: 1.5, unblockable: true, weight: 0, startRange: 9, special: 'shockwave', tell: 1.0 },
   viper_slash: { clip: 'e_knife_slash', kind: 'blade', region: 'chest', reach: 0.85, damage: 12, strength: 0.6, unblockable: false, weight: 0, startRange: 2.4, weapon: 'knife', bleed: 0.8, venom: true },
   viper_stab_r: { clip: 'e_knife_stab', kind: 'blade', region: 'gut', reach: 0.85, damage: 18, strength: 0.8, unblockable: true, weight: 0, startRange: 3.4, weapon: 'knife', bleed: 1, venom: true },
+  // the Warden: a stun baton in a professional's hands, and a taser
+  warden_baton: { clip: 'e_club_swing', kind: 'blunt', region: 'head', reach: 1.0, damage: 13, strength: 0.9, unblockable: false, weight: 1, startRange: 2.6, weapon: 'club', shock: true },
+  warden_overhead: { clip: 'e_club_overhead', kind: 'blunt', region: 'head', reach: 0.95, damage: 20, strength: 1.2, unblockable: true, weight: 0, startRange: 2.6, weapon: 'club', knockdown: true, shock: true },
+  warden_jab: { clip: 'e_punch', kind: 'punch', region: 'head', reach: 0.9, damage: 9, strength: 0.6, unblockable: false, weight: 0, startRange: 2.2 },
+  warden_kick: { clip: 'e_kick', kind: 'kick', region: 'gut', reach: 1.05, damage: 12, strength: 0.9, unblockable: false, weight: 0, startRange: 2.4 },
+  warden_taser: { clip: 'e_punch', kind: 'punch', region: 'chest', reach: 12, damage: 12, strength: 0.6, unblockable: true, weight: 0, startRange: 12, special: 'taser', tell: 0.3 },
+  // Subject Zero: what the lab made
+  subject_punch: { clip: 'e_bruiser_punch', kind: 'punch', region: 'head', reach: 1.05, damage: 20, strength: 1.3, unblockable: false, weight: 0, startRange: 2.9 },
+  subject_smash: { clip: 'e_bruiser_smash', kind: 'blunt', region: 'head', reach: 1.0, damage: 28, strength: 1.5, unblockable: true, weight: 0, startRange: 2.7, knockdown: true },
+  subject_charge: { clip: 'e_bruiser_charge', kind: 'slam', region: 'chest', reach: 0.9, damage: 26, strength: 1.6, unblockable: true, weight: 0, startRange: 9, knockdown: true, tell: 0.75 },
+  subject_slam: { clip: 'e_bruiser_smash', kind: 'blunt', region: 'chest', reach: 0.8, damage: 24, strength: 1.5, unblockable: true, weight: 0, startRange: 9, special: 'slam', tell: 0.9 },
   viper_throw: { clip: 'e_knife_slash', kind: 'blade', region: 'chest', reach: 0.85, damage: 11, strength: 0.6, unblockable: true, weight: 0, startRange: 12, special: 'knife_throw', bleed: 0.7, venom: true, tell: 0.55 },
 };

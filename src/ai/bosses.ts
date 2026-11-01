@@ -63,6 +63,10 @@ export class BossManager {
       e.cfg = { ...e.cfg, aggression: Math.min(1, e.cfg.aggression + 0.15), attackSpeed: e.cfg.attackSpeed * 1.08, feint: e.cfg.feint + 0.1 };
       if (e.cfg.key === 'butcher') {
         this.minions(['brawler', 'brawler']);
+      } else if (e.cfg.key === 'warden') {
+        // (the Warden's brain radios his own men in)
+      } else if (e.cfg.key === 'subject') {
+        this.minions(next === 2 ? ['agile', 'agile'] : ['bruiser', 'agile']);
       } else if (e.cfg.key === 'viper') {
         this.minions(['agile', 'knife']);
         // vanish and reappear behind the player

@@ -1,6 +1,6 @@
 /** Appearance description for procedural characters. */
 export type HairStyle = 'bald' | 'buzz' | 'short' | 'mohawk' | 'long' | 'ponytail' | 'slick' | 'topknot';
-export type TopKind = 'bare' | 'tank' | 'tshirt' | 'longsleeve' | 'hoodie' | 'jacket' | 'gi' | 'vest' | 'tracktop';
+export type TopKind = 'bare' | 'tank' | 'tshirt' | 'longsleeve' | 'hoodie' | 'jacket' | 'gi' | 'vest' | 'tracktop' | 'coat';
 export type BottomKind = 'jeans' | 'cargo' | 'track' | 'gi' | 'shorts';
 export type HeadWear = 'none' | 'cap' | 'beanie' | 'bandana' | 'hood' | 'balaclava' | 'headband' | 'mask' | 'helmet';
 export type Extra = 'belt' | 'kneepads' | 'shoulderpads' | 'chestarmor' | 'chain' | 'sash' | 'bracers';
@@ -13,7 +13,7 @@ export interface Outfit {
   top: TopKind;
   topColor: string;
   topColor2: string;
-  topPattern: 'plain' | 'stripes' | 'logo' | 'camo' | 'flannel' | 'number' | 'panel';
+  topPattern: 'plain' | 'stripes' | 'logo' | 'camo' | 'flannel' | 'number' | 'panel' | 'uniform';
   bottom: BottomKind;
   bottomColor: string;
   shoes: 'sneakers' | 'boots' | 'barefoot' | 'wraps' | 'slippers';
@@ -48,7 +48,7 @@ export const sleeveLength = (top: TopKind) => {
   switch (top) {
     case 'bare': case 'tank': case 'vest': return 0;
     case 'tshirt': return 0.42;
-    case 'longsleeve': case 'hoodie': case 'jacket': case 'tracktop': return 0.97;
+    case 'longsleeve': case 'hoodie': case 'jacket': case 'tracktop': case 'coat': return 0.97;
     case 'gi': return 0.85;
   }
 };

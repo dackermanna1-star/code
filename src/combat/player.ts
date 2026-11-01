@@ -535,7 +535,9 @@ export class Player extends Fighter {
     if (this.action === 'stun') {
       g.combat.feedback(this, victim, { ...hit, bleed: 0, strength: 0.6 }, 'hit');
       victim.hp -= 3;
-      victim.stunNow(p.stun ?? 2);
+      // (a boss decides for itself how long - if at all - a stun strike dazes it)
+      const sec = victim.brain ? victim.brain.stunStrike(p.stun ?? 2) : p.stun ?? 2;
+      if (sec > 0) victim.stunNow(sec);
       this.addCombo(1, 'stun');
       return;
     }

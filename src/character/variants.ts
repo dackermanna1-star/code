@@ -3,7 +3,7 @@ import { defaultOutfit, HAIR_COLORS, Outfit, SKIN_TONES } from './outfit';
 import { BodySpec } from '../anim/skeleton';
 import { RNG } from '../core/math';
 
-export type Archetype = 'player' | 'brawler' | 'knife' | 'club' | 'sword' | 'agile' | 'bruiser' | 'defender' | 'elite' | 'butcher' | 'viper' | 'master';
+export type Archetype = 'player' | 'brawler' | 'knife' | 'club' | 'sword' | 'agile' | 'bruiser' | 'defender' | 'elite' | 'butcher' | 'viper' | 'master' | 'warden' | 'subject';
 
 const o = (over: Partial<Outfit>): Outfit => ({ ...defaultOutfit(), ...over });
 
@@ -86,3 +86,70 @@ export function registerVariants(lib: CharacterLibrary): Record<Archetype, strin
       shoes: 'slippers', shoeColor: '#0a0a0a', hands: 'wraps', head: 'none', extras: ['bracers', 'shoulderpads'], extraColor: '#d0b060', scar: true, brow: 1, seed: 902 }));
   return out;
 }
+
+/**
+ * The lab's people, standing in for the street's: uniformed security (fists and batons), techs in
+ * white coats with scalpels, black-ops in balaclavas, riot guards, escaped test subjects, the
+ * things the lab grew - and its two bosses, the Warden and Subject Zero.
+ */
+export function registerLabVariants(lib: CharacterLibrary): Partial<Record<Archetype, string[]>> {
+  const out: Partial<Record<Archetype, string[]>> = {};
+  const add = (arch: Archetype, name: string, spec: Partial<BodySpec>, outfit: Outfit) => {
+    lib.add(name, spec, outfit);
+    (out[arch] ??= []).push(name);
+  };
+  const rng = new RNG(7171);
+  const navy = ['#1a2438', '#1e2840', '#232a3a', '#1a2030', '#24304a'];
+  // ---------------- security guards (fists)
+  for (let i = 0; i < 5; i++)
+    add('brawler', 'labguard' + i, { height: rng.range(0.97, 1.05), bulk: rng.range(1.0, 1.12), gut: rng.range(0, 0.7) },
+      o({ skin: rng.pick(SKIN_TONES), hair: rng.pick(HAIR_COLORS), hairStyle: rng.pick(['buzz', 'short', 'bald', 'slick'] as const), facial: rng.pick(['none', 'stubble', 'mustache', 'goatee'] as const),
+        top: i % 2 ? 'longsleeve' : 'tshirt', topColor: navy[i], topColor2: '#c8a040', topPattern: 'uniform', bottom: 'cargo', bottomColor: '#14161c', shoes: 'boots', shoeColor: '#0e0e10',
+        head: i < 3 ? 'cap' : 'none', headColor: '#141a2a', extras: ['belt'], brow: rng.range(0.4, 0.9), seed: 1100 + i }));
+  // ---------------- lab techs with scalpels
+  for (let i = 0; i < 3; i++)
+    add('knife', 'labtech' + i, { height: rng.range(0.95, 1.02), bulk: rng.range(0.9, 1.0) },
+      o({ skin: rng.pick(SKIN_TONES), hair: rng.pick(HAIR_COLORS), hairStyle: rng.pick(['short', 'slick', 'ponytail', 'bald'] as const), facial: rng.pick(['none', 'stubble', 'beard'] as const),
+        top: 'coat', topColor: '#e8ecee', topColor2: rng.pick(['#9ab8d8', '#d8d8d0', '#c8a8a8']), bottom: 'cargo', bottomColor: '#4a4e56', shoes: 'sneakers', shoeColor: '#e0e0e0',
+        hands: 'gloves', handColor: '#6aa8e8', head: 'none', brow: 0.95, seed: 1200 + i }));
+  // ---------------- baton guards
+  for (let i = 0; i < 3; i++)
+    add('club', 'labbaton' + i, { height: rng.range(1.0, 1.06), bulk: 1.1, gut: 0.4 },
+      o({ skin: rng.pick(SKIN_TONES), hair: rng.pick(HAIR_COLORS), hairStyle: rng.pick(['buzz', 'bald'] as const), facial: rng.pick(['stubble', 'mustache'] as const),
+        top: 'longsleeve', topColor: '#141c2c', topColor2: '#c8a040', topPattern: 'uniform', bottom: 'cargo', bottomColor: '#101216', shoes: 'boots', shoeColor: '#0a0a0c',
+        head: 'cap', headColor: '#0e1420', hands: 'gloves', handColor: '#111111', extras: ['belt', 'chestarmor'], extraColor: '#1a1e24', brow: 0.8, seed: 1300 + i }));
+  // ---------------- black-ops with machetes
+  for (let i = 0; i < 2; i++)
+    add('sword', 'labops' + i, { height: 1.02, bulk: 1.04 },
+      o({ skin: rng.pick(SKIN_TONES), hair: '#101010', hairStyle: 'buzz', top: 'jacket', topColor: '#121416', topColor2: '#1a1c1e', bottom: 'cargo', bottomColor: '#121416',
+        shoes: 'boots', shoeColor: '#0a0a0a', head: 'balaclava', headColor: '#0e0e10', hands: 'gloves', handColor: '#0a0a0a', extras: ['chestarmor', 'kneepads', 'belt'], extraColor: '#22262a', brow: 1, seed: 1400 + i }));
+  // ---------------- escaped test subjects: pale, shaved, barefoot, numbered
+  for (let i = 0; i < 3; i++)
+    add('agile', 'labsubject' + i, { height: rng.range(0.94, 1.0), bulk: 0.88, legs: 1.03 },
+      o({ skin: rng.pick(['#e8dcd4', '#d8ccc4', '#c8bcb4']), hair: '#2a2420', hairStyle: 'bald', top: 'bare', topColor: '#cccccc', bottom: 'shorts', bottomColor: '#c8ccd0',
+        shoes: 'barefoot', shoeColor: '#cccccc', head: 'none', tattoo: true, scar: rng.chance(0.6), brow: 1, eyes: '#5a6a3a', seed: 1500 + i }));
+  // ---------------- what the lab grew
+  for (let i = 0; i < 3; i++)
+    add('bruiser', 'labmutant' + i, { height: rng.range(1.14, 1.2), bulk: 1.42, shoulders: 1.3, gut: rng.range(0.2, 0.6), headSize: 1.0, chestDepth: 1.18, hipsW: 1.12 },
+      o({ skin: rng.pick(['#9aa890', '#8a9a8a', '#a8a0a8']), hair: '#1a1a1a', hairStyle: 'bald', top: 'bare', topColor: '#2a2a2a', bottom: 'shorts', bottomColor: '#8a8e94',
+        shoes: 'barefoot', shoeColor: '#2a2a2a', hands: 'bare', tattoo: true, scar: true, extras: ['chain', 'bracers'], extraColor: '#6a6e74', brow: 1, eyes: '#8a2a1a', seed: 1600 + i }));
+  // ---------------- riot guards
+  for (let i = 0; i < 3; i++)
+    add('defender', 'labriot' + i, { height: rng.range(1.0, 1.05), bulk: 1.14, shoulders: 1.1 },
+      o({ skin: rng.pick(SKIN_TONES), hair: rng.pick(HAIR_COLORS), hairStyle: 'buzz', top: 'longsleeve', topColor: '#1a2234', topColor2: '#c8a040', topPattern: 'uniform', bottom: 'cargo', bottomColor: '#14161c',
+        shoes: 'boots', shoeColor: '#0a0a0c', head: 'helmet', headColor: '#141a26', hands: 'gloves', handColor: '#111111', extras: ['kneepads', 'shoulderpads', 'bracers', 'chestarmor'], extraColor: '#232a36', brow: 0.6, seed: 1700 + i }));
+  // ---------------- black-ops fighters
+  for (let i = 0; i < 3; i++)
+    add('elite', 'labelite' + i, { height: rng.range(0.99, 1.04), bulk: 1.02 },
+      o({ skin: rng.pick(SKIN_TONES), hair: '#101010', hairStyle: 'buzz', top: 'jacket', topColor: rng.pick(['#1a1e1a', '#14161a', '#1e1a14']), topColor2: '#2a2e2a', bottom: 'cargo', bottomColor: '#14161a',
+        shoes: 'boots', shoeColor: '#0a0a0a', head: 'balaclava', headColor: '#121214', hands: 'gloves', handColor: '#0a0a0a', extras: ['bracers', 'belt'], extraColor: '#22262a', brow: 1, seed: 1800 + i }));
+  // ---------------- bosses
+  add('warden', 'warden', { height: 1.12, bulk: 1.3, shoulders: 1.22, gut: 0.6, headSize: 1.03, chestDepth: 1.12, hipsW: 1.1 },
+    o({ skin: '#c98e66', hair: '#6e6e6e', hairStyle: 'buzz', facial: 'mustache', top: 'longsleeve', topColor: '#141c30', topColor2: '#d8b040', topPattern: 'uniform', bottom: 'cargo', bottomColor: '#0e1018',
+      shoes: 'boots', shoeColor: '#050505', hands: 'gloves', handColor: '#0a0a0a', head: 'cap', headColor: '#0a1020', extras: ['belt', 'chestarmor', 'shoulderpads'], extraColor: '#1a2030', scar: true, brow: 1, seed: 1900 }));
+  add('subject', 'subject', { height: 1.3, bulk: 1.55, shoulders: 1.38, gut: 0.2, headSize: 0.96, chestDepth: 1.25, hipsW: 1.18, arms: 1.06 },
+    o({ skin: '#b8c0c4', hair: '#101010', hairStyle: 'bald', top: 'bare', topColor: '#2a2a2a', bottom: 'shorts', bottomColor: '#7a8088', shoes: 'barefoot', shoeColor: '#2a2a2a',
+      tattoo: true, scar: true, extras: ['chain', 'bracers'], extraColor: '#5a5e64', brow: 1, eyes: '#c8e830', seed: 1901 }));
+  return out;
+}
+

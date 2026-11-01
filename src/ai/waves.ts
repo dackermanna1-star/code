@@ -30,6 +30,11 @@ const WAVES: WaveDef[] = [
   { comp: [['elite', 2]], boss: 'master', title: 'GRANDMASTER KAEL', hint: 'Only perfect counters land on Kael · finishers only when he is stunned · get clear of his chi blast' },
 ];
 
+const BOSS_HINTS: Record<string, string> = {
+  warden: 'Perfect counters only · DODGE when his taser\'s red laser is on you · his baton shocks through a guard',
+  subject: 'He shrugs off blows: sidestep his charge so he hits a wall, then punish him · get clear of his slam',
+};
+
 export class WaveManager {
   wave = 0;
   betweenWaves = true;
@@ -58,7 +63,15 @@ export class WaveManager {
     return this.waveDef(this.wave);
   }
 
+  /** A wave as this arena plays it: the lab has its own bosses in place of the standard ones. */
   waveDef(w: number): WaveDef {
+    const def = this.baseDef(w);
+    const swap = def.boss ? this.game.arena.bossMap[def.boss] : undefined;
+    if (!swap) return def;
+    return { ...def, boss: swap, title: ARCHETYPES[swap].label, hint: BOSS_HINTS[swap] ?? def.hint };
+  }
+
+  private baseDef(w: number): WaveDef {
     if (w <= WAVES.length) return WAVES[w - 1];
     // endless scaling
     const n = w - WAVES.length;
@@ -110,7 +123,7 @@ export class WaveManager {
     this.queue.sort(() => Math.random() - 0.5);
     this.maxActive = Math.min(10, 6 + Math.floor(this.wave / 4));
     if (def.boss) {
-      const door = g.arena.doors[0];
+      const door = g.arena.bossEntrance?.(def.boss) ?? g.arena.doors[0];
       this.bossAlive = this.spawn(def.boss, door, 0);
       g.bosses.register(this.bossAlive);
     }

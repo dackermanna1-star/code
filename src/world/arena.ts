@@ -160,6 +160,13 @@ export class Arena {
   onThunder: ((delay: number, vol: number) => void) | null = null;
   /** Lightning brightness this frame (0: none); the game lifts the fog, sky and reflections with it. */
   flash = 0;
+  /** Sound the alarm (the lab's lockdown: red beacons, a siren). */
+  alarm: ((on: boolean) => void) | null = null;
+  /** The game's side of the alarm (the siren) and of a tank bursting (glass, fluid, a roar). */
+  onAlarmSound: ((on: boolean) => void) | null = null;
+  onTankBurst: ((p: THREE.Vector3) => void) | null = null;
+  /** Where a boss makes its entrance, if not through a door (Subject Zero comes out of his tank). */
+  bossEntrance: ((key: string) => Door | null) | null = null;
   /** The game camera (weather that wants to be seen, like lightning, strikes where it looks). */
   view: THREE.Camera | null = null;
 

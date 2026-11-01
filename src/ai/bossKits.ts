@@ -79,6 +79,23 @@ export abstract class BossBrain {
   }
   /** Contact of a special attack (instead of a melee hit). */
   special(_a: EnemyAttack) {}
+  /** A melee hit landed (or was blocked / dodged). */
+  landed(_a: EnemyAttack, _res: string) {}
+  private lastStunStrike = -99;
+  /**
+   * The player's stun strike: a boss is only dazed briefly, and not again for a while (a thug's
+   * two seconds would hand the fight away). Returns the seconds to stun (0 = shrugged off).
+   */
+  stunStrike(sec: number): number {
+    const now = this.game.time;
+    if (now - this.lastStunStrike < 8) {
+      this.say(`${this.e.cfg.label} SHRUGS IT OFF`, '#c8c8c8', 0.8);
+      return 0;
+    }
+    this.lastStunStrike = now;
+    this.count('stunStrike');
+    return Math.min(sec, 0.8);
+  }
   phaseChange(_next: number) {}
   protected aura(_dt: number) {}
 
@@ -379,9 +396,362 @@ export class KaelBrain extends BossBrain {
   }
 }
 
+// =========================================================================== THE WARDEN
+/**
+ * The Warden, head of the lab's security: a professional. Tight baton strings (a hit or a block
+ * with the stun baton jolts you), a taser he aims with a red laser for a long moment before he
+ * fires - dodge it - and from phase two a lockdown: the alarms, and his men coming through every
+ * door when he radios for them.
+ */
+export class WardenBrain extends BossBrain {
+  private aim = -1;
+  private laser: THREE.Line | null = null;
+  private laserMat = new THREE.LineBasicMaterial({ color: 0xff2020, transparent: true, opacity: 0.85, depthTest: false });
+  private flashT = 0;
+  constructor(e: Enemy, game: Game) {
+    super(e, game);
+    this.cd.taser = 4.5;
+    this.cd.backup = 6;
+  }
+  combos() {
+    if (this.phase === 1)
+      return [
+        ['warden_baton', 'warden_baton', 'warden_overhead'],
+        ['warden_jab', 'warden_baton'],
+        ['warden_baton', 'warden_kick'],
+        ['warden_jab', 'warden_jab', 'warden_baton'],
+      ];
+    return [
+      ['warden_baton', 'warden_baton', 'warden_baton', 'warden_overhead'],
+      ['warden_jab', 'warden_kick', 'warden_baton', 'warden_overhead'],
+      ['warden_baton', 'warden_jab', 'warden_baton'],
+      ['warden_kick', 'warden_baton', 'warden_baton'],
+    ];
+  }
+  circle(dt: number) {
+    const e = this.e, p = this.game.player;
+    if (this.aim >= 0) {
+      // aiming: still, the dot on your chest
+      this.aim -= dt;
+      e.vx = e.vz = 0;
+      e.faceTowards(p.x, p.z, 10, dt);
+      this.drawLaser(true);
+      if (this.aim < 0) this.fire();
+      return true;
+    }
+    if (!p.alive) return false;
+    const d = e.distTo(p);
+    if (this.ready('taser') && d < 11) {
+      this.cd.taser = this.phase === 1 ? rand(6, 9) : rand(4, 6.5);
+      const aim = () => {
+        if (!e.alive || this.busy()) return;
+        this.aim = this.phase === 1 ? 1.05 : 0.85;
+        this.count('taserAim');
+        this.say('THE WARDEN DRAWS HIS TASER — DODGE THE SHOT', '#ff5a4a', 1.0);
+        this.game.audio.play('whoosh_light', { pos: _v.set(e.x, 1.4, e.z), vol: 0.5, pitch: 1.8 });
+      };
+      if (d > 3.2) aim();
+      else {
+        // too close to draw it: a hop back first
+        e.bossPlay('r_dodge_back', 'dodge');
+        e.invuln = 0.4;
+        this.game.later(0.45, aim);
+      }
+      return true;
+    }
+    if (this.phase >= 2 && this.ready('backup')) {
+      this.cd.backup = rand(20, 26);
+      this.callBackup();
+    }
+    return false;
+  }
+  update(dt: number) {
+    super.update(dt);
+    if (this.aim < 0 && this.flashT <= 0) this.drawLaser(false);
+    if (this.flashT > 0) {
+      this.flashT -= dt;
+      if (this.flashT <= 0) this.drawLaser(false);
+    }
+    if (!this.e.alive) {
+      this.aim = -1;
+      this.drawLaser(false);
+    }
+  }
+  private drawLaser(on: boolean) {
+    const g = this.game, e = this.e, p = g.player;
+    if (!this.laser) {
+      const geo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]);
+      this.laser = new THREE.Line(geo, this.laserMat);
+      this.laser.frustumCulled = false;
+      this.laser.renderOrder = 10;
+      g.scene.add(this.laser);
+    }
+    this.laser.visible = on;
+    if (!on) return;
+    this.hand(_v);
+    p.bodyPoint('chest', _w);
+    const pos = this.laser.geometry.attributes.position as THREE.BufferAttribute;
+    pos.setXYZ(0, _v.x, _v.y, _v.z);
+    pos.setXYZ(1, _w.x, _w.y, _w.z);
+    pos.needsUpdate = true;
+    // the dot pulses faster as he's about to fire
+    this.laserMat.opacity = 0.5 + 0.45 * Math.abs(Math.sin(this.game.time * (10 + (1 - Math.max(0, this.aim)) * 30)));
+    this.laserMat.color.setHex(this.flashT > 0 ? 0xc8e8ff : 0xff2020);
+  }
+  private fire() {
+    const g = this.game, e = this.e, p = g.player;
+    this.count('taser');
+    this.hand(_v);
+    p.bodyPoint('chest', _w);
+    g.audio.crack(_w);
+    g.audio.play('whoosh_light', { pos: _v, vol: 0.8, pitch: 2.2 });
+    // the wire, for an instant
+    this.flashT = 0.12;
+    this.drawLaser(true);
+    if (!p.alive) return;
+    const dodging = p.action === 'dodge' || p.action === 'vault' || p.invuln > 0;
+    if (dodging) {
+      this.count('taserDodged');
+      g.fx.sparks(_w.clone().add(new THREE.Vector3(0, -0.4, 0)), new THREE.Vector3(0, 1, 0), 10);
+      return;
+    }
+    const mods = DIFFICULTY[g.settings.difficulty] ?? DIFFICULTY.fighter;
+    const dir = new THREE.Vector3(p.x - e.x, 0, p.z - e.z).normalize();
+    const h = makeHit({ dir, point: _w.clone(), damage: 12 * mods.damage, strength: 0.9, kind: 'punch', region: 'chest', unblockable: true, knockdown: true, attacker: e, bleed: 0 });
+    const res = p.takeHit(h);
+    if (res !== 'dodged' && res !== 'ignored') {
+      g.combat.feedback(e, p, h, res);
+      g.fx.sparks(_w, new THREE.Vector3(0, 1, 0), 26);
+      g.cam.addTrauma(0.45);
+      g.renderer.fx.chroma = Math.max(g.renderer.fx.chroma, 0.9);
+    }
+  }
+  private callBackup() {
+    const g = this.game;
+    this.count('backup');
+    this.say('WARDEN: ALL UNITS, CONVERGE!', '#8ab8ff', 1.4);
+    const n = g.enemies().filter((o) => o.alive && !o.cfg.boss).length;
+    if (n >= 4) return;
+    const keys = this.phase >= 2 ? ['brawler', 'club'] : ['brawler'];
+    keys.forEach((k, i) => g.waves.spawn(k, g.arena.doors[(i + 1) % g.arena.doors.length], i));
+  }
+  landed(a: EnemyAttack, res: string) {
+    if (!a.shock || (res !== 'hit' && res !== 'blocked')) return;
+    const g = this.game, p = g.player;
+    p.bodyPoint('chest', _v);
+    g.fx.sparks(_v, new THREE.Vector3(0, 1, 0), res === 'hit' ? 18 : 10);
+    g.audio.crack(_v);
+    // the jolt goes through a guard: it costs most of it
+    if (res === 'blocked') p.guard = Math.max(0, p.guard - 45);
+  }
+  onHurt() {
+    super.onHurt();
+    const e = this.e;
+    if (e.state === 'stunned' || this.hurt.length < 3) return false;
+    this.hurt.length = 0;
+    this.count('breakaway');
+    if (chance(0.6)) e.bossAttack('warden_kick', { tell: 0.4 });
+    else {
+      e.bossPlay('r_dodge_back', 'dodge');
+      e.invuln = 0.4;
+    }
+    return true;
+  }
+  onBadCounter() {
+    const e = this.e;
+    this.count('badCounter');
+    this.say('THE WARDEN READS IT — PERFECT COUNTERS ONLY', '#8ab8ff');
+    e.bossPlay('r_block', 'block');
+    this.game.later(0.22, () => e.alive && !e.paired && e.state === 'block' && e.bossAttack('warden_baton', { tell: 0.42 }));
+  }
+  special(a: EnemyAttack) {
+    void a;
+  }
+  phaseChange(next: number) {
+    if (next === 2) {
+      this.say('LOCKDOWN — THE WARDEN CALLS IT IN', '#ff4040', 1.8);
+      this.game.arena.alarm?.(true);
+      this.cd.backup = 0.5;
+      this.cd.taser = 3;
+    }
+  }
+  protected aura() {
+    const u = this.e.model.uniforms.uRim.value;
+    if (this.phase < 2) u.set(0.35, 0.6, 1, 0.35);
+    else {
+      // lockdown: his rim light flashes red and blue
+      const blue = Math.sin(this.game.time * 9) > 0;
+      u.set(blue ? 0.2 : 1, blue ? 0.4 : 0.15, blue ? 1 : 0.15, 0.7);
+    }
+  }
+}
+
+// =========================================================================== SUBJECT ZERO
+/**
+ * Subject Zero, what the lab made: a giant that ignores blows unless he's dazed. He charges from
+ * across the room (unblockable) - sidestep it with a wall, a tank or a bench behind you and he
+ * ploughs into it and stands there stunned; from phase two he brings both fists down in a slam
+ * that throws everything near him; in phase three he's berserk.
+ */
+export class SubjectBrain extends BossBrain {
+  private charging = false;
+  constructor(e: Enemy, game: Game) {
+    super(e, game);
+    this.cd.charge = 3.5;
+    this.cd.slam = 5;
+  }
+  combos() {
+    if (this.phase === 1)
+      return [
+        ['subject_punch', 'subject_punch'],
+        ['subject_punch', 'subject_smash'],
+        ['subject_smash'],
+      ];
+    if (this.phase === 2)
+      return [
+        ['subject_punch', 'subject_punch', 'subject_smash'],
+        ['subject_punch', 'subject_smash', 'subject_punch'],
+        ['subject_smash', 'subject_punch'],
+      ];
+    return [
+      ['subject_punch', 'subject_punch', 'subject_punch', 'subject_smash'],
+      ['subject_smash', 'subject_punch', 'subject_smash'],
+      ['subject_punch', 'subject_smash', 'subject_punch', 'subject_punch'],
+    ];
+  }
+  circle() {
+    const e = this.e, p = this.game.player;
+    if (!p.alive) return false;
+    const d = e.distTo(p);
+    if (this.ready('charge') && d > 4 && d < 10.5) {
+      this.cd.charge = this.phase === 1 ? rand(6, 8) : this.phase === 2 ? rand(5, 7) : rand(3.5, 5);
+      this.say('SUBJECT ZERO CHARGES — SIDESTEP, LET HIM HIT THE WALL', '#9aff7a', 1.1);
+      this.game.audio.play('death', { pos: _v.set(e.x, 1.8, e.z), vol: 0.9, pitch: 0.55 });
+      this.game.cam.addTrauma(0.25);
+      e.bossAttack('subject_charge', { tell: 0.8 });
+      this.charging = true;
+      return true;
+    }
+    if (this.phase >= 2 && this.ready('slam') && d < 3.4) {
+      this.cd.slam = rand(9, 13);
+      this.say('SUBJECT ZERO RAISES BOTH FISTS — GET CLEAR', '#9aff7a', 1.0);
+      e.bossAttack('subject_slam');
+      return true;
+    }
+    return false;
+  }
+  update(dt: number) {
+    super.update(dt);
+    const e = this.e;
+    if (!this.charging) return;
+    if (e.state !== 'attack') {
+      this.charging = false;
+      return;
+    }
+    // ploughed into something solid: the clip's root motion was blocked
+    const c = e.anim.clip as unknown as { blockX: number; blockZ: number } | null;
+    if (c && Math.hypot(c.blockX, c.blockZ) > 0.25) {
+      this.charging = false;
+      this.wallStun();
+    }
+  }
+  private wallStun() {
+    const g = this.game, e = this.e;
+    this.count('wallStun');
+    g.director.cancel(e);
+    e.comboQueue = [];
+    const at = new THREE.Vector3(e.x + Math.sin(e.yaw) * 0.6, 1.2, e.z + Math.cos(e.yaw) * 0.6);
+    g.audio.thump(1.6, at);
+    g.audio.play('body_fall', { pos: at, vol: 1 });
+    g.audio.play('metal_hit', { pos: at, vol: 0.9, pitch: 0.7 });
+    g.cam.addTrauma(0.7);
+    g.fx.dust(at.clone().setY(0.4), 4);
+    g.props.blast(at, 3, 5);
+    this.game.later(0.05, () => {
+      if (!e.alive) return;
+      e.stunNow(2.8);
+      this.say('SUBJECT ZERO HIT THE WALL — PUNISH HIM', '#ffd24a', 1.2);
+    });
+  }
+  special(a: EnemyAttack) {
+    if (a.special !== 'slam') return;
+    const g = this.game, e = this.e, p = g.player;
+    const R = 3.8;
+    const c = new THREE.Vector3(e.x + Math.sin(e.yaw) * 0.7, 0.15, e.z + Math.cos(e.yaw) * 0.7);
+    for (let i = 0; i < 12; i++) {
+      const ang = (i / 12) * Math.PI * 2;
+      g.fx.dust(new THREE.Vector3(c.x + Math.sin(ang) * 1.3, 0.1, c.z + Math.cos(ang) * 1.3), 2.2);
+    }
+    g.fx.shatter(c.clone().setY(0.1), 'ceramic', [0x8a8680, 0x6a6660], 30, 0.4, 1.4);
+    g.cam.addTrauma(0.85);
+    g.audio.thump(1.6, c);
+    g.audio.play('body_fall', { pos: c, vol: 1, pitch: 0.6 });
+    g.props.blast(c, R + 1.5, 7);
+    g.arena.shakeLamps(c.x, c.z, 3);
+    const mods = DIFFICULTY[g.settings.difficulty] ?? DIFFICULTY.fighter;
+    const dp = Math.hypot(p.x - c.x, p.z - c.z);
+    if (p.alive && dp < R) {
+      const dir = new THREE.Vector3(p.x - c.x, 0, p.z - c.z).normalize();
+      p.bodyPoint('chest', _v);
+      const h = makeHit({ dir, point: _v.clone(), damage: a.damage * mods.damage * (1 - (dp / R) * 0.45), strength: 1.5, kind: 'blunt', region: 'chest', unblockable: true, knockdown: true, attacker: e, bleed: 0.2 });
+      const res = p.takeHit(h);
+      if (res !== 'dodged' && res !== 'ignored') g.combat.feedback(e, p, h, res);
+    }
+    for (const o of g.enemies()) {
+      if (o === e || !o.alive || o.down || o.paired) continue;
+      const d = Math.hypot(o.x - c.x, o.z - c.z);
+      if (d > R) continue;
+      const dir = new THREE.Vector3(o.x - c.x, 0, o.z - c.z).normalize();
+      o.bodyPoint('chest', _v);
+      o.takeHit(makeHit({ dir, point: _v.clone(), damage: 20, strength: 1.4, kind: 'blunt', region: 'chest', knockdown: true, launch: 4, attacker: e }));
+    }
+  }
+  onHurt() {
+    super.onHurt();
+    const e = this.e;
+    if (e.state === 'stunned' || this.hurt.length < 4) return false;
+    this.hurt.length = 0;
+    this.count('breakaway');
+    // a roar that shoves you off him
+    const g = this.game, p = g.player;
+    g.audio.play('death', { pos: _v.set(e.x, 1.8, e.z), vol: 0.8, pitch: 0.5 });
+    g.cam.addTrauma(0.4);
+    const dp = e.distTo(p);
+    if (dp < 2.6 && p.alive && !p.isLocked()) {
+      p.vx += ((p.x - e.x) / (dp || 1)) * 6;
+      p.vz += ((p.z - e.z) / (dp || 1)) * 6;
+    }
+    return true;
+  }
+  stunStrike(): number {
+    this.say('NOTHING DAZES HIM — LET HIM HIT A WALL', '#9aff7a', 0.9);
+    return 0;
+  }
+  onBadCounter() {
+    this.count('badCounter');
+    this.say('SUBJECT ZERO SHRUGS IT OFF — PERFECT COUNTERS ONLY', '#9aff7a');
+    const e = this.e;
+    this.game.later(0.15, () => e.alive && !e.paired && e.bossAttack('subject_punch', { tell: 0.42 }));
+  }
+  phaseChange(next: number) {
+    if (next === 2) this.say('SUBJECT ZERO IS ADAPTING', '#9aff7a', 1.8);
+    else this.say('SUBJECT ZERO — BERSERK', '#ff3020', 2.0);
+    this.cd.charge = 1.5;
+    this.cd.slam = 2;
+  }
+  protected aura() {
+    const u = this.e.model.uniforms.uRim.value;
+    const pulse = 0.5 + 0.5 * Math.sin(this.game.time * (this.phase === 3 ? 7 : 2.5));
+    if (this.phase < 3) u.set(0.45, 1, 0.35, 0.35 + pulse * 0.25);
+    else u.set(0.9 * pulse + 0.1, 1 - pulse * 0.6, 0.2, 0.6 + pulse * 0.3);
+  }
+}
+
 /** Brain for a boss archetype (the Butcher keeps his brute's instincts). */
 export function brainFor(e: Enemy, game: Game): BossBrain | null {
   if (e.cfg.key === 'viper') return new ViperBrain(e, game);
   if (e.cfg.key === 'master') return new KaelBrain(e, game);
+  if (e.cfg.key === 'warden') return new WardenBrain(e, game);
+  if (e.cfg.key === 'subject') return new SubjectBrain(e, game);
   return null;
 }

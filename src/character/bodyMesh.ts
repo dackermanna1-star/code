@@ -175,7 +175,7 @@ export function buildBodyGeometry(opts: BodyMeshOptions): THREE.BufferGeometry {
   const k = def.spec.bulk;
   const R = def.rest;
   const m = new MeshAccum();
-  const clothInfl = outfit.top === 'jacket' || outfit.top === 'hoodie' ? 1.07 : outfit.top === 'gi' ? 1.06 : outfit.top === 'bare' ? 0.985 : 1.0;
+  const clothInfl = outfit.top === 'jacket' || outfit.top === 'hoodie' || outfit.top === 'coat' ? 1.07 : outfit.top === 'gi' ? 1.06 : outfit.top === 'bare' ? 0.985 : 1.0;
   const torsoSkin = outfit.top === 'bare' ? 1 : 0;
 
   // ------------------------------------------------------------------ torso
@@ -258,7 +258,7 @@ export function buildBodyGeometry(opts: BodyMeshOptions): THREE.BufferGeometry {
     const E = R[fa];
     const Wr = R[ha];
     const sl = sleeveLength(outfit.top);
-    const sleeveInfl = sl > 0.5 ? (outfit.top === 'jacket' || outfit.top === 'hoodie' ? 1.12 : 1.05) : sl > 0 ? 1.06 : 1;
+    const sleeveInfl = sl > 0.5 ? (outfit.top === 'jacket' || outfit.top === 'hoodie' || outfit.top === 'coat' ? 1.12 : 1.05) : sl > 0 ? 1.06 : 1;
     // profile along arm: t in [0,1] from shoulder (slightly inside torso) to wrist
     const prof: [number, number, number][] = [
       // t, radius (scaled), front/back ratio
@@ -373,7 +373,9 @@ export function buildBodyGeometry(opts: BodyMeshOptions): THREE.BufferGeometry {
       else if (t < 0.95) w = [[sh, 1]];
       else w = boneW(sh, ft, (t - 0.95) / 0.09);
       const covered = shorts ? t < 0.42 : true;
-      const infl = covered ? pantsInfl * (outfit.bottom === 'gi' ? lerp(1, 1.12, smoothstep(0.3, 1.0, t)) : 1) : 1;
+      let infl = covered ? pantsInfl * (outfit.bottom === 'gi' ? lerp(1, 1.12, smoothstep(0.3, 1.0, t)) : 1) : 1;
+      // a lab coat's skirts stand off the thighs down to the knee
+      if (outfit.top === 'coat' && t < 0.47) infl *= 1.16;
       const r = rad * s * k * infl * (t < 0.25 ? def.spec.hipsW * 0.5 + 0.5 : 1);
       rings.push({ c, ax: fr.ax, az: fr.az, rx: r, rzF: r * fz, rzB: r, w, v: clamp01((t + 0.1) / 1.14), skin: covered ? 0 : 1 });
     });

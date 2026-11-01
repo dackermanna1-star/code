@@ -7,7 +7,7 @@ import { Arena, HALF_D, HALF_W, isMapName, MAPS } from './world/arena';
 import { BloodAtlas, setDrains, SPLAT } from './world/bloodAtlas';
 import { MocapDriver } from './anim/mocapLoco';
 import { CharacterLibrary } from './character/library';
-import { Archetype, registerVariants } from './character/variants';
+import { Archetype, registerLabVariants, registerVariants } from './character/variants';
 import { registerAllClips } from './anim/lib';
 import type { Fighter } from './combat/fighter';
 import { Player } from './combat/player';
@@ -121,6 +121,8 @@ export class Game {
     this.renderer.onResize();
     registerAllClips();
     this.archetypes = registerVariants(this.lib);
+    // the lab is staffed by its own people
+    if (this.arena.roster === 'lab') Object.assign(this.archetypes, registerLabVariants(this.lib));
     this.lib.build();
     this.music = new Music(this.audio);
     this.combat = new Combat(this);
@@ -151,6 +153,22 @@ export class Game {
     };
     this.arena.onThunder = (delay, vol) => {
       if (this.started) this.audio.thunder(delay, vol);
+    };
+    this.arena.onAlarmSound = (on) => this.audio.alarm(on);
+    this.arena.onTankBurst = (p) => {
+      // the containment glass goes: shards, a flood of green, the thing inside roaring
+      this.fx.shatter(p, 'glass', [0x9ae8c0, 0xc8f0e0, 0x6ac8a0], 80, 1.3, 2.2);
+      for (let i = 0; i < 40; i++) {
+        const a = Math.random() * Math.PI * 2, sp = 1 + Math.random() * 3;
+        this.fx.soft.spawn(p.x, 0.2 + Math.random() * 1.2, p.z, Math.cos(a) * sp, Math.random() * 1.5, Math.sin(a) * sp + 1.5, 0.3 + Math.random() * 0.4, 0.25, 0.9, 0.45, 0.35, 1 + Math.random(), { grow: 1.2, drag: 1.8 });
+      }
+      this.audio.shatter('glass', p, 1);
+      this.audio.play('death', { pos: p, vol: 1, pitch: 0.45 });
+      this.audio.thump(1.6, p);
+      this.cam.addTrauma(0.8);
+      this.renderer.fx.chroma = Math.max(this.renderer.fx.chroma, 1.2);
+      this.props.blast(p, 5, 6);
+      this.slowMo(0.4, 1.0);
     };
     this.player = new Player(this, this.lib, this.lib.get('player'));
     const mc = this.params.get('mocap');
@@ -616,6 +634,7 @@ export class Game {
     if (how === 'edge') this.hud?.feed(e.cfg.boss ? `${e.cfg.label.toUpperCase()} WENT OVER` : 'OVER THE EDGE', `+${pts.toLocaleString()}`);
     else if (!e.cfg.boss) this.hud?.feed(`${e.cfg.label.toUpperCase()} DOWN`, `+${pts.toLocaleString()}`);
     if (e.cfg.boss) {
+      this.arena.alarm?.(false);
       this.slowMo(0.15, 1.6);
       this.hud?.bannerShow(`${e.cfg.label}`, 'DEFEATED', 3, 'BOSS DOWN', true);
       this.audio.play('announcer', { file: 'audio/announcer/announcer_winner.wav', vol: 0.8 });

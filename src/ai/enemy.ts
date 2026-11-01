@@ -547,6 +547,7 @@ export class Enemy extends Fighter {
       });
       const res = p.takeHit(hit);
       g.combat.feedback(this, p, hit, res);
+      this.brain?.landed(a, res);
       if (res === 'dodged' || res === 'ignored') {
         // overextended: brief vulnerability
         if (res === 'dodged') this.stun = 0.4;

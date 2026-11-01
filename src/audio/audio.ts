@@ -280,7 +280,7 @@ export class AudioSys {
     const c = this.ctx;
     if (!c || !this.loaded) return;
     const list = this.cats['ambience'] ?? [];
-    const levels = map === 'rooftop' ? [0.05, 0.85] : [0.55, 0.22];
+    const levels = map === 'rooftop' ? [0.05, 0.85] : map === 'alley' ? [0.12, 0.1] : map === 'apartment' ? [0.0, 0.3] : map === 'lab' ? [0.3, 0.0] : [0.55, 0.22];
     list.forEach((f, i) => {
       const b = this.buffers.get(f);
       if (!b) return;
@@ -294,6 +294,34 @@ export class AudioSys {
       s.start();
       this.ambSources.push(s);
     });
+    if (map === 'alley' || map === 'apartment' || map === 'lab') {
+      // the city through the walls (the lab: the building's own machinery)
+      const s = c.createBufferSource();
+      s.buffer = this.brown();
+      s.loop = true;
+      const lp = c.createBiquadFilter();
+      lp.type = 'lowpass';
+      lp.frequency.value = map === 'lab' ? 140 : map === 'apartment' ? 160 : 260;
+      const g = c.createGain();
+      g.gain.value = map === 'alley' ? 0.4 : 0.25;
+      s.connect(lp);
+      lp.connect(g);
+      g.connect(this.amb);
+      s.start();
+      this.ambSources.push(s);
+    }
+    if (map === 'lab') {
+      // mains hum
+      for (const [f, v] of [[60, 0.012], [120, 0.008], [180, 0.004]]) {
+        const o = c.createOscillator();
+        o.frequency.value = f;
+        const g = c.createGain();
+        g.gain.value = v;
+        o.connect(g);
+        g.connect(this.amb);
+        o.start();
+      }
+    }
     if (map === 'rooftop') {
       // the second rain layer, offset and brighter, so the loop never repeats audibly
       const rainF = list[1] && this.buffers.get(list[1]);
@@ -485,6 +513,51 @@ export class AudioSys {
         this.play('metal_hit', { pos, vol });
     }
   }
+  private alarmNodes: { o: OscillatorNode; g: GainNode; lfo: OscillatorNode } | null = null;
+  /** The lab's lockdown klaxon: a rising two-tone whoop, over and over, until it's switched off. */
+  alarm(on: boolean) {
+    const c = this.ctx;
+    if (!c) return;
+    if (!on) {
+      if (this.alarmNodes) {
+        const t = c.currentTime;
+        this.alarmNodes.g.gain.setTargetAtTime(0.0001, t, 0.2);
+        const n = this.alarmNodes;
+        setTimeout(() => {
+          n.o.stop();
+          n.lfo.stop();
+        }, 1200);
+        this.alarmNodes = null;
+      }
+      return;
+    }
+    if (this.alarmNodes || c.state !== 'running') return;
+    const t = c.currentTime;
+    const o = c.createOscillator();
+    o.type = 'sawtooth';
+    o.frequency.value = 520;
+    // a slow sawtooth LFO sweeps the pitch up (the whoop), a lowpass takes the edge off
+    const lfo = c.createOscillator();
+    lfo.type = 'sawtooth';
+    lfo.frequency.value = 0.9;
+    const depth = c.createGain();
+    depth.gain.value = 230;
+    lfo.connect(depth);
+    depth.connect(o.frequency);
+    const lp = c.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.value = 1500;
+    const g = c.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.05, t + 0.4);
+    o.connect(lp);
+    lp.connect(g);
+    g.connect(this.amb);
+    o.start(t);
+    lfo.start(t);
+    this.alarmNodes = { o, g, lfo };
+  }
+
   /** A body lands on a grand piano: a crashing cluster of low strings, ringing on. */
   piano(pos: THREE.Vector3 | null, vol = 1) {
     const c = this.ctx;
