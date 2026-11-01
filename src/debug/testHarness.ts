@@ -413,6 +413,43 @@ export async function runTest(game: Game, params: URLSearchParams) {
       if (probe) console.log('PROBE ' + JSON.stringify(probe.report(frames * dt)));
     }
   }
+  if (name === 'eatk') {
+    // one enemy attack on a passive player, side on, for reviewing telegraphs:
+    // test=eatk&enemy=elite&atk=elite_jab&wave=14 (wave sets the speed scaling)
+    const { ENEMY_ATTACKS } = await import('../combat/moves');
+    const p = game.player;
+    p.x = 0; p.z = 0; p.yaw = Math.PI;
+    p.anim.initAt(0, 0, Math.PI);
+    const e = spawnEnemy(params.get('enemy') ?? 'elite', 0, -1.9);
+    game.director.setWave(Number(params.get('wave') ?? 1));
+    game.started = true;
+    game.godMode = true;
+    const atk = ENEMY_ATTACKS[params.get('atk') ?? 'elite_jab'];
+    let frame = 0;
+    const stepOne = () => {
+      e.attackCooldown = 1e9;
+      if (frame === 20) {
+        (e as unknown as { attackDef: unknown }).attackDef = atk;
+        e.attackCombo = 1;
+        e.startAttack(false);
+        const inc = game.director.incoming.find((x) => x.enemy === e);
+        console.log(`EATK tell=${inc ? (inc.hitTime - game.time).toFixed(3) : '?'}`);
+      }
+      game.step(dt);
+      frame++;
+    };
+    const camDist = Number(params.get('camdist') ?? 3.6);
+    (window as unknown as { __film: { step: (k: number) => void } }).__film = {
+      step(k: number) {
+        for (let i = 0; i < k; i++) stepOne();
+        const c = game.cam.camera;
+        c.position.set(camDist, 1.4, -0.95);
+        c.lookAt(0, 1.1, -0.95);
+        game.renderFrame();
+      },
+    };
+    for (let i = 0; i < Number(params.get('warm') ?? 15); i++) stepOne();
+  }
   if (name === 'clips') {
     // every player strike against a still target, one after another; per bone and frame the
     // swing (change of the bone's direction) and twist (roll about it) are split, and single-frame

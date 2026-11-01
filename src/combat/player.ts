@@ -8,6 +8,7 @@ import { PAIRS, PairedClip } from '../anim/lib/paired';
 import type { Enemy } from '../ai/enemy';
 import { Weapon } from './weapons';
 import { B } from '../anim/skeleton';
+import { DIFFICULTY } from '../core/settings';
 
 export type PlayerAction = 'free' | 'dash' | 'attack' | 'counter' | 'finisher' | 'dodge' | 'vault' | 'hit' | 'down' | 'grab' | 'takedown' | 'stun' | 'throwing' | 'dead';
 
@@ -554,7 +555,7 @@ export class Player extends Fighter {
       this.game.hud?.flashFinisherReady();
     }
     this.multiplier = 1 + Math.floor(this.combo / 5) * 0.25 + Math.min(1, this.variety.size * 0.05);
-    this.score += Math.round(10 * n * this.multiplier);
+    this.score += Math.round(10 * n * this.multiplier * (DIFFICULTY[this.game.settings.difficulty] ?? DIFFICULTY.fighter).score);
   }
 
   breakCombo() {

@@ -5,6 +5,7 @@ import { HitInfo, HitResult, makeHit } from '../combat/types';
 import { ArchetypeCfg } from './archetypes';
 import { ENEMY_ATTACKS, EnemyAttack } from '../combat/moves';
 import { angleDiff, chance, clamp, damp, pick, rand, weightedPick, wrapAngle, yawFromDir } from '../core/math';
+import { DIFFICULTY } from '../core/settings';
 import type { RagdollLike } from '../world/ragdollTypes';
 import { ActiveRagdoll } from '../world/euphoria/bridge';
 import { B } from '../anim/skeleton';
@@ -381,7 +382,8 @@ export class Enemy extends Fighter {
     // warning time: from the first twitch to contact, never less than a human can read and answer
     // (a fighter's jab at full speed lands in 80 ms; the load-up stretches to fill the difference)
     const natural = clip.hitT / speed;
-    let tell = this.cfg.boss ? (chained ? 0.38 : 0.46) : chained ? 0.42 : 0.52;
+    const mods = DIFFICULTY[this.game.settings.difficulty] ?? DIFFICULTY.fighter;
+    let tell = (this.cfg.boss ? (chained ? 0.38 : 0.46) : chained ? 0.42 : 0.52) * mods.tell;
     // two attacks that can't both be countered never land together: this one waits its turn
     const now = this.game.time;
     for (const inc of dir.incoming) {
@@ -425,7 +427,7 @@ export class Enemy extends Fighter {
         limb: String(ev.limb ?? 'rh'),
         region: a.region,
         // (harder-hitting as the waves go on, levelling off at +36% by wave 10)
-        damage: a.damage * (1 + Math.min(0.36, (g.director.wave - 1) * 0.04)) * (this.phase > 1 ? 1.2 : 1),
+        damage: a.damage * (1 + Math.min(0.36, (g.director.wave - 1) * 0.04)) * (this.phase > 1 ? 1.2 : 1) * (DIFFICULTY[g.settings.difficulty] ?? DIFFICULTY.fighter).damage,
         strength: a.strength,
         kind: a.kind,
         unblockable: a.unblockable,

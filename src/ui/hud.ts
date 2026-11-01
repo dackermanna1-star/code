@@ -411,12 +411,19 @@ export class HUD {
         range('Mouse sensitivity', 0.2, 3, 0.05, s.mouseSensitivity, (v) => `${v.toFixed(2)}×`, (v) => apply((x) => (x.mouseSensitivity = v)));
         tog('Invert camera Y', s.invertY, (v) => apply((x) => (x.invertY = v)));
         break;
-      case 'gameplay':
+      case 'gameplay': {
+        const DIFF_NOTE: Record<string, string> = {
+          story: 'STORY — long warnings before every attack, softer hits, fewer attackers at once. Score x0.75.',
+          fighter: 'FIGHTER — the intended balance.',
+          brutal: 'BRUTAL — shorter warnings, harder hits, one more attacker at once. Score x1.35.',
+        };
+        seg('Difficulty', ['story', 'fighter', 'brutal'], s.difficulty, (v) => apply((x) => (x.difficulty = v as Settings['difficulty']), DIFF_NOTE[v]));
         tog('Active ragdolls (euphoria)', s.ragdolls === 'euphoria', (v) => apply((x) => (x.ragdolls = v ? 'euphoria' : 'classic')));
         tog('Motion-captured movement', s.mocap, (v) => apply((x) => (x.mocap = v)));
         tog('Tutorial tips', s.showHints, (v) => apply((x) => (x.showHints = v)));
         tog('FPS / stats overlay', s.fpsCounter, (v) => apply((x) => (x.fpsCounter = v)));
         break;
+      }
     }
   }
 

@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { Renderer } from './render/renderer';
-import { loadSettings, PRESETS, Settings } from './core/settings';
+import { DIFFICULTY, loadSettings, PRESETS, Settings } from './core/settings';
 import { Input } from './core/input';
 import { CameraRig } from './fx/camera';
 import { Arena, HALF_D, HALF_W } from './world/arena';
@@ -89,6 +89,8 @@ export class Game {
     this.debug = params.get('debug') === '1';
     const rg = params.get('ragdolls');
     if (rg === 'classic' || rg === 'euphoria') this.settings.ragdolls = rg;
+    const df = this.params.get('difficulty');
+    if (df === 'story' || df === 'fighter' || df === 'brutal') this.settings.difficulty = df;
     this.renderer = new Renderer(container, this.settings);
     const preset = PRESETS[this.settings.quality];
     this.input = new Input(this.renderer.gl.domElement);
@@ -506,7 +508,7 @@ export class Game {
 
   onEnemyKilled(e: Enemy, h: HitInfo) {
     const p = this.player;
-    const pts = Math.round(e.scoreValue * p.multiplier * (h.finisher ? 1.5 : 1));
+    const pts = Math.round(e.scoreValue * p.multiplier * (h.finisher ? 1.5 : 1) * (DIFFICULTY[this.settings.difficulty] ?? DIFFICULTY.fighter).score);
     p.score += pts;
     if (!e.cfg.boss) this.hud?.feed(`${e.cfg.label.toUpperCase()} DOWN`, `+${pts.toLocaleString()}`);
     if (e.cfg.boss) {
@@ -559,6 +561,7 @@ export class Game {
     this.audio.play('announcer', { file: 'audio/announcer/announcer_game_over.wav', vol: 0.8 });
     const p = this.player;
     const stats = {
+      Difficulty: this.settings.difficulty.toUpperCase(),
       'Wave reached': this.waves.wave,
       Score: p.score.toLocaleString(),
       Kills: p.stats.kills,

@@ -1,6 +1,7 @@
 import type { Game } from '../game';
 import type { Enemy } from './enemy';
 import { chance, clamp, rand } from '../core/math';
+import { DIFFICULTY } from '../core/settings';
 
 export interface Incoming {
   enemy: Enemy;
@@ -85,11 +86,13 @@ export class Director {
     if (this.cooldown > 0) return;
     const enemies = g.enemies().filter((e) => e.alive && e.canTakeToken());
     if (enemies.length === 0) return;
+    const mods = DIFFICULTY[g.settings.difficulty] ?? DIFFICULTY.fighter;
+    const maxAttackers = Math.max(1, this.maxAttackers + mods.attackers);
     const active = this.activeAttackers();
-    if (active >= this.maxAttackers) return;
+    if (active >= maxAttackers) return;
     // vulnerability windows increase aggression
     const vulnerable = p.vulnerability();
-    const want = this.aggression * (1 + vulnerable * 1.5);
+    const want = this.aggression * mods.aggression * (1 + vulnerable * 1.5);
     if (!chance(clamp(want * dt * 3.2, 0, 1))) return;
     // score candidates: closer, behind player's facing, aggression
     const scored = enemies
@@ -105,7 +108,7 @@ export class Director {
     let count = 1;
     // pincer: coordinated second attacker timed to land with the first
     const pincerChance = clamp(0.08 + this.wave * 0.03 + this.counterBias * 0.15, 0, 0.55);
-    if (scored.length > 1 && active + 1 < this.maxAttackers && now - this.lastPincer > 4 && chance(pincerChance)) {
+    if (scored.length > 1 && active + 1 < maxAttackers && now - this.lastPincer > 4 && chance(pincerChance)) {
       scored[1].e.grantToken(rand(0.05, 0.25));
       this.lastPincer = now;
       count++;

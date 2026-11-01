@@ -67,12 +67,13 @@ export const ENEMY_ATTACKS: Record<string, EnemyAttack> = {
   bruiser_punch: { clip: 'e_bruiser_punch', kind: 'punch', region: 'head', reach: 1.0, damage: 18, strength: 1.2, unblockable: false, weight: 1, startRange: 2.8 },
   bruiser_smash: { clip: 'e_bruiser_smash', kind: 'blunt', region: 'head', reach: 0.95, damage: 26, strength: 1.4, unblockable: true, weight: 0.7, startRange: 2.6, knockdown: true },
   bruiser_charge: { clip: 'e_bruiser_charge', kind: 'slam', region: 'chest', reach: 0.8, damage: 24, strength: 1.5, unblockable: true, weight: 0.5, startRange: 7, knockdown: true },
-  // elite martial artists reuse the player's strike clips
-  elite_jab: { clip: 'jab', kind: 'punch', region: 'head', reach: 0.92, damage: 9, strength: 0.5, unblockable: false, weight: 1, startRange: 2.4 },
-  elite_cross: { clip: 'cross', kind: 'punch', region: 'head', reach: 0.95, damage: 11, strength: 0.6, unblockable: false, weight: 1, startRange: 2.4 },
-  elite_hook: { clip: 'hook', kind: 'punch', region: 'head', reach: 0.72, damage: 12, strength: 0.6, unblockable: false, weight: 0.8, startRange: 2.2 },
-  elite_round: { clip: 'roundhouse', kind: 'kick', region: 'head', reach: 1.0, damage: 16, strength: 0.9, unblockable: false, weight: 0.9, startRange: 2.6 },
-  elite_spin: { clip: 'spinkick', kind: 'kick', region: 'gut', reach: 1.05, damage: 20, strength: 1.2, unblockable: true, weight: 0.5, startRange: 2.8, knockdown: true },
-  elite_side: { clip: 'sidekick', kind: 'kick', region: 'chest', reach: 1.1, damage: 14, strength: 1.0, unblockable: false, weight: 0.7, startRange: 2.8 },
+  // elite martial artists reuse the player's strike clips (they step in closer first: those
+  // strikes lunge less far than a thug's haymaker)
+  elite_jab: { clip: 'jab', kind: 'punch', region: 'head', reach: 0.92, damage: 9, strength: 0.5, unblockable: false, weight: 1, startRange: 1.8 },
+  elite_cross: { clip: 'cross', kind: 'punch', region: 'head', reach: 0.95, damage: 11, strength: 0.6, unblockable: false, weight: 1, startRange: 1.85 },
+  elite_hook: { clip: 'hook', kind: 'punch', region: 'head', reach: 0.72, damage: 12, strength: 0.6, unblockable: false, weight: 0.8, startRange: 1.6 },
+  elite_round: { clip: 'roundhouse', kind: 'kick', region: 'head', reach: 1.0, damage: 16, strength: 0.9, unblockable: false, weight: 0.9, startRange: 2.15 },
+  elite_spin: { clip: 'spinkick', kind: 'kick', region: 'gut', reach: 1.05, damage: 20, strength: 1.2, unblockable: true, weight: 0.5, startRange: 2.25, knockdown: true },
+  elite_side: { clip: 'sidekick', kind: 'kick', region: 'chest', reach: 1.1, damage: 14, strength: 1.0, unblockable: false, weight: 0.7, startRange: 2.25 },
   elite_fly: { clip: 'flyknee', kind: 'knee', region: 'head', reach: 0.62, damage: 18, strength: 1.1, unblockable: true, weight: 0.4, startRange: 5.5, knockdown: true },
 };

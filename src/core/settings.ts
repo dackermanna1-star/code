@@ -21,7 +21,28 @@ export interface Settings {
   ragdolls: 'euphoria' | 'classic';
   /** Motion-captured locomotion for the player character (else the procedural gait). */
   mocap: boolean;
+  /** How hard the waves push: warning time, damage, how many attack at once, aggression. */
+  difficulty: Difficulty;
 }
+
+export type Difficulty = 'story' | 'fighter' | 'brutal';
+export interface DifficultyMods {
+  /** Multiplier on the warning time before an attack lands. */
+  tell: number;
+  /** Multiplier on enemy damage. */
+  damage: number;
+  /** Added to the most enemies attacking at once (never below one). */
+  attackers: number;
+  /** Multiplier on how eagerly the director hands out attacks. */
+  aggression: number;
+  /** Score multiplier. */
+  score: number;
+}
+export const DIFFICULTY: Record<Difficulty, DifficultyMods> = {
+  story: { tell: 1.35, damage: 0.6, attackers: -1, aggression: 0.75, score: 0.75 },
+  fighter: { tell: 1, damage: 1, attackers: 0, aggression: 1, score: 1 },
+  brutal: { tell: 0.85, damage: 1.3, attackers: 1, aggression: 1.15, score: 1.35 },
+};
 
 export interface QualityPreset {
   pixelRatio: number; // max device pixel ratio
@@ -66,6 +87,7 @@ export function defaultSettings(): Settings {
     bloodDetail: 'high',
     ragdolls: 'euphoria',
     mocap: true,
+    difficulty: 'fighter',
   };
 }
 
