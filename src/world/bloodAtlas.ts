@@ -131,8 +131,12 @@ const _d = new THREE.Vector3();
 const _UP = new THREE.Vector3(0, 1, 0);
 
 // ------------------------------------------------------------------ floor flow
-/** The floor drains in the arena dressing: the concrete falls gently towards them. */
+/** The floor drains in the arena dressing: the floor falls gently towards them (set per map). */
 const DRAINS: [number, number][] = [[-9.5, 4.5], [8.5, -3.0], [3.0, 8.6]];
+export function setDrains(d: [number, number][]) {
+  DRAINS.length = 0;
+  DRAINS.push(...d);
+}
 function hash2(ix: number, iz: number) {
   let h = Math.imul(ix, 374761393) + Math.imul(iz, 668265263);
   h = Math.imul(h ^ (h >>> 13), 1274126177);

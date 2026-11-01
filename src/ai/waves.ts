@@ -126,7 +126,7 @@ export class WaveManager {
     this.onWaveClear?.(this.wave);
   }
 
-  spawn(key: string, door: { x: number; z: number; ix: number; iz: number; yaw: number; width: number }, i: number): Enemy {
+  spawn(key: string, door: { x: number; z: number; ix: number; iz: number; yaw: number; width: number; climb?: number }, i: number): Enemy {
     const g = this.game;
     const cfg = ARCHETYPES[key];
     const names = g.archetypes[key as Archetype] ?? g.archetypes.brawler;
@@ -138,6 +138,7 @@ export class WaveManager {
     e.enterX = door.ix + Math.cos(door.yaw) * off * 1.5 + rand(-0.5, 0.5);
     e.enterZ = door.iz - Math.sin(door.yaw) * off * 1.5 + rand(-0.5, 0.5);
     e.ghostWalls = true;
+    if (door.climb) e.startClimb(door.climb);
     // difficulty scaling: tougher & faster later, not just more HP
     const w = this.wave;
     e.speedMul = 1 + Math.min(0.25, w * 0.012);

@@ -23,6 +23,8 @@ export interface Settings {
   mocap: boolean;
   /** How hard the waves push: warning time, damage, how many attack at once, aggression. */
   difficulty: Difficulty;
+  /** Which arena the run is fought in. */
+  map: 'warehouse' | 'rooftop';
 }
 
 export type Difficulty = 'story' | 'fighter' | 'brutal';
@@ -88,6 +90,7 @@ export function defaultSettings(): Settings {
     ragdolls: 'euphoria',
     mocap: true,
     difficulty: 'fighter',
+    map: 'warehouse',
   };
 }
 

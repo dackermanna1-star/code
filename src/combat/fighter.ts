@@ -72,6 +72,8 @@ export abstract class Fighter implements AimProvider {
   brokenLeg = 0;
   scale = 1;
   ragdoll: RagdollLike | null = null;
+  /** Render height offset (climbing up onto the roof); the simulation stays on the floor. */
+  lift = 0;
   weapon: Weapon | null = null;
   abstract team: 'player' | 'enemy';
 
@@ -315,7 +317,7 @@ export abstract class Fighter implements AimProvider {
       this.anim.locoIn.velZ = this.vz;
     }
     this.anim.update(dt, this.x, this.z, this.yaw);
-    this.model.group.position.set(this.x, 0, this.z);
+    this.model.group.position.set(this.x, this.lift, this.z);
     this.model.group.rotation.y = this.yaw;
     this.model.syncWounds(this.game.time);
   }

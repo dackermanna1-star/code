@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import './hud.css';
 import type { Game } from '../game';
 import { PRESETS, QualityName, saveSettings, Settings } from '../core/settings';
+import { MAPS } from '../world/arena';
 
 const el = (tag: string, cls = '', html = '') => {
   const e = document.createElement(tag);
@@ -182,16 +183,24 @@ export class HUD {
     t.append(el('h1', '', 'LAST<span>STANCE</span>'));
     t.append(el('div', 'tag', 'ONE FIGHTER · ENDLESS ENEMIES · NO MERCY'));
     const tl = el('div', 'mlist');
+    // the arena: cycling it rebuilds the world (a reload, straight back to this screen)
+    const mi = Math.max(0, MAPS.findIndex((m) => m.id === g.settings.map));
     tl.append(
       this.btn('FIGHT', () => g.beginRun(), 'primary'),
+      this.btn(`ARENA<small>${MAPS[mi].name}</small>`, () => {
+        g.settings.map = MAPS[(mi + 1) % MAPS.length].id;
+        saveSettings(g.settings);
+        location.reload();
+      }),
       this.btn('SETTINGS', () => this.openSettings('title')),
       this.btn('CONTROLS', () => this.show('controls')),
     );
     t.append(tl);
+    t.append(el('div', 'arena-blurb', MAPS[mi].blurb.toUpperCase()));
     const best = el('div', 'best');
     best.id = 'bestline';
     t.append(best);
-    const tf = el('div', 'foot', '<span>Bodies and blood never disappear · 15 waves, three bosses, then endless</span><span><b>CLICK</b> LOCKS THE MOUSE · <b>ESC</b> PAUSES</span>');
+    const tf = el('div', 'foot', '<span>Bodies and blood never disappear · 15 waves, three bosses, then endless · two arenas</span><span><b>CLICK</b> LOCKS THE MOUSE · <b>ESC</b> PAUSES</span>');
     this.menus.title.append(tf);
     // ---- controls
     const c = this.mk('controls', 'blur');

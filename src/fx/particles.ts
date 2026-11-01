@@ -315,6 +315,8 @@ export class FX {
     // ---- blood droplets with collision -> permanent splats
     const P = this.drops;
     const obstacles = g.arena.obstacles;
+    // the rooftop has no walls: blood above the knee-high parapet flies on, over the edge
+    const roof = g.arena.map === 'rooftop';
     for (let i = P.count - 1; i >= 0; i--) {
       const o = i * 4;
       let vx = P.vel[o], vy = P.vel[o + 1], vz = P.vel[o + 2];
@@ -326,14 +328,17 @@ export class FX {
       P.life[i * 2] -= dt;
       const rad = this.dropRadius[i];
       let landed = false;
-      if (y <= 0.005) {
+      if (roof && (Math.abs(x) > HALF_W + 0.4 || Math.abs(z) > HALF_D + 0.4)) {
+        // off the roof: falling into the street
+        if (y < -3) P.life[i * 2] = 0;
+      } else if (y <= 0.005) {
         const sp = Math.hypot(vx, vz);
         _v.set(x, 0.01, z);
         const hdir = sp > 0.05 ? new THREE.Vector3(vx / sp, 0, vz / sp) : null;
         const r = rad * (1.1 + Math.min(4, Math.hypot(vx, vy, vz)) * 0.28);
         g.blood.splat(_v, r, r > 0.02 && Math.random() < 0.6 ? SPLAT.splash : SPLAT.drop, rand(0.7, 1), UP, hdir, hdir ? Math.min(2.8, sp * 0.45) : 0);
         landed = true;
-      } else if (Math.abs(x) > HALF_W - 0.02 || Math.abs(z) > HALF_D - 0.02) {
+      } else if ((Math.abs(x) > HALF_W - 0.02 || Math.abs(z) > HALF_D - 0.02) && (!roof || y < 0.95)) {
         // wall hit
         const n = Math.abs(x) > HALF_W - 0.02 ? new THREE.Vector3(-Math.sign(x), 0, 0) : new THREE.Vector3(0, 0, -Math.sign(z));
         _v.set(Math.max(-HALF_W + 0.01, Math.min(HALF_W - 0.01, x)), y, Math.max(-HALF_D + 0.01, Math.min(HALF_D - 0.01, z)));

@@ -25,9 +25,8 @@ export class Props {
     const drumGeo = new THREE.CylinderGeometry(0.29, 0.29, 0.88, 16);
     const crateMat = new THREE.MeshStandardMaterial({ map: crateTexture(31), roughness: 0.8, color: 0xd8c8b0 });
     const crateGeo = new THREE.BoxGeometry(0.75, 0.75, 0.75);
-    const drums: [number, number][] = [[-8.8, -7.6], [-8.2, -8.4], [8.9, 6.4], [9.4, -6.9], [-3.4, 9.7], [12.0, 1.5], [-12.1, -1.9]];
+    const { drums, crates } = game.arena.propSpots;
     drums.forEach(([x, z], i) => this.add('drum', drumGeo, drumMats[i % drumMats.length], x, 0.44, z, new THREE.Vector3(0.29, 0.44, 0.29)));
-    const crates: [number, number, number][] = [[-6.0, 9.9, 0], [-5.2, 9.8, 0], [-5.6, 9.85, 0.75], [6.2, -9.9, 0], [10.6, 3.2, 0], [-10.4, -3.8, 0]];
     for (const [x, z, y] of crates) this.add('crate', crateGeo, crateMat, x, 0.375 + y, z, new THREE.Vector3(0.375, 0.375, 0.375));
   }
 
@@ -72,6 +71,13 @@ export class Props {
     for (const p of this.list) {
       if (p.broken) continue;
       const t = p.body.translation();
+      if (t.y < -6) {
+        // over the rooftop's edge: gone
+        p.broken = true;
+        g.physics.world.removeRigidBody(p.body);
+        p.mesh.removeFromParent();
+        continue;
+      }
       const r = p.body.rotation();
       p.mesh.position.set(t.x, t.y, t.z);
       p.mesh.quaternion.set(r.x, r.y, r.z, r.w);

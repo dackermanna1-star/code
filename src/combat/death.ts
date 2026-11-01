@@ -16,6 +16,8 @@ interface Dying {
   puddleT: number;
   /** Last smear points of the head and chest (a bleeding body sliding on the floor smears it). */
   smear: [THREE.Vector3, THREE.Vector3] | null;
+  /** Went over the rooftop's edge. */
+  over: boolean;
 }
 
 /** At most this many bodies writhe at once (each keeps an active ragdoll busy). */
@@ -72,18 +74,21 @@ export class DeathSystem {
     if (imp) rag.impulse(imp, at);
     f.anim.toExternal(rag, 0.03);
     f.ragdoll = rag;
-    this.dying.push({ f, rag, cause, bleedT: 0, groanT: 0.5 + Math.random() * 0.6, puddleT: 0.8, smear: null });
+    this.dying.push({ f, rag, cause, bleedT: 0, groanT: 0.5 + Math.random() * 0.6, puddleT: 0.8, smear: null, over: false });
     return rag;
   }
 
-  /** Take over an existing (knockdown / stagger) ragdoll as a death ragdoll. */
-  adopt(f: Fighter, rag: RagdollLike, cause: string, impulse?: THREE.Vector3, at?: THREE.Vector3, region?: string) {
+  /**
+   * Take over an existing (knockdown / stagger) ragdoll as a death ragdoll. `limp` false leaves the
+   * body's controller running (a fall from the roof: it flails on the way down).
+   */
+  adopt(f: Fighter, rag: RagdollLike, cause: string, impulse?: THREE.Vector3, at?: THREE.Vector3, region?: string, limp = true) {
     if (f.dead) return rag;
     f.alive = false;
     f.dead = true;
     f.solid = false;
     f.hp = 0;
-    if (rag instanceof ActiveRagdoll) {
+    if (rag instanceof ActiveRagdoll && limp) {
       if (this.wantsAgony(f, cause, region, false)) {
         rag.setWounds(f.model.wounds);
         rag.dieSlowly(3 + Math.random() * 3, cause);
@@ -96,7 +101,7 @@ export class DeathSystem {
     rag.time = Math.min(rag.time, 3);
     f.anim.toExternal(rag, 0.03);
     f.ragdoll = rag;
-    this.dying.push({ f, rag, cause, bleedT: 0, groanT: 0.4 + Math.random() * 0.5, puddleT: 0.6, smear: null });
+    this.dying.push({ f, rag, cause, bleedT: 0, groanT: 0.4 + Math.random() * 0.5, puddleT: 0.6, smear: null, over: !limp });
     return rag;
   }
 
@@ -105,6 +110,18 @@ export class DeathSystem {
     for (let i = this.dying.length - 1; i >= 0; i--) {
       const d = this.dying[i];
       d.rag.update(dt);
+      // the rooftop: a body past the edge falls out of the world (no corpse to keep)
+      const py = d.rag.pelvisPos(this._v).y;
+      if (py < -0.9 && !d.over) {
+        d.over = true;
+        g.onOverEdge(d.f, false);
+        g.player.addCombo(1, 'overboard');
+      }
+      if (py < -16) {
+        this.vanish(d);
+        this.dying.splice(i, 1);
+        continue;
+      }
       const p = d.rag.rootPos(this._v);
       d.f.x = p.x;
       d.f.z = p.z;
@@ -175,6 +192,15 @@ export class DeathSystem {
         g.blood.splat(this._v.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.1, 0, (Math.random() - 0.5) * 0.1)), (0.04 + Math.random() * 0.05) * d.f.scale, SPLAT.pool, 0.85, new THREE.Vector3(0, 1, 0));
       }
     }
+  }
+
+  /** Fallen far below the roof: gone, without a corpse. */
+  private vanish(d: Dying) {
+    const f = d.f;
+    d.rag.dispose();
+    f.ragdoll = null;
+    f.model.dispose();
+    this.game.removeFighter(f);
   }
 
   private finalize(d: Dying) {

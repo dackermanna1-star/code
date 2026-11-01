@@ -110,7 +110,7 @@ export class CameraRig {
       const c = Math.cos(ang), sn = Math.sin(ang);
       const relR = new THREE.Vector3(rel.x * c + rel.z * sn, rel.y, -rel.x * sn + rel.z * c);
       let cpos = s.focus.clone().add(relR);
-      cpos = this.resolveCollision(s.focus, cpos);
+      cpos = this.resolveCollision(s.focus, cpos, true);
       const e = this.cineBlend * this.cineBlend * (3 - 2 * this.cineBlend);
       // swing around the action on an arc (never through the fighters): interpolate the look point
       // linearly and the camera offset spherically
@@ -127,7 +127,7 @@ export class CameraRig {
       const dir = new THREE.Vector3(Math.sin(yw) * Math.cos(pt), Math.sin(pt), Math.cos(yw) * Math.cos(pt));
       look.lerp(s.focus, e);
       pos = look.clone().addScaledVector(dir, Math.max(1.5, lerp(lenA, lenB, e)));
-      pos = this.resolveCollision(look, pos);
+      pos = this.resolveCollision(look, pos, true);
       fov = lerp(fov, s.fov, e);
       if (s.t > s.duration + s.blendOut) {
         this.shot = null;
@@ -162,15 +162,18 @@ export class CameraRig {
   }
 
   /** Keep camera within the room and in front of pillars/crates between focus and camera. */
-  resolveCollision(focus: THREE.Vector3, pos: THREE.Vector3) {
+  resolveCollision(focus: THREE.Vector3, pos: THREE.Vector3, cine = false) {
     const m = 0.35;
     // segment vs obstacle boxes (2D slab test)
     const dir = pos.clone().sub(focus);
     const len = dir.length();
     let tMin = 1;
+    const roof = this.arena.map === 'rooftop';
     for (const o of this.arena.obstacles) {
-      if (o.kind === 'wall') continue;
-      if (o.h < 1.0) continue;
+      // (the warehouse's walls are the clamp below; the rooftop's stair huts are real boxes)
+      if (o.kind === 'wall' && !roof) continue;
+      // (a knee-high parapet only matters to the low gameplay camera; a shot looks over it)
+      if (o.h < 1.0 && (o.kind !== 'ledge' || cine)) continue;
       const t = segBox2D(focus.x, focus.z, pos.x, pos.z, o.minX - m, o.maxX + m, o.minZ - m, o.maxZ + m);
       if (t !== null && t < tMin) {
         // only if the obstacle is tall enough at that height
@@ -179,9 +182,11 @@ export class CameraRig {
       }
     }
     if (tMin < 1) pos = focus.clone().addScaledVector(dir, Math.max(0.15, tMin - 0.02 / Math.max(len, 1e-3)));
-    pos.x = clamp(pos.x, -HALF_W + m, HALF_W - m);
-    pos.z = clamp(pos.z, -HALF_D + m, HALF_D - m);
-    pos.y = clamp(pos.y, 0.3, WALL_H - 1.2);
+    // the rooftop has no walls: the camera may hang out over the drop
+    const out = roof ? 3.5 : -m;
+    pos.x = clamp(pos.x, -HALF_W - out, HALF_W + out);
+    pos.z = clamp(pos.z, -HALF_D - out, HALF_D + out);
+    pos.y = clamp(pos.y, 0.3, roof ? 9 : WALL_H - 1.2);
     return pos;
   }
 

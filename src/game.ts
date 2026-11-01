@@ -4,7 +4,7 @@ import { DIFFICULTY, loadSettings, PRESETS, Settings } from './core/settings';
 import { Input } from './core/input';
 import { CameraRig } from './fx/camera';
 import { Arena, HALF_D, HALF_W } from './world/arena';
-import { BloodAtlas, SPLAT } from './world/bloodAtlas';
+import { BloodAtlas, setDrains, SPLAT } from './world/bloodAtlas';
 import { MocapDriver } from './anim/mocapLoco';
 import { CharacterLibrary } from './character/library';
 import { Archetype, registerVariants } from './character/variants';
@@ -33,6 +33,8 @@ import { Shape, Vec3 } from './world/euphoria/engine.js';
 import { Ragdoll } from './world/ragdoll';
 import type { RagdollLike } from './world/ragdollTypes';
 import { Pose, PoseFK } from './anim/pose';
+
+const _edge = new THREE.Vector3();
 
 export class Game {
   settings: Settings;
@@ -98,10 +100,14 @@ export class Game {
     this.input = new Input(this.renderer.gl.domElement);
     this.blood = new BloodAtlas(preset.bloodAtlas, HALF_W * 2, HALF_D * 2);
     this.blood.renderer = this.renderer.gl;
-    this.arena = new Arena(this.blood, preset.pointLights, preset.shadowMap);
+    const mp = this.params.get('map');
+    if (mp === 'warehouse' || mp === 'rooftop') this.settings.map = mp;
+    this.arena = new Arena(this.blood, preset.pointLights, preset.shadowMap, this.settings.map);
     this.scene.add(this.arena.group);
-    this.scene.fog = new THREE.FogExp2(0x0b0d12, 0.028);
-    this.scene.background = new THREE.Color(0x07080b);
+    setDrains(this.arena.drains);
+    this.scene.fog = new THREE.FogExp2(this.arena.fog.color, this.arena.fog.density);
+    this.scene.background = this.arena.background;
+    this.scene.environment = this.arena.environment;
     this.cam = new CameraRig(window.innerWidth / window.innerHeight, this.arena);
     this.renderer.onResize = () => {
       this.cam.camera.aspect = window.innerWidth / Math.max(1, window.innerHeight);
@@ -137,6 +143,9 @@ export class Game {
     this.arena.onSpark = (p) => {
       this.fx.sparks(p, new THREE.Vector3(0, -1, 0), 16);
       if (this.started) this.audio.crack(p);
+    };
+    this.arena.onThunder = (delay, vol) => {
+      if (this.started) this.audio.thunder(delay, vol);
     };
     this.player = new Player(this, this.lib, this.lib.get('player'));
     const mc = this.params.get('mocap');
@@ -223,13 +232,33 @@ export class Game {
     if (this.player) this.applyMocap();
   }
 
+  private flashShown = 0;
+  private sirenT = 25 + Math.random() * 30;
+  /** Lightning lifts the fog, the sky and the wet reflections for a few frames; sirens, far off. */
+  private weather(dt: number) {
+    const fl = this.arena.flash;
+    if (fl !== this.flashShown) {
+      this.flashShown = fl;
+      (this.scene.fog as THREE.FogExp2).color.setHex(this.arena.fog.color).multiplyScalar(1 + fl * 3);
+      this.scene.backgroundIntensity = 1 + fl * 4;
+      this.scene.environmentIntensity = 1 + fl * 1.5;
+    }
+    if (this.arena.map === 'rooftop' && this.started) {
+      this.sirenT -= dt;
+      if (this.sirenT <= 0) {
+        this.sirenT = 40 + Math.random() * 60;
+        this.audio.siren(0.5 + Math.random() * 0.5);
+      }
+    }
+  }
+
   beginRun() {
     this.hud?.show(null);
     this.cam.framingDist = 0;
     this.started = true;
     this.paused = false;
     this.audio.resume();
-    this.audio.startAmbience();
+    this.audio.startAmbience(this.arena.map);
     this.music.start();
     this.input.requestLock();
     this.waves.start(Number(this.params.get('wave') ?? 1));
@@ -351,12 +380,14 @@ export class Game {
     this.physics.update(dt);
     this.euphoria.update(dt);
     this.death.update(dt);
+    this.edgeFalls(dt);
     this.updateThrown(dt);
     this.props.update(dt);
     this.projectiles.update(dt);
     for (const f of this.fighters) f.animate(dt);
     for (const w of this.weapons) w.update(dt);
     this.arena.update(realDt * ts);
+    this.weather(realDt);
     this.blood.update(dt);
     this.corpses.updateWounds(this.time, dt);
     this.fx.update(dt);
@@ -510,11 +541,60 @@ export class Game {
     }
   }
 
-  onEnemyKilled(e: Enemy, h: HitInfo) {
+  /**
+   * The rooftop's edge assist: a heavy blow that drives a body at a nearby parapet sends it over
+   * (returns the launch velocity to give the ragdoll, or null).
+   */
+  edgeLaunch(x: number, z: number, dir: THREE.Vector3, power: number): THREE.Vector3 | null {
+    const l = this.arena.nearestLedge(x, z, 1.9);
+    if (!l) return null;
+    const along = (dir.x * l.out.x + dir.z * l.out.z) / (Math.hypot(dir.x, dir.z) || 1);
+    if (along < 0.5) return null;
+    // closer and squarer = cleaner over; the coping takes the legs and the body pitches over it
+    const k = clamp(power, 0.8, 1.6) * (0.75 + 0.25 * along);
+    return l.out.clone().multiplyScalar((1.7 + l.dist * 0.9) * k).setY(2.7 + l.dist * 0.45);
+  }
+
+  private edgeCamT = 0;
+  /** Rooftop: anyone the physics carries over the parapet is gone - alive, they die on the way down. */
+  private edgeFalls(dt: number) {
+    if (!this.arena.groundRect) return;
+    this.edgeCamT -= dt;
+    for (const e of this.enemies()) {
+      if (!e.alive || !e.ragdoll) continue;
+      const pv = e.ragdoll.pelvisPos(_edge);
+      if (pv.y < -0.9) e.fellOff();
+    }
+  }
+
+  /** A body just dropped past the roof's edge (alive or not): the scream, and a look down. */
+  onOverEdge(f: Fighter, alive: boolean) {
+    this.euphoria.count(alive ? 'edgeKill' : 'edgeBody');
+    const at = f.ragdoll?.pelvisPos(new THREE.Vector3()) ?? new THREE.Vector3(f.x, -1, f.z);
+    if (alive) this.audio.play('death', { pos: at, vol: 1, pitch: 1.08 });
+    // the landing, far below and a long moment later
+    this.audio.play('body_fall', { pos: at, vol: 0.12, pitch: 0.6, delay: 2.2 });
+    if (this.edgeCamT > 0 || this.cam.inCinematic || f === this.player) return;
+    // never take the player's eyes off a blow that's already coming
+    if (this.enemies().some((o) => o.alive && o.state === 'attack' && o.distTo(this.player) < 3.5)) return;
+    this.edgeCamT = 5;
+    this.slowMo(0.45, 1.2);
+    const l = this.arena.nearestLedge(at.x, at.z, 8);
+    // (l.out points from the body back toward the roof)
+    const inward = l ? l.out.clone() : new THREE.Vector3(-at.x, 0, -at.z).normalize();
+    // from just inside the parapet, over the coping, down at the falling body
+    // (dist is to the parapet's outer face: 0.38 thick, then a step inside it)
+    const pos = at.clone().setY(3.0).addScaledVector(inward, (l?.dist ?? 1) + 0.75);
+    const focus = at.clone().addScaledVector(inward, -0.3).setY(at.y - 2.2);
+    this.cam.playShot({ focus, pos, fov: 52, duration: 1.3, blendIn: 0.2, blendOut: 0.6, orbit: 0.08 });
+  }
+
+  onEnemyKilled(e: Enemy, h: HitInfo, how: 'edge' | null = null) {
     const p = this.player;
-    const pts = Math.round(e.scoreValue * p.multiplier * (h.finisher ? 1.5 : 1) * (DIFFICULTY[this.settings.difficulty] ?? DIFFICULTY.fighter).score);
+    const pts = Math.round(e.scoreValue * p.multiplier * (h.finisher ? 1.5 : how === 'edge' ? 2 : 1) * (DIFFICULTY[this.settings.difficulty] ?? DIFFICULTY.fighter).score);
     p.score += pts;
-    if (!e.cfg.boss) this.hud?.feed(`${e.cfg.label.toUpperCase()} DOWN`, `+${pts.toLocaleString()}`);
+    if (how === 'edge') this.hud?.feed(e.cfg.boss ? `${e.cfg.label.toUpperCase()} WENT OVER` : 'OVER THE EDGE', `+${pts.toLocaleString()}`);
+    else if (!e.cfg.boss) this.hud?.feed(`${e.cfg.label.toUpperCase()} DOWN`, `+${pts.toLocaleString()}`);
     if (e.cfg.boss) {
       this.slowMo(0.15, 1.6);
       this.hud?.bannerShow(`${e.cfg.label}`, 'DEFEATED', 3, 'BOSS DOWN', true);
@@ -566,6 +646,7 @@ export class Game {
     const p = this.player;
     const stats = {
       Difficulty: this.settings.difficulty.toUpperCase(),
+      Arena: this.arena.map === 'rooftop' ? 'THE ROOFTOP' : 'THE WAREHOUSE',
       'Wave reached': this.waves.wave,
       Score: p.score.toLocaleString(),
       Kills: p.stats.kills,

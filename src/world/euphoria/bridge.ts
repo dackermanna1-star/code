@@ -158,12 +158,14 @@ export class EuphoriaSim {
   constructor(arena: Arena, substeps = 10, maxActive = 8) {
     this.baseSubsteps = substeps;
     this.maxActive = maxActive;
-    this.world = new World({ substeps, groundHalfSize: 40 });
+    this.world = new World({ substeps, groundHalfSize: 40, ...(arena.groundRect ? { groundRect: arena.groundRect } : {}) });
     for (const o of arena.obstacles) {
+      if (o.ghost) continue;
       const hx = (o.maxX - o.minX) / 2, hz = (o.maxZ - o.minZ) / 2, hy = o.h / 2;
       const mat = o.kind === 'crate' ? 'wood' : o.kind === 'prop' ? 'metal' : 'concrete';
       this.addBox(new THREE.Vector3((o.minX + o.maxX) / 2, hy, (o.minZ + o.maxZ) / 2), new THREE.Vector3(hx, hy, hz), mat);
     }
+    for (const sl of arena.physicsSlabs) this.addBox(sl.c, sl.half, 'metal');
   }
 
   count(name: string) {

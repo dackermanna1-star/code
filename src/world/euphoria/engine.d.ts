@@ -143,7 +143,7 @@ export class World {
   staticBodies: Body[];
   impactList: ImpactRecord[];
   stats: { contacts: number; pairs: number; stepMs: number };
-  constructor(opts?: { gravity?: number; substeps?: number; groundHalfSize?: number });
+  constructor(opts?: { gravity?: number; substeps?: number; groundHalfSize?: number; groundRect?: { minX: number; maxX: number; minZ: number; maxZ: number } });
   setGroundRect(minX: number, minZ: number, maxX: number, maxZ: number): void;
   addBody(b: Body): Body;
   removeBody(b: Body): void;

@@ -272,10 +272,15 @@ export class AudioSys {
     return 1 / (1 + Math.max(0, d - 2) * 0.12);
   }
 
-  startAmbience() {
+  /**
+   * Looping beds for the map: the warehouse is factory hum with rain on the roof outside; the rooftop
+   * is the rain itself, up close, over a low city rumble.
+   */
+  startAmbience(map: 'warehouse' | 'rooftop' = 'warehouse') {
     const c = this.ctx;
     if (!c || !this.loaded) return;
     const list = this.cats['ambience'] ?? [];
+    const levels = map === 'rooftop' ? [0.05, 0.85] : [0.55, 0.22];
     list.forEach((f, i) => {
       const b = this.buffers.get(f);
       if (!b) return;
@@ -283,12 +288,158 @@ export class AudioSys {
       s.buffer = b;
       s.loop = true;
       const g = c.createGain();
-      g.gain.value = i === 0 ? 0.55 : 0.22;
+      g.gain.value = levels[i] ?? 0.2;
       s.connect(g);
       g.connect(this.amb);
       s.start();
       this.ambSources.push(s);
     });
+    if (map === 'rooftop') {
+      // the second rain layer, offset and brighter, so the loop never repeats audibly
+      const rainF = list[1] && this.buffers.get(list[1]);
+      if (rainF) {
+        const s = c.createBufferSource();
+        s.buffer = rainF;
+        s.loop = true;
+        s.playbackRate.value = 1.13;
+        const hp = c.createBiquadFilter();
+        hp.type = 'highshelf';
+        hp.frequency.value = 3500;
+        hp.gain.value = 5;
+        const g = c.createGain();
+        g.gain.value = 0.35;
+        s.connect(hp);
+        hp.connect(g);
+        g.connect(this.amb);
+        s.start(0, rainF.duration * 0.47);
+        this.ambSources.push(s);
+      }
+      // the city far below: a brown-noise rumble
+      const s = c.createBufferSource();
+      s.buffer = this.brown();
+      s.loop = true;
+      const lp = c.createBiquadFilter();
+      lp.type = 'lowpass';
+      lp.frequency.value = 220;
+      const g = c.createGain();
+      g.gain.value = 0.32;
+      s.connect(lp);
+      lp.connect(g);
+      g.connect(this.amb);
+      s.start();
+      this.ambSources.push(s);
+    }
+  }
+
+  private brownBuf: AudioBuffer | null = null;
+  /** Four seconds of brown (integrated, red) noise: all rumble, no hiss. */
+  private brown() {
+    const c = this.ctx!;
+    if (this.brownBuf) return this.brownBuf;
+    const len = c.sampleRate * 4;
+    const b = c.createBuffer(2, len, c.sampleRate);
+    for (let ch = 0; ch < 2; ch++) {
+      const d = b.getChannelData(ch);
+      let v = 0;
+      for (let i = 0; i < len; i++) {
+        v = (v + (Math.random() * 2 - 1) * 0.02) * 0.998;
+        d[i] = v * 3.2;
+      }
+      // fade the loop seam
+      const f = 2048;
+      for (let i = 0; i < f; i++) {
+        const k = i / f;
+        d[len - f + i] = d[len - f + i] * (1 - k) + d[i] * k;
+      }
+    }
+    this.brownBuf = b;
+    return b;
+  }
+
+  /**
+   * Thunder: a crack if the strike is close, then a long low roll that swells two or three times as
+   * it rumbles off between the buildings.
+   */
+  thunder(delay: number, vol: number) {
+    const c = this.ctx;
+    if (!c || c.state !== 'running' || !this.noiseBuf) return;
+    const t = c.currentTime + delay;
+    const near = vol > 0.78;
+    if (near) {
+      const s = c.createBufferSource();
+      s.buffer = this.noiseBuf;
+      const hp = c.createBiquadFilter();
+      hp.type = 'highpass';
+      hp.frequency.value = 900;
+      const g = c.createGain();
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.5 * vol, t + 0.008);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.35);
+      s.connect(hp);
+      hp.connect(g);
+      g.connect(this.amb);
+      s.start(t, Math.random() * 0.5, 0.4);
+    }
+    const dur = 3.5 + Math.random() * 2.5;
+    const s = c.createBufferSource();
+    s.buffer = this.brown();
+    s.playbackRate.value = 0.8 + Math.random() * 0.3;
+    const lp = c.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.Q.value = 0.7;
+    lp.frequency.setValueAtTime(near ? 1400 : 700, t);
+    lp.frequency.exponentialRampToValueAtTime(120, t + dur);
+    const g = c.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(1.4 * vol, t + (near ? 0.06 : 0.35));
+    // the roll: a few swells, each weaker than the last
+    let at = t + 0.5;
+    let level = 0.9 * vol;
+    while (at < t + dur - 0.8) {
+      g.gain.exponentialRampToValueAtTime(level * 0.45, at);
+      at += 0.25 + Math.random() * 0.45;
+      g.gain.exponentialRampToValueAtTime(level, at);
+      at += 0.3 + Math.random() * 0.6;
+      level *= 0.72;
+    }
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    s.connect(lp);
+    lp.connect(g);
+    g.connect(this.amb);
+    s.start(t, Math.random() * 3);
+    s.stop(t + dur + 0.1);
+  }
+
+  /** A siren a few blocks away: a slow wail, muffled by distance, drifting past. */
+  siren(vol = 0.5) {
+    const c = this.ctx;
+    if (!c || c.state !== 'running') return;
+    const t = c.currentTime;
+    const dur = 9 + Math.random() * 5;
+    const o = c.createOscillator();
+    o.type = 'sawtooth';
+    const base = 620 + Math.random() * 120;
+    o.frequency.setValueAtTime(base, t);
+    for (let k = t; k < t + dur; k += 2.2) {
+      o.frequency.linearRampToValueAtTime(base * 1.55, k + 1.1);
+      o.frequency.linearRampToValueAtTime(base, k + 2.2);
+    }
+    const lp = c.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.value = 900;
+    const g = c.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.05 * vol, t + dur * 0.4);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    const pan = c.createStereoPanner();
+    pan.pan.setValueAtTime(Math.random() < 0.5 ? -0.8 : 0.8, t);
+    pan.pan.linearRampToValueAtTime(-pan.pan.value * 0.6, t + dur);
+    o.connect(lp);
+    lp.connect(g);
+    g.connect(pan);
+    pan.connect(this.amb);
+    o.start(t);
+    o.stop(t + dur + 0.1);
   }
 
   /** Slow-motion: pitch down everything (applied to new sounds via global rate). */

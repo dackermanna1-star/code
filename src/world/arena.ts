@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { dressArena, Dressing, windowTexture } from './dressing';
+import { buildRooftop } from './rooftop';
 import { BloodAtlas, FaceKind, SPLAT } from './bloodAtlas';
 import { brickTexture, concreteTexture, crateTexture, graffitiTexture, metalSidingTexture, pillarTexture, radialTexture } from './textures';
 import { RNG } from '../core/math';
@@ -11,8 +12,10 @@ export interface Obstacle {
   minZ: number;
   maxZ: number;
   h: number;
-  kind: 'wall' | 'pillar' | 'crate' | 'prop';
+  kind: 'wall' | 'pillar' | 'crate' | 'prop' | 'ledge';
   name: string;
+  /** Blocks fighters on foot only (no physics, camera or blood): the rooftop's open gateways. */
+  ghost?: boolean;
 }
 export interface Door {
   x: number; // outside spawn point
@@ -21,6 +24,8 @@ export interface Door {
   iz: number;
   yaw: number; // facing into the arena
   width: number;
+  /** Metres the entrant climbs on the way in (the rooftop's fire escapes come up from below). */
+  climb?: number;
 }
 export interface SurfaceHit {
   point: THREE.Vector3;
@@ -33,8 +38,14 @@ export const HALF_W = 13;
 export const HALF_D = 11;
 export const WALL_H = 7;
 
+export type MapName = 'warehouse' | 'rooftop';
+export const MAPS: { id: MapName; name: string; blurb: string }[] = [
+  { id: 'warehouse', name: 'THE WAREHOUSE', blurb: 'Moonlit concrete, pillars and crates' },
+  { id: 'rooftop', name: 'THE ROOFTOP', blurb: 'Neon, rain and a long way down' },
+];
+
 /** Build a quad with tiling uv (meters / tile) and blood atlas uv. */
-function paintQuad(blood: BloodAtlas, origin: THREE.Vector3, u: THREE.Vector3, v: THREE.Vector3, w: number, h: number, tile: [number, number], kind: FaceKind, density: number, segU = 1, segV = 1) {
+export function paintQuad(blood: BloodAtlas, origin: THREE.Vector3, u: THREE.Vector3, v: THREE.Vector3, w: number, h: number, tile: [number, number], kind: FaceKind, density: number, segU = 1, segV = 1) {
   const face = blood.addFace(origin, u, v, w, h, kind, density);
   const n = face.n;
   const pos: number[] = [];
@@ -67,7 +78,7 @@ function paintQuad(blood: BloodAtlas, origin: THREE.Vector3, u: THREE.Vector3, v
   return g;
 }
 
-function mergeGeos(geos: THREE.BufferGeometry[]): THREE.BufferGeometry {
+export function mergeGeos(geos: THREE.BufferGeometry[]): THREE.BufferGeometry {
   let vcount = 0;
   let icount = 0;
   for (const g of geos) {
@@ -115,8 +126,39 @@ export class Arena {
   private wasOff = false;
   time = 0;
   private rng = new RNG(99);
+  /** Look of the space around the fight (applied to the scene by the game). */
+  fog = { color: 0x0b0d12, density: 0.028 };
+  background: THREE.Color | THREE.Texture = new THREE.Color(0x07080b);
+  environment: THREE.Texture | null = null;
+  /** Physics floor extent (null: endless). The rooftop ends at its edges: bodies go over. */
+  groundRect: { minX: number; maxX: number; minZ: number; maxZ: number } | null = null;
+  /** Where the loose oil drums and crates start. */
+  propSpots: { drums: [number, number][]; crates: [number, number, number][] } = {
+    drums: [[-8.8, -7.6], [-8.2, -8.4], [8.9, 6.4], [9.4, -6.9], [-3.4, 9.7], [12.0, 1.5], [-12.1, -1.9]],
+    crates: [[-6.0, 9.9, 0], [-5.2, 9.8, 0], [-5.6, 9.85, 0.75], [6.2, -9.9, 0], [10.6, 3.2, 0], [-10.4, -3.8, 0]],
+  };
+  /** Low points the floor slopes towards (blood runs there). */
+  drains: [number, number][] = [[-9.5, 4.5], [8.5, -3.0], [3.0, 8.6]];
+  /** Per-frame animation of the map's own set dressing (rain, neon, fans). */
+  private extraUpdate: ((dt: number) => void) | null = null;
+  /** Extra static boxes for the ragdoll worlds only (a fire-escape landing past the parapet). */
+  physicsSlabs: { c: THREE.Vector3; half: THREE.Vector3 }[] = [];
+  /** Lightning struck: thunder should roll in after `delay` seconds at `vol`. */
+  onThunder: ((delay: number, vol: number) => void) | null = null;
+  /** Lightning brightness this frame (0: none); the game lifts the fog, sky and reflections with it. */
+  flash = 0;
 
-  constructor(public blood: BloodAtlas, pointLights: number, shadowMapSize: number) {
+  constructor(public blood: BloodAtlas, pointLights: number, shadowMapSize: number, public map: MapName = 'warehouse') {
+    if (map === 'rooftop') {
+      const r = buildRooftop(this, blood, pointLights, shadowMapSize);
+      this.moon = r.moon;
+      this.hemi = r.hemi;
+      this.dust = r.dust;
+      this.dressing = r.dressing;
+      this.extraUpdate = r.update;
+      this.mergeStatic();
+      return;
+    }
     const S = blood.size;
     const floorDensity = S >= 4096 ? 96 : 52;
     const wallDensity = floorDensity * 0.45;
@@ -405,7 +447,7 @@ export class Arena {
    * Merge static decor meshes that share a look into single draw calls (excluding swinging lamps,
    * paintable surfaces and transparent decals). Cuts ~120 draw calls (and shadow-pass calls) to ~15.
    */
-  private mergeStatic() {
+  mergeStatic() {
     this.group.updateMatrixWorld(true);
     const lampPivots = new Set(this.lamps.map((l) => l.pivot));
     const buckets = new Map<string, { mat: THREE.Material; geos: THREE.BufferGeometry[]; cast: boolean; recv: boolean; meshes: THREE.Mesh[] }>();
@@ -447,7 +489,7 @@ export class Arena {
   }
 
   /** Box faces (4 sides + optional top) as paintable quads. */
-  private boxFaces(blood: BloodAtlas, x: number, z: number, w: number, d: number, h: number, density: number, tile: [number, number], top: boolean, paintH = h) {
+  boxFaces(blood: BloodAtlas, x: number, z: number, w: number, d: number, h: number, density: number, tile: [number, number], top: boolean, paintH = h) {
     const out: THREE.BufferGeometry[] = [];
     const y = 0;
     const up = new THREE.Vector3(0, 1, 0);
@@ -603,7 +645,7 @@ export class Arena {
   nearestSurface(x: number, z: number, maxDist: number, kinds: Obstacle['kind'][] = ['wall', 'pillar', 'crate']): SurfaceHit | null {
     let best: SurfaceHit | null = null;
     for (const o of this.obstacles) {
-      if (!kinds.includes(o.kind)) continue;
+      if (!kinds.includes(o.kind) || o.ghost) continue;
       const cx = Math.max(o.minX, Math.min(x, o.maxX));
       const cz = Math.max(o.minZ, Math.min(z, o.maxZ));
       const dx = x - cx, dz = z - cz;
@@ -612,6 +654,23 @@ export class Arena {
       if (!best || d < best.dist) {
         best = { point: new THREE.Vector3(cx, 0, cz), normal: new THREE.Vector3(dx / d, 0, dz / d), dist: d, obstacle: o };
       }
+    }
+    return best;
+  }
+
+  /**
+   * The rooftop's edge: how far (x,z) is from the nearest parapet and which way is out (null when
+   * there's no ledge within maxDist, and always in the warehouse).
+   */
+  nearestLedge(x: number, z: number, maxDist: number): { dist: number; out: THREE.Vector3 } | null {
+    let best: { dist: number; out: THREE.Vector3 } | null = null;
+    for (const o of this.obstacles) {
+      if (o.kind !== 'ledge') continue;
+      const cx = Math.max(o.minX, Math.min(x, o.maxX));
+      const cz = Math.max(o.minZ, Math.min(z, o.maxZ));
+      const d = Math.hypot(cx - x, cz - z);
+      if (d > maxDist || d < 1e-4 || (best && d >= best.dist)) continue;
+      best = { dist: d, out: new THREE.Vector3((cx - x) / d, 0, (cz - z) / d) };
     }
     return best;
   }
@@ -653,11 +712,14 @@ export class Arena {
 
   update(dt: number) {
     this.time += dt;
+    this.extraUpdate?.(dt);
     // rain on the glass, pulsing beacon, faint shimmer in the moon beams
     if (this.rainMesh) (this.rainMesh.material as THREE.MeshBasicMaterial).map!.offset.y += dt * 0.35;
-    const bc = this.dressing.beacon.material as THREE.SpriteMaterial;
-    bc.opacity = 0.15 + 0.45 * Math.pow(0.5 + 0.5 * Math.sin(this.time * 3.1), 3);
-    (this.dressing.beams.material as THREE.MeshBasicMaterial).opacity = 0.05 + Math.sin(this.time * 0.37) * 0.01;
+    if (this.map === 'warehouse') {
+      const bc = this.dressing.beacon.material as THREE.SpriteMaterial;
+      bc.opacity = 0.15 + 0.45 * Math.pow(0.5 + 0.5 * Math.sin(this.time * 3.1), 3);
+      (this.dressing.beams.material as THREE.MeshBasicMaterial).opacity = 0.05 + Math.sin(this.time * 0.37) * 0.01;
+    }
     this.sparkCd -= dt;
     for (const l of this.lamps) {
       if (l.base > 0) {
@@ -684,6 +746,7 @@ export class Arena {
       l.pivot.rotation.x = l.swing * 0.6;
     }
     // drifting dust
+    if (!this.dust.visible) return;
     const pos = this.dust.geometry.attributes.position as THREE.BufferAttribute;
     const arr = pos.array as Float32Array;
     for (let i = 0; i < arr.length; i += 3) {

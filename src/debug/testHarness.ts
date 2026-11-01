@@ -114,6 +114,15 @@ export async function runTest(game: Game, params: URLSearchParams) {
       console.log(`merged color=${mat.color?.getHexString()} verts=${m.geometry.attributes.position.count} min=${b.min.toArray().map((v) => v.toFixed(1))} max=${b.max.toArray().map((v) => v.toFixed(1))}`);
     });
   }
+  if (name === 'view') {
+    // a still of the map: the player at px,pz facing pyaw, the camera at camyaw/campitch/camdist
+    game.player.spawn(Number(params.get('px') ?? 0), Number(params.get('pz') ?? 2), Number(params.get('pyaw') ?? Math.PI));
+    const cd = params.get('camdist');
+    for (let i = 0; i < frames; i++) {
+      if (cd) game.cam.framingDist = Number(cd) - 4.6;
+      game.step(dt);
+    }
+  }
   if (name === 'arena') {
     for (let i = 0; i < frames; i++) {
       game.input.virtual = { moveX: 0, moveY: i > 20 && i < 80 ? 1 : 0 };
@@ -150,7 +159,7 @@ export async function runTest(game: Game, params: URLSearchParams) {
     game.started = true;
     if (params.get('audio') === '1') {
       game.audio.resume();
-      game.audio.startAmbience();
+      game.audio.startAmbience(game.arena.map);
       game.music.start();
     }
     game.waves.start(Number(params.get('wave') ?? 1));
@@ -261,6 +270,41 @@ export async function runTest(game: Game, params: URLSearchParams) {
       },
     };
     game.renderFrame();
+  }
+  if (name === 'ledge') {
+    // rooftop: knock (mode=knock), kill (death) or stagger an enemy into the north parapet
+    const mode = params.get('mode') ?? 'knock';
+    const gap = Number(params.get('gap') ?? 1.4);
+    const ox = Number(params.get('ox') ?? 0);
+    game.player.spawn(ox, -11 + gap + 2.0, Math.PI);
+    game.cam.yaw = Number(params.get('camyaw') ?? 0);
+    const e = spawnEnemy(params.get('enemy') ?? 'brawler', ox, -11 + gap);
+    e.attackCooldown = 1e9;
+    e.stunNow(100);
+    game.started = true;
+    for (let f = 0; f < frames; f++) {
+      e.attackCooldown = 1e9;
+      if (f === 30) {
+        const p = game.player;
+        const dir = new THREE.Vector3(0, 0, -1);
+        const pt = new THREE.Vector3();
+        e.bodyPoint('chest', pt);
+        const h = makeHit({ dir, point: pt, damage: 5, strength: Number(params.get('str') ?? 1.1), kind: 'punch', region: 'chest', attacker: p, knockdown: mode === 'knock' });
+        if (mode === 'death') {
+          e.hp = 1;
+          e.takeHit({ ...h, damage: 50 });
+        } else if (mode === 'stagger') e.physStagger(h, 0.6);
+        else e.takeHit(h);
+      }
+      game.step(dt);
+      if (f % 10 === 0 && f >= 30) {
+        const r = e.ragdoll;
+        const pv = r ? r.pelvisPos(new THREE.Vector3()) : null;
+        console.log(`f=${f} alive=${e.alive} state=${e.state} pelvis=${pv ? pv.toArray().map((v) => v.toFixed(2)).join(',') : '-'} dying=${game.death.dying.length} fighters=${game.fighters.length} kills=${game.player.stats.kills} score=${game.player.score} cine=${game.cam.inCinematic} cam=${game.cam.camera.position.toArray().map((v) => v.toFixed(2)).join(',')}`);
+      }
+    }
+    result.kills = game.player.stats.kills;
+    result.fighters = game.fighters.length;
   }
   if (name === 'euph') {
     // scripted active-ragdoll reactions for filming: mode = stagger | knock | death | throw | pile

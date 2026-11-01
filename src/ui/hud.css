@@ -182,6 +182,7 @@ kbd, #hud .prompt b { display: inline-block; min-width: 24px; padding: 4px 7px 3
 .menu .foot { position: absolute; left: max(48px, 7vw); right: 32px; bottom: 22px; display: flex; justify-content: space-between; gap: 20px; font: 600 13px/1.5 var(--ui); letter-spacing: .14em; color: var(--dim); }
 .menu .foot b { color: var(--gold); font-weight: 800; }
 .menu .best { font: 700 15px/1.5 var(--ui); letter-spacing: .14em; color: var(--dim); margin-top: 26px; }
+.menu .arena-blurb { font: 700 12px/1.4 var(--ui); letter-spacing: .3em; color: var(--dim); margin: 14px 0 0; opacity: .8; }
 .menu .best b { color: var(--gold); font-weight: 800; }
 .menu .small { font: 500 14px/1.6 var(--ui); letter-spacing: .04em; color: var(--dim); margin-top: 14px; max-width: 520px; }
 

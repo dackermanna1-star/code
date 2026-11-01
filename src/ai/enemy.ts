@@ -180,6 +180,11 @@ export class Enemy extends Fighter {
     li.breath = this.injured ? 1 : 0.3;
     li.style = this.injured && !this.cfg.boss ? 'injured' : this.cfg.style;
     li.taunt = 0;
+    if (this.lift !== 0 && this.state !== 'enter') {
+      // knocked off the stairs mid-climb: back on the roof
+      this.lift = 0;
+      this.climbH = 0;
+    }
 
     switch (this.state) {
       case 'enter':
@@ -289,8 +294,26 @@ export class Enemy extends Fighter {
     this.clipEndState = 'circle';
   }
 
+  private climbH = 0;
+  private climbFrom: [number, number] = [0, 0];
+  /** Come in climbing: start `h` metres down the fire escape and rise over the first steps. */
+  startClimb(h: number) {
+    this.climbH = h;
+    this.climbFrom = [this.x, this.z];
+    this.lift = -h;
+  }
+
   private doEnter(dt: number) {
     this.ghostWalls = true;
+    if (this.climbH > 0) {
+      const went = Math.hypot(this.x - this.climbFrom[0], this.z - this.climbFrom[1]);
+      const k = Math.min(1, went / 1.3);
+      this.lift = -this.climbH * (1 - k) * (1 - k * 0.3);
+      if (k >= 1) {
+        this.climbH = 0;
+        this.lift = 0;
+      }
+    }
     const dx = this.enterX - this.x, dz = this.enterZ - this.z;
     const d = Math.hypot(dx, dz);
     const sp = this.cfg.speed * 0.75;
@@ -307,6 +330,8 @@ export class Enemy extends Fighter {
         this.anim.initAt(this.x, this.z, this.yaw);
       }
       this.ghostWalls = false;
+      this.climbH = 0;
+      this.lift = 0;
       this.setState('circle');
     }
   }
@@ -795,7 +820,9 @@ export class Enemy extends Fighter {
     g.director.cancel(this);
     this.token = false;
     const imp = g.combat.impulseFor(h, 70 * this.scale * this.scale).multiplyScalar(0.55);
-    const launch = h.launch > 0 ? h.dir.clone().multiplyScalar(h.launch * 0.6).setY(h.launch * 0.25) : null;
+    // driven into the rooftop's parapet: over it (bosses keep their footing at the lip)
+    const edge = this.cfg.boss ? null : g.edgeLaunch(this.x, this.z, h.dir, h.strength + h.launch * 0.15);
+    const launch = edge ?? (h.launch > 0 ? h.dir.clone().multiplyScalar(h.launch * 0.6).setY(h.launch * 0.25) : null);
     if (this.downRag) {
       // already under physics (staggering / getting up): push it over
       const r = this.downRag;
@@ -909,16 +936,40 @@ export class Enemy extends Fighter {
     this.token = false;
     const mass = 70 * this.scale * this.scale;
     const imp = g.combat.impulseFor(h, mass);
-    const launch = h.launch > 0 ? h.dir.clone().multiplyScalar(h.launch).setY(h.launch * 0.35 + 1) : undefined;
+    const edge = h.strength >= 0.9 || h.launch > 0 || h.finisher ? g.edgeLaunch(this.x, this.z, h.dir, h.strength + h.launch * 0.15) : null;
+    const launch = edge ?? (h.launch > 0 ? h.dir.clone().multiplyScalar(h.launch).setY(h.launch * 0.35 + 1) : undefined);
     if (this.weapon) this.weapon.drop(new THREE.Vector3(rand(-1.5, 1.5) + h.dir.x * 2, 2.5, rand(-1.5, 1.5) + h.dir.z * 2));
     this.paired = null;
     if (this.downRag) {
       g.death.adopt(this, this.downRag, 'ground', imp.multiplyScalar(0.5), h.point, h.region);
+      if (edge) this.downRag.launch(edge.multiplyScalar(0.75), 2);
       this.downRag = null;
     } else {
       g.death.kill(this, h.finisher ? 'finisher' : 'beaten', imp, h.point, launch, h.region);
     }
     g.onEnemyKilled(this, h);
+  }
+
+  /** Over the rooftop's edge while under physics, still alive: no coming back from that. */
+  fellOff() {
+    const g = this.game;
+    const rag = this.downRag;
+    if (!this.alive || !rag) return;
+    g.director.cancel(this);
+    this.token = false;
+    this.paired = null;
+    if (this.weapon) this.weapon.drop(new THREE.Vector3(rand(-1, 1), 1, rand(-1, 1)));
+    const at = rag.pelvisPos(new THREE.Vector3());
+    // keep the body's own controller running: it flails all the way down
+    g.death.adopt(this, rag, 'fell', undefined, undefined, undefined, false);
+    this.downRag = null;
+    const p = g.player;
+    p.stats.kills++;
+    p.stats.envKills++;
+    p.addCombo(2, 'edge');
+    const h = makeHit({ dir: new THREE.Vector3(0, -1, 0), point: at, damage: 999, strength: 1, kind: 'slam', region: 'chest', attacker: p, bleed: 0 });
+    g.onEnemyKilled(this, h, 'edge');
+    g.onOverEdge(this, true);
   }
 
   /** The player vaulted over this enemy: disoriented briefly. */

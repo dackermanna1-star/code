@@ -290,6 +290,15 @@ export class Weapon {
   }
 
   update(dt: number) {
+    if (this.body && this.body.translation().y < -6) {
+      // over the rooftop's edge: gone
+      this.unbatch();
+      this.detachBody();
+      this.group.removeFromParent();
+      const ws = this.game.weapons;
+      ws.splice(ws.indexOf(this), 1);
+      return;
+    }
     if (this.body && this.batchIndex < 0) {
       const t = this.body.translation();
       const r = this.body.rotation();
