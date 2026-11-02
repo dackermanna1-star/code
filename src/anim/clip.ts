@@ -6,7 +6,9 @@ import { catmull, clamp01, DEG, ease, EaseName, eulerDeg, lerp, rotY, smoothstep
 export type V3 = [number, number, number];
 export type AimPoint =
   | 'head' | 'jaw' | 'chest' | 'gut' | 'hips' | 'legs' | 'knee' | 'neck' | 'back'
-  | 'p.head' | 'p.neck' | 'p.chest' | 'p.hips' | 'p.handL' | 'p.handR' | 'p.farmL' | 'p.farmR' | 'p.footL' | 'p.footR' | 'p.shinL' | 'p.shinR' | 'p.uarmL' | 'p.uarmR';
+  | 'p.head' | 'p.neck' | 'p.chest' | 'p.hips' | 'p.handL' | 'p.handR' | 'p.farmL' | 'p.farmR' | 'p.footL' | 'p.footR' | 'p.shinL' | 'p.shinR' | 'p.uarmL' | 'p.uarmR'
+  // a two-handed pistol grip, arm's length towards the target (Scarlet's special)
+  | 'gun.R' | 'gun.L';
 
 export interface KeyHand {
   p?: V3;
@@ -617,7 +619,8 @@ export class ClipPlayer {
           const want = Math.min(0.12 * S, 0.035 * S + Math.hypot(dx, dz) * 0.2);
           let own = 0;
           if (!st.added) for (let q = st.a; q <= st.b; q++) own = Math.max(own, foot(side, q).p[1] * S);
-          if (want > own + 0.01 * S) lift = Math.pow(Math.sin(Math.PI * v), 0.6) * (want - own);
+          // (a raised cosine: off the floor and back onto it without a jolt in the shin)
+          if (want > own + 0.01 * S) lift = (0.5 - 0.5 * Math.cos(2 * Math.PI * v)) * (want - own);
         }
         if (settle > 0) {
           const rs = smoothstep(0, settle, keys[i].t);
@@ -841,7 +844,9 @@ export class ClipPlayer {
         x = lerp(a.x, b.x, sh);
         z = lerp(a.z, b.z, sh);
         const lift = Math.max(Math.min(f2.lift, 0.03 + dist * 0.35), big * Math.min(0.15, dist * 0.11));
-        y = a.y + (b.y - a.y) * ss + Math.sin(Math.PI * s) * lift;
+        // (lifted on a raised cosine: a step leaves and lands with no vertical speed - a sine arc
+        // started each step with a jolt through the shin)
+        y = a.y + (b.y - a.y) * ss + (0.5 - 0.5 * Math.cos(2 * Math.PI * s)) * lift * 1.15;
       } else {
         const p0 = fw[i0], p3 = fw[i3];
         x = cr(p0.x, a.x, b.x, p3.x);

@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 
 export type Region = 'head' | 'chest' | 'gut' | 'legs' | 'back';
-export type HitKind = 'punch' | 'kick' | 'elbow' | 'knee' | 'blunt' | 'blade' | 'slam' | 'throw' | 'stomp' | 'palm';
+export type HitKind = 'punch' | 'kick' | 'elbow' | 'knee' | 'blunt' | 'blade' | 'slam' | 'throw' | 'stomp' | 'palm' | 'shot';
 
 export interface HitInfo {
   attacker: { id: number } | null;

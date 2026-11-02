@@ -199,6 +199,48 @@ export class AudioSys {
     }
   }
 
+  /**
+   * A pistol shot: the supersonic crack (bright noise, a few ms), the muzzle blast (a low, fast
+   * pitch drop) and the room answering it (dark noise dying away).
+   */
+  gunshot(pos?: THREE.Vector3 | null) {
+    const c = this.ctx;
+    if (!c || !this.noiseBuf || c.state !== 'running') return;
+    const t = c.currentTime;
+    const v = this.distGain(pos);
+    const burst = (type: BiquadFilterType, freq: number, q: number, peak: number, attack: number, decay: number, off: number) => {
+      const s = c.createBufferSource();
+      s.buffer = this.noiseBuf;
+      const f = c.createBiquadFilter();
+      f.type = type;
+      f.frequency.value = freq;
+      f.Q.value = q;
+      const g = c.createGain();
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(peak * v, t + attack);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + attack + decay);
+      s.connect(f);
+      f.connect(g);
+      g.connect(this.sfx);
+      s.start(t, off, attack + decay + 0.05);
+    };
+    burst('highpass', 2400, 0.7, 1.3, 0.001, 0.045, Math.random() * 0.5);
+    burst('bandpass', 900, 0.9, 1.1, 0.002, 0.12, Math.random() * 0.5);
+    burst('lowpass', 520, 0.6, 0.75, 0.01, 0.75, Math.random() * 0.5);
+    const o = c.createOscillator();
+    const g = c.createGain();
+    o.type = 'sine';
+    o.frequency.setValueAtTime(150, t);
+    o.frequency.exponentialRampToValueAtTime(36, t + 0.12);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(1.0 * v, t + 0.003);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.2);
+    o.connect(g);
+    g.connect(this.sfx);
+    o.start(t);
+    o.stop(t + 0.22);
+  }
+
   /** Low-frequency body thump layered under heavy impacts (adds weight). */
   thump(strength: number, pos?: THREE.Vector3 | null) {
     const c = this.ctx;

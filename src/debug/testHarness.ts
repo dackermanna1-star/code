@@ -36,6 +36,16 @@ export class Bot {
       this.actT = 0.25;
       return;
     }
+    // the special when it's loaded and there's a crowd (or a boss) to use it on
+    if (p.specialCharges > 0 && p.action === 'free' && this.actT <= 0) {
+      const near = g.enemies().filter((e) => e.alive && !e.down && e.distTo(p) < 9);
+      if (near.length >= 3 || near.some((e) => e.cfg.boss)) {
+        inp.press('special');
+        inp.release('special');
+        this.actT = 0.4;
+        return;
+      }
+    }
     // nearest enemy
     let best: Enemy | null = null;
     let bd = Infinity;
@@ -265,6 +275,11 @@ export async function runTest(game: Game, params: URLSearchParams) {
       bot.update(dt);
       game.player.hp = Math.max(game.player.hp, 50);
       game.step(dt);
+    }
+    // special=1: load the special and use it right away (film the pistol)
+    if (params.get('special') === '1') {
+      game.player.specialCharges = 1;
+      game.player.trySpecial();
     }
     (window as unknown as { __film: { step: (k: number) => void } }).__film = {
       step(k: number) {

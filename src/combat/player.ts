@@ -1,17 +1,18 @@
 import * as THREE from 'three';
 import { Fighter } from './fighter';
-import { ClipEvent, getClip } from '../anim/clip';
-import { HitInfo, HitResult } from './types';
+import { AimPoint, AimProvider, ClipEvent, getClip } from '../anim/clip';
+import { Pistol } from './pistol';
+import { HitInfo, HitResult, makeHit } from './types';
 import { MoveDef } from './moves';
 import { FighterStyle, STYLES } from './styles';
-import { angleDiff, chance, clamp, damp, dampAngle, pick, rand, weightedPick, yawFromDir } from '../core/math';
+import { angleDiff, chance, clamp, damp, dampAngle, pick, rand, smoothstep, weightedPick, yawFromDir } from '../core/math';
 import { PAIRS, PairedClip } from '../anim/lib/paired';
 import type { Enemy } from '../ai/enemy';
 import { Weapon } from './weapons';
 import { B } from '../anim/skeleton';
 import { DIFFICULTY } from '../core/settings';
 
-export type PlayerAction = 'free' | 'dash' | 'attack' | 'counter' | 'finisher' | 'dodge' | 'vault' | 'hit' | 'down' | 'grab' | 'takedown' | 'stun' | 'throwing' | 'dead';
+export type PlayerAction = 'free' | 'dash' | 'attack' | 'counter' | 'finisher' | 'special' | 'dodge' | 'vault' | 'hit' | 'down' | 'grab' | 'takedown' | 'stun' | 'throwing' | 'dead';
 
 /** Burst speed (m/s) of the few running steps that close a gap before a strike. */
 const DASH_SPEED = 7.5;
@@ -21,6 +22,9 @@ const FIRST_CHARGE = 10;
 const NEXT_CHARGE = 14;
 const FINISHER_CD = 7;
 const TAKEDOWN_CD = 4.5;
+/** Special ability (Scarlet's pistol): knockouts per charge, and how many are kept. */
+export const SPECIAL_KOS = 6;
+export const MAX_SPECIAL = 2;
 
 const _v = new THREE.Vector3();
 const _v2 = new THREE.Vector3();
@@ -78,12 +82,24 @@ export class Player extends Fighter {
   score = 0;
   multiplier = 1;
   variety = new Set<string>();
-  stats = { hits: 0, counters: 0, perfectCounters: 0, dodges: 0, perfectDodges: 0, finishers: 0, kills: 0, damageTaken: 0, blocks: 0, takedowns: 0, envKills: 0, weaponKills: 0, disarms: 0, boneBreaks: 0 };
+  stats = { hits: 0, counters: 0, perfectCounters: 0, dodges: 0, perfectDodges: 0, finishers: 0, kills: 0, damageTaken: 0, blocks: 0, takedowns: 0, envKills: 0, weaponKills: 0, disarms: 0, boneBreaks: 0, specials: 0 };
   regenDelay = 0;
   /** Seconds of poison left (Viper's blade). */
   venom = 0;
   lastFinisher = '';
   onComboBreak: ((c: number) => void) | null = null;
+  /** Special ability charges (the style's: Scarlet's pistol) and knockouts towards the next. */
+  specialCharges = 0;
+  specialKOs = 0;
+  private koSeen = 0;
+  private pistol: Pistol | null = null;
+  private gunTarget: Enemy | null = null;
+  private gunAimAt = new THREE.Vector3();
+  private shotsFired = 0;
+  /** Recoil: 0 at rest, up in a few hundredths of a second after a shot, settled by a fifth. */
+  private recoil = 0;
+  private recoilT = 1;
+  private hidWeapon = false;
 
   // ------------------------------------------------------------------ helpers
   isLocked() {
@@ -143,6 +159,34 @@ export class Player extends Fighter {
     this.invuln = Math.max(0, this.invuln - dt);
     this.whiffT = Math.max(0, this.whiffT - dt);
     this.execCd = Math.max(0, this.execCd - dt);
+    // the special fills with knockouts
+    if (this.stats.kills > this.koSeen) {
+      if (this.style.special && this.specialCharges < MAX_SPECIAL) {
+        this.specialKOs += this.stats.kills - this.koSeen;
+        while (this.specialKOs >= SPECIAL_KOS && this.specialCharges < MAX_SPECIAL) {
+          this.specialKOs -= SPECIAL_KOS;
+          this.specialCharges++;
+          g.hud?.toast('PISTOL LOADED — R / RT', '#ff5a6a', 1.1);
+        }
+        if (this.specialCharges >= MAX_SPECIAL) this.specialKOs = 0;
+      }
+      this.koSeen = this.stats.kills;
+    }
+    if (this.pistol) {
+      this.pistol.update(dt);
+      this.recoilT += dt;
+      const rt = this.recoilT;
+      this.recoil = rt < 0.035 ? smoothstep(0, 0.035, rt) : 1 - smoothstep(0.035, 0.2, rt);
+      // the mark the hands hold on: eased from the body to the head between the shots (never a
+      // jump of the arms in a frame)
+      const t = this.gunTarget;
+      if (this.action === 'special' && t && t.alive && !t.down) {
+        t.bodyPoint(this.shotsFired === 0 ? 'chest' : 'head', _v);
+        this.gunAimAt.lerp(_v, 1 - Math.exp(-dt / 0.06));
+      }
+      // knocked out of it (hit, grabbed, finished): the gun goes back where it came from
+      if (this.pistol.out && this.action !== 'special') this.holster();
+    }
     // combo timeout
     if (this.combo > 0) {
       this.comboTimer -= dt;
@@ -190,13 +234,21 @@ export class Player extends Fighter {
           this.doDodge();
           break;
         }
-        if (t >= c.clip.comboT && (inp.peek('attack', 0.35) || inp.peek('stun', 0.3) || inp.peek('finisher', 0.3) || inp.peek('grab', 0.3))) {
+        if (t >= c.clip.comboT && (inp.peek('attack', 0.35) || inp.peek('stun', 0.3) || inp.peek('finisher', 0.3) || inp.peek('special', 0.3) || inp.peek('grab', 0.3))) {
           this.readActions();
           break;
         }
         if (c.done || t >= c.clip.recoverT) this.toFree(0.14);
         break;
       }
+      case 'special':
+        if (!this.clip || this.clip.done || this.clip.time >= this.clip.clip.recoverT) this.toFree(0.15);
+        // once she's fired, a dodge can still cut the holstering short
+        else if (this.shotsFired >= 2 && inp.peek('dodge', 0.2)) {
+          inp.consume('dodge');
+          this.doDodge();
+        }
+        break;
       case 'dodge':
       case 'vault':
         if (!this.clip || this.clip.done || this.clip.time >= this.clip.clip.recoverT) this.toFree(0.12);
@@ -289,6 +341,10 @@ export class Player extends Fighter {
     }
     if (inp.consume('finisher', 0.3)) {
       this.tryFinisher();
+      return;
+    }
+    if (inp.consume('special', 0.3)) {
+      this.trySpecial();
       return;
     }
     if (inp.consume('throw', 0.3)) {
@@ -497,6 +553,15 @@ export class Player extends Fighter {
       case 'disarm':
         this.onDisarm();
         return;
+      case 'draw':
+        this.drawGun();
+        return;
+      case 'shot':
+        this.fireShot(Number(ev.n ?? 0));
+        return;
+      case 'holster':
+        this.holster();
+        return;
     }
   }
 
@@ -612,6 +677,131 @@ export class Player extends Fighter {
     this.comboTimer = 0;
     this.variety.clear();
     this.multiplier = 1;
+  }
+
+  // ------------------------------------------------------------------ special: Scarlet's pistol
+  /**
+   * Draw, double tap, holster. The target is whoever she's facing or steering towards, up to across
+   * the room; a thug drops, a boss loses a good chunk (bosses can't be put down by a bullet early in
+   * a fight: never more than a fifth of their health a time).
+   */
+  trySpecial() {
+    const g = this.game;
+    if (!this.style.special) return;
+    if (this.specialCharges <= 0) {
+      g.hud?.feed(`KNOCK OUT ${SPECIAL_KOS - this.specialKOs} MORE TO LOAD THE PISTOL`);
+      return;
+    }
+    const target = this.selectTarget(15, (e) => !e.down && e.state !== 'enter');
+    if (!target) return;
+    this.specialCharges--;
+    this.stats.specials++;
+    this.target = target;
+    this.gunTarget = target;
+    this.shotsFired = 0;
+    target.bodyPoint('chest', this.gunAimAt);
+    this.play('s_pistol', { target, halflife: 0.08, entryHalflife: 0.06, aim: this.gunAim(target) });
+    this.action = 'special';
+    this.curMove = null;
+    this.stateTime = 0;
+    this.invuln = Math.max(this.invuln, 0.7);
+    // over her right shoulder, the gun and the mark both in frame
+    {
+      const dx = target.x - this.x, dz = target.z - this.z;
+      const dl = Math.hypot(dx, dz) || 1;
+      const fx = dx / dl, fz = dz / dl;
+      const focus = new THREE.Vector3(this.x + fx * Math.min(2.2, dl * 0.4), 1.25, this.z + fz * Math.min(2.2, dl * 0.4));
+      const pos = new THREE.Vector3(this.x - fz * 1.25 - fx * 1.55, 1.6, this.z + fx * 1.25 - fz * 1.55);
+      g.cam.playShot({ focus, pos, fov: 46, duration: 1.25, blendIn: 0.18, blendOut: 0.5, orbit: 0.12 });
+    }
+    // the room freezes for a beat when she pulls a gun
+    for (const e of this.enemies()) if (e.alive && e !== target && this.distTo(e) < 7) e.attackCooldown = Math.max(e.attackCooldown, 1.1);
+    g.audio.play(this.style.voice.attack, { pos: _v.set(this.x, 1.6, this.z), vol: 0.5 });
+  }
+
+  /** Aim points for the gun hands; anything else resolves on the target as usual. */
+  private gunAim(target: Enemy): AimProvider {
+    const self = this;
+    return {
+      aimPoint(p: AimPoint, out: THREE.Vector3) {
+        if (p === 'gun.R' || p === 'gun.L') return self.gunHand(p === 'gun.L', out);
+        return target.bodyPoint(p, out);
+      },
+    };
+  }
+
+  /** Arm's length from the right shoulder towards the mark (the support hand cupped under it). */
+  private gunHand(left: boolean, out: THREE.Vector3) {
+    // (the mark itself is eased once a frame, in think)
+    const sh = this.anim.boneWorld(B.uarmR, _v2);
+    const dir = _v.subVectors(this.gunAimAt, sh);
+    if (dir.lengthSq() < 1e-4) return false;
+    dir.normalize();
+    const reach = (this.def.lenUpperArm + this.def.lenForeArm) * 0.9;
+    out.copy(sh).addScaledVector(dir, reach * (1 - this.recoil * 0.12));
+    out.y += this.recoil * 0.05;
+    if (left) {
+      // (to the left of the line of fire: X is the left in the fighter's frame)
+      const sx = dir.z, sz = -dir.x;
+      const sl = Math.hypot(sx, sz) || 1;
+      out.x += (sx / sl) * 0.04 * this.scale;
+      out.z += (sz / sl) * 0.04 * this.scale;
+      out.y -= 0.035 * this.scale;
+      out.addScaledVector(dir, -0.035 * this.scale);
+    }
+    return true;
+  }
+
+  private drawGun() {
+    if (!this.pistol) this.pistol = new Pistol(this.game.scene);
+    // a held bat or blade goes out of sight while both hands are on the pistol
+    if (this.weapon) {
+      this.weapon.group.visible = false;
+      this.hidWeapon = true;
+    }
+    this.pistol.attach(this);
+    this.game.audio.play('metal_hit', { pos: _v.set(this.x, 1.0, this.z), vol: 0.18, pitch: 2.2 });
+  }
+
+  private holster() {
+    if (this.pistol?.out) this.pistol.detach();
+    if (this.hidWeapon) {
+      if (this.weapon) this.weapon.group.visible = true;
+      this.hidWeapon = false;
+    }
+  }
+
+  private fireShot(n: number) {
+    const g = this.game;
+    const t = this.gunTarget;
+    if (!this.pistol?.out) return;
+    this.shotsFired = n + 1;
+    const head = n >= 1;
+    const point = new THREE.Vector3();
+    if (t && t.alive) t.bodyPoint(head ? 'head' : 'chest', point);
+    else point.copy(this.gunAimAt);
+    const from = this.pistol.fire(point);
+    this.recoilT = 0;
+    g.audio.gunshot(from);
+    g.audio.play('metal_hit', { pos: from, vol: 0.12, pitch: 2.6, delay: 0.38 }); // the casing
+    g.fx.impactFlash(from, 0.9, [1, 0.78, 0.4]);
+    g.fx.sparks(from, _v.subVectors(point, from).normalize(), 8);
+    g.cam.addTrauma(0.32);
+    g.cam.fovKick = -2.5;
+    if (n === 0) g.slowMo(0.35, 0.55);
+    if (!t || !t.alive) return;
+    const dir = _v.subVectors(point, from).normalize().clone();
+    const boss = !!t.cfg.boss;
+    const cap = t.maxHp * 0.1;
+    const damage = boss ? cap : head ? 999 : 70;
+    const h = makeHit({ dir, point, damage, strength: head ? 1.25 : 0.95, kind: 'shot', region: head ? 'head' : 'chest', bleed: head ? 1.8 : 1.2, unblockable: true, attacker: this, launch: head && !boss ? 1.2 : 0 });
+    const res = t.takeHit(h);
+    if (res !== 'ignored' && res !== 'dodged') {
+      g.combat.feedback(this, t, h, res);
+      // the exit wound: a spray out of the far side
+      g.fx.bloodSpray(point.clone().addScaledVector(dir, 0.12), dir, head ? 1.8 : 1.0, 5.5, 0.35);
+      this.addCombo(1, 'pistol');
+    }
   }
 
   // ------------------------------------------------------------------ counters

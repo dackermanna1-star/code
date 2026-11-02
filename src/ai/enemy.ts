@@ -668,7 +668,10 @@ export class Enemy extends Fighter {
     }
     const clip = g.combat.reactionClip(this, h);
     const faceYaw = attacker ? yawFromDir(attacker.x - this.x, attacker.z - this.z) : this.yaw;
-    this.playState(clip, 'react', { originYaw: faceYaw, halflife: 0.05 });
+    // (a blow on a body still reeling from the last flows on from where it is, rather than
+    // snapping back into the opening of the next reaction)
+    const chained = this.state === 'react' || this.state === 'stunned';
+    this.playState(clip, 'react', { originYaw: faceYaw, halflife: chained ? 0.09 : 0.05 });
     this.stun = Math.max(this.stun, 0.35 + h.strength * 0.35 + h.stun);
     if (h.stun > 0.9) this.stunNow(h.stun);
     return 'hit';

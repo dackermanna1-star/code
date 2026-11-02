@@ -505,7 +505,7 @@ def convert(name, take, cal, limb, region, opt):
                 h = min(0.1, 0.03 + 0.15 * D)
                 for q in range(a + 1, b):
                     u = (q - a) / (b - a)
-                    ps[q, 1] = max(ps[q, 1], math.sin(math.pi * u) ** 0.7 * h)
+                    ps[q, 1] = max(ps[q, 1], (0.5 - 0.5 * math.cos(2 * math.pi * u)) * h)
             elif D <= 0.05:
                 jitter[a + 1:b] = True
             j = e + 1

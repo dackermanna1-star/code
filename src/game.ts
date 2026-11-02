@@ -697,6 +697,7 @@ export class Game {
       Kills: p.stats.kills,
       'Bodies on the floor': this.corpses.count,
       'Best combo': p.bestCombo,
+      ...(p.style.special ? { 'Pistol specials': p.stats.specials } : {}),
       Counters: `${p.stats.counters} (${p.stats.perfectCounters} perfect)`,
       Dodges: `${p.stats.dodges} (${p.stats.perfectDodges} perfect)`,
       Finishers: p.stats.finishers,

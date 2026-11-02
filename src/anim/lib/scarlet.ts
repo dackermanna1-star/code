@@ -1,6 +1,7 @@
-import { defineClipPair, Key, KeyFoot, KeyHand } from '../clip';
+import { defineClip, defineClipPair, Key, KeyFoot, KeyHand } from '../clip';
 import { definePaired } from './paired';
 import { BRAWL, FIGHT, k } from './stances';
+import type { V3 } from '../clip';
 
 /**
  * Scarlet's kickboxing: a whipping backfist, a palm heel under the chin, a snapping lead-leg kick,
@@ -138,6 +139,43 @@ export function registerScarletMoves() {
       D,
       { side: -1, height: 1.1, dist: 3.4, fov: 46, orbit: -0.25 },
     );
+  }
+
+  // ------------------------------------------------------------------ SPECIAL: the pistol
+  // From her hip, both hands onto it at arm's length towards the target (the hands follow live aim
+  // points: 'gun.R' / 'gun.L'), a double tap - body, then head - and back into the holster.
+  {
+    const AIM = {
+      hips: [0, -0.06, 0.02] as V3,
+      hipsR: [2, -6, 0] as V3,
+      torso: [5, 4, 0] as V3,
+      neck: [0, 0, 0] as V3,
+      head: [2, -2, 0] as V3,
+      rh: H({ aim: 'gun.R', aimW: 1, roll: 4, pole: [-0.45, -0.85, -0.25] }),
+      lh: H({ aim: 'gun.L', aimW: 1, roll: 70, pole: [0.5, -0.85, -0.2] }),
+      lf: { p: [0.12, 0, 0.16], yaw: -10 } as KeyFoot,
+      rf: { p: [-0.15, 0, -0.18], yaw: -30 } as KeyFoot,
+    };
+    // (at her right hip, measured from the floor: the stance's guard hands are in chest space)
+    const HIP = H({ p: [-0.2, 0.92, -0.08], sp: 'root', roll: -30, pole: [-0.6, -0.4, -0.7], aim: null, aimW: 0 });
+    defineClip('s_pistol', {
+      comboT: 0.92, recoverT: 0.98,
+      keys: [
+        k(0, FIGHT),
+        k(0.12, FIGHT, { e: 'in', hipsR: [2, -30, 0], torso: [6, -8, 0], head: [-4, 10, 0], rh: HIP }),
+        k(0.26, FIGHT, { e: 'out', ...AIM }),
+        k(0.66, FIGHT, { ...AIM }),
+        k(0.84, FIGHT, { e: 'inout', hipsR: [2, -24, 0], rh: HIP, lh: H({ aim: null, aimW: 0 }) }),
+        k(1.04, FIGHT),
+      ],
+      events: [
+        { t: 0.05, type: 'sfx', name: 'whoosh_light' },
+        { t: 0.13, type: 'draw' },
+        { t: 0.33, type: 'shot', n: 0 },
+        { t: 0.5, type: 'shot', n: 1 },
+        { t: 0.86, type: 'holster' },
+      ],
+    });
   }
 }
 

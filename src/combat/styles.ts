@@ -22,6 +22,8 @@ export interface FighterStyle {
   /** How often a strike gets a shout. */
   shout: number;
   voice: { attack: string; pain: string; death: string };
+  /** A special ability earned by knockouts (Scarlet's pistol). */
+  special?: 'pistol';
 }
 
 /**
@@ -75,6 +77,7 @@ export const STYLES: Record<FighterId, FighterStyle> = {
     strikeSpeed: 1.08,
     shout: 0.3,
     voice: { attack: 'f_attack', pain: 'f_pain', death: 'f_death' },
+    special: 'pistol',
   },
 };
 

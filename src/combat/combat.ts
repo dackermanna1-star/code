@@ -92,6 +92,10 @@ export class Combat {
         a.play('blade_flesh', { pos: p });
         a.play('squish', { pos: p, vol: 0.6 });
         break;
+      case 'shot':
+        a.play('squish', { pos: p, vol: 0.8 });
+        a.play(h.region === 'head' ? 'face_crunch' : 'body_hit', { pos: p, vol: 0.7 });
+        break;
       case 'slam':
       case 'throw':
         a.play('body_fall', { pos: p });
@@ -137,7 +141,7 @@ export class Combat {
         }
       }
     }
-    if (h.kind !== 'blade') {
+    if (h.kind !== 'blade' && h.kind !== 'shot') {
       // bruise where struck
       victim.woundAt(p, 1, 0.05 + s * 0.04, Math.min(1, 0.35 + s * 0.4), 0);
     }

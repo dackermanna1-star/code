@@ -4,7 +4,7 @@ import type { Game } from '../game';
 import { PRESETS, QualityName, saveSettings, Settings } from '../core/settings';
 import { STYLES } from '../combat/styles';
 import { MAPS } from '../world/arena';
-import { MAX_CHARGES } from '../combat/player';
+import { MAX_CHARGES, MAX_SPECIAL, SPECIAL_KOS } from '../combat/player';
 
 const el = (tag: string, cls = '', html = '') => {
   const e = document.createElement(tag);
@@ -27,6 +27,7 @@ const CONTROLS: [string[], string][] = [
   [['Q'], 'Stun strike — opens brutes and guards'],
   [['E'], 'Grab (LMB knee, E throw) · pick up weapon'],
   [['F'], 'Finisher (uses a charge) · ground takedown'],
+  [['R'], 'Special — Scarlet\'s pistol (loads with knockouts)'],
   [['G'], 'Throw the weapon in your hand'],
   [['ESC'], 'Pause'],
 ];
@@ -53,6 +54,10 @@ export class HUD {
   private pipsEl = el('div', 'pips');
   private pips: HTMLElement[] = [];
   private pipsTxt = el('em', '', 'FINISHER READY');
+  /** The special ability's meter (Scarlet's pistol): a pip per charge, filling with knockouts. */
+  private spEl = el('div', 'pips sp');
+  private spPips: HTMLElement[] = [];
+  private spTxt = el('em', '', 'PISTOL');
   // wave block
   private waveB = el('b');
   private scoreEl = el('div', 'sc');
@@ -120,7 +125,17 @@ export class HUD {
       this.pipsEl.append(s);
     }
     this.pipsEl.append(this.pipsTxt);
-    this.pl.append(lbl, hpBar, this.gdBar, this.pipsEl);
+    const gun = el('b', 'gunico');
+    gun.innerHTML = '<svg viewBox="0 0 32 20" width="26" height="16"><path d="M2 3h26v5H14l-1 2h-3l-2 8H3l3-10H2z" fill="currentColor"/></svg>';
+    this.spEl.append(gun);
+    for (let i = 0; i < MAX_SPECIAL; i++) {
+      const s = el('span');
+      s.append(el('i'));
+      this.spPips.push(s);
+      this.spEl.append(s);
+    }
+    this.spEl.append(this.spTxt);
+    this.pl.append(lbl, hpBar, this.gdBar, this.pipsEl, this.spEl);
     // ---- wave block
     const tr = el('div', 'tr');
     const wv = el('div', 'wv');
@@ -241,7 +256,7 @@ export class HUD {
     c.append(el('h2', '', 'CONTROLS'));
     const keys = el('div', 'keys');
     for (const [ks, desc] of CONTROLS) keys.append(el('div', '', ks.map((k) => `<kbd>${k}</kbd>`).join('') + `<span>${desc}</span>`));
-    keys.append(el('div', 'pad', 'GAMEPAD &nbsp;<kbd>X</kbd>strike <kbd>Y</kbd>counter <kbd>A</kbd>dodge <kbd>B</kbd>stun <kbd>RB</kbd>grab <kbd>LB</kbd>finisher <kbd>LT</kbd>block'));
+    keys.append(el('div', 'pad', 'GAMEPAD &nbsp;<kbd>X</kbd>strike <kbd>Y</kbd>counter <kbd>A</kbd>dodge <kbd>B</kbd>stun <kbd>RB</kbd>grab <kbd>LB</kbd>finisher <kbd>RT</kbd>special <kbd>LT</kbd>block'));
     c.append(keys);
     const cl = el('div', 'mlist');
     cl.append(this.btn('BACK', () => this.show(g.started && !g.over ? 'pause' : 'title'), '', 'back'));
@@ -628,6 +643,19 @@ export class HUD {
     this.pipsEl.classList.toggle('cool', cool && p.charges > 0);
     const txt = cool ? 'RECOVERING' : 'FINISHER READY';
     if (this.pipsTxt.textContent !== txt) this.pipsTxt.textContent = txt;
+    // ---- special (only fighters who have one)
+    const hasSp = !!p.style.special;
+    this.spEl.style.display = hasSp ? '' : 'none';
+    if (hasSp) {
+      this.spPips.forEach((s, i) => {
+        s.classList.toggle('on', i < p.specialCharges);
+        const prog = i === p.specialCharges ? Math.min(1, p.specialKOs / SPECIAL_KOS) : 0;
+        s.style.setProperty('--p', `${prog * 100}%`);
+      });
+      this.spEl.classList.toggle('ready', p.specialCharges > 0);
+      const st = p.specialCharges > 0 ? 'PISTOL  R' : `PISTOL  ${p.specialKOs}/${SPECIAL_KOS} KO`;
+      if (this.spTxt.textContent !== st) this.spTxt.textContent = st;
+    }
     // ---- wave / score
     const w = g.waves;
     this.waveB.textContent = w.wave > 0 ? String(w.wave) : '–';
@@ -772,6 +800,7 @@ export class HUD {
       if (downed && p.execCd <= 0) prompt = '<b>F</b>GROUND TAKEDOWN';
       else if (wp && !p.weapon) prompt = `<b>E</b>PICK UP ${wp.kind.toUpperCase()}`;
       else if (p.charges > 0 && p.execCd <= 0 && p.selectTarget(4)) prompt = '<b>F</b>FINISHER';
+      else if (p.specialCharges > 0 && p.style.special && p.selectTarget(15)) prompt = '<b>R</b>PISTOL';
       else if (p.weapon) prompt = '<b>G</b>THROW ' + p.weapon.kind.toUpperCase();
     } else if (p.action === 'grab') prompt = '<b>LMB</b>KNEE &nbsp;&nbsp; <b>E</b>THROW';
     if (this.promptEl.innerHTML !== prompt) this.promptEl.innerHTML = prompt;

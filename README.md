@@ -50,7 +50,8 @@ URL options: `?quality=low|medium|high|ultra`, `?wave=10` (start at a wave), `?d
 | Space / A (Cross) | Dodge. Toward a nearby enemy = vault over them (dazes them) |
 | Q / B (Circle) | Stun strike — opens up brutes and guards for a beatdown |
 | E / RB | Grab (then LMB = knee, E = throw in your move direction) · pick up weapons |
-| F / LB / RT | Finisher (spends a charge) · ground takedown on downed enemies (no charge) |
+| F / LB | Finisher (spends a charge) · ground takedown on downed enemies (no charge) |
+| R / RT | Special — Scarlet's pistol (loads with knockouts) |
 | G / Back | Throw your held weapon |
 | Esc / P / Start | Pause & settings |
 
@@ -70,7 +71,12 @@ Taking a hit breaks your combo; finishers and perfect counters restore a little 
   backfist, a palm heel under the chin) that set up kicks: a snapping lead-leg kick, the
   roundhouse and side kick, an **axe kick** swung up past her own head and dropped on the
   target's, a **spinning hook kick**, a **flying side kick** to cross the floor, and two finishers
-  of her own — an axe kick through a dazed guard and a jumping spinning heel kick. She runs
+  of her own — an axe kick through a dazed guard and a jumping spinning heel kick. Her
+  **special**: every 6 knockouts load her pistol (two loads at most, shown under the finisher
+  pips); **R / RT** and she draws from the hip, takes it in both hands at arm's length — the
+  arms aimed live at the mark, the camera over her shoulder, time slowing — and double-taps:
+  body, then head. A thug drops; a boss loses a tenth of his health a shot. The room hesitates
+  for a beat while she does it, and she's untouchable until she's fired. She runs
   faster, her strikes come out quicker, her punches hit lighter and her kicks harder; she has
   her own voice (CC0 recordings) and her own walk (narrower steps and a hip sway, shorter
   strides in heels).
