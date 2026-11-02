@@ -102,8 +102,8 @@ export const ENEMY_ATTACKS: Record<string, EnemyAttack> = {
   warden_kick: { clip: 'e_kick', kind: 'kick', region: 'gut', reach: 1.05, damage: 12, strength: 0.9, unblockable: false, weight: 0, startRange: 2.4 },
   warden_taser: { clip: 'e_punch', kind: 'punch', region: 'chest', reach: 12, damage: 10, strength: 0.6, unblockable: true, weight: 0, startRange: 12, special: 'taser', tell: 0.3 },
   // Subject Zero: what the lab made
-  subject_punch: { clip: 'e_bruiser_punch', kind: 'punch', region: 'head', reach: 1.05, damage: 10, strength: 1.3, unblockable: false, weight: 0, startRange: 2.9 },
-  subject_smash: { clip: 'e_bruiser_smash', kind: 'blunt', region: 'head', reach: 1.0, damage: 14, strength: 1.5, unblockable: true, weight: 0, startRange: 2.7, knockdown: true },
+  subject_punch: { clip: 'e_bruiser_punch', kind: 'punch', region: 'head', reach: 1.05, damage: 8, strength: 1.3, unblockable: false, weight: 0, startRange: 2.9 },
+  subject_smash: { clip: 'e_bruiser_smash', kind: 'blunt', region: 'head', reach: 1.0, damage: 13, strength: 1.5, unblockable: true, weight: 0, startRange: 2.7, knockdown: true },
   subject_charge: { clip: 'e_bruiser_charge', kind: 'slam', region: 'chest', reach: 0.9, damage: 16, strength: 1.6, unblockable: true, weight: 0, startRange: 9, knockdown: true, tell: 0.75 },
   subject_slam: { clip: 'e_bruiser_smash', kind: 'blunt', region: 'chest', reach: 0.8, damage: 13, strength: 1.5, unblockable: true, weight: 0, startRange: 9, special: 'slam', tell: 0.9 },
   viper_throw: { clip: 'e_knife_slash', kind: 'blade', region: 'chest', reach: 0.85, damage: 11, strength: 0.6, unblockable: true, weight: 0, startRange: 12, special: 'knife_throw', bleed: 0.7, venom: true, tell: 0.55 },

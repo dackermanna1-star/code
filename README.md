@@ -55,9 +55,17 @@ URL options: `?quality=low|medium|high|ultra`, `?wave=10` (start at a wave), `?d
 | G / Back | Throw your held weapon |
 | Esc / P / Start | Pause & settings |
 
-**After a run:** *SPECTATE* on the results screen hands you a free camera to fly round the room
-and take in the aftermath while the fight plays on without you — WASD / left stick fly where you
-look, mouse / right stick look, E / Q or Space up and down, Shift fast, Esc back to the results.
+**After a run:** *REPLAY* on the results screen plays the last minute of the run back (it starts
+15 s before you fell): every fighter's full motion, the weapons, the props, the pistol, the hits'
+sparks and blood and every sound, with the bodies that settled later still falling. Watch through
+the game's camera as it was or fly a free one round the fight — Space play / pause, ← / → five
+seconds back / on, `,` / `.` a frame at a time, ↑ / ↓ speed (¼× to 2×, slow motion lowers the
+sound with it), C camera, WASD + mouse fly (click the view), E / Q up / down, click or drag the
+timeline to jump (the white mark is the fall), Esc back. On a gamepad: A play / pause, X camera,
+LB / RB five seconds, d-pad speed, the sticks fly, the triggers rise and sink, B back.
+*SPECTATE* hands you a free camera to fly round the room and take in the aftermath while the
+fight plays on without you — WASD / left stick fly where you look, mouse / right stick look,
+E / Q or Space up and down, Shift fast, Esc back to the results.
 
 **Telegraphs:** ⚡ (gold ring shrinking to the hit) = counterable. Red **!** = unblockable — dodge it.
 Finisher charges are earned inside one unbroken combo (10 hits for the first, 14 more for the
@@ -186,7 +194,10 @@ whichever starts from the feet the fighter stands on); foot turns are interpolat
 and the striking fist or foot is steered onto the target only in the last moments before contact.
 
 **Animation** — an IK pose solver drives every limb: the captured strikes, evasions and get-ups
-above, and authored motions for everything else (hit reactions, the flying knee, weapon attacks,
+above (their feet moved only in the air, carrying the lunge and any change of stance - and a
+capture's quick half-step asked to carry more than its time allows stays up longer and lands
+later, a bigger step taking longer, instead of shooting the foot across the floor), and authored
+motions for everything else (hit reactions, the flying knee, weapon attacks,
 paired counters/finishers/takedowns authored as two synchronized tracks);
 procedural locomotion with planted feet (no foot sliding) driven by a human gait model — walk
 and run cadence / duty factor from biomechanics data, heel strike and toe-off rolling over the
@@ -410,7 +421,9 @@ planted-foot slide instead of drawing). Debug viewers: `?viewer=sheet&clip=round
 `?viewer=sheet&pair=fin_roundhouse` (paired clips), `?viewer=loco&path=circle&speed=4`
 (locomotion strobe), `?viewer=pose&all=1` (all character variants; `variant=scarlet&cam=face`
 for a close-up), `?viewer=atlas&variant=scarlet` (a variant's painted texture layers and finish
-masks), `?viewer=graffiti&seed=N` (a wall of procedural street art).
+masks), `?viewer=graffiti&seed=N` (a wall of procedural street art), `?test=replay` (a fight, a
+fall, the replay: `rcam=game|free`, `rfrom` seconds from the fall, `rspeed`, `special=1` for the
+pistol, `close=1` to check the room comes back as it was).
 
 ## Project layout
 
@@ -425,6 +438,7 @@ src/world/euphoria/  Ragdoll Lab active-ragdoll engine (engine.js) and its game 
 src/fx/          particles (blood, sparks, dust, debris), camera rig
 src/audio/       sample engine with synth layers, procedural adaptive music
 src/ui/          HUD, menus, settings
+src/replay/      the last minute recorded (poses, props, weapons, camera, sounds, effects) and played back
 tools/audio/     reproducible CC0 sound library build
 tests/           headless runners (results, screenshots, film strips)
 ```

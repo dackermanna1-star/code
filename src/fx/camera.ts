@@ -52,14 +52,17 @@ export class CameraRig {
   get freeCam() {
     return this.free !== null;
   }
-  /** Take over from wherever the camera is now. */
-  startFree() {
+  /**
+   * Take over from wherever the camera is now (`exact`: from exactly there; else from a vantage
+   * point: at least head height and a bit, looking a little down over the room).
+   */
+  startFree(exact = false) {
     const d = new THREE.Vector3();
     this.camera.getWorldDirection(d);
-    // (from a vantage point: at least head height and a bit, looking a little down over the room)
     const pos = this.camera.position.clone();
-    pos.y = Math.max(pos.y, 2.4);
-    this.free = { pos, yaw: Math.atan2(d.x, d.z), pitch: clamp(Math.asin(clamp(d.y, -1, 1)), -0.75, -0.15), vel: new THREE.Vector3() };
+    if (!exact) pos.y = Math.max(pos.y, 2.4);
+    const pitch = Math.asin(clamp(d.y, -1, 1));
+    this.free = { pos, yaw: Math.atan2(d.x, d.z), pitch: exact ? clamp(pitch, -1.45, 1.45) : clamp(pitch, -0.75, -0.15), vel: new THREE.Vector3() };
     this.shot = null;
     this.cineBlend = 0;
     this.trauma = 0;
@@ -67,6 +70,15 @@ export class CameraRig {
   }
   stopFree() {
     this.free = null;
+  }
+  /** Put the lens exactly here (a replay showing the camera as it was). */
+  setPose(pos: THREE.Vector3, quat: THREE.Quaternion, fov: number) {
+    this.camera.position.copy(pos);
+    this.camera.quaternion.copy(quat);
+    if (Math.abs(this.camera.fov - fov) > 1e-3) {
+      this.camera.fov = fov;
+      this.camera.updateProjectionMatrix();
+    }
   }
   /**
    * Fly: mouse / right stick looks, move keys / left stick fly where you look, `up` rises or sinks,

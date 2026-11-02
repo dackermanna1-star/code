@@ -55,7 +55,10 @@ export class CorpseSystem {
   chunks: Chunk[] = [];
   group = new THREE.Group();
   material: THREE.MeshStandardMaterial;
-  private corpseUniforms: { uCorpseWounds: { value: THREE.DataTexture | null } };
+  private corpseUniforms: ReturnType<typeof createCharacterMaterial>['corpseUniforms'];
+  /** When each body was laid down (game time, by corpse id: 256 per row) - for replays. */
+  private bornData = new Float32Array(256 * 4);
+  private bornTex: THREE.DataTexture;
   private woundData: Float32Array;
   woundTex: THREE.DataTexture;
   private woundRows = 256;
@@ -77,6 +80,8 @@ export class CorpseSystem {
     this.woundData = new Float32Array(MAX_WOUNDS * 2 * 4 * this.woundRows);
     this.woundTex = this.makeWoundTex();
     corpseUniforms.uCorpseWounds.value = this.woundTex;
+    this.bornTex = this.makeBornTex();
+    corpseUniforms.uCorpseBorn.value = this.bornTex;
     this.group.name = 'corpses';
     // tiny placeholder so the corpse shader is compiled during loading (no hitch on the first kill)
     const warm = new THREE.BufferGeometry();
@@ -91,6 +96,36 @@ export class CorpseSystem {
     wm.frustumCulled = false;
     wm.position.set(0, -5, 0);
     this.group.add(wm);
+  }
+
+  private makeBornTex() {
+    const t = new THREE.DataTexture(this.bornData, 256, this.bornData.length / 256, THREE.RedFormat, THREE.FloatType);
+    t.minFilter = t.magFilter = THREE.NearestFilter;
+    t.needsUpdate = true;
+    return t;
+  }
+
+  private setBorn(id: number, time: number) {
+    if (id >= this.bornData.length) {
+      const data = new Float32Array(Math.max(this.bornData.length * 2, (Math.floor(id / 256) + 1) * 256));
+      data.set(this.bornData);
+      this.bornData = data;
+      const old = this.bornTex;
+      this.bornTex = this.makeBornTex();
+      this.corpseUniforms.uCorpseBorn.value = this.bornTex;
+      old.dispose();
+    }
+    this.bornData[id] = time;
+    this.bornTex.needsUpdate = true;
+  }
+
+  /**
+   * Watching a replay: bodies laid down after `t` aren't drawn (the replay shows them as the
+   * fighters they still were); Infinity shows them all again. Their shadows go with them.
+   */
+  setReplayTime(t: number) {
+    this.corpseUniforms.uReplayT.value = Number.isFinite(t) ? t : 1e9;
+    for (const c of this.chunks) c.mesh.castShadow = this.castShadows && !Number.isFinite(t);
   }
 
   private makeWoundTex() {
@@ -218,6 +253,7 @@ export class CorpseSystem {
     const pelvis = new THREE.Vector3().setFromMatrixPosition(model.bones[B.hips].matrixWorld);
     const rec: CorpseRecord = { id, variant: variant.id, x: pelvis.x, z: pelvis.z, bones, wounds, time, cause };
     this.records.push(rec);
+    this.setBorn(id, time);
     this.writeWounds(id, wounds, time);
     this.emitGeometry(rec, model, geo);
     if (shapes?.length) this.addColliders(shapes);

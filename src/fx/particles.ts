@@ -228,6 +228,8 @@ export class FX {
   chunk: Debris;
   dropRadius: Float32Array;
   dropsLanded = 0;
+  /** Replaying: blood that lands leaves no new stain (the floor already has the run's blood). */
+  noStain = false;
 
   constructor(public game: Game, maxParticles: number) {
     this.drops = new ParticlePool(maxParticles, 'drop');
@@ -387,15 +389,17 @@ export class FX {
         _v.set(x, 0.01, z);
         const hdir = sp > 0.05 ? new THREE.Vector3(vx / sp, 0, vz / sp) : null;
         const r = rad * (1.1 + Math.min(4, Math.hypot(vx, vy, vz)) * 0.28);
-        g.blood.splat(_v, r, r > 0.02 && Math.random() < 0.6 ? SPLAT.splash : SPLAT.drop, rand(0.7, 1), UP, hdir, hdir ? Math.min(2.8, sp * 0.45) : 0);
+        if (!this.noStain) g.blood.splat(_v, r, r > 0.02 && Math.random() < 0.6 ? SPLAT.splash : SPLAT.drop, rand(0.7, 1), UP, hdir, hdir ? Math.min(2.8, sp * 0.45) : 0);
         landed = true;
       } else if ((Math.abs(x) > HALF_W - 0.02 || Math.abs(z) > HALF_D - 0.02) && (!roof || y < 0.95)) {
         // wall hit
         const n = Math.abs(x) > HALF_W - 0.02 ? new THREE.Vector3(-Math.sign(x), 0, 0) : new THREE.Vector3(0, 0, -Math.sign(z));
         _v.set(Math.max(-HALF_W + 0.01, Math.min(HALF_W - 0.01, x)), y, Math.max(-HALF_D + 0.01, Math.min(HALF_D - 0.01, z)));
         const r = rad * (1.8 + Math.hypot(vx, vy, vz) * 0.3);
-        g.blood.splat(_v, r, SPLAT.drop, 1, n, new THREE.Vector3(vx, vy, vz).normalize(), 0.6);
-        if (Math.random() < 0.18) g.blood.splat(_v, r * 0.9, SPLAT.drip, 0.9, n, null, Math.random() * 3);
+        if (!this.noStain) {
+          g.blood.splat(_v, r, SPLAT.drop, 1, n, new THREE.Vector3(vx, vy, vz).normalize(), 0.6);
+          if (Math.random() < 0.18) g.blood.splat(_v, r * 0.9, SPLAT.drip, 0.9, n, null, Math.random() * 3);
+        }
         landed = true;
       } else {
         for (const ob of obstacles) {
@@ -406,8 +410,10 @@ export class FX {
             const m = Math.min(dx0, dx1, dz0, dz1, dy);
             const n = m === dx0 ? new THREE.Vector3(-1, 0, 0) : m === dx1 ? new THREE.Vector3(1, 0, 0) : m === dz0 ? new THREE.Vector3(0, 0, -1) : m === dz1 ? new THREE.Vector3(0, 0, 1) : UP;
             _v.set(x, y, z).addScaledVector(n, m + 0.01);
-            g.blood.splat(_v, rad * 2.2, SPLAT.drop, 1, n, new THREE.Vector3(vx, vy, vz).normalize(), 0.5);
-            if (n !== UP && Math.random() < 0.15) g.blood.splat(_v, rad * 2.0, SPLAT.drip, 0.9, n, null, Math.random() * 2);
+            if (!this.noStain) {
+              g.blood.splat(_v, rad * 2.2, SPLAT.drop, 1, n, new THREE.Vector3(vx, vy, vz).normalize(), 0.5);
+              if (n !== UP && Math.random() < 0.15) g.blood.splat(_v, rad * 2.0, SPLAT.drip, 0.9, n, null, Math.random() * 2);
+            }
             landed = true;
             break;
           }

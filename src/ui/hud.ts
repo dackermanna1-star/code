@@ -6,6 +6,7 @@ import { STYLES } from '../combat/styles';
 import { MAPS } from '../world/arena';
 import { MAX_CHARGES, MAX_SPECIAL, SPECIAL_KOS } from '../combat/player';
 import { PERFECT_WINDOW } from '../ai/archetypes';
+import type { Replay } from '../replay/replay';
 
 const el = (tag: string, cls = '', html = '') => {
   const e = document.createElement(tag);
@@ -501,7 +502,7 @@ export class HUD {
     col.append(res);
     if (info.record) col.append(el('div', 'record', 'NEW PERSONAL BEST'));
     const ml = el('div', 'mlist');
-    ml.append(this.btn('FIGHT AGAIN', () => this.restart(true), 'primary'), this.btn('SPECTATE', () => this.game.startSpectate()), this.btn('TITLE', () => this.restart(false), '', 'back'));
+    ml.append(this.btn('FIGHT AGAIN', () => this.restart(true), 'primary'), this.btn('REPLAY', () => this.game.openReplay()), this.btn('SPECTATE', () => this.game.startSpectate()), this.btn('TITLE', () => this.restart(false), '', 'back'));
     col.append(ml);
     // (already flying round the room: the results wait for Esc)
     if (!this.game.spectating) this.show('gameover');
@@ -517,6 +518,65 @@ export class HUD {
     this.spectEl.classList.toggle('on', on);
     this.root.classList.toggle('spectating', on);
     if (on) this.root.style.display = 'none';
+  }
+
+  /** Watching the replay: a timeline (click to jump), the clock, speed and camera, the keys. */
+  private replayEl: HTMLElement | null = null;
+  private replayParts: { state: HTMLElement; time: HTMLElement; rel: HTMLElement; speed: HTMLElement; cam: HTMLElement; fill: HTMLElement; mark: HTMLElement } | null = null;
+  setReplay(on: boolean) {
+    if (!this.replayEl) {
+      const root = el('div', 'replay');
+      const top = el('div', 'rtop');
+      const state = el('b', 'rstate');
+      const time = el('span', 'rtime');
+      const rel = el('span', 'rrel');
+      const speed = el('span', 'rspeed');
+      const cam = el('span', 'rcam');
+      top.append(el('b', 'rtitle', 'REPLAY'), state, time, rel, speed, cam);
+      const bar = el('div', 'rbar');
+      const fill = el('div', 'rfill');
+      const mark = el('div', 'rmark');
+      bar.append(fill, mark);
+      // (click / drag along the bar: jump there)
+      const seek = (e: PointerEvent) => {
+        const r = bar.getBoundingClientRect();
+        const rp = this.game.replay;
+        rp.seek(rp.start + Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)) * rp.length);
+      };
+      bar.addEventListener('pointerdown', (e) => {
+        e.stopPropagation();
+        bar.setPointerCapture(e.pointerId);
+        seek(e);
+      });
+      bar.addEventListener('pointermove', (e) => {
+        if (bar.hasPointerCapture(e.pointerId)) seek(e);
+      });
+      const keys = el('div', 'rkeys', '<span><b>SPACE</b> play / pause</span><span><b>← →</b> 5 s</span><span><b>, .</b> frame</span><span><b>↑ ↓</b> speed</span><span><b>C</b> camera</span><span><b>WASD · MOUSE</b> fly (click)</span><span><b>E / Q</b> up / down</span><span><b>ESC</b> results</span>');
+      root.append(top, bar, keys);
+      document.body.append(root);
+      this.replayEl = root;
+      this.replayParts = { state, time, rel, speed, cam, fill, mark };
+    }
+    this.replayEl.classList.toggle('on', on);
+    this.root.classList.toggle('spectating', on);
+    if (on) this.root.style.display = 'none';
+  }
+  updateReplay(r: Replay) {
+    const p = this.replayParts;
+    if (!p) return;
+    const len = Math.max(1e-3, r.length);
+    const at = r.t - r.start;
+    const fmt = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}.${Math.floor((s % 1) * 10)}`;
+    p.state.textContent = r.playing ? '▶' : '❚❚';
+    p.time.textContent = `${fmt(at)} / ${fmt(len)}`;
+    const toFall = r.t - r.deathT;
+    p.rel.textContent = Number.isFinite(toFall) ? (toFall < 0 ? `${(-toFall).toFixed(1)} s before the fall` : toFall < 0.05 ? 'the fall' : `${toFall.toFixed(1)} s after`) : '';
+    p.speed.textContent = `${r.speed}×`;
+    p.cam.textContent = r.cam === 'free' ? 'FREE CAMERA' : 'GAME CAMERA';
+    p.fill.style.width = `${(at / len) * 100}%`;
+    const df = (r.deathT - r.start) / len;
+    p.mark.style.display = Number.isFinite(df) && df >= 0 && df <= 1 ? 'block' : 'none';
+    p.mark.style.left = `${df * 100}%`;
   }
 
   // ------------------------------------------------------------------ transient

@@ -157,6 +157,23 @@ export class Props {
     return prop;
   }
 
+  /** Show a prop where a replay had it (`shown` false: broken / gone by then). */
+  replayPose(p: Prop, pos: THREE.Vector3, quat: THREE.Quaternion, shown: boolean) {
+    if (shown) _m.compose(pos, quat, _s);
+    for (const im of p.rt.meshes) {
+      im.setMatrixAt(p.i, shown ? _m : ZERO);
+      im.instanceMatrix.needsUpdate = true;
+    }
+  }
+  /** Back to where the physics has every prop now (after a replay). */
+  resyncAll() {
+    for (const p of this.list) {
+      if (p.broken) for (const im of p.rt.meshes) im.setMatrixAt(p.i, ZERO);
+      else this.sync(p);
+    }
+    for (const rt of this.kinds.values()) for (const im of rt.meshes) im.instanceMatrix.needsUpdate = true;
+  }
+
   private sync(p: Prop) {
     const t = p.body.translation(), r = p.body.rotation();
     _m.compose(_v.set(t.x, t.y, t.z), _q.set(r.x, r.y, r.z, r.w), _s);

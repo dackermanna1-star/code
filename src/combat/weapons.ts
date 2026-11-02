@@ -146,6 +146,10 @@ export class WeaponBatch {
     if (moved) moved.batchIndex = i;
     w.batchIndex = -1;
   }
+  /** Show / hide every batched weapon (a replay draws them from their own meshes instead). */
+  setVisible(on: boolean) {
+    for (const list of this.parts.values()) for (const part of list) part.mesh.visible = on;
+  }
   get total() {
     const l = [...this.parts.values()];
     return l.reduce((a, parts) => a + (parts[0]?.mesh.count ?? 0), 0);
@@ -153,7 +157,11 @@ export class WeaponBatch {
 }
 const _mm = new THREE.Matrix4();
 
+let NEXT_WEAPON_ID = 1;
+
 export class Weapon {
+  /** Stable identity (replays). */
+  readonly id = NEXT_WEAPON_ID++;
   group: THREE.Group;
   length: number;
   half: THREE.Vector3;
@@ -181,6 +189,11 @@ export class Weapon {
     this.detachBody();
     this.holder = f;
     f.weapon = this;
+    this.placeInHand(f);
+  }
+
+  /** Put the mesh in a fighter's right hand (just the look of it: who holds it is left alone). */
+  placeInHand(f: Fighter) {
     const hand = f.model.bones[B.handR];
     hand.add(this.group);
     // grip: weapon axis along the thumb direction, centered in the fist

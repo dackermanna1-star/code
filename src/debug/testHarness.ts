@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import type { Game } from '../game';
 import { Enemy } from '../ai/enemy';
+import type { Fighter } from '../combat/fighter';
 import { ARCHETYPES } from '../ai/archetypes';
 import { clamp, rand } from '../core/math';
 import type { Incoming } from '../ai/director';
@@ -363,6 +364,118 @@ export async function runTest(game: Game, params: URLSearchParams) {
     };
     game.renderFrame();
   }
+  if (name === 'replay') {
+    // fight a wave, fall, then watch it back (film.mjs steps it): rcam=game|free, rfrom=seconds
+    // relative to the fall, rspeed
+    game.waves.start(Number(params.get('wave') ?? 3));
+    const bot = new Bot(game);
+    game.started = true;
+    for (let i = 0; i < frames; i++) {
+      bot.update(dt);
+      game.player.hp = Math.max(game.player.hp, 50);
+      game.step(dt);
+    }
+    const p = game.player;
+    if (params.get('special') === '1') {
+      // the pistol on a thug just in front, a second and a half before the fall
+      const e = spawnEnemy('brawler', p.x + Math.sin(p.yaw) * 2.6, p.z + Math.cos(p.yaw) * 2.6);
+      e.attackCooldown = 1e9;
+      for (let i = 0; i < 20; i++) game.step(dt);
+      if (p.action !== 'free') (p as unknown as { toFree(h: number): void }).toFree(0.05);
+      p.specialCharges = 1;
+      p.trySpecial();
+      console.log(`special action=${p.action} t=${game.time.toFixed(2)}`);
+      for (let i = 0; i < 90; i++) game.step(dt);
+    }
+    p.hp = 1;
+    p.invuln = 0;
+    if (p.isLocked() || p.action !== 'free') (p as unknown as { toFree(h: number): void }).toFree(0.05);
+    const killer = game.enemies().find((e) => e.alive) ?? null;
+    p.takeHit(makeHit({ dir: new THREE.Vector3(0, 0, 1), point: new THREE.Vector3(p.x, 1.4, p.z), damage: 999, strength: 1.2, kind: 'punch', region: 'head', attacker: killer }));
+    for (let i = 0; i < 330; i++) game.step(dt);
+    const r = game.replay;
+    console.log(`REPLAY span=${r.length.toFixed(1)}s start=${r.start.toFixed(1)} fall=${r.deathT.toFixed(1)} end=${r.end.toFixed(1)} corpses=${game.corpses.count} fighters=${game.fighters.length}`);
+    if (params.get('rcam') === 'game') r.cam = 'game';
+    game.openReplay();
+    if (params.get('rfrom')) r.seek(r.deathT + Number(params.get('rfrom')));
+    if (params.get('rspeed')) r.speed = Number(params.get('rspeed'));
+    const vis = () => game.scene.children.filter((o) => o.type === 'Group' && o.visible && (o as THREE.Group).children.some((c) => (c as THREE.SkinnedMesh).isSkinnedMesh)).length;
+    console.log(`open active=${r.active} t=${(r.t - r.deathT).toFixed(2)} cam=${r.cam} models=${vis()}`);
+    (window as unknown as { __film: { step: (k: number) => void } }).__film = {
+      step(k: number) {
+        for (let i = 0; i < k; i++) game.step(dt);
+        game.renderFrame();
+        console.log(`cam t=${(r.t - r.deathT).toFixed(2)} playing=${r.playing} models=${vis()} fired=${r.fired}/${r.eventCount}`);
+      },
+    };
+    if (params.get('close') === '1') {
+      for (let i = 0; i < 120; i++) game.step(dt);
+      game.closeReplay();
+      console.log(`closed active=${r.active} models=${vis()} fighters=${game.fighters.length}`);
+    }
+    game.renderFrame();
+  }
+  if (name === 'counters') {
+    // counters on one attacker lunging in from further and further away: how fast the planted
+    // feet of each side slide over the counter
+    const p = game.player;
+    game.started = true;
+    const out: { d: number; player: number; victim: number; name: string }[] = [];
+    const feetSlide = (f: Fighter, prev: { x: number; z: number; on: boolean }[]) => {
+      let worst = 0;
+      for (let k = 0; k < 2; k++) {
+        const lp = f.anim.fk.pos[k === 0 ? B.footL : B.footR];
+        const c = Math.cos(f.yaw), sn = Math.sin(f.yaw);
+        const wx = f.x + lp.x * c + lp.z * sn, wz = f.z - lp.x * sn + lp.z * c;
+        const on = lp.y < f.def.ankleHeight + 0.02;
+        if (on && prev[k].on) worst = Math.max(worst, Math.hypot(wx - prev[k].x, wz - prev[k].z) / dt);
+        prev[k] = { x: wx, z: wz, on };
+      }
+      return worst;
+    };
+    let trial = 0;
+    for (const d of [1.2, 1.6, 2.0, 2.4]) {
+      for (let rep = 0; rep < 3; rep++) {
+        const ox = (trial++ % 5) * 7 - 14, oz = Math.floor(trial / 5) * 7 - 7;
+        p.x = ox;
+        p.z = oz;
+        p.yaw = Math.PI;
+        p.vx = p.vz = 0;
+        p.anim.initAt(p.x, p.z, p.yaw);
+        const e = spawnEnemy('brawler', ox, oz - d);
+        e.yaw = 0;
+        e.anim.initAt(e.x, e.z, 0);
+        for (let i = 0; i < 20; i++) game.step(dt);
+        e.attackDef = ENEMY_ATTACKS.punch;
+        (e as unknown as { startAttack(c: boolean): void }).startAttack(false);
+        let countered = false;
+        let ps = 0, vs = 0;
+        const pp = [{ x: 0, z: 0, on: false }, { x: 0, z: 0, on: false }], vp = [{ x: 0, z: 0, on: false }, { x: 0, z: 0, on: false }];
+        let name = '';
+        for (let f = 0; f < 110; f++) {
+          const inc = game.director.findCounterable();
+          if (!countered && inc && inc.enemy === e && inc.hitTime - game.time < 0.15) {
+            game.input.press('counter');
+            game.input.release('counter');
+            countered = true;
+          }
+          game.step(dt);
+          if (p.action === 'counter') {
+            name = (p.anim.clip?.clip.name ?? '') || name;
+            ps = Math.max(ps, feetSlide(p, pp));
+            vs = Math.max(vs, feetSlide(e, vp));
+          }
+        }
+        out.push({ d, player: +ps.toFixed(2), victim: +vs.toFixed(2), name });
+        if (e.alive) {
+          e.hp = 1;
+          e.takeHit(makeHit({ dir: new THREE.Vector3(0, 0, -1), point: new THREE.Vector3(e.x, 1.4, e.z), damage: 99, strength: 1, kind: 'punch', region: 'head', attacker: p }));
+        }
+        for (let i = 0; i < 30; i++) game.step(dt);
+      }
+    }
+    console.log('COUNTERS ' + JSON.stringify(out));
+  }
   if (name === 'spectate') {
     // fight a real wave for a while, die, then fly the spectator camera round the aftermath
     game.waves.start(Number(params.get('wave') ?? 6));
@@ -676,7 +789,7 @@ export async function runTest(game: Game, params: URLSearchParams) {
       const back = range === 'back';
       // (as close as the player's approach would have brought it before the strike)
       const lc = getClip(clip);
-      const dist = Number(params.get('dist')) || (range === 'far' ? 5 : range === 'close' ? 0.95 : lc.footFromStart ? Math.min(1.6, reach + lc.lunge * 0.85) : 1.6);
+      const dist = Number(params.get('dist')) || (range === 'far' ? 5 : range === 'close' ? 0.95 : range === 'back' ? reach + 0.45 : lc.footFromStart ? Math.min(1.6, reach + lc.lunge * 0.85) : 1.6);
       p.x = 0; p.z = 0; p.vx = p.vz = 0;
       p.yaw = back ? 0 : Math.PI;
       p.anim.initAt(0, 0, p.yaw);
@@ -686,7 +799,15 @@ export async function runTest(game: Game, params: URLSearchParams) {
       e.stunNow(100);
       for (let i = 0; i < 20; i++) game.step(dt);
       const pq = (p as unknown as { play: (n: string, o: object) => unknown });
-      pq.play(clip, { target: e, reach, maxWarp: range === 'far' ? 7.5 : 4.2, back, halflife: 0.07, speed: 1.05, entryHalflife: 0.06, anySide: params.get('anyside') === '1' });
+      const cpl = pq.play(clip, { target: e, reach, maxWarp: range === 'far' ? 7.5 : 4.2, back, halflife: 0.07, speed: 1.05, entryHalflife: 0.06, anySide: params.get('anyside') === '1' }) as { plannedFeet(k: number): { x: number; z: number }[]; clip: { keys: { t: number }[] } };
+      if (params.get('plan') === clip && cpl.plannedFeet) {
+        const ck = (cpl as unknown as { clip: { keys: { t: number; lf: { p: number[] }; rf: { p: number[] } }[] } }).clip.keys;
+        for (let i = 0; i < Math.min(ck.length, 24); i++) {
+          const L = cpl.plannedFeet(0)[i], R = cpl.plannedFeet(1)[i];
+          console.log(`PLAN k${i} t=${ck[i].t.toFixed(3)} L=${L.x.toFixed(3)},${L.z.toFixed(3)} (clip y ${ck[i].lf.p[1].toFixed(3)}) R=${R.x.toFixed(3)},${R.z.toFixed(3)} (clip y ${ck[i].rf.p[1].toFixed(3)})`);
+        }
+      }
+      (p as unknown as { __plan?: unknown }).__plan = cpl.plannedFeet ? { feet: [cpl.plannedFeet(0).map((v) => ({ x: v.x, z: v.z })), cpl.plannedFeet(1).map((v) => ({ x: v.x, z: v.z }))], t: cpl.clip.keys.map((k) => k.t / 1.05) } : undefined;
       (p as unknown as { action: string }).action = 'attack';
       (p as unknown as { curMove: unknown }).curMove = null;
       const prevQ = PAIRS.map(() => new THREE.Quaternion());
@@ -788,6 +909,23 @@ export async function runTest(game: Game, params: URLSearchParams) {
         }
         if (p.anim.mode !== 'clip' && f > 5 && tail-- <= 0) break;
       }
+      // the planned steps: the fastest a foot is asked to travel between two keys (m/s)
+      let stepV = 0, stepAt = '';
+      const lastPlan = (p as unknown as { __plan?: { feet: { x: number; z: number }[][]; t: number[] } }).__plan;
+      if (lastPlan) {
+        for (let k = 0; k < 2; k++) {
+          const fw = lastPlan.feet[k];
+          for (let i = 0; i + 1 < fw.length; i++) {
+            const dtk = lastPlan.t[i + 1] - lastPlan.t[i];
+            if (dtk < 1e-3) continue;
+            const v = Math.hypot(fw[i + 1].x - fw[i].x, fw[i + 1].z - fw[i].z) / dtk;
+            if (v > stepV) {
+              stepV = v;
+              stepAt = `${k === 0 ? 'L' : 'R'}@${lastPlan.t[i].toFixed(2)}`;
+            }
+          }
+        }
+      }
       const worst: { w: number; s: string }[] = [];
       let maxSwing = 0, maxTwist = 0, maxTwistAt = '';
       for (const [kind, arr] of [['swing', sw], ['twist', tw]] as const) {
@@ -804,7 +942,7 @@ export async function runTest(game: Game, params: URLSearchParams) {
         }
       }
       worst.sort((a, b) => b.w - a.w);
-      out.push({ clip, worst: worst.slice(0, 6).map((x) => x.s), maxSwing: +maxSwing.toFixed(0), maxTwist: +maxTwist.toFixed(0), skate: `${skate.toFixed(2)}@${skateT.toFixed(2)}`, footMiss: `${footMiss.toFixed(3)}@${footMissT.toFixed(2)}`, handMiss: `${handMiss.toFixed(3)}@${handMissT.toFixed(2)}`, skateDump: skate > 1 ? skateDump : undefined, maxTwistAt } as (typeof out)[number]);
+      out.push({ clip, stepV: +stepV.toFixed(1), stepAt, worst: worst.slice(0, 6).map((x) => x.s), maxSwing: +maxSwing.toFixed(0), maxTwist: +maxTwist.toFixed(0), skate: `${skate.toFixed(2)}@${skateT.toFixed(2)}`, footMiss: `${footMiss.toFixed(3)}@${footMissT.toFixed(2)}`, handMiss: `${handMiss.toFixed(3)}@${handMissT.toFixed(2)}`, skateDump: skate > 1 ? skateDump : undefined, maxTwistAt } as (typeof out)[number]);
     };
     for (const m of moves) runOne(m.clip, m.range, m.reach);
     for (const c of extra) runOne(c, 'mid', 0.9);

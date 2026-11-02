@@ -150,6 +150,8 @@ export function footDown(f: { p: V3; pitch: number }) {
 /** Root travel of a lunge: two quick steps at most, at a pace a fighter can step. */
 export const LUNGE_MAX = 0.6;
 const LUNGE_SPEED = 1.8;
+/** The most speed a planned step adds to a capture's own foot motion (m/s, over the step). */
+const MAX_ADDED_STEP_SPEED = 2.5;
 /** How far a body can lean over a standing foot it cannot lift. */
 const LEAN_MAX = 0.2;
 function capturedLunge(keys: RKey[], warp: [number, number] | null) {
@@ -535,7 +537,8 @@ export class ClipPlayer {
       return { x: st.x - ax, z: st.z - az, y: -f0.p[1] * S, yaw: wrapAngle(this.footStartYaw[side] - (this.originYaw + f0.yaw * DEG)) };
     });
     // the capture's own swings: from the last key down to the first key down again
-    type Step = { a: number; b: number; added: boolean };
+    // (ext: a capture's step kept up longer than the capture had it)
+    type Step = { a: number; b: number; added: boolean; ext?: boolean };
     const steps: Step[][] = [[], []];
     for (let side = 0; side < 2; side++) {
       for (let i = 0; i < n; ) {
@@ -593,6 +596,33 @@ export class ClipPlayer {
       let g = 0, r = 0, si = 0;
       // what each step carries: the warp up to the next lift, and what is left of the difference
       const land = ss.map((_, k) => this.warpWeight(k + 1 < ss.length ? keys[ss[k + 1].a].t : this.clip.dur));
+      // ...and a capture's own step is as quick as it is: a jab's half-step of 60 ms asked to
+      // carry the foot across from the other stance too shot it 70 cm in three frames. A step
+      // that has more to carry than its time allows stays up longer instead - a bigger step
+      // takes longer - landing once there's been time for it (but before the other foot lifts).
+      {
+        const oLen = Math.hypot(o.x, o.z);
+        const other = steps[1 - side];
+        let gp = 0, first = true;
+        for (let k = 0; k < ss.length; k++) {
+          const st = ss[k];
+          const carry = W * Math.abs(land[k] - gp) + (first ? oLen : 0);
+          gp = land[k];
+          first = false;
+          if (st.added) continue;
+          const need = carry / (MAX_ADDED_STEP_SPEED * S);
+          if (keys[st.b].t - keys[st.a].t >= need) continue;
+          // (no later than this foot's own next lift, nor the other foot's)
+          let limit = k + 1 < ss.length ? ss[k + 1].a : n - 1;
+          for (const os of other) if (os.a > st.a && os.a < limit) limit = os.a;
+          let b = st.b;
+          while (b < limit && keys[b].t - keys[st.a].t < need) b++;
+          if (b > st.b) {
+            st.b = b;
+            st.ext = true;
+          }
+        }
+      }
       for (let i = 0; i < n; i++) {
         const f = foot(side, i);
         let gi = g, ri = r, ry = r, lift = 0;
@@ -619,8 +649,10 @@ export class ClipPlayer {
           const want = Math.min(0.12 * S, 0.035 * S + Math.hypot(dx, dz) * 0.2);
           let own = 0;
           if (!st.added) for (let q = st.a; q <= st.b; q++) own = Math.max(own, foot(side, q).p[1] * S);
-          // (a raised cosine: off the floor and back onto it without a jolt in the shin)
-          if (want > own + 0.01 * S) lift = (0.5 - 0.5 * Math.cos(2 * Math.PI * v)) * (want - own);
+          // (a raised cosine: off the floor and back onto it without a jolt in the shin; a step
+          // kept up past the capture's landing stays off the floor till its own)
+          const up = st.ext ? Math.max(want - own, 0.04 * S) : want - own;
+          if (up > 0.01 * S) lift = (0.5 - 0.5 * Math.cos(2 * Math.PI * v)) * up;
         }
         if (settle > 0) {
           const rs = smoothstep(0, settle, keys[i].t);

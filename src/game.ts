@@ -34,6 +34,7 @@ import { Shape, Vec3 } from './world/euphoria/engine.js';
 import { Ragdoll } from './world/ragdoll';
 import type { RagdollLike } from './world/ragdollTypes';
 import { Pose, PoseFK } from './anim/pose';
+import { Replay } from './replay/replay';
 
 /** Separation speed (m/s per body) for fighters just released from a paired move. */
 const SOFT_SEPARATION = 1.4;
@@ -79,6 +80,8 @@ export class Game {
   hud: HUD | null = null;
   thrown: { e: Enemy; t: number; dir: THREE.Vector3; hitWall?: boolean }[] = [];
   props!: Props;
+  /** The last minute of the run, recorded for watching back after the fall. */
+  replay!: Replay;
   projectiles!: Projectiles;
   onCorpse: ((r: CorpseRecord) => void) | null = null;
   started = false;
@@ -188,6 +191,8 @@ export class Game {
     this.player.hp = this.player.maxHp = 100;
     this.player.model.uniforms.uRim.value.set(0.35, 0.5, 0.8, 0.22);
     this.fighters.push(this.player);
+    this.replay = new Replay(this);
+    this.replay.track(this.player);
     // JIT-compile the active-ragdoll solver before the first fight
     {
       const def = this.player.def;
@@ -218,6 +223,53 @@ export class Game {
       window.addEventListener('pointerdown', onFirstGesture);
       window.addEventListener('keydown', onFirstGesture);
       window.addEventListener('keydown', (e) => {
+        if (this.replay?.active) {
+          const r = this.replay;
+          switch (e.code) {
+            case 'Escape':
+            case 'Enter':
+            case 'Backspace':
+              this.closeReplay();
+              break;
+            case 'Space':
+            case 'KeyK':
+              r.togglePlay();
+              break;
+            case 'ArrowLeft':
+              r.seek(r.t - 5);
+              break;
+            case 'ArrowRight':
+              r.seek(r.t + 5);
+              break;
+            case 'Comma':
+              r.playing = false;
+              r.seek(r.t - 1 / 30);
+              break;
+            case 'Period':
+              r.playing = false;
+              r.seek(r.t + 1 / 30);
+              break;
+            case 'ArrowUp':
+            case 'Equal':
+              r.setSpeed(1);
+              break;
+            case 'ArrowDown':
+            case 'Minus':
+              r.setSpeed(-1);
+              break;
+            case 'KeyC':
+              r.toggleCamera();
+              break;
+            case 'KeyR':
+              r.seek(r.start);
+              r.playing = true;
+              break;
+            default:
+              return;
+          }
+          e.preventDefault();
+          return;
+        }
         if (this.hud?.handleMenuKey(e)) {
           e.preventDefault();
           return;
@@ -227,7 +279,7 @@ export class Game {
         else if ((e.code === 'Escape' || e.code === 'KeyP' || e.code === 'Enter') && this.spectating) this.stopSpectate();
       });
       this.renderer.gl.domElement.addEventListener('click', () => {
-        if ((this.started && !this.paused && !this.over) || this.spectating) this.input.requestLock();
+        if ((this.started && !this.paused && !this.over) || this.spectating || this.replay?.active) this.input.requestLock();
       });
       // the browser consumes Esc to release pointer lock: treat that as a pause request
       this.input.onLockLost = () => {
@@ -383,6 +435,10 @@ export class Game {
     this.frame++;
     this.realTime += realDt;
     this.input.update(realDt);
+    if (this.replay?.active) {
+      this.replayStep(realDt);
+      return;
+    }
     if (this.paused) return;
     this.tickTimers(realDt);
     this.heartbeat(realDt);
@@ -427,6 +483,7 @@ export class Game {
     this.corpses.updateWounds(this.time, dt);
     this.fx.update(dt);
     this.footsteps();
+    this.replay.capture(dt);
     // camera
     const [lx, ly] = this.input.takeLook();
     let near = 0;
@@ -692,6 +749,73 @@ export class Game {
     if (w.body) w.body.setLinvel({ x: rand(-1, 1), y: 1, z: rand(-1, 1) }, true);
   }
 
+  /**
+   * After the run: the last minute again, from the replay - the world holds still while it plays,
+   * the camera is the game's as it was or a free one.
+   */
+  openReplay() {
+    if (!this.over || this.replay.active) return;
+    if (this.spectating) {
+      this.spectating = false;
+      this.cam.stopFree();
+      this.hud?.setSpectate(false);
+    }
+    if (!this.replay.open()) return;
+    this.hud?.show(null);
+    this.hud?.setReplay(true);
+    this.input.clearHeld();
+    this.input.requestLock();
+  }
+  closeReplay() {
+    if (!this.replay.active) return;
+    this.replay.close();
+    this.input.exitLock();
+    this.hud?.setReplay(false);
+    this.hud?.show('gameover');
+  }
+  /** Gamepad buttons held last frame (the replay acts on presses). */
+  private padWas: boolean[] = [];
+  /** A frame of the replay: its clock, the camera, the listener, the screen settling back. */
+  private replayStep(realDt: number) {
+    const inp = this.input;
+    const [lx, ly] = inp.takeLook();
+    // a gamepad: A play / pause, B back, X camera, LB / RB 5 s back / on, d-pad up / down speed,
+    // the triggers fly the free camera up / down
+    const pad = navigator.getGamepads?.().find((gp) => gp && gp.connected);
+    let padUp = 0;
+    if (pad) {
+      padUp = (pad.buttons[7]?.value ?? 0) - (pad.buttons[6]?.value ?? 0);
+      const r = this.replay;
+      const pressed = (i: number) => !!pad.buttons[i]?.pressed && !this.padWas[i];
+      if (pressed(0)) r.togglePlay();
+      if (pressed(2)) r.toggleCamera();
+      if (pressed(4)) r.seek(r.t - 5);
+      if (pressed(5)) r.seek(r.t + 5);
+      if (pressed(12)) r.setSpeed(1);
+      if (pressed(13)) r.setSpeed(-1);
+      const back = pressed(1) || pressed(9);
+      this.padWas = pad.buttons.map((b) => b.pressed);
+      if (back) {
+        this.closeReplay();
+        return;
+      }
+    }
+    this.replay.update(realDt);
+    if (this.replay.cam === 'free') {
+      const up = pad ? padUp : (inp.isHeld('grab') ? 1 : 0) - (inp.isHeld('stun') ? 1 : 0);
+      this.cam.updateFree(realDt, lx, ly, inp.moveX, inp.moveY, up, inp.isHeld('walk'));
+    }
+    const right = new THREE.Vector3(1, 0, 0).applyQuaternion(this.cam.camera.quaternion);
+    this.audio.setListener(this.cam.camera.position, right);
+    this.music.update(realDt);
+    const fx = this.renderer.fx;
+    fx.chroma = damp(fx.chroma, 0, 7, realDt);
+    fx.flash = damp(fx.flash, 0, 12, realDt);
+    fx.red = damp(fx.red, 0, 3, realDt);
+    fx.desat = damp(fx.desat, 0.12, 4, realDt);
+    this.hud?.updateReplay(this.replay);
+  }
+
   /** After the run: flying round the room to take in the aftermath (the fight plays on). */
   spectating = false;
   startSpectate() {
@@ -715,6 +839,7 @@ export class Game {
   onPlayerDeath() {
     if (this.over) return;
     this.over = true;
+    this.replay.playerDown();
     this.slowMo(0.2, 2.5);
     this.audio.play('announcer', { file: 'audio/announcer/announcer_game_over.wav', vol: 0.8 });
     const p = this.player;
@@ -758,6 +883,7 @@ export class Game {
   addFighter(f: Fighter) {
     this.fighters.push(f);
     this.addBodyProxy(f);
+    this.replay?.track(f);
   }
 
   /**

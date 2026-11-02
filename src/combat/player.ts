@@ -93,7 +93,7 @@ export class Player extends Fighter {
   specialCharges = 0;
   specialKOs = 0;
   private koSeen = 0;
-  private pistol: Pistol | null = null;
+  pistol: Pistol | null = null;
   private gunTarget: Enemy | null = null;
   private gunAimAt = new THREE.Vector3();
   private shotsFired = 0;
@@ -370,10 +370,14 @@ export class Player extends Fighter {
   private chooseStrike(target: Enemy): { move: MoveDef; back: boolean } {
     const d = this.distTo(target);
     const ang = Math.abs(this.angleTo(target));
-    const back = ang > 2.1 && d < 2.3 && this.action === 'attack';
-    let pool: MoveDef[];
     const all = this.style.strikes;
-    if (back) pool = all.filter((m) => m.range === 'back');
+    // a back elbow / back kick on someone right behind - within its reach and a step: further back
+    // than that, the turn and a running step look right (the back moves warped across a metre and
+    // more in two frames)
+    const backs = ang > 2.1 && this.action === 'attack' ? all.filter((m) => m.range === 'back' && d < m.reach + 0.6) : [];
+    const back = backs.length > 0;
+    let pool: MoveDef[];
+    if (back) pool = backs;
     else if (d > 4.2) pool = all.filter((m) => m.range === 'far');
     else if (d < 1.15) pool = all.filter((m) => m.range === 'close' || this.style.closeAlso.includes(m.name));
     else pool = all.filter((m) => m.range === 'mid' || (m.range === 'close' && d < 1.8));

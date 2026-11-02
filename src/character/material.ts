@@ -155,6 +155,9 @@ export function createCharacterMaterial(atlas: THREE.DataArrayTexture, corpse = 
   };
   const corpseUniforms = {
     uCorpseWounds: { value: null as THREE.DataTexture | null },
+    // when each body was laid down, and the replay's clock: a body laid down later isn't there yet
+    uCorpseBorn: { value: null as THREE.DataTexture | null },
+    uReplayT: { value: 1e9 },
   };
   mat.onBeforeCompile = (shader) => {
     Object.assign(shader.uniforms, uniforms);
@@ -167,7 +170,7 @@ attribute float aSkin;
 varying float vSkin;
 varying vec3 vBindPos;
 varying vec2 vCharUv;
-${corpse ? 'attribute vec3 aBindPos;\nattribute float aCorpseId;\nattribute float aLayer;\nflat varying int vCorpseId;\nflat varying float vLayer;' : 'attribute vec2 aSway;\nuniform vec3 uSway;\nuniform float uFlare;\nuniform vec3 uHipC;'}
+${corpse ? 'attribute vec3 aBindPos;\nattribute float aCorpseId;\nattribute float aLayer;\nflat varying int vCorpseId;\nflat varying float vLayer;\nuniform highp sampler2D uCorpseBorn;\nuniform float uReplayT;' : 'attribute vec2 aSway;\nuniform vec3 uSway;\nuniform float uFlare;\nuniform vec3 uHipC;'}
 `,
       )
       .replace(
@@ -189,6 +192,16 @@ ${corpse ? '' : `if (aSway.x + aSway.y > 0.0) {
   // (and long hair fans out in a spin too)
   if (rl > 1e-4) transformed += vec3(rd.x / rl * 0.75, 0.42, rd.y / rl * 0.75) * uFlare * (aSway.y * 0.09 + aSway.x * 0.05);
 }`}
+`,
+      )
+      .replace(
+        '#include <project_vertex>',
+        `#include <project_vertex>
+${corpse ? `{
+  // (watching a replay: a body that hadn't fallen yet at the replay's moment isn't drawn)
+  int cid = int(aCorpseId + 0.5);
+  if (texelFetch(uCorpseBorn, ivec2(cid % 256, cid / 256), 0).r > uReplayT) gl_Position = vec4(0.0, 0.0, -2.0, 1.0);
+}` : ''}
 `,
       );
     shader.fragmentShader = shader.fragmentShader

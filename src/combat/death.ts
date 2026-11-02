@@ -199,7 +199,7 @@ export class DeathSystem {
     const f = d.f;
     d.rag.dispose();
     f.ragdoll = null;
-    f.model.dispose();
+    this.game.replay.retire(f);
     this.game.removeFighter(f);
   }
 
@@ -229,7 +229,8 @@ export class DeathSystem {
     }
     d.rag.dispose();
     f.ragdoll = null;
-    f.model.dispose();
+    // (the model stays a while, hidden: a replay shows the body as it fell)
+    g.replay.retire(f);
     g.removeFighter(f);
     g.onCorpse?.(rec);
   }

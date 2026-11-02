@@ -268,3 +268,19 @@ kbd, #hud .prompt b { display: inline-block; min-width: 24px; padding: 4px 7px 3
 .spectate.on { display: flex; }
 .spectate b { color: #ff5a6a; font-weight: 800; letter-spacing: .26em; }
 @media (max-width: 720px) { .spectate { flex-wrap: wrap; white-space: normal; justify-content: center; width: calc(100vw - 32px); } }
+/* replay: timeline, clock, speed and camera, the keys */
+.replay { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); width: min(920px, calc(100vw - 32px)); display: none; flex-direction: column; gap: 9px; padding: 11px 16px 10px; background: rgba(8,9,12,.62); border: 1px solid rgba(255,255,255,.12); font: 700 12px/1 var(--ui, sans-serif); letter-spacing: .16em; color: rgba(255,255,255,.66); text-shadow: 0 1px 2px #000; z-index: 30; box-sizing: border-box; }
+.replay.on { display: flex; }
+.replay .rtop { display: flex; gap: 16px; align-items: baseline; white-space: nowrap; }
+.replay .rtitle { color: #ff5a6a; font-weight: 800; letter-spacing: .26em; }
+.replay .rstate { color: #fff; min-width: 1.4em; letter-spacing: 0; }
+.replay .rtime { color: #fff; font-variant-numeric: tabular-nums; }
+.replay .rrel { color: rgba(255,255,255,.5); flex: 1; }
+.replay .rspeed, .replay .rcam { color: #ffd24a; }
+.replay .rbar { position: relative; height: 10px; background: rgba(255,255,255,.12); cursor: pointer; touch-action: none; }
+.replay .rfill { position: absolute; left: 0; top: 0; bottom: 0; background: linear-gradient(90deg, rgba(255,90,106,.55), #ff5a6a); pointer-events: none; }
+.replay .rmark { position: absolute; top: -4px; bottom: -4px; width: 2px; margin-left: -1px; background: #fff; box-shadow: 0 0 6px #fff; pointer-events: none; }
+.replay .rkeys { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 10.5px; letter-spacing: .12em; color: rgba(255,255,255,.5); }
+.replay .rkeys b { color: rgba(255,255,255,.85); font-weight: 800; }
+@media (max-width: 720px) { .replay .rtop { flex-wrap: wrap; gap: 8px 12px; white-space: normal; } }
+

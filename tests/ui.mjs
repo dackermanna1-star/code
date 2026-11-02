@@ -41,6 +41,23 @@ await shot('t_controls');
 await page.evaluate(() => window.game.hud.gameOver({ 'Wave reached': 9, Score: '48,210', Kills: 61, 'Bodies on the floor': 61, 'Best combo': 37, Counters: '22 (9 perfect)', Dodges: '14 (3 perfect)', Finishers: 18, Takedowns: 6, 'Environment kills': 3, 'Bones broken': 25, Disarms: 4 }, { grade: 'A', record: true }));
 await page.waitForTimeout(1500);
 await shot('t_results');
+// replay: watch the run back (the button on the results)
+await page.evaluate(() => {
+  const g = window.game;
+  g.over = true;
+  g.paused = false;
+  const b = [...document.querySelectorAll('#gocol .mlist button')].find((x) => x.textContent.includes('REPLAY'));
+  b?.click();
+});
+await page.waitForTimeout(1500);
+await shot('t_replay');
+await page.keyboard.press('KeyC');
+await page.keyboard.press('ArrowDown');
+await page.waitForTimeout(900);
+await shot('t_replay_gamecam');
+await page.keyboard.press('Escape');
+await page.waitForTimeout(700);
+await shot('t_replay_back');
 // spectate: the run is over, fly round the room (the button on the results)
 await page.evaluate(() => {
   const g = window.game;
