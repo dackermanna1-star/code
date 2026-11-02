@@ -185,6 +185,12 @@ export class MocapDriver {
   /** Per-character variety: idle tempo and how much of the boxer's bounce shows. */
   idleRate = 1;
   bounce = 1;
+  /**
+   * A woman's walk (0..1): the feet land nearer the line under her, the pelvis drops towards the
+   * swinging leg and the shoulders counter it; with `strideK`, shorter, quicker steps (heels).
+   */
+  sway = 0;
+  strideK = 1;
   private lvx = 0;
   private lvz = 0;
   private moveSm = 0;
@@ -295,7 +301,7 @@ export class MocapDriver {
     nat += wSL * sideL.speed + wSR * sideR.speed + wB * back.speed;
     // match the real speed: half by cadence, half by stride length
     const r = vn > 1e-3 && nat > 1e-3 ? vn / nat : 1;
-    const cad = clamp(Math.sqrt(r), 0.72, 1.3);
+    const cad = clamp(Math.sqrt(r), 0.72, 1.3) / this.strideK;
     const stride = clamp(r / cad, 0.3, 1.35);
     const limpCad = lerp(1, 0.86, L.limpSm);
     if (move > 0.01) this.phase = (this.phase + (dt / Math.max(0.2, dur)) * cad * limpCad) % 1;
@@ -324,9 +330,10 @@ export class MocapDriver {
     const ly = this.legYaw;
     const cy = Math.cos(ly), sy = Math.sin(ly);
     const hx = bl.hp.x * legLen, hz = bl.hp.z * legLen;
+    const narrow = 1 - 0.38 * this.sway * move;
     const legXZ = (k: FootKey, out: THREE.Vector3, y: number) => {
       const v = bl.v[k], m = bl.m[k];
-      let x = v.x * legLen - hx, z = v.z * legLen - hz;
+      let x = (v.x * legLen - hx) * narrow, z = v.z * legLen - hz;
       // longer / shorter steps: scale the foot's travel about its average place (not about the
       // hips, which would also squeeze or spread the stance of a side-step)
       const along = (v.x - m.x) * legLen * tdx + (v.z - m.y) * legLen * tdz;
@@ -344,11 +351,19 @@ export class MocapDriver {
     prm.hipsPos.set(hx, def.offsets[B.hips].y + bl.hp.y * legLen - L.hunchSm * 0.04 * S - limpDip, hz);
     _q.setFromAxisAngle(_Y, ly);
     prm.hipsRot.copy(_q).multiply(bl.q.hq);
+    let swayRoll = 0;
+    if (this.sway > 0 && move > 0.01) {
+      // the stance hip rides up, the swinging side drops (the lower foot carries the weight)
+      const st = clamp((bl.v.aR.y - bl.v.aL.y) * 9, -1, 1);
+      swayRoll = this.sway * move * (1 - 0.6 * this.runK) * st * 6 * DEG;
+      prm.hipsRot.multiply(_q.setFromEuler(_e.set(0, -st * this.sway * move * 4 * DEG, -swayRoll)));
+    }
     // the trunk keeps facing where the character faces: counter-turn the spine
     _q2.setFromAxisAngle(_Y, -ly * 0.55);
     prm.spine.copy(bl.q.sp).premultiply(_q2);
     _q2.setFromAxisAngle(_Y, -ly * 0.45);
     prm.chest.copy(bl.q.ch).premultiply(_q2);
+    if (swayRoll !== 0) prm.spine.multiply(_q.setFromEuler(_e.set(0, 0, swayRoll * 1.25)));
     prm.neck.copy(bl.q.nk);
     prm.head.copy(bl.q.hd);
     // look towards the threat: spread over spine, chest and head

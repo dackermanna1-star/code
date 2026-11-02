@@ -2,9 +2,10 @@ import * as THREE from 'three';
 import { BodySpec, buildSkeletonDef, createBones, SkeletonDef } from '../anim/skeleton';
 import { buildBodyGeometry } from './bodyMesh';
 import { Outfit } from './outfit';
-import { buildTextureArray, paintCharacterCanvas } from './texture';
+import { buildTextureArray, paintCharacter, PaintedLayer } from './texture';
 import { createCharacterMaterial, CharacterMaterialUniforms, MAX_WOUNDS, Wound, WOUND_MATURE, writeWounds } from './material';
 import { Pose, applyPoseToBones } from '../anim/pose';
+import { B } from '../anim/skeleton';
 
 export interface Variant {
   id: number;
@@ -14,6 +15,14 @@ export interface Variant {
   def: SkeletonDef;
   geometry: THREE.BufferGeometry;
   layer: number;
+  /** The head has a layer of its own (layer + 1) at twice the detail. */
+  hiFace: boolean;
+  /** Long hair or a skirt: drive the shader's secondary motion. */
+  sway: boolean;
+}
+
+export interface VariantOptions {
+  hiFace?: boolean;
 }
 
 export class CharacterLibrary {
@@ -22,13 +31,15 @@ export class CharacterLibrary {
   atlas!: THREE.DataArrayTexture;
   /** Surface finish of skin and cloth (rain-soaked on the rooftop: glossier, catching the neon). */
   surface = { roughness: 0.82, env: 1 };
-  private canvases: HTMLCanvasElement[] = [];
+  private canvases: PaintedLayer[] = [];
 
-  add(name: string, spec: Partial<BodySpec>, outfit: Outfit): Variant {
+  add(name: string, spec: Partial<BodySpec>, outfit: Outfit, opts: VariantOptions = {}): Variant {
     const def = buildSkeletonDef(spec);
-    const geometry = buildBodyGeometry({ def, outfit });
-    const v: Variant = { id: this.variants.length, name, spec, outfit, def, geometry, layer: this.canvases.length };
-    this.canvases.push(paintCharacterCanvas(outfit));
+    const hiFace = !!opts.hiFace;
+    const geometry = buildBodyGeometry({ def, outfit, hiFace });
+    const sway = outfit.hairStyle === 'longwave' || outfit.bottom === 'skirt';
+    const v: Variant = { id: this.variants.length, name, spec, outfit, def, geometry, layer: this.canvases.length, hiFace, sway };
+    this.canvases.push(...paintCharacter(outfit, def.spec, hiFace));
     this.variants.push(v);
     this.byName.set(name, v);
     return v;
@@ -80,6 +91,58 @@ export class CharacterModel {
 
   applyPose(pose: Pose) {
     applyPoseToBones(pose, this.bones);
+  }
+
+  private sec = { init: false, px: 0, py: 0, pz: 0, vx: 0, vy: 0, vz: 0, ox: 0, oy: 0, oz: 0, ovx: 0, ovy: 0, ovz: 0, yaw: 0, spin: 0, flare: 0 };
+  /**
+   * Secondary motion for long hair and a skirt: the hair is a damped spring dragged by the hips'
+   * acceleration (it trails a dash, swings back on a stop, lifts in a jump); the hem flares with
+   * the body's spin. Call after the pose and the group transform are set.
+   */
+  secondary(dt: number) {
+    if (!this.variant.sway || dt <= 0) return;
+    const S = this.sec;
+    const g = this.group;
+    const hp = this.bones[B.hips].position;
+    const yaw = g.rotation.y;
+    const c = Math.cos(yaw), sn = Math.sin(yaw);
+    // the hips in the world
+    const wx = g.position.x + hp.x * c + hp.z * sn, wy = g.position.y + hp.y, wz = g.position.z - hp.x * sn + hp.z * c;
+    // the hips' facing (the body's yaw, spins included)
+    const hq = this.bones[B.hips].quaternion;
+    const fz = 1 - 2 * (hq.x * hq.x + hq.y * hq.y), fx = 2 * (hq.x * hq.z + hq.w * hq.y);
+    const hy = yaw + Math.atan2(fx, fz);
+    dt = Math.min(dt, 0.05);
+    if (!S.init) {
+      Object.assign(S, { init: true, px: wx, py: wy, pz: wz, vx: 0, vy: 0, vz: 0, yaw: hy });
+      return;
+    }
+    const vx = (wx - S.px) / dt, vy = (wy - S.py) / dt, vz = (wz - S.pz) / dt;
+    const ax = Math.max(-40, Math.min(40, (vx - S.vx) / dt)), ay = Math.max(-40, Math.min(40, (vy - S.vy) / dt)), az = Math.max(-40, Math.min(40, (vz - S.vz) / dt));
+    S.px = wx; S.py = wy; S.pz = wz; S.vx = vx; S.vy = vy; S.vz = vz;
+    let dy = hy - S.yaw;
+    while (dy > Math.PI) dy -= Math.PI * 2;
+    while (dy < -Math.PI) dy += Math.PI * 2;
+    S.yaw = hy;
+    S.spin = S.spin + (Math.abs(dy / dt) - S.spin) * Math.min(1, dt * 10);
+    // spring: the offset is pushed opposite the acceleration (the hair lags), pulled home, damped
+    const K = 70, D = 9, G = 0.0026;
+    S.ovx += (-K * S.ox - D * S.ovx - ax * G * K) * dt;
+    S.ovy += (-K * S.oy - D * S.ovy - ay * G * K * 0.6) * dt;
+    S.ovz += (-K * S.oz - D * S.ovz - az * G * K) * dt;
+    S.ox += S.ovx * dt; S.oy += S.ovy * dt; S.oz += S.ovz * dt;
+    const L = Math.hypot(S.ox, S.oy, S.oz);
+    if (L > 0.11) {
+      const f = 0.11 / L;
+      S.ox *= f; S.oy *= f; S.oz *= f;
+    }
+    // to mesh space (the hair never swings up into the head)
+    const u = this.uniforms;
+    u.uSway.value.set(S.ox * c - S.oz * sn, Math.min(0.02, S.oy), S.ox * sn + S.oz * c);
+    const target = Math.min(1, Math.max(0, (S.spin - 2.5) / 7));
+    S.flare += (target - S.flare) * Math.min(1, dt * (target > S.flare ? 9 : 4));
+    u.uFlare.value = S.flare;
+    u.uHipC.value.copy(hp);
   }
 
   /** Add a wound in bind-pose space, merging with nearby ones to stay within the limit. */

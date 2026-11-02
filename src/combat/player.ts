@@ -2,7 +2,8 @@ import * as THREE from 'three';
 import { Fighter } from './fighter';
 import { ClipEvent, getClip } from '../anim/clip';
 import { HitInfo, HitResult } from './types';
-import { MoveDef, PLAYER_STRIKES } from './moves';
+import { MoveDef } from './moves';
+import { FighterStyle, STYLES } from './styles';
 import { angleDiff, chance, clamp, damp, dampAngle, pick, rand, weightedPick, yawFromDir } from '../core/math';
 import { PAIRS, PairedClip } from '../anim/lib/paired';
 import type { Enemy } from '../ai/enemy';
@@ -45,6 +46,8 @@ const WEAPON_MOVES: Record<string, { clip: string; reach: number; damage: number
 
 export class Player extends Fighter {
   team = 'player' as const;
+  /** Who is playing: moveset, finishers, speed and voice. */
+  style: FighterStyle = STYLES.jin;
   speed = 5.6;
   action: PlayerAction = 'free';
   target: Enemy | null = null;
@@ -312,12 +315,13 @@ export class Player extends Fighter {
     const ang = Math.abs(this.angleTo(target));
     const back = ang > 2.1 && d < 2.3 && this.action === 'attack';
     let pool: MoveDef[];
-    if (back) pool = PLAYER_STRIKES.filter((m) => m.range === 'back');
-    else if (d > 4.2) pool = PLAYER_STRIKES.filter((m) => m.range === 'far');
-    else if (d < 1.15) pool = PLAYER_STRIKES.filter((m) => m.range === 'close' || m.name === 'hook' || m.name === 'cross');
-    else pool = PLAYER_STRIKES.filter((m) => m.range === 'mid' || (m.range === 'close' && d < 1.8));
+    const all = this.style.strikes;
+    if (back) pool = all.filter((m) => m.range === 'back');
+    else if (d > 4.2) pool = all.filter((m) => m.range === 'far');
+    else if (d < 1.15) pool = all.filter((m) => m.range === 'close' || this.style.closeAlso.includes(m.name));
+    else pool = all.filter((m) => m.range === 'mid' || (m.range === 'close' && d < 1.8));
     pool = pool.filter((m) => (m.minCombo ?? 0) <= this.combo);
-    if (pool.length === 0) pool = PLAYER_STRIKES.filter((m) => m.range === 'mid');
+    if (pool.length === 0) pool = all.filter((m) => m.range === 'mid');
     const recent = this.history.slice(-3);
     const stunned = target.state === 'stunned';
     const move =
@@ -342,7 +346,7 @@ export class Player extends Fighter {
     }
     if (!target) {
       // shadow strike into the air
-      const m = pick(PLAYER_STRIKES.filter((x) => x.range === 'mid' && x.kind === 'punch'));
+      const m = pick(this.style.strikes.filter((x) => x.range === 'mid' && x.kind === 'punch'));
       const side = chance(0.5) ? '' : '_m';
       this.play(m.clip + side, { halflife: 0.08 });
       this.action = 'attack';
@@ -376,7 +380,7 @@ export class Player extends Fighter {
     if (this.anim.mode !== 'loco') this.anim.toLoco(0.08);
   }
   private strikeSpeed(target: Enemy) {
-    return target.state === 'stunned' ? 1.25 : 1.05 + Math.min(0.25, this.combo * 0.015);
+    return (target.state === 'stunned' ? 1.25 : 1.05 + Math.min(0.25, this.combo * 0.015)) * this.style.strikeSpeed;
   }
   /** Ground a strike covers by itself: its lunge (root warp) at a believable speed. */
   private lungeReach(clipName: string, move: MoveDef) {
@@ -439,7 +443,7 @@ export class Player extends Fighter {
     this.history.push(move.name);
     if (this.history.length > 8) this.history.shift();
     g.director.note('strikes');
-    if (chance(0.25)) g.audio.play('grunt_attack', { pos: _v.set(this.x, 1.6, this.z), vol: 0.45 });
+    if (chance(this.style.shout)) g.audio.play(this.style.voice.attack, { pos: _v.set(this.x, 1.6, this.z), vol: 0.45 });
   }
 
   private weaponAttack(target: Enemy | null) {
@@ -473,7 +477,7 @@ export class Player extends Fighter {
     switch (ev.type) {
       case 'sfx':
         if (ev.name === 'whoosh_heavy') g.audio.swoosh(0.3, 0.8);
-        g.audio.play(String(ev.name), { pos: _v.set(this.x, 1.2, this.z), vol: 0.8 });
+        g.audio.play(ev.name === 'grunt_attack' ? this.style.voice.attack : String(ev.name), { pos: _v.set(this.x, 1.2, this.z), vol: 0.8 });
         return;
       case 'hit':
         this.onStrikeContact(ev);
@@ -777,7 +781,7 @@ export class Player extends Fighter {
       name = this.weapon.kind === 'club' ? 'fin_weapon_club' : 'fin_weapon_blade';
       if (!PAIRS.get(name)) name = 'fin_roundhouse';
     } else {
-      const opts = ['fin_roundhouse', 'fin_armknee', 'fin_palm', 'fin_sweep', 'fin_flyknee'];
+      const opts = this.style.finishers.filter((o) => PAIRS.get(o));
       name = pick(opts.filter((o) => o !== this.lastFinisher));
     }
     const pair = PAIRS.get(name)!;
@@ -873,7 +877,7 @@ export class Player extends Fighter {
       e.downRag?.launch(dirW.clone().multiplyScalar(power).setY(d[1] * power * 0.6), 4);
       g.thrown.push({ e, t: 0, dir: dirW.clone() });
     }
-    g.audio.play('grunt_attack', { pos: _v.set(this.x, 1.5, this.z), vol: 0.6 });
+    g.audio.play(this.style.voice.attack, { pos: _v.set(this.x, 1.5, this.z), vol: 0.6 });
     g.audio.swoosh(0.35, 0.7);
     this.addCombo(1, 'throw');
   }

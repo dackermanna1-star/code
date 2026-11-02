@@ -25,6 +25,8 @@ export interface Settings {
   difficulty: Difficulty;
   /** Which arena the run is fought in. */
   map: 'warehouse' | 'rooftop' | 'alley' | 'apartment' | 'lab';
+  /** Who fights it. */
+  fighter: 'jin' | 'scarlet';
 }
 
 export type Difficulty = 'story' | 'fighter' | 'brutal';
@@ -91,6 +93,7 @@ export function defaultSettings(): Settings {
     mocap: true,
     difficulty: 'fighter',
     map: 'warehouse',
+    fighter: 'jin',
   };
 }
 

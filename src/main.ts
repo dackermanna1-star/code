@@ -17,6 +17,11 @@ async function boot() {
     await m.runGraffitiViewer(params);
     return;
   }
+  if (viewer === 'atlas') {
+    const m = await import('./debug/atlasViewer');
+    m.runAtlasViewer(params);
+    return;
+  }
   if (viewer === 'loco') {
     const m = await import('./debug/locoViewer');
     m.runLocoViewer(params);

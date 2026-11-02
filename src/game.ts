@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { Renderer } from './render/renderer';
 import { DIFFICULTY, loadSettings, PRESETS, Settings } from './core/settings';
+import { isFighterId, STYLES } from './combat/styles';
 import { Input } from './core/input';
 import { CameraRig } from './fx/camera';
 import { Arena, HALF_D, HALF_W, isMapName, MAPS } from './world/arena';
@@ -170,7 +171,12 @@ export class Game {
       this.props.blast(p, 5, 6);
       this.slowMo(0.4, 1.0);
     };
-    this.player = new Player(this, this.lib, this.lib.get('player'));
+    const fid = this.params.get('fighter');
+    if (isFighterId(fid)) this.settings.fighter = fid;
+    const style = STYLES[this.settings.fighter] ?? STYLES.jin;
+    this.player = new Player(this, this.lib, this.lib.get(style.variant));
+    this.player.style = style;
+    this.player.speed = style.runSpeed;
     const mc = this.params.get('mocap');
     if (mc === '0' || mc === '1') this.settings.mocap = mc === '1';
     this.applyMocap();
@@ -609,7 +615,7 @@ export class Game {
   onOverEdge(f: Fighter, alive: boolean) {
     this.euphoria.count(alive ? 'edgeKill' : 'edgeBody');
     const at = f.ragdoll?.pelvisPos(new THREE.Vector3()) ?? new THREE.Vector3(f.x, -1, f.z);
-    if (alive) this.audio.play('death', { pos: at, vol: 1, pitch: 1.08 });
+    if (alive) this.audio.play(f === (this.player as unknown) ? this.player.style.voice.death : 'death', { pos: at, vol: 1, pitch: f === (this.player as unknown) ? 1 : 1.08 });
     // the landing, far below and a long moment later
     this.audio.play('body_fall', { pos: at, vol: 0.12, pitch: 0.6, delay: 2.2 });
     if (this.edgeCamT > 0 || this.cam.inCinematic || f === this.player) return;
@@ -774,6 +780,10 @@ export class Game {
       loco.footWorld(0, feet[0]);
       loco.footWorld(1, feet[1]);
       loco.mocap.init(loco, feet, [loco.feet[0].yaw, loco.feet[1].yaw]);
+      if (this.player.style.id === 'scarlet') {
+        loco.mocap.sway = 1;
+        loco.mocap.strideK = 0.9;
+      }
     } else if (!this.settings.mocap) loco.mocap = null;
   }
 

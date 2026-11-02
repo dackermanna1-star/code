@@ -36,9 +36,13 @@ export interface BodySpec {
   gut: number; // belly
   chestDepth: number;
   armsDownDeg: number; // A-pose angle
+  /** 0 = male build, 1 = female (waist, hips, bust, finer face and limbs) - for the mesh. */
+  fem: number;
+  /** Heel height (m, unscaled; 0 = flat): the foot pitches onto its ball and the ankle rises. */
+  heel: number;
 }
 export const DEFAULT_BODY: BodySpec = {
-  height: 1, shoulders: 1, hipsW: 1, arms: 1, legs: 1, neckLen: 1, headSize: 1, bulk: 1, gut: 0, chestDepth: 1, armsDownDeg: 48,
+  height: 1, shoulders: 1, hipsW: 1, arms: 1, legs: 1, neckLen: 1, headSize: 1, bulk: 1, gut: 0, chestDepth: 1, armsDownDeg: 48, fem: 0, heel: 0,
 };
 
 export interface SkeletonDef {
@@ -72,7 +76,21 @@ export function buildSkeletonDef(specIn: Partial<BodySpec> = {}): SkeletonDef {
 
   const thighLen = 0.435 * L * s;
   const shinLen = 0.415 * L * s;
-  const ankleH = 0.075 * s;
+  let ankleH = 0.075 * s;
+  // ankle -> ball of the foot
+  const toeOff = new THREE.Vector3(0, -0.05 * s, 0.13 * s);
+  if (spec.heel > 0) {
+    // high heels: the foot turns about the ball (which stays on the ground) until the heel is up
+    // at heel height; the ankle rises and moves back over the heel, the toes stay flat
+    const a = Math.asin(Math.min(0.75, spec.heel / 0.17));
+    const c = Math.cos(a), sn = Math.sin(a);
+    // the ankle and the ball joint relative to the ball's contact point (z forward, y up), turned heel-up
+    const ankZ = -0.13 * c - 0.075 * sn, ankY = 0.13 * sn + 0.075 * c;
+    const ballZ = -0.025 * sn, ballY = 0.025 * c;
+    const sole = 0.008;
+    ankleH = (ankY + sole) * s;
+    toeOff.set(0, (ballY - ankY) * s, (ballZ - ankZ) * s);
+  }
   const hipJointY = ankleH + thighLen + shinLen; // ~0.925
   const hipsY = hipJointY + 0.06 * s;
 
@@ -104,7 +122,7 @@ export function buildSkeletonDef(specIn: Partial<BodySpec> = {}): SkeletonDef {
     off[th].set(0.092 * side * s * spec.hipsW, -0.06 * s, 0.0);
     off[sh].set(0, -thighLen, 0.012 * s);
     off[ft].set(0, -shinLen + 0.0, -0.012 * s);
-    off[to].set(0, -0.05 * s, 0.13 * s);
+    off[to].copy(toeOff);
   }
 
   const rest: THREE.Vector3[] = [];

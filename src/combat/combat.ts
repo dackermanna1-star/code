@@ -107,8 +107,10 @@ export class Combat {
       a.play('bone_break', { pos: p, vol: 1 });
       a.crack(p);
     }
-    if (res === 'killed') a.play('death', { pos: p, vol: 0.85, delay: 0.05 });
-    else if (chance(0.35 + s * 0.3)) a.play('grunt_pain', { pos: p, vol: 0.7, delay: 0.04 });
+    // (the player's own voice when it's the player who's hurt)
+    const voice = victim === (this.game.player as Fighter | null) ? this.game.player.style.voice : null;
+    if (res === 'killed') a.play(voice?.death ?? 'death', { pos: p, vol: 0.85, delay: 0.05 });
+    else if (chance(0.35 + s * 0.3)) a.play(voice?.pain ?? 'grunt_pain', { pos: p, vol: voice ? 0.8 : 0.7, delay: 0.04 });
 
     // ---- blood & wounds
     const head = h.region === 'head';

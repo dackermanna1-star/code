@@ -127,6 +127,10 @@ export interface CharacterMaterialUniforms {
   uAtlas: { value: THREE.DataArrayTexture | null };
   /** 0..1 share of pixels dithered away (a fighter between the camera and the player). */
   uFade: { value: number };
+  /** Secondary motion (mesh space): long hair lags the body, a skirt's hem flares in a spin. */
+  uSway: { value: THREE.Vector3 };
+  uFlare: { value: number };
+  uHipC: { value: THREE.Vector3 };
 }
 
 /**
@@ -145,6 +149,9 @@ export function createCharacterMaterial(atlas: THREE.DataArrayTexture, corpse = 
     uLayer: { value: 0 },
     uAtlas: { value: atlas },
     uFade: { value: 0 },
+    uSway: { value: new THREE.Vector3() },
+    uFlare: { value: 0 },
+    uHipC: { value: new THREE.Vector3() },
   };
   const corpseUniforms = {
     uCorpseWounds: { value: null as THREE.DataTexture | null },
@@ -160,7 +167,7 @@ attribute float aSkin;
 varying float vSkin;
 varying vec3 vBindPos;
 varying vec2 vCharUv;
-${corpse ? 'attribute vec3 aBindPos;\nattribute float aCorpseId;\nattribute float aLayer;\nflat varying int vCorpseId;\nflat varying float vLayer;' : ''}
+${corpse ? 'attribute vec3 aBindPos;\nattribute float aCorpseId;\nattribute float aLayer;\nflat varying int vCorpseId;\nflat varying float vLayer;' : 'attribute vec2 aSway;\nuniform vec3 uSway;\nuniform float uFlare;\nuniform vec3 uHipC;'}
 `,
       )
       .replace(
@@ -169,6 +176,19 @@ ${corpse ? 'attribute vec3 aBindPos;\nattribute float aCorpseId;\nattribute floa
 vSkin = aSkin;
 vCharUv = uv;
 ${corpse ? 'vBindPos = aBindPos; vCorpseId = int(aCorpseId + 0.5); vLayer = aLayer;' : 'vBindPos = position;'}
+`,
+      )
+      .replace(
+        '#include <skinning_vertex>',
+        `#include <skinning_vertex>
+${corpse ? '' : `if (aSway.x + aSway.y > 0.0) {
+  // hair trails the body's motion; a skirt's hem swings out (and up) when she spins
+  transformed += uSway * aSway.x;
+  vec2 rd = transformed.xz - uHipC.xz;
+  float rl = length(rd);
+  // (and long hair fans out in a spin too)
+  if (rl > 1e-4) transformed += vec3(rd.x / rl * 0.75, 0.42, rd.y / rl * 0.75) * uFlare * (aSway.y * 0.09 + aSway.x * 0.05);
+}`}
 `,
       );
     shader.fragmentShader = shader.fragmentShader
@@ -186,6 +206,11 @@ uniform sampler2DArray uAtlas;
 ${corpse ? 'flat varying int vCorpseId;\nflat varying float vLayer;\nuniform highp sampler2D uCorpseWounds;' : `uniform float uLayer;\nuniform vec4 uWounds[${MAX_WOUNDS}];\nuniform vec4 uWoundInfo[${MAX_WOUNDS}];\nuniform int uWoundCount;`}
 float lsBloodAmt = 0.0;
 float lsWet = 0.0;
+// surface finish from the atlas alpha: 1 matte .. 0.5 glossy (leather, lips, eyes), 0.5..0.25 sheer
+// tights, below 0.25 metal (zips, buckles, earrings)
+float lsGloss = 0.0;
+float lsSheer = 0.0;
+float lsMetal = 0.0;
 // 4x4 ordered-dither threshold for the screen pixel
 float lsBayer4(vec2 fc) {
   ivec2 q = ivec2(mod(fc, 4.0));
@@ -211,8 +236,16 @@ ${WOUND_EVAL_GLSL}
       .replace(
         '#include <map_fragment>',
         `{
-  vec4 texel = texture(uAtlas, vec3(vCharUv, ${corpse ? 'vLayer' : 'uLayer'}));
-  diffuseColor *= texel;
+  // uv.x past 1 = the next layer (a face painted at twice the detail)
+  vec2 cuv = vCharUv;
+  float lo = cuv.x >= 1.0 ? 1.0 : 0.0;
+  cuv.x -= lo;
+  vec4 texel = texture(uAtlas, vec3(cuv, ${corpse ? 'vLayer' : 'uLayer'} + lo));
+  diffuseColor.rgb *= texel.rgb;
+  float ma = texel.a;
+  if (ma >= 0.5) lsGloss = (1.0 - ma) * 2.0;
+  else if (ma >= 0.25) lsSheer = (0.5 - ma) * 4.0;
+  else lsMetal = 1.0 - ma * 4.0;
 }
 {
   float blood = 0.0;
@@ -240,7 +273,26 @@ ${WOUND_EVAL_GLSL}
       .replace(
         '#include <roughnessmap_fragment>',
         `#include <roughnessmap_fragment>
+roughnessFactor = mix(roughnessFactor, 0.2, lsGloss);
+roughnessFactor = mix(roughnessFactor, 0.4, lsSheer);
+roughnessFactor = mix(roughnessFactor, 0.3, lsMetal);
 roughnessFactor = mix(roughnessFactor, mix(0.55, 0.2, lsWet), lsBloodAmt);
+`,
+      )
+      .replace(
+        '#include <metalnessmap_fragment>',
+        `#include <metalnessmap_fragment>
+metalnessFactor = max(metalnessFactor, lsMetal * (1.0 - lsBloodAmt));
+`,
+      )
+      .replace(
+        '#include <normal_fragment_maps>',
+        `#include <normal_fragment_maps>
+if (lsSheer > 0.0) {
+  // sheer tights: the skin shows through where the knit faces the eye, the edges go dark
+  float ndv = abs(dot(normal, normalize(vViewPosition)));
+  diffuseColor.rgb *= mix(1.0, mix(0.22, 1.05, pow(ndv, 1.5)), lsSheer * (1.0 - lsBloodAmt));
+}
 `,
       )
       .replace(

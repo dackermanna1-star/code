@@ -321,6 +321,7 @@ export abstract class Fighter implements AimProvider {
     this.anim.update(dt, this.x, this.z, this.yaw);
     this.model.group.position.set(this.x, this.lift, this.z);
     this.model.group.rotation.y = this.yaw;
+    this.model.secondary(dt);
     this.model.syncWounds(this.game.time);
   }
 

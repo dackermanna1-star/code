@@ -307,14 +307,17 @@ export class CorpseSystem {
       const o = (base + v) * 3;
       chunk.pos[o] = _v.x; chunk.pos[o + 1] = Math.max(_v.y, 0.004); chunk.pos[o + 2] = _v.z;
       chunk.nor[o] = Math.round(_n.x * 127); chunk.nor[o + 1] = Math.round(_n.y * 127); chunk.nor[o + 2] = Math.round(_n.z * 127);
-      chunk.uv[(base + v) * 2] = Math.round(THREE.MathUtils.clamp(uvA.getX(v), 0, 1) * 65535);
+      // (uv.x past 1: the head's own, more detailed layer - see the character material)
+      const u = uvA.getX(v);
+      const lo = u >= 1 ? 1 : 0;
+      chunk.uv[(base + v) * 2] = Math.round(THREE.MathUtils.clamp(u - lo, 0, 1) * 65535);
       chunk.uv[(base + v) * 2 + 1] = Math.round(THREE.MathUtils.clamp(uvA.getY(v), 0, 1) * 65535);
       chunk.bind[o] = THREE.DataUtils.toHalfFloat(posA.getX(v));
       chunk.bind[o + 1] = THREE.DataUtils.toHalfFloat(posA.getY(v));
       chunk.bind[o + 2] = THREE.DataUtils.toHalfFloat(posA.getZ(v));
       chunk.skin[base + v] = Math.round(THREE.MathUtils.clamp(skA.getX(v), 0, 1) * 255);
       chunk.cid[base + v] = rec.id;
-      chunk.layer[base + v] = model.variant.layer;
+      chunk.layer[base + v] = model.variant.layer + lo;
     }
     // rasterize this body into the height field (max height per cell, slightly dilated, capped)
     const hf = this.heights;

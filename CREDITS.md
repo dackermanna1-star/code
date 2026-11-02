@@ -47,6 +47,14 @@ All sound effects in `public/audio/` were cut, converted and normalised from the
 
 <!-- audio-credits:end -->
 
+Scarlet's voice (`public/audio/f_attack`, `f_pain`, `f_death`) was trimmed and level-matched from
+two more CC0 packs on OpenGameArt.org:
+
+| Pack | Author | License | URL |
+|---|---|---|---|
+| Female RPG Voice Starter Pack (voice "Type 3": attack, jump, damaged) | Cici Fyre | CC0 | https://opengameart.org/content/female-rpg-voice-starter-pack |
+| Female Hurt Grunts & Groans | AuraVoice | CC0 | https://opengameart.org/content/female-hurt-grunts-groans |
+
 The rooftop's rain is the *AMB Rain Loop 1* above (layered twice, offset). Its thunder, distant
 sirens, splashing footsteps and city rumble are synthesized at runtime (Web Audio noise and
 oscillators), like the rest of the procedural score.

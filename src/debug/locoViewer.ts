@@ -61,7 +61,11 @@ export function runLocoViewer(params: URLSearchParams) {
   if (path === 'strafe' || path === 'back' || path === 'diag') { x = -2; yaw = 0; }
   if (path === 'circle') { x = 3; z = 0; yaw = 0; }
   if (path === 'ai') { x = 0; z = -3.4; yaw = 0; }
-  if (params.get('mocap') === '1') anim.loco.mocap = new MocapDriver();
+  if (params.get('mocap') === '1') {
+    anim.loco.mocap = new MocapDriver();
+    anim.loco.mocap.sway = Number(params.get('sway') ?? (variant.def.spec.fem > 0.5 ? 1 : 0));
+    anim.loco.mocap.strideK = Number(params.get('strideK') ?? (variant.def.spec.fem > 0.5 ? 0.9 : 1));
+  }
   anim.initAt(x, z, yaw);
   const dt = 1 / 60;
   let tNext = Number(params.get('first') ?? 0.3);

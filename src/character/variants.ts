@@ -1,4 +1,4 @@
-import { CharacterLibrary } from './library';
+import { CharacterLibrary, VariantOptions } from './library';
 import { defaultOutfit, HAIR_COLORS, Outfit, SKIN_TONES } from './outfit';
 import { BodySpec } from '../anim/skeleton';
 import { RNG } from '../core/math';
@@ -10,8 +10,8 @@ const o = (over: Partial<Outfit>): Outfit => ({ ...defaultOutfit(), ...over });
 /** Register all character variants. Returns map archetype -> variant names. */
 export function registerVariants(lib: CharacterLibrary): Record<Archetype, string[]> {
   const out = {} as Record<Archetype, string[]>;
-  const add = (arch: Archetype, name: string, spec: Partial<BodySpec>, outfit: Outfit) => {
-    lib.add(name, spec, outfit);
+  const add = (arch: Archetype, name: string, spec: Partial<BodySpec>, outfit: Outfit, opts?: VariantOptions) => {
+    lib.add(name, spec, outfit, opts);
     (out[arch] ??= []).push(name);
   };
   const rng = new RNG(4242);
@@ -19,7 +19,15 @@ export function registerVariants(lib: CharacterLibrary): Record<Archetype, strin
   // ---------------- player: lean martial artist
   add('player', 'player', { height: 1.0, bulk: 1.02, shoulders: 1.04, arms: 1.0 },
     o({ skin: '#c99272', hair: '#121010', hairStyle: 'topknot', facial: 'stubble', top: 'tank', topColor: '#1b1b1f', topColor2: '#7a1515',
-      bottom: 'gi', bottomColor: '#1c1c22', shoes: 'wraps', hands: 'wraps', head: 'headband', headColor: '#8a1414', extras: ['sash'], extraColor: '#8a1414', scar: true, brow: 0.8, seed: 7 }));
+      bottom: 'gi', bottomColor: '#1c1c22', shoes: 'wraps', hands: 'wraps', head: 'headband', headColor: '#8a1414', extras: ['sash'], extraColor: '#8a1414', scar: true, brow: 0.8, seed: 7 }),
+    { hiFace: true });
+  // ---------------- player two: Scarlet, a redheaded kickboxer in a biker jacket and heeled knee boots
+  add('player', 'scarlet', { height: 0.95, fem: 1, heel: 0.085, bulk: 0.9, shoulders: 0.9, hipsW: 1.1, arms: 0.97, legs: 1.05, neckLen: 0.94, headSize: 0.99, chestDepth: 1.0 },
+    o({ skin: '#e2ae8f', hair: '#9a3216', hairStyle: 'longwave', facial: 'none', top: 'leather', topColor: '#141215', topColor2: '#5e1020',
+      bottom: 'skirt', bottomColor: '#0c0b0d', legwear: '#0c0a0c', shoes: 'kneeboots', shoeColor: '#0d0c0e', hands: 'fingerless', handColor: '#121113',
+      head: 'none', extras: ['earrings'], extraColor: '#caa45a', eyes: '#3d8a4a', brow: 0.3, seed: 8,
+      makeup: { lips: '#c41e30', liner: 1, blush: 0.4, freckles: 0.7, shadow: '#5e3c44' } }),
+    { hiFace: true });
 
   // ---------------- brawlers: street thugs
   const thugTops: Outfit['top'][] = ['tshirt', 'hoodie', 'tank', 'jacket', 'longsleeve'];

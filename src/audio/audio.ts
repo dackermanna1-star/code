@@ -16,9 +16,9 @@ export interface PlayOpts {
 const CATEGORY_GAIN: Record<string, number> = {
   punch_light: 0.85, punch_heavy: 1.0, kick: 1.0, body_hit: 0.9, face_crunch: 0.95, bone_break: 1.0, block: 0.75, parry: 0.8,
   whoosh_light: 0.45, whoosh_heavy: 0.55, sword_swing: 0.6, sword_clash: 0.75, blade_flesh: 0.85, club_hit: 0.95, wood_break: 0.9,
-  metal_hit: 0.85, body_fall: 0.9, footstep: 0.28, squish: 0.6, grunt_attack: 0.55, grunt_pain: 0.6, death: 0.7, announcer: 0.8, ambience: 0.35,
+  metal_hit: 0.85, body_fall: 0.9, footstep: 0.28, squish: 0.6, grunt_attack: 0.55, grunt_pain: 0.6, death: 0.7, f_attack: 0.5, f_pain: 0.55, f_death: 0.65, announcer: 0.8, ambience: 0.35,
 };
-const MAX_VOICES: Record<string, number> = { footstep: 4, whoosh_light: 4, whoosh_heavy: 3, grunt_attack: 3, grunt_pain: 3, death: 3, squish: 4 };
+const MAX_VOICES: Record<string, number> = { footstep: 4, whoosh_light: 4, whoosh_heavy: 3, grunt_attack: 3, grunt_pain: 3, death: 3, squish: 4, f_attack: 1, f_pain: 1, f_death: 1 };
 
 export class AudioSys {
   ctx: AudioContext | null = null;

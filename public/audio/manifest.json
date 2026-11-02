@@ -203,6 +203,28 @@
     "ambience": [
       "audio/ambience/ambience_01.wav",
       "audio/ambience/ambience_02.wav"
+    ],
+    "f_attack": [
+      "audio/f_attack/f_attack_01.wav",
+      "audio/f_attack/f_attack_02.wav",
+      "audio/f_attack/f_attack_03.wav",
+      "audio/f_attack/f_attack_04.wav",
+      "audio/f_attack/f_attack_05.wav",
+      "audio/f_attack/f_attack_06.wav"
+    ],
+    "f_pain": [
+      "audio/f_pain/f_pain_01.wav",
+      "audio/f_pain/f_pain_02.wav",
+      "audio/f_pain/f_pain_03.wav",
+      "audio/f_pain/f_pain_04.wav",
+      "audio/f_pain/f_pain_05.wav",
+      "audio/f_pain/f_pain_06.wav"
+    ],
+    "f_death": [
+      "audio/f_death/f_death_01.wav",
+      "audio/f_death/f_death_02.wav",
+      "audio/f_death/f_death_03.wav",
+      "audio/f_death/f_death_04.wav"
     ]
   },
   "files": {

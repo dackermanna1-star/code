@@ -1,9 +1,9 @@
 /** Appearance description for procedural characters. */
-export type HairStyle = 'bald' | 'buzz' | 'short' | 'mohawk' | 'long' | 'ponytail' | 'slick' | 'topknot';
-export type TopKind = 'bare' | 'tank' | 'tshirt' | 'longsleeve' | 'hoodie' | 'jacket' | 'gi' | 'vest' | 'tracktop' | 'coat';
-export type BottomKind = 'jeans' | 'cargo' | 'track' | 'gi' | 'shorts';
+export type HairStyle = 'bald' | 'buzz' | 'short' | 'mohawk' | 'long' | 'ponytail' | 'slick' | 'topknot' | 'longwave';
+export type TopKind = 'bare' | 'tank' | 'tshirt' | 'longsleeve' | 'hoodie' | 'jacket' | 'gi' | 'vest' | 'tracktop' | 'coat' | 'leather';
+export type BottomKind = 'jeans' | 'cargo' | 'track' | 'gi' | 'shorts' | 'skirt';
 export type HeadWear = 'none' | 'cap' | 'beanie' | 'bandana' | 'hood' | 'balaclava' | 'headband' | 'mask' | 'helmet';
-export type Extra = 'belt' | 'kneepads' | 'shoulderpads' | 'chestarmor' | 'chain' | 'sash' | 'bracers';
+export type Extra = 'belt' | 'kneepads' | 'shoulderpads' | 'chestarmor' | 'chain' | 'sash' | 'bracers' | 'earrings';
 
 export interface Outfit {
   skin: string;
@@ -16,7 +16,7 @@ export interface Outfit {
   topPattern: 'plain' | 'stripes' | 'logo' | 'camo' | 'flannel' | 'number' | 'panel' | 'uniform';
   bottom: BottomKind;
   bottomColor: string;
-  shoes: 'sneakers' | 'boots' | 'barefoot' | 'wraps' | 'slippers';
+  shoes: 'sneakers' | 'boots' | 'barefoot' | 'wraps' | 'slippers' | 'kneeboots';
   shoeColor: string;
   hands: 'bare' | 'wraps' | 'gloves' | 'fingerless';
   handColor: string;
@@ -29,6 +29,10 @@ export interface Outfit {
   tattoo: boolean;
   brow: number; // -1 calm .. 1 angry
   seed: number;
+  /** Sheer tights under a skirt (colour; null = bare legs). */
+  legwear?: string | null;
+  /** A woman's face: lashes, liner, lips, blush, freckles. */
+  makeup?: { lips: string; liner: number; blush: number; freckles: number; shadow: string } | null;
 }
 
 export const SKIN_TONES = ['#f1c7a6', '#e0ac85', '#c98e66', '#a8714d', '#8a5638', '#6b3f28', '#4e2c1c', '#d9a07a'];
@@ -48,7 +52,7 @@ export const sleeveLength = (top: TopKind) => {
   switch (top) {
     case 'bare': case 'tank': case 'vest': return 0;
     case 'tshirt': return 0.42;
-    case 'longsleeve': case 'hoodie': case 'jacket': case 'tracktop': case 'coat': return 0.97;
+    case 'longsleeve': case 'hoodie': case 'jacket': case 'tracktop': case 'coat': case 'leather': return 0.97;
     case 'gi': return 0.85;
   }
 };

@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import './hud.css';
 import type { Game } from '../game';
 import { PRESETS, QualityName, saveSettings, Settings } from '../core/settings';
+import { STYLES } from '../combat/styles';
 import { MAPS } from '../world/arena';
 import { MAX_CHARGES } from '../combat/player';
 
@@ -37,7 +38,7 @@ const TIERS: [number, string][] = [
   [5, 'FLOWING'],
 ];
 
-type MenuId = 'title' | 'pause' | 'settings' | 'controls' | 'gameover' | 'arenas';
+type MenuId = 'title' | 'pause' | 'settings' | 'controls' | 'gameover' | 'arenas' | 'fighters';
 
 export class HUD {
   root = el('div');
@@ -187,8 +188,10 @@ export class HUD {
     const tl = el('div', 'mlist');
     // the arena: cycling it rebuilds the world (a reload, straight back to this screen)
     const mi = Math.max(0, MAPS.findIndex((m) => m.id === g.settings.map));
+    const me = STYLES[g.settings.fighter] ?? STYLES.jin;
     tl.append(
       this.btn('FIGHT', () => g.beginRun(), 'primary'),
+      this.btn(`FIGHTER<small>${me.name} · ${me.tag}</small>`, () => this.show('fighters')),
       this.btn(`ARENA<small>${MAPS[mi].name}</small>`, () => this.show('arenas')),
       this.btn('SETTINGS', () => this.openSettings('title')),
       this.btn('CONTROLS', () => this.show('controls')),
@@ -216,6 +219,21 @@ export class HUD {
     }
     al.append(this.btn('BACK', () => this.show('title'), '', 'back'));
     ar.append(al);
+    // ---- fighters: who fights (a reload, straight back to the title with them in it)
+    const fr = this.mk('fighters', 'blur');
+    fr.append(el('div', 'kick', 'WHO FIGHTS'));
+    fr.append(el('h2', '', 'FIGHTER'));
+    const fl = el('div', 'mlist');
+    for (const f of Object.values(STYLES)) {
+      fl.append(this.btn(`${f.name} · ${f.tag}<small>${f.blurb.toUpperCase()}</small>`, () => {
+        if (f.id === g.settings.fighter) return this.show('title');
+        g.settings.fighter = f.id;
+        saveSettings(g.settings);
+        location.reload();
+      }, f.id === g.settings.fighter ? 'primary' : ''));
+    }
+    fl.append(this.btn('BACK', () => this.show('title'), '', 'back'));
+    fr.append(fl);
     // ---- controls
     const c = this.mk('controls', 'blur');
     c.classList.add('wide');
@@ -321,7 +339,7 @@ export class HUD {
       return true;
     }
     if (e.code === 'Escape' || e.code === 'Backspace') {
-      if (this.current === 'settings' || this.current === 'controls' || this.current === 'arenas') {
+      if (this.current === 'settings' || this.current === 'controls' || this.current === 'arenas' || this.current === 'fighters') {
         btns[btns.length - 1].click();
         return true;
       }

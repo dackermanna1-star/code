@@ -101,9 +101,9 @@ export function runPoseViewer(params: URLSearchParams) {
   };
   const d = new THREE.Vector3(...(camDirs[camName] ?? camDirs['3q'])).normalize();
   if (camName === 'face') {
-    target.set(insts[0].x, 1.68, 0);
+    target.set(insts[0].x, Number(params.get('ty') ?? 1.68), 0);
   }
-  camera.position.copy(target).addScaledVector(d, camName === 'face' ? 0.9 : dist);
+  camera.position.copy(target).addScaledVector(d, camName === 'face' ? Number(params.get('dist') ?? 0.9) : dist);
   camera.lookAt(target);
   renderer.render(scene, camera);
   (window as unknown as { __ready: boolean }).__ready = true;

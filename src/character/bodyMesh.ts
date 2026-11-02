@@ -2,172 +2,25 @@ import * as THREE from 'three';
 import { B, SkeletonDef } from '../anim/skeleton';
 import { Outfit, sleeveLength } from './outfit';
 import { clamp01, lerp, smoothstep } from '../core/math';
+import { MeshAccum, RingSpec, W, REGION, RegionName, loft, boneW, frameFor, blob, flatBox, clampSym, emitQuads } from './meshKit';
+import { buildFemTorso, buildLeatherJacket, buildSkirt, FEM_LEG, BOOT_TOP, BOOT_LIP, bootShaft, buildHeelBoot, buildLongWaveHair, buildEarrings, legHipFactor } from './femMesh';
 
-/** Atlas regions (u0, v0, w, h) in [0,1] texture space (v up). */
-export const REGION = {
-  torso: [0.0, 0.5, 0.5, 0.5],
-  arm: [0.5, 0.5, 0.25, 0.5],
-  leg: [0.75, 0.5, 0.25, 0.5],
-  head: [0.0, 0.0, 0.5, 0.5],
-  hand: [0.5, 0.25, 0.125, 0.25],
-  foot: [0.625, 0.25, 0.125, 0.25],
-  neck: [0.75, 0.375, 0.25, 0.125],
-  acc: [0.75, 0.25, 0.25, 0.125],
-  hair: [0.5, 0.0, 0.25, 0.25],
-  gear: [0.75, 0.0, 0.25, 0.25],
-} as const;
-type RegionName = keyof typeof REGION;
-
-type W = [number, number][]; // [bone, weight]
-
-class MeshAccum {
-  pos: number[] = [];
-  uv: number[] = [];
-  si: number[] = [];
-  sw: number[] = [];
-  skin: number[] = [];
-  idx: number[] = [];
-  get count() {
-    return this.pos.length / 3;
-  }
-  vert(p: THREE.Vector3, u: number, v: number, w: W, skin: number) {
-    this.pos.push(p.x, p.y, p.z);
-    this.uv.push(u, v);
-    const ws = [...w].sort((a, b) => b[1] - a[1]).slice(0, 4);
-    let tot = 0;
-    for (const x of ws) tot += x[1];
-    for (let i = 0; i < 4; i++) {
-      if (i < ws.length) {
-        this.si.push(ws[i][0]);
-        this.sw.push(ws[i][1] / (tot || 1));
-      } else {
-        this.si.push(0);
-        this.sw.push(0);
-      }
-    }
-    this.skin.push(skin);
-    return this.count - 1;
-  }
-  tri(a: number, b: number, c: number) {
-    this.idx.push(a, b, c);
-  }
-}
-
-
-const _ta = new THREE.Vector3(), _tb = new THREE.Vector3(), _tc = new THREE.Vector3(), _tn = new THREE.Vector3();
-function vpos(m: MeshAccum, i: number, out: THREE.Vector3) {
-  return out.set(m.pos[i * 3], m.pos[i * 3 + 1], m.pos[i * 3 + 2]);
-}
-/** Emit quads of a vertex grid with outward-facing winding (decided against an interior point per row). */
-function emitQuads(m: MeshAccum, grid: number[][], inside: (row: number) => THREE.Vector3) {
-  if (grid.length < 2) return;
-  // pick a probe quad in the middle
-  const j = Math.floor((grid.length - 1) / 2);
-  const i = Math.floor((grid[j].length - 1) / 2);
-  vpos(m, grid[j][i], _ta);
-  vpos(m, grid[j][i + 1], _tb);
-  vpos(m, grid[j + 1][i], _tc);
-  _tn.crossVectors(_tb.sub(_ta), _tc.sub(_ta));
-  const out = vpos(m, grid[j][i], new THREE.Vector3()).sub(inside(j));
-  const flip = _tn.dot(out) < 0;
-  for (let r = 0; r < grid.length - 1; r++) {
-    for (let c = 0; c < grid[r].length - 1; c++) {
-      const a = grid[r][c], b = grid[r][c + 1], cc = grid[r + 1][c], d = grid[r + 1][c + 1];
-      if (!flip) {
-        m.tri(a, b, cc);
-        m.tri(b, d, cc);
-      } else {
-        m.tri(a, cc, b);
-        m.tri(b, cc, d);
-      }
-    }
-  }
-}
-/** Triangle fan cap with normal facing `outDir`. */
-function emitCap(m: MeshAccum, center: number, ring: number[], outDir: THREE.Vector3) {
-  vpos(m, center, _ta);
-  vpos(m, ring[0], _tb);
-  vpos(m, ring[1], _tc);
-  _tn.crossVectors(_tb.sub(_ta), _tc.sub(_ta));
-  const flip = _tn.dot(outDir) < 0;
-  for (let i = 0; i < ring.length - 1; i++) {
-    if (!flip) m.tri(center, ring[i], ring[i + 1]);
-    else m.tri(center, ring[i + 1], ring[i]);
-  }
-}
-
-interface RingSpec {
-  c: THREE.Vector3; // center
-  ax: THREE.Vector3; // local x axis (unit)
-  az: THREE.Vector3; // local z axis (unit) (front)
-  rx: number;
-  rzF: number;
-  rzB: number;
-  pw?: number; // superellipse exponent
-  zOff?: number;
-  w: W;
-  v: number; // texture v within region [0,1]
-  skin?: number | ((theta: number) => number);
-  bulgeF?: number; // extra front bulge (gut)
-}
-
-/** Loft a tube through rings. Returns vertex index grid. */
-function loft(m: MeshAccum, rings: RingSpec[], seg: number, region: RegionName, capStart: boolean, capEnd: boolean) {
-  const [u0, v0, uw, vh] = REGION[region];
-  const grid: number[][] = [];
-  const p = new THREE.Vector3();
-  for (const r of rings) {
-    const row: number[] = [];
-    for (let i = 0; i <= seg; i++) {
-      const t = i / seg;
-      // theta 0 = back center, PI = front center
-      const th = t * Math.PI * 2;
-      const sx = -Math.sin(th); // start at back, go towards character's right first (-X)? keep consistent
-      const cz = -Math.cos(th); // back = -1, front = +1
-      const pw = r.pw ?? 2;
-      const ex = Math.sign(sx) * Math.pow(Math.abs(sx), 2 / pw);
-      const ez = Math.sign(cz) * Math.pow(Math.abs(cz), 2 / pw);
-      const rz = cz > 0 ? r.rzF : r.rzB;
-      let zz = ez * rz + (r.zOff ?? 0);
-      if (r.bulgeF && cz > 0) zz += r.bulgeF * Math.pow(cz, 3) * (1 - Math.abs(sx) * 0.5);
-      p.copy(r.c).addScaledVector(r.ax, ex * r.rx).addScaledVector(r.az, zz);
-      const skin = typeof r.skin === 'function' ? r.skin(th) : r.skin ?? 0;
-      row.push(m.vert(p, u0 + uw * t, v0 + vh * r.v, r.w, skin));
-    }
-    grid.push(row);
-  }
-  emitQuads(m, grid, (j) => rings[j].c.clone().addScaledVector(rings[j].az, rings[j].zOff ?? 0));
-  const cap = (ri: number, outDir: THREE.Vector3) => {
-    const r = rings[ri];
-    const c = m.vert(r.c.clone().addScaledVector(r.az, r.zOff ?? 0), u0 + uw * 0.5, v0 + vh * r.v, r.w, typeof r.skin === 'number' ? r.skin : 0);
-    emitCap(m, c, grid[ri], outDir);
-  };
-  const tubeDir = rings[rings.length - 1].c.clone().sub(rings[0].c).normalize();
-  if (capStart) cap(0, tubeDir.clone().negate());
-  if (capEnd) cap(rings.length - 1, tubeDir);
-  return grid;
-}
-
-function boneW(a: number, b: number, t: number): W {
-  t = clamp01(t);
-  return [[a, 1 - t], [b, t]];
-}
-
-/** Build a perpendicular frame for a tube direction. */
-function frameFor(dir: THREE.Vector3, frontHint: THREE.Vector3) {
-  const d = dir.clone().normalize();
-  const az = frontHint.clone().addScaledVector(d, -frontHint.dot(d)).normalize();
-  const ax = new THREE.Vector3().crossVectors(d, az).normalize();
-  // ensure ax points to character's left-ish for consistency (not required)
-  return { d, ax, az };
-}
+export { REGION };
 
 export interface BodyMeshOptions {
   def: SkeletonDef;
   outfit: Outfit;
   /** Extra inflation for armour/bruisers. */
   inflate?: number;
+  /** The head samples its own atlas layer at twice the detail (uv.x shifted by 1). */
+  hiFace?: boolean;
 }
+
+/** A woman's arm: slimmer, with less deltoid and biceps. [t, radius, front/back ratio] */
+const FEM_ARM: [number, number, number][] = [
+  [-0.12, 0.044, 1.0], [-0.05, 0.052, 1.0], [0.02, 0.054, 1.0], [0.1, 0.052, 1.0], [0.22, 0.049, 1.03], [0.36, 0.045, 1.04],
+  [0.47, 0.04, 1.0], [0.53, 0.037, 1.0], [0.6, 0.04, 1.0], [0.68, 0.04, 1.0], [0.8, 0.033, 1.0], [0.92, 0.027, 1.0], [1.0, 0.025, 1.0],
+];
 
 export function buildBodyGeometry(opts: BodyMeshOptions): THREE.BufferGeometry {
   const { def, outfit } = opts;
@@ -175,11 +28,16 @@ export function buildBodyGeometry(opts: BodyMeshOptions): THREE.BufferGeometry {
   const k = def.spec.bulk;
   const R = def.rest;
   const m = new MeshAccum();
-  const clothInfl = outfit.top === 'jacket' || outfit.top === 'hoodie' || outfit.top === 'coat' ? 1.07 : outfit.top === 'gi' ? 1.06 : outfit.top === 'bare' ? 0.985 : 1.0;
+  const fem = def.spec.fem > 0.5;
+  const clothInfl = outfit.top === 'jacket' || outfit.top === 'hoodie' || outfit.top === 'coat' || outfit.top === 'leather' ? 1.07 : outfit.top === 'gi' ? 1.06 : outfit.top === 'bare' ? 0.985 : 1.0;
   const torsoSkin = outfit.top === 'bare' ? 1 : 0;
 
   // ------------------------------------------------------------------ torso
-  {
+  if (fem) {
+    buildFemTorso(m, def, outfit);
+    if (outfit.top === 'leather') buildLeatherJacket(m, def);
+    if (outfit.bottom === 'skirt') buildSkirt(m, def);
+  } else {
     const hipsY = R[B.hips].y;
     const gut = def.spec.gut;
     const cd = def.spec.chestDepth;
@@ -229,7 +87,7 @@ export function buildBodyGeometry(opts: BodyMeshOptions): THREE.BufferGeometry {
     for (let i = 0; i <= steps; i++) {
       const t = i / steps;
       const y = lerp(n0.y - 0.035 * s, h0.y + 0.02 * s, t);
-      const r = lerp(0.066, 0.056, t) * s * Math.max(0.92, k * 0.97);
+      const r = lerp(0.066, 0.056, t) * s * Math.max(0.92, k * 0.97) * lerp(1, 0.9, def.spec.fem);
       rings.push({
         c: new THREE.Vector3(0, y, lerp(n0.z, h0.z - 0.01 * s, t)),
         ax: new THREE.Vector3(1, 0, 0),
@@ -246,7 +104,7 @@ export function buildBodyGeometry(opts: BodyMeshOptions): THREE.BufferGeometry {
   }
 
   // ------------------------------------------------------------------ head
-  buildHead(m, def, outfit);
+  buildHead(m, def, outfit, !!opts.hiFace);
 
   // ------------------------------------------------------------------ arms
   for (const side of [1, -1]) {
@@ -258,9 +116,9 @@ export function buildBodyGeometry(opts: BodyMeshOptions): THREE.BufferGeometry {
     const E = R[fa];
     const Wr = R[ha];
     const sl = sleeveLength(outfit.top);
-    const sleeveInfl = sl > 0.5 ? (outfit.top === 'jacket' || outfit.top === 'hoodie' || outfit.top === 'coat' ? 1.12 : 1.05) : sl > 0 ? 1.06 : 1;
+    const sleeveInfl = sl > 0.5 ? (outfit.top === 'jacket' || outfit.top === 'hoodie' || outfit.top === 'coat' ? 1.12 : outfit.top === 'leather' ? 1.04 : 1.05) : sl > 0 ? 1.06 : 1;
     // profile along arm: t in [0,1] from shoulder (slightly inside torso) to wrist
-    const prof: [number, number, number][] = [
+    const prof: [number, number, number][] = fem ? FEM_ARM : [
       // t, radius (scaled), front/back ratio
       [-0.12, 0.05, 1.0],
       [-0.05, 0.064, 1.0],
@@ -334,9 +192,11 @@ export function buildBodyGeometry(opts: BodyMeshOptions): THREE.BufferGeometry {
     const kneeT = lenT / total;
     const dirT = K.clone().sub(H).normalize();
     const dirS = A.clone().sub(K).normalize();
-    const pantsInfl = outfit.bottom === 'gi' ? 1.18 : outfit.bottom === 'cargo' ? 1.1 : outfit.bottom === 'track' ? 1.07 : 1.03;
+    const pantsInfl = outfit.bottom === 'gi' ? 1.18 : outfit.bottom === 'cargo' ? 1.1 : outfit.bottom === 'track' ? 1.07 : outfit.bottom === 'skirt' ? 1.0 : 1.03;
     const shorts = outfit.bottom === 'shorts';
-    const prof: [number, number, number, number][] = [
+    const tights = outfit.bottom === 'skirt';
+    const kneeBoots = outfit.shoes === 'kneeboots';
+    let prof: [number, number, number, number][] = fem ? FEM_LEG : [
       // t, radius, rz front scale, x offset outward
       [-0.1, 0.1, 1.0, -0.01],
       [0.0, 0.097, 1.0, 0.002],
@@ -351,8 +211,25 @@ export function buildBodyGeometry(opts: BodyMeshOptions): THREE.BufferGeometry {
       [0.95, 0.034, 1.0, 0.0],
       [1.04, 0.036, 1.0, 0.0],
     ];
+    if (kneeBoots) {
+      // the leather shaft from just under the knee: a rolled lip, then the boot over the calf
+      const legAt = (t: number) => {
+        let i = 0;
+        while (i < prof.length - 2 && prof[i + 1][0] < t) i++;
+        const a = prof[i], b = prof[i + 1];
+        const f = clamp01((t - a[0]) / (b[0] - a[0]));
+        return [lerp(a[1], b[1], f), lerp(a[2], b[2], f)];
+      };
+      const above = prof.filter((p) => p[0] < BOOT_LIP[0][0] - 1e-4);
+      const lip = BOOT_LIP.map(([t, extra], i) => {
+        const [r, fz] = legAt(t);
+        return [t, i === 0 ? r : bootShaft(t) + extra, i === 0 ? fz : 1.0, 0] as [number, number, number, number];
+      });
+      const below = prof.filter((p) => p[0] > BOOT_LIP[BOOT_LIP.length - 1][0] + 1e-4).map((p) => [p[0], Math.max(p[1] + 0.004, bootShaft(p[0])), 1.0, 0] as [number, number, number, number]);
+      prof = [...above, ...lip, ...below];
+    }
     const rings: RingSpec[] = [];
-    prof.forEach((pp, i) => {
+    prof.forEach((pp) => {
       const [t, rad, fz, xo] = pp;
       const d = t * total;
       let c: THREE.Vector3;
@@ -372,15 +249,19 @@ export function buildBodyGeometry(opts: BodyMeshOptions): THREE.BufferGeometry {
       else if (t < kneeT + 0.07) w = boneW(th, sh, (t - (kneeT - 0.07)) / 0.14);
       else if (t < 0.95) w = [[sh, 1]];
       else w = boneW(sh, ft, (t - 0.95) / 0.09);
-      const covered = shorts ? t < 0.42 : true;
-      let infl = covered ? pantsInfl * (outfit.bottom === 'gi' ? lerp(1, 1.12, smoothstep(0.3, 1.0, t)) : 1) : 1;
+      const booted = kneeBoots && t >= BOOT_TOP - 1e-4;
+      const covered = booted || (shorts ? t < 0.42 : !tights);
+      let infl = covered && !booted ? pantsInfl * (outfit.bottom === 'gi' ? lerp(1, 1.12, smoothstep(0.3, 1.0, t)) : 1) : 1;
       // a lab coat's skirts stand off the thighs down to the knee
       if (outfit.top === 'coat' && t < 0.47) infl *= 1.16;
-      const r = rad * s * k * infl * (t < 0.25 ? def.spec.hipsW * 0.5 + 0.5 : 1);
-      rings.push({ c, ax: fr.ax, az: fr.az, rx: r, rzF: r * fz, rzB: r, w, v: clamp01((t + 0.1) / 1.14), skin: covered ? 0 : 1 });
+      const r = rad * s * k * infl * legHipFactor(def.spec.hipsW, t);
+      // sheer tights let bruises show through a little
+      const skin = booted ? 0 : tights ? (outfit.legwear ? 0.5 : 1) : covered ? 0 : 1;
+      rings.push({ c, ax: fr.ax, az: fr.az, rx: r, rzF: r * fz, rzB: r, w, v: clamp01((t + 0.1) / 1.14), skin });
     });
-    loft(m, rings, 12, 'leg', false, false);
-    buildShoe(m, def, side, outfit);
+    loft(m, rings, fem ? 16 : 12, 'leg', false, false);
+    if (kneeBoots && def.spec.heel > 0) buildHeelBoot(m, def, side);
+    else buildShoe(m, def, side, outfit);
   }
 
   // ------------------------------------------------------------------ gear
@@ -392,6 +273,7 @@ export function buildBodyGeometry(opts: BodyMeshOptions): THREE.BufferGeometry {
   g.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(m.si, 4));
   g.setAttribute('skinWeight', new THREE.Float32BufferAttribute(m.sw, 4));
   g.setAttribute('aSkin', new THREE.Float32BufferAttribute(m.skin, 1));
+  g.setAttribute('aSway', new THREE.Float32BufferAttribute(m.sway, 2));
   g.setIndex(m.idx);
   g.computeVertexNormals();
   g.computeBoundingSphere();
@@ -399,15 +281,17 @@ export function buildBodyGeometry(opts: BodyMeshOptions): THREE.BufferGeometry {
 }
 
 // ------------------------------------------------------------------ head
-function buildHead(m: MeshAccum, def: SkeletonDef, outfit: Outfit) {
+function buildHead(m: MeshAccum, def: SkeletonDef, outfit: Outfit, hiFace: boolean) {
   const s = def.scale * def.spec.headSize;
+  const f = def.spec.fem;
   const hb = def.rest[B.head];
   const center = new THREE.Vector3(hb.x, hb.y + 0.07 * s, hb.z + 0.012 * s);
-  const rx = 0.088 * s, ry = 0.118 * s, rz = 0.104 * s;
-  const lat = 14, lon = 20;
+  const rx = lerp(0.088, 0.078, f) * s, ry = lerp(0.118, 0.113, f) * s, rz = lerp(0.104, 0.099, f) * s;
+  const lat = f > 0.5 ? 24 : 14, lon = f > 0.5 ? 36 : 20;
   const [u0, v0, uw, vh] = REGION.head;
   const grid: number[][] = [];
   const p = new THREE.Vector3();
+  const headStart = m.count;
   for (let j = 0; j <= lat; j++) {
     const phi = (j / lat) * Math.PI; // 0 = bottom (chin), PI = top
     const cy = -Math.cos(phi);
@@ -421,28 +305,52 @@ function buildHead(m: MeshAccum, def: SkeletonDef, outfit: Outfit) {
       // ---- shape
       let sx = rx, sz = rz;
       if (y < 0) {
-        const jt = Math.pow(-y, 1.4);
-        sx *= lerp(1, 0.74, jt); // jaw taper
+        const jt = Math.pow(-y, lerp(1.4, 1.6, f));
+        sx *= lerp(1, lerp(0.74, 0.75, f), jt); // jaw taper (a woman's: an oval, to a finer chin)
+        if (f > 0 && y < -0.72) sx *= lerp(1, 0.86, f * smoothstep(-0.72, -0.95, y));
         sz *= lerp(1, 0.9, jt);
       }
       let px = x * sx;
       let py = y * ry;
       let pz = z * sz;
+      // a woman's chin: a rounded, defined underside rather than the ellipsoid's point
+      if (f > 0 && y < -0.78) py = lerp(py, (-0.78 + (y + 0.78) * 0.62) * ry, f);
       // face flattening & chin forward
       if (z > 0) {
         const front = Math.pow(z, 2);
-        pz -= front * 0.012 * s * (1 - Math.abs(y));
-        if (y < -0.3) pz += front * 0.008 * s * smoothstep(-0.3, -0.85, y); // chin
+        pz -= front * lerp(0.012, 0.0105, f) * s * (1 - Math.abs(y));
+        if (y < -0.3) pz += front * lerp(0.008, 0.0065, f) * s * smoothstep(-0.3, -0.85, y); // chin
       }
-      // brow ridge
+      // brow ridge (soft on a woman)
       const browY = 0.12;
       const bz = Math.max(0, z);
-      pz += bz * bz * 0.012 * s * Math.exp(-Math.pow((y - browY) / 0.12, 2)) * (1 - x * x * 1.4);
-      // cheekbones
-      pz += bz * 0.006 * s * Math.exp(-Math.pow((y + 0.12) / 0.15, 2)) * Math.exp(-Math.pow((Math.abs(x) - 0.55) / 0.2, 2));
+      pz += bz * bz * lerp(0.012, 0.0045, f) * s * Math.exp(-Math.pow((y - browY) / 0.12, 2)) * (1 - x * x * 1.4);
+      // cheekbones (higher and fuller on a woman)
+      pz += bz * lerp(0.006, 0.007, f) * s * Math.exp(-Math.pow((y - lerp(-0.12, -0.07, f)) / 0.15, 2)) * Math.exp(-Math.pow((Math.abs(x) - 0.55) / 0.2, 2));
       // nose
-      const nose = Math.exp(-Math.pow(x / 0.1, 2)) * Math.exp(-Math.pow((y + 0.22) / 0.16, 2)) * Math.pow(bz, 8);
-      pz += nose * 0.016 * s;
+      if (f < 0.5) {
+        const nw = lerp(0.1, 0.08, f);
+        const nose = Math.exp(-Math.pow(x / nw, 2)) * Math.exp(-Math.pow((y + 0.22) / 0.16, 2)) * Math.pow(bz, 8);
+        pz += nose * lerp(0.016, 0.0135, f) * s;
+      } else {
+        // a woman's nose: a straight bridge rising to a defined tip, then back in under it
+        const ny = y < -0.34 ? Math.exp(-Math.pow((y + 0.34) / 0.06, 2)) : smoothstep(0.1, -0.34, y);
+        const nw = lerp(0.055, 0.085, smoothstep(0.0, -0.36, y));
+        const nose = ny * Math.exp(-Math.pow(x / nw, 2)) * Math.pow(bz, 6);
+        pz += nose * 0.019 * s * f;
+        // full lips: the upper, a soft groove, the lower
+        const lipX = Math.exp(-Math.pow(x / 0.2, 2)) * Math.pow(bz, 5);
+        pz += lipX * f * s * (0.0055 * Math.exp(-Math.pow((y + 0.62) / 0.045, 2)) + 0.006 * Math.exp(-Math.pow((y + 0.72) / 0.05, 2)));
+        pz -= lipX * f * s * 0.0035 * Math.exp(-Math.pow((y + 0.8) / 0.035, 2)); // under the lower lip
+        pz += Math.pow(bz, 3) * f * s * 0.004 * Math.exp(-Math.pow((y + 0.9) / 0.07, 2)) * Math.exp(-Math.pow(x / 0.3, 2)); // the chin
+      }
+      if (f > 0) {
+        // a little hollow under the cheekbones, eye sockets under the brow
+        pz -= f * 0.0008 * s * Math.exp(-Math.pow((y + 0.38) / 0.12, 2)) * Math.exp(-Math.pow((Math.abs(x) - 0.55) / 0.15, 2)) * bz;
+        pz -= f * 0.0028 * s * Math.exp(-Math.pow((y - 0.01) / 0.08, 2)) * Math.exp(-Math.pow((Math.abs(x) - 0.38) / 0.12, 2)) * bz * bz;
+        // the jaw and the back of the head under the skull are slimmer (the neck takes over)
+        if (z < 0) pz *= lerp(1, 0.8, f * smoothstep(-0.35, -0.95, y));
+      }
       // occipital bulge
       if (z < 0) pz -= Math.pow(-z, 3) * 0.008 * s * Math.exp(-Math.pow((y - 0.1) / 0.4, 2));
       p.set(center.x + px, center.y + py, center.z + pz);
@@ -459,7 +367,7 @@ function buildHead(m: MeshAccum, def: SkeletonDef, outfit: Outfit) {
   // ears
   for (const side of [1, -1]) {
     const ec = new THREE.Vector3(center.x + side * rx * 0.97, center.y - 0.004 * s, center.z - 0.006 * s);
-    const er = 0.02 * s;
+    const er = lerp(0.02, 0.0175, f) * s;
     const eg: number[][] = [];
     for (let j = 0; j <= 4; j++) {
       const phi = (j / 4) * Math.PI;
@@ -478,6 +386,14 @@ function buildHead(m: MeshAccum, def: SkeletonDef, outfit: Outfit) {
     const earInside = new THREE.Vector3(ec.x + side * 0.25 * er, ec.y, ec.z);
     emitQuads(m, eg, () => earInside);
   }
+  if (hiFace) {
+    // the head (and ears) sample a layer of their own at twice the detail
+    for (let i = headStart; i < m.count; i++) {
+      m.uv[i * 2] = 1 + Math.min(0.9999, Math.max(0, (m.uv[i * 2] - u0) / uw));
+      m.uv[i * 2 + 1] = Math.min(1, Math.max(0, (m.uv[i * 2 + 1] - v0) / vh));
+    }
+  }
+  if (outfit.extras.includes('earrings')) buildEarrings(m, def, center, rx);
   // hair / headwear shells
   const shell = (rScale: number, yMin: number, region: RegionName, extraBack = 0, skin = 0, mohawk = false) => {
     const [hu0, hv0, huw, hvh] = REGION[region];
@@ -510,6 +426,7 @@ function buildHead(m: MeshAccum, def: SkeletonDef, outfit: Outfit) {
     emitQuads(m, g2, () => center);
   };
   const hs = outfit.hairStyle;
+  if (hs === 'longwave' && outfit.head === 'none') buildLongWaveHair(m, def, center, rx, ry, rz);
   if (outfit.head === 'none' || outfit.head === 'bandana' || outfit.head === 'headband' || outfit.head === 'mask') {
     if (hs === 'short' || hs === 'slick' || hs === 'long' || hs === 'ponytail' || hs === 'topknot') shell(1.06, -0.15, 'hair', hs === 'long' ? 0.12 : 0.04);
     if (hs === 'mohawk') shell(1.015, 0.25, 'hair', 0, 0, true);
@@ -525,7 +442,7 @@ function buildHead(m: MeshAccum, def: SkeletonDef, outfit: Outfit) {
     if (outfit.head === 'cap') {
       // brim
       const bc = new THREE.Vector3(center.x, center.y + ry * 0.42, center.z + rz * 1.02);
-      flatBox(m, bc, new THREE.Vector3(0.075 * s, 0.006 * s, 0.05 * s), -0.12, 'gear');
+      flatBox(m, bc, new THREE.Vector3(0.075 * s, 0.006 * s, 0.05 * s), -0.12, 'gear', [[B.head, 1]]);
     }
   }
   if (outfit.head === 'hood') {
@@ -533,56 +450,11 @@ function buildHead(m: MeshAccum, def: SkeletonDef, outfit: Outfit) {
   }
 }
 
-const clampSym = (v: number) => (v < -1 ? -1 : v > 1 ? 1 : v);
-
-/** Ellipsoid blob. */
-function blob(m: MeshAccum, c: THREE.Vector3, r: THREE.Vector3, region: RegionName, w: W, skin: number, lat = 6, lon = 8) {
-  const [u0, v0, uw, vh] = REGION[region];
-  const g: number[][] = [];
-  for (let j = 0; j <= lat; j++) {
-    const phi = (j / lat) * Math.PI;
-    const row: number[] = [];
-    for (let i = 0; i <= lon; i++) {
-      const th = (i / lon) * Math.PI * 2;
-      const p = new THREE.Vector3(c.x + Math.sin(phi) * Math.cos(th) * r.x, c.y - Math.cos(phi) * r.y, c.z + Math.sin(phi) * Math.sin(th) * r.z);
-      row.push(m.vert(p, u0 + uw * (i / lon), v0 + vh * (j / lat), w, skin));
-    }
-    g.push(row);
-  }
-  emitQuads(m, g, () => c);
-}
-
-/** Thin box (e.g. cap brim) pitched by `pitch` radians around X. */
-function flatBox(m: MeshAccum, c: THREE.Vector3, half: THREE.Vector3, pitch: number, region: RegionName) {
-  const [u0, v0, uw, vh] = REGION[region];
-  const q = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), pitch);
-  const corners: number[] = [];
-  for (let i = 0; i < 8; i++) {
-    const p = new THREE.Vector3(i & 1 ? half.x : -half.x, i & 2 ? half.y : -half.y, i & 4 ? half.z : -half.z).applyQuaternion(q).add(c);
-    corners.push(m.vert(p, u0 + uw * (i & 1 ? 0.9 : 0.1), v0 + vh * (i & 4 ? 0.9 : 0.1), [[B.head, 1]], 0));
-  }
-  const f = (a: number, b: number, cc: number, d: number) => {
-    vpos(m, corners[a], _ta);
-    vpos(m, corners[b], _tb);
-    vpos(m, corners[cc], _tc);
-    const fc = _ta.clone().add(_tc).multiplyScalar(0.5).sub(c);
-    _tn.crossVectors(_tb.clone().sub(_ta), _tc.clone().sub(_ta));
-    if (_tn.dot(fc) >= 0) {
-      m.tri(corners[a], corners[b], corners[cc]);
-      m.tri(corners[a], corners[cc], corners[d]);
-    } else {
-      m.tri(corners[a], corners[cc], corners[b]);
-      m.tri(corners[a], corners[d], corners[cc]);
-    }
-  };
-  f(0, 1, 3, 2); f(4, 6, 7, 5); f(0, 4, 5, 1); f(2, 3, 7, 6); f(0, 2, 6, 4); f(1, 5, 7, 3);
-}
-
 // ------------------------------------------------------------------ fist
 function buildFist(m: MeshAccum, def: SkeletonDef, side: number, outfit: Outfit) {
   const ha = side > 0 ? B.handL : B.handR;
   const fa = side > 0 ? B.farmL : B.farmR;
-  const s = def.scale * Math.max(1, def.spec.bulk * 0.92);
+  const s = def.scale * Math.max(1, def.spec.bulk * 0.92) * lerp(1, 0.87, def.spec.fem);
   const W0 = def.rest[ha];
   const u = def.restDir[ha].clone();
   const v = def.restUp[ha].clone();
@@ -637,7 +509,7 @@ function buildShoe(m: MeshAccum, def: SkeletonDef, side: number, outfit: Outfit)
   const s = def.scale;
   const A = def.rest[ft];
   const bare = outfit.shoes === 'barefoot' || outfit.shoes === 'wraps';
-  const boot = outfit.shoes === 'boots';
+  const boot = outfit.shoes === 'boots' || outfit.shoes === 'kneeboots';
   const skin = bare ? 1 : 0;
   // rings along z (heel -> toe), cross-section rounded rect in x/y
   const prof: [number, number, number, number, W][] = [

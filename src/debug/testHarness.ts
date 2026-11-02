@@ -517,9 +517,9 @@ export async function runTest(game: Game, params: URLSearchParams) {
     // every player strike against a still target, one after another; per bone and frame the
     // swing (change of the bone's direction) and twist (roll about it) are split, and single-frame
     // spikes of either are reported: limb flips, roll pops, one-frame snaps
-    const { PLAYER_STRIKES } = await import('../combat/moves');
     const { getClip } = await import('../anim/clip');
     const p = game.player;
+    const PLAYER_STRIKES = p.style.strikes;
     const e = spawnEnemy(params.get('enemy') ?? 'brawler', 0, -1.6);
     game.started = true;
     const want = (params.get('list') ?? '').split(',').filter(Boolean);

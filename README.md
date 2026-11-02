@@ -1,7 +1,7 @@
 # LAST STANCE
 
-A cinematic, free-flow martial-arts combat simulator for the browser. One fighter against
-escalating waves of thugs, armed enforcers, brutes, elite martial artists and bosses, in five
+A cinematic, free-flow martial-arts combat simulator for the browser. One fighter (two to choose
+from) against escalating waves of thugs, armed enforcers, brutes, elite martial artists and bosses, in five
 arenas — a moonlit warehouse, a rain-lashed neon rooftop, a graffiti-covered back alley, a
 penthouse where everything breaks, and a containment lab with its own guards and monsters —
 Arkham-style flow, Assassin's Creed counters, Spider-Man finishers and Sifu-style technique,
@@ -36,7 +36,7 @@ Recommended browsers: Chrome/Edge or Safari 17+ (WebGL2). On a MacBook Air M1 th
 *dynamic resolution* on (default) and it will adapt automatically.
 
 URL options: `?quality=low|medium|high|ultra`, `?wave=10` (start at a wave), `?debug=1`
-(stats overlay), `?bot=1&god=1` (attract mode — a scripted bot plays).
+(stats overlay), `?bot=1&god=1` (attract mode — a scripted bot plays), `?fighter=jin|scarlet`.
 
 ## Controls
 
@@ -61,6 +61,29 @@ execution waits 7 s (4.5 s after a ground takedown) — the pips dim and read RE
 Taking a hit breaks your combo; finishers and perfect counters restore a little health.
 
 ## What's in the box
+
+**Two fighters** — pick on the title screen (*FIGHTER*), or `?fighter=jin|scarlet`.
+
+* **Jin — Muay Thai.** Elbows, knees, hooks and heavy hands; the move list below.
+* **Scarlet — kickboxing.** A redhead in a black leather biker jacket, a tight black mini
+  skirt, sheer black tights and high-heeled knee boots. Lighter, faster hands (a whipping
+  backfist, a palm heel under the chin) that set up kicks: a snapping lead-leg kick, the
+  roundhouse and side kick, an **axe kick** swung up past her own head and dropped on the
+  target's, a **spinning hook kick**, a **flying side kick** to cross the floor, and two finishers
+  of her own — an axe kick through a dazed guard and a jumping spinning heel kick. She runs
+  faster, her strikes come out quicker, her punches hit lighter and her kicks harder; she has
+  her own voice (CC0 recordings) and her own walk (narrower steps and a hip sway, shorter
+  strides in heels).
+* **How she's built.** The same procedural pipeline as everyone else, extended: an hourglass
+  torso with a bust and real hips, a separate open jacket shell with lapels, a rolled collar
+  and edges that have thickness, a skirt skinned to the thighs so it rides with each kick,
+  long wavy hair (a cap with a side part, a clumped curtain with V-cut tips, side-swept bangs, a
+  lock over one shoulder) that trails her movement in the vertex shader, heeled boots on a
+  skeleton whose foot is pitched onto the ball (the IK, the gait and the clips all keep working
+  in heels), and a face painted at twice the detail of the body (both fighters get one).
+* **Finish, not just colour.** The character atlas's alpha now says what a surface is made of:
+  glossy leather and patent heels, wet eyes and lips, metal zips and earrings, and sheer tights
+  that let the skin show where they face you and go dark at the edges.
 
 **Combat** — free-flow targeting with motion warping (strikes close the gap and land on the
 actual head/gut of the target; further than a lunge away, a few running steps come first),
@@ -322,7 +345,8 @@ fight went; `difficulty=story|brutal`; `bosshp=0.3` starts a boss already in its
 fall, `test=view&map=rooftop&px=0&pz=4&camyaw=0&campitch=0.25` renders a still of an arena from
 any spot (`bolt=1` brings a lightning strike straight away),
 `test=clips` replays every player strike against a still target and reports limb flips (bone
-swing / roll spikes; `list=roundhouse&dump=roundhouse@0.1-0.2` prints the IK effectors),
+swing / roll spikes; `list=roundhouse&dump=roundhouse@0.1-0.2` prints the IK effectors;
+`fighter=scarlet` checks her moveset),
 `test=eatk&enemy=elite&atk=elite_jab&wave=14` films one enemy attack on a passive player,
 `test=stress` bakes N ragdoll corpses plus blood and measures frame cost (then drops fresh
 active ragdolls onto the pile), `test=euph&mode=knock|stagger|death|agony|pile|prop` films one
@@ -336,15 +360,16 @@ reviewing locomotion (`run=1&probe=1` measures it), and `?viewer=loco&mocap=1` s
 motion-captured gait (`path=ai` circles like an enemy; `stats=1` measures hip pops, posture and
 planted-foot slide instead of drawing). Debug viewers: `?viewer=sheet&clip=roundhouse` (strike contact sheet),
 `?viewer=sheet&pair=fin_roundhouse` (paired clips), `?viewer=loco&path=circle&speed=4`
-(locomotion strobe), `?viewer=pose&all=1` (all character variants), `?viewer=graffiti&seed=N`
-(a wall of procedural street art).
+(locomotion strobe), `?viewer=pose&all=1` (all character variants; `variant=scarlet&cam=face`
+for a close-up), `?viewer=atlas&variant=scarlet` (a variant's painted texture layers and finish
+masks), `?viewer=graffiti&seed=N` (a wall of procedural street art).
 
 ## Project layout
 
 ```
 src/anim/        skeleton, IK solver, clip system, locomotion, animator, clip library
-src/character/   procedural mesh, outfits, canvas textures, wound-aware material
-src/combat/      fighter base, player controller, combat resolver, moves, weapons, deaths
+src/character/   procedural mesh (meshKit, body, femMesh), outfits, canvas textures, wound-aware material
+src/combat/      fighter base, player controller, fighter styles, combat resolver, moves, weapons, deaths
 src/ai/          enemy brain, archetypes, director, waves, bosses
 src/world/       arenas (warehouse + dressing, rooftop, alley, apartment, lab), mapKit, city, graffiti,
                  prop library and props, blood atlas, corpse baking, Rapier physics, ragdolls, textures
