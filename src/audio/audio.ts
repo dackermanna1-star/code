@@ -241,6 +241,70 @@ export class AudioSys {
     o.stop(t + 0.22);
   }
 
+  /**
+   * A suppressed pistol: no crack - a soft, breathy "thup" out of the can (band-passed noise with a
+   * quick downward sweep), a dull low knock, and the slide slamming back and forward a moment later
+   * (two bright metallic clicks) - the loudest part of a suppressed shot is the gun itself.
+   */
+  suppressedShot(pos?: THREE.Vector3 | null) {
+    const c = this.ctx;
+    if (!c || !this.noiseBuf || c.state !== 'running') return;
+    const t = c.currentTime;
+    const v = this.distGain(pos);
+    // the puff of gas through the baffles
+    {
+      const s = c.createBufferSource();
+      s.buffer = this.noiseBuf;
+      const f = c.createBiquadFilter();
+      f.type = 'bandpass';
+      f.Q.value = 1.1;
+      f.frequency.setValueAtTime(2600, t);
+      f.frequency.exponentialRampToValueAtTime(700, t + 0.06);
+      const g = c.createGain();
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.85 * v, t + 0.002);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.075);
+      s.connect(f);
+      f.connect(g);
+      g.connect(this.sfx);
+      s.start(t, Math.random() * 0.5, 0.12);
+    }
+    // the knock
+    {
+      const o = c.createOscillator();
+      const g = c.createGain();
+      o.type = 'sine';
+      o.frequency.setValueAtTime(140, t);
+      o.frequency.exponentialRampToValueAtTime(55, t + 0.06);
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.5 * v, t + 0.003);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.09);
+      o.connect(g);
+      g.connect(this.sfx);
+      o.start(t);
+      o.stop(t + 0.1);
+    }
+    // the slide: back, then home
+    const click = (at: number, freq: number, vol: number) => {
+      const s = c.createBufferSource();
+      s.buffer = this.noiseBuf;
+      const f = c.createBiquadFilter();
+      f.type = 'bandpass';
+      f.frequency.value = freq;
+      f.Q.value = 9;
+      const g = c.createGain();
+      g.gain.setValueAtTime(0.0001, t + at);
+      g.gain.exponentialRampToValueAtTime(vol * v, t + at + 0.001);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + at + 0.03);
+      s.connect(f);
+      f.connect(g);
+      g.connect(this.sfx);
+      s.start(t + at, Math.random() * 0.5, 0.05);
+    };
+    click(0.012, 3400, 0.9);
+    click(0.05, 2300, 0.75);
+  }
+
   /** Low-frequency body thump layered under heavy impacts (adds weight). */
   thump(strength: number, pos?: THREE.Vector3 | null) {
     const c = this.ctx;

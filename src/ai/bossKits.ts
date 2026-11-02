@@ -625,7 +625,7 @@ export class SubjectBrain extends BossBrain {
     if (!p.alive) return false;
     const d = e.distTo(p);
     if (this.ready('charge') && d > 4 && d < 10.5) {
-      this.cd.charge = this.phase === 1 ? rand(6, 8) : this.phase === 2 ? rand(5, 7) : rand(3.5, 5);
+      this.cd.charge = this.phase === 1 ? rand(6.5, 8.5) : this.phase === 2 ? rand(5.5, 7.5) : rand(4.5, 6);
       this.say('SUBJECT ZERO CHARGES — SIDESTEP, LET HIM HIT THE WALL', '#9aff7a', 1.1);
       this.game.audio.play('death', { pos: _v.set(e.x, 1.8, e.z), vol: 0.9, pitch: 0.55 });
       this.game.cam.addTrauma(0.25);
@@ -634,7 +634,7 @@ export class SubjectBrain extends BossBrain {
       return true;
     }
     if (this.phase >= 2 && this.ready('slam') && d < 3.4) {
-      this.cd.slam = rand(9, 13);
+      this.cd.slam = rand(11, 15);
       this.say('SUBJECT ZERO RAISES BOTH FISTS — GET CLEAR', '#9aff7a', 1.0);
       e.bossAttack('subject_slam');
       return true;
@@ -670,7 +670,8 @@ export class SubjectBrain extends BossBrain {
     g.props.blast(at, 3, 5);
     this.game.later(0.05, () => {
       if (!e.alive) return;
-      e.stunNow(2.8);
+      // (a long enough window to really make him pay)
+      e.stunNow(3.3);
       this.say('SUBJECT ZERO HIT THE WALL — PUNISH HIM', '#ffd24a', 1.2);
     });
   }

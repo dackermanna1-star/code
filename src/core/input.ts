@@ -92,6 +92,11 @@ export class Input {
       /* pointer lock needs a user gesture; the next click will retry */
     }
   }
+  /** Let go of everything held (a fresh start for another mode of control). */
+  clearHeld() {
+    this.held.clear();
+    this.keys.clear();
+  }
   exitLock() {
     if (document.pointerLockElement) document.exitPointerLock();
   }

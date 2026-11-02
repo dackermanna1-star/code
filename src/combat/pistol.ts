@@ -3,18 +3,19 @@ import { B } from '../anim/skeleton';
 import type { Fighter } from './fighter';
 
 /**
- * Scarlet's pistol: a compact semi-automatic, built from boxes like the melee weapons. It lives in
- * her right hand only while she uses it (drawn from her hip, holstered after). Each shot shows a
- * muzzle flash and a tracer for a few frames.
+ * Scarlet's pistol: a compact semi-automatic with a suppressor screwed onto the barrel, built from
+ * boxes and a cylinder like the melee weapons. It lives in her right hand only while she uses it
+ * (drawn from her hip, holstered after). A shot shows a faint flash at the end of the can and a
+ * thin tracer for a few frames.
  */
 export class Pistol {
   group = new THREE.Group();
   /** Muzzle, in the pistol's own frame (+Z down the barrel, +Y the top of the slide). */
-  private muzzle = new THREE.Vector3(0, 0.022, 0.152);
+  private muzzle = new THREE.Vector3(0, 0.014, 0.3);
   private tracer: THREE.Line;
   private tracerMat = new THREE.LineBasicMaterial({ color: 0xffe2a0, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending });
   private flash: THREE.Mesh;
-  private flashMat = new THREE.MeshBasicMaterial({ color: 0xffc070, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide });
+  private flashMat = new THREE.MeshBasicMaterial({ color: 0xffb060, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide });
   private tracerT = 0;
   private flashT = 0;
   out = false;
@@ -36,9 +37,20 @@ export class Pistol {
     box(0.024, 0.016, 0.1, metal, 0, -0.008, 0.035); // frame / dust cover
     box(0.006, 0.024, 0.046, metal, 0, -0.024, 0.03); // trigger guard
     box(0.006, 0.006, 0.012, metal, 0, 0.036, 0.13); // front sight
+    // the suppressor: a matte can, a little fatter than the slide, with a knurled ring at its base
+    const can = new THREE.MeshStandardMaterial({ color: 0x141416, metalness: 0.55, roughness: 0.62 });
+    const tube = new THREE.Mesh(new THREE.CylinderGeometry(0.0175, 0.0175, 0.14, 14), can);
+    tube.rotation.x = Math.PI / 2;
+    tube.position.set(0, 0.014, 0.228);
+    tube.castShadow = true;
+    const ring = new THREE.Mesh(new THREE.CylinderGeometry(0.0195, 0.0195, 0.014, 14), metal);
+    ring.rotation.x = Math.PI / 2;
+    ring.position.set(0, 0.014, 0.164);
+    this.group.add(tube, ring);
     // muzzle flash: two crossed quads, flared out of the barrel
-    const fg = new THREE.PlaneGeometry(0.11, 0.24);
-    fg.translate(0, 0.12, 0);
+    // (suppressed: a small, dim flash at the end of the can)
+    const fg = new THREE.PlaneGeometry(0.05, 0.08);
+    fg.translate(0, 0.04, 0);
     fg.rotateX(Math.PI / 2);
     this.flash = new THREE.Mesh(fg, this.flashMat);
     const f2 = new THREE.Mesh(fg, this.flashMat);
@@ -101,12 +113,12 @@ export class Pistol {
   update(dt: number) {
     if (this.tracerT > 0) {
       this.tracerT -= dt;
-      this.tracerMat.opacity = Math.max(0, this.tracerT / 0.06) * 0.9;
+      this.tracerMat.opacity = Math.max(0, this.tracerT / 0.06) * 0.45;
       if (this.tracerT <= 0) this.tracer.visible = false;
     }
     if (this.flashT > 0) {
       this.flashT -= dt;
-      this.flashMat.opacity = Math.max(0, this.flashT / 0.05);
+      this.flashMat.opacity = Math.max(0, this.flashT / 0.05) * 0.55;
     } else this.flashMat.opacity = 0;
   }
 }

@@ -295,6 +295,48 @@ export async function runTest(game: Game, params: URLSearchParams) {
     };
     game.renderFrame();
   }
+  if (name === 'spectate') {
+    // fight a real wave for a while, die, then fly the spectator camera round the aftermath
+    game.waves.start(Number(params.get('wave') ?? 6));
+    const bot = new Bot(game);
+    game.started = true;
+    for (let i = 0; i < frames; i++) {
+      bot.update(dt);
+      game.player.hp = Math.max(game.player.hp, 50);
+      game.step(dt);
+    }
+    const p = game.player;
+    p.hp = 1;
+    // (out of whatever move or dodge had it untouchable)
+    p.invuln = 0;
+    if (p.isLocked() || p.action !== 'free') (p as unknown as { toFree(h: number): void }).toFree(0.05);
+    const killer = game.enemies().find((e) => e.alive) ?? null;
+    p.takeHit(makeHit({ dir: new THREE.Vector3(0, 0, 1), point: new THREE.Vector3(p.x, 1.4, p.z), damage: 999, strength: 1.2, kind: 'punch', region: 'head', attacker: killer }));
+    for (let i = 0; i < 200; i++) game.step(dt);
+    game.startSpectate();
+    // fly: back and up, turning to look over the room
+    for (let i = 0; i < 90; i++) {
+      game.input.virtual = { moveX: 0.3, moveY: -1 };
+      game.input.lookDX += 6;
+      game.input.lookDY += 1.5;
+      game.step(dt);
+      if (i % 15 === 0) {
+        const q = game.cam.camera.position, d = new THREE.Vector3();
+        game.cam.camera.getWorldDirection(d);
+        console.log(`fly ${i} pos=${q.x.toFixed(2)},${q.y.toFixed(2)},${q.z.toFixed(2)} dir=${d.x.toFixed(2)},${d.y.toFixed(2)},${d.z.toFixed(2)} mx=${game.input.moveX.toFixed(2)} my=${game.input.moveY.toFixed(2)}`);
+      }
+    }
+    game.input.virtual = { moveX: 0, moveY: 0 };
+    for (let i = 0; i < 30; i++) game.step(dt);
+    game.renderFrame();
+    const c = game.cam.camera.position;
+    const sp = document.querySelector('.spectate') as HTMLElement | null;
+    if (sp) {
+      const r = sp.getBoundingClientRect();
+      console.log(`spectate bar class=${sp.className} display=${getComputedStyle(sp).display} z=${getComputedStyle(sp).zIndex} rect=${r.x.toFixed(0)},${r.y.toFixed(0)},${r.width.toFixed(0)}x${r.height.toFixed(0)} parent=${sp.parentElement?.tagName}`);
+    } else console.log('spectate bar missing');
+    console.log(`spectating=${game.spectating} freeCam=${game.cam.freeCam} cam=${c.x.toFixed(2)},${c.y.toFixed(2)},${c.z.toFixed(2)} over=${game.over} corpses=${game.corpses.count}`);
+  }
   if (name === 'ledge') {
     // rooftop: knock (mode=knock), kill (death) or stagger an enemy into the north parapet
     const mode = params.get('mode') ?? 'knock';

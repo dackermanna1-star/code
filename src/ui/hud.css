@@ -262,3 +262,9 @@ kbd, #hud .prompt b { display: inline-block; min-width: 24px; padding: 4px 7px 3
   .menu button { font-size: 24px; }
   .menu button.primary { font-size: 30px; }
 }
+
+/* spectating after a run: a quiet line of controls at the bottom */
+.spectate { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); display: none; gap: 18px; align-items: center; padding: 9px 18px; background: rgba(8,9,12,.55); border: 1px solid rgba(255,255,255,.12); font: 700 12px/1 var(--ui, sans-serif); letter-spacing: .2em; color: rgba(255,255,255,.62); text-shadow: 0 1px 2px #000; z-index: 30; pointer-events: none; white-space: nowrap; }
+.spectate.on { display: flex; }
+.spectate b { color: #ff5a6a; font-weight: 800; letter-spacing: .26em; }
+@media (max-width: 720px) { .spectate { flex-wrap: wrap; white-space: normal; justify-content: center; width: calc(100vw - 32px); } }

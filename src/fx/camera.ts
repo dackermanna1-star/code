@@ -47,6 +47,63 @@ export class CameraRig {
     this.trauma = Math.min(1, this.trauma + t);
   }
 
+  /** Spectating after a run ends: a free camera flying round the room (null while following). */
+  private free: { pos: THREE.Vector3; yaw: number; pitch: number; vel: THREE.Vector3 } | null = null;
+  get freeCam() {
+    return this.free !== null;
+  }
+  /** Take over from wherever the camera is now. */
+  startFree() {
+    const d = new THREE.Vector3();
+    this.camera.getWorldDirection(d);
+    // (from a vantage point: at least head height and a bit, looking a little down over the room)
+    const pos = this.camera.position.clone();
+    pos.y = Math.max(pos.y, 2.4);
+    this.free = { pos, yaw: Math.atan2(d.x, d.z), pitch: clamp(Math.asin(clamp(d.y, -1, 1)), -0.75, -0.15), vel: new THREE.Vector3() };
+    this.shot = null;
+    this.cineBlend = 0;
+    this.trauma = 0;
+    this.fovKick = 0;
+  }
+  stopFree() {
+    this.free = null;
+  }
+  /**
+   * Fly: mouse / right stick looks, move keys / left stick fly where you look, `up` rises or sinks,
+   * `fast` triples the speed. The motion eases in and out (no lurch on a key), and the camera keeps
+   * clear of walls and the floor.
+   */
+  updateFree(realDt: number, lookDX: number, lookDY: number, mx: number, my: number, up: number, fast: boolean) {
+    const f = this.free;
+    if (!f) return;
+    const k = 0.0022 * this.sensitivity;
+    f.yaw -= lookDX * k;
+    f.pitch = clamp(f.pitch - lookDY * k * (this.invertY ? -1 : 1), -1.45, 1.45);
+    const cp = Math.cos(f.pitch);
+    const d = new THREE.Vector3(Math.sin(f.yaw) * cp, Math.sin(f.pitch), Math.cos(f.yaw) * cp);
+    const right = new THREE.Vector3(-Math.cos(f.yaw), 0, Math.sin(f.yaw));
+    const speed = fast ? 10 : 3.6;
+    const want = new THREE.Vector3().addScaledVector(d, my).addScaledVector(right, mx);
+    want.y += up;
+    if (want.lengthSq() > 1) want.normalize();
+    want.multiplyScalar(speed);
+    f.vel.lerp(want, 1 - Math.exp(-realDt * 10));
+    f.pos.addScaledVector(f.vel, realDt);
+    // (inside the room, above the floor, under the roof - it floats through crates and people)
+    const cb = this.arena.camBounds;
+    f.pos.x = clamp(f.pos.x, -HALF_W - cb.out, HALF_W + cb.out);
+    f.pos.z = clamp(f.pos.z, -HALF_D - cb.out, HALF_D + cb.out);
+    f.pos.y = clamp(f.pos.y, 0.25, Math.max(2, cb.maxY));
+    this.camera.position.copy(f.pos);
+    this.camera.lookAt(f.pos.clone().add(d));
+    if (Math.abs(this.camera.fov - this.fovBase) > 0.01) {
+      this.camera.fov = this.fovBase;
+      this.camera.updateProjectionMatrix();
+    }
+    this.lastPos.copy(f.pos);
+    this.lastLook.copy(f.pos).add(d);
+  }
+
   playShot(s: Shot) {
     this.shot = { ...s, t: 0, startPos: this.camera.position.clone(), startFocus: this.lastLook.clone() };
   }

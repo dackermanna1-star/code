@@ -782,12 +782,14 @@ export class Player extends Fighter {
     else point.copy(this.gunAimAt);
     const from = this.pistol.fire(point);
     this.recoilT = 0;
-    g.audio.gunshot(from);
+    // suppressed: a soft "thup", the slide cycling, the casing on the floor - and only a wisp of
+    // gas out of the can
+    g.audio.suppressedShot(from);
     g.audio.play('metal_hit', { pos: from, vol: 0.12, pitch: 2.6, delay: 0.38 }); // the casing
-    g.fx.impactFlash(from, 0.9, [1, 0.78, 0.4]);
-    g.fx.sparks(from, _v.subVectors(point, from).normalize(), 8);
-    g.cam.addTrauma(0.32);
-    g.cam.fovKick = -2.5;
+    g.fx.impactFlash(from, 0.25, [1, 0.8, 0.5]);
+    g.fx.dust(from, 0.15);
+    g.cam.addTrauma(0.18);
+    g.cam.fovKick = -1.5;
     if (n === 0) g.slowMo(0.35, 0.55);
     if (!t || !t.alive) return;
     const dir = _v.subVectors(point, from).normalize().clone();

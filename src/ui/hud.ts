@@ -500,9 +500,22 @@ export class HUD {
     col.append(res);
     if (info.record) col.append(el('div', 'record', 'NEW PERSONAL BEST'));
     const ml = el('div', 'mlist');
-    ml.append(this.btn('FIGHT AGAIN', () => this.restart(true), 'primary'), this.btn('TITLE', () => this.restart(false), '', 'back'));
+    ml.append(this.btn('FIGHT AGAIN', () => this.restart(true), 'primary'), this.btn('SPECTATE', () => this.game.startSpectate()), this.btn('TITLE', () => this.restart(false), '', 'back'));
     col.append(ml);
-    this.show('gameover');
+    // (already flying round the room: the results wait for Esc)
+    if (!this.game.spectating) this.show('gameover');
+  }
+
+  /** Spectating: the fight's HUD steps aside for a small line of controls. */
+  private spectEl: HTMLElement | null = null;
+  setSpectate(on: boolean) {
+    if (!this.spectEl) {
+      this.spectEl = el('div', 'spectate', '<b>SPECTATING</b><span>WASD fly</span><span>MOUSE look</span><span>E / Q · SPACE up / down</span><span>SHIFT fast</span><span>ESC results</span>');
+      document.body.append(this.spectEl);
+    }
+    this.spectEl.classList.toggle('on', on);
+    this.root.classList.toggle('spectating', on);
+    if (on) this.root.style.display = 'none';
   }
 
   // ------------------------------------------------------------------ transient
@@ -609,7 +622,7 @@ export class HUD {
     const g = this.game;
     const p = g.player;
     // the HUD steps aside while a menu (pause, settings, controls, results) is up
-    this.root.style.display = g.started && !this.current ? '' : 'none';
+    this.root.style.display = g.started && !this.current && !g.spectating ? '' : 'none';
     if (g.started && !g.paused && !g.over) this.runTime += realDt;
     // ---- health (with a trailing "ghost" of recent damage)
     const maxHp = p.maxHp;

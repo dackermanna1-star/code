@@ -220,9 +220,11 @@ export class Game {
           return;
         }
         if ((e.code === 'Escape' || e.code === 'KeyP') && this.started && !this.over) this.setPaused(!this.paused);
+        // (spectating: Esc, P or Enter brings the results back)
+        else if ((e.code === 'Escape' || e.code === 'KeyP' || e.code === 'Enter') && this.spectating) this.stopSpectate();
       });
       this.renderer.gl.domElement.addEventListener('click', () => {
-        if (this.started && !this.paused && !this.over) this.input.requestLock();
+        if ((this.started && !this.paused && !this.over) || this.spectating) this.input.requestLock();
       });
       // the browser consumes Esc to release pointer lock: treat that as a pause request
       this.input.onLockLost = () => {
@@ -433,7 +435,11 @@ export class Game {
       this.cam.pitch = damp(this.cam.pitch, 0.12, 1.5, realDt);
       this.cam.framingDist = 1.4;
     }
-    this.cam.update(dt, realDt, focus, lx, ly, near, Math.hypot(this.player.vx, this.player.vz) > 0.5);
+    if (this.spectating) {
+      const inp = this.input;
+      const up = (inp.isHeld('grab') ? 1 : 0) - (inp.isHeld('stun') ? 1 : 0) + (inp.isHeld('dodge') ? 1 : 0);
+      this.cam.updateFree(realDt, lx, ly, inp.moveX, inp.moveY, up, inp.isHeld('walk'));
+    } else this.cam.update(dt, realDt, focus, lx, ly, near, Math.hypot(this.player.vx, this.player.vz) > 0.5);
     this.thinOccluders(realDt);
     // audio listener
     const right = new THREE.Vector3(1, 0, 0).applyQuaternion(this.cam.camera.quaternion);
@@ -681,6 +687,26 @@ export class Game {
     this.combat.feedback(this.player, e, h, res);
     this.player.addCombo(1, 'throwweapon');
     if (w.body) w.body.setLinvel({ x: rand(-1, 1), y: 1, z: rand(-1, 1) }, true);
+  }
+
+  /** After the run: flying round the room to take in the aftermath (the fight plays on). */
+  spectating = false;
+  startSpectate() {
+    if (!this.over || this.spectating) return;
+    this.spectating = true;
+    this.hud?.show(null);
+    this.hud?.setSpectate(true);
+    this.cam.startFree();
+    this.input.clearHeld();
+    this.input.requestLock();
+  }
+  stopSpectate() {
+    if (!this.spectating) return;
+    this.spectating = false;
+    this.cam.stopFree();
+    this.input.exitLock();
+    this.hud?.setSpectate(false);
+    this.hud?.show('gameover');
   }
 
   onPlayerDeath() {

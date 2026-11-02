@@ -55,6 +55,10 @@ URL options: `?quality=low|medium|high|ultra`, `?wave=10` (start at a wave), `?d
 | G / Back | Throw your held weapon |
 | Esc / P / Start | Pause & settings |
 
+**After a run:** *SPECTATE* on the results screen hands you a free camera to fly round the room
+and take in the aftermath while the fight plays on without you — WASD / left stick fly where you
+look, mouse / right stick look, E / Q or Space up and down, Shift fast, Esc back to the results.
+
 **Telegraphs:** ⚡ (gold ring shrinking to the hit) = counterable. Red **!** = unblockable — dodge it.
 Finisher charges are earned inside one unbroken combo (10 hits for the first, 14 more for the
 second, at most two stored); a broken combo loses the half-built one. After a finisher the next
@@ -72,10 +76,11 @@ Taking a hit breaks your combo; finishers and perfect counters restore a little 
   roundhouse and side kick, an **axe kick** swung up past her own head and dropped on the
   target's, a **spinning hook kick**, a **flying side kick** to cross the floor, and two finishers
   of her own — an axe kick through a dazed guard and a jumping spinning heel kick. Her
-  **special**: every 6 knockouts load her pistol (two loads at most, shown under the finisher
-  pips); **R / RT** and she draws from the hip, takes it in both hands at arm's length — the
-  arms aimed live at the mark, the camera over her shoulder, time slowing — and double-taps:
-  body, then head. A thug drops; a boss loses a tenth of his health a shot. The room hesitates
+  **special**: every 6 knockouts load her suppressed pistol (two loads at most, shown under the
+  finisher pips); **R / RT** and she draws from the hip, takes it in both hands at arm's length
+  — the arms aimed live at the mark, the camera over her shoulder, time slowing — and
+  double-taps: body, then head, each a soft *thup* through the can and the slide clacking
+  back (synthesized: a swept puff of noise, a low knock, two metallic clicks; then the casing). A thug drops; a boss loses a tenth of his health a shot. The room hesitates
   for a beat while she does it, and she's untouchable until she's fired. She runs
   faster, her strikes come out quicker, her punches hit lighter and her kicks harder; she has
   her own voice (CC0 recordings) and her own walk (narrower steps and a hip sway, shorter
