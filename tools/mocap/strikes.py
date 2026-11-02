@@ -16,6 +16,7 @@ import sys, os, math, json
 import numpy as np
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from bvh import read_bvh, fk_bvh
+from cmu import read_asf, read_amc, fk as fk_cmu
 
 ACCAD, CMU, OUT = sys.argv[1], sys.argv[2], sys.argv[3]
 
@@ -58,6 +59,11 @@ CLIPS = {
     'me_kick': ('accad:G2_FrontKick', 'rf', 'gut', {'lead': 0.22, 'speed': 0.85}),
     'me_jab': ('accad:E1_JabLeft', 'lh', 'head', {'lead': 0.3, 'speed': 0.85}),
     'me_heavy': ('accad:E4_CrossRight', 'rh', 'head', {'lead': 0.34, 'speed': 0.66}),
+    # ---- from the CMU database: a Muay Thai clinch knee (both hands pull the head down onto it)
+    'm_knee': ('cmu:86_06', 'rk', 'gut', {'near': 52.25, 'calib': ('86_06', 24.75), 'lead': 0.32, 'speed': 1.15}),
+    # ---- getting up off the floor: from the back, and from face down
+    'm_getup_back': ('cmu:140_08', None, None, {'frame': 'facing', 'turn': True, 'calib': ('140_06', 0.5), 'speed': 1.6}),
+    'm_getup_front': ('cmu:140_01', None, None, {'frame': 'facing', 'turn': True, 'calib': ('140_06', 0.5), 'speed': 1.6}),
     # ---- footwork: the player's evasions - a quick step out to the side, a boxer's retreat
     'm_sidestep': ('accad:C24_QuickSidestepLeft', None, None, {'frame': 'facing', 'cut': (0.03, 0.95), 'speed': 1.45}),
     'm_retreat': ('accad:E6_QuickRetreat', None, None, {'frame': 'away', 'cut': (2.07, 2.8), 'speed': 1.35}),
@@ -131,6 +137,31 @@ class Take:
             k2 = {'handL': 'handR', 'handR': 'handL', 'footL': 'footR', 'footR': 'footL'}.get(k, k)
             R2[k2] = np.einsum('ij,njk,kl->nil', Mx, v, Mx)
         return Take(P2, R2, self.fps)
+
+
+CMU_J = {
+    'pelvis': 'root', 'spine0': 'lowerback', 'spine': 'lowerback', 'chest': 'upperback', 'neck': 'thorax', 'head': 'upperneck', 'top': 'head',
+    'clL': 'thorax', 'shL': 'lclavicle', 'elL': 'lhumerus', 'wrL': 'lradius', 'fiL': 'lhand',
+    'clR': 'thorax', 'shR': 'rclavicle', 'elR': 'rhumerus', 'wrR': 'rradius', 'fiR': 'rhand',
+    'hipL': 'lhipjoint', 'knL': 'lfemur', 'anL': 'ltibia', 'baL': 'lfoot', 'toL': 'ltoes',
+    'hipR': 'rhipjoint', 'knR': 'rfemur', 'anR': 'rtibia', 'baR': 'rfoot', 'toR': 'rtoes',
+}
+CMU_ROT = {'handL': 'lhand', 'handR': 'rhand', 'head': 'head', 'footL': 'lfoot', 'footR': 'rfoot'}
+
+
+def load_cmu(trial, step=4):
+    """A CMU take (120 fps ASF/AMC, bone ends as joint positions), at 120/step fps."""
+    bones = read_asf(os.path.join(CMU, trial.split('_')[0] + '.asf'))
+    frames = read_amc(os.path.join(CMU, trial + '.amc'))
+    P = {k: [] for k in CMU_J}
+    R = {k: [] for k in CMU_ROT}
+    for f in frames[::step]:
+        pos, rot = fk_cmu(bones, f)
+        for k, j in CMU_J.items():
+            P[k].append(pos[j])
+        for k, j in CMU_ROT.items():
+            R[k].append(rot[j])
+    return Take({k: np.array(v) for k, v in P.items()}, {k: np.array(v) for k, v in R.items()}, 120.0 / step)
 
 
 def load_accad(name):
@@ -248,8 +279,9 @@ def convert(name, take, cal, limb, region, opt):
         side = limb[1].upper()
         eff = P[('wr' if limb[0] in 'lr' and limb[1] == 'h' else 'an') + side] if False else None
         is_hand = limb[1] == 'h'
+        is_knee = limb[1] == 'k'
         side = 'L' if limb[0] == 'l' else 'R'
-        eff = P[('wr' if is_hand else 'an') + side]
+        eff = P[('wr' if is_hand else 'kn' if is_knee else 'an') + side]
         base = P[('sh' if is_hand else 'hip') + side]
         reach = np.linalg.norm(eff - base, axis=1)
         sp = speed(eff, fps)
@@ -259,7 +291,13 @@ def convert(name, take, cal, limb, region, opt):
             # furthest reach while moving fast just before
             fast = np.array([sp[max(0, i - 6):i + 1].max() for i in range(n)])
             score = reach + (0 if is_hand else 0.6 * (eff[:, 1] - floor))
-            score[fast < (2.0 if is_hand else 2.5)] = -1
+            score[fast < (2.0 if is_hand else 1.4 if is_knee else 2.5)] = -1
+            if opt.get('near') is not None:
+                # (a long take: the strike near the given moment)
+                c = int(round(opt['near'] * fps))
+                w = int(0.7 * fps)
+                score[:max(0, c - w)] = -1
+                score[c + w:] = -1
             peak = int(np.argmax(score))
         peak = min(n - 1, peak)
         # the start: a couple of frames before the limb (or for a kick, the body) gets going
@@ -325,6 +363,12 @@ def convert(name, take, cal, limb, region, opt):
     pk = min(len(pel_yaw) - 1, peak - st)
     spin = abs(pel_yaw[pk] - pel_yaw[0]) > math.radians(140) or opt.get('spin', False)
     root_yaw = smooth(pel_yaw - pel_yaw[0], 2) if spin else np.zeros(len(idx))
+    if opt.get('turn'):
+        # rising off the floor the body turns to face its way up: the root follows the hips'
+        # heading (from their left-right axis, which lying on the back or front stays level)
+        lat = np.array([C.T @ (P['hipL'][i] - P['hipR'][i]) for i in idx])
+        hd = np.unwrap([math.atan2(-l[2], l[0]) for l in lat])
+        root_yaw = smooth(hd - hd[0], 3)
     keys = []
     hitT = (peak - st) / fps
     for j, i in enumerate(idx):
@@ -544,11 +588,22 @@ def convert(name, take, cal, limb, region, opt):
 
 def main():
     stand = load_accad('A1_Stand')
-    cal = Calib(stand, 0)
+    cal_accad = Calib(stand, 0)
+    cals = {}
     out = {}
     for name, (src, limb, region, opt) in CLIPS.items():
         kind, clip = src.split(':')
-        take = load_accad(clip)
+        if kind == 'cmu':
+            # each CMU subject is calibrated on its own neutral standing frame
+            ct, cs = opt['calib']
+            if (ct, cs) not in cals:
+                st = load_cmu(ct)
+                cals[(ct, cs)] = Calib(st, int(round(cs * st.fps)))
+            cal = cals[(ct, cs)]
+            take = load_cmu(clip)
+        else:
+            cal = cal_accad
+            take = load_accad(clip)
         if opt.get('mirror'):
             take = take.mirrored()
             limb = {'lh': 'rh', 'rh': 'lh', 'lf': 'rf', 'rf': 'lf'}.get(limb, limb)
@@ -558,7 +613,7 @@ def main():
         out[name] = info
         print(f"{name:16s} {src:34s} hitT={info['hitT']:.2f} dur={info['dur']:.2f} keys={len(info['keys'])} spin={info['spin']}")
     meta = {
-        'about': 'Combat clips cut from the ACCAD Open Motion Project (Male2 martial arts, CC BY 3.0) - see tools/mocap/strikes.py',
+        'about': 'Combat clips cut from the ACCAD Open Motion Project (Male2 martial arts, CC BY 3.0) and the CMU Graphics Lab Motion Capture Database - see tools/mocap/strikes.py',
         'clips': out,
     }
     with open(OUT, 'w') as f:

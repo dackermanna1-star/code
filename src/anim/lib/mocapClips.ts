@@ -35,22 +35,48 @@ export const MOCAP_REPLACES: Record<string, string> = {
   e_punch: 'me_punch', e_haymaker: 'me_haymaker', e_kick: 'me_kick', e_bruiser_punch: 'me_heavy',
   // evasions: a quick step out to the side, a boxer's retreat
   p_dodge_side: 'm_sidestep', p_dodge_back: 'm_retreat',
+  // the clinch knee (Jin's and Scarlet's), and getting back up off the floor
+  knee: 'm_knee',
+  getup_back: 'm_getup_back', getup_front: 'm_getup_front',
 };
 
 /**
- * Captures from outside a fight (the quick side-step comes from the running takes, its arms
- * hanging loose) are brought towards a fighter's guard - the boxer's own, from the cross's stance.
+ * Captures from outside a fight are brought towards a fighter's guard - the boxer's own, from the
+ * cross's stance: the quick side-step (from the running takes, arms hanging loose) throughout;
+ * the clinch knee's first moments (its take starts with the hands down), and the end of a get-up
+ * (those takes finish hunched over; a fighter comes up with the guard up). `w` is the weight,
+ * fading out by `until` or in from `from` (seconds; negative counts back from the end); `trunk`
+ * also straightens the back and sets the hips.
  */
-const GUARDED: Record<string, number> = { m_sidestep: 0.7 };
+const GUARDED: Record<string, { w: number; until?: number; from?: number; trunk?: boolean }> = {
+  m_sidestep: { w: 0.7 },
+  m_knee: { w: 0.85, until: 0.22 },
+  m_getup_back: { w: 1, from: -0.85, trunk: true },
+  m_getup_front: { w: 1, from: -0.85, trunk: true },
+};
+/** The same rotation nearest to `ref` (each Euler angle may be off by whole turns). */
+const near = (a: number, ref: number) => a + 360 * Math.round((ref - a) / 360);
 
 export function registerMocapClips() {
   const specs = new Map<string, Parameters<typeof defineClipPair>[1]>();
   const guard = MOCAP_CLIPS.m_cross.keys[0] as Key;
   for (const [name, c] of Object.entries(MOCAP_CLIPS)) {
     const keys: Key[] = c.keys.map((k) => JSON.parse(JSON.stringify(k)) as Key);
-    const gw = GUARDED[name] ?? 0;
-    if (gw > 0) {
+    const gd = GUARDED[name];
+    if (gd) {
       for (const k of keys) {
+        let gw = gd.w;
+        if (gd.until !== undefined) gw *= 1 - smoothstep(0, gd.until, k.t);
+        if (gd.from !== undefined) gw *= smoothstep(gd.from < 0 ? c.dur + gd.from : gd.from, c.dur, k.t);
+        if (gw <= 1e-4) continue;
+        if (gd.trunk) {
+          for (const f of ['hipsR', 'spine', 'chest', 'neck', 'head'] as const) {
+            const a = k[f]!, g = guard[f]!;
+            k[f] = [0, 1, 2].map((j) => a[j] + (near(g[j], a[j]) - a[j]) * gw) as [number, number, number];
+          }
+          const h = k.hips!, gh = guard.hips!;
+          k.hips = [h[0] + (gh[0] - h[0]) * gw, h[1] + (gh[1] - h[1]) * gw, h[2] + (gh[2] - h[2]) * gw];
+        }
         for (const side of ['lh', 'rh'] as const) {
           const H = k[side] as KeyHand, G = guard[side] as KeyHand;
           H.p = [0, 1, 2].map((j) => H.p![j] + (G.p![j] - H.p![j]) * gw) as [number, number, number];
@@ -62,8 +88,9 @@ export function registerMocapClips() {
       }
     }
     const limb = c.limb;
-    const kick = !!limb && limb[1] === 'f';
-    if (limb && c.region && name !== 'm_elbow') {
+    // (a knee lands with the knee: nothing to steer, and it times like a kick)
+    const kick = !!limb && limb[1] !== 'h';
+    if (limb && c.region && name !== 'm_elbow' && limb[1] !== 'k') {
       const aim = c.region as AimPoint;
       for (const k of keys) {
         // steered onto the target over the last moments before contact, released after it
@@ -84,7 +111,9 @@ export function registerMocapClips() {
           { t: Math.max(0.02, c.hitT - (kick ? 0.15 : 0.1)), type: 'sfx', name: kick ? 'whoosh_heavy' : 'whoosh_light' },
           { t: c.hitT, type: 'hit', limb },
         ]
-      : [{ t: 0.03, type: 'sfx', name: 'whoosh_light' }];
+      : name.startsWith('m_getup')
+        ? [{ t: 0.15, type: 'sfx', name: 'grunt_pain' }]
+        : [{ t: 0.03, type: 'sfx', name: 'whoosh_light' }];
     // footwork is over once both feet are down again
     let settle = c.dur;
     if (!limb) {
@@ -102,6 +131,8 @@ export function registerMocapClips() {
       comboT: limb ? Math.min(c.dur, c.hitT + (kick ? 0.14 : 0.09)) : undefined,
       recoverT: limb ? Math.min(c.dur, c.hitT + (kick ? 0.34 : 0.24)) : settle,
       footFromStart: true,
+      // (getting up: the legs lie wherever the fall left them)
+      settleFeet: name.startsWith('m_getup') ? 0.35 : undefined,
     };
     // the elbow lands with the elbow, not the folded fist
     if (name === 'm_elbow') for (const e of events) if (e.type === 'hit') e.limb = 're';

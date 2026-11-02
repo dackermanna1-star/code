@@ -151,7 +151,9 @@ moves. Settings → *Motion-captured movement* switches back to the procedural g
 Open Motion Project (CC BY 3.0, see CREDITS): jab, cross, lead and rear hooks, body hooks, body
 jab and cross, uppercut, backfist, a folded-arm elbow, front, push, side, axe, crescent and
 roundhouse kicks (head, body, lead leg), a spinning back kick and a reverse spinning hook kick,
-the street's wind-up punches and kicks, and the player's side-step and retreat. Jin and Scarlet
+the street's wind-up punches and kicks, a Muay Thai clinch knee (CMU), getting up off the floor
+from the back and from face down (CMU; the end eased into a guard - the takes finish hunched
+over), and the player's side-step and retreat. Jin and Scarlet
 draw different strikes from the same library; enemies borrow some, started earlier and slower so
 their wind-ups read. `tools/mocap/strikes.py` (`python3 -I tools/mocap/strikes.py <accad dir>
 <cmu dir> src/anim/mocap/strikes.json`) finds each strike's moment of contact, cuts the take
@@ -169,9 +171,9 @@ quick step added where needed; the stance decides which hand leads (a strike or 
 whichever starts from the feet the fighter stands on); foot turns are interpolated as rotations;
 and the striking fist or foot is steered onto the target only in the last moments before contact.
 
-**Animation** — an IK pose solver drives every limb: the captured strikes and evasions above, and
-authored motions for everything else (reactions, get-ups, knees, weapon attacks, paired
-counters/finishers authored as two synchronized tracks);
+**Animation** — an IK pose solver drives every limb: the captured strikes, evasions and get-ups
+above, and authored motions for everything else (hit reactions, the flying knee, weapon attacks,
+paired counters/finishers/takedowns authored as two synchronized tracks);
 procedural locomotion with planted feet (no foot sliding) driven by a human gait model — walk
 and run cadence / duty factor from biomechanics data, heel strike and toe-off rolling over the
 ball of the foot (the foot pivots on its real contact point), a running flight phase with heel

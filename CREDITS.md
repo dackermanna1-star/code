@@ -82,7 +82,8 @@ The font files and their license texts are in `src/ui/fonts/` (see `OFL.txt`).
 The fighters' locomotion (stance idle, walk, jog, run, sprint, backward walk and side
 shuffle) is retargeted from the **CMU Graphics Lab Motion Capture Database**,
 [mocap.cs.cmu.edu](http://mocap.cs.cmu.edu) — trials 13_17, 35_01, 35_17, 16_46, 09_06,
-141_31 and 141_33. The data used in this project was obtained from mocap.cs.cmu.edu. The
+141_31 and 141_33; the clinch knee from trial 86_06, and the get-ups from trials 140_08 (off the
+back) and 140_01 (face down), calibrated on 140_06. The data used in this project was obtained from mocap.cs.cmu.edu. The
 database was created with funding from NSF EIA-0196217. The CMU terms allow the data to be
 included in products; it may not be resold on its own. `tools/mocap/convert.py` turns the
 original ASF/AMC files into the normalised tracks in `src/anim/mocap/cmu.json`.
@@ -103,6 +104,8 @@ folds the arm of the rear-hook take, and the side-step's arms are blended toward
 ## Art and animation
 
 All character meshes, textures, environment art and music are generated procedurally by the
-game's own code — no third-party models are used. The punches, kicks and evasions are the motion
-capture above; reactions, paired counters and finishers, knees, weapon attacks and get-ups are
-authored in code.
+game's own code — no third-party models are used. The punches, kicks, knee, evasions and get-ups
+are the motion capture above; hit reactions, paired counters, finishers and takedowns, the flying
+knee, the moves against someone behind and weapon attacks are authored in code (no free capture
+of them was found: the open databases have no hit reactions or two-person fights, and their
+weapon takes are mimed).

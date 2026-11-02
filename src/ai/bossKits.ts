@@ -442,7 +442,7 @@ export class WardenBrain extends BossBrain {
     if (!p.alive) return false;
     const d = e.distTo(p);
     if (this.ready('taser') && d < 11) {
-      this.cd.taser = this.phase === 1 ? rand(6, 9) : rand(4, 6.5);
+      this.cd.taser = this.phase === 1 ? rand(7, 10) : rand(5.5, 8);
       const aim = () => {
         if (!e.alive || this.busy()) return;
         this.aim = this.phase === 1 ? 1.05 : 0.85;
@@ -460,7 +460,7 @@ export class WardenBrain extends BossBrain {
       return true;
     }
     if (this.phase >= 2 && this.ready('backup')) {
-      this.cd.backup = rand(20, 26);
+      this.cd.backup = rand(28, 34);
       this.callBackup();
     }
     return false;
@@ -531,7 +531,7 @@ export class WardenBrain extends BossBrain {
     this.count('backup');
     this.say('WARDEN: ALL UNITS, CONVERGE!', '#8ab8ff', 1.4);
     const n = g.enemies().filter((o) => o.alive && !o.cfg.boss).length;
-    if (n >= 4) return;
+    if (n >= 3) return;
     const keys = this.phase >= 2 ? ['brawler', 'club'] : ['brawler'];
     keys.forEach((k, i) => g.waves.spawn(k, g.arena.doors[(i + 1) % g.arena.doors.length], i));
   }
@@ -547,13 +547,14 @@ export class WardenBrain extends BossBrain {
   onHurt() {
     super.onHurt();
     const e = this.e;
-    if (e.state === 'stunned' || this.hurt.length < 3) return false;
+    // (he lets a real string land before he breaks it off)
+    if (e.state === 'stunned' || this.hurt.length < 4) return false;
     this.hurt.length = 0;
     this.count('breakaway');
-    if (chance(0.6)) e.bossAttack('warden_kick', { tell: 0.4 });
+    if (chance(0.55)) e.bossAttack('warden_kick', { tell: 0.45 });
     else {
       e.bossPlay('r_dodge_back', 'dodge');
-      e.invuln = 0.4;
+      e.invuln = 0.3;
     }
     return true;
   }

@@ -191,7 +191,10 @@ export async function runTest(game: Game, params: URLSearchParams) {
           break;
         }
       }
-      if (i % 600 === 0) console.log(`t=${(i / 60).toFixed(0)}s wave=${game.waves.wave} corpses=${game.corpses.count} enemies=${game.enemies().filter((e) => e.alive).length} hp=${game.player.hp.toFixed(0)} combo=${game.player.bestCombo}`);
+      if (i % 600 === 0) {
+        const boss = game.enemies().find((e) => e.alive && e.cfg.boss);
+        console.log(`t=${(i / 60).toFixed(0)}s wave=${game.waves.wave} corpses=${game.corpses.count} enemies=${game.enemies().filter((e) => e.alive).length} hp=${game.player.hp.toFixed(0)} combo=${game.player.bestCombo}${boss ? ` boss=${boss.cfg.key}:${Math.round(boss.hp)}/${boss.maxHp} ${boss.state}` : ''}`);
+      }
       if (!game.player.alive && !god) break;
     }
     if (probe) console.log('PROBE ' + JSON.stringify(probe.report((frames * dt))));
@@ -231,14 +234,20 @@ export async function runTest(game: Game, params: URLSearchParams) {
     // single enemy type vs bot, for animation review
     const key = params.get('enemy') ?? 'brawler';
     const n = Number(params.get('n') ?? 1);
-    for (let i = 0; i < n; i++) spawnEnemy(key, rand(-3, 3), -3 - i);
+    const foes: Enemy[] = [];
+    for (let i = 0; i < n; i++) foes.push(spawnEnemy(key, rand(-3, 3), -3 - i));
     const bot = new Bot(game);
     game.started = true;
+    let killedAt = -1;
     for (let i = 0; i < frames; i++) {
       bot.update(dt);
       game.player.hp = Math.max(game.player.hp, 50);
       game.step(dt);
+      // (how long the first one lasts against the bot - boss balance)
+      if (killedAt < 0 && !foes[0].alive) killedAt = i * dt;
+      if (i % 600 === 0) console.log(`duel t=${(i * dt).toFixed(0)}s ${key} hp=${foes.map((f) => Math.round(f.hp)).join(',')} adds=${game.enemies().filter((o) => o.alive && !foes.includes(o)).length}`);
     }
+    console.log(`duel ${key} killedAt=${killedAt.toFixed(1)}s hp=${foes.map((f) => Math.round(f.hp)).join(',')}/${foes[0].maxHp}`);
     result.stats = game.player.stats;
   }
   if (name === 'film') {

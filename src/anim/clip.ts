@@ -75,6 +75,11 @@ export interface ClipSpec {
    * ease onto the authored path by the time they plant again (dense motion-capture keys).
    */
   footFromStart?: boolean;
+  /**
+   * Captured clips that start on the floor: the feet ease from where they lie onto the capture's
+   * places over this long (s) - lying legs carry no weight, so they need no steps.
+   */
+  settleFeet?: number;
 }
 
 /** Fully resolved key (all values present). */
@@ -122,6 +127,14 @@ export interface Clip {
   footQ: [THREE.Quaternion[], THREE.Quaternion[]] | null;
   /** Captured clips: per key, how far each foot turns about its contact point (see KeyFoot.piv). */
   footPiv: [number[], number[]] | null;
+  /** See ClipSpec.settleFeet. */
+  settleFeet: number;
+  /**
+   * Captured clips that lie on the floor (get-ups): the trunk's rotations per key, interpolated as
+   * rotations - a pelvis flat on its back is pitched a quarter turn, where turn and roll angles
+   * are the same axis and swing wildly from key to key.
+   */
+  torsoQ: THREE.Quaternion[][] | null;
 }
 
 /**
@@ -320,6 +333,11 @@ export function defineClip(name: string, spec: ClipSpec): Clip {
       ? [keys.map((k) => eulerDeg(k.lf.pitch, k.lf.yaw, k.lf.roll, new THREE.Quaternion())), keys.map((k) => eulerDeg(k.rf.pitch, k.rf.yaw, k.rf.roll, new THREE.Quaternion()))]
       : null,
     footPiv: spec.footFromStart ? [spec.keys.map((k) => k.lf?.piv ?? 1), spec.keys.map((k) => k.rf?.piv ?? 1)] : null,
+    settleFeet: spec.settleFeet ?? 0,
+    torsoQ:
+      spec.footFromStart && keys.some((k) => Math.abs(k.hipsR[0]) > 50)
+        ? (['hipsR', 'spine', 'chest', 'neck', 'head'] as const).map((f) => keys.map((k) => eulerDeg(k[f][0], k[f][1], k[f][2], new THREE.Quaternion())))
+        : null,
     lunge: spec.footFromStart ? capturedLunge(keys, spec.warp ?? null) : Infinity,
     stance: keys[0].lf.p[2] >= keys[0].rf.p[2] ? 1 : -1,
   };
@@ -543,7 +561,8 @@ export class ClipPlayer {
     const offLen = (side: number) => Math.hypot(off[side].x, off[side].z);
     const lead = W > 1e-6 ? (along(0) >= along(1) ? 0 : 1) : offLen(0) >= offLen(1) ? 0 : 1;
     let prevAdded: Step | null = null;
-    for (const side of [lead, 1 - lead]) {
+    const settle = this.clip.settleFeet;
+    for (const side of settle > 0 ? [] : [lead, 1 - lead]) {
       const first = side === lead;
       const needWarp = W > 0.1 * S && firstSwing(side) > w1 * 0.8;
       const needStance = (offLen(side) > 0.08 * S || Math.abs(off[side].yaw) > 0.5) && firstSwing(side) > 0.35;
@@ -599,6 +618,11 @@ export class ClipPlayer {
           let own = 0;
           if (!st.added) for (let q = st.a; q <= st.b; q++) own = Math.max(own, foot(side, q).p[1] * S);
           if (want > own + 0.01 * S) lift = Math.pow(Math.sin(Math.PI * v), 0.6) * (want - own);
+        }
+        if (settle > 0) {
+          const rs = smoothstep(0, settle, keys[i].t);
+          ri = Math.max(ri, rs);
+          ry = Math.max(ry, rs);
         }
         const [bx, bz] = this.clipToWorldXZ(f.p[0], f.p[2]);
         const x = bx + this.warpX * gi + o.x * (1 - ri);
@@ -715,16 +739,25 @@ export class ClipPlayer {
     const S = this.scale;
     cr3(k0.hips, k1.hips, k2.hips, k3.hips, tmp);
     prm.hipsPos.set(tmp[0] * S, def.offsets[B.hips].y + tmp[1] * S, tmp[2] * S);
-    cr3(k0.hipsR, k1.hipsR, k2.hipsR, k3.hipsR, tmp);
-    eulerDeg(tmp[0], tmp[1], tmp[2], prm.hipsRot);
-    cr3(k0.spine, k1.spine, k2.spine, k3.spine, tmp);
-    eulerDeg(tmp[0], tmp[1], tmp[2], prm.spine);
-    cr3(k0.chest, k1.chest, k2.chest, k3.chest, tmp);
-    eulerDeg(tmp[0], tmp[1], tmp[2], prm.chest);
-    cr3(k0.neck, k1.neck, k2.neck, k3.neck, tmp);
-    eulerDeg(tmp[0], tmp[1], tmp[2], prm.neck);
-    cr3(k0.head, k1.head, k2.head, k3.head, tmp);
-    eulerDeg(tmp[0], tmp[1], tmp[2], prm.head);
+    const tq = this.clip.torsoQ;
+    if (tq) {
+      prm.hipsRot.copy(tq[0][i1]).slerp(tq[0][i2], s);
+      prm.spine.copy(tq[1][i1]).slerp(tq[1][i2], s);
+      prm.chest.copy(tq[2][i1]).slerp(tq[2][i2], s);
+      prm.neck.copy(tq[3][i1]).slerp(tq[3][i2], s);
+      prm.head.copy(tq[4][i1]).slerp(tq[4][i2], s);
+    } else {
+      cr3(k0.hipsR, k1.hipsR, k2.hipsR, k3.hipsR, tmp);
+      eulerDeg(tmp[0], tmp[1], tmp[2], prm.hipsRot);
+      cr3(k0.spine, k1.spine, k2.spine, k3.spine, tmp);
+      eulerDeg(tmp[0], tmp[1], tmp[2], prm.spine);
+      cr3(k0.chest, k1.chest, k2.chest, k3.chest, tmp);
+      eulerDeg(tmp[0], tmp[1], tmp[2], prm.chest);
+      cr3(k0.neck, k1.neck, k2.neck, k3.neck, tmp);
+      eulerDeg(tmp[0], tmp[1], tmp[2], prm.neck);
+      cr3(k0.head, k1.head, k2.head, k3.head, tmp);
+      eulerDeg(tmp[0], tmp[1], tmp[2], prm.head);
+    }
     prm.shrug[0] = cr(k0.shrug[0], k1.shrug[0], k2.shrug[0], k3.shrug[0]);
     prm.shrug[1] = cr(k0.shrug[1], k1.shrug[1], k2.shrug[1], k3.shrug[1]);
     // chest transform in root space (for chest-space hands)
