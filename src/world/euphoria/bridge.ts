@@ -18,6 +18,7 @@ import type { Pose, PoseFK } from '../../anim/pose';
 import type { Arena } from '../arena';
 import type { CorpseShape, RagdollInit, RagdollLike } from '../ragdollTypes';
 import type { Wound } from '../../character/material';
+import { limitJoint, TRUNK_LIMITS } from '../../anim/solver';
 import { clamp, rotY, smoothstep } from '../../core/math';
 
 /**
@@ -103,6 +104,7 @@ function boneMap(def: SkeletonDef): BoneMap {
   return m;
 }
 
+const TRUNK = [B.spine, B.chest, B.neck, B.head];
 const _q = new THREE.Quaternion();
 const _q2 = new THREE.Quaternion();
 const _qr = new THREE.Quaternion();
@@ -906,6 +908,8 @@ export class ActiveRagdoll implements RagdollLike {
     out.q[B.root].identity();
     out.q[B.hips].copy(_qi).multiply(W[B.hips]);
     for (let i = 2; i < BONE_COUNT; i++) out.q[i].copy(W[PARENT[i]]).invert().multiply(W[i]);
+    // a body thrown about still keeps a human neck and back
+    for (let k = 0; k < 4; k++) limitJoint(out.q[TRUNK[k]], TRUNK_LIMITS[k], out.q[TRUNK[k]]);
     // hips position from the interpolated pelvis body
     const pb = this.segs[0].body;
     _v.set(pb.framePos.x + (pb.pos.x - pb.framePos.x) * a, pb.framePos.y + (pb.pos.y - pb.framePos.y) * a, pb.framePos.z + (pb.pos.z - pb.framePos.z) * a);

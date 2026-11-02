@@ -5,6 +5,7 @@ import { registerEnemyMoves } from './enemy';
 import { registerReactions } from './reactions';
 import { registerPaired } from './pairedMoves';
 import { registerScarletMoves } from './scarlet';
+import { registerMocapClips } from './mocapClips';
 
 let registered = false;
 export function registerAllClips() {
@@ -15,6 +16,7 @@ export function registerAllClips() {
   registerReactions();
   registerPaired();
   registerScarletMoves();
+  registerMocapClips();
   defineClip('pose_fight', { keys: [k(0, FIGHT), k(1, FIGHT)] });
   defineClip('pose_relaxed', { keys: [k(0, RELAXED), k(1, RELAXED)] });
   defineClip('pose_brawl', { keys: [k(0, BRAWL), k(1, BRAWL)] });

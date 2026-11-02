@@ -533,10 +533,12 @@ export async function runTest(game: Game, params: URLSearchParams) {
     const NAMES = ['hips', 'spine', 'chest', 'neck', 'uarmL', 'farmL', 'uarmR', 'farmR', 'thighL', 'shinL', 'thighR', 'shinR', 'footL', 'footR'];
     const qW = new THREE.Quaternion(), qY = new THREE.Quaternion(), dq = new THREE.Quaternion();
     const Y = new THREE.Vector3(0, 1, 0);
-    const out: { clip: string; worst: string[]; maxSwing: number; maxTwist: number }[] = [];
+    const out: { clip: string; worst: string[]; maxSwing: number; maxTwist: number; skate?: string; footMiss?: string; handMiss?: string; skateDump?: string; maxTwistAt?: string }[] = [];
     const runOne = (clip: string, range: string, reach: number) => {
       const back = range === 'back';
-      const dist = range === 'far' ? 5 : range === 'close' ? 0.95 : 1.6;
+      // (as close as the player's approach would have brought it before the strike)
+      const lc = getClip(clip);
+      const dist = Number(params.get('dist')) || (range === 'far' ? 5 : range === 'close' ? 0.95 : lc.footFromStart ? Math.min(1.6, reach + lc.lunge * 0.85) : 1.6);
       p.x = 0; p.z = 0; p.vx = p.vz = 0;
       p.yaw = back ? 0 : Math.PI;
       p.anim.initAt(0, 0, p.yaw);
@@ -546,15 +548,49 @@ export async function runTest(game: Game, params: URLSearchParams) {
       e.stunNow(100);
       for (let i = 0; i < 20; i++) game.step(dt);
       const pq = (p as unknown as { play: (n: string, o: object) => unknown });
-      pq.play(clip, { target: e, reach, maxWarp: range === 'far' ? 7.5 : 4.2, back, halflife: 0.07, speed: 1.05, entryHalflife: 0.06 });
+      pq.play(clip, { target: e, reach, maxWarp: range === 'far' ? 7.5 : 4.2, back, halflife: 0.07, speed: 1.05, entryHalflife: 0.06, anySide: params.get('anyside') === '1' });
       (p as unknown as { action: string }).action = 'attack';
       (p as unknown as { curMove: unknown }).curMove = null;
       const prevQ = PAIRS.map(() => new THREE.Quaternion());
       const prevA = PAIRS.map(() => new THREE.Vector3());
       const sw: number[][] = [], tw: number[][] = [], times: number[] = [];
+      // planted-foot slide (m/s) and IK reach shortfall of feet and hands (m)
+      const footPrev = [new THREE.Vector3(), new THREE.Vector3()], footWas = [false, false];
+      let skate = 0, skateT = -1, footMiss = 0, footMissT = -1, handMiss = 0, handMissT = -1, skateDump = '';
       for (let f = 0; f < 150; f++) {
         game.step(dt);
         const fk = p.anim.fk;
+        if (p.anim.mode === 'clip' && p.anim.clip) {
+          const ct = p.anim.clip.time, pr = p.anim.clip.params;
+          for (let k = 0; k < 2; k++) {
+            const lp = fk.pos[k === 0 ? B.footL : B.footR];
+            const c = Math.cos(p.yaw), sn = Math.sin(p.yaw);
+            const wx = p.x + lp.x * c + lp.z * sn, wz = p.z - lp.x * sn + lp.z * c;
+            const planted = lp.y < p.def.ankleHeight + 0.02;
+            if (planted && footWas[k]) {
+              const v = Math.hypot(wx - footPrev[k].x, wz - footPrev[k].z) / dt;
+              if (v > skate) {
+                skate = v;
+                skateT = ct;
+                const [ki] = p.anim.clip.segment(ct);
+                const fw = p.anim.clip.plannedFeet(k);
+                const keys = p.anim.clip.clip.keys;
+                skateDump = `side=${k} t=${ct.toFixed(3)} v=${v.toFixed(2)} y=${lp.y.toFixed(3)} ` + [ki - 1, ki, ki + 1, ki + 2].map((i) => {
+                  const j = Math.max(0, Math.min(fw.length - 1, i));
+                  const ff = k === 0 ? keys[j].lf : keys[j].rf;
+                  return `| k${j} t=${keys[j].t.toFixed(3)} w=${fw[j].x.toFixed(3)},${fw[j].y.toFixed(3)},${fw[j].z.toFixed(3)} c=${ff.p.map((x) => x.toFixed(3)).join(',')} p=${ff.pitch.toFixed(0)} yaw=${ff.yaw.toFixed(0)}`;
+                }).join(' ');
+              }
+            }
+            footPrev[k].set(wx, 0, wz);
+            footWas[k] = planted;
+            // (past the entry blend, which offsets the output from the clip's own targets)
+            const m = ct > 0.12 ? pr.feet[k].pos.distanceTo(lp) : 0;
+            if (m > footMiss) { footMiss = m; footMissT = ct; }
+            const hm = ct > 0.12 ? pr.hands[k].pos.distanceTo(fk.pos[k === 0 ? B.handL : B.handR]) : 0;
+            if (hm > handMiss) { handMiss = hm; handMissT = ct; }
+          }
+        }
         qY.setFromAxisAngle(Y, p.yaw);
         const sR: number[] = [], tR: number[] = [];
         PAIRS.forEach(([b, c], i) => {
@@ -596,19 +632,22 @@ export async function runTest(game: Game, params: URLSearchParams) {
         if (p.anim.mode !== 'clip' && f > 5) break;
       }
       const worst: { w: number; s: string }[] = [];
-      let maxSwing = 0, maxTwist = 0;
+      let maxSwing = 0, maxTwist = 0, maxTwistAt = '';
       for (const [kind, arr] of [['swing', sw], ['twist', tw]] as const) {
         for (let t = 1; t < arr.length - 1; t++) {
           for (let i = 0; i < PAIRS.length; i++) {
             const w = arr[t][i], nb = Math.max(arr[t - 1][i], arr[t + 1][i], 3);
             if (kind === 'swing') maxSwing = Math.max(maxSwing, w);
-            else maxTwist = Math.max(maxTwist, w);
+            else if (w > maxTwist) {
+              maxTwist = w;
+              maxTwistAt = `${NAMES[i]}@${times[t].toFixed(3)} (${arr[t - 1][i].toFixed(0)}/${arr[t + 1][i].toFixed(0)})`;
+            }
             if (w > (kind === 'twist' ? 10 : 14) && w > 2.4 * nb) worst.push({ w, s: `${NAMES[i]} ${kind} ${w.toFixed(0)} (${arr[t - 1][i].toFixed(0)}/${arr[t + 1][i].toFixed(0)}) t=${times[t].toFixed(3)}` });
           }
         }
       }
       worst.sort((a, b) => b.w - a.w);
-      out.push({ clip, worst: worst.slice(0, 6).map((x) => x.s), maxSwing: +maxSwing.toFixed(0), maxTwist: +maxTwist.toFixed(0) });
+      out.push({ clip, worst: worst.slice(0, 6).map((x) => x.s), maxSwing: +maxSwing.toFixed(0), maxTwist: +maxTwist.toFixed(0), skate: `${skate.toFixed(2)}@${skateT.toFixed(2)}`, footMiss: `${footMiss.toFixed(3)}@${footMissT.toFixed(2)}`, handMiss: `${handMiss.toFixed(3)}@${handMissT.toFixed(2)}`, skateDump: skate > 1 ? skateDump : undefined, maxTwistAt } as (typeof out)[number]);
     };
     for (const m of moves) runOne(m.clip, m.range, m.reach);
     for (const c of extra) runOne(c, 'mid', 0.9);

@@ -147,8 +147,31 @@ over the toes, and a guard, block or weapon grip is laid over the arms — all s
 same IK as everything else, so the motion fits the character and blends into the procedural combat
 moves. Settings → *Motion-captured movement* switches back to the procedural gait.
 
-**Animation** — an IK pose solver drives every limb; 72 authored motions (117 clips with mirrors and paired tracks:
-strikes, reactions, get-ups, paired counters/finishers authored as two synchronized tracks);
+**Captured strikes** — the punches, kicks and evasions are real martial-arts captures from ACCAD's
+Open Motion Project (CC BY 3.0, see CREDITS): jab, cross, lead and rear hooks, body hooks, body
+jab and cross, uppercut, backfist, a folded-arm elbow, front, push, side, axe, crescent and
+roundhouse kicks (head, body, lead leg), a spinning back kick and a reverse spinning hook kick,
+the street's wind-up punches and kicks, and the player's side-step and retreat. Jin and Scarlet
+draw different strikes from the same library; enemies borrow some, started earlier and slower so
+their wind-ups read. `tools/mocap/strikes.py` (`python3 -I tools/mocap/strikes.py <accad dir>
+<cmu dir> src/anim/mocap/strikes.json`) finds each strike's moment of contact, cuts the take
+around it, and retargets it like the locomotion: trunk and head as calibrated segment rotations,
+wrists from the shoulder in arm lengths (any build reaches the way the capture did), knees and
+elbows as bend directions, feet with their full 3D rotation. The feet are cleaned up for contact:
+each take's floor comes from its flat-footed ankles, a key holds the foot as if flat (the runtime
+turns it about the ball or the heel), a planted foot that turns, turns about the single point of
+its sole that best explains the capture, and a foot the capture slides along the floor takes a
+small step instead. At runtime a strike closes distance only as far as its feet can carry it (a
+punch steps in, the front foot first; a kick leans over its standing foot), the rest is covered on
+foot first; feet move only while they are in the air — the root's travel and any difference
+between the fighter's stance and the capture's are carried by the capture's own steps, or by a
+quick step added where needed; the stance decides which hand leads (a strike or its mirror,
+whichever starts from the feet the fighter stands on); foot turns are interpolated as rotations;
+and the striking fist or foot is steered onto the target only in the last moments before contact.
+
+**Animation** — an IK pose solver drives every limb: the captured strikes and evasions above, and
+authored motions for everything else (reactions, get-ups, knees, weapon attacks, paired
+counters/finishers authored as two synchronized tracks);
 procedural locomotion with planted feet (no foot sliding) driven by a human gait model — walk
 and run cadence / duty factor from biomechanics data, heel strike and toe-off rolling over the
 ball of the foot (the foot pivots on its real contact point), a running flight phase with heel
@@ -345,8 +368,9 @@ fight went; `difficulty=story|brutal`; `bosshp=0.3` starts a boss already in its
 fall, `test=view&map=rooftop&px=0&pz=4&camyaw=0&campitch=0.25` renders a still of an arena from
 any spot (`bolt=1` brings a lightning strike straight away),
 `test=clips` replays every player strike against a still target and reports limb flips (bone
-swing / roll spikes; `list=roundhouse&dump=roundhouse@0.1-0.2` prints the IK effectors;
-`fighter=scarlet` checks her moveset),
+swing / roll spikes), the fastest twist and where it is, planted-foot slide and IK reach misses
+(`list=roundhouse&dump=roundhouse@0.1-0.2` prints the IK effectors; `fighter=scarlet` checks her
+moveset; `anyside=1` lets the stance pick the mirror),
 `test=eatk&enemy=elite&atk=elite_jab&wave=14` films one enemy attack on a passive player,
 `test=stress` bakes N ragdoll corpses plus blood and measures frame cost (then drops fresh
 active ragdolls onto the pile), `test=euph&mode=knock|stagger|death|agony|pile|prop` films one

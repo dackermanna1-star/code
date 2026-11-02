@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { B, SkeletonDef } from './skeleton';
 import { makeParams, pivotOffset, PoseParams } from './solver';
-import { angleDiff, clamp, clamp01, DEG, eulerDeg, lerp, rotY, smoothstep, wrapAngle } from '../core/math';
+import { angleDiff, clamp, clamp01, DEG, eulerDeg, lerp, lookTurn, rotY, smoothstep, wrapAngle } from '../core/math';
 import type { MocapDriver } from './mocapLoco';
 
 export type LocoStyle = 'fight' | 'brawl' | 'relaxed' | 'injured' | 'heavy' | 'weapon1h' | 'weapon2h' | 'agile' | 'master';
@@ -215,7 +215,7 @@ export class Locomotion {
     const runK = this.runKSm;
     this.stanceBlend = runK;
     this.lookSm += wrapAngle(inp.look - this.lookSm) * (1 - Math.exp(-14 * dt));
-    const look = this.lookSm;
+    const look = lookTurn(this.lookSm, 100 * DEG);
     const moveK = smoothstep(0.15, 0.6, this.speedSm);
     const walkT = clamp01((v - 0.5) / 1.5);
     const runT = clamp01((v - 2.2) / 3.8);

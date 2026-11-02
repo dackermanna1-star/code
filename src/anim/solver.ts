@@ -117,6 +117,41 @@ const _q = new THREE.Quaternion();
 const _q2 = new THREE.Quaternion();
 const _inv = new THREE.Quaternion();
 const _xAxis = new THREE.Vector3(1, 0, 0);
+const _lim = new THREE.Quaternion();
+const _limE = new THREE.Euler();
+
+/**
+ * Anatomical range of each trunk joint relative to its parent, degrees: pitch (bend forward +,
+ * back -), yaw (twist) and roll (side bend). Spine and chest share the torso's twist; neck and head
+ * share the head's turn (together about the eighty-odd degrees a real neck has each way).
+ */
+const TRUNK_LIMITS: [number, number, number, number][] = [
+  // pitch min, pitch max, |yaw| max, |roll| max
+  [-40, 60, 45, 35], // spine
+  [-35, 50, 40, 30], // chest
+  [-45, 50, 45, 32], // neck
+  [-50, 55, 50, 32], // head
+];
+/** Ease a value into [lo, hi]: untouched inside, approaching the ends smoothly (no kink at a limit). */
+/** How far a wrist turns against its forearm (the forearm carries the rest of a roll). */
+const WRIST_MAX = 115 * DEG;
+function soft(x: number, lo: number, hi: number) {
+  const k = Math.min(12 * DEG, (hi - lo) * 0.25);
+  if (x > hi - k) return hi - k + k * Math.tanh((x - (hi - k)) / k);
+  if (x < lo + k) return lo + k - k * Math.tanh((lo + k - x) / k);
+  return x;
+}
+/** Keep a local joint rotation in its range (Euler YXZ, the order the clips author in). */
+export function limitJoint(q: THREE.Quaternion, lim: [number, number, number, number], out: THREE.Quaternion) {
+  _limE.setFromQuaternion(q, 'YXZ');
+  const x = soft(_limE.x, lim[0] * DEG, lim[1] * DEG);
+  const y = soft(_limE.y, -lim[2] * DEG, lim[2] * DEG);
+  const z = soft(_limE.z, -lim[3] * DEG, lim[3] * DEG);
+  if (x === _limE.x && y === _limE.y && z === _limE.z) return out.copy(q);
+  _limE.set(x, y, z, 'YXZ');
+  return out.setFromEuler(_limE);
+}
+export { TRUNK_LIMITS };
 
 /**
  * Per-character solver memory. The IK has a few singular configurations (a pole along the limb, a
@@ -134,6 +169,8 @@ export interface LimbState {
   up1: THREE.Vector3;
   up2: THREE.Vector3;
   upValid: boolean;
+  /** Wrist twist against the forearm last solve (unwrapped, so its limit never swaps sides). */
+  wrist: number;
 }
 export class SolveState {
   arms: LimbState[] = [mkLimb(), mkLimb()];
@@ -146,7 +183,7 @@ export class SolveState {
   }
 }
 function mkLimb(): LimbState {
-  return { bend: new THREE.Vector3(), back: new THREE.Vector3(), twist: 0, valid: false, up1: new THREE.Vector3(), up2: new THREE.Vector3(), upValid: false };
+  return { bend: new THREE.Vector3(), back: new THREE.Vector3(), twist: 0, valid: false, up1: new THREE.Vector3(), up2: new THREE.Vector3(), upValid: false, wrist: 0 };
 }
 /** Largest turn (rad) of a limb's bend plane or a hand's roll in one solve. */
 const MAX_TURN = 0.42;
@@ -322,7 +359,8 @@ export function solvePose(def: SkeletonDef, prm: PoseParams, out: Pose, fkOut?: 
     const i = chain[k];
     const p = k === 0 ? B.hips : chain[k - 1];
     P[i].copy(off[i]).applyQuaternion(W[p]).add(P[p]);
-    W[i].copy(W[p]).multiply(locals[k]);
+    // a human trunk and neck only bend and twist so far, whatever asks them to
+    W[i].copy(W[p]).multiply(limitJoint(locals[k], TRUNK_LIMITS[k], _lim));
   }
 
   // ---- arms
@@ -383,6 +421,32 @@ export function solvePose(def: SkeletonDef, prm: PoseParams, out: Pose, fkOut?: 
     }
     _q.setFromAxisAngle(_fing, sgn * hp.roll * DEG);
     _back.copy(_out).applyQuaternion(_q);
+    {
+      // a wrist turns no more than a forearm can carry it (no hands spun round on their arms)
+      const restBack = _tw.copy(def.restUp[ha]).applyQuaternion(_q2.copy(W[fa]));
+      const v1 = restBack.addScaledVector(_fing, -restBack.dot(_fing));
+      if (v1.lengthSq() > 1e-8) {
+        v1.normalize();
+        const v2 = _e.copy(_back).addScaledVector(_fing, -_back.dot(_fing));
+        if (v2.lengthSq() > 1e-8) {
+          v2.normalize();
+          let tw = Math.atan2(_c.crossVectors(v1, v2).dot(_fing), v1.dot(v2));
+          // unwrapped against the last solve: a twist asked past half a turn keeps pressing on
+          // the limit it reached, instead of swapping to the opposite one in a frame
+          if (ast && ast.valid) {
+            while (tw - ast.wrist > Math.PI) tw -= Math.PI * 2;
+            while (tw - ast.wrist < -Math.PI) tw += Math.PI * 2;
+            tw = clamp(tw, -1.6 * Math.PI, 1.6 * Math.PI);
+          }
+          if (ast) ast.wrist = tw;
+          const lim = soft(tw, -WRIST_MAX, WRIST_MAX);
+          if (lim !== tw) {
+            _q.setFromAxisAngle(_fing, lim);
+            _back.copy(v1).applyQuaternion(_q);
+          }
+        }
+      }
+    }
     alignAxes(def.restDir[ha], def.restUp[ha], _fing, _back, W[ha]);
     // distribute twist to forearm (half)
     {

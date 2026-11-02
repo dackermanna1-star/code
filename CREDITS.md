@@ -87,8 +87,22 @@ database was created with funding from NSF EIA-0196217. The CMU terms allow the 
 included in products; it may not be resold on its own. `tools/mocap/convert.py` turns the
 original ASF/AMC files into the normalised tracks in `src/anim/mocap/cmu.json`.
 
+The fighters' strikes, kicks and evasions are retargeted from the **Open Motion Project** by
+the Advanced Computing Center for the Arts and Design (**ACCAD**), The Ohio State University —
+[accad.osu.edu/research/motion-lab](https://accad.osu.edu/research/motion-lab/mocap-system-and-data),
+licensed under [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/). Takes used, all from
+the *Male2* martial-arts set: A1_Stand (calibration), E1_JabLeft, E4_CrossRight, E5_HookLeft,
+E6_HookRight, E7_UppercutLeft, E10_BodyHookRight, E11_BackfistLeft, E14_BodyCrossRight,
+E16_BodyJabLeft, G1_SidekickLeadingLeft, G2_FrontKick, G4_SpinningBackKick, G6_AxeKick,
+G9_RoundhouseRight, G10_RoundhouseLeadingLeft, G13_CrescentRight, G15_RoundhouseBodyRight,
+G17_PushKickLeft, G19_ReverseSpinCrescentLeft, E6_QuickRetreat and C24_QuickSidestepLeft. The
+motion was cut, retimed, retargeted to the game's skeleton and cleaned up (contacts, floor,
+foot rotations) by `tools/mocap/strikes.py` into `src/anim/mocap/strikes.json`; the elbow strike
+folds the arm of the rear-hook take, and the side-step's arms are blended towards a guard.
+
 ## Art and animation
 
-All character meshes, textures, environment art, combat animations and music are generated
-procedurally by the game's own code — no third-party models are used; the only external
-animation data is the motion capture above.
+All character meshes, textures, environment art and music are generated procedurally by the
+game's own code — no third-party models are used. The punches, kicks and evasions are the motion
+capture above; reactions, paired counters and finishers, knees, weapon attacks and get-ups are
+authored in code.

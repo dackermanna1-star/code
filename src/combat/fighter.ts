@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { Animator, PlayOptions } from '../anim/animator';
-import { AimPoint, AimProvider, ClipEvent, ClipPlayer, getClip } from '../anim/clip';
+import { AimPoint, AimProvider, Clip, ClipEvent, ClipPlayer, CLIPS, getClip } from '../anim/clip';
 import { B, BONE_COUNT, SkeletonDef } from '../anim/skeleton';
 import { CharacterLibrary, CharacterModel, Variant } from '../character/library';
 import { Wound } from '../character/material';
@@ -32,6 +32,8 @@ const PARTNER_BONES: Record<string, number> = {
 const _v = new THREE.Vector3();
 const _v2 = new THREE.Vector3();
 const _q = new THREE.Quaternion();
+const _feet: [THREE.Vector3, THREE.Vector3] = [new THREE.Vector3(), new THREE.Vector3()];
+const _feetYaw: [number, number] = [0, 0];
 
 export abstract class Fighter implements AimProvider {
   id = NEXT_ID++;
@@ -157,19 +159,44 @@ export abstract class Fighter implements AimProvider {
    * Play a clip. If `target` is given the clip is oriented towards it and root-warped so contact happens
    * at `reach` meters (distance between roots).
    */
-  play(name: string, opt: PlayOptions & { target?: Fighter | null; reach?: number; maxWarp?: number; faceTarget?: boolean; back?: boolean } = {}): ClipPlayer {
-    const clip = getClip(name);
+  play(name: string, opt: PlayOptions & { target?: Fighter | null; reach?: number; maxWarp?: number; faceTarget?: boolean; back?: boolean; anySide?: boolean } = {}): ClipPlayer {
     let originYaw = opt.originYaw ?? this.yaw;
     const target = opt.target ?? null;
     if (target && opt.faceTarget !== false) {
       const dirYaw = yawFromDir(target.x - this.x, target.z - this.z);
       originYaw = opt.back ? wrapAngle(dirYaw + Math.PI) : dirYaw;
     }
+    let clip = getClip(name);
+    if (clip.footFromStart && opt.anySide !== false) clip = this.stanceVariant(clip, originYaw, opt.originX ?? this.x, opt.originZ ?? this.z);
     const p = this.anim.playClip(clip, { ...opt, originYaw, originX: opt.originX ?? this.x, originZ: opt.originZ ?? this.z, aim: opt.aim ?? this.aimAt(target) });
     if (target && opt.reach !== undefined && clip.warp) {
-      this.warpTo(p, target, opt.reach, opt.maxWarp ?? 3.5, !!opt.back);
+      // a captured strike moves the body no further than a real lunge (its feet step with it);
+      // the rest of any distance is walked or run first, never slid
+      const cap = clip.footFromStart ? clip.lunge : Infinity;
+      this.warpTo(p, target, opt.reach, Math.min(cap, opt.maxWarp ?? 3.5), !!opt.back);
     }
     return p;
+  }
+
+  /**
+   * A captured clip starts in the capture's stance. Of the clip and its mirror, the one whose feet
+   * start nearer to where this fighter stands plays - a jab comes off whichever hand leads now -
+   * so the feet never have to swap places to begin a move.
+   */
+  private stanceVariant(clip: Clip, originYaw: number, ox: number, oz: number): Clip {
+    const alt = CLIPS.get(clip.name.endsWith('_m') ? clip.name.slice(0, -2) : clip.name + '_m');
+    if (!alt || !alt.footFromStart) return clip;
+    this.anim.currentFeet(_feet, _feetYaw);
+    const cost = (c: Clip) => {
+      let sum = 0;
+      for (let side = 0; side < 2; side++) {
+        const f = side === 0 ? c.keys[0].lf : c.keys[0].rf;
+        const [rx, rz] = rotY(f.p[0] * this.scale, f.p[2] * this.scale, originYaw);
+        sum += (ox + rx - _feet[side].x) ** 2 + (oz + rz - _feet[side].z) ** 2;
+      }
+      return sum;
+    };
+    return cost(alt) < cost(clip) * 0.7 ? alt : clip;
   }
 
   /** Compute warp so that at the clip's warp end the root is `reach` from target. */

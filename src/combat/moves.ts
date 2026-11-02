@@ -24,11 +24,14 @@ export const PLAYER_STRIKES: MoveDef[] = [
   { name: 'cross', clip: 'cross', kind: 'punch', region: 'head', reach: 0.95, damage: 11, strength: 0.55, bleed: 0.35, range: 'mid', weight: 1.2 },
   { name: 'hook', clip: 'hook', kind: 'punch', region: 'head', reach: 0.72, damage: 12, strength: 0.6, bleed: 0.4, range: 'mid', weight: 1.1 },
   { name: 'bodyhook', clip: 'bodyhook', kind: 'punch', region: 'gut', reach: 0.66, damage: 11, strength: 0.6, bleed: 0.05, range: 'close', weight: 0.9 },
+  { name: 'rearhook', clip: 'm_rhook', kind: 'punch', region: 'head', reach: 0.72, damage: 13, strength: 0.65, bleed: 0.45, range: 'mid', weight: 0.8 },
+  { name: 'bodycross', clip: 'm_bodycross', kind: 'punch', region: 'gut', reach: 0.82, damage: 11, strength: 0.6, bleed: 0.05, range: 'mid', weight: 0.7 },
   { name: 'uppercut', clip: 'uppercut', kind: 'punch', region: 'head', reach: 0.62, damage: 14, strength: 0.8, bleed: 0.5, range: 'close', weight: 0.9 },
   { name: 'elbow', clip: 'elbow', kind: 'elbow', region: 'head', reach: 0.55, damage: 15, strength: 0.75, bleed: 0.6, range: 'close', weight: 0.9 },
   { name: 'knee', clip: 'knee', kind: 'knee', region: 'gut', reach: 0.5, damage: 15, strength: 0.85, bleed: 0.1, range: 'close', weight: 0.7, minCombo: 2 },
   { name: 'frontkick', clip: 'frontkick', kind: 'kick', region: 'gut', reach: 1.05, damage: 13, strength: 0.9, bleed: 0.05, range: 'mid', weight: 0.8, launch: 1.5 },
   { name: 'roundhouse', clip: 'roundhouse', kind: 'kick', region: 'head', reach: 1.0, damage: 18, strength: 1.0, bleed: 0.6, range: 'mid', weight: 0.8, minCombo: 2 },
+  { name: 'bodykick', clip: 'm_bodykick', kind: 'kick', region: 'gut', reach: 0.98, damage: 15, strength: 1.0, bleed: 0.05, range: 'mid', weight: 0.8, minCombo: 1 },
   { name: 'sidekick', clip: 'sidekick', kind: 'kick', region: 'chest', reach: 1.12, damage: 16, strength: 1.1, bleed: 0.1, range: 'mid', weight: 0.7, minCombo: 1, launch: 2.5 },
   { name: 'spinkick', clip: 'spinkick', kind: 'kick', region: 'gut', reach: 1.05, damage: 20, strength: 1.2, bleed: 0.1, range: 'mid', weight: 0.6, minCombo: 4, launch: 3 },
   { name: 'flyknee', clip: 'flyknee', kind: 'knee', region: 'head', reach: 0.62, damage: 20, strength: 1.2, bleed: 0.7, range: 'far', weight: 1, launch: 1.5 },
@@ -63,6 +66,7 @@ export interface EnemyAttack {
 
 export const ENEMY_ATTACKS: Record<string, EnemyAttack> = {
   punch: { clip: 'e_punch', kind: 'punch', region: 'head', reach: 0.9, damage: 9, strength: 0.6, unblockable: false, weight: 1, startRange: 2.4 },
+  jab: { clip: 'me_jab', kind: 'punch', region: 'head', reach: 0.9, damage: 7, strength: 0.45, unblockable: false, weight: 0.9, startRange: 2.3 },
   haymaker: { clip: 'e_haymaker', kind: 'punch', region: 'head', reach: 0.72, damage: 12, strength: 0.8, unblockable: false, weight: 0.8, startRange: 2.4 },
   kick: { clip: 'e_kick', kind: 'kick', region: 'gut', reach: 1.05, damage: 10, strength: 0.8, unblockable: false, weight: 0.6, startRange: 2.6 },
   lunge: { clip: 'e_lunge', kind: 'punch', region: 'head', reach: 0.92, damage: 9, strength: 0.6, unblockable: false, weight: 1, startRange: 3.6 },

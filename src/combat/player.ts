@@ -362,7 +362,8 @@ export class Player extends Fighter {
     // a strike closes a step's worth of distance by itself; further than that, a few running steps
     // come first (a punch warped across metres slid the feet over the floor at 20 m/s)
     const lunge = move.reach + this.lungeReach(clipName, move);
-    if (!back && this.distTo(target) > lunge + 0.25) {
+    // (a captured strike lunges no further than its steps carry it: a little slack only)
+    if (!back && this.distTo(target) > lunge + (getClip(clipName).footFromStart ? 0.06 : 0.25)) {
       this.startDash(target, lunge, () => this.launchStrike(target, move, clipName, false));
       return;
     }
@@ -385,6 +386,8 @@ export class Player extends Fighter {
   /** Ground a strike covers by itself: its lunge (root warp) at a believable speed. */
   private lungeReach(clipName: string, move: MoveDef) {
     const c = getClip(clipName);
+    // a captured strike lunges a real step at most; the dash covers the rest on foot
+    if (c.footFromStart) return c.lunge * 0.85;
     const w = c.warp ? (c.warp[1] - c.warp[0]) / 1.15 : 0.1;
     return (move.range === 'far' ? 10 : 6.5) * w + 0.3;
   }
@@ -1020,7 +1023,8 @@ export class Player extends Fighter {
       const att = imminent.enemy;
       yaw = yawFromDir(att.x - this.x, att.z - this.z);
     }
-    this.play(clip, { originYaw: yaw, halflife: 0.05, speed: 1.1 });
+    // (a side dodge goes the way it was asked to, whatever the stance; a retreat starts from it)
+    this.play(clip, { originYaw: yaw, halflife: 0.05, speed: 1.1, anySide: clip === 'p_dodge_back' });
     this.action = 'dodge';
     this.invuln = 0.36;
     this.stateTime = 0;

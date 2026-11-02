@@ -5,3 +5,4 @@ dist/
 tests/out/
 dist-single/
 last-stance.html
+__pycache__/

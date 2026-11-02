@@ -257,3 +257,12 @@ export function valueNoise1(x: number, seed = 0) {
   const u = f * f * (3 - 2 * f);
   return a + (b - a) * u;
 }
+
+/** How far to turn the trunk and head towards something at angle `a`: all the way up to the limit,
+ *  then less and less for something further round (nothing for straight behind - the body turns). */
+export function lookTurn(a: number, max: number) {
+  a = wrapAngle(a);
+  const m = Math.abs(a);
+  if (m <= max) return a;
+  return Math.sign(a) * max * Math.max(0, (Math.PI - m) / (Math.PI - max));
+}

@@ -3,7 +3,7 @@ import data from './mocap/cmu.json';
 import { B, SkeletonDef } from './skeleton';
 import type { PoseParams } from './solver';
 import type { LocoInput, Locomotion, StanceDef } from './locomotion';
-import { clamp, clamp01, DEG, lerp, rotY, smoothstep, springDamper, wrapAngle } from '../core/math';
+import { clamp, clamp01, DEG, lerp, lookTurn, rotY, smoothstep, springDamper, wrapAngle } from '../core/math';
 
 /**
  * Motion-captured locomotion for every fighter (the player and the enemies).
@@ -174,6 +174,9 @@ const IDLE_HIP_MEAN = (() => {
   const f = clip('idle').frames;
   return f.reduce((a, x) => a + x.hp[1], 0) / f.length;
 })();
+
+/** The furthest the trunk and head turn to look at something (rad); past it the body turns. */
+const LOOK_MAX = 100 * DEG;
 
 export class MocapDriver {
   private idle = clip('idle');
@@ -369,7 +372,8 @@ export class MocapDriver {
     // look towards the threat: spread over spine, chest and head
     // (a spring: a new target starts the head turning smoothly instead of at full speed)
     springDamper(this.lookSm, this.lookSm.x + wrapAngle(inp.look - this.lookSm.x), 0.07, dt);
-    const look = this.lookSm.x;
+    // (a threat behind is looked at over the shoulder, not with the head turned round)
+    const look = lookTurn(this.lookSm.x, LOOK_MAX);
     const hunch = L.hunchSm * 14 * DEG;
     prm.spine.multiply(_q.setFromEuler(_e.set(hunch * 0.5, look * 0.15, 0)));
     prm.chest.multiply(_q.setFromEuler(_e.set(hunch * 0.5, look * 0.2, 0)));

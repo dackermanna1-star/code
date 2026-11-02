@@ -430,7 +430,10 @@ export class Enemy extends Fighter {
     }
     const a = this.attackDef!;
     const d = this.distTo(p);
-    if (d <= a.startRange || this.stateTime > 3.5) {
+    // a captured attack only lunges a real step: walk in that close before throwing it
+    const ac = getClip(a.clip);
+    const start = ac.footFromStart ? Math.min(a.startRange, a.reach * this.scale + ac.lunge * 0.9) : a.startRange;
+    if (d <= start || this.stateTime > 3.5) {
       if (!this.brain) this.attackCombo = Math.round(rand(this.cfg.comboHits[0], this.cfg.comboHits[1]));
       this.comboLen = 0;
       this.startAttack(false);

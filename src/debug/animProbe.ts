@@ -53,6 +53,7 @@ export class AnimProbe {
   armDumps: string[] = [];
   legDumps: string[] = [];
   heelSkates: string[] = [];
+  skateDumps: string[] = [];
   clipDumps: string[] = [];
   hipDumps: string[] = [];
   locoSlideBy: Record<string, { d: number; t: number; miss: number; maxMiss: number }> = { heelUp: { d: 0, t: 0, miss: 0, maxMiss: 0 }, toesUp: { d: 0, t: 0, miss: 0, maxMiss: 0 }, flat: { d: 0, t: 0, miss: 0, maxMiss: 0 }, blend: { d: 0, t: 0, miss: 0, maxMiss: 0 } };
@@ -215,6 +216,19 @@ export class AnimProbe {
             this.slide.clipContactT += dt;
           }
           if (speed > 0.9) this.slide.worst.push({ who: this.label(f), ctx: t.ctx[0], speed, frame: this.frame });
+          if (speed > 4 && !isLoco && f.anim.clip && this.skateDumps.length < 12) {
+            const c = f.anim.clip;
+            const [ki] = c.segment(c.time);
+            const fw = c.plannedFeet(k);
+            const keys = c.clip.keys;
+            const row = (i: number) => {
+              const q = fw[Math.max(0, Math.min(fw.length - 1, i))];
+              const kk = keys[Math.max(0, Math.min(keys.length - 1, i))];
+              const ff = k === 0 ? kk.lf : kk.rf;
+              return `  k${i} t=${kk.t.toFixed(3)} w=${q.x.toFixed(3)},${q.y.toFixed(3)},${q.z.toFixed(3)} clip=${ff.p.map((v) => v.toFixed(3)).join(',')} pitch=${ff.pitch.toFixed(0)}`;
+            };
+            this.skateDumps.push(`${this.label(f)} ${c.clip.name} side=${k} t=${c.time.toFixed(3)} v=${speed.toFixed(1)} foot=${p.x.toFixed(3)},${p.y.toFixed(3)},${p.z.toFixed(3)} prev=${ft.pos.x.toFixed(3)},${ft.pos.z.toFixed(3)} root=${c.rootX.toFixed(3)},${c.rootZ.toFixed(3)} f=${f.x.toFixed(3)},${f.z.toFixed(3)} @${this.frame}\n` + [ki - 1, ki, ki + 1, ki + 2].map(row).join('\n'));
+          }
         }
         ft.pos.copy(p);
         ft.planted = planted;
@@ -238,6 +252,7 @@ export class AnimProbe {
       locoSlideMps: +(this.slide.loco / Math.max(1e-3, this.slide.locoPlantedT)).toFixed(4),
       clipSlideMps: +(this.slide.clip / Math.max(1e-3, this.slide.clipContactT)).toFixed(4),
       skateEvents: this.slide.worst.length,
+      skateDumps: this.skateDumps,
       skateByCtx: [...skateCtx.entries()].sort((a, b) => b[1] - a[1]).slice(0, 12),
       popsByTransition: byTrans,
       transitions: trans,

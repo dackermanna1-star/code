@@ -137,6 +137,16 @@ export class Animator {
     return out.copy(_q).multiply(this.fk.rot[bone]);
   }
 
+  /** Where the feet stand now (world ankle ground points and yaws), whatever is animating. */
+  currentFeet(feet: [THREE.Vector3, THREE.Vector3], yaws: [number, number]) {
+    if (this.mode === 'loco') {
+      this.loco.footWorld(0, feet[0]);
+      this.loco.footWorld(1, feet[1]);
+      yaws[0] = this.loco.feet[0].yaw;
+      yaws[1] = this.loco.feet[1].yaw;
+    } else this.feetWorld(feet, yaws);
+  }
+
   playClip(clip: Clip, opt: PlayOptions = {}): ClipPlayer {
     const p = new ClipPlayer(clip);
     p.ground = this.ground;
@@ -145,12 +155,7 @@ export class Animator {
     if (opt.entryHalflife !== undefined) p.entryHalflife = opt.entryHalflife;
     const feet: [THREE.Vector3, THREE.Vector3] = [new THREE.Vector3(), new THREE.Vector3()];
     const yaws: [number, number] = [0, 0];
-    if (this.mode === 'loco') {
-      this.loco.footWorld(0, feet[0]);
-      this.loco.footWorld(1, feet[1]);
-      yaws[0] = this.loco.feet[0].yaw;
-      yaws[1] = this.loco.feet[1].yaw;
-    } else this.feetWorld(feet, yaws);
+    this.currentFeet(feet, yaws);
     p.start(
       opt.originX ?? this.rootX,
       opt.originZ ?? this.rootZ,

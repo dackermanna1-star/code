@@ -10,7 +10,8 @@ export type AimPoint =
 
 export interface KeyHand {
   p?: V3;
-  sp?: 'root' | 'chest';
+  /** 'shoulder': p is the wrist relative to the shoulder, in chest space, in arm lengths (motion capture). */
+  sp?: 'root' | 'chest' | 'shoulder';
   aim?: AimPoint | null;
   aimW?: number;
   aimOff?: V3; // offset added to aim point (root space)
@@ -30,6 +31,8 @@ export interface KeyFoot {
   aim?: AimPoint | null; // for kicks: blend to target point
   aimW?: number;
   aimOff?: V3; // root-space offset added to the aim point
+  /** captured clips: how far the foot turns about its contact point (1 on the floor, 0 in the air) */
+  piv?: number;
 }
 export interface Key {
   t: number;
@@ -67,6 +70,11 @@ export interface ClipSpec {
   comboT?: number;
   /** Clip ends (becomes interruptible/idle) at this time; remainder is recovery that can blend out. */
   recoverT?: number;
+  /**
+   * Feet that leave the floor start their first swing from where the fighter really stands and
+   * ease onto the authored path by the time they plant again (dense motion-capture keys).
+   */
+  footFromStart?: boolean;
 }
 
 /** Fully resolved key (all values present). */
@@ -82,8 +90,8 @@ interface RKey {
   head: V3;
   lh: Required<Omit<KeyHand, 'aim' | 'dir' | 'aimOff'>> & { aim: AimPoint | null; dir: V3 | null; aimOff: V3 };
   rh: Required<Omit<KeyHand, 'aim' | 'dir' | 'aimOff'>> & { aim: AimPoint | null; dir: V3 | null; aimOff: V3 };
-  lf: Required<Omit<KeyFoot, 'aim' | 'pole' | 'aimOff'>> & { aim: AimPoint | null; pole: V3 | null; explicit: boolean; aimOff: V3 };
-  rf: Required<Omit<KeyFoot, 'aim' | 'pole' | 'aimOff'>> & { aim: AimPoint | null; pole: V3 | null; explicit: boolean; aimOff: V3 };
+  lf: Required<Omit<KeyFoot, 'aim' | 'pole' | 'aimOff' | 'piv'>> & { aim: AimPoint | null; pole: V3 | null; explicit: boolean; aimOff: V3 };
+  rf: Required<Omit<KeyFoot, 'aim' | 'pole' | 'aimOff' | 'piv'>> & { aim: AimPoint | null; pole: V3 | null; explicit: boolean; aimOff: V3 };
   shrug: [number, number];
 }
 
@@ -97,6 +105,44 @@ export interface Clip {
   hitT: number;
   comboT: number;
   recoverT: number;
+  footFromStart: boolean;
+  /**
+   * Captured clips: how far the root may be warped before contact with the feet still stepping
+   * believably (both feet on the floor through the wind-up can step in; a kick's standing foot
+   * cannot, so its body only leans over it).
+   */
+  lunge: number;
+  /** Captured clips: +1 when the left foot leads at the start, -1 when the right does. */
+  stance: number;
+  /**
+   * Captured clips: each key's foot orientations in clip space, interpolated as rotations (a foot
+   * turned over in a kick's chamber points its toes at the floor, where turn and roll are the same
+   * axis and their angles swing wildly from key to key while the foot itself barely moves).
+   */
+  footQ: [THREE.Quaternion[], THREE.Quaternion[]] | null;
+  /** Captured clips: per key, how far each foot turns about its contact point (see KeyFoot.piv). */
+  footPiv: [number[], number[]] | null;
+}
+
+/**
+ * A captured foot is on the floor. (Its key holds the foot as if flat - the runtime turns it about
+ * the ball or the heel by its pitch - so the height is that of the contact point itself.)
+ */
+export const CONTACT_Y = 0.03;
+export function footDown(f: { p: V3; pitch: number }) {
+  return f.p[1] < CONTACT_Y;
+}
+/** Root travel of a lunge: two quick steps at most, at a pace a fighter can step. */
+export const LUNGE_MAX = 0.6;
+const LUNGE_SPEED = 1.8;
+/** How far a body can lean over a standing foot it cannot lift. */
+const LEAN_MAX = 0.2;
+function capturedLunge(keys: RKey[], warp: [number, number] | null) {
+  if (!warp) return 0;
+  const w1 = warp[1];
+  const standing = [0, 1].map((side) => keys.every((k) => k.t > w1 || footDown(side === 0 ? k.lf : k.rf)));
+  if (standing[0] && standing[1]) return Math.min(LUNGE_MAX, LUNGE_SPEED * Math.max(0.12, w1));
+  return LEAN_MAX;
 }
 
 const DEFAULT_HAND_L: KeyHand = { p: [0.1, 0.18, 0.28], sp: 'chest', pole: [0.4, -1, -0.2], roll: 10, aimW: 0, dirW: 0 };
@@ -269,6 +315,13 @@ export function defineClip(name: string, spec: ClipSpec): Clip {
     hitT: spec.hitT ?? -1,
     comboT: spec.comboT ?? dur,
     recoverT: spec.recoverT ?? dur,
+    footFromStart: !!spec.footFromStart,
+    footQ: spec.footFromStart
+      ? [keys.map((k) => eulerDeg(k.lf.pitch, k.lf.yaw, k.lf.roll, new THREE.Quaternion())), keys.map((k) => eulerDeg(k.rf.pitch, k.rf.yaw, k.rf.roll, new THREE.Quaternion()))]
+      : null,
+    footPiv: spec.footFromStart ? [spec.keys.map((k) => k.lf?.piv ?? 1), spec.keys.map((k) => k.rf?.piv ?? 1)] : null,
+    lunge: spec.footFromStart ? capturedLunge(keys, spec.warp ?? null) : Infinity,
+    stance: keys[0].lf.p[2] >= keys[0].rf.p[2] ? 1 : -1,
   };
   CLIPS.set(name, clip);
   return clip;
@@ -280,7 +333,7 @@ export function defineClipPair(name: string, spec: ClipSpec, mirrorName?: string
   const b = defineClip(mirrorName ?? name + '_m', ms);
   return [a, b];
 }
-const MIRROR_LIMB: Record<string, string> = { rh: 'lh', lh: 'rh', rf: 'lf', lf: 'rf' };
+const MIRROR_LIMB: Record<string, string> = { rh: 'lh', lh: 'rh', rf: 'lf', lf: 'rf', re: 'le', le: 're', rk: 'lk', lk: 'rk' };
 function mirrorEvent(e: ClipEvent): ClipEvent {
   const o: ClipEvent = { ...e };
   if (typeof o.limb === 'string') o.limb = MIRROR_LIMB[o.limb as string] ?? o.limb;
@@ -315,6 +368,7 @@ const _hipQ = new THREE.Quaternion();
 const _sQ = new THREE.Quaternion();
 const _cQ = new THREE.Quaternion();
 const AIM_FWD = new THREE.Vector3();
+const _Yax = new THREE.Vector3(0, 1, 0);
 
 export class ClipPlayer {
   clip: Clip;
@@ -405,6 +459,10 @@ export class ClipPlayer {
   buildFootWorld(def: SkeletonDef) {
     const keys = this.clip.keys;
     this.footWorld = [[], []];
+    if (this.clip.footFromStart) {
+      this.planCapturedFeet();
+      return;
+    }
     for (let side = 0; side < 2; side++) {
       let usingStart = true;
       const first = side === 0 ? keys[0].lf : keys[0].rf;
@@ -428,6 +486,136 @@ export class ClipPlayer {
         });
       }
     }
+    void def;
+  }
+
+  /**
+   * Feet of a captured clip. Each foot keeps the capture's own footwork, relative to where it
+   * really stands, and nothing moves a foot that is on the floor. The root's warp, and the
+   * difference between the fighter's stance and the capture's, reach a foot only while it is in
+   * the air: in its own swings, or in steps added where the body travels further than a planted
+   * leg can follow (the foot ahead along the travel first, the other after it, never both in the
+   * air at once) or where the fighter stands too differently from the capture.
+   */
+  private planCapturedFeet() {
+    const keys = this.clip.keys;
+    const n = keys.length;
+    const S = this.scale;
+    const W = Math.hypot(this.warpX, this.warpZ);
+    const w1 = this.clip.warp ? this.clip.warp[1] : 0;
+    const ux = W > 1e-6 ? this.warpX / W : 0, uz = W > 1e-6 ? this.warpZ / W : 0;
+    const foot = (side: number, i: number) => (side === 0 ? keys[i].lf : keys[i].rf);
+    const down = [0, 1].map((side) => keys.map((_, i) => footDown(foot(side, i))));
+    // where the fighter stands against where the capture starts (a foot the capture has in the
+    // air at the start rises from the floor the fighter stands on)
+    const off = [0, 1].map((side) => {
+      const f0 = foot(side, 0);
+      const [ax, az] = this.clipToWorldXZ(f0.p[0], f0.p[2]);
+      const st = this.footStart[side];
+      return { x: st.x - ax, z: st.z - az, y: -f0.p[1] * S, yaw: wrapAngle(this.footStartYaw[side] - (this.originYaw + f0.yaw * DEG)) };
+    });
+    // the capture's own swings: from the last key down to the first key down again
+    type Step = { a: number; b: number; added: boolean };
+    const steps: Step[][] = [[], []];
+    for (let side = 0; side < 2; side++) {
+      for (let i = 0; i < n; ) {
+        if (down[side][i]) {
+          i++;
+          continue;
+        }
+        let j = i;
+        while (j < n && !down[side][j]) j++;
+        steps[side].push({ a: Math.max(0, i - 1), b: Math.min(n - 1, j), added: false });
+        i = j;
+      }
+    }
+    const keyAt = (t: number) => {
+      let i = 0;
+      while (i < n - 1 && keys[i + 1].t <= t) i++;
+      return i;
+    };
+    const standsOver = (side: number, a: number, b: number) => {
+      for (let i = a; i <= b; i++) if (!down[side][i]) return false;
+      return true;
+    };
+    const firstSwing = (side: number) => (steps[side].length ? keys[steps[side][0].a].t : Infinity);
+    const along = (side: number) => this.footStart[side].x * ux + this.footStart[side].z * uz;
+    const offLen = (side: number) => Math.hypot(off[side].x, off[side].z);
+    const lead = W > 1e-6 ? (along(0) >= along(1) ? 0 : 1) : offLen(0) >= offLen(1) ? 0 : 1;
+    let prevAdded: Step | null = null;
+    for (const side of [lead, 1 - lead]) {
+      const first = side === lead;
+      const needWarp = W > 0.1 * S && firstSwing(side) > w1 * 0.8;
+      const needStance = (offLen(side) > 0.08 * S || Math.abs(off[side].yaw) > 0.5) && firstSwing(side) > 0.35;
+      if (!needWarp && !needStance) continue;
+      const span = needWarp ? Math.max(w1, 0.2) : 0.36;
+      let ta = first ? 0 : span * 0.5;
+      let tb = first ? span * 0.6 : span + 0.12;
+      // one foot at a time, and a step takes the time a quick step takes
+      if (prevAdded) ta = Math.max(ta, keys[prevAdded.b].t - 0.02);
+      tb = Math.max(tb, ta + 0.17);
+      const a = keyAt(ta);
+      const b = Math.min(n - 1, Math.max(a + 3, keyAt(tb) + 1));
+      // only from a stance: this foot down throughout, and the other one down to stand on
+      if (b <= a || !standsOver(side, a, b) || !standsOver(1 - side, a, b)) continue;
+      const st: Step = { a, b, added: true };
+      steps[side].push(st);
+      steps[side].sort((p, q) => p.a - q.a);
+      prevAdded = st;
+    }
+    // per key: the share of the warp the foot has taken (g), and of the stance difference it has
+    // shed (r) - both change only in the air
+    for (let side = 0; side < 2; side++) {
+      const ss = steps[side];
+      const out = this.footWorld[side];
+      const o = off[side];
+      let g = 0, r = 0, si = 0;
+      // what each step carries: the warp up to the next lift, and what is left of the difference
+      const land = ss.map((_, k) => this.warpWeight(k + 1 < ss.length ? keys[ss[k + 1].a].t : this.clip.dur));
+      for (let i = 0; i < n; i++) {
+        const f = foot(side, i);
+        let gi = g, ri = r, ry = r, lift = 0;
+        while (si < ss.length && i >= ss[si].b) {
+          g = land[si];
+          r = 1;
+          gi = g;
+          ri = ry = r;
+          si++;
+        }
+        if (si < ss.length && i > ss[si].a && i < ss[si].b) {
+          const st = ss[si];
+          const ta = keys[st.a].t, tb = keys[st.b].t;
+          const v = clamp01((keys[i].t - ta) / Math.max(1e-4, tb - ta));
+          const gl = land[si];
+          // up first, across in the middle, down before it stops
+          const u = st.added ? smoothstep(0.15, 0.85, v) : smoothstep(0.08, 0.92, v);
+          gi = lerp(g, gl, u);
+          ri = lerp(r, 1, u);
+          ry = lerp(r, 1, smoothstep(0, 0.4, v));
+          // a step lifts the foot as high as the ground it covers asks (a capture's low shuffle
+          // made to cover more is raised to it): never a glide
+          const dx = this.warpX * (gl - g) - o.x * (1 - r), dz = this.warpZ * (gl - g) - o.z * (1 - r);
+          const want = Math.min(0.12 * S, 0.035 * S + Math.hypot(dx, dz) * 0.2);
+          let own = 0;
+          if (!st.added) for (let q = st.a; q <= st.b; q++) own = Math.max(own, foot(side, q).p[1] * S);
+          if (want > own + 0.01 * S) lift = Math.pow(Math.sin(Math.PI * v), 0.6) * (want - own);
+        }
+        const [bx, bz] = this.clipToWorldXZ(f.p[0], f.p[2]);
+        const x = bx + this.warpX * gi + o.x * (1 - ri);
+        const z = bz + this.warpZ * gi + o.z * (1 - ri);
+        out.push({
+          x,
+          z,
+          y: Math.max(0, f.p[1] * S + o.y * (1 - ry)) + lift + (f.p[1] < 0.02 && this.ground ? this.ground(x, z) : 0),
+          yaw: this.originYaw + f.yaw * DEG + this.warpYaw * gi + o.yaw * (1 - ri),
+        });
+      }
+    }
+  }
+
+  /** (debug) the planned world feet, per key */
+  plannedFeet(side: number) {
+    return this.footWorld[side];
   }
 
   setWarp(dx: number, dz: number, dyaw: number, def: SkeletonDef) {
@@ -560,7 +748,15 @@ export class ClipPlayer {
         const h = hk(ks[j]);
         const p = pts[j].set(h.p[0] * S, h.p[1] * S, h.p[2] * S);
         const pl = poles[j].set(h.pole[0], h.pole[1], h.pole[2]);
-        if (h.sp === 'chest') {
+        if (h.sp === 'shoulder') {
+          // the wrist from the shoulder in arm lengths (any build reaches the way the capture did)
+          const cl = side === 0 ? B.clavL : B.clavR, ua = side === 0 ? B.uarmL : B.uarmR;
+          const arm = def.lenUpperArm + def.lenForeArm;
+          const oc = def.offsets[cl], ou = def.offsets[ua];
+          p.set(oc.x + ou.x + h.p[0] * arm, oc.y + ou.y + h.p[1] * arm, oc.z + ou.z + h.p[2] * arm);
+          p.applyQuaternion(_chestRot).add(_chestPos);
+          pl.applyQuaternion(_chestRot);
+        } else if (h.sp === 'chest') {
           p.applyQuaternion(_chestRot).add(_chestPos);
           pl.applyQuaternion(_chestRot);
         }
@@ -597,7 +793,7 @@ export class ClipPlayer {
       const f1 = fk(k1), f2 = fk(k2);
       let x: number, y: number, z: number;
       const moved = Math.abs(a.x - b.x) + Math.abs(a.z - b.z) > 1e-4 || Math.abs(a.y - b.y) > 1e-4;
-      const grounded = a.y < 0.35 && b.y < 0.35 && Math.abs(a.y - b.y) < 0.3 && (k1 === k2 || (fk(k1).p[1] < 0.02 && fk(k2).p[1] < 0.02));
+      const grounded = !this.clip.footFromStart && a.y < 0.35 && b.y < 0.35 && Math.abs(a.y - b.y) < 0.3 && (k1 === k2 || (fk(k1).p[1] < 0.02 && fk(k2).p[1] < 0.02));
       if (!moved) {
         x = a.x;
         y = a.y;
@@ -619,13 +815,19 @@ export class ClipPlayer {
         y = Math.max(0, cr(p0.y, a.y, b.y, p3.y));
         z = cr(p0.z, a.z, b.z, p3.z);
       }
-      const yaw = lerpAngleRad(a.yaw, b.yaw, smoothstep(0, 1, s)) + rootInvYaw;
+      const yaw =
+        (this.clip.footFromStart
+          ? a.yaw + cr(wrapAngle(fw[i0].yaw - a.yaw), 0, wrapAngle(b.yaw - a.yaw), wrapAngle(b.yaw - a.yaw) + wrapAngle(fw[i3].yaw - b.yaw))
+          : lerpAngleRad(a.yaw, b.yaw, smoothstep(0, 1, s))) + rootInvYaw;
       const pitch = lerp(f1.pitch, f2.pitch, s);
       // a grounded foot pivots on its contact point: about the ball of the foot when the heel is up,
       // about the heel when the toes are up (fades out as the foot leaves the floor)
       let pivY = 0, pivF = 0;
-      if (y < 0.36) {
-        const k = 1 - smoothstep(0.16, 0.36, y);
+      // (a captured foot says how much: only while its contact point is near the floor - in the
+      // air, a pitched foot's heading can swing near the vertical and must not swing the ankle)
+      const fpv = this.clip.footPiv;
+      if (y < 0.36 || fpv) {
+        const k = fpv ? lerp(fpv[side][i1], fpv[side][i2], s) : 1 - smoothstep(0.16, 0.36, y);
         const pv = pivotOffset(def, pitch);
         pivY = pv[0] * k;
         pivF = pv[1] * k;
@@ -646,8 +848,16 @@ export class ClipPlayer {
       }
       const fp = prm.feet[side];
       this.worldToRoot(_v, fp.pos);
-      const roll = lerp(f1.roll, f2.roll, s);
-      eulerDeg(pitch, yaw / DEG, roll, fp.rot);
+      const fq = this.clip.footQ;
+      if (fq) {
+        // the plan's heading for the foot (start offsets, warp) on top of the capture's own turn
+        const h1 = a.yaw - f1.yaw * DEG, h2 = b.yaw - f2.yaw * DEG;
+        _q.copy(fq[side][i1]).slerp(fq[side][i2], s);
+        fp.rot.setFromAxisAngle(_Yax, h1 + wrapAngle(h2 - h1) * s + rootInvYaw).multiply(_q);
+      } else {
+        const roll = lerp(f1.roll, f2.roll, s);
+        eulerDeg(pitch, yaw / DEG, roll, fp.rot);
+      }
       fp.toe = lerp(f1.toe, f2.toe, s);
       const pole = f2.pole ?? f1.pole;
       if (pole) fp.pole.set(pole[0], pole[1], pole[2]);
