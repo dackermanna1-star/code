@@ -4,7 +4,7 @@ import { buildBodyGeometry } from './bodyMesh';
 import { Outfit } from './outfit';
 import { buildTextureArray, paintCharacter, PaintedLayer } from './texture';
 import { createCharacterMaterial, CharacterMaterialUniforms, MAX_WOUNDS, Wound, WOUND_MATURE, writeWounds } from './material';
-import { buildRealGeometry, realAtlasLayers, realModelReady, realTextures } from './realBody';
+import { buildRealGeometry, RealLook, realAtlasLayers, realModelReady, realTextures } from './realBody';
 import { Pose, applyPoseToBones } from '../anim/pose';
 import { B } from '../anim/skeleton';
 
@@ -26,8 +26,10 @@ export interface Variant {
 
 export interface VariantOptions {
   hiFace?: boolean;
-  /** Use this realistic model when its textures loaded (the procedural body otherwise). */
+  /** Use this realistic model when its textures loaded (the procedural body otherwise)... */
   real?: string;
+  /** ...worn this way (tinted clothes and skin, a bulkier build). */
+  look?: RealLook;
 }
 
 export class CharacterLibrary {
@@ -37,16 +39,26 @@ export class CharacterLibrary {
   /** Surface finish of skin and cloth (rain-soaked on the rooftop: glossier, catching the neon). */
   surface = { roughness: 0.82, env: 1 };
   private canvases: PaintedLayer[] = [];
+  /** A realistic model's two atlas layers (body, head), shared by every fighter wearing it. */
+  private realLayers = new Map<string, number>();
 
   add(name: string, spec: Partial<BodySpec>, outfit: Outfit, opts: VariantOptions = {}): Variant {
     const def = buildSkeletonDef(spec);
     const real = opts.real && realModelReady(opts.real) ? opts.real : null;
     // (a real model's head has the layer after its body's in the atlas, as a hi-res face does)
     const hiFace = real ? true : !!opts.hiFace;
-    const geometry = real ? buildRealGeometry(real, def) : buildBodyGeometry({ def, outfit, hiFace });
+    const geometry = real ? buildRealGeometry(real, def, opts.look) : buildBodyGeometry({ def, outfit, hiFace });
     const sway = !!real || outfit.hairStyle === 'longwave' || outfit.bottom === 'skirt';
-    const v: Variant = { id: this.variants.length, name, spec, outfit, def, geometry, layer: this.canvases.length, hiFace, sway, real };
-    this.canvases.push(...(real ? realAtlasLayers(real) : paintCharacter(outfit, def.spec, hiFace)));
+    let layer = this.canvases.length;
+    if (real) {
+      const shared = this.realLayers.get(real);
+      if (shared !== undefined) layer = shared;
+      else {
+        this.realLayers.set(real, layer);
+        this.canvases.push(...realAtlasLayers(real));
+      }
+    } else this.canvases.push(...paintCharacter(outfit, def.spec, hiFace));
+    const v: Variant = { id: this.variants.length, name, spec, outfit, def, geometry, layer, hiFace, sway, real };
     this.variants.push(v);
     this.byName.set(name, v);
     return v;
@@ -89,19 +101,19 @@ export class CharacterModel {
       // body, head and hair cards, sharing one set of uniforms (wounds, rim, fade, sway)
       const t = realTextures(variant.real);
       material.dispose();
-      this.materials = [
-        createCharacterMaterial(lib.atlas, false, { map: t.body, normalMap: t.bodyN, finish: t.bodyF }, uniforms).material,
-        createCharacterMaterial(lib.atlas, false, { map: t.head, normalMap: t.headN, finish: t.headF }, uniforms).material,
-        createCharacterMaterial(lib.atlas, false, { map: t.hair, finishConst: [0.86, 0], cards: true }, uniforms).material,
-      ];
-      this.material = this.materials[0];
+      const body = createCharacterMaterial(lib.atlas, false, { map: t.body!, normalMap: t.bodyN, finish: t.bodyF }, uniforms).material;
+      const head = createCharacterMaterial(lib.atlas, false, { map: t.head!, normalMap: t.headN, finish: t.headF }, uniforms).material;
+      // (no hair cards: the empty third group draws with the body's)
+      const hair = t.hair ? createCharacterMaterial(lib.atlas, false, { map: t.hair, finishConst: [0.86, 0], cards: true }, uniforms).material : body;
+      this.materials = t.hair ? [body, head, hair] : [body, head];
+      this.material = body;
     }
     for (const m of this.materials) {
       m.roughness = lib.surface.roughness;
       m.envMapIntensity = lib.surface.env;
     }
     this.bones = createBones(this.def);
-    this.mesh = new THREE.SkinnedMesh(variant.geometry, variant.real ? this.materials : material);
+    this.mesh = new THREE.SkinnedMesh(variant.geometry, variant.real ? (this.materials.length === 3 ? this.materials : [this.materials[0], this.materials[1], this.materials[0]]) : material);
     this.mesh.add(this.bones[0]);
     this.mesh.updateMatrixWorld(true);
     this.skeleton = new THREE.Skeleton(this.bones);

@@ -1,0 +1,25 @@
+{
+  "comment": "Rocketbox avatars (MIT) converted for the game's enemies by tools/models/build_avatars.py. src: the avatar's folder under the library's Assets/Avatars; head: the head texture's size; blood: a bloodied coat.",
+  "avatars": {
+    "adult04": { "src": "Adults/Male_Adult_04" },
+    "adult05": { "src": "Adults/Male_Adult_05" },
+    "adult07": { "src": "Adults/Male_Adult_07" },
+    "adult09": { "src": "Adults/Male_Adult_09" },
+    "adult10": { "src": "Adults/Male_Adult_10" },
+    "adult12": { "src": "Adults/Male_Adult_12" },
+    "adult16": { "src": "Adults/Male_Adult_16" },
+    "adult17": { "src": "Adults/Male_Adult_17" },
+    "adult18": { "src": "Adults/Male_Adult_18" },
+    "adult20": { "src": "Adults/Male_Adult_20" },
+    "sports01": { "src": "Professions/Sports_Male_01" },
+    "gardener01": { "src": "Professions/Gardener_Male_01" },
+    "delivery01": { "src": "Professions/Delivery_Male_01" },
+    "business01": { "src": "Professions/Business_Male_01" },
+    "business04": { "src": "Professions/Business_Male_04", "head": 1024 },
+    "business05": { "src": "Professions/Business_Male_05" },
+    "police02": { "src": "Professions/Police_Male_02" },
+    "security01": { "src": "Professions/Security_Male_01", "head": 1024 },
+    "medical01": { "src": "Professions/Medical_Male_01" },
+    "butcher": { "src": "Professions/Medical_Male_01", "head": 1024, "blood": 0.9 }
+  }
+}

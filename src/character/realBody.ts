@@ -1,9 +1,11 @@
 /**
  * Realistic bodies: a scanned-quality, textured human model fitted onto a fighter's skeleton when
- * the character library is built. Scarlet is Microsoft Rocketbox's Female_Adult_07 (MIT licence,
- * https://github.com/microsoft/Microsoft-Rocketbox), re-dressed as Scarlet by
- * tools/models/scarlet_textures.py and converted by tools/models/rocketbox.mjs (an indexed mesh, the
- * fingers curled into a fist, skinned to the game's 22 bones, plus the avatar's joint positions).
+ * the character library is built - Microsoft Rocketbox avatars (MIT licence,
+ * https://github.com/microsoft/Microsoft-Rocketbox), converted by tools/models/rocketbox.mjs (an
+ * indexed mesh, the fingers curled into a fist, skinned to the game's 22 bones, plus the avatar's
+ * joint positions). Scarlet is Female_Adult_07 re-dressed by tools/models/scarlet_textures.py; the
+ * enemies are the avatars in tools/models/avatars.json as they're dressed
+ * (tools/models/build_avatars.py), each fighter varying its avatar's clothes by a tint (RealLook).
  *
  * Fitting: the torso keeps its shape (placed by the hip joints, its height matched to the
  * skeleton's neck); each limb segment is turned and stretched from the avatar's joints onto the
@@ -16,7 +18,7 @@
  * jeans, which become sheer black tights).
  */
 import * as THREE from 'three';
-import { B, BONE_COUNT, SkeletonDef } from '../anim/skeleton';
+import { B, BodySpec, BONE_COUNT, SkeletonDef } from '../anim/skeleton';
 import { CHAR_TEX_SIZE, PaintedLayer } from './texture';
 import scarletMesh from './models/scarlet/mesh.json';
 import scarletBody from './models/scarlet/body.jpg';
@@ -26,10 +28,13 @@ import scarletHead from './models/scarlet/head.jpg';
 import scarletHeadN from './models/scarlet/head_n.jpg';
 import scarletHeadF from './models/scarlet/head_f.png';
 import scarletHair from './models/scarlet/hair.webp';
+import { AVATARS } from './models/avatars';
 
 interface MeshAsset {
   source: string;
   count: number;
+  /** positions quantised to 1/posQ m (Int16) and uvs to 1/65535 (Uint16); absent: Float32 */
+  posQ?: number;
   groups: { start: number; count: number; mat: string }[];
   joints: Record<string, number[]>;
   pos: string;
@@ -39,7 +44,31 @@ interface MeshAsset {
   index: string;
 }
 
+/** An enemy's avatar, as tools/models/build_avatars.py indexes it (models/avatars.ts). */
+export interface AvatarAsset {
+  src: string;
+  mesh: MeshAsset;
+  body: string;
+  bodyN: string;
+  bodyF: string;
+  head: string;
+  headF: string;
+  hair: string | null;
+}
+
 type TexName = 'body' | 'bodyN' | 'bodyF' | 'head' | 'headN' | 'headF' | 'hair';
+
+/**
+ * How one fighter wears an avatar: its clothes re-coloured (the top and the trousers, as the
+ * avatar's finish map marks them; rgb over the cloth's own light and shade, a = how much), its
+ * skin tinted (multiplied), its build bulkier across (girth: the torso and limbs, not the head).
+ */
+export interface RealLook {
+  top?: [number, number, number, number];
+  bottom?: [number, number, number, number];
+  skin?: [number, number, number, number];
+  girth?: number;
+}
 
 interface SkirtSpec {
   /** The waistband's and the hem's heights relative to the hip joints (m, unscaled). */
@@ -53,9 +82,9 @@ interface SkirtSpec {
 
 interface RealModel {
   mesh: MeshAsset;
-  /** The avatar's size in the game: its metres times this. */
+  /** The avatar's size in the game: its metres times this (a fitted spec - fitSpec - sets its own). */
   scale: number;
-  urls: Record<TexName, string>;
+  urls: Partial<Record<TexName, string>>;
   skirt?: SkirtSpec;
 }
 
@@ -67,6 +96,9 @@ const MODELS: Record<string, RealModel> = {
     skirt: { top: 0.075, hem: -0.2, jacketCut: 0.035, uv: [0.36, 0.77, 0.27, 0.15] },
   },
 };
+for (const [id, a] of Object.entries(AVATARS)) {
+  MODELS[id] = { mesh: a.mesh, scale: 1, urls: { body: a.body, bodyN: a.bodyN, bodyF: a.bodyF, head: a.head, headF: a.headF, ...(a.hair ? { hair: a.hair } : {}) } };
+}
 
 /** Material slots of a real model's geometry groups. */
 export const REAL_SLOTS = ['body', 'head', 'hair'] as const;
@@ -87,6 +119,7 @@ export async function preloadRealModels(): Promise<void> {
   const jobs: Promise<void>[] = [];
   for (const [name, m] of Object.entries(MODELS)) {
     for (const [t, url] of Object.entries(m.urls)) {
+      if (!url) continue;
       const key = name + ':' + t;
       if (images.has(key)) continue;
       jobs.push(
@@ -106,6 +139,8 @@ export function realModelReady(name: string) {
   const m = MODELS[name];
   return !!m && (Object.keys(m.urls) as TexName[]).every((t) => images.has(name + ':' + t));
 }
+/** Does the model have hair cards (an alpha-tested third material)? */
+export const realHasCards = (name: string) => !!MODELS[name]?.urls.hair;
 
 function finishData(name: string, which: 'bodyF' | 'headF') {
   const key = name + ':' + which;
@@ -123,21 +158,91 @@ function finishData(name: string, which: 'bodyF' | 'headF') {
   return d;
 }
 
-/** The finish map at a uv: [finish code (the atlas alpha's), bare skin], both 0..1. */
-function finishAt(d: ImageData, u: number, v: number): [number, number] {
+/** The finish map at a uv: [finish code (the atlas alpha's), bare skin, clothes region], all 0..1. */
+function finishAt(d: ImageData, u: number, v: number): [number, number, number] {
   const x = Math.min(d.width - 1, Math.max(0, Math.floor(u * d.width)));
   const y = Math.min(d.height - 1, Math.max(0, Math.floor((1 - v) * d.height)));
   const o = (y * d.width + x) * 4;
-  return [d.data[o] / 255, d.data[o + 1] / 255];
+  return [d.data[o] / 255, d.data[o + 1] / 255, d.data[o + 2] / 255];
+}
+
+/** The model's own height (the top of its head, hair on the scalp included) and its joints. */
+function modelStature(A: MeshAsset) {
+  const pos = decodePos(A);
+  const idx = new Uint16Array(b64(A.index));
+  const head = A.groups.find((g) => g.mat === 'head');
+  let top = 0;
+  if (head) for (let i = head.start; i < head.start + head.count; i++) top = Math.max(top, pos[idx[i] * 3 + 1]);
+  return top || 1.75;
+}
+/** The skeleton's head top over its height unit (s = 1, flat feet): see buildSkeletonDef. */
+const UNIT_STATURE = 1.83;
+
+/**
+ * A skeleton spec fitted to a model's joints for a fighter of height s (base.height; the model's
+ * own height when not given): every proportion measured off the model, scaled by s over the
+ * model's own size. base's other fields (bulk, fem...) are kept.
+ */
+export function fitSpec(name: string, base: Partial<BodySpec> = {}, girth = 1): Partial<BodySpec> {
+  const A = MODELS[name].mesh;
+  const natS = modelStature(A) / UNIT_STATURE;
+  const s = base.height ?? natS;
+  const k = s / natS;
+  const hip0 = new THREE.Vector3().fromArray(A.joints.thighL).add(new THREE.Vector3().fromArray(A.joints.thighR)).multiplyScalar(0.5 * k);
+  // (a bulkier build is wider and deeper about the hips: so are its shoulder and hip joints)
+  const J = (j: string) => {
+    const v = new THREE.Vector3().fromArray(A.joints[j]).multiplyScalar(k);
+    if (girth !== 1 && !j.startsWith('farm') && !j.startsWith('hand') && !j.startsWith('knuckle') && !j.startsWith('shin') && !j.startsWith('foot') && !j.startsWith('toe')) {
+      v.x = hip0.x + (v.x - hip0.x) * girth;
+      v.z = hip0.z + (v.z - hip0.z) * girth;
+    }
+    return v;
+  };
+  const len = (a: string, b: string) => J(a).distanceTo(J(b));
+  const hip = J('thighL').add(J('thighR')).multiplyScalar(0.5);
+  // the heel: the ankle's height for the boots' (bisect: flat feet stand the ankle at 0.075 s)
+  const ankle = J('footL').y;
+  const ankleAt = (heel: number) => {
+    if (heel <= 0) return 0.075 * s;
+    const a = Math.asin(Math.min(0.75, heel / 0.17));
+    return (0.13 * Math.sin(a) + 0.075 * Math.cos(a) + 0.008) * s;
+  };
+  let heel = 0;
+  if (ankle > ankleAt(0.001)) {
+    let lo = 0.001, hi = 0.127;
+    for (let i = 0; i < 30; i++) {
+      const mid = (lo + hi) / 2;
+      if (ankleAt(mid) < ankle) lo = mid;
+      else hi = mid;
+    }
+    heel = (lo + hi) / 2;
+  }
+  const uarm = J('uarmL'), neck = J('neck');
+  return {
+    ...base,
+    height: s,
+    heel,
+    legs: (len('thighL', 'shinL') + len('shinL', 'footL')) / (0.85 * s),
+    arms: (len('uarmL', 'farmL') + len('farmL', 'handL')) / (0.55 * s),
+    hipsW: Math.abs(J('thighL').x) / (0.092 * s),
+    torso: (neck.y - hip.y - 0.06 * s) / (0.555 * s),
+    neckLen: (J('head').y - neck.y) / (0.09 * s),
+    neckBack: Math.max(0, -((neck.z - hip.z) / s + 0.017)),
+    shoulders: (Math.abs(uarm.x) / s - 0.03) / 0.152,
+    shoulderBack: Math.max(0, -((uarm.z - hip.z) / s + 0.018)),
+    headSize: ((modelStature(A) * k - J('head').y) / (0.2 * s)) * (base.headSize ?? 1),
+  };
 }
 
 // ------------------------------------------------------------------ textures
-const texCache = new Map<string, Record<TexName, THREE.Texture>>();
-export function realTextures(name: string): Record<TexName, THREE.Texture> {
+const texCache = new Map<string, Partial<Record<TexName, THREE.Texture>>>();
+export function realTextures(name: string): Partial<Record<TexName, THREE.Texture>> {
   let t = texCache.get(name);
   if (t) return t;
   const mk = (n: TexName, srgb: boolean) => {
-    const tex = new THREE.Texture(images.get(name + ':' + n)!);
+    const img = images.get(name + ':' + n);
+    if (!img) return undefined;
+    const tex = new THREE.Texture(img);
     tex.colorSpace = srgb ? THREE.SRGBColorSpace : THREE.NoColorSpace;
     tex.anisotropy = 8;
     tex.generateMipmaps = true;
@@ -173,6 +278,21 @@ export function realAtlasLayers(name: string): PaintedLayer[] {
 }
 
 // ------------------------------------------------------------------ geometry
+function decodePos(A: MeshAsset): Float32Array {
+  if (!A.posQ) return new Float32Array(b64(A.pos));
+  const q = new Int16Array(b64(A.pos));
+  const out = new Float32Array(q.length);
+  for (let i = 0; i < q.length; i++) out[i] = q[i] / A.posQ;
+  return out;
+}
+function decodeUv(A: MeshAsset): Float32Array {
+  if (!A.posQ) return new Float32Array(b64(A.uv));
+  const q = new Uint16Array(b64(A.uv));
+  const out = new Float32Array(q.length);
+  for (let i = 0; i < q.length; i++) out[i] = q[i] / 65535;
+  return out;
+}
+
 function b64(s: string): ArrayBuffer {
   const bin = atob(s);
   const u = new Uint8Array(bin.length);
@@ -213,28 +333,32 @@ function torsoShares(f: number): [number, number, number] {
   return [0, 0, 1];
 }
 
-/** Matrices taking the avatar's rest pose onto the skeleton's, one per bone. */
-function boneFits(def: SkeletonDef, J: (n: string) => THREE.Vector3): THREE.Matrix4[] {
+/**
+ * Matrices taking the avatar's rest pose onto the skeleton's, one per bone. girth: the torso and
+ * limbs that much bulkier across; head: the head's own scale about its joint (a giant's head
+ * doesn't grow as much as he does).
+ */
+function boneFits(def: SkeletonDef, J: (n: string) => THREE.Vector3, girth = 1, head = 1): THREE.Matrix4[] {
   const R = def.rest;
   const T = (v: THREE.Vector3) => new THREE.Matrix4().makeTranslation(v.x, v.y, v.z);
   const hipRB = J('thighL').add(J('thighR')).multiplyScalar(0.5);
   const hipO = R[B.thighL].clone().add(R[B.thighR]).multiplyScalar(0.5);
   const ky = (R[B.neck].y - hipO.y) / (J('neck').y - hipRB.y);
-  const torso = T(hipO).multiply(new THREE.Matrix4().makeScale(1, ky, 1)).multiply(T(hipRB.clone().negate()));
-  const at = (from: THREE.Vector3, to: THREE.Vector3) => T(to).multiply(T(from.clone().negate()));
-  /** a segment a0->a1 turned and stretched along itself onto b0->b1 (axial: a fixed stretch) */
-  const seg = (a0: THREE.Vector3, a1: THREE.Vector3, b0: THREE.Vector3, b1: THREE.Vector3, axial?: number) => {
+  const torso = T(hipO).multiply(new THREE.Matrix4().makeScale(girth, ky, girth)).multiply(T(hipRB.clone().negate()));
+  const at = (from: THREE.Vector3, to: THREE.Vector3, sx = 1, sy = 1) => T(to).multiply(new THREE.Matrix4().makeScale(sx, sy, sx)).multiply(T(from.clone().negate()));
+  /** a segment a0->a1 turned and stretched along itself onto b0->b1 (axial: a fixed stretch), girth across */
+  const seg = (a0: THREE.Vector3, a1: THREE.Vector3, b0: THREE.Vector3, b1: THREE.Vector3, axial?: number, across = girth) => {
     const da = a1.clone().sub(a0);
     const la = da.length();
     da.divideScalar(la);
     const db = b1.clone().sub(b0);
     const lb = db.length();
     db.divideScalar(lb);
-    const g = (axial ?? lb / la) - 1;
+    const g = (axial ?? lb / la) - across;
     const S = new THREE.Matrix4().set(
-      1 + g * da.x * da.x, g * da.x * da.y, g * da.x * da.z, 0,
-      g * da.y * da.x, 1 + g * da.y * da.y, g * da.y * da.z, 0,
-      g * da.z * da.x, g * da.z * da.y, 1 + g * da.z * da.z, 0,
+      across + g * da.x * da.x, g * da.x * da.y, g * da.x * da.z, 0,
+      g * da.y * da.x, across + g * da.y * da.y, g * da.y * da.z, 0,
+      g * da.z * da.x, g * da.z * da.y, across + g * da.z * da.z, 0,
       0, 0, 0, 1,
     );
     const Rm = new THREE.Matrix4().makeRotationFromQuaternion(new THREE.Quaternion().setFromUnitVectors(da, db));
@@ -242,8 +366,9 @@ function boneFits(def: SkeletonDef, J: (n: string) => THREE.Vector3): THREE.Matr
   };
   const m: THREE.Matrix4[] = [];
   for (let i = 0; i < BONE_COUNT; i++) m.push(torso);
-  m[B.neck] = at(J('neck'), R[B.neck]);
-  m[B.head] = at(J('head'), R[B.head]);
+  // (the neck half as much bulkier as the body)
+  m[B.neck] = at(J('neck'), R[B.neck], 1 + (girth - 1) * 0.5, ky);
+  m[B.head] = at(J('head'), R[B.head], head, head);
   const sides = [
     ['L', B.uarmL, B.farmL, B.handL, B.thighL, B.shinL, B.footL, B.toeL],
     ['R', B.uarmR, B.farmR, B.handR, B.thighR, B.shinR, B.footR, B.toeR],
@@ -252,7 +377,7 @@ function boneFits(def: SkeletonDef, J: (n: string) => THREE.Vector3): THREE.Matr
     m[ua] = seg(J('uarm' + sd), J('farm' + sd), R[ua], R[fa]);
     m[fa] = seg(J('farm' + sd), J('hand' + sd), R[fa], R[ha]);
     const kl = J('knuckle' + sd).distanceTo(J('hand' + sd));
-    m[ha] = seg(J('hand' + sd), J('knuckle' + sd), R[ha], R[ha].clone().addScaledVector(def.restDir[ha], kl), 1);
+    m[ha] = seg(J('hand' + sd), J('knuckle' + sd), R[ha], R[ha].clone().addScaledVector(def.restDir[ha], kl), 1, 1 + (girth - 1) * 0.4);
     m[th] = seg(J('thigh' + sd), J('shin' + sd), R[th], R[sh]);
     m[sh] = seg(J('shin' + sd), J('foot' + sd), R[sh], R[ft]);
     // the boot: turned to point straight ahead about the ankle, its sole kept flat
@@ -264,19 +389,24 @@ function boneFits(def: SkeletonDef, J: (n: string) => THREE.Vector3): THREE.Matr
   return m;
 }
 
-/** The fitted geometry of a real model for a skeleton (bind pose = the skeleton's rest). */
-export function buildRealGeometry(name: string, def: SkeletonDef): THREE.BufferGeometry {
+/** The fitted geometry of a real model for a skeleton (bind pose = the skeleton's rest), as `look` wears it. */
+export function buildRealGeometry(name: string, def: SkeletonDef, look: RealLook = {}): THREE.BufferGeometry {
   const M = MODELS[name];
   const A = M.mesh;
-  const pos0 = new Float32Array(b64(A.pos));
+  const pos0 = decodePos(A);
   const nrm0 = new Int8Array(b64(A.nrm));
-  const uv0 = new Float32Array(b64(A.uv));
+  const uv0 = decodeUv(A);
   const skin0 = new Uint8Array(b64(A.skin));
   const index0 = new Uint16Array(b64(A.index));
   const n = A.count;
-  const k = M.scale;
+  // (an avatar is sized to the fighter's height - fitSpec - Scarlet by her own scale)
+  const k = M.scale || def.spec.height / (modelStature(A) / UNIT_STATURE);
   const J = (j: string) => new THREE.Vector3().fromArray(A.joints[j]).multiplyScalar(k);
-  const fits = boneFits(def, J);
+  // a giant's head grows a third as much as he does
+  const headScale = k > 1 ? (1 + (k - 1) * 0.35) / k : 1;
+  const fits = boneFits(def, J, look.girth ?? 1, headScale);
+  const tintTop = look.top ?? [0, 0, 0, 0], tintBottom = look.bottom ?? [0, 0, 0, 0], tintSkin = look.skin ?? [0, 0, 0, 0];
+  const tint = new Float32Array(n * 4), tintS = new Float32Array(n * 4);
   const R = def.rest;
   const hipsY = R[B.hips].y;
   const span = R[B.neck].y - hipsY;
@@ -340,17 +470,24 @@ export function buildRealGeometry(name: string, def: SkeletonDef): THREE.BufferG
       skinF[i] = 0;
       sway[i * 2] = 0.55 * smooth(R[B.head].y + 0.06, R[B.head].y - 0.05, p.y);
     } else {
-      const [code, sk] = finishAt(slot === 1 ? headF : bodyF, u, vv);
+      const [code, sk, region] = finishAt(slot === 1 ? headF : bodyF, u, vv);
       skinF[i] = sk;
       sheer[i] = slot === 0 && code >= 0.25 && code < 0.5 ? 1 : 0;
       jacket[i] = slot === 0 && code > 0.69 && code < 0.76 ? 1 : 0;
+      // the clothes' tint for this vertex's region (the shader keeps it off bare skin), the skin's
+      const t = slot === 0 && region > 0.75 ? tintTop : slot === 0 && region > 0.25 ? tintBottom : null;
+      if (t) tint.set(t, i * 4);
+      tintS.set(tintSkin, i * 4);
     }
   }
 
   const geo = new THREE.BufferGeometry();
+  // (plain arrays only when a skirt is built onto them: fifty-odd fighters' worth would be a lot)
+  const arr = <T extends ArrayLike<number>>(a: T) => (M.skirt ? Array.from(a) : a) as unknown as number[];
   const parts = {
-    pos: Array.from(pos), nrm: Array.from(nrm), uv: Array.from(uv0), uvA: Array.from(uvA),
-    si: Array.from(si), sw: Array.from(sw), skin: Array.from(skinF), sway: Array.from(sway),
+    pos: arr(pos), nrm: arr(nrm), uv: arr(uv0), uvA: arr(uvA),
+    si: arr(si), sw: arr(sw), skin: arr(skinF), sway: arr(sway),
+    tint: arr(tint), tintS: arr(tintS),
   };
   // indices by slot (the body's group gets the skirt appended)
   const bySlot: number[][] = [[], [], []];
@@ -367,22 +504,34 @@ export function buildRealGeometry(name: string, def: SkeletonDef): THREE.BufferG
     }
   }
   if (M.skirt) buildSkirt(parts, bySlot[0], def, pos, sheer, n, M.skirt);
-  const index = [...bySlot[0], ...bySlot[1], ...bySlot[2]];
-  geo.setAttribute('position', new THREE.Float32BufferAttribute(parts.pos, 3));
-  geo.setAttribute('normal', new THREE.Float32BufferAttribute(parts.nrm, 3));
-  geo.setAttribute('uv', new THREE.Float32BufferAttribute(parts.uv, 2));
-  geo.setAttribute('uvAtlas', new THREE.Float32BufferAttribute(parts.uvA, 2));
-  geo.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(parts.si, 4));
-  geo.setAttribute('skinWeight', new THREE.Float32BufferAttribute(parts.sw, 4));
-  geo.setAttribute('aSkin', new THREE.Float32BufferAttribute(parts.skin, 1));
-  geo.setAttribute('aSway', new THREE.Float32BufferAttribute(parts.sway, 2));
+  const nIdx = bySlot[0].length + bySlot[1].length + bySlot[2].length;
   const nv = parts.pos.length / 3;
-  geo.setIndex(nv > 65535 ? new THREE.Uint32BufferAttribute(index, 1) : new THREE.Uint16BufferAttribute(index, 1));
+  const index = nv > 65535 ? new Uint32Array(nIdx) : new Uint16Array(nIdx);
+  index.set(bySlot[0], 0);
+  index.set(bySlot[1], bySlot[0].length);
+  index.set(bySlot[2], bySlot[0].length + bySlot[1].length);
+  const f32 = (a: number[]) => (a instanceof Float32Array ? a : new Float32Array(a));
+  const u8 = (a: number[]) => {
+    const o = new Uint8Array(a.length);
+    for (let i = 0; i < a.length; i++) o[i] = Math.round(Math.min(1, Math.max(0, a[i])) * 255);
+    return o;
+  };
+  geo.setAttribute('position', new THREE.BufferAttribute(f32(parts.pos), 3));
+  geo.setAttribute('normal', new THREE.BufferAttribute(f32(parts.nrm), 3));
+  geo.setAttribute('uv', new THREE.BufferAttribute(f32(parts.uv), 2));
+  geo.setAttribute('uvAtlas', new THREE.BufferAttribute(f32(parts.uvA), 2));
+  geo.setAttribute('skinIndex', new THREE.BufferAttribute(parts.si instanceof Uint16Array ? parts.si : new Uint16Array(parts.si), 4));
+  geo.setAttribute('skinWeight', new THREE.BufferAttribute(f32(parts.sw), 4));
+  geo.setAttribute('aSkin', new THREE.BufferAttribute(f32(parts.skin), 1));
+  geo.setAttribute('aSway', new THREE.BufferAttribute(f32(parts.sway), 2));
+  geo.setAttribute('aTint', new THREE.BufferAttribute(u8(parts.tint), 4, true));
+  geo.setAttribute('aTintSkin', new THREE.BufferAttribute(u8(parts.tintS), 4, true));
+  geo.setIndex(new THREE.BufferAttribute(index, 1));
   geo.addGroup(0, bySlot[0].length, 0);
   geo.addGroup(bySlot[0].length, bySlot[1].length, 1);
   geo.addGroup(bySlot[0].length + bySlot[1].length, bySlot[2].length, 2);
   // a body laid down as a corpse leaves the hair cards out (the corpses are drawn opaque)
-  geo.userData.corpseIndex = new THREE.Uint16BufferAttribute([...bySlot[0], ...bySlot[1]], 1);
+  geo.userData.corpseIndex = new THREE.BufferAttribute(index.slice(0, bySlot[0].length + bySlot[1].length), 1);
   geo.computeBoundingSphere();
   return geo;
 }
@@ -396,6 +545,8 @@ interface Parts {
   sw: number[];
   skin: number[];
   sway: number[];
+  tint: number[];
+  tintS: number[];
 }
 
 /**
@@ -474,6 +625,8 @@ function buildSkirt(parts: Parts, out: number[], def: SkeletonDef, pos: Float32A
         }
         parts.skin.push(0);
         parts.sway.push(0, 0.55 * Math.pow(d, 1.6));
+        parts.tint.push(0, 0, 0, 0);
+        parts.tintS.push(0, 0, 0, 0);
       }
     });
     // quads

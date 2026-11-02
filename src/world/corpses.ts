@@ -40,6 +40,9 @@ interface Chunk {
   skin: Uint8Array;
   cid: Uint16Array;
   layer: Uint8Array;
+  /** an avatar's clothes and skin tints (rgba each) */
+  tint: Uint8Array;
+  tintS: Uint8Array;
   idx: Uint16Array;
 }
 
@@ -92,6 +95,8 @@ export class CorpseSystem {
     warm.setAttribute('aSkin', new THREE.BufferAttribute(new Uint8Array(3), 1, true));
     warm.setAttribute('aCorpseId', new THREE.BufferAttribute(new Uint16Array(3), 1, false));
     warm.setAttribute('aLayer', new THREE.BufferAttribute(new Uint8Array(3), 1, false));
+    warm.setAttribute('aTint', new THREE.BufferAttribute(new Uint8Array(12), 4, true));
+    warm.setAttribute('aTintSkin', new THREE.BufferAttribute(new Uint8Array(12), 4, true));
     const wm = new THREE.Mesh(warm, this.material);
     wm.frustumCulled = false;
     wm.position.set(0, -5, 0);
@@ -172,6 +177,8 @@ export class CorpseSystem {
       skin: new Uint8Array(n),
       cid: new Uint16Array(n),
       layer: new Uint8Array(n),
+      tint: new Uint8Array(n * 4),
+      tintS: new Uint8Array(n * 4),
       idx: new Uint16Array(n * 2),
     };
     this.attachGeometry(c);
@@ -199,6 +206,8 @@ export class CorpseSystem {
     g.setAttribute('aSkin', new THREE.BufferAttribute(c.skin, 1, true));
     g.setAttribute('aCorpseId', new THREE.BufferAttribute(c.cid, 1, false));
     g.setAttribute('aLayer', new THREE.BufferAttribute(c.layer, 1, false));
+    g.setAttribute('aTint', new THREE.BufferAttribute(c.tint, 4, true));
+    g.setAttribute('aTintSkin', new THREE.BufferAttribute(c.tintS, 4, true));
     g.setIndex(new THREE.BufferAttribute(c.idx, 1));
     g.setDrawRange(0, c.indices);
     const cell = c.cell;
@@ -226,6 +235,8 @@ export class CorpseSystem {
     c.skin = cp(c.skin, cap);
     c.cid = cp(c.cid, cap);
     c.layer = cp(c.layer, cap);
+    c.tint = cp(c.tint, cap * 4);
+    c.tintS = cp(c.tintS, cap * 4);
     c.idx = cp(c.idx, cap * 2);
     c.capacity = cap;
     const old = c.geo;
@@ -310,6 +321,7 @@ export class CorpseSystem {
     // (a realistic model: its uvs on the atlas, and no hair cards - see realBody.ts)
     const uvA = (geo.attributes.uvAtlas ?? geo.attributes.uv) as THREE.BufferAttribute;
     const skA = geo.attributes.aSkin as THREE.BufferAttribute;
+    const tA = geo.attributes.aTint as THREE.BufferAttribute | undefined, tsA = geo.attributes.aTintSkin as THREE.BufferAttribute | undefined;
     const siA = geo.attributes.skinIndex as THREE.BufferAttribute;
     const swA = geo.attributes.skinWeight as THREE.BufferAttribute;
     const index = (geo.userData.corpseIndex as THREE.BufferAttribute | undefined) ?? geo.index!;
@@ -355,6 +367,11 @@ export class CorpseSystem {
       chunk.skin[base + v] = Math.round(THREE.MathUtils.clamp(skA.getX(v), 0, 1) * 255);
       chunk.cid[base + v] = rec.id;
       chunk.layer[base + v] = model.variant.layer + lo;
+      // (an avatar's tints, as the live fighter wore them)
+      for (let c = 0; c < 4; c++) {
+        chunk.tint[(base + v) * 4 + c] = tA ? (tA.array as Uint8Array)[v * 4 + c] : 0;
+        chunk.tintS[(base + v) * 4 + c] = tsA ? (tsA.array as Uint8Array)[v * 4 + c] : 0;
+      }
     }
     // rasterize this body into the height field (max height per cell, slightly dilated, capped)
     const hf = this.heights;

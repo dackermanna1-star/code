@@ -35,6 +35,11 @@ export interface KeyFoot {
   aimOff?: V3; // root-space offset added to the aim point
   /** captured clips: how far the foot turns about its contact point (1 on the floor, 0 in the air) */
   piv?: number;
+  /**
+   * Hand-made clips: this key doesn't plant the foot - a step on the floor goes through it from the
+   * key before to the key after in one move (a step can span the body's wind-up keys).
+   */
+  via?: boolean;
 }
 export interface Key {
   t: number;
@@ -229,8 +234,8 @@ function resolve(spec: ClipSpec): RKey[] {
         head: [0, 0, 0],
         lh: { p: DEFAULT_HAND_L.p!, sp: 'chest', aim: null, aimW: 0, aimOff: [0, 0, 0], pole: DEFAULT_HAND_L.pole!, roll: 10, dir: null, dirW: 0 },
         rh: { p: DEFAULT_HAND_R.p!, sp: 'chest', aim: null, aimW: 0, aimOff: [0, 0, 0], pole: DEFAULT_HAND_R.pole!, roll: 10, dir: null, dirW: 0 },
-        lf: { p: [0.11, 0, 0.12], yaw: 8, pitch: 0, roll: 0, toe: 0, lift: 0.08, aim: null, aimW: 0, pole: null, explicit: true, aimOff: [0, 0, 0] },
-        rf: { p: [-0.11, 0, -0.12], yaw: -8, pitch: 0, roll: 0, toe: 0, lift: 0.08, aim: null, aimW: 0, pole: null, explicit: true, aimOff: [0, 0, 0] },
+        lf: { p: [0.11, 0, 0.12], yaw: 8, pitch: 0, roll: 0, toe: 0, lift: 0.08, aim: null, aimW: 0, pole: null, explicit: true, aimOff: [0, 0, 0], via: false },
+        rf: { p: [-0.11, 0, -0.12], yaw: -8, pitch: 0, roll: 0, toe: 0, lift: 0.08, aim: null, aimW: 0, pole: null, explicit: true, aimOff: [0, 0, 0], via: false },
         shrug: [0, 0],
       } as RKey);
     const torso = k.torso;
@@ -278,8 +283,9 @@ function mergeHand(base: RKey['lh'], k: KeyHand | undefined): RKey['lh'] {
   return r;
 }
 function mergeFoot(base: RKey['lf'], k: KeyFoot | undefined, first: boolean): RKey['lf'] {
-  if (!k) return { ...base, explicit: first ? base.explicit : false, aimW: base.aimW };
+  if (!k) return { ...base, explicit: first ? base.explicit : false, aimW: base.aimW, via: false };
   return {
+    via: !!k.via,
     p: k.p ?? base.p,
     yaw: k.yaw ?? base.yaw,
     pitch: k.pitch ?? 0,
@@ -854,14 +860,21 @@ export class ClipPlayer {
     }
 
     // ---- feet
+    const sk = s;
     for (let side = 0; side < 2; side++) {
       const fw = this.footWorld[side];
       const fk = (k: RKey) => (side === 0 ? k.lf : k.rf);
-      const a = fw[i1], b = fw[i2];
-      const f1 = fk(k1), f2 = fk(k2);
+      // (a step through 'via' keys runs from the planted key before them to the one after)
+      let j1 = i1, j2 = i2;
+      while (j1 > 0 && fk(keys[j1]).via) j1--;
+      while (j2 < n - 1 && fk(keys[j2]).via) j2++;
+      const viaSpan = j1 !== i1 || j2 !== i2;
+      const s = viaSpan ? clamp01((t - keys[j1].t) / Math.max(1e-4, keys[j2].t - keys[j1].t)) : sk;
+      const a = fw[j1], b = fw[j2];
+      const f1 = fk(keys[j1]), f2 = fk(keys[j2]);
       let x: number, y: number, z: number;
       const moved = Math.abs(a.x - b.x) + Math.abs(a.z - b.z) > 1e-4 || Math.abs(a.y - b.y) > 1e-4;
-      const grounded = !this.clip.footFromStart && a.y < 0.35 && b.y < 0.35 && Math.abs(a.y - b.y) < 0.3 && (k1 === k2 || (fk(k1).p[1] < 0.02 && fk(k2).p[1] < 0.02));
+      const grounded = !this.clip.footFromStart && a.y < 0.35 && b.y < 0.35 && Math.abs(a.y - b.y) < 0.3 && (j1 === j2 || (f1.p[1] < 0.02 && f2.p[1] < 0.02));
       if (!moved) {
         x = a.x;
         y = a.y;
@@ -880,10 +893,10 @@ export class ClipPlayer {
         // started each step with a jolt through the shin)
         y = a.y + (b.y - a.y) * ss + (0.5 - 0.5 * Math.cos(2 * Math.PI * s)) * lift * 1.15;
       } else {
-        const p0 = fw[i0], p3 = fw[i3];
-        x = cr(p0.x, a.x, b.x, p3.x);
-        y = Math.max(0, cr(p0.y, a.y, b.y, p3.y));
-        z = cr(p0.z, a.z, b.z, p3.z);
+        const p0 = fw[i0], p1 = fw[i1], p2 = fw[i2], p3 = fw[i3];
+        x = cr(p0.x, p1.x, p2.x, p3.x);
+        y = Math.max(0, cr(p0.y, p1.y, p2.y, p3.y));
+        z = cr(p0.z, p1.z, p2.z, p3.z);
       }
       const yaw =
         (this.clip.footFromStart

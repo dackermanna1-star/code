@@ -339,9 +339,18 @@ with a distorted bass, a low choir and a ticking clock for bosses, and stingers 
 starting, a wave cleared and a boss walking in. Badly hurt, a heartbeat sits under the mix; the
 last enemy of a wave goes down in slow motion with an orbiting shot.
 
-**Look** — PS2-style low-poly skinned characters generated in code (29 outfit variants: hair,
-facial hair, headwear, jackets, armour, tattoos, scars) with hand-painted-style canvas
-textures, warm sodium lamps vs. cold moonlight, HDR bloom, ACES grade, grain and vignette.
+**Look** — realistic people: Scarlet and every enemy are Microsoft Rocketbox avatars (MIT) -
+photographic faces, real eyes, lashes and hair cards, clothes with their folds in normal maps -
+fitted onto the game's skeleton when it loads. The street's thugs wear street clothes (jackets,
+hoodies, track tops, denim), the knife gang dark jackets, the workers coveralls and plaid, the
+enforcers and the elite black suits, the defenders riot gear and security uniforms, the bruisers
+are big men made bigger (wider across, their heads not as much), the Butcher a white coat soaked
+in old blood, Kael an old bald man in a waistcoat; in the lab, its guards, white-coated techs,
+black-ops, pale escaped subjects, grey giants and Subject Zero. Twenty avatars dress fifty-odd
+fighters: each wears his own tints over the avatar's clothes (and skin, for the lab's subjects),
+which a corpse keeps. Jin, and every fallback if a texture fails to load, are the procedural
+PS2-style characters (outfit variants with hand-painted canvas textures). Lighting: warm sodium
+lamps vs. cold moonlight, HDR bloom, ACES grade, grain and vignette.
 
 ## Permanent bodies and blood (how it stays fast)
 
@@ -439,7 +448,7 @@ pistol, `close=1` to check the room comes back as it was).
 ```
 src/anim/        skeleton, IK solver, clip system, locomotion, animator, clip library
 src/character/   procedural mesh (meshKit, body, femMesh), outfits, canvas textures, wound-aware material,
-                 realistic models (realBody; Scarlet's converted mesh and textures in models/)
+                 realistic models (realBody: fitting, tints; converted meshes and textures in models/)
 src/combat/      fighter base, player controller, fighter styles, combat resolver, moves, weapons, deaths
 src/ai/          enemy brain, archetypes, director, waves, bosses
 src/world/       arenas (warehouse + dressing, rooftop, alley, apartment, lab), mapKit, city, graffiti,
@@ -450,7 +459,8 @@ src/audio/       sample engine with synth layers, procedural adaptive music
 src/ui/          HUD, menus, settings
 src/replay/      the last minute recorded (poses, props, weapons, camera, sounds, effects) and played back
 tools/audio/     reproducible CC0 sound library build
-tools/models/    realistic model conversion (Rocketbox FBX -> mesh asset) and Scarlet's re-dressed textures
+tools/models/    realistic models: Rocketbox FBX -> mesh asset, Scarlet's re-dressed textures, the
+                 enemies' avatars (avatars.json, build_avatars.py, avatar_textures.py)
 tests/           headless runners (results, screenshots, film strips)
 ```
 

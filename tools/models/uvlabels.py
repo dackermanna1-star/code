@@ -31,7 +31,8 @@ def part_of(bone):
     return 'head'
 
 
-def labels(path, size):
+def labels(path, size, sizes=None):
+    """size: square rasters; sizes: {'body': (w, h), ...} to override per material (a wide body)."""
     d = json.load(open(path))
     bones = d['bones']
     rb = np.array(d['rb'])
@@ -42,9 +43,10 @@ def labels(path, size):
     vpart = np.array([P[part_of(bones[b])] for b in rb])
     out = {}
     for m, name in enumerate(['body', 'head', 'hair']):
-        lab = Image.new('L', (size, size), 0)
-        hgt = Image.new('F', (size, size), -1.0)
-        dep = Image.new('F', (size, size), -1.0)
+        W, Hh = (sizes or {}).get(name, (size, size))
+        lab = Image.new('L', (W, Hh), 0)
+        hgt = Image.new('F', (W, Hh), -1.0)
+        dep = Image.new('F', (W, Hh), -1.0)
         dl, dh, dz = ImageDraw.Draw(lab), ImageDraw.Draw(hgt), ImageDraw.Draw(dep)
         for t in idx:
             if mat[t[0]] != m:
@@ -55,7 +57,7 @@ def labels(path, size):
             p = int(vals[np.argmax(cnt)]) if cnt.max() > 1 else int(parts[0])
             if name == 'hair':
                 p = P['lash'] if (parts == P['lash']).any() else P['hair']
-            pts = [(float(uv[i, 0] * size), float((1 - uv[i, 1]) * size)) for i in t]
+            pts = [(float(uv[i, 0] * W), float((1 - uv[i, 1]) * Hh)) for i in t]
             dl.polygon(pts, fill=p)
             dh.polygon(pts, fill=float(pos[t, 1].mean()))
             dz.polygon(pts, fill=float(pos[t, 2].mean()))

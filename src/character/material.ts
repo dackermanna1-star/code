@@ -154,6 +154,8 @@ export interface RealSurface {
  */
 export function createCharacterMaterial(atlas: THREE.DataArrayTexture, corpse = false, real?: RealSurface, shared?: CharacterMaterialUniforms) {
   const mat = new THREE.MeshStandardMaterial({ roughness: 0.82, metalness: 0.0 });
+  // per-vertex tints: a realistic model's clothes and skin (live), and every corpse (baked with them)
+  const tinted = !!real || corpse;
   if (real) {
     mat.map = real.map;
     if (real.normalMap) mat.normalMap = real.normalMap;
@@ -197,6 +199,7 @@ attribute float aSkin;
 varying float vSkin;
 varying vec3 vBindPos;
 varying vec2 vCharUv;
+${tinted ? 'attribute vec4 aTint;\nattribute vec4 aTintSkin;\nvarying vec4 vTint;\nvarying vec4 vTintSkin;' : ''}
 ${corpse ? 'attribute vec3 aBindPos;\nattribute float aCorpseId;\nattribute float aLayer;\nflat varying int vCorpseId;\nflat varying float vLayer;\nuniform highp sampler2D uCorpseBorn;\nuniform float uReplayT;' : 'attribute vec2 aSway;\nuniform vec3 uSway;\nuniform float uFlare;\nuniform vec3 uHipC;'}
 `,
       )
@@ -205,6 +208,7 @@ ${corpse ? 'attribute vec3 aBindPos;\nattribute float aCorpseId;\nattribute floa
         `#include <begin_vertex>
 vSkin = aSkin;
 vCharUv = uv;
+${tinted ? 'vTint = aTint;\nvTintSkin = aTintSkin;' : ''}
 ${corpse ? 'vBindPos = aBindPos; vCorpseId = int(aCorpseId + 0.5); vLayer = aLayer;' : 'vBindPos = position;'}
 `,
       )
@@ -239,6 +243,7 @@ precision highp sampler2DArray;
 varying float vSkin;
 varying vec3 vBindPos;
 varying vec2 vCharUv;
+${tinted ? 'varying vec4 vTint;\nvarying vec4 vTintSkin;' : ''}
 uniform vec4 uRim;
 uniform float uFlash;
 uniform float uFade;
@@ -303,6 +308,16 @@ ${WOUND_EVAL_GLSL}
   lsSkinK = vSkin;
 }`
         }
+${
+  tinted
+    ? `{
+  // a fighter's own colours on an avatar's clothes (over the cloth's light and shade), his skin tinted
+  float lsLum = dot(diffuseColor.rgb, vec3(0.299, 0.587, 0.114));
+  diffuseColor.rgb = mix(diffuseColor.rgb, lsLum * vTint.rgb * 2.2, vTint.a * (1.0 - lsSkinK));
+  diffuseColor.rgb = mix(diffuseColor.rgb, lsLum * vTintSkin.rgb * 2.0, vTintSkin.a * lsSkinK);
+}`
+    : ''
+}
 {
   float blood = 0.0;
   float bruise = 0.0;

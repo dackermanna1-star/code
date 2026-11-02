@@ -371,10 +371,10 @@ export class Player extends Fighter {
     const d = this.distTo(target);
     const ang = Math.abs(this.angleTo(target));
     const all = this.style.strikes;
-    // a back elbow / back kick on someone right behind - within its reach and a step: further back
-    // than that, the turn and a running step look right (the back moves warped across a metre and
-    // more in two frames)
-    const backs = ang > 2.1 && this.action === 'attack' ? all.filter((m) => m.range === 'back' && d < m.reach + 0.6) : [];
+    // a back elbow / back kick on someone right behind - within its reach and a short step: the
+    // steps carry the rest (a drop step for the elbow, a skip for the kick). Further back than
+    // that, the turn and a running step look right
+    const backs = ang > 2.1 && this.action === 'attack' ? all.filter((m) => m.range === 'back' && d < m.reach + 0.3) : [];
     const back = backs.length > 0;
     let pool: MoveDef[];
     if (back) pool = backs;
@@ -509,7 +509,8 @@ export class Player extends Fighter {
     const speed = this.strikeSpeed(target);
     // (contact at the body's surface: a big one is met further out)
     const reach = Math.max(move.reach, this.radius + target.radius - 0.02);
-    this.play(clipName, { target, reach, maxWarp: move.range === 'far' ? 7.5 : 4.2, back, halflife: 0.07, speed, entryHalflife: 0.06 });
+    // (a back move steps or kicks with the foot nearer him: whichever side the stance offers)
+    this.play(clipName, { target, reach, maxWarp: move.range === 'far' ? 7.5 : 4.2, back, halflife: 0.07, speed, entryHalflife: 0.06, ...(back ? { anySide: true } : {}) });
     this.curMove = move;
     this.hitLanded = false;
     this.action = 'attack';

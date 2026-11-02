@@ -56,6 +56,8 @@ export function runSheetViewer(params: URLSearchParams) {
   const clipName = pair ? pair.a.name : params.get('clip') ?? 'jab';
   const clip = getClip(clipName);
   const reach = Number(params.get('reach') ?? (pair ? pair.dist : 0.9));
+  // back=D: the target stands D behind (a back move), facing her back
+  const backD = Number(params.get('back') ?? 0);
   const aModel = new CharacterModel(lib, lib.get(params.get('variant') ?? 'player'));
   const tModel = new CharacterModel(lib, lib.get(params.get('tv') ?? 'brawler0'));
   scene.add(aModel.group, tModel.group);
@@ -80,7 +82,8 @@ export function runSheetViewer(params: URLSearchParams) {
     const t = tmin + ((tmax - tmin) * i) / Math.max(1, n - 1);
     // reset
     aAnim.initAt(0, 0, 0);
-    tAnim.initAt(0, reach, Math.PI);
+    if (backD > 0) tAnim.initAt(0, -backD, 0);
+    else tAnim.initAt(0, reach, Math.PI);
     const tPlayer = (() => {
       if (pair) {
         const p = tAnim.playClip(getClip(pair.b.name), { originX: 0, originZ: 0, originYaw: 0, halflife: 0.0001 });
@@ -116,9 +119,11 @@ export function runSheetViewer(params: URLSearchParams) {
     tAnim.update(1 / 60, tAnim.rootX, tAnim.rootZ, tAnim.rootYaw);
     const ap = aAnim.playClip(clip, { originX: 0, originZ: 0, originYaw: 0, halflife: 0.0001, aim: aAim });
     if (!pair && clip.warp) {
-      // warp so that at contact the root-to-root distance equals `reach` (target fixed at z=reach)
+      // warp so that at contact the root-to-root distance equals `reach` (target fixed at z=reach;
+      // back=1: behind, at z=-back distance, the warp carrying the rest as in the game)
       const r = ap.rootAt(clip.warp[1], { x: 0, z: 0, yaw: 0 });
-      ap.setWarp(0, -r.z, 0, aAnim.def);
+      if (backD > 0) ap.setWarp(0, -backD + reach - r.z, 0, aAnim.def);
+      else ap.setWarp(0, -r.z, 0, aAnim.def);
     }
     aAnim.update(1 / 60, 0, 0, 0);
     // step to time t in small increments so inertialization settles like in game
@@ -132,7 +137,7 @@ export function runSheetViewer(params: URLSearchParams) {
       aAnim.advanceClip(dt);
       aAnim.update(dt, ap.rootX, ap.rootZ, ap.rootYaw);
     }
-    if (!pair) tAnim.update(1 / 60, 0, reach, Math.PI);
+    if (!pair) tAnim.update(1 / 60, 0, backD > 0 ? -backD : reach, backD > 0 ? 0 : Math.PI);
     if (params.get('dbg') === '1') {
       const pr = ap.params;
       const e = new THREE.Euler().setFromQuaternion(pr.hipsRot, 'YXZ');
@@ -146,7 +151,7 @@ export function runSheetViewer(params: URLSearchParams) {
     tModel.group.position.set(tAnim.rootX, 0, tAnim.rootZ);
     tModel.group.rotation.y = tAnim.rootYaw;
     // camera
-    const mid = new THREE.Vector3(0, Number(params.get('ty') ?? 1.0), reach * 0.5);
+    const mid = new THREE.Vector3(0, Number(params.get('ty') ?? 1.0), backD > 0 ? -backD * 0.5 : reach * 0.5);
     const dist = Number(params.get('dist') ?? 3.6);
     const dirs: Record<string, [number, number, number]> = { side: [1, 0.1, 0], rside: [-1, 0.1, 0], '3q': [0.75, 0.3, -0.6], front: [0.2, 0.15, -1], back: [0.2, 0.2, 1], top: [0.01, 1, 0.01] };
     const d = new THREE.Vector3(...(dirs[camName] ?? dirs.side)).normalize();

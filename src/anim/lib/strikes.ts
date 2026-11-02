@@ -169,28 +169,37 @@ export function registerStrikes() {
 
   // ------------------------------------------------------------------ BACK ELBOW (target behind)
   defineClipPair('backelbow', {
-    warp: [0, 0.14], hitT: 0.16, comboT: 0.24, recoverT: 0.42,
+    // he's right behind: a look over the shoulder, then a drop step back towards him with the
+    // rear foot as the hips and shoulders wind round and the elbow drives back - the step lands
+    // with the blow - and the front foot follows into the stance (each step over 0.16 s: the
+    // warp's distance rides on the steps, never on a planted foot)
+    warp: [0, 0.22], hitT: 0.22, comboT: 0.3, recoverT: 0.48,
     keys: [
       k(0, FIGHT),
-      k(0.08, FIGHT, { e: 'in', root: [0, -0.03, 0], hipsR: [2, -40, 0], torso: [4, -30, 0], head: [0, -60, 0], rh: { p: [-0.12, 0.12, 0.35], sp: 'chest', pole: [-0.4, 0.2, -1] } }),
-      k(0.16, FIGHT, { e: 'snap', root: [0, -0.12, 0], hips: [0, -0.1, -0.06], hipsR: [-4, -55, 0], torso: [-6, -40, 0], neck: [0, -30, 0], head: [-4, -50, 0], rh: { p: [-0.12, 0.1, 0.32], sp: 'chest', pole: [0, 0.3, -1], roll: 90 }, rf: { p: [-0.13, 0, -0.32], yaw: -60 }, lf: { yaw: -30 } }),
-      k(0.3, FIGHT, { e: 'out', root: [0, -0.12, 0], hipsR: [4, -30, 0], torso: [4, -8, 0], head: [-4, -10, 0], rh: { p: [-0.03, 0.19, 0.25], sp: 'chest', pole: [-0.4, -1, -0.25] }, rf: { p: [-0.13, 0, -0.3] } }),
-      k(0.48, FIGHT, { root: [0, -0.1, 0], rf: { p: [-0.13, 0, -0.28] }, lf: { p: [0.1, 0, 0.05] } }),
+      k(0.1, FIGHT, { e: 'in', root: [0, -0.05, 0], hips: [0, -0.09, -0.02], hipsR: [2, -36, 0], torso: [3, -22, 0], neck: [0, -16, 0], head: [-2, -46, 0], rh: { p: [-0.1, 0.13, 0.34], sp: 'chest', pole: [-0.4, 0.2, -1] }, rf: { via: true } }),
+      k(0.16, FIGHT, { root: [0, -0.1, 0], hips: [0, -0.1, -0.05], hipsR: [-1, -50, 0], torso: [-3, -34, 0], neck: [0, -24, 0], head: [-3, -52, 0], rh: { p: [-0.11, 0.11, 0.33], sp: 'chest', pole: [-0.2, 0.25, -1], roll: 60 }, rf: { p: [-0.15, 0, -0.38], yaw: -62 }, lf: { via: true } }),
+      k(0.22, FIGHT, { e: 'snap', root: [0, -0.13, 0], hips: [0, -0.11, -0.07], hipsR: [-4, -58, 0], torso: [-6, -42, 0], neck: [0, -28, 0], head: [-4, -52, 0], rh: { p: [-0.12, 0.1, 0.32], sp: 'chest', pole: [0, 0.3, -1], roll: 90 }, rf: { p: [-0.15, 0, -0.38], yaw: -62 }, lf: { p: [0.1, 0, -0.03], yaw: -22 } }),
+      k(0.34, FIGHT, { e: 'out', root: [0, -0.18, 0], hips: [0, -0.09, -0.03], hipsR: [3, -34, 0], torso: [3, -12, 0], neck: [-1, -8, 0], head: [-3, -16, 0], rh: { p: [-0.03, 0.19, 0.25], sp: 'chest', pole: [-0.4, -1, -0.25] }, rf: { p: [-0.15, 0, -0.38], yaw: -50 }, lf: { p: [0.1, 0, -0.03], yaw: -12 } }),
+      k(0.56, FIGHT, { root: [0, -0.2, 0], rf: { p: [-0.15, 0, -0.38], yaw: -40 }, lf: { p: [0.1, 0, -0.03], yaw: -6 } }),
     ],
-    events: [{ t: 0.06, type: 'sfx', name: 'whoosh_light' }, { t: 0.16, type: 'hit', limb: 're', dir: 'back' }],
+    events: [{ t: 0.1, type: 'sfx', name: 'whoosh_light' }, { t: 0.22, type: 'hit', limb: 're', dir: 'back' }],
   });
 
   // ------------------------------------------------------------------ BACK KICK (target behind, donkey)
   defineClipPair('backkick', {
-    warp: [0, 0.16], hitT: 0.2, comboT: 0.3, recoverT: 0.5,
+    // a look back and a skip back on the front foot (it carries the warp: the standing leg never
+    // has the body pulled off it), the knee up, the heel driven straight back into his gut as the
+    // body levers forward over the standing leg, re-chambered and set down behind
+    warp: [0, 0.12], hitT: 0.26, comboT: 0.36, recoverT: 0.56,
     keys: [
       k(0, FIGHT),
-      k(0.1, FIGHT, { e: 'in', root: [0, 0.04, 0], hips: [0, -0.08, 0], torso: [20, 0, 0], head: [-10, -60, 0], rf: { p: [-0.1, 0.3, -0.05], pitch: 20, pole: [0, 0.2, 1] } }),
-      k(0.2, FIGHT, { e: 'snap', root: [0, 0.08, 0], hips: [0, -0.06, 0.05], hipsR: [28, -10, 0], torso: [30, -4, 0], neck: [-20, -20, 0], head: [-26, -40, 0], rf: { p: [-0.08, 0.9, -0.85], aim: 'gut', aimW: 1, aimOff: [0, 0, 0.16], pitch: -15, toe: 30, pole: [0, -1, -0.3] }, lf: { pitch: 10 } }),
-      k(0.34, FIGHT, { e: 'out', root: [0, 0.08, 0], hipsR: [12, -16, 0], torso: [12, 0, 0], head: [-6, -10, 0], rf: { p: [-0.1, 0.3, -0.2], aim: null, aimW: 0, pitch: 0, toe: 0, pole: [0, 0.3, 1] } }),
-      k(0.5, FIGHT, { root: [0, 0.08, 0], rf: { p: [-0.13, 0, -0.14] } }),
+      k(0.12, FIGHT, { e: 'in', root: [0, 0.0, 0], hips: [0, -0.1, 0.0], hipsR: [8, -16, 0], torso: [8, -4, 0], neck: [-4, -14, 0], head: [-8, -44, 0], rf: { pitch: 24 }, lf: { p: [0.09, 0, 0.1], yaw: -10 } }),
+      k(0.18, FIGHT, { root: [0, 0.03, 0], hips: [0, -0.09, 0.02], hipsR: [16, -12, 0], torso: [16, -2, 0], neck: [-10, -18, 0], head: [-14, -46, 0], rf: { p: [-0.1, 0.3, -0.06], pitch: 30, pole: [0, 0.2, 1] }, lf: { p: [0.09, 0, 0.1], yaw: -14 } }),
+      k(0.26, FIGHT, { e: 'snap', root: [0, 0.06, 0], hips: [0, -0.06, 0.05], hipsR: [28, -10, 0], torso: [30, -4, 0], neck: [-20, -20, 0], head: [-26, -40, 0], rf: { p: [-0.08, 0.88, -0.82], aim: 'gut', aimW: 1, aimOff: [0, 0, 0.16], pitch: -15, toe: 30, pole: [0, -1, -0.3] }, lf: { p: [0.09, 0, 0.1], pitch: 10, yaw: -18 } }),
+      k(0.4, FIGHT, { e: 'out', root: [0, 0.05, 0], hips: [0, -0.08, 0.02], hipsR: [12, -16, 0], torso: [12, 0, 0], head: [-6, -10, 0], rf: { p: [-0.11, 0.26, -0.2], aim: null, aimW: 0, pitch: 10, toe: 0, pole: [0, 0.3, 1] }, lf: { p: [0.09, 0, 0.1], yaw: -10 } }),
+      k(0.58, FIGHT, { root: [0, -0.02, 0], rf: { p: [-0.13, 0, -0.22] }, lf: { p: [0.09, 0, 0.1], yaw: -4 } }),
     ],
-    events: [{ t: 0.1, type: 'sfx', name: 'whoosh_heavy' }, { t: 0.2, type: 'hit', limb: 'rf', dir: 'back' }],
+    events: [{ t: 0.14, type: 'sfx', name: 'whoosh_heavy' }, { t: 0.26, type: 'hit', limb: 'rf', dir: 'back' }],
   });
 
   // ------------------------------------------------------------------ STUN: double palm strike to chest

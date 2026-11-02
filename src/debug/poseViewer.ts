@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { CharacterLibrary, CharacterModel } from '../character/library';
-import { registerVariants } from '../character/variants';
+import { registerLabVariants, registerVariants } from '../character/variants';
 import { ClipPlayer, getClip, CLIPS } from '../anim/clip';
 import { solvePose } from '../anim/solver';
 import { Pose } from '../anim/pose';
@@ -40,6 +40,8 @@ export function runPoseViewer(params: URLSearchParams) {
   registerAllClips();
   const lib = new CharacterLibrary();
   const arch = registerVariants(lib);
+  // lab=1: the lab's people too
+  if (params.get('lab') === '1') Object.assign(arch, registerLabVariants(lib));
   lib.build();
 
   const camName = params.get('cam') ?? '3q';

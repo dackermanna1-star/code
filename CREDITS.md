@@ -101,16 +101,26 @@ motion was cut, retimed, retargeted to the game's skeleton and cleaned up (conta
 foot rotations) by `tools/mocap/strikes.py` into `src/anim/mocap/strikes.json`; the elbow strike
 folds the arm of the rear-hook take, and the side-step's arms are blended towards a guard.
 
-## Scarlet's model
+## Character models
 
-Scarlet is **Female_Adult_07** from the **Microsoft Rocketbox Avatar Library**
+Scarlet and the enemies are avatars from the **Microsoft Rocketbox Avatar Library**
 ([github.com/microsoft/Microsoft-Rocketbox](https://github.com/microsoft/Microsoft-Rocketbox)),
-released under the MIT license (notice below). `tools/models/rocketbox.mjs` converted the avatar's
-FBX (its fingers curled into fists, its 81 bones mapped onto the game's 22) into
-`src/character/models/scarlet/mesh.json`; `tools/models/scarlet_textures.py` re-dressed its
-textures as Scarlet's (a black leather jacket over a red top, sheer black tights, black boots,
-fingerless gloves, red hair and lips) into the images beside it. The leather mini skirt is built by
-the game over the fitted body (`src/character/realBody.ts`).
+released under the MIT license (notice below). `tools/models/rocketbox.mjs` converted each
+avatar's FBX (its fingers curled into fists, its 81 bones mapped onto the game's 22, extra
+materials packed beside the body) into `src/character/models/<name>/mesh.json`.
+
+* **Scarlet** is *Female_Adult_07*; `tools/models/scarlet_textures.py` re-dressed its textures as
+  Scarlet's (a black leather jacket over a red top, sheer black tights, black boots, fingerless
+  gloves, red hair and lips). The leather mini skirt is built by the game over the fitted body
+  (`src/character/realBody.ts`).
+* **The enemies** wear their avatars' own clothes, varied per fighter by tints in the game:
+  *Male_Adult_04, 05, 07, 09, 10, 12, 16, 17, 18, 20* (street thugs, knife and agile gangs,
+  bruisers, Viper), *Gardener_Male_01* and *Delivery_Male_01* (workers), *Business_Male_01, 04,
+  05* (enforcers, elite, Kael), *Police_Male_02* (riot police and black-ops), *Security_Male_01*
+  (guards, the Warden), *Medical_Male_01* (lab techs, and - bloodied - the Butcher) and
+  *Sports_Male_01* (bruisers, the lab's subjects and Subject Zero). `tools/models/build_avatars.py`
+  converts the list in `tools/models/avatars.json`; `tools/models/avatar_textures.py` writes their
+  textures (resized, extras packed, finish and tint maps; the Butcher's coat bloodied).
 
 ```
 MIT License
@@ -138,8 +148,8 @@ SOFTWARE.
 
 ## Art and animation
 
-All other character meshes and textures, the environment art and the music are generated
-procedurally by the game's own code. The punches, kicks, knee, evasions and get-ups
+Jin, every fallback body, the environment art and the music are generated procedurally by the
+game's own code. The punches, kicks, knee, evasions and get-ups
 are the motion capture above; hit reactions, paired counters, finishers and takedowns, the flying
 knee, the moves against someone behind and weapon attacks are authored in code (no free capture
 of them was found: the open databases have no hit reactions or two-person fights, and their

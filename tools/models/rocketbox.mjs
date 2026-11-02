@@ -5,7 +5,8 @@
 //
 // Usage (from the project root):
 //   node tools/models/rocketbox.mjs <avatar.fbx> <out.json> [labels.json]
-// labels.json (optional) gets per-vertex part labels and UVs for tools/models/scarlet_textures.py.
+// labels.json (optional) gets per-vertex part labels and UVs for the texture scripts
+// (tools/models/scarlet_textures.py, tools/models/avatar_textures.py).
 import fs from 'fs';
 import path from 'path';
 import { pathToFileURL } from 'url';
@@ -185,13 +186,46 @@ for (let i = 0; i < nv; i++) {
   });
 }
 
-// ------------------------------------------------------------------ weld into an indexed mesh, by material
+// ------------------------------------------------------------------ material slots
+// Rocketbox materials are named <id>_<slot>: body, head, opacity (hair cards, lashes) and, on some,
+// extras (helmet, equipment, pistol, tools...). The game draws three: the extras are packed beside
+// the body on a texture twice as wide (the body on the left half, the extras in 512 cells on the
+// right), their uvs moved there - tools/models/avatar_textures.py packs the images the same way.
+const matNames = (Array.isArray(mesh.material) ? mesh.material : [mesh.material]).map((m) => m.name);
+const slotName = (n) => n.replace(/^[a-z]*\d+_/i, '').toLowerCase();
+const extras = [...new Set(matNames.map(slotName).filter((x) => !['body', 'head', 'opacity'].includes(x)))].sort();
+if (extras.length > 4) throw new Error('more than four extra materials: ' + extras.join(','));
 const groups = [...g.groups].sort((a, b) => a.start - b.start);
-const matOf = new Uint8Array(nv);
-for (const gr of groups) for (let i = gr.start; i < gr.start + gr.count; i++) matOf[i] = gr.materialIndex;
+const matOf = new Uint8Array(nv); // 0 body (+ extras), 1 head, 2 hair cards
+const extraOf = new Int8Array(nv).fill(-1);
+for (const gr of groups) {
+  const sl = slotName(matNames[gr.materialIndex] ?? 'body');
+  const m = sl === 'head' ? 1 : sl === 'opacity' ? 2 : 0;
+  const ex = extras.indexOf(sl);
+  for (let i = gr.start; i < gr.start + gr.count; i++) {
+    matOf[i] = m;
+    extraOf[i] = ex;
+  }
+}
+const wide = extras.length > 0;
+let uvOut = 0;
+const uvAt = (i) => {
+  let u = UV0.getX(i), v = UV0.getY(i);
+  if (u < -0.002 || u > 1.002 || v < -0.002 || v > 1.002) uvOut++;
+  u = Math.min(1, Math.max(0, u));
+  v = Math.min(1, Math.max(0, v));
+  if (!wide || matOf[i] !== 0) return [u, v];
+  const ex = extraOf[i];
+  if (ex < 0) return [u * 0.5, v];
+  const cx = ex % 2, cy = 1 - Math.floor(ex / 2);
+  return [0.5 + (cx + u) * 0.25, (cy + v) * 0.5];
+};
+
+// ------------------------------------------------------------------ weld into an indexed mesh, by slot
 const key = (i) => {
   const r = (x, s) => Math.round(x * s);
-  return [matOf[i], r(pos[i * 3], 1e4), r(pos[i * 3 + 1], 1e4), r(pos[i * 3 + 2], 1e4), r(nrm[i * 3], 100), r(nrm[i * 3 + 1], 100), r(nrm[i * 3 + 2], 100), r(UV0.getX(i), 1e5), r(UV0.getY(i), 1e5)].join(',');
+  const [u, v] = uvAt(i);
+  return [matOf[i], r(pos[i * 3], 1e4), r(pos[i * 3 + 1], 1e4), r(pos[i * 3 + 2], 1e4), r(nrm[i * 3], 100), r(nrm[i * 3 + 1], 100), r(nrm[i * 3 + 2], 100), r(u, 1e5), r(v, 1e5)].join(',');
 };
 const remap = new Map();
 const uniq = [];
@@ -212,31 +246,40 @@ for (let t = 0; t < nv / 3; t++) {
   tri[matOf[t * 3]].push(...ids);
 }
 const N = uniq.length;
-const outPos = new Float32Array(N * 3), outNrm = new Int8Array(N * 3), outUv = new Float32Array(N * 2), outSkin = new Uint8Array(N * 8);
-const outRB = new Uint8Array(N), outMat = new Uint8Array(N);
+if (N > 65535) throw new Error('too many vertices for 16-bit indices: ' + N);
+// quantised: positions in 1/16000 m (to +-2 m), uvs in 1/65535
+const POS_Q = 16000;
+const outPos = new Int16Array(N * 3), outNrm = new Int8Array(N * 3), outUv = new Uint16Array(N * 2), outSkin = new Uint8Array(N * 8);
+const labPos = new Float32Array(N * 3), labUv = new Float32Array(N * 2);
+const outRB = new Uint8Array(N), outMat = new Uint8Array(N), outExtra = new Int8Array(N);
 uniq.forEach((i, u) => {
   for (let c = 0; c < 3; c++) {
-    outPos[u * 3 + c] = pos[i * 3 + c];
+    outPos[u * 3 + c] = Math.max(-32767, Math.min(32767, Math.round(pos[i * 3 + c] * POS_Q)));
+    labPos[u * 3 + c] = pos[i * 3 + c];
     outNrm[u * 3 + c] = Math.round(nrm[i * 3 + c] * 127);
   }
-  outUv[u * 2] = UV0.getX(i);
-  outUv[u * 2 + 1] = UV0.getY(i);
+  const [uu, vv] = uvAt(i);
+  outUv[u * 2] = Math.round(uu * 65535);
+  outUv[u * 2 + 1] = Math.round(vv * 65535);
+  labUv[u * 2] = uu;
+  labUv[u * 2 + 1] = vv;
   for (let c = 0; c < 4; c++) {
     outSkin[u * 8 + c] = skinI[i * 4 + c];
     outSkin[u * 8 + 4 + c] = skinW[i * 4 + c];
   }
   outRB[u] = domRB[i];
   outMat[u] = matOf[i];
+  outExtra[u] = extraOf[i];
 });
 const index = new Uint16Array(tri[0].length + tri[1].length + tri[2].length);
-const matNames = (Array.isArray(mesh.material) ? mesh.material : [mesh.material]).map((m) => m.name);
 const outGroups = [];
 let off = 0;
 tri.forEach((t, m) => {
   index.set(t, off);
-  outGroups.push({ start: off, count: t.length, mat: ['body', 'head', 'hair'][m], src: matNames[m] });
+  outGroups.push({ start: off, count: t.length, mat: ['body', 'head', 'hair'][m] });
   off += t.length;
 });
+if (uvOut) console.warn(`  ${uvOut} uvs outside 0..1 (clamped)`);
 
 // ------------------------------------------------------------------ joints (metres, after the fist)
 const J = (n) => wpos(n).multiplyScalar(0.01).toArray().map((x) => +x.toFixed(5));
@@ -255,6 +298,9 @@ const b64 = (a) => Buffer.from(a.buffer, a.byteOffset, a.byteLength).toString('b
 const out = {
   source: path.basename(fbxPath),
   count: N,
+  posQ: POS_Q,
+  wide,
+  extras,
   groups: outGroups,
   joints,
   pos: b64(outPos),
@@ -264,7 +310,7 @@ const out = {
   index: b64(index),
 };
 fs.writeFileSync(outPath, JSON.stringify(out));
-console.log('vertices', N, 'triangles', index.length / 3, 'groups', outGroups.map((g) => `${g.mat}:${g.count / 3}`).join(' '), 'bytes', fs.statSync(outPath).size);
+console.log('vertices', N, 'triangles', index.length / 3, 'groups', outGroups.map((g) => `${g.mat}:${g.count / 3}`).join(' '), 'extras', extras.join(',') || '-', 'bytes', fs.statSync(outPath).size);
 if (labelsPath) {
-  fs.writeFileSync(labelsPath, JSON.stringify({ bones: bones.map((b) => b.name), rb: Array.from(outRB), mat: Array.from(outMat), uv: Array.from(outUv), pos: Array.from(outPos, (x) => +x.toFixed(4)), index: Array.from(index) }));
+  fs.writeFileSync(labelsPath, JSON.stringify({ bones: bones.map((b) => b.name), rb: Array.from(outRB), mat: Array.from(outMat), extra: Array.from(outExtra), extras, wide, uv: Array.from(labUv, (x) => +x.toFixed(6)), pos: Array.from(labPos, (x) => +x.toFixed(4)), index: Array.from(index) }));
 }

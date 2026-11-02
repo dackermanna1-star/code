@@ -171,7 +171,8 @@ export abstract class Fighter implements AimProvider {
       originYaw = opt.back ? wrapAngle(dirYaw + Math.PI) : dirYaw;
     }
     let clip = getClip(name);
-    if (clip.footFromStart && opt.anySide !== false) clip = this.stanceVariant(clip, originYaw, opt.originX ?? this.x, opt.originZ ?? this.z);
+    // (hand-made clips whose footwork depends on the stance - the back moves - ask for it: anySide)
+    if ((clip.footFromStart && opt.anySide !== false) || opt.anySide === true) clip = this.stanceVariant(clip, originYaw, opt.originX ?? this.x, opt.originZ ?? this.z);
     const p = this.anim.playClip(clip, { ...opt, originYaw, originX: opt.originX ?? this.x, originZ: opt.originZ ?? this.z, aim: opt.aim ?? this.aimAt(target) });
     if (target && opt.reach !== undefined && clip.warp) {
       // a captured strike moves the body no further than a real lunge (its feet step with it);
@@ -189,7 +190,7 @@ export abstract class Fighter implements AimProvider {
    */
   private stanceVariant(clip: Clip, originYaw: number, ox: number, oz: number): Clip {
     const alt = CLIPS.get(clip.name.endsWith('_m') ? clip.name.slice(0, -2) : clip.name + '_m');
-    if (!alt || !alt.footFromStart) return clip;
+    if (!alt || alt.footFromStart !== clip.footFromStart) return clip;
     this.anim.currentFeet(_feet, _feetYaw);
     const cost = (c: Clip) => {
       let sum = 0;

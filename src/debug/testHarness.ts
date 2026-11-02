@@ -799,7 +799,7 @@ export async function runTest(game: Game, params: URLSearchParams) {
       const back = range === 'back';
       // (as close as the player's approach would have brought it before the strike)
       const lc = getClip(clip);
-      const dist = Number(params.get('dist')) || (range === 'far' ? 5 : range === 'close' ? 0.95 : range === 'back' ? reach + 0.45 : lc.footFromStart ? Math.min(1.6, reach + lc.lunge * 0.85) : 1.6);
+      const dist = Number(params.get('dist')) || (range === 'far' ? 5 : range === 'close' ? 0.95 : range === 'back' ? reach + 0.28 : lc.footFromStart ? Math.min(1.6, reach + lc.lunge * 0.85) : 1.6);
       p.x = 0; p.z = 0; p.vx = p.vz = 0;
       p.yaw = back ? 0 : Math.PI;
       p.anim.initAt(0, 0, p.yaw);
@@ -808,8 +808,18 @@ export async function runTest(game: Game, params: URLSearchParams) {
       e.attackCooldown = 1e9;
       e.stunNow(100);
       for (let i = 0; i < 20; i++) game.step(dt);
+      if (back) {
+        // (the warm-up turned her to face him: a back move is for someone behind, so face away again)
+        p.yaw = 0;
+        p.anim.initAt(p.x, p.z, p.yaw);
+        game.step(dt);
+      }
+      if (params.get('plan') === clip) {
+        const f = (b: number) => p.anim.fk.pos[b].toArray().map((x) => x.toFixed(3)).join(',');
+        console.log(`START ${clip} yaw=${p.yaw.toFixed(2)} action=${p.action} mode=${p.anim.mode} footL=${f(B.footL)} footR=${f(B.footR)} (character space)`);
+      }
       const pq = (p as unknown as { play: (n: string, o: object) => unknown });
-      const cpl = pq.play(clip, { target: e, reach, maxWarp: range === 'far' ? 7.5 : 4.2, back, halflife: 0.07, speed: 1.05, entryHalflife: 0.06, anySide: params.get('anyside') === '1' }) as { plannedFeet(k: number): { x: number; z: number }[]; clip: { keys: { t: number }[] } };
+      const cpl = pq.play(clip, { target: e, reach, maxWarp: range === 'far' ? 7.5 : 4.2, back, halflife: 0.07, speed: 1.05, entryHalflife: 0.06, anySide: params.get('anyside') === '1' }) as { plannedFeet(k: number): { x: number; z: number }[]; clip: { keys: { t: number; lf: { via: boolean }; rf: { via: boolean } }[] } };
       if (params.get('plan') === clip && cpl.plannedFeet) {
         const ck = (cpl as unknown as { clip: { keys: { t: number; lf: { p: number[] }; rf: { p: number[] } }[] } }).clip.keys;
         for (let i = 0; i < Math.min(ck.length, 24); i++) {
@@ -817,7 +827,13 @@ export async function runTest(game: Game, params: URLSearchParams) {
           console.log(`PLAN k${i} t=${ck[i].t.toFixed(3)} L=${L.x.toFixed(3)},${L.z.toFixed(3)} (clip y ${ck[i].lf.p[1].toFixed(3)}) R=${R.x.toFixed(3)},${R.z.toFixed(3)} (clip y ${ck[i].rf.p[1].toFixed(3)})`);
         }
       }
-      (p as unknown as { __plan?: unknown }).__plan = cpl.plannedFeet ? { feet: [cpl.plannedFeet(0).map((v) => ({ x: v.x, z: v.z })), cpl.plannedFeet(1).map((v) => ({ x: v.x, z: v.z }))], t: cpl.clip.keys.map((k) => k.t / 1.05) } : undefined;
+      // (a 'via' key plants nothing: a step through it is measured from the key before to the one after)
+      (p as unknown as { __plan?: unknown }).__plan = cpl.plannedFeet
+        ? {
+            feet: [0, 1].map((k) => cpl.plannedFeet(k).map((v, i) => ({ x: v.x, z: v.z, via: (k === 0 ? cpl.clip.keys[i].lf : cpl.clip.keys[i].rf).via }))),
+            t: cpl.clip.keys.map((k) => k.t / 1.05),
+          }
+        : undefined;
       (p as unknown as { action: string }).action = 'attack';
       (p as unknown as { curMove: unknown }).curMove = null;
       const prevQ = PAIRS.map(() => new THREE.Quaternion());
@@ -921,14 +937,17 @@ export async function runTest(game: Game, params: URLSearchParams) {
       }
       // the planned steps: the fastest a foot is asked to travel between two keys (m/s)
       let stepV = 0, stepAt = '';
-      const lastPlan = (p as unknown as { __plan?: { feet: { x: number; z: number }[][]; t: number[] } }).__plan;
+      const lastPlan = (p as unknown as { __plan?: { feet: { x: number; z: number; via?: boolean }[][]; t: number[] } }).__plan;
       if (lastPlan) {
         for (let k = 0; k < 2; k++) {
           const fw = lastPlan.feet[k];
           for (let i = 0; i + 1 < fw.length; i++) {
-            const dtk = lastPlan.t[i + 1] - lastPlan.t[i];
+            if (fw[i].via) continue;
+            let j = i + 1;
+            while (j < fw.length - 1 && fw[j].via) j++;
+            const dtk = lastPlan.t[j] - lastPlan.t[i];
             if (dtk < 1e-3) continue;
-            const v = Math.hypot(fw[i + 1].x - fw[i].x, fw[i + 1].z - fw[i].z) / dtk;
+            const v = Math.hypot(fw[j].x - fw[i].x, fw[j].z - fw[i].z) / dtk;
             if (v > stepV) {
               stepV = v;
               stepAt = `${k === 0 ? 'L' : 'R'}@${lastPlan.t[i].toFixed(2)}`;
