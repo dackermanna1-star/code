@@ -215,8 +215,11 @@ export class Props {
     }
   }
 
-  /** Keep a fighter on foot out of the big pieces (couches, carts, drums): they push, it gives a little. */
-  collideFighter(f: Fighter) {
+  /**
+   * Keep a fighter on foot out of the big pieces (couches, carts, drums): they push, it gives a
+   * little. `k` < 1 pushes only part of the way this frame (a body just out of a move).
+   */
+  collideFighter(f: Fighter, k = 1) {
     for (const p of this.list) {
       if (p.broken || !SOLID.has(p.kind)) continue;
       const t = p.body.translation();
@@ -226,9 +229,9 @@ export class Props {
       const d = Math.hypot(dx, dz);
       const minD = f.radius * 0.8 + pr;
       if (d >= minD || d < 1e-4) continue;
-      const push = minD - d;
-      f.x += (dx / d) * push * 0.85;
-      f.z += (dz / d) * push * 0.85;
+      const push = (minD - d) * 0.85 * Math.max(0.15, k);
+      f.x += (dx / d) * push;
+      f.z += (dz / d) * push;
     }
   }
 

@@ -10,6 +10,8 @@ export interface Incoming {
   counterable: boolean;
   feint: boolean;
   suspended: number;
+  /** A boss's signature move on its own clock (the Warden's taser): not tied to an attack clip. */
+  special?: boolean;
 }
 
 /**
@@ -51,10 +53,10 @@ export class Director {
     return s.dodges / (s.counters + s.dodges + s.blocks + 1);
   }
 
-  registerAttack(e: Enemy, hitDelay: number, counterable: boolean, feint: boolean) {
+  registerAttack(e: Enemy, hitDelay: number, counterable: boolean, feint: boolean, special = false) {
     this.cancel(e);
     const now = this.game.time;
-    this.incoming.push({ enemy: e, start: now, hitTime: now + hitDelay, counterable, feint, suspended: 0 });
+    this.incoming.push({ enemy: e, start: now, hitTime: now + hitDelay, counterable, feint, suspended: 0, special });
   }
   cancel(e: Enemy) {
     const i = this.incoming.findIndex((x) => x.enemy === e);
@@ -69,11 +71,12 @@ export class Director {
     const now = g.time;
     for (const s of Object.keys(this.style) as (keyof Director['style'])[]) this.style[s] *= Math.exp(-dt / 40);
     // drop stale entries
-    this.incoming = this.incoming.filter((x) => x.enemy.alive && x.enemy.state === 'attack' && now < x.hitTime + 0.25);
+    this.incoming = this.incoming.filter((x) => x.enemy.alive && (x.special || x.enemy.state === 'attack') && now < x.hitTime + 0.25);
     // suspend attacks while the player is locked in an invulnerable paired move (Arkham-style chaining)
     const p = g.player;
     const locked = p.isLocked();
     for (const inc of this.incoming) {
+      if (inc.special) continue;
       const remain = inc.hitTime - now;
       if (locked && remain < 0.32 && inc.suspended < 0.9) {
         inc.enemy.holdAttack(dt);

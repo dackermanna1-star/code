@@ -66,6 +66,10 @@ export abstract class Fighter implements AimProvider {
   dead = false;
   /** Collision against other fighters enabled. */
   solid = true;
+  /** Seconds of gentle separation left: just let go from a paired move, maybe still overlapping. */
+  sepSoft = 0;
+  /** Seconds walking since the last move / ragdoll (its collision fills back in; see move). */
+  private locoAge = 1;
   /** Ignore wall collisions (e.g. entering through door). */
   ghostWalls = false;
   bleedRate = 0; // drops per second while bleeding
@@ -316,12 +320,18 @@ export abstract class Fighter implements AimProvider {
     } else if (this.anim.mode === 'loco') {
       this.x += this.vx * dt;
       this.z += this.vz * dt;
-      const [cx, cz] = this.game.arena.collide(this.x, this.z, this.radius, this.ghostWalls);
+      // A move keeps a slimmer collision than walking (and passes props), so a body can come out of
+      // one a hand's width inside a wall or a crate: the full body fills back in over a quarter
+      // second instead of being snapped out by that width in one frame.
+      this.locoAge += dt;
+      const fill = Math.min(1, this.locoAge / 0.25);
+      const [cx, cz] = this.game.arena.collide(this.x, this.z, this.radius * (0.8 + 0.2 * fill), this.ghostWalls);
       this.x = cx;
       this.z = cz;
       // (couches, carts and drums are walked round, not through)
-      this.game.props?.collideFighter(this);
+      this.game.props?.collideFighter(this, fill);
     }
+    if (this.anim.mode !== 'loco') this.locoAge = 0;
   }
 
   /**

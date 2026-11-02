@@ -35,6 +35,11 @@ const BOSS_HINTS: Record<string, string> = {
   subject: 'He shrugs off blows: sidestep his charge so he hits a wall, then punish him · get clear of his slam',
 };
 
+/** A map boss who needs the room (Subject Zero charges into walls) comes with a thinner escort. */
+const BOSS_ESCORT: Record<string, Comp> = {
+  subject: [['agile', 1], ['knife', 1]],
+};
+
 export class WaveManager {
   wave = 0;
   betweenWaves = true;
@@ -68,7 +73,7 @@ export class WaveManager {
     const def = this.baseDef(w);
     const swap = def.boss ? this.game.arena.bossMap[def.boss] : undefined;
     if (!swap) return def;
-    return { ...def, boss: swap, title: ARCHETYPES[swap].label, hint: BOSS_HINTS[swap] ?? def.hint };
+    return { ...def, comp: BOSS_ESCORT[swap] ?? def.comp, boss: swap, title: ARCHETYPES[swap].label, hint: BOSS_HINTS[swap] ?? def.hint };
   }
 
   private baseDef(w: number): WaveDef {

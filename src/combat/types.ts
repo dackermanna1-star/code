@@ -21,6 +21,7 @@ export interface HitInfo {
   noReact?: boolean; // paired clips handle the reaction
   breakArm?: number; // 1 left, -1 right
   venom?: boolean; // poisoned blade: keeps hurting for a few seconds
+  absorbed?: boolean; // soaked up by a brute's bulk (set by the victim): muted feedback
 }
 
 export function makeHit(p: Partial<HitInfo> & { dir: THREE.Vector3; point: THREE.Vector3 }): HitInfo {

@@ -55,6 +55,8 @@ export class Enemy extends Fighter {
   attackDef: EnemyAttack | null = null;
   /** A boss's scripted behaviour (null for the rank and file). */
   brain: BossBrain | null = null;
+  /** An early counter met this strike (bosses): it lands on the guard, not the body. */
+  deflected = false;
   /** Attacks still to come in the current scripted combo (bosses). */
   comboQueue: string[] = [];
   private comboLen = 0;
@@ -476,6 +478,7 @@ export class Enemy extends Fighter {
     const a = queued ?? (chained ? this.chooseAttack() : this.attackDef ?? this.chooseAttack());
     this.attackDef = a;
     this.comboLen++;
+    this.deflected = false;
     const dir = this.game.director;
     // strikes get snappier with the waves, within limits (it's the warning time below that keeps
     // late waves fair, not slower strikes)
@@ -534,6 +537,12 @@ export class Enemy extends Fighter {
       const facing = Math.abs(this.angleTo(p)) < 1.2;
       if (!p.alive || d > a.reach + 0.75 || !facing) {
         // whiff
+        return;
+      }
+      if (this.deflected) {
+        // (the hands already met it: it's spent on the guard)
+        this.deflected = false;
+        p.guardCatch(this);
         return;
       }
       const hit = g.combat.makeStrike(this, p, {
@@ -597,7 +606,10 @@ export class Enemy extends Fighter {
     let dmg = h.damage;
     if (vulnerable) dmg *= 1.25;
     const absorbs = this.cfg.needsStun && !vulnerable && !h.finisher && h.kind !== 'slam' && h.kind !== 'throw';
-    if (absorbs) dmg *= 0.35;
+    if (absorbs) {
+      dmg *= 0.35;
+      h.absorbed = true;
+    }
     if (this.cfg.boss && h.finisher && h.damage >= 999) dmg = this.maxHp * (this.brain ? 0.09 : 0.16); // bosses survive finishers (a heavy blow, not a fifth of their life)
     this.hp -= dmg;
     this.lastHitBy = g.time;
@@ -1018,6 +1030,7 @@ export class Enemy extends Fighter {
   }
   exitPaired(next: EnemyState = 'circle') {
     this.paired = null;
+    this.sepSoft = 0.4;
     if (!this.alive) return;
     if (this.brain && this.brain.stunAfterPaired > 0) {
       // a perfect counter on a boss: the opening that follows it

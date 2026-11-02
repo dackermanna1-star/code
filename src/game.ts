@@ -35,6 +35,9 @@ import { Ragdoll } from './world/ragdoll';
 import type { RagdollLike } from './world/ragdollTypes';
 import { Pose, PoseFK } from './anim/pose';
 
+/** Separation speed (m/s per body) for fighters just released from a paired move. */
+const SOFT_SEPARATION = 1.4;
+
 const _edge = new THREE.Vector3();
 
 export class Game {
@@ -408,7 +411,7 @@ export class Game {
     }
     for (const f of this.fighters) if (f.alive && (playing || f === this.player)) f.think(dt);
     for (const f of this.fighters) if (f.alive) f.move(dt);
-    this.separate();
+    this.separate(dt);
     this.physics.update(dt);
     this.euphoria.update(dt);
     this.death.update(dt);
@@ -814,8 +817,9 @@ export class Game {
     } else if (!this.settings.mocap) loco.mocap = null;
   }
 
-  separate() {
+  separate(dt: number) {
     const fs = this.fighters;
+    for (const f of fs) if (f.sepSoft > 0) f.sepSoft -= dt;
     for (let i = 0; i < fs.length; i++) {
       const a = fs[i];
       if (!a.solid || !a.alive) continue;
@@ -828,7 +832,10 @@ export class Game {
         const d2 = dx * dx + dz * dz;
         if (d2 < r * r && d2 > 1e-8) {
           const d = Math.sqrt(d2);
-          const push = (r - d) * 0.5;
+          let push = (r - d) * 0.5;
+          // (a pair that just let go of each other - a counter on a big brute leaves them a hand's
+          // width inside one another - drifts apart instead of snapping that width in one frame)
+          if (a.sepSoft > 0 || b.sepSoft > 0) push = Math.min(push, SOFT_SEPARATION * dt);
           const nx = dx / d, nz = dz / d;
           const wa = a.anim.mode === 'clip' ? 0.3 : 1, wb = b.anim.mode === 'clip' ? 0.3 : 1;
           const tw = wa + wb;

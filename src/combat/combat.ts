@@ -67,6 +67,16 @@ export class Combat {
       return;
     }
     if (res === 'dodged' || res === 'ignored') return;
+    if (h.absorbed && res === 'hit') {
+      // soaked up by the bulk: a dull slap, no blood, barely a hitch - it isn't hurting him
+      a.play('body_hit', { pos: p, vol: 0.8, pitch: 0.72 });
+      a.play('punch_light', { pos: p, vol: 0.35, pitch: 0.68 });
+      victim.woundAt(p, 1, 0.04, 0.3, 0);
+      g.fx.impactFlash(p, 0.28, [0.8, 0.82, 0.9]);
+      g.hitStop(0.02);
+      g.cam.addTrauma(0.05);
+      return;
+    }
     // ---- sounds
     switch (h.kind) {
       case 'punch':

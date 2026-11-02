@@ -422,10 +422,10 @@ export class WardenBrain extends BossBrain {
         ['warden_jab', 'warden_jab', 'warden_baton'],
       ];
     return [
-      ['warden_baton', 'warden_baton', 'warden_baton', 'warden_overhead'],
-      ['warden_jab', 'warden_kick', 'warden_baton', 'warden_overhead'],
+      ['warden_baton', 'warden_baton', 'warden_overhead'],
+      ['warden_jab', 'warden_kick', 'warden_overhead'],
       ['warden_baton', 'warden_jab', 'warden_baton'],
-      ['warden_kick', 'warden_baton', 'warden_baton'],
+      ['warden_kick', 'warden_baton'],
     ];
   }
   circle(dt: number) {
@@ -442,10 +442,13 @@ export class WardenBrain extends BossBrain {
     if (!p.alive) return false;
     const d = e.distTo(p);
     if (this.ready('taser') && d < 11) {
-      this.cd.taser = this.phase === 1 ? rand(7, 10) : rand(5.5, 8);
+      this.cd.taser = this.phase === 1 ? rand(9, 12) : rand(7, 9.5);
       const aim = () => {
         if (!e.alive || this.busy()) return;
-        this.aim = this.phase === 1 ? 1.05 : 0.85;
+        this.aim = this.phase === 1 ? 1.15 : 0.95;
+        // the shot is a red warning like any other dodge-only attack (and no baton while he aims)
+        this.game.director.registerAttack(e, this.aim, false, false, true);
+        e.attackCooldown = Math.max(e.attackCooldown, this.aim + 0.3);
         this.count('taserAim');
         this.say('THE WARDEN DRAWS HIS TASER — DODGE THE SHOT', '#ff5a4a', 1.0);
         this.game.audio.play('whoosh_light', { pos: _v.set(e.x, 1.4, e.z), vol: 0.5, pitch: 1.8 });
@@ -460,13 +463,21 @@ export class WardenBrain extends BossBrain {
       return true;
     }
     if (this.phase >= 2 && this.ready('backup')) {
-      this.cd.backup = rand(28, 34);
+      this.cd.backup = rand(34, 40);
       this.callBackup();
     }
     return false;
   }
   update(dt: number) {
     super.update(dt);
+    const e = this.e;
+    if (this.aim >= 0 && e.state !== 'circle') {
+      // knocked out of his aim (a hit, a counter): the shot's off, the laser with it
+      this.aim = -1;
+      const dir = this.game.director;
+      if (dir.incoming.some((x) => x.enemy === e && x.special)) dir.cancel(e);
+      this.cd.taser = Math.max(this.cd.taser, 2.5);
+    }
     if (this.aim < 0 && this.flashT <= 0) this.drawLaser(false);
     if (this.flashT > 0) {
       this.flashT -= dt;
@@ -517,7 +528,7 @@ export class WardenBrain extends BossBrain {
     }
     const mods = DIFFICULTY[g.settings.difficulty] ?? DIFFICULTY.fighter;
     const dir = new THREE.Vector3(p.x - e.x, 0, p.z - e.z).normalize();
-    const h = makeHit({ dir, point: _w.clone(), damage: 12 * mods.damage, strength: 0.9, kind: 'punch', region: 'chest', unblockable: true, knockdown: true, attacker: e, bleed: 0 });
+    const h = makeHit({ dir, point: _w.clone(), damage: ENEMY_ATTACKS.warden_taser.damage * mods.damage, strength: 0.9, kind: 'punch', region: 'chest', unblockable: true, knockdown: true, attacker: e, bleed: 0 });
     const res = p.takeHit(h);
     if (res !== 'dodged' && res !== 'ignored') {
       g.combat.feedback(e, p, h, res);
@@ -531,8 +542,8 @@ export class WardenBrain extends BossBrain {
     this.count('backup');
     this.say('WARDEN: ALL UNITS, CONVERGE!', '#8ab8ff', 1.4);
     const n = g.enemies().filter((o) => o.alive && !o.cfg.boss).length;
-    if (n >= 3) return;
-    const keys = this.phase >= 2 ? ['brawler', 'club'] : ['brawler'];
+    if (n >= 2) return;
+    const keys = n === 0 ? ['brawler', 'brawler'] : ['brawler'];
     keys.forEach((k, i) => g.waves.spawn(k, g.arena.doors[(i + 1) % g.arena.doors.length], i));
   }
   landed(a: EnemyAttack, res: string) {
@@ -542,7 +553,7 @@ export class WardenBrain extends BossBrain {
     g.fx.sparks(_v, new THREE.Vector3(0, 1, 0), res === 'hit' ? 18 : 10);
     g.audio.crack(_v);
     // the jolt goes through a guard: it costs most of it
-    if (res === 'blocked') p.guard = Math.max(0, p.guard - 45);
+    if (res === 'blocked') p.guard = Math.max(0, p.guard - 30);
   }
   onHurt() {
     super.onHurt();
@@ -625,7 +636,7 @@ export class SubjectBrain extends BossBrain {
     if (!p.alive) return false;
     const d = e.distTo(p);
     if (this.ready('charge') && d > 4 && d < 10.5) {
-      this.cd.charge = this.phase === 1 ? rand(6.5, 8.5) : this.phase === 2 ? rand(5.5, 7.5) : rand(4.5, 6);
+      this.cd.charge = this.phase === 1 ? rand(6.5, 8.5) : this.phase === 2 ? rand(6, 8) : rand(5.5, 7);
       this.say('SUBJECT ZERO CHARGES — SIDESTEP, LET HIM HIT THE WALL', '#9aff7a', 1.1);
       this.game.audio.play('death', { pos: _v.set(e.x, 1.8, e.z), vol: 0.9, pitch: 0.55 });
       this.game.cam.addTrauma(0.25);
@@ -733,7 +744,7 @@ export class SubjectBrain extends BossBrain {
     this.count('badCounter');
     this.say('SUBJECT ZERO SHRUGS IT OFF — PERFECT COUNTERS ONLY', '#9aff7a');
     const e = this.e;
-    this.game.later(0.15, () => e.alive && !e.paired && e.bossAttack('subject_punch', { tell: 0.42 }));
+    this.game.later(0.15, () => e.alive && !e.paired && e.bossAttack('subject_punch', { tell: 0.5 }));
   }
   phaseChange(next: number) {
     if (next === 2) this.say('SUBJECT ZERO IS ADAPTING', '#9aff7a', 1.8);

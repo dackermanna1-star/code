@@ -2,16 +2,37 @@ import * as THREE from 'three';
 import type { Game } from '../game';
 import { Enemy } from '../ai/enemy';
 import { ARCHETYPES } from '../ai/archetypes';
-import { rand } from '../core/math';
+import { clamp, rand } from '../core/math';
+import type { Incoming } from '../ai/director';
 import { Archetype } from '../character/variants';
 import { makeHit } from '../combat/types';
+import { ENEMY_ATTACKS } from '../combat/moves';
 import { B } from '../anim/skeleton';
 
 /** Drive the player like a competent human (for automated playtests). */
 export class Bot {
   private atkT = 0;
   private actT = 0;
-  constructor(public game: Game) {}
+  /**
+   * human=1: a fallible player rather than a frame-perfect one - each counter goes in early or
+   * late around the right moment (a spread like a decent human's), a few attacks are missed
+   * altogether. What boss tuning is measured against.
+   */
+  readonly human: boolean;
+  private plans = new WeakMap<Incoming, number>();
+  constructor(public game: Game) {
+    this.human = game.params.get('human') === '1';
+  }
+  /** When this player's thumb goes down for an incoming attack (Infinity: never saw it). */
+  private pressAt(inc: Incoming, counter: boolean): number {
+    let t = this.plans.get(inc);
+    if (t === undefined) {
+      const gauss = Math.sqrt(-2 * Math.log(1 - Math.random())) * Math.cos(2 * Math.PI * Math.random());
+      t = Math.random() < (counter ? 0.1 : 0.15) ? Infinity : inc.hitTime - clamp((counter ? 0.16 : 0.2) + gauss * 0.085, -0.04, 0.5);
+      this.plans.set(inc, t);
+    }
+    return t;
+  }
   update(dt: number) {
     const g = this.game;
     const p = g.player;
@@ -23,14 +44,14 @@ export class Bot {
     // defensive reactions first
     const ctr = g.director.findCounterable();
     // (bosses only take perfect counters: the bot waits for the last moment on them)
-    if (ctr && ctr.hitTime - now < (ctr.enemy.brain ? 0.13 : 0.22) && this.actT <= 0) {
+    if (ctr && this.actT <= 0 && (this.human ? now >= this.pressAt(ctr, true) : ctr.hitTime - now < (ctr.enemy.brain ? 0.13 : 0.22))) {
       inp.press('counter');
       inp.release('counter');
       this.actT = 0.12;
       return;
     }
-    const imm = g.director.imminent(0.32);
-    if (imm && !imm.counterable && this.actT <= 0) {
+    const imm = g.director.imminent(this.human ? 0.6 : 0.32);
+    if (imm && !imm.counterable && this.actT <= 0 && (!this.human || now >= this.pressAt(imm, false))) {
       inp.press('dodge');
       inp.release('dodge');
       this.actT = 0.25;
@@ -74,12 +95,14 @@ export class Bot {
       this.actT = 0.6;
       return;
     }
-    if (p.charges > 0 && p.execCd <= 0 && bd < 3.5 && Math.random() < 0.02) {
+    // (a boss on its feet can't be finished: only once he's dazed)
+    if (p.charges > 0 && p.execCd <= 0 && bd < 3.5 && (!best.cfg.boss || best.state === 'stunned') && Math.random() < 0.02) {
       inp.press('finisher');
       this.actT = 0.6;
       return;
     }
-    if ((best.cfg.needsStun || best.cfg.block > 0.5) && best.state !== 'stunned' && bd < 3 && Math.random() < 0.05) {
+    // (stun strikes for brutes and guards - not a boss, who shrugs them off)
+    if ((best.cfg.needsStun || best.cfg.block > 0.5) && !best.cfg.boss && best.state !== 'stunned' && bd < 3 && Math.random() < 0.05) {
       inp.press('stun');
       this.actT = 0.4;
       return;
@@ -186,18 +209,55 @@ export async function runTest(game: Game, params: URLSearchParams) {
     const probe = params.get('probe') === '1' ? new (await import('./animProbe')).AnimProbe(game) : null;
     // boss=1: when the wave's boss died and what the fight cost the bot
     const bossRep = { start: -1, end: -1, dmg0: 0, dmg: 0, name: '', counters0: 0, counters: 0, hits0: 0, hits: 0 };
+    // ...and where the damage came from (attacker:move, 'special' for a boss's own signature moves;
+    // why=1 adds what the player was doing when it landed)
+    const dmgBy: Record<string, number> = {};
+    if (params.get('boss') === '1') {
+      const pl = game.player;
+      const take = pl.takeHit.bind(pl);
+      pl.takeHit = (h) => {
+        const hp0 = pl.hp;
+        const act0 = pl.action;
+        const res = take(h);
+        const lost = hp0 - pl.hp;
+        if (lost > 0 && bossRep.start >= 0) {
+          const a = h.attacker as Enemy | null;
+          const mv = a?.state === 'attack' && a.attackDef ? (Object.keys(ENEMY_ATTACKS).find((k) => ENEMY_ATTACKS[k] === a.attackDef) ?? '?') : 'special';
+          const key = (a ? `${a.cfg.boss ? a.cfg.key : 'minion'}:${a.cfg.boss ? mv : a.cfg.key}` : 'other') + (params.get('why') === '1' ? `@${act0}` : '');
+          dmgBy[key] = Math.round((dmgBy[key] ?? 0) + lost);
+        }
+        return res;
+      };
+    }
+    // trace=hips: a body's hips jumping in one frame - what its root, pose and blend did
+    const hipTr = params.get('trace') === 'hips' ? new Map<object, { h: THREE.Vector3; x: number; z: number; d: THREE.Vector3; ctx: string }>() : null;
     for (let i = 0; i < frames; i++) {
       bot.update(dt);
       if (god) game.player.hp = Math.max(game.player.hp, 60);
       game.step(dt);
       probe?.sample(dt);
+      if (hipTr) {
+        for (const f of game.fighters) {
+          if (!f.alive) continue;
+          const h = f.anim.boneWorld(B.hips, new THREE.Vector3());
+          const an = f.anim as unknown as { out: { hips: THREE.Vector3 }; src: { hips: THREE.Vector3 }; offH: THREE.Vector3; mode: string; clip: { clip: { name: string }; time: number } | null };
+          const ctx = an.mode === 'clip' && an.clip ? `clip:${an.clip.clip.name}@${an.clip.time.toFixed(2)}` : an.mode;
+          const pr = hipTr.get(f);
+          const d = pr ? h.clone().sub(pr.h) : new THREE.Vector3();
+          // (a change of the hips' velocity of over 3.6 m/s from one frame to the next)
+          if (pr && d.distanceTo(pr.d) > 0.06) {
+            console.log(`HIPJUMP ${f === game.player ? 'player' : (f as Enemy).cfg.key} jump=${d.distanceTo(pr.d).toFixed(3)} d=${d.length().toFixed(3)} prevD=${pr.d.length().toFixed(3)} ${pr.ctx} -> ${ctx} root d=${Math.hypot(f.x - pr.x, f.z - pr.z).toFixed(3)} hips local=${an.out.hips.toArray().map((v) => v.toFixed(2))} src=${an.src.hips.toArray().map((v) => v.toFixed(2))} offH=${an.offH.toArray().map((v) => v.toFixed(3))} state=${(f as Enemy).state ?? ''} paired=${!!f.paired}`);
+          }
+          hipTr.set(f, { h, x: f.x, z: f.z, d, ctx });
+        }
+      }
       if (params.get('boss') === '1') {
         const b = game.bosses.active;
         if (b && bossRep.start < 0) Object.assign(bossRep, { start: game.time, dmg0: game.player.stats.damageTaken, name: b.cfg.key, counters0: game.player.stats.counters, hits0: game.player.stats.hits, brain: b.brain });
         if (!b && bossRep.start >= 0 && bossRep.end < 0) {
           Object.assign(bossRep, { end: game.time, dmg: game.player.stats.damageTaken - bossRep.dmg0, counters: game.player.stats.counters - bossRep.counters0, hits: game.player.stats.hits - bossRep.hits0 });
           const st = (bossRep as unknown as { brain?: { stats: Record<string, number> } }).brain?.stats ?? {};
-          console.log('BOSS ' + JSON.stringify({ name: bossRep.name, seconds: +(bossRep.end - bossRep.start).toFixed(1), damageTaken: Math.round(bossRep.dmg), counters: bossRep.counters, hits: bossRep.hits, brain: Object.fromEntries(Object.entries(st).map(([k, v]) => [k, Math.round(v)])) }));
+          console.log('BOSS ' + JSON.stringify({ name: bossRep.name, seconds: +(bossRep.end - bossRep.start).toFixed(1), damageTaken: Math.round(bossRep.dmg), hpLeft: Math.round(game.player.hp), counters: bossRep.counters, hits: bossRep.hits, dmgBy, brain: Object.fromEntries(Object.entries(st).map(([k, v]) => [k, Math.round(v)])) }));
           break;
         }
       }
@@ -205,7 +265,15 @@ export async function runTest(game: Game, params: URLSearchParams) {
         const boss = game.enemies().find((e) => e.alive && e.cfg.boss);
         console.log(`t=${(i / 60).toFixed(0)}s wave=${game.waves.wave} corpses=${game.corpses.count} enemies=${game.enemies().filter((e) => e.alive).length} hp=${game.player.hp.toFixed(0)} combo=${game.player.bestCombo}${boss ? ` boss=${boss.cfg.key}:${Math.round(boss.hp)}/${boss.maxHp} ${boss.state}` : ''}`);
       }
-      if (!game.player.alive && !god) break;
+      if (!game.player.alive && !god) {
+        const b = game.bosses.active;
+        if (params.get('boss') === '1' && b && bossRep.start >= 0) {
+          // (the boss won: how far the fight got)
+          const st = b.brain?.stats ?? {};
+          console.log('BOSSWIN ' + JSON.stringify({ name: b.cfg.key, seconds: +(game.time - bossRep.start).toFixed(1), bossHp: +(b.hp / b.maxHp).toFixed(2), phase: b.phase, counters: game.player.stats.counters - bossRep.counters0, dmgBy, brain: Object.fromEntries(Object.entries(st).map(([k, v]) => [k, Math.round(v)])) }));
+        }
+        break;
+      }
     }
     if (probe) console.log('PROBE ' + JSON.stringify(probe.report((frames * dt))));
     if (tells.length) {
@@ -381,14 +449,16 @@ export async function runTest(game: Game, params: URLSearchParams) {
     game.player.yaw = Math.PI;
     game.cam.yaw = 0;
     const es: Enemy[] = [];
-    const n = mode === 'pile' ? 5 : 1;
+    const n = mode === 'pile' ? 5 : Number(params.get('n') ?? 1);
     if (mode === 'prop') {
       // knock an enemy into an oil drum
       const d = game.props.list[Number(params.get('prop') ?? 0)].body.translation();
       game.player.x = d.x + 2.3;
       game.player.z = d.z;
       es.push(spawnEnemy(key, d.x + 0.85, d.z));
-    } else for (let i = 0; i < n; i++) es.push(spawnEnemy(key, mode === 'pile' ? (i - 2) * 0.35 : 0, mode === 'pile' ? -0.6 - i * 0.25 : -0.4));
+    } else for (let i = 0; i < n; i++) es.push(spawnEnemy(key, mode === 'pile' ? (i - 2) * 0.35 : (i - (n - 1) / 2) * 1.4, mode === 'pile' ? -0.6 - i * 0.25 : -0.4 - (i % 2) * 0.5));
+    // probe=1: animation quality over the run (get-ups after a knockdown: run=1 with pgu=0)
+    const probe = params.get('probe') === '1' ? new (await import('./animProbe')).AnimProbe(game) : null;
     game.started = true;
     for (const e of es) {
       e.attackCooldown = 1e9;
@@ -432,6 +502,7 @@ export async function runTest(game: Game, params: URLSearchParams) {
       for (const e of es) e.attackCooldown = 1e9;
       fire();
       game.step(dt);
+      probe?.sample(dt);
       frame++;
       if (frame % (Number(params.get('logEvery') ?? 30)) === 0) {
         const e = es[0];
@@ -480,6 +551,7 @@ export async function runTest(game: Game, params: URLSearchParams) {
     };
     for (let i = 0; i < Number(params.get('warm') ?? 20); i++) stepOne();
     if (params.get('run')) for (let i = 0; i < frames; i++) stepOne();
+    if (probe) console.log('PROBE ' + JSON.stringify(probe.report(frame * dt)));
     game.renderFrame();
   }
   if (name === 'moves') {
@@ -623,7 +695,10 @@ export async function runTest(game: Game, params: URLSearchParams) {
       // planted-foot slide (m/s) and IK reach shortfall of feet and hands (m)
       const footPrev = [new THREE.Vector3(), new THREE.Vector3()], footWas = [false, false];
       let skate = 0, skateT = -1, footMiss = 0, footMissT = -1, handMiss = 0, handMissT = -1, skateDump = '';
-      for (let f = 0; f < 150; f++) {
+      // tail=N: keep measuring N frames into the hand-back to locomotion (spikes there show as t=-1)
+      let tail = Number(params.get('tail') ?? 0);
+      let locoK = 0;
+      for (let f = 0; f < 150 + tail; f++) {
         game.step(dt);
         const fk = p.anim.fk;
         if (p.anim.mode === 'clip' && p.anim.clip) {
@@ -673,10 +748,26 @@ export async function runTest(game: Game, params: URLSearchParams) {
           prevQ[i].copy(qW);
           prevA[i].copy(a);
         });
+        // trace=clip: around the hand-back, how far the solved source and the blended output of a few
+        // bones turn per frame (a jump in the source the blend didn't absorb, or one of the blend's own)
+        if (params.get('trace') === clip && (p.anim.mode !== 'clip' || (p.anim.clip && p.anim.clip.time > p.anim.clip.clip.recoverT - 0.05))) {
+          const an = p.anim as unknown as { src: { q: THREE.Quaternion[] }; out: { q: THREE.Quaternion[] } };
+          const tr = (window as unknown as { __tr?: Record<string, THREE.Quaternion> }).__tr ??= {};
+          const row = [B.thighL, B.shinL, B.thighR, B.shinR, B.uarmL, B.uarmR, B.farmR].map((b) => {
+            const s0 = tr['s' + b], o0 = tr['o' + b];
+            const ds = s0 ? (2 * Math.acos(Math.min(1, Math.abs(s0.dot(an.src.q[b])))) / dt).toFixed(0) : '-';
+            const dout = o0 ? (2 * Math.acos(Math.min(1, Math.abs(o0.dot(an.out.q[b])))) / dt).toFixed(0) : '-';
+            tr['s' + b] = an.src.q[b].clone();
+            tr['o' + b] = an.out.q[b].clone();
+            return `${b}:${ds}/${dout}`;
+          });
+          console.log(`TRACE ${p.anim.mode} k=${p.anim.mode === 'clip' ? 'c' : locoK} ${row.join(' ')}`);
+        }
         if (f > 0) {
           sw.push(sR);
           tw.push(tR);
-          times.push(p.anim.mode === 'clip' && p.anim.clip ? p.anim.clip.time : -1);
+          // (in the tail: -1 - frames since the hand-back, in thousandths)
+          times.push(p.anim.mode === 'clip' && p.anim.clip ? p.anim.clip.time : -1 - 0.001 * locoK++);
         }
         // dump=clip@t0-t1: per-frame effector params and limb geometry around a spike
         const dump = params.get('dump');
@@ -695,7 +786,7 @@ export async function runTest(game: Game, params: URLSearchParams) {
             console.log(`DUMP t=${ct.toFixed(3)} hips=${v(pr.hipsPos)} | footL pos=${v(pr.feet[0].pos)} pole=${v(pr.feet[0].pole)} bend=${bend(B.thighL, B.shinL, B.footL)} | footR pos=${v(pr.feet[1].pos)} pole=${v(pr.feet[1].pole)} bend=${bend(B.thighR, B.shinR, B.footR)} | handL pos=${v(pr.hands[0].pos)} pole=${v(pr.hands[0].pole)} bend=${bend(B.uarmL, B.farmL, B.handL)} roll=${pr.hands[0].roll.toFixed(0)} | handR pos=${v(pr.hands[1].pos)} pole=${v(pr.hands[1].pole)} bend=${bend(B.uarmR, B.farmR, B.handR)} roll=${pr.hands[1].roll.toFixed(0)}`);
           }
         }
-        if (p.anim.mode !== 'clip' && f > 5) break;
+        if (p.anim.mode !== 'clip' && f > 5 && tail-- <= 0) break;
       }
       const worst: { w: number; s: string }[] = [];
       let maxSwing = 0, maxTwist = 0, maxTwistAt = '';

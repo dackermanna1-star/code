@@ -1,11 +1,14 @@
 import * as THREE from 'three';
 import { B, BONE_COUNT, SkeletonDef } from './skeleton';
 import { Pose, PoseFK } from './pose';
-import { solvePose, SolveState, twoBoneIK } from './solver';
+import { PoseParams, solvePose, SolveState, twoBoneIK } from './solver';
 import { Locomotion, LocoInput } from './locomotion';
 import { AimProvider, Clip, ClipEvent, ClipPlayer } from './clip';
 import { decaySpring, quatToScaledAxis, rotY, scaledAxisToQuat, clamp, smoothstep } from '../core/math';
 import { CharacterModel } from '../character/library';
+
+/** At most this many solves of a new source before a blend measures its offset (see settle). */
+const SETTLE_SOLVES = 12;
 
 export type AnimMode = 'loco' | 'clip' | 'external' | 'frozen';
 
@@ -16,9 +19,14 @@ export interface ExternalPose {
 }
 
 const SPRING_BONES = [B.hips, B.spine, B.chest, B.neck, B.head];
+/** Bone -> its index in SPRING_BONES (-1: no spring). */
+const SPRING_OF = new Array<number>(BONE_COUNT).fill(-1);
+SPRING_BONES.forEach((b, i) => (SPRING_OF[b] = i));
 
 const _q = new THREE.Quaternion();
 const _q2 = new THREE.Quaternion();
+const _q3 = new THREE.Quaternion();
+const _q4 = new THREE.Quaternion();
 const _v = new THREE.Vector3();
 const _v2 = new THREE.Vector3();
 const _e = new THREE.Euler();
@@ -63,6 +71,8 @@ export class Animator {
   private halflife = 0.08;
   private pending = false;
   private pendingHL = 0.08;
+  /** Seconds since the last transition began (the leg lock eases its foot turn in over it). */
+  private blendAge = 1;
   lastDt = 1 / 60;
   // secondary springs (scaled-axis in parent frame)
   private sx: THREE.Vector3[] = [];
@@ -86,6 +96,8 @@ export class Animator {
     for (let i = 0; i < SPRING_BONES.length; i++) {
       this.sx.push(new THREE.Vector3());
       this.sv.push(new THREE.Vector3());
+      this.springQ.push(new THREE.Quaternion());
+      this.springQPrev.push(new THREE.Quaternion());
     }
     this.out.setRest(def);
     this.prev.setRest(def);
@@ -206,10 +218,43 @@ export class Animator {
     this.inertia = false;
   }
 
+  /**
+   * Solve the source pose. The solver keeps limbs continuous by letting a bone's roll and bend
+   * plane turn only so far per solve; on a new source (a strike handing back to the walk) that
+   * catch-up would run on for frames after the blend has measured its offset - an arm rolling a
+   * third of a turn at the limit's speed. So a new source is solved until it settles, and the blend
+   * absorbs the whole difference.
+   */
+  private settle(def: SkeletonDef, prm: PoseParams) {
+    solvePose(def, prm, this.src, null, this.solveState);
+    if (!this.pending) return;
+    for (let it = 1; it < SETTLE_SOLVES; it++) {
+      this.settleTmp.copy(this.src);
+      solvePose(def, prm, this.src, null, this.solveState);
+      let moved = 0;
+      for (let i = 0; i < BONE_COUNT; i++) moved = Math.max(moved, 1 - Math.abs(this.settleTmp.q[i].dot(this.src.q[i])));
+      if (moved < 1e-6) break;
+    }
+  }
+  private settleTmp = new Pose();
+
   beginTransition(halflife: number) {
     this.pending = true;
     this.pendingHL = halflife;
   }
+
+  /** A bone's output rotation without the layers laid on after the blend (spring, fixed turn). */
+  private unlayer(q: THREE.Quaternion, bone: number, springs: THREE.Quaternion[], out: THREE.Quaternion) {
+    out.copy(q);
+    const pr = this.postRot[bone];
+    if (pr) out.multiply(_q2.copy(pr).invert());
+    const si = SPRING_OF[bone];
+    if (si >= 0) out.premultiply(_q2.copy(springs[si]).invert());
+    return out;
+  }
+  /** The spring turns laid on this frame and the last (so a blend can take them back off). */
+  private springQ: THREE.Quaternion[] = [];
+  private springQPrev: THREE.Quaternion[] = [];
 
   /** Inject a hit reaction: force direction in world space, strength ~0..1+, region of impact. */
   hitImpulse(forceWorld: THREE.Vector3, strength: number, region: 'head' | 'chest' | 'gut' | 'legs' | 'back') {
@@ -274,15 +319,11 @@ export class Animator {
         li.rootX = rootX;
         li.rootZ = rootZ;
         li.rootYaw = rootYaw;
-        const prm = this.loco.update(li, def);
-        solvePose(def, prm, this.src, null, this.solveState);
+        this.settle(def, this.loco.update(li, def));
         break;
       }
       case 'clip': {
-        if (this.clip) {
-          const prm = this.clip.evaluate(def);
-          solvePose(def, prm, this.src, null, this.solveState);
-        }
+        if (this.clip) this.settle(def, this.clip.evaluate(def));
         break;
       }
       case 'external':
@@ -301,12 +342,17 @@ export class Animator {
     if (this.pending) {
       const idt = 1 / Math.max(1e-3, this.lastDt);
       for (let i = 0; i < BONE_COUNT; i++) {
+        // measured from what the blend itself put out: the hit springs and fixed turns laid on top
+        // go on again every frame, and left in they'd be applied twice from the switch on (a
+        // broken forearm jumped its whole 50 degrees at every change of move)
+        this.unlayer(this.out.q[i], i, this.springQ, _q3);
+        this.unlayer(this.prev.q[i], i, this.springQPrev, _q4);
         _q.copy(this.src.q[i]).invert();
-        _q2.copy(this.out.q[i]).multiply(_q);
+        _q2.copy(_q3).multiply(_q);
         quatToScaledAxis(_q2, this.offR[i]);
         // output angular velocity
-        _q.copy(this.prev.q[i]).invert();
-        _q2.copy(this.out.q[i]).multiply(_q);
+        _q.copy(_q4).invert();
+        _q2.copy(_q3).multiply(_q);
         quatToScaledAxis(_q2, this.offV[i]).multiplyScalar(idt);
         // clamp crazy velocities
         if (this.offV[i].lengthSq() > 400) this.offV[i].setLength(20);
@@ -317,7 +363,9 @@ export class Animator {
       this.halflife = this.pendingHL;
       this.inertia = true;
       this.pending = false;
+      this.blendAge = 0;
     }
+    this.blendAge += dt;
     this.prev.copy(this.out);
     if (this.inertia) {
       let maxOff = 0;
@@ -359,9 +407,13 @@ export class Animator {
     for (let i = 0; i < SPRING_BONES.length; i++) {
       const b = SPRING_BONES[i];
       const x = this.sx[i];
-      if (x.lengthSq() < 1e-10) continue;
-      scaledAxisToQuat(x, _q);
-      this.out.q[b].premultiply(_q);
+      this.springQPrev[i].copy(this.springQ[i]);
+      if (x.lengthSq() < 1e-10) {
+        this.springQ[i].identity();
+        continue;
+      }
+      scaledAxisToQuat(x, this.springQ[i]);
+      this.out.q[b].premultiply(this.springQ[i]);
     }
     for (let i = 0; i < BONE_COUNT; i++) {
       const pr = this.postRot[i];
@@ -370,7 +422,11 @@ export class Animator {
     // ---- leg lock: while the body blends between poses (or sways on its hip spring), the feet
     // the source pose has on the floor stay exactly where it plants them - no skating
     if ((this.mode === 'loco' || this.mode === 'clip') && (this.inertia || this.sx[0].lengthSq() > 1e-6)) this.lockLegs(def);
-    this.lastDt = dt;
+    // (a zero-time update - a hit-stop frame, a body re-rooted as a ragdoll hands back to a clip -
+    // moves nothing: it mustn't shrink the frame time the next blend measures velocity over, which
+    // turned a re-rooted pose into a 20 rad/s spin and hips sliding off at 5 m/s, nor count as motion)
+    if (dt > 0) this.lastDt = dt;
+    else this.prev.copy(this.out);
     const tmp = this.prevFk;
     this.prevFk = this.fk;
     this.fk = tmp;
@@ -423,8 +479,9 @@ export class Animator {
       const Wsh = L.q2.multiply(ofk.rot[sh]);
       L.inv.copy(Wth).invert();
       this.out.q[sh].copy(L.inv).multiply(Wsh);
-      // foot orientation towards the source's planted foot
-      const Wft = L.q1.copy(ofk.rot[ft]).slerp(sfk.rot[ft], w);
+      // foot orientation towards the source's planted foot (eased in as a blend starts: the new
+      // source's foot can sit at another angle, and snapping to it turned the foot in one frame)
+      const Wft = L.q1.copy(ofk.rot[ft]).slerp(sfk.rot[ft], w * smoothstep(0, 0.12, this.blendAge));
       L.inv.copy(Wsh).invert();
       this.out.q[ft].copy(L.inv).multiply(Wft);
     }

@@ -66,7 +66,7 @@ export class BossManager {
       } else if (e.cfg.key === 'warden') {
         // (the Warden's brain radios his own men in)
       } else if (e.cfg.key === 'subject') {
-        this.minions(next === 2 ? ['agile', 'agile'] : ['bruiser', 'agile']);
+        this.minions(next === 2 ? ['agile'] : ['brawler', 'agile']);
       } else if (e.cfg.key === 'viper') {
         this.minions(['agile', 'knife']);
         // vanish and reappear behind the player

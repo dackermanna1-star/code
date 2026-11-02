@@ -97,7 +97,8 @@ Taking a hit breaks your combo; finishers and perfect counters restore a little 
   that let the skin show where they face you and go dark at the edges.
 
 **Combat** — free-flow targeting with motion warping (strikes close the gap and land on the
-actual head/gut of the target; further than a lunge away, a few running steps come first),
+actual head/gut of the target; further than a lunge away, a few running steps come first — and a
+brute's bulk is struck from where you stand, not run at on the spot),
 14 contextual unarmed strikes (jabs, crosses, hooks,
 uppercuts, elbows, clinch knees, front/side/roundhouse/spinning back kicks, flying knee, back
 elbow/back kick for enemies behind you), combo meter with variety multiplier, counters
@@ -124,12 +125,14 @@ behind. **Kael** guards most strikes and reverses early counters, picks up a swo
 knee from across the floor in phase two, and in phase three unleashes five-strike fury strings
 and a chi shockwave that blasts everyone near him; only then does he run out of breath.
 **The Warden** (the lab's head of security) fights in tight shock-baton strings — a hit jolts
-you, a block costs most of your guard — aims a taser at you with a red laser for a long moment
-before he fires (dodge it), and in phase two calls a lockdown and his men through every door.
-**Subject Zero** bursts out of his containment tank: a giant that shrugs off blows and stun
-strikes; sidestep his unblockable charge with something solid behind you and he ploughs into it
-and stands there stunned — that's your window; from phase two his two-fisted slam throws
-everything near him. A stun strike dazes a boss for under a second, and not again for eight.
+you, a block costs a chunk of your guard — aims a taser at you with a red laser for a long moment
+before he fires (the shot carries the red dodge-only warning like any unblockable; dodge it on
+the beat and he's left open), and in phase two calls a lockdown and radios in a couple of his
+men. **Subject Zero** bursts out of his containment tank: a giant that shrugs off stun strikes
+and soaks up blows (they land dull and do little) unless he's dazed; sidestep his unblockable
+charge with something solid behind you and he ploughs into it and stands there stunned — that's
+your window; his perfect-counter window is a touch wider than the other bosses', and from phase
+two his two-fisted slam throws everything near him. A stun strike dazes a boss for under a second, and not again for eight.
 Each boss walks in on its own camera shot, and every phase change stops the fight for a beat. An AI
 director hands out attack tokens (at most three attackers at once),
 coordinates pincer attacks, punishes openings, and adapts: counter-heavy players see more
@@ -194,8 +197,16 @@ early re-stepping when a foot is left behind, turn-on-the-spot stepping and a li
 (weight shifts, light bounce). Each swing runs on its own clock, so speeding up, slowing down or
 snapping round to a new target never throws a planted foot into mid-air;
 **inertialized transitions** (velocity-matched offset decay) on every clip/locomotion/ragdoll
-switch, with a **leg lock** that keeps planted feet exactly where the new pose puts them while
-the body blends (no skating between moves); strike timing curves that explode out of a settled
+switch — the new pose is solved until the IK's continuity limits have settled on it before the
+blend measures the difference (so a strike handing back to the guard doesn't roll an arm round
+at the limit's speed a frame later), and the difference is taken from the blend's own output,
+without the hit springs and a broken arm's set that go on top every frame (so neither is applied
+twice at the switch) — with a **leg lock** that keeps planted feet exactly where
+the new pose puts them while the body blends (no skating between moves; the foot's turn onto
+the new pose eases in rather than snapping); a body coming out of a move (moves keep a slimmer
+collision) fills back in over a quarter second instead of being snapped out of a wall or a
+crate, and two fighters just released from a counter drift apart rather than jumping a hand's
+width; strike timing curves that explode out of a settled
 wind-up and stay fast into contact instead of jumping in a single frame; an IK solver with memory
 (bend planes, hand roll and wrist twist stay continuous through singular poses, limb roll comes
 from the hinge axis so a fist pulled to the chin or a knee driven to the chest never flips);

@@ -11,6 +11,7 @@ import type { Enemy } from '../ai/enemy';
 import { Weapon } from './weapons';
 import { B } from '../anim/skeleton';
 import { DIFFICULTY } from '../core/settings';
+import { PERFECT_WINDOW } from '../ai/archetypes';
 
 export type PlayerAction = 'free' | 'dash' | 'attack' | 'counter' | 'finisher' | 'special' | 'dodge' | 'vault' | 'hit' | 'down' | 'grab' | 'takedown' | 'stun' | 'throwing' | 'dead';
 
@@ -417,7 +418,8 @@ export class Player extends Fighter {
     const clipName = (getClip(move.clip + side) ? move.clip + side : move.clip);
     // a strike closes a step's worth of distance by itself; further than that, a few running steps
     // come first (a punch warped across metres slid the feet over the floor at 20 m/s)
-    const lunge = move.reach + this.lungeReach(clipName, move);
+    // (and nobody stands closer to a giant than his bulk allows: from there, the strike just goes)
+    const lunge = Math.max(move.reach + this.lungeReach(clipName, move), this.radius + target.radius + 0.08);
     // (a captured strike lunges no further than its steps carry it: a little slack only)
     if (!back && this.distTo(target) > lunge + (getClip(clipName).footFromStart ? 0.06 : 0.25)) {
       this.startDash(target, lunge, () => this.launchStrike(target, move, clipName, false));
@@ -427,10 +429,10 @@ export class Player extends Fighter {
   }
 
   /** Closing in on a target before a move: `stop` is the distance it can start from. */
-  private dash: { stop: number; t: number; go: () => void } | null = null;
+  private dash: { stop: number; t: number; go: () => void; ax: number; az: number; at: number } | null = null;
   private startDash(target: Enemy, stop: number, go: () => void) {
     this.target = target;
-    this.dash = { stop, t: 0, go };
+    this.dash = { stop, t: 0, go, ax: this.x, az: this.z, at: 0 };
     this.action = 'dash';
     this.stateTime = 0;
     this.curMove = null;
@@ -472,7 +474,14 @@ export class Player extends Fighter {
     }
     const dx = tg.x - this.x, dz = tg.z - this.z;
     const dist = Math.hypot(dx, dz) || 1e-3;
-    if (dist <= d.stop || d.t > 0.6) {
+    // (held where it is - a body in the way, a wall - then no running on the spot: strike now; a
+    // target backing off is still chased)
+    if (Math.hypot(this.x - d.ax, this.z - d.az) > 0.04) {
+      d.ax = this.x;
+      d.az = this.z;
+      d.at = d.t;
+    }
+    if (dist <= d.stop || d.t > 0.6 || d.t - d.at > 0.16) {
       this.dash = null;
       d.go();
       return;
@@ -492,9 +501,11 @@ export class Player extends Fighter {
     const g = this.game;
     this.vx = this.vz = 0;
     // agile/elite may evade (decided now so the whiff reads naturally)
-    const evaded = target.stun <= 0 && target.state !== 'stunned' && target.tryEvade(this);
+    if (target.stun <= 0 && target.state !== 'stunned') target.tryEvade(this);
     const speed = this.strikeSpeed(target);
-    this.play(clipName, { target, reach: move.reach * (evaded ? 1.0 : 1), maxWarp: move.range === 'far' ? 7.5 : 4.2, back, halflife: 0.07, speed, entryHalflife: 0.06 });
+    // (contact at the body's surface: a big one is met further out)
+    const reach = Math.max(move.reach, this.radius + target.radius - 0.02);
+    this.play(clipName, { target, reach, maxWarp: move.range === 'far' ? 7.5 : 4.2, back, halflife: 0.07, speed, entryHalflife: 0.06 });
     this.curMove = move;
     this.hitLanded = false;
     this.action = 'attack';
@@ -806,6 +817,23 @@ export class Player extends Fighter {
     }
   }
 
+  /** A boss's blow met by a counter that came too early: the forearms take it, nothing lands. */
+  guardCatch(e: Enemy) {
+    const g = this.game;
+    if (this.isLocked() || this.action === 'down' || this.action === 'dead') return;
+    this.bodyPoint('chest', _v);
+    _v.lerp(_v2.set(e.x, _v.y, e.z), 0.25);
+    g.audio.play('block', { pos: _v, vol: 0.85, pitch: 0.85 });
+    g.fx.impactFlash(_v, 0.45, [1, 0.95, 0.85]);
+    g.cam.addTrauma(0.14);
+    g.hitStop(0.03);
+    if (this.action === 'free' || this.action === 'hit') {
+      this.play('p_block_hit', { halflife: 0.05, originYaw: yawFromDir(e.x - this.x, e.z - this.z) });
+      this.action = 'hit';
+      this.stateTime = 0;
+    }
+  }
+
   // ------------------------------------------------------------------ counters
   tryCounter(): boolean {
     const g = this.game;
@@ -827,7 +855,7 @@ export class Player extends Fighter {
     }
     const e = inc.enemy;
     const remain = inc.hitTime - g.time;
-    this.counterPerfect = remain < 0.17;
+    this.counterPerfect = remain < (e.cfg.perfectWindow ?? PERFECT_WINDOW);
     if (e.brain && !this.counterPerfect) {
       // a boss reads an early counter: the hands meet, nothing lands, and it comes straight back
       g.director.cancel(e);
@@ -838,6 +866,8 @@ export class Player extends Fighter {
       g.audio.play('block', { pos: _v.set((e.x + this.x) / 2, 1.4, (e.z + this.z) / 2), vol: 0.9 });
       g.fx.impactFlash(_v, 0.5, [1, 0.9, 0.7]);
       g.hitStop(0.04);
+      // (the strike in flight is spent on the guard: the punishment is what comes next)
+      e.deflected = true;
       e.brain.onBadCounter();
       return true;
     }
@@ -921,6 +951,7 @@ export class Player extends Fighter {
     const e = this.partner;
     this.partner = null;
     this.paired = null;
+    this.sepSoft = 0.4;
     if (e) e.exitPaired('circle');
     this.counterPerfect = false;
   }
