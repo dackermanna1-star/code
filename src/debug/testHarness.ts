@@ -412,6 +412,16 @@ export async function runTest(game: Game, params: URLSearchParams) {
       for (let i = 0; i < 120; i++) game.step(dt);
       game.closeReplay();
       console.log(`closed active=${r.active} models=${vis()} fighters=${game.fighters.length}`);
+      if (params.get('look') === 'body') {
+        // frame the player's body where it lies (a corpse now)
+        const rec = game.corpses.records[game.corpses.records.length - 1];
+        const at = new THREE.Vector3(rec ? rec.x : p.x, 0.15, rec ? rec.z : p.z);
+        const from = at.clone().add(new THREE.Vector3(1.1, 1.0, 1.1));
+        const m = new THREE.Matrix4().lookAt(from, at, new THREE.Vector3(0, 1, 0));
+        game.cam.setPose(from, new THREE.Quaternion().setFromRotationMatrix(m), 45);
+        game.cam.camera.updateMatrixWorld(true);
+        game.preStep = () => game.cam.setPose(from, new THREE.Quaternion().setFromRotationMatrix(m), 45);
+      }
     }
     game.renderFrame();
   }

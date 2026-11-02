@@ -40,9 +40,15 @@ export interface BodySpec {
   fem: number;
   /** Heel height (m, unscaled; 0 = flat): the foot pitches onto its ball and the ankle rises. */
   heel: number;
+  /** Length of the spine (hips to neck) and the collarbones' height on it. */
+  torso: number;
+  /** The neck and the shoulder joints set back from the spine's line (unscaled m per unit height). */
+  neckBack: number;
+  shoulderBack: number;
 }
 export const DEFAULT_BODY: BodySpec = {
   height: 1, shoulders: 1, hipsW: 1, arms: 1, legs: 1, neckLen: 1, headSize: 1, bulk: 1, gut: 0, chestDepth: 1, armsDownDeg: 48, fem: 0, heel: 0,
+  torso: 1, neckBack: 0, shoulderBack: 0,
 };
 
 export interface SkeletonDef {
@@ -94,10 +100,11 @@ export function buildSkeletonDef(specIn: Partial<BodySpec> = {}): SkeletonDef {
   const hipJointY = ankleH + thighLen + shinLen; // ~0.925
   const hipsY = hipJointY + 0.06 * s;
 
+  const t = spec.torso;
   off[B.hips].set(0, hipsY, 0);
-  off[B.spine].set(0, 0.11 * s, -0.005 * s);
-  off[B.chest].set(0, 0.2 * s, 0.0);
-  off[B.neck].set(0, 0.245 * s, -0.012 * s);
+  off[B.spine].set(0, 0.11 * s * t, -0.005 * s);
+  off[B.chest].set(0, 0.2 * s * t, 0.0);
+  off[B.neck].set(0, 0.245 * s * t, (-0.012 - spec.neckBack) * s);
   off[B.head].set(0, 0.09 * s * spec.neckLen, 0.012 * s);
 
   const shoulderX = 0.152 * s * spec.shoulders;
@@ -110,8 +117,8 @@ export function buildSkeletonDef(specIn: Partial<BodySpec> = {}): SkeletonDef {
     const ua = side > 0 ? B.uarmL : B.uarmR;
     const fa = side > 0 ? B.farmL : B.farmR;
     const ha = side > 0 ? B.handL : B.handR;
-    off[cl].set(0.03 * side * s, 0.16 * s, 0.012 * s);
-    off[ua].set(shoulderX * side, 0.012 * s, -0.025 * s);
+    off[cl].set(0.03 * side * s, 0.16 * s * t, 0.012 * s);
+    off[ua].set(shoulderX * side, 0.012 * s, (-0.025 - spec.shoulderBack) * s);
     off[fa].set(ux * upperArm * side, uy * upperArm, 0);
     off[ha].set(ux * foreArm * side, uy * foreArm, 0);
 

@@ -16,9 +16,12 @@ export interface BodyMeshOptions {
   hiFace?: boolean;
 }
 
-/** A woman's arm: slimmer, with less deltoid and biceps. [t, radius, front/back ratio] */
+/**
+ * A woman's arm: slimmer, with less deltoid and biceps. [t, radius, front/back ratio] (the top
+ * tapers into a round shoulder cap - at full width it stood up over the shoulder like a pad)
+ */
 const FEM_ARM: [number, number, number][] = [
-  [-0.12, 0.044, 1.0], [-0.05, 0.052, 1.0], [0.02, 0.054, 1.0], [0.1, 0.052, 1.0], [0.22, 0.049, 1.03], [0.36, 0.045, 1.04],
+  [-0.12, 0.026, 1.0], [-0.08, 0.04, 1.0], [-0.03, 0.05, 1.0], [0.03, 0.053, 1.0], [0.1, 0.051, 1.0], [0.22, 0.048, 1.03], [0.36, 0.044, 1.04],
   [0.47, 0.04, 1.0], [0.53, 0.037, 1.0], [0.6, 0.04, 1.0], [0.68, 0.04, 1.0], [0.8, 0.033, 1.0], [0.92, 0.027, 1.0], [1.0, 0.025, 1.0],
 ];
 
@@ -155,8 +158,12 @@ export function buildBodyGeometry(opts: BodyMeshOptions): THREE.BufferGeometry {
       }
       const fr = frameFor(dir, new THREE.Vector3(0, 0, 1));
       let w: W;
-      if (t < 0.02) w = [[cl, 0.25 + (0.02 - t) * 1.5], [ua, 0.75]];
-      else if (t < elbowT - 0.07) w = [[ua, 1]];
+      // the part of the arm tucked inside the shoulder stays with the collarbone: on the upper arm
+      // it swung up out of the shoulder as the arm came down (a pad standing over each shoulder)
+      if (t < 0.05) {
+        const a = clamp01((0.05 - t) / 0.17);
+        w = [[cl, 0.12 + 0.8 * a], [ua, 0.88 - 0.8 * a]];
+      } else if (t < elbowT - 0.07) w = [[ua, 1]];
       else if (t < elbowT + 0.07) w = boneW(ua, fa, (t - (elbowT - 0.07)) / 0.14);
       else if (t < 0.93) w = [[fa, 1]];
       else w = boneW(fa, ha, (t - 0.93) / 0.07 * 0.5);

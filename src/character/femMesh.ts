@@ -62,30 +62,32 @@ function lin(rows: number[][], x: number) {
 /** Hourglass torso: [rx, rzF, rzB, zOff] at height y (unscaled). */
 export function femProfile(spec: BodySpec) {
   const hw = spec.hipsW, sh = spec.shoulders, cd = spec.chestDepth;
+  // (an athletic hourglass: full hips and a round seat under a narrow waist, the small of the
+  // back curving in above it, the ribcage tapering up into sloped - not squared - shoulders)
   const rows = [
-    [-0.13, 0.088 * hw, 0.064, 0.076, -0.004],
-    [-0.085, 0.138 * hw, 0.082, 0.11, -0.012],
-    [-0.04, 0.158 * hw, 0.089, 0.117, -0.01],
-    [0.01, 0.157 * hw, 0.089, 0.104, -0.004],
-    [0.06, 0.143 * hw, 0.087, 0.09, 0.0],
-    [0.11, 0.134, 0.084, 0.083, 0.004],
-    [0.16, 0.128, 0.082, 0.08, 0.006],
-    [0.21, 0.13, 0.084 * cd, 0.082, 0.006],
-    [0.26, 0.132, 0.087 * cd, 0.085, 0.005],
-    [0.31, 0.141, 0.09 * cd, 0.089, 0.004],
-    [0.36, 0.149, 0.091 * cd, 0.093, 0.002],
-    [0.41, 0.163 * sh, 0.087 * cd, 0.095, -0.003],
-    [0.45, 0.165 * sh, 0.077, 0.091, -0.008],
-    [0.485, 0.146 * sh, 0.067, 0.081, -0.012],
-    [0.515, 0.11 * sh, 0.057, 0.069, -0.015],
-    [0.545, 0.064, 0.049, 0.055, -0.016],
+    [-0.13, 0.09 * hw, 0.064, 0.078, -0.004],
+    [-0.085, 0.147 * hw, 0.082, 0.122, -0.013],
+    [-0.04, 0.168 * hw, 0.088, 0.131, -0.011],
+    [0.01, 0.163 * hw, 0.086, 0.112, -0.005],
+    [0.06, 0.141 * hw, 0.082, 0.089, 0.0],
+    [0.11, 0.124, 0.079, 0.075, 0.004],
+    [0.16, 0.117, 0.077, 0.072, 0.006],
+    [0.21, 0.123, 0.081 * cd, 0.077, 0.006],
+    [0.26, 0.13, 0.086 * cd, 0.083, 0.005],
+    [0.31, 0.14, 0.09 * cd, 0.089, 0.004],
+    [0.36, 0.147, 0.091 * cd, 0.092, 0.002],
+    [0.41, 0.16 * sh, 0.087 * cd, 0.093, -0.003],
+    [0.45, 0.158 * sh, 0.076, 0.088, -0.008],
+    [0.485, 0.13 * sh, 0.064, 0.077, -0.012],
+    [0.515, 0.095 * sh, 0.055, 0.066, -0.015],
+    [0.545, 0.062, 0.048, 0.054, -0.016],
   ];
   return (y: number) => interpRows(rows, y) as [number, number, number, number];
 }
 
 /** Forward offset of the bust (unscaled) at height y, lateral offset xu, front-ness cz. */
 export function bustFn(fem: number) {
-  const amp = 0.04 * fem, by = 0.312, bx = 0.064;
+  const amp = 0.047 * fem, by = 0.317, bx = 0.064;
   return (y: number, xu: number, cz: number) => {
     if (cz <= 0 || amp <= 0) return 0;
     const dy = y - by;
@@ -299,8 +301,11 @@ export function buildSkirt(m: MeshAccum, def: SkeletonDef) {
       const zo = torso ? torso[3] : c.P(-0.13)[3];
       const ease = (0.0055 + 0.006 * d) * s - inset;
       const below = smoothstep(yJ + 0.02, yJ - 0.1, y);
-      const pw = lerp(2.3, 2.9, below);
-      const rx = Math.max(torso ? torso[0] * k * s : 0, env) + ease;
+      const pw = lerp(2.3, 2.55, below);
+      // a pencil skirt: it falls from the widest of the hips and narrows a little to the hem
+      // (rather than wrapping the thighs and flaring)
+      const hipLine = c.P(-0.04)[0] * k * s * lerp(1, 0.93, smoothstep(-0.04, SKIRT_HEM, y));
+      const rx = Math.max(torso ? torso[0] * k * s : 0, y < -0.04 ? hipLine : 0, env) + ease;
       let rzF = torso ? torso[1] * k * s + ease : 0;
       let rzB = torso ? torso[2] * k * s * (y < -0.085 ? 1 - (-0.085 - y) * 2.5 : 1) + ease : 0;
       if (thick) {
@@ -357,14 +362,15 @@ export function buildSkirt(m: MeshAccum, def: SkeletonDef) {
 
 // ------------------------------------------------------------------ legs
 /** A woman's leg: [t, radius, front scale, x offset] (t 0 = hip joint .. 1 = ankle). */
+// (shapely thighs that taper in towards the knees, as a woman's do)
 export const FEM_LEG: [number, number, number, number][] = [
-  [-0.1, 0.07, 1.0, -0.03],
-  [0.0, 0.08, 1.0, -0.012],
-  [0.08, 0.084, 1.0, 0.002],
-  [0.18, 0.081, 1.0, 0.004],
-  [0.29, 0.073, 1.0, 0.004],
-  [0.39, 0.065, 1.0, 0.002],
-  [0.46, 0.058, 1.04, 0.0],
+  [-0.1, 0.074, 1.0, -0.032],
+  [0.0, 0.087, 1.0, -0.015],
+  [0.08, 0.092, 1.0, -0.004],
+  [0.18, 0.087, 1.0, -0.006],
+  [0.29, 0.077, 1.0, -0.008],
+  [0.39, 0.066, 1.0, -0.007],
+  [0.46, 0.058, 1.04, -0.003],
   [0.51, 0.056, 1.06, 0.0],
   [0.55, 0.057, 1.0, 0.0],
   [0.6, 0.061, 0.9, 0.0],

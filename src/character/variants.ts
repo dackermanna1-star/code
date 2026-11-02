@@ -21,13 +21,16 @@ export function registerVariants(lib: CharacterLibrary): Record<Archetype, strin
     o({ skin: '#c99272', hair: '#121010', hairStyle: 'topknot', facial: 'stubble', top: 'tank', topColor: '#1b1b1f', topColor2: '#7a1515',
       bottom: 'gi', bottomColor: '#1c1c22', shoes: 'wraps', hands: 'wraps', head: 'headband', headColor: '#8a1414', extras: ['sash'], extraColor: '#8a1414', scar: true, brow: 0.8, seed: 7 }),
     { hiFace: true });
-  // ---------------- player two: Scarlet, a redheaded kickboxer in a biker jacket and heeled knee boots
-  add('player', 'scarlet', { height: 0.95, fem: 1, heel: 0.085, bulk: 0.9, shoulders: 0.9, hipsW: 1.1, arms: 0.97, legs: 1.05, neckLen: 0.94, headSize: 0.99, chestDepth: 1.0 },
+  // ---------------- player two: Scarlet, a redheaded kickboxer in a leather jacket, mini skirt and knee boots
+  // (a realistic model - realBody.ts; her skeleton is fitted to its proportions. The procedural body
+  // below stands in if its textures fail to load.)
+  add('player', 'scarlet', { height: 0.94, fem: 1, heel: 0.035, bulk: 0.9, shoulders: 1.03, hipsW: 1.04, arms: 0.97, legs: 1.055, neckLen: 0.87, headSize: 1.05, chestDepth: 1.0,
+    torso: 0.922, neckBack: 0.059, shoulderBack: 0.048 },
     o({ skin: '#e2ae8f', hair: '#9a3216', hairStyle: 'longwave', facial: 'none', top: 'leather', topColor: '#141215', topColor2: '#5e1020',
       bottom: 'skirt', bottomColor: '#0c0b0d', legwear: '#0c0a0c', shoes: 'kneeboots', shoeColor: '#0d0c0e', hands: 'fingerless', handColor: '#121113',
       head: 'none', extras: ['earrings'], extraColor: '#caa45a', eyes: '#3d8a4a', brow: 0.3, seed: 8,
       makeup: { lips: '#c41e30', liner: 1, blush: 0.4, freckles: 0.7, shadow: '#5e3c44' } }),
-    { hiFace: true });
+    { hiFace: true, real: 'scarlet' });
 
   // ---------------- brawlers: street thugs
   const thugTops: Outfit['top'][] = ['tshirt', 'hoodie', 'tank', 'jacket', 'longsleeve'];

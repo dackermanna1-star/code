@@ -1,6 +1,13 @@
 const params = new URLSearchParams(location.search);
 
 async function boot() {
+  // the realistic models' textures (Scarlet's) before any character library is built
+  try {
+    const m = await import('./character/realBody');
+    await m.preloadRealModels();
+  } catch (e) {
+    console.warn('realistic models unavailable', e);
+  }
   const viewer = params.get('viewer');
   if (viewer === 'pose') {
     const m = await import('./debug/poseViewer');

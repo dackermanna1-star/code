@@ -95,7 +95,7 @@ export function runPoseViewer(params: URLSearchParams) {
   const camera = new THREE.PerspectiveCamera(Number(params.get('fov') ?? 35), window.innerWidth / window.innerHeight, 0.05, 100);
   const width = Math.max(2.2, insts.length * spacing);
   const dist = Number(params.get('dist') ?? Math.max(4.2, width * 1.35));
-  const target = new THREE.Vector3(0, Number(params.get('ty') ?? 0.95), 0);
+  const target = new THREE.Vector3(Number(params.get('tx') ?? 0), Number(params.get('ty') ?? 0.95), Number(params.get('tz') ?? 0));
   const camDirs: Record<string, [number, number, number]> = {
     front: [0, 0.15, 1], back: [0, 0.15, -1], side: [1, 0.12, 0], rside: [-1, 0.12, 0], '3q': [0.7, 0.25, 0.75], top: [0.01, 1, 0.01], low: [0.6, -0.05, 0.8], face: [0, 0.05, 1],
   };

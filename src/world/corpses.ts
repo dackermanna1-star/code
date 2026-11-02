@@ -307,11 +307,12 @@ export class CorpseSystem {
   private emitGeometry(rec: CorpseRecord, model: CharacterModel, geo: THREE.BufferGeometry) {
     const posA = geo.attributes.position as THREE.BufferAttribute;
     const norA = geo.attributes.normal as THREE.BufferAttribute;
-    const uvA = geo.attributes.uv as THREE.BufferAttribute;
+    // (a realistic model: its uvs on the atlas, and no hair cards - see realBody.ts)
+    const uvA = (geo.attributes.uvAtlas ?? geo.attributes.uv) as THREE.BufferAttribute;
     const skA = geo.attributes.aSkin as THREE.BufferAttribute;
     const siA = geo.attributes.skinIndex as THREE.BufferAttribute;
     const swA = geo.attributes.skinWeight as THREE.BufferAttribute;
-    const index = geo.index!;
+    const index = (geo.userData.corpseIndex as THREE.BufferAttribute | undefined) ?? geo.index!;
     const nv = posA.count;
     const cell = this.cellOf(rec.x, rec.z);
     let chunk = this.chunks.find((c) => c.cell === cell && c.verts + nv <= CHUNK_VERTS && c.indices + index.count <= CHUNK_VERTS * 2);

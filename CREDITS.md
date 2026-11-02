@@ -101,10 +101,45 @@ motion was cut, retimed, retargeted to the game's skeleton and cleaned up (conta
 foot rotations) by `tools/mocap/strikes.py` into `src/anim/mocap/strikes.json`; the elbow strike
 folds the arm of the rear-hook take, and the side-step's arms are blended towards a guard.
 
+## Scarlet's model
+
+Scarlet is **Female_Adult_07** from the **Microsoft Rocketbox Avatar Library**
+([github.com/microsoft/Microsoft-Rocketbox](https://github.com/microsoft/Microsoft-Rocketbox)),
+released under the MIT license (notice below). `tools/models/rocketbox.mjs` converted the avatar's
+FBX (its fingers curled into fists, its 81 bones mapped onto the game's 22) into
+`src/character/models/scarlet/mesh.json`; `tools/models/scarlet_textures.py` re-dressed its
+textures as Scarlet's (a black leather jacket over a red top, sheer black tights, black boots,
+fingerless gloves, red hair and lips) into the images beside it. The leather mini skirt is built by
+the game over the fitted body (`src/character/realBody.ts`).
+
+```
+MIT License
+
+Copyright (c) 2020 Microsoft
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
 ## Art and animation
 
-All character meshes, textures, environment art and music are generated procedurally by the
-game's own code — no third-party models are used. The punches, kicks, knee, evasions and get-ups
+All other character meshes and textures, the environment art and the music are generated
+procedurally by the game's own code. The punches, kicks, knee, evasions and get-ups
 are the motion capture above; hit reactions, paired counters, finishers and takedowns, the flying
 knee, the moves against someone behind and weapon attacks are authored in code (no free capture
 of them was found: the open databases have no hit reactions or two-person fights, and their

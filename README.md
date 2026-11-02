@@ -9,7 +9,8 @@ with **bodies and blood that never disappear**.
 
 Built with **three.js** (rendering) + **Rapier** (props, debris, weapons) and the **Ragdoll Lab
 "euphoria" active-ragdoll engine** (bodies), TypeScript and Vite.
-Everything visual is procedural (characters, textures, animation); audio is CC0.
+Everything visual is procedural (characters, textures, animation) except Scarlet, a realistic
+model from Microsoft's Rocketbox library (MIT); audio is CC0.
 
 ## Run it
 
@@ -93,13 +94,21 @@ Taking a hit breaks your combo; finishers and perfect counters restore a little 
   faster, her strikes come out quicker, her punches hit lighter and her kicks harder; she has
   her own voice (CC0 recordings) and her own walk (narrower steps and a hip sway, shorter
   strides in heels).
-* **How she's built.** The same procedural pipeline as everyone else, extended: an hourglass
-  torso with a bust and real hips, a separate open jacket shell with lapels, a rolled collar
-  and edges that have thickness, a skirt skinned to the thighs so it rides with each kick,
-  long wavy hair (a cap with a side part, a clumped curtain with V-cut tips, side-swept bangs, a
-  lock over one shoulder) that trails her movement in the vertex shader, heeled boots on a
-  skeleton whose foot is pitched onto the ball (the IK, the gait and the clips all keep working
-  in heels), and a face painted at twice the detail of the body (both fighters get one).
+* **How she's built.** Scarlet is a realistic model: Microsoft Rocketbox's *Female_Adult_07*
+  (MIT), re-dressed as Scarlet — a black leather jacket (cut off at the high hip) over a deep red
+  top, a leather mini skirt, sheer black tights, black heeled knee boots, fingerless gloves, red
+  hair tied back and red lips — with a photographic face, real eyes, lashes and hair cards. The
+  avatar is converted offline (`tools/models/rocketbox.mjs`: fingers curled into fists, its 81
+  bones mapped onto the game's 22) and fitted onto her skeleton when the game loads
+  (`src/character/realBody.ts`): her skeleton's proportions are fitted to the model's joints (a
+  shorter torso, the neck and shoulders set back where the model has them), each limb segment of
+  the mesh is turned and stretched onto the skeleton's, the torso is re-weighted by height between
+  hips, spine and chest like the procedural bodies, and the skirt is built over the fitted
+  tights, weighted onto each thigh below the hips so it rides up with every kick. Her body keeps
+  everything the procedural ones have: wounds, bruises (on the skin only), blood, the camera's
+  see-through fade, the hair's sway, and a corpse that stays on the floor. The procedural
+  Scarlet (an hourglass torso, an open jacket shell, long wavy hair) stands in if the model's
+  textures fail to load.
 * **Finish, not just colour.** The character atlas's alpha now says what a surface is made of:
   glossy leather and patent heels, wet eyes and lips, metal zips and earrings, and sheer tights
   that let the skin show where they face you and go dark at the edges.
@@ -429,7 +438,8 @@ pistol, `close=1` to check the room comes back as it was).
 
 ```
 src/anim/        skeleton, IK solver, clip system, locomotion, animator, clip library
-src/character/   procedural mesh (meshKit, body, femMesh), outfits, canvas textures, wound-aware material
+src/character/   procedural mesh (meshKit, body, femMesh), outfits, canvas textures, wound-aware material,
+                 realistic models (realBody; Scarlet's converted mesh and textures in models/)
 src/combat/      fighter base, player controller, fighter styles, combat resolver, moves, weapons, deaths
 src/ai/          enemy brain, archetypes, director, waves, bosses
 src/world/       arenas (warehouse + dressing, rooftop, alley, apartment, lab), mapKit, city, graffiti,
@@ -440,11 +450,13 @@ src/audio/       sample engine with synth layers, procedural adaptive music
 src/ui/          HUD, menus, settings
 src/replay/      the last minute recorded (poses, props, weapons, camera, sounds, effects) and played back
 tools/audio/     reproducible CC0 sound library build
+tools/models/    realistic model conversion (Rocketbox FBX -> mesh asset) and Scarlet's re-dressed textures
 tests/           headless runners (results, screenshots, film strips)
 ```
 
 ## Credits
 
 See [CREDITS.md](CREDITS.md). All sound effects are CC0 (OpenGameArt); three.js (MIT) and
-Rapier (Apache-2.0) are used as libraries; the active-ragdoll engine comes from the Ragdoll Lab.
-Everything else was made for this project.
+Rapier (Apache-2.0) are used as libraries; the active-ragdoll engine comes from the Ragdoll Lab;
+Scarlet's model is Microsoft Rocketbox's Female_Adult_07 (MIT). Everything else was made for this
+project.

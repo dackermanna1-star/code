@@ -98,7 +98,7 @@ void lsWound(vec4 w, vec4 info, vec3 bp, inout float blood, inout float bruise, 
 `;
 
 const APPLY_GLSL = /* glsl */ `
-  bruise *= vSkin;
+  bruise *= lsSkinK;
   float br = clamp(bruise, 0.0, 1.0);
   // fresh: hot red swelling; maturing: a deep purple-blue core inside a red-brown rim
   vec3 inflamed = vec3(0.95, 0.5, 0.47);
@@ -111,7 +111,7 @@ const APPLY_GLSL = /* glsl */ `
   vec3 dried = mix(vec3(0.2, 0.025, 0.015), vec3(0.08, 0.008, 0.004), bl * bl);
   diffuseColor.rgb = mix(diffuseColor.rgb, mix(dried, wet, smoothstep(0.0, 0.6, fr)), bl * 0.95);
   // the open cut: a dark, wet slit
-  float ct = clamp(cut, 0.0, 1.0) * mix(0.6, 1.0, vSkin);
+  float ct = clamp(cut, 0.0, 1.0) * mix(0.6, 1.0, lsSkinK);
   diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.045, 0.0, 0.0), ct);
   lsBloodAmt = max(bl, ct);
   lsWet = max(fr, ct);
@@ -134,13 +134,35 @@ export interface CharacterMaterialUniforms {
 }
 
 /**
+ * A realistic model's surface (realBody.ts): its own colour and normal maps instead of the atlas, and
+ * a finish map (R: the atlas alpha's finish code, G: bare skin). `cards`: alpha-tested hair cards.
+ */
+export interface RealSurface {
+  map: THREE.Texture;
+  normalMap?: THREE.Texture;
+  finish?: THREE.Texture;
+  /** Finish when there is no map (code, skin). */
+  finishConst?: [number, number];
+  cards?: boolean;
+}
+
+/**
  * MeshStandardMaterial patched with: diffuse from a shared texture array (one layer per outfit variant),
  * wound/bruise evaluation in bind-pose space, wet blood roughness and a rim light.
  * `corpse` variant reads layer/wounds per-vertex/per-corpse (static baked batches).
+ * `real`: a realistic model's own maps (several materials of one model share `shared` uniforms).
  */
-export function createCharacterMaterial(atlas: THREE.DataArrayTexture, corpse = false) {
+export function createCharacterMaterial(atlas: THREE.DataArrayTexture, corpse = false, real?: RealSurface, shared?: CharacterMaterialUniforms) {
   const mat = new THREE.MeshStandardMaterial({ roughness: 0.82, metalness: 0.0 });
-  const uniforms: CharacterMaterialUniforms = {
+  if (real) {
+    mat.map = real.map;
+    if (real.normalMap) mat.normalMap = real.normalMap;
+    if (real.cards) {
+      mat.alphaTest = 0.42;
+      mat.side = THREE.DoubleSide;
+    }
+  }
+  const uniforms: CharacterMaterialUniforms = shared ?? {
     uWounds: { value: Array.from({ length: MAX_WOUNDS }, () => new THREE.Vector4(0, -10, 0, 0)) },
     uWoundInfo: { value: Array.from({ length: MAX_WOUNDS }, () => new THREE.Vector4()) },
     uWoundCount: { value: 0 },
@@ -159,9 +181,14 @@ export function createCharacterMaterial(atlas: THREE.DataArrayTexture, corpse = 
     uCorpseBorn: { value: null as THREE.DataTexture | null },
     uReplayT: { value: 1e9 },
   };
+  const realUniforms = {
+    uFinish: { value: real?.finish ?? null },
+    uFinishC: { value: new THREE.Vector2(...(real?.finishConst ?? [1, 0])) },
+  };
   mat.onBeforeCompile = (shader) => {
     Object.assign(shader.uniforms, uniforms);
     if (corpse) Object.assign(shader.uniforms, corpseUniforms);
+    if (real) Object.assign(shader.uniforms, realUniforms);
     shader.vertexShader = shader.vertexShader
       .replace(
         '#include <common>',
@@ -216,9 +243,12 @@ uniform vec4 uRim;
 uniform float uFlash;
 uniform float uFade;
 uniform sampler2DArray uAtlas;
+${real ? 'uniform sampler2D uFinish;\nuniform vec2 uFinishC;' : ''}
 ${corpse ? 'flat varying int vCorpseId;\nflat varying float vLayer;\nuniform highp sampler2D uCorpseWounds;' : `uniform float uLayer;\nuniform vec4 uWounds[${MAX_WOUNDS}];\nuniform vec4 uWoundInfo[${MAX_WOUNDS}];\nuniform int uWoundCount;`}
 float lsBloodAmt = 0.0;
 float lsWet = 0.0;
+// bare skin (bruises show on it)
+float lsSkinK = 1.0;
 // surface finish from the atlas alpha: 1 matte .. 0.5 glossy (leather, lips, eyes), 0.5..0.25 sheer
 // tights, below 0.25 metal (zips, buckles, earrings)
 float lsGloss = 0.0;
@@ -248,7 +278,18 @@ ${WOUND_EVAL_GLSL}
       )
       .replace(
         '#include <map_fragment>',
-        `{
+        `${
+          real
+            ? `#include <map_fragment>
+{
+  vec2 fin = ${real.finish ? 'texture2D(uFinish, vCharUv).rg' : 'uFinishC'};
+  float ma = fin.r;
+  if (ma >= 0.5) lsGloss = (1.0 - ma) * 2.0;
+  else if (ma >= 0.25) lsSheer = (0.5 - ma) * 4.0;
+  else lsMetal = 1.0 - ma * 4.0;
+  lsSkinK = fin.g;
+}`
+            : `{
   // uv.x past 1 = the next layer (a face painted at twice the detail)
   vec2 cuv = vCharUv;
   float lo = cuv.x >= 1.0 ? 1.0 : 0.0;
@@ -259,7 +300,9 @@ ${WOUND_EVAL_GLSL}
   if (ma >= 0.5) lsGloss = (1.0 - ma) * 2.0;
   else if (ma >= 0.25) lsSheer = (0.5 - ma) * 4.0;
   else lsMetal = 1.0 - ma * 4.0;
-}
+  lsSkinK = vSkin;
+}`
+        }
 {
   float blood = 0.0;
   float bruise = 0.0;
@@ -319,7 +362,7 @@ if (lsSheer > 0.0) {
 #include <opaque_fragment>`,
       );
   };
-  mat.customProgramCacheKey = () => (corpse ? 'ls-corpse' : 'ls-char');
+  mat.customProgramCacheKey = () => (corpse ? 'ls-corpse' : real ? (real.cards ? 'ls-real-cards' : real.finish ? 'ls-real' : 'ls-real-c') : 'ls-char');
   return { material: mat, uniforms, corpseUniforms };
 }
 
