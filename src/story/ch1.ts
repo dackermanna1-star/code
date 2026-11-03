@@ -125,7 +125,10 @@ export const CH1: Chapter = {
         });
         s.objective('DOCK 4', 'Inside the fence, unseen — the hall at the far end of the yard');
         // the way in: the dumpster by the crushed bit of fence
-        await s.tutor(['SPACE'], 'OVER THE FENCE', 'The wire\'s down where the container hit it: up the dumpster, over', () => (p.x > -59.6 ? 1 : 0), 1, undefined, [HARBOR.dumpster.x - 0.8, HARBOR.dumpster.z]);
+        // (the marker to the dumpster, then over the fence beyond it)
+        const overRoute = s.markRoute([[HARBOR.dumpster.x - 0.8, HARBOR.dumpster.z], [HARBOR.dumpster.x + 3.6, HARBOR.dumpster.z]], 'OVER THE FENCE', 1.4);
+        await s.tutor(['SPACE'], 'OVER THE FENCE', 'The wire\'s down where the container hit it: up the dumpster, over', () => (p.x > -59.6 ? 1 : 0), 1);
+        overRoute();
         // the stealth lesson, once she's inside
         let spotted = false;
         s.when(() => guards.some((e) => e.alive && e.state !== 'idle' && !e.down), () => (spotted = true));

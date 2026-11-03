@@ -18,6 +18,7 @@ export class Bot {
   private actT = 0;
   private bestD = Infinity;
   private stuckT = 0;
+  private sweep = 0;
   private markKey = '';
   private nav = (() => {
     const n = new NavAgent();
@@ -118,8 +119,15 @@ export class Bot {
         const offFloor = Math.abs(m.y - 1.2 - p.y) > 1.0;
         const st = nav && (dist > 1.2 || offFloor) ? this.nav.steer(nav, p.x, p.y, p.z, m.x, m.y - 1.2, m.z, dt) : m;
         const d = new THREE.Vector3(st.x - p.x, 0, st.z - p.z);
-        const k = Math.min(1, dist / 1.0);
+        let k = Math.min(1, dist / 1.0);
         d.normalize();
+        // (at the marker and getting nowhere, with nothing to go over in front of her: look round
+        // for the way on - the dumpster by the fence, the crate under the window - the stick swept)
+        if (dist < 1.5 && this.stuckT > 0.8 && !p.travOption && !offFloor) {
+          this.sweep += dt * 1.6;
+          d.set(Math.sin(this.sweep), 0, Math.cos(this.sweep));
+          k = 0.42;
+        }
         // (no headway for a while: a way over the thing in the way, or under it)
         if (dist < this.bestD - 0.15) {
           this.bestD = dist;
