@@ -9,7 +9,7 @@ assets = {}
 for f in (root / 'public' / 'audio').rglob('*'):
     if f.is_file():
         rel = f.relative_to(root / 'public').as_posix()
-        mime = 'application/json' if f.suffix == '.json' else 'audio/wav'
+        mime = {'.json': 'application/json', '.mp3': 'audio/mpeg', '.ogg': 'audio/ogg'}.get(f.suffix, 'audio/wav')
         assets[rel] = f'data:{mime};base64,' + base64.b64encode(f.read_bytes()).decode()
 # (no recorded voices in this build: an empty cast list, so the game doesn't try to fetch one off the disk)
 assets.setdefault('audio/voice/manifest.json', 'data:application/json;base64,' + base64.b64encode(b'{}').decode())
