@@ -5,7 +5,12 @@ leather jacket over a deep red top, sheer black tights (under a leather mini ski
 builds), black boots and fingerless gloves, and has red hair and red lips. Texels are told apart by
 the body part covering them (uvlabels.py) and by their colour.
 
-Usage: python3 -I tools/models/scarlet_textures.py <avatar Textures dir> <labels.json> <out dir>
+Outfits (the last argument): leather (her own), denim (a denim jacket, a white tee, black jeans and
+white trainers, bare hands), dress (a red satin dress with long sleeves - the game builds its skirt -
+sheer tights and black heels), guard (Palewater's night-shift uniform: navy jacket and trousers, a
+pale blue shirt, black boots). Only the body's textures change; the head and hair are shared.
+
+Usage: python3 -I tools/models/scarlet_textures.py <avatar Textures dir> <labels.json> <out dir> [outfit]
 Writes body.jpg, head.jpg, hair.webp (colour + alpha), body_n.jpg, head_n.jpg (normal maps) and
 body_f.png, head_f.png (finish: R = the atlas-alpha finish code - 1 matte, 0.5..1 gloss, 0.25..0.5
 sheer, below 0.25 metal - and G = bare skin, where bruises show).
@@ -106,7 +111,15 @@ def save_rgb(a, path, q=88, size=None):
     im.save(path, quality=q, optimize=True, progressive=True)
 
 
-def main(texdir, labels_json, outdir, prefix='f007'):
+def twill(S, seed):
+    """Denim's diagonal weave (a light, a dark thread)."""
+    rng = np.random.default_rng(seed)
+    yy, xx = np.mgrid[0:S, 0:S].astype(np.float32)
+    w = 0.5 + 0.5 * np.sin((xx + yy) * 1.9)
+    return 0.93 + 0.1 * w + (rng.random((S, S)).astype(np.float32) - 0.5) * 0.08
+
+
+def main(texdir, labels_json, outdir, outfit='leather', prefix='f007'):
     S = 2048
     os.makedirs(outdir, exist_ok=True)
     lab = U.labels(labels_json, S)
@@ -133,6 +146,18 @@ def main(texdir, labels_json, outdir, prefix='f007'):
     out = body.copy()
     fin = np.ones((S, S), np.float32)
     skinmask = np.zeros((S, S), np.float32)
+    lm = lum(body)
+    if outfit != 'leather':
+        out, fin, skinmask, flat = other_outfit(outfit, body, out, fin, lm, reg, skin, denim, pink, metal, leather, boots, hand, finger, S)
+        save_rgb(out, os.path.join(outdir, 'body.jpg'), 86)
+        bn = load(T('body_normal'), 1024)[..., :3]
+        if flat is not None:
+            fl = np.asarray(Image.fromarray(flat.astype(np.float32), 'F').resize((1024, 1024), Image.BILINEAR))
+            bn = mixin(bn, np.array([0.5, 0.5, 1.0], np.float32) * np.ones_like(bn), np.clip(fl * 0.9, 0, 1))
+        save_rgb(bn, os.path.join(outdir, 'body_n.jpg'), 90)
+        save_finish(fin, skinmask, os.path.join(outdir, 'body_f.png'))
+        print('written to', outdir, '(body only)')
+        return
 
     # leather: the jacket, the belt and the boots go black, keeping their seams, folds and grain
     lm = lum(body)
@@ -223,6 +248,65 @@ def main(texdir, labels_json, outdir, prefix='f007'):
     print('written to', outdir)
 
 
+def other_outfit(outfit, body, out, fin, lm, reg, skin, denim, pink, metal, leather, boots, hand, finger, S):
+    """Her other clothes, painted over the same body (see the module's docstring)."""
+    foot = reg('foot')
+    shaft = boots & ~foot
+    jacket = leather & ~boots & ~(hand)
+    ref = np.median(lm[leather & ~hand]) + 1e-4
+    dref = np.median(lm[denim]) + 1e-4
+    pref = np.median(rgb2hsv(body)[2][pink]) + 1e-4 if pink.any() else 1
+    v = rgb2hsv(body)[2]
+    skinmask = np.where((skin & ~leather) | finger | hand, 1.0, 0.0).astype(np.float32)
+    flat = None
+    tw = twill(S, 11)
+    if outfit == 'denim':
+        # a mid-blue denim jacket (the leather's seams and folds, a twill weave)
+        out = mixin(out, shaded([0.2, 0.3, 0.46], (lm / ref) * tw, 0.35, 2.2), soft(jacket))
+        fin = np.where(jacket, finish_code(), fin)
+        # a white tee
+        out = mixin(out, shaded([0.8, 0.78, 0.74], v / pref, 0.45, 1.4), soft(pink))
+        fin = np.where(pink, finish_code(), fin)
+        # black jeans (the avatar's own seams and pockets kept), down over the boots' shafts
+        legs = denim | shaft
+        out = mixin(out, shaded([0.06, 0.06, 0.075], (lm / dref) * tw, 0.4, 2.2), soft(legs, 1.5))
+        fin = np.where(legs, finish_code(), fin)
+        # white trainers: a pale upper, a grey sole along the bottom (the foot's lowest texels darker)
+        tref = np.median(lm[foot]) + 1e-4 if foot.any() else 1
+        out = mixin(out, shaded([0.84, 0.83, 0.8], lm / tref, 0.5, 1.4), soft(foot & leather, 1.0))
+        fin = np.where(foot, finish_code(gloss=0.15), fin)
+    elif outfit == 'dress':
+        # deep red satin from the shoulders down (the jacket's sleeves become the dress's), glossy
+        sat = [0.42, 0.03, 0.06]
+        top = jacket | pink
+        out = mixin(out, shaded(sat, (lm / ref) ** 0.7, 0.35, 2.4), soft(top))
+        fin = np.where(top, finish_code(gloss=0.75), fin)
+        # sheer black tights, over the legs and the boots' shafts
+        skin_tone = np.median(body[finger], axis=0)
+        tights = np.asarray(skin_tone) * 0.26 + np.asarray([0.012, 0.01, 0.012])
+        legs = denim | shaft
+        broad = blur(lm, 24) / dref
+        out = mixin(out, shaded(tights, np.clip(broad, 0.7, 1.25), 0.5, 1.6, 1.0), soft(legs, 2.0))
+        fin = np.where(legs, finish_code(sheer=0.85), fin)
+        flat = soft(legs, 2.0)
+        # black patent heels
+        out = mixin(out, shaded([0.03, 0.028, 0.032], lm / ref, 0.4, 2.4), soft(foot & leather, 1.0))
+        fin = np.where(foot, finish_code(gloss=0.9), fin)
+    elif outfit == 'guard':
+        # Palewater security: a navy jacket, a pale blue shirt, navy trousers, black boots
+        out = mixin(out, shaded([0.07, 0.09, 0.15], lm / ref, 0.35, 2.2), soft(jacket))
+        fin = np.where(jacket, finish_code(gloss=0.1), fin)
+        out = mixin(out, shaded([0.5, 0.58, 0.68], v / pref, 0.45, 1.4), soft(pink))
+        fin = np.where(pink, finish_code(), fin)
+        out = mixin(out, shaded([0.06, 0.075, 0.11], lm / dref, 0.4, 2.2), soft(denim, 1.5))
+        fin = np.where(denim, finish_code(), fin)
+        out = mixin(out, shaded([0.035, 0.032, 0.035], lm / ref, 0.4, 2.2), soft(boots))
+        fin = np.where(boots, finish_code(gloss=0.6), fin)
+    fin = np.where(metal, finish_code(metal=True), fin)
+    fin = np.where(skinmask > 0.5, 1.0, fin)
+    return out, fin, skinmask, flat
+
+
 def red_hair(h, s, v):
     """Brown hair to a deep copper red: lighter, saturated, the strands' light and dark kept."""
     nv = np.clip(v * 1.7 + 0.03, 0, 0.82)
@@ -237,4 +321,4 @@ def save_finish(fin, skin, path, size=1024):
 
 
 if __name__ == '__main__':
-    main(*sys.argv[1:4])
+    main(*sys.argv[1:5])

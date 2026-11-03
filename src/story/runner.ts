@@ -48,6 +48,8 @@ export interface Chapter {
   map: WorldName;
   /** One line for the chapter select. */
   synopsis: string;
+  /** What she wears in it. */
+  outfit?: 'leather' | 'denim' | 'dress' | 'guard';
   /** Seconds of play an A-grade run takes (scenes not counted). */
   par: number;
   /** Set dressing, before the physics are built (signs, a pen, a door that's shut). */

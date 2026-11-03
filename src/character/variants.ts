@@ -63,6 +63,16 @@ export function registerVariants(lib: CharacterLibrary): Record<Archetype, strin
       head: 'none', extras: ['earrings'], extraColor: '#caa45a', eyes: '#3d8a4a', brow: 0.3, seed: 8,
       makeup: { lips: '#c41e30', liner: 1, blush: 0.4, freckles: 0.7, shadow: '#5e3c44' } }),
     { hiFace: true, real: 'scarlet' });
+  // her other clothes: the same woman (the story's chapters dress her for where she's going)
+  for (const [id, real, bottom] of [['scarlet_denim', 'scarlet_denim', 'jeans'], ['scarlet_dress', 'scarlet_dress', 'skirt'], ['scarlet_guard', 'scarlet_guard', 'cargo']] as const) {
+    add('player', id, { height: 0.94, fem: 1, heel: id === 'scarlet_dress' ? 0.04 : id === 'scarlet_denim' ? 0.012 : 0.025, bulk: 0.9, shoulders: 1.03, hipsW: 1.04, arms: 0.97, legs: 1.055, neckLen: 0.87, headSize: 1.05, chestDepth: 1.0,
+      torso: 0.922, neckBack: 0.059, shoulderBack: 0.048 },
+      o({ skin: '#e2ae8f', hair: '#9a3216', hairStyle: 'longwave', facial: 'none', top: 'leather', topColor: id === 'scarlet_denim' ? '#2c4a72' : id === 'scarlet_dress' ? '#6a0c16' : '#14182a', topColor2: '#5e1020',
+        bottom, bottomColor: '#0c0b0d', legwear: '#0c0a0c', shoes: 'kneeboots', shoeColor: '#0d0c0e', hands: 'bare', handColor: '#121113',
+        head: 'none', extras: ['earrings'], extraColor: '#caa45a', eyes: '#3d8a4a', brow: 0.3, seed: 8,
+        makeup: { lips: '#c41e30', liner: 1, blush: 0.4, freckles: 0.7, shadow: '#5e3c44' } }),
+      { hiFace: true, real });
+  }
 
   // ---------------- brawlers: street thugs
   const thugTops: Outfit['top'][] = ['tshirt', 'hoodie', 'tank', 'jacket', 'longsleeve'];

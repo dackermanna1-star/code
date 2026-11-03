@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { Fighter } from './fighter';
+import { CharacterModel } from '../character/library';
 import { AimPoint, AimProvider, ClipEvent, getClip } from '../anim/clip';
 import { Pistol } from './pistol';
 import { HitInfo, HitResult, makeHit } from './types';
@@ -385,6 +386,29 @@ export class Player extends Fighter {
       li.guard = 0.3;
     }
     if (this.scripted) this.sceneInputs();
+  }
+
+  // ------------------------------------------------------------------ her clothes
+  /** Into other clothes (a locker room, the title screen's choice): the same body, re-dressed. */
+  changeOutfit(variantName: string) {
+    const g = this.game;
+    const v = g.lib.get(variantName);
+    if (v === this.variant) return;
+    const old = this.model;
+    const m = new CharacterModel(g.lib, v);
+    m.group.position.copy(old.group.position);
+    m.group.rotation.copy(old.group.rotation);
+    m.uniforms.uRim.value.copy(old.uniforms.uRim.value);
+    for (const w of old.wounds) m.addWound(w);
+    g.scene.add(m.group);
+    old.group.removeFromParent();
+    old.dispose();
+    this.model = m;
+    this.anim.model = m;
+    this.variant = v;
+    m.applyPose(this.anim.out);
+    if (this.weapon) this.weapon.placeInHand(this);
+    if (this.pistol && this.pistol.group.parent) this.pistol.attach(this);
   }
 
   // ------------------------------------------------------------------ stealth

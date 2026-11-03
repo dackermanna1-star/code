@@ -5,6 +5,7 @@ import { isFighterId, STYLES } from './combat/styles';
 import { Input } from './core/input';
 import { CameraRig } from './fx/camera';
 import { ARCHETYPES } from './ai/archetypes';
+import { Outfit, OUTFITS, outfitVariant } from './core/settings';
 import { Arena, HALF_D, HALF_W, isLevelName, isMapName, MAPS, WorldName } from './world/arena';
 import './world/level';
 import { BloodAtlas, setDrains, SPLAT } from './world/bloodAtlas';
@@ -221,10 +222,16 @@ export class Game {
       this.props.blast(p, 5, 6);
       this.slowMo(0.4, 1.0);
     };
+    // (the game is Scarlet's; ?fighter=jin still brings the old fighter back for tests)
     const fid = this.storyLaunch ? 'scarlet' : this.params.get('fighter');
-    if (isFighterId(fid)) this.settings.fighter = fid;
-    const style = STYLES[this.settings.fighter] ?? STYLES.jin;
-    this.player = new Player(this, this.lib, this.lib.get(style.variant));
+    this.settings.fighter = isFighterId(fid) ? fid : 'scarlet';
+    const style = STYLES[this.settings.fighter] ?? STYLES.scarlet;
+    // what she wears: the chapter's clothes, or the endless fight's choice (?outfit= for tests)
+    const chap = this.storyLaunch ? CHAPTERS[this.storyLaunch.chapter] : null;
+    const po = this.params.get('outfit');
+    const outfit = (po && OUTFITS.some((x) => x.id === po) ? po : chap ? chap.outfit ?? 'leather' : this.settings.outfit) as Outfit;
+    const variant = style.id === 'scarlet' ? outfitVariant(outfit) : style.variant;
+    this.player = new Player(this, this.lib, this.lib.get(variant));
     this.player.style = style;
     this.player.speed = style.runSpeed;
     const mc = this.params.get('mocap');

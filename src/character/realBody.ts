@@ -28,6 +28,15 @@ import scarletHead from './models/scarlet/head.jpg';
 import scarletHeadN from './models/scarlet/head_n.jpg';
 import scarletHeadF from './models/scarlet/head_f.png';
 import scarletHair from './models/scarlet/hair.webp';
+import denimBody from './models/scarlet_denim/body.jpg';
+import denimBodyN from './models/scarlet_denim/body_n.jpg';
+import denimBodyF from './models/scarlet_denim/body_f.png';
+import dressBody from './models/scarlet_dress/body.jpg';
+import dressBodyN from './models/scarlet_dress/body_n.jpg';
+import dressBodyF from './models/scarlet_dress/body_f.png';
+import guardBody from './models/scarlet_guard/body.jpg';
+import guardBodyN from './models/scarlet_guard/body_n.jpg';
+import guardBodyF from './models/scarlet_guard/body_f.png';
 import { AVATARS } from './models/avatars';
 
 interface MeshAsset {
@@ -96,6 +105,26 @@ const MODELS: Record<string, RealModel> = {
     scale: 1.02,
     urls: { body: scarletBody, bodyN: scarletBodyN, bodyF: scarletBodyF, head: scarletHead, headN: scarletHeadN, headF: scarletHeadF, hair: scarletHair },
     skirt: { top: 0.075, hem: -0.2, jacketCut: 0.035, uv: [0.36, 0.77, 0.27, 0.15] },
+  },
+  // her other clothes (scarlet_textures.py): the same body, re-dressed
+  // (a denim jacket over a white tee, black jeans, trainers - no skirt, the jacket whole)
+  scarlet_denim: {
+    mesh: scarletMesh as unknown as MeshAsset,
+    scale: 1.02,
+    urls: { body: denimBody, bodyN: denimBodyN, bodyF: denimBodyF, head: scarletHead, headN: scarletHeadN, headF: scarletHeadF, hair: scarletHair },
+  },
+  // (a red satin dress: the jacket its bodice and sleeves, a longer skirt of the same satin)
+  scarlet_dress: {
+    mesh: scarletMesh as unknown as MeshAsset,
+    scale: 1.02,
+    urls: { body: dressBody, bodyN: dressBodyN, bodyF: dressBodyF, head: scarletHead, headN: scarletHeadN, headF: scarletHeadF, hair: scarletHair },
+    skirt: { top: 0.075, hem: -0.3, jacketCut: 0.035, uv: [0.36, 0.77, 0.27, 0.15] },
+  },
+  // (Palewater's night shift: navy jacket and trousers)
+  scarlet_guard: {
+    mesh: scarletMesh as unknown as MeshAsset,
+    scale: 1.02,
+    urls: { body: guardBody, bodyN: guardBodyN, bodyF: guardBodyF, head: scarletHead, headN: scarletHeadN, headF: scarletHeadF, hair: scarletHair },
   },
 };
 for (const [id, a] of Object.entries(AVATARS)) {

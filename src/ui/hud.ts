@@ -3,7 +3,7 @@ import './hud.css';
 // (the chapter select is styled with the story's sheet)
 import '../story/story.css';
 import type { Game } from '../game';
-import { PRESETS, QualityName, saveSettings, Settings } from '../core/settings';
+import { OUTFITS, outfitVariant, PRESETS, QualityName, saveSettings, Settings } from '../core/settings';
 import { STYLES } from '../combat/styles';
 import { MAPS } from '../world/arena';
 import { MAX_CHARGES, MAX_SPECIAL, SPECIAL_KOS } from '../combat/player';
@@ -212,17 +212,17 @@ export class HUD {
     const g = this.game;
     // ---- title
     const t = this.mk('title');
-    t.append(el('div', 'kick', 'A FREE-FLOW COMBAT SIMULATOR'));
-    t.append(el('h1', '', 'LAST<span>STANCE</span>'));
-    t.append(el('div', 'tag', 'ONE FIGHTER · ENDLESS ENEMIES · NO MERCY'));
+    t.append(el('div', 'kick', 'A STORY OF ONE NIGHT'));
+    t.append(el('h1', '', 'SCARLET<span>BEFORE DAWN</span>'));
+    t.append(el('div', 'tag', 'ONE NIGHT · ONE SISTER · NO MERCY'));
     const tl = el('div', 'mlist');
     // the arena: cycling it rebuilds the world (a reload, straight back to this screen)
     const mi = Math.max(0, MAPS.findIndex((m) => m.id === g.settings.map));
-    const me = STYLES[g.settings.fighter] ?? STYLES.jin;
+    const oi = Math.max(0, OUTFITS.findIndex((o) => o.id === g.settings.outfit));
     tl.append(
-      this.btn('STORY<small>SCARLET: BEFORE DAWN</small>', () => this.openStory(), 'primary'),
+      this.btn('STORY<small>THE CAMPAIGN · NINE CHAPTERS</small>', () => this.openStory(), 'primary'),
       this.btn('ENDLESS<small>THE WAVES, THEN FOREVER</small>', () => g.beginRun()),
-      this.btn(`FIGHTER<small>${me.name} · ${me.tag}</small>`, () => this.show('fighters')),
+      this.btn(`OUTFIT<small>${OUTFITS[oi].name}</small>`, () => this.show('fighters')),
       this.btn(`ARENA<small>${MAPS[mi].name}</small>`, () => this.show('arenas')),
       this.btn('SETTINGS', () => this.openSettings('title')),
       this.btn('CONTROLS', () => this.show('controls')),
@@ -232,7 +232,7 @@ export class HUD {
     const best = el('div', 'best');
     best.id = 'bestline';
     t.append(best);
-    const tf = el('div', 'foot', '<span>A story of one night · five arenas · 15 waves and their bosses, then endless · bodies and blood never disappear</span><span><b>CLICK</b> LOCKS THE MOUSE · <b>ESC</b> PAUSES</span>');
+    const tf = el('div', 'foot', '<span>Her sister didn\'t come home · the trucks leave at dawn · bodies and blood never disappear</span><span><b>CLICK</b> LOCKS THE MOUSE · <b>ESC</b> PAUSES</span>');
     this.menus.title.append(tf);
     // ---- arenas: pick one (the world is rebuilt: a reload, straight back to the title)
     const ar = this.mk('arenas', 'blur');
@@ -250,18 +250,22 @@ export class HUD {
     }
     al.append(this.btn('BACK', () => this.show('title'), '', 'back'));
     ar.append(al);
-    // ---- fighters: who fights (a reload, straight back to the title with them in it)
+    // ---- outfits: what she wears in the endless fight (she changes there and then)
     const fr = this.mk('fighters', 'blur');
-    fr.append(el('div', 'kick', 'WHO FIGHTS'));
-    fr.append(el('h2', '', 'FIGHTER'));
+    fr.append(el('div', 'kick', 'WHAT SHE WEARS'));
+    fr.append(el('h2', '', 'OUTFIT'));
     const fl = el('div', 'mlist');
-    for (const f of Object.values(STYLES)) {
-      fl.append(this.btn(`${f.name} · ${f.tag}<small>${f.blurb.toUpperCase()}</small>`, () => {
-        if (f.id === g.settings.fighter) return this.show('title');
-        g.settings.fighter = f.id;
+    for (const o of OUTFITS) {
+      fl.append(this.btn(`${o.name}<small>${o.blurb.toUpperCase()}</small>`, () => {
+        g.settings.outfit = o.id;
         saveSettings(g.settings);
-        location.reload();
-      }, f.id === g.settings.fighter ? 'primary' : ''));
+        g.player.changeOutfit(outfitVariant(o.id));
+        // (the title's line says what she has on now)
+        const b = this.menus.title.querySelectorAll('.mlist button')[2] as HTMLElement | undefined;
+        if (b) b.innerHTML = `OUTFIT<small>${o.name}</small>`;
+        for (const x of fl.children) x.classList.toggle('primary', x === fl.children[OUTFITS.indexOf(o)]);
+        this.show('title');
+      }, o.id === g.settings.outfit ? 'primary' : ''));
     }
     fl.append(this.btn('BACK', () => this.show('title'), '', 'back'));
     fr.append(fl);

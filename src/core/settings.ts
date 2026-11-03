@@ -30,9 +30,21 @@ export interface Settings {
   difficulty: Difficulty;
   /** Which arena the run is fought in. */
   map: 'warehouse' | 'rooftop' | 'alley' | 'apartment' | 'lab';
-  /** Who fights it. */
+  /** Who fights it (Scarlet: the game is hers). */
   fighter: 'jin' | 'scarlet';
+  /** What she wears in the endless fight (the story dresses her itself). */
+  outfit: Outfit;
 }
+
+export type Outfit = 'leather' | 'denim' | 'dress' | 'guard';
+export const OUTFITS: { id: Outfit; name: string; blurb: string }[] = [
+  { id: 'leather', name: 'LEATHER', blurb: 'Her jacket, a red top, the mini skirt and knee boots' },
+  { id: 'denim', name: 'DENIM', blurb: 'A denim jacket, a white tee, black jeans and trainers' },
+  { id: 'dress', name: 'THE RED DRESS', blurb: 'Red satin, sheer tights and heels - the Lantern\'s VIP night' },
+  { id: 'guard', name: 'NIGHT SHIFT', blurb: 'Palewater security navy, borrowed from a locker' },
+];
+/** The character variant an outfit dresses her in. */
+export const outfitVariant = (o: Outfit | undefined) => (o && o !== 'leather' ? 'scarlet_' + o : 'scarlet');
 
 export type Difficulty = 'story' | 'fighter' | 'brutal';
 export interface DifficultyMods {
@@ -101,7 +113,8 @@ export function defaultSettings(): Settings {
     mocap: true,
     difficulty: 'fighter',
     map: 'warehouse',
-    fighter: 'jin',
+    fighter: 'scarlet',
+    outfit: 'leather',
   };
 }
 
@@ -109,7 +122,7 @@ export function loadSettings(): Settings {
   const d = defaultSettings();
   try {
     const raw = localStorage.getItem(KEY);
-    if (raw) return { ...d, ...JSON.parse(raw) };
+    if (raw) return { ...d, ...JSON.parse(raw), fighter: 'scarlet' };
   } catch {
     /* storage unavailable */
   }
