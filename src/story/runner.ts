@@ -434,6 +434,9 @@ export class Story {
   private headOf(f: Fighter | { x: number; z: number; scale?: number }, out = new THREE.Vector3()) {
     if (f instanceof Fighter) {
       f.bodyPoint('head', out);
+      // (someone just put on their feet under the cut - up from a crouch, a kneel - is still low in
+      // the last pose drawn: frame where the head will be)
+      if (f !== this.game.player && f.anim.mode === 'loco' && out.y < f.y + 1.3 * f.scale) out.y = f.y + 1.6 * f.scale;
       return out;
     }
     return out.set(f.x, 1.62 * (f.scale ?? 1), f.z);
@@ -454,7 +457,8 @@ export class Story {
     const floor = from instanceof Fighter ? from.y : 0;
     const lens = (side: number, back: number) => new THREE.Vector3(fh.x - fx * back - fz * 0.5 * side, o.height !== undefined ? floor + o.height : fh.y + 0.12, fh.z - fz * back + fx * 0.5 * side);
     const s0 = o.side ?? 1, b0 = o.dist ?? 1.0;
-    const pos = this.bestLens([lens(s0, b0), lens(-s0, b0), lens(s0, b0 * 0.55), lens(-s0, b0 * 0.55)], look, 0);
+    const shown = [from, at].filter((x): x is Fighter => x instanceof Fighter);
+    const pos = this.bestLens([lens(s0, b0), lens(-s0, b0), lens(s0, b0 * 0.55), lens(-s0, b0 * 0.55)], look, 0, shown);
     const push = o.push ?? 0.25;
     this.shot({ pos, look, pos2: pos.clone().addScaledVector(new THREE.Vector3(fx, 0, fz), push), look2: look, fov: o.fov ?? 34, dur: o.dur ?? 5 });
     this.fillOn(pos, look, at instanceof Fighter ? this.faceFill.get(at) ?? 1 : 1);
@@ -512,12 +516,12 @@ export class Story {
    * `minD` off the face (any nearer and the face itself would thin out to the near-lens dither);
    * failing that, the one that stays farthest off it.
    */
-  private bestLens(cands: THREE.Vector3[], look: THREE.Vector3, minD: number) {
-    for (const c of cands) if (this.clearView(c, look)) return c;
+  private bestLens(cands: THREE.Vector3[], look: THREE.Vector3, minD: number, people: Fighter[] = []) {
+    for (const c of cands) if (this.clearView(c, look) && this.clearOfPeople(c, look, people)) return c;
     let best = cands[0], bestD = -1;
     for (const c of cands) {
       const q = this.inFront(c, look);
-      if (!this.clearView(q, look)) continue;
+      if (!this.clearView(q, look) || !this.clearOfPeople(q, look, people)) continue;
       const d = q.distanceTo(look);
       if (d >= minD) return q;
       if (d > bestD) {
@@ -526,6 +530,25 @@ export class Story {
       }
     }
     return best;
+  }
+  /**
+   * Nobody else in the way of a lens on `look`, and the lens not inside somebody (a guard at the
+   * shoulder of the man the close-up is on): the people in the shot on purpose aside.
+   */
+  private clearOfPeople(pos: THREE.Vector3, look: THREE.Vector3, shown: Fighter[]) {
+    const dx = look.x - pos.x, dz = look.z - pos.z;
+    const len2 = dx * dx + dz * dz || 1e-6;
+    for (const f of this.game.fighters) {
+      if (!f.alive || shown.includes(f)) continue;
+      const r = 0.34 * f.scale, bot = f.y + 0.2, top = f.y + 1.9 * f.scale;
+      if (Math.hypot(f.x - pos.x, f.z - pos.z) < r + 0.25 && pos.y > bot && pos.y < top + 0.2) return false;
+      const t = ((f.x - pos.x) * dx + (f.z - pos.z) * dz) / len2;
+      if (t <= 0 || t >= 0.9) continue;
+      const cx = pos.x + dx * t - f.x, cz = pos.z + dz * t - f.z;
+      const y = pos.y + (look.y - pos.y) * t;
+      if (cx * cx + cz * cz < r * r && y > bot && y < top) return false;
+    }
+    return true;
   }
   /** A lens at `pos` on `look` with nothing solid between them (a wall behind the face, a pillar). */
   private clearView(pos: THREE.Vector3, look: THREE.Vector3) {
@@ -542,7 +565,7 @@ export class Story {
       return new THREE.Vector3(head.x + Math.sin(a) * dist, head.y + (o.dy ?? -0.02), head.z + Math.cos(a) * dist);
     };
     const side = o.side ?? 1, d0 = o.dist ?? 1.25, near = Math.max(0.95, d0 * 0.7);
-    const pos = this.bestLens([at(side, d0), at(-side, d0), at(side * 1.7, d0), at(-side * 1.7, d0), at(side, near), at(-side, near), at(side * 2.6, d0), at(-side * 2.6, d0)], look, 0.95);
+    const pos = this.bestLens([at(side, d0), at(-side, d0), at(side * 1.7, d0), at(-side * 1.7, d0), at(side, near), at(-side, near), at(side * 2.6, d0), at(-side * 2.6, d0)], look, 0.95, [f]);
     // (the ease in stops short of the near-lens dither)
     const push = Math.min(o.push ?? 0.1, Math.max(0, 1 - 0.9 / Math.max(pos.distanceTo(look), 0.01)));
     this.shot({ pos, look, pos2: pos.clone().lerp(look, push), look2: look, fov: o.fov ?? 30, dur: o.dur ?? 5 });

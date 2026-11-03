@@ -393,7 +393,7 @@ export const CH2: Chapter = {
           clubStage.lockerWant = 1;
           await s.wait(1.4);
           // over her left shoulder and down into it: Ivy's jacket on its hook
-          s.shot({ pos: [L.x + 0.75, 2.2, L.z - 0.9], look: [L.x - 0.02, 1.15, L.z + 0.5], pos2: [L.x + 0.7, 2.15, L.z - 0.82], fov: 34, dur: 6 });
+          s.shot({ pos: [L.x + 0.75, 2.6, L.z - 0.9], look: [L.x, 1.1, L.z + 0.6], pos2: [L.x + 0.7, 2.55, L.z - 0.85], fov: 36, dur: 6 });
           await s.wait(1.2);
           await s.say('SCARLET', 'Her jacket. Of course it\'s her jacket.', 2.6);
           // side-on: the note from its pocket
