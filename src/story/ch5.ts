@@ -32,8 +32,8 @@ interface Ride {
   shoved?: number;
 }
 
-/** Of the damage a knock deals Viper's car, the share it takes (it's armoured). */
-const ARMOUR = 0.4;
+/** Of the damage a knock deals Viper's car, the share it takes (it's armoured): by difficulty. */
+const ARMOUR: Record<string, number> = { story: 0.18, fighter: 0.3, brutal: 0.45 };
 
 class Chase {
   /** Her car's health as of last frame (what's been dealt since, the armour takes its share of). */
@@ -225,7 +225,7 @@ class Chase {
     // (Viper's car is armoured: of what this frame dealt it, it takes a share)
     if (me.hp > this.meHp) this.meHp = me.hp;
     const taken = this.meHp - me.hp;
-    if (taken > 0) me.hp = this.meHp - taken * ARMOUR;
+    if (taken > 0) me.hp = this.meHp - taken * (ARMOUR[g.settings.difficulty] ?? ARMOUR.fighter);
     this.meHp = me.hp;
     // the traffic: ahead of her, out of sight, in a lane; gone once far behind
     if (this.active) {

@@ -208,9 +208,9 @@ export function buildDawn(a: Arena, blood: BloodAtlas, pointLights: number, shad
   sunGlow.position.copy(sun.position).add(new THREE.Vector3(0, 0, 2));
   k.g.add(sunGlow);
 
-  const hemi = new THREE.HemisphereLight(0xc8b8c8, 0x5a4a48, 1.35);
+  const hemi = new THREE.HemisphereLight(0xc8b8c8, 0x5a4a48, 1.15);
   k.g.add(hemi);
-  const key = k.keyLight(0xffc890, 1.25, new THREE.Vector3(0.6, 0.35, -1), 34);
+  const key = k.keyLight(0xffc890, 1.0, new THREE.Vector3(0.6, 0.35, -1), 34);
   const parts = k.finish({
     hemi,
     probe: new THREE.Vector3(0, 2, -10),
@@ -221,8 +221,9 @@ export function buildDawn(a: Arena, blood: BloodAtlas, pointLights: number, shad
       const s = dawnStage.sun;
       sun.position.y = 22 + s * 70;
       sunGlow.position.y = sun.position.y;
-      key.intensity = 1.25 + s * 0.55;
-      hemi.intensity = 1.35 + s * 0.45;
+      // (a face turned into the low sun is lit full on: enough to read, not to burn out)
+      key.intensity = 1.0 + s * 0.4;
+      hemi.intensity = 1.15 + s * 0.35;
     },
   });
   return parts;
