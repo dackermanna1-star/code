@@ -377,26 +377,28 @@ export const CH2: Chapter = {
         s.extra('civ_m02', 3.8, 16.8, -Math.PI / 2, { loop: [[-3.4, 16.8], [5.0, 16.8]] });
         s.objective('LOCKER SIX', 'Ivy\'s locker, in the staff room');
         const L = CLUB.locker;
-        const at = { x: L.x, z: L.z - 0.62 };
+        // (her mark: in the gap between the bench and the lockers, square to number six)
+        const at = { x: L.x + 0.15, z: L.z - 0.2 };
         let opened = false;
         s.interact([L.x, 1.2, L.z - 0.25], 'OPEN LOCKER 6', () => (opened = true), { r: 1.25 });
         s.ui.marker(V(L.x, 1.6, L.z - 0.2), 'LOCKER 6');
         await s.until(() => opened, false);
         s.ui.marker(null);
         await s.scene(async () => {
-          await s.walk(at.x, at.z, { face: 0, speed: 1.3 });
-          s.shot({ pos: [L.x + 1.3, 1.55, L.z - 1.4], look: [L.x - 0.1, 1.15, L.z], fov: 34, dur: 5 });
+          // (on the cut: at the locker, wherever round the bench she reached for it from)
+          s.place(at.x, at.z, 0);
+          s.shot({ pos: [L.x + 1.5, 1.55, L.z - 1.75], look: [L.x - 0.05, 1.2, L.z], fov: 34, dur: 5 });
+          await s.wait(0.5);
           g.audio.play('metal_hit', { pos: V(L.x, 1.2, L.z), vol: 0.3, pitch: 1.9 });
           clubStage.lockerWant = 1;
           await s.wait(1.4);
-          s.shot({ pos: [L.x - 0.55, 1.62, L.z - 0.95], look: [L.x + 0.05, 1.1, L.z + 0.2], fov: 30, dur: 6 });
+          // over her shoulder, into it: Ivy's jacket on its hook, the photo strip on the door
+          s.shot({ pos: [L.x - 0.3, 1.85, L.z - 0.95], look: [L.x + 0.02, 1.2, L.z + 0.5], pos2: [L.x - 0.28, 1.84, L.z - 0.9], fov: 32, dur: 6 });
           await s.wait(1.2);
           await s.say('SCARLET', 'Her jacket. Of course it\'s her jacket.', 2.6);
-          // the photo strip on the inside of the door; a note in the jacket's pocket
-          s.shot({ pos: [L.x - 0.65, 1.5, L.z - 0.55], look: [L.x - 0.3, 1.25, L.z - 0.2], fov: 24, dur: 5 });
-          await s.wait(1.6);
+          // side-on: the note from its pocket
           s.pose('st_phone', 0.35);
-          s.shot({ pos: [L.x + 0.55, 1.75, L.z - 1.35], look: [L.x, 1.25, L.z - 0.6], fov: 30, dur: 9 });
+          s.shot({ pos: [L.x + 1.35, 1.72, L.z - 0.04], look: [at.x - 0.05, 1.36, at.z], pos2: [L.x + 1.28, 1.71, L.z - 0.05], fov: 30, dur: 9 });
           await s.wait(0.8);
           s.ui.item('A NOTE', 'IN HER POCKET', 'SCAR\'S BIRTHDAY SUNDAY!!! cake from Marcello\'s — DON\'T TELL HER', 5);
           await s.wait(3.2);
@@ -504,7 +506,7 @@ export const CH2: Chapter = {
           // he gets up, and goes to it
           v.hold(null, 0.4);
           v.lookAt = null;
-          v.walk([[-11.6, 19.6], [S.x + 1.05, S.z]], 1.1, () => (v.faceYaw = -Math.PI / 2));
+          v.walk([[-11.6, 19.2], [S.x + 1.05, S.z - 0.55]], 1.1, () => (v.faceYaw = -Math.PI / 2 - 0.5));
           s.shot({ pos: [-10.4, G + 1.65, 17.0], look: [S.x + 0.3, G + 0.9, S.z], fov: 34, dur: 9 });
           await s.wait(3.2);
           v.hold('st_crouch', 0.4);
@@ -515,7 +517,8 @@ export const CH2: Chapter = {
           clubStage.safeWant = 1;
           await s.wait(1.0);
           v.hold(null, 0.4);
-          v.walk([[S.x + 1.6, S.z + 1.3]], 1.0, () => (v.faceYaw = yawTo(v, p)));
+          // (a step back out of the way of it: the open safe, its shelves, the red book)
+          v.walk([[S.x + 2.2, S.z - 0.6]], 1.0, () => (v.faceYaw = yawTo(v, p)));
           await s.wait(0.6);
           await s.say('VARGA', 'There. Take your book.');
         });
@@ -539,33 +542,39 @@ export const CH2: Chapter = {
         s.ui.marker(null);
         await s.scene(async () => {
           // she reads it standing at the open safe, the office behind her
-          s.place(S.x + 1.2, S.z + 0.25, -Math.PI / 2);
+          s.place(S.x + 1.2, S.z + 0.05, -Math.PI / 2);
           s.face(-Math.PI / 2);
           s.closeUp(p, { side: 1, fov: 30, dist: 1.2, dy: -0.05, dur: 5.2 });
           await s.say('SCARLET', 'Palewater...', 1.6);
           await s.say('SCARLET', 'I used to guard their doors. Nights. Cash in hand, no questions.', 3.2);
           // his hand under the desk: the alarm
-          s.shot({ pos: [CLUB.desk.x - 1.8, G + 1.3, CLUB.desk.z + 1.6], look: [CLUB.desk.x, G + 0.7, CLUB.desk.z], fov: 32, dur: 3 });
-          v.walk([[CLUB.desk.x - 0.4, CLUB.desk.z + 0.9]], 1.6, () => {
+          const D = CLUB.desk;
+          const mark = { x: D.x - 0.75, z: D.z + 0.85 };
+          s.shot({ pos: [D.x - 1.9, G + 1.25, D.z - 0.9], look: [D.x - 0.7, G + 0.75, D.z + 0.6], fov: 34, dur: 3 });
+          v.walk([[mark.x, mark.z]], 1.6, () => {
             v.faceYaw = Math.PI;
             v.hold('st_crouch', 0.3);
           });
-          await s.wait(1.6);
+          await s.wait(2.0);
           setAlarm(true);
           mix?.scratch();
           mix?.alarm(true);
           g.audio.thump(0.6, V(0, 2, 0));
+          s.face(mark);
           await s.wait(0.6);
+          // (up, and round to her, under the cut)
+          v.hold(null, 0.01);
+          v.put(mark.x, mark.z, yawTo(mark, p));
           s.closeUp(v, { side: 1, fov: 30, dist: 1.3, dur: 4 });
-          v.hold(null, 0.3);
           v.lookAt = p;
           await s.say('VARGA', 'You should have read faster.');
           s.closeUp(p, { side: -1, fov: 30, dist: 1.2, dur: 3 });
           await s.say('SCARLET', 'You should have run.');
-          // one blow, and he's down against his desk
-          s.shot({ pos: [CLUB.desk.x + 1.4, G + 1.6, CLUB.desk.z + 1.7], look: [v.x - 0.4, G + 1.1, v.z - 0.3], fov: 40, dur: 5, drift: 0.04 });
-          void s.walk(v.x - 0.6, v.z - 0.5, { speed: 2.4, face: yawTo({ x: v.x - 0.6, z: v.z - 0.5 }, v) });
-          await s.wait(0.6);
+          // one blow, and he's down against his desk (from behind her: her back to us, his face)
+          s.shot({ pos: [-13.3, G + 2.0, 21.0], look: [mark.x - 0.85, G + 1.1, mark.z + 0.05], fov: 40, dur: 5, drift: 0.04 });
+          const to = { x: mark.x - 0.62, z: mark.z + 0.05 };
+          void s.walk(to.x, to.z, { speed: 2.4, face: yawTo(to, mark) });
+          await s.until(() => Math.hypot(p.x - v.x, p.z - v.z) < 0.85, true, 1.8);
           g.audio.play('punch_heavy', { pos: V(v.x, 1.6 + G, v.z), vol: 0.9 });
           g.cam.addTrauma(0.25);
           v.hold('st_sitwall', 0.15);
@@ -588,6 +597,8 @@ export const CH2: Chapter = {
         s.place(-11.0, 17.4, Math.PI);
         s.game.player.setY(G);
         const v = vargaAtDesk(s);
+        // (where he went down: on the floor by the end of his desk)
+        v.put(CLUB.desk.x - 0.75, CLUB.desk.z + 0.85, -Math.PI / 2);
         v.hold('st_sitwall', 0.01);
       },
       async play(s) {

@@ -439,13 +439,11 @@ export class Story {
     const fx = dx / d, fz = dz / d;
     const look = ah.clone().setY(ah.y - 0.04);
     // (over the shoulder asked for; if the wall behind them is in the way, the other shoulder, nearer)
-    const lens = (side: number, back: number) => new THREE.Vector3(fh.x - fx * back - fz * 0.5 * side, o.height ?? fh.y + 0.12, fh.z - fz * back + fx * 0.5 * side);
+    // (a height asked for is over the floor the near one stands on: a gallery, a roof)
+    const floor = from instanceof Fighter ? from.y : 0;
+    const lens = (side: number, back: number) => new THREE.Vector3(fh.x - fx * back - fz * 0.5 * side, o.height !== undefined ? floor + o.height : fh.y + 0.12, fh.z - fz * back + fx * 0.5 * side);
     const s0 = o.side ?? 1, b0 = o.dist ?? 1.0;
-    let pos = lens(s0, b0);
-    for (const [sd, bk] of [[-s0, b0], [s0, b0 * 0.55], [-s0, b0 * 0.55]] as [number, number][]) {
-      if (this.clearView(pos, look)) break;
-      pos = lens(sd, bk);
-    }
+    const pos = this.bestLens([lens(s0, b0), lens(-s0, b0), lens(s0, b0 * 0.55), lens(-s0, b0 * 0.55)], look, 0);
     const push = o.push ?? 0.25;
     this.shot({ pos, look, pos2: pos.clone().addScaledVector(new THREE.Vector3(fx, 0, fz), push), look2: look, fov: o.fov ?? 34, dur: o.dur ?? 5 });
     this.fillOn(pos, look, at instanceof Fighter ? this.faceFill.get(at) ?? 1 : 1);
@@ -462,7 +460,10 @@ export class Story {
     const d = cam.clone().sub(face);
     const len = d.length();
     f.position.copy(face).addScaledVector(d.normalize(), Math.min(1.1, len * 0.6)).add(new THREE.Vector3(0, 0.45, 0));
-    f.intensity = 2.2 * k * (this.chapter.fill ?? 1);
+    // (the fill's for a face in the dark: one already lit - under the lamp over the bar, by the
+    // desk lamp - takes less of it rather than burning out)
+    const room = clamp((0.95 - this.game.arena.lightAt(face.x, face.y, face.z)) / 0.55, 0.3, 1);
+    f.intensity = 2.2 * k * room * (this.chapter.fill ?? 1);
   }
   /** Where a fighter is turning to (a scene turns people a beat at a time: frame the turned face). */
   private facingOf(f: Fighter) {
@@ -494,6 +495,27 @@ export class Story {
     const k = Math.max(Math.min(lo, 1) - 0.25 / Math.max(len, 0.01), 0.5 / Math.max(len, 0.01));
     return at(Math.min(1, k));
   }
+  /**
+   * Of the lenses offered (the one asked for first), the first with a clear view of the face; if
+   * none has one, the first that can be brought in front of what's in the way and still stand
+   * `minD` off the face (any nearer and the face itself would thin out to the near-lens dither);
+   * failing that, the one that stays farthest off it.
+   */
+  private bestLens(cands: THREE.Vector3[], look: THREE.Vector3, minD: number) {
+    for (const c of cands) if (this.clearView(c, look)) return c;
+    let best = cands[0], bestD = -1;
+    for (const c of cands) {
+      const q = this.inFront(c, look);
+      if (!this.clearView(q, look)) continue;
+      const d = q.distanceTo(look);
+      if (d >= minD) return q;
+      if (d > bestD) {
+        bestD = d;
+        best = q;
+      }
+    }
+    return best;
+  }
   /** A lens at `pos` on `look` with nothing solid between them (a wall behind the face, a pillar). */
   private clearView(pos: THREE.Vector3, look: THREE.Vector3) {
     return this.game.arena.lineOfSight(look.x, look.y, look.z, pos.x, pos.y, pos.z);
@@ -508,13 +530,11 @@ export class Story {
       const a = face + side * (o.turn ?? 0.5);
       return new THREE.Vector3(head.x + Math.sin(a) * dist, head.y + (o.dy ?? -0.02), head.z + Math.cos(a) * dist);
     };
-    const side = o.side ?? 1, d0 = o.dist ?? 1.25;
-    let pos = at(side, d0);
-    for (const [sd, dd] of [[-side, d0], [side, d0 * 0.65], [-side, d0 * 0.65]] as [number, number][]) {
-      if (this.clearView(pos, look)) break;
-      pos = at(sd, dd);
-    }
-    this.shot({ pos, look, pos2: pos.clone().lerp(look, o.push ?? 0.1), look2: look, fov: o.fov ?? 30, dur: o.dur ?? 5 });
+    const side = o.side ?? 1, d0 = o.dist ?? 1.25, near = Math.max(0.95, d0 * 0.7);
+    const pos = this.bestLens([at(side, d0), at(-side, d0), at(side * 1.7, d0), at(-side * 1.7, d0), at(side, near), at(-side, near), at(side * 2.6, d0), at(-side * 2.6, d0)], look, 0.95);
+    // (the ease in stops short of the near-lens dither)
+    const push = Math.min(o.push ?? 0.1, Math.max(0, 1 - 0.9 / Math.max(pos.distanceTo(look), 0.01)));
+    this.shot({ pos, look, pos2: pos.clone().lerp(look, push), look2: look, fov: o.fov ?? 30, dur: o.dur ?? 5 });
     this.fillOn(pos, look, this.faceFill.get(f) ?? 1);
   }
 
@@ -634,6 +654,13 @@ export class Story {
     p.yaw = yaw;
     p.vx = p.vz = 0;
     p.anim.initAt(x, z, yaw);
+    // (in a scene she stays facing this way: a mark she walked to before the cut doesn't turn her
+    // back to face where it said)
+    if (p.autopilot) {
+      p.autopilot.done = true;
+      p.autopilot.face = yaw;
+    }
+    if (this.inScene) p.sceneFace = yaw;
     this.game.cam.snapFocus(new THREE.Vector3(x, 1.0, z));
     this.game.cam.yaw = this.behindYaw(yaw);
   }

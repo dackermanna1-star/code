@@ -42,7 +42,7 @@ export const CLUB = {
   doorGuard: { x: -2.0, z: 12.9 },
   corridor: { x0: -4, x1: 6, z0: 16, z1: 17.5 },
   staffRoomDoor: { x: 0.6, z: 17.6 },
-  locker: { x: -0.2, z: 21.2 },
+  locker: { x: 0.4, z: 21.2 },
   kegDoor: { x: -4.5, z: 16.7 },
   trapLadder: { x: -12.15, z: 14.7 },
   officeDoor: { x: -10.5, z: 14 },
@@ -113,7 +113,7 @@ export function buildClub(a: Arena, blood: BloodAtlas, pointLights: number, shad
   a.propList = [
     ...[-6.2, -3.9, -1.1, 1.8, 4.3, 6.6].map((x, i) => ({ kind: 'bottle', x, z: CLUB.bar.z + (i % 2 ? 0.18 : -0.12), y: 1.18 })),
     ...[-11, -5.5, 0, 5.5].flatMap((x) => [{ kind: 'bottle', x: x - 0.2, z: 11.55, y: G + 0.42 }, { kind: 'bottle', x: x + 0.15, z: 11.7, y: G + 0.42 }]),
-    { kind: 'bottle', x: CLUB.desk.x + 0.35, z: CLUB.desk.z + 0.2, y: G + 0.78 },
+    { kind: 'bottle', x: CLUB.desk.x + 0.9, z: CLUB.desk.z - 0.3, y: G + 0.78 },
     { kind: 'milkcrate', x: 3.2, z: 17.05 }, { kind: 'milkcrate', x: 3.2, z: 17.05, y: 0.3 },
     { kind: 'box', x: -13.4, z: 15.3, ry: 0.3 }, { kind: 'box', x: -13.5, z: 15.9, ry: 0.1 }, { kind: 'box', x: -7.6, z: 21.5, ry: 0.4 },
     { kind: 'stool', x: 5.6, z: 18.9 }, { kind: 'stool', x: 5.6, z: 20.4 },
@@ -372,9 +372,9 @@ export function buildClub(a: Arena, blood: BloodAtlas, pointLights: number, shad
     const S = CLUB.safe;
     {
       // the safe: steel walls round a dark inside, two shelves, open on the east (its door); solid
-      // to walk into, and the door, swung open, lies along its south side
+      // to walk into, and the door (hinged at its north edge), swung open, lies off its north side
       k.block([S.x - 0.55, S.x + 0.55, G, G + 1.3, S.z - 0.5, S.z + 0.5], 'crate', 'safe');
-      k.block([S.x + 0.55, S.x + 1.45, G, G + 1.22, S.z - 0.6, S.z - 0.47], 'prop', 'safe door');
+      k.block([S.x + 0.55, S.x + 1.45, G, G + 1.22, S.z + 0.47, S.z + 0.6], 'prop', 'safe door');
       const steel = M.steel();
       const inside = M.paint(0x16161a, 0.7, 0.3);
       for (const [w, h, d, x, y, z, m] of [
@@ -392,11 +392,11 @@ export function buildClub(a: Arena, blood: BloodAtlas, pointLights: number, shad
     {
       // its door (it swings open for the script)
       const piv = new THREE.Group();
-      piv.position.set(S.x + 0.56, G + 0.65, S.z - 0.46);
+      piv.position.set(S.x + 0.56, G + 0.65, S.z + 0.46);
       const door = new THREE.Mesh(new THREE.BoxGeometry(0.06, 1.16, 0.9), new THREE.MeshStandardMaterial({ color: 0x5a5e62, metalness: 0.7, roughness: 0.35 }));
-      door.position.set(0.02, 0, 0.45);
+      door.position.set(0.02, 0, -0.45);
       const dial = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.05, 16).rotateZ(Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0xc8c0a0, metalness: 0.9, roughness: 0.3 }));
-      dial.position.set(0.06, 0.12, 0.45);
+      dial.position.set(0.06, 0.12, -0.45);
       piv.add(door, dial);
       k.g.add(piv);
       clubStage.safeDoor = piv;
@@ -572,7 +572,7 @@ export function buildClub(a: Arena, blood: BloodAtlas, pointLights: number, shad
       clubStage.lockerOpen += (clubStage.lockerWant - clubStage.lockerOpen) * Math.min(1, dt * 5);
       if (clubStage.locker) clubStage.locker.rotation.y = clubStage.lockerOpen * 1.9;
       clubStage.safeOpen += (clubStage.safeWant - clubStage.safeOpen) * Math.min(1, dt * 2.5);
-      if (clubStage.safeDoor) clubStage.safeDoor.rotation.y = clubStage.safeOpen * 1.7;
+      if (clubStage.safeDoor) clubStage.safeDoor.rotation.y = -clubStage.safeOpen * 1.7;
       for (const b of clubStage.beacons) {
         const beam = b.getObjectByName('beam') as THREE.Mesh;
         (beam.material as THREE.MeshBasicMaterial).opacity = clubStage.alarm ? 0.16 : 0;

@@ -441,6 +441,17 @@ export class Npc extends Fighter {
     if (pose) this.play(pose, { halflife: hl, originYaw: this.yaw });
     else this.anim.toLoco(hl);
   }
+  /** On a mark at once, facing this way (under a cut: a walk still going is done with). */
+  put(x: number, z: number, yaw: number) {
+    this.path = [];
+    this.onArrive = null;
+    this.x = x;
+    this.z = z;
+    this.vx = this.vz = 0;
+    this.yaw = this.faceYaw = yaw;
+    this.anim.initAt(x, z, yaw);
+    if (this.pose) this.play(this.pose, { halflife: 0.01, originYaw: yaw });
+  }
   walk(points: [number, number][], speed = 1.6, then: (() => void) | null = null) {
     this.path = points.map(([x, z]) => ({ x, z, speed }));
     this.onArrive = then;

@@ -27,9 +27,16 @@ interface Ride {
   modeT?: number;
   station?: [number, number];
   smoke?: THREE.Points;
+  /** Just knocked by her car (s): a barrier it's shoved into now costs it. */
+  shoved?: number;
 }
 
+/** Of the damage a knock deals Viper's car, the share it takes (it's armoured). */
+const ARMOUR = 0.4;
+
 class Chase {
+  /** Her car's health as of last frame (what's been dealt since, the armour takes its share of). */
+  private meHp = 100;
   road: Road;
   rides: Ride[] = [];
   me!: Ride;
@@ -155,10 +162,11 @@ class Chase {
     // her car
     if (this.active && !this.over) me.drive(dt, input.throttle, input.steer, input.handbrake);
     else me.drive(dt, me.speed > 1 ? -0.3 : 0, 0, false);
-    // the convoy rolls on at its own pace (it slows near the exit while the escorts are still at it)
+    // the convoy rolls on at its own pace (it eases off while its cars are still at her: near the
+    // exit, and once the tail's been sent after her - and stays eased off for the run in)
     const escortsLeft = this.escorts.filter((e) => !e.car.dead).length;
     const lead = this.trucks[0]?.car;
-    if (lead && lead.rs > CONVOY.exit - 900 && escortsLeft > 0) this.convoySpeed = damp(this.convoySpeed, 19, 0.5, dt);
+    if (lead && escortsLeft > 0 && (lead.rs > CONVOY.exit - 900 || this.tailSent)) this.convoySpeed = damp(this.convoySpeed, 19, 0.5, dt);
 
     this.convoyS += this.convoySpeed * dt;
     // (a convoy waits for its slowest: a truck held up behind her car, the rest ease off for it)
@@ -187,6 +195,7 @@ class Chase {
           // (her car's armoured and heavy where it counts: a ram costs an escort far more than her)
           const other = this.rides[i] === this.me ? this.rides[j] : this.rides[i];
           if (other.role === 'escort' && v > 0.6) other.car.hp -= v * 3.2;
+          if (other.role === 'escort') other.shoved = 1.6;
           if (v > 1.5) {
             g.audio.play('metal_hit', { pos: new THREE.Vector3((a.x + b.x) / 2, 0.8, (a.z + b.z) / 2), vol: clamp(0.25 + v * 0.05, 0.25, 1), pitch: 0.7 + Math.random() * 0.3 });
             this.shake = Math.max(this.shake, clamp(v * 0.04, 0.1, 0.6));
@@ -194,7 +203,7 @@ class Chase {
           }
         }
       }
-    // her damage (Viper's car is armoured: it takes half)
+    // the knocks: hers (the noise of it), and theirs
     for (const r of this.rides) {
       const c = r.car;
       if (r === this.me) {
@@ -205,10 +214,18 @@ class Chase {
         }
         continue;
       }
+      // (an escort she's shoved into the barrier: the barrier's hers too)
+      if (r.shoved && r.shoved > 0) {
+        r.shoved -= dt;
+        if (c.hitBarrier > 1.0 && !c.dead) c.hp -= c.hitBarrier * 2.6;
+      }
       if (c.hp <= 0 && !c.dead) this.wreck(r);
     }
-    const lost = me.maxHp - me.hp;
-    me.hp = me.maxHp - lost * 0.5;
+    // (Viper's car is armoured: of what this frame dealt it, it takes a share)
+    if (me.hp > this.meHp) this.meHp = me.hp;
+    const taken = this.meHp - me.hp;
+    if (taken > 0) me.hp = this.meHp - taken * ARMOUR;
+    this.meHp = me.hp;
     // the traffic: ahead of her, out of sight, in a lane; gone once far behind
     if (this.active) {
       const traffic = this.rides.filter((r) => r.role === 'traffic');
@@ -317,8 +334,11 @@ class Chase {
       this.aiDrive(r, LANES[st[1]], this.convoySpeed + clamp((target - c.rs) * 0.4, -6, 8), dt);
     }
   }
+  /** The two from the slip road are on the road. */
+  tailSent = false;
   /** More of them out of a slip road behind her: straight at her, and they don't let up. */
   addTail(n: number) {
+    this.tailSent = true;
     const me = this.me.car;
     const out: Ride[] = [];
     for (let i = 0; i < n; i++) {
