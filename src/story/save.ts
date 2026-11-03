@@ -18,8 +18,8 @@ export interface CheckpointState {
   specialCharges: number;
   specialKOs: number;
   charges: number;
-  /** Where the bodies lay (x, z, variant): the fallen are still there when you come back. */
-  bodies: [number, number, string][];
+  /** Where the bodies lay (x, z, variant, and the floor's height): the fallen are still there when you come back. */
+  bodies: ([number, number, string] | [number, number, string, number])[];
   /** The chapter's own notes (where the doorman fell, what she's taken). */
   flags?: Record<string, unknown>;
 }

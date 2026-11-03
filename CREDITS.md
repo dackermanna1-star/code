@@ -121,9 +121,19 @@ materials packed beside the body) into `src/character/models/<name>/mesh.json`.
   *Sports_Male_01* (bruisers, the lab's subjects and Subject Zero). `tools/models/build_avatars.py`
   converts the list in `tools/models/avatars.json`; `tools/models/avatar_textures.py` writes their
   textures (resized, extras packed, finish and tint maps; the Butcher's coat bloodied).
+* **Scarlet's outfits** are *Female_Adult_07*'s body re-dressed by the same script: the red dress
+  and heels (chapter two), Ivy's denim jacket, black jeans and sneakers (the roofs, the tower, the
+  river road) and the navy Palewater night-shift uniform (the lab).
 * **The story's people**: Doyle, the Lantern's doorman, is *Business_Male_01* in a black suit; the
   captives in the Butcher's pen are *Male_Adult_12* (Marco), *Delivery_Male_01*,
-  *Business_Male_05*, *Female_Party_02* and *Female_Adult_08*.
+  *Business_Male_05*, *Female_Party_02* and *Female_Adult_08*. **Ivy** is *Female_Adult_12* and
+  **Viper** *Business_Female_01*; Lena behind the Lantern's bar is *Female_Adult_11*, Varga
+  *Business_Male_04*, Branko and the club's security *Security_Male_01*; Julian Voss is
+  *Business_Male_05* in a pale suit; Meridian's site crew are *Construction_Male_01* and
+  Palewater's night shift *Security_Male_01* and *Security_Female_01*. The people in the club, at
+  the viewing and in the lab are *Male_Adult_01, 02, 04, 09, 12, 18*, *Female_Adult_01, 05, 08,
+  11, 17*, *Female_Party_01, 02*, *Business_Female_02*, *Business_Male_04, 05* and
+  *Medical_Female_01*.
 
 ```
 MIT License

@@ -1,0 +1,540 @@
+import * as THREE from 'three';
+import { clamp, damp, rand } from '../core/math';
+import type { Chapter, Story } from './runner';
+import { Car, collideCars, Road } from '../vehicle/car';
+import { CONVOY } from '../world/level/convoy';
+
+/**
+ * CHAPTER FIVE — THE TRUCKS LEAVE AT DAWN. Viper's black car out of Meridian's garage at 4:52 AM,
+ * onto the river expressway after Voss's convoy: two refrigerated trucks (her sister in the second),
+ * three black SUVs round them, and the night's last traffic. Catch them; run the escorts into the
+ * barriers (or shoot their tyres out: R); get alongside Ivy's truck - and watch it go through
+ * Palewater's gates as they close on her.
+ *
+ * She drives: W / S throttle and brake, A / D steer, SPACE the handbrake, R the pistol (an escort
+ * ahead of her, in range). The car is Viper's: armoured, but not for ever.
+ */
+const LANES = CONVOY.lanes;
+
+type Role = 'player' | 'truck' | 'escort' | 'traffic';
+interface Ride {
+  car: Car;
+  role: Role;
+  lane: number;
+  want: number;
+  /** An escort's mood: holding station, or coming at her. */
+  mode?: 'guard' | 'ram' | 'back';
+  modeT?: number;
+  station?: [number, number];
+  smoke?: THREE.Points;
+}
+
+class Chase {
+  road: Road;
+  rides: Ride[] = [];
+  me!: Ride;
+  trucks: Ride[] = [];
+  escorts: Ride[] = [];
+  convoyS = 340;
+  convoySpeed = 25;
+  camPos = new THREE.Vector3();
+  camLook = new THREE.Vector3();
+  hud: HTMLDivElement;
+  engine: { o1: OscillatorNode; o2: OscillatorNode; f: BiquadFilterNode; g: GainNode; n: AudioBufferSourceNode; ng: GainNode } | null = null;
+  shake = 0;
+  pistol = 3;
+  active = false;
+  over = false;
+  constructor(public s: Story) {
+    this.road = CONVOY.road!;
+    this.hud = document.createElement('div');
+    this.hud.style.cssText = 'position:fixed;right:28px;bottom:28px;z-index:30;font:600 15px "Oswald",sans-serif;color:#e8e0d0;text-align:right;letter-spacing:.08em;text-shadow:0 2px 6px #000;pointer-events:none;opacity:0;transition:opacity .4s';
+    document.body.appendChild(this.hud);
+  }
+  add(role: Role, kind: Car['kind'], s: number, lane: number, speed: number, color?: number) {
+    const car = new Car(kind, color);
+    const p = this.road.pos(s, LANES[lane]);
+    car.x = p.x;
+    car.z = p.z;
+    car.yaw = Math.atan2(p.tx, p.tz);
+    car.speed = speed;
+    car.rs = s;
+    this.s.game.scene.add(car.group);
+    const r: Ride = { car, role, lane, want: speed };
+    this.rides.push(r);
+    return r;
+  }
+  remove(r: Ride) {
+    r.car.group.removeFromParent();
+    r.smoke?.removeFromParent();
+    this.rides = this.rides.filter((x) => x !== r);
+  }
+  setup(at: number, convoyAhead: number, withEscorts: boolean) {
+    for (const r of [...this.rides]) this.remove(r);
+    this.trucks = [];
+    this.escorts = [];
+    this.me = this.add('player', 'saloon', at, 1, 0);
+    this.me.car.hp = this.me.car.maxHp = 100;
+    this.convoyS = at + convoyAhead;
+    this.trucks.push(this.add('truck', 'truck', this.convoyS + 18, 1, this.convoySpeed));
+    this.trucks.push(this.add('truck', 'truck', this.convoyS, 1, this.convoySpeed));
+    if (withEscorts) {
+      const st: [number, number][] = [[-14, 0], [6, 2], [30, 0]];
+      for (const [i, [ds, lane]] of st.entries()) {
+        const e = this.add('escort', 'suv', this.convoyS + ds, lane, this.convoySpeed);
+        e.mode = 'guard';
+        e.modeT = rand(2, 5);
+        e.station = [ds, lane];
+        e.car.hp = e.car.maxHp = 90;
+        void i;
+        this.escorts.push(e);
+      }
+    }
+    const p = this.me.car;
+    this.camPos.set(p.x - p.fx * 8, 3, p.z - p.fz * 8);
+    this.camLook.set(p.x + p.fx * 10, 1, p.z + p.fz * 10);
+  }
+
+  // ------------------------------------------------------------------ the engine's note
+  startEngine() {
+    const c = this.s.game.audio.ctx;
+    if (!c || this.engine) return;
+    const o1 = c.createOscillator();
+    o1.type = 'sawtooth';
+    const o2 = c.createOscillator();
+    o2.type = 'square';
+    const f = c.createBiquadFilter();
+    f.type = 'lowpass';
+    f.Q.value = 2;
+    const g = c.createGain();
+    g.gain.value = 0;
+    o1.connect(f);
+    o2.connect(f);
+    f.connect(g);
+    g.connect(this.s.game.audio.amb);
+    // the road under the tyres: filtered noise
+    const len = c.sampleRate * 2;
+    const nb = c.createBuffer(1, len, c.sampleRate);
+    const d = nb.getChannelData(0);
+    let last = 0;
+    for (let i = 0; i < len; i++) {
+      last = last * 0.97 + (Math.random() * 2 - 1) * 0.03;
+      d[i] = last * 4;
+    }
+    const n = c.createBufferSource();
+    n.buffer = nb;
+    n.loop = true;
+    const ng = c.createGain();
+    ng.gain.value = 0;
+    n.connect(ng);
+    ng.connect(this.s.game.audio.amb);
+    o1.start();
+    o2.start();
+    n.start();
+    this.engine = { o1, o2, f, g, n, ng };
+  }
+  stopEngine() {
+    const e = this.engine;
+    if (!e) return;
+    const c = this.s.game.audio.ctx!;
+    e.g.gain.setTargetAtTime(0, c.currentTime, 0.3);
+    e.ng.gain.setTargetAtTime(0, c.currentTime, 0.3);
+    setTimeout(() => {
+      e.o1.stop();
+      e.o2.stop();
+      e.n.stop();
+    }, 1500);
+    this.engine = null;
+  }
+
+  // ------------------------------------------------------------------ a frame
+  update(dt: number, input: { throttle: number; steer: number; handbrake: boolean }) {
+    const g = this.s.game;
+    const road = this.road;
+    const me = this.me.car;
+    // her car
+    if (this.active && !this.over) me.drive(dt, input.throttle, input.steer, input.handbrake);
+    else me.drive(dt, me.speed > 1 ? -0.3 : 0, 0, false);
+    // the convoy rolls on at its own pace (it slows near the exit while the escorts are still at it)
+    const escortsLeft = this.escorts.filter((e) => !e.car.dead).length;
+    const lead = this.trucks[0]?.car;
+    if (lead && lead.rs > CONVOY.exit - 900 && escortsLeft > 0) this.convoySpeed = damp(this.convoySpeed, 19, 0.5, dt);
+    this.convoyS += this.convoySpeed * dt;
+    for (const r of this.rides) {
+      if (r === this.me) continue;
+      const c = r.car;
+      if (r.role === 'truck') {
+        const i = this.trucks.indexOf(r);
+        this.aiDrive(r, LANES[1] + (i === 0 ? 0.2 : 0), this.convoySpeed + (this.convoyS + (i === 0 ? 18 : 0) - c.rs) * 0.4, dt);
+      } else if (r.role === 'escort') this.escortAI(r, dt);
+      else this.aiDrive(r, LANES[r.lane], r.want, dt);
+    }
+    // the barriers, the knocks
+    for (const r of this.rides) {
+      r.car.hitCar = 0;
+      r.car.keepOnRoad(road);
+    }
+    for (let i = 0; i < this.rides.length; i++)
+      for (let j = i + 1; j < this.rides.length; j++) {
+        const a = this.rides[i].car, b = this.rides[j].car;
+        if (Math.abs(a.rs - b.rs) > 16) continue;
+        if (collideCars(a, b) && (this.rides[i] === this.me || this.rides[j] === this.me)) {
+          const v = Math.max(a.hitCar, b.hitCar);
+          if (v > 1.5) {
+            g.audio.play('metal_hit', { pos: new THREE.Vector3((a.x + b.x) / 2, 0.8, (a.z + b.z) / 2), vol: clamp(0.25 + v * 0.05, 0.25, 1), pitch: 0.7 + Math.random() * 0.3 });
+            this.shake = Math.max(this.shake, clamp(v * 0.04, 0.1, 0.6));
+            g.fx.sparks(new THREE.Vector3((a.x + b.x) / 2, 0.6, (a.z + b.z) / 2), new THREE.Vector3(0, 1, 0), Math.round(6 + v));
+          }
+        }
+      }
+    // her damage (Viper's car is armoured: it takes half)
+    for (const r of this.rides) {
+      const c = r.car;
+      if (r === this.me) {
+        if (c.hitBarrier > 1.5) {
+          g.audio.play('metal_hit', { pos: new THREE.Vector3(c.x, 0.6, c.z), vol: clamp(0.2 + c.hitBarrier * 0.05, 0.2, 0.9), pitch: 0.5 + Math.random() * 0.2 });
+          g.fx.sparks(new THREE.Vector3(c.x + Math.cos(c.yaw) * Math.sign(c.rd) * -1, 0.5, c.z), new THREE.Vector3(0, 1, 0), 10);
+          this.shake = Math.max(this.shake, clamp(c.hitBarrier * 0.05, 0.1, 0.5));
+        }
+        continue;
+      }
+      if (c.hp <= 0 && !c.dead) this.wreck(r);
+    }
+    const lost = me.maxHp - me.hp;
+    me.hp = me.maxHp - lost * 0.5;
+    // the traffic: ahead of her, out of sight, in a lane; gone once far behind
+    if (this.active) {
+      const traffic = this.rides.filter((r) => r.role === 'traffic');
+      for (const t of traffic) if (t.car.rs < me.rs - 160 || t.car.rs > me.rs + 700) this.remove(t);
+      if (traffic.length < 9 && Math.random() < dt * 1.2) {
+        const s = me.rs + 320 + Math.random() * 250;
+        const lane = Math.floor(Math.random() * 3);
+        const busy = this.rides.some((r) => Math.abs(r.car.rs - s) < 18 && Math.abs(r.car.rd - LANES[lane]) < 2.5);
+        if (!busy && s < road.length - 50) {
+          const kind = Math.random() < 0.2 ? 'van' : 'civic';
+          this.add('traffic', kind, s, lane, 17 + Math.random() * 8, kind === 'van' ? 0xd8d8d0 : [0x8a2a2a, 0x2a4a8a, 0x9a9a9a, 0x2a2a2a, 0xc8b070, 0x3a6a3a][Math.floor(Math.random() * 6)]);
+        }
+      }
+    }
+    for (const r of this.rides) {
+      r.car.sync();
+      if (r.smoke) {
+        r.smoke.position.set(r.car.x, 1.2, r.car.z);
+        const pos = r.smoke.geometry.attributes.position as THREE.BufferAttribute;
+        for (let i = 0; i < pos.count; i++) {
+          let y = pos.getY(i) + dt * 1.6;
+          if (y > 5) y = 0;
+          pos.setY(i, y);
+        }
+        pos.needsUpdate = true;
+      }
+    }
+    // the sound of it
+    const e = this.engine;
+    if (e) {
+      const c = g.audio.ctx!;
+      const sp = Math.abs(me.speed);
+      const gear = Math.min(5, Math.floor(sp / 10));
+      const rev = 0.25 + ((sp - gear * 10) / 10) * 0.75;
+      const hz = 38 + gear * 6 + rev * 70;
+      e.o1.frequency.setTargetAtTime(hz, c.currentTime, 0.05);
+      e.o2.frequency.setTargetAtTime(hz * 0.5, c.currentTime, 0.05);
+      e.f.frequency.setTargetAtTime(300 + rev * 900 + Math.max(0, input.throttle) * 600, c.currentTime, 0.08);
+      e.g.gain.setTargetAtTime(this.over ? 0 : 0.05 + Math.max(0, input.throttle) * 0.05, c.currentTime, 0.1);
+      e.ng.gain.setTargetAtTime(this.over ? 0 : Math.min(0.12, sp * 0.003 + Math.abs(me.slip) * 0.03), c.currentTime, 0.1);
+    }
+    // the hud
+    this.hud.style.opacity = this.active && !this.s.inScene ? '1' : '0';
+    const kmh = Math.round(Math.abs(me.speed) * 3.6);
+    const dmg = clamp(me.hp / me.maxHp, 0, 1);
+    const bar = '■'.repeat(Math.round(dmg * 10)) + '<span style="opacity:.25">' + '■'.repeat(10 - Math.round(dmg * 10)) + '</span>';
+    const gap = Math.max(0, Math.round((this.trucks[1]?.car.rs ?? 0) - me.rs));
+    this.hud.innerHTML = `<div style="font-size:44px;line-height:1">${kmh}<small style="font-size:14px"> KM/H</small></div><div style="margin-top:6px">CAR ${bar}</div><div>CONVOY ${gap} M · PISTOL ${'●'.repeat(this.pistol)}${'○'.repeat(Math.max(0, 3 - this.pistol))}</div>`;
+    // dawn comes on as she goes
+    CONVOY.dawn = clamp(me.rs / road.length, 0, 1) * 0.85;
+    // she's in the car (for the listener and the lights round her) - not on foot under it: no
+    // steps, no swings, whatever the scenes in between leave her as
+    const p = g.player;
+    p.x = me.x;
+    p.z = me.z;
+    p.vx = p.vz = 0;
+    p.scripted = true;
+    p.autopilot = null;
+    p.model.group.visible = false;
+  }
+
+  /** Follow the road at a lane and a speed (braking for whoever's ahead in it). */
+  aiDrive(r: Ride, d: number, speed: number, dt: number) {
+    const c = r.car;
+    let want = speed;
+    for (const o of this.rides) {
+      if (o === r) continue;
+      const ds = o.car.rs - c.rs;
+      if (ds > 0 && ds < 22 && Math.abs(o.car.rd - d) < 2.4) want = Math.min(want, o.car.speed - 1 + (ds - 10) * 0.3);
+    }
+    const ahead = this.road.pos(c.rs + 8 + Math.max(0, c.speed) * 0.45, d);
+    const wantYaw = Math.atan2(ahead.x - c.x, ahead.z - c.z);
+    const err = Math.atan2(Math.sin(wantYaw - c.yaw), Math.cos(wantYaw - c.yaw));
+    c.drive(dt, clamp((want - c.speed) * 0.3, -1, 1), clamp(err * 2.4, -1, 1), false);
+  }
+  /** An escort: keeps its place by the trucks until she's close, then comes at her - alongside, and in. */
+  escortAI(r: Ride, dt: number) {
+    const c = r.car;
+    const me = this.me.car;
+    if (c.dead) {
+      c.drive(dt, c.speed > 0.5 ? -0.4 : 0, 0, false);
+      return;
+    }
+    r.modeT = (r.modeT ?? 0) - dt;
+    const gap = me.rs - c.rs;
+    if (r.mode === 'guard' && Math.abs(gap) < 70 && this.active && (r.modeT ?? 0) <= 0) {
+      r.mode = 'ram';
+      r.modeT = rand(5, 8);
+    } else if (r.mode === 'ram' && (r.modeT ?? 0) <= 0) {
+      r.mode = 'back';
+      r.modeT = rand(2, 4);
+    } else if (r.mode === 'back' && (r.modeT ?? 0) <= 0) {
+      r.mode = 'guard';
+      r.modeT = rand(1, 3);
+    }
+    if (r.mode === 'ram') {
+      // alongside her, then into her side
+      const along = Math.abs(gap) < 4;
+      const d = along ? me.rd : me.rd + (me.rd > c.rd ? -3.6 : 3.6);
+      this.aiDrive(r, clamp(d, -CONVOY.half + 1, CONVOY.half - 1), me.speed + clamp(gap * 0.8, -8, 10), dt);
+    } else {
+      const st = r.station ?? [0, 1];
+      const target = this.convoyS + st[0];
+      this.aiDrive(r, LANES[st[1]], this.convoySpeed + clamp((target - c.rs) * 0.4, -6, 8), dt);
+    }
+  }
+  /** Out of it: it coasts, smoking, onto the shoulder. */
+  wreck(r: Ride) {
+    const g = this.s.game;
+    r.car.dead = true;
+    g.audio.play('metal_hit', { pos: new THREE.Vector3(r.car.x, 1, r.car.z), vol: 0.9, pitch: 0.4 });
+    g.audio.play('wood_break', { pos: new THREE.Vector3(r.car.x, 1, r.car.z), vol: 0.5, pitch: 0.6 });
+    const n = 40;
+    const geo = new THREE.BufferGeometry();
+    const pos = new Float32Array(n * 3);
+    for (let i = 0; i < n; i++) pos.set([(Math.random() - 0.5) * 1.2, Math.random() * 5, (Math.random() - 0.5) * 1.2], i * 3);
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    const sm = new THREE.Points(geo, new THREE.PointsMaterial({ color: 0x3a3a3a, size: 1.4, transparent: true, opacity: 0.35, depthWrite: false }));
+    g.scene.add(sm);
+    r.smoke = sm;
+    if (r.role === 'escort') this.s.bark('SCARLET', ['One down.', 'Off the road.', 'Stay down.'][this.escorts.filter((e) => e.car.dead).length - 1] ?? 'Next.', 1.6);
+  }
+  /** R: a shot at the nearest escort ahead (its tyres). */
+  shoot() {
+    const g = this.s.game;
+    const me = this.me.car;
+    if (this.pistol <= 0) return;
+    let best: Ride | null = null;
+    let bd = 45;
+    for (const e of this.escorts) {
+      if (e.car.dead) continue;
+      const dx = e.car.x - me.x, dz = e.car.z - me.z;
+      const d = Math.hypot(dx, dz);
+      const ahead = (dx * me.fx + dz * me.fz) / (d || 1);
+      if (d < bd && ahead > 0.35) {
+        bd = d;
+        best = e;
+      }
+    }
+    if (!best) return;
+    this.pistol--;
+    g.audio.play('punch_heavy', { pos: new THREE.Vector3(me.x, 1.2, me.z), vol: 0.8, pitch: 2.2 });
+    best.car.hp -= 55;
+    best.car.slip += (Math.random() < 0.5 ? -1 : 1) * 5;
+    best.car.speed *= 0.8;
+    g.fx.sparks(new THREE.Vector3(best.car.x, 0.4, best.car.z), new THREE.Vector3(0, 1, 0), 12);
+    this.s.bark('SCARLET', 'Tyre.', 1.0);
+  }
+  /** The car cam: behind and above, looking down the road, wider and further back with speed. */
+  camera(realDt: number) {
+    const g = this.s.game;
+    const c = this.me.car;
+    const sp = Math.abs(c.speed);
+    const back = 7.2 + sp * 0.05;
+    const want = new THREE.Vector3(c.x - c.fx * back, 2.6 + sp * 0.012, c.z - c.fz * back);
+    const look = new THREE.Vector3(c.x + c.fx * 9, 1.1, c.z + c.fz * 9);
+    const k = 1 - Math.exp(-realDt * 7);
+    this.camPos.lerp(want, k);
+    this.camLook.lerp(look, 1 - Math.exp(-realDt * 10));
+    this.shake = Math.max(0, this.shake - realDt * 1.6);
+    const sh = this.shake * this.shake;
+    const pos = this.camPos.clone().add(new THREE.Vector3((Math.random() - 0.5) * sh, (Math.random() - 0.5) * sh, (Math.random() - 0.5) * sh));
+    const m = new THREE.Matrix4().lookAt(pos, this.camLook, new THREE.Vector3(0, 1, 0));
+    const q = new THREE.Quaternion().setFromRotationMatrix(m);
+    g.cam.setPose(pos, q, 62 + sp * 0.32);
+  }
+  dispose() {
+    this.stopEngine();
+    this.hud.remove();
+    for (const r of [...this.rides]) this.remove(r);
+  }
+}
+
+let chase: Chase | null = null;
+
+/** The wheel: from the keys (or the test bot, which drives like someone in a hurry). */
+function controls(s: Story): { throttle: number; steer: number; handbrake: boolean } {
+  const g = s.game;
+  const inp = g.input;
+  if (g.params.get('bot') === '1' && chase) {
+    const me = chase.me.car;
+    // at the nearest live escort's lane if one's close, else down the middle; flat out
+    let d = 0;
+    const e = chase.escorts.find((x) => !x.car.dead && Math.abs(x.car.rs - me.rs) < 50);
+    if (e) d = e.car.rd;
+    else if (chase.trucks[1] && Math.abs(chase.trucks[1].car.rs - me.rs) < 60) d = chase.trucks[1].car.rd - 3.6;
+    const ahead = chase.road.pos(me.rs + 10 + me.speed * 0.4, clamp(d, -CONVOY.half + 1.2, CONVOY.half - 1.2));
+    const wantYaw = Math.atan2(ahead.x - me.x, ahead.z - me.z);
+    const err = Math.atan2(Math.sin(wantYaw - me.yaw), Math.cos(wantYaw - me.yaw));
+    if (e && chase.pistol > 0 && Math.random() < 0.01) chase.shoot();
+    return { throttle: 1, steer: clamp(err * 2.2, -1, 1), handbrake: false };
+  }
+  return { throttle: clamp(inp.moveY, -1, 1), steer: clamp(-inp.moveX, -1, 1), handbrake: inp.isHeld('dodge') };
+}
+
+export const CH5: Chapter = {
+  id: 5,
+  kick: 'CHAPTER FIVE',
+  title: 'THE TRUCKS LEAVE AT DAWN',
+  place: 'THE RIVER EXPRESSWAY',
+  clock: '4:52 AM',
+  map: 'convoy',
+  outfit: 'denim',
+  synopsis: 'Viper\'s car, Voss\'s convoy, and the river road to Palewater.',
+  par: 300,
+  next: { kick: 'CHAPTER SIX', title: 'NIGHT SHIFT', line: 'She knows Palewater\'s doors. She used to guard them.' },
+  setup(s) {
+    const g = s.game;
+    chase = new Chase(s);
+    const at = s.cp >= 2 ? 1800 : s.cp >= 1 ? 600 : 10;
+    chase.setup(at, s.cp >= 1 ? 70 : 340, true);
+    if (s.cp >= 2) for (const e of chase.escorts) chase.wreck(e), e.car.hp = 0;
+    g.player.model.group.visible = false;
+    g.player.scripted = true;
+    g.camOverride = (realDt) => chase?.camera(realDt);
+    g.music.duck(1);
+  },
+  tick(s, dt) {
+    if (!chase) return;
+    const g = s.game;
+    if (g.paused || g.over) return;
+    // R (the right trigger): the pistol out of the window
+    if (g.input.consume('special') && chase.active && !s.inScene) chase.shoot();
+    chase.update(Math.min(dt, 0.05), controls(s));
+    // wrecked: the end of the road
+    if (chase.me.car.hp <= 0 && !chase.over && !g.over && g.params.get('god') !== '1') {
+      chase.over = true;
+      const p = g.player;
+      p.hp = 0;
+      p.alive = false;
+      g.onPlayerDeath();
+    }
+  },
+  segments: [
+    // ------------------------------------------------------------------ out of the garage
+    {
+      name: 'THE RIVER ROAD',
+      async play(s) {
+        const g = s.game;
+        const c = chase!;
+        await s.scene(async () => {
+          s.ui.card('CHAPTER FIVE', 'THE TRUCKS LEAVE AT DAWN', 'THE RIVER EXPRESSWAY', '4:52 AM');
+          await s.wait(4.4);
+          s.ui.cardHide();
+          s.ui.fade(false, 1.4);
+          const m = c.me.car;
+          s.shot({ pos: [m.x + 3.2, 1.1, m.z - 4.5], look: [m.x, 0.9, m.z], pos2: [m.x + 3.6, 1.2, m.z - 3.6], fov: 40, dur: 5 });
+          c.startEngine();
+          await s.wait(1.2);
+          await s.say('SCARLET', 'Nice car, Viper.', 1.6);
+          s.shot({ pos: [m.x - 1.5, 3.2, m.z - 14], look: [m.x + m.fx * 300, 2, m.z + m.fz * 300], fov: 34, dur: 6 });
+          s.ui.stamp('THE RIVER EXPRESSWAY', '4:52 AM');
+          await s.wait(1.6);
+          s.bark('KX', '<em>(radio)</em> Convoy\'s rolling. Palewater in twenty. Nobody stops for anything.', 3.6, null);
+          await s.wait(3.6);
+        });
+        c.active = true;
+        s.objective('THE CONVOY', 'Catch the trucks before Palewater');
+        void s.tutor(['W', 'A', 'S', 'D'], 'DRIVE', 'W throttle, S brake, A / D steer, SPACE the handbrake', () => (Math.abs(c.me.car.speed) > 25 ? 1 : 0), 1);
+        await s.until(() => (c.trucks[1]?.car.rs ?? 0) - c.me.car.rs < 90, false);
+        s.hideTutor();
+      },
+    },
+    // ------------------------------------------------------------------ the escorts
+    {
+      name: 'THE ESCORTS',
+      async play(s) {
+        const c = chase!;
+        c.active = true;
+        s.bark('KX', '<em>(radio)</em> Black car coming up fast — that\'s Viper\'s car. Take it off the road!', 3.4, null);
+        const left = () => c.escorts.filter((e) => !e.car.dead).length;
+        s.objective('THE ESCORTS', `Run them into the barriers · R: the pistol (${3 - left()}/3)`);
+        void s.tutor(['R'], 'THE PISTOL', 'An escort ahead of you, in range: R puts a round through a tyre', () => 3 - c.pistol, 1, () => left() === 0);
+        let shown = left();
+        await s.until(() => {
+          const n = left();
+          if (n !== shown) {
+            shown = n;
+            s.objective('THE ESCORTS', `Run them into the barriers · R: the pistol (${3 - n}/3)`);
+          }
+          return n === 0;
+        }, false);
+        s.hideTutor();
+      },
+    },
+    // ------------------------------------------------------------------ Ivy's truck
+    {
+      name: 'IVY\'S TRUCK',
+      async play(s) {
+        const g = s.game;
+        const c = chase!;
+        c.active = true;
+        s.objective('IVY\'S TRUCK', 'Get alongside the second truck');
+        await s.until(() => {
+          const t = c.trucks[1]?.car;
+          if (!t) return true;
+          return Math.abs(t.rs - c.me.car.rs) < 7 && Math.abs(t.rd - c.me.car.rd) < 4.6;
+        }, false);
+        c.active = false;
+        s.objective(null);
+        const t = c.trucks[1].car;
+        await s.scene(async () => {
+          // alongside: the truck's box a metre from her window; she can hear someone banging inside it
+          s.shot({ pos: [c.me.car.x - c.me.car.fx * 2 + Math.cos(c.me.car.yaw) * 2.8, 1.6, c.me.car.z - c.me.car.fz * 2 - Math.sin(c.me.car.yaw) * 2.8], look: [t.x, 2, t.z], fov: 46, dur: 4 });
+          for (let i = 0; i < 3; i++) {
+            g.audio.play('body_hit', { pos: new THREE.Vector3(t.x, 2, t.z), vol: 0.6, pitch: 0.8 });
+            await s.wait(0.35);
+          }
+          await s.say('SCARLET', 'IVY! I\'m here! I\'m right here!', 2.4);
+          await s.say('IVY', '<em>(through the steel)</em> SCAR!', 1.6, { phone: true });
+          // the exit: the trucks peel off for Palewater; the gates; her car into them as they close
+          s.shot({ pos: [t.x - t.fx * 30, 6, t.z - t.fz * 30], look: [t.x + t.fx * 60, 1, t.z + t.fz * 60], fov: 40, dur: 6 });
+          await s.wait(2.6);
+          s.ui.item('5:14 AM', 'PALEWATER · NEXT EXIT', 'The gates are already opening for them', 3);
+          await s.wait(2.4);
+          s.ui.fade(true, 0.6);
+          await s.wait(0.6);
+          g.audio.play('metal_hit', { vol: 1, pitch: 0.35 });
+          g.audio.play('wood_break', { vol: 0.8, pitch: 0.5 });
+          g.cam.addTrauma(0.8);
+          await s.wait(1.8);
+          await s.say('SCARLET', '...Ivy.', 1.6);
+          await s.wait(1.4);
+        });
+        endChase(s);
+      },
+    },
+  ],
+};
+
+/** (the chapter's over: the car, its sounds and its hud go) */
+export function endChase(s: Story) {
+  if (chase) chase.dispose();
+  chase = null;
+  s.game.camOverride = null;
+}

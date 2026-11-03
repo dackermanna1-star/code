@@ -13,6 +13,8 @@ import { lampPost, container, chainFence, crateStack } from './blocks';
  */
 export function buildTestbed(a: Arena, blood: BloodAtlas, pointLights: number, shadowMapSize: number): MapParts {
   const k = new LevelKit(a, blood, pointLights, shadowMapSize, { bounds: { minX: -32, maxX: 32, minZ: -16, maxZ: 16 } });
+  a.propSpots = { drums: [], crates: [] };
+  a.drains = [];
   const M = new Materials(blood, true);
   a.fog = { color: 0x0c0e14, density: 0.022 };
   a.background = skyTexture(5);

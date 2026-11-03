@@ -266,6 +266,25 @@ export function registerStoryVariants(lib: CharacterLibrary): Partial<Record<Arc
   add('viper', 'viper_story', { height: 0.99, bulk: 0.9, legs: 1.05 },
     o({ skin: '#e0ac85', hair: '#0e0e0e', hairStyle: 'ponytail', top: 'jacket', topColor: '#0e0e10', topColor2: '#1e6a3a', bottom: 'track', bottomColor: '#0e0e10', shoes: 'boots', seed: 971 }),
     { model: 'viper', look: { top: tint('#0c0c0e', 0.5) } });
+  // the Lantern, inside: Lena behind the bar (Ivy's friend, the same black staff tee); Varga, who
+  // keeps the books in a grey suit; Branko's security in black, and Branko
+  add('captive', 'lena', { bulk: 0.86, fem: 1 },
+    o({ skin: '#d8a080', hair: '#1a1410', hairStyle: 'ponytail', top: 'tshirt', topColor: '#141416', bottom: 'jeans', bottomColor: '#1c1c22', seed: 972 }),
+    { model: 'adultf11', look: { top: tint('#121214', 0.85) } });
+  add('captive', 'varga', { bulk: 0.95 },
+    o({ skin: '#d9b08f', hair: '#8a8a8a', hairStyle: 'short', top: 'jacket', topColor: '#4a4a52', bottom: 'jeans', bottomColor: '#2a2a30', seed: 973 }),
+    { model: 'business04', look: { top: tint('#55555c', 0.55) } });
+  for (let i = 0; i < 3; i++)
+    add('brawler', 'kxsec' + i, { height: 1.02 + i * 0.02, bulk: 1.1 + i * 0.04 },
+      o({ skin: ['#c99272', '#8a5a3c', '#d9a888'][i], hair: '#1a1410', hairStyle: 'buzz', top: 'tshirt', topColor: '#121214', bottom: 'cargo', bottomColor: '#141418', shoes: 'boots', seed: 974 + i }),
+      { model: 'security01', look: { top: tint('#101012', 0.9), girth: 1.04 + i * 0.05, ...(i === 1 ? { skin: tint('#7a5038', 0.5) } : {}) } });
+  add('bouncer', 'branko', { height: 1.12, bulk: 1.36, shoulders: 1.22, gut: 0.5, chestDepth: 1.14, hipsW: 1.12, headSize: 1.03 },
+    o({ skin: '#c99a78', hair: '#2a2018', hairStyle: 'buzz', facial: 'stubble', top: 'jacket', topColor: '#18181c', bottom: 'jeans', bottomColor: '#101012', shoes: 'boots', brow: 1, seed: 977 }),
+    { model: 'security01', look: { top: tint('#1a1a1e', 0.8), girth: 1.34 } });
+  // Julian Voss: the developer, the owner of Palewater; a pale suit, money's ease
+  add('captive', 'voss', { height: 1.02, bulk: 0.98 },
+    o({ skin: '#e2b896', hair: '#c8c0b0', hairStyle: 'short', top: 'jacket', topColor: '#c8c0b0', bottom: 'jeans', bottomColor: '#8a8478', seed: 978 }),
+    { model: 'business05', look: { top: tint('#cfc6b4', 0.7) } });
   // Meridian's site crew: hard hats, hi-vis, tools
   for (let i = 0; i < 3; i++)
     add('brawler', 'worker' + i, { height: 1 + i * 0.02, bulk: 1.05 + i * 0.04 },

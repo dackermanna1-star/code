@@ -102,6 +102,9 @@ export class LightPool {
   private k: number[] = [];
   private acc = 0;
   private t = 0;
+  /** Can a light at b be seen from a (a wall between them: it lights the other room, not this one). */
+  los: ((a: THREE.Vector3, b: THREE.Vector3) => boolean) | null = null;
+  private eye = new THREE.Vector3();
   constructor(group: THREE.Group, n: number, public spots: LightSpot[]) {
     for (let i = 0; i < n; i++) {
       const l = new THREE.PointLight(0xffffff, 0, 10, 1.7);
@@ -121,6 +124,9 @@ export class LightPool {
       if (d > s.distance + 14) continue;
       // (bright and near; the ones lit now get a little loyalty, so two equals don't trade places)
       const held = this.cur.includes(s) ? 1.35 : 1;
+      // (one behind a wall lights the other room, not this one: the lamps she can see get the lights)
+      this.eye.set(focus.x, focus.y + 1.2, focus.z);
+      if (this.los && d > 1.5 && !this.los(this.eye, s.p)) continue;
       scored.push([s, (s.intensity / (1 + (d * d) / (s.distance * s.distance * 0.35))) * held]);
     }
     scored.sort((a, b) => b[1] - a[1]);
@@ -408,6 +414,60 @@ export class LevelKit {
     for (let y = y0 + 0.28; y < y1 + 0.05; y += 0.3) this.mesh(rung, mat, new THREE.Matrix4().makeTranslation(base.x, y, base.z), false);
   }
 
+  // ------------------------------------------------------------------ weather
+  /**
+   * Rain round wherever she is: streaks falling through a box that follows the focus (a big level's
+   * rain can't be everywhere at once). `when`: whether it shows (out on a roof, not under one);
+   * `floorY`: where it lands.
+   */
+  rain(o: { count?: number; w?: number; h?: number; when?: () => boolean; floorY?: number } = {}) {
+    const N = o.count ?? 1800, W = o.w ?? 34, H = o.h ?? 14;
+    const pos = new Float32Array(N * 6);
+    const seed = new Float32Array(N * 2);
+    for (let i = 0; i < N; i++) {
+      const x = (this.rng.next() - 0.5) * W, y = this.rng.next() * H, z = (this.rng.next() - 0.5) * W;
+      const len = 0.35 + this.rng.next() * 0.35;
+      pos.set([x, y, z, x - 0.05, y + len, z - 0.03], i * 6);
+      seed[i * 2] = seed[i * 2 + 1] = this.rng.next();
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    geo.setAttribute('aSeed', new THREE.BufferAttribute(seed, 1));
+    const mat = new THREE.ShaderMaterial({
+      uniforms: { uTime: { value: 0 }, uH: { value: H } },
+      vertexShader: `attribute float aSeed; uniform float uTime; uniform float uH; varying float vA;
+        void main() {
+          vec3 p = position;
+          float fall = mod(p.y - uTime * (13.0 + aSeed * 5.0), uH) - p.y;
+          p.y += fall;
+          p.x += fall * 0.06;
+          vec4 mv = modelViewMatrix * vec4(p, 1.0);
+          vA = (0.05 + aSeed * 0.09) * smoothstep(1.2, 3.5, -mv.z);
+          gl_Position = projectionMatrix * mv;
+        }`,
+      fragmentShader: `varying float vA;
+        void main() { gl_FragColor = vec4(vec3(0.62, 0.7, 0.85), vA); }`,
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+    });
+    const rain = new THREE.LineSegments(geo, mat);
+    rain.frustumCulled = false;
+    this.g.add(rain);
+    let t = 0;
+    const a = this.a;
+    const fy = o.floorY;
+    this.updates.push((dt) => {
+      t += dt;
+      mat.uniforms.uTime.value = t;
+      rain.visible = o.when ? o.when() : true;
+      // (the box steps with her a few metres at a time: drops don't slide along as she runs)
+      const sx = Math.round(a.focus.x / 4) * 4, sz = Math.round(a.focus.z / 4) * 4;
+      rain.position.set(sx, (fy ?? a.focus.y - 2) - 0.5, sz);
+    });
+    return rain;
+  }
+
   // ------------------------------------------------------------------ lights
   /** A light in the level (lit when she's near enough for it to matter). */
   spot(p: THREE.Vector3 | [number, number, number], color: number, intensity: number, distance: number, o: { decay?: number; flicker?: number; mod?: (t: number) => number } = {}) {
@@ -468,7 +528,9 @@ export class LevelKit {
     if (o.probe) this.mk.probe(this.a.background, o.probe);
     // the light pool: a couple more than the arenas' budget (only the nearest few are ever lit)
     this.pool = new LightPool(this.g, Math.max(3, this.pointLights + 2), this.spots);
-    // how lit a point is, from the lamps around it (stealth: the dark hides her)
+    const ar = this.a;
+    this.pool.los = (p, q) => ar.lineOfSight(p.x, p.y, p.z, q.x, q.y - 0.15, q.z);
+    // how lit a point is, from the lamps around it that can see it (stealth: the dark hides her)
     const spots = this.spots;
     const ambient = this.ambientLight;
     this.a.lightAt = (x, y, z) => {
@@ -478,7 +540,11 @@ export class LevelKit {
         const d = Math.hypot(s.p.x - x, s.p.y - y, s.p.z - z);
         if (d > s.distance) continue;
         const k = 1 - d / s.distance;
-        l += (s.intensity / 40) * k * k;
+        const add = (s.intensity / 40) * k * k;
+        if (add < 0.02) continue;
+        if (d > 1.2 && !ar.lineOfSight(x, y, z, s.p.x, s.p.y - 0.15, s.p.z)) continue;
+        l += add;
+        if (l >= 1) return 1;
       }
       return Math.min(1, l);
     };

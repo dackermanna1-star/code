@@ -96,7 +96,8 @@ objectives too), `&turbo=N` (N steps of the world per frame drawn, for slow head
 
 | Input | Action |
 |---|---|
-| WASD / left stick | Move (camera relative) |
+| WASD / left stick | Move (camera relative). Out of a fight Scarlet walks |
+| Shift / L3 | Run (in a fight she runs by default, and Shift walks). L3 latches until the stick is let go |
 | Mouse / right stick | Camera (click the game to lock the pointer) |
 | LMB / X (Square) | Strike. Direction + strike picks a target; strikes chain between enemies |
 | RMB tap / Y (Triangle) | Counter when ⚡ appears over an enemy. Last-moment = **perfect counter** |
@@ -107,6 +108,11 @@ objectives too), `&turbo=N` (N steps of the world per frame drawn, for slow head
 | F / LB | Finisher (spends a charge) · ground takedown on downed enemies (no charge) |
 | R / RT | Special — Scarlet's pistol (loads with knockouts) |
 | G / Back | Throw your held weapon |
+| Space / A by a wall, fence, ledge, ladder | Climb, vault, drop, jump a gap, go up or down the ladder |
+| C or Ctrl / R3 | Crouch: quieter, lower (under shutters), harder to see in the dark |
+| F / LB behind an unaware guard | Silent takedown |
+| E / RB when it's quiet | Use, open, pick up, read |
+| Tab / D-pad up | Journal: the objective, and the notes and photos found |
 | Esc / P / Start | Pause & settings |
 
 **After a run:** *REPLAY* on the results screen plays the last minute of the run back (it starts

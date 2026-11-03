@@ -39,6 +39,16 @@ const CAST: Record<string, Cast> = {
   SAL: { fem: false, pitch: 0.95, rate: 1.0 },
   TEO: { fem: false, pitch: 1.0, rate: 1.04 },
   KX: { fem: false, pitch: 0.9, rate: 1.1 },
+  BOUNCER: { fem: false, pitch: 0.8, rate: 0.95 },
+  LENA: { fem: true, pitch: 1.08, rate: 1.06 },
+  VARGA: { fem: false, pitch: 1.12, rate: 0.98 },
+  BRANKO: { fem: false, pitch: 0.7, rate: 0.92 },
+  TOMAS: { fem: false, pitch: 1.0, rate: 1.05 },
+  KAEL: { fem: false, pitch: 0.82, rate: 0.95 },
+  VOSS: { fem: false, pitch: 0.86, rate: 0.9 },
+  GUARD: { fem: false, pitch: 0.95, rate: 1.05 },
+  OWENS: { fem: false, pitch: 1.05, rate: 1.0 },
+  'THE WARDEN': { fem: false, pitch: 0.74, rate: 0.9 },
 };
 
 export interface SpokenLine {

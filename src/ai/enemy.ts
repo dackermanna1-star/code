@@ -472,10 +472,14 @@ export class Enemy extends Fighter {
     const dx = p.x - this.x, dz = p.z - this.z;
     const d = Math.hypot(dx, dz);
     const dy = p.y - this.y;
+    // (a guest on the floor is nothing to him: only somewhere she shouldn't be, or doing what she
+    // shouldn't - a fight, a takedown, a climb - is worth a look)
+    const hostile = p.action !== 'free' && p.action !== 'dash' && p.action !== 'land' && p.action !== 'dodge';
+    const trespass = !g.restricted || hostile || g.restricted(p.x, p.y, p.z);
     let seen = 0;
     const lit = g.arena.lightAt(p.x, p.y + 1, p.z);
     const range = this.vision.r * (p.crouched ? 0.6 : 1) * (0.45 + 0.55 * lit);
-    if (d < range && Math.abs(dy) < 6) {
+    if (trespass && d < range && Math.abs(dy) < 6) {
       const ang = Math.abs(angleDiff(this.lookYaw(), yawFromDir(dx, dz)));
       const fov = this.vision.fov * (this.sus >= 0.3 ? 1.25 : 1);
       if (ang < fov || d < 0.55) {
@@ -491,7 +495,7 @@ export class Enemy extends Fighter {
     // her noise: running, walking near, fighting
     const sp = Math.hypot(p.vx, p.vz);
     const noise = p.crouched ? (sp > 0.3 ? 0.45 : 0) : sp > 3.2 ? 7.5 : sp > 1.4 ? 2.6 : 1.0;
-    const heard = d < noise && Math.abs(dy) < 3;
+    const heard = trespass && d < noise && Math.abs(dy) < 3;
     const was = this.sus;
     if (seen > 0) {
       this.sus = Math.min(1, this.sus + step * (0.3 + seen * 2.1));

@@ -25,7 +25,8 @@ const WARN = '<svg viewBox="0 0 24 24"><path d="M12 1.6.7 21.6h22.6zm-1.3 6.6h2.
 const CHEVRON = '<svg viewBox="0 0 18 12"><path d="M0 0h18L9 12z"/></svg>';
 
 const CONTROLS: [string[], string][] = [
-  [['WASD'], 'Move (camera relative)'],
+  [['WASD'], 'Move (camera relative) — out of a fight she walks'],
+  [['SHIFT'], 'Run (in a fight she runs anyway: Shift walks)'],
   [['MOUSE'], 'Camera · click to lock the pointer'],
   [['LMB'], 'Strike — aim with movement, chain between enemies'],
   [['RMB'], 'Counter when the bolt shows (late = perfect)'],
@@ -36,6 +37,11 @@ const CONTROLS: [string[], string][] = [
   [['F'], 'Finisher (uses a charge) · ground takedown'],
   [['R'], 'Special — Scarlet\'s pistol (loads with knockouts)'],
   [['G'], 'Throw the weapon in your hand'],
+  [['SPACE'], 'By a wall, a fence, a ledge, a ladder: climb, vault, drop'],
+  [['C'], 'Crouch — quieter, lower, harder to see'],
+  [['F'], 'Behind an unaware guard: a silent takedown'],
+  [['E'], 'Use, open, pick up, read (when it\'s quiet)'],
+  [['TAB'], 'Journal — the objective and what you\'ve found'],
   [['ESC'], 'Pause'],
 ];
 

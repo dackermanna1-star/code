@@ -405,6 +405,7 @@ export abstract class Fighter implements AimProvider {
       return;
     }
     const g = a.groundAt(this.x, this.z, this.y);
+    if (!this.airborne) this.standY = this.y;
     if (this.airborne) {
       this.vy -= 13 * dt;
       const ny = this.y + this.vy * dt;
@@ -433,6 +434,8 @@ export abstract class Fighter implements AimProvider {
   }
   /** Where the fall began. */
   fallFrom = 0;
+  /** The floor last stood on (on his feet: a body under physics keeps the one it went down on). */
+  standY = 0;
   /** Down on the floor after a fall of `h` metres (the player lands; the rest just stand). */
   protected onLand(h: number) {
     void h;

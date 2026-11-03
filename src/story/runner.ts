@@ -51,6 +51,8 @@ export interface Chapter {
   synopsis: string;
   /** What she wears in it. */
   outfit?: 'leather' | 'denim' | 'dress' | 'guard';
+  /** Who the crew are here (archetype -> the variants a fight's random men are drawn from). */
+  crew?: Partial<Record<string, string[]>>;
   /** Seconds of play an A-grade run takes (scenes not counted). */
   par: number;
   /** Set dressing, before the physics are built (signs, a pen, a door that's shut). */
@@ -106,7 +108,7 @@ export class Story {
   encounter: Enemy[] = [];
   /** The dead, for a checkpoint's bodies. */
   private fallen: Enemy[] = [];
-  private staged: [number, number, string][] = [];
+  private staged: ([number, number, string] | [number, number, string, number])[] = [];
   cp = 0;
   started = false;
   finished = false;
@@ -674,17 +676,27 @@ export class Story {
   objective(text: string | null, sub = '') {
     this.ui.objective(text, sub);
   }
-  /** Until she's within `r` of the point (a marker on it meanwhile). */
-  async reach(x: number, z: number, r = 1.4, label = '') {
+  /**
+   * Where a marker over (x, z) sits: on the floor there at her level (indoors, the floor of the room
+   * she's heading for - not the roof over it), or at `y` when the script says which floor.
+   */
+  markAt(x: number, z: number, y?: number) {
     const p = this.game.player;
-    this.ui.marker(new THREE.Vector3(x, this.game.arena.groundAt(x, z, 50) + 1.2, z), label);
-    await this.until(() => Math.hypot(p.x - x, p.z - z) < r, false);
+    const floor = y ?? this.game.arena.groundAt(x, z, p.y + 2.6);
+    return new THREE.Vector3(x, Math.max(floor, -20) + 1.2, z);
+  }
+  /** Until she's within `r` of the point (a marker on it meanwhile; `y`: the floor it's on). */
+  async reach(x: number, z: number, r = 1.4, label = '', y?: number) {
+    const p = this.game.player;
+    this.ui.marker(this.markAt(x, z, y), label);
+    // (with its floor given: on that floor - not under it on the one below)
+    await this.until(() => Math.hypot(p.x - x, p.z - z) < r && (y === undefined || Math.abs(p.y - y) < 1.2), false);
     this.ui.marker(null);
   }
   /** A tutorial prompt until `done` reports `need` (it shows the count meanwhile). */
-  async tutor(keys: string[], text: string, sub: string, count: () => number, need = 1, abort: () => boolean = () => false, at: [number, number] | null = null) {
+  async tutor(keys: string[], text: string, sub: string, count: () => number, need = 1, abort: () => boolean = () => false, at: [number, number] | [number, number, number] | null = null) {
     // (where it's to be done: a marker there while it waits)
-    if (at) this.ui.marker(new THREE.Vector3(at[0], this.game.arena.groundAt(at[0], at[1], 50) + 1.2, at[1]));
+    if (at) this.ui.marker(this.markAt(at[0], at[1], at[2]));
     if (!this.game.settings.showHints) {
       await this.until(() => count() >= need || abort(), false);
       if (at) this.ui.marker(null);
@@ -864,6 +876,8 @@ export class Story {
     };
     // (not the key that opened it)
     setTimeout(() => window.addEventListener('keydown', close, true), 250);
+    // (the test bot reads quickly)
+    if (g.params.get('bot') === '1') setTimeout(() => close(new KeyboardEvent('keydown', { code: 'KeyE' })), 900);
   }
   /** TAB: the journal (the world holds still while it's open). */
   private journalKeys = (e: KeyboardEvent) => {
@@ -903,7 +917,7 @@ export class Story {
       specialCharges: p.specialCharges,
       specialKOs: p.specialKOs,
       charges: p.charges,
-      bodies: [...this.staged, ...this.fallen.map((e) => [Math.round(e.x * 100) / 100, Math.round(e.z * 100) / 100, e.variant.name] as [number, number, string])],
+      bodies: [...this.staged, ...this.fallen.map((e) => [Math.round(e.x * 100) / 100, Math.round(e.z * 100) / 100, e.variant.name, Math.round(e.y * 100) / 100] as [number, number, string, number])],
       flags: JSON.parse(JSON.stringify(this.flags)),
     };
     this.lastState = st;
@@ -928,10 +942,11 @@ export class Story {
     if (st.flags) Object.assign(this.flags, st.flags);
     if (st.pistol) this.flags.pistol = true;
     this.staged = [...st.bodies];
-    for (const [x, z, variant] of st.bodies) {
+    for (const [x, z, variant, y] of st.bodies) {
       try {
         const e = new Enemy(g, g.lib, g.lib.get(variant), ARCHETYPES.brawler);
-        e.spawn(x, z, Math.random() * Math.PI * 2);
+        // (on the floor it fell on: a gallery's, a roof's - not whatever's highest there)
+        e.spawn(x, z, Math.random() * Math.PI * 2, g.arena.groundAt(x, z, (y ?? 0) + 0.3));
         g.addFighter(e);
         e.becomeIdle(null);
         const h = makeHit({ dir: new THREE.Vector3(rand(-1, 1), 0, rand(-1, 1)).normalize(), point: new THREE.Vector3(x, 1.2, z), damage: 999, strength: 0.6, kind: 'blunt', region: 'chest', attacker: null, bleed: 0.4 });

@@ -116,6 +116,13 @@ export class Game {
   interactables: Interactable[] = [];
   /** A guard noticed something (curious), saw her (alert), or let it go (lost): the story's barks. */
   onGuardSense: ((e: Enemy, kind: 'curious' | 'alert' | 'lost') => void) | null = null;
+  /**
+   * Social stealth: where she may not be (a guest at a club: past the staff door). Set, the guards
+   * only mind her there - or when she starts something; null, they mind her everywhere.
+   */
+  restricted: ((x: number, y: number, z: number) => boolean) | null = null;
+  /** Something else drives the camera (the chase's car cam): it's called instead of the rig's follow. */
+  camOverride: ((realDt: number, lookDX: number, lookDY: number) => void) | null = null;
   /** The story mode: the chapter running (null: the endless waves). */
   story: Story | null = null;
   storyLaunch: StoryLaunch | null = null;
@@ -178,8 +185,13 @@ export class Game {
     this.archetypes = registerVariants(this.lib);
     // the lab is staffed by its own people
     if (this.arena.roster === 'lab') Object.assign(this.archetypes, registerLabVariants(this.lib));
-    // (the story's doorman and the warehouse's captives)
-    if (this.storyLaunch) Object.assign(this.archetypes, registerStoryVariants(this.lib));
+    // (the story's people are cast by name; only pools the arenas don't have come in whole - and a
+    // chapter's own crew: the club's security, the tower's site men, the lab's night shift)
+    if (this.storyLaunch) {
+      const story = registerStoryVariants(this.lib);
+      for (const [k, v] of Object.entries(story) as [Archetype, string[]][]) if (!this.archetypes[k]?.length) this.archetypes[k] = v;
+      if (chapter?.crew) Object.assign(this.archetypes, chapter.crew);
+    }
     this.lib.build();
     this.music = new Music(this.audio);
     this.combat = new Combat(this);
@@ -602,10 +614,11 @@ export class Game {
       this.cam.pitch = damp(this.cam.pitch, 0.12, 1.5, realDt);
       this.cam.framingDist = 1.4;
     }
-    if (this.spectating) {
+    if (this.camOverride && !this.cam.inScene) this.camOverride(realDt, lx, ly);
+    else if (this.spectating) {
       const inp = this.input;
       const up = (inp.isHeld('grab') ? 1 : 0) - (inp.isHeld('stun') ? 1 : 0) + (inp.isHeld('dodge') ? 1 : 0);
-      this.cam.updateFree(realDt, lx, ly, inp.moveX, inp.moveY, up, inp.isHeld('walk'));
+      this.cam.updateFree(realDt, lx, ly, inp.moveX, inp.moveY, up, inp.pace);
     } else this.cam.update(dt, realDt, focus, lx, ly, near, Math.hypot(this.player.vx, this.player.vz) > 0.5);
     this.thinOccluders(realDt);
     // audio listener
@@ -780,12 +793,14 @@ export class Game {
   private edgeCamT = 0;
   /** Rooftop: anyone the physics carries over the parapet is gone - alive, they die on the way down. */
   private edgeFalls(dt: number) {
-    if (!this.arena.groundRect) return;
+    const a = this.arena;
+    if (!a.groundRect && !a.fallDeath) return;
     this.edgeCamT -= dt;
     for (const e of this.enemies()) {
       if (!e.alive || !e.ragdoll) continue;
       const pv = e.ragdoll.pelvisPos(_edge);
-      if (pv.y < -0.9) e.fellOff();
+      // (the rooftop arena: below its roof; a level of roofs: well below the one he went down on)
+      if (a.fallDeath ? pv.y < e.standY - a.fallDeath : pv.y < -0.9) e.fellOff();
     }
   }
 
@@ -920,7 +935,7 @@ export class Game {
     this.replay.update(realDt);
     if (this.replay.cam === 'free') {
       const up = pad ? padUp : (inp.isHeld('grab') ? 1 : 0) - (inp.isHeld('stun') ? 1 : 0);
-      this.cam.updateFree(realDt, lx, ly, inp.moveX, inp.moveY, up, inp.isHeld('walk'));
+      this.cam.updateFree(realDt, lx, ly, inp.moveX, inp.moveY, up, inp.pace);
     }
     const right = new THREE.Vector3(1, 0, 0).applyQuaternion(this.cam.camera.quaternion);
     this.audio.setListener(this.cam.camera.position, right);

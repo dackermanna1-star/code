@@ -17,7 +17,7 @@ const HEAD = 1.7;
 /** The most a step from one cell to the next may rise or fall. */
 const RISE = 0.5;
 /** Floors stacked in one column. */
-const MAXL = 3;
+const MAXL = 4;
 const DIRS: [number, number, number][] = [
   [1, 0, 1], [-1, 0, 1], [0, 1, 1], [0, -1, 1],
   [1, 1, Math.SQRT2], [1, -1, Math.SQRT2], [-1, 1, Math.SQRT2], [-1, -1, Math.SQRT2],
@@ -50,6 +50,8 @@ export class NavGrid {
   private hf: Float32Array;
   private hn = 0;
 
+  /** Ladders, as jumps in the grid from the foot to the top and back (node -> [node, cost]). */
+  private links = new Map<number, [number, number][]>();
   constructor(private a: Arena) {
     const t0 = performance.now();
     const b = a.bounds;
@@ -67,7 +69,23 @@ export class NavGrid {
     this.heap = new Int32Array(N);
     this.hf = new Float32Array(N);
     this.build();
+    this.buildLinks();
     this.buildMs = performance.now() - t0;
+  }
+  private buildLinks() {
+    this.links.clear();
+    for (const l of this.a.ladders) {
+      const lx = Math.sin(l.yaw), lz = Math.cos(l.yaw);
+      const foot = this.nearestOpen(l.x - lx * 0.36, l.z - lz * 0.36, l.y0, 0.8);
+      const top = this.nearestOpen(l.x + lx * 0.6, l.z + lz * 0.6, l.y1, 0.9);
+      if (foot < 0 || top < 0) continue;
+      const cost = (l.y1 - l.y0) * 2.5 / CELL;
+      for (const [a, b] of [[foot, top], [top, foot]]) {
+        let list = this.links.get(a);
+        if (!list) this.links.set(a, (list = []));
+        list.push([b, cost]);
+      }
+    }
   }
 
   // ------------------------------------------------------------------ the floors
@@ -87,6 +105,7 @@ export class NavGrid {
         for (let l = 0; l < MAXL; l++) this.h[c * MAXL + l] = NaN;
       }
     this.cols(i0, i1, j0, j1);
+    this.buildLinks();
   }
   private cols(i0: number, i1: number, j0: number, j1: number) {
     const a = this.a;
@@ -118,12 +137,31 @@ export class NavGrid {
           // (the floor from here, not one under a box on top of it; with room to stand)
           if (Math.abs(a.groundAt(x, z, y + 0.02, 0.04) - y) > 0.05) continue;
           if (this.blocked(x, z, y)) continue;
+          // (nor the boards under a flight of stairs: a body walking in there is on the stairs, or in them)
+          if (this.underRamp(x, z, y)) continue;
           this.h[col * MAXL + c++] = y;
           last = y;
         }
         this.n[col] = c;
       }
     }
+  }
+  /**
+   * Inside a flight of stairs: the steps are solid from the flight's foot up to its treads, so a
+   * floor under them (or one whose body would put its head in them) is no floor.
+   */
+  private underRamp(x: number, z: number, y: number) {
+    for (const r of this.a.ramps) {
+      if (x < r.minX - CLEAR || x > r.maxX + CLEAR || z < r.minZ - CLEAR || z > r.maxZ + CLEAR) continue;
+      // (where the body's edge meets it: beside the flight's low end is only beside it)
+      const cx = Math.max(r.minX, Math.min(x, r.maxX)), cz = Math.max(r.minZ, Math.min(z, r.maxZ));
+      const k = r.axis === 'x' ? (cx - r.minX) / Math.max(1e-6, r.maxX - r.minX) : (cz - r.minZ) / Math.max(1e-6, r.maxZ - r.minZ);
+      const ry = r.y0 + (r.y1 - r.y0) * k;
+      const base = Math.min(r.y0, r.y1);
+      const inside = x >= r.minX && x <= r.maxX && z >= r.minZ && z <= r.maxZ;
+      if (ry > y + 0.05 && y + HEAD > base && (inside || ry > y + STEP_UP)) return true;
+    }
+    return false;
   }
   /** Something in the way of a body standing at (x, z) on a floor at y. */
   private blocked(x: number, z: number, y: number) {
@@ -162,26 +200,31 @@ export class NavGrid {
     }
     return best;
   }
-  /** The nearest standing room to (x, y, z) within r (a goal inside a crate: the crate's side). */
+  /**
+   * The nearest standing room to (x, y, z) within r (a goal inside a crate: the crate's side; a body
+   * squeezed into a corner: the floor beside it) - on this side of any wall, never through one.
+   */
   nearestOpen(x: number, z: number, y: number, r = 2): number {
     const direct = this.node(x, z, y);
     if (direct >= 0) return direct;
     const i0 = Math.floor((x - this.x0) / CELL), j0 = Math.floor((z - this.z0) / CELL);
     const R = Math.ceil(r / CELL);
-    let best = -1;
-    let bd = Infinity;
+    const cand: [number, number][] = [];
     for (let dj = -R; dj <= R; dj++)
       for (let di = -R; di <= R; di++) {
         const i = i0 + di, j = j0 + dj;
         if (i < 0 || j < 0 || i >= this.nx || j >= this.nz) continue;
         const d = di * di + dj * dj;
-        if (d >= bd || d > R * R) continue;
+        if (d > R * R) continue;
         const nd = this.layer(j * this.nx + i, y, 0.7);
-        if (nd < 0) continue;
-        bd = d;
-        best = nd;
+        if (nd >= 0) cand.push([d, nd]);
       }
-    return best;
+    cand.sort((p, q) => p[0] - q[0]);
+    for (const [, nd] of cand) {
+      const p = this.point(nd);
+      if (this.a.lineOfSight(x, y + 0.6, z, p.x, p.y + 0.6, p.z)) return nd;
+    }
+    return -1;
   }
   point(node: number): NavPoint {
     const c = Math.floor(node / MAXL);
@@ -199,9 +242,9 @@ export class NavGrid {
     if (c < 0) return true;
     let y = ay;
     let cur = this.layer(c, y, 0.7);
-    // (standing where the grid says nobody fits - squeezed against a wall: take the nearest floor)
-    if (cur < 0) return true;
-    y = this.h[cur];
+    // (standing where the grid says nobody fits - squeezed against a wall: the rest of the line is
+    // judged from her own height; the cell she's in doesn't count against it)
+    if (cur >= 0) y = this.h[cur];
     // through the cells the segment crosses (Amanatides & Woo)
     let i = Math.floor((ax - this.x0) / CELL), j = Math.floor((az - this.z0) / CELL);
     const ti = Math.floor((bx - this.x0) / CELL), tj = Math.floor((bz - this.z0) / CELL);
@@ -230,7 +273,7 @@ export class NavGrid {
 
   // ------------------------------------------------------------------ the way round
   /** A way from a to b (corners only, b last), or null when there isn't one. */
-  find(ax: number, ay: number, az: number, bx: number, by: number, bz: number, maxExpand = 60000): NavPoint[] | null {
+  find(ax: number, ay: number, az: number, bx: number, by: number, bz: number, maxExpand = 60000, ladders = false): NavPoint[] | null {
     const s = this.nearestOpen(ax, az, ay, 1.2);
     const t = this.nearestOpen(bx, bz, by, 2.4);
     if (s < 0 || t < 0) return null;
@@ -262,20 +305,36 @@ export class NavGrid {
       const c = Math.floor(u / MAXL);
       const i = c % this.nx, j = Math.floor(c / this.nx);
       const y = this.h[u];
+      if (ladders) {
+        const ls = this.links.get(u);
+        if (ls)
+          for (const [v, w] of ls) {
+            if (this.shut[v] === st) continue;
+            const gv = this.gs[u] + w;
+            if (this.seen[v] === st && gv >= this.gs[v]) continue;
+            this.seen[v] = st;
+            this.gs[v] = gv;
+            this.from[v] = u;
+            this.push(v, gv + hEst(v));
+          }
+      }
       for (const [di, dj, w] of DIRS) {
         const ni = i + di, nj = j + dj;
         if (ni < 0 || nj < 0 || ni >= this.nx || nj >= this.nz) continue;
         const nc = nj * this.nx + ni;
-        const v = this.layer(nc, y, RISE);
-        if (v < 0 || this.shut[v] === st) continue;
         // (no cutting a corner: both sides of a diagonal step open)
         if (di && dj && (this.layer(j * this.nx + ni, y, RISE) < 0 || this.layer(nj * this.nx + i, y, RISE) < 0)) continue;
-        const g = this.gs[u] + w;
-        if (this.seen[v] === st && g >= this.gs[v]) continue;
-        this.seen[v] = st;
-        this.gs[v] = g;
-        this.from[v] = u;
-        this.push(v, g + hEst(v));
+        // (every floor of the next column within a step: the stairs' first tread, and the boards beside it)
+        for (let l = 0; l < this.n[nc]; l++) {
+          const v = nc * MAXL + l;
+          if (Math.abs(this.h[v] - y) > RISE || this.shut[v] === st) continue;
+          const g = this.gs[u] + w;
+          if (this.seen[v] === st && g >= this.gs[v]) continue;
+          this.seen[v] = st;
+          this.gs[v] = g;
+          this.from[v] = u;
+          this.push(v, g + hEst(v));
+        }
       }
     }
     if (!found) return null;
@@ -290,7 +349,8 @@ export class NavGrid {
     let k = 0;
     while (k < pts.length - 1) {
       let m = k + 1;
-      while (m + 1 < pts.length && this.clearLine(anchor.x, anchor.y, anchor.z, pts[m + 1].x, pts[m + 1].z)) m++;
+      // (never across a change of floor - a ladder, a flight of stairs: those corners stay)
+      while (m + 1 < pts.length && Math.abs(pts[m + 1].y - anchor.y) < 1.0 && Math.abs(pts[m + 1].y - pts[m].y) < 1.0 && this.clearLine(anchor.x, anchor.y, anchor.z, pts[m + 1].x, pts[m + 1].z)) m++;
       out.push(pts[m]);
       anchor = pts[m];
       k = m;
@@ -339,6 +399,8 @@ export class NavGrid {
  * round (planned again when the target wanders off it, or now and then anyway).
  */
 export class NavAgent {
+  /** Plans may use ladders (the player can climb; the AI's men can't). */
+  ladders = false;
   private path: NavPoint[] | null = null;
   private i = 0;
   private goalX = 0;
@@ -366,7 +428,8 @@ export class NavAgent {
     const moved = Math.hypot(tx - this.goalX, tz - this.goalZ);
     if (this.checkT <= 0 || (this.direct && moved > 2)) {
       this.checkT = 0.25 + Math.random() * 0.1;
-      this.direct = nav.clearLine(x, y, z, tx, tz);
+      // (straight there only on the same floor: a target upstairs needs a way up)
+      this.direct = Math.abs(ty - y) < 1.2 && nav.clearLine(x, y, z, tx, tz);
       if (this.direct) {
         this.path = null;
         this.goalX = tx;
@@ -375,7 +438,7 @@ export class NavAgent {
     }
     if (this.direct) return { x: tx, z: tz };
     if ((!this.path || moved > 1.5 || this.age > 3) && this.failT <= 0) {
-      this.path = nav.find(x, y, z, tx, ty, tz);
+      this.path = nav.find(x, y, z, tx, ty, tz, 60000, this.ladders);
       this.i = 0;
       this.age = 0;
       this.goalX = tx;
@@ -384,12 +447,13 @@ export class NavAgent {
     }
     const path = this.path;
     if (!path) return { x: tx, z: tz };
-    while (this.i < path.length - 1 && Math.hypot(path[this.i].x - x, path[this.i].z - z) < 0.5) this.i++;
-    // (cut on to the next corner as soon as it's in a straight line)
+    // (a corner is reached on its own floor: under the top of a ladder is not at the top of it)
+    while (this.i < path.length - 1 && Math.hypot(path[this.i].x - x, path[this.i].z - z) < 0.5 && Math.abs(path[this.i].y - y) < 1.0) this.i++;
+    // (cut on to the next corner as soon as it's in a straight line - on this floor)
     if (this.i < path.length - 1 && this.lookT <= 0) {
       this.lookT = 0.15;
       const nx = path[this.i + 1];
-      if (nav.clearLine(x, y, z, nx.x, nx.z)) this.i++;
+      if (Math.abs(nx.y - y) < 1.0 && Math.abs(path[this.i].y - y) < 1.0 && nav.clearLine(x, y, z, nx.x, nx.z)) this.i++;
     }
     const p = path[this.i];
     return this.i === path.length - 1 ? { x: tx, z: tz } : { x: p.x, z: p.z };

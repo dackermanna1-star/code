@@ -57,7 +57,7 @@ export const CH1: Chapter = {
   par: 640,
   dress: dressWarehouse,
   backdrop: { pos: [3.2, 1.1, 4.2], look: [7.8, 1.4, 9.4], pos2: [4.4, 1.2, 4.9], look2: [7.8, 1.5, 9.6], fov: 40, dur: 45 },
-  next: { kick: 'CHAPTER TWO', title: 'RED LEDGER', line: 'Meridian Tower. The penthouse. The boss picks first.' },
+  next: { kick: 'CHAPTER TWO', title: 'RED LEDGER', line: 'The Butcher\'s black card opens the Lantern\'s gallery. The books are kept upstairs.' },
   setup(s) {
     const g = s.game;
     for (const [v, x, z, yaw, pose] of PEN_PEOPLE) {
@@ -369,6 +369,8 @@ export const CH1: Chapter = {
           g.audio.play('metal_hit', { pos: V(d.x, 0.3, d.z), vol: 0.25, pitch: 2.6 });
           s.ui.item('TAKEN', 'A PADLOCK KEY', 'On a bootlace, round his neck', 3.5);
           await s.wait(1.4);
+          s.ui.item('TAKEN', 'A BLACK CARD', 'THE LANTERN · GALLERY — no name on it', 3.5);
+          await s.wait(1.2);
           s.pose(null, 0.4);
           // the pen
           await s.walk(GATE.x + 0.2, GATE.z - 0.55, { face: 0, speed: 1.8 });

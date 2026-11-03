@@ -8,6 +8,7 @@ import { registerScarletMoves } from './scarlet';
 import { registerMocapClips } from './mocapClips';
 import { registerStoryPoses } from './story';
 import { registerTraversal } from './traverse';
+import { registerDances } from './dance';
 
 let registered = false;
 export function registerAllClips() {
@@ -21,6 +22,7 @@ export function registerAllClips() {
   registerMocapClips();
   registerStoryPoses();
   registerTraversal();
+  registerDances();
   defineClip('pose_fight', { keys: [k(0, FIGHT), k(1, FIGHT)] });
   defineClip('pose_relaxed', { keys: [k(0, RELAXED), k(1, RELAXED)] });
   defineClip('pose_brawl', { keys: [k(0, BRAWL), k(1, BRAWL)] });

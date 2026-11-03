@@ -489,6 +489,16 @@ export class Npc extends Fighter {
     }
   }
   move(dt: number) {
+    // (sat on a sofa, leant on the bar, dancing on a spot: nothing moves them - the furniture
+    // they're in doesn't push them off it)
+    if (this.pose && this.path.length === 0 && !this.loop) {
+      this.vx = this.vz = 0;
+      if (this.anim.mode === 'clip' && this.anim.clip) {
+        this.anim.advanceClip(dt);
+        this.anim.events.length = 0;
+      }
+      return;
+    }
     // (they walk through the gate and out of the doors: no walls for them)
     this.ghostWalls = true;
     super.move(dt);

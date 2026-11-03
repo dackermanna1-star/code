@@ -31,6 +31,15 @@ export class Music {
   private chord = 0;
 
   constructor(public audio: AudioSys) {}
+  /** How loud the score sits (1 full; 0 when the scene has music of its own - a club's sound system). */
+  private level = 1;
+  duck(v: number, fade = 1.5) {
+    this.level = v;
+    const c = this.audio.ctx;
+    if (!c || !this.bus || !this.wet) return;
+    this.bus.gain.setTargetAtTime(v, c.currentTime, fade / 3);
+    this.wet.gain.setTargetAtTime(0.32 * v, c.currentTime, fade / 3);
+  }
 
   // ------------------------------------------------------------------ harmony
   /** Chord roots (semitones from D) and qualities for the two 4-bar phrases. */
@@ -69,6 +78,8 @@ export class Music {
     conv.connect(this.audio.music);
     this.bus = bus;
     this.wet = wet;
+    bus.gain.value = this.level;
+    wet.gain.value = 0.32 * this.level;
     // pad: detuned saws through a slow, breathing lowpass
     const pf = c.createBiquadFilter();
     pf.type = 'lowpass';

@@ -1,5 +1,5 @@
 /** Unified keyboard/mouse/gamepad input with edge detection and buffering. */
-export type Action = 'attack' | 'counter' | 'dodge' | 'stun' | 'grab' | 'finisher' | 'special' | 'throw' | 'pause' | 'walk' | 'block' | 'crouch' | 'journal';
+export type Action = 'attack' | 'counter' | 'dodge' | 'stun' | 'grab' | 'finisher' | 'special' | 'throw' | 'pause' | 'pace' | 'block' | 'crouch' | 'journal';
 
 const KEYMAP: Record<string, Action> = {
   Space: 'dodge',
@@ -10,7 +10,9 @@ const KEYMAP: Record<string, Action> = {
   KeyG: 'throw',
   Escape: 'pause',
   KeyP: 'pause',
-  ShiftLeft: 'walk',
+  // (Shift changes her pace: out of a fight she walks and Shift runs; in one she runs and Shift walks)
+  ShiftLeft: 'pace',
+  ShiftRight: 'pace',
   KeyJ: 'attack',
   KeyK: 'counter',
   KeyL: 'dodge',
@@ -37,6 +39,15 @@ export class Input {
   onLockLost: (() => void) | null = null;
   /** For automated tests/bots. */
   virtual: { moveX: number; moveY: number } | null = null;
+  /** The bot's Shift. */
+  virtualPace = false;
+  /** A gamepad's pace: L3 clicks it on, and it stays on until the stick comes back to rest. */
+  private paceLatch = false;
+  private restT = 0;
+  /** The pace key is down (Shift, L3's latch): run out of a fight, walk in one. */
+  get pace() {
+    return this.held.has('pace') || this.paceLatch || this.virtualPace;
+  }
 
   constructor(private el: HTMLElement) {
     window.addEventListener('keydown', (e) => {
@@ -159,10 +170,6 @@ export class Input {
     }
     this.moveX = mx;
     this.moveY = my;
-    if (this.keys.has('ShiftLeft')) {
-      this.moveX *= 0.45;
-      this.moveY *= 0.45;
-    }
     // gamepad
     const pads = navigator.getGamepads ? navigator.getGamepads() : [];
     for (const pad of pads) {
@@ -181,7 +188,18 @@ export class Input {
         this.usingGamepad = true;
       }
       // standard mapping: 0 A/Cross, 1 B/Circle, 2 X/Square, 3 Y/Triangle, 4 LB, 5 RB, 6 LT, 7 RT, 9 Start
-      const map: [number, Action][] = [[2, 'attack'], [3, 'counter'], [0, 'dodge'], [1, 'stun'], [5, 'grab'], [4, 'finisher'], [7, 'special'], [6, 'block'], [9, 'pause'], [8, 'throw'], [11, 'crouch'], [10, 'journal']];
+      const map: [number, Action][] = [[2, 'attack'], [3, 'counter'], [0, 'dodge'], [1, 'stun'], [5, 'grab'], [4, 'finisher'], [7, 'special'], [6, 'block'], [9, 'pause'], [8, 'throw'], [11, 'crouch'], [12, 'journal']];
+      // L3: the pace latch (on with a click, off when the stick's let go)
+      const l3 = !!pad.buttons[10]?.pressed;
+      if (l3 && !this.padPrev[10]) {
+        this.paceLatch = !this.paceLatch;
+        this.usingGamepad = true;
+      }
+      this.padPrev[10] = l3;
+      if (Math.abs(lx) + Math.abs(ly) < 0.2) {
+        this.restT += dt;
+        if (this.restT > 0.5) this.paceLatch = false;
+      } else this.restT = 0;
       for (const [i, a] of map) {
         const b = !!pad.buttons[i]?.pressed;
         const was = !!this.padPrev[i];

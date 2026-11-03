@@ -105,6 +105,8 @@ export class Player extends Fighter {
   /** Where she looks while scripted and standing (world yaw), and how high her guard is. */
   sceneFace: number | null = null;
   sceneGuard = 0.35;
+  /** 0 calm .. 1 in a fight, eased (her pace and her stance follow it). */
+  private fightSm = 0;
   /** How she carries herself in a scene: walking in loose, or squared up. */
   sceneStyle: 'relaxed' | 'fight' = 'relaxed';
   private koSeen = 0;
@@ -122,6 +124,10 @@ export class Player extends Fighter {
   travOption: Traversal | null = null;
   /** The move over the world under way. */
   private trav: { t: Traversal; y0: number; phase: 'move' | 'ladder' | 'exit'; lift: number } | null = null;
+  /** On a ladder (going up or down): for the test bot, which has to keep its thumb on the stick. */
+  get onLadder() {
+    return !!this.trav && (this.trav.t.kind === 'ladder' || this.trav.t.kind === 'ladderDown');
+  }
 
   // ------------------------------------------------------------------ helpers
   isLocked() {
@@ -333,11 +339,26 @@ export class Player extends Fighter {
     this.curMove = null;
   }
 
+  /**
+   * A fight on - someone alerted near her, the story's fight, the endless mode's waves: she runs
+   * and keeps her guard up. Otherwise she walks, loose, like anyone else.
+   */
+  inFight() {
+    const st = this.game.story;
+    if (!st || !st.calm) return true;
+    return !this.calmNear();
+  }
+  /** Her walking pace out of a fight (m/s): an unhurried, purposeful walk. */
+  static readonly WALK = 1.6;
   private freeMove(dt: number) {
     const inp = this.game.input;
     let [wx, wz] = this.game.cam.moveBasis(inp.moveX, inp.moveY);
     let blocking = inp.isHeld('block') && this.guard > 5;
-    let sp = blocking ? 1.6 : this.crouched ? 1.55 : this.speed;
+    // (out of a fight, a walk - Shift runs; in one, a run - Shift walks)
+    const fight = this.inFight();
+    this.fightSm += ((fight ? 1 : 0) - this.fightSm) * (1 - Math.exp(-dt * 2.5));
+    const pace = fight ? (inp.pace ? Player.WALK + 0.9 : this.speed) : inp.pace ? this.speed : Player.WALK;
+    let sp = blocking ? 1.6 : this.crouched ? 1.55 : pace;
     // (stood up where there's no room: stay down)
     if (this.crouched && this.wantStand && this.roomToStand()) this.setCrouch(false);
     if (this.scripted) {
@@ -372,8 +393,10 @@ export class Player extends Fighter {
       this.yaw = dampAngle(this.yaw, want, blocking ? 8 : 3, dt);
     }
     const li = this.anim.locoIn;
-    li.style = this.weapon ? 'weapon1h' : this.scripted ? this.sceneStyle : 'fight';
-    li.guard = this.scripted ? this.sceneGuard : 1;
+    // (squared up in a fight; out of one, she carries herself like a person walking somewhere)
+    const calmStyle = this.fightSm < 0.5 && !blocking;
+    li.style = this.weapon ? 'weapon1h' : this.scripted ? this.sceneStyle : calmStyle ? 'relaxed' : 'fight';
+    li.guard = this.scripted ? this.sceneGuard : calmStyle ? 0.3 : 1;
     li.charge = 0;
     li.block = blocking ? 1 : 0;
     li.breath = this.hp < 35 ? 1 : 0.4;
@@ -488,7 +511,8 @@ export class Player extends Fighter {
       fx = Math.sin(this.yaw);
       fz = Math.cos(this.yaw);
     }
-    const running = Math.hypot(this.vx, this.vz) > 2.6;
+    // (moving at it - a walk will do: she breaks into the run-up herself)
+    const running = Math.hypot(this.vx, this.vz) > 1.2;
     const t = findTraversal(a, this.x, this.z, this.y, fx, fz, running);
     // (crouched, only what she can do from low: ladders and drops)
     if (t && this.crouched && (t.kind === 'jump' || t.kind === 'vault')) return null;
@@ -675,6 +699,13 @@ export class Player extends Fighter {
         if (c.done || c.time >= c.clip.recoverT) {
           this.viewLift = 0;
           this.setY(l.y1);
+          // (feet on the floor at the top - not hanging over the hatch she came up through)
+          const a = this.game.arena;
+          const lx = Math.sin(l.yaw), lz = Math.cos(l.yaw);
+          for (let i = 0; i < 6 && a.groundAt(this.x, this.z, l.y1 + 0.05, 0.1) < l.y1 - 0.2; i++) {
+            this.x += lx * 0.1;
+            this.z += lz * 0.1;
+          }
           this.endTraverse(0.14);
         }
       }

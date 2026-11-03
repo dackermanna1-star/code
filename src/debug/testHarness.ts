@@ -19,7 +19,11 @@ export class Bot {
   private bestD = Infinity;
   private stuckT = 0;
   private markKey = '';
-  private nav = new NavAgent();
+  private nav = (() => {
+    const n = new NavAgent();
+    n.ladders = true;
+    return n;
+  })();
   /**
    * human=1: a fallible player rather than a frame-perfect one - each counter goes in early or
    * late around the right moment (a spread like a decent human's), a few attacks are missed
@@ -57,6 +61,7 @@ export class Bot {
       this.actT = 0.12;
       return;
     }
+    inp.virtualPace = false;
     const imm = g.director.imminent(this.human ? 0.6 : 0.32);
     if (imm && !imm.counterable && this.actT <= 0 && (!this.human || now >= this.pressAt(imm, false))) {
       inp.press('dodge');
@@ -86,14 +91,29 @@ export class Bot {
         best = e;
       }
     }
+    // (on a ladder: keep climbing - the marker is up there, or down)
+    if (p.onLadder) {
+      const m = g.story?.ui.markerAt;
+      const up = !m || m.y - 1.2 > p.y - 0.5;
+      inp.virtual = { moveX: 0, moveY: up ? 1 : -1 };
+      return;
+    }
     if (!best) {
       // the story: nobody to fight - go where the objective's marker is
       const m = g.story?.ui.markerAt;
       if (m && !g.story?.inScene) {
         const dist = Math.hypot(m.x - p.x, m.z - p.z);
+        // (something to use where the objective is - a locker, a ledger: E)
+        if (dist < 2.5 && this.actT <= 0 && p.action === 'free' && g.interactableNear()) {
+          inp.press('grab');
+          inp.release('grab');
+          this.actT = 1.0;
+        }
         // (round the stacks and walls on the way, as a player would)
         const nav = g.arena.navGrid();
-        const st = nav && dist > 1.2 ? this.nav.steer(nav, p.x, p.y, p.z, m.x, m.y - 1.2, m.z, dt) : m;
+        // (on another floor, under it or over it, is not there yet)
+        const offFloor = Math.abs(m.y - 1.2 - p.y) > 1.0;
+        const st = nav && (dist > 1.2 || offFloor) ? this.nav.steer(nav, p.x, p.y, p.z, m.x, m.y - 1.2, m.z, dt) : m;
         const d = new THREE.Vector3(st.x - p.x, 0, st.z - p.z);
         const k = Math.min(1, dist / 1.0);
         d.normalize();
@@ -116,6 +136,7 @@ export class Bot {
             this.actT = 1.0;
           }
         }
+        if (this.stuckT > 3) this.nav.reset();
         if (this.stuckT > 1.6 && this.actT <= 0 && !p.crouched) {
           inp.press('crouch');
           this.actT = 0.6;
@@ -127,6 +148,8 @@ export class Bot {
         const fx = -Math.sin(yaw), fz = -Math.cos(yaw);
         const rx = -fz, rz = fx;
         inp.virtual = { moveX: (d.x * rx + d.z * rz) * k, moveY: (d.x * fx + d.z * fz) * k };
+        // (it runs between the objectives, as a player in a hurry would - and in a fight it doesn't hold Shift)
+        inp.virtualPace = !p.inFight() && !p.crouched;
         return;
       }
       inp.virtual = { moveX: 0, moveY: 0 };

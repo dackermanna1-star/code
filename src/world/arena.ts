@@ -180,6 +180,11 @@ export class Arena {
   fog = { color: 0x0b0d12, density: 0.028 };
   background: THREE.Color | THREE.Texture = new THREE.Color(0x07080b);
   environment: THREE.Texture | null = null;
+  /**
+   * A level of roofs: a body under physics that drops this far below the floor it went down on has
+   * gone over an edge (0: only the rooftop arena's own edge counts).
+   */
+  fallDeath = 0;
   /** Physics floor extent (null: endless). The rooftop ends at its edges: bodies go over. */
   groundRect: { minX: number; maxX: number; minZ: number; maxZ: number } | null = null;
   /** Where the loose oil drums and crates start. */
