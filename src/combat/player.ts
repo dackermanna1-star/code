@@ -12,8 +12,9 @@ import { Weapon } from './weapons';
 import { B } from '../anim/skeleton';
 import { DIFFICULTY } from '../core/settings';
 import { PERFECT_WINDOW } from '../ai/archetypes';
+import { CLIP_H, findTraversal, Traversal } from './traverse';
 
-export type PlayerAction = 'free' | 'dash' | 'attack' | 'counter' | 'finisher' | 'special' | 'dodge' | 'vault' | 'hit' | 'down' | 'grab' | 'takedown' | 'stun' | 'throwing' | 'dead';
+export type PlayerAction = 'free' | 'dash' | 'attack' | 'counter' | 'finisher' | 'special' | 'dodge' | 'vault' | 'hit' | 'down' | 'grab' | 'takedown' | 'stun' | 'throwing' | 'dead' | 'traverse' | 'land';
 
 /** Burst speed (m/s) of the few running steps that close a gap before a strike. */
 const DASH_SPEED = 7.5;
@@ -114,6 +115,12 @@ export class Player extends Fighter {
   private recoil = 0;
   private recoilT = 1;
   private hidWeapon = false;
+  /** Crouched (C / R3): low, slow and quiet; under what she couldn't walk under. */
+  crouched = false;
+  /** What SPACE would do with the world ahead right now (climb, vault, drop...). */
+  travOption: Traversal | null = null;
+  /** The move over the world under way. */
+  private trav: { t: Traversal; y0: number; phase: 'move' | 'ladder' | 'exit'; lift: number } | null = null;
 
   // ------------------------------------------------------------------ helpers
   isLocked() {
@@ -220,11 +227,21 @@ export class Player extends Fighter {
     }
     this.anim.locoIn.block = 0;
     if (this.weapon && this.weapon.broken) this.weapon = null;
+    // ---- the world: crouching, and what SPACE would do with what's ahead
+    if (inp.consume('crouch', 0.3) && this.action === 'free' && !this.scripted) this.setCrouch(!this.crouched);
+    this.travOption = this.action === 'free' && !this.scripted ? this.scanTraversal() : null;
 
     switch (this.action) {
       case 'free':
         this.freeMove(dt);
         if (!this.scripted) this.readActions();
+        break;
+      case 'traverse':
+        this.updateTraverse(dt);
+        break;
+      case 'land':
+        if (!this.clip || this.clip.done || this.clip.time >= this.clip.clip.recoverT) this.toFree(0.15);
+        else if (this.clip.time > this.clip.clip.recoverT * 0.5) this.readActions(true);
         break;
       case 'dash':
         this.doDash(dt);
@@ -319,7 +336,9 @@ export class Player extends Fighter {
     const inp = this.game.input;
     let [wx, wz] = this.game.cam.moveBasis(inp.moveX, inp.moveY);
     let blocking = inp.isHeld('block') && this.guard > 5;
-    let sp = blocking ? 1.6 : this.speed;
+    let sp = blocking ? 1.6 : this.crouched ? 1.55 : this.speed;
+    // (stood up where there's no room: stay down)
+    if (this.crouched && this.wantStand && this.roomToStand()) this.setCrouch(false);
     if (this.scripted) {
       // a scene walks her: to the autopilot's mark (easing in over the last half metre), else still
       blocking = false;
@@ -360,14 +379,283 @@ export class Player extends Fighter {
     li.hunch = this.hp < 25 ? 0.3 : 0;
     li.look = near ? clamp(this.angleTo(near), -1.1, 1.1) : 0;
     li.talk = li.argue = 0;
+    li.crouch = this.crouched ? 1 : 0;
+    if (this.crouched) {
+      li.style = this.weapon ? 'weapon1h' : 'relaxed';
+      li.guard = 0.3;
+    }
     if (this.scripted) this.sceneInputs();
+  }
+
+  // ------------------------------------------------------------------ the world: crouch, climb, drop
+  /** Wants to stand (she asked) but may not have room yet. */
+  private wantStand = false;
+  setCrouch(on: boolean) {
+    if (!on && !this.roomToStand()) {
+      this.wantStand = true;
+      return;
+    }
+    this.wantStand = false;
+    this.crouched = on;
+    this.bodyH = on ? 1.15 : 1.75;
+  }
+  private roomToStand() {
+    const [cx, cz, hit] = this.game.arena.collide(this.x, this.z, this.radius * 0.8, false, this.y, 1.75);
+    return !hit || Math.hypot(cx - this.x, cz - this.z) < 0.02;
+  }
+  /** Nobody's fighting near her: the world is hers to climb. */
+  private calmNear() {
+    for (const e of this.game.enemies()) {
+      if (!e.alive || e.state === 'idle' || e.down) continue;
+      if (e.distTo(this) < 9) return false;
+    }
+    return true;
+  }
+  private scanTraversal(): Traversal | null {
+    const a = this.game.arena;
+    if (!a.traversal || this.airborne || !this.calmNear()) return null;
+    const inp = this.game.input;
+    const mag = Math.hypot(inp.moveX, inp.moveY);
+    let fx: number, fz: number;
+    if (mag > 0.3) {
+      const [wx, wz] = this.game.cam.moveBasis(inp.moveX, inp.moveY);
+      const l = Math.hypot(wx, wz) || 1;
+      fx = wx / l;
+      fz = wz / l;
+    } else {
+      fx = Math.sin(this.yaw);
+      fz = Math.cos(this.yaw);
+    }
+    const running = Math.hypot(this.vx, this.vz) > 2.6;
+    const t = findTraversal(a, this.x, this.z, this.y, fx, fz, running);
+    // (crouched, only what she can do from low: ladders and drops)
+    if (t && this.crouched && (t.kind === 'jump' || t.kind === 'vault')) return null;
+    return t;
+  }
+
+  /** Over, up, down or across: the move, its clip fitted to the real heights. */
+  startTraverse(t: Traversal) {
+    const S = this.scale;
+    if (this.crouched) this.setCrouch(false);
+    this.crouched = false;
+    this.bodyH = 1.75;
+    this.vx = this.vz = 0;
+    this.action = 'traverse';
+    this.stateTime = 0;
+    this.heightLocked = true;
+    this.trav = { t, y0: this.y, phase: 'move', lift: 0 };
+    const o = { originX: t.ox, originZ: t.oz, originYaw: t.yaw, halflife: 0.12, entryHalflife: 0.09 };
+    switch (t.kind) {
+      case 'vault': {
+        const p = this.play('tv_vault', { ...o, yScale: t.rise / (CLIP_H.vault * S) });
+        if (t.extra > 0.01) p.setWarp(Math.sin(t.yaw) * t.extra, Math.cos(t.yaw) * t.extra, 0, this.def);
+        break;
+      }
+      case 'mantle':
+        this.play('tv_mantle', { ...o, yScale: t.rise / (CLIP_H.mantle * S) });
+        break;
+      case 'climb':
+        this.play('tv_climb', { ...o, yScale: t.rise / (CLIP_H.climb * S) });
+        break;
+      case 'fence':
+        this.play('tv_fence', { ...o, yScale: t.rise / (CLIP_H.fence * S) });
+        break;
+      case 'lower': {
+        // the floor below becomes hers before the move: the pose stays where it is, the move
+        // lowers it (the eye comes down with her)
+        const h = -t.rise;
+        this.setY(t.endY);
+        this.trav.lift = h;
+        this.viewLift = h;
+        this.play(h <= 1.6 ? 'tv_lower' : 'tv_lower_hi', { ...o, yScale: h / ((h <= 1.6 ? CLIP_H.lower : CLIP_H.lowerHi) * S) });
+        break;
+      }
+      case 'jump': {
+        const p = this.play('tv_jump', { ...o, halflife: 0.08 });
+        if (Math.abs(t.extra) > 0.01) p.setWarp(Math.sin(t.yaw) * t.extra, Math.cos(t.yaw) * t.extra, 0, this.def);
+        break;
+      }
+      case 'drop': {
+        const p = this.play('tv_drop', o);
+        // a long way down takes longer: the fall part of the move slows to the real fall's time
+        this.trav.lift = 0;
+        void p;
+        break;
+      }
+      case 'ladder':
+      case 'ladderDown': {
+        const l = t.ladder!;
+        const lx = Math.sin(l.yaw), lz = Math.cos(l.yaw);
+        if (t.kind === 'ladderDown') {
+          // over the edge backwards onto the rungs: the reversed mantle, a metre down
+          this.setY(l.y1 - 1.0);
+          this.trav.lift = 1.0;
+          this.viewLift = 1.0;
+          this.trav.phase = 'exit';
+          this.play('tv_lower', { originX: l.x - lx * 0.36 - lx * 0.06, originZ: l.z - lz * 0.36 - lz * 0.06, originYaw: l.yaw, halflife: 0.12, yScale: 1.0 / (CLIP_H.lower * S) });
+        } else {
+          this.trav.phase = 'ladder';
+          this.play('tv_ladder', { originX: l.x - lx * 0.36, originZ: l.z - lz * 0.36, originYaw: l.yaw, halflife: 0.18, speed: 0 });
+        }
+        break;
+      }
+    }
+  }
+
+  private updateTraverse(dt: number) {
+    const tr = this.trav;
+    const c = this.clip;
+    if (!tr || !c) {
+      this.endTraverse();
+      return;
+    }
+    const t = tr.t;
+    const S = this.scale;
+    switch (t.kind) {
+      case 'mantle':
+      case 'climb': {
+        // the eye rises with her as she goes up (the floor is hers at the end)
+        const d = c.clip.dur;
+        this.viewLift = t.rise * smoothstep(d * 0.25, d * 0.8, c.time);
+        if (c.done || c.time >= c.clip.recoverT) {
+          this.viewLift = 0;
+          this.setY(t.endY);
+          this.endTraverse(0.14);
+        }
+        break;
+      }
+      case 'vault':
+      case 'fence':
+        if (c.done || c.time >= c.clip.recoverT) this.endTraverse(0.12);
+        break;
+      case 'lower': {
+        const d = c.clip.dur;
+        this.viewLift = tr.lift * (1 - smoothstep(d * 0.15, d * 0.8, c.time));
+        if (c.done || c.time >= c.clip.recoverT) {
+          this.viewLift = 0;
+          this.endTraverse(0.14);
+        }
+        break;
+      }
+      case 'jump': {
+        // up and over: the arc is the move's; a lower landing comes down through its second half
+        const k = smoothstep(0.3, 0.66, c.time);
+        this.y = tr.y0 + t.rise * k * k;
+        if (c.time >= 0.66 && !this.landed) this.landedFrom(Math.max(0, -t.rise));
+        if (c.done || c.time >= c.clip.recoverT) this.endTraverse(0.12);
+        break;
+      }
+      case 'drop': {
+        // the step out at its own pace, then the fall at the real one (a long way takes longer)
+        const h = -t.rise;
+        const fallT = Math.sqrt((2 * h) / 13);
+        const a0 = 0.22, a1 = 0.58;
+        c.speed = c.time >= a0 && c.time < a1 ? Math.min(1, (a1 - a0) / Math.max(0.05, fallT)) : 1;
+        const k = clamp((c.time - a0) / (a1 - a0), 0, 1);
+        this.y = tr.y0 + t.rise * k * k;
+        if (c.time >= a1 && !this.landed) this.landedFrom(h);
+        if (c.done || c.time >= c.clip.recoverT) this.endTraverse(0.15);
+        break;
+      }
+      case 'ladder':
+      case 'ladderDown':
+        this.updateLadder(dt, tr, c);
+        break;
+    }
+    void S;
+  }
+  private landed = false;
+  /** Feet on the floor after a fall of h metres: it hurts from four, kills from nine. */
+  private landedFrom(h: number) {
+    this.landed = true;
+    const g = this.game;
+    g.audio.play('body_fall', { pos: _v.set(this.x, this.y + 0.2, this.z), vol: clamp(0.25 + h * 0.12, 0.25, 0.9), pitch: 1.2 });
+    if (h > 2.2) g.cam.addTrauma(clamp(h * 0.05, 0.08, 0.35));
+    if (h > 4.2) {
+      const dmg = (h - 4.2) * 16;
+      this.hp = Math.max(h > 9 ? 0 : 1, this.hp - dmg);
+      this.stats.damageTaken += dmg;
+      g.audio.play(this.style.voice.pain, { pos: _v, vol: 0.8 });
+      if (this.hp <= 0) {
+        this.heightLocked = false;
+        this.trav = null;
+        this.playerDeath(makeHit({ dir: new THREE.Vector3(0, -1, 0), point: new THREE.Vector3(this.x, this.y + 0.3, this.z), damage: dmg, strength: 1, kind: 'slam', region: 'chest', attacker: null, bleed: 0.2 }));
+      }
+    }
+  }
+  private endTraverse(hl = 0.12) {
+    this.heightLocked = false;
+    this.viewLift = 0;
+    this.trav = null;
+    this.landed = false;
+    this.vy = 0;
+    this.airborne = false;
+    this.toFree(hl);
+  }
+  /** On a ladder: W / S (the stick) up and down, the limbs keeping time with the height. */
+  private updateLadder(dt: number, tr: NonNullable<Player['trav']>, c: NonNullable<Player['clip']>) {
+    const l = tr.t.ladder!;
+    const S = this.scale;
+    if (tr.phase === 'exit') {
+      // stepping off at the top (or onto the ladder from it)
+      const d = c.clip.dur;
+      if (tr.t.kind === 'ladderDown') {
+        this.viewLift = tr.lift * (1 - smoothstep(d * 0.15, d * 0.8, c.time));
+        if (c.done || c.time >= c.clip.recoverT) {
+          // on the rungs: now climb
+          this.viewLift = 0;
+          tr.phase = 'ladder';
+          const lx = Math.sin(l.yaw), lz = Math.cos(l.yaw);
+          this.play('tv_ladder', { originX: l.x - lx * 0.36, originZ: l.z - lz * 0.36, originYaw: l.yaw, halflife: 0.2, speed: 0 });
+        }
+      } else {
+        this.viewLift = 1.0 * smoothstep(d * 0.25, d * 0.8, c.time);
+        if (c.done || c.time >= c.clip.recoverT) {
+          this.viewLift = 0;
+          this.setY(l.y1);
+          this.endTraverse(0.14);
+        }
+      }
+      return;
+    }
+    const inp = this.game.input;
+    const want = clamp(inp.moveY, -1, 1);
+    const sp = 1.15;
+    this.y = clamp(this.y + want * sp * dt, l.y0, l.y1 - 1.0);
+    // the loop's time from the height (two rungs a loop): the hands and feet keep their grip
+    c.time = ((((this.y - l.y0) / 0.6) % 1) + 1) % 1 * c.clip.dur;
+    if (Math.abs(want) > 0.1 && Math.floor((this.y - l.y0) / 0.3) !== Math.floor((this.y - l.y0 - want * sp * dt) / 0.3)) {
+      this.game.audio.play('footstep', { pos: _v.set(this.x, this.y, this.z), vol: 0.35, pitch: 1.3 });
+    }
+    // at the top: over onto the roof
+    if (this.y >= l.y1 - 1.0 - 1e-3 && want > 0.1) {
+      tr.phase = 'exit';
+      const lx = Math.sin(l.yaw), lz = Math.cos(l.yaw);
+      this.play('tv_mantle', { originX: l.x - lx * (0.42 - 0.06), originZ: l.z - lz * (0.42 - 0.06), originYaw: l.yaw, halflife: 0.16, yScale: 1.0 / (CLIP_H.mantle * S) });
+      return;
+    }
+    // at the foot, stepping down off it
+    if (this.y <= l.y0 + 1e-3 && want < -0.1) {
+      this.y = l.y0;
+      this.endTraverse(0.2);
+    }
+  }
+  /** Down from a fall she didn't mean (walked off something, knocked off): a landing. */
+  protected onLand(h: number) {
+    if (h < 0.7 || this.action !== 'free') return;
+    this.landedFrom(h);
+    this.landed = false;
+    this.play(h > 2.6 ? 'tv_land_hard' : 'tv_land', { halflife: 0.06, originYaw: this.yaw });
+    this.action = 'land';
+    this.stateTime = 0;
   }
 
   /** Consume buffered inputs and start actions. */
   private readActions(dodgeOnly = false) {
     const inp = this.game.input;
     if (inp.consume('dodge', 0.22)) {
-      this.doDodge();
+      if (this.action === 'free' && this.travOption) this.startTraverse(this.travOption);
+      else this.doDodge();
       return;
     }
     if (dodgeOnly) return;
@@ -586,6 +874,16 @@ export class Player extends Fighter {
     const g = this.game;
     switch (ev.type) {
       case 'sfx':
+        // (the world's moves: hands on a ledge, an effort, the fence's rattle, a landing)
+        if (ev.name === 'grab' || ev.name === 'fence' || ev.name === 'effort' || ev.name === 'land' || ev.name === 'whoosh') {
+          const at = _v.set(this.x, this.y + 1.2, this.z);
+          if (ev.name === 'grab') g.audio.play('block', { pos: at, vol: 0.25, pitch: 1.5 });
+          else if (ev.name === 'fence') g.audio.play('metal_hit', { pos: at, vol: 0.3, pitch: 1.6 });
+          else if (ev.name === 'effort') g.audio.play(this.style.voice.attack, { pos: at, vol: 0.35, pitch: 1.05 });
+          else if (ev.name === 'land') g.audio.play('footstep', { pos: at, vol: 0.8, pitch: 0.85 });
+          else g.audio.play('whoosh_light', { pos: at, vol: 0.4 });
+          return;
+        }
         if (ev.name === 'whoosh_heavy') g.audio.swoosh(0.3, 0.8);
         g.audio.play(ev.name === 'grunt_attack' ? this.style.voice.attack : String(ev.name), { pos: _v.set(this.x, 1.2, this.z), vol: 0.8 });
         return;

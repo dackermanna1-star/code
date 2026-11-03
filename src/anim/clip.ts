@@ -420,6 +420,10 @@ export class ClipPlayer {
   scale = 1;
   /** Ground height provider (bodies on the floor) for planted feet. */
   ground: ((x: number, z: number) => number) | null = null;
+  /** The floor the body stands on (world): aim points come in world heights, the pose is above it. */
+  rootY = 0;
+  /** Heights scaled (see PlayOptions.yScale): the hips' rise, root-space hands, the feet. */
+  yScale = 1;
   /** Initial foot world positions (clip start), to keep continuity. */
   footStart: [THREE.Vector3, THREE.Vector3] = [new THREE.Vector3(), new THREE.Vector3()];
   footStartYaw: [number, number] = [0, 0];
@@ -509,7 +513,7 @@ export class ClipPlayer {
         this.footWorld[side].push({
           x: fx,
           z: fz,
-          y: f.p[1] * this.scale + (f.p[1] < 0.02 && this.ground ? this.ground(fx, fz) : 0),
+          y: f.p[1] * this.scale * this.yScale + (f.p[1] < 0.02 && this.ground ? this.ground(fx, fz) : 0),
           yaw: this.originYaw + f.yaw * DEG + this.warpYaw * w,
         });
       }
@@ -779,7 +783,7 @@ export class ClipPlayer {
     // ---- hips/spine
     const S = this.scale;
     cr3(k0.hips, k1.hips, k2.hips, k3.hips, tmp);
-    prm.hipsPos.set(tmp[0] * S, def.offsets[B.hips].y + tmp[1] * S, tmp[2] * S);
+    prm.hipsPos.set(tmp[0] * S, def.offsets[B.hips].y + tmp[1] * S * (tmp[1] > 0 ? this.yScale : 1), tmp[2] * S);
     const tq = this.clip.torsoQ;
     if (tq) {
       prm.hipsRot.copy(tq[0][i1]).slerp(tq[0][i2], s);
@@ -820,7 +824,7 @@ export class ClipPlayer {
       const ks = [k0, k1, k2, k3];
       for (let j = 0; j < 4; j++) {
         const h = hk(ks[j]);
-        const p = pts[j].set(h.p[0] * S, h.p[1] * S, h.p[2] * S);
+        const p = pts[j].set(h.p[0] * S, h.p[1] * S * (h.sp === 'root' ? this.yScale : 1), h.p[2] * S);
         const pl = poles[j].set(h.pole[0], h.pole[1], h.pole[2]);
         if (h.sp === 'shoulder') {
           // the wrist from the shoulder in arm lengths (any build reaches the way the capture did)
@@ -836,6 +840,7 @@ export class ClipPlayer {
         }
         if (h.aim && h.aimW > 0 && this.aim && this.aim.aimPoint(h.aim, _w)) {
           // world -> root space
+          _w.y -= this.rootY;
           this.worldToRoot(_w, _v);
           _v.x += h.aimOff[0] * S;
           _v.y += h.aimOff[1] * S;
@@ -921,6 +926,7 @@ export class ClipPlayer {
       const aimW = lerp(f1.aimW, f2.aimW, s);
       const aimP = f2.aim ?? f1.aim;
       if (aimP && aimW > 0 && this.aim && this.aim.aimPoint(aimP, _w)) {
+        _w.y -= this.rootY;
         const off = f2.aim ? f2.aimOff : f1.aimOff;
         // offset is root-space: rotate into world
         const [ox, oz] = rotY(off[0] * S, off[2] * S, this.rootYaw);

@@ -29,6 +29,8 @@ export interface LocoInput {
   /** 0..1 speaking (out of a fight: hands that talk), and how heated it is (0..1). */
   talk?: number;
   argue?: number;
+  /** 0..1 crouched low (sneaking, under a shutter). */
+  crouch?: number;
 }
 
 interface FootState {

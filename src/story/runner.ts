@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import type { Game } from '../game';
-import type { Arena, Door, MapName } from '../world/arena';
+import type { Arena, Door, WorldName } from '../world/arena';
 import { Enemy } from '../ai/enemy';
 import { Fighter } from '../combat/fighter';
 import { ARCHETYPES } from '../ai/archetypes';
@@ -9,7 +9,6 @@ import { makeHit } from '../combat/types';
 import type { SceneShot } from '../fx/camera';
 import { CameraRig } from '../fx/camera';
 import { clamp, pick, rand, wrapAngle, yawFromDir } from '../core/math';
-import { HALF_D, HALF_W } from '../world/arena';
 import { StoryUI, PhoneMsg } from './ui';
 import { CheckpointState, fmtTime, gradeRun, launchStory, loadProgress, saveProgress, StoryLaunch, GRADE_ORDER } from './save';
 
@@ -44,7 +43,7 @@ export interface Chapter {
   title: string;
   place: string;
   clock: string;
-  map: MapName;
+  map: WorldName;
   /** One line for the chapter select. */
   synopsis: string;
   /** Seconds of play an A-grade run takes (scenes not counted). */
@@ -519,8 +518,9 @@ export class Story {
     // (a mark in the room - a body can come to rest in a doorway - unless she's meant to be
     // walking in from outside or out of it)
     if (!p.ghostWalls) {
-      x = clamp(x, -HALF_W + 0.7, HALF_W - 0.7);
-      z = clamp(z, -HALF_D + 0.7, HALF_D - 0.7);
+      const bb = this.game.arena.bounds;
+      x = clamp(x, bb.minX + 0.7, bb.maxX - 0.7);
+      z = clamp(z, bb.minZ + 0.7, bb.maxZ - 0.7);
     }
     const speed = o.speed ?? 1.55;
     p.autopilot = { x, z, speed, face: o.face };

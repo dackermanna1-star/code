@@ -12,6 +12,8 @@ export interface RagdollInit {
   rootX: number;
   rootZ: number;
   rootYaw: number;
+  /** The floor the pose stands on (its FK is relative to it). */
+  rootY?: number;
   vel: THREE.Vector3; // whole-body velocity (world)
   scale: number;
 }

@@ -189,6 +189,8 @@ export class MocapDriver {
   private argueT = Math.random() * 3;
   /** How relaxed the stance is (0 the boxer's guard .. 1 standing about), talking, heated. */
   private relaxSm = 0;
+  /** Crouched (eased). */
+  crouchSm = 0;
   private talkSm = 0;
   private argueSm = 0;
   private cyc = { walk: clip('walk'), jog: clip('jog'), run: clip('run'), sprint: clip('sprint'), back: clip('back'), sideL: clip('sideL'), sideR: clip('sideR') };
@@ -325,6 +327,7 @@ export class MocapDriver {
     this.relaxSm += (relaxed - this.relaxSm) * (1 - Math.exp(-dt * 3.2));
     this.talkSm += ((inp.talk ?? 0) - this.talkSm) * (1 - Math.exp(-dt * 4));
     this.argueSm += ((inp.argue ?? 0) - this.argueSm) * (1 - Math.exp(-dt * 3));
+    this.crouchSm += ((inp.crouch ?? 0) - this.crouchSm) * (1 - Math.exp(-dt * 7));
     if (this.relaxSm > 1e-3) {
       this.standT += dt * this.idleRate;
       this.talkT += dt * this.idleRate;
@@ -376,7 +379,9 @@ export class MocapDriver {
     // a limp: the hips dip over the injured (left) leg while it carries the weight
     this.limpC += (clamp01(bl.cL) - this.limpC) * (1 - Math.exp(-12 * dt));
     const limpDip = L.limpSm * 0.035 * S * this.limpC * move;
-    prm.hipsPos.set(hx, def.offsets[B.hips].y + bl.hp.y * legLen - L.hunchSm * 0.04 * S - limpDip, hz);
+    // crouched: the hips low and a little back, the knees take it (the IK bends them)
+    const cr = this.crouchSm;
+    prm.hipsPos.set(hx, def.offsets[B.hips].y + bl.hp.y * legLen - L.hunchSm * 0.04 * S - limpDip - cr * 0.34 * S, hz - cr * 0.06 * S);
     _q.setFromAxisAngle(_Y, ly);
     prm.hipsRot.copy(_q).multiply(bl.q.hq);
     let swayRoll = 0;
@@ -399,11 +404,12 @@ export class MocapDriver {
     springDamper(this.lookSm, this.lookSm.x + wrapAngle(inp.look - this.lookSm.x), 0.07, dt);
     // (a threat behind is looked at over the shoulder, not with the head turned round)
     const look = lookTurn(this.lookSm.x, LOOK_MAX);
-    const hunch = L.hunchSm * 14 * DEG;
+    const hunch = L.hunchSm * 14 * DEG + cr * 30 * DEG;
+    if (cr > 1e-3) prm.hipsRot.multiply(_q.setFromEuler(_e.set(cr * 16 * DEG, 0, 0)));
     prm.spine.multiply(_q.setFromEuler(_e.set(hunch * 0.5, look * 0.15, 0)));
     prm.chest.multiply(_q.setFromEuler(_e.set(hunch * 0.5, look * 0.2, 0)));
-    prm.neck.multiply(_q.setFromEuler(_e.set(-hunch * 0.3, look * 0.25, 0)));
-    prm.head.multiply(_q.setFromEuler(_e.set(-hunch * 0.4, look * 0.4, 0)));
+    prm.neck.multiply(_q.setFromEuler(_e.set(-hunch * 0.45 - cr * 8 * DEG, look * 0.25, 0)));
+    prm.head.multiply(_q.setFromEuler(_e.set(-hunch * 0.5 - cr * 10 * DEG, look * 0.4, 0)));
 
     // ------------------------------------------------------------- feet (+ world locks)
     for (let i = 0; i < 2; i++) {

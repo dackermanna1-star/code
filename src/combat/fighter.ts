@@ -5,6 +5,7 @@ import { B, BONE_COUNT, SkeletonDef } from '../anim/skeleton';
 import { CharacterLibrary, CharacterModel, Variant } from '../character/library';
 import { Wound } from '../character/material';
 import { angleDiff, clamp, rotY, wrapAngle, yawFromDir } from '../core/math';
+import { STEP_UP } from '../world/arena';
 import { HitInfo, HitResult } from './types';
 import type { Game } from '../game';
 import type { RagdollLike } from '../world/ragdollTypes';
@@ -42,6 +43,23 @@ export abstract class Fighter implements AimProvider {
   def: SkeletonDef;
   x = 0;
   z = 0;
+  /** The floor under the feet (the street: 0; a dock, a roof, a stair). */
+  y = 0;
+  /** Falling: the speed down (negative) while in the air. */
+  vy = 0;
+  airborne = false;
+  /** How far a fall was, as she landed (for the landing and its hurt). */
+  lastFall = 0;
+  /** Her height is the move's to say (a climb, a vault): the floor doesn't pull at it. */
+  heightLocked = false;
+  /** May go over an edge higher than a step (she means to: a drop, a jump). */
+  mayDrop = false;
+  /** How tall the body is for what's overhead (crouched: under a half-open shutter). */
+  bodyH = 1.75;
+  /** Where the eye follows her up and down: the floor, eased (and a climb's rise as it happens). */
+  viewY = 0;
+  /** A climb's rise so far (the floor itself changes only once she's up). */
+  viewLift = 0;
   yaw = 0;
   vx = 0;
   vz = 0;
@@ -91,19 +109,25 @@ export abstract class Fighter implements AimProvider {
     this.model = new CharacterModel(lib, variant);
     this.def = variant.def;
     this.anim = new Animator(this.def, this.model);
-    const ground = (x: number, z: number) => this.game.corpses?.heightAt(x, z) ?? 0;
+    // (bodies on the floor, as high above it as they lie: the pose stands on its own floor at 0)
+    const ground = (x: number, z: number) => Math.max(0, (this.game.corpses?.heightAt(x, z) ?? 0) - this.y);
     this.anim.ground = ground;
     this.anim.loco.ground = ground;
     this.scale = this.def.scale;
     this.radius = 0.36 * this.def.scale * Math.max(1, this.def.spec.bulk * 0.95);
   }
 
-  spawn(x: number, z: number, yaw: number) {
+  spawn(x: number, z: number, yaw: number, y = this.game.arena.groundAt(x, z, 0)) {
     this.x = x;
     this.z = z;
     this.yaw = yaw;
+    this.y = y;
+    this.viewY = y;
+    this.vy = 0;
+    this.airborne = false;
     this.anim.initAt(x, z, yaw);
-    this.model.group.position.set(x, 0, z);
+    this.anim.rootY = y;
+    this.model.group.position.set(x, y, z);
     this.model.group.rotation.y = yaw;
     this.game.scene.add(this.model.group);
   }
@@ -309,7 +333,8 @@ export abstract class Fighter implements AimProvider {
       if (this.anim.mode === 'clip' && c2) {
         if (c2 !== c) c2.computeRoot();
         let nx = c2.rootX, nz = c2.rootZ;
-        const [cx, cz] = this.game.arena.collide(nx, nz, this.radius * 0.8, this.ghostWalls);
+        let [cx, cz] = this.heightLocked ? [nx, nz] : this.game.arena.collide(nx, nz, this.radius * 0.8, this.ghostWalls, this.y, this.bodyH);
+        if (!this.heightLocked) [cx, cz] = this.keepOnFloor(cx, cz);
         if (cx !== nx || cz !== nz) {
           c2.blockX += cx - nx;
           c2.blockZ += cz - nz;
@@ -330,13 +355,87 @@ export abstract class Fighter implements AimProvider {
       // second instead of being snapped out by that width in one frame.
       this.locoAge += dt;
       const fill = Math.min(1, this.locoAge / 0.25);
-      const [cx, cz] = this.game.arena.collide(this.x, this.z, this.radius * (0.8 + 0.2 * fill), this.ghostWalls);
+      const ox = this.x - this.vx * dt, oz = this.z - this.vz * dt;
+      const [cx, cz] = this.game.arena.collide(this.x, this.z, this.radius * (0.8 + 0.2 * fill), this.ghostWalls, this.y, this.bodyH);
       this.x = cx;
       this.z = cz;
+      [this.x, this.z] = this.keepOnFloor(this.x, this.z, ox, oz);
       // (couches, carts and drums are walked round, not through)
       this.game.props?.collideFighter(this, fill);
     }
     if (this.anim.mode !== 'loco') this.locoAge = 0;
+    this.updateHeight(dt);
+  }
+
+  // ------------------------------------------------------------------ heights
+  /**
+   * An edge higher than a step is a wall (unless the fighter means to go over it): from (fx, fz)
+   * to (x, z), the part of the move that keeps a floor underfoot.
+   */
+  keepOnFloor(x: number, z: number, fx = this.x, fz = this.z): [number, number] {
+    const a = this.game.arena;
+    if (!a.traversal || this.mayDrop || this.airborne) return [x, z];
+    const lim = this.y - STEP_UP - 0.12;
+    if (a.groundAt(x, z, this.y) >= lim) return [x, z];
+    // slide along the edge: whichever axis still has floor
+    if (a.groundAt(x, fz, this.y) >= lim) return [x, fz];
+    if (a.groundAt(fx, z, this.y) >= lim) return [fx, z];
+    return [fx, fz];
+  }
+  /** Change the floor height at once (the pose stays put in the world). */
+  setY(y: number) {
+    const d = y - this.y;
+    if (!d) return;
+    this.anim.rebase(d);
+    this.y = y;
+  }
+  /** Each frame: onto a stair, down a kerb, off an edge into the air, onto the floor below. */
+  protected updateHeight(dt: number) {
+    const a = this.game.arena;
+    if (!a.traversal && this.y === 0 && !this.airborne) return;
+    if (this.heightLocked || dt <= 0) return;
+    const mode = this.anim.mode;
+    if (mode === 'external' || mode === 'frozen') {
+      // a body under physics: its floor is whatever's under the pelvis
+      const py = this.anim.fk.pos[B.hips].y + this.anim.rootY;
+      const g = a.groundAt(this.x, this.z, py - 0.15, 0.2);
+      if (Math.abs(g - this.y) > 0.01) this.setY(Math.max(g, -40));
+      this.airborne = false;
+      this.vy = 0;
+      return;
+    }
+    const g = a.groundAt(this.x, this.z, this.y);
+    if (this.airborne) {
+      this.vy -= 13 * dt;
+      const ny = this.y + this.vy * dt;
+      if (ny <= g) {
+        this.lastFall = Math.max(0, this.fallFrom - g);
+        this.y = g;
+        this.vy = 0;
+        this.airborne = false;
+        this.onLand(this.lastFall);
+      } else this.y = ny;
+      return;
+    }
+    if (g > this.y) {
+      // up a step: quick, eased (the hips lift with it)
+      this.y = g - this.y < 0.004 ? g : this.y + (g - this.y) * (1 - Math.exp(-dt * 20));
+    } else if (g < this.y) {
+      const drop = this.y - g;
+      if (drop <= STEP_UP + 0.12) this.y = drop < 0.004 ? g : this.y - drop * (1 - Math.exp(-dt * 16));
+      else {
+        // off the edge
+        this.airborne = true;
+        this.vy = Math.min(this.vy, 0);
+        this.fallFrom = this.y;
+      }
+    }
+  }
+  /** Where the fall began. */
+  fallFrom = 0;
+  /** Down on the floor after a fall of `h` metres (the player lands; the rest just stand). */
+  protected onLand(h: number) {
+    void h;
   }
 
   /**
@@ -360,8 +459,10 @@ export abstract class Fighter implements AimProvider {
       this.anim.locoIn.velX = this.vx;
       this.anim.locoIn.velZ = this.vz;
     }
-    this.anim.update(dt, this.x, this.z, this.yaw);
-    this.model.group.position.set(this.x, this.lift, this.z);
+    this.anim.update(dt, this.x, this.z, this.yaw, this.y);
+    this.model.group.position.set(this.x, this.y + this.lift, this.z);
+    const vy = this.y + this.viewLift;
+    this.viewY = Math.abs(vy - this.viewY) > 6 ? vy : this.viewY + (vy - this.viewY) * (1 - Math.exp(-dt * (this.airborne ? 14 : 9)));
     this.model.group.rotation.y = this.yaw;
     this.model.secondary(dt);
     this.model.updateFace(dt);

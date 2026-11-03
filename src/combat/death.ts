@@ -105,6 +105,11 @@ export class DeathSystem {
     return rag;
   }
 
+  /** The floor under a point of a body (a dock, a roof: blood pools on whatever it lies on). */
+  private floorAt(p: THREE.Vector3) {
+    return this.game.arena.groundAt(p.x, p.z, p.y + 0.1);
+  }
+
   update(dt: number) {
     const g = this.game;
     for (let i = this.dying.length - 1; i >= 0; i--) {
@@ -154,14 +159,15 @@ export class DeathSystem {
       const p = k === 0 ? d.rag.headPos(this._v) : d.rag.chestPos(this._v);
       const last = d.smear[k];
       const dist = Math.hypot(p.x - last.x, p.z - last.z);
-      if (p.y > low || last.y > low) {
-        if (p.y > low) last.copy(p);
+      const fl = this.floorAt(p);
+      if (p.y - fl > low || last.y - fl > low) {
+        if (p.y - fl > low) last.copy(p);
         continue;
       }
       if (dist < 0.05) continue;
       if (dist < 0.8) {
         const r = (k === 0 ? 0.06 : 0.09) * f.scale;
-        const mid = new THREE.Vector3((p.x + last.x) / 2, 0.01, (p.z + last.z) / 2);
+        const mid = new THREE.Vector3((p.x + last.x) / 2, fl + 0.01, (p.z + last.z) / 2);
         const dir = new THREE.Vector3(p.x - last.x, 0, p.z - last.z).normalize();
         this.game.blood.splat(mid, r, SPLAT.smear, 0.75, new THREE.Vector3(0, 1, 0), dir, Math.max(0, dist / (2 * r) - 0.5));
       }
@@ -187,8 +193,9 @@ export class DeathSystem {
       const fromHead = w ? w.pos.y > d.f.def.rest[B.neck].y : false;
       if (fromHead) rag.headPos(this._v);
       else rag.chestPos(this._v);
-      if (this._v.y < 0.45) {
-        this._v.y = 0.01;
+      const fl = this.floorAt(this._v);
+      if (this._v.y - fl < 0.45) {
+        this._v.y = fl + 0.01;
         g.blood.splat(this._v.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.1, 0, (Math.random() - 0.5) * 0.1)), (0.04 + Math.random() * 0.05) * d.f.scale, SPLAT.pool, 0.85, new THREE.Vector3(0, 1, 0));
       }
     }
@@ -208,7 +215,7 @@ export class DeathSystem {
     const f = d.f;
     // final pose -> bones
     f.anim.update(0, f.x, f.z, f.yaw);
-    f.model.group.position.set(f.x, 0, f.z);
+    f.model.group.position.set(f.x, f.y, f.z);
     f.model.group.rotation.y = f.yaw;
     f.model.syncWounds(g.time);
     const shapes = d.rag.corpseShapes();
@@ -223,9 +230,10 @@ export class DeathSystem {
     const chest = new THREE.Vector3();
     f.anim.boneWorld(B.chest, chest);
     const src = bloodWounds.some((w) => w.pos.y > f.def.rest[B.neck].y) ? head : chest;
-    if (src.y < 0.6) {
-      g.blood.addPool(src.x, src.z, (0.2 + severity * 0.3) * f.scale, 8 + severity * 12, 0.4);
-      if (severity > 0.75) g.blood.addPool(chest.x + (Math.random() - 0.5) * 0.25, chest.z + (Math.random() - 0.5) * 0.25, 0.17 * f.scale, 14, 2.5);
+    const fl = this.floorAt(src);
+    if (src.y - fl < 0.6) {
+      g.blood.addPool(src.x, src.z, (0.2 + severity * 0.3) * f.scale, 8 + severity * 12, 0.4, -1, fl);
+      if (severity > 0.75) g.blood.addPool(chest.x + (Math.random() - 0.5) * 0.25, chest.z + (Math.random() - 0.5) * 0.25, 0.17 * f.scale, 14, 2.5, -1, fl);
     }
     d.rag.dispose();
     f.ragdoll = null;

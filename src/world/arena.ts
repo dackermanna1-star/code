@@ -23,7 +23,36 @@ export interface Obstacle {
   ghost?: boolean;
   /** What a body hitting it sounds like (the active-ragdoll world's impact material). */
   material?: string;
+  /** Bottom of the box (default 0): a box on a roof, a beam overhead, a raised walkway's deck. */
+  y0?: number;
+  /** Its top is a floor fighters stand and walk on (a loading dock, a container, a roof). */
+  walk?: boolean;
+  /** Traversal: false when it may not be vaulted or climbed (default: by its height). */
+  climb?: boolean;
+  /** (lookup bookkeeping) */
+  _q?: number;
 }
+/** A slope or a flight of stairs: the floor rises from y0 at the rect's low edge to y1 at its high one. */
+export interface Ramp {
+  minX: number;
+  maxX: number;
+  minZ: number;
+  maxZ: number;
+  axis: 'x' | 'z';
+  y0: number;
+  y1: number;
+}
+/** A ladder: its foot (x, z) on the floor at y0, up to y1; `yaw` is the way she faces climbing it. */
+export interface Ladder {
+  x: number;
+  z: number;
+  yaw: number;
+  y0: number;
+  y1: number;
+}
+/** How high a fighter steps up without climbing (a kerb, a stair, a low step). */
+export const STEP_UP = 0.48;
+const NO_FLOOR = -60;
 export interface Door {
   x: number; // outside spawn point
   z: number;
@@ -54,6 +83,13 @@ export const MAPS: { id: MapName; name: string; blurb: string }[] = [
   { id: 'lab', name: 'THE LAB', blurb: 'Security, specimens and something in the tank' },
 ];
 export const isMapName = (s: string | null): s is MapName => !!s && MAPS.some((m) => m.id === s);
+/** The story's own levels (built by src/world/level). */
+export type LevelName = 'testbed' | 'lantern' | 'harbor' | 'club' | 'roofs' | 'meridian' | 'convoy' | 'palewater' | 'tanks' | 'dawn';
+export type WorldName = MapName | LevelName;
+type Builder = (a: Arena, b: BloodAtlas, pl: number, sm: number) => MapParts;
+/** The levels' builders, registered by the level module. */
+export const LEVEL_BUILDERS: Partial<Record<LevelName, Builder>> = {};
+export const isLevelName = (s: string | null): s is LevelName => !!s && s in LEVEL_BUILDERS;
 
 /** Build a quad with tiling uv (meters / tile) and blood atlas uv. */
 export function paintQuad(blood: BloodAtlas, origin: THREE.Vector3, u: THREE.Vector3, v: THREE.Vector3, w: number, h: number, tile: [number, number], kind: FaceKind, density: number, segU = 1, segV = 1) {
@@ -177,13 +213,31 @@ export class Arena {
   camBounds = { out: -0.35, maxY: WALL_H - 1.2, walls: false };
   /** Camera far plane (outdoor maps see a long way). */
   farPlane = 120;
+  /** Where the action is (the player): the level's lights and shadows gather round it. */
+  focus = new THREE.Vector3();
+  /** The level's extent (the endless arenas: the room). The story's levels set their own. */
+  bounds = { minX: -HALF_W, maxX: HALF_W, minZ: -HALF_D, maxZ: HALF_D };
+  /** Story levels: Scarlet climbs, vaults, drops and crawls through gaps (the arenas: none of it). */
+  traversal = false;
+  /** Stairs and slopes. */
+  ramps: Ramp[] = [];
+  ladders: Ladder[] = [];
+  /** Where there's no floor at all (a drop between roofs, the river): what goes in, falls. */
+  pits: { minX: number; maxX: number; minZ: number; maxZ: number }[] = [];
+  /** Anything to stand on but the floor (walkable boxes, ramps, pits): set by the level (see heightsChanged). */
+  private hasHeights = false;
+  private grid: Map<number, Obstacle[]> | null = null;
+  private gridDirty = true;
+  private stamp = 1;
+  private nearBuf: Obstacle[] = [];
+  private static readonly CELL = 4;
   /** The map's own bosses in place of the standard ones (wave boss key -> archetype key). */
   bossMap: Record<string, string> = {};
   /** The map's own enemy outfits (archetype -> variant names), registered by the game. */
   roster: 'lab' | null = null;
 
-  constructor(public blood: BloodAtlas, pointLights: number, shadowMapSize: number, public map: MapName = 'warehouse') {
-    const builders: Partial<Record<MapName, (a: Arena, b: BloodAtlas, pl: number, sm: number) => MapParts>> = { rooftop: buildRooftop, alley: buildAlley, apartment: buildApartment, lab: buildLab };
+  constructor(public blood: BloodAtlas, pointLights: number, shadowMapSize: number, public map: WorldName = 'warehouse') {
+    const builders: Partial<Record<WorldName, Builder>> = { rooftop: buildRooftop, alley: buildAlley, apartment: buildApartment, lab: buildLab, ...LEVEL_BUILDERS };
     const build = builders[map];
     if (build) {
       const r = build(this, blood, pointLights, shadowMapSize);
@@ -193,6 +247,7 @@ export class Arena {
       this.dressing = r.dressing;
       this.extraUpdate = r.update;
       this.mergeStatic();
+      this.heightsChanged();
       return;
     }
     const S = blood.size;
@@ -687,10 +742,11 @@ export class Arena {
   }
 
   /** Closest vertical surface (wall/pillar/crate) to a point within maxDist. */
-  nearestSurface(x: number, z: number, maxDist: number, kinds: Obstacle['kind'][] = ['wall', 'pillar', 'crate']): SurfaceHit | null {
+  nearestSurface(x: number, z: number, maxDist: number, kinds: Obstacle['kind'][] = ['wall', 'pillar', 'crate'], y: number | null = null): SurfaceHit | null {
     let best: SurfaceHit | null = null;
-    for (const o of this.obstacles) {
+    for (const o of this.near(x, z, maxDist)) {
       if (!kinds.includes(o.kind) || o.ghost) continue;
+      if (y !== null && (y < (o.y0 ?? 0) - 0.1 || y > (o.y0 ?? 0) + o.h + 0.1)) continue;
       const cx = Math.max(o.minX, Math.min(x, o.maxX));
       const cz = Math.max(o.minZ, Math.min(z, o.maxZ));
       const dx = x - cx, dz = z - cz;
@@ -720,12 +776,96 @@ export class Arena {
     return best;
   }
 
-  /** Resolve a circle (x,z,r) against obstacles; returns corrected position. */
-  collide(x: number, z: number, r: number, ignoreWalls = false): [number, number, boolean] {
+  // ------------------------------------------------------------------ the floor, at heights
+  /** The obstacles changed (built, a gate opened, a crate moved): the lookups catch up. */
+  heightsChanged() {
+    this.gridDirty = true;
+    this.hasHeights = this.ramps.length > 0 || this.pits.length > 0 || this.obstacles.some((o) => o.walk);
+  }
+  private buildGrid() {
+    const C = Arena.CELL;
+    const g = new Map<number, Obstacle[]>();
+    for (const o of this.obstacles) {
+      const x0 = Math.floor(o.minX / C), x1 = Math.floor(o.maxX / C), z0 = Math.floor(o.minZ / C), z1 = Math.floor(o.maxZ / C);
+      for (let cz = z0; cz <= z1; cz++)
+        for (let cx = x0; cx <= x1; cx++) {
+          const k = (cz + 4096) * 8192 + (cx + 4096);
+          let a = g.get(k);
+          if (!a) g.set(k, (a = []));
+          a.push(o);
+        }
+    }
+    this.grid = g;
+    this.gridDirty = false;
+  }
+  /** The obstacles that may touch a circle at (x, z) (all of them, in a small room). */
+  near(x: number, z: number, r: number): Obstacle[] {
+    if (!this.traversal || this.obstacles.length < 48) return this.obstacles;
+    if (this.gridDirty || !this.grid) this.buildGrid();
+    const C = Arena.CELL;
+    const out = this.nearBuf;
+    out.length = 0;
+    const st = ++this.stamp;
+    const x0 = Math.floor((x - r) / C), x1 = Math.floor((x + r) / C), z0 = Math.floor((z - r) / C), z1 = Math.floor((z + r) / C);
+    for (let cz = z0; cz <= z1; cz++)
+      for (let cx = x0; cx <= x1; cx++) {
+        const a = this.grid!.get((cz + 4096) * 8192 + (cx + 4096));
+        if (!a) continue;
+        for (const o of a) {
+          if (o._q === st) continue;
+          o._q = st;
+          out.push(o);
+        }
+      }
+    return out;
+  }
+
+  /**
+   * The floor's height under (x, z): the highest surface to stand on there no more than `step`
+   * above `fromY` (the street, a dock, a roof, a stair) - from a height, what's below it.
+   */
+  groundAt(x: number, z: number, fromY = 1e6, step = STEP_UP): number {
+    if (!this.hasHeights) return 0;
+    let best = 0;
+    for (const p of this.pits) {
+      if (x > p.minX && x < p.maxX && z > p.minZ && z < p.maxZ) {
+        best = NO_FLOOR;
+        break;
+      }
+    }
+    const lim = fromY + step;
+    for (const o of this.near(x, z, 0)) {
+      if (!o.walk || x < o.minX || x > o.maxX || z < o.minZ || z > o.maxZ) continue;
+      const top = (o.y0 ?? 0) + o.h;
+      if (top > best && top <= lim) best = top;
+    }
+    for (const r of this.ramps) {
+      if (x < r.minX || x > r.maxX || z < r.minZ || z > r.maxZ) continue;
+      const k = r.axis === 'x' ? (x - r.minX) / Math.max(1e-6, r.maxX - r.minX) : (z - r.minZ) / Math.max(1e-6, r.maxZ - r.minZ);
+      const h = r.y0 + (r.y1 - r.y0) * k;
+      if (h > best && h <= lim) best = h;
+    }
+    return best;
+  }
+  /** Bottom and top of an obstacle. */
+  static span(o: Obstacle): [number, number] {
+    const y0 = o.y0 ?? 0;
+    return [y0, y0 + o.h];
+  }
+
+  /**
+   * Resolve a circle (x,z,r) against obstacles; returns corrected position. A fighter standing at
+   * height `y` (and `height` tall) isn't stopped by what's under its feet or over its head, and steps
+   * up onto anything walkable within a stair's rise.
+   */
+  collide(x: number, z: number, r: number, ignoreWalls = false, y = 0, height = 1.75): [number, number, boolean] {
     let hit = false;
+    const list = this.near(x, z, r + 0.5);
     for (let iter = 0; iter < 2; iter++) {
-      for (const o of this.obstacles) {
+      for (const o of list) {
         if (ignoreWalls && o.kind === 'wall') continue;
+        const y0 = o.y0 ?? 0, top = y0 + o.h;
+        if (top <= y + (o.walk ? STEP_UP : 0.02) || y0 >= y + height) continue;
         const cx = Math.max(o.minX, Math.min(x, o.maxX));
         const cz = Math.max(o.minZ, Math.min(z, o.maxZ));
         const dx = x - cx, dz = z - cz;
@@ -752,7 +892,8 @@ export class Arena {
   }
 
   inside(x: number, z: number, margin = 0) {
-    return Math.abs(x) < HALF_W - margin && Math.abs(z) < HALF_D - margin;
+    const b = this.bounds;
+    return x > b.minX + margin && x < b.maxX - margin && z > b.minZ + margin && z < b.maxZ - margin;
   }
 
   update(dt: number) {

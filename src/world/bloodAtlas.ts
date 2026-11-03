@@ -199,6 +199,8 @@ interface Pool {
 /** A thin run of blood creeping away from a pool, following the floor. */
 interface Rivulet {
   x: number;
+  /** The floor it runs on. */
+  y: number;
   z: number;
   dx: number;
   dz: number;
@@ -234,9 +236,13 @@ export class BloodAtlas {
   logCount = 0;
   pools: Pool[] = [];
   rivulets: Rivulet[] = [];
-  /** Floor half extents (rivulets stop at the walls). */
-  private halfW: number;
-  private halfD: number;
+  /** Floor extents (rivulets stop at the walls). */
+  private fMinX: number;
+  private fMaxX: number;
+  private fMinZ: number;
+  private fMaxZ: number;
+  /** The floor's height under a point (levels with docks and roofs): blood runs on its own floor. */
+  floorAt: ((x: number, z: number, y: number) => number) | null = null;
   /** CPU coverage grid (floor), 10cm cells, used for bloody footprints. */
   coverage: Float32Array;
   covW: number;
@@ -295,12 +301,24 @@ export class BloodAtlas {
     this.maxMesh = new THREE.Mesh(this.maxGeo, maxMat);
     this.addMesh.frustumCulled = this.maxMesh.frustumCulled = false;
     this.scene.add(this.addMesh, this.maxMesh);
-    this.covW = Math.ceil(floorW / 0.1);
-    this.covH = Math.ceil(floorD / 0.1);
-    this.covX0 = -floorW / 2;
-    this.covZ0 = -floorD / 2;
-    this.halfW = floorW / 2 - 0.15;
-    this.halfD = floorD / 2 - 0.15;
+    this.covW = this.covH = 1;
+    this.covX0 = this.covZ0 = 0;
+    this.fMinX = this.fMaxX = this.fMinZ = this.fMaxZ = 0;
+    this.coverage = new Float32Array(1);
+    this.setFloor(-floorW / 2, floorW / 2, -floorD / 2, floorD / 2);
+  }
+
+  /** The floor's extent (the level is built): the footprint grid covers it. */
+  setFloor(minX: number, maxX: number, minZ: number, maxZ: number) {
+    // (a big level: a coarser grid would blur the prints - 10 cm cells, up to ~4 M of them)
+    this.covW = Math.ceil((maxX - minX) / 0.1);
+    this.covH = Math.ceil((maxZ - minZ) / 0.1);
+    this.covX0 = minX;
+    this.covZ0 = minZ;
+    this.fMinX = minX + 0.15;
+    this.fMaxX = maxX - 0.15;
+    this.fMinZ = minZ + 0.15;
+    this.fMaxZ = maxZ - 0.15;
     this.coverage = new Float32Array(this.covW * this.covH);
   }
 
@@ -364,7 +382,7 @@ export class BloodAtlas {
   }
 
   private markCoverage(pos: THREE.Vector3, r: number, inten: number) {
-    if (pos.y > 0.15) return;
+    if (pos.y - (this.floorAt ? this.floorAt(pos.x, pos.z, pos.y) : 0) > 0.15) return;
     const cx = Math.floor((pos.x - this.covX0) / 0.1), cz = Math.floor((pos.z - this.covZ0) / 0.1);
     const rr = Math.ceil(r / 0.1);
     for (let z = cz - rr; z <= cz + rr; z++) {
@@ -469,10 +487,10 @@ export class BloodAtlas {
    * Start a pool that grows over time (e.g. under a corpse). It leans downhill, and once it has
    * spread far enough it sends thin runs of blood creeping away along the floor.
    */
-  addPool(x: number, z: number, rMax: number, duration: number, delay = 0, runs = -1) {
+  addPool(x: number, z: number, rMax: number, duration: number, delay = 0, runs = -1, y = 0) {
     floorFlow(x, z, _f);
     const n = runs >= 0 ? runs : rMax > 0.36 ? 2 + Math.floor(Math.random() * 2) : rMax > 0.2 ? 1 + Math.floor(Math.random() * 2) : 0;
-    this.pools.push({ x, y: 0.01, z, r: Math.min(0.05, rMax), rMax, rate: rMax / Math.max(0.5, duration), seed: Math.random() * 100, delay, dx: _f.x, dz: _f.z, st: 0.25 + Math.random() * 0.45, runs: n, drawnR: 0 });
+    this.pools.push({ x, y: y + 0.01, z, r: Math.min(0.05, rMax), rMax, rate: rMax / Math.max(0.5, duration), seed: Math.random() * 100, delay, dx: _f.x, dz: _f.z, st: 0.25 + Math.random() * 0.45, runs: n, drawnR: 0 });
     // an offset lobe or two so pools spread irregularly (blood runs along the floor)
     const lobes = Math.random() < 0.35 ? 0 : 1 + (Math.random() < 0.3 ? 1 : 0);
     for (let i = 0; i < lobes; i++) {
@@ -482,7 +500,7 @@ export class BloodAtlas {
       const r2 = rMax * (0.3 + Math.random() * 0.25);
       const lx = x + Math.cos(a) * d, lz = z + Math.sin(a) * d;
       floorFlow(lx, lz, _f);
-      this.pools.push({ x: lx, y: 0.01, z: lz, r: 0.03, rMax: r2, rate: r2 / Math.max(0.5, duration * 1.3), seed: Math.random() * 100, delay: delay + duration * 0.2, dx: _f.x, dz: _f.z, st: 0.2 + Math.random() * 0.4, runs: 0, drawnR: 0 });
+      this.pools.push({ x: lx, y: y + 0.01, z: lz, r: 0.03, rMax: r2, rate: r2 / Math.max(0.5, duration * 1.3), seed: Math.random() * 100, delay: delay + duration * 0.2, dx: _f.x, dz: _f.z, st: 0.2 + Math.random() * 0.4, runs: 0, drawnR: 0 });
       floorFlow(x, z, _f);
     }
   }
@@ -491,18 +509,18 @@ export class BloodAtlas {
    * A rivulet: creeps from (x, z) roughly along (dx, dz), bending with the floor, branching now and
    * then, thinning as it runs out over `len` metres, and beading where it stops.
    */
-  addRivulet(x: number, z: number, dx: number, dz: number, len: number, width: number, speed: number, delay = 0, gen = 0) {
+  addRivulet(x: number, z: number, dx: number, dz: number, len: number, width: number, speed: number, delay = 0, gen = 0, y = 0) {
     const l = Math.hypot(dx, dz) || 1;
     // never thinner than ~2.4 texels of the floor's paint resolution (else it filters away to a stain)
     const floor = this.faces.find((f) => f.kind === 'floor');
     if (floor) width = Math.max(width, (2.4 * floor.w) / (floor.rect[2] * this.size));
-    this.rivulets.push({ x, z, dx: dx / l, dz: dz / l, vol: len, vol0: len, w0: width, speed, seed: Math.random() * 100, delay, lx: x, lz: z, gen });
+    this.rivulets.push({ x, y, z, dx: dx / l, dz: dz / l, vol: len, vol0: len, w0: width, speed, seed: Math.random() * 100, delay, lx: x, lz: z, gen });
   }
 
   /** Paint one rivulet segment (a capsule from a to b). */
-  private segment(ax: number, az: number, bx: number, bz: number, w: number, seed: number, log: boolean) {
+  private segment(ax: number, az: number, bx: number, bz: number, w: number, seed: number, log: boolean, y = 0) {
     const len = Math.hypot(bx - ax, bz - az);
-    _p.set((ax + bx) / 2, 0.01, (az + bz) / 2);
+    _p.set((ax + bx) / 2, y + 0.01, (az + bz) / 2);
     if (len < 1e-4) _d.set(1, 0, 0);
     else _d.set((bx - ax) / len, 0, (bz - az) / len);
     this.splat(_p, w, SPLAT.stream, 1, _UP, _d, len / 2 / w, seed, log);
@@ -542,7 +560,7 @@ export class BloodAtlas {
           const down = Math.max(0, ca * p.dx + sa * p.dz);
           const reach = p.rMax * (0.82 + p.st * down * 0.9);
           const scale = Math.min(1.2, Math.max(0.6, p.rMax / 0.4));
-          this.addRivulet(p.x + ca * reach, p.z + sa * reach, ca + p.dx * 0.8, sa + p.dz * 0.8, (0.45 + Math.random() * 1.0) * scale, (0.015 + Math.random() * 0.012) * scale, 0.08 + Math.random() * 0.08, Math.random() * 2.5);
+          this.addRivulet(p.x + ca * reach, p.z + sa * reach, ca + p.dx * 0.8, sa + p.dz * 0.8, (0.45 + Math.random() * 1.0) * scale, (0.015 + Math.random() * 0.012) * scale, 0.08 + Math.random() * 0.08, Math.random() * 2.5, 0, p.y - 0.01);
         }
         p.runs = 0;
       }
@@ -584,9 +602,9 @@ export class BloodAtlas {
       s.vol -= step;
       const w = s.w0 * (0.42 + 0.58 * Math.sqrt(k));
       // the moving head (smooth growth), plus a persistent segment every few centimetres
-      this.segment(ox, oz, s.x, s.z, w, s.seed, false);
+      this.segment(ox, oz, s.x, s.z, w, s.seed, false, s.y);
       if (Math.hypot(s.x - s.lx, s.z - s.lz) > 0.035) {
-        this.segment(s.lx, s.lz, s.x, s.z, w, s.seed, true);
+        this.segment(s.lx, s.lz, s.x, s.z, w, s.seed, true, s.y);
         s.lx = s.x;
         s.lz = s.z;
       }
@@ -594,14 +612,15 @@ export class BloodAtlas {
       if (s.gen < 2 && s.vol > 0.18 && Math.random() < step * 1.4) {
         const a = (Math.random() < 0.5 ? -1 : 1) * (0.35 + Math.random() * 0.55);
         const c = Math.cos(a), sn = Math.sin(a);
-        this.addRivulet(s.x, s.z, nx * c - nz * sn, nx * sn + nz * c, s.vol * 0.5, w * 0.78, s.speed * 0.9, 0, s.gen + 1);
+        this.addRivulet(s.x, s.z, nx * c - nz * sn, nx * sn + nz * c, s.vol * 0.5, w * 0.78, s.speed * 0.9, 0, s.gen + 1, s.y);
         s.vol *= 0.72;
       }
-      const out = Math.abs(s.x) > this.halfW || Math.abs(s.z) > this.halfD;
+      // (out of the room - or off the edge of the dock it ran along)
+      const out = s.x < this.fMinX || s.x > this.fMaxX || s.z < this.fMinZ || s.z > this.fMaxZ || (!!this.floorAt && Math.abs(this.floorAt(s.x, s.z, s.y + 0.05) - s.y) > 0.04);
       if (s.vol <= 0 || out) {
         // the run ends in a small bead of blood
         if (!out) {
-          _p.set(s.x, 0.01, s.z);
+          _p.set(s.x, s.y + 0.01, s.z);
           this.splat(_p, w * 1.5, SPLAT.pool, 1, _UP, _d.set(s.dx, 0, s.dz), 0.4, s.seed);
         }
         this.rivulets.splice(i, 1);

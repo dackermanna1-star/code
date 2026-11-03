@@ -458,8 +458,9 @@ export class Enemy extends Fighter {
     tx += sx * 1.2;
     tz += sz * 1.2;
     // keep inside arena
-    tx = clamp(tx, -11.8, 11.8);
-    tz = clamp(tz, -9.8, 9.8);
+    const bb = this.game.arena.bounds;
+    tx = clamp(tx, bb.minX + 1.2, bb.maxX - 1.2);
+    tz = clamp(tz, bb.minZ + 1.2, bb.maxZ - 1.2);
     const dx = tx - this.x, dz = tz - this.z;
     const d = Math.hypot(dx, dz);
     let sp = d > 2.5 ? this.cfg.speed * 0.8 : clamp(d * 1.1, 0, 1.5);

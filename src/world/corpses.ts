@@ -7,6 +7,8 @@ import type { CorpseShape } from './ragdollTypes';
 import { BloodAtlas, SPLAT } from './bloodAtlas';
 import { HALF_D, HALF_W } from './arena';
 
+type Bounds = { minX: number; maxX: number; minZ: number; maxZ: number };
+
 /** Permanent record of a defeated enemy. Never removed. */
 export interface CorpseRecord {
   id: number;
@@ -21,8 +23,8 @@ export interface CorpseRecord {
 }
 
 const CHUNK_VERTS = 60000;
-const CELLS_X = 4;
-const CELLS_Z = 4;
+/** Chunks: the floor in cells of about this many metres (a room: 4 x 4). */
+const CHUNK_M = 7;
 
 interface Chunk {
   geo: THREE.BufferGeometry;
@@ -70,11 +72,27 @@ export class CorpseSystem {
   castShadows = false;
   /** Coarse height field of all bodies on the floor (10 cm cells) so live feet step on top of them. */
   readonly hfRes = 0.1;
-  hfW = Math.ceil((HALF_W * 2) / 0.1);
-  hfH = Math.ceil((HALF_D * 2) / 0.1);
-  heights = new Float32Array(this.hfW * this.hfH);
+  hfW: number;
+  hfH: number;
+  /** Top of the bodies (world height) per cell. */
+  heights: Float32Array;
+  private bx0: number;
+  private bz0: number;
+  private bw: number;
+  private bd: number;
+  private cellsX: number;
+  private cellsZ: number;
 
-  constructor(public lib: CharacterLibrary, public physics: Physics, public blood: BloodAtlas) {
+  constructor(public lib: CharacterLibrary, public physics: Physics, public blood: BloodAtlas, bounds: Bounds = { minX: -HALF_W, maxX: HALF_W, minZ: -HALF_D, maxZ: HALF_D }, private floorAt: (x: number, z: number, y: number) => number = () => 0) {
+    this.bx0 = bounds.minX;
+    this.bz0 = bounds.minZ;
+    this.bw = bounds.maxX - bounds.minX;
+    this.bd = bounds.maxZ - bounds.minZ;
+    this.hfW = Math.ceil(this.bw / this.hfRes);
+    this.hfH = Math.ceil(this.bd / this.hfRes);
+    this.heights = new Float32Array(this.hfW * this.hfH);
+    this.cellsX = Math.max(4, Math.round(this.bw / CHUNK_M));
+    this.cellsZ = Math.max(4, Math.round(this.bd / CHUNK_M));
     const { material, corpseUniforms } = createCharacterMaterial(lib.atlas, true);
     material.roughness = lib.surface.roughness;
     material.envMapIntensity = lib.surface.env;
@@ -155,9 +173,9 @@ export class CorpseSystem {
   }
 
   private cellOf(x: number, z: number) {
-    const cx = Math.min(CELLS_X - 1, Math.max(0, Math.floor(((x + HALF_W) / (HALF_W * 2)) * CELLS_X)));
-    const cz = Math.min(CELLS_Z - 1, Math.max(0, Math.floor(((z + HALF_D) / (HALF_D * 2)) * CELLS_Z)));
-    return cz * CELLS_X + cx;
+    const cx = Math.min(this.cellsX - 1, Math.max(0, Math.floor(((x - this.bx0) / this.bw) * this.cellsX)));
+    const cz = Math.min(this.cellsZ - 1, Math.max(0, Math.floor(((z - this.bz0) / this.bd) * this.cellsZ)));
+    return cz * this.cellsX + cx;
   }
 
   private newChunk(cell: number, capacity = 6000): Chunk {
@@ -211,11 +229,13 @@ export class CorpseSystem {
     g.setIndex(new THREE.BufferAttribute(c.idx, 1));
     g.setDrawRange(0, c.indices);
     const cell = c.cell;
-    const cx = cell % CELLS_X, cz = Math.floor(cell / CELLS_X);
-    const x = -HALF_W + (cx + 0.5) * ((HALF_W * 2) / CELLS_X);
-    const z = -HALF_D + (cz + 0.5) * ((HALF_D * 2) / CELLS_Z);
-    g.boundingSphere = new THREE.Sphere(new THREE.Vector3(x, 0.4, z), Math.hypot(HALF_W / CELLS_X + 2, HALF_D / CELLS_Z + 2, 1.5));
-    g.boundingBox = new THREE.Box3(new THREE.Vector3(x - 6, -1, z - 6), new THREE.Vector3(x + 6, 3, z + 6));
+    const cx = cell % this.cellsX, cz = Math.floor(cell / this.cellsX);
+    const cw = this.bw / this.cellsX, cd = this.bd / this.cellsZ;
+    const x = this.bx0 + (cx + 0.5) * cw;
+    const z = this.bz0 + (cz + 0.5) * cd;
+    // (bodies can lie on a roof: the box is tall)
+    g.boundingSphere = new THREE.Sphere(new THREE.Vector3(x, 8, z), Math.hypot(cw / 2 + 2, cd / 2 + 2, 30));
+    g.boundingBox = new THREE.Box3(new THREE.Vector3(x - cw / 2 - 2, -2, z - cd / 2 - 2), new THREE.Vector3(x + cw / 2 + 2, 40, z + cd / 2 + 2));
   }
 
   /** Grow a chunk's buffers (doubling) by rebuilding its geometry; old GPU buffers are disposed. */
@@ -378,15 +398,16 @@ export class CorpseSystem {
     for (let v = 0; v < nv; v++) {
       const o = (base + v) * 3;
       const x = chunk.pos[o], y = chunk.pos[o + 1], z = chunk.pos[o + 2];
-      const cx = Math.floor((x + HALF_W) / this.hfRes), cz = Math.floor((z + HALF_D) / this.hfRes);
-      const h = Math.min(0.32, y * 0.9);
+      const cx = Math.floor((x - this.bx0) / this.hfRes), cz = Math.floor((z - this.bz0) / this.hfRes);
+      const fy = this.floorAt(x, z, y + 0.1);
+      const h = fy + Math.min(0.32, Math.max(0, y - fy) * 0.9);
       for (let dz = -1; dz <= 1; dz++) {
         const zz = cz + dz;
         if (zz < 0 || zz >= this.hfH) continue;
         for (let dx = -1; dx <= 1; dx++) {
           const xx = cx + dx;
           if (xx < 0 || xx >= this.hfW) continue;
-          const hh = dx === 0 && dz === 0 ? h : h * 0.7;
+          const hh = dx === 0 && dz === 0 ? h : fy + (h - fy) * 0.7;
           const i = zz * this.hfW + xx;
           if (hh > hf[i]) hf[i] = hh;
         }
@@ -429,7 +450,7 @@ export class CorpseSystem {
         const q = new THREE.Quaternion().setFromUnitVectors(up, s.b.clone().sub(s.a).normalize());
         cd = RAPIER.ColliderDesc.capsule(len / 2, s.radius).setRotation({ x: q.x, y: q.y, z: q.z, w: q.w });
       }
-      cd.setTranslation(c.x, Math.max(c.y, 0.05), c.z).setFriction(0.9).setCollisionGroups(groups(G.CORPSE, G.RAGDOLL | G.PROP | G.DEBRIS));
+      cd.setTranslation(c.x, Math.max(c.y, this.floorAt(c.x, c.z, c.y + 0.1) + 0.05), c.z).setFriction(0.9).setCollisionGroups(groups(G.CORPSE, G.RAGDOLL | G.PROP | G.DEBRIS));
       w.createCollider(cd, body);
     }
     this.colliderBodies++;
@@ -437,7 +458,7 @@ export class CorpseSystem {
 
   /** Bilinear height of bodies at (x, z). */
   heightAt(x: number, z: number) {
-    const fx = (x + HALF_W) / this.hfRes - 0.5, fz = (z + HALF_D) / this.hfRes - 0.5;
+    const fx = (x - this.bx0) / this.hfRes - 0.5, fz = (z - this.bz0) / this.hfRes - 0.5;
     const ix = Math.floor(fx), iz = Math.floor(fz);
     if (ix < 0 || iz < 0 || ix >= this.hfW - 1 || iz >= this.hfH - 1) return 0;
     const tx = fx - ix, tz = fz - iz;

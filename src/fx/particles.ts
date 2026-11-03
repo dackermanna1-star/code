@@ -157,6 +157,9 @@ class Debris {
   private m = new THREE.Matrix4();
   private q = new THREE.Quaternion();
   constructor(public scene: THREE.Scene, public geo: THREE.BufferGeometry, public mat: THREE.Material, public perMesh = 2000) {}
+  /** The level's floor and extent (set by the effects). */
+  floorAt: ((x: number, z: number, y: number) => number) | null = null;
+  bounds = { minX: -HALF_W, maxX: HALF_W, minZ: -HALF_D, maxZ: HALF_D };
   spawn(p: THREE.Vector3, v: THREE.Vector3, scale: number, color: THREE.Color) {
     if (!this.cur || this.cur.count >= this.perMesh) {
       this.cur = new THREE.InstancedMesh(this.geo, this.mat, this.perMesh);
@@ -185,20 +188,22 @@ class Debris {
       d.r.x += d.w.x * dt;
       d.r.y += d.w.y * dt;
       d.r.z += d.w.z * dt;
-      if (d.p.y < 0.015) {
-        d.p.y = 0.015;
+      const fl = this.floorAt ? this.floorAt(d.p.x, d.p.z, d.p.y + 0.2) : 0;
+      if (d.p.y < fl + 0.015) {
+        d.p.y = fl + 0.015;
         d.v.y *= -0.3;
         d.v.x *= 0.5;
         d.v.z *= 0.5;
         d.w.multiplyScalar(0.4);
       }
-      d.p.x = Math.max(-HALF_W + 0.05, Math.min(HALF_W - 0.05, d.p.x));
-      d.p.z = Math.max(-HALF_D + 0.05, Math.min(HALF_D - 0.05, d.p.z));
+      const bb = this.bounds;
+      d.p.x = Math.max(bb.minX + 0.05, Math.min(bb.maxX - 0.05, d.p.x));
+      d.p.z = Math.max(bb.minZ + 0.05, Math.min(bb.maxZ - 0.05, d.p.z));
       const s = new THREE.Vector3();
       d.mesh.getMatrixAt(d.i, this.m);
       this.m.decompose(new THREE.Vector3(), this.q, s);
       // settled: lie flat-ish and stop simulating (stays forever)
-      const done = d.t > 2.5 || (d.p.y <= 0.02 && d.v.lengthSq() < 0.05);
+      const done = d.t > 2.5 || (d.p.y <= fl + 0.02 && d.v.lengthSq() < 0.05);
       if (done) {
         d.r.x = Math.round(d.r.x / Math.PI) * Math.PI;
         d.r.z = Math.round(d.r.z / Math.PI) * Math.PI;
@@ -249,6 +254,11 @@ export class FX {
     const ico = new THREE.IcosahedronGeometry(0.03, 0);
     ico.scale(1, 0.6, 0.8);
     this.chunk = new Debris(game.scene, ico, new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.6, flatShading: true }), 1500);
+    // (a story level: debris lands on the dock or the roof it fell on)
+    for (const d of [this.wood, this.bone, this.shard, this.chunk]) {
+      d.bounds = game.arena.bounds;
+      if (game.arena.traversal) d.floorAt = (x, z, y) => game.arena.groundAt(x, z, y);
+    }
   }
 
   /** Arterial/impact blood spray. dir = main direction (world, normalized). */
@@ -367,9 +377,12 @@ export class FX {
     const g = this.game;
     // ---- blood droplets with collision -> permanent splats
     const P = this.drops;
-    const obstacles = g.arena.obstacles;
+    const A = g.arena;
+    const bb = A.bounds;
     // the rooftop has no walls: blood above the knee-high parapet flies on, over the edge
-    const roof = g.arena.map === 'rooftop';
+    const roof = A.map === 'rooftop';
+    // (a story level: the floor's at many heights, the walls are boxes like the rest)
+    const lvl = A.traversal;
     for (let i = P.count - 1; i >= 0; i--) {
       const o = i * 4;
       let vx = P.vel[o], vy = P.vel[o + 1], vz = P.vel[o + 2];
@@ -381,17 +394,18 @@ export class FX {
       P.life[i * 2] -= dt;
       const rad = this.dropRadius[i];
       let landed = false;
+      const fl = lvl ? A.groundAt(x, z, P.pos[o + 1] + 0.05, 0.05) : 0;
       if (roof && (Math.abs(x) > HALF_W + 0.4 || Math.abs(z) > HALF_D + 0.4)) {
         // off the roof: falling into the street
         if (y < -3) P.life[i * 2] = 0;
-      } else if (y <= 0.005) {
+      } else if (y <= fl + 0.005) {
         const sp = Math.hypot(vx, vz);
-        _v.set(x, 0.01, z);
+        _v.set(x, fl + 0.01, z);
         const hdir = sp > 0.05 ? new THREE.Vector3(vx / sp, 0, vz / sp) : null;
         const r = rad * (1.1 + Math.min(4, Math.hypot(vx, vy, vz)) * 0.28);
         if (!this.noStain) g.blood.splat(_v, r, r > 0.02 && Math.random() < 0.6 ? SPLAT.splash : SPLAT.drop, rand(0.7, 1), UP, hdir, hdir ? Math.min(2.8, sp * 0.45) : 0);
         landed = true;
-      } else if ((Math.abs(x) > HALF_W - 0.02 || Math.abs(z) > HALF_D - 0.02) && (!roof || y < 0.95)) {
+      } else if (!lvl && (Math.abs(x) > HALF_W - 0.02 || Math.abs(z) > HALF_D - 0.02) && (!roof || y < 0.95)) {
         // wall hit
         const n = Math.abs(x) > HALF_W - 0.02 ? new THREE.Vector3(-Math.sign(x), 0, 0) : new THREE.Vector3(0, 0, -Math.sign(z));
         _v.set(Math.max(-HALF_W + 0.01, Math.min(HALF_W - 0.01, x)), y, Math.max(-HALF_D + 0.01, Math.min(HALF_D - 0.01, z)));
@@ -401,12 +415,15 @@ export class FX {
           if (Math.random() < 0.18) g.blood.splat(_v, r * 0.9, SPLAT.drip, 0.9, n, null, Math.random() * 3);
         }
         landed = true;
+      } else if (lvl && (x < bb.minX || x > bb.maxX || z < bb.minZ || z > bb.maxZ)) {
+        P.life[i * 2] = 0;
       } else {
-        for (const ob of obstacles) {
-          if (ob.kind === 'wall') continue;
-          if (x > ob.minX && x < ob.maxX && z > ob.minZ && z < ob.maxZ && y < ob.h) {
+        for (const ob of A.near(x, z, 0)) {
+          if (ob.kind === 'wall' && !lvl) continue;
+          const y0 = ob.y0 ?? 0, top = y0 + ob.h;
+          if (x > ob.minX && x < ob.maxX && z > ob.minZ && z < ob.maxZ && y < top && y > y0) {
             // which face?
-            const dx0 = x - ob.minX, dx1 = ob.maxX - x, dz0 = z - ob.minZ, dz1 = ob.maxZ - z, dy = ob.h - y;
+            const dx0 = x - ob.minX, dx1 = ob.maxX - x, dz0 = z - ob.minZ, dz1 = ob.maxZ - z, dy = top - y;
             const m = Math.min(dx0, dx1, dz0, dz1, dy);
             const n = m === dx0 ? new THREE.Vector3(-1, 0, 0) : m === dx1 ? new THREE.Vector3(1, 0, 0) : m === dz0 ? new THREE.Vector3(0, 0, -1) : m === dz1 ? new THREE.Vector3(0, 0, 1) : UP;
             _v.set(x, y, z).addScaledVector(n, m + 0.01);

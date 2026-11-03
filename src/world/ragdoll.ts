@@ -57,10 +57,11 @@ export class Ragdoll implements ExternalPose, RagdollLike {
   constructor(public physics: Physics, init: RagdollInit) {
     const w = physics.world;
     const { def, fk, rootX, rootZ, rootYaw } = init;
+    const rootY = init.rootY ?? 0;
     const rootQ = new THREE.Quaternion().setFromAxisAngle(Y, rootYaw);
     const toWorld = (p: THREE.Vector3, out: THREE.Vector3) => {
       const [x, z] = rotY(p.x, p.z, rootYaw);
-      return out.set(rootX + x, p.y, rootZ + z);
+      return out.set(rootX + x, p.y + rootY, rootZ + z);
     };
     const S = init.scale;
     PART_DEFS.forEach((pd, idx) => {
@@ -271,7 +272,7 @@ export class Ragdoll implements ExternalPose, RagdollLike {
     return { W, P };
   }
 
-  writePose(def: SkeletonDef, rootX: number, rootZ: number, rootYaw: number, out: Pose) {
+  writePose(def: SkeletonDef, rootX: number, rootZ: number, rootYaw: number, out: Pose, rootY = 0) {
     const { W } = this.boneWorld();
     // root-space rotations: rootQ^-1 * W
     _qi.setFromAxisAngle(Y, -rootYaw);
@@ -285,7 +286,7 @@ export class Ragdoll implements ExternalPose, RagdollLike {
       out.q[i].copy(_q2);
     }
     const [x, z] = rotY(this.pos[0].x - rootX, this.pos[0].z - rootZ, -rootYaw);
-    out.hips.set(x, this.pos[0].y, z);
+    out.hips.set(x, this.pos[0].y - rootY, z);
     void def;
   }
 

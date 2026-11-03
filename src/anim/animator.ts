@@ -15,7 +15,8 @@ export type AnimMode = 'loco' | 'clip' | 'external' | 'frozen';
 /** A pose provider outside the clip/loco systems (ragdoll, corpse). */
 export interface ExternalPose {
   /** Write joint-space pose relative to the given root. */
-  writePose(def: SkeletonDef, rootX: number, rootZ: number, rootYaw: number, out: Pose): void;
+  /** The pose relative to the root (its height: `rootY`, the floor the body stood on). */
+  writePose(def: SkeletonDef, rootX: number, rootZ: number, rootYaw: number, out: Pose, rootY?: number): void;
 }
 
 const SPRING_BONES = [B.hips, B.spine, B.chest, B.neck, B.head];
@@ -42,6 +43,8 @@ export interface PlayOptions {
   aim?: AimProvider | null;
   entryHalflife?: number;
   startTime?: number;
+  /** Heights in the clip scaled by this (a climb authored for one ledge, fitted to another). */
+  yScale?: number;
 }
 
 export class Animator {
@@ -58,6 +61,8 @@ export class Animator {
   rootX = 0;
   rootZ = 0;
   rootYaw = 0;
+  /** The floor the body stands on (the pose itself is computed with that floor at 0). */
+  rootY = 0;
   events: ClipEvent[] = [];
   locoIn: LocoInput = {
     dt: 0, rootX: 0, rootZ: 0, rootYaw: 0, velX: 0, velZ: 0, style: 'fight', guard: 1, block: 0, look: 0, limp: 0, hunch: 0, breath: 0, holdSide: 0, brokenArm: 0, taunt: 0,
@@ -135,13 +140,26 @@ export class Animator {
   boneWorld(bone: number, out: THREE.Vector3) {
     const p = this.fk.pos[bone];
     const [x, z] = rotY(p.x, p.z, this.rootYaw);
-    return out.set(this.rootX + x, p.y, this.rootZ + z);
+    return out.set(this.rootX + x, p.y + this.rootY, this.rootZ + z);
   }
   /** World position of a point offset in a bone's local frame. */
   boneLocalToWorld(bone: number, local: THREE.Vector3, out: THREE.Vector3) {
     out.copy(local).applyQuaternion(this.fk.rot[bone]).add(this.fk.pos[bone]);
     const [x, z] = rotY(out.x, out.z, this.rootYaw);
-    return out.set(this.rootX + x, out.y, this.rootZ + z);
+    return out.set(this.rootX + x, out.y + this.rootY, this.rootZ + z);
+  }
+  /**
+   * The floor under the body moved by `dy` in one go (she's stepped up onto a ledge she climbed;
+   * a body got up on a different floor): the pose held in the blend moves the other way, so the
+   * body itself stays exactly where it is.
+   */
+  rebase(dy: number) {
+    if (!dy) return;
+    this.rootY += dy;
+    this.out.hips.y -= dy;
+    this.prev.hips.y -= dy;
+    this.fk.pos.forEach((p) => (p.y -= dy));
+    this.prevFk.pos.forEach((p) => (p.y -= dy));
   }
   /** World rotation of a bone. */
   boneWorldRot(bone: number, out: THREE.Quaternion) {
@@ -164,6 +182,7 @@ export class Animator {
     p.ground = this.ground;
     p.speed = opt.speed ?? 1;
     p.aim = opt.aim ?? null;
+    p.yScale = opt.yScale ?? 1;
     if (opt.entryHalflife !== undefined) p.entryHalflife = opt.entryHalflife;
     const feet: [THREE.Vector3, THREE.Vector3] = [new THREE.Vector3(), new THREE.Vector3()];
     const yaws: [number, number] = [0, 0];
@@ -306,10 +325,11 @@ export class Animator {
     for (let i = 1; i < 4; i++) this.sv[i].add(_v.set(pitch, yaw, roll));
   }
 
-  update(dt: number, rootX: number, rootZ: number, rootYaw: number) {
+  update(dt: number, rootX: number, rootZ: number, rootYaw: number, rootY = this.rootY) {
     this.rootX = rootX;
     this.rootZ = rootZ;
     this.rootYaw = rootYaw;
+    this.rootY = rootY;
     const def = this.def;
     // ---- evaluate source
     switch (this.mode) {
@@ -323,11 +343,14 @@ export class Animator {
         break;
       }
       case 'clip': {
-        if (this.clip) this.settle(def, this.clip.evaluate(def));
+        if (this.clip) {
+          this.clip.rootY = rootY;
+          this.settle(def, this.clip.evaluate(def));
+        }
         break;
       }
       case 'external':
-        this.external?.writePose(def, rootX, rootZ, rootYaw, this.src);
+        this.external?.writePose(def, rootX, rootZ, rootYaw, this.src, this.rootY);
         break;
       case 'frozen':
         return;

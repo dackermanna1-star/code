@@ -84,7 +84,7 @@ export function brickTex(seed: number, pal: 'red' | 'brown' | 'yellow') {
 }
 
 /** Cinder block, painted long ago (two-tone: dark below, pale above), flaking back to concrete. */
-function blockTex(seed: number, upper: string, lower: string) {
+export function blockTex(seed: number, upper: string, lower: string) {
   const S = 512; // 2 m (blocks 0.4 x 0.2)
   const rng = new RNG(seed);
   const [c, x] = canvas(S, S);
@@ -135,7 +135,7 @@ function blockTex(seed: number, upper: string, lower: string) {
 }
 
 /** Tired asphalt: aggregate, binder, a few old patches (4 m tile). */
-function asphaltTex(seed: number) {
+export function asphaltTex(seed: number) {
   const S = 512;
   const rng = new RNG(seed);
   const [c, x] = canvas(S, S);
@@ -169,7 +169,7 @@ function asphaltTex(seed: number) {
 }
 
 /** Windows of the upper floors: lit kitchens, televisions, curtains, boarded and broken ones. */
-function windowAtlas(seed: number) {
+export function windowAtlas(seed: number) {
   const CW = 128, CH = 160, N = 8;
   const rng = new RNG(seed);
   const [c, x] = canvas(CW * N, CH);
@@ -277,7 +277,7 @@ function windowAtlas(seed: number) {
 }
 
 /** A lit shop window: shelves of bottles, a counter, a poster or two, the glass's own reflection. */
-function shopTexture(rng: RNG) {
+export function shopTexture(rng: RNG) {
   const W = 256, H = 128;
   const [c, x] = canvas(W, H);
   x.fillStyle = '#e8d8b0';
@@ -303,7 +303,7 @@ function shopTexture(rng: RNG) {
 }
 
 /** A roll-up shutter: corrugated steel, rust at the foot, a throw-up and tags across it. */
-function shutterTex(seed: number) {
+export function shutterTex(seed: number) {
   const W = 512, H = 480;
   const rng = new RNG(seed);
   const [c, x] = canvas(W, H);
@@ -326,7 +326,7 @@ function shutterTex(seed: number) {
 }
 
 /** Chain-link mesh (alpha-tested), with rust. */
-function chainLinkTex() {
+export function chainLinkTex() {
   const S = 128;
   const [c, x] = canvas(S, S);
   x.clearRect(0, 0, S, S);
@@ -1137,7 +1137,7 @@ function paintAlleyFloor(x: CanvasRenderingContext2D, r2: CanvasRenderingContext
 }
 
 /** Security bars on a ground-floor window. */
-function addWindowBars(k: MapKit, iron: THREE.Material, cx: number, cy: number, cz: number, ry: number, w: number, h: number) {
+export function addWindowBars(k: MapKit, iron: THREE.Material, cx: number, cy: number, cz: number, ry: number, w: number, h: number) {
   const g = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshStandardMaterial({ color: 0x0a0c10, roughness: 0.2, metalness: 0.3 }));
   g.position.set(cx, cy, cz);
   g.rotation.y = ry;
@@ -1157,7 +1157,7 @@ function addWindowBars(k: MapKit, iron: THREE.Material, cx: number, cy: number, 
 }
 
 /** A zig-zag fire escape: landings with railings, stairs between them, the drop ladder pulled up. */
-function fireEscape(k: MapKit, iron: THREE.Material, x0: number, x1: number, z: number) {
+export function fireEscape(k: MapKit, iron: THREE.Material, x0: number, x1: number, z: number) {
   const w = x1 - x0, cx = (x0 + x1) / 2;
   const levels = [4.4, 7.4, 10.4];
   for (const y of levels) {
@@ -1191,7 +1191,7 @@ function fireEscape(k: MapKit, iron: THREE.Material, x0: number, x1: number, z: 
 }
 
 /** A dumpster: steel bin with ribs, a lid (open or shut), wheels, stencilled and tagged. */
-function dumpster(k: MapKit, x: number, z: number, ry: number, color: number, open: boolean, rng: RNG) {
+export function dumpster(k: MapKit, x: number, z: number, ry: number, color: number, open: boolean, rng: RNG) {
   const [c, cx] = canvas(512, 256);
   cx.fillStyle = '#' + new THREE.Color(color).getHexString();
   cx.fillRect(0, 0, 512, 256);
@@ -1242,7 +1242,7 @@ function dumpster(k: MapKit, x: number, z: number, ry: number, color: number, op
 }
 
 /** A low-poly sedan: whole, or burnt out to the shell. */
-function car(k: MapKit, x: number, z: number, ry: number, color: number, burnt: boolean) {
+export function car(k: MapKit, x: number, z: number, ry: number, color: number, burnt: boolean) {
   const grp = new THREE.Group();
   grp.position.set(x, 0, z);
   grp.rotation.y = ry;

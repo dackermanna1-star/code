@@ -160,12 +160,13 @@ export class EuphoriaSim {
   constructor(arena: Arena, substeps = 10, maxActive = 8) {
     this.baseSubsteps = substeps;
     this.maxActive = maxActive;
-    this.world = new World({ substeps, groundHalfSize: 40, ...(arena.groundRect ? { groundRect: arena.groundRect } : {}) });
+    const gr = arena.groundRect ?? (arena.traversal ? arena.bounds : null);
+    this.world = new World({ substeps, groundHalfSize: 40, ...(gr ? { groundRect: gr } : {}) });
     for (const o of arena.obstacles) {
       if (o.ghost) continue;
       const hx = (o.maxX - o.minX) / 2, hz = (o.maxZ - o.minZ) / 2, hy = o.h / 2;
       const mat = o.material ?? (o.kind === 'crate' ? 'wood' : o.kind === 'prop' ? 'metal' : 'concrete');
-      this.addBox(new THREE.Vector3((o.minX + o.maxX) / 2, hy, (o.minZ + o.maxZ) / 2), new THREE.Vector3(hx, hy, hz), mat);
+      this.addBox(new THREE.Vector3((o.minX + o.maxX) / 2, (o.y0 ?? 0) + hy, (o.minZ + o.maxZ) / 2), new THREE.Vector3(hx, hy, hz), mat);
     }
     for (const sl of arena.physicsSlabs) this.addBox(sl.c, sl.half, 'metal');
   }
@@ -882,7 +883,7 @@ export class ActiveRagdoll implements RagdollLike {
   }
 
   // ------------------------------------------------------------------ pose output
-  writePose(def: SkeletonDef, rootX: number, rootZ: number, rootYaw: number, out: Pose) {
+  writePose(def: SkeletonDef, rootX: number, rootZ: number, rootYaw: number, out: Pose, rootY = 0) {
     const a = this.sim.alpha;
     const { C } = this.map;
     const W = this.W;
@@ -915,7 +916,7 @@ export class ActiveRagdoll implements RagdollLike {
     _v.set(pb.framePos.x + (pb.pos.x - pb.framePos.x) * a, pb.framePos.y + (pb.pos.y - pb.framePos.y) * a, pb.framePos.z + (pb.pos.z - pb.framePos.z) * a);
     _v.add(_v2.copy(this.hipsOff).applyQuaternion(W[B.hips]));
     const [x, z] = rotY(_v.x - rootX, _v.z - rootZ, -rootYaw);
-    out.hips.set(x, _v.y, z);
+    out.hips.set(x, _v.y - rootY, z);
   }
 
   dispose() {

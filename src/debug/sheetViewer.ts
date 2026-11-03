@@ -43,6 +43,14 @@ export function runSheetViewer(params: URLSearchParams) {
   floor.receiveShadow = true;
   scene.add(floor);
   scene.add(new THREE.GridHelper(30, 30, 0x222222, 0x4a4a4a));
+  // (traversal: the obstacle, in clip space - x0,x1,y0,y1,z0,z1)
+  for (const spec of params.getAll('box')) {
+    const [x0, x1, y0, y1, z0, z1] = spec.split(',').map(Number);
+    const b = new THREE.Mesh(new THREE.BoxGeometry(x1 - x0, y1 - y0, z1 - z0), new THREE.MeshStandardMaterial({ color: 0x8a6a4a, roughness: 0.8, transparent: true, opacity: 0.85 }));
+    b.position.set((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2);
+    b.castShadow = b.receiveShadow = true;
+    scene.add(b);
+  }
   registerAllClips();
   const lib = new CharacterLibrary();
   registerVariants(lib);
@@ -117,7 +125,7 @@ export function runSheetViewer(params: URLSearchParams) {
     tPlayer.aim = tAim;
     // prime target pose
     tAnim.update(1 / 60, tAnim.rootX, tAnim.rootZ, tAnim.rootYaw);
-    const ap = aAnim.playClip(clip, { originX: 0, originZ: 0, originYaw: 0, halflife: 0.0001, aim: aAim });
+    const ap = aAnim.playClip(clip, { originX: 0, originZ: 0, originYaw: 0, halflife: 0.0001, aim: aAim, yScale: Number(params.get('ys') ?? 1) });
     if (!pair && clip.warp) {
       // warp so that at contact the root-to-root distance equals `reach` (target fixed at z=reach;
       // back=1: behind, at z=-back distance, the warp carrying the rest as in the game)

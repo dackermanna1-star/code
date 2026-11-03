@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { clamp, damp, dampAngle, lerp, smoothstep, wrapAngle } from '../core/math';
-import { Arena, HALF_D, HALF_W, WALL_H } from '../world/arena';
+import { Arena, WALL_H } from '../world/arena';
 
 export interface Shot {
   /** Focus point (world). */
@@ -140,9 +140,10 @@ export class CameraRig {
     f.pos.addScaledVector(f.vel, realDt);
     // (inside the room, above the floor, under the roof - it floats through crates and people)
     const cb = this.arena.camBounds;
-    f.pos.x = clamp(f.pos.x, -HALF_W - cb.out, HALF_W + cb.out);
-    f.pos.z = clamp(f.pos.z, -HALF_D - cb.out, HALF_D + cb.out);
-    f.pos.y = clamp(f.pos.y, 0.25, Math.max(2, cb.maxY));
+    const bb = this.arena.bounds;
+    f.pos.x = clamp(f.pos.x, bb.minX - cb.out, bb.maxX + cb.out);
+    f.pos.z = clamp(f.pos.z, bb.minZ - cb.out, bb.maxZ + cb.out);
+    f.pos.y = clamp(f.pos.y, this.arena.groundAt(f.pos.x, f.pos.z, f.pos.y) + 0.25, Math.max(2, cb.maxY));
     this.camera.position.copy(f.pos);
     this.camera.lookAt(f.pos.clone().add(d));
     if (Math.abs(this.camera.fov - this.fovBase) > 0.01) {
@@ -343,22 +344,24 @@ export class CameraRig {
     const len = dir.length();
     let tMin = 1;
     const cb = this.arena.camBounds;
-    for (const o of this.arena.obstacles) {
+    for (const o of this.arena.near((focus.x + pos.x) / 2, (focus.z + pos.z) / 2, len / 2 + 1)) {
       // (a room's walls are the clamp below; the rooftop's stair huts are real boxes)
       if (o.kind === 'wall' && !cb.walls) continue;
       // (a knee-high parapet only matters to the low gameplay camera; a shot looks over it)
       if (o.h < 1.0 && (o.kind !== 'ledge' || cine)) continue;
       const t = segBox2D(focus.x, focus.z, pos.x, pos.z, o.minX - m, o.maxX + m, o.minZ - m, o.maxZ + m);
       if (t !== null && t < tMin) {
-        // only if the obstacle is tall enough at that height
+        // only if the obstacle spans that height
         const y = focus.y + dir.y * t;
-        if (y < o.h + 0.2) tMin = t;
+        const y0 = o.y0 ?? 0;
+        if (y < y0 + o.h + 0.2 && y > y0 - 0.2) tMin = t;
       }
     }
     if (tMin < 1) pos = focus.clone().addScaledVector(dir, Math.max(0.15, tMin - 0.02 / Math.max(len, 1e-3)));
-    pos.x = clamp(pos.x, -HALF_W - cb.out, HALF_W + cb.out);
-    pos.z = clamp(pos.z, -HALF_D - cb.out, HALF_D + cb.out);
-    pos.y = clamp(pos.y, 0.3, cb.maxY);
+    const bb = this.arena.bounds;
+    pos.x = clamp(pos.x, bb.minX - cb.out, bb.maxX + cb.out);
+    pos.z = clamp(pos.z, bb.minZ - cb.out, bb.maxZ + cb.out);
+    pos.y = clamp(pos.y, this.arena.groundAt(pos.x, pos.z, focus.y) + 0.3, Math.max(focus.y + 1.5, cb.maxY));
     return pos;
   }
 

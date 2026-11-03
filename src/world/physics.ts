@@ -23,7 +23,7 @@ export class Physics {
     this.world.integrationParameters.numSolverIterations = 4;
     // floor
     // (a rooftop ends at its edges: what goes over them falls)
-    const gr = arena.groundRect;
+    const gr = arena.groundRect ?? (arena.traversal ? arena.bounds : null);
     const floor = this.world.createRigidBody(RAPIER.RigidBodyDesc.fixed().setTranslation(gr ? (gr.minX + gr.maxX) / 2 : 0, -0.5, gr ? (gr.minZ + gr.maxZ) / 2 : 0));
     const hx = gr ? (gr.maxX - gr.minX) / 2 : 60, hz = gr ? (gr.maxZ - gr.minZ) / 2 : 60;
     this.world.createCollider(RAPIER.ColliderDesc.cuboid(hx, 0.5, hz).setFriction(0.9).setCollisionGroups(groups(G.STATIC, 0xffff)), floor);
@@ -31,7 +31,7 @@ export class Physics {
     for (const o of arena.obstacles) {
       if (o.ghost) continue;
       const hx = (o.maxX - o.minX) / 2, hz = (o.maxZ - o.minZ) / 2, hy = o.h / 2;
-      const b = this.world.createRigidBody(RAPIER.RigidBodyDesc.fixed().setTranslation((o.minX + o.maxX) / 2, hy, (o.minZ + o.maxZ) / 2));
+      const b = this.world.createRigidBody(RAPIER.RigidBodyDesc.fixed().setTranslation((o.minX + o.maxX) / 2, (o.y0 ?? 0) + hy, (o.minZ + o.maxZ) / 2));
       this.world.createCollider(RAPIER.ColliderDesc.cuboid(hx, hy, hz).setFriction(0.7).setCollisionGroups(groups(G.STATIC, 0xffff)), b);
     }
     for (const sl of arena.physicsSlabs) {

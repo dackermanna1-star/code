@@ -1,5 +1,5 @@
 /** Unified keyboard/mouse/gamepad input with edge detection and buffering. */
-export type Action = 'attack' | 'counter' | 'dodge' | 'stun' | 'grab' | 'finisher' | 'special' | 'throw' | 'pause' | 'walk' | 'block';
+export type Action = 'attack' | 'counter' | 'dodge' | 'stun' | 'grab' | 'finisher' | 'special' | 'throw' | 'pause' | 'walk' | 'block' | 'crouch' | 'journal';
 
 const KEYMAP: Record<string, Action> = {
   Space: 'dodge',
@@ -14,6 +14,9 @@ const KEYMAP: Record<string, Action> = {
   KeyJ: 'attack',
   KeyK: 'counter',
   KeyL: 'dodge',
+  KeyC: 'crouch',
+  ControlLeft: 'crouch',
+  Tab: 'journal',
 };
 
 export class Input {
@@ -178,7 +181,7 @@ export class Input {
         this.usingGamepad = true;
       }
       // standard mapping: 0 A/Cross, 1 B/Circle, 2 X/Square, 3 Y/Triangle, 4 LB, 5 RB, 6 LT, 7 RT, 9 Start
-      const map: [number, Action][] = [[2, 'attack'], [3, 'counter'], [0, 'dodge'], [1, 'stun'], [5, 'grab'], [4, 'finisher'], [7, 'special'], [6, 'block'], [9, 'pause'], [8, 'throw']];
+      const map: [number, Action][] = [[2, 'attack'], [3, 'counter'], [0, 'dodge'], [1, 'stun'], [5, 'grab'], [4, 'finisher'], [7, 'special'], [6, 'block'], [9, 'pause'], [8, 'throw'], [11, 'crouch'], [10, 'journal']];
       for (const [i, a] of map) {
         const b = !!pad.buttons[i]?.pressed;
         const was = !!this.padPrev[i];

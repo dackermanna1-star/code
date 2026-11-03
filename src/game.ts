@@ -4,7 +4,8 @@ import { DIFFICULTY, loadSettings, PRESETS, Settings } from './core/settings';
 import { isFighterId, STYLES } from './combat/styles';
 import { Input } from './core/input';
 import { CameraRig } from './fx/camera';
-import { Arena, HALF_D, HALF_W, isMapName, MAPS } from './world/arena';
+import { Arena, HALF_D, HALF_W, isLevelName, isMapName, MAPS, WorldName } from './world/arena';
+import './world/level';
 import { BloodAtlas, setDrains, SPLAT } from './world/bloodAtlas';
 import { MocapDriver } from './anim/mocapLoco';
 import { CharacterLibrary } from './character/library';
@@ -121,10 +122,18 @@ export class Game {
     this.blood.renderer = this.renderer.gl;
     const mp = this.params.get('map');
     if (isMapName(mp)) this.settings.map = mp;
-    if (this.storyLaunch && chapter) this.settings.map = chapter.map;
-    this.arena = new Arena(this.blood, preset.pointLights, preset.shadowMap, this.settings.map);
+    // (the story's chapters, and the levels for testing, aren't saved as the endless mode's map)
+    let world: WorldName = this.settings.map;
+    if (isLevelName(mp)) world = mp;
+    if (this.storyLaunch && chapter) world = chapter.map;
+    this.arena = new Arena(this.blood, preset.pointLights, preset.shadowMap, world);
     // (the chapter's set dressing goes in before the physics are built from the room)
     if (this.storyLaunch && chapter) chapter.dress?.(this.arena);
+    this.arena.heightsChanged();
+    // (a big level: the footprint grid covers all of it; blood runs on whatever floor it's on)
+    const bb = this.arena.bounds;
+    this.blood.setFloor(bb.minX, bb.maxX, bb.minZ, bb.maxZ);
+    if (this.arena.traversal) this.blood.floorAt = (x, z, y) => this.arena.groundAt(x, z, y);
     this.scene.add(this.arena.group);
     setDrains(this.arena.drains);
     if (this.arena.wet) this.lib.surface = { roughness: 0.52, env: 1.25 };
@@ -165,7 +174,8 @@ export class Game {
     const preset = PRESETS[this.settings.quality];
     this.euphoria = new EuphoriaSim(this.arena, preset.ragdollSubsteps, preset.maxActiveRagdolls);
     this.euphoria.onImpact = (i) => this.onBodyImpact(i);
-    this.corpses = new CorpseSystem(this.lib, this.physics, this.blood);
+    const floorAt = (x: number, z: number, y: number) => this.arena.groundAt(x, z, y);
+    this.corpses = new CorpseSystem(this.lib, this.physics, this.blood, this.arena.bounds, floorAt);
     this.scene.add(this.corpses.group);
     this.death = new DeathSystem(this);
     this.fx = new FX(this, PRESETS[this.settings.quality].maxParticles);
@@ -524,7 +534,8 @@ export class Game {
     const [lx, ly] = this.input.takeLook();
     let near = 0;
     for (const e of this.enemies()) if (e.alive && e.state !== 'idle' && e.distTo(this.player) < 7) near++;
-    const focus = new THREE.Vector3(this.player.x, 1.0, this.player.z);
+    const focus = new THREE.Vector3(this.player.x, this.player.viewY + 1.0, this.player.z);
+    this.arena.focus.set(this.player.x, this.player.viewY, this.player.z);
     if (!this.started && !this.testMode) {
       // title screen: slow, low cinematic orbit around the fighter
       this.cam.yaw += realDt * 0.05;
@@ -567,10 +578,11 @@ export class Game {
           const sp = Math.hypot(f.vx, f.vz);
           if (sp > 0.6) {
             const vol = clamp(sp / 5, 0.25, 1) * (f === this.player ? 0.8 : 0.5);
-            this.audio.play('footstep', { pos: ft.pos, vol });
+            const at = new THREE.Vector3(ft.pos.x, ft.pos.y + f.y, ft.pos.z);
+            this.audio.play('footstep', { pos: at, vol });
             if (wet) {
-              this.audio.splash(ft.pos, vol * 0.7);
-              if (sp > 3) this.fx.splash(ft.pos, 0.25);
+              this.audio.splash(at, vol * 0.7);
+              if (sp > 3) this.fx.splash(at, 0.25);
             }
           }
           // bloody footprints: stepping in blood coats the sole for a few steps
@@ -579,7 +591,7 @@ export class Game {
           if (cov > 0.5) fs.bloodSteps = 8;
           if ((fs.bloodSteps ?? 0) > 0 && cov < 0.5) {
             const dir = new THREE.Vector3(Math.sin(ft.yaw), 0, Math.cos(ft.yaw));
-            this.blood.splat(new THREE.Vector3(ft.pos.x, 0.01, ft.pos.z), 0.15 * f.scale, SPLAT.print, 0.25 + 0.09 * (fs.bloodSteps ?? 0), new THREE.Vector3(0, 1, 0), dir, 0);
+            this.blood.splat(new THREE.Vector3(ft.pos.x, f.y + 0.01, ft.pos.z), 0.15 * f.scale, SPLAT.print, 0.25 + 0.09 * (fs.bloodSteps ?? 0), new THREE.Vector3(0, 1, 0), dir, 0);
             fs.bloodSteps = (fs.bloodSteps ?? 0) - 1;
           }
           ft.plantedTime = 1e-4;
@@ -601,11 +613,14 @@ export class Game {
       rootX: f.x,
       rootZ: f.z,
       rootYaw: f.yaw,
-      vel: new THREE.Vector3(f.vx, opts.vy ?? 0, f.vz).multiplyScalar(velScale),
+      rootY: f.y,
+      vel: new THREE.Vector3(f.vx, opts.vy ?? f.vy, f.vz).multiplyScalar(velScale),
       scale: f.scale,
     };
     const room = this.euphoria.capacity + (f === this.player ? 2 : 0);
-    if (!opts.classic && this.settings.ragdolls === 'euphoria' && room > 0) return new ActiveRagdoll(this.euphoria, init);
+    // (the active ragdolls' world has its floor at 0: on a dock or a roof, the plain physics)
+    const raised = Math.abs(f.y) > 0.05 || f.airborne;
+    if (!opts.classic && !raised && this.settings.ragdolls === 'euphoria' && room > 0) return new ActiveRagdoll(this.euphoria, init);
     return new Ragdoll(this.physics, init);
   }
 
