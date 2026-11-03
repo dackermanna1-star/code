@@ -121,7 +121,8 @@ export function findTraversal(a: Arena, x: number, z: number, y: number, fx: num
   // ---- an edge ahead: down it, or over a gap
   let edge = -1;
   for (let s = 0.15; s <= 1.0; s += 0.08) {
-    if (a.groundAt(x + fx * s, z + fz * s, y + 0.05, 0.1) < y - STEP_UP - 0.1) {
+    // (the floor ahead may rise - a flight of stairs going up is no edge: look for it up to 0.7 m over her feet)
+    if (a.groundAt(x + fx * s, z + fz * s, y + 0.6, 0.1) < y - STEP_UP - 0.1) {
       edge = s;
       break;
     }

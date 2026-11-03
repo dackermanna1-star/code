@@ -614,7 +614,14 @@ export class Story {
     const g = this.game;
     const cfg = ARCHETYPES[key];
     const names = g.archetypes[key as keyof typeof g.archetypes] ?? g.archetypes.brawler;
-    const v = g.lib.get(o.variant ?? pick(names));
+    // (a look this level doesn't have loaded: one of the archetype's own rather than nobody at all)
+    let v;
+    try {
+      v = g.lib.get(o.variant ?? pick(names));
+    } catch {
+      console.warn(`story: no variant "${o.variant}" here; a ${key} of the level's own instead`);
+      v = g.lib.get(pick(names));
+    }
     const e = new Enemy(g, g.lib, v, cfg);
     e.spawn(x, z, yaw, o.y ?? g.arena.groundAt(x, z, 0.3));
     if (o.hp) e.maxHp = e.hp = o.hp;

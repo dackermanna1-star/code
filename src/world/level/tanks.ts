@@ -116,11 +116,15 @@ export function buildTanks(a: Arena, blood: BloodAtlas, pointLights: number, sha
     for (const [x0, x1] of [[H.x0, H.x0 + 1.6], [H.x1 - 1.6, H.x1]] as [number, number][]) {
       k.deck(x0, x1, H.z0, H.z1, CY, M.deckPlate(), iron, { thick: 0.2, name: 'catwalk' });
       const inner = x0 < 0 ? x1 : x0;
-      // (its rail open at the north end, where the stairs' landing joins it)
-      const r0 = H.z0 + 2;
-      k.solid([inner - 0.05, inner + 0.05, CY, CY + 1.0, r0, H.z1], null, { kind: 'wall', name: 'catwalk rail', hidden: true });
-      put(k, new THREE.BoxGeometry(0.05, 0.05, H.z1 - r0), iron, inner, CY + 1.0, (r0 + H.z1) / 2, 0, false);
-      for (let z = r0; z <= H.z1; z += 2.5) put(k, new THREE.BoxGeometry(0.05, 1.0, 0.05), iron, inner, CY + 0.5, z, 0, false);
+      // (its rail open at the north end, where the stairs' landing joins it, and - on the east side -
+      // along the booth, whose floor the catwalk runs on into)
+      const B = TANKS.booth;
+      const runs: [number, number][] = x0 < 0 ? [[H.z0 + 2, H.z1]] : [[H.z0 + 2, B.z0], [B.z1, H.z1]];
+      for (const [r0, r1] of runs) {
+        k.solid([inner - 0.05, inner + 0.05, CY, CY + 1.0, r0, r1], null, { kind: 'wall', name: 'catwalk rail', hidden: true });
+        put(k, new THREE.BoxGeometry(0.05, 0.05, r1 - r0), iron, inner, CY + 1.0, (r0 + r1) / 2, 0, false);
+        for (let z = r0; z <= r1; z += 2.5) put(k, new THREE.BoxGeometry(0.05, 1.0, 0.05), iron, inner, CY + 0.5, z, 0, false);
+      }
     }
     // stairs up to each side's catwalk (at the north end)
     k.stairs(H.x0 + 1.6, H.x0 + 3.0, H.z0 + 2, H.z0 + 8, 'z', 0, CY, iron, { dir: -1 });
@@ -162,7 +166,11 @@ export function buildTanks(a: Arena, blood: BloodAtlas, pointLights: number, sha
     // base and cap (steel), the glass, the liquid inside, the label, a green light from it
     put(k, new THREE.CylinderGeometry(r + 0.18, r + 0.25, 0.5, 20), steel, x, 0.25, z, 0, true);
     put(k, new THREE.CylinderGeometry(r + 0.18, r + 0.18, 0.4, 20), steel, x, 0.5 + h + 0.2, z, 0, true);
-    for (let i = 0; i < 3; i++) put(k, new THREE.CylinderGeometry(0.06, 0.06, CEIL - h - 0.9, 6), iron, x + Math.cos(i * 2.1) * r * 0.6, h + 0.9 + (CEIL - h - 0.9) / 2, z + Math.sin(i * 2.1) * r * 0.6, 0, false);
+    // (its feed pipes up to the ceiling - or to the booth's floor, for the two under the booth)
+    const Bt = TANKS.booth;
+    const under = x > Bt.x0 - r && z > Bt.z0 - r && z < Bt.z1 + r;
+    const top = under ? TANKS.catwalkY - 0.2 : CEIL;
+    for (let i = 0; i < 3; i++) put(k, new THREE.CylinderGeometry(0.06, 0.06, top - h - 0.9, 6), iron, x + Math.cos(i * 2.1) * r * 0.6, h + 0.9 + (top - h - 0.9) / 2, z + Math.sin(i * 2.1) * r * 0.6, 0, false);
     const glass = new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, 24, 1, true), glassMaterial());
     glass.position.set(x, 0.5 + h / 2, z);
     k.g.add(glass);

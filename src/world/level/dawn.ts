@@ -104,6 +104,8 @@ export function buildDawn(a: Arena, blood: BloodAtlas, pointLights: number, shad
   a.camBounds = { out: 4, maxY: 20, walls: true };
   a.propSpots = { drums: [], crates: [] };
   a.fallDeath = 3;
+  // (Palewater's own dock: its security, in its uniforms)
+  a.roster = 'lab';
   // the water all round the apron and the jetty: a fall in is the end of a man (bodies go in)
   a.pits.push({ minX: -60, maxX: 60, minZ: -100, maxZ: -2 });
   const Ap = DAWN.apron, J = DAWN.jetty, P = DAWN.pad;
