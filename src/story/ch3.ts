@@ -172,7 +172,7 @@ export const CH3: Chapter = {
           s.bark('KAEL', '<em>(radio)</em> And nobody touches her face. I want to see it.', 3.4, null);
         })();
         void (async () => {
-          await s.tutor(['C'], 'UNDER THE BILLBOARD', 'Its frame throws the floodlights\' shadow — stay low in it, take them one at a time', () => p.stats.takedowns, 1, () => spotted || p.z < 57);
+          await s.tutor(['C'], 'UNDER THE BILLBOARD', 'Its frame throws the floodlights\' shadow — stay low in it, take them one at a time', s.since(() => p.stats.takedowns), 1, () => spotted || p.z < 57);
         })();
         const J = ROOFS.jump2;
         s.ui.marker(V((J.x0 + J.x1) / 2, R4.y + 1.2, R4.z1 - 1.6), 'THE GAP');

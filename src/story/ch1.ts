@@ -131,7 +131,7 @@ export const CH1: Chapter = {
         s.when(() => guards.some((e) => e.alive && e.state !== 'idle' && !e.down), () => (spotted = true));
         void (async () => {
           await s.tutor(['C'], 'STAY LOW', 'Crouched and out of the light, they look straight past you. The eye over a man fills as he notices', () => (p.crouched ? 1 : 0), 1, () => spotted);
-          await s.tutor(['F'], 'FROM BEHIND', 'Up behind one who hasn\'t seen you: F, and he goes down without a sound', () => p.stats.takedowns, 1, () => spotted || p.x > -24);
+          await s.tutor(['F'], 'FROM BEHIND', 'Up behind one who hasn\'t seen you: F, and he goes down without a sound', s.since(() => p.stats.takedowns), 1, () => spotted || p.x > -24);
         })();
         await s.reach(HARBOR.westDoor.x - 0.6, HARBOR.westDoor.z, 2.0, 'DOCK 4');
         s.hideTutor();

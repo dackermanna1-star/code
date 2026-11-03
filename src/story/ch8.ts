@@ -131,6 +131,7 @@ export const CH8: Chapter = {
           s.cast('VIPER', viper);
         }
         const V0 = viper;
+        const crew: Enemy[] = [];
         await s.scene(async () => {
           V0.idleTo = { x: 0, z: -6 };
           V0.idleFace = yawTo({ x: 0, z: -6 }, p);
@@ -140,12 +141,46 @@ export const CH8: Chapter = {
           await s.say('VIPER', 'Last time I let you win. I wanted to see what you\'d do.', 3.2);
           s.closeUp(p, { side: -1, fov: 28, dist: 1.15, dur: 3 });
           await s.say('SCARLET', 'Now you know.', 1.6);
+          // a whistle: her people up the ladders from the launch tied under the jetty
+          s.closeUp(V0, { side: -1, fov: 30, dist: 1.6, dur: 5 });
+          await s.say('VIPER', 'Not yet, though. I like to watch first.', 2.6);
+          g.audio.play('metal_hit', { pos: V(0, 0.4, -26), vol: 0.5, pitch: 1.4 });
+          crew.push(
+            s.spawn('agile', -1.4, -24, 0, { variant: 'agile0' }),
+            s.spawn('agile', 1.3, -27, 0, { variant: 'agile1' }),
+            s.spawn('knife', -0.2, -30, 0, { variant: 'agile2' }),
+          );
+          s.shot({ pos: [2.2, 1.6, -18], look: [0, 1.2, -27], fov: 40, dur: 4 });
+          await s.wait(1.6);
         });
+        // (she backs off up the jetty to watch them do it, out of the way of it)
+        V0.becomeIdle(yawTo({ x: 0.8, z: -44 }, p));
+        V0.idleTo = { x: 0.8, z: -44 };
+        s.objective('VIPER\'S PEOPLE', 'The jetty\'s rail is low: a heavy blow puts a man in the river');
+        s.alert(crew, 0.6);
+        await s.fight(crew, { pressure: 4 });
+        s.bark('VIPER', 'Fine. Me, then.', 1.8, V0);
         g.cam.yaw = s.behindYaw(yawTo(p, V0));
+        // (her phases on the jetty: no doors for anyone to come through - the last two of hers up
+        // the ladder from the launch instead)
+        s.onBossPhase = (e, phase) => {
+          if (e !== V0) return false;
+          if (phase === 2) s.bark('VIPER', 'Now you\'re making me work.', 1.8, V0);
+          else {
+            s.bark('VIPER', 'Get UP here!', 1.4, V0);
+            for (const [x, z] of [[-1.2, -30], [1.2, -32]] as [number, number][]) {
+              const m = s.spawn('agile', x, z, 0, { variant: 'agile0' });
+              s.encounter.push(m);
+              m.alert(0.5);
+            }
+          }
+          return true;
+        };
         s.boss(V0, { name: 'VIPER', sub: 'NO TRICKS LEFT', kick: 'THE JETTY' });
         s.objective('VIPER', 'The jetty rail is low: a heavy blow sends her in the river');
         s.when(() => V0.alive && V0.hp < V0.maxHp * 0.3, () => s.bark('VIPER', 'He\'ll pay you whatever you want. Take it!', 2.6, V0));
         await s.fight([V0], { pressure: 5 });
+        s.onBossPhase = null;
       },
     },
     // ------------------------------------------------------------------ Voss
@@ -221,23 +256,30 @@ export const CH8: Chapter = {
           await s.wait(1.4);
           dawnStage.sun = 1;
           dawnStage.rotorSpeed = 0;
-          const ex = 0.7, ez = D.jetty.z0 + 0.5;
-          s.place(ex, ez, Math.PI);
+          // sat on the jetty's east edge, side by side, their feet over the water, facing the far
+          // bank and the sun (sat on the boards: the hips at their level, the legs hung over)
+          const SEAT = -0.46;
+          const ex = D.jetty.x1 - 0.32, ez = -34;
+          s.place(ex, ez, Math.PI / 2);
+          p.heightLocked = true;
+          p.setY(SEAT);
           s.pose('st_sit', 0.01);
           if (ivy) {
-            ivy.x = ex - 0.9;
-            ivy.z = ez;
-            ivy.setY(0);
-            ivy.anim.initAt(ivy.x, ivy.z, Math.PI);
-            ivy.yaw = Math.PI;
+            ivy.x = ex;
+            ivy.z = ez + 0.82;
+            ivy.heightLocked = true;
+            ivy.setY(SEAT);
+            ivy.anim.initAt(ivy.x, ivy.z, Math.PI / 2);
+            ivy.yaw = Math.PI / 2;
+            ivy.faceYaw = Math.PI / 2;
             ivy.hold('st_sit', 0.01);
             ivy.lookAt = null;
           }
-          s.shot({ pos: [0.2, 1.2, ez + 3.6], look: [0, 1.0, ez - 40], pos2: [0.1, 1.4, ez + 4.4], fov: 40, dur: 14 });
+          s.shot({ pos: [ex - 4.2, 1.3, ez + 2.2], look: [ex + 40, 2, ez - 26], pos2: [ex - 4.8, 1.5, ez + 2.6], fov: 40, dur: 14 });
           s.ui.fade(false, 2.4);
           await s.wait(4.0);
           await s.say('IVY', 'Scar? What day is it?', 1.8, { to: p });
-          s.shot({ pos: [-2.6, 1.0, ez - 1.6], look: [ex - 0.4, 1.0, ez], fov: 30, dur: 12 });
+          s.shot({ pos: [ex + 2.2, 0.5, ez - 1.8], look: [ex, 0.35, ez + 0.4], fov: 32, dur: 12 });
           await s.wait(0.8);
           await s.say('SCARLET', '...Sunday.', 1.6, { to: ivy });
           await s.say('IVY', 'Happy birthday.', 1.6, { to: p });
@@ -245,7 +287,7 @@ export const CH8: Chapter = {
           await s.say('SCARLET', 'Yeah.', 1.0, { to: ivy });
           await s.say('SCARLET', 'Best one yet.', 1.8, { to: ivy });
           // the sun on the water; the city waking up across it
-          s.shot({ pos: [0, 1.6, ez + 6], look: [140, 20, -560], pos2: [0, 2.6, ez + 9], fov: 34, dur: 10 });
+          s.shot({ pos: [ex - 6, 1.6, ez + 6], look: [140, 30, -560], pos2: [ex - 6.4, 2.6, ez + 9], fov: 34, dur: 10 });
           await s.wait(5.0);
           s.ui.card('SCARLET', 'BEFORE DAWN', 'THE END', '');
           await s.wait(5.0);

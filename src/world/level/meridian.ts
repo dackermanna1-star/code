@@ -114,6 +114,10 @@ export function buildMeridian(a: Arena, blood: BloodAtlas, pointLights: number, 
 
   // ---------------------------------------------------------------------- the penthouse's floor, and what's over 58 elsewhere
   k.block([-13.4, 13.4, -0.4, 0, -11.4, 11.4], 'crate', 'penthouse floor', true);
+  // (the lobby outside its front doors and the private lift: where the guests and Ivy go, out of sight)
+  k.block([-6.5, 6.5, -0.4, 0, 11.4, 14.4], 'crate', 'lobby floor', true);
+  // (and its slab seen from 58 below: the penthouse's own floor is only a top)
+  k.solid([-13.4, 13.4, -0.4, -0.02, -11.4, 11.4], concrete, { kind: false });
   k.solid([F.x0, F.x1, -0.4, 0, -14, -11.4], concrete, { kind: false });
   k.solid([F.x0, -13.4, -0.4, 0, -11.4, F.z1], concrete, { kind: false });
   k.solid([13.4, F.x1, -0.4, 0, -11.4, F.z1], concrete, { kind: false });
@@ -122,10 +126,12 @@ export function buildMeridian(a: Arena, blood: BloodAtlas, pointLights: number, 
   // ---------------------------------------------------------------------- the back corridor and the service stairs
   {
     const C = MERIDIAN.corridor;
-    k.deck(C.x0, C.x1, C.z0, C.z1, 0, M.slabs(), null, { thick: 0.4, name: 'corridor' });
-    k.solid([C.x0, C.x1, 0, 3.0, C.z0 - 0.2, C.z0], M.paint(0xd8d4cc, 0.8, 0), { kind: 'wall' });
-    k.solid([C.x0, C.x1, 0, 3.0, C.z1, C.z1 + 0.2], M.paint(0xd8d4cc, 0.8, 0), { kind: 'wall' });
-    k.solid([C.x0, C.x1, 3.0, 3.2, C.z0 - 0.2, C.z1 + 0.2], M.paint(0xe8e4dc, 0.8, 0), { kind: false });
+    // (it runs right up to the penthouse's kitchen wall: its boards meet the penthouse's floor)
+    const cx0 = 13.0;
+    k.deck(cx0, C.x1, C.z0, C.z1, 0, M.slabs(), concrete, { thick: 0.4, name: 'corridor' });
+    k.solid([cx0, C.x1, 0, 3.0, C.z0 - 0.2, C.z0], M.paint(0xd8d4cc, 0.8, 0), { kind: 'wall' });
+    k.solid([cx0, C.x1, 0, 3.0, C.z1, C.z1 + 0.2], M.paint(0xd8d4cc, 0.8, 0), { kind: 'wall' });
+    k.solid([cx0, C.x1, 3.0, 3.2, C.z0 - 0.2, C.z1 + 0.2], M.paint(0xe8e4dc, 0.8, 0), { kind: false });
     for (let x = C.x0 + 2; x < C.x1; x += 3) k.spot([x, 2.7, 7.5], 0xfff4e0, 8, 5);
     signBoard(k, 'SERVICE · STAFF ONLY', C.x0 + 0.5, 2.3, C.z0 + 0.02, 0, 1.6, 0.25, { bg: '#e8e4dc', fg: '#2a2a2a' });
     // the stair core: its top landing at the penthouse's level, the flight down to 58
@@ -134,8 +140,14 @@ export function buildMeridian(a: Arena, blood: BloodAtlas, pointLights: number, 
     k.stairs(St.x0, St.x1, St.z0, St.z1, 'z', S58, 0, concrete, { dir: -1 });
     k.solid([St.x0 - 0.2, St.x0, S58, 1.1, St.z0, St.z1], null, { kind: 'wall', name: 'stair rail', hidden: true });
     put(k, new THREE.BoxGeometry(0.05, 0.05, St.z1 - St.z0 + 0.6), iron, St.x0 - 0.1, S58 / 2 + 1.0, (St.z0 + St.z1) / 2, 0, false);
+    // (the well under the flight railed off on 58: its east side, its north end - nobody steps into it)
+    k.solid([St.x1, St.x1 + 0.2, S58, 1.1, St.z0, St.z1], null, { kind: 'wall', name: 'stair rail', hidden: true });
+    put(k, new THREE.BoxGeometry(0.05, 0.05, St.z1 - St.z0 + 0.6), iron, St.x1 + 0.1, S58 / 2 + 1.0, (St.z0 + St.z1) / 2, 0, false);
+    k.solid([St.x0 - 0.2, St.x1 + 0.2, S58, S58 + 1.1, St.z0 - 0.2, St.z0], null, { kind: 'wall', name: 'stair rail', hidden: true });
+    put(k, new THREE.BoxGeometry(St.x1 - St.x0 + 0.4, 0.05, 0.05), iron, (St.x0 + St.x1) / 2, S58 + 1.05, St.z0 - 0.1, 0, false);
     // the core's walls, all the way down to 57
-    for (const b of [[23, 31, S57, 3.2, -0.6, 0], [23, 23.2, S57, 3.2, 0, 6.5], [23, 23.2, S57, 3.2, 8.5, 17.4], [30.8, 31, S57, 3.2, 0, 17.4], [23, 26.6, S57, 3.2, 17.4, 17.6], [28.6, 31, S57, 3.2, 17.4, 17.6]] as [number, number, number, number, number, number][]) {
+    // (its west side open only to the corridor at the top, and to 57 at the bottom: shut on 58)
+    for (const b of [[23, 31, S57, 3.2, -0.6, 0], [23, 23.2, S57, 3.2, 0, 6.5], [23, 23.2, S57, 3.2, 8.5, 17.4], [23, 23.2, S58, -0.4, 6.5, 8.5], [30.8, 31, S57, 3.2, 0, 17.4], [23, 26.6, S57, 3.2, 17.4, 17.6], [28.6, 31, S57, 3.2, 17.4, 17.6]] as [number, number, number, number, number, number][]) {
       k.solid(b, concrete, { kind: 'wall', name: 'core' });
     }
     // (58's way out of the core, and 57's: chained)
@@ -148,10 +160,10 @@ export function buildMeridian(a: Arena, blood: BloodAtlas, pointLights: number, 
   {
     // the slab, round the stair core's hole
     const St = MERIDIAN.stairs;
-    k.deck(F.x0, F.x1, F.z0, St.z0, S58, M.slabs(), null, { thick: 0.4, dense: true, name: '58' });
-    k.deck(F.x0, St.x0, St.z0, F.z1, S58, M.slabs(), null, { thick: 0.4, dense: true, name: '58' });
-    k.deck(St.x1, F.x1, St.z0, F.z1, S58, M.slabs(), null, { thick: 0.4, name: '58' });
-    k.deck(St.x0, St.x1, St.z1, F.z1, S58, M.slabs(), null, { thick: 0.4, name: '58' });
+    k.deck(F.x0, F.x1, F.z0, St.z0, S58, M.slabs(), concrete, { thick: 0.4, dense: true, name: '58' });
+    k.deck(F.x0, St.x0, St.z0, F.z1, S58, M.slabs(), concrete, { thick: 0.4, dense: true, name: '58' });
+    k.deck(St.x1, F.x1, St.z0, F.z1, S58, M.slabs(), concrete, { thick: 0.4, name: '58' });
+    k.deck(St.x0, St.x1, St.z1, F.z1, S58, M.slabs(), concrete, { thick: 0.4, name: '58' });
     // its glass skin (north, west and south; the core's on the east), one pane on the north still out
     const P = MERIDIAN.pane;
     const pane = (x0: number, z0: number, x1: number, z1: number) => {

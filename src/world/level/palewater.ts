@@ -130,12 +130,27 @@ export function buildPalewater(a: Arena, blood: BloodAtlas, pointLights: number,
   k.solid([-15, 19, 4.4, 9.2, 30.9, 31.1], Md.concrete(0x9a9ea2), { kind: false });
   W.face(k, Md, 19.2, -12, 19.2, 30, 5.6, 1, rng, { pitch: 3.2, sills: false });
   W.face(k, Md, -15, 30, -15, -12, 1.6, 2, rng, { pitch: 3.2, sills: false, floorH: 3.6 });
-  // the loading dock (east): its shutter up, the trucks backed to it, their doors open
+  // the loading dock (east): its shutter up, the trucks backed to it, their doors open on the dark
+  // inside (empty now: chains on the floor, a blanket)
   put(k, new THREE.BoxGeometry(0.1, 3.6, 6), Md.dark(), 19.25, 1.8, 6, 0, false);
-  for (const [x, z, ry] of [[29, 4.6, -Math.PI / 2], [30, 11.5, -Math.PI / 2 + 0.06]] as [number, number, number][]) {
+  for (const [x, z, ry] of [[29, 4.6, Math.PI / 2], [30, 11.5, Math.PI / 2 - 0.06]] as [number, number, number][]) {
     const t = carModel('truck', 0xe8e8e4);
     t.group.position.set(x, 0, z);
     t.group.rotation.y = ry;
+    const L = 12.5, W = 2.5, back = -L / 2 + 0.1;
+    const hole = new THREE.Mesh(new THREE.PlaneGeometry(W - 0.16, 2.7), new THREE.MeshBasicMaterial({ color: 0x050506 }));
+    hole.position.set(0, 2.1, back - 0.012);
+    hole.rotation.y = Math.PI;
+    t.group.add(hole);
+    for (const sd of [-1, 1]) {
+      const leaf = new THREE.Mesh(new THREE.BoxGeometry(W / 2 - 0.04, 2.7, 0.05), Md.paint(0xdcdcd8, 0.5, 0.3));
+      const hinge = new THREE.Group();
+      hinge.position.set(sd * (W / 2), 2.1, back);
+      hinge.rotation.y = sd * 1.75;
+      leaf.position.set(-sd * (W / 4 - 0.02), 0, 0);
+      hinge.add(leaf);
+      t.group.add(hinge);
+    }
     k.g.add(t.group);
     k.block([x - 6.3, x + 6.3, 0, 3.8, z - 1.35, z + 1.35], 'wall', 'truck');
   }

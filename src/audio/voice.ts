@@ -49,6 +49,7 @@ const CAST: Record<string, Cast> = {
   GUARD: { fem: false, pitch: 0.95, rate: 1.05 },
   OWENS: { fem: false, pitch: 1.05, rate: 1.0 },
   'THE WARDEN': { fem: false, pitch: 0.74, rate: 0.9 },
+  DRIVER: { fem: false, pitch: 0.92, rate: 1.04 },
 };
 
 export interface SpokenLine {

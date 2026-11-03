@@ -184,11 +184,23 @@ export class ViperBrain extends BossBrain {
     this.vanishT = 0.6;
   }
   private reappear() {
-    const e = this.e, g = this.game, p = g.player;
-    // behind the player (relative to the way they face), a stride away
-    const a = p.yaw + Math.PI + rand(-0.6, 0.6);
-    let x = p.x + Math.sin(a) * 1.7, z = p.z + Math.cos(a) * 1.7;
-    [x, z] = g.arena.collide(x, z, e.radius, false);
+    const e = this.e, g = this.game, p = g.player, ar = g.arena;
+    // behind the player (relative to the way they face), a stride away - on her floor, in sight of
+    // her (not off the edge of a roof, not through a wall); failing that, round her side; failing
+    // that, back where she went
+    let x = e.x, z = e.z;
+    for (let i = 0; i < 9; i++) {
+      const off = i === 0 ? rand(-0.6, 0.6) : (i % 2 ? 1 : -1) * Math.ceil(i / 2) * 0.55;
+      const a = p.yaw + Math.PI + off;
+      let cx = p.x + Math.sin(a) * 1.7, cz = p.z + Math.cos(a) * 1.7;
+      [cx, cz] = ar.collide(cx, cz, e.radius, false, p.y, 1.7);
+      if (Math.abs(ar.groundAt(cx, cz, p.y + 0.4) - p.y) > 0.3) continue;
+      if (!ar.lineOfSight(p.x, p.y + 1.0, p.z, cx, p.y + 1.0, cz)) continue;
+      x = cx;
+      z = cz;
+      break;
+    }
+    if (Math.abs(ar.groundAt(x, z, p.y + 0.4) - p.y) < 0.3 && Math.abs(e.y - p.y) > 0.05) e.setY(p.y);
     e.x = x;
     e.z = z;
     e.yaw = Math.atan2(p.x - x, p.z - z);
@@ -542,7 +554,7 @@ export class WardenBrain extends BossBrain {
     this.count('backup');
     this.say('WARDEN: ALL UNITS, CONVERGE!', '#8ab8ff', 1.4);
     const n = g.enemies().filter((o) => o.alive && !o.cfg.boss).length;
-    if (n >= 2) return;
+    if (n >= 2 || !g.arena.doors.length) return;
     const keys = n === 0 ? ['brawler', 'brawler'] : ['brawler'];
     keys.forEach((k, i) => g.waves.spawn(k, g.arena.doors[(i + 1) % g.arena.doors.length], i));
   }

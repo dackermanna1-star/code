@@ -258,10 +258,12 @@ export class LevelKit {
   /** A box: drawn (merged), and unless told otherwise something fighters stop at. */
   solid(b: Box, mat: THREE.Material | null, o: SolidOpts = {}): Obstacle | null {
     const [x0, x1, y0, y1, z0, z1] = b;
-    if (mat && !o.hidden) this.geo(boxGeo(b, o.tile ?? 1, o.skip ?? (y0 <= 0.001 ? ['ny'] : [])), mat, o.cast !== false);
+    // (the bottom face only where it can be seen: not on the ground, but under a slab up in the air)
+    if (mat && !o.hidden) this.geo(boxGeo(b, o.tile ?? 1, o.skip ?? (Math.abs(y0) <= 0.001 ? ['ny'] : [])), mat, o.cast !== false);
     if (o.kind === false) return null;
     const ob: Obstacle = { minX: Math.min(x0, x1), maxX: Math.max(x0, x1), minZ: Math.min(z0, z1), maxZ: Math.max(z0, z1), h: y1 - y0, kind: o.kind ?? 'wall', name: o.name ?? 'box' };
-    if (y0 > 0.001) ob.y0 = y0;
+    // (a base below the ground counts too: a roof six floors under the neon one, a grate over the river)
+    if (Math.abs(y0) > 0.001) ob.y0 = y0;
     if (o.walk) ob.walk = true;
     if (o.climb !== undefined) ob.climb = o.climb;
     if (o.material) ob.material = o.material;
@@ -360,9 +362,9 @@ export class LevelKit {
   deck(x0: number, x1: number, z0: number, z1: number, y: number, top: THREE.Material, side: THREE.Material | null, o: { thick?: number; tile?: number; dense?: boolean; name?: string; climb?: boolean; kind?: Obstacle['kind']; paint?: boolean } = {}) {
     const th = o.thick ?? y;
     this.floor(x0, x1, z0, z1, top, { y, tile: o.tile, dense: o.dense, paint: o.paint });
-    if (side) this.geo(boxGeo([x0, x1, y - th, y - 0.002, z0, z1], 1, ['py', ...(y - th <= 0.001 ? ['ny' as const] : [])]), side, true);
+    if (side) this.geo(boxGeo([x0, x1, y - th, y - 0.002, z0, z1], 1, ['py', ...(Math.abs(y - th) <= 0.001 ? ['ny' as const] : [])]), side, true);
     const ob: Obstacle = { minX: x0, maxX: x1, minZ: z0, maxZ: z1, h: th, kind: o.kind ?? 'crate', name: o.name ?? 'deck', walk: true };
-    if (y - th > 0.001) ob.y0 = y - th;
+    if (Math.abs(y - th) > 0.001) ob.y0 = y - th;
     if (o.climb !== undefined) ob.climb = o.climb;
     this.a.obstacles.push(ob);
     return ob;

@@ -438,7 +438,7 @@ export const CH2: Chapter = {
         s.when(() => men.some((e) => e.alive && e.state !== 'idle' && !e.down), () => (spotted = true));
         s.objective('THE HATCH', 'Up the ladder in the far corner — quietly');
         void (async () => {
-          await s.tutor(['C'], 'IN THE DARK', 'Crouched, between the lamps, they won\'t see you. One at a time from behind: F', () => p.stats.takedowns, 1, () => spotted || p.y > 1.5);
+          await s.tutor(['C'], 'IN THE DARK', 'Crouched, between the lamps, they won\'t see you. One at a time from behind: F', s.since(() => p.stats.takedowns), 1, () => spotted || p.y > 1.5);
         })();
         const T = CLUB.trapLadder;
         s.ui.marker(V(T.x - 0.75, G + 1.2, T.z), 'HATCH');

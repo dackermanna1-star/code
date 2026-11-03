@@ -83,7 +83,7 @@ export class Road {
 const SPEC: Record<CarKind, { len: number; wid: number; h: number; mass: number; vmax: number; accel: number; color: number }> = {
   saloon: { len: 4.7, wid: 1.9, h: 1.4, mass: 1.6, vmax: 47, accel: 11, color: 0x0c0c0e },
   suv: { len: 4.9, wid: 2.0, h: 1.8, mass: 2.4, vmax: 44, accel: 9, color: 0x0a0a0c },
-  truck: { len: 12.5, wid: 2.5, h: 3.8, mass: 9, vmax: 32, accel: 3, color: 0xe8e8e4 },
+  truck: { len: 12.5, wid: 2.5, h: 3.8, mass: 9, vmax: 32, accel: 5, color: 0xe8e8e4 },
   civic: { len: 4.3, wid: 1.8, h: 1.45, mass: 1.3, vmax: 34, accel: 6, color: 0x8a2a2a },
   van: { len: 5.2, wid: 2.0, h: 2.2, mass: 2.0, vmax: 30, accel: 5, color: 0xd8d8d0 },
 };
@@ -155,7 +155,9 @@ export class Car {
       if (this.speed > 0.5) this.speed -= 16 * -throttle * dt;
       else this.speed = Math.max(-9, this.speed - 5 * -throttle * dt);
     }
-    this.speed -= this.speed * (0.012 + Math.abs(this.speed) * 0.0011) * dt * 6;
+    // (rolling and air: at full throttle each kind settles near its top speed - her car about 38 m/s,
+    // an SUV 35, a loaded truck 25 - and off the throttle a car coasts down gently)
+    this.speed -= this.speed * (0.012 + Math.abs(this.speed) * 0.0011) * dt;
     if (handbrake) this.speed = damp(this.speed, 0, 0.5, dt);
     if (Math.abs(this.speed) < 0.05 && Math.abs(throttle) < 0.01) this.speed = 0;
     // turning: the bicycle's rate, then what the tyres will hold (past it, the tail slides)

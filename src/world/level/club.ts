@@ -333,9 +333,11 @@ export function buildClub(a: Arena, blood: BloodAtlas, pointLights: number, shad
     // onto the boards beyond the hatch's west edge)
     const T = CLUB.trapLadder;
     const hx0 = -12.5, hx1 = -11.5, hz1 = 15.3;
-    k.deck(-14, -5, hz1, 22, G, M.planksFloor(), null, { name: 'office floor', thick: 0.35, dense: true });
-    k.deck(-14, hx0, 14.1, hz1, G, M.planksFloor(), null, { name: 'office floor', thick: 0.35 });
-    k.deck(hx1, -5, 14.1, hz1, G, M.planksFloor(), null, { name: 'office floor', thick: 0.35 });
+    // (the boards' underside: the keg room's ceiling)
+    const officeUnder = M.paint(0x1a1614, 0.8, 0.05);
+    k.deck(-14, -5, hz1, 22, G, M.planksFloor(), officeUnder, { name: 'office floor', thick: 0.35, dense: true });
+    k.deck(-14, hx0, 14.1, hz1, G, M.planksFloor(), officeUnder, { name: 'office floor', thick: 0.35 });
+    k.deck(hx1, -5, 14.1, hz1, G, M.planksFloor(), officeUnder, { name: 'office floor', thick: 0.35 });
     // the trapdoor's lid flipped up against the wall; a rail round its east and south sides
     put(k, new THREE.BoxGeometry(1.0, 1.1, 0.05), M.wood(), (hx0 + hx1) / 2, G + 0.55, 14.16, 0, true);
     k.block([hx1, hx1 + 0.08, G, G + 0.9, 14.1, hz1], 'prop', 'trapdoor rail');
@@ -349,7 +351,7 @@ export function buildClub(a: Arena, blood: BloodAtlas, pointLights: number, shad
     k.solid([-9.7, -5, G, 8.4, 13.9, 14.1], darkWall, { kind: 'wall', name: 'office wall' });
     k.solid([-11.3, -9.7, G + 2.3, 8.4, 13.9, 14.1], darkWall, { kind: 'wall', name: 'office wall' });
     // (the doorway's own boards: the gallery's end to the office floor, no gap between)
-    k.deck(-11.3, -9.7, 13.9, 14.2, G, M.planksFloor(), null, { name: 'office threshold', thick: 0.35 });
+    k.deck(-11.3, -9.7, 13.9, 14.2, G, M.planksFloor(), officeUnder, { name: 'office threshold', thick: 0.35 });
     signBoard(k, 'PRIVATE', -10.5, G + 2.55, 13.88, Math.PI, 1.0, 0.25, { bg: '#c8b030', fg: '#141414' });
     const wood = M.paint(0x7a5a44, 0.6, 0.05);
     k.paintWall(-14, 22, -14, 14.1, G, 3.0, wood, 2, 2.4);
@@ -486,10 +488,12 @@ export function buildClub(a: Arena, blood: BloodAtlas, pointLights: number, shad
     // the deck, round the hatch over the office ladder
     const hx0 = -6.4, hx1 = -5.2, hz0 = 20.6, hz1 = 21.8;
     const roof = M.roofFloor();
-    k.deck(-17, 16, -17, hz0, R, roof, null, { name: 'roof', thick: 0.8, dense: true });
-    k.deck(-17, 16, hz1, 24, R, roof, null, { name: 'roof', thick: 0.8 });
-    k.deck(-17, hx0, hz0, hz1, R, roof, null, { name: 'roof', thick: 0.8 });
-    k.deck(hx1, 16, hz0, hz1, R, roof, null, { name: 'roof', thick: 0.8 });
+    // (its underside: the hall's and the office's ceiling, dark)
+    const roofUnder = M.concrete(0x1e1a1c);
+    k.deck(-17, 16, -17, hz0, R, roof, roofUnder, { name: 'roof', thick: 0.8, dense: true });
+    k.deck(-17, 16, hz1, 24, R, roof, roofUnder, { name: 'roof', thick: 0.8 });
+    k.deck(-17, hx0, hz0, hz1, R, roof, roofUnder, { name: 'roof', thick: 0.8 });
+    k.deck(hx1, 16, hz0, hz1, R, roof, roofUnder, { name: 'roof', thick: 0.8 });
     for (const [x0, x1, z0, z1] of [[-17, 16, -17, -16.7], [-17, 16, 23.7, 24], [-17, -16.7, -17, 24], [15.7, 16, -17, 24]] as [number, number, number, number][]) {
       k.solid([x0, x1, R, R + 0.9, z0, z1], M.concrete(0x6a6662), { kind: 'wall', name: 'parapet', walk: true });
     }

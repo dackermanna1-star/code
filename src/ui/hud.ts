@@ -392,8 +392,8 @@ export class HUD {
     const col = this.menus.storydead.querySelector('.col') as HTMLElement;
     col.innerHTML = '';
     col.append(el('div', 'kick', `${st.chapter.kick} · ${st.chapter.title}`));
-    col.append(el('h2', '', 'SCARLET IS DOWN'));
-    col.append(el('div', 'quote', `${GET_UP[Math.floor(Math.random() * GET_UP.length)]}`));
+    col.append(el('h2', '', st.fail?.title ?? 'SCARLET IS DOWN'));
+    col.append(el('div', 'quote', st.fail?.line ?? `${GET_UP[Math.floor(Math.random() * GET_UP.length)]}`));
     const ml = el('div', 'mlist');
     ml.append(
       this.btn(`RETRY<small>${st.cp > 0 ? 'FROM THE CHECKPOINT · ' + st.chapter.segments[st.cp].name : 'FROM THE START'}</small>`, () => st.retry(), 'primary'),

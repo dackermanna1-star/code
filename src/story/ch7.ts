@@ -275,10 +275,16 @@ export const CH7: Chapter = {
         followT = 0;
         s.objective('OUT', 'The service stairs at the south end — up to the river. Bring her');
         // the last of them, down the stairs at her
-        const last = [s.enter('brawler', 1, 0), s.enter('club', 1, 1)];
-        void last;
-        await s.until(() => s.encounter.every((e: Enemy) => !e.alive) || p.z > T.stairs.z0 + 1, false);
-        if (s.encounter.some((e) => e.alive)) await s.fight(s.encounter.filter((e) => e.alive), { pressure: 3 });
+        const wave1: Enemy[] = [s.enter('brawler', 1, 0), s.enter('club', 1, 1)];
+        await s.fight(wave1, { pressure: 3 });
+        // and the lift behind them: the riot team, in through the decontamination corridor
+        s.bark('GUARD', '<em>(speaker)</em> Riot team to B3. She has the subject with her. Do not let them reach the stairs.', 3.6, null);
+        await s.wait(2.0, false);
+        s.objective('THE RIOT TEAM', 'Down from the lift behind you — keep them off her');
+        const wave2: Enemy[] = [s.enter('defender', 0, 0), s.enter('club', 0, 1), s.enter('brawler', 0, 2)];
+        s.when(() => wave2.filter((e) => e.alive).length === 1, () => s.bark('IVY', 'Scar — behind you!', 1.6, ivy));
+        await s.fight(wave2, { pressure: 3 });
+        s.objective('OUT', 'The service stairs at the south end — up to the river. Bring her');
         s.ui.marker(V(0, 4.2 + 1.2, T.stairs.z1 + 1.5), 'EXIT');
         await s.until(() => p.y > 3.6 && p.z > T.stairs.z1, false);
         s.ui.marker(null);

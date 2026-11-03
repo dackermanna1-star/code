@@ -82,9 +82,12 @@ export class Bot {
     // nearest enemy
     let best: Enemy | null = null;
     let bd = Infinity;
+    const mk = g.story?.ui.markerAt;
     for (const e of g.enemies()) {
       if (!e.alive || e.state === 'enter') continue;
       if (e.state === 'idle' && !g.arena.inside(e.x, e.z, 0.2)) continue;
+      // (one standing about is only worth going for close to: with an objective, that comes first)
+      if (e.state === 'idle' && mk && e.distTo(p) > 3.5) continue;
       const d = e.distTo(p);
       if (d < bd) {
         bd = d;
@@ -127,10 +130,14 @@ export class Bot {
           this.bestD = Infinity;
           this.stuckT = 0;
         }
-        const t = p.travOption;
+        const t0 = p.travOption;
+        // (a way down only when the objective is down there: not every hole she walks past)
+        const t = t0 && t0.endY < p.y - 0.8 && m.y - 1.2 > p.y - 0.8 ? null : t0;
         if (t && this.actT <= 0 && p.action === 'free') {
           const tx = Math.sin(t.yaw), tz = Math.cos(t.yaw);
-          if (tx * d.x + tz * d.z > 0.35 || this.stuckT > 1.2) {
+          // (a ladder the objective's up - or down - is taken whichever way the stick's pointing)
+          const ladderWay = (t.kind === 'ladder' && m.y - 1.2 > p.y + 0.6) || (t.kind === 'ladderDown' && m.y - 1.2 < p.y - 0.6);
+          if (tx * d.x + tz * d.z > 0.35 || this.stuckT > 1.2 || ladderWay) {
             inp.press('dodge');
             inp.release('dodge');
             this.actT = 1.0;
@@ -155,8 +162,10 @@ export class Bot {
       inp.virtual = { moveX: 0, moveY: 0 };
       return;
     }
-    // move towards it via camera basis
-    const dir = new THREE.Vector3(best.x - p.x, 0, best.z - p.z).normalize();
+    // move towards it via camera basis (round what's in the way when it's a way off)
+    const navF = g.arena.navGrid();
+    const to = navF && bd > 3.2 ? this.nav.steer(navF, p.x, p.y, p.z, best.x, best.y, best.z, dt) : best;
+    const dir = new THREE.Vector3(to.x - p.x, 0, to.z - p.z).normalize();
     const yaw = g.cam.yaw;
     const fx = -Math.sin(yaw), fz = -Math.cos(yaw);
     const rx = -fz, rz = fx;

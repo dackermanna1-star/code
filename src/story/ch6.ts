@@ -46,8 +46,9 @@ export const CH6: Chapter = {
     s.givePistol(1);
     const st = P.start;
     s.place(st.x, st.z, st.yaw);
-    if (s.cp >= 1) g.player.changeOutfit(outfitVariant('guard'));
-    if (s.cp >= 1) g.restricted = restricted;
+    // (in uniform from the locker on: the checkpoint at the locker is before she's opened it)
+    if (s.cp >= 2) g.player.changeOutfit(outfitVariant('guard'));
+    if (s.cp >= 2) g.restricted = restricted;
     // reception: Owens, at his desk
     owens = s.extra('civ_m04', P.desk.x + 0.4, P.desk.z - 1.0, 0, { pose: 'st_phone' });
     s.cast('OWENS', owens);
@@ -56,6 +57,7 @@ export const CH6: Chapter = {
     s.pickup('photo', [P.locker.x - 0.4, 1.0, P.locker.z], { id: 'c6-photo', title: 'Taped inside her old locker', text: 'A photo she forgot she\'d left: her and Ivy on a fairground ride, both screaming, a year before their mother died.\n\nOn the back in her own handwriting: <em>whatever it takes, kid.</em>' });
     s.pickup('medkit', [P.secOffice.x1 - 1.6, 0.8, P.secOffice.z0 + 2]);
     s.pickup('ammo', [-9.6, 0.02, 13.4]);
+    s.pickup('note', [21.4, 0.9, 2.2], { id: 'c6-dock', title: 'A delivery note, clipped to the dock door', text: 'NORDFROST · DOCK 2 · 05:10\n\nLOTS 1–6 RECEIVED (live)\nLot 6: PRIORITY — B3 direct. Mr V. to inspect Sunday.\n\nSigned for: <em>the Warden</em>\n\nAt the bottom, in a different pen: <em>drivers do not open the boxes. drivers do not ask.</em>' });
   },
   segments: [
     // ------------------------------------------------------------------ the gate
@@ -91,7 +93,10 @@ export const CH6: Chapter = {
         });
         s.objective('INSIDE THE FENCE', 'Not through the gate — the low bit by the car park, west');
         const Cl = P.climb;
-        s.ui.marker(V((Cl.x0 + Cl.x1) / 2, 1.2, Cl.z - 2.5), 'THE FENCE');
+        const cx = (Cl.x0 + Cl.x1) / 2;
+        // (to the patched bit first, along the outside; then over it)
+        const route = () => s.markRoute([[cx, Cl.z + 1.6], [cx, Cl.z - 2.5]], 'THE FENCE', 1.6);
+        let stopRoute = route();
         let spotted = false;
         s.when(() => gate.some((e) => e.alive && e.state !== 'idle' && !e.down), () => (spotted = true));
         // (the two at the gate go and look at the wreck)
@@ -104,13 +109,15 @@ export const CH6: Chapter = {
         });
         void s.tutor(['SPACE'], 'OVER', 'The patched section: SPACE at the fence', () => (p.z < Cl.z - 0.5 ? 1 : 0), 1, () => p.z < Cl.z - 0.5);
         await s.until(() => p.z < P.gate.z - 0.6 || spotted, false);
-        s.ui.marker(null);
+        stopRoute();
         if (spotted) {
           s.objective('THEY SAW YOU', 'Put them down');
           await s.fight(gate.filter((e) => e.alive), { pressure: 3 });
           if (p.z > P.gate.z - 0.6) {
             s.objective('INSIDE THE FENCE', 'Over the low section, west');
+            stopRoute = route();
             await s.until(() => p.z < P.gate.z - 0.6, false);
+            stopRoute();
           }
         }
         s.hideTutor();
@@ -153,13 +160,66 @@ export const CH6: Chapter = {
         s.ui.item('THE UNIFORM', 'PALEWATER SECURITY · NIGHT SHIFT', 'Walk like you belong: they won\'t look twice — except where nobody\'s allowed', 4.5);
       },
     },
+    // ------------------------------------------------------------------ the dock: the trucks
+    {
+      name: 'DOCK 2',
+      resume(s) {
+        s.game.player.changeOutfit(outfitVariant('guard'));
+        s.game.restricted = restricted;
+        s.place(P.hut.x0 - 1.2, P.hut.z0 + 4, Math.PI);
+      },
+      async play(s) {
+        const g = s.game;
+        const p = g.player;
+        // the drivers by their cabs, a smoke each; a guard on the dock's edge, bored
+        const d1 = s.extra('civ_m01', 37.2, 3.2, -Math.PI / 2, { pose: 'st_smoke', chat: 0.4 });
+        const d2 = s.extra('civ_m18', 37.4, 6.2, -Math.PI / 2 - 0.4, { pose: 'st_crossed', chat: 0.4 });
+        s.cast('DRIVER', d1 ?? d2);
+        const dock = s.spawn('brawler', 22.4, 15.4, Math.PI / 2, { variant: GUARDS[2], watch: true, pose: 'st_crossed', vision: 9 });
+        s.objective('DOCK 2', 'The trucks. If she\'s still in one of them...');
+        // round the back of the second one: its doors open on the dark
+        await s.reach(22.6, 11.4, 1.6, 'THE TRUCKS');
+        await s.scene(async () => {
+          await s.walk(22.4, 11.5, { face: Math.PI / 2, speed: 1.2 });
+          s.shot({ pos: [21.0, 1.7, 13.4], look: [24.6, 1.4, 11.4], pos2: [21.2, 1.75, 13.0], fov: 38, dur: 7 });
+          await s.wait(1.4);
+          // empty: chains bolted to the floor, a blanket, a red hair tie
+          await s.say('SCARLET', '...Empty.', 1.4);
+          s.closeUp(p, { side: -1, fov: 30, dist: 1.2, dur: 5 });
+          await s.wait(0.6);
+          s.ui.item('FOUND', 'A RED HAIR TIE', 'On the truck\'s floor, by the chains. Ivy\'s — she\'s worn one on her wrist since she was twelve', 3.8);
+          await s.wait(2.4);
+          await s.say('SCARLET', 'She was in here.', 1.8);
+          // the driver, wandering over
+          const D = d1;
+          if (D) {
+            D.hold(null, 0.3);
+            D.walk([[23.2, 13.8]], 1.4, () => {
+              D.faceYaw = Math.atan2(p.x - D.x, p.z - D.z);
+              D.lookAt = p;
+            });
+          }
+          s.shot({ pos: [21.4, 1.65, 10.2], look: [23.2, 1.6, 13.8], fov: 34, dur: 8 });
+          await s.wait(1.6);
+          await s.say('DRIVER', 'Nobody told you? They had them off the trucks the minute we backed up. All six.', 3.6);
+          await s.say('DRIVER', 'The Warden came down for the redhead himself. Walked her in by the arm like she was his.', 3.8);
+          s.closeUp(p, { side: 1, fov: 28, dist: 1.15, dur: 4 });
+          await s.say('SCARLET', 'In where?', 1.4);
+          await s.say('DRIVER', 'Front doors. I don\'t ask past the front doors.', 2.8);
+          if (D) D.lookAt = null;
+          await s.wait(0.4);
+        });
+        if (d1) d1.walk([[37.2, 3.2]], 1.3, () => d1.hold('st_smoke', 0.4));
+        void dock;
+      },
+    },
     // ------------------------------------------------------------------ the front door, reception
     {
       name: 'NIGHT SHIFT',
       resume(s) {
         s.game.player.changeOutfit(outfitVariant('guard'));
         s.game.restricted = restricted;
-        s.place(P.hut.x0 - 1.2, P.hut.z0 + 4, -Math.PI / 2);
+        s.place(21.6, 13.8, -Math.PI / 2);
       },
       async play(s) {
         const g = s.game;

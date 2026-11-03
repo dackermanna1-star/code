@@ -25,6 +25,8 @@ const VIPERS = ['agile0', 'agile1', 'agile2'];
 let ivy: Npc | null = null;
 let viper: Enemy | null = null;
 const guests: Npc[] = [];
+/** Viper's two at the viewing (kept here: a checkpoint's flags are plain data). */
+let vguards: Enemy[] = [];
 
 function at(s: Story, x: number, z: number, yaw: number, y: number) {
   s.place(x, z, yaw);
@@ -50,7 +52,7 @@ function viewing(s: Story) {
   s.cast('VIPER', viper);
   const g1 = s.spawn('agile', 2.2, -8.8, -0.3, { variant: VIPERS[0], pose: 'st_crossed' });
   const g2 = s.spawn('agile', -2.8, -9.2, 0.3, { variant: VIPERS[1], pose: 'st_crossed' });
-  s.flags.vguards = [g1, g2];
+  vguards = [g1, g2];
 }
 
 export const CH4: Chapter = {
@@ -69,6 +71,7 @@ export const CH4: Chapter = {
   setup(s) {
     ivy = null;
     viper = null;
+    vguards = [];
     meridianStage.feed = 0;
     s.givePistol(1);
     const L = MERIDIAN.lift;
@@ -131,7 +134,7 @@ export const CH4: Chapter = {
         };
         s.when(() => Math.hypot(p.x - D.x, p.z - D.z) < 4, () => void hint());
         void s.wait(35, false).then(() => hint());
-        void s.tutor(['C'], 'THE NIGHT MEN', 'Their torches carry: keep low between the work lights', () => p.stats.takedowns + (spotted ? 1 : 0), 1, () => p.z < -14 || spotted);
+        void s.tutor(['C'], 'THE NIGHT MEN', 'Their torches carry: keep low between the work lights', ((tk) => () => tk() + (spotted ? 1 : 0))(s.since(() => p.stats.takedowns)), 1, () => p.z < -14 || spotted);
         await s.until(() => p.z < -14.15 && p.y < S57 + 0.5 || (spotted && !hinted), false);
         if (spotted && p.z > -14) {
           s.hideTutor();
@@ -169,7 +172,7 @@ export const CH4: Chapter = {
         await s.until(() => p.y > S58 - 0.4, false);
         s.ui.marker(V((MERIDIAN.pane.x0 + MERIDIAN.pane.x1) / 2, S58 + 1.2, -12.8), 'THE GAP IN THE GLASS');
         s.objective('INSIDE', 'Through the missing pane into 58');
-        if (look.alive && look.state === 'idle') void s.tutor(['F'], 'FROM BEHIND', 'He\'s watching the city, not the boards', () => p.stats.takedowns, 1, () => p.z > -13.8 || look.state !== 'idle' || !look.alive);
+        if (look.alive && look.state === 'idle') void s.tutor(['F'], 'FROM BEHIND', 'He\'s watching the city, not the boards', s.since(() => p.stats.takedowns), 1, () => p.z > -13.8 || look.state !== 'idle' || !look.alive);
         await s.until(() => p.z > -13.6 && p.y > S58 - 0.4 || (look.alive && look.state !== 'idle' && !look.down), false);
         if (look.alive && look.state !== 'idle') {
           s.hideTutor();
@@ -223,7 +226,8 @@ export const CH4: Chapter = {
           await s.wait(0.4);
         });
         s.objective('THE PENTHOUSE', 'The service stairs in the east core');
-        s.ui.marker(V(28, S58 + 1.2, 16.6), 'SERVICE STAIRS');
+        // (the marker on the landing at the top: up the stairs is the way)
+        s.ui.marker(V(27.6, 1.2, 7.6), 'SERVICE STAIRS');
         await s.until(() => p.y > -1.2 && p.x > 22, false);
         s.ui.marker(null);
         // (whoever's still on 58 stays on 58)
@@ -268,7 +272,7 @@ export const CH4: Chapter = {
             n.pose = null;
             n.walk([[n.x * 0.6 - 2.0, Math.min(9.6, n.z + 6)], [-4.5, 10.6], [-4.5, 13.5]], 2.5 + (i % 3) * 0.3, () => n.vanish());
           }
-          const [g1] = s.flags.vguards as Enemy[];
+          const [g1] = vguards;
           if (ivy) {
             const I = ivy;
             I.hold(null, 0.3);
@@ -297,7 +301,7 @@ export const CH4: Chapter = {
         p.sceneStyle = 'relaxed';
         p.sceneGuard = 0.35;
         // her men first
-        const crew = (s.flags.vguards as Enemy[]).filter((e) => e.alive);
+        const crew = vguards.filter((e) => e.alive);
         // (in behind her through the service door: the front doors open on nothing up here)
         crew.push(s.enter('agile', 2, 0), s.enter('knife', 2, 1));
         s.objective('VIPER\'S PEOPLE', 'Get through them');
@@ -314,7 +318,7 @@ export const CH4: Chapter = {
         if (!viper) viewing(s);
         for (const n of guests) n.vanish();
         ivy?.vanish();
-        for (const e of (s.flags.vguards as Enemy[]) ?? []) {
+        for (const e of vguards) {
           e.alive = false;
           e.model.group.visible = false;
           s.game.removeFighter(e);
@@ -337,10 +341,21 @@ export const CH4: Chapter = {
           await s.say('VIPER', 'Everyone leaves without something.', 2.4);
         });
         g.cam.yaw = s.behindYaw(yawTo(p, V0));
+        // (her phases: two more of hers in through the kitchen behind Scarlet, then just her)
+        s.onBossPhase = (e, phase) => {
+          if (e !== V0) return false;
+          if (phase === 2) {
+            s.bark('VIPER', 'Boys!', 1.2, V0);
+            s.enter('agile', 2, 0);
+            s.enter('knife', 2, 1);
+          } else s.bark('VIPER', 'You\'re actually enjoying this.', 2.0, V0);
+          return true;
+        };
         s.boss(V0, { name: 'VIPER', sub: 'VOSS\'S FIXER', kick: 'THE PENTHOUSE' });
         s.objective('VIPER', 'She vanishes and comes from behind — don\'t stand still');
         s.when(() => V0.alive && V0.hp < V0.maxHp * 0.3, () => s.bark('VIPER', 'You\'re better than he said.', 2, V0));
         await s.fight([V0], { pressure: 5 });
+        s.onBossPhase = null;
         s.flags.viper = { x: V0.x, z: V0.z };
       },
     },

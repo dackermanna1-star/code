@@ -268,9 +268,9 @@ export const CH0: Chapter = {
         s.objective('THE CREW AT THE FIRE', 'They know where Ivy went');
         let done = false;
         const lessons = (async () => {
-          await s.tutor(['LMB'], 'STRIKE', 'Steer toward one and strike — chain from man to man', () => p.stats.hits, 4, () => done);
-          await s.tutor(['RMB'], 'COUNTER', 'When a gold bolt shows over one of them — late is perfect', () => p.stats.counters, 1, () => done);
-          await s.tutor(['SPACE'], 'DODGE', 'Toward a man to vault over him', () => p.stats.dodges, 1, () => done);
+          await s.tutor(['LMB'], 'STRIKE', 'Steer toward one and strike — chain from man to man', s.since(() => p.stats.hits), 4, () => done);
+          await s.tutor(['RMB'], 'COUNTER', 'When a gold bolt shows over one of them — late is perfect', s.since(() => p.stats.counters), 1, () => done);
+          await s.tutor(['SPACE'], 'DODGE', 'Toward a man to vault over him', s.since(() => p.stats.dodges), 1, () => done);
         })();
         // two more come out of the block's back door when it's going badly for them
         s.when(() => crew.filter((e) => e.alive).length <= 1, () => {
@@ -332,10 +332,10 @@ export const CH0: Chapter = {
         let done = false;
         const lessons = (async () => {
           await s.until(() => g.director.incoming.some((i) => !i.counterable) || done, false);
-          if (!done) await s.tutor(['SPACE'], 'DODGE THE RED', 'A red warning can\'t be countered — get out of its way', () => p.stats.dodges, 1, () => done);
+          if (!done) await s.tutor(['SPACE'], 'DODGE THE RED', 'A red warning can\'t be countered — get out of its way', s.since(() => p.stats.dodges), 1, () => done);
           const wp = new THREE.Vector3();
           await s.until(() => g.weapons.some((w) => w.pickable && w.worldPos(wp).distanceTo(V(p.x, wp.y, p.z)) < 6) || done, false);
-          if (!done) await s.tutor(['E'], 'PICK IT UP', 'Counter a blade to take it off him — E picks a weapon up, G throws it', () => (p.weapon ? 1 : 0) + p.stats.disarms, 1, () => done);
+          if (!done) await s.tutor(['E'], 'PICK IT UP', 'Counter a blade to take it off him — E picks a weapon up, G throws it', ((dis) => () => (p.weapon ? 1 : 0) + dis())(s.since(() => p.stats.disarms)), 1, () => done);
         })();
         s.when(() => wave.filter((e) => e.alive).length <= 1, () => {
           openStreetGate(s);
@@ -417,7 +417,7 @@ export const CH0: Chapter = {
           await s.tutor(['Q'], 'STUN HIM', 'Big men shrug off blows — stun first, then hit him while he reels', () => stunned, 1, () => done);
           await s.tutor(['SPACE'], 'VAULT', 'Dodge toward him to go over the top — it dazes him', () => (doyle.vaulted > 0 ? 1 : 0), 1, () => done);
           await s.until(() => p.charges > 0 || done, false);
-          if (!done) await s.tutor(['F'], 'FINISHER', 'A combo fills the diamonds — spend one to end a man', () => p.stats.finishers + p.stats.takedowns, 1, () => done);
+          if (!done) await s.tutor(['F'], 'FINISHER', 'A combo fills the diamonds — spend one to end a man', s.since(() => p.stats.finishers + p.stats.takedowns), 1, () => done);
         })();
         // a line when he's hurting
         s.when(() => doyle.hp < doyle.maxHp * 0.25 && doyle.alive, () => s.bark('DOYLE', 'You don\'t even know who you\'re fighting for.'));
@@ -476,7 +476,7 @@ export const CH0: Chapter = {
         let done = false;
         const lessons = (async () => {
           await s.wait(1.2, false);
-          await s.tutor(['R'], 'PISTOL', 'One round loaded — steer to pick who gets it', () => p.stats.specials, 1, () => done);
+          await s.tutor(['R'], 'PISTOL', 'One round loaded — steer to pick who gets it', s.since(() => p.stats.specials), 1, () => done);
         })();
         await s.fight(wave, { pressure: 3 });
         done = true;

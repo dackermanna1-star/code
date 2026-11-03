@@ -71,13 +71,17 @@ export class BossManager {
         this.minions(next === 2 ? ['agile'] : ['brawler', 'agile']);
       } else if (e.cfg.key === 'viper') {
         this.minions(['agile', 'knife']);
-        // vanish and reappear behind the player
-        g.fx.dust(new THREE.Vector3(e.x, 0, e.z), 3);
-        const p = g.player;
-        e.x = p.x - Math.sin(p.yaw) * 3.5;
-        e.z = p.z - Math.cos(p.yaw) * 3.5;
-        e.anim.initAt(e.x, e.z, e.yaw);
-        g.fx.dust(new THREE.Vector3(e.x, 0, e.z), 3);
+        // vanish and reappear behind the player (on her floor and in sight of her: not off an edge)
+        const p = g.player, a = g.arena;
+        const x = p.x - Math.sin(p.yaw) * 3.5, z = p.z - Math.cos(p.yaw) * 3.5;
+        if (Math.abs(a.groundAt(x, z, p.y + 0.4) - p.y) < 0.3 && a.lineOfSight(p.x, p.y + 1, p.z, x, p.y + 1, z) && !a.collide(x, z, e.radius, false, p.y, 1.7)[2]) {
+          g.fx.dust(new THREE.Vector3(e.x, e.y, e.z), 3);
+          e.x = x;
+          e.z = z;
+          if (Math.abs(e.y - p.y) > 0.05) e.setY(p.y);
+          e.anim.initAt(e.x, e.z, e.yaw);
+          g.fx.dust(new THREE.Vector3(e.x, e.y, e.z), 3);
+        }
       } else if (e.cfg.key === 'master') {
         if (next === 2) {
           // takes up a blade
@@ -98,6 +102,8 @@ export class BossManager {
 
   private minions(keys: string[]) {
     const g = this.game;
+    // (a place with no ways in for anyone - a jetty, a car - gets none)
+    if (!g.arena.doors.length) return;
     keys.forEach((k, i) => {
       const door = g.arena.doors[(i + 1) % g.arena.doors.length];
       g.waves.spawn(k, door, i);

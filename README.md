@@ -1,18 +1,20 @@
 # LAST STANCE
 
-A cinematic, free-flow martial-arts combat simulator for the browser. One fighter (two to choose
-from) against escalating waves of thugs, armed enforcers, brutes, elite martial artists and bosses, in five
-arenas — a moonlit warehouse, a rain-lashed neon rooftop, a graffiti-covered back alley, a
-penthouse where everything breaks, and a containment lab with its own guards and monsters —
-Arkham-style flow, Assassin's Creed counters, Spider-Man finishers and Sifu-style technique,
-with **bodies and blood that never disappear** — and a story mode, *Scarlet: Before Dawn*: one
-night, her sister taken, told in chapters with scenes, checkpoints and grades (the first two in
-this build).
+A cinematic, free-flow martial-arts action game for the browser, and a story: **Scarlet: Before
+Dawn** — one night, her sister taken, nine chapters on their own levels (a back street, a container
+yard, a nightclub, the rooftops in the rain, the top of a tower, a car chase down the river road, a
+lab and what's under it, a dock at sunrise), with scenes, voiced lines, stealth, climbing, a
+change of clothes and a grade per chapter. And **ENDLESS**: escalating waves of thugs, armed
+enforcers, brutes, elite martial artists and bosses in five arenas — a moonlit warehouse, a
+rain-lashed neon rooftop, a graffiti-covered back alley, a penthouse where everything breaks, and
+a containment lab with its own guards and monsters. Arkham-style flow, Assassin's Creed counters,
+Spider-Man finishers and Sifu-style technique, with **bodies and blood that never disappear**.
 
 Built with **three.js** (rendering) + **Rapier** (props, debris, weapons) and the **Ragdoll Lab
 "euphoria" active-ragdoll engine** (bodies), TypeScript and Vite.
-Everything visual is procedural (characters, textures, animation) except Scarlet, a realistic
-model from Microsoft's Rocketbox library (MIT); audio is CC0.
+Scarlet and everyone she meets are realistic avatars from Microsoft's Rocketbox library (MIT);
+the fighting and moving is motion capture (CMU, ACCAD) on a procedural animation system; the
+levels, textures and effects are procedural; sound effects and music are CC0 or synthesised.
 
 ## Run it
 
@@ -39,58 +41,111 @@ Recommended browsers: Chrome/Edge or Safari 17+ (WebGL2). On a MacBook Air M1 th
 *dynamic resolution* on (default) and it will adapt automatically.
 
 URL options: `?quality=low|medium|high|ultra`, `?wave=10` (start at a wave), `?debug=1`
-(stats overlay), `?bot=1&god=1` (attract mode — a scripted bot plays), `?fighter=jin|scarlet`.
+(stats overlay), `?bot=1&god=1` (attract mode — a scripted bot plays).
 
 ## Story — SCARLET: BEFORE DAWN
 
-**STORY** on the title screen. One night, told in six chapters; this build plays the first two
-(the prologue and chapter one, about twenty minutes), and the chapter select shows what's to come.
+**STORY** on the title screen. One night, 11:46 PM to sunrise, in nine chapters — a prologue,
+seven chapters and the end, every one on its own level built for it, with scenes, checkpoints,
+grades, things to find and a change of clothes as the night goes on.
 
 > Scarlet used to work nights guarding a lab that pays cash and asks nothing. Tonight her little
 > sister Ivy didn't come home from her shift at the Lantern — the KX Crew's club. The crew pays
 > its debts in people. The trucks leave at dawn.
 
-* **Prologue — Last Call.** *The alley behind the Lantern, 11:52 PM.* It opens on Ivy's last
-  texts. Scarlet walks in off the street to the club's back door, and the crew round the drum fire
-  were waiting for her — the fight that teaches the fight (strike, chain, counter, dodge). The
-  door's shut, the bass thumping through the steel, Ivy's staff lanyard on the ground beside it;
-  the crew come over the fence with knives and bats (red attacks, disarms, weapons). Then Doyle the
-  doorman comes out to finish it (a mini-boss: stuns, vaults, finishers), and she takes his
-  suppressed pistol (the special). His phone buzzes on the asphalt: the Butcher. *Dock 4.* She
-  answers it.
-* **Chapter One — Meat Market.** *The KX warehouse, Dock 4, 12:50 AM.* The crew's chain-link pen
-  under one bare bulb, five people in it, and the men minding it talking about the sixth. Marco,
-  the Lantern's barback, at the wire: Ivy went in a black car, on her own — *spoken for*. The
-  Butcher walks in off the loading dock with her own text in his hand. His crew, then him. The key
-  from round his neck, the pen open, the people out into the rain; Ivy's phone ringing in a crate
-  of everybody's phones, the message she never got to send, and the Butcher's clipboard: lot six,
-  reserved — *V.* Meridian Tower. The penthouse.
+* **Prologue — Last Call.** *Kessler Street, 11:46 PM.* Ivy's last texts. The alley behind the
+  Lantern, the crew round the drum fire waiting for her — the fight that teaches the fight
+  (strike, chain, counter, dodge). The back door shut, the bass through the steel, Ivy's staff
+  lanyard on the ground; the crew over the fence with knives and bats; Doyle the doorman, and his
+  suppressed pistol. His phone buzzes on the asphalt: the Butcher. *Dock 4.*
+* **Chapter One — Meat Market.** *The harbour, Dock 4, 12:41 AM.* Across the container yard to
+  the KX warehouse: the crew's chain-link pen under one bare bulb, five people in it, and the men
+  minding it talking about the sixth. The Butcher walks in off the loading dock with her own text
+  in his hand. His crew, then him; the key, the pen open, the people out into the rain — and the
+  Butcher's clipboard: lot six, reserved — *V.* — and his black card for the Lantern's gallery.
+* **Chapter Two — Red Ledger.** *The Lantern, 2:14 AM, in a red dress.* The doorman who sent her
+  home two hours ago holds the door. A full club: the dance floor under the moving beams, the bar
+  three deep, the DJ, the VIP gallery. Lena behind the bar (Ivy's friend) with what she knows;
+  past the staff door while Lena keeps its man busy; Ivy's locker — her jacket, her jeans, her
+  sneakers — and into them; the keg room's two men in the dark; up through the trapdoor into
+  Varga's office, the safe and the red ledger. Then the alarm: the house lights, the siren, the
+  crowd running for the doors, Branko's men up the gallery stairs and Branko after them; the
+  ladder to the roof, the rain, and a woman's voice on Varga's phone. *"I'll leave the light on."*
+* **Chapter Three — Rain.** *The rooftops, 2:58 AM, in her sister's jacket.* Six roofs between
+  the Lantern and the tower: run and jump the gaps (Shift, Space at the edge), a roof of washing
+  lines where the men who went round by the stairs are waiting, a ladder up an office block under
+  a lit billboard where three men with torches watch the roofs (stay low in the frame's shadow,
+  take them one at a time — or don't), a tenement roof of chimneys and a trap, the fire escape —
+  and the neon roof, and Kael, who trained every one of them, waiting in the rain. He picks up a
+  blade halfway through. *"Voss."*
+* **Chapter Four — Meridian.** *Meridian Tower, 3:41 AM.* Kael's keycard calls the service lift
+  to floor 57: bare concrete, work lights, the stairs chained shut, the site's night men with
+  their torches. Out onto the scaffold two hundred metres up, along the planks and up its ladder
+  to a missing pane of 58; the private floor, its security and its monitors — the viewing, live,
+  her sister on a stage. Up the service stairs into the penthouse: the guests, Viper, Ivy taken
+  down in the private lift; Viper's people, then Viper; and Voss on the screen, calm as a man
+  reading a menu: the trucks leave at dawn.
+* **Chapter Five — The Trucks Leave at Dawn.** *The river expressway, 4:52 AM.* Viper's armoured
+  car after Voss's convoy — two refrigerated trucks, three black SUVs round them, the last of the
+  night's traffic. Drive (W / S, A / D, Space the handbrake), run the escorts into the barriers or
+  put a round through a tyre (R); then the two cars sent down from Meridian that come up behind
+  her; get alongside Ivy's truck — and see it through Palewater's gates as they close. Let the
+  convoy reach its exit and it's gone.
+* **Chapter Six — Night Shift.** *Palewater Biotech, 5:16 AM.* The lab she used to guard. Over the
+  patched bit of fence by the car park, into the guards' hut — her old locker, her name still on
+  it, her uniform still inside. In that, nobody looks twice: round to the loading dock, where the
+  convoy's trucks stand open and empty (a red hair tie on the floor of the second one, and a driver
+  who doesn't ask past the front doors); across the forecourt, in through the front doors past
+  reception (Owens, who used to bring her coffee), down the restricted corridor where a guard has
+  no business — and the Warden, with the card that opens the way down.
+* **Chapter Seven — Subject Zero.** *Palewater, level B3, 5:41 AM.* The hall of tanks, a person
+  floating in each one. Ivy at the far end, her number on the glass; the console up in the booth
+  on the catwalk drains it — and the alarm, and the big tank in the middle of the floor giving
+  way. Then out: the last of the night staff down the service stairs at her, the riot team down
+  from the lift behind them, Ivy keeping low behind the booth — and up the stairs toward the river,
+  Ivy behind her.
+* **Chapter Eight — Dawn.** *The river dock, 6:12 AM.* The sun coming up over the far bank, Voss
+  walking down the jetty to his helicopter, and Viper, who isn't dead after all. His people on the
+  quay; Viper's own up the ladders from a launch under the jetty (its rail is low: a heavy blow puts
+  a man in the river), then Viper; Voss in the helicopter's door offering money — and the two
+  sisters sat on the edge of the jetty, feet over the water, watching it get light.
 
 How it plays:
 
-* **Scenes in the engine**: letterboxed shots, subtitled lines, a phone's messages; nobody
-  attacks during one. Hold **SPACE** (A) to skip — everything in it still happens, under a quick
-  black.
-* **Objectives** with a marker in the world (and its distance), and **tutorial prompts** that
-  wait for you to do the thing — four hits, a counter, a dodge, a stun on the big man, the pistol.
-  *Tutorial tips* in the settings turns them off.
+* **Big levels to find your way through**: the objective marker shows *where*, not *how* — the
+  way up is a ladder round the back, a hatch in a keg room, a scaffold outside the glass. Scarlet
+  climbs walls and fences, vaults rails, drops off ledges, jumps gaps at a run, goes up and down
+  ladders (all on **Space** where there's something to go over), and **crouches** (C) under
+  shutters and into the dark.
+* **Walking and running**: out of a fight she walks; **Shift** runs. In a fight she runs, and Shift
+  walks.
+* **Stealth**: guards with torches and patrols, an eye over each one that fills as he notices her, and silent
+  takedowns from behind (**F**). Crouched in the dark she's hard to see; in the club's dress and
+  the guard's uniform she's someone who belongs there — until she's somewhere she isn't allowed,
+  or starts something.
+* **Scenes in the engine**: letterboxed shots, subtitled lines, phone calls and messages; nobody
+  attacks during one. The lines are spoken by the browser's own speech voices (its most natural
+  ones first — Edge's and Chrome's online voices are the best; *Voices* in the settings turns them
+  off), each speaker's jaw and lips moving with the words; a recorded cast dropped into
+  `public/audio/voice/` (one file per line, listed in its `manifest.json`) takes over line by line. Hold **Space** (A) to skip — everything in it
+  still happens, under a quick black.
+* **Objectives** with a marker in the world (and its distance), and **tutorial prompts** that wait
+  for you to do the thing. *Tutorial tips* in the settings turns them off.
+* **Things to find**: notes, photos and medkits round every level (a glint as you get near; E to
+  pick up, read them again in the **journal**, Tab).
+* **Outfits**: the leather jacket she came in, a red dress and heels for the club's gallery, Ivy's
+  denim jacket, black jeans and sneakers for the roofs, her old Palewater uniform for the lab.
 * **Checkpoints** between the fights. Die and it's *SCARLET IS DOWN*: retry from the last one,
   restart the chapter, or watch the last minute back. You come back with the health and kit you
   had (at least 70% health), and everyone you'd already put down is still lying where they fell.
 * **A grade per chapter**, S to D — flow, perfect counters, damage taken, finishers, pace,
   retries — with the best kept; finishing a chapter opens the next, and **CONTINUE** picks a
   chapter up at its last checkpoint.
-* **The story's own people and places**: Doyle, the Lantern's doorman (a big man in a black suit);
-  the five in the pen — two of them Rocketbox's *Female_Party_02* and *Female_Adult_08*, held in
-  kneeling, sitting and cowering poses; the Lantern's neon over its back door and the club's bass
-  through the steel (synthesised, the top end coming through when the door opens); the pen with
-  its padlocked gate, its mattress and its bulb; a table with a crate of everybody's phones and
-  the Butcher's clipboard. The crew stand about, warming their hands at the fire, smoking, arms
-  folded, until they notice you.
 
-URL options for testing: `?story=0|1` (a chapter), `&cp=N` (from a checkpoint), `&autostart=1`
-(no *press any key*), `&skipscenes=1`, `&bot=1&god=1` (the bot plays it, walking to the
-objectives too), `&turbo=N` (N steps of the world per frame drawn, for slow headless renderers).
+URL options for testing: `?story=0..8` (a chapter), `&cp=N` (from a checkpoint), `&autostart=1`
+(no *press any key*), `&skipscenes=1`, `&bot=1&god=1` (the bot plays it — walking the routes,
+climbing, fighting, driving), `&turbo=N` (N steps of the world per frame drawn, for slow headless
+renderers).
 
 ## Controls
 
@@ -135,9 +190,8 @@ Taking a hit breaks your combo; finishers and perfect counters restore a little 
 
 ## What's in the box
 
-**Two fighters** — pick on the title screen (*FIGHTER*), or `?fighter=jin|scarlet`.
+**Scarlet** (the old second fighter, Jin, is retired; `?fighter=jin` still brings him back for tests).
 
-* **Jin — Muay Thai.** Elbows, knees, hooks and heavy hands; the move list below.
 * **Scarlet — kickboxing.** A redhead in a black leather biker jacket, a tight black mini
   skirt, sheer black tights and high-heeled knee boots. Lighter, faster hands (a whipping
   backfist, a palm heel under the chin) that set up kicks: a snapping lead-leg kick, the
@@ -514,14 +568,19 @@ src/character/   procedural mesh (meshKit, body, femMesh), outfits, canvas textu
 src/combat/      fighter base, player controller, fighter styles, combat resolver, moves, weapons, deaths
 src/ai/          enemy brain, archetypes, director, waves, bosses
 src/world/       arenas (warehouse + dressing, rooftop, alley, apartment, lab), mapKit, city, graffiti,
-                 prop library and props, blood atlas, corpse baking, Rapier physics, ragdolls, textures
+                 prop library and props, blood atlas, corpse baking, Rapier physics, ragdolls, textures,
+                 the nav grid (nav.ts: floors stacked per cell, ladders, A*, steering round things)
+src/world/level/ the story's levels on a shared kit (kit.ts: floors, decks, stairs, ladders, lights,
+                 rain): Kessler Street, the harbour, the Lantern, the rooftops, Meridian, the river
+                 expressway, Palewater, the tank hall, the river dock
+src/vehicle/     the car chase's road (a polyline with projection), arcade cars, collisions
 src/world/euphoria/  Ragdoll Lab active-ragdoll engine (engine.js) and its game bridge
 src/fx/          particles (blood, sparks, dust, debris), camera rig
 src/audio/       sample engine with synth layers, procedural adaptive music
 src/ui/          HUD, menus, settings
 src/replay/      the last minute recorded (poses, props, weapons, camera, sounds, effects) and played back
 src/story/       the story mode: runner (scenes, fights, objectives, checkpoints, grades), its UI, the
-                 chapters (ch0 the alley, ch1 the warehouse), their set dressing and non-combatants, saves
+                 chapters (ch0 to ch8), their set dressing and non-combatants, the club's sound, saves
 tools/audio/     reproducible CC0 sound library build
 tools/models/    realistic models: Rocketbox FBX -> mesh asset, Scarlet's re-dressed textures, the
                  enemies' avatars (avatars.json, build_avatars.py, avatar_textures.py)

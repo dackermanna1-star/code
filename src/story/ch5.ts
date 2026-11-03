@@ -85,7 +85,7 @@ class Chase {
         e.mode = 'guard';
         e.modeT = rand(2, 5);
         e.station = [ds, lane];
-        e.car.hp = e.car.maxHp = 90;
+        e.car.hp = e.car.maxHp = 60;
         void i;
         this.escorts.push(e);
       }
@@ -159,7 +159,11 @@ class Chase {
     const escortsLeft = this.escorts.filter((e) => !e.car.dead).length;
     const lead = this.trucks[0]?.car;
     if (lead && lead.rs > CONVOY.exit - 900 && escortsLeft > 0) this.convoySpeed = damp(this.convoySpeed, 19, 0.5, dt);
+
     this.convoyS += this.convoySpeed * dt;
+    // (a convoy waits for its slowest: a truck held up behind her car, the rest ease off for it)
+    const rear = this.trucks[1]?.car;
+    if (rear && rear.rs < this.convoyS - 25) this.convoyS = rear.rs + 25;
     for (const r of this.rides) {
       if (r === this.me) continue;
       const c = r.car;
@@ -180,6 +184,9 @@ class Chase {
         if (Math.abs(a.rs - b.rs) > 16) continue;
         if (collideCars(a, b) && (this.rides[i] === this.me || this.rides[j] === this.me)) {
           const v = Math.max(a.hitCar, b.hitCar);
+          // (her car's armoured and heavy where it counts: a ram costs an escort far more than her)
+          const other = this.rides[i] === this.me ? this.rides[j] : this.rides[i];
+          if (other.role === 'escort' && v > 0.6) other.car.hp -= v * 3.2;
           if (v > 1.5) {
             g.audio.play('metal_hit', { pos: new THREE.Vector3((a.x + b.x) / 2, 0.8, (a.z + b.z) / 2), vol: clamp(0.25 + v * 0.05, 0.25, 1), pitch: 0.7 + Math.random() * 0.3 });
             this.shake = Math.max(this.shake, clamp(v * 0.04, 0.1, 0.6));
@@ -264,11 +271,12 @@ class Chase {
   }
 
   /** Follow the road at a lane and a speed (braking for whoever's ahead in it). */
-  aiDrive(r: Ride, d: number, speed: number, dt: number) {
+  aiDrive(r: Ride, d: number, speed: number, dt: number, ram: Car | null = null) {
     const c = r.car;
     let want = speed;
     for (const o of this.rides) {
-      if (o === r) continue;
+      // (it keeps its distance behind whoever's ahead in its lane - except the car it means to hit)
+      if (o === r || o.car === ram) continue;
       const ds = o.car.rs - c.rs;
       if (ds > 0 && ds < 22 && Math.abs(o.car.rd - d) < 2.4) want = Math.min(want, o.car.speed - 1 + (ds - 10) * 0.3);
     }
@@ -301,12 +309,29 @@ class Chase {
       // alongside her, then into her side
       const along = Math.abs(gap) < 4;
       const d = along ? me.rd : me.rd + (me.rd > c.rd ? -3.6 : 3.6);
-      this.aiDrive(r, clamp(d, -CONVOY.half + 1, CONVOY.half - 1), me.speed + clamp(gap * 0.8, -8, 10), dt);
+      // (at her pace, a little more from behind - never slower than a car on a motorway)
+      this.aiDrive(r, clamp(d, -CONVOY.half + 1, CONVOY.half - 1), Math.max(14, me.speed) + clamp(gap * 0.8, -8, 10), dt, me);
     } else {
       const st = r.station ?? [0, 1];
       const target = this.convoyS + st[0];
       this.aiDrive(r, LANES[st[1]], this.convoySpeed + clamp((target - c.rs) * 0.4, -6, 8), dt);
     }
+  }
+  /** More of them out of a slip road behind her: straight at her, and they don't let up. */
+  addTail(n: number) {
+    const me = this.me.car;
+    const out: Ride[] = [];
+    for (let i = 0; i < n; i++) {
+      const lane = i % 2 ? 2 : 0;
+      const e = this.add('escort', 'suv', me.rs - 60 - i * 22, lane, Math.max(20, me.speed + 4));
+      e.mode = 'ram';
+      e.modeT = 1e9;
+      e.station = [0, lane];
+      e.car.hp = e.car.maxHp = 50;
+      this.escorts.push(e);
+      out.push(e);
+    }
+    return out;
   }
   /** Out of it: it coasts, smoking, onto the shoulder. */
   wreck(r: Ride) {
@@ -322,7 +347,7 @@ class Chase {
     const sm = new THREE.Points(geo, new THREE.PointsMaterial({ color: 0x3a3a3a, size: 1.4, transparent: true, opacity: 0.35, depthWrite: false }));
     g.scene.add(sm);
     r.smoke = sm;
-    if (r.role === 'escort') this.s.bark('SCARLET', ['One down.', 'Off the road.', 'Stay down.'][this.escorts.filter((e) => e.car.dead).length - 1] ?? 'Next.', 1.6);
+    if (r.role === 'escort') this.s.bark('SCARLET', ['One down.', 'Off the road.', 'Stay down.', 'Next.', 'That\'s the last of you.'][this.escorts.filter((e) => e.car.dead).length - 1] ?? 'Next.', 1.6);
   }
   /** R: a shot at the nearest escort ahead (its tyres). */
   shoot() {
@@ -383,16 +408,33 @@ function controls(s: Story): { throttle: number; steer: number; handbrake: boole
   const inp = g.input;
   if (g.params.get('bot') === '1' && chase) {
     const me = chase.me.car;
-    // at the nearest live escort's lane if one's close, else down the middle; flat out
+    // the nearest live escort (or, with none left, Ivy's truck): alongside it, then into it
+    let tgt: Car | null = null;
     let d = 0;
-    const e = chase.escorts.find((x) => !x.car.dead && Math.abs(x.car.rs - me.rs) < 50);
-    if (e) d = e.car.rd;
-    else if (chase.trucks[1] && Math.abs(chase.trucks[1].car.rs - me.rs) < 60) d = chase.trucks[1].car.rd - 3.6;
-    const ahead = chase.road.pos(me.rs + 10 + me.speed * 0.4, clamp(d, -CONVOY.half + 1.2, CONVOY.half - 1.2));
+    let best = Infinity;
+    for (const x of chase.escorts) {
+      if (x.car.dead) continue;
+      const gap = Math.abs(x.car.rs - me.rs);
+      if (gap < best) {
+        best = gap;
+        tgt = x.car;
+      }
+    }
+    if (tgt) d = Math.abs(tgt.rs - me.rs) < 8 ? tgt.rd : tgt.rd + (me.rd > tgt.rd ? 1.6 : -1.6);
+    else if (chase.trucks[1]) {
+      tgt = chase.trucks[1].car;
+      d = tgt.rd - 3.6;
+    }
+    const ahead = chase.road.pos(me.rs + 10 + Math.max(0, me.speed) * 0.4, clamp(d, -CONVOY.half + 1.2, CONVOY.half - 1.2));
     const wantYaw = Math.atan2(ahead.x - me.x, ahead.z - me.z);
     const err = Math.atan2(Math.sin(wantYaw - me.yaw), Math.cos(wantYaw - me.yaw));
-    if (e && chase.pistol > 0 && Math.random() < 0.01) chase.shoot();
-    return { throttle: 1, steer: clamp(err * 2.2, -1, 1), handbrake: false };
+    if (tgt && tgt !== chase.trucks[1]?.car && chase.pistol > 0 && Math.random() < 0.01) chase.shoot();
+    // (matching its speed to stay alongside: a little faster from behind, easing off past it; one
+    // coming up from behind is waited for at a steady pace, never backed up into)
+    let throttle = tgt ? clamp((tgt.rs - me.rs) * 0.12 + (tgt.speed - me.speed) * 0.3 + 0.15, -1, 1) : 1;
+    if (tgt && tgt.rs < me.rs - 10) throttle = me.speed > 18 ? -0.4 : 0.35;
+    if (me.speed < 6 && throttle < 0) throttle = 0.2;
+    return { throttle, steer: clamp(err * 2.2, -1, 1), handbrake: false };
   }
   return { throttle: clamp(inp.moveY, -1, 1), steer: clamp(-inp.moveX, -1, 1), handbrake: inp.isHeld('dodge') };
 }
@@ -413,10 +455,16 @@ export const CH5: Chapter = {
     chase = new Chase(s);
     const at = s.cp >= 2 ? 1800 : s.cp >= 1 ? 600 : 10;
     chase.setup(at, s.cp >= 1 ? 70 : 340, true);
-    if (s.cp >= 2) for (const e of chase.escorts) chase.wreck(e), e.car.hp = 0;
+    // (from the last checkpoint the escorts are long gone: off the road behind her)
+    if (s.cp >= 2) {
+      for (const e of chase.escorts) chase.remove(e);
+      chase.escorts = [];
+    }
     g.player.model.group.visible = false;
     g.player.scripted = true;
     g.camOverride = (realDt) => chase?.camera(realDt);
+    // (for the test bot's probes)
+    if (g.params.get('bot') === '1') (window as unknown as { __chase: Chase | null }).__chase = chase;
     g.music.duck(1);
   },
   tick(s, dt) {
@@ -427,13 +475,9 @@ export const CH5: Chapter = {
     if (g.input.consume('special') && chase.active && !s.inScene) chase.shoot();
     chase.update(Math.min(dt, 0.05), controls(s));
     // wrecked: the end of the road
-    if (chase.me.car.hp <= 0 && !chase.over && !g.over && g.params.get('god') !== '1') {
-      chase.over = true;
-      const p = g.player;
-      p.hp = 0;
-      p.alive = false;
-      g.onPlayerDeath();
-    }
+    if (chase.me.car.hp <= 0 && !chase.over && !g.over && g.params.get('god') !== '1') lose(s, 'WRECKED', 'Viper\'s car is armoured. It isn\'t a tank.');
+    // the convoy at its exit while she's still behind it: through Palewater's gates without her
+    else if (chase.active && !chase.over && !g.over && (chase.trucks[0]?.car.rs ?? 0) > CONVOY.exit - 150) lose(s, 'THEY GOT AWAY', 'The trucks went through Palewater\'s gates without you. Catch them before the exit.');
   },
   segments: [
     // ------------------------------------------------------------------ out of the garage
@@ -485,6 +529,19 @@ export const CH5: Chapter = {
           return n === 0;
         }, false);
         s.hideTutor();
+        // and two more out of the slip road behind her: the tail, sent down from Meridian (only with
+        // the road left to deal with them before the exit)
+        await s.wait(1.6, false);
+        if ((c.trucks[0]?.car.rs ?? 0) > CONVOY.exit - 1500) return;
+        s.bark('KX', '<em>(radio)</em> Two cars on the slip road behind her. Put her into the barrier!', 3.2, null);
+        await s.wait(2.0, false);
+        const tail = c.addTail(2);
+        // (the glovebox: Viper keeps a spare clip in it)
+        c.pistol = 3;
+        s.objective('THE TAIL', 'Two more coming up behind you — run them off the road · R: a fresh clip');
+        await s.until(() => tail.every((r) => r.car.dead), false);
+        await s.wait(1.0, false);
+        s.bark('SCARLET', 'That\'s all of them. Now the truck.', 2.2);
       },
     },
     // ------------------------------------------------------------------ Ivy's truck
@@ -531,6 +588,20 @@ export const CH5: Chapter = {
     },
   ],
 };
+
+/** The chase lost: the car stops, and the chapter's retry screen says why. */
+function lose(s: Story, title: string, line: string) {
+  const g = s.game;
+  if (!chase) return;
+  chase.over = true;
+  chase.active = false;
+  chase.hud.style.opacity = '0';
+  s.fail = { title, line };
+  const p = g.player;
+  p.hp = 0;
+  p.alive = false;
+  g.onPlayerDeath();
+}
 
 /** (the chapter's over: the car, its sounds and its hud go) */
 export function endChase(s: Story) {

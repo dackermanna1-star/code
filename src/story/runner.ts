@@ -84,6 +84,19 @@ interface Waiter {
  * objectives and tutorial prompts, checkpoints, the results - and the game's hooks into it (kills,
  * death, the frame).
  */
+/** A chapter's flags as plain data for a save (anything that isn't - a fighter, a mesh - is left out). */
+function plainFlags(flags: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(flags)) {
+    try {
+      out[k] = JSON.parse(JSON.stringify(v));
+    } catch {
+      console.warn(`story flag "${k}" isn't plain data: not saved with the checkpoint`);
+    }
+  }
+  return out;
+}
+
 export class Story {
   ui: StoryUI;
   /** Seconds of play (scenes not counted). */
@@ -625,7 +638,13 @@ export class Story {
   /** Through a door, straight into the fight. */
   enter(key: string, door: number | Door, i = 0, o: { hp?: number } = {}): Enemy {
     const g = this.game;
-    const d = typeof door === 'number' ? g.arena.doors[door] : door;
+    const p = g.player;
+    let d = typeof door === 'number' ? g.arena.doors[door] ?? g.arena.doors[0] : door;
+    // (a place with no doors at all: in at a run from behind her, on her floor)
+    if (!d) {
+      const bx = p.x - Math.sin(p.yaw) * 9, bz = p.z - Math.cos(p.yaw) * 9;
+      d = { x: bx, z: bz, ix: p.x - Math.sin(p.yaw) * 5, iz: p.z - Math.cos(p.yaw) * 5, yaw: p.yaw, width: 2 };
+    }
     const e = g.waves.spawn(key, d, i);
     if (o.hp) e.maxHp = e.hp = o.hp;
     this.encounter.push(e);
@@ -693,6 +712,30 @@ export class Story {
     await this.until(() => Math.hypot(p.x - x, p.z - z) < r && (y === undefined || Math.abs(p.y - y) < 1.2), false);
     this.ui.marker(null);
   }
+  /**
+   * The marker along a route: each point in turn as she comes within `r` of it (to the patched bit
+   * of a fence, then over it). The returned function takes the marker down.
+   */
+  markRoute(points: ([number, number] | [number, number, number])[], label: string, r = 1.8): () => void {
+    const p = this.game.player;
+    let i = 0;
+    let stopped = false;
+    const set = () => this.ui.marker(this.markAt(points[i][0], points[i][1], points[i][2]), label);
+    set();
+    void (async () => {
+      while (!stopped && i < points.length - 1) {
+        await this.until(() => stopped || Math.hypot(p.x - points[i][0], p.z - points[i][1]) < r, false);
+        if (stopped) return;
+        i++;
+        set();
+      }
+    })();
+    return () => {
+      if (stopped) return;
+      stopped = true;
+      this.ui.marker(null);
+    };
+  }
   /** A tutorial prompt until `done` reports `need` (it shows the count meanwhile). */
   async tutor(keys: string[], text: string, sub: string, count: () => number, need = 1, abort: () => boolean = () => false, at: [number, number] | [number, number, number] | null = null) {
     // (where it's to be done: a marker there while it waits)
@@ -724,6 +767,11 @@ export class Story {
     this.game.audio.ui('ok');
     await this.wait(1.1, false);
     this.ui.tutorHide();
+  }
+  /** A count from now on (a tutorial's: the takedowns since it came up, not the chapter's). */
+  since(f: () => number): () => number {
+    const v0 = f();
+    return () => f() - v0;
   }
   hideTutor() {
     this.ui.tutorHide();
@@ -918,7 +966,7 @@ export class Story {
       specialKOs: p.specialKOs,
       charges: p.charges,
       bodies: [...this.staged, ...this.fallen.map((e) => [Math.round(e.x * 100) / 100, Math.round(e.z * 100) / 100, e.variant.name, Math.round(e.y * 100) / 100] as [number, number, string, number])],
-      flags: JSON.parse(JSON.stringify(this.flags)),
+      flags: plainFlags(this.flags),
     };
     this.lastState = st;
     const pr = loadProgress();
@@ -959,6 +1007,8 @@ export class Story {
 
   // ================================================================== the end
   /** Her death: the fight's over, retry from the checkpoint. */
+  /** Not her death but the chapter lost all the same (the convoy gone through the gates): its words on the screen. */
+  fail: { title: string; line: string } | null = null;
   onDeath() {
     this.halted = true;
     this.game.voice.stopAll();

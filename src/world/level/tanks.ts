@@ -116,9 +116,11 @@ export function buildTanks(a: Arena, blood: BloodAtlas, pointLights: number, sha
     for (const [x0, x1] of [[H.x0, H.x0 + 1.6], [H.x1 - 1.6, H.x1]] as [number, number][]) {
       k.deck(x0, x1, H.z0, H.z1, CY, M.deckPlate(), iron, { thick: 0.2, name: 'catwalk' });
       const inner = x0 < 0 ? x1 : x0;
-      k.solid([inner - 0.05, inner + 0.05, CY, CY + 1.0, H.z0, H.z1], null, { kind: 'wall', name: 'catwalk rail', hidden: true });
-      put(k, new THREE.BoxGeometry(0.05, 0.05, H.z1 - H.z0), iron, inner, CY + 1.0, (H.z0 + H.z1) / 2, 0, false);
-      for (let z = H.z0; z <= H.z1; z += 2.5) put(k, new THREE.BoxGeometry(0.05, 1.0, 0.05), iron, inner, CY + 0.5, z, 0, false);
+      // (its rail open at the north end, where the stairs' landing joins it)
+      const r0 = H.z0 + 2;
+      k.solid([inner - 0.05, inner + 0.05, CY, CY + 1.0, r0, H.z1], null, { kind: 'wall', name: 'catwalk rail', hidden: true });
+      put(k, new THREE.BoxGeometry(0.05, 0.05, H.z1 - r0), iron, inner, CY + 1.0, (r0 + H.z1) / 2, 0, false);
+      for (let z = r0; z <= H.z1; z += 2.5) put(k, new THREE.BoxGeometry(0.05, 1.0, 0.05), iron, inner, CY + 0.5, z, 0, false);
     }
     // stairs up to each side's catwalk (at the north end)
     k.stairs(H.x0 + 1.6, H.x0 + 3.0, H.z0 + 2, H.z0 + 8, 'z', 0, CY, iron, { dir: -1 });
@@ -128,6 +130,12 @@ export function buildTanks(a: Arena, blood: BloodAtlas, pointLights: number, sha
     k.solid([H.x1 - 3.1, H.x1 - 3.0, 0, CY + 1, H.z0 + 2, H.z0 + 8], null, { kind: 'wall', name: 'stair rail', hidden: true });
     k.deck(H.x0 + 1.6, H.x0 + 3.0, H.z0, H.z0 + 2, CY, M.deckPlate(), iron, { thick: 0.2, name: 'landing' });
     k.deck(H.x1 - 3.0, H.x1 - 1.6, H.z0, H.z0 + 2, CY, M.deckPlate(), iron, { thick: 0.2, name: 'landing' });
+    // (the landings' open sides over the hall: railed)
+    for (const x of [H.x0 + 3.05, H.x1 - 3.05]) {
+      k.solid([x - 0.05, x + 0.05, CY, CY + 1.0, H.z0, H.z0 + 2], null, { kind: 'wall', name: 'landing rail', hidden: true });
+      put(k, new THREE.BoxGeometry(0.05, 0.05, 2), iron, x, CY + 1.0, H.z0 + 1, 0, false);
+      put(k, new THREE.BoxGeometry(0.05, 1.0, 0.05), iron, x, CY + 0.5, H.z0 + 0.05, 0, false);
+    }
     // the observation booth (east catwalk): glass front, the console
     const B = TANKS.booth;
     k.deck(B.x0, H.x1 - 1.6, B.z0, B.z1, CY, M.deckPlate(), iron, { thick: 0.2, name: 'booth floor' });
@@ -136,18 +144,17 @@ export function buildTanks(a: Arena, blood: BloodAtlas, pointLights: number, sha
     g.position.set(B.x0 + 0.05, CY + 1.3, (B.z0 + B.z1) / 2);
     g.rotation.y = Math.PI / 2;
     k.g.add(g);
-    k.solid([B.x0, H.x1, CY, CY + 2.6, B.z0 - 0.1, B.z0], wall, { kind: 'wall' });
-    k.solid([B.x0, H.x1, CY, CY + 2.6, B.z1, B.z1 + 0.1], wall, { kind: 'wall' });
+    // its end walls, each with a doorway where the catwalk runs through the booth (in from the
+    // north stairs, out the south end), a lintel over it
+    for (const [za, zb] of [[B.z0 - 0.1, B.z0], [B.z1, B.z1 + 0.1]] as [number, number][]) {
+      k.solid([B.x0, H.x1 - 1.7, CY, CY + 2.6, za, zb], wall, { kind: 'wall', name: 'booth wall' });
+      k.solid([H.x1 - 1.7, H.x1, CY + 2.2, CY + 2.6, za, zb], wall, { kind: false });
+    }
     k.solid([B.x0, H.x1, CY + 2.6, CY + 2.8, B.z0, B.z1], wall, { kind: false });
-    // (its way in from the catwalk: a door at the back corner)
-    k.solid([B.x0 + 0.1, H.x1 - 1.6, CY, CY + 2.6, B.z0 - 0.1, B.z0], null, { kind: false });
     const Cn = TANKS.console;
     k.solid([Cn.x - 0.5, Cn.x + 0.5, CY, CY + 1.0, Cn.z - 1.2, Cn.z + 1.2], M.paint(0x2a3a34, 0.4, 0.4), { kind: 'crate', name: 'console' });
     put(k, new THREE.BoxGeometry(0.6, 0.02, 2.2), M.glow(0x3aff8a, 0.9), Cn.x - 0.1, CY + 1.02, Cn.z, 0, false);
     k.spot([Cn.x, CY + 2.2, Cn.z], 0x9affc8, 10, 6);
-    // (the booth's door: a gap in its south wall onto the catwalk)
-    a.obstacles = a.obstacles.filter((o) => !(o.minX === B.x0 && o.maxX === H.x1 && (o.y0 ?? 0) === CY && o.minZ === B.z1));
-    k.solid([B.x0, H.x1 - 1.7, CY, CY + 2.6, B.z1, B.z1 + 0.1], null, { kind: 'wall', name: 'booth wall', hidden: true });
   }
 
   // ---------------------------------------------------------------------- the tanks

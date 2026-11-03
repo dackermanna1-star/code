@@ -20,7 +20,8 @@ import { container } from './blocks';
 export const DAWN = {
   start: { x: 0, z: 26, yaw: Math.PI },
   apron: { x0: -26, x1: 26, z0: -2, z1: 30 },
-  jetty: { x0: -2.5, x1: 2.5, z0: -60, z1: -2 },
+  // (its far end runs onto the helipad's rim: no gap between the boards and the pier)
+  jetty: { x0: -2.5, x1: 2.5, z0: -61.6, z1: -2 },
   pad: { x: 0, z: -72, r: 11 },
   heli: { x: 0, z: -73 },
 };

@@ -232,9 +232,14 @@ export function buildRoofs(a: Arena, blood: BloodAtlas, pointLights: number, sha
     red.position.set(-4, r.y + 10.1, 82);
     k.g.add(red);
     k.updates.push(() => (red.visible = Math.floor(performance.now() / 800) % 2 === 0));
-    // (dim up here between the floodlights: a place to sneak)
-    k.spot([4, r.y + 3, 60], 0x9aa8d8, 22, 10);
-    k.spot([-3, r.y + 2.6, 75], 0x8a98c8, 12, 8);
+    // the work lamps on the frame's back, down over the roof's east half (the west half dim
+    // between them: a place to sneak)
+    for (const z of [63, 71, 78]) {
+      put(k, new THREE.BoxGeometry(0.3, 0.22, 0.4), M.glow(0xfff4e0, 2.0), B.x - 0.5, r.y + 5.2, z, 0, false);
+      k.spot([B.x - 3.5, r.y + 4.6, z], 0xffe8c8, 38, 13);
+    }
+    k.spot([4, r.y + 3, 60], 0x9aa8d8, 30, 11);
+    k.spot([-3, r.y + 2.6, 75], 0x8a98c8, 20, 9);
   }
 
   // ---------------------------------------------------------------------- R4: the tenement roof
