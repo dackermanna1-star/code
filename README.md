@@ -125,11 +125,12 @@ How it plays:
   the guard's uniform she's someone who belongs there — until she's somewhere she isn't allowed,
   or starts something.
 * **Scenes in the engine**: letterboxed shots, subtitled lines, phone calls and messages; nobody
-  attacks during one. The lines are spoken by the browser's own speech voices (its most natural
-  ones first — Edge's and Chrome's online voices are the best; *Voices* in the settings turns them
-  off), each speaker's jaw and lips moving with the words; a recorded cast dropped into
-  `public/audio/voice/` (one file per line, listed in its `manifest.json`) takes over line by line. Hold **Space** (A) to skip — everything in it
-  still happens, under a quick black.
+  attacks during one. **Every line is voiced** — a neural voice per character (Scarlet, Ivy,
+  Viper, Voss, Kael, Varga, the Butcher and the rest; radio and PA calls through a radio's band),
+  recorded offline with Kokoro-82M into `public/audio/voice/` (see `tools/voice`) — and each
+  speaker's jaw and lips move with the recording's loudness. A line with no recording falls back to
+  the browser's own speech. *Voices* in the settings turns them off. Hold **Space** (A) to skip —
+  everything in it still happens, under a quick black.
 * **Objectives** with a marker in the world (and its distance), and **tutorial prompts** that wait
   for you to do the thing. *Tutorial tips* in the settings turns them off.
 * **Things to find**: notes, photos and medkits round every level (a glint as you get near; E to

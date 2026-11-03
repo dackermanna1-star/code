@@ -133,8 +133,12 @@ def main():
         hop = 24000 // 50
         n = max(1, math.ceil(len(pcm) / hop))
         rms = np.array([np.sqrt(np.mean(pcm[j * hop:(j + 1) * hop] ** 2) + 1e-12) for j in range(n)])
-        ref = np.percentile(rms[rms > 1e-4], 95) if np.any(rms > 1e-4) else 1.0
-        env = np.clip((rms / max(ref, 1e-6)) ** 0.8 * 255, 0, 255).astype(np.uint8)
+        # (over the line's own quiet floor, up to its loud vowels: the jaw shuts between words and
+        # opens with each stress - the game eases it and curves it again, so keep the contrast)
+        voiced = rms[rms > 1e-4]
+        ref = np.percentile(voiced, 98) if len(voiced) else 1.0
+        floor = np.percentile(rms, 10)
+        env = (np.clip((rms - floor) / max(ref - floor, 1e-6), 0, 1) ** 1.1 * 255).astype(np.uint8)
         dur = len(pcm) / 24000
         total += dur
         manifest[lid] = {'file': f'audio/voice/{lid}.mp3', 'dur': round(dur, 3), 'env': base64.b64encode(env.tobytes()).decode()}

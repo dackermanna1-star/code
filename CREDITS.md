@@ -47,6 +47,11 @@ All sound effects in `public/audio/` were cut, converted and normalised from the
 
 <!-- audio-credits:end -->
 
+The campaign's spoken lines (`public/audio/voice/`) were generated offline with the
+**Kokoro-82M** text-to-speech model (Apache-2.0, by hexgrad: https://huggingface.co/hexgrad/Kokoro-82M)
+through **kokoro-onnx** (MIT, by thewh1teagle: https://github.com/thewh1teagle/kokoro-onnx), its
+`model-files-v1.0` release; `tools/voice` regenerates them from the chapter scripts.
+
 Scarlet's voice (`public/audio/f_attack`, `f_pain`, `f_death`) was trimmed and level-matched from
 two more CC0 packs on OpenGameArt.org:
 
