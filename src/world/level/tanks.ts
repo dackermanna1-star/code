@@ -44,7 +44,8 @@ export const tankStage = {
 };
 
 function liquidMaterial(color = 0x3aff8a, opacity = 0.32) {
-  return new THREE.MeshBasicMaterial({ color, transparent: true, opacity, depthWrite: false, blending: THREE.AdditiveBlending });
+  // (a tint, not a lamp: the people inside stay readable through it, close up too)
+  return new THREE.MeshBasicMaterial({ color: new THREE.Color(color).multiplyScalar(0.55), transparent: true, opacity: opacity * 0.4, depthWrite: false, blending: THREE.AdditiveBlending });
 }
 function glassMaterial() {
   return new THREE.MeshStandardMaterial({ color: 0x9ac8b8, roughness: 0.05, metalness: 0.2, transparent: true, opacity: 0.16, depthWrite: false, side: THREE.DoubleSide });
@@ -181,7 +182,7 @@ export function buildTanks(a: Arena, blood: BloodAtlas, pointLights: number, sha
     lab.position.set(x, 0.38, z + (x < 0 ? 0 : 0) + r + 0.27);
     k.g.add(lab);
     k.block([x - r - 0.2, x + r + 0.2, 0, 0.5 + h + 0.4, z - r - 0.2, z + r + 0.2], 'pillar', 'tank');
-    k.spot([x, 1.6, z], liquid, 8 * lit, 5);
+    k.spot([x, 1.6, z], liquid, 5 * lit, 5);
     return { glass, liq };
   };
   let n = 1;
@@ -254,9 +255,10 @@ export function buildTanks(a: Arena, blood: BloodAtlas, pointLights: number, sha
   a.doors.push({ x: 0, z: H.z0 - 6, ix: 0, iz: H.z0 + 3, yaw: 0, width: 2.4 });
   a.doors.push({ x: 0, z: H.z1 + 6, ix: 0, iz: H.z1 - 3, yaw: Math.PI, width: 2.4 });
 
-  const hemi = new THREE.HemisphereLight(0x9ad8b8, 0x1a2420, 1.4);
+  // (the strips' light over the whole hall: the lamps close by come and go, this stays)
+  const hemi = new THREE.HemisphereLight(0xc0e4d2, 0x1a2420, 4.8);
   k.g.add(hemi);
-  k.keyLight(0xc8f0d8, 0.5, new THREE.Vector3(0.2, 1, 0.3), 30);
+  k.keyLight(0xc8f0d8, 1.1, new THREE.Vector3(0.2, 1, 0.3), 30);
   // bubbles rising in the tanks
   const bub = new THREE.Points(
     new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute(Array.from({ length: 900 }, (_, i) => {

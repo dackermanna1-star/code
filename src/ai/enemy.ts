@@ -187,6 +187,9 @@ export class Enemy extends Fighter {
 
   // ------------------------------------------------------------------ think
   think(dt: number) {
+    // (a boss's rim marks him out in the fight - not while he stands about, nor in a scene's close-up)
+    const st = this.game.story;
+    this.model.uniforms.uRim.value.w = this.cfg.boss && !(st && (st.inScene || this.state === 'idle')) ? 0.35 : 0;
     this.stateTime += dt;
     this.attackCooldown -= dt;
     this.tauntCooldown -= dt;

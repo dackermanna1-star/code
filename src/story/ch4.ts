@@ -283,8 +283,9 @@ export const CH4: Chapter = {
             g1.ghostWalls = true;
             g1.idleTo = { x: 4.5, z: 13.0 };
           }
-          s.shot({ pos: [6.6, 1.6, 4.0], look: [3.6, 1.2, 9.8], fov: 40, dur: 6 });
-          await s.wait(3.0);
+          // (over the guests' heads: Viper's man walking her away to the private lift, her looking back)
+          s.shot({ pos: [-2.2, 1.9, -7.2], look: [2.6, 1.3, -1.0], pos2: [-1.6, 1.9, -6.0], look2: [4.0, 1.3, 6.0], fov: 42, dur: 6 });
+          await s.wait(3.6);
           g.audio.play('metal_hit', { pos: V(4.5, 1.2, 11.4), vol: 0.5, pitch: 1.8 });
           if (g1) {
             g1.ghostWalls = false;
@@ -332,7 +333,7 @@ export const CH4: Chapter = {
           V0.idleTo = { x: p.x - 3.2, z: p.z - 2.4 };
           V0.idleFace = yawTo({ x: p.x - 3.2, z: p.z - 2.4 }, p);
           s.shot({ pos: [p.x + 1.4, 1.5, p.z + 2.2], look: [V0.x, 1.4, V0.z], fov: 36, dur: 5 });
-          await s.until(() => !V0.idleTo, true, 4);
+          await s.arrive(V0, 4);
           s.closeUp(V0, { side: 1, fov: 30, dist: 1.5, dur: 7 });
           await s.say('VIPER', 'I took her out the back of that club myself. She asked for you the whole way.');
           s.overShoulder(V0, p, { side: -1, dist: 1.0, fov: 30, dur: 4 });

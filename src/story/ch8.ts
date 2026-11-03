@@ -28,6 +28,7 @@ export const CH8: Chapter = {
   clock: '6:12 AM',
   map: 'dawn',
   outfit: 'guard',
+  fill: 0.3,
   synopsis: 'The river. Voss\'s helicopter. The sun coming up.',
   par: 420,
   backdrop: { pos: [3.4, 1.2, -50], look: [0, 1.0, -68], pos2: [3.0, 1.3, -52], look2: [0, 1.4, -70], fov: 44, dur: 45 },
@@ -85,8 +86,11 @@ export const CH8: Chapter = {
           await s.say('IVY', 'Scar... is that him?', 1.8);
           // Voss on the jetty, with Viper - she turns round
           if (voss) {
-            s.closeUp(voss, { side: 1, fov: 24, dist: 2.2, dur: 6 });
+            // (he turns to look back down the jetty at her - turned before the camera finds him)
             voss.faceYaw = 0;
+            voss.yaw = 0;
+            voss.anim.initAt(voss.x, voss.z, 0);
+            s.closeUp(voss, { side: 1, fov: 24, dist: 2.2, dur: 6 });
           }
           await s.wait(1.0);
           await s.say('SCARLET', 'VOSS!', 1.2);
@@ -136,7 +140,7 @@ export const CH8: Chapter = {
           V0.idleTo = { x: 0, z: -6 };
           V0.idleFace = yawTo({ x: 0, z: -6 }, p);
           s.shot({ pos: [2.2, 1.4, p.z - 1], look: [0, 1.5, -8], fov: 36, dur: 5 });
-          await s.until(() => !V0.idleTo, true, 5);
+          await s.arrive(V0, 5);
           s.closeUp(V0, { side: 1, fov: 28, dist: 1.6, dur: 6 });
           await s.say('VIPER', 'Last time I let you win. I wanted to see what you\'d do.', 3.2);
           s.closeUp(p, { side: -1, fov: 28, dist: 1.15, dur: 3 });

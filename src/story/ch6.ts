@@ -85,7 +85,8 @@ export const CH6: Chapter = {
           s.ui.stamp('PALEWATER BIOTECH', '5:16 AM');
           await s.say('SCARLET', '...Still breathing. Good.', 2.2);
           // through the fence: the trucks at the dock, their doors open
-          s.shot({ pos: [22.6, 1.6, 66.0], look: [30, 1.6, 10], fov: 30, dur: 6 });
+          // (west of the gatehouse and the hut, down the forecourt to the dock)
+          s.shot({ pos: [21.0, 1.7, 65.4], look: [22.4, 1.5, 12.0], fov: 30, dur: 6 });
           await s.wait(2.4);
           await s.say('SCARLET', 'They\'re already in.', 1.8);
           s.bark('GUARD', 'Jesus. Is the driver still in there?', 2.6, gate[0]);
@@ -172,7 +173,7 @@ export const CH6: Chapter = {
         const g = s.game;
         const p = g.player;
         // the drivers by their cabs, a smoke each; a guard on the dock's edge, bored
-        const d1 = s.extra('civ_m01', 37.2, 3.2, -Math.PI / 2, { pose: 'st_smoke', chat: 0.4 });
+        const d1 = s.extra('civ_m01', 25.6, 15.6, -Math.PI / 2, { pose: 'st_smoke', chat: 0.4 });
         const d2 = s.extra('civ_m18', 37.4, 6.2, -Math.PI / 2 - 0.4, { pose: 'st_crossed', chat: 0.4 });
         s.cast('DRIVER', d1 ?? d2);
         const dock = s.spawn('brawler', 22.4, 15.4, Math.PI / 2, { variant: GUARDS[2], watch: true, pose: 'st_crossed', vision: 9 });
@@ -203,13 +204,14 @@ export const CH6: Chapter = {
           await s.wait(1.6);
           await s.say('DRIVER', 'Nobody told you? They had them off the trucks the minute we backed up. All six.', 3.6);
           await s.say('DRIVER', 'The Warden came down for the redhead himself. Walked her in by the arm like she was his.', 3.8);
+          s.face({ x: 23.2, z: 13.8 });
           s.closeUp(p, { side: 1, fov: 28, dist: 1.15, dur: 4 });
           await s.say('SCARLET', 'In where?', 1.4);
           await s.say('DRIVER', 'Front doors. I don\'t ask past the front doors.', 2.8);
           if (D) D.lookAt = null;
           await s.wait(0.4);
         });
-        if (d1) d1.walk([[37.2, 3.2]], 1.3, () => d1.hold('st_smoke', 0.4));
+        if (d1) d1.walk([[25.6, 15.6]], 1.3, () => d1.hold('st_smoke', 0.4));
         void dock;
       },
     },
@@ -307,7 +309,7 @@ export const CH6: Chapter = {
           await s.wait(1.6);
           w.idleTo = { x: 0.4, z: -1.6 };
           w.idleFace = yawTo({ x: 0.4, z: -1.6 }, p);
-          await s.until(() => !w.idleTo, true, 5);
+          await s.arrive(w, 5);
           s.closeUp(w, { side: 1, fov: 30, dist: 1.6, dur: 9 });
           await s.wait(0.5);
           await s.say('THE WARDEN', 'Reyes. I signed your last paycheque.');

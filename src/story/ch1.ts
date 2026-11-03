@@ -267,7 +267,7 @@ export const CH1: Chapter = {
           void s.walk(GATE.x - 1.6, GATE.z - 3.6, { speed: 1.3, face: yawTo({ x: GATE.x - 1.6, z: GATE.z - 3.6 }, { x: 0.3, z: -9.7 }) });
           s.shot({ pos: [-2.6, 0.75, -3.8], look: [0.3, 1.8, -10.6], pos2: [-2.4, 0.78, -4.3], fov: 38, dur: 6 });
           await s.wait(2.4);
-          await s.until(() => !b.idleTo, true, 5);
+          await s.arrive(b, 5);
           for (const e of [b, c1, c2]) e.ghostWalls = false;
           s.closeUp(b, { side: -1, fov: 30, dist: 1.6, dur: 7 });
           await s.wait(0.3);
@@ -320,7 +320,7 @@ export const CH1: Chapter = {
           b.idleFace = yawTo({ x: 0.3, z: -7.2 }, p);
           s.shot({ pos: [1.6, 0.6, -4.2], look: [0.3, 1.9, -9.5], look2: [0.3, 2.1, -7.6], fov: 36, dur: 5 });
           await s.wait(2.6);
-          await s.until(() => !b.idleTo, true, 5);
+          await s.arrive(b, 5);
           b.ghostWalls = false;
           s.closeUp(b, { side: 1, fov: 28, dist: 1.6, dur: 9 });
           await s.say('THE BUTCHER', 'You want to know where your sister is?');

@@ -180,7 +180,11 @@ export const CH7: Chapter = {
           if (tankStage.ivyGlass) tankStage.ivyGlass.visible = false;
           openTank(s, T.ivyTank.x, T.ivyTank.z);
           g.audio.play('metal_hit', { pos: V(T.ivyTank.x, 2, T.ivyTank.z), vol: 0.6, pitch: 1.4 });
-          if (ivy) ivy.hold('st_kneel', 0.6);
+          // (down on her knees on the tank's base, out of the restraints)
+          if (ivy) {
+            ivy.setY(0.5);
+            ivy.hold('st_kneel', 0.6);
+          }
           // (down the catwalk and across: a cut)
           s.place(T.ivyTank.x + 0.9, T.ivyTank.z - 1.1, yawTo({ x: T.ivyTank.x + 0.9, z: T.ivyTank.z - 1.1 }, T.ivyTank));
           s.pose('st_crouch', 0.01);
@@ -226,7 +230,7 @@ export const CH7: Chapter = {
           zero.idleTo = { x: T.zero.x, z: T.zero.z + 3.2 };
           zero.idleFace = 0;
           s.shot({ pos: [2.4, 0.7, T.zero.z + 6.4], look: [T.zero.x, 2.0, T.zero.z + 1], fov: 40, dur: 6 });
-          await s.until(() => !zero.idleTo, true, 4);
+          await s.arrive(zero, 4);
           if (I) {
             I.hold(null, 0.3);
             I.walk([[T.booth.x0 - 1.4, T.booth.z1 + 1.6]], 2.4, () => I.hold('st_cower', 0.3));

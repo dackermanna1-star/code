@@ -235,7 +235,7 @@ export const CH0: Chapter = {
           s.closeUp(p, { side: 1, fov: 32, dur: 5 });
           await s.wait(0.3);
           await s.say('SCARLET', 'I\'m looking for my sister. Ivy. She tends bar here.');
-          await s.until(() => !dez.idleTo, true, 5);
+          await s.arrive(dez, 5);
           s.overShoulder(p, dez, { side: -1, dist: 0.9, fov: 30, dur: 5 });
           await s.wait(0.5);
           await s.say('DEZ', 'Tended.');
@@ -376,7 +376,7 @@ export const CH0: Chapter = {
           doyle.ghostWalls = true;
           doyle.idleTo = { x: 6.0, z: -8.9 };
           doyle.idleFace = yawTo({ x: 6.0, z: -8.9 }, p);
-          await s.until(() => !doyle.idleTo, true, 5);
+          await s.arrive(doyle, 5);
           doyle.ghostWalls = false;
           s.closeUp(doyle, { side: -1, fov: 32, dist: 1.5, dur: 5 });
           await s.wait(0.5);

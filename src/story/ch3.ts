@@ -254,7 +254,7 @@ export const CH3: Chapter = {
           kael.idleTo = { x: 0.3, z: 2.6 };
           kael.idleFace = Math.PI * 0;
           s.shot({ pos: [-2.2, 1.0, 6.4], look: [0.3, 1.7, 2.6], fov: 34, dur: 6 });
-          await s.until(() => !kael.idleTo, true, 6);
+          await s.arrive(kael, 6);
           kael.idleFace = yawTo(kael, p);
           s.closeUp(kael, { side: 1, fov: 30, dist: 1.5, dur: 9 });
           await s.wait(0.5);

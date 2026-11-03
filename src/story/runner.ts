@@ -57,6 +57,8 @@ export interface Chapter {
   par: number;
   /** Set dressing, before the physics are built (signs, a pen, a door that's shut). */
   dress?: (a: Arena) => void;
+  /** The dialogue fill's strength (1: a night's; less in daylight, where faces have light enough). */
+  fill?: number;
   /** After the game is up: the chapter's actors and sounds. */
   setup?: (s: Story) => void;
   /** Per frame (real seconds), while the chapter runs. */
@@ -374,6 +376,25 @@ export class Story {
     }
     g.cam.snapFocus(new THREE.Vector3(p.x, 1.0, p.z));
   }
+  /**
+   * Someone walking to a mark in a scene: wait for them (no longer than `limit`), and if they're
+   * still on the way - a long stair, someone in the road - put them on it, under the cut that
+   * follows (the close-up after it is set up on where they were meant to be standing).
+   */
+  async arrive(e: Enemy, limit: number) {
+    await this.until(() => !e.idleTo, true, limit);
+    const to = e.idleTo;
+    if (!to || !e.alive) return;
+    const y = this.game.arena.groundAt(to.x, to.z, e.y + 1.2, 0.1);
+    e.x = to.x;
+    e.z = to.z;
+    e.vx = e.vz = 0;
+    if (e.idleFace !== null) e.yaw = e.idleFace;
+    e.idleTo = null;
+    if (Math.abs(y - e.y) > 0.02 && y > -5) e.setY(y);
+    e.anim.initAt(e.x, e.z, e.yaw);
+    if (e.idlePose) e.play(e.idlePose, { halflife: 0.01 });
+  }
   /** The orbit's yaw behind her, looking the way she faces. */
   behindYaw(yaw = this.game.player.yaw) {
     return wrapAngle(yaw + Math.PI);
@@ -384,12 +405,13 @@ export class Story {
     if (this.skipping) return;
     if (this.fill) this.fill.intensity = 0;
     const v = (a: P3 | undefined) => (a === undefined ? undefined : Array.isArray(a) ? new THREE.Vector3(a[0], a[1], a[2]) : a.clone());
+    const look = v(s.look)!, look2 = v(s.look2);
     this.game.cam.sceneShot({
-      pos: v(s.pos)!,
-      look: v(s.look)!,
+      pos: this.inFront(v(s.pos)!, look),
+      look,
       fov: s.fov ?? 40,
-      pos2: v(s.pos2),
-      look2: v(s.look2),
+      pos2: s.pos2 === undefined ? undefined : this.inFront(v(s.pos2)!, look2 ?? look),
+      look2,
       fov2: s.fov2,
       dur: s.dur ?? 4,
       ease: s.ease ?? 'inout',
@@ -415,13 +437,23 @@ export class Story {
     const dx = ah.x - fh.x, dz = ah.z - fh.z;
     const d = Math.hypot(dx, dz) || 1;
     const fx = dx / d, fz = dz / d;
-    const side = o.side ?? 1;
-    const back = o.dist ?? 1.0;
-    const pos = new THREE.Vector3(fh.x - fx * back - fz * 0.5 * side, o.height ?? fh.y + 0.12, fh.z - fz * back + fx * 0.5 * side);
     const look = ah.clone().setY(ah.y - 0.04);
+    // (over the shoulder asked for; if the wall behind them is in the way, the other shoulder, nearer)
+    const lens = (side: number, back: number) => new THREE.Vector3(fh.x - fx * back - fz * 0.5 * side, o.height ?? fh.y + 0.12, fh.z - fz * back + fx * 0.5 * side);
+    const s0 = o.side ?? 1, b0 = o.dist ?? 1.0;
+    let pos = lens(s0, b0);
+    for (const [sd, bk] of [[-s0, b0], [s0, b0 * 0.55], [-s0, b0 * 0.55]] as [number, number][]) {
+      if (this.clearView(pos, look)) break;
+      pos = lens(sd, bk);
+    }
     const push = o.push ?? 0.25;
     this.shot({ pos, look, pos2: pos.clone().addScaledVector(new THREE.Vector3(fx, 0, fz), push), look2: look, fov: o.fov ?? 34, dur: o.dur ?? 5 });
-    this.fillOn(pos, look);
+    this.fillOn(pos, look, at instanceof Fighter ? this.faceFill.get(at) ?? 1 : 1);
+  }
+  /** Faces that take the fill harder than most (a bald head under it, pale): how much of it they get. */
+  private faceFill = new WeakMap<Fighter, number>();
+  fillFor(f: Fighter | null, k: number) {
+    if (f) this.faceFill.set(f, k);
   }
   /** The fill: between the lens and the face, a little above, soft. */
   private fillOn(cam: THREE.Vector3, face: THREE.Vector3, k = 1) {
@@ -430,17 +462,60 @@ export class Story {
     const d = cam.clone().sub(face);
     const len = d.length();
     f.position.copy(face).addScaledVector(d.normalize(), Math.min(1.1, len * 0.6)).add(new THREE.Vector3(0, 0.45, 0));
-    f.intensity = 2.2 * k;
+    f.intensity = 2.2 * k * (this.chapter.fill ?? 1);
+  }
+  /** Where a fighter is turning to (a scene turns people a beat at a time: frame the turned face). */
+  private facingOf(f: Fighter) {
+    const p = this.game.player;
+    if (f === p) return p.sceneFace ?? p.yaw;
+    const n = f as Fighter & { faceYaw?: number | null; idleFace?: number | null; state?: string };
+    if (typeof n.faceYaw === 'number') return n.faceYaw;
+    if (n.state === 'idle' && typeof n.idleFace === 'number') return n.idleFace;
+    return f.yaw;
+  }
+  /**
+   * A lens with a wall, a rack or a container between it and what it's on is brought in, along the
+   * line, to just this side of it (a shot set up from where the people were meant to be standing).
+   * Lenses out over the city, looking far off, are left alone.
+   */
+  private inFront(pos: THREE.Vector3, look: THREE.Vector3) {
+    const len = pos.distanceTo(look);
+    if (len > 30 || this.clearView(pos, look)) return pos;
+    // (a shot on a wall itself - a screen, a sign - is meant: leave it)
+    if (!this.clearView(look.clone().lerp(pos, Math.min(1, 0.4 / Math.max(len, 0.01))), look)) return pos;
+    let lo = 0, hi = 1;
+    const at = (k: number) => look.clone().lerp(pos, k);
+    for (let i = 0; i < 8; i++) {
+      const mid = (lo + hi) / 2;
+      if (this.clearView(at(mid), look)) lo = mid;
+      else hi = mid;
+    }
+    // (a step back from the wall it found, never nearer the subject than half a metre)
+    const k = Math.max(Math.min(lo, 1) - 0.25 / Math.max(len, 0.01), 0.5 / Math.max(len, 0.01));
+    return at(Math.min(1, k));
+  }
+  /** A lens at `pos` on `look` with nothing solid between them (a wall behind the face, a pillar). */
+  private clearView(pos: THREE.Vector3, look: THREE.Vector3) {
+    return this.game.arena.lineOfSight(look.x, look.y, look.z, pos.x, pos.y, pos.z);
   }
   /** A close-up: in front of the face, a little to one side, easing in. */
   closeUp(f: Fighter, o: { side?: number; dist?: number; fov?: number; dur?: number; push?: number; dy?: number; turn?: number } = {}) {
     const head = this.headOf(f);
-    const a = f.yaw + (o.side ?? 1) * (o.turn ?? 0.5);
-    const dist = o.dist ?? 1.25;
+    const face = this.facingOf(f);
     const look = head.clone().setY(head.y - 0.05);
-    const pos = new THREE.Vector3(head.x + Math.sin(a) * dist, head.y + (o.dy ?? -0.02), head.z + Math.cos(a) * dist);
+    // (the side asked for; if a wall's in the way, the other side; then nearer in)
+    const at = (side: number, dist: number) => {
+      const a = face + side * (o.turn ?? 0.5);
+      return new THREE.Vector3(head.x + Math.sin(a) * dist, head.y + (o.dy ?? -0.02), head.z + Math.cos(a) * dist);
+    };
+    const side = o.side ?? 1, d0 = o.dist ?? 1.25;
+    let pos = at(side, d0);
+    for (const [sd, dd] of [[-side, d0], [side, d0 * 0.65], [-side, d0 * 0.65]] as [number, number][]) {
+      if (this.clearView(pos, look)) break;
+      pos = at(sd, dd);
+    }
     this.shot({ pos, look, pos2: pos.clone().lerp(look, o.push ?? 0.1), look2: look, fov: o.fov ?? 30, dur: o.dur ?? 5 });
-    this.fillOn(pos, look);
+    this.fillOn(pos, look, this.faceFill.get(f) ?? 1);
   }
 
   // ================================================================== the cast

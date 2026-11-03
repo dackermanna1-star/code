@@ -523,6 +523,12 @@ node tests/run.mjs "test=stress&corpses=300" tests/out/stress.png 900
 node tests/film.mjs "test=film&enemy=club&n=2&warm=40&framing=-2.8" tests/out/film 12 5
 ```
 
+**The story, played by the bot**: `?story=N&autostart=1&skipscenes=1&bot=1&god=1&turbo=3` plays
+chapter N from the title card to the results — it walks the routes on the nav grid (stairs,
+ladders, the ways round), climbs and drops where the objective is, fights, sneaks past the men
+who haven't seen it, uses what's marked, and drives the chase; add `&cp=K` to start at a
+checkpoint. Every chapter is played through like this before a build goes out.
+
 `node tests/ui.mjs tests/out/ui` screenshots every interface state, `node tests/arena.mjs
 tests/out/arena` renders fixed-camera views of the arena, and the locomotion viewer films gaits
 frame by frame: `node tests/film.mjs "viewer=loco&film=1&path=line&speed=1.6&style=relaxed&warm=60"

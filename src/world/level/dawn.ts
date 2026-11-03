@@ -98,7 +98,7 @@ export function buildDawn(a: Arena, blood: BloodAtlas, pointLights: number, shad
   const M = new Materials(blood, true);
   const Md = new Materials(blood, false);
   const rng = new RNG(8181);
-  a.fog = { color: 0xb8a8a8, density: 0.008 };
+  a.fog = { color: 0xb8a8a8, density: 0.0055 };
   a.background = skyDawn();
   a.farPlane = 600;
   a.camBounds = { out: 4, maxY: 20, walls: true };
@@ -207,20 +207,21 @@ export function buildDawn(a: Arena, blood: BloodAtlas, pointLights: number, shad
   sunGlow.position.copy(sun.position).add(new THREE.Vector3(0, 0, 2));
   k.g.add(sunGlow);
 
-  const hemi = new THREE.HemisphereLight(0xc8b8c8, 0x5a4a48, 2.0);
+  const hemi = new THREE.HemisphereLight(0xc8b8c8, 0x5a4a48, 1.35);
   k.g.add(hemi);
-  const key = k.keyLight(0xffc890, 1.8, new THREE.Vector3(0.6, 0.35, -1), 34);
+  const key = k.keyLight(0xffc890, 1.25, new THREE.Vector3(0.6, 0.35, -1), 34);
   const parts = k.finish({
     hemi,
     probe: new THREE.Vector3(0, 2, -10),
     update: (dt) => {
       if (dawnStage.rotor) dawnStage.rotor.rotation.y += dt * dawnStage.rotorSpeed;
       // the sun climbs as the chapter goes (the script sets it): warmer, brighter
+      // (it clears the far bank's towers by the end: low and gold at first, then up over the river)
       const s = dawnStage.sun;
-      sun.position.y = 8 + s * 40;
+      sun.position.y = 22 + s * 70;
       sunGlow.position.y = sun.position.y;
-      key.intensity = 1.8 + s * 1.0;
-      hemi.intensity = 2.0 + s * 0.8;
+      key.intensity = 1.25 + s * 0.55;
+      hemi.intensity = 1.35 + s * 0.45;
     },
   });
   return parts;

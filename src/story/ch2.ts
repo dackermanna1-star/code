@@ -129,6 +129,8 @@ function vargaAtDesk(s: Story): Npc {
   if (varga && !varga.gone) return varga;
   varga = s.extra('varga', CLUB.desk.x, CLUB.desk.z + 0.95, Math.PI, { pose: 'st_sitdesk', y: G }) ?? s.extra('civ_b04', CLUB.desk.x, CLUB.desk.z + 0.95, Math.PI, { pose: 'st_sitdesk', y: G });
   s.cast('VARGA', varga);
+  // (a pale bald head under the office lamps: the close-ups' fill lighter on him)
+  s.fillFor(varga, 0.35);
   return varga!;
 }
 
@@ -536,7 +538,10 @@ export const CH2: Chapter = {
         await s.until(() => read && !s.ui.reading, false);
         s.ui.marker(null);
         await s.scene(async () => {
-          s.shot({ pos: [S.x + 0.9, G + 1.6, S.z - 1.2], look: [S.x + 0.2, G + 1.1, S.z + 0.3], fov: 30, dur: 4 });
+          // she reads it standing at the open safe, the office behind her
+          s.place(S.x + 1.2, S.z + 0.25, -Math.PI / 2);
+          s.face(-Math.PI / 2);
+          s.closeUp(p, { side: 1, fov: 30, dist: 1.2, dy: -0.05, dur: 5.2 });
           await s.say('SCARLET', 'Palewater...', 1.6);
           await s.say('SCARLET', 'I used to guard their doors. Nights. Cash in hand, no questions.', 3.2);
           // his hand under the desk: the alarm
@@ -558,6 +563,7 @@ export const CH2: Chapter = {
           s.closeUp(p, { side: -1, fov: 30, dist: 1.2, dur: 3 });
           await s.say('SCARLET', 'You should have run.');
           // one blow, and he's down against his desk
+          s.shot({ pos: [CLUB.desk.x + 1.4, G + 1.6, CLUB.desk.z + 1.7], look: [v.x - 0.4, G + 1.1, v.z - 0.3], fov: 40, dur: 5, drift: 0.04 });
           void s.walk(v.x - 0.6, v.z - 0.5, { speed: 2.4, face: yawTo({ x: v.x - 0.6, z: v.z - 0.5 }, v) });
           await s.wait(0.6);
           g.audio.play('punch_heavy', { pos: V(v.x, 1.6 + G, v.z), vol: 0.9 });
@@ -613,7 +619,7 @@ export const CH2: Chapter = {
             e.idleFace = Math.PI;
           }
           s.shot({ pos: [6.0, G + 1.8, 11.6], look: [12.0, G - 0.6, 4.0], pos2: [6.6, G + 1.7, 11.4], fov: 38, dur: 7 });
-          await s.until(() => !br.idleTo, true, 7);
+          await s.arrive(br, 8);
           br.idleFace = yawTo(br, p);
           s.closeUp(br, { side: -1, fov: 30, dist: 1.6, dur: 6 });
           await s.wait(0.4);

@@ -370,7 +370,25 @@ export function buildClub(a: Arena, blood: BloodAtlas, pointLights: number, shad
     k.solid([D.x - 0.3, D.x + 0.3, G, G + 0.5, D.z + 0.7, D.z + 1.2], M.paint(0x2a1a14, 0.6, 0), { kind: 'prop', name: 'chair' });
     k.spot([D.x + 0.7, G + 1.5, D.z + 0.3], 0xffd8a0, 12, 6);
     const S = CLUB.safe;
-    k.solid([S.x - 0.55, S.x + 0.55, G, G + 1.3, S.z - 0.5, S.z + 0.5], M.steel(), { kind: 'crate', name: 'safe' });
+    {
+      // the safe: steel walls round a dark inside, two shelves, open on the east (its door); solid
+      // to walk into, and the door, swung open, lies along its south side
+      k.block([S.x - 0.55, S.x + 0.55, G, G + 1.3, S.z - 0.5, S.z + 0.5], 'crate', 'safe');
+      k.block([S.x + 0.55, S.x + 1.45, G, G + 1.22, S.z - 0.6, S.z - 0.47], 'prop', 'safe door');
+      const steel = M.steel();
+      const inside = M.paint(0x16161a, 0.7, 0.3);
+      for (const [w, h, d, x, y, z, m] of [
+        [0.08, 1.3, 1.0, S.x - 0.51, G + 0.65, S.z, steel],
+        [1.1, 1.3, 0.08, S.x, G + 0.65, S.z + 0.46, steel],
+        [1.1, 1.3, 0.08, S.x, G + 0.65, S.z - 0.46, steel],
+        [1.1, 0.1, 1.0, S.x, G + 1.25, S.z, steel],
+        [1.1, 0.12, 1.0, S.x, G + 0.06, S.z, steel],
+        [0.02, 1.08, 0.82, S.x - 0.46, G + 0.66, S.z, inside],
+        [0.94, 0.04, 0.82, S.x + 0.02, G + 0.7, S.z, inside],
+        [0.94, 0.04, 0.82, S.x + 0.02, G + 0.32, S.z, inside],
+      ] as [number, number, number, number, number, number, THREE.Material][])
+        put(k, new THREE.BoxGeometry(w, h, d), m, x, y, z, 0, false);
+    }
     {
       // its door (it swings open for the script)
       const piv = new THREE.Group();
@@ -554,7 +572,7 @@ export function buildClub(a: Arena, blood: BloodAtlas, pointLights: number, shad
       clubStage.lockerOpen += (clubStage.lockerWant - clubStage.lockerOpen) * Math.min(1, dt * 5);
       if (clubStage.locker) clubStage.locker.rotation.y = clubStage.lockerOpen * 1.9;
       clubStage.safeOpen += (clubStage.safeWant - clubStage.safeOpen) * Math.min(1, dt * 2.5);
-      if (clubStage.safeDoor) clubStage.safeDoor.rotation.y = -clubStage.safeOpen * 1.7;
+      if (clubStage.safeDoor) clubStage.safeDoor.rotation.y = clubStage.safeOpen * 1.7;
       for (const b of clubStage.beacons) {
         const beam = b.getObjectByName('beam') as THREE.Mesh;
         (beam.material as THREE.MeshBasicMaterial).opacity = clubStage.alarm ? 0.16 : 0;
