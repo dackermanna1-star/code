@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import type { Enemy } from '../ai/enemy';
-import { yawFromDir } from '../core/math';
+import { clamp, yawFromDir } from '../core/math';
 import { outfitVariant } from '../core/settings';
 import { CIVILIANS } from '../character/variants';
 import type { Chapter, Story } from './runner';
@@ -180,21 +180,27 @@ export const CH7: Chapter = {
           if (tankStage.ivyGlass) tankStage.ivyGlass.visible = false;
           openTank(s, T.ivyTank.x, T.ivyTank.z);
           g.audio.play('metal_hit', { pos: V(T.ivyTank.x, 2, T.ivyTank.z), vol: 0.6, pitch: 1.4 });
-          // (down on her knees on the tank's base, out of the restraints)
+          // (down the catwalk and across: a cut - she's at the tank, crouched by it)
+          const at = { x: T.ivyTank.x + 0.9, z: T.ivyTank.z - 1.1 };
+          // (down on her knees on the tank's base, out of the restraints, turned to her sister)
           if (ivy) {
             ivy.setY(0.5);
+            ivy.yaw = ivy.faceYaw = yawTo(ivy, at);
+            ivy.anim.initAt(ivy.x, ivy.z, ivy.yaw);
             ivy.hold('st_kneel', 0.6);
           }
-          // (down the catwalk and across: a cut)
-          s.place(T.ivyTank.x + 0.9, T.ivyTank.z - 1.1, yawTo({ x: T.ivyTank.x + 0.9, z: T.ivyTank.z - 1.1 }, T.ivyTank));
+          s.place(at.x, at.z, yawTo(at, T.ivyTank));
           s.pose('st_crouch', 0.01);
-          s.shot({ pos: [T.ivyTank.x - 1.6, 1.0, T.ivyTank.z - 2.2], look: [T.ivyTank.x + 0.4, 0.8, T.ivyTank.z - 0.4], fov: 32, dur: 12 });
+          s.shot({ pos: [T.ivyTank.x - 1.7, 1.45, T.ivyTank.z - 2.3], look: [T.ivyTank.x + 0.35, 1.3, T.ivyTank.z - 0.5], fov: 34, dur: 7 });
           await s.wait(1.0);
           if (ivy) ivy.lookAt = p;
           await s.say('IVY', '...Scar?', 1.4);
           await s.say('SCARLET', 'Hey, kid. I\'ve got you.', 2.0);
+          if (ivy) s.closeUp(ivy, { side: -1, fov: 30, dist: 1.3, dur: 5 });
           await s.say('IVY', 'You came. You actually came.', 2.2);
+          s.closeUp(p, { side: 1, fov: 30, dist: 1.2, dur: 5 });
           await s.say('SCARLET', 'I told you. Stay where people can see you.', 2.6);
+          if (ivy) s.closeUp(ivy, { side: -1, fov: 28, dist: 1.2, dur: 4 });
           await s.say('IVY', '...I did. They were watching.', 2.2);
           s.pose(null, 0.4);
           // the alarm; the big tank in the middle of the floor
@@ -297,8 +303,9 @@ export const CH7: Chapter = {
           // the door at the top; grey daylight
           const I = ivy;
           if (I) {
-            I.x = p.x - 0.8;
-            I.z = p.z - 1.2;
+            // (beside her on the landing, the two of them in the light from the door)
+            I.x = clamp(p.x + (p.x > 0 ? -0.75 : 0.75), T.stairs.x0 + 0.4, T.stairs.x1 - 0.4);
+            I.z = p.z + 0.15;
             I.setY(4.2);
             I.anim.initAt(I.x, I.z, 0);
             I.hold(null, 0.01);

@@ -392,8 +392,8 @@ export const CH2: Chapter = {
           g.audio.play('metal_hit', { pos: V(L.x, 1.2, L.z), vol: 0.3, pitch: 1.9 });
           clubStage.lockerWant = 1;
           await s.wait(1.4);
-          // over her shoulder, into it: Ivy's jacket on its hook, the photo strip on the door
-          s.shot({ pos: [L.x - 0.3, 1.85, L.z - 0.95], look: [L.x + 0.02, 1.2, L.z + 0.5], pos2: [L.x - 0.28, 1.84, L.z - 0.9], fov: 32, dur: 6 });
+          // over her left shoulder and down into it: Ivy's jacket on its hook
+          s.shot({ pos: [L.x + 0.75, 2.2, L.z - 0.9], look: [L.x - 0.02, 1.15, L.z + 0.5], pos2: [L.x + 0.7, 2.15, L.z - 0.82], fov: 34, dur: 6 });
           await s.wait(1.2);
           await s.say('SCARLET', 'Her jacket. Of course it\'s her jacket.', 2.6);
           // side-on: the note from its pocket
