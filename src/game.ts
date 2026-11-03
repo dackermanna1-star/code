@@ -168,6 +168,7 @@ export class Game {
     this.scene.add(this.arena.group);
     setDrains(this.arena.drains);
     if (this.arena.wet) this.lib.surface = { roughness: 0.52, env: 1.25 };
+    this.lib.surface = { ...this.lib.surface, env: this.lib.surface.env * this.arena.charEnv };
     this.scene.fog = new THREE.FogExp2(this.arena.fog.color, this.arena.fog.density);
     this.scene.background = this.arena.background;
     this.scene.environment = this.arena.environment;

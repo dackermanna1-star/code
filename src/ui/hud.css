@@ -174,9 +174,9 @@ kbd, #hud .prompt b { display: inline-block; min-width: 24px; padding: 4px 7px 3
 @keyframes menuin { from { opacity: 0; } to { opacity: 1; } }
 .menu .shade { position: absolute; inset: 0; background: linear-gradient(90deg, rgba(4,3,3,.92) 0%, rgba(4,3,3,.72) 38%, rgba(4,3,3,.15) 72%, rgba(4,3,3,.35) 100%); }
 .menu.blur .shade { backdrop-filter: blur(7px) saturate(.7) brightness(.62); -webkit-backdrop-filter: blur(7px) saturate(.7) brightness(.62); background: linear-gradient(90deg, rgba(4,3,3,.86) 0%, rgba(4,3,3,.55) 45%, rgba(4,3,3,.25) 100%); }
-.menu .col { position: relative; display: flex; flex-direction: column; justify-content: center; padding: 6vh 0 6vh max(48px, 7vw); width: min(620px, 92vw); max-height: 100vh; overflow-y: auto; box-sizing: border-box; }
+.menu .col { position: relative; display: flex; flex-direction: column; justify-content: safe center; padding: 6vh 0 max(6vh, 64px) max(48px, 7vw); width: min(620px, 92vw); max-height: 100vh; overflow-y: auto; box-sizing: border-box; }
 .menu .kick { font: 800 15px/1 var(--ui); letter-spacing: .5em; color: var(--red); margin-bottom: 10px; }
-.menu h1 { margin: 0; font: 400 clamp(64px, 11vw, 150px)/0.84 var(--display); letter-spacing: .01em; color: var(--ink); text-shadow: 0 8px 0 rgba(0,0,0,.8), 0 0 60px rgba(0,0,0,.6); }
+.menu h1 { margin: 0; font: 400 clamp(56px, min(11vw, 15vh), 150px)/0.84 var(--display); letter-spacing: .01em; color: var(--ink); text-shadow: 0 8px 0 rgba(0,0,0,.8), 0 0 60px rgba(0,0,0,.6); }
 .menu h1 span { display: block; color: var(--red); text-shadow: 0 8px 0 rgba(40,0,0,.9), 0 0 50px rgba(226,56,44,.35); }
 .menu h2 { margin: 0 0 6px; font: 400 clamp(48px, 7vw, 86px)/0.95 var(--display); letter-spacing: .02em; text-shadow: 0 6px 0 rgba(0,0,0,.8); }
 .menu .tag { font: 700 15px/1.6 var(--ui); letter-spacing: .42em; color: var(--dim); margin: 18px 0 30px; }
@@ -197,6 +197,16 @@ kbd, #hud .prompt b { display: inline-block; min-width: 24px; padding: 4px 7px 3
 .menu .arena-blurb { font: 700 12px/1.4 var(--ui); letter-spacing: .3em; color: var(--dim); margin: 14px 0 0; opacity: .8; }
 .menu .best b { color: var(--gold); font-weight: 800; }
 .menu .small { font: 500 14px/1.6 var(--ui); letter-spacing: .04em; color: var(--dim); margin-top: 14px; max-width: 520px; }
+/* (a short screen - a laptop's 720p: the title and its list still fit, nothing under the footer) */
+@media (max-height: 820px) {
+  .menu .col { padding-top: 4vh; }
+  .menu h1 { font-size: clamp(52px, min(11vw, 13vh), 150px); }
+  .menu .tag { margin: 12px 0 16px; }
+  .menu button { padding-top: 5px; padding-bottom: 5px; }
+  .menu button.primary { font-size: 34px; }
+  .menu .arena-blurb { display: none; }
+  .menu .best { margin-top: 12px; }
+}
 
 /* run summary in pause */
 .menu .runstats { display: flex; gap: 26px; margin: 4px 0 28px; }

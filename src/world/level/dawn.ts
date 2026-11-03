@@ -102,6 +102,8 @@ export function buildDawn(a: Arena, blood: BloodAtlas, pointLights: number, shad
   a.fog = { color: 0xb8a8a8, density: 0.0055 };
   a.background = skyDawn();
   a.farPlane = 600;
+  // (the sky in the probe is the bright one: the faces take a little of it, not all)
+  a.charEnv = 0.3;
   a.camBounds = { out: 4, maxY: 20, walls: true };
   a.propSpots = { drums: [], crates: [] };
   a.fallDeath = 3;

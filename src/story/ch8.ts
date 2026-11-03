@@ -28,7 +28,7 @@ export const CH8: Chapter = {
   clock: '6:12 AM',
   map: 'dawn',
   outfit: 'guard',
-  fill: 0.3,
+  fill: 0.12,
   synopsis: 'The river. Voss\'s helicopter. The sun coming up.',
   par: 420,
   backdrop: { pos: [3.4, 1.2, -50], look: [0, 1.0, -68], pos2: [3.0, 1.3, -52], look2: [0, 1.4, -70], fov: 44, dur: 45 },

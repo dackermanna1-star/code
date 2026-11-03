@@ -11,6 +11,8 @@ for f in (root / 'public' / 'audio').rglob('*'):
         rel = f.relative_to(root / 'public').as_posix()
         mime = 'application/json' if f.suffix == '.json' else 'audio/wav'
         assets[rel] = f'data:{mime};base64,' + base64.b64encode(f.read_bytes()).decode()
+# (no recorded voices in this build: an empty cast list, so the game doesn't try to fetch one off the disk)
+assets.setdefault('audio/voice/manifest.json', 'data:application/json;base64,' + base64.b64encode(b'{}').decode())
 shim = """<script>(function(){var A=%s;var of=window.fetch.bind(window);window.fetch=function(u,o){var k=String(u).replace(/^\\.\\//,'');if(A[k])return of(A[k]);return of(u,o);};})();</script>""" % json.dumps(assets)
 js = js.replace('</script', '<\\/script')
 html = f"""<!doctype html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Last Stance</title>

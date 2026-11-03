@@ -216,6 +216,11 @@ export class Arena {
 
   /** Rain-soaked fighters (glossier skin and cloth). */
   wet = false;
+  /**
+   * How much of the level's reflected light (its probe of the sky and the street) the people take:
+   * a bright dawn sky in it would burn their faces out (1: as much as anything else).
+   */
+  charEnv = 1;
   /** Where the camera may go: metres past the walls (negative = inside), its ceiling, and whether
    * 'wall' obstacles inside the room block it (the rooftop's stair huts). */
   camBounds = { out: -0.35, maxY: WALL_H - 1.2, walls: false };
