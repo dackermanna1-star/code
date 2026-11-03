@@ -4,6 +4,7 @@ import { DIFFICULTY, loadSettings, PRESETS, Settings } from './core/settings';
 import { isFighterId, STYLES } from './combat/styles';
 import { Input } from './core/input';
 import { CameraRig } from './fx/camera';
+import { ARCHETYPES } from './ai/archetypes';
 import { Arena, HALF_D, HALF_W, isLevelName, isMapName, MAPS, WorldName } from './world/arena';
 import './world/level';
 import { BloodAtlas, setDrains, SPLAT } from './world/bloodAtlas';
@@ -45,6 +46,18 @@ import { CHAPTERS } from './story/chapters';
 const SOFT_SEPARATION = 1.4;
 
 const _edge = new THREE.Vector3();
+
+/** Something to use: within `r` of `at`, E (RB) does `use` (the prompt says `label`). */
+export interface Interactable {
+  at: THREE.Vector3;
+  r: number;
+  label: string;
+  use: () => void;
+  /** Only now and then (a door once it's unlocked). */
+  enabled?: () => boolean;
+  /** Gone once used. */
+  once?: boolean;
+}
 
 export class Game {
   settings: Settings;
@@ -98,6 +111,10 @@ export class Game {
   godMode = false;
   private enemyCache: Enemy[] = [];
   private enemyCacheFrame = -1;
+  /** Things in the world to use with E (RB): a door, a note, a medkit, a switch. */
+  interactables: Interactable[] = [];
+  /** A guard noticed something (curious), saw her (alert), or let it go (lost): the story's barks. */
+  onGuardSense: ((e: Enemy, kind: 'curious' | 'alert' | 'lost') => void) | null = null;
   /** The story mode: the chapter running (null: the endless waves). */
   story: Story | null = null;
   storyLaunch: StoryLaunch | null = null;
@@ -409,6 +426,36 @@ export class Game {
       this.audio.resume();
       this.voice.pause(false);
     }
+  }
+
+  /** Tests: a man standing about (on watch, on a beat) - as the story's spawn makes them. */
+  debugGuard(x: number, z: number, yaw: number, o: { patrol?: [number, number, number][]; watch?: boolean } = {}) {
+    const names = this.archetypes.brawler;
+    const e = new Enemy(this, this.lib, this.lib.get(names[0]), ARCHETYPES.brawler);
+    e.spawn(x, z, yaw);
+    this.addFighter(e);
+    e.becomeIdle(yaw, null);
+    e.watch = o.watch !== false;
+    if (o.patrol) e.patrol = o.patrol.map(([px, pz, w]) => ({ x: px, z: pz, wait: w }));
+    return e;
+  }
+  /** The thing she'd use with E right now (the nearest in reach, facing it more or less). */
+  interactableNear(): Interactable | null {
+    const p = this.player;
+    let best: Interactable | null = null;
+    let bd = Infinity;
+    for (const it of this.interactables) {
+      if (it.enabled && !it.enabled()) continue;
+      const d = Math.hypot(it.at.x - p.x, it.at.z - p.z);
+      if (d > it.r || Math.abs(it.at.y - (p.y + 1)) > 1.8 || d >= bd) continue;
+      best = it;
+      bd = d;
+    }
+    return best;
+  }
+  useInteractable(it: Interactable) {
+    if (it.once) this.interactables = this.interactables.filter((x) => x !== it);
+    it.use();
   }
 
   enemies(): Enemy[] {

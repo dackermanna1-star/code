@@ -29,6 +29,8 @@ export interface Obstacle {
   walk?: boolean;
   /** Traversal: false when it may not be vaulted or climbed (default: by its height). */
   climb?: boolean;
+  /** Seen through (chain-link, railings): it stops bodies, not eyes. */
+  seeThrough?: boolean;
   /** (lookup bookkeeping) */
   _q?: number;
 }
@@ -847,6 +849,47 @@ export class Arena {
     }
     return best;
   }
+  /**
+   * Can an eye at a see b? The segment against every box it passes (at the height it passes it),
+   * walls, crates and floors alike; see-through ones don't count.
+   */
+  lineOfSight(ax: number, ay: number, az: number, bx: number, by: number, bz: number): boolean {
+    const dx = bx - ax, dz = bz - az;
+    const len = Math.hypot(dx, dz);
+    if (len < 1e-3) return true;
+    for (const o of this.near((ax + bx) / 2, (az + bz) / 2, len / 2 + 0.5)) {
+      if (o.ghost || o.seeThrough) continue;
+      // slab test in the plane, then the height where the ray is inside the footprint
+      let t0 = 0, t1 = 1;
+      let ok = true;
+      for (const [p, d, mn, mx] of [[ax, dx, o.minX, o.maxX], [az, dz, o.minZ, o.maxZ]] as [number, number, number, number][]) {
+        if (Math.abs(d) < 1e-9) {
+          if (p < mn || p > mx) {
+            ok = false;
+            break;
+          }
+          continue;
+        }
+        let a = (mn - p) / d, b = (mx - p) / d;
+        if (a > b) [a, b] = [b, a];
+        t0 = Math.max(t0, a);
+        t1 = Math.min(t1, b);
+        if (t0 > t1) {
+          ok = false;
+          break;
+        }
+      }
+      if (!ok) continue;
+      const y0 = o.y0 ?? 0, top = y0 + o.h;
+      // the ray's lowest point across the box (it's a straight line: one of the ends)
+      const ya = ay + (by - ay) * t0, yb = ay + (by - ay) * t1;
+      if (Math.min(ya, yb) < top && Math.max(ya, yb) > y0) return false;
+    }
+    return true;
+  }
+  /** How lit a point is (0 dark .. 1 bright): the level says (its lamps); the arenas are lit. */
+  lightAt: (x: number, y: number, z: number) => number = () => 1;
+
   /** Bottom and top of an obstacle. */
   static span(o: Obstacle): [number, number] {
     const y0 = o.y0 ?? 0;

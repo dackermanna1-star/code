@@ -136,7 +136,8 @@ export function chainFence(k: LevelKit, M: Materials, x0: number, z0: number, x1
     }
     // the stop: thin, the fence's height
     const px0 = x0 + ux * a, pz0 = z0 + uz * a, px1 = x0 + ux * b, pz1 = z0 + uz * b;
-    k.block([Math.min(px0, px1) - (Math.abs(uz) > 0.5 ? 0.06 : 0), Math.max(px0, px1) + (Math.abs(uz) > 0.5 ? 0.06 : 0), 0, h, Math.min(pz0, pz1) - (Math.abs(ux) > 0.5 ? 0.06 : 0), Math.max(pz0, pz1) + (Math.abs(ux) > 0.5 ? 0.06 : 0)], 'wall', 'fence');
+    const ob = k.block([Math.min(px0, px1) - (Math.abs(uz) > 0.5 ? 0.06 : 0), Math.max(px0, px1) + (Math.abs(uz) > 0.5 ? 0.06 : 0), 0, h, Math.min(pz0, pz1) - (Math.abs(ux) > 0.5 ? 0.06 : 0), Math.max(pz0, pz1) + (Math.abs(ux) > 0.5 ? 0.06 : 0)], 'wall', 'fence');
+    if (ob) ob.seeThrough = true;
   }
 }
 /** A concrete jersey barrier (vaulted). */

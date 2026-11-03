@@ -195,6 +195,8 @@ export class LevelKit {
   readonly floorDensity: number;
   readonly wallDensity: number;
   readonly propDensity: number;
+  /** How lit the level is with no lamp near (stealth: 0.1 a dark night, 0.5 a bright one). */
+  ambientLight = 0.18;
   /** The shadow-casting key light, kept over the player. */
   key: THREE.DirectionalLight | null = null;
   private keyOff = new THREE.Vector3();
@@ -429,6 +431,20 @@ export class LevelKit {
     if (o.probe) this.mk.probe(this.a.background, o.probe);
     // the light pool: a couple more than the arenas' budget (only the nearest few are ever lit)
     this.pool = new LightPool(this.g, Math.max(3, this.pointLights + 2), this.spots);
+    // how lit a point is, from the lamps around it (stealth: the dark hides her)
+    const spots = this.spots;
+    const ambient = this.ambientLight;
+    this.a.lightAt = (x, y, z) => {
+      let l = ambient;
+      for (const s of spots) {
+        if (s.off) continue;
+        const d = Math.hypot(s.p.x - x, s.p.y - y, s.p.z - z);
+        if (d > s.distance) continue;
+        const k = 1 - d / s.distance;
+        l += (s.intensity / 40) * k * k;
+      }
+      return Math.min(1, l);
+    };
     const a = this.a;
     const key = this.key;
     const keyOff = this.keyOff;

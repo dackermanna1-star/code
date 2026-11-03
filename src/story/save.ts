@@ -30,6 +30,8 @@ export interface StoryProgress {
   best: Record<number, { grade: string; time: number }>;
   /** A chapter left mid-way: CONTINUE picks it up here. */
   resume: CheckpointState | null;
+  /** What she's found along the way (the journal: notes, photos, evidence) by id. */
+  found: string[];
 }
 
 export interface StoryLaunch {
@@ -47,12 +49,12 @@ export function loadProgress(): StoryProgress {
     const raw = localStorage.getItem(KEY);
     if (raw) {
       const p = JSON.parse(raw) as Partial<StoryProgress>;
-      return { unlocked: Math.max(0, Number(p.unlocked ?? 0)), best: p.best ?? {}, resume: p.resume ?? null };
+      return { unlocked: Math.max(0, Number(p.unlocked ?? 0)), best: p.best ?? {}, resume: p.resume ?? null, found: Array.isArray(p.found) ? p.found : [] };
     }
   } catch {
     /* storage unavailable */
   }
-  return { unlocked: 0, best: {}, resume: null };
+  return { unlocked: 0, best: {}, resume: null, found: [] };
 }
 
 export function saveProgress(p: StoryProgress) {

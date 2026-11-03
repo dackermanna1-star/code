@@ -823,6 +823,15 @@ export class HUD {
     d.classList.add('on');
   }
 
+  private susPool: HTMLElement[] = [];
+  private susEl(i: number) {
+    while (this.susPool.length <= i) {
+      const d = el('div', 'sus', '<i></i>');
+      this.root.append(d);
+      this.susPool.push(d);
+    }
+    return this.susPool[i];
+  }
   private ind(i: number) {
     while (this.indPool.length <= i) {
       const d = el('div', 'ind', '<div class="ring"></div><div class="ic"></div>');
@@ -1029,9 +1038,33 @@ export class HUD {
     }
     for (let i = n; i < this.indPool.length; i++) this.indPool[i].style.display = 'none';
     for (let i = ne; i < this.edgePool.length; i++) this.edgePool[i].style.display = 'none';
+    // ---- suspicion: an eye over each guard who's noticed something
+    let ns = 0;
+    for (const e of g.enemies()) {
+      if (!e.alive || !e.watch || e.state !== 'idle' || e.sus < 0.03 || g.story?.inScene) continue;
+      e.bodyPoint('head', v);
+      v.y += 0.5 * e.scale;
+      v.project(cam);
+      if (v.z >= 1 || Math.abs(v.x) > 1 || Math.abs(v.y) > 1) continue;
+      const d = this.susEl(ns++);
+      d.style.display = '';
+      d.style.left = `${((v.x + 1) / 2) * W}px`;
+      d.style.top = `${((1 - v.y) / 2) * H}px`;
+      d.style.setProperty('--k', String(Math.min(1, e.sus)));
+      d.classList.toggle('hot', e.sus >= 0.3);
+      d.classList.toggle('sees', e.seesPlayer);
+    }
+    for (let i = ns; i < this.susPool.length; i++) this.susPool[i].style.display = 'none';
     // ---- contextual prompts
     let prompt = '';
-    if (p.alive && p.action === 'free') {
+    const pad = g.input.usingGamepad;
+    const key = (k: string, padK: string) => `<b>${pad ? padK : k}</b>`;
+    const quiet = p.alive && p.action === 'free' ? p.stealthTarget() : null;
+    const use = p.alive && p.action === 'free' ? g.interactableNear() : null;
+    if (quiet) prompt = `${key('F', 'LB')}TAKEDOWN`;
+    else if (use) prompt = `${key('E', 'RB')}${use.label}`;
+    else if (p.alive && p.action === 'free' && p.travOption) prompt = `${key('SPACE', 'A')}${p.travOption.label}`;
+    else if (p.alive && p.action === 'free') {
       const downed = p.selectTarget(2.6, (e) => e.state === 'down');
       const wp = g.weapons.find((x) => x.pickable && x.worldPos(v).distanceTo(_w.set(p.x, v.y, p.z)) < 1.4);
       if (downed && p.execCd <= 0) prompt = '<b>F</b>GROUND TAKEDOWN';

@@ -10,6 +10,8 @@ import type { SceneShot } from '../fx/camera';
 import { CameraRig } from '../fx/camera';
 import { clamp, pick, rand, wrapAngle, yawFromDir } from '../core/math';
 import { StoryUI, PhoneMsg } from './ui';
+import { ItemKind, makeGlint, makeItemMesh } from './items';
+import type { Interactable } from '../game';
 import { CheckpointState, fmtTime, gradeRun, launchStory, loadProgress, saveProgress, StoryLaunch, GRADE_ORDER } from './save';
 
 type P3 = THREE.Vector3 | [number, number, number];
@@ -61,6 +63,7 @@ export interface Chapter {
   backdrop?: ShotSpec;
 }
 
+const JOURNAL_KEY = 'scarlet-journal-v1';
 /** How each speaker carries a line: a raised voice comes with bigger hands. */
 const HEATED: Record<string, number> = { DOYLE: 0.5, 'THE BUTCHER': 0.7, KAEL: 0.6, VIPER: 0.35 };
 
@@ -81,8 +84,14 @@ export class Story {
   /** Seconds of play (scenes not counted). */
   time = 0;
   retries = 0;
-  /** No fight on: her health comes back. */
-  calm = true;
+  /** No fight on (the script's say): her health comes back - unless guards she alerted are on her. */
+  private calmFlag = true;
+  get calm() {
+    return this.calmFlag && !this.game.enemies().some((e) => e.alive && e.state !== 'idle' && e.state !== 'enter' && !e.down);
+  }
+  set calm(v: boolean) {
+    this.calmFlag = v;
+  }
   inScene = false;
   /** The scene is being skipped: everything it waits for comes at once. */
   skipping = false;
@@ -129,6 +138,8 @@ export class Story {
     const c = this.chapter;
     this.fill = new THREE.PointLight(0xffe4cc, 0, 4.5, 2);
     g.scene.add(this.fill);
+    g.onGuardSense = (e, kind) => this.guardBark(e, kind);
+    window.addEventListener('keydown', this.journalKeys, true);
     this.chapter.setup?.(this);
     // where she stood, what she had: back as it was at the checkpoint
     if (this.lastState) this.restore(this.lastState);
@@ -190,6 +201,14 @@ export class Story {
     const g = this.game;
     if (!this.inScene && !this.finished && !g.over) this.time += realDt;
     this.chapter.tick?.(this, realDt);
+    // the glint over what's to be found: a slow pulse, brighter as she gets near
+    for (const it of this.items) {
+      it.t += realDt;
+      const d = Math.hypot(it.mesh.position.x - g.player.x, it.mesh.position.z - g.player.z);
+      const near = 1 - Math.min(1, Math.max(0, (d - 2) / 10));
+      (it.glint.material as THREE.SpriteMaterial).opacity = (0.25 + 0.75 * Math.pow(0.5 + 0.5 * Math.sin(it.t * 2.4), 3)) * near * 0.9;
+      it.glint.scale.setScalar(0.22 + 0.12 * near);
+    }
     // skipping a scene: hold SPACE / A
     if (this.inScene && this.sceneSkippable && !this.skipping) {
       const held = g.input.isHeld('dodge');
@@ -461,10 +480,23 @@ export class Story {
     this.ui.clearSay();
     await this.wait(0.16);
   }
+  /** What a guard says when he notices something, sees her, or gives up. */
+  private barkT = 0;
+  private guardBark(e: Enemy, kind: 'curious' | 'alert' | 'lost') {
+    // (one voice at a time: a whole yard of them saying 'hm?' at once is a chorus)
+    if (this.game.realTime - this.barkT < (kind === 'alert' ? 0.4 : 2.2)) return;
+    this.barkT = this.game.realTime;
+    const lines = {
+      curious: ['Hm?', 'Who\'s there?', 'Hello?', 'Something moved.', 'You hear that?', 'Hey. Who\'s that?'],
+      alert: ['THERE!', 'Over here!', 'It\'s her!', 'She\'s here!', 'Got her — over here!'],
+      lost: ['Nothing.', 'Rats. Again.', 'Hearing things.', 'Huh. Nothing.', 'Must be the rain.'],
+    }[kind];
+    this.bark('GUARD', pick(lines), 1.8, e);
+  }
   /** A line in the fight: spoken and on screen, nobody waits for it. */
-  bark(who: string, text: string, dur?: number) {
+  bark(who: string, text: string, dur?: number, by: Fighter | null = null) {
     const plain = text.replace(/<[^>]+>/g, '');
-    const actor = this.actorOf(who);
+    const actor = by ?? this.actorOf(who);
     const line = this.game.voice.speak(who, text, actor?.model ?? null);
     if (this.game.settings.subtitles !== false) this.ui.say(who, text, Math.max(dur ?? Math.min(4, 1.2 + plain.length * 0.045), line.dur + 0.3), true);
   }
@@ -560,18 +592,24 @@ export class Story {
 
   // ================================================================== them
   /** Someone standing about (idle: not in the fight until alerted). */
-  spawn(key: string, x: number, z: number, yaw: number, o: { variant?: string; pose?: string | null; idle?: boolean; alertR?: number; hp?: number; group?: Enemy[] } = {}): Enemy {
+  spawn(key: string, x: number, z: number, yaw: number, o: { variant?: string; pose?: string | null; idle?: boolean; alertR?: number; hp?: number; group?: Enemy[]; y?: number; watch?: boolean; patrol?: [number, number, number?][]; vision?: number; fov?: number } = {}): Enemy {
     const g = this.game;
     const cfg = ARCHETYPES[key];
     const names = g.archetypes[key as keyof typeof g.archetypes] ?? g.archetypes.brawler;
     const v = g.lib.get(o.variant ?? pick(names));
     const e = new Enemy(g, g.lib, v, cfg);
-    e.spawn(x, z, yaw);
+    e.spawn(x, z, yaw, o.y ?? g.arena.groundAt(x, z, 0.3));
     if (o.hp) e.maxHp = e.hp = o.hp;
     g.addFighter(e);
     if (o.idle !== false) {
       e.becomeIdle(yaw, o.pose ?? null);
       e.alertR = o.alertR ?? 0;
+      if (o.watch) {
+        e.watch = true;
+        if (o.patrol) e.patrol = o.patrol.map(([px, pz, w]) => ({ x: px, z: pz, wait: w ?? 1.5 }));
+        if (o.vision) e.vision.r = o.vision;
+        if (o.fov) e.vision.fov = o.fov;
+      }
     } else {
       e.setState('circle');
       e.ghostWalls = false;
@@ -680,6 +718,135 @@ export class Story {
     p.specialKOs = 0;
     this.flags.pistol = true;
   }
+
+  // ================================================================== things to find
+  private items: { id: string; mesh: THREE.Object3D; glint: THREE.Sprite; t: number }[] = [];
+  /** Notes and photographs this chapter has, and how many she's found. */
+  collectibles = { total: 0, found: 0 };
+  /**
+   * Something lying about (on the floor, a shelf, a desk): E takes it. First aid heals, a box of
+   * rounds loads the pistol, a note or a photo is read and kept in the journal.
+   */
+  pickup(kind: ItemKind, at: P3, o: { id?: string; title?: string; text?: string; yaw?: number; onTake?: () => void } = {}) {
+    const g = this.game;
+    const p = Array.isArray(at) ? new THREE.Vector3(at[0], at[1], at[2]) : at.clone();
+    const id = o.id ?? `${kind}@${p.x.toFixed(1)},${p.z.toFixed(1)}`;
+    const collectible = kind === 'note' || kind === 'photo';
+    if (collectible) this.collectibles.total++;
+    // (taken before the checkpoint she came back to: not there now)
+    if (this.flags['got:' + id]) {
+      if (collectible) this.collectibles.found++;
+      return;
+    }
+    const mesh = makeItemMesh(kind);
+    mesh.position.copy(p);
+    mesh.rotation.y = o.yaw ?? Math.random() * Math.PI * 2;
+    g.scene.add(mesh);
+    const glint = makeGlint();
+    glint.position.copy(p).add(new THREE.Vector3(0, 0.2, 0));
+    g.scene.add(glint);
+    const item = { id, mesh, glint, t: Math.random() * 6 };
+    this.items.push(item);
+    const label = { medkit: 'TAKE FIRST AID', ammo: 'TAKE 9MM', note: 'READ', photo: 'LOOK', key: 'TAKE' }[kind];
+    const it: Interactable = {
+      at: p.clone().setY(p.y + 0.2),
+      r: 1.3,
+      label,
+      once: true,
+      use: () => {
+        mesh.removeFromParent();
+        glint.removeFromParent();
+        this.items = this.items.filter((x) => x !== item);
+        this.flags['got:' + id] = true;
+        const pl = g.player;
+        g.audio.ui('ok');
+        switch (kind) {
+          case 'medkit': {
+            const before = pl.hp;
+            pl.hp = Math.min(pl.maxHp, pl.hp + 45);
+            g.hud?.toast(`FIRST AID +${Math.round(pl.hp - before)}`, '#8fd48f', 1.2);
+            break;
+          }
+          case 'ammo':
+            if (!pl.specialLocked) {
+              pl.specialCharges = Math.min(3, pl.specialCharges + 1);
+              g.hud?.toast('PISTOL +1', '#ff5a6a', 1.2);
+            }
+            break;
+          case 'note':
+          case 'photo':
+            this.collectibles.found++;
+            this.found(id, o.title ?? 'A note', o.text ?? '', kind);
+            this.readNote(kind, o.title ?? '', o.text ?? '');
+            break;
+          case 'key':
+            g.hud?.toast(o.title ?? 'TAKEN', '#d8cfc2', 1.2);
+            break;
+        }
+        o.onTake?.();
+      },
+    };
+    g.interactables.push(it);
+  }
+  /** A thing in the world to use with E (a door, a switch): `use` when she does. */
+  interact(at: P3, label: string, use: () => void, o: { r?: number; once?: boolean; enabled?: () => boolean } = {}) {
+    const p = Array.isArray(at) ? new THREE.Vector3(at[0], at[1], at[2]) : at.clone();
+    const it: Interactable = { at: p, r: o.r ?? 1.3, label, use, once: o.once ?? true, enabled: o.enabled };
+    this.game.interactables.push(it);
+    return it;
+  }
+  /** Kept: in the journal from now on (every playthrough). */
+  private found(id: string, title: string, text: string, kind: string) {
+    const pr = loadProgress();
+    if (!pr.found.includes(id)) pr.found.push(id);
+    saveProgress(pr);
+    try {
+      const j = JSON.parse(localStorage.getItem(JOURNAL_KEY) ?? '{}') as Record<string, { title: string; text: string; kind: string; chapter: string; at: number }>;
+      j[id] = { title, text, kind, chapter: this.chapter.title, at: Date.now() };
+      localStorage.setItem(JOURNAL_KEY, JSON.stringify(j));
+    } catch {
+      /* storage unavailable: the journal is this session's */
+    }
+    this.game.hud?.feed('JOURNAL', title.toUpperCase());
+  }
+  /** Reading: the world holds still until she puts it down. */
+  private readNote(kind: string, title: string, text: string) {
+    const g = this.game;
+    this.ui.read(kind, title, text);
+    g.paused = true;
+    const close = (e: KeyboardEvent) => {
+      if (!['KeyE', 'Escape', 'Space', 'Enter', 'Tab'].includes(e.code)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      window.removeEventListener('keydown', close, true);
+      this.ui.readClose();
+      g.paused = false;
+      g.input.clearBuffer();
+    };
+    // (not the key that opened it)
+    setTimeout(() => window.addEventListener('keydown', close, true), 250);
+  }
+  /** TAB: the journal (the world holds still while it's open). */
+  private journalKeys = (e: KeyboardEvent) => {
+    if (e.code !== 'Tab' && !(e.code === 'Escape' && this.ui.journalOpen)) return;
+    const g = this.game;
+    if (!this.started || this.inScene || this.ui.reading || g.over || (g.paused && !this.ui.journalOpen)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const open = !this.ui.journalOpen;
+    if (open) {
+      let entries: { title: string; text: string; kind: string; chapter: string; at: number }[] = [];
+      try {
+        entries = Object.values(JSON.parse(localStorage.getItem(JOURNAL_KEY) ?? '{}'));
+      } catch {
+        /* none */
+      }
+      entries.sort((a, b) => b.at - a.at);
+      this.ui.journal(true, { objective: this.ui.objectiveText, chapter: `${this.chapter.kick} · ${this.chapter.title}`, entries, found: this.collectibles.found, total: this.collectibles.total });
+    } else this.ui.journal(false);
+    g.paused = open;
+    if (!open) g.input.clearBuffer();
+  };
 
   // ================================================================== checkpoints
   private checkpoint(i: number, announce: boolean) {

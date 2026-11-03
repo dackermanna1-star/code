@@ -97,6 +97,26 @@ export class Enemy extends Fighter {
   alertR = 0;
   /** Called once when he joins the fight. */
   onAlert: ((e: Enemy) => void) | null = null;
+  // ------------------------------------------------------------------ stealth (the story's levels)
+  /** On watch: he looks and listens for her (else he only notices what the script tells him). */
+  watch = false;
+  /** What he's noticed of her: 0 nothing, 0.3 something's off, 1 he's seen her (the fight). */
+  sus = 0;
+  /** How far he sees (m) and how wide (half-angle, rad). */
+  vision = { r: 13, fov: 1.0 };
+  /** A beat round a few points (and a wait at each). */
+  patrol: { x: number; z: number; wait: number }[] | null = null;
+  private patrolI = 0;
+  private patrolWait = 0;
+  /** Where he heard or glimpsed her (where he goes to look). */
+  investigate: { x: number; z: number } | null = null;
+  /** Where he stood and how before anything was off (he goes back there after a false alarm). */
+  private post: { x: number; z: number; yaw: number | null; pose: string | null } | null = null;
+  private senseT = Math.random() * 0.1;
+  private curiousT = 0;
+  private scanT = Math.random() * 10;
+  /** Saw her this beat (the HUD's eye; the look turns to her). */
+  seesPlayer = false;
   /** Side (+1 / -1) this enemy steps out of the camera's line of sight to the player, 0 = not in it. */
   private camSide = 0;
 
@@ -366,12 +386,17 @@ export class Enemy extends Fighter {
     li.style = 'relaxed';
     li.guard = 0;
     li.breath = 0.5;
+    if (this.watch) {
+      this.perceive(dt);
+      if (this.state !== 'idle') return;
+      this.stealthMoves(dt);
+    }
     const to = this.idleTo;
     if (to) {
       if (this.anim.mode !== 'loco') this.anim.toLoco(0.2);
       const dx = to.x - this.x, dz = to.z - this.z;
       const d = Math.hypot(dx, dz);
-      const sp = to.walk === false ? this.cfg.speed * 0.75 : 1.35;
+      const sp = to.walk === false ? this.cfg.speed * 0.75 : this.sus >= 0.3 ? 1.05 : 1.35;
       const k = Math.min(1, d / 0.5);
       this.vx = damp(this.vx, d > 0.08 ? (dx / d) * sp * k : 0, 6, dt);
       this.vz = damp(this.vz, d > 0.08 ? (dz / d) * sp * k : 0, 6, dt);
@@ -394,12 +419,143 @@ export class Enemy extends Fighter {
         else this.anim.toLoco(0.25);
       }
     }
+    // a guard's eyes wander (his look is his cone's direction); one who's seen something stares
+    if (this.watch && this.anim.mode === 'loco') {
+      this.scanT += dt;
+      const wander = this.sus >= 0.3 ? 0 : Math.sin(this.scanT * 0.45) * 0.55 + Math.sin(this.scanT * 0.17) * 0.25;
+      const at = this.investigate && this.sus >= 0.3 ? clamp(angleDiff(this.yaw, yawFromDir(this.investigate.x - this.x, this.investigate.z - this.z)), -1.1, 1.1) : wander;
+      li.look = at;
+    }
     const p = this.player;
     if (this.alertR > 0 && p.alive && Math.hypot(p.x - this.x, p.z - this.z) < this.alertR) this.alert();
   }
+
+  /** Where his eyes point (his facing and his look). */
+  lookYaw() {
+    return wrapAngle(this.yaw + (this.anim.mode === 'loco' ? this.anim.locoIn.look : 0));
+  }
+  /**
+   * Eyes and ears, ten times a second: he sees her within his cone (less far crouched, less far in
+   * the dark, never through a wall), hears her running or close by; what he notices fills his
+   * suspicion, and a full meter is the fight.
+   */
+  private perceive(dt: number) {
+    const g = this.game;
+    const p = this.player;
+    this.senseT -= dt;
+    if (this.senseT > 0) return;
+    const step = 0.1 - this.senseT;
+    this.senseT = 0.1;
+    if (!p.alive || g.story?.inScene) {
+      this.seesPlayer = false;
+      return;
+    }
+    const dx = p.x - this.x, dz = p.z - this.z;
+    const d = Math.hypot(dx, dz);
+    const dy = p.y - this.y;
+    let seen = 0;
+    const lit = g.arena.lightAt(p.x, p.y + 1, p.z);
+    const range = this.vision.r * (p.crouched ? 0.6 : 1) * (0.45 + 0.55 * lit);
+    if (d < range && Math.abs(dy) < 6) {
+      const ang = Math.abs(angleDiff(this.lookYaw(), yawFromDir(dx, dz)));
+      const fov = this.vision.fov * (this.sus >= 0.3 ? 1.25 : 1);
+      if (ang < fov || d < 0.55) {
+        this.bodyPoint('head', _v);
+        const eyeY = _v.y;
+        if (g.arena.lineOfSight(this.x, eyeY, this.z, p.x, p.y + (p.crouched ? 0.75 : 1.25), p.z)) {
+          // (dead centre and close: at once; at the edge of his eye or far off: a slow dawning)
+          seen = (1 - d / range) * (ang < fov * 0.55 ? 1 : 0.55);
+        }
+      }
+    }
+    this.seesPlayer = seen > 0;
+    // her noise: running, walking near, fighting
+    const sp = Math.hypot(p.vx, p.vz);
+    const noise = p.crouched ? (sp > 0.3 ? 0.45 : 0) : sp > 3.2 ? 7.5 : sp > 1.4 ? 2.6 : 1.0;
+    const heard = d < noise && Math.abs(dy) < 3;
+    const was = this.sus;
+    if (seen > 0) {
+      this.sus = Math.min(1, this.sus + step * (0.3 + seen * 2.1));
+      this.investigate = { x: p.x, z: p.z };
+    } else if (heard) {
+      this.sus = Math.min(Math.max(this.sus, 0.36), 0.75);
+      this.investigate = { x: p.x, z: p.z };
+    } else this.sus = Math.max(0, this.sus - step * (this.sus > 0.6 ? 0.07 : 0.11));
+    if (was < 0.3 && this.sus >= 0.3) this.becomeCurious();
+    if (this.sus >= 1) this.spotted();
+    else if (was >= 0.3 && this.sus < 0.12) this.loseInterest();
+  }
+  /** Something's off: he stops, turns to it, says so. */
+  private becomeCurious() {
+    if (!this.post) this.post = { x: this.x, z: this.z, yaw: this.idleFace ?? this.yaw, pose: this.idlePose };
+    this.idleTo = null;
+    if (this.anim.mode === 'clip') this.anim.toLoco(0.25);
+    this.idlePose = null;
+    this.curiousT = 0;
+    this.game.onGuardSense?.(this, 'curious');
+  }
+  /** He's seen her: the shout, the fight - and the ones near enough to hear it come too. */
+  private spotted() {
+    this.game.onGuardSense?.(this, 'alert');
+    this.post = null;
+    this.alert();
+    for (const o of this.game.enemies()) {
+      if (o === this || !o.alive || o.state !== 'idle') continue;
+      const d = o.distTo(this);
+      if (d < 14 && (d < 7 || this.game.arena.lineOfSight(this.x, 1.6 + this.y, this.z, o.x, 1.6 + o.y, o.z))) o.alert(0.3 + d * 0.06);
+    }
+  }
+  /** Nothing there after all: back to where he was. */
+  private loseInterest() {
+    this.game.onGuardSense?.(this, 'lost');
+    this.investigate = null;
+    const post = this.post;
+    this.post = null;
+    if (post && !this.patrol) {
+      this.idleTo = { x: post.x, z: post.z };
+      this.idleFace = post.yaw;
+      this.idlePose = post.pose;
+    }
+  }
+  /** On his beat, or looking into what he noticed. */
+  private stealthMoves(dt: number) {
+    if (this.sus >= 0.3 && this.investigate) {
+      // a beat staring at it, then he goes to look (stopping short of it)
+      this.curiousT += dt;
+      const t = this.investigate;
+      this.idleFace = yawFromDir(t.x - this.x, t.z - this.z);
+      if (this.curiousT > 1.4 && !this.seesPlayer) {
+        const dx = t.x - this.x, dz = t.z - this.z;
+        const d = Math.hypot(dx, dz);
+        if (d > 1.6) this.idleTo = { x: t.x - (dx / d) * 1.2, z: t.z - (dz / d) * 1.2 };
+      } else if (this.seesPlayer) this.idleTo = null;
+      return;
+    }
+    const pts = this.patrol;
+    if (!pts || pts.length === 0 || this.idleTo) return;
+    this.patrolWait -= dt;
+    if (this.patrolWait > 0) return;
+    const pt = pts[this.patrolI % pts.length];
+    if (Math.hypot(pt.x - this.x, pt.z - this.z) < 0.3) {
+      this.patrolWait = pt.wait;
+      this.patrolI++;
+      return;
+    }
+    this.idleTo = { x: pt.x, z: pt.z };
+  }
+  /** A noise at (x, z) (a body falling, a thrown bottle, a fight next door): he turns to look. */
+  hear(x: number, z: number, amount = 0.45) {
+    if (this.state !== 'idle' || !this.watch) return;
+    const was = this.sus;
+    this.sus = Math.min(0.95, Math.max(this.sus, amount));
+    this.investigate = { x, z };
+    if (was < 0.3 && this.sus >= 0.3) this.becomeCurious();
+  }
+
   /** Into the fight (a blow, the player too close, or the script). */
   alert(delay = 0) {
     if (this.state !== 'idle' || !this.alive) return;
+    this.sus = 1;
     this.idleTo = null;
     this.idlePose = null;
     if (this.anim.mode === 'clip') this.anim.toLoco(0.18);

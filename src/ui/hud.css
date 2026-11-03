@@ -285,3 +285,12 @@ kbd, #hud .prompt b { display: inline-block; min-width: 24px; padding: 4px 7px 3
 @media (max-width: 720px) { .replay .rtop { flex-wrap: wrap; gap: 8px 12px; white-space: normal; } }
 
 .loading .lk { font: 800 14px/1 var(--ui); letter-spacing: .7em; margin-left: .7em; color: var(--red); margin-bottom: -10px; }
+
+/* stealth: a guard's eye over his head, filling as he notices her (amber: looking; red: sees her) */
+#hud .sus { position: absolute; width: 30px; height: 18px; margin: -9px 0 0 -15px; border-radius: 50% / 60%; border: 2px solid rgba(255,255,255,.85); overflow: hidden; box-shadow: 0 0 6px rgba(0,0,0,.6); background: rgba(0,0,0,.35); }
+#hud .sus i { position: absolute; left: 0; bottom: 0; width: 100%; height: calc(var(--k) * 100%); background: rgba(255,255,255,.85); transition: background .2s; }
+#hud .sus.hot { border-color: #ffb040; }
+#hud .sus.hot i { background: #ffb040; }
+#hud .sus.sees { border-color: #ff4a30; animation: susPulse .5s ease-in-out infinite alternate; }
+#hud .sus.sees i { background: #ff4a30; }
+@keyframes susPulse { from { transform: scale(1); } to { transform: scale(1.18); } }

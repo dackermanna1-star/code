@@ -52,6 +52,9 @@ export class StoryUI {
   private skipEl = el('div', 'skip', '<span class="ring"></span><span>HOLD</span><kbd>SPACE</kbd><span>SKIP</span>');
   private itemEl = el('div', 'item');
   private fadeEl = el('div', 'fade');
+  /** A note read on screen (a page, a photo's back), and the journal of everything found. */
+  private readEl = el('div', 'read');
+  private journalEl = el('div', 'journal');
   private subT = 0;
   private stampT = 0;
   private itemT = 0;
@@ -67,7 +70,7 @@ export class StoryUI {
     top.append(this.phoneAv, who);
     this.phoneEl.append(el('div', 'ph-notch'), this.phoneClock, el('div', 'ph-batt'), top, this.phoneLog, this.phoneIn);
     // (the black goes over the world and the HUD; lines, the phone and the card play on top of it)
-    this.root.append(this.barsEl, this.stampEl, this.objEl, this.markEl, this.tutEl, this.itemEl, this.fadeEl, this.subEl, this.skipEl, this.phoneEl, this.cardEl);
+    this.root.append(this.barsEl, this.stampEl, this.objEl, this.markEl, this.tutEl, this.itemEl, this.fadeEl, this.subEl, this.skipEl, this.phoneEl, this.cardEl, this.readEl, this.journalEl);
     document.body.append(this.root);
   }
 
@@ -172,6 +175,9 @@ export class StoryUI {
   }
 
   // ------------------------------------------------------------------ objective, marker, tutorial
+  get objectiveText() {
+    return this.objText;
+  }
   objective(text: string | null, sub = '') {
     if (!text) {
       this.objEl.classList.remove('on');
@@ -217,6 +223,32 @@ export class StoryUI {
     this.itemEl.innerHTML = `${GUN}<div><small>${kick}</small><b>${name}</b><span>${desc}</span></div>`;
     this.itemEl.classList.add('on');
     this.itemT = dur;
+  }
+
+  // ------------------------------------------------------------------ notes and the journal
+  /** A note, read: its title, its text (paper on screen); closes with E, ESC or SPACE. */
+  read(kind: string, title: string, text: string) {
+    const close = '<div class="rk"><kbd>E</kbd> CLOSE</div>';
+    this.readEl.className = 'read on ' + kind;
+    this.readEl.innerHTML = `<div class="paper"><small>${kind === 'photo' ? 'PHOTOGRAPH' : kind === 'evidence' ? 'EVIDENCE' : 'NOTE'}</small><h3>${title}</h3><p>${text.replace(/\n/g, '<br>')}</p></div>${close}`;
+  }
+  readClose() {
+    this.readEl.classList.remove('on');
+  }
+  get reading() {
+    return this.readEl.classList.contains('on');
+  }
+  /** The journal (TAB): the chapter's objective, and everything found so far, newest first. */
+  journal(open: boolean, o: { objective: string; chapter: string; entries: { title: string; text: string; kind: string; chapter: string }[]; found: number; total: number } | null = null) {
+    this.journalEl.classList.toggle('on', open);
+    if (!open || !o) return;
+    const list = o.entries.length
+      ? o.entries.map((e) => `<div class="je"><small>${e.chapter} · ${e.kind.toUpperCase()}</small><b>${e.title}</b><p>${e.text.replace(/\n/g, '<br>')}</p></div>`).join('')
+      : '<div class="je none">Nothing yet. Look around: notes, photographs, things people leave behind.</div>';
+    this.journalEl.innerHTML = `<div class="jbox"><div class="jh"><small>JOURNAL</small><b>${o.chapter}</b><span>FOUND ${o.found} / ${o.total} THIS CHAPTER</span></div><div class="jo"><small>NOW</small>${o.objective || '—'}</div><div class="jl">${list}</div><div class="rk"><kbd>TAB</kbd> CLOSE</div></div>`;
+  }
+  get journalOpen() {
+    return this.journalEl.classList.contains('on');
   }
 
   /** Everything passing (a line, a card, a stamp, a prompt): gone. */

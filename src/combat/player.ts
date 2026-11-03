@@ -387,6 +387,44 @@ export class Player extends Fighter {
     if (this.scripted) this.sceneInputs();
   }
 
+  // ------------------------------------------------------------------ stealth
+  /** An unaware man she's right behind: F takes him out without a sound. */
+  stealthTarget(): Enemy | null {
+    if (this.action !== 'free' || this.scripted || this.airborne) return null;
+    let best: Enemy | null = null;
+    let bd = Infinity;
+    for (const e of this.enemies()) {
+      if (!e.alive || e.state !== 'idle' || e.down || e.sus >= 1 || e.cfg.boss) continue;
+      const d = this.distTo(e);
+      if (d > 1.75 || Math.abs(e.y - this.y) > 0.3 || d >= bd) continue;
+      // (behind him: where she is from him, against where he faces)
+      if (Math.abs(angleDiff(e.yaw, yawFromDir(this.x - e.x, this.z - e.z))) < 1.95) continue;
+      best = e;
+      bd = d;
+    }
+    return best;
+  }
+  /** The sleeper hold: an arm round his neck from behind, down he goes, quietly. */
+  stealthTakedown(e: Enemy) {
+    if (this.crouched) this.setCrouch(false);
+    e.idleTo = null;
+    e.idlePose = null;
+    this.startPaired(e, PAIRS.get('stk_choke')!, 'takedown');
+    this.stats.takedowns++;
+  }
+  private onChoke() {
+    const e = this.partner;
+    const g = this.game;
+    if (!e || !e.alive) return;
+    e.hp = 0;
+    g.death.kill(e, 'choke', new THREE.Vector3(0, -8, 0), new THREE.Vector3(e.x, e.y + 1.4, e.z));
+    this.stats.kills++;
+    g.onEnemyKilled(e, makeHit({ dir: new THREE.Vector3(0, -1, 0), point: new THREE.Vector3(e.x, e.y + 1.4, e.z), damage: 999, strength: 0.3, kind: 'blunt', region: 'head', attacker: this, bleed: 0 }));
+    g.hud?.feed('SILENT TAKEDOWN');
+    // (a body going down makes a little noise: anyone very near turns to look)
+    for (const o of this.enemies()) if (o !== e && o.alive && o.state === 'idle' && o.distTo(this) < 5) o.hear(this.x, this.z, 0.4);
+  }
+
   // ------------------------------------------------------------------ the world: crouch, climb, drop
   /** Wants to stand (she asked) but may not have room yet. */
   private wantStand = false;
@@ -664,7 +702,9 @@ export class Player extends Fighter {
       return;
     }
     if (inp.consume('finisher', 0.3)) {
-      this.tryFinisher();
+      const quiet = this.stealthTarget();
+      if (quiet) this.stealthTakedown(quiet);
+      else this.tryFinisher();
       return;
     }
     if (inp.consume('special', 0.3)) {
@@ -676,7 +716,9 @@ export class Player extends Fighter {
       return;
     }
     if (inp.consume('grab', 0.3)) {
-      this.tryGrabOrPickup();
+      const it = this.action === 'free' && this.calmNear() ? this.game.interactableNear() : null;
+      if (it) this.game.useInteractable(it);
+      else this.tryGrabOrPickup();
       return;
     }
     if (inp.consume('stun', 0.3)) {
@@ -875,6 +917,10 @@ export class Player extends Fighter {
     switch (ev.type) {
       case 'sfx':
         // (the world's moves: hands on a ledge, an effort, the fence's rattle, a landing)
+        if (ev.name === 'choke') {
+          g.audio.play('grunt_pain', { pos: _v.set(this.x, this.y + 1.5, this.z), vol: 0.35, pitch: 0.75, pitchVar: 0.1 });
+          return;
+        }
         if (ev.name === 'grab' || ev.name === 'fence' || ev.name === 'effort' || ev.name === 'land' || ev.name === 'whoosh') {
           const at = _v.set(this.x, this.y + 1.2, this.z);
           if (ev.name === 'grab') g.audio.play('block', { pos: at, vol: 0.25, pitch: 1.5 });
@@ -904,6 +950,9 @@ export class Player extends Fighter {
         return;
       case 'draw':
         this.drawGun();
+        return;
+      case 'choke':
+        this.onChoke();
         return;
       case 'shot':
         this.fireShot(Number(ev.n ?? 0));

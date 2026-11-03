@@ -1,6 +1,8 @@
 import { Key, KeyFoot, KeyHand } from '../clip';
 import { definePaired } from './paired';
-import { BRAWL, FIGHT, k } from './stances';
+import { BRAWL, FIGHT, k, RELAXED } from './stances';
+
+const RELAXED_S = RELAXED;
 
 /**
  * Victim key helper: author the victim in its OWN local frame (as if standing at origin facing +Z),
@@ -456,6 +458,55 @@ export function registerPaired() {
       },
       D,
       { side: -1, height: 1.2, dist: 2.8, fov: 44, orbit: -0.2 },
+    );
+  }
+
+  // =================================================================== STEALTH: sleeper hold from behind
+  {
+    const D = 0.5;
+    // the victim faces away from her: authored in his own frame, placed at (0, D) facing +Z
+    const vb = (t: number, base: Omit<Key, 't'>, over: Partial<Key> = {}): Key => {
+      const kk = k(t, base, over);
+      const r = kk.root ?? [0, 0, 0];
+      kk.root = [r[0], D + r[1], r[2]];
+      const conv = (f?: KeyFoot): KeyFoot | undefined => (f && f.p ? { ...f, p: [f.p[0], f.p[1], D + f.p[2]] } : f);
+      kk.lf = conv(kk.lf);
+      kk.rf = conv(kk.rf);
+      return kk;
+    };
+    const ARM = (side: 1 | -1, aim: 'p.neck' | 'p.head', off: [number, number, number], roll: number): KeyHand => ({ aim, aimW: 1, aimOff: off, roll, pole: [side * 0.8, -0.4, -0.2], sp: 'chest', p: [side * 0.2, 0, 0.3] });
+    const HOLD = (t: number, over: Partial<Key> = {}) =>
+      k(t, RELAXED_S, { lh: ARM(1, 'p.head', [0.02, 0.06, -0.12], 40), rh: ARM(-1, 'p.neck', [0.1, -0.02, 0.06], 95), ...over });
+    definePaired(
+      'stk_choke',
+      {
+        hitT: 2.0, recoverT: 2.5,
+        keys: [
+          k(0, RELAXED_S),
+          HOLD(0.14, { e: 'out', root: [0, 0.12, 0], hips: [0, -0.1, 0.05], hipsR: [10, 0, 0], torso: [12, 0, 0] }),
+          HOLD(0.32, { root: [0, 0.02, 0], hips: [0, -0.24, -0.06], hipsR: [-6, 0, 0], torso: [-10, 0, 0], lf: { p: [0.14, 0, 0.12] }, rf: { p: [-0.15, 0, -0.22], pitch: 10 } }),
+          HOLD(0.75, { root: [0.02, 0.0, 4], hips: [0, -0.26, -0.07], hipsR: [-8, 6, 4], torso: [-12, 4, 0], lf: { p: [0.14, 0, 0.12] }, rf: { p: [-0.15, 0, -0.22], pitch: 10 } }),
+          HOLD(1.15, { root: [-0.02, -0.02, -4], hips: [0, -0.28, -0.08], hipsR: [-10, -6, -4], torso: [-12, -4, 0], lf: { p: [0.14, 0, 0.12] }, rf: { p: [-0.15, 0, -0.22], pitch: 10 } }),
+          HOLD(1.55, { root: [0, -0.02, 0], hips: [0, -0.3, -0.06], hipsR: [-6, 2, 0], torso: [-8, 0, 0], lf: { p: [0.14, 0, 0.12] }, rf: { p: [-0.15, 0, -0.22], pitch: 10 } }),
+          HOLD(1.95, { root: [0, 0.06, 0], hips: [0, -0.5, 0.02], hipsR: [16, 0, 0], torso: [22, 0, 0], head: [10, 0, 0], lf: { p: [0.15, 0, 0.18] }, rf: { p: [-0.16, 0.02, -0.2], pitch: 30 } }),
+          k(2.25, RELAXED_S, { root: [0, 0.06, 0], hips: [0, -0.25, 0], hipsR: [10, 0, 0], torso: [8, 0, 0], lf: { p: [0.13, 0, 0.16] }, rf: { p: [-0.13, 0, -0.1] } }),
+          k(2.6, RELAXED_S, { root: [0, 0.06, 0], lf: { p: [0.11, 0, 0.12] }, rf: { p: [-0.11, 0, 0.0] } }),
+        ],
+        events: [{ t: 0.14, type: 'sfx', name: 'grab' }, { t: 0.4, type: 'sfx', name: 'choke' }, { t: 1.3, type: 'sfx', name: 'choke' }, { t: 2.0, type: 'choke' }],
+      },
+      {
+        keys: [
+          vb(0, RELAXED_S),
+          vb(0.14, RELAXED_S, { head: [-14, 0, 0], torso: [-4, 0, 0], lh: { p: [0.12, 0.05, 0.25], sp: 'chest', roll: 40, aim: null }, rh: { p: [-0.12, 0.05, 0.25], sp: 'chest', roll: 40, aim: null } }),
+          vb(0.32, RELAXED_S, { root: [0, -0.06, 0], hips: [0, -0.1, -0.12], hipsR: [-16, 0, 0], torso: [-12, 0, 0], head: [-24, 0, 0], lh: { aim: 'p.farmR', aimW: 1, aimOff: [0, 0, 0], roll: 60, pole: [0.8, -0.6, 0] }, rh: { aim: 'p.handR', aimW: 1, aimOff: [0, 0.02, 0], roll: 60, pole: [-0.8, -0.6, 0] }, lf: { p: [0.13, 0, 0.1] }, rf: { p: [-0.13, 0.04, 0.16], pitch: 20 } }),
+          vb(0.75, RELAXED_S, { root: [0.02, -0.08, 4], hips: [0, -0.12, -0.13], hipsR: [-18, 8, 6], torso: [-12, 6, 0], head: [-26, 10, 0], lh: { aim: 'p.farmR', aimW: 1, aimOff: [0, 0.02, 0], roll: 60, pole: [0.8, -0.6, 0] }, rh: { aim: 'p.handR', aimW: 1, aimOff: [0, 0, 0], roll: 60, pole: [-0.8, -0.6, 0] }, lf: { p: [0.14, 0, 0.1] }, rf: { p: [-0.16, 0.26, 0.34], pitch: -10, pole: [-0.2, 0.4, 1] } }),
+          vb(1.15, RELAXED_S, { root: [-0.02, -0.08, -4], hips: [0, -0.14, -0.13], hipsR: [-18, -8, -6], torso: [-12, -6, 0], head: [-24, -8, 0], lh: { aim: 'p.farmR', aimW: 1, aimOff: [0, 0, 0], roll: 60, pole: [0.8, -0.6, 0] }, rh: { aim: 'p.handR', aimW: 1, aimOff: [0, 0.02, 0], roll: 60, pole: [-0.8, -0.6, 0] }, lf: { p: [0.16, 0.22, 0.32], pitch: -10, pole: [0.2, 0.4, 1] }, rf: { p: [-0.14, 0, 0.12] } }),
+          vb(1.55, RELAXED_S, { root: [0, -0.08, 0], hips: [0, -0.22, -0.12], hipsR: [-14, 0, 0], torso: [-8, 0, 0], head: [-18, 0, 6], lh: { aim: 'p.farmR', aimW: 0.6, aimOff: [0, -0.05, 0], roll: 40, pole: [0.8, -0.6, 0] }, rh: { aim: null, p: [-0.2, -0.3, 0.12], sp: 'chest', roll: 0 }, lf: { p: [0.15, 0, 0.16] }, rf: { p: [-0.15, 0, 0.2] } }),
+          vb(1.95, RELAXED_S, { root: [0, -0.04, 0], hips: [0, -0.48, -0.1], hipsR: [-6, 0, 8], torso: [6, 0, 6], neck: [10, 0, 0], head: [24, 0, 14], lh: { aim: null, p: [0.24, -0.42, 0.06], sp: 'chest', roll: 0 }, rh: { aim: null, p: [-0.24, -0.42, 0.06], sp: 'chest', roll: 0 }, lf: { p: [0.18, 0, 0.3], pole: [0.3, 0.4, 1] }, rf: { p: [-0.18, 0, 0.26], pole: [-0.3, 0.4, 1] } }),
+        ],
+      },
+      D,
+      { side: 1, height: 1.15, dist: 2.4, fov: 40, orbit: 0.12 },
     );
   }
 }
