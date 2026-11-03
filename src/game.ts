@@ -1192,6 +1192,11 @@ export async function startGame(params: URLSearchParams) {
     if (!game.story) game.beginRun();
   }
   game.start();
+  if (params.get('photo')) {
+    // (a still for a screenshot: see debug/photo)
+    const ph = await import('./debug/photo');
+    ph.setupPhoto(game, params);
+  }
   (window as unknown as { __ready: boolean }).__ready = true;
   if (game.story) void game.story.begin();
 }

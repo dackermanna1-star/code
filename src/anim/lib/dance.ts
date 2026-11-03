@@ -49,6 +49,24 @@ const SIT_DESK: Omit<Key, 't'> = {
   rh: { p: [-0.18, 0.82, 0.48], sp: 'root', pole: [-0.8, -0.6, -0.2], roll: 80, aim: null, dir: null },
 };
 
+/**
+ * Sat back in a chair, legs crossed: the right thigh over the left knee, its foot hanging in front
+ * of the left shin, both hands resting on the top knee, the head turned a little.
+ */
+const SIT_CROSS: Omit<Key, 't'> = {
+  ...SIT,
+  hips: [0.0, -0.49, -0.12],
+  hipsR: [0, -6, 3],
+  spine: [4, 2, 0],
+  chest: [4, 2, 0],
+  neck: [2, 4, 0],
+  head: [-2, 10, -3],
+  lf: { p: [0.07, 0, 0.42], yaw: 6, pitch: 0, pole: [0.25, 0.2, 1] },
+  rf: { p: [0.09, 0.14, 0.56], yaw: 16, pitch: -30, pole: [0.15, 0.6, 0.8] },
+  rh: { p: [0.03, 0.66, 0.38], sp: 'root', pole: [-0.8, -0.4, -0.3], roll: 85, aim: null, dir: null },
+  lh: { p: [0.1, 0.66, 0.42], sp: 'root', pole: [0.8, -0.4, -0.2], roll: 85, aim: null, dir: null },
+};
+
 export function registerDances() {
   // the bounce: down on every beat, the arms loose, a shoulder roll
   loop('dance_a', 4, (t, i) => {
@@ -128,4 +146,7 @@ export function registerDances() {
   });
   hold('st_sit', SIT);
   hold('st_sitdesk', SIT_DESK);
+  // (the crossed foot comes up off the floor as she settles, then stays: not a loop, which would
+  // put it back down every time round)
+  defineClip('st_sitcross', { keys: [k(0, SIT_CROSS), k(0.5, SIT_CROSS), k(600, SIT_CROSS)], settleFeet: 0.45 });
 }
