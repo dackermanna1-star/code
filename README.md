@@ -155,8 +155,11 @@ director hands out attack tokens (at most three attackers at once),
 coordinates pincer attacks, punishes openings, and adapts: counter-heavy players see more
 unblockables and feints. Every attack telegraphs: its load-up always shows for at least half a
 second before contact (a little less for a combo follow-up), and two attacks you can't counter
-together never land at the same moment. Enemies sizing you up keep out of the camera's view of
-you, the camera rises over a crowd, and anyone who still steps in front of it thins out. Injured
+together never land at the same moment. The camera stays close behind you and grounded - about
+head height, just over your shoulder, the men coming at you at eye level rather than seen from
+above - and eases back a little and rises over a crowd (an arrow at the screen's edge warns of an
+attack from out of view). Enemies sizing you up keep out of its view of you, and anyone who still
+steps in front of it thins out. Injured
 enemies hunch, limp, clutch their side and hang back; broken arms dangle and change their
 moveset. 15 authored waves introduce mechanics gradually, then endless mode scales forever.
 Settings → Gameplay → *Difficulty*: STORY (longer warnings, softer hits, fewer attackers),

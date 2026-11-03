@@ -1,3 +1,4 @@
+import { CameraRig } from '../fx/camera';
 import * as THREE from 'three';
 import type { Game } from '../game';
 import { Enemy } from '../ai/enemy';
@@ -153,7 +154,7 @@ export async function runTest(game: Game, params: URLSearchParams) {
     game.player.spawn(Number(params.get('px') ?? 0), Number(params.get('pz') ?? 2), Number(params.get('pyaw') ?? Math.PI));
     const cd = params.get('camdist');
     for (let i = 0; i < frames; i++) {
-      if (cd) game.cam.framingDist = Number(cd) - 4.6;
+      if (cd) game.cam.framingDist = Number(cd) - CameraRig.BASE_DIST;
       game.step(dt);
     }
   }
@@ -587,7 +588,7 @@ export async function runTest(game: Game, params: URLSearchParams) {
       e.attackCooldown = 1e9;
       e.stunNow(100); // dazed in place: a still target to film
     }
-    game.cam.framingDist = Number(params.get('framing') ?? -1.8);
+    game.cam.framingDist = Number(params.get('framing') ?? 2.8 - CameraRig.BASE_DIST);
     let frame = 0;
     const fire = () => {
       const p = game.player;

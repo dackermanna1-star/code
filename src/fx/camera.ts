@@ -16,15 +16,29 @@ export interface Shot {
 }
 
 export class CameraRig {
+  /**
+   * How far behind the fighter the camera sits with nobody about (m): close, just over head
+   * height and only a little above the line of the shoulders - the floor, the walls and the men
+   * coming at you are at your level, not a board seen from above.
+   */
+  static readonly BASE_DIST = 2.75;
+  /** Its height: the view's pitch over the fighter's chest (rad) when the player hasn't moved it. */
+  static readonly BASE_PITCH = 0.16;
   camera: THREE.PerspectiveCamera;
   yaw = Math.PI; // camera behind player looking +Z? yaw = direction from focus to camera
-  pitch = 0.3;
-  dist = 5;
+  pitch = CameraRig.BASE_PITCH;
+  dist = CameraRig.BASE_DIST;
   focus = new THREE.Vector3(0, 1.2, 0);
   private focusVel = new THREE.Vector3();
   private trauma = 0;
   private shakeT = 0;
-  fovBase = 58;
+  fovBase = 60;
+  /**
+   * Over the shoulder: the camera and where it looks both shifted this far to the right (m), the
+   * fighter a little left of the middle with the way ahead past the shoulder (less in a crowd).
+   */
+  shoulder = 0.3;
+  private shoulderK = 0.3;
   fovKick = 0;
   private shot: (Shot & { t: number; startPos: THREE.Vector3; startFocus: THREE.Vector3 }) | null = null;
   private cineBlend = 0;
@@ -137,33 +151,38 @@ export class CameraRig {
     if (this.autoYawTarget !== null && this.idleTime > 1.2) {
       this.yaw = dampAngle(this.yaw, this.autoYawTarget, 1.2, realDt);
     }
-    // ---- framing distance
-    const want = 4.6 + Math.min(2.6, nearbyEnemies * 0.42) + this.framingDist;
+    // ---- framing distance: close behind; further out only as far as a crowd round you needs, and
+    // a touch while you're on the move
+    const want = CameraRig.BASE_DIST + Math.min(0.8, nearbyEnemies * 0.18) + (moving ? 0.2 : 0) + this.framingDist;
     this.dist = damp(this.dist, want, 1.6, realDt);
-    // ---- focus follow (critically damped)
+    // ---- focus follow (critically damped; a little give, so the camera carries some weight)
     const desired = target.clone();
-    desired.y += 0.25;
-    const k = 14;
+    desired.y += 0.18;
+    const k = 11;
     const accel = desired.clone().sub(this.focus).multiplyScalar(k * k).addScaledVector(this.focusVel, -2 * k);
     this.focusVel.addScaledVector(accel, realDt);
     this.focus.addScaledVector(this.focusVel, realDt);
     if (this.focus.distanceTo(desired) > 4) this.focus.copy(desired);
 
     // ---- orbit camera position (a little higher over a crowd, to see over the nearest heads)
-    const crowd = nearbyEnemies >= 2 ? 0.3 + Math.min(0.16, (nearbyEnemies - 1) * 0.04) : -0.15;
+    const crowd = nearbyEnemies >= 2 ? 0.17 + Math.min(0.08, (nearbyEnemies - 1) * 0.02) : -0.15;
     this.crowdPitch = damp(this.crowdPitch, crowd, 1.2, realDt);
     const pitch = Math.max(this.pitch, this.crowdPitch);
     const cp = Math.cos(pitch);
     const offs = new THREE.Vector3(Math.sin(this.yaw) * cp, Math.sin(pitch), Math.cos(this.yaw) * cp);
     const d = this.dist;
-    const wantPos = this.focus.clone().addScaledVector(offs, d);
+    // over the shoulder (both the lens and the point it looks at, so the view's direction is the
+    // orbit's; nearer the middle in a crowd, where the fight is all round)
+    this.shoulderK = damp(this.shoulderK, this.shoulder * (nearbyEnemies >= 3 ? 0.55 : 1), 1.5, realDt);
+    const centre = this.focus.clone().addScaledVector(new THREE.Vector3(Math.cos(this.yaw), 0, -Math.sin(this.yaw)), this.shoulderK);
+    const wantPos = centre.clone().addScaledVector(offs, d);
     // collision against arena bounds & tall obstacles: pull in fast, ease back out slowly
-    const solved = this.resolveCollision(this.focus, wantPos.clone());
-    const ck = solved.distanceTo(this.focus) / Math.max(0.01, wantPos.distanceTo(this.focus));
+    const solved = this.resolveCollision(centre, wantPos.clone());
+    const ck = solved.distanceTo(centre) / Math.max(0.01, wantPos.distanceTo(centre));
     this.collK = ck < this.collK ? damp(this.collK, ck, 30, realDt) : damp(this.collK, ck, 3.5, realDt);
-    let pos = this.focus.clone().addScaledVector(wantPos.sub(this.focus), Math.min(this.collK, ck + 0.02));
-    pos = this.resolveCollision(this.focus, pos);
-    let look = this.focus.clone();
+    let pos = centre.clone().addScaledVector(wantPos.sub(centre), Math.min(this.collK, ck + 0.02));
+    pos = this.resolveCollision(centre, pos);
+    let look = centre.clone();
     let fov = this.fovBase;
 
     // ---- cinematic shot blending
@@ -202,7 +221,7 @@ export class CameraRig {
         this.shot = null;
         this.cineBlend = 0;
         // after a shot, align orbit yaw to where the camera ended up to avoid snapping
-        const dv = pos.clone().sub(this.focus);
+        const dv = pos.clone().sub(centre);
         this.yaw = Math.atan2(dv.x, dv.z);
       }
     }
@@ -226,7 +245,6 @@ export class CameraRig {
     this.camera.lookAt(look);
     this.lastPos.copy(pos);
     this.lastLook.copy(look);
-    void moving;
     void dt;
   }
 
