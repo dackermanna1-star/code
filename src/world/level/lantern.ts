@@ -205,8 +205,11 @@ export function buildLantern(a: Arena, blood: BloodAtlas, pointLights: number, s
     }
   }
   W.finish(k);
+  // (out on the street the night's a little brighter than in the alley's well)
+  alley.hemi.intensity *= 1.25;
   // the alley's moon follows her round the block (its shadows where she is)
   const moon = alley.moon;
+  moon.intensity *= 1.3;
   const moonOff = moon.position.clone().sub(moon.target.position);
   const ext = k.finish({ hemi: alley.hemi });
   return {

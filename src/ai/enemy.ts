@@ -14,6 +14,7 @@ import { MocapDriver } from '../anim/mocapLoco';
 import type { Game } from '../game';
 import type { CharacterLibrary, Variant } from '../character/library';
 import { Weapon } from '../combat/weapons';
+import { NavAgent } from '../world/nav';
 
 /** Share of the load-up (clip time) over which an attack accelerates into the strike. */
 const WIND_RAMP = 0.3;
@@ -119,6 +120,8 @@ export class Enemy extends Fighter {
   seesPlayer = false;
   /** Side (+1 / -1) this enemy steps out of the camera's line of sight to the player, 0 = not in it. */
   private camSide = 0;
+  /** His way round what's in the way (the story's big levels). */
+  private navAgent = new NavAgent();
 
   constructor(game: Game, lib: CharacterLibrary, variant: Variant, cfg: ArchetypeCfg) {
     super(game, lib, variant);
@@ -394,8 +397,15 @@ export class Enemy extends Fighter {
     const to = this.idleTo;
     if (to) {
       if (this.anim.mode !== 'loco') this.anim.toLoco(0.2);
-      const dx = to.x - this.x, dz = to.z - this.z;
-      const d = Math.hypot(dx, dz);
+      const d = Math.hypot(to.x - this.x, to.z - this.z);
+      // (round the stacks to where he's going, not into them)
+      const st = d > 0.6 ? this.headFor(to.x, to.z, this.y, dt) : to;
+      let dx = st.x - this.x, dz = st.z - this.z;
+      const ds = Math.hypot(dx, dz);
+      if (ds > 1e-4) {
+        dx = (dx / ds) * d;
+        dz = (dz / ds) * d;
+      }
       const sp = to.walk === false ? this.cfg.speed * 0.75 : this.sus >= 0.3 ? 1.05 : 1.35;
       const k = Math.min(1, d / 0.5);
       this.vx = damp(this.vx, d > 0.08 ? (dx / d) * sp * k : 0, 6, dt);
@@ -430,6 +440,15 @@ export class Enemy extends Fighter {
     if (this.alertR > 0 && p.alive && Math.hypot(p.x - this.x, p.z - this.z) < this.alertR) this.alert();
   }
 
+  /**
+   * Where to head this frame for (tx, tz): straight there while nothing's in the way, else the next
+   * corner of the way round (a level with heights only; walking through walls in a cutscene, straight).
+   */
+  private headFor(tx: number, tz: number, ty: number, dt: number): { x: number; z: number } {
+    const nav = this.ghostWalls ? null : this.game.arena.navGrid();
+    if (!nav) return { x: tx, z: tz };
+    return this.navAgent.steer(nav, this.x, this.y, this.z, tx, ty, tz, dt);
+  }
   /** Where his eyes point (his facing and his look). */
   lookYaw() {
     return wrapAngle(this.yaw + (this.anim.mode === 'loco' ? this.anim.locoIn.look : 0));
@@ -617,9 +636,22 @@ export class Enemy extends Fighter {
     const bb = this.game.arena.bounds;
     tx = clamp(tx, bb.minX + 1.2, bb.maxX - 1.2);
     tz = clamp(tz, bb.minZ + 1.2, bb.maxZ - 1.2);
-    const dx = tx - this.x, dz = tz - this.z;
+    let dx = tx - this.x, dz = tz - this.z;
     const d = Math.hypot(dx, dz);
-    let sp = d > 2.5 ? this.cfg.speed * 0.8 : clamp(d * 1.1, 0, 1.5);
+    // (on a big level: round whatever's between him and her - from far off, straight for her)
+    let round = false;
+    if (d > 0.8) {
+      const far = dist > 6;
+      const st = this.headFor(far ? p.x : tx, far ? p.z : tz, p.y, dt);
+      if (this.navAgent.detouring) {
+        round = true;
+        const sx2 = st.x - this.x, sz2 = st.z - this.z;
+        const ds = Math.hypot(sx2, sz2) || 1;
+        dx = (sx2 / ds) * d;
+        dz = (sz2 / ds) * d;
+      }
+    }
+    let sp = d > 2.5 || round ? this.cfg.speed * 0.8 : clamp(d * 1.1, 0, 1.5);
     if (this.injured) sp *= 0.6;
     if (this.brokenLeg) sp *= 0.45;
     sp *= this.speedMul;
@@ -627,7 +659,7 @@ export class Enemy extends Fighter {
     this.vx = damp(this.vx, tvx, 5, dt);
     this.vz = damp(this.vz, tvz, 5, dt);
     // face player when close, travel direction when far
-    if (dist < 7 || d < 2.5) this.faceTowards(p.x, p.z, 6, dt);
+    if (!round && (dist < 7 || d < 2.5)) this.faceTowards(p.x, p.z, 6, dt);
     else this.faceTowards(this.x + this.vx, this.z + this.vz, 6, dt);
     // taunt occasionally
     if (this.tauntCooldown <= 0 && dist > 3 && dist < 7 && !this.injured && chance(dt * 0.5)) {
@@ -670,17 +702,30 @@ export class Enemy extends Fighter {
     // a captured attack only lunges a real step: walk in that close before throwing it
     const ac = getClip(a.clip);
     const start = ac.footFromStart ? Math.min(a.startRange, a.reach * this.scale + ac.lunge * 0.9) : a.startRange;
-    if (d <= start || this.stateTime > 3.5) {
+    // (a long way round on a big level: give the turn up rather than swing at the air)
+    const st = this.headFor(p.x, p.z, p.y, dt);
+    const round = this.navAgent.detouring;
+    if (round && this.stateTime > 3.5 && !this.brain) {
+      this.token = false;
+      this.attackDef = null;
+      this.attackCooldown = rand(0.6, 1.2);
+      this.setState('circle');
+      return;
+    }
+    if (d <= start || (this.stateTime > 3.5 && !round)) {
       if (!this.brain) this.attackCombo = Math.round(rand(this.cfg.comboHits[0], this.cfg.comboHits[1]));
       this.comboLen = 0;
       this.startAttack(false);
       return;
     }
     const sp = this.cfg.speed * (this.injured ? 0.7 : 1) * this.speedMul;
-    const tvx = ((p.x - this.x) / d) * sp, tvz = ((p.z - this.z) / d) * sp;
+    const hx = st.x - this.x, hz = st.z - this.z;
+    const hd = Math.hypot(hx, hz) || 1;
+    const tvx = (hx / hd) * sp, tvz = (hz / hd) * sp;
     this.vx = damp(this.vx, tvx, 6, dt);
     this.vz = damp(this.vz, tvz, 6, dt);
-    this.faceTowards(p.x, p.z, 8, dt);
+    if (round) this.faceTowards(st.x, st.z, 8, dt);
+    else this.faceTowards(p.x, p.z, 8, dt);
     this.anim.locoIn.guard = 0.8;
   }
 

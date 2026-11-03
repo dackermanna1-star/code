@@ -393,6 +393,8 @@ export function setPenOpen(a: Arena, open: boolean) {
   const i = a.obstacles.indexOf(P.gateObs);
   if (open && i >= 0) a.obstacles.splice(i, 1);
   else if (!open && i < 0) a.obstacles.push(P.gateObs);
+  // (the lookups by place, and the ways round, catch up)
+  a.heightsChanged();
 }
 export function animateWarehouse(dt: number, t: number) {
   const P = stage.pen;

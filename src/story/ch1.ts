@@ -3,6 +3,7 @@ import type { Enemy } from '../ai/enemy';
 import { yawFromDir } from '../core/math';
 import type { Chapter, Story } from './runner';
 import { animateWarehouse, dressWarehouse, Npc, PEN, setPenOpen, stage } from './staging';
+import { HARBOR } from '../world/level/harbor';
 
 /**
  * CHAPTER ONE — MEAT MARKET. The KX warehouse on Dock 4, 12:50 AM.
@@ -48,11 +49,12 @@ export const CH1: Chapter = {
   id: 1,
   kick: 'CHAPTER ONE',
   title: 'MEAT MARKET',
-  place: 'KX WAREHOUSE · DOCK 4',
-  clock: '12:50 AM',
-  map: 'warehouse',
+  place: 'THE HARBOUR · DOCK 4',
+  clock: '12:41 AM',
+  map: 'harbor',
+  outfit: 'leather',
   synopsis: 'Six heads on a truck at Dock 4. The Butcher counts them himself.',
-  par: 420,
+  par: 640,
   dress: dressWarehouse,
   backdrop: { pos: [3.2, 1.1, 4.2], look: [7.8, 1.4, 9.4], pos2: [4.4, 1.2, 4.9], look2: [7.8, 1.5, 9.6], fov: 40, dur: 45 },
   next: { kick: 'CHAPTER TWO', title: 'RED LEDGER', line: 'Meridian Tower. The penthouse. The boss picks first.' },
@@ -73,7 +75,12 @@ export const CH1: Chapter = {
         console.warn('captive', v, e);
       }
     }
-    s.place(-15.0, 0.1, Math.PI / 2);
+    const st = HARBOR.start;
+    s.place(st.x, st.z, st.yaw);
+    // things to find in the yard
+    s.pickup('note', [-53.6, 0.02, 53.4], { id: 'c1-gatelog', title: 'The gate log, on a clipboard', text: 'KX FREIGHT · DOCK 4 · NIGHT GATE\n\n22:40  NORDFROST reefer IN (Butcher)\n23:12  2 x KX cars IN\n23:55  black Mercedes OUT - no plate\n         (V. says don\'t write it down)\n00:20  Doyle - no show?' });
+    s.pickup('ammo', [-26.4, 0.02, 30.0]);
+    s.pickup('photo', [-35.6, 0.02, -2.4], { id: 'c1-polaroid', title: 'A polaroid by the office door', text: 'The inside of a refrigerated truck, lit by a phone\'s flash. Mattresses on the floor. Six water bottles. A child\'s shoe.\n\nOn the back, in marker: LOT 4-9 TUES. CLEAN IT AFTER.' });
     // (Doyle's pistol, one round in it)
     g.player.specialLocked = false;
     g.player.specialCharges = 1;
@@ -84,9 +91,64 @@ export const CH1: Chapter = {
     for (const n of captives) if (!n.gone && n.z > 12.4) n.vanish();
   },
   segments: [
+    // ------------------------------------------------------------------ the yard
+    {
+      name: 'THE YARD',
+      async play(s) {
+        const g = s.game;
+        const p = g.player;
+        // the night shift: men walking the lanes, one up on the stacks, two at the gate
+        const guards = [
+          s.spawn('brawler', -50, 14.5, Math.PI / 2, { variant: 'brawler1', watch: true, patrol: [[-50, 14.5, 2.5], [-24, 14.5, 2.5]] }),
+          s.spawn('club', -40, 30.8, Math.PI / 2, { watch: true, patrol: [[-40, 30.8, 2], [-8, 30.8, 3]] }),
+          s.spawn('brawler', -35, -1.6, Math.PI, { variant: 'brawler3', watch: true, pose: 'st_smoke', vision: 11 }),
+          s.spawn('knife', -14, 26.5, -Math.PI / 2, { watch: true, y: 5.18, vision: 16 }),
+          s.spawn('brawler', -18.5, -3.5, 0, { variant: 'brawler0', watch: true, patrol: [[-18.5, -3.5, 3], [-18.5, 4.5, 3]] }),
+          s.spawn('brawler', -55.5, 53.6, Math.PI, { variant: 'brawler4', watch: true, pose: 'st_crossed', vision: 10 }),
+          s.spawn('brawler', -53.6, 47.6, 0.4, { variant: 'brawler2', watch: true, pose: 'st_phone', vision: 9 }),
+        ];
+        await s.scene(async () => {
+          s.ui.card('CHAPTER ONE', 'MEAT MARKET', 'THE HARBOUR · DOCK 4', '12:41 AM');
+          await s.wait(4.4);
+          // over the fence: the yard in its rows, the cranes, the hall at the end of it
+          s.shot({ pos: [-71, 3.8, 63], look: [-30, 2, 20], pos2: [-70, 3.4, 61.5], look2: [-28, 2.5, 18], fov: 44, dur: 7 });
+          s.ui.cardHide();
+          s.ui.fade(false, 1.8);
+          await s.wait(3.0);
+          s.ui.stamp('THE HARBOUR · DOCK 4', '12:41 AM');
+          s.shot({ pos: [-66.5, 1.5, 53], look: [-57, 1.4, 55.6], fov: 34, dur: 5 });
+          await s.wait(1.8);
+          await s.say('SCARLET', 'Two on the gate.');
+          s.closeUp(p, { side: 1, fov: 30, dist: 1.3, dur: 5 });
+          await s.wait(0.4);
+          await s.say('SCARLET', 'Let\'s not knock.');
+        });
+        s.objective('DOCK 4', 'Inside the fence, unseen — the hall at the far end of the yard');
+        // the way in: the dumpster by the crushed bit of fence
+        await s.tutor(['SPACE'], 'OVER THE FENCE', 'The wire\'s down where the container hit it: up the dumpster, over', () => (p.x > -59.6 ? 1 : 0), 1, undefined, [HARBOR.dumpster.x - 0.8, HARBOR.dumpster.z]);
+        // the stealth lesson, once she's inside
+        let spotted = false;
+        s.when(() => guards.some((e) => e.alive && e.state !== 'idle' && !e.down), () => (spotted = true));
+        void (async () => {
+          await s.tutor(['C'], 'STAY LOW', 'Crouched and out of the light, they look straight past you. The eye over a man fills as he notices', () => (p.crouched ? 1 : 0), 1, () => spotted);
+          await s.tutor(['F'], 'FROM BEHIND', 'Up behind one who hasn\'t seen you: F, and he goes down without a sound', () => p.stats.takedowns, 1, () => spotted || p.x > -24);
+        })();
+        await s.reach(HARBOR.westDoor.x - 0.6, HARBOR.westDoor.z, 2.0, 'DOCK 4');
+        s.hideTutor();
+        // (still a fight on out there: the hall can wait until it's done)
+        const live = guards.filter((e) => e.alive && e.state !== 'idle');
+        if (live.length) {
+          s.objective('THEY SAW YOU', 'Put them down');
+          await s.fight(live, { pressure: 2 });
+        }
+      },
+    },
     // ------------------------------------------------------------------ Dock 4
     {
       name: 'DOCK 4',
+      resume(s) {
+        s.place(HARBOR.westDoor.x - 0.2, HARBOR.westDoor.z, Math.PI / 2);
+      },
       async play(s) {
         const g = s.game;
         const p = g.player;
@@ -108,12 +170,8 @@ export const CH1: Chapter = {
         };
         for (const e of crew) e.onAlert = wake;
         await s.scene(async () => {
-          s.ui.card('CHAPTER ONE', 'MEAT MARKET', 'KX WAREHOUSE · DOCK 4', '12:50 AM');
-          await s.wait(4.6);
           // high in the rafters: the hall, the rain on the roof, the pen under its bulb
           s.shot({ pos: [-4.5, 4.6, -9.6], look: [7.6, 1.2, 9.0], pos2: [-3.5, 4.45, -8.5], look2: [7.7, 1.25, 9.0], fov: 44, dur: 7 });
-          s.ui.cardHide();
-          s.ui.fade(false, 1.8);
           await s.wait(4.2);
           // in through the side door
           s.shot({ pos: [-9.3, 1.45, -3.1], look: [-13, 1.35, 0.1], look2: [-11.0, 1.4, 0.4], fov: 40, dur: 5 });

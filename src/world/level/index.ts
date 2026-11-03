@@ -5,3 +5,5 @@ import { buildTestbed } from './testbed';
 LEVEL_BUILDERS.testbed = buildTestbed;
 import { buildLantern } from './lantern';
 LEVEL_BUILDERS.lantern = buildLantern;
+import { buildHarbor } from './harbor';
+LEVEL_BUILDERS.harbor = buildHarbor;

@@ -79,7 +79,7 @@ export function boxGeo(b: Box, tile = 1, skip: SolidOpts['skip'] = []): THREE.Bu
 
 /** Only the attributes merged statics keep (position, normal, uv), indexed. */
 function plainGeo(g: THREE.BufferGeometry) {
-  let out = g.index ? g : g.toNonIndexed();
+  const out = g;
   if (!out.index) {
     const n = out.attributes.position.count;
     out.setIndex(Array.from({ length: n }, (_, i) => i));

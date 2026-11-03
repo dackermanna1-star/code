@@ -10,6 +10,7 @@ import { Archetype } from '../character/variants';
 import { makeHit } from '../combat/types';
 import { ENEMY_ATTACKS } from '../combat/moves';
 import { B } from '../anim/skeleton';
+import { NavAgent } from '../world/nav';
 
 /** Drive the player like a competent human (for automated playtests). */
 export class Bot {
@@ -18,6 +19,7 @@ export class Bot {
   private bestD = Infinity;
   private stuckT = 0;
   private markKey = '';
+  private nav = new NavAgent();
   /**
    * human=1: a fallible player rather than a frame-perfect one - each counter goes in early or
    * late around the right moment (a spread like a decent human's), a few attacks are missed
@@ -88,8 +90,11 @@ export class Bot {
       // the story: nobody to fight - go where the objective's marker is
       const m = g.story?.ui.markerAt;
       if (m && !g.story?.inScene) {
-        const d = new THREE.Vector3(m.x - p.x, 0, m.z - p.z);
-        const dist = d.length();
+        const dist = Math.hypot(m.x - p.x, m.z - p.z);
+        // (round the stacks and walls on the way, as a player would)
+        const nav = g.arena.navGrid();
+        const st = nav && dist > 1.2 ? this.nav.steer(nav, p.x, p.y, p.z, m.x, m.y - 1.2, m.z, dt) : m;
+        const d = new THREE.Vector3(st.x - p.x, 0, st.z - p.z);
         const k = Math.min(1, dist / 1.0);
         d.normalize();
         // (no headway for a while: a way over the thing in the way, or under it)

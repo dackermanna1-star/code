@@ -146,12 +146,18 @@ export class Game {
     if (this.storyLaunch && chapter) world = chapter.map;
     this.arena = new Arena(this.blood, preset.pointLights, preset.shadowMap, world);
     // (the chapter's set dressing goes in before the physics are built from the room)
-    if (this.storyLaunch && chapter) chapter.dress?.(this.arena);
+    if (this.storyLaunch && chapter) {
+      chapter.dress?.(this.arena);
+      this.arena.heightsChanged();
+    }
     this.arena.heightsChanged();
     // (a big level: the footprint grid covers all of it; blood runs on whatever floor it's on)
     const bb = this.arena.bounds;
     this.blood.setFloor(bb.minX, bb.maxX, bb.minZ, bb.maxZ);
     if (this.arena.traversal) this.blood.floorAt = (x, z, y) => this.arena.groundAt(x, z, y);
+    // (the ways round things, built now behind the loading screen rather than mid-fight)
+    const nav = this.arena.navGrid();
+    if (nav) console.log(`nav ${nav.nx}x${nav.nz} cells in ${nav.buildMs.toFixed(0)} ms`);
     this.scene.add(this.arena.group);
     setDrains(this.arena.drains);
     if (this.arena.wet) this.lib.surface = { roughness: 0.52, env: 1.25 };

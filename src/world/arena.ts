@@ -9,6 +9,7 @@ import type { PropPlacement } from './props';
 import { BloodAtlas, FaceKind, SPLAT } from './bloodAtlas';
 import { brickTexture, concreteTexture, crateTexture, graffitiTexture, metalSidingTexture, pillarTexture, radialTexture } from './textures';
 import { RNG } from '../core/math';
+import { NavGrid } from './nav';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 
 export interface Obstacle {
@@ -233,6 +234,11 @@ export class Arena {
   private stamp = 1;
   private nearBuf: Obstacle[] = [];
   private static readonly CELL = 4;
+  private nav: NavGrid | null = null;
+  private navDirty = true;
+  /** What the ways round were worked out against (a change to a few boxes redoes just their cells). */
+  private navObs = new Set<Obstacle>();
+  private navShape = '';
   /** The map's own bosses in place of the standard ones (wave boss key -> archetype key). */
   bossMap: Record<string, string> = {};
   /** The map's own enemy outfits (archetype -> variant names), registered by the game. */
@@ -252,6 +258,16 @@ export class Arena {
       this.heightsChanged();
       return;
     }
+    this.buildWarehouse(blood, pointLights, shadowMapSize);
+    this.mergeStatic();
+    this.heightsChanged();
+  }
+
+  /**
+   * THE WAREHOUSE: the endless mode's first map - and Dock 4's hall in the story's harbour, which
+   * builds it first and the yard round it after.
+   */
+  buildWarehouse(blood: BloodAtlas, pointLights: number, shadowMapSize: number) {
     const S = blood.size;
     const floorDensity = S >= 4096 ? 96 : 52;
     const wallDensity = floorDensity * 0.45;
@@ -542,7 +558,6 @@ export class Arena {
 
     // ---------------------------------------------------------------- static floor paint & grime (persistent, into atlas)
     this.paintFloorDecals();
-    this.mergeStatic();
   }
 
   /**
@@ -782,6 +797,7 @@ export class Arena {
   /** The obstacles changed (built, a gate opened, a crate moved): the lookups catch up. */
   heightsChanged() {
     this.gridDirty = true;
+    this.navDirty = true;
     this.hasHeights = this.ramps.length > 0 || this.pits.length > 0 || this.obstacles.some((o) => o.walk);
   }
   private buildGrid() {
@@ -799,6 +815,26 @@ export class Arena {
     }
     this.grid = g;
     this.gridDirty = false;
+  }
+  /** The ways round things (the story's big levels only: built when first asked for, again after a change). */
+  navGrid(): NavGrid | null {
+    if (!this.traversal) return null;
+    if (this.navDirty || !this.nav) {
+      const b = this.bounds;
+      const shape = `${b.minX},${b.maxX},${b.minZ},${b.maxZ},${this.ramps.length},${this.pits.length}`;
+      const cur = new Set(this.obstacles);
+      const changed: Obstacle[] = [];
+      if (this.nav && shape === this.navShape) {
+        for (const o of cur) if (!this.navObs.has(o)) changed.push(o);
+        for (const o of this.navObs) if (!cur.has(o)) changed.push(o);
+      }
+      if (!this.nav || shape !== this.navShape || changed.length > 24) this.nav = new NavGrid(this);
+      else for (const o of changed) this.nav.rebuild(o.minX, o.maxX, o.minZ, o.maxZ);
+      this.navObs = cur;
+      this.navShape = shape;
+      this.navDirty = false;
+    }
+    return this.nav;
   }
   /** The obstacles that may touch a circle at (x, z) (all of them, in a small room). */
   near(x: number, z: number, r: number): Obstacle[] {
