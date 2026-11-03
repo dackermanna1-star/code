@@ -303,12 +303,11 @@ export const CH7: Chapter = {
           // the door at the top; grey daylight
           const I = ivy;
           if (I) {
-            // (beside her on the landing, the two of them in the light from the door)
-            I.x = clamp(p.x + (p.x > 0 ? -0.75 : 0.75), T.stairs.x0 + 0.4, T.stairs.x1 - 0.4);
-            I.z = p.z + 0.15;
-            I.setY(4.2);
-            I.anim.initAt(I.x, I.z, 0);
+            // (beside her on the landing, the two of them in the light from the door - and done
+            // following: the walk she was on to catch her up is over)
             I.hold(null, 0.01);
+            I.put(clamp(p.x + (p.x > 0 ? -0.75 : 0.75), T.stairs.x0 + 0.4, T.stairs.x1 - 0.4), p.z + 0.15, 0);
+            I.setY(4.2);
           }
           s.shot({ pos: [1.2, 5.6, T.stairs.z1 - 1.2], look: [0, 5.4, T.stairs.z1 + 3], fov: 44, dur: 6 });
           await s.wait(1.6);
