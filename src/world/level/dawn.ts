@@ -3,6 +3,7 @@ import type { Arena } from '../arena';
 import type { BloodAtlas } from '../bloodAtlas';
 import type { MapParts } from '../mapKit';
 import { canvas, tex } from '../mapKit';
+import { softGlowTexture } from '../textures';
 import { LevelKit } from './kit';
 import { Materials } from './materials';
 import { put, signBoard, lampPost } from './blocks';
@@ -202,7 +203,7 @@ export function buildDawn(a: Arena, blood: BloodAtlas, pointLights: number, shad
   sun.position.set(140, 8, -560);
   sun.lookAt(0, 0, 0);
   k.g.add(sun);
-  const sunGlow = new THREE.Sprite(new THREE.SpriteMaterial({ color: 0xffb070, transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false, fog: false }));
+  const sunGlow = new THREE.Sprite(new THREE.SpriteMaterial({ map: softGlowTexture(), color: 0xffb070, transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false, fog: false }));
   sunGlow.scale.set(180, 120, 1);
   sunGlow.position.copy(sun.position).add(new THREE.Vector3(0, 0, 2));
   k.g.add(sunGlow);

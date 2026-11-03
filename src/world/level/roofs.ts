@@ -7,6 +7,7 @@ import { Materials } from './materials';
 import { put, wallLamp, neonSign, signBoard, wire } from './blocks';
 import { Windows } from './street';
 import { RNG } from '../../core/math';
+import { softGlowTexture } from '../textures';
 import { buildCity, skyTexture } from '../city';
 import { buildRooftop } from '../rooftop';
 import { meridianOnSkyline } from './club';
@@ -300,7 +301,7 @@ export function buildRoofs(a: Arena, blood: BloodAtlas, pointLights: number, sha
   k.floor(-40, 40, -30, 145, M.asphalt(), { y: STREET, paint: false, tile: 6 });
   for (let z = -20; z < 140; z += 18) {
     for (const x of [-22, 18]) {
-      const glow = new THREE.Sprite(new THREE.SpriteMaterial({ color: 0xffa050, transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false }));
+      const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: softGlowTexture(), color: 0xffa050, transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false }));
       glow.scale.set(3, 3, 1);
       glow.position.set(x, STREET + 6, z);
       k.g.add(glow);
@@ -308,7 +309,7 @@ export function buildRoofs(a: Arena, blood: BloodAtlas, pointLights: number, sha
   }
   const car = new THREE.Group();
   for (const dx of [-0.6, 0.6]) {
-    const hl = new THREE.Sprite(new THREE.SpriteMaterial({ color: 0xfff0d0, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false }));
+    const hl = new THREE.Sprite(new THREE.SpriteMaterial({ map: softGlowTexture(), color: 0xfff0d0, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false }));
     hl.scale.set(1.2, 1.2, 1);
     hl.position.set(dx, 0.7, 0);
     car.add(hl);

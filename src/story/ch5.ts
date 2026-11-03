@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { softGlowTexture } from '../world/textures';
 import { clamp, damp, rand } from '../core/math';
 import type { Chapter, Story } from './runner';
 import { Car, collideCars, Road } from '../vehicle/car';
@@ -302,6 +303,15 @@ class Chase {
     const err = Math.atan2(Math.sin(wantYaw - c.yaw), Math.cos(wantYaw - c.yaw));
     c.drive(dt, clamp((want - c.speed) * 0.3, -1, 1), clamp(err * 2.4, -1, 1), false);
   }
+  /** The lane nearest `d` with nothing slower in the next stretch of it (her car aside: that's the one it's after). */
+  clearLane(r: Ride, d: number) {
+    const c = r.car;
+    const blocked = (x: number) =>
+      this.rides.some((o) => o !== r && o !== this.me && !o.car.dead && o.car.rs - c.rs > -2 && o.car.rs - c.rs < 32 && Math.abs(o.car.rd - x) < 2.6 && o.car.speed < c.speed + 3);
+    if (!blocked(d)) return d;
+    for (const x of [...LANES].sort((a, b) => Math.abs(a - d) - Math.abs(b - d))) if (!blocked(x)) return x;
+    return d;
+  }
   /** An escort: keeps its place by the trucks until she's close, then comes at her - alongside, and in. */
   escortAI(r: Ride, dt: number) {
     const c = r.car;
@@ -325,7 +335,10 @@ class Chase {
     if (r.mode === 'ram') {
       // alongside her, then into her side
       const along = Math.abs(gap) < 4;
-      const d = along ? me.rd : me.rd + (me.rd > c.rd ? -3.6 : 3.6);
+      let d = along ? me.rd : me.rd + (me.rd > c.rd ? -3.6 : 3.6);
+      // (still coming up on her: round whatever's in the way - a truck, the traffic - by the
+      // clearest lane, rather than sitting behind it)
+      if (gap > 10) d = this.clearLane(r, d);
       // (at her pace, a little more from behind - never slower than a car on a motorway)
       this.aiDrive(r, clamp(d, -CONVOY.half + 1, CONVOY.half - 1), Math.max(14, me.speed) + clamp(gap * 0.8, -8, 10), dt, me);
     } else {
@@ -364,7 +377,7 @@ class Chase {
     const pos = new Float32Array(n * 3);
     for (let i = 0; i < n; i++) pos.set([(Math.random() - 0.5) * 1.2, Math.random() * 5, (Math.random() - 0.5) * 1.2], i * 3);
     geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-    const sm = new THREE.Points(geo, new THREE.PointsMaterial({ color: 0x3a3a3a, size: 1.4, transparent: true, opacity: 0.35, depthWrite: false }));
+    const sm = new THREE.Points(geo, new THREE.PointsMaterial({ map: softGlowTexture(), color: 0x3a3a3a, size: 2.2, transparent: true, opacity: 0.5, depthWrite: false }));
     g.scene.add(sm);
     r.smoke = sm;
     if (r.role === 'escort') this.s.bark('SCARLET', ['One down.', 'Off the road.', 'Stay down.', 'Next.', 'That\'s the last of you.'][this.escorts.filter((e) => e.car.dead).length - 1] ?? 'Next.', 1.6);
@@ -472,6 +485,8 @@ export const CH5: Chapter = {
   next: { kick: 'CHAPTER SIX', title: 'NIGHT SHIFT', line: 'She knows Palewater\'s doors. She used to guard them.' },
   setup(s) {
     const g = s.game;
+    // (behind the wheel: the car's own readout, not her fight's)
+    s.noHud = true;
     chase = new Chase(s);
     const at = s.cp >= 2 ? 1800 : s.cp >= 1 ? 600 : 10;
     chase.setup(at, s.cp >= 1 ? 70 : 340, true);

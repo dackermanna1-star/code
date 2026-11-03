@@ -3,6 +3,7 @@ import type { Arena } from '../arena';
 import type { BloodAtlas } from '../bloodAtlas';
 import type { MapParts } from '../mapKit';
 import { canvas, tex } from '../mapKit';
+import { softGlowTexture } from '../textures';
 import { LevelKit } from './kit';
 import { Materials } from './materials';
 import { RNG } from '../../core/math';
@@ -167,7 +168,7 @@ export function buildConvoy(a: Arena, blood: BloodAtlas, pointLights: number, sh
   }
 
   // ---------------------------------------------------------------------- the lamps
-  const lampGlow = new THREE.SpriteMaterial({ color: 0xffb060, transparent: true, opacity: 0.7, blending: THREE.AdditiveBlending, depthWrite: false });
+  const lampGlow = new THREE.SpriteMaterial({ map: softGlowTexture(), color: 0xffb060, transparent: true, opacity: 0.7, blending: THREE.AdditiveBlending, depthWrite: false });
   for (let s = 20; s < L; s += 40) {
     if (s > CONVOY.tunnel[0] - 10 && s < CONVOY.tunnel[1] + 10) continue;
     const side = (Math.floor(s / 40) % 2 ? 1 : -1) * (H + 0.5);

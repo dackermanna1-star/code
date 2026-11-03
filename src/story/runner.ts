@@ -1,3 +1,4 @@
+import { NEAR_FADE } from '../character/material';
 import * as THREE from 'three';
 import type { Game } from '../game';
 import type { Arena, Door, WorldName } from '../world/arena';
@@ -113,6 +114,8 @@ export class Story {
     this.calmFlag = v;
   }
   inScene = false;
+  /** The fight's HUD (her health, the finisher pips) put away: a chapter where she isn't on foot. */
+  noHud = false;
   /** The scene is being skipped: everything it waits for comes at once. */
   skipping = false;
   private skipHold = 0;
@@ -157,6 +160,7 @@ export class Story {
     const g = this.game;
     const c = this.chapter;
     this.fill = new THREE.PointLight(0xffe4cc, 0, 4.5, 2);
+    NEAR_FADE.value.set(0.3, 0.85);
     g.scene.add(this.fill);
     g.onGuardSense = (e, kind) => this.guardBark(e, kind);
     window.addEventListener('keydown', this.journalKeys, true);
@@ -310,6 +314,8 @@ export class Story {
     p.scripted = true;
     p.sceneFace = null;
     g.director.hold = true;
+    // (a shoulder in the foreground of a shot stays solid: bodies dissolve only right at the lens)
+    NEAR_FADE.value.set(0.12, 0.4);
     // (nothing on its way at her when the scene takes over)
     for (const e of g.enemies()) {
       if (e.state === 'attack' || e.state === 'approach') g.director.cancel(e);
@@ -329,6 +335,7 @@ export class Story {
         f.lookAt = null;
       }
       this.inScene = false;
+      NEAR_FADE.value.set(0.3, 0.85);
       if (this.fill) this.fill.intensity = 0;
       this.ui.bars(false);
       this.ui.gameplayVisible(true);
@@ -1115,9 +1122,9 @@ export class Story {
   }
 
   // ================================================================== the end
-  /** Her death: the fight's over, retry from the checkpoint. */
   /** Not her death but the chapter lost all the same (the convoy gone through the gates): its words on the screen. */
   fail: { title: string; line: string } | null = null;
+  /** Her death: the fight's over, retry from the checkpoint. */
   onDeath() {
     this.halted = true;
     this.game.voice.stopAll();

@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { canvas, tex } from '../world/mapKit';
+import { softGlowTexture } from '../world/textures';
 import { clamp, damp } from '../core/math';
 
 /**
@@ -354,7 +355,7 @@ export function carModel(kind: CarKind, color: number) {
   }
   // the headlights' glow and the tail lights' (sprites: cheap, and they read at a distance)
   const glow = (c: number, s: number, x: number, y: number, z: number) => {
-    const sp2 = new THREE.Sprite(new THREE.SpriteMaterial({ color: c, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false }));
+    const sp2 = new THREE.Sprite(new THREE.SpriteMaterial({ map: softGlowTexture(), color: c, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false }));
     sp2.scale.set(s, s, 1);
     sp2.position.set(x, y, z);
     g.add(sp2);

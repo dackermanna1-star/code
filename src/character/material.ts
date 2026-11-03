@@ -117,6 +117,13 @@ const APPLY_GLSL = /* glsl */ `
   lsWet = max(fr, ct);
 `;
 
+/**
+ * How near the lens a body dissolves (from x, gone by y metres) - shared by every character. In
+ * play, early (a body flung at the camera, a corpse it backs into); in a scene, only right at the
+ * lens (a shoulder in the foreground of a shot is meant to be there, solid).
+ */
+export const NEAR_FADE = { value: new THREE.Vector2(0.3, 0.85) };
+
 export interface CharacterMaterialUniforms {
   uWounds: { value: THREE.Vector4[] };
   uWoundInfo: { value: THREE.Vector4[] };
@@ -201,6 +208,7 @@ export function createCharacterMaterial(atlas: THREE.DataArrayTexture, corpse = 
   };
   mat.onBeforeCompile = (shader) => {
     Object.assign(shader.uniforms, uniforms);
+    shader.uniforms.uNearFade = NEAR_FADE;
     if (corpse) Object.assign(shader.uniforms, corpseUniforms);
     if (real) Object.assign(shader.uniforms, realUniforms);
     shader.vertexShader = shader.vertexShader
@@ -281,6 +289,7 @@ ${tinted ? 'varying vec4 vTint;\nvarying vec4 vTintSkin;' : ''}
 uniform vec4 uRim;
 uniform float uFlash;
 uniform float uFade;
+uniform vec2 uNearFade;
 uniform sampler2DArray uAtlas;
 ${real ? 'uniform sampler2D uFinish;\nuniform vec2 uFinishC;' : ''}
 ${corpse ? 'flat varying int vCorpseId;\nflat varying float vLayer;\nuniform highp sampler2D uCorpseWounds;' : `uniform float uLayer;\nuniform vec4 uWounds[${MAX_WOUNDS}];\nuniform vec4 uWoundInfo[${MAX_WOUNDS}];\nuniform int uWoundCount;`}
@@ -310,7 +319,7 @@ ${WOUND_EVAL_GLSL}
   // a body right in front of the lens (one flung at the camera, a corpse the camera backs into)
   // dissolves instead of filling the screen
   // (and a fighter standing between the camera and the player thins out, so the player shows)
-  float lsNear = max(1.0 - smoothstep(0.3, 0.85, length(vViewPosition)), uFade);
+  float lsNear = max(1.0 - smoothstep(uNearFade.x, uNearFade.y, length(vViewPosition)), uFade);
   if (lsNear > 0.0 && lsNear > lsBayer4(gl_FragCoord.xy)) discard;
 }
 `,

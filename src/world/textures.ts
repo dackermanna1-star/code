@@ -283,6 +283,28 @@ export function graffitiTexture(seed = 7): THREE.CanvasTexture {
 }
 
 /** Soft radial sprite for particles/glows. */
+/**
+ * A soft white glow, bright at the heart and fading out to nothing at the rim (a lamp's halo, a
+ * car's lights, the sun through haze) - one texture shared, tinted by each sprite's colour. A
+ * sprite without one is a hard-edged square.
+ */
+let softGlow: THREE.Texture | null = null;
+export function softGlowTexture() {
+  if (softGlow) return softGlow;
+  const S = 64;
+  const [c, ctx] = canvas(S, S);
+  const g = ctx.createRadialGradient(S / 2, S / 2, 0, S / 2, S / 2, S / 2);
+  g.addColorStop(0, 'rgba(255,255,255,1)');
+  g.addColorStop(0.18, 'rgba(255,255,255,0.75)');
+  g.addColorStop(0.45, 'rgba(255,255,255,0.22)');
+  g.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, S, S);
+  softGlow = new THREE.CanvasTexture(c);
+  softGlow.needsUpdate = true;
+  return softGlow;
+}
+
 export function radialTexture(size = 64, inner = 'rgba(255,255,255,1)', outer = 'rgba(255,255,255,0)') {
   const [c, ctx] = canvas(size, size);
   const g = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);

@@ -457,7 +457,7 @@ export class HUD {
     this.current = id;
     for (const [k, m] of Object.entries(this.menus)) m.classList.toggle('on', k === id);
     // (update() doesn't run while paused: step the HUD aside here too)
-    this.root.style.display = this.game.started && !id && !this.game.story?.inScene ? '' : 'none';
+    this.root.style.display = this.game.started && !id && !this.game.story?.inScene && !this.game.story?.noHud ? '' : 'none';
     if (id === 'title') {
       let best = '';
       try {
@@ -865,7 +865,7 @@ export class HUD {
     const g = this.game;
     const p = g.player;
     // the HUD steps aside while a menu (pause, settings, controls, results) is up
-    this.root.style.display = g.started && !this.current && !g.spectating && !g.story?.inScene ? '' : 'none';
+    this.root.style.display = g.started && !this.current && !g.spectating && !g.story?.inScene && !g.story?.noHud ? '' : 'none';
     if (g.started && !g.paused && !g.over) this.runTime += realDt;
     // ---- health (with a trailing "ghost" of recent damage)
     const maxHp = p.maxHp;

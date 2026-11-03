@@ -77,7 +77,8 @@
 @keyframes gatepulse { 0%, 100% { opacity: .35; } 50% { opacity: .95; } }
 
 /* place and time, stamped low on the left as the chapter opens */
-#story .stamp { position: absolute; left: 34px; bottom: calc(11.5vh + 30px); opacity: 0; transition: opacity 1s, transform 1s; transform: translateX(-12px); text-shadow: var(--shadow); }
+#story .stamp { position: absolute; left: 34px; bottom: calc(11.5vh + 30px); opacity: 0; transition: opacity 1s, transform 1s, bottom .5s; transform: translateX(-12px); text-shadow: var(--shadow); }
+#story:has(.sub.on) .stamp { bottom: calc(11.5vh + 136px); }
 #story .stamp.on { opacity: 1; transform: none; }
 #story .stamp b { display: block; font: 400 30px/1 var(--display); letter-spacing: .08em; color: var(--ink); }
 #story .stamp span { display: block; margin-top: 7px; font: 800 13px/1 var(--ui); letter-spacing: .42em; color: var(--red); }
