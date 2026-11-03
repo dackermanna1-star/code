@@ -9,7 +9,7 @@ export class BossManager {
   bosses: Enemy[] = [];
   constructor(public game: Game) {}
 
-  register(e: Enemy) {
+  register(e: Enemy, intro = true) {
     this.bosses.push(e);
     e.phase = 1;
     e.brain = brainFor(e, this.game);
@@ -22,7 +22,7 @@ export class BossManager {
     }
     // an entrance: the camera finds the boss coming through the door
     const g = this.game;
-    g.later(0.6, () => {
+    if (intro) g.later(0.6, () => {
       if (!e.alive) return;
       const fx = Math.sin(e.yaw), fz = Math.cos(e.yaw);
       const focus = new THREE.Vector3(e.x + fx * 1.2, 1.35, e.z + fz * 1.2);
@@ -61,6 +61,8 @@ export class BossManager {
       e.comboQueue = [];
       e.speedMul = 1 + (next - 1) * 0.15;
       e.cfg = { ...e.cfg, aggression: Math.min(1, e.cfg.aggression + 0.15), attackSpeed: e.cfg.attackSpeed * 1.08, feint: e.cfg.feint + 0.1 };
+      // (the story stages its own: who comes through which door, and what he shouts)
+      if (g.story?.onBossPhase?.(e, next)) return;
       if (e.cfg.key === 'butcher') {
         this.minions(['brawler', 'brawler']);
       } else if (e.cfg.key === 'warden') {

@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 import './hud.css';
+// (the chapter select is styled with the story's sheet)
+import '../story/story.css';
 import type { Game } from '../game';
 import { PRESETS, QualityName, saveSettings, Settings } from '../core/settings';
 import { STYLES } from '../combat/styles';
@@ -7,6 +9,9 @@ import { MAPS } from '../world/arena';
 import { MAX_CHARGES, MAX_SPECIAL, SPECIAL_KOS } from '../combat/player';
 import { PERFECT_WINDOW } from '../ai/archetypes';
 import type { Replay } from '../replay/replay';
+import type { Story } from '../story/runner';
+import { CHAPTERS, LOCKED_CHAPTERS } from '../story/chapters';
+import { fmtTime, launchStory, loadProgress } from '../story/save';
 
 const el = (tag: string, cls = '', html = '') => {
   const e = document.createElement(tag);
@@ -41,7 +46,11 @@ const TIERS: [number, string][] = [
   [5, 'FLOWING'],
 ];
 
-type MenuId = 'title' | 'pause' | 'settings' | 'controls' | 'gameover' | 'arenas' | 'fighters';
+type MenuId = 'title' | 'pause' | 'settings' | 'controls' | 'gameover' | 'arenas' | 'fighters' | 'storymenu' | 'storydead' | 'storyend';
+/** Menus that Esc / Backspace leave by their last button. */
+const BACKABLE = new Set<string>(['settings', 'controls', 'arenas', 'fighters', 'storymenu']);
+/** The death screens' line: why she gets back up. */
+const GET_UP = ['Ivy is still out there.', 'The trucks leave at dawn.', 'Not tonight. Not like this.', 'Get up, Scar.', 'They don\'t get to keep her.'];
 
 export class HUD {
   root = el('div');
@@ -109,6 +118,9 @@ export class HUD {
   private runTime = 0;
   private shownHints = new Set<string>();
   private settingsFrom: MenuId = 'title';
+  private trEl: HTMLElement | null = null;
+  /** The menu the replay and the spectator camera come back to. */
+  resultsId: MenuId = 'gameover';
   private settingsTab = 'graphics';
   private current: string | null = null;
 
@@ -140,6 +152,7 @@ export class HUD {
     this.pl.append(lbl, hpBar, this.gdBar, this.pipsEl, this.spEl);
     // ---- wave block
     const tr = el('div', 'tr');
+    this.trEl = tr;
     const wv = el('div', 'wv');
     wv.append(el('small', '', 'WAVE'), this.waveB);
     const cnt = el('div', 'cnt');
@@ -207,7 +220,8 @@ export class HUD {
     const mi = Math.max(0, MAPS.findIndex((m) => m.id === g.settings.map));
     const me = STYLES[g.settings.fighter] ?? STYLES.jin;
     tl.append(
-      this.btn('FIGHT', () => g.beginRun(), 'primary'),
+      this.btn('STORY<small>SCARLET: BEFORE DAWN</small>', () => this.openStory(), 'primary'),
+      this.btn('ENDLESS<small>THE WAVES, THEN FOREVER</small>', () => g.beginRun()),
       this.btn(`FIGHTER<small>${me.name} · ${me.tag}</small>`, () => this.show('fighters')),
       this.btn(`ARENA<small>${MAPS[mi].name}</small>`, () => this.show('arenas')),
       this.btn('SETTINGS', () => this.openSettings('title')),
@@ -218,7 +232,7 @@ export class HUD {
     const best = el('div', 'best');
     best.id = 'bestline';
     t.append(best);
-    const tf = el('div', 'foot', '<span>Bodies and blood never disappear · five arenas · 15 waves and their bosses, then endless</span><span><b>CLICK</b> LOCKS THE MOUSE · <b>ESC</b> PAUSES</span>');
+    const tf = el('div', 'foot', '<span>A story of one night · five arenas · 15 waves and their bosses, then endless · bodies and blood never disappear</span><span><b>CLICK</b> LOCKS THE MOUSE · <b>ESC</b> PAUSES</span>');
     this.menus.title.append(tf);
     // ---- arenas: pick one (the world is rebuilt: a reload, straight back to the title)
     const ar = this.mk('arenas', 'blur');
@@ -285,6 +299,139 @@ export class HUD {
     const go = this.mk('gameover', 'blur');
     go.classList.add('wide');
     go.id = 'gocol';
+    // ---- the story: its chapters, her death, a chapter's end (filled when opened)
+    this.mk('storymenu', 'blur').classList.add('wide');
+    this.menus.storymenu.id = 'storymenu';
+    this.mk('storydead', 'blur');
+    this.mk('storyend', 'blur').classList.add('wide');
+    try {
+      if (sessionStorage.getItem('last-stance-open-story') === '1') {
+        sessionStorage.removeItem('last-stance-open-story');
+        requestAnimationFrame(() => this.openStory());
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+
+  // ------------------------------------------------------------------ the story
+  /** The chapter select: continue, the chapters open so far (best grades), the ones to come. */
+  openStory() {
+    const col = this.menus.storymenu.querySelector('.col') as HTMLElement;
+    col.innerHTML = '';
+    const pr = loadProgress();
+    col.append(el('div', 'kick', 'A LAST STANCE STORY'));
+    col.append(el('h2', '', 'BEFORE DAWN'));
+    col.append(el('div', 'synopsis', 'Scarlet used to work nights guarding a lab that pays cash and asks nothing. Tonight her little sister <b>Ivy</b> didn\'t come home from her shift at <b>the Lantern</b> — the KX Crew\'s club. The crew pays its debts in people. <b>The trucks leave at dawn.</b>'));
+    const cleared = Object.keys(pr.best).length;
+    col.append(el('div', 'stline', `CHAPTERS CLEARED <b>${cleared}</b> / ${CHAPTERS.length} &nbsp;·&nbsp; DIFFICULTY <b>${this.game.settings.difficulty.toUpperCase()}</b> <span style="opacity:.6">(SETTINGS · GAMEPLAY)</span>`));
+    const ml = el('div', 'mlist');
+    const r = pr.resume;
+    if (r && CHAPTERS[r.chapter]) {
+      const c = CHAPTERS[r.chapter];
+      const cpName = c.segments[r.cp]?.name ?? '';
+      ml.append(this.btn(`CONTINUE<small>${c.kick} · ${c.title}${r.cp > 0 ? ` — ${cpName}` : ''}</small>`, () => launchStory({ chapter: r.chapter, cp: r.cp, state: r }), 'primary'));
+    }
+    CHAPTERS.forEach((c, i) => {
+      const open = i <= pr.unlocked;
+      const best = pr.best[c.id];
+      const label = `<em class="no">${String(i).padStart(2, '0')}</em><span class="nm">${open ? c.title : '— — —'}<small>${open ? `${c.place} · ${c.clock}` : 'FINISH THE CHAPTER BEFORE'}</small></span>${best ? `<em class="gr">${best.grade}</em><small>${fmtTime(best.time)}</small>` : ''}`;
+      const b = this.btn(label, () => {
+        if (!open) return;
+        launchStory({ chapter: i, cp: 0, state: null });
+      }, !r && i === Math.min(pr.unlocked, CHAPTERS.length - 1) ? 'primary' : '');
+      if (!open) b.classList.add('locked');
+      ml.append(b);
+    });
+    for (const [i, c] of LOCKED_CHAPTERS.entries()) {
+      const b = this.btn(`<em class="no">${String(CHAPTERS.length + i).padStart(2, '0')}</em><span class="nm">${c.title}<small>${c.place} · COMING SOON</small></span>`, () => undefined);
+      b.classList.add('locked');
+      ml.append(b);
+    }
+    ml.append(this.btn('BACK', () => this.show('title'), '', 'back'));
+    col.append(ml);
+    this.show('storymenu');
+  }
+
+  /** The story is running: its pause menu, no wave counter. */
+  applyStoryMode() {
+    const g = this.game;
+    const col = this.menus.pause.querySelector('.col') as HTMLElement;
+    col.innerHTML = '';
+    const st = g.story!;
+    col.append(el('div', 'kick', `${st.chapter.kick} · ${st.chapter.title}`));
+    col.append(el('h2', '', 'PAUSED'));
+    const rs = el('div', 'runstats');
+    rs.id = 'runstats';
+    col.append(rs);
+    const pl = el('div', 'mlist');
+    pl.append(
+      this.btn('RESUME', () => g.setPaused(false), 'primary'),
+      this.btn('SETTINGS', () => this.openSettings('pause')),
+      this.btn('CONTROLS', () => this.show('controls')),
+      this.btn('RESTART CHECKPOINT', () => st.retry()),
+      this.btn('RESTART CHAPTER', () => st.restartChapter()),
+      this.btn('QUIT TO TITLE', () => this.restart(false), '', 'back'),
+    );
+    col.append(pl);
+    if (this.trEl) this.trEl.style.display = 'none';
+  }
+
+  /** She's down: back up at the checkpoint, or watch it again. */
+  storyDeath(st: Story) {
+    const col = this.menus.storydead.querySelector('.col') as HTMLElement;
+    col.innerHTML = '';
+    col.append(el('div', 'kick', `${st.chapter.kick} · ${st.chapter.title}`));
+    col.append(el('h2', '', 'SCARLET IS DOWN'));
+    col.append(el('div', 'quote', `${GET_UP[Math.floor(Math.random() * GET_UP.length)]}`));
+    const ml = el('div', 'mlist');
+    ml.append(
+      this.btn(`RETRY<small>${st.cp > 0 ? 'FROM THE CHECKPOINT · ' + st.chapter.segments[st.cp].name : 'FROM THE START'}</small>`, () => st.retry(), 'primary'),
+      this.btn('RESTART CHAPTER', () => st.restartChapter()),
+      this.btn('REPLAY<small>THE LAST MINUTE</small>', () => this.game.openReplay()),
+      this.btn('QUIT TO TITLE', () => this.restart(false), '', 'back'),
+    );
+    col.append(ml);
+    this.resultsId = 'storydead';
+    if (!this.game.spectating) this.show('storydead');
+  }
+
+  /** A chapter done: the grade, the numbers, what's next. */
+  storyResults(st: Story, grade: string, stats: Record<string, string | number>, improved: boolean) {
+    const c = st.chapter;
+    const col = this.menus.storyend.querySelector('.col') as HTMLElement;
+    col.innerHTML = '';
+    col.append(el('div', 'kick', `${c.kick} COMPLETE`));
+    col.append(el('h2', '', c.title));
+    const res = el('div', 'res');
+    const gr = el('div', 'grade', `<b>${grade}</b><span>GRADE</span>`);
+    const sts = el('div', 'stats');
+    Object.entries(stats).forEach(([k, v], i) => {
+      const d = el('div', '', `<span>${k}</span><b>${v}</b>`);
+      d.style.animationDelay = `${0.35 + i * 0.05}s`;
+      sts.append(d);
+    });
+    res.append(gr, sts);
+    col.append(res);
+    if (improved) col.append(el('div', 'record', 'NEW BEST'));
+    const nx = CHAPTERS[c.id + 1];
+    if (c.next) col.append(el('div', 'quote', `${c.next.line}<small>NEXT · ${c.next.kick} · ${c.next.title}${nx ? '' : ' · COMING SOON'}</small>`));
+    const ml = el('div', 'mlist');
+    if (nx) ml.append(this.btn(`NEXT CHAPTER<small>${nx.kick} · ${nx.title}</small>`, () => launchStory({ chapter: nx.id, cp: 0, state: null }), 'primary'));
+    ml.append(
+      this.btn('REPLAY CHAPTER', () => st.restartChapter(), nx ? '' : 'primary'),
+      this.btn('CHAPTER SELECT', () => {
+        try {
+          sessionStorage.setItem('last-stance-open-story', '1');
+        } catch {
+          /* ignore */
+        }
+        location.reload();
+      }),
+      this.btn('TITLE', () => this.restart(false), '', 'back'),
+    );
+    col.append(ml);
+    this.show('storyend');
   }
 
   private restart(fight: boolean) {
@@ -300,7 +447,7 @@ export class HUD {
     this.current = id;
     for (const [k, m] of Object.entries(this.menus)) m.classList.toggle('on', k === id);
     // (update() doesn't run while paused: step the HUD aside here too)
-    this.root.style.display = this.game.started && !id ? '' : 'none';
+    this.root.style.display = this.game.started && !id && !this.game.story?.inScene ? '' : 'none';
     if (id === 'title') {
       let best = '';
       try {
@@ -325,6 +472,17 @@ export class HUD {
     const p = g.player;
     const rs = document.getElementById('runstats');
     if (!rs) return;
+    if (g.story) {
+      rs.innerHTML = [
+        ['TIME', fmtTime(g.story.time)],
+        ['KILLS', p.stats.kills],
+        ['BEST COMBO', p.bestCombo],
+        ['RETRIES', g.story.retries],
+      ]
+        .map(([k, v]) => `<div>${k}<b>${v}</b></div>`)
+        .join('');
+      return;
+    }
     const mm = Math.floor(this.runTime / 60), ss = Math.floor(this.runTime % 60);
     rs.innerHTML = [
       ['WAVE', g.waves.wave],
@@ -356,7 +514,7 @@ export class HUD {
       return true;
     }
     if (e.code === 'Escape' || e.code === 'Backspace') {
-      if (this.current === 'settings' || this.current === 'controls' || this.current === 'arenas' || this.current === 'fighters') {
+      if (BACKABLE.has(this.current)) {
         btns[btns.length - 1].click();
         return true;
       }
@@ -617,6 +775,8 @@ export class HUD {
       if (this.shownHints.has(key)) return;
       this.shownHints.add(key);
     }
+    // (the story teaches with its own prompts, at its own moments)
+    if (this.game.story) return;
     this.hintEl.textContent = text;
     this.hintEl.classList.add('on');
     this.hintT = dur;
@@ -683,7 +843,7 @@ export class HUD {
     const g = this.game;
     const p = g.player;
     // the HUD steps aside while a menu (pause, settings, controls, results) is up
-    this.root.style.display = g.started && !this.current && !g.spectating ? '' : 'none';
+    this.root.style.display = g.started && !this.current && !g.spectating && !g.story?.inScene ? '' : 'none';
     if (g.started && !g.paused && !g.over) this.runTime += realDt;
     // ---- health (with a trailing "ghost" of recent damage)
     const maxHp = p.maxHp;
@@ -718,7 +878,7 @@ export class HUD {
     const txt = cool ? 'RECOVERING' : 'FINISHER READY';
     if (this.pipsTxt.textContent !== txt) this.pipsTxt.textContent = txt;
     // ---- special (only fighters who have one)
-    const hasSp = !!p.style.special;
+    const hasSp = !!p.style.special && !p.specialLocked;
     this.spEl.style.display = hasSp ? '' : 'none';
     if (hasSp) {
       this.spPips.forEach((s, i) => {

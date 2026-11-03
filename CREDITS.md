@@ -121,6 +121,9 @@ materials packed beside the body) into `src/character/models/<name>/mesh.json`.
   *Sports_Male_01* (bruisers, the lab's subjects and Subject Zero). `tools/models/build_avatars.py`
   converts the list in `tools/models/avatars.json`; `tools/models/avatar_textures.py` writes their
   textures (resized, extras packed, finish and tint maps; the Butcher's coat bloodied).
+* **The story's people**: Doyle, the Lantern's doorman, is *Business_Male_01* in a black suit; the
+  captives in the Butcher's pen are *Male_Adult_12* (Marco), *Delivery_Male_01*,
+  *Business_Male_05*, *Female_Party_02* and *Female_Adult_08*.
 
 ```
 MIT License

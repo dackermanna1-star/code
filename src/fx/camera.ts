@@ -15,6 +15,25 @@ export interface Shot {
   orbit: number;
 }
 
+/**
+ * A cutscene shot: the lens is put exactly here (a cut), optionally travelling to `pos2` / `look2` /
+ * `fov2` over `dur` seconds (a dolly, a push-in, a pan). `blendIn` > 0 eases in from wherever the
+ * camera was instead of cutting.
+ */
+export interface SceneShot {
+  pos: THREE.Vector3;
+  look: THREE.Vector3;
+  fov: number;
+  pos2?: THREE.Vector3;
+  look2?: THREE.Vector3;
+  fov2?: number;
+  dur: number;
+  ease?: 'linear' | 'inout' | 'out' | 'in';
+  blendIn?: number;
+  /** Slow handheld drift (m): a scene breathes a little instead of hanging perfectly still. */
+  drift?: number;
+}
+
 export class CameraRig {
   /**
    * How far behind the fighter the camera sits with nobody about (m): close, just over head
@@ -52,6 +71,10 @@ export class CameraRig {
   private idleTime = 0;
   private collK = 1;
   private crowdPitch = -0.15;
+  /** The cutscene shot on now (null: the game's camera). */
+  private scn: (SceneShot & { t: number; fromPos: THREE.Vector3; fromLook: THREE.Vector3; fromFov: number }) | null = null;
+  /** Easing back from the last cutscene shot to the game's camera. */
+  private scnOut: { pos: THREE.Vector3; look: THREE.Vector3; fov: number; t: number; dur: number } | null = null;
 
   constructor(aspect: number, public arena: Arena) {
     this.camera = new THREE.PerspectiveCamera(this.fovBase, aspect, 0.05, 120);
@@ -134,7 +157,35 @@ export class CameraRig {
     this.shot = { ...s, t: 0, startPos: this.camera.position.clone(), startFocus: this.lastLook.clone() };
   }
   get inCinematic() {
-    return this.shot !== null && this.cineBlend > 0.5;
+    return (this.shot !== null && this.cineBlend > 0.5) || this.scn !== null;
+  }
+  /** In a cutscene (a scene shot is up). */
+  get inScene() {
+    return this.scn !== null;
+  }
+  /** Cut (or ease, with `blendIn`) to a cutscene shot. */
+  sceneShot(s: SceneShot) {
+    this.scn = { ...s, t: 0, fromPos: this.lastPos.clone(), fromLook: this.lastLook.clone(), fromFov: this.camera.fov };
+    this.scnOut = null;
+    this.shot = null;
+    this.cineBlend = 0;
+  }
+  /**
+   * The cutscene's over: ease back to the game's camera over `blend` s (0: cut), the orbit swung
+   * round to `yaw` first if given (behind the fighter, looking where the fight is).
+   */
+  endScene(blend = 0.8, yaw?: number, pitch?: number) {
+    if (!this.scn) return;
+    if (yaw !== undefined) this.yaw = yaw;
+    if (pitch !== undefined) this.pitch = pitch;
+    this.scnOut = blend > 0 ? { pos: this.lastPos.clone(), look: this.lastLook.clone(), fov: this.camera.fov, t: 0, dur: blend } : null;
+    this.scn = null;
+    this.idleTime = 0;
+  }
+  /** Snap the follow focus onto a point (a scene put the fighter somewhere new). */
+  snapFocus(p: THREE.Vector3) {
+    this.focus.copy(p).setY(p.y + 0.18);
+    this.focusVel.set(0, 0, 0);
   }
   endShot() {
     if (this.shot) this.shot.t = Math.max(this.shot.t, this.shot.duration);
@@ -224,6 +275,42 @@ export class CameraRig {
         const dv = pos.clone().sub(centre);
         this.yaw = Math.atan2(dv.x, dv.z);
       }
+    }
+
+    // ---- cutscene shots: the lens exactly where the scene puts it (the game's rig keeps tracking
+    // underneath, so the way back out is to where it would be now)
+    if (this.scn) {
+      const s = this.scn;
+      s.t += realDt;
+      const u = clamp(s.t / Math.max(1e-3, s.dur), 0, 1);
+      const e = s.ease === 'linear' ? u : s.ease === 'out' ? 1 - (1 - u) * (1 - u) : s.ease === 'in' ? u * u : u * u * (3 - 2 * u);
+      const sp = s.pos2 ? s.pos.clone().lerp(s.pos2, e) : s.pos.clone();
+      const sl = s.look2 ? s.look.clone().lerp(s.look2, e) : s.look.clone();
+      let sf = s.fov2 !== undefined ? lerp(s.fov, s.fov2, e) : s.fov;
+      if (s.drift) {
+        const tt = this.shakeT + s.t;
+        sp.x += Math.sin(tt * 0.31) * s.drift;
+        sp.y += Math.sin(tt * 0.23 + 1) * s.drift * 0.6;
+        sl.x += Math.sin(tt * 0.19 + 2) * s.drift * 0.5;
+        sl.y += Math.sin(tt * 0.27 + 3) * s.drift * 0.4;
+      }
+      if (s.blendIn && s.t < s.blendIn) {
+        const b = smoothstep(0, s.blendIn, s.t);
+        sp.lerpVectors(s.fromPos, sp, b);
+        sl.lerpVectors(s.fromLook, sl, b);
+        sf = lerp(s.fromFov, sf, b);
+      }
+      pos = sp;
+      look = sl;
+      fov = sf;
+    } else if (this.scnOut) {
+      const o = this.scnOut;
+      o.t += realDt;
+      const b = smoothstep(0, o.dur, o.t);
+      pos = o.pos.clone().lerp(pos, b);
+      look = o.look.clone().lerp(look, b);
+      fov = lerp(o.fov, fov, b);
+      if (o.t >= o.dur) this.scnOut = null;
     }
 
     // ---- shake

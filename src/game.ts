@@ -8,7 +8,7 @@ import { Arena, HALF_D, HALF_W, isMapName, MAPS } from './world/arena';
 import { BloodAtlas, setDrains, SPLAT } from './world/bloodAtlas';
 import { MocapDriver } from './anim/mocapLoco';
 import { CharacterLibrary } from './character/library';
-import { Archetype, registerLabVariants, registerVariants } from './character/variants';
+import { Archetype, registerLabVariants, registerStoryVariants, registerVariants } from './character/variants';
 import { registerAllClips } from './anim/lib';
 import type { Fighter } from './combat/fighter';
 import { Player } from './combat/player';
@@ -35,6 +35,9 @@ import { Ragdoll } from './world/ragdoll';
 import type { RagdollLike } from './world/ragdollTypes';
 import { Pose, PoseFK } from './anim/pose';
 import { Replay } from './replay/replay';
+import type { Story } from './story/runner';
+import type { StoryLaunch } from './story/save';
+import { CHAPTERS } from './story/chapters';
 
 /** Separation speed (m/s per body) for fighters just released from a paired move. */
 const SOFT_SEPARATION = 1.4;
@@ -91,10 +94,16 @@ export class Game {
   godMode = false;
   private enemyCache: Enemy[] = [];
   private enemyCacheFrame = -1;
+  /** The story mode: the chapter running (null: the endless waves). */
+  story: Story | null = null;
+  storyLaunch: StoryLaunch | null = null;
 
-  constructor(container: HTMLElement, params: URLSearchParams) {
+  constructor(container: HTMLElement, params: URLSearchParams, launch: StoryLaunch | null = null) {
     this.params = params;
     this.settings = loadSettings();
+    // a chapter of the story: its map, and Scarlet (neither saved as the endless mode's choice)
+    const chapter = launch ? CHAPTERS[launch.chapter] : null;
+    if (launch && chapter) this.storyLaunch = launch;
     const q = params.get('quality');
     if (q === 'low' || q === 'medium' || q === 'high' || q === 'ultra') this.settings.quality = q;
     this.debug = params.get('debug') === '1';
@@ -109,7 +118,10 @@ export class Game {
     this.blood.renderer = this.renderer.gl;
     const mp = this.params.get('map');
     if (isMapName(mp)) this.settings.map = mp;
+    if (this.storyLaunch && chapter) this.settings.map = chapter.map;
     this.arena = new Arena(this.blood, preset.pointLights, preset.shadowMap, this.settings.map);
+    // (the chapter's set dressing goes in before the physics are built from the room)
+    if (this.storyLaunch && chapter) chapter.dress?.(this.arena);
     this.scene.add(this.arena.group);
     setDrains(this.arena.drains);
     if (this.arena.wet) this.lib.surface = { roughness: 0.52, env: 1.25 };
@@ -130,6 +142,8 @@ export class Game {
     this.archetypes = registerVariants(this.lib);
     // the lab is staffed by its own people
     if (this.arena.roster === 'lab') Object.assign(this.archetypes, registerLabVariants(this.lib));
+    // (the story's doorman and the warehouse's captives)
+    if (this.storyLaunch) Object.assign(this.archetypes, registerStoryVariants(this.lib));
     this.lib.build();
     this.music = new Music(this.audio);
     this.combat = new Combat(this);
@@ -177,7 +191,7 @@ export class Game {
       this.props.blast(p, 5, 6);
       this.slowMo(0.4, 1.0);
     };
-    const fid = this.params.get('fighter');
+    const fid = this.storyLaunch ? 'scarlet' : this.params.get('fighter');
     if (isFighterId(fid)) this.settings.fighter = fid;
     const style = STYLES[this.settings.fighter] ?? STYLES.jin;
     this.player = new Player(this, this.lib, this.lib.get(style.variant));
@@ -288,7 +302,11 @@ export class Game {
       window.addEventListener('blur', () => {
         if (this.started && !this.paused && !this.over && !this.preStep) this.setPaused(true);
       });
-      this.hud.show('title');
+      if (this.storyLaunch) {
+        const { Story } = await import('./story/runner');
+        this.story = new Story(this, CHAPTERS[this.storyLaunch.chapter], this.storyLaunch);
+        this.hud.applyStoryMode();
+      } else this.hud.show('title');
       let auto = false;
       try {
         auto = sessionStorage.getItem('last-stance-autostart') === '1';
@@ -296,7 +314,7 @@ export class Game {
       } catch {
         /* ignore */
       }
-      if (auto) setTimeout(() => this.beginRun(), 50);
+      if (auto && !this.story) setTimeout(() => this.beginRun(), 50);
     }
     if (!this.params.get('test') || this.params.get('audio') === '1') await this.audio.init();
     // compile all shaders up front (characters, corpses, particles, blood surfaces)
@@ -337,6 +355,11 @@ export class Game {
         this.audio.siren(0.5 + Math.random() * 0.5);
       }
     }
+  }
+
+  /** No fight on: health comes back (between waves; the story says when). */
+  get calm() {
+    return this.story ? this.story.calm : this.waves.betweenWaves;
   }
 
   beginRun() {
@@ -419,10 +442,14 @@ export class Game {
   }
 
   start() {
+    // (tests: ?turbo=N runs N steps of the world per frame drawn - a slow headless renderer still
+    // plays a whole chapter in reasonable time)
+    const turbo = Math.max(1, Math.min(8, Number(this.params.get('turbo') ?? 1) | 0));
     const loop = () => {
       const now = performance.now();
       const realDt = Math.min(0.05, (now - this.last) / 1000);
       this.last = now;
+      for (let i = 1; i < turbo; i++) this.step(realDt);
       this.step(realDt);
       this.renderFrame();
       this.renderer.trackFrame(realDt * 1000, this.realTime);
@@ -487,7 +514,7 @@ export class Game {
     // camera
     const [lx, ly] = this.input.takeLook();
     let near = 0;
-    for (const e of this.enemies()) if (e.alive && e.distTo(this.player) < 7) near++;
+    for (const e of this.enemies()) if (e.alive && e.state !== 'idle' && e.distTo(this.player) < 7) near++;
     const focus = new THREE.Vector3(this.player.x, 1.0, this.player.z);
     if (!this.started && !this.testMode) {
       // title screen: slow, low cinematic orbit around the fighter
@@ -505,7 +532,7 @@ export class Game {
     const right = new THREE.Vector3(1, 0, 0).applyQuaternion(this.cam.camera.quaternion);
     this.audio.setListener(this.cam.camera.position, right);
     // music intensity
-    const active = this.enemies().filter((e) => e.alive && e.state !== 'enter').length;
+    const active = this.enemies().filter((e) => e.alive && e.state !== 'enter' && e.state !== 'idle').length;
     this.music.target = clamp((active > 0 ? 0.3 : 0.05) + active * 0.07 + Math.min(0.3, this.player.combo * 0.015) + (this.bosses.active ? 0.3 : 0), 0, 1);
     this.music.update(realDt);
     // post fx decay
@@ -516,6 +543,7 @@ export class Game {
     fx.red = damp(fx.red, lowHp > 0.65 ? (lowHp - 0.65) * 0.9 : 0, 3, realDt);
     fx.desat = damp(fx.desat, this.timeScale < 0.6 ? 0.45 : this.over ? 0.8 : 0, 6, realDt);
     this.hud?.update(dt, realDt);
+    this.story?.update(realDt);
   }
 
   private footsteps() {
@@ -703,6 +731,11 @@ export class Game {
     const p = this.player;
     const pts = Math.round(e.scoreValue * p.multiplier * (h.finisher ? 1.5 : how === 'edge' ? 2 : 1) * (DIFFICULTY[this.settings.difficulty] ?? DIFFICULTY.fighter).score);
     p.score += pts;
+    if (this.story) {
+      this.story.onEnemyKilled(e, h);
+      if (e.cfg.boss) this.slowMo(0.15, 1.6);
+      return;
+    }
     if (how === 'edge') this.hud?.feed(e.cfg.boss ? `${e.cfg.label.toUpperCase()} WENT OVER` : 'OVER THE EDGE', `+${pts.toLocaleString()}`);
     else if (!e.cfg.boss) this.hud?.feed(`${e.cfg.label.toUpperCase()} DOWN`, `+${pts.toLocaleString()}`);
     if (e.cfg.boss) {
@@ -719,7 +752,7 @@ export class Game {
    * The last enemy of a wave goes down: time stretches, the camera swings round the falling body
    * on the impact, and the hit lands with a deep thump (a finisher keeps its own camera).
    */
-  private finalBlow(e: Enemy) {
+  finalBlow(e: Enemy) {
     this.slowMo(0.22, 1.25);
     this.hitStop(0.06);
     this.cam.addTrauma(0.35);
@@ -771,7 +804,7 @@ export class Game {
     this.replay.close();
     this.input.exitLock();
     this.hud?.setReplay(false);
-    this.hud?.show('gameover');
+    this.hud?.show(this.hud.resultsId);
   }
   /** Gamepad buttons held last frame (the replay acts on presses). */
   private padWas: boolean[] = [];
@@ -833,7 +866,7 @@ export class Game {
     this.cam.stopFree();
     this.input.exitLock();
     this.hud?.setSpectate(false);
-    this.hud?.show('gameover');
+    this.hud?.show(this.hud.resultsId);
   }
 
   onPlayerDeath() {
@@ -841,6 +874,15 @@ export class Game {
     this.over = true;
     this.replay.playerDown();
     this.slowMo(0.2, 2.5);
+    if (this.story) {
+      const st = this.story;
+      st.onDeath();
+      setTimeout(() => {
+        this.input.exitLock();
+        this.hud?.storyDeath(st);
+      }, 2600);
+      return;
+    }
     this.audio.play('announcer', { file: 'audio/announcer/announcer_game_over.wav', vol: 0.8 });
     const p = this.player;
     const stats = {
@@ -1012,9 +1054,14 @@ export class Game {
 
 export async function startGame(params: URLSearchParams) {
   const app = document.getElementById('app')!;
+  const { takeLaunch } = await import('./story/save');
+  const launch = params.get('test') ? null : takeLaunch(params);
+  const ch = launch ? CHAPTERS[launch.chapter] : null;
   const loading = document.createElement('div');
   loading.className = 'loading';
-  loading.innerHTML = '<div class="lg">LAST<br><span>STANCE</span></div><div class="lb"><i></i></div><div class="lt">PREPARING THE ARENA</div>';
+  loading.innerHTML = ch
+    ? `<div class="lk">SCARLET</div><div class="lg">BEFORE DAWN</div><div class="lb"><i></i></div><div class="lt">${ch.kick} · ${ch.title}</div>`
+    : '<div class="lg">LAST<br><span>STANCE</span></div><div class="lb"><i></i></div><div class="lt">PREPARING THE ARENA</div>';
   document.body.appendChild(loading);
   // the arenas paint lettering into their textures (graffiti, signs): have the fonts first
   try {
@@ -1025,7 +1072,7 @@ export async function startGame(params: URLSearchParams) {
   } catch {
     /* system fonts then */
   }
-  const game = new Game(app, params);
+  const game = new Game(app, params, ch ? launch : null);
   (window as unknown as { game: Game }).game = game;
   await game.init();
   loading.style.opacity = '0';
@@ -1042,8 +1089,9 @@ export async function startGame(params: URLSearchParams) {
     const bot = new t.Bot(game);
     game.preStep = (dt) => bot.update(dt);
     if (params.get('god') === '1') game.godMode = true;
-    game.beginRun();
+    if (!game.story) game.beginRun();
   }
   game.start();
   (window as unknown as { __ready: boolean }).__ready = true;
+  if (game.story) void game.story.begin();
 }

@@ -131,6 +131,20 @@ import a19bf from './butcher/body_f.png';
 import a19h from './butcher/head.jpg';
 import a19hf from './butcher/head_f.png';
 import a19r from './butcher/hair.webp';
+import a20m from './party02/mesh.json';
+import a20b from './party02/body.jpg';
+import a20bn from './party02/body_n.jpg';
+import a20bf from './party02/body_f.png';
+import a20h from './party02/head.jpg';
+import a20hf from './party02/head_f.png';
+import a20r from './party02/hair.webp';
+import a21m from './adultf08/mesh.json';
+import a21b from './adultf08/body.jpg';
+import a21bn from './adultf08/body_n.jpg';
+import a21bf from './adultf08/body_f.png';
+import a21h from './adultf08/head.jpg';
+import a21hf from './adultf08/head_f.png';
+import a21r from './adultf08/hair.webp';
 
 export const AVATARS: Record<string, AvatarAsset> = {
   adult04: { src: 'Male_Adult_04', mesh: a0m as unknown as AvatarAsset['mesh'], body: a0b, bodyN: a0bn, bodyF: a0bf, head: a0h, headF: a0hf, hair: a0r },
@@ -153,4 +167,6 @@ export const AVATARS: Record<string, AvatarAsset> = {
   security01: { src: 'Security_Male_01', mesh: a17m as unknown as AvatarAsset['mesh'], body: a17b, bodyN: a17bn, bodyF: a17bf, head: a17h, headF: a17hf, hair: null },
   medical01: { src: 'Medical_Male_01', mesh: a18m as unknown as AvatarAsset['mesh'], body: a18b, bodyN: a18bn, bodyF: a18bf, head: a18h, headF: a18hf, hair: a18r },
   butcher: { src: 'Medical_Male_01', mesh: a19m as unknown as AvatarAsset['mesh'], body: a19b, bodyN: a19bn, bodyF: a19bf, head: a19h, headF: a19hf, hair: a19r },
+  party02: { src: 'Female_Party_02', mesh: a20m as unknown as AvatarAsset['mesh'], body: a20b, bodyN: a20bn, bodyF: a20bf, head: a20h, headF: a20hf, hair: a20r },
+  adultf08: { src: 'Female_Adult_08', mesh: a21m as unknown as AvatarAsset['mesh'], body: a21b, bodyN: a21bn, bodyF: a21bf, head: a21h, headF: a21hf, hair: a21r },
 };

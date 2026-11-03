@@ -74,6 +74,7 @@ export class Bot {
     let bd = Infinity;
     for (const e of g.enemies()) {
       if (!e.alive || e.state === 'enter') continue;
+      if (e.state === 'idle' && !g.arena.inside(e.x, e.z, 0.2)) continue;
       const d = e.distTo(p);
       if (d < bd) {
         bd = d;
@@ -81,6 +82,18 @@ export class Bot {
       }
     }
     if (!best) {
+      // the story: nobody to fight - go where the objective's marker is
+      const m = g.story?.ui.markerAt;
+      if (m && !g.story?.inScene) {
+        const d = new THREE.Vector3(m.x - p.x, 0, m.z - p.z);
+        const k = Math.min(1, d.length() / 1.0);
+        d.normalize();
+        const yaw = g.cam.yaw;
+        const fx = -Math.sin(yaw), fz = -Math.cos(yaw);
+        const rx = -fz, rz = fx;
+        inp.virtual = { moveX: (d.x * rx + d.z * rz) * k, moveY: (d.x * fx + d.z * fz) * k };
+        return;
+      }
       inp.virtual = { moveX: 0, moveY: 0 };
       return;
     }

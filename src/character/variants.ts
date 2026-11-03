@@ -4,7 +4,7 @@ import { defaultOutfit, HAIR_COLORS, Outfit, SKIN_TONES } from './outfit';
 import { BodySpec } from '../anim/skeleton';
 import { RNG } from '../core/math';
 
-export type Archetype = 'player' | 'brawler' | 'knife' | 'club' | 'sword' | 'agile' | 'bruiser' | 'defender' | 'elite' | 'butcher' | 'viper' | 'master' | 'warden' | 'subject';
+export type Archetype = 'player' | 'brawler' | 'knife' | 'club' | 'sword' | 'agile' | 'bruiser' | 'defender' | 'elite' | 'butcher' | 'viper' | 'master' | 'warden' | 'subject' | 'bouncer' | 'captive';
 
 const o = (over: Partial<Outfit>): Outfit => ({ ...defaultOutfit(), ...over });
 
@@ -213,3 +213,37 @@ export function registerLabVariants(lib: CharacterLibrary): Partial<Record<Arche
   return out;
 }
 
+
+/**
+ * The story's own people (registered only when a chapter runs): Doyle, the Lantern's doorman, a big
+ * man in a black suit; and the crew's captives in the warehouse pen - Marco the Lantern's barback in
+ * his white work shirt, a delivery kid taken off his route, a man in a creased suit who owed the
+ * wrong people, a girl in her going-out clothes, a woman in a T-shirt and jeans.
+ */
+export function registerStoryVariants(lib: CharacterLibrary): Partial<Record<Archetype, string[]>> {
+  const out: Partial<Record<Archetype, string[]>> = {};
+  const add = (arch: Archetype, name: string, spec: Partial<BodySpec>, outfit: Outfit, real?: Real) => {
+    lib.add(name, realSpec(spec, real), outfit, realOpts(real));
+    (out[arch] ??= []).push(name);
+  };
+  add('bouncer', 'doyle', { height: 1.1, bulk: 1.32, shoulders: 1.2, gut: 0.6, chestDepth: 1.12, hipsW: 1.1, headSize: 1.03 },
+    o({ skin: '#b98a6a', hair: '#1a1410', hairStyle: 'bald', facial: 'beard', top: 'jacket', topColor: '#111114', topColor2: '#2a2a30', bottom: 'jeans', bottomColor: '#101012',
+      shoes: 'boots', shoeColor: '#0a0a0a', brow: 1, seed: 950 }),
+    { model: 'business01', look: { top: tint('#121216', 0.92), bottom: tint('#101013', 0.85), girth: 1.3 } });
+  add('captive', 'marco', { bulk: 0.95 },
+    o({ skin: '#c99a78', hair: '#1a1410', hairStyle: 'short', top: 'tshirt', topColor: '#e8e4dc', bottom: 'jeans', bottomColor: '#20242c', seed: 960 }),
+    { model: 'adult12', look: { top: tint('#ece8e0', 0.9), bottom: tint('#1c1f26', 0.6) } });
+  add('captive', 'cap_kid', { bulk: 0.92 },
+    o({ skin: '#8a5a3c', hair: '#101010', hairStyle: 'short', top: 'tshirt', topColor: '#c8a020', bottom: 'cargo', bottomColor: '#3a3a30', seed: 961 }),
+    { model: 'delivery01', look: { top: tint('#b8402a', 0.75) } });
+  add('captive', 'cap_suit', { bulk: 1.0 },
+    o({ skin: '#d9b08f', hair: '#6a6a6a', hairStyle: 'short', top: 'jacket', topColor: '#3a3a42', bottom: 'jeans', bottomColor: '#2a2a30', seed: 962 }),
+    { model: 'business05', look: { top: tint('#5a5a62', 0.6) } });
+  add('captive', 'cap_party', { bulk: 0.86, fem: 1 },
+    o({ skin: '#e2b08f', hair: '#2a1a12', hairStyle: 'longwave', top: 'tank', topColor: '#1a1a1e', bottom: 'skirt', bottomColor: '#101012', seed: 963 }),
+    { model: 'party02' });
+  add('captive', 'cap_jeans', { bulk: 0.88, fem: 1 },
+    o({ skin: '#d8a888', hair: '#3a2a1a', hairStyle: 'ponytail', top: 'tshirt', topColor: '#8a8a8a', bottom: 'jeans', bottomColor: '#2b3a55', seed: 964 }),
+    { model: 'adultf08' });
+  return out;
+}

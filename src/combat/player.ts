@@ -92,6 +92,19 @@ export class Player extends Fighter {
   /** Special ability charges (the style's: Scarlet's pistol) and knockouts towards the next. */
   specialCharges = 0;
   specialKOs = 0;
+  /** The story: she hasn't got the pistol yet (the special is off, its meter hidden). */
+  specialLocked = false;
+  /**
+   * The story's cutscenes: the player isn't steering - no actions are read, she walks where the
+   * scene sends her (`autopilot`) and faces where it says.
+   */
+  scripted = false;
+  autopilot: { x: number; z: number; speed: number; face?: number; done?: boolean } | null = null;
+  /** Where she looks while scripted and standing (world yaw), and how high her guard is. */
+  sceneFace: number | null = null;
+  sceneGuard = 0.35;
+  /** How she carries herself in a scene: walking in loose, or squared up. */
+  sceneStyle: 'relaxed' | 'fight' = 'relaxed';
   private koSeen = 0;
   pistol: Pistol | null = null;
   private gunTarget: Enemy | null = null;
@@ -131,6 +144,7 @@ export class Player extends Fighter {
     let bestScore = Infinity;
     for (const e of this.enemies()) {
       if (!e.alive || e.paired || e.state === 'enter') continue;
+      if (e.state === 'idle' && !this.game.arena.inside(e.x, e.z, 0.2)) continue;
       if (filter && !filter(e)) continue;
       const d = this.distTo(e);
       if (d > maxDist) continue;
@@ -162,7 +176,7 @@ export class Player extends Fighter {
     this.execCd = Math.max(0, this.execCd - dt);
     // the special fills with knockouts
     if (this.stats.kills > this.koSeen) {
-      if (this.style.special && this.specialCharges < MAX_SPECIAL) {
+      if (this.style.special && !this.specialLocked && this.specialCharges < MAX_SPECIAL) {
         this.specialKOs += this.stats.kills - this.koSeen;
         while (this.specialKOs >= SPECIAL_KOS && this.specialCharges < MAX_SPECIAL) {
           this.specialKOs -= SPECIAL_KOS;
@@ -195,7 +209,7 @@ export class Player extends Fighter {
     }
     this.guard = Math.min(100, this.guard + dt * (inp.isHeld('block') ? 6 : 18));
     this.regenDelay -= dt;
-    if (this.regenDelay < 0 && this.hp < this.maxHp && this.game.waves.betweenWaves) this.hp = Math.min(this.maxHp, this.hp + dt * 6);
+    if (this.regenDelay < 0 && this.hp < this.maxHp && this.game.calm) this.hp = Math.min(this.maxHp, this.hp + dt * 6);
     // Viper's poison: it keeps eating at you for a few seconds (never the last point of health)
     if (this.venom > 0 && this.alive) {
       this.venom -= dt;
@@ -210,7 +224,7 @@ export class Player extends Fighter {
     switch (this.action) {
       case 'free':
         this.freeMove(dt);
-        this.readActions();
+        if (!this.scripted) this.readActions();
         break;
       case 'dash':
         this.doDash(dt);
@@ -303,24 +317,43 @@ export class Player extends Fighter {
 
   private freeMove(dt: number) {
     const inp = this.game.input;
-    const [wx, wz] = this.game.cam.moveBasis(inp.moveX, inp.moveY);
+    let [wx, wz] = this.game.cam.moveBasis(inp.moveX, inp.moveY);
+    let blocking = inp.isHeld('block') && this.guard > 5;
+    let sp = blocking ? 1.6 : this.speed;
+    if (this.scripted) {
+      // a scene walks her: to the autopilot's mark (easing in over the last half metre), else still
+      blocking = false;
+      wx = wz = 0;
+      const a = this.autopilot;
+      if (a && !a.done) {
+        const dx = a.x - this.x, dz = a.z - this.z;
+        const d = Math.hypot(dx, dz);
+        if (d < 0.1) a.done = true;
+        else {
+          const k = Math.min(1, d / 0.5);
+          wx = (dx / d) * k;
+          wz = (dz / d) * k;
+          sp = a.speed;
+        }
+      }
+    }
     const mag = Math.min(1, Math.hypot(wx, wz));
-    const blocking = inp.isHeld('block') && this.guard > 5;
-    const sp = blocking ? 1.6 : this.speed;
     const tvx = wx * sp, tvz = wz * sp;
     const acc = mag > 0.05 ? 11 : 9;
     this.vx = damp(this.vx, tvx, acc, dt);
     this.vz = damp(this.vz, tvz, acc, dt);
-    const near = this.selectTarget(5);
-    if (mag > 0.1 && !blocking) this.yaw = dampAngle(this.yaw, yawFromDir(wx, wz), 11, dt);
+    const near = this.scripted ? null : this.selectTarget(5);
+    const face = this.scripted ? (this.autopilot && !this.autopilot.done ? null : this.autopilot?.face ?? this.sceneFace) : null;
+    if (mag > 0.1 && !blocking) this.yaw = dampAngle(this.yaw, yawFromDir(wx, wz), this.scripted ? 7 : 11, dt);
+    else if (face !== null && face !== undefined) this.yaw = dampAngle(this.yaw, face, 4, dt);
     else if (near) {
       // idle: turn to face nearest threat (Arkham-style awareness)
       const want = yawFromDir(near.x - this.x, near.z - this.z);
       this.yaw = dampAngle(this.yaw, want, blocking ? 8 : 3, dt);
     }
     const li = this.anim.locoIn;
-    li.style = this.weapon ? 'weapon1h' : 'fight';
-    li.guard = 1;
+    li.style = this.weapon ? 'weapon1h' : this.scripted ? this.sceneStyle : 'fight';
+    li.guard = this.scripted ? this.sceneGuard : 1;
     li.charge = 0;
     li.block = blocking ? 1 : 0;
     li.breath = this.hp < 35 ? 1 : 0.4;
@@ -703,7 +736,7 @@ export class Player extends Fighter {
    */
   trySpecial() {
     const g = this.game;
-    if (!this.style.special) return;
+    if (!this.style.special || this.specialLocked) return;
     if (this.specialCharges <= 0) {
       g.hud?.feed(`KNOCK OUT ${SPECIAL_KOS - this.specialKOs} MORE TO LOAD THE PISTOL`);
       return;

@@ -40,6 +40,8 @@ function windupSpeed(wind: number, v2: number, dur: number) {
 
 export type EnemyState =
   | 'enter' | 'circle' | 'approach' | 'attack' | 'recover' | 'react' | 'stunned' | 'down' | 'getup' | 'paired' | 'dodge' | 'block' | 'taunt' | 'retreat' | 'grabbed'
+  /** The story: not in the fight yet (round the fire, at a door, talking) - no attacks. */
+  | 'idle'
   /** Physically stumbling (active ragdoll trying to keep its balance). */
   | 'stagger';
 
@@ -87,6 +89,14 @@ export class Enemy extends Fighter {
   scoreValue = 100;
   vaulted = 0;
   private clipEndState: EnemyState = 'circle';
+  /** Unaware (the story's 'idle'): the way he faces, where he's strolling to, the pose he holds. */
+  idleFace: number | null = null;
+  idleTo: { x: number; z: number; walk?: boolean } | null = null;
+  idlePose: string | null = null;
+  /** He notices the player inside this many metres (0: only a blow or the script alerts him). */
+  alertR = 0;
+  /** Called once when he joins the fight. */
+  onAlert: ((e: Enemy) => void) | null = null;
   /** Side (+1 / -1) this enemy steps out of the camera's line of sight to the player, 0 = not in it. */
   private camSide = 0;
 
@@ -192,6 +202,9 @@ export class Enemy extends Fighter {
       case 'enter':
         this.doEnter(dt);
         break;
+      case 'idle':
+        this.doIdle(dt);
+        break;
       case 'circle':
       case 'retreat':
         this.doCircle(dt);
@@ -252,7 +265,7 @@ export class Enemy extends Fighter {
         }
         break;
     }
-    if (this.anim.mode === 'loco') {
+    if (this.anim.mode === 'loco' && this.state !== 'idle') {
       // face player while circling
       const look = angleDiff(this.yaw, yawFromDir(p.x - this.x, p.z - this.z));
       li.look = clamp(look, -1.2, 1.2);
@@ -336,6 +349,70 @@ export class Enemy extends Fighter {
       this.lift = 0;
       this.setState('circle');
     }
+  }
+
+  // ------------------------------------------------------------------ the story: unaware
+  /** Stand about (or stroll somewhere) until alerted. */
+  becomeIdle(face: number | null, pose: string | null = null) {
+    this.setState('idle');
+    this.idleFace = face;
+    this.idlePose = pose;
+    this.token = false;
+    if (pose) this.play(pose, { halflife: 0.25 });
+  }
+  private doIdle(dt: number) {
+    const li = this.anim.locoIn;
+    li.style = 'relaxed';
+    li.guard = 0;
+    li.breath = 0.5;
+    const to = this.idleTo;
+    if (to) {
+      if (this.anim.mode !== 'loco') this.anim.toLoco(0.2);
+      const dx = to.x - this.x, dz = to.z - this.z;
+      const d = Math.hypot(dx, dz);
+      const sp = to.walk === false ? this.cfg.speed * 0.75 : 1.35;
+      const k = Math.min(1, d / 0.5);
+      this.vx = damp(this.vx, d > 0.08 ? (dx / d) * sp * k : 0, 6, dt);
+      this.vz = damp(this.vz, d > 0.08 ? (dz / d) * sp * k : 0, 6, dt);
+      if (d > 0.25) this.faceTowards(this.x + dx, this.z + dz, 6, dt);
+      if (d < 0.1) {
+        this.idleTo = null;
+        if (this.idlePose) this.play(this.idlePose, { halflife: 0.3 });
+      }
+    } else {
+      this.vx = damp(this.vx, 0, 8, dt);
+      this.vz = damp(this.vz, 0, 8, dt);
+      if (this.idleFace !== null && this.anim.mode === 'loco') {
+        const want = this.idleFace;
+        const dd = angleDiff(this.yaw, want);
+        if (Math.abs(dd) > 0.02) this.yaw = wrapAngle(this.yaw + clamp(dd, -2.5 * dt, 2.5 * dt));
+      }
+      // (a held pose clip runs on; a one-off gesture hands back to the pose or to standing)
+      if (this.anim.mode === 'clip' && this.clip?.done) {
+        if (this.idlePose) this.play(this.idlePose, { halflife: 0.3 });
+        else this.anim.toLoco(0.25);
+      }
+    }
+    const p = this.player;
+    if (this.alertR > 0 && p.alive && Math.hypot(p.x - this.x, p.z - this.z) < this.alertR) this.alert();
+  }
+  /** Into the fight (a blow, the player too close, or the script). */
+  alert(delay = 0) {
+    if (this.state !== 'idle' || !this.alive) return;
+    this.idleTo = null;
+    this.idlePose = null;
+    if (this.anim.mode === 'clip') this.anim.toLoco(0.18);
+    this.setState('circle');
+    this.attackCooldown = delay + rand(0.5, 1.3);
+    this.orbitTimer = rand(0.5, 1.5);
+    const cb = this.onAlert;
+    this.onAlert = null;
+    cb?.(this);
+  }
+  /** A one-off clip while standing about (a taunt as he talks): back to idling after. */
+  gesture(name: string, speed = 1) {
+    if (!this.alive || this.state !== 'idle') return;
+    this.play(name, { halflife: 0.2, speed, originYaw: this.yaw });
   }
 
   private doCircle(dt: number) {
@@ -580,7 +657,10 @@ export class Enemy extends Fighter {
     if (this.state === 'dodge' && this.invuln > 0) return 'dodged';
     const attacker = h.attacker as Fighter | null;
     const fromFront = attacker ? Math.abs(this.angleTo(attacker)) < 1.25 : true;
-    const vulnerable = this.stun > 0 || this.state === 'stunned' || this.state === 'down' || this.state === 'stagger' || this.state === 'paired' || this.state === 'grabbed';
+    // (caught unawares: no guard, no dodge - and now he's in it)
+    const unaware = this.state === 'idle';
+    if (unaware) this.alert();
+    const vulnerable = unaware || this.stun > 0 || this.state === 'stunned' || this.state === 'down' || this.state === 'stagger' || this.state === 'paired' || this.state === 'grabbed';
     // ---- defensive options
     if (!vulnerable && !h.finisher && !h.unblockable && fromFront && this.state !== 'attack' && this.state !== 'react') {
       // (kicks and blunt weapons break a guard - not a grandmaster's)

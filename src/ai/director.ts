@@ -27,6 +27,8 @@ export class Director {
   // player style tracking (decaying counts)
   style = { counters: 0, dodges: 0, blocks: 0, hitsTaken: 0, strikes: 0, whiffedCounters: 0 };
   lastPincer = 0;
+  /** A scene is on (the story): nobody is handed an attack. */
+  hold = false;
 
   constructor(public game: Game) {}
 
@@ -84,7 +86,7 @@ export class Director {
         inc.suspended += dt;
       } else inc.enemy.releaseHold();
     }
-    if (!p.alive) return;
+    if (!p.alive || this.hold) return;
     this.cooldown -= dt;
     if (this.cooldown > 0) return;
     const enemies = g.enemies().filter((e) => e.alive && e.canTakeToken());

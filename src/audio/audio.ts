@@ -305,6 +305,39 @@ export class AudioSys {
     click(0.05, 2300, 0.75);
   }
 
+  /** A phone buzzing on a hard surface: two short bursts of a low motor rattle. */
+  buzz(vol = 0.5) {
+    const c = this.ctx;
+    if (!c || c.state !== 'running') return;
+    const t = c.currentTime;
+    for (const at of [0, 0.32]) {
+      const o = c.createOscillator();
+      o.type = 'square';
+      o.frequency.value = 172;
+      const am = c.createOscillator();
+      am.frequency.value = 31;
+      const amg = c.createGain();
+      amg.gain.value = 0.5;
+      am.connect(amg);
+      const f = c.createBiquadFilter();
+      f.type = 'lowpass';
+      f.frequency.value = 900;
+      const g = c.createGain();
+      g.gain.setValueAtTime(0.0001, t + at);
+      g.gain.exponentialRampToValueAtTime(0.16 * vol, t + at + 0.02);
+      g.gain.setValueAtTime(0.16 * vol, t + at + 0.2);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + at + 0.24);
+      amg.connect(g.gain);
+      o.connect(f);
+      f.connect(g);
+      g.connect(this.sfx);
+      o.start(t + at);
+      am.start(t + at);
+      o.stop(t + at + 0.26);
+      am.stop(t + at + 0.26);
+    }
+  }
+
   /** Low-frequency body thump layered under heavy impacts (adds weight). */
   thump(strength: number, pos?: THREE.Vector3 | null) {
     const c = this.ctx;

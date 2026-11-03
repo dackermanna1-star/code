@@ -81,7 +81,7 @@ export abstract class Fighter implements AimProvider {
   /** Render height offset (climbing up onto the roof); the simulation stays on the floor. */
   lift = 0;
   weapon: Weapon | null = null;
-  abstract team: 'player' | 'enemy';
+  abstract team: 'player' | 'enemy' | 'neutral';
 
   constructor(public game: Game, lib: CharacterLibrary, public variant: Variant) {
     this.model = new CharacterModel(lib, variant);

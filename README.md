@@ -5,7 +5,9 @@ from) against escalating waves of thugs, armed enforcers, brutes, elite martial 
 arenas — a moonlit warehouse, a rain-lashed neon rooftop, a graffiti-covered back alley, a
 penthouse where everything breaks, and a containment lab with its own guards and monsters —
 Arkham-style flow, Assassin's Creed counters, Spider-Man finishers and Sifu-style technique,
-with **bodies and blood that never disappear**.
+with **bodies and blood that never disappear** — and a story mode, *Scarlet: Before Dawn*: one
+night, her sister taken, told in chapters with scenes, checkpoints and grades (the first two in
+this build).
 
 Built with **three.js** (rendering) + **Rapier** (props, debris, weapons) and the **Ragdoll Lab
 "euphoria" active-ragdoll engine** (bodies), TypeScript and Vite.
@@ -22,7 +24,7 @@ npm install
 npm run dev
 ```
 
-Open http://localhost:5173 and click **FIGHT**. For a production build:
+Open http://localhost:5173 and click **STORY** (or **ENDLESS** for the waves). For a production build:
 
 ```bash
 npm run build
@@ -38,6 +40,57 @@ Recommended browsers: Chrome/Edge or Safari 17+ (WebGL2). On a MacBook Air M1 th
 
 URL options: `?quality=low|medium|high|ultra`, `?wave=10` (start at a wave), `?debug=1`
 (stats overlay), `?bot=1&god=1` (attract mode — a scripted bot plays), `?fighter=jin|scarlet`.
+
+## Story — SCARLET: BEFORE DAWN
+
+**STORY** on the title screen. One night, told in six chapters; this build plays the first two
+(the prologue and chapter one, about twenty minutes), and the chapter select shows what's to come.
+
+> Scarlet used to work nights guarding a lab that pays cash and asks nothing. Tonight her little
+> sister Ivy didn't come home from her shift at the Lantern — the KX Crew's club. The crew pays
+> its debts in people. The trucks leave at dawn.
+
+* **Prologue — Last Call.** *The alley behind the Lantern, 11:52 PM.* It opens on Ivy's last
+  texts. Scarlet walks in off the street to the club's back door, and the crew round the drum fire
+  were waiting for her — the fight that teaches the fight (strike, chain, counter, dodge). The
+  door's shut, the bass thumping through the steel, Ivy's staff lanyard on the ground beside it;
+  the crew come over the fence with knives and bats (red attacks, disarms, weapons). Then Doyle the
+  doorman comes out to finish it (a mini-boss: stuns, vaults, finishers), and she takes his
+  suppressed pistol (the special). His phone buzzes on the asphalt: the Butcher. *Dock 4.* She
+  answers it.
+* **Chapter One — Meat Market.** *The KX warehouse, Dock 4, 12:50 AM.* The crew's chain-link pen
+  under one bare bulb, five people in it, and the men minding it talking about the sixth. Marco,
+  the Lantern's barback, at the wire: Ivy went in a black car, on her own — *spoken for*. The
+  Butcher walks in off the loading dock with her own text in his hand. His crew, then him. The key
+  from round his neck, the pen open, the people out into the rain; Ivy's phone ringing in a crate
+  of everybody's phones, the message she never got to send, and the Butcher's clipboard: lot six,
+  reserved — *V.* Meridian Tower. The penthouse.
+
+How it plays:
+
+* **Scenes in the engine**: letterboxed shots, subtitled lines, a phone's messages; nobody
+  attacks during one. Hold **SPACE** (A) to skip — everything in it still happens, under a quick
+  black.
+* **Objectives** with a marker in the world (and its distance), and **tutorial prompts** that
+  wait for you to do the thing — four hits, a counter, a dodge, a stun on the big man, the pistol.
+  *Tutorial tips* in the settings turns them off.
+* **Checkpoints** between the fights. Die and it's *SCARLET IS DOWN*: retry from the last one,
+  restart the chapter, or watch the last minute back. You come back with the health and kit you
+  had (at least 70% health), and everyone you'd already put down is still lying where they fell.
+* **A grade per chapter**, S to D — flow, perfect counters, damage taken, finishers, pace,
+  retries — with the best kept; finishing a chapter opens the next, and **CONTINUE** picks a
+  chapter up at its last checkpoint.
+* **The story's own people and places**: Doyle, the Lantern's doorman (a big man in a black suit);
+  the five in the pen — two of them Rocketbox's *Female_Party_02* and *Female_Adult_08*, held in
+  kneeling, sitting and cowering poses; the Lantern's neon over its back door and the club's bass
+  through the steel (synthesised, the top end coming through when the door opens); the pen with
+  its padlocked gate, its mattress and its bulb; a table with a crate of everybody's phones and
+  the Butcher's clipboard. The crew stand about, warming their hands at the fire, smoking, arms
+  folded, until they notice you.
+
+URL options for testing: `?story=0|1` (a chapter), `&cp=N` (from a checkpoint), `&autostart=1`
+(no *press any key*), `&skipscenes=1`, `&bot=1&god=1` (the bot plays it, walking to the
+objectives too), `&turbo=N` (N steps of the world per frame drawn, for slow headless renderers).
 
 ## Controls
 
@@ -461,6 +514,8 @@ src/fx/          particles (blood, sparks, dust, debris), camera rig
 src/audio/       sample engine with synth layers, procedural adaptive music
 src/ui/          HUD, menus, settings
 src/replay/      the last minute recorded (poses, props, weapons, camera, sounds, effects) and played back
+src/story/       the story mode: runner (scenes, fights, objectives, checkpoints, grades), its UI, the
+                 chapters (ch0 the alley, ch1 the warehouse), their set dressing and non-combatants, saves
 tools/audio/     reproducible CC0 sound library build
 tools/models/    realistic models: Rocketbox FBX -> mesh asset, Scarlet's re-dressed textures, the
                  enemies' avatars (avatars.json, build_avatars.py, avatar_textures.py)
@@ -471,5 +526,5 @@ tests/           headless runners (results, screenshots, film strips)
 
 See [CREDITS.md](CREDITS.md). All sound effects are CC0 (OpenGameArt); three.js (MIT) and
 Rapier (Apache-2.0) are used as libraries; the active-ragdoll engine comes from the Ragdoll Lab;
-Scarlet's model is Microsoft Rocketbox's Female_Adult_07 (MIT). Everything else was made for this
+the realistic people are Microsoft Rocketbox avatars (MIT). Everything else was made for this
 project.

@@ -284,3 +284,4 @@ kbd, #hud .prompt b { display: inline-block; min-width: 24px; padding: 4px 7px 3
 .replay .rkeys b { color: rgba(255,255,255,.85); font-weight: 800; }
 @media (max-width: 720px) { .replay .rtop { flex-wrap: wrap; gap: 8px 12px; white-space: normal; } }
 
+.loading .lk { font: 800 14px/1 var(--ui); letter-spacing: .7em; margin-left: .7em; color: var(--red); margin-bottom: -10px; }

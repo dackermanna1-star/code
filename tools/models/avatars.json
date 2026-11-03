@@ -20,6 +20,8 @@
     "police02": { "src": "Professions/Police_Male_02" },
     "security01": { "src": "Professions/Security_Male_01", "head": 1024 },
     "medical01": { "src": "Professions/Medical_Male_01" },
-    "butcher": { "src": "Professions/Medical_Male_01", "head": 1024, "blood": 0.9 }
+    "butcher": { "src": "Professions/Medical_Male_01", "head": 1024, "blood": 0.9 },
+    "party02": { "src": "Adults/Female_Party_02" },
+    "adultf08": { "src": "Adults/Female_Adult_08" }
   }
 }
