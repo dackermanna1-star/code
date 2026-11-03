@@ -180,6 +180,17 @@ const LOOK_MAX = 100 * DEG;
 
 export class MocapDriver {
   private idle = clip('idle');
+  /** Out of a fight: someone standing about, talking with their hands, arguing (captured too). */
+  private stand = clip('stand');
+  private talk = clip('talk');
+  private argue = clip('argue');
+  private standT = Math.random() * 4;
+  private talkT = Math.random() * 4;
+  private argueT = Math.random() * 3;
+  /** How relaxed the stance is (0 the boxer's guard .. 1 standing about), talking, heated. */
+  private relaxSm = 0;
+  private talkSm = 0;
+  private argueSm = 0;
   private cyc = { walk: clip('walk'), jog: clip('jog'), run: clip('run'), sprint: clip('sprint'), back: clip('back'), sideL: clip('sideL'), sideR: clip('sideR') };
   private blend = new Blend();
   /** Shared gait phase (0..1, 0 = left touchdown) and the idle loop clock. */
@@ -309,12 +320,26 @@ export class MocapDriver {
     const limpCad = lerp(1, 0.86, L.limpSm);
     if (move > 0.01) this.phase = (this.phase + (dt / Math.max(0.2, dur)) * cad * limpCad) % 1;
     this.idleT += dt * this.idleRate;
+    // out of a fight the stance is a person's, not a boxer's: standing about, talking, arguing
+    const relaxed = inp.style === 'relaxed' ? 1 : 0;
+    this.relaxSm += (relaxed - this.relaxSm) * (1 - Math.exp(-dt * 3.2));
+    this.talkSm += ((inp.talk ?? 0) - this.talkSm) * (1 - Math.exp(-dt * 4));
+    this.argueSm += ((inp.argue ?? 0) - this.argueSm) * (1 - Math.exp(-dt * 3));
+    if (this.relaxSm > 1e-3) {
+      this.standT += dt * this.idleRate;
+      this.talkT += dt * this.idleRate;
+      this.argueT += dt * this.idleRate;
+    }
 
     // ------------------------------------------------------------- sample + blend
     const bl = this.blend;
     bl.reset();
     const idleW = 1 - move;
-    bl.add(this.idle, (this.idleT / this.idle.dur) * this.idle.frames.length, idleW);
+    const rW = this.relaxSm, tW = this.talkSm, aW = this.argueSm;
+    bl.add(this.idle, (this.idleT / this.idle.dur) * this.idle.frames.length, idleW * (1 - rW));
+    bl.add(this.stand, (this.standT / this.stand.dur) * this.stand.frames.length, idleW * rW * (1 - tW));
+    bl.add(this.talk, (this.talkT / this.talk.dur) * this.talk.frames.length, idleW * rW * tW * (1 - aW));
+    bl.add(this.argue, (this.argueT / this.argue.dur) * this.argue.frames.length, idleW * rW * tW * aW);
     if (move > 0) {
       for (let i = 0; i < 4; i++) bl.add(chain[i], this.phase * chain[i].frames.length, move * wF * fw[i]);
       bl.add(sideL, this.phase * sideL.frames.length, move * wSL);
@@ -322,7 +347,7 @@ export class MocapDriver {
       bl.add(back, this.phase * back.frames.length, move * wB);
     }
     bl.finish();
-    if (this.bounce !== 1 && idleW > 0) bl.hp.y = lerp(bl.hp.y, IDLE_HIP_MEAN + (bl.hp.y - IDLE_HIP_MEAN) * this.bounce, idleW);
+    if (this.bounce !== 1 && idleW > 0) bl.hp.y = lerp(bl.hp.y, IDLE_HIP_MEAN + (bl.hp.y - IDLE_HIP_MEAN) * this.bounce, idleW * (1 - rW));
 
     // ------------------------------------------------------------- body
     // stride warp along the travel direction, legs turned towards it when the facing lags

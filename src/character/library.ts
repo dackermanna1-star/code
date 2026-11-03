@@ -122,6 +122,53 @@ export class CharacterModel {
     this.mesh.receiveShadow = true;
     this.mesh.frustumCulled = false;
     this.group.add(this.mesh);
+    // the face rig's hinges (a realistic model converted with its face): where the jaw and eyes are
+    const rig = variant.geometry.userData.faceRig as { jaw: THREE.Vector3; eyeL: THREE.Vector3; eyeR: THREE.Vector3; k: number } | undefined;
+    if (rig) {
+      this.uniforms.uJawPivot.value.copy(rig.jaw);
+      this.uniforms.uEyeL.value.copy(rig.eyeL);
+      this.uniforms.uEyeR.value.copy(rig.eyeR);
+      this.uniforms.uFaceK.value = rig.k;
+      this.hasFace = true;
+    }
+  }
+
+  /** The face: a model with a face rig blinks, speaks (the jaw follows `speak`), winces. */
+  hasFace = false;
+  face = { speak: 0, jaw: 0, lip: 0, wide: 0, blink: 0, nextBlink: 1 + Math.random() * 3, blinkT: -1, wince: 0, t: Math.random() * 100 };
+  /** The voice's jaw this frame (a Speaker: the face rig eases towards it). */
+  setSpeech(open: number) {
+    this.face.speak = open;
+  }
+  /** Per frame: blinks, the speech on the lips, a wince fading. */
+  updateFace(dt: number) {
+    if (!this.hasFace || dt <= 0) return;
+    const f = this.face;
+    f.t += dt;
+    // blinks: every few seconds (doubles now and then), quick to close, a touch slower to open
+    f.nextBlink -= dt;
+    if (f.nextBlink <= 0 && f.blinkT < 0) {
+      f.blinkT = 0;
+      f.nextBlink = Math.random() < 0.15 ? 0.35 : 2 + Math.random() * 4;
+    }
+    let blink = 0;
+    if (f.blinkT >= 0) {
+      f.blinkT += dt;
+      const t = f.blinkT;
+      blink = t < 0.06 ? t / 0.06 : t < 0.09 ? 1 : t < 0.22 ? 1 - (t - 0.09) / 0.13 : 0;
+      if (t >= 0.22) f.blinkT = -1;
+    }
+    // a wince (a blow landed): the eyes screw half shut, the mouth opens a little, fading
+    f.wince = Math.max(0, f.wince - dt * 2.2);
+    // the jaw: fast open, a little slower to close (the consonants), never quite still in speech
+    const want = Math.min(1, f.speak + f.wince * 0.35);
+    f.jaw += (want - f.jaw) * (1 - Math.exp(-dt * (want > f.jaw ? 28 : 16)));
+    // the lips' shapes come and go with the syllables
+    const syl = f.speak > 0.05 ? 0.5 + 0.5 * Math.sin(f.t * 9.3) * Math.sin(f.t * 3.7 + 1.3) : 0;
+    f.lip += (syl * 0.6 - f.lip) * (1 - Math.exp(-dt * 12));
+    const wideWant = f.speak > 0.05 ? Math.sin(f.t * 5.1 + 0.7) * 0.7 : 0;
+    f.wide += (wideWant - f.wide) * (1 - Math.exp(-dt * 8));
+    this.uniforms.uFace.value.set(f.jaw, f.lip, f.wide - f.wince * 0.4, Math.min(1, Math.max(blink, f.wince * 0.55)));
   }
 
   applyPose(pose: Pose) {

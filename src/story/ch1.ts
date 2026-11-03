@@ -39,6 +39,7 @@ const PEN_PEOPLE: [string, number, number, number, string][] = [
 function butcherAtDock(s: Story) {
   if (butcher && butcher.alive) return butcher;
   butcher = s.spawn('butcher', 0.3, -12.3, 0, { variant: 'butcher' });
+  s.cast('THE BUTCHER', butcher);
   butcher.ghostWalls = true;
   return butcher;
 }
@@ -64,7 +65,10 @@ export const CH1: Chapter = {
         g.addFighter(n);
         n.hold(pose, 0.01);
         captives.push(n);
-        if (v === 'marco') marco = n;
+        if (v === 'marco') {
+          marco = n;
+          s.cast('MARCO', n);
+        }
       } catch (e) {
         console.warn('captive', v, e);
       }
@@ -89,6 +93,8 @@ export const CH1: Chapter = {
         // the men minding the pen
         const sal = s.spawn('brawler', 5.0, 5.45, yawTo({ x: 5.0, z: 5.45 }, { x: 7.8, z: 9.0 }), { variant: 'brawler1', pose: 'st_smoke', alertR: 6.5 });
         const teo = s.spawn('brawler', 10.6, 5.7, yawTo({ x: 10.6, z: 5.7 }, { x: 5.0, z: 5.45 }), { variant: 'brawler3', pose: 'st_crossed', alertR: 6.5 });
+        s.cast('SAL', sal);
+        s.cast('TEO', teo);
         const nik = s.spawn('brawler', 3.25, 6.95, yawTo({ x: 3.25, z: 6.95 }, stage.pen?.table ?? { x: 4, z: 6.3 }), { variant: 'brawler0', pose: 'st_phone', alertR: 5.5 });
         const crew = [sal, teo, nik];
         let alerted = false;

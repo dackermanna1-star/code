@@ -19,6 +19,7 @@ import { DeathSystem } from './combat/death';
 import { FX } from './fx/particles';
 import { AudioSys } from './audio/audio';
 import { Music } from './audio/music';
+import { VoiceSystem } from './audio/voice';
 import { Combat } from './combat/combat';
 import { Director } from './ai/director';
 import { WaveManager } from './ai/waves';
@@ -73,6 +74,8 @@ export class Game {
   death!: DeathSystem;
   fx!: FX;
   audio = new AudioSys();
+  /** The cast's spoken lines (recorded, or the browser's voices) and the lips that move with them. */
+  voice = new VoiceSystem(this.audio);
   music: Music;
   combat: Combat;
   director: Director;
@@ -317,6 +320,7 @@ export class Game {
       if (auto && !this.story) setTimeout(() => this.beginRun(), 50);
     }
     if (!this.params.get('test') || this.params.get('audio') === '1') await this.audio.init();
+    await this.voice.init();
     // compile all shaders up front (characters, corpses, particles, blood surfaces)
     try {
       this.renderer.gl.compile(this.scene, this.cam.camera);
@@ -333,6 +337,8 @@ export class Game {
     this.cam.invertY = s.invertY;
     this.audio.volumes = { master: s.masterVolume, sfx: s.sfxVolume, music: s.musicVolume };
     this.audio.applyVolumes();
+    this.voice.enabled = s.voices && this.params.get('voices') !== '0';
+    this.voice.volume = s.voiceVolume;
     if (this.player) this.applyMocap();
   }
 
@@ -386,10 +392,12 @@ export class Game {
       this.input.exitLock();
       this.hud?.show('pause');
       this.audio.ctx?.suspend();
+      this.voice.pause(true);
     } else {
       this.hud?.show(null);
       this.input.requestLock();
       this.audio.resume();
+      this.voice.pause(false);
     }
   }
 
@@ -467,6 +475,7 @@ export class Game {
       return;
     }
     if (this.paused) return;
+    this.voice.update(realDt);
     this.tickTimers(realDt);
     this.heartbeat(realDt);
     this.preStep?.(realDt);

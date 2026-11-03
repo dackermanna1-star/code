@@ -131,6 +131,13 @@ export interface CharacterMaterialUniforms {
   uSway: { value: THREE.Vector3 };
   uFlare: { value: number };
   uHipC: { value: THREE.Vector3 };
+  /** The face rig: jaw open, upper lip up, mouth corners out (- in), blink (0..1 each). */
+  uFace: { value: THREE.Vector4 };
+  /** Where the jaw hinges and the eyes sit (bind space), and the head's size. */
+  uJawPivot: { value: THREE.Vector3 };
+  uEyeL: { value: THREE.Vector3 };
+  uEyeR: { value: THREE.Vector3 };
+  uFaceK: { value: number };
 }
 
 /**
@@ -176,6 +183,11 @@ export function createCharacterMaterial(atlas: THREE.DataArrayTexture, corpse = 
     uSway: { value: new THREE.Vector3() },
     uFlare: { value: 0 },
     uHipC: { value: new THREE.Vector3() },
+    uFace: { value: new THREE.Vector4() },
+    uJawPivot: { value: new THREE.Vector3() },
+    uEyeL: { value: new THREE.Vector3() },
+    uEyeR: { value: new THREE.Vector3() },
+    uFaceK: { value: 1 },
   };
   const corpseUniforms = {
     uCorpseWounds: { value: null as THREE.DataTexture | null },
@@ -201,6 +213,7 @@ varying vec3 vBindPos;
 varying vec2 vCharUv;
 ${tinted ? 'attribute vec4 aTint;\nattribute vec4 aTintSkin;\nvarying vec4 vTint;\nvarying vec4 vTintSkin;' : ''}
 ${corpse ? 'attribute vec3 aBindPos;\nattribute float aCorpseId;\nattribute float aLayer;\nflat varying int vCorpseId;\nflat varying float vLayer;\nuniform highp sampler2D uCorpseBorn;\nuniform float uReplayT;' : 'attribute vec2 aSway;\nuniform vec3 uSway;\nuniform float uFlare;\nuniform vec3 uHipC;'}
+${real && !corpse ? 'attribute vec4 aFace;\nuniform vec4 uFace;\nuniform vec3 uJawPivot;\nuniform vec3 uEyeL;\nuniform vec3 uEyeR;\nuniform float uFaceK;' : ''}
 `,
       )
       .replace(
@@ -210,6 +223,27 @@ vSkin = aSkin;
 vCharUv = uv;
 ${tinted ? 'vTint = aTint;\nvTintSkin = aTintSkin;' : ''}
 ${corpse ? 'vBindPos = aBindPos; vCorpseId = int(aCorpseId + 0.5); vLayer = aLayer;' : 'vBindPos = position;'}
+${real && !corpse ? `{
+  // the face rig, in bind space before the skin: the jaw swings open about its hinge, the upper lip
+  // lifts, the corners of the mouth pull out (or purse in), the upper lids roll down over the eyes
+  float jw = aFace.x;
+  if (jw > 0.0 && uFace.x != 0.0) {
+    float a = uFace.x * jw * 0.36;
+    vec3 q = transformed - uJawPivot;
+    float c = cos(a), s = sin(a);
+    transformed = uJawPivot + vec3(q.x, q.y * c - q.z * s, q.y * s + q.z * c);
+  }
+  transformed.y += uFace.y * aFace.y * 0.0035 * uFaceK;
+  transformed.x += sign(transformed.x - uJawPivot.x) * uFace.z * aFace.z * 0.004 * uFaceK;
+  float lid = 1.0 - aFace.w;
+  if (lid > 0.0 && uFace.w > 0.0) {
+    vec3 eye = transformed.x > uJawPivot.x ? uEyeL : uEyeR;
+    float b = uFace.w * lid * 0.62;
+    vec3 q = transformed - eye;
+    float c = cos(b), s = sin(b);
+    transformed = eye + vec3(q.x, q.y * c - q.z * s, q.y * s + q.z * c);
+  }
+}` : ''}
 `,
       )
       .replace(

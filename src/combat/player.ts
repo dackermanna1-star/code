@@ -359,6 +359,8 @@ export class Player extends Fighter {
     li.breath = this.hp < 35 ? 1 : 0.4;
     li.hunch = this.hp < 25 ? 0.3 : 0;
     li.look = near ? clamp(this.angleTo(near), -1.1, 1.1) : 0;
+    li.talk = li.argue = 0;
+    if (this.scripted) this.sceneInputs();
   }
 
   /** Consume buffered inputs and start actions. */

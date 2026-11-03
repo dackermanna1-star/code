@@ -269,7 +269,8 @@ export class Enemy extends Fighter {
       // face player while circling
       const look = angleDiff(this.yaw, yawFromDir(p.x - this.x, p.z - this.z));
       li.look = clamp(look, -1.2, 1.2);
-    }
+      li.talk = li.argue = 0;
+    } else if (this.state === 'idle') this.sceneInputs();
     this.stun = Math.max(0, this.stun - dt);
   }
 

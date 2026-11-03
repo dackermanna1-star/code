@@ -41,6 +41,8 @@ interface MeshAsset {
   nrm: string;
   uv: string;
   skin: string;
+  /** The face rig (rocketbox.mjs): per-vertex jaw, upper lip, mouth corners, 1 - upper eyelid. */
+  face?: string;
   index: string;
 }
 
@@ -481,6 +483,16 @@ export function buildRealGeometry(name: string, def: SkeletonDef, look: RealLook
     }
   }
 
+  // the face rig: where the jaw hinges and the eyes turn, on the fitted head
+  const faceRig = A.face && A.joints.jaw
+    ? {
+        jaw: J('jaw').applyMatrix4(fits[B.head]),
+        eyeL: J('eyeL').applyMatrix4(fits[B.head]),
+        eyeR: J('eyeR').applyMatrix4(fits[B.head]),
+        // (the head's own size: the lips and lids move this much further on a big head)
+        k: k * headScale,
+      }
+    : null;
   const geo = new THREE.BufferGeometry();
   // (plain arrays only when a skirt is built onto them: fifty-odd fighters' worth would be a lot)
   const arr = <T extends ArrayLike<number>>(a: T) => (M.skirt ? Array.from(a) : a) as unknown as number[];
@@ -526,6 +538,15 @@ export function buildRealGeometry(name: string, def: SkeletonDef, look: RealLook
   geo.setAttribute('aSway', new THREE.BufferAttribute(f32(parts.sway), 2));
   geo.setAttribute('aTint', new THREE.BufferAttribute(u8(parts.tint), 4, true));
   geo.setAttribute('aTintSkin', new THREE.BufferAttribute(u8(parts.tintS), 4, true));
+  if (A.face) {
+    // (a skirt's vertices carry no face: zeros, and the eyelid channel's "none" of 255)
+    const f0 = new Uint8Array(b64(A.face));
+    const face = new Uint8Array(nv * 4);
+    face.set(f0.subarray(0, Math.min(f0.length, nv * 4)));
+    for (let i = n; i < nv; i++) face[i * 4 + 3] = 255;
+    geo.setAttribute('aFace', new THREE.BufferAttribute(face, 4, true));
+  }
+  if (faceRig) geo.userData.faceRig = faceRig;
   geo.setIndex(new THREE.BufferAttribute(index, 1));
   geo.addGroup(0, bySlot[0].length, 0);
   geo.addGroup(bySlot[0].length, bySlot[1].length, 1);

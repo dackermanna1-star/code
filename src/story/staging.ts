@@ -443,6 +443,7 @@ export class Npc extends Fighter {
     li.hunch = this.hunch;
     li.breath = 0.8;
     li.look = 0;
+    this.sceneInputs();
     const w = this.path[0];
     if (w) {
       const dx = w.x - this.x, dz = w.z - this.z;

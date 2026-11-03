@@ -26,7 +26,14 @@ CLIPS = [
     ('back', '141_31', 'cycle', (0.2, 1.9)),
     ('sideL', '141_33', 'cycle', (4.6, 8.0)),
     ('sideR', '141_33', 'cycle', (0.8, 3.4)),
+    # out of the fight: someone standing about (waiting), talking with their hands, arguing
+    ('stand', ['141_20', '19_08', '18_08'], 'loop', None),
+    ('talk', ['18_08', '19_08'], 'loop', None),
+    ('argue', ['18_10'], 'loop', None),
 ]
+# loop lengths (s) the pick looks for: the stances are short, people standing about need longer
+# loops so their weight shifts and gestures don't visibly repeat
+LOOP_LEN = {'idle': (1.8, 3.0), 'stand': (4.0, 7.0), 'talk': (4.0, 7.0), 'argue': (3.0, 6.0)}
 CYCLE_N = 40   # samples per gait cycle
 LOOP_FPS = 60
 SEAM = 0.25    # loop seams: the last quarter of a cycle cross-fades into the stride before it
@@ -171,9 +178,10 @@ def frame_out(P, R, i, root, yaw, leg, arm, stand_hip, ankle_flat):
     return o
 
 
-def find_idle(trials):
+def find_idle(trials, name='idle'):
     """The calmest, best-closing stance loop across several boxing sessions (no punches, no
-    walking off, no ducking, little turning)."""
+    walking off, no ducking, little turning) - or a stretch of standing about / talking."""
+    lo, hi = LOOP_LEN.get(name, (1.8, 3.0))
     best = None
     for trial in trials:
         P, R, leg, arm, fps, drop = load(trial)
@@ -184,8 +192,8 @@ def find_idle(trials):
         yaw = np.unwrap(np.arctan2(chf[:, 0], chf[:, 2]))
         def pose(i):
             return np.concatenate([P[k][i] - P['hips'][i] for k in ('ankleL', 'ankleR', 'kneeL', 'kneeR', 'wrL', 'wrR', 'head')] + [[P['hips'][i][1]]])
-        for s in range(int(IDLE_SEAM * fps), n - int(1.8 * fps), 6):
-            for L in range(int(1.8 * fps), int(3.0 * fps), 6):
+        for s in range(int(IDLE_SEAM * fps), n - int(lo * fps), 6):
+            for L in range(int(lo * fps), int(hi * fps), 6):
                 e = s + L
                 if e >= n:
                     break
@@ -200,15 +208,20 @@ def find_idle(trials):
                 hy = P['hips'][s:e, 1]
                 depth = max(0.0, (np.percentile(P['hips'][:, 1], 90) - hy.mean()) / leg - 0.08)
                 score = err + 6.0 * np.std(hy) + 3.0 * depth + 1.2 * yr - 0.02 * L / fps
+                if name == 'stand':
+                    # someone standing about: still hands, no wandering (a listener, not a talker)
+                    if wr[pre:e].max() > 2.2 or hv[pre:e].max() > 0.45:
+                        continue
+                    score += 0.6 * wr[s:e].mean() + 2.0 * hv[s:e].mean()
                 if best is None or score < best[0]:
                     best = (score, trial, s / fps, e / fps)
-    print('idle pick', best)
+    print(name, 'pick', best)
     return best[1], (best[2], best[3])
 
 
 def process(name, trial, kind, window):
     if isinstance(trial, list):
-        trial, window = find_idle(trial)
+        trial, window = find_idle(trial, name)
     P, R, leg, arm, fps, drop = load(trial)
     n = len(P['hips'])
     low = np.minimum(np.minimum(P['ballL'][:, 1], P['ballR'][:, 1]), np.minimum(P['toeL'][:, 1], P['toeR'][:, 1]))
@@ -328,10 +341,11 @@ def process(name, trial, kind, window):
         for f in frames:
             f['cL'] = 1.0
             f['cR'] = 1.0
-        # a lighter stance: less crouched, a softer bob
-        mean = sum(f['hp'][1] for f in frames) / len(frames)
-        for f in frames:
-            f['hp'][1] = mean + (f['hp'][1] - mean) * 0.65 + 0.08
+        # a lighter stance: less crouched, a softer bob (the boxer's; people standing about stand)
+        if name == 'idle':
+            mean = sum(f['hp'][1] for f in frames) / len(frames)
+            for f in frames:
+                f['hp'][1] = mean + (f['hp'][1] - mean) * 0.65 + 0.08
         meta = {'kind': 'loop', 'dur': T, 'speed': 0.0, 'dir': [0.0, 1.0]}
     normalise_posture(name, frames)
     shorten_steps(name, frames, meta)
@@ -386,6 +400,8 @@ def blend_frames(a, b, t):
 POSTURE = {
     'idle': (-2, 3, 10, 0.02), 'walk': (-1, 2, 4, -0.02), 'back': (-1, 1, 3, -0.045), 'sideL': (-1, 2, 5, -0.05), 'sideR': (-1, 2, 5, -0.05),
     'jog': (2, 5, 8, 0), 'run': (4, 8, 11, 0), 'sprint': (4, 9, 12, 0),
+    # standing about: upright, the chest a touch forward, nothing tucked
+    'stand': (0, 2, 4, -0.005), 'talk': (0, 2, 5, -0.005), 'argue': (1, 3, 7, -0.005),
 }
 
 
@@ -445,7 +461,7 @@ def shorten_steps(name, frames, meta):
 # The boxer bounces hard (hips pumping 9 cm up and down, rocking 15 degrees): as the stance every
 # idle fighter shows, that reads as the hips popping in and out. Same rhythm, calmer: (horizontal
 # and vertical scale of the hips' travel, scale of the pelvis / spine / neck / head swing).
-CALM = {'idle': (0.6, 0.7, 0.6)}
+CALM = {'idle': (0.6, 0.7, 0.6), 'stand': (0.75, 0.8, 0.85), 'talk': (0.75, 0.8, 0.9)}
 
 
 def calm(name, frames):

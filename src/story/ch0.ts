@@ -63,6 +63,8 @@ export const CH0: Chapter = {
         const b = s.spawn('brawler', -6.4, 2.95, yawTo({ x: -6.4, z: 2.95 }, DRUM), { variant: 'brawler0', pose: 'st_warm' });
         const c = s.spawn('brawler', -5.2, 3.45, Math.PI / 2 - 0.3, { variant: 'brawler4', pose: 'st_smoke' });
         const crew = [dez, b, c];
+        s.cast('DEZ', dez);
+        s.cast('KX', b);
         await s.scene(async () => {
           // Ivy's last texts, on black
           await s.phone({ name: 'Ivy', initial: 'I', sub: 'mobile', clock: '9:14' }, [
@@ -250,6 +252,7 @@ export const CH0: Chapter = {
           g.cam.addTrauma(0.15);
           if (stage.lantern) stage.lantern.want = 1;
           doyle = s.spawn('bouncer', 6.05, -12.6, 0, { variant: 'doyle' });
+          s.cast('DOYLE', doyle);
           doyle.ghostWalls = true;
           doyle.idleTo = { x: 6.0, z: -8.9 };
           doyle.idleFace = yawTo({ x: 6.0, z: -8.9 }, p);

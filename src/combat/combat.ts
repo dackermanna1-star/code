@@ -57,6 +57,8 @@ export class Combat {
     const a = g.audio;
     const p = h.point;
     const s = h.strength;
+    // the face takes it: eyes screwed shut, the mouth open (the blocked blow: a flinch)
+    if (res !== 'blocked' && res !== 'parried' && res !== 'dodged' && res !== 'ignored') victim.model.face.wince = 1;
     if (res === 'blocked' || res === 'parried') {
       a.play(res === 'parried' ? 'parry' : 'block', { pos: p, vol: 0.9 });
       if (h.kind === 'blade' || h.kind === 'blunt') a.play('sword_clash', { pos: p, vol: 0.7 });
@@ -64,6 +66,7 @@ export class Combat {
       if (h.kind === 'blade') g.fx.sparks(p, h.dir.clone().negate().setY(0.4), 14);
       g.hitStop(0.035);
       g.cam.addTrauma(0.12);
+      victim.model.face.wince = Math.max(victim.model.face.wince, 0.4);
       return;
     }
     if (res === 'dodged' || res === 'ignored') return;

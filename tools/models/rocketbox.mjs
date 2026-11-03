@@ -159,6 +159,25 @@ const G = (name) => {
   return [[5, 1]]; // the head and its face bones
 };
 const gmap = bones.map((b) => G(b.name));
+// the face (folded into the head bone above, so the game can still move it): how much of each
+// vertex the jaw (with the lower lip and the tongue), the upper lip, the mouth's corners and the
+// upper eyelids carry - the shader opens the mouth, shapes the lips and blinks with these
+const FACE = [
+  /^Bip01_(MJaw|MBottomLip|[LR]MouthBottom|MTongue)$/,
+  /^Bip01_(MUpperLip|[LR]Upperlip)$/,
+  /^Bip01_[LR]MouthCorner$/,
+  /^Bip01_[LR]EyeBlinkTop$/,
+];
+const faceOf = bones.map((b) => FACE.findIndex((re) => re.test(b.name)));
+const faceW = new Float32Array(nv * 4);
+for (let i = 0; i < nv; i++) {
+  for (let k = 0; k < 4; k++) {
+    const w = SW.getComponent(i, k);
+    if (w <= 0) continue;
+    const ch = faceOf[SI.getComponent(i, k)];
+    if (ch >= 0) faceW[i * 4 + ch] += w;
+  }
+}
 const skinI = new Uint8Array(nv * 4), skinW = new Uint8Array(nv * 4);
 const domRB = new Uint8Array(nv);
 for (let i = 0; i < nv; i++) {
@@ -252,6 +271,9 @@ const POS_Q = 16000;
 const outPos = new Int16Array(N * 3), outNrm = new Int8Array(N * 3), outUv = new Uint16Array(N * 2), outSkin = new Uint8Array(N * 8);
 const labPos = new Float32Array(N * 3), labUv = new Float32Array(N * 2);
 const outRB = new Uint8Array(N), outMat = new Uint8Array(N), outExtra = new Int8Array(N);
+// (the eyelids' channel stored inverted: a mesh without face data reads the attribute's default
+// w = 1 as "no eyelid")
+const outFace = new Uint8Array(N * 4);
 uniq.forEach((i, u) => {
   for (let c = 0; c < 3; c++) {
     outPos[u * 3 + c] = Math.max(-32767, Math.min(32767, Math.round(pos[i * 3 + c] * POS_Q)));
@@ -266,6 +288,8 @@ uniq.forEach((i, u) => {
   for (let c = 0; c < 4; c++) {
     outSkin[u * 8 + c] = skinI[i * 4 + c];
     outSkin[u * 8 + 4 + c] = skinW[i * 4 + c];
+    const fw = Math.round(Math.min(1, faceW[i * 4 + c]) * 255);
+    outFace[u * 4 + c] = c === 3 ? 255 - fw : fw;
   }
   outRB[u] = domRB[i];
   outMat[u] = matOf[i];
@@ -285,7 +309,7 @@ if (uvOut) console.warn(`  ${uvOut} uvs outside 0..1 (clamped)`);
 const J = (n) => wpos(n).multiplyScalar(0.01).toArray().map((x) => +x.toFixed(5));
 const joints = {
   pelvis: J('Bip01_Pelvis'), spine: J('Bip01_Spine'), spine1: J('Bip01_Spine1'), spine2: J('Bip01_Spine2'), neck: J('Bip01_Neck'), head: J('Bip01_Head'),
-  eyeL: J('Bip01_LEye'), eyeR: J('Bip01_REye'),
+  eyeL: J('Bip01_LEye'), eyeR: J('Bip01_REye'), jaw: J('Bip01_MJaw'),
 };
 for (const [s, S] of [['L', 'L'], ['R', 'R']]) {
   Object.assign(joints, {
@@ -307,6 +331,7 @@ const out = {
   nrm: b64(outNrm),
   uv: b64(outUv),
   skin: b64(outSkin),
+  face: b64(outFace),
   index: b64(index),
 };
 fs.writeFileSync(outPath, JSON.stringify(out));

@@ -26,6 +26,9 @@ export interface LocoInput {
   taunt: number; // 0..1 arms-wide taunt overlay
   /** 0..1 closing in to strike: the guard stays up even at a sprint. */
   charge?: number;
+  /** 0..1 speaking (out of a fight: hands that talk), and how heated it is (0..1). */
+  talk?: number;
+  argue?: number;
 }
 
 interface FootState {

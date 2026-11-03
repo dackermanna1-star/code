@@ -81,6 +81,10 @@ export abstract class Fighter implements AimProvider {
   /** Render height offset (climbing up onto the roof); the simulation stays on the floor. */
   lift = 0;
   weapon: Weapon | null = null;
+  /** Scenes: speaking (0..1, hands that talk), how heated (0..1), and who they're looking at. */
+  talking = 0;
+  heated = 0;
+  lookAt: { x: number; z: number } | null = null;
   abstract team: 'player' | 'enemy' | 'neutral';
 
   constructor(public game: Game, lib: CharacterLibrary, public variant: Variant) {
@@ -360,7 +364,16 @@ export abstract class Fighter implements AimProvider {
     this.model.group.position.set(this.x, this.lift, this.z);
     this.model.group.rotation.y = this.yaw;
     this.model.secondary(dt);
+    this.model.updateFace(dt);
     this.model.syncWounds(this.game.time);
+  }
+
+  /** Out of a fight: talk gestures and where the head turns (the loco's inputs). */
+  sceneInputs() {
+    const li = this.anim.locoIn;
+    li.talk = this.talking;
+    li.argue = this.heated;
+    if (this.lookAt) li.look = clamp(angleDiff(this.yaw, yawFromDir(this.lookAt.x - this.x, this.lookAt.z - this.z)), -1.2, 1.2);
   }
 
   /** Local direction helpers. */

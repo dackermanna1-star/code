@@ -86,6 +86,12 @@ export function runPoseViewer(params: URLSearchParams) {
     const prm = player.evaluate(def);
     solvePose(def, prm, pose);
     inst.model.applyPose(pose);
+    // (the face rig: ?face=jaw,lip,wide,blink)
+    const fp = params.get('face');
+    if (fp) {
+      const [j, l, w, b] = fp.split(',').map(Number);
+      inst.model.uniforms.uFace.value.set(j || 0, l || 0, w || 0, b || 0);
+    }
     inst.model.group.position.set(player.rootX, 0, player.rootZ);
     inst.model.group.rotation.y = player.rootYaw;
   }

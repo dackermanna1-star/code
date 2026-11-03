@@ -14,6 +14,11 @@ export interface Settings {
   masterVolume: number;
   sfxVolume: number;
   musicVolume: number;
+  /** The cast's voices in the story (and how loud). */
+  voices: boolean;
+  voiceVolume: number;
+  /** Subtitles under the scenes' lines (the story). */
+  subtitles: boolean;
   showHints: boolean;
   fpsCounter: boolean;
   bloodDetail: 'standard' | 'high'; // never removes blood; only resolution/particle counts
@@ -86,6 +91,9 @@ export function defaultSettings(): Settings {
     masterVolume: 0.9,
     sfxVolume: 1,
     musicVolume: 0.6,
+    voices: true,
+    voiceVolume: 1,
+    subtitles: true,
     showHints: true,
     fpsCounter: false,
     bloodDetail: 'high',

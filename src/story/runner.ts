@@ -62,6 +62,9 @@ export interface Chapter {
   backdrop?: ShotSpec;
 }
 
+/** How each speaker carries a line: a raised voice comes with bigger hands. */
+const HEATED: Record<string, number> = { DOYLE: 0.5, 'THE BUTCHER': 0.7, KAEL: 0.6, VIPER: 0.35 };
+
 interface Waiter {
   done: () => boolean;
   resolve: () => void;
@@ -282,6 +285,11 @@ export class Story {
       this.ui.clearSay();
       this.ui.skip(false);
       if (skipped) this.settleActors();
+      g.voice.stopAll();
+      for (const f of [p, ...this.castMap.values()]) {
+        f.talking = f.heated = 0;
+        f.lookAt = null;
+      }
       this.inScene = false;
       if (this.fill) this.fill.intensity = 0;
       this.ui.bars(false);
@@ -399,20 +407,67 @@ export class Story {
     this.fillOn(pos, look);
   }
 
-  /** A line of dialogue (waits for it to be read). */
-  async say(who: string, text: string, dur?: number) {
-    if (this.skipping) return;
-    const plain = text.replace(/<[^>]+>/g, '');
-    const t = dur ?? Math.min(5.5, 1.1 + plain.length * 0.052);
-    this.ui.say(who, text, t + 0.1);
-    await this.wait(t);
-    this.ui.clearSay();
-    await this.wait(0.18);
+  // ================================================================== the cast
+  /** Who's who in the scenes: a speaker's name and the body that says it (hers is always hers). */
+  private castMap = new Map<string, Fighter>();
+  /** The last one she spoke with (who she looks at when she answers). */
+  private lastOther: Fighter | null = null;
+  cast(name: string, f: Fighter | null) {
+    if (f) this.castMap.set(name, f);
+    else this.castMap.delete(name);
   }
-  /** A line in the fight: on screen, nobody waits for it. */
+  actorOf(who: string): Fighter | null {
+    if (who === 'SCARLET') return this.game.player;
+    const f = this.castMap.get(who);
+    return f && f.alive && !f.down ? f : null;
+  }
+
+  /**
+   * A line of dialogue: spoken (her lips, or theirs, move with it), on screen, and the two of them
+   * looking at each other. Waits until it's said - or, with no voice, read.
+   */
+  async say(who: string, text: string, dur?: number, o: { to?: Fighter | null; heated?: number; phone?: boolean } = {}) {
+    if (this.skipping) return;
+    const g = this.game;
+    const plain = text.replace(/<[^>]+>/g, '');
+    const read = dur ?? Math.min(5.5, 1.1 + plain.length * 0.052);
+    const actor = this.actorOf(who);
+    const listener = o.to !== undefined ? o.to : actor === g.player ? this.lastOther : actor ? g.player : null;
+    if (actor && actor !== g.player) this.lastOther = actor;
+    if (actor) {
+      actor.talking = 1;
+      actor.heated = o.heated ?? HEATED[who] ?? 0;
+      if (listener && listener !== actor) {
+        actor.lookAt = listener;
+        listener.lookAt = actor;
+      }
+    }
+    const line = g.voice.speak(who, text, o.phone ? null : actor?.model ?? null, { phone: o.phone });
+    const voiced = g.voice.enabled;
+    const show = g.settings.subtitles !== false;
+    // (the subtitle stays up for as long as the line takes)
+    if (show) this.ui.say(who, text, Math.max(read, line.dur) + 2);
+    const t0 = g.realTime;
+    const cap = Math.max(read, line.dur) * 1.7 + 1.5;
+    await this.until(() => {
+      const t = g.realTime - t0;
+      if (t >= cap) return true;
+      return voiced ? line.done() && t >= Math.min(read, 0.9) : t >= read;
+    });
+    if (this.skipping) line.stop();
+    if (actor) {
+      actor.talking = 0;
+      actor.heated = 0;
+    }
+    this.ui.clearSay();
+    await this.wait(0.16);
+  }
+  /** A line in the fight: spoken and on screen, nobody waits for it. */
   bark(who: string, text: string, dur?: number) {
     const plain = text.replace(/<[^>]+>/g, '');
-    this.ui.say(who, text, dur ?? Math.min(4, 1.2 + plain.length * 0.045), true);
+    const actor = this.actorOf(who);
+    const line = this.game.voice.speak(who, text, actor?.model ?? null);
+    if (this.game.settings.subtitles !== false) this.ui.say(who, text, Math.max(dur ?? Math.min(4, 1.2 + plain.length * 0.045), line.dur + 0.3), true);
   }
 
   // ================================================================== the phone
@@ -685,6 +740,7 @@ export class Story {
   /** Her death: the fight's over, retry from the checkpoint. */
   onDeath() {
     this.halted = true;
+    this.game.voice.stopAll();
     this.waiters.length = 0;
     this.clearTriggers();
     this.ui.tutorHide();

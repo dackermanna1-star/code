@@ -622,6 +622,9 @@ export class HUD {
         range('Master volume', 0, 1, 0.01, s.masterVolume, pct, (v) => apply((x) => (x.masterVolume = v)));
         range('Effects volume', 0, 1, 0.01, s.sfxVolume, pct, (v) => apply((x) => (x.sfxVolume = v)));
         range('Music volume', 0, 1, 0.01, s.musicVolume, pct, (v) => apply((x) => (x.musicVolume = v)));
+        tog('Voices', s.voices, (v) => apply((x) => (x.voices = v)));
+        range('Voice volume', 0, 1, 0.01, s.voiceVolume, pct, (v) => apply((x) => (x.voiceVolume = v)));
+        tog('Subtitles', s.subtitles, (v) => apply((x) => (x.subtitles = v)));
         break;
       case 'controls':
         range('Mouse sensitivity', 0.2, 3, 0.05, s.mouseSensitivity, (v) => `${v.toFixed(2)}×`, (v) => apply((x) => (x.mouseSensitivity = v)));
