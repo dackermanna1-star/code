@@ -23,6 +23,8 @@ const tint = (hex: string, a = 0.85): [number, number, number, number] => {
 type Real = { model: string; look?: RealLook };
 const realSpec = (spec: Partial<BodySpec>, r?: Real) => (r && isRealModel(r.model) ? fitSpec(r.model, spec, r.look?.girth ?? 1) : spec);
 const realOpts = (r?: Real, opts: VariantOptions = {}): VariantOptions => (r ? { ...opts, real: r.model, look: r.look } : opts);
+/** The story's crowds pick from these (registered with the story's variants). */
+export const CIVILIANS = { women: ['civ_f01', 'civ_f05', 'civ_f11', 'civ_f17', 'civ_p01', 'civ_p02', 'civ_bf02', 'civ_f08'], men: ['civ_m01', 'civ_m02', 'civ_m04', 'civ_m12', 'civ_m18', 'civ_b04', 'civ_b05'] };
 
 /** Register all character variants. Returns map archetype -> variant names. */
 export function registerVariants(lib: CharacterLibrary): Record<Archetype, string[]> {
@@ -135,7 +137,7 @@ export function registerVariants(lib: CharacterLibrary): Record<Archetype, strin
   add('viper', 'viper', { height: 0.98, bulk: 0.92, legs: 1.04 },
     o({ skin: '#e0ac85', hair: '#0e0e0e', hairStyle: 'ponytail', top: 'longsleeve', topColor: '#0e1a12', topColor2: '#2a8a3a', topPattern: 'panel', bottom: 'track', bottomColor: '#0e1a12',
       shoes: 'slippers', shoeColor: '#0a0a0a', hands: 'gloves', handColor: '#0a0a0a', head: 'mask', headColor: '#1a4a2a', extras: ['bracers', 'belt'], extraColor: '#2a6a3a', brow: 1, seed: 901 }),
-    undefined, { model: 'adult10', look: { top: tint('#0f3a1c', 0.9), bottom: tint('#0e1a12', 0.7) } });
+    undefined, { model: 'viper', look: { top: tint('#0f2a1a', 0.55) } });
   add('master', 'master', { height: 1.03, bulk: 1.1, shoulders: 1.08 },
     o({ skin: '#a8714d', hair: '#d8d8d8', hairStyle: 'topknot', facial: 'beard', top: 'gi', topColor: '#5a0e0e', topColor2: '#d0b060', bottom: 'gi', bottomColor: '#140a0a',
       shoes: 'slippers', shoeColor: '#0a0a0a', hands: 'wraps', head: 'none', extras: ['bracers', 'shoulderpads'], extraColor: '#d0b060', scar: true, brow: 1, seed: 902 }),
@@ -255,5 +257,35 @@ export function registerStoryVariants(lib: CharacterLibrary): Partial<Record<Arc
   add('captive', 'cap_jeans', { bulk: 0.88, fem: 1 },
     o({ skin: '#d8a888', hair: '#3a2a1a', hairStyle: 'ponytail', top: 'tshirt', topColor: '#8a8a8a', bottom: 'jeans', bottomColor: '#2b3a55', seed: 964 }),
     { model: 'adultf08' });
+  // ---------------- the campaign's people
+  // Ivy: twenty-two, the Lantern's bartender in its black staff tee, her sister's eyes
+  add('captive', 'ivy', { bulk: 0.86, fem: 1 },
+    o({ skin: '#e2ae8f', hair: '#4a2a1a', hairStyle: 'ponytail', top: 'tshirt', topColor: '#141416', bottom: 'jeans', bottomColor: '#1c1c22', seed: 970 }),
+    { model: 'ivy', look: { top: tint('#121214', 0.8) } });
+  // Viper: the one who takes delivery - a black suit, a green silk blouse, a blade
+  add('viper', 'viper_story', { height: 0.99, bulk: 0.9, legs: 1.05 },
+    o({ skin: '#e0ac85', hair: '#0e0e0e', hairStyle: 'ponytail', top: 'jacket', topColor: '#0e0e10', topColor2: '#1e6a3a', bottom: 'track', bottomColor: '#0e0e10', shoes: 'boots', seed: 971 }),
+    { model: 'viper', look: { top: tint('#0c0c0e', 0.5) } });
+  // Meridian's site crew: hard hats, hi-vis, tools
+  for (let i = 0; i < 3; i++)
+    add('brawler', 'worker' + i, { height: 1 + i * 0.02, bulk: 1.05 + i * 0.04 },
+      o({ skin: '#c99272', hair: '#2a2018', hairStyle: 'short', top: 'tshirt', topColor: ['#d8a020', '#c84a10', '#5a6a3a'][i], bottom: 'jeans', bottomColor: '#2a3448', shoes: 'boots', head: 'cap', seed: 980 + i }),
+      { model: 'construction01', look: i ? { top: tint(['#d8a020', '#b8501a', '#5a6a3a'][i], 0.5), girth: 1 + i * 0.06 } : { girth: 1.04 } });
+  // Palewater's night shift (women too)
+  for (let i = 0; i < 2; i++)
+    add('brawler', 'pwguard_f' + i, { bulk: 0.95, fem: 1 },
+      o({ skin: i ? '#8a5a3c' : '#d9a888', hair: '#1a1410', hairStyle: 'ponytail', top: 'longsleeve', topColor: '#1a2438', bottom: 'cargo', bottomColor: '#14161c', shoes: 'boots', head: 'cap', seed: 985 + i }),
+      { model: 'securityf01', look: i ? { skin: tint('#7a5038', 0.5) } : {} });
+  // people: the street, the club, the tower's guests, the lab's staff (they're not in the fight)
+  const CIV: [string, string, RealLook?][] = [
+    ['civ_f01', 'adultf01'], ['civ_f05', 'adultf05'], ['civ_f11', 'adultf11'], ['civ_f17', 'adultf17'], ['civ_p01', 'party01'], ['civ_p02', 'party02', { top: tint('#6a1a4a', 0.6) }],
+    ['civ_bf02', 'businessf02'], ['civ_f08', 'adultf08', { top: tint('#2a4a6a', 0.6) }], ['civ_m01', 'adult01'], ['civ_m02', 'adult02'], ['civ_m04', 'adult04', { top: tint('#3a3a44', 0.6) }],
+    ['civ_m12', 'adult12', { top: tint('#4a2a2a', 0.5) }], ['civ_m18', 'adult18', { top: tint('#22303a', 0.6) }], ['civ_b04', 'business04'], ['civ_b05', 'business05', { top: tint('#1a1a22', 0.6) }],
+    ['scientist', 'medicalf01'], ['civ_cook', 'adult09', { top: tint('#e8e4dc', 0.85) }],
+  ];
+  for (const [name, model, look] of CIV) {
+    const fem = /f0|f1|p0|bf|scientist/.test(name) ? 1 : 0;
+    add('captive', name, { bulk: fem ? 0.88 : 1, fem }, o({ skin: '#d8a888', hair: '#2a1a12', hairStyle: fem ? 'longwave' : 'short', top: 'tshirt', topColor: '#5a5a62', bottom: 'jeans', bottomColor: '#20242c', seed: 990 }), { model, look });
+  }
   return out;
 }

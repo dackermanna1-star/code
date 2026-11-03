@@ -145,6 +145,96 @@ import a21bf from './adultf08/body_f.png';
 import a21h from './adultf08/head.jpg';
 import a21hf from './adultf08/head_f.png';
 import a21r from './adultf08/hair.webp';
+import a22m from './ivy/mesh.json';
+import a22b from './ivy/body.jpg';
+import a22bn from './ivy/body_n.jpg';
+import a22bf from './ivy/body_f.png';
+import a22h from './ivy/head.jpg';
+import a22hf from './ivy/head_f.png';
+import a22r from './ivy/hair.webp';
+import a23m from './viper/mesh.json';
+import a23b from './viper/body.jpg';
+import a23bn from './viper/body_n.jpg';
+import a23bf from './viper/body_f.png';
+import a23h from './viper/head.jpg';
+import a23hf from './viper/head_f.png';
+import a23r from './viper/hair.webp';
+import a24m from './adultf01/mesh.json';
+import a24b from './adultf01/body.jpg';
+import a24bn from './adultf01/body_n.jpg';
+import a24bf from './adultf01/body_f.png';
+import a24h from './adultf01/head.jpg';
+import a24hf from './adultf01/head_f.png';
+import a24r from './adultf01/hair.webp';
+import a25m from './adultf05/mesh.json';
+import a25b from './adultf05/body.jpg';
+import a25bn from './adultf05/body_n.jpg';
+import a25bf from './adultf05/body_f.png';
+import a25h from './adultf05/head.jpg';
+import a25hf from './adultf05/head_f.png';
+import a25r from './adultf05/hair.webp';
+import a26m from './adultf11/mesh.json';
+import a26b from './adultf11/body.jpg';
+import a26bn from './adultf11/body_n.jpg';
+import a26bf from './adultf11/body_f.png';
+import a26h from './adultf11/head.jpg';
+import a26hf from './adultf11/head_f.png';
+import a26r from './adultf11/hair.webp';
+import a27m from './adultf17/mesh.json';
+import a27b from './adultf17/body.jpg';
+import a27bn from './adultf17/body_n.jpg';
+import a27bf from './adultf17/body_f.png';
+import a27h from './adultf17/head.jpg';
+import a27hf from './adultf17/head_f.png';
+import a27r from './adultf17/hair.webp';
+import a28m from './party01/mesh.json';
+import a28b from './party01/body.jpg';
+import a28bn from './party01/body_n.jpg';
+import a28bf from './party01/body_f.png';
+import a28h from './party01/head.jpg';
+import a28hf from './party01/head_f.png';
+import a28r from './party01/hair.webp';
+import a29m from './businessf02/mesh.json';
+import a29b from './businessf02/body.jpg';
+import a29bn from './businessf02/body_n.jpg';
+import a29bf from './businessf02/body_f.png';
+import a29h from './businessf02/head.jpg';
+import a29hf from './businessf02/head_f.png';
+import a29r from './businessf02/hair.webp';
+import a30m from './adult01/mesh.json';
+import a30b from './adult01/body.jpg';
+import a30bn from './adult01/body_n.jpg';
+import a30bf from './adult01/body_f.png';
+import a30h from './adult01/head.jpg';
+import a30hf from './adult01/head_f.png';
+import a30r from './adult01/hair.webp';
+import a31m from './adult02/mesh.json';
+import a31b from './adult02/body.jpg';
+import a31bn from './adult02/body_n.jpg';
+import a31bf from './adult02/body_f.png';
+import a31h from './adult02/head.jpg';
+import a31hf from './adult02/head_f.png';
+import a31r from './adult02/hair.webp';
+import a32m from './construction01/mesh.json';
+import a32b from './construction01/body.jpg';
+import a32bn from './construction01/body_n.jpg';
+import a32bf from './construction01/body_f.png';
+import a32h from './construction01/head.jpg';
+import a32hf from './construction01/head_f.png';
+import a32r from './construction01/hair.webp';
+import a33m from './securityf01/mesh.json';
+import a33b from './securityf01/body.jpg';
+import a33bn from './securityf01/body_n.jpg';
+import a33bf from './securityf01/body_f.png';
+import a33h from './securityf01/head.jpg';
+import a33hf from './securityf01/head_f.png';
+import a34m from './medicalf01/mesh.json';
+import a34b from './medicalf01/body.jpg';
+import a34bn from './medicalf01/body_n.jpg';
+import a34bf from './medicalf01/body_f.png';
+import a34h from './medicalf01/head.jpg';
+import a34hf from './medicalf01/head_f.png';
+import a34r from './medicalf01/hair.webp';
 
 export const AVATARS: Record<string, AvatarAsset> = {
   adult04: { src: 'Male_Adult_04', mesh: a0m as unknown as AvatarAsset['mesh'], body: a0b, bodyN: a0bn, bodyF: a0bf, head: a0h, headF: a0hf, hair: a0r },
@@ -169,4 +259,17 @@ export const AVATARS: Record<string, AvatarAsset> = {
   butcher: { src: 'Medical_Male_01', mesh: a19m as unknown as AvatarAsset['mesh'], body: a19b, bodyN: a19bn, bodyF: a19bf, head: a19h, headF: a19hf, hair: a19r },
   party02: { src: 'Female_Party_02', mesh: a20m as unknown as AvatarAsset['mesh'], body: a20b, bodyN: a20bn, bodyF: a20bf, head: a20h, headF: a20hf, hair: a20r },
   adultf08: { src: 'Female_Adult_08', mesh: a21m as unknown as AvatarAsset['mesh'], body: a21b, bodyN: a21bn, bodyF: a21bf, head: a21h, headF: a21hf, hair: a21r },
+  ivy: { src: 'Female_Adult_12', mesh: a22m as unknown as AvatarAsset['mesh'], body: a22b, bodyN: a22bn, bodyF: a22bf, head: a22h, headF: a22hf, hair: a22r },
+  viper: { src: 'Business_Female_01', mesh: a23m as unknown as AvatarAsset['mesh'], body: a23b, bodyN: a23bn, bodyF: a23bf, head: a23h, headF: a23hf, hair: a23r },
+  adultf01: { src: 'Female_Adult_01', mesh: a24m as unknown as AvatarAsset['mesh'], body: a24b, bodyN: a24bn, bodyF: a24bf, head: a24h, headF: a24hf, hair: a24r },
+  adultf05: { src: 'Female_Adult_05', mesh: a25m as unknown as AvatarAsset['mesh'], body: a25b, bodyN: a25bn, bodyF: a25bf, head: a25h, headF: a25hf, hair: a25r },
+  adultf11: { src: 'Female_Adult_11', mesh: a26m as unknown as AvatarAsset['mesh'], body: a26b, bodyN: a26bn, bodyF: a26bf, head: a26h, headF: a26hf, hair: a26r },
+  adultf17: { src: 'Female_Adult_17', mesh: a27m as unknown as AvatarAsset['mesh'], body: a27b, bodyN: a27bn, bodyF: a27bf, head: a27h, headF: a27hf, hair: a27r },
+  party01: { src: 'Female_Party_01', mesh: a28m as unknown as AvatarAsset['mesh'], body: a28b, bodyN: a28bn, bodyF: a28bf, head: a28h, headF: a28hf, hair: a28r },
+  businessf02: { src: 'Business_Female_02', mesh: a29m as unknown as AvatarAsset['mesh'], body: a29b, bodyN: a29bn, bodyF: a29bf, head: a29h, headF: a29hf, hair: a29r },
+  adult01: { src: 'Male_Adult_01', mesh: a30m as unknown as AvatarAsset['mesh'], body: a30b, bodyN: a30bn, bodyF: a30bf, head: a30h, headF: a30hf, hair: a30r },
+  adult02: { src: 'Male_Adult_02', mesh: a31m as unknown as AvatarAsset['mesh'], body: a31b, bodyN: a31bn, bodyF: a31bf, head: a31h, headF: a31hf, hair: a31r },
+  construction01: { src: 'Construction_Male_01', mesh: a32m as unknown as AvatarAsset['mesh'], body: a32b, bodyN: a32bn, bodyF: a32bf, head: a32h, headF: a32hf, hair: a32r },
+  securityf01: { src: 'Security_Female_01', mesh: a33m as unknown as AvatarAsset['mesh'], body: a33b, bodyN: a33bn, bodyF: a33bf, head: a33h, headF: a33hf, hair: null },
+  medicalf01: { src: 'Medical_Female_01', mesh: a34m as unknown as AvatarAsset['mesh'], body: a34b, bodyN: a34bn, bodyF: a34bf, head: a34h, headF: a34hf, hair: a34r },
 };

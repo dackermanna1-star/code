@@ -3,12 +3,17 @@ import type { Enemy } from '../ai/enemy';
 import { yawFromDir } from '../core/math';
 import type { Chapter, Story } from './runner';
 import { animateAlley, ClubBass, dressAlley, stage } from './staging';
+import { LANTERN as LV } from '../world/level/lantern';
+import { CIVILIANS } from '../character/variants';
 
 /**
- * PROLOGUE — LAST CALL. The alley behind the Lantern, 11:52 PM.
+ * PROLOGUE — LAST CALL. Kessler Street and the alley behind the Lantern, 11:46 PM.
  *
- * Ivy's last texts; Scarlet walks in off the street to the club's back door and the crew at the
- * drum fire is waiting for her (the fight that teaches the fight); the door's shut - Ivy's lanyard
+ * Ivy's last texts; a cab leaves Scarlet at the bottom of Kessler Street and she walks up it in the
+ * rain to the Lantern's front door, where the man on it sends her home; round the back by the lane
+ * (over a fence, over a wall of crates, under a shutter: the climbing lesson) and through the
+ * block into the alley, where the crew at the drum fire is waiting for her (the fight that teaches
+ * the fight); the door's shut - Ivy's lanyard
  * on the ground beside it - and the crew comes over the fence (red attacks, blades, weapons);
  * Doyle the doorman comes out to finish it (stuns, vaults, finishers); his pistol (the special);
  * the club empties out; his phone buzzes - the Butcher, Dock 4 - and she answers it.
@@ -29,42 +34,61 @@ export const CH0: Chapter = {
   id: 0,
   kick: 'PROLOGUE',
   title: 'LAST CALL',
-  place: 'THE ALLEY BEHIND THE LANTERN',
-  clock: '11:52 PM',
-  map: 'alley',
+  place: 'KESSLER STREET',
+  clock: '11:46 PM',
+  map: 'lantern',
+  outfit: 'leather',
   synopsis: 'Ivy texted from the Lantern\'s back door an hour ago. Nobody\'s answered since.',
-  par: 330,
+  par: 560,
   dress: dressAlley,
   backdrop: { pos: [3.6, 0.5, -7.6], look: [6.0, 2.6, -11], pos2: [4.6, 0.6, -8.8], look2: [6.0, 3.0, -11], fov: 42, dur: 45 },
   next: { kick: 'CHAPTER ONE', title: 'MEAT MARKET', line: 'Dock 4. Six heads on a truck, and the Butcher counting them.' },
   setup(s) {
     const g = s.game;
     if (g.audio.ctx) bass = new ClubBass(g.audio.ctx, g.audio.amb);
-    s.place(16.6, 0.3, -Math.PI / 2);
+    const st = LV.start;
+    s.place(st.x, st.z, st.yaw);
     // (no gun yet: it's Doyle's, and he's still behind that door)
     g.player.specialLocked = true;
     g.player.specialCharges = 0;
+    // things to find round the back
+    s.pickup('note', [10.6, 0.02, 30.6], { id: 'p0-flyer', title: 'A flyer, wet through', text: 'THE LANTERN · THURSDAYS · VIP NIGHT\nMembers and their guests.\n\nOn the back, in Ivy\'s writing:\nswap w/ Mara — I do Thurs 11-close, she does my Sat\nDON\'T tell Scar' });
+    s.pickup('photo', [-4.55, 1.62, 26.8], { id: 'p0-strip', title: 'A photo-booth strip', text: 'Four frames. Ivy pulling a face; Scarlet trying not to laugh; both of them laughing; the last one blurred - somebody pulled the curtain.\n\nPinned above the staff lockers with a bar tab.' });
+    s.pickup('medkit', [-3.95, 0.02, 15.2]);
+    // Kessler Street at a quarter to midnight: the Lantern's queue, the bus stop, people about
+    if (s.cp <= 1) {
+      const D = LV.door;
+      const q: [number, number, number][] = [[16.15, D.z + 3.4, 0], [16.25, D.z + 4.3, 1], [16.1, D.z + 5.4, 2], [16.3, D.z + 6.3, 3], [16.15, D.z + 7.5, 4]];
+      const poses = [null, 'st_phone', null, 'st_smoke', 'st_crossed'];
+      for (const [x, z, i] of q) s.extra(i % 2 ? CIVILIANS.men[i % CIVILIANS.men.length] : CIVILIANS.women[i % CIVILIANS.women.length], x, z, Math.PI, { pose: poses[i], chat: i === 0 || i === 2 ? 0.8 : 0, lookAt: i === 0 ? { x: 16.25, z: D.z + 4.3 } : i === 2 ? { x: 16.25, z: D.z + 4.3 } : undefined });
+      const b = s.extra('civ_b05', LV.bouncer.x, LV.bouncer.z, Math.PI / 2 + 0.3, { pose: 'st_crossed' });
+      if (b) s.cast('BOUNCER', b);
+      s.extra('civ_f17', 27.0, 29.6, -Math.PI / 2, { pose: 'st_phone' });
+      s.extra('civ_m02', 27.2, 31.6, -Math.PI / 2 - 0.4, { chat: 0.6, lookAt: { x: 27.0, z: 29.6 } });
+      s.extra('civ_m18', 15.0, 43.5, Math.PI / 2, { pose: 'st_smoke' });
+      s.extra('civ_cook', 27.7, 38.8, -Math.PI / 2, { pose: 'st_crossed' });
+      s.extra('civ_f05', 27.2, 66, Math.PI, { loop: [[27.2, -40], [27.2, 66]] });
+      s.extra('civ_m04', 27.4, 60, Math.PI, { loop: [[27.4, -38], [27.4, 62]] });
+      s.extra('civ_f11', 15.3, -40, 0, { loop: [[15.3, 50], [15.3, -40]] });
+      s.extra('civ_m12', 14.7, 22.5, Math.PI / 2, { pose: 'st_sitwall' });
+    }
   },
   tick(s, dt) {
     clock += dt;
     animateAlley(dt, clock);
     const p = s.game.player;
-    bass?.update(Math.hypot(p.x - DOOR.x, p.z - DOOR.z), stage.lantern?.open ?? 0, dt);
+    // (the bass through the back door; out front, through the Lantern's own doors)
+    const back = Math.hypot(p.x - DOOR.x, p.z - DOOR.z), front = Math.hypot(p.x - LV.door.x, p.z - LV.door.z) + 4;
+    bass?.update(Math.min(back, front), Math.max(stage.lantern?.open ?? 0, front < back ? 0.35 : 0), dt);
   },
   segments: [
-    // ------------------------------------------------------------------ the alley
+    // ------------------------------------------------------------------ Kessler Street
     {
-      name: 'THE ALLEY',
+      name: 'KESSLER STREET',
       async play(s) {
         const g = s.game;
         const p = g.player;
-        // round the drum fire: three of the crew, waiting
-        const dez = s.spawn('brawler', -4.72, 1.98, yawTo({ x: -4.72, z: 1.98 }, DRUM), { variant: 'brawler2', pose: 'st_warm' });
-        const b = s.spawn('brawler', -6.4, 2.95, yawTo({ x: -6.4, z: 2.95 }, DRUM), { variant: 'brawler0', pose: 'st_warm' });
-        const c = s.spawn('brawler', -5.2, 3.45, Math.PI / 2 - 0.3, { variant: 'brawler4', pose: 'st_smoke' });
-        const crew = [dez, b, c];
-        s.cast('DEZ', dez);
-        s.cast('KX', b);
+        const st = LV.start;
         await s.scene(async () => {
           // Ivy's last texts, on black
           await s.phone({ name: 'Ivy', initial: 'I', sub: 'mobile', clock: '9:14' }, [
@@ -76,42 +100,136 @@ export const CH0: Chapter = {
             { dir: 'in', text: 'they locked the front doors', wait: 1.4, typing: 0.8 },
             { dir: 'in', time: '11:03 PM', text: 'back door. come get me', wait: 2.0, typing: 1.0, clock: '11:03' },
             { dir: 'out', time: '11:04 PM', text: 'on my way. stay where people can see you', status: 'Delivered', wait: 2.2, clock: '11:04' },
-            { dir: 'out', time: '11:46 PM', text: 'ivy?', status: 'Delivered', wait: 1.8, clock: '11:46' },
-            { dir: 'out', time: '11:51 PM', text: 'i\'m outside', status: 'Not delivered', fail: true, wait: 2.6, clock: '11:51' },
+            { dir: 'out', time: '11:39 PM', text: 'ivy?', status: 'Delivered', wait: 1.8, clock: '11:39' },
+            { dir: 'out', time: '11:45 PM', text: 'i\'m outside', status: 'Not delivered', fail: true, wait: 2.6, clock: '11:45' },
           ]);
           s.ui.phoneClose();
-          await s.wait(0.8);
-          s.ui.card('PROLOGUE', 'LAST CALL', 'THE ALLEY BEHIND THE LANTERN', '11:52 PM');
-          await s.wait(4.6);
-          // the Lantern's back door: its sign, the bass through the steel
-          s.shot({ pos: [4.55, 1.45, -5.4], look: [6.0, 1.95, -11], pos2: [4.85, 1.5, -6.2], look2: [6.0, 2.05, -11], fov: 44, dur: 5 });
+          await s.wait(0.6);
+          s.ui.card('PROLOGUE', 'LAST CALL', 'KESSLER STREET', '11:46 PM');
+          await s.wait(4.4);
+          // the cab pulls away; the rain; the street, up to the Lantern's sign
+          s.shot({ pos: [19.8, 0.9, 71.2], look: [16.4, 1.7, 60.5], pos2: [19.2, 1.15, 70.2], look2: [16.0, 1.9, 58], fov: 40, dur: 7 });
           s.ui.cardHide();
-          s.ui.fade(false, 1.6);
-          await s.wait(4.0);
-          // she comes in off the street
-          s.shot({ pos: [-2.2, 1.85, -3.4], look: [12, 1.35, 0.4], look2: [10.8, 1.3, 0.4], fov: 33, dur: 5 });
-          p.ghostWalls = true;
-          const HERE = { x: 4.6, z: 0.7 };
-          const walked = s.walk(HERE.x, HERE.z, { speed: 1.5, face: yawTo(HERE, DRUM) });
-          await s.wait(1.2);
-          s.ui.stamp('THE LANTERN · BACK ALLEY', '11:52 PM');
+          s.ui.fade(false, 1.8);
+          await s.wait(1.4);
+          s.ui.stamp('KESSLER STREET', '11:46 PM');
+          const walked = s.walk(st.x, st.z - 4.6, { speed: 1.35 });
           await s.wait(3.0);
-          p.ghostWalls = false;
-          // past the camera, into the alley
-          s.shot({ pos: [9.2, 1.5, 2.7], look: [11.5, 1.4, 0.5], pos2: [6.2, 1.5, 2.5], look2: [4.4, 1.35, 0.7], fov: 38, dur: 4.6, ease: 'linear' });
+          s.shot({ pos: [st.x - 0.55, 1.58, st.z - 7.6], look: [16.0, 4.6, -20], fov: 30, dur: 6 });
           await walked;
-          // the fire, and the three of them round it
-          s.shot({ pos: [-6.3, 1.62, 0.9], look: [HERE.x, 1.45, HERE.z], fov: 26, dur: 3 });
+          s.face(Math.PI);
+          await s.wait(0.6);
+          // she tries her once more
+          s.pose('st_phone', 0.4);
+          s.closeUp(p, { side: 1, fov: 30, dist: 1.25, dur: 6 });
+          s.ui.phoneCall('Ivy', 'I', 'calling…', '11:46');
+          await s.wait(2.6);
+          s.ui.phoneCall('Ivy', 'I', 'no answer', '11:46');
+          await s.wait(1.0);
+          s.ui.phoneClose();
+          await s.say('SCARLET', 'Come on, Ivy.');
+          s.pose(null, 0.4);
+        });
+        s.objective('THE LANTERN', 'Up Kessler Street');
+        // (the queue grumbles as she goes by it)
+        s.when(() => Math.hypot(p.x - 16, p.z - (LV.door.z + 8)) < 3, () => {
+          const q = s.extras.find((n) => Math.abs(n.z - (LV.door.z + 7.5)) < 0.3);
+          s.bark('', 'Forty minutes. They\'re not letting anybody in.', 3, q ?? null);
+        });
+        await s.reach(LV.door.x + 1.3, LV.door.z + 2.6, 2.2, 'THE LANTERN');
+        const bouncer = s.actorOf('BOUNCER');
+        await s.scene(async () => {
+          const at = { x: LV.door.x + 1.25, z: LV.door.z + 1.7 };
+          await s.walk(at.x, at.z, { face: yawTo(at, LV.bouncer) });
+          if (bouncer) {
+            (bouncer as unknown as { hold(p: string | null): void }).hold(null);
+            bouncer.lookAt = p;
+          }
+          s.overShoulder(p, bouncer ?? LV.bouncer, { side: 1, dist: 1.0, fov: 32, dur: 6 });
+          await s.say('BOUNCER', 'Line\'s back there.');
+          s.closeUp(p, { side: -1, fov: 30, dist: 1.2, dur: 6 });
+          await s.say('SCARLET', 'I\'m not here to dance. My sister works the bar. Ivy.');
+          if (bouncer) s.closeUp(bouncer, { side: 1, fov: 30, dist: 1.4, dur: 7 });
+          await s.wait(0.6);
+          await s.say('BOUNCER', 'Bar\'s closed to staff tonight. Private party.');
+          s.overShoulder(bouncer ?? LV.bouncer, p, { side: -1, dist: 0.95, fov: 32, dur: 6 });
+          await s.say('SCARLET', 'Then get her out here.');
+          if (bouncer) s.closeUp(bouncer, { side: -1, fov: 28, dist: 1.25, dur: 7 });
+          await s.wait(0.5);
+          await s.say('BOUNCER', 'Go home, miss.');
+          await s.wait(0.4);
+          await s.say('BOUNCER', '...I mean it. Go home.');
+          // she looks down the street: the alley's gate, chained, the lane past the block
+          s.shot({ pos: [16.4, 1.65, LV.door.z + 0.6], look: [14.2, 1.5, 8], fov: 30, dur: 6 });
+          s.face({ x: 14.6, z: 10 });
+          await s.wait(1.6);
+          await s.say('SCARLET', 'Back door, she said.');
+        });
+        if (bouncer) (bouncer as unknown as { hold(p: string | null): void }).hold('st_crossed');
+        s.objective('ANOTHER WAY IN', 'The alley\'s gate is chained — round the back of the block');
+      },
+    },
+    // ------------------------------------------------------------------ the lane
+    {
+      name: 'THE LANE',
+      resume(s) {
+        s.place(LV.laneMouth.x - 0.6, LV.laneMouth.z, -Math.PI / 2);
+      },
+      async play(s) {
+        const g = s.game;
+        const p = g.player;
+        s.objective('ROUND THE BACK', 'The lane south of the block');
+        await s.reach(LV.laneMouth.x - 1.5, LV.laneMouth.z, 2.4, 'THE LANE');
+        // over the gate, over the crates, under the shutter: the ways over the world
+        await s.tutor(['SPACE'], 'CLIMB', 'At a fence, a wall, a ledge: SPACE to climb it', () => (p.x < LV.fence.x - 0.5 ? 1 : 0), 1, undefined, [LV.fence.x - 1.4, LV.fence.z]);
+        await s.tutor(['SPACE'], 'UP AND OVER', 'Climb the crates; walk off the far side, or SPACE to climb down', () => (p.x < LV.crates.x - 1.1 && p.y < 0.2 ? 1 : 0), 1, undefined, [LV.crates.x - 1.9, LV.crates.z]);
+        await s.reach(LV.shutter.x, LV.shutter.z + 1.3, 1.6, 'THE SHUTTER');
+        await s.tutor(['C'], 'CROUCH', 'Low and quiet: under the shutter. C again to stand', () => (p.z < LV.shutter.z - 0.6 ? 1 : 0), 1, undefined, [LV.shutter.x, LV.shutter.z - 1.4]);
+        s.objective('THROUGH THE BLOCK', 'The corridor comes out in the alley');
+        s.ui.stamp('THE BLOCK · BACK STAIRS', '11:51 PM');
+        await s.reach(LV.storeDoor.x, LV.storeDoor.z + 1.2, 1.2, 'DOOR');
+        if (p.crouched) p.setCrouch(false);
+      },
+    },
+    // ------------------------------------------------------------------ the alley
+    {
+      name: 'THE ALLEY',
+      resume(s) {
+        s.place(-3.4, 8.4, Math.PI);
+      },
+      async play(s) {
+        const g = s.game;
+        const p = g.player;
+        // out front nobody's watching any more: the street's people are off the stage
+        s.clearExtras();
+        // round the drum fire: three of the crew, waiting
+        const dez = s.spawn('brawler', -4.72, 1.98, yawTo({ x: -4.72, z: 1.98 }, DRUM), { variant: 'brawler2', pose: 'st_warm' });
+        const b = s.spawn('brawler', -6.4, 2.95, yawTo({ x: -6.4, z: 2.95 }, DRUM), { variant: 'brawler0', pose: 'st_warm' });
+        const c = s.spawn('brawler', -5.2, 3.45, Math.PI / 2 - 0.3, { variant: 'brawler4', pose: 'st_smoke' });
+        const crew = [dez, b, c];
+        s.cast('DEZ', dez);
+        s.cast('KX', b);
+        await s.scene(async () => {
+          // the door at the end of the corridor; the alley; the fire
+          g.audio.play('metal_hit', { pos: V(-4, 1.2, 11.2), vol: 0.5, pitch: 0.7 });
+          p.ghostWalls = true;
+          const HERE = { x: -3.3, z: 7.9 };
+          s.shot({ pos: [-7.6, 1.7, 0.6], look: [-4, 1.4, 10.6], pos2: [-7.2, 1.7, 0.9], fov: 34, dur: 5 });
+          const walked = s.walk(HERE.x, HERE.z, { speed: 1.3, face: yawTo(HERE, DRUM) });
+          await s.wait(0.6);
+          s.ui.stamp('THE LANTERN · BACK ALLEY', '11:52 PM');
+          await walked;
+          p.ghostWalls = false;
           dez.idlePose = null;
           dez.anim.toLoco(0.4);
           dez.idleFace = yawTo(dez, p);
-          await s.wait(1.5);
+          await s.wait(0.8);
           s.closeUp(dez, { side: -1, fov: 30, dist: 1.4, dur: 4 });
           await s.wait(0.3);
           await s.say('DEZ', 'Told you she\'d come.');
           c.idleFace = yawTo(c, p);
           // he comes away from the fire to look at her
-          const DEZ_AT = { x: 0.9, z: 1.3 };
+          const DEZ_AT = { x: -3.6, z: 5.0 };
           dez.idleTo = DEZ_AT;
           dez.idleFace = yawTo(DEZ_AT, HERE);
           s.closeUp(p, { side: 1, fov: 32, dur: 5 });
@@ -130,16 +248,16 @@ export const CH0: Chapter = {
           // the other two leave the fire and spread out
           b.idlePose = null;
           b.anim.toLoco(0.3);
-          b.idleTo = { x: -0.4, z: 3.5 };
-          b.idleFace = yawTo({ x: -0.4, z: 3.5 }, HERE);
+          b.idleTo = { x: -0.6, z: 6.4 };
+          b.idleFace = yawTo({ x: -0.6, z: 6.4 }, HERE);
           c.idlePose = null;
           c.anim.toLoco(0.3);
-          c.idleTo = { x: 0.1, z: -1.7 };
-          c.idleFace = yawTo({ x: 0.1, z: -1.7 }, HERE);
+          c.idleTo = { x: -6.6, z: 6.8 };
+          c.idleFace = yawTo({ x: -6.6, z: 6.8 }, HERE);
           await s.say('DEZ', 'Said to make it quick.');
           p.sceneStyle = 'fight';
           p.sceneGuard = 1;
-          s.shot({ pos: [8.2, 1.55, 2.1], look: [0.5, 1.25, 1.0], fov: 40, dur: 3 });
+          s.shot({ pos: [-0.4, 1.55, 9.6], look: [-4.6, 1.25, 3.6], fov: 40, dur: 3 });
           await s.wait(0.5);
           await s.say('SCARLET', 'You first.');
         });
@@ -220,6 +338,7 @@ export const CH0: Chapter = {
           if (!done) await s.tutor(['E'], 'PICK IT UP', 'Counter a blade to take it off him — E picks a weapon up, G throws it', () => (p.weapon ? 1 : 0) + p.stats.disarms, 1, () => done);
         })();
         s.when(() => wave.filter((e) => e.alive).length <= 1, () => {
+          openStreetGate(s);
           s.enter('brawler', STREET, 0);
           s.enter('agile', STREET, 1);
           s.bark('KX', 'Street side — cut her off!');
@@ -234,6 +353,7 @@ export const CH0: Chapter = {
     {
       name: 'THE DOORMAN',
       resume(s) {
+        openStreetGate(s);
         s.place(3.4, -4.6, yawTo({ x: 3.4, z: -4.6 }, DOOR));
         if (stage.lantern) stage.lantern.lanyard.visible = false;
       },
@@ -313,6 +433,7 @@ export const CH0: Chapter = {
     {
       name: 'LAST CALL',
       resume(s) {
+        openStreetGate(s);
         if (stage.lantern) {
           stage.lantern.want = 1;
           stage.lantern.open = 1;
@@ -398,3 +519,19 @@ export const CH0: Chapter = {
     },
   ],
 };
+
+/** The crew unchain the alley's street gate (it swings in against the wall: the way out's open). */
+function openStreetGate(s: Story) {
+  const a = s.game.arena;
+  const ob = a.obstacles.find((o) => o.name === 'alley gate');
+  if (!ob) return;
+  a.obstacles = a.obstacles.filter((o) => o !== ob);
+  a.heightsChanged();
+  const m = a.group.getObjectByName('alleyGate');
+  if (m) {
+    m.rotation.y = 0.2;
+    m.position.set(LV.gate.x - 0.3, m.position.y, 2.4 + 2.4);
+    m.scale.x = 0.98;
+  }
+  s.game.audio.play('metal_hit', { pos: V(LV.gate.x, 1.2, 0), vol: 0.6, pitch: 0.65 });
+}

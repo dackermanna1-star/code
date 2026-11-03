@@ -211,7 +211,7 @@ export class LevelKit {
     // (a big level shares the blood atlas over much more floor: fewer texels a metre)
     const hi = blood.size >= 4096;
     const k = opts.density ?? 1;
-    this.floorDensity = (hi ? 44 : 26) * k;
+    this.floorDensity = (hi ? 36 : 20) * k;
     this.wallDensity = this.floorDensity * 0.5;
     this.propDensity = this.floorDensity * 0.6;
   }
@@ -272,10 +272,33 @@ export class LevelKit {
    * A floor that takes blood: a quad at height y over the rect (the street, a dock's deck, a roof,
    * a room's boards). `dense`: where fights happen, the full resolution.
    */
-  floor(x0: number, x1: number, z0: number, z1: number, mat: THREE.Material, o: { y?: number; tile?: number; dense?: boolean; seg?: number } = {}) {
+  floor(x0: number, x1: number, z0: number, z1: number, mat: THREE.Material, o: { y?: number; tile?: number; dense?: boolean; seg?: number; paint?: boolean } = {}): THREE.BufferGeometry {
     const y = o.y ?? 0;
-    const w = x1 - x0, d = z1 - z0;
     const tile = o.tile ?? 4;
+    // (somewhere nobody fights - a street she only walks: no blood there, no atlas spent on it)
+    if (o.paint === false) {
+      const g = new THREE.PlaneGeometry(x1 - x0, z1 - z0, Math.max(1, Math.round((x1 - x0) / 8)), Math.max(1, Math.round((z1 - z0) / 8)));
+      g.rotateX(-Math.PI / 2);
+      g.translate((x0 + x1) / 2, y, (z0 + z1) / 2);
+      const uv = g.attributes.uv.array as Float32Array;
+      const pos = g.attributes.position.array as Float32Array;
+      for (let i = 0, j = 0; i < pos.length; i += 3, j += 2) {
+        uv[j] = pos[i] / tile;
+        uv[j + 1] = -pos[i + 2] / tile;
+      }
+      this.geo(g, this.plainOf(mat), false);
+      return g;
+    }
+    // (a long floor in tiles: the atlas packs them, and no face is wider than it)
+    const MAXT = 24;
+    if (x1 - x0 > MAXT || z1 - z0 > MAXT) {
+      const nx = Math.ceil((x1 - x0) / MAXT), nz = Math.ceil((z1 - z0) / MAXT);
+      const dx = (x1 - x0) / nx, dz = (z1 - z0) / nz;
+      let last: THREE.BufferGeometry | null = null;
+      for (let i = 0; i < nx; i++) for (let j = 0; j < nz; j++) last = this.floor(x0 + i * dx, x0 + (i + 1) * dx, z0 + j * dz, z0 + (j + 1) * dz, mat, o);
+      return last!;
+    }
+    const w = x1 - x0, d = z1 - z0;
     const dens = this.floorDensity * (o.dense ? 1.7 : 1);
     const seg = o.seg ?? Math.max(1, Math.round(Math.max(w, d) / 6));
     const geo = paintQuad(this.blood, new THREE.Vector3(x0, y, z1), new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 0, -1), w, d, [tile, tile], 'floor', dens, seg, seg);
@@ -288,6 +311,20 @@ export class LevelKit {
     }
     this.paintGeo(geo, mat);
     return geo;
+  }
+  /** The same surface without the blood (for floors that don't take it). */
+  private plainMats = new Map<THREE.Material, THREE.Material>();
+  private plainOf(mat: THREE.Material) {
+    let m = this.plainMats.get(mat);
+    if (!m) {
+      m = mat.clone();
+      // (a clone of a blood-patched material keeps its patch: take it off)
+      m.onBeforeCompile = () => undefined;
+      (m as THREE.MeshStandardMaterial).defines = {};
+      m.customProgramCacheKey = () => 'plain';
+      this.plainMats.set(mat, m);
+    }
+    return m;
   }
   /** A wall face that takes blood up to `paintH` (u runs along it; it faces the side of `n`). */
   paintWall(x0: number, z0: number, x1: number, z1: number, y0: number, h: number, mat: THREE.Material, tile = 2, paintH = 2.6) {
@@ -314,9 +351,9 @@ export class LevelKit {
    * A raised platform she can stand on (a loading dock, a roof, a landing): its deck takes blood,
    * its sides are drawn with `side` (or not at all).
    */
-  deck(x0: number, x1: number, z0: number, z1: number, y: number, top: THREE.Material, side: THREE.Material | null, o: { thick?: number; tile?: number; dense?: boolean; name?: string; climb?: boolean; kind?: Obstacle['kind'] } = {}) {
+  deck(x0: number, x1: number, z0: number, z1: number, y: number, top: THREE.Material, side: THREE.Material | null, o: { thick?: number; tile?: number; dense?: boolean; name?: string; climb?: boolean; kind?: Obstacle['kind']; paint?: boolean } = {}) {
     const th = o.thick ?? y;
-    this.floor(x0, x1, z0, z1, top, { y, tile: o.tile, dense: o.dense });
+    this.floor(x0, x1, z0, z1, top, { y, tile: o.tile, dense: o.dense, paint: o.paint });
     if (side) this.geo(boxGeo([x0, x1, y - th, y - 0.002, z0, z1], 1, ['py', ...(y - th <= 0.001 ? ['ny' as const] : [])]), side, true);
     const ob: Obstacle = { minX: x0, maxX: x1, minZ: z0, maxZ: z1, h: th, kind: o.kind ?? 'crate', name: o.name ?? 'deck', walk: true };
     if (y - th > 0.001) ob.y0 = y - th;

@@ -419,6 +419,10 @@ export class AudioSys {
     const c = this.ctx;
     if (!c || !this.loaded) return;
     const list = this.cats['ambience'] ?? [];
+    // (the story's levels sound like the arenas they're kin to: a street in the rain, the docks' wind)
+    const kin: Record<string, string> = { lantern: 'street', harbor: 'rooftop', club: 'apartment', roofs: 'rooftop', meridian: 'rooftop', convoy: 'street', palewater: 'lab', tanks: 'lab', dawn: 'rooftop', testbed: 'alley' };
+    if (kin[map] === 'street') map = 'alley';
+    else if (kin[map]) map = kin[map];
     const levels = map === 'rooftop' ? [0.05, 0.85] : map === 'alley' ? [0.12, 0.1] : map === 'apartment' ? [0.0, 0.3] : map === 'lab' ? [0.3, 0.0] : [0.55, 0.22];
     list.forEach((f, i) => {
       const b = this.buffers.get(f);

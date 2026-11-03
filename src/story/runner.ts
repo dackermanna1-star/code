@@ -11,6 +11,7 @@ import { CameraRig } from '../fx/camera';
 import { clamp, pick, rand, wrapAngle, yawFromDir } from '../core/math';
 import { StoryUI, PhoneMsg } from './ui';
 import { ItemKind, makeGlint, makeItemMesh } from './items';
+import { Npc } from './staging';
 import type { Interactable } from '../game';
 import { CheckpointState, fmtTime, gradeRun, launchStory, loadProgress, saveProgress, StoryLaunch, GRADE_ORDER } from './save';
 
@@ -676,14 +677,17 @@ export class Story {
   /** Until she's within `r` of the point (a marker on it meanwhile). */
   async reach(x: number, z: number, r = 1.4, label = '') {
     const p = this.game.player;
-    this.ui.marker(new THREE.Vector3(x, 1.2, z), label);
+    this.ui.marker(new THREE.Vector3(x, this.game.arena.groundAt(x, z, 50) + 1.2, z), label);
     await this.until(() => Math.hypot(p.x - x, p.z - z) < r, false);
     this.ui.marker(null);
   }
   /** A tutorial prompt until `done` reports `need` (it shows the count meanwhile). */
-  async tutor(keys: string[], text: string, sub: string, count: () => number, need = 1, abort: () => boolean = () => false) {
+  async tutor(keys: string[], text: string, sub: string, count: () => number, need = 1, abort: () => boolean = () => false, at: [number, number] | null = null) {
+    // (where it's to be done: a marker there while it waits)
+    if (at) this.ui.marker(new THREE.Vector3(at[0], this.game.arena.groundAt(at[0], at[1], 50) + 1.2, at[1]));
     if (!this.game.settings.showHints) {
       await this.until(() => count() >= need || abort(), false);
+      if (at) this.ui.marker(null);
       return;
     }
     let shown = -1;
@@ -699,6 +703,7 @@ export class Story {
       show();
       return count() >= need || abort();
     }, false);
+    if (at) this.ui.marker(null);
     if (count() < need) {
       this.ui.tutorHide();
       return;
@@ -719,6 +724,38 @@ export class Story {
     p.specialCharges = charges;
     p.specialKOs = 0;
     this.flags.pistol = true;
+  }
+
+  // ================================================================== people
+  /** The world's people (not in the fight): queues, passers-by, the man at the noodle bar. */
+  extras: Npc[] = [];
+  /**
+   * Someone about: standing (in a pose, talking to whoever's next to them), or walking a loop.
+   * Returns the person (a scene can walk them, turn them, give them a line).
+   */
+  extra(variant: string, x: number, z: number, yaw: number, o: { pose?: string | null; chat?: number; loop?: [number, number][]; lookAt?: { x: number; z: number }; y?: number } = {}): Npc | null {
+    const g = this.game;
+    try {
+      const n = new Npc(g, g.lib, variant);
+      n.spawn(x, z, yaw, o.y ?? g.arena.groundAt(x, z, 0.4));
+      g.addFighter(n);
+      n.faceYaw = yaw;
+      if (o.pose) n.hold(o.pose, 0.01);
+      n.chatter = o.chat ?? 0;
+      if (o.lookAt) n.lookAt = o.lookAt;
+      if (o.loop) n.loop = o.loop;
+      n.hunch = 0.1;
+      this.extras.push(n);
+      return n;
+    } catch (e) {
+      console.warn('extra', variant, e);
+      return null;
+    }
+  }
+  /** Everyone back there is out of sight now: off the stage (their animation costs nothing). */
+  clearExtras(keep: (n: Npc) => boolean = () => false) {
+    for (const n of this.extras) if (!keep(n) && !n.gone) n.vanish();
+    this.extras = this.extras.filter((n) => !n.gone);
   }
 
   // ================================================================== things to find

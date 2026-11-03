@@ -15,6 +15,9 @@ import { B } from '../anim/skeleton';
 export class Bot {
   private atkT = 0;
   private actT = 0;
+  private bestD = Infinity;
+  private stuckT = 0;
+  private markKey = '';
   /**
    * human=1: a fallible player rather than a frame-perfect one - each counter goes in early or
    * late around the right moment (a spread like a decent human's), a few attacks are missed
@@ -86,8 +89,35 @@ export class Bot {
       const m = g.story?.ui.markerAt;
       if (m && !g.story?.inScene) {
         const d = new THREE.Vector3(m.x - p.x, 0, m.z - p.z);
-        const k = Math.min(1, d.length() / 1.0);
+        const dist = d.length();
+        const k = Math.min(1, dist / 1.0);
         d.normalize();
+        // (no headway for a while: a way over the thing in the way, or under it)
+        if (dist < this.bestD - 0.15) {
+          this.bestD = dist;
+          this.stuckT = 0;
+        } else this.stuckT += dt;
+        if (this.markKey !== `${m.x.toFixed(1)},${m.z.toFixed(1)}`) {
+          this.markKey = `${m.x.toFixed(1)},${m.z.toFixed(1)}`;
+          this.bestD = Infinity;
+          this.stuckT = 0;
+        }
+        const t = p.travOption;
+        if (t && this.actT <= 0 && p.action === 'free') {
+          const tx = Math.sin(t.yaw), tz = Math.cos(t.yaw);
+          if (tx * d.x + tz * d.z > 0.35 || this.stuckT > 1.2) {
+            inp.press('dodge');
+            inp.release('dodge');
+            this.actT = 1.0;
+          }
+        }
+        if (this.stuckT > 1.6 && this.actT <= 0 && !p.crouched) {
+          inp.press('crouch');
+          this.actT = 0.6;
+        } else if (p.crouched && this.stuckT < 0.2 && this.actT <= 0 && Math.random() < 0.02) {
+          inp.press('crouch');
+          this.actT = 0.6;
+        }
         const yaw = g.cam.yaw;
         const fx = -Math.sin(yaw), fz = -Math.cos(yaw);
         const rx = -fz, rz = fx;

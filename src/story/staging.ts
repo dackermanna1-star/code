@@ -421,6 +421,14 @@ export class Npc extends Fighter {
   /** Gone (walked out of the building). */
   gone = false;
   onArrive: (() => void) | null = null;
+  /** Chatting (no voice): the lips move now and then, the hands talk. */
+  chatter = 0;
+  private chatT = Math.random() * 20;
+  /** Walk this loop for ever (a passer-by): the points in turn, back to the first. */
+  loop: [number, number][] | null = null;
+  private loopI = 0;
+  private lodAcc = 0;
+  private lodN = Math.floor(Math.random() * 4);
 
   constructor(game: Game, lib: CharacterLibrary, variant: string) {
     super(game, lib, lib.get(variant));
@@ -443,7 +451,19 @@ export class Npc extends Fighter {
     li.hunch = this.hunch;
     li.breath = 0.8;
     li.look = 0;
+    // (talking among themselves: a word, a pause, a laugh - the hands and the jaw)
+    if (this.chatter > 0) {
+      this.chatT += dt;
+      const on = Math.sin(this.chatT * 0.7) + Math.sin(this.chatT * 1.9) * 0.5 > 0.2;
+      this.talking = on ? this.chatter : 0;
+      this.model.face.speak = on ? Math.max(0, Math.sin(this.chatT * 11) * Math.sin(this.chatT * 3.3)) * 0.45 : 0;
+    }
     this.sceneInputs();
+    // (a passer-by: on to the next point when the last is reached)
+    if (this.loop && this.path.length === 0) {
+      const [x, z] = this.loop[this.loopI++ % this.loop.length];
+      this.path = [{ x, z, speed: 1.25 }];
+    }
     const w = this.path[0];
     if (w) {
       const dx = w.x - this.x, dz = w.z - this.z;
@@ -477,6 +497,20 @@ export class Npc extends Fighter {
   takeHit(h: HitInfo): HitResult {
     void h;
     return 'ignored';
+  }
+  /**
+   * A crowd's cost: far from the camera a body's pose is worked out less often (every second or
+   * fourth frame, the time it missed made up) - nobody can see the difference over there.
+   */
+  animate(dt: number) {
+    const cam = this.game.cam.camera.position;
+    const d = Math.hypot(cam.x - this.x, cam.z - this.z);
+    const every = d > 38 ? 4 : d > 20 ? 2 : 1;
+    this.lodAcc += dt;
+    if (++this.lodN % every !== 0) return;
+    const step = this.lodAcc;
+    this.lodAcc = 0;
+    super.animate(step);
   }
   /** Out of sight: off the stage for good. */
   vanish() {
