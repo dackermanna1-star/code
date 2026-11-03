@@ -316,6 +316,9 @@ export class Story {
     g.director.hold = true;
     // (a shoulder in the foreground of a shot stays solid: bodies dissolve only right at the lens)
     NEAR_FADE.value.set(0.12, 0.4);
+    // (her rim light keeps her readable in a dark fight; a scene's lit for faces - it'd only glow)
+    const rimW = p.model.uniforms.uRim.value.w;
+    p.model.uniforms.uRim.value.w = 0;
     // (nothing on its way at her when the scene takes over)
     for (const e of g.enemies()) {
       if (e.state === 'attack' || e.state === 'approach') g.director.cancel(e);
@@ -336,6 +339,7 @@ export class Story {
       }
       this.inScene = false;
       NEAR_FADE.value.set(0.3, 0.85);
+      g.player.model.uniforms.uRim.value.w = rimW;
       if (this.fill) this.fill.intensity = 0;
       this.ui.bars(false);
       this.ui.gameplayVisible(true);

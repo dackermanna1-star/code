@@ -95,6 +95,9 @@ export const CH8: Chapter = {
           await s.wait(1.0);
           await s.say('SCARLET', 'VOSS!', 1.2);
           await s.say('VOSS', 'Miss Reyes. You really should have gone home.', 3.0, { to: p });
+          // (she's turned round to look back down the jetty at her - turned before the camera finds her)
+          viper.idleFace = viper.yaw = yawTo(viper, p);
+          viper.anim.initAt(viper.x, viper.z, viper.yaw);
           s.closeUp(viper, { side: -1, fov: 26, dist: 1.8, dur: 5 });
           await s.say('VIPER', 'I told you. Everyone leaves without something.', 2.6, { to: p });
           await s.say('VOSS', 'Take care of it. I have a flight.', 2.4, { to: viper });

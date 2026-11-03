@@ -273,8 +273,10 @@ class Chase {
     const kmh = Math.round(Math.abs(me.speed) * 3.6);
     const dmg = clamp(me.hp / me.maxHp, 0, 1);
     const bar = '■'.repeat(Math.round(dmg * 10)) + '<span style="opacity:.25">' + '■'.repeat(10 - Math.round(dmg * 10)) + '</span>';
-    const gap = Math.max(0, Math.round((this.trucks[1]?.car.rs ?? 0) - me.rs));
-    this.hud.innerHTML = `<div style="font-size:44px;line-height:1">${kmh}<small style="font-size:14px"> KM/H</small></div><div style="margin-top:6px">CAR ${bar}</div><div>CONVOY ${gap} M · PISTOL ${'●'.repeat(this.pistol)}${'○'.repeat(Math.max(0, 3 - this.pistol))}</div>`;
+    // (where Ivy's truck is: ahead of her, or - if she's overtaken the lot - behind)
+    const gap = Math.round((this.trucks[1]?.car.rs ?? 0) - me.rs);
+    const where = Math.abs(gap) < 6 ? 'ALONGSIDE' : gap > 0 ? `${gap} M AHEAD` : `${-gap} M BEHIND`;
+    this.hud.innerHTML = `<div style="font-size:44px;line-height:1">${kmh}<small style="font-size:14px"> KM/H</small></div><div style="margin-top:6px">CAR ${bar}</div><div>CONVOY ${where} · PISTOL ${'●'.repeat(this.pistol)}${'○'.repeat(Math.max(0, 3 - this.pistol))}</div>`;
     // dawn comes on as she goes
     CONVOY.dawn = clamp(me.rs / road.length, 0, 1) * 0.85;
     // she's in the car (for the listener and the lights round her) - not on foot under it: no
@@ -465,7 +467,7 @@ function controls(s: Story): { throttle: number; steer: number; handbrake: boole
     // (matching its speed to stay alongside: a little faster from behind, easing off past it; one
     // coming up from behind is waited for at a steady pace, never backed up into)
     let throttle = tgt ? clamp((tgt.rs - me.rs) * 0.12 + (tgt.speed - me.speed) * 0.3 + 0.15, -1, 1) : 1;
-    if (tgt && tgt.rs < me.rs - 10) throttle = me.speed > 18 ? -0.4 : 0.35;
+    if (tgt && tgt.rs < me.rs - 10) throttle = me.speed > Math.max(8, tgt.speed - 6) ? -0.5 : 0.25;
     if (me.speed < 6 && throttle < 0) throttle = 0.2;
     return { throttle, steer: clamp(err * 2.2, -1, 1), handbrake: false };
   }

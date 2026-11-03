@@ -90,7 +90,8 @@ grades, things to find and a change of clothes as the night goes on.
   night's traffic. Drive (W / S, A / D, Space the handbrake), run the escorts into the barriers or
   put a round through a tyre (R); then the two cars sent down from Meridian that come up behind
   her; get alongside Ivy's truck — and see it through Palewater's gates as they close. Let the
-  convoy reach its exit and it's gone.
+  convoy reach its exit and it's gone; the car's armoured, not a tank (CAR, bottom right), and
+  wrecking it ends the chase too.
 * **Chapter Six — Night Shift.** *Palewater Biotech, 5:16 AM.* The lab she used to guard. Over the
   patched bit of fence by the car park, into the guards' hut — her old locker, her name still on
   it, her uniform still inside. In that, nobody looks twice: round to the loading dock, where the

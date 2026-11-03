@@ -111,7 +111,7 @@ export function buildRoofs(a: Arena, blood: BloodAtlas, pointLights: number, sha
   a.fog = { color: 0x0e0c16, density: 0.016 };
   a.background = skyTexture(11);
   a.camBounds = { out: 2.5, maxY: 14, walls: true };
-  a.farPlane = 320;
+  a.farPlane = 650; // (Meridian, the way she is going: 300 m north and 230 m up)
   a.wet = true;
   // a body dropped this far below the roof it stood on has gone over the edge
   a.fallDeath = 4;

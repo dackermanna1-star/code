@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { softGlowTexture } from '../textures';
 import { Arena, Obstacle } from '../arena';
 import type { BloodAtlas } from '../bloodAtlas';
 import type { MapParts } from '../mapKit';
@@ -105,7 +106,7 @@ export function buildClub(a: Arena, blood: BloodAtlas, pointLights: number, shad
   a.fog = { color: 0x120a18, density: 0.026 };
   a.background = skyTexture(23);
   a.camBounds = { out: 0, maxY: 14, walls: true };
-  a.farPlane = 280;
+  a.farPlane = 450; // (the roof at the end: Meridian on the skyline, 330 m off)
   a.drains = [];
   const G = CLUB.galleryY;
   // (nothing loose from the warehouse: the club's own bottles, crates and empties)
@@ -727,7 +728,7 @@ function lightRig(k: LevelKit, M: Materials, rng: RNG) {
         3,
       ),
     ),
-    new THREE.PointsMaterial({ color: 0xfff4e0, size: 0.09, transparent: true, opacity: 0.7, blending: THREE.AdditiveBlending, depthWrite: false }),
+    new THREE.PointsMaterial({ map: softGlowTexture(), color: 0xfff4e0, size: 0.12, transparent: true, opacity: 0.7, blending: THREE.AdditiveBlending, depthWrite: false }),
   );
   k.g.add(specks);
   // coloured lights over the floor, pulsing on the beat

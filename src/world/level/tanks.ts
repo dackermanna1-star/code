@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { softGlowTexture } from '../textures';
 import type { Arena } from '../arena';
 import type { BloodAtlas } from '../bloodAtlas';
 import type { MapParts } from '../mapKit';
@@ -267,7 +268,7 @@ export function buildTanks(a: Arena, blood: BloodAtlas, pointLights: number, sha
       const tx = ti < 12 ? TANKS.rows[ti % 2] : 0, tz = ti < 12 ? TANKS.rowZ[Math.floor(ti / 2)] : ti === 12 ? TANKS.ivyTank.z : TANKS.zero.z;
       return i % 3 === 0 ? tx + (rng.next() - 0.5) * 1.2 : i % 3 === 1 ? 0.6 + rng.next() * 2.4 : tz + (rng.next() - 0.5) * 1.2;
     }), 3)),
-    new THREE.PointsMaterial({ color: 0xc8ffd8, size: 0.05, transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false }),
+    new THREE.PointsMaterial({ map: softGlowTexture(), color: 0xc8ffd8, size: 0.07, transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false }),
   );
   k.g.add(bub);
   const parts = k.finish({
