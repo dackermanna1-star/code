@@ -2,7 +2,7 @@
 import sys; sys.path.insert(0, '/home/user/code/amazon_short/scripts')
 from shotlib import *
 s, sh = setup('S04'); N = sh['frames']
-E = ENV.build_env(forest_cfg(seed=41, cam=(0, 0, 3), density=1.4, clear=[(0, 0, 2.2)], giants=[(-6, 5, 1.3), (6.5, -4, 1.2), (2, 8, 1.0)], n_poles=60, wet=0.3))
+E = ENV.build_env(forest_cfg(seed=41, cam=(0, 0, 3), density=1.4, clear=[(0, 0, 2.2)] + [(3.4 * math.cos(math.radians(a)), 3.4 * math.sin(math.radians(a)), 1.2) for a in range(-30, 65, 10)], giants=[(-6, 5, 1.3), (6.5, -4, 1.2), (2, 8, 1.0)], n_poles=60, wet=0.3))
 T = E['terrain']
 col, rig, acts = character(0.1, 0.3, ['UAL_Idle_Loop'])
 place(rig, T, 0, 0, 0, f=1); place(rig, T, 0, 0, -50, f=N)
