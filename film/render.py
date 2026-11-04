@@ -54,6 +54,12 @@ def main():
     bc.compositor(scn)
     if hasattr(mod, "post_setup"):
         mod.post_setup(d, world)
+    for pre in filter(None, os.environ.get("MC_HIDE", "").split(",")):
+        for o in bpy.data.objects:
+            if o.name.startswith(pre):
+                o.hide_render = True
+    if os.environ.get("MC_NOCOMP"):
+        scn.use_nodes = False
     os.makedirs(a.out, exist_ok=True)
     scn.render.use_overwrite = True
 
@@ -67,6 +73,14 @@ def main():
         for sid in ids:
             s0, s1, _ = fr[sid]
             frames += list(range(s0, s1 + 1, a.step))
+    if os.environ.get("MC_DEBUG") and frames:
+        ng = bpy.data.node_groups["Env"]
+        for f in frames:
+            scn.frame_set(f)
+            print("DEBUG frame", f, "exposure", scn.view_settings.exposure,
+                  {n.name: (tuple(round(v, 3) for v in n.outputs[0].default_value) if n.type == "RGB" else round(n.outputs[0].default_value, 4)) for n in ng.nodes if n.type in ("RGB", "VALUE")},
+                  "sun", round(bpy.data.objects["Sun"].data.energy, 3))
+        return
     if frames is not None:
         for f in frames:
             scn.frame_set(f)

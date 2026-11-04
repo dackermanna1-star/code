@@ -215,10 +215,10 @@ LIGHT = {
                   sun_glow=0.06, sun_color=(0.6, 0.7, 1.0), star_amount=0.9, emit_strength=1.2,
                   fog_hamt=0.0, fog_h0=60, fog_hfall=0.0, exposure=1.3, moon=True, ambient=0.9),
     "storm": dict(sun_el=50, sun_az=150, sun_energy=0.3, sun_rgb=(0.55, 0.6, 0.8),
-                  zenith=(0.03, 0.035, 0.05), horizon=(0.07, 0.08, 0.1), ground=(0.02, 0.02, 0.02),
-                  fog_color=(0.06, 0.07, 0.09), fog_density=0.045, fog_start=4, sky_strength=1.0,
+                  zenith=(0.012, 0.014, 0.02), horizon=(0.022, 0.026, 0.034), ground=(0.01, 0.01, 0.01),
+                  fog_color=(0.02, 0.024, 0.032), fog_density=0.04, fog_start=5, sky_strength=1.0,
                   sun_glow=0.0, sun_color=(0.5, 0.5, 0.6), star_amount=0.0, emit_strength=1.2,
-                  fog_hamt=0.0, fog_h0=60, fog_hfall=0.0, exposure=1.3, moon=False, ambient=0.9),
+                  fog_hamt=0.0, fog_h0=60, fog_hfall=0.0, exposure=1.2, moon=False, ambient=0.9),
     "cave": dict(sun_el=60, sun_az=0, sun_energy=0.0, sun_rgb=(0.5, 0.5, 0.5),
                  zenith=(0.0, 0.0, 0.0), horizon=(0.0, 0.0, 0.0), ground=(0.0, 0.0, 0.0),
                  fog_color=(0.006, 0.006, 0.01), fog_density=0.07, fog_start=3, sky_strength=0.0,
@@ -294,6 +294,10 @@ class Director:
         self.weather = {}
         self.extra = []  # callbacks per frame (ctx)
         self.cam_light = None
+        self.plants = [o for o in bpy.data.objects if "sway_phase" in o and o.data.shape_keys]
+        for o in self.plants:
+            o.data.shape_keys.key_blocks["sway"].slider_min = -1.0
+        self.wind = 1.0
 
     def _camera(self):
         cd = bpy.data.cameras.new("Cam")
@@ -332,6 +336,11 @@ class Director:
                 if not ctx.cammed:
                     ctx.camera((0, -10, 5), (0, 0, 0))
                 ctx.place_celestial()
+                for o in self.plants:
+                    ph = o["sway_phase"]
+                    tg = ctx.tg
+                    v = (0.55 * math.sin(2 * math.pi * 0.31 * tg + ph) + 0.3 * math.sin(2 * math.pi * 0.83 * tg + 2 * ph))
+                    A.set(o.data.shape_keys, 'key_blocks["sway"].value', v * self.wind * ctx.wind)
                 for name, wobj in self.weather.items():
                     wobj.update(ctx, ctx.weather_amt.get(name, 0.0))
         A.flush()
@@ -357,6 +366,7 @@ class Ctx:
         self.cammed = False
         self.weather_amt = {}
         self.first = f == f0
+        self.wind = 1.0
 
     # --------------------------------------------------------------- events
     def event(self, kind, dt=0.0, **kw):

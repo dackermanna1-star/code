@@ -340,7 +340,7 @@ def nightforest(seed=21):
         else:
             spruce_tree(w, x, y, z, rng)
         occupied[x - 2:x + 4, y - 2:y + 4] = True
-    for (tx, ty) in ((60, 103), (74, 97), (88, 104), (100, 97), (140, 103), (152, 97), (170, 103)):
+    for (tx, ty) in ((60, 103), (88, 104), (100, 97), (140, 103), (152, 97), (170, 103)):
         dark_tree(w, tx, ty, int(hi[tx, ty]), rng)
     scatter_plants(w, hi, rng, (0, sx, 0, sy), 0.12, ["tall_grass", "fern", "mushroom_red", "mushroom_brown"],
                    [60, 30, 3, 3], {B["grass"]})
@@ -523,7 +523,7 @@ def jungle(seed=61):
 
 
 # ====================================================================== EDGE (desolate plain -> broken lands)
-ED = dict(sx=720, sy=300, sz=200, ridge_x=520)
+ED = dict(sx=860, sy=300, sz=200, ridge_x=520)
 
 
 def farlands_density(X, Y, Z, seed=0, scale=1.0):
@@ -626,7 +626,8 @@ def edge(seed=71):
         if abs(y - 150) > 6:
             oak_tree(w, x, y, int(w.h[x, y]), rng, height=4)
     # distant Far Lands wall (beyond the ridge) - coarse, lives in this world for the reveal
-    x0 = rx + 60
+    x0 = rx + 170
+    ED["wall_x"] = x0
     sub = np.s_[x0:sx, :, :]
     Xs, Ys, Zs = np.meshgrid(np.arange(x0, sx, dtype=float), np.arange(sy, dtype=float), np.arange(sz, dtype=float),
                              indexing="ij")

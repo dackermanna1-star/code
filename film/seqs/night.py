@@ -29,7 +29,9 @@ def build_world():
     lane_cams = [(x, 95.6) for x in range(56, 98, 2)] + [(120.9, 114.1, ), (119.5, 111.5), (101.4, 104.6),
                                                        (105.4, 96.2), (104.8, 96.2)] + \
                 [(x, 97.5 + (x - 177) * 0.1) for x in range(175, 186)] + [(x, 99.3) for x in range(30, 56, 2)]
-    clear_foliage(w, lane_cams, r=2.2)
+    clear_foliage(w, lane_cams, r=2.6)
+    clear_foliage(w, [(74.5, 97.5), (121.9, 112.6), (122.6, 112.9), (122.1, 114.3), (123.5, 114.0)], r=3.2)
+    clear_foliage(w, [(x, 97.5 + (x - 177) * 0.1) for x in range(172, 190, 2)], r=4.5)
     wg.clear_plants(w, [(104, 96.4, 1.5), (101.4, 104.6, 1.2)])
     return w
 
@@ -146,8 +148,10 @@ def setup(d, w):
             arrow1.fly(sk + Vector((0, -0.6, 1.4)), tgt_c4 + Vector((2.5, 0, 0.4)), u, arc=0.6)
         else:
             arrow1.fly((0, 0, -500), (0, 0, -500), 0, visible=False)
-        cam = sk + Vector((1.4, 2.6, 1.9))
-        ctx.camera(cam, Vector(loc) + Vector((0, 0, 1.0)), lens=40, shake_amp=0.03, focus=26, fstop=4)
+        dvec = (sk - Vector((96, LANE, sk.z))).normalized()
+        perp = Vector((-dvec.y, dvec.x, 0))
+        cam = sk + dvec * 3.6 + perp * 1.5 + Vector((0, 0, 2.1))
+        ctx.camera(cam, Vector(loc) + Vector((0, 0, 1.0)), lens=30, shake_amp=0.03, focus=24, fstop=4)
         ctx.once(0.15, "skeleton_rattle")
         ctx.once(0.3, "bow_draw")
         ctx.once(1.15, "arrow_shoot")

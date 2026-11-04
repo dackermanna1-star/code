@@ -81,8 +81,8 @@ def setup(d, w):
         ctx.light("farlands")
         loc, yaw, s = ctx.walk(steve, m4, extra={"lean": 10, "head_pitch": 10})
         L = Vector(loc)
-        cam = Vector((178, LANE - 16, gz(178, LANE - 16) + 5)) + Vector((8, 1, 4)) * ease(u)
-        ctx.camera(cam, L + Vector((0, 0, 1.2)), lens=32, shake_amp=0.02)
+        cam = Vector((176, LANE - 17, gz(178, LANE - 16) + 4)) + Vector((8, 1, 4)) * ease(u)
+        ctx.camera(cam, L + Vector((7, 0, 5)), lens=22, shake_amp=0.02)
         ctx.weather("dust", 1.0)
 
     # ============================================================= F5  orbit on the ridge
@@ -143,7 +143,7 @@ def setup(d, w):
 
     def G2(ctx):
         t, u = ctx.t, ctx.u
-        ctx.light("farlands", fog_density=0.0055)
+        ctx.light("farlands", fog_density=0.0072)
         p = idle(t)
         p.update({"head_pitch": 12, "head_yaw": keys(t, [(0, 0), (2.5, 8), (6, 10)]), "arm_r": 30})
         ctx.pose(steve, tuple(g_end), EAST, p)
@@ -152,8 +152,8 @@ def setup(d, w):
         ph = s / 9.0 * 2 * math.pi
         ctx.pose(fig, (fx, fy, 37), math.atan2(12, 18), {"leg_r": 18 * math.sin(ph), "leg_l": -18 * math.sin(ph),
                                                "arm_r": -10 * math.sin(ph), "arm_l": 10 * math.sin(ph)})
-        cam = g_end + Vector((-1.2, -0.6, 1.75))
-        ctx.camera(cam, Vector((330, 250, 62)), lens=lerp(55, 62, u), shake_amp=0.01)
+        cam = g_end + Vector((-1.5, -1.5, 2.35))
+        ctx.camera(cam, Vector((330, 250, 62)), lens=lerp(50, 58, u), shake_amp=0.01)
         ctx.weather("dust", 1.0)
         ctx.once(1.5, "distant_thud")
         ctx.once(3.3, "distant_thud")

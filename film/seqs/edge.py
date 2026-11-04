@@ -43,9 +43,9 @@ def setup(d, w):
         ctx.light("desolate")
         loc, yaw, s = ctx.walk(steve, m9, extra={"arm_r": 6 + 6 * math.sin(t * 4), "head_pitch": -15})
         L = Vector(loc)
-        tgt = L + Vector((0.32, -0.34, 0.92))
-        cam = L + Vector((0.65, -1.55, 0.95))
-        ctx.camera(cam, tgt, lens=48, shake_amp=0.012, focus=(cam - tgt).length, fstop=2.2)
+        tgt = L + Vector((0.3, -0.34, 0.9))
+        cam = L + Vector((0.8, -1.95, 1.05))
+        ctx.camera(cam, tgt, lens=40, shake_amp=0.012, focus=(cam - tgt).length, fstop=2.2)
 
     # ============================================================= D10  strange shapes on the horizon
     p10 = Path([(196, LANE), (201.5, LANE)], w)
@@ -63,7 +63,7 @@ def setup(d, w):
             ctx.pose(steve, loc, EAST, p)
         L = Vector(loc)
         cam = L + Vector((-2.6, 0.9, 1.9)) + Vector((0.8, 0, 0)) * ease(u)
-        ctx.camera(cam, Vector((330, LANE - 6, 58)), lens=40, shake_amp=0.01)
+        ctx.camera(cam, Vector((330, LANE - 6, 52)), lens=40, shake_amp=0.01)
         ctx.once(0.0, "music_strange")
 
     # ============================================================= E1  stretched pillars
@@ -100,7 +100,7 @@ def setup(d, w):
             ctx.pose(steve, loc, yaw, p)
         L = Vector(loc)
         cam = Vector((345.5, 179.5, gz(342, 150) + 7.5)) + Vector((-1.5, -1.0, -1.0)) * ease(u)
-        ctx.camera(cam, L + Vector((0, 4.5, -0.5)), lens=24, shake_amp=0.03, shake_freq=0.5)
+        ctx.camera(cam, L + Vector((0, 1.5, 0.6)), lens=24, shake_amp=0.03, shake_freq=0.5)
         ctx.weather("dust", 1.0)
         ctx.once(6.6, "void_hum")
 
@@ -138,13 +138,13 @@ def setup(d, w):
     # ============================================================= E5  OTS: the endless wall
     def E5(ctx):
         t, u = ctx.t, ctx.u
-        ctx.light("broken", fog_hamt=0.95, sun_el=6)
+        ctx.light("broken", fog_hamt=0.95, sun_el=6, fog_density=0.0042, fog_start=40)
         p = idle(t)
         p["head_pitch"] = 8
         ctx.pose(steve, tuple(top), EAST, p)
-        cam = keys(t, [(0, top + Vector((-1.7, 0.9, 2.3))), (11, top + Vector((-3.8, 3.0, 4.2)))], fn=dr.ease_io)
-        tgt = keys(t, [(0, Vector((640, LANE - 4, 80))), (11, Vector((640, LANE - 8, 95)))], fn=dr.ease_io)
-        ctx.camera(cam, tgt, lens=lerp(30, 26, ease(u)), shake_amp=0.02, shake_freq=0.4)
+        cam = keys(t, [(0, top + Vector((-1.9, 1.0, 1.95))), (11, top + Vector((-4.6, 3.3, 3.2)))], fn=dr.ease_io)
+        tgt = keys(t, [(0, Vector((790, LANE - 4, top.z + 4))), (11, Vector((790, LANE - 8, top.z + 22)))], fn=dr.ease_io)
+        ctx.camera(cam, tgt, lens=lerp(24, 22, ease(u)), shake_amp=0.02, shake_freq=0.4)
         ctx.weather("dust", 1.0)
         ctx.once(0.0, "reveal_wall")
 

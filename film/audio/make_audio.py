@@ -686,11 +686,22 @@ def main():
     sil0, sil1 = T("F6") + 4.0, T("G1")
     tt = np.arange(N) / SR
     duck = 1 - 0.85 * np.clip((tt - sil0) / 1.5, 0, 1) * np.clip((sil1 + 0.5 - tt) / 1.5, 0, 1)
-    mix = m * 0.9 + s * 1.0 + a * 0.8 * duck
+    mgain = np.ones(N)
+    for (t0, t1, g) in ((T("E5"), T("F1"), 1.2), (T("F1"), T("F6") + 4.0, 1.45), (T("D1"), T("D8"), 1.15)):
+        i0, i1 = int(t0 * SR), int(t1 * SR)
+        ramp = int(1.5 * SR)
+        w = np.ones(i1 - i0) * g
+        w[:ramp] = np.linspace(1, g, ramp)
+        w[-ramp:] = np.linspace(g, 1, ramp)
+        mgain[i0:i1] = w
+    mix = m * 0.9 * mgain + s * 1.0 + a * 0.8 * duck
     # fade in / out
     mix *= np.clip(tt / 1.5, 0, 1) * np.clip((DUR - tt) / 1.0, 0, 1)
-    peak = np.max(np.abs(mix))
-    mix = np.tanh(mix / peak * 1.6) / np.tanh(1.6) * 0.89
+    rms = np.sqrt(np.mean(mix ** 2))
+    target = 10 ** (-17.0 / 20)
+    mix = mix * (target / rms)
+    mix = np.tanh(mix * 1.2) / 1.2
+    mix *= 0.97 / max(0.97, np.max(np.abs(mix)))
     out = (mix[:, :int(DUR * SR)].T * 32767).astype(np.int16)
     os.makedirs(os.path.join(ROOT, "build", "audio"), exist_ok=True)
     from scipy.io import wavfile
