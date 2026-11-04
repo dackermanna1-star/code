@@ -1,0 +1,139 @@
+{
+ "voice": "am_michael",
+ "speed": 1.12,
+ "total": 129.325,
+ "lines": [
+  {
+   "id": "L01",
+   "start": 0.6,
+   "end": 5.93,
+   "text": "Imagine you're stocking a giant industrial freezer... when the door slams shut behind you."
+  },
+  {
+   "id": "L02",
+   "start": 6.23,
+   "end": 11.498,
+   "text": "It's minus twenty degrees Celsius, and fans keep blasting frozen air across your body."
+  },
+  {
+   "id": "L03",
+   "start": 11.748,
+   "end": 13.557,
+   "text": "You push the door. It won't budge."
+  },
+  {
+   "id": "L04",
+   "start": 13.957,
+   "end": 22.497,
+   "text": "Within seconds, you feel cold. But that's just nerves in your skin sounding the alarm. Your core is still a normal thirty-seven degrees."
+  },
+  {
+   "id": "L05",
+   "start": 22.847,
+   "end": 28.961,
+   "text": "To protect it, your body squeezes the blood vessels in your skin, pulling warm blood away from your hands."
+  },
+  {
+   "id": "L06",
+   "start": 29.211,
+   "end": 33.858,
+   "text": "Then the shivering starts: rapid muscle twitches that burn energy to make heat."
+  },
+  {
+   "id": "L07",
+   "start": 34.108,
+   "end": 39.871,
+   "text": "But heat is escaping everywhere: into the air, out with every breath, and into anything you touch."
+  },
+  {
+   "id": "L08",
+   "start": 40.221,
+   "end": 44.766,
+   "text": "Your fingers go numb and clumsy. And the thick metal walls block your signal."
+  },
+  {
+   "id": "L09",
+   "start": 45.116,
+   "end": 49.433,
+   "text": "Then you remember: most freezers have an emergency release inside the door."
+  },
+  {
+   "id": "L10",
+   "start": 49.633,
+   "end": 51.306,
+   "text": "But this one is jammed with ice."
+  },
+  {
+   "id": "L11",
+   "start": 51.656,
+   "end": 55.48,
+   "text": "You hurry to break it free... and the frosted floor takes your legs out."
+  },
+  {
+   "id": "L12",
+   "start": 55.93,
+   "end": 62.053,
+   "text": "Hours can pass. Your core slowly cools, and below thirty-five degrees, you have hypothermia."
+  },
+  {
+   "id": "L13",
+   "start": 62.303,
+   "end": 69.068,
+   "text": "In this mild stage, you shiver violently. Your hands fumble, your speech slurs, and your judgment starts to slip."
+  },
+  {
+   "id": "L14",
+   "start": 69.368,
+   "end": 77.042,
+   "text": "Your best move: get off the metal floor, which pulls heat out of you. Sit on cardboard, tuck your hands into your armpits, and curl up."
+  },
+  {
+   "id": "L15",
+   "start": 77.392,
+   "end": 86.597,
+   "text": "Nearing thirty-two degrees, something frightening can happen: the shivering stops. Not because you're warm, but because your body is running out of ways to fight."
+  },
+  {
+   "id": "L16",
+   "start": 86.847,
+   "end": 91.382,
+   "text": "Confusion and drowsiness creep in. You might not even realize you're in danger."
+  },
+  {
+   "id": "L17",
+   "start": 91.732,
+   "end": 98.733,
+   "text": "Below about twenty-eight, people usually lose consciousness, and the heart's rhythm can turn dangerously unstable."
+  },
+  {
+   "id": "L18",
+   "start": 99.283,
+   "end": 100.72,
+   "text": "So... could you survive?"
+  },
+  {
+   "id": "L19",
+   "start": 101.17,
+   "end": 107.617,
+   "text": "In cold air, serious hypothermia usually takes hours, not minutes. But there's no fixed countdown."
+  },
+  {
+   "id": "L20",
+   "start": 107.917,
+   "end": 114.598,
+   "text": "It depends on the temperature, moving air, your clothing, staying dry, your body and health... and how fast you're found."
+  },
+  {
+   "id": "L21",
+   "start": 114.948,
+   "end": 120.094,
+   "text": "Feeling cold is your body's alarm. Hypothermia is when that alarm goes quiet."
+  },
+  {
+   "id": "L22",
+   "start": 120.394,
+   "end": 128.525,
+   "text": "Doctors have even revived people from astonishingly low temperatures. As they say: nobody's dead until they're warm and dead."
+  }
+ ]
+}
