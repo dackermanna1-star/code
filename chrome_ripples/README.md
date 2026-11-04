@@ -28,7 +28,7 @@ concentric rings bending the reflection of the studio ring light.
   Geometry Nodes surface and the numpy heights agree to about 1e-7 m, so the
   floating spheres sit exactly on the waves.
 * **Chain reaction.** A floating sphere is launched when a strong enough wave
-  front reaches it. When it lands it makes a new ripple event. Six rings of
+  front reaches it. When it lands it makes a new ripple event. Five rings of
   spheres (6, 12, 18, 24 and 30 spheres, plus the hero) keep the cascade
   symmetric, and an energy envelope lets it build up and then settle.
 * **Slow motion.** The physics runs at real gravity. Playback runs at about
