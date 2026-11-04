@@ -74,7 +74,7 @@ resolution to 1920×1080, use 32–64 samples, and add `--haze`.
 ## Files
 
 - `build_scene.py`: the scene generator.
-- `bottle_city.blend`: the generated scene, ready to render or open in the UI.
+- `bottle_city.blend`: the generated scene, self-contained with the HDRI packed in. Open it and press Ctrl+F12 to render the animation.
 - `render.sh`: renders the frames and encodes `render/city_in_a_bottle.mp4`.
 - `assets/artist_workshop_2k.hdr`: the CC0 HDRI by Poly Haven.
 - `render/`: the final video and stills.

@@ -1569,6 +1569,7 @@ if OPT["save"]:
     os.makedirs(os.path.dirname(OPT["save"]), exist_ok=True)
     bpy.ops.wm.save_as_mainfile(filepath=OPT["save"], compress=True, relative_remap=True)
     bpy.ops.file.make_paths_relative()
+    bpy.ops.file.pack_all()  # embed the HDRI so the .blend is self-contained
     scene.render.filepath = "//render/frames/frame_"
     bpy.ops.wm.save_mainfile(compress=True)
     print(f"[bottle_city] saved {OPT['save']}")
