@@ -33,8 +33,8 @@ wait "${pids[@]}"
 
 echo "== encoding"
 ffmpeg -y -loglevel error -framerate 24 -i "$WORK/frames/%04d.png" -i "$WORK/soundtrack.wav" \
-  -vf "vignette=angle=PI/4.5,noise=alls=7:allf=t,format=yuv420p" \
+  -vf "vignette=angle=PI/4.5,noise=alls=3:allf=t,format=yuv420p" \
   -af "loudnorm=I=-16:TP=-1.5:LRA=14" \
-  -c:v libx264 -preset slow -crf 17 -tune grain -movflags +faststart \
+  -c:v libx264 -preset slow -crf 21 -tune grain -movflags +faststart \
   -c:a aac -b:a 192k -ar 48000 -shortest "$WORK/glitch_cube.mp4"
 echo "done: $WORK/glitch_cube.mp4"

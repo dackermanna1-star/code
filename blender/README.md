@@ -9,6 +9,10 @@ state.
 The scene, animation, simulation, lighting, compositing and soundtrack are all
 generated from code. No external assets are used.
 
+![Storyboard](storyboard.jpg)
+
+**Watch:** [`glitch_cube.mp4`](glitch_cube.mp4) (60 s, with sound)
+
 * `glitch_cube.py`: builds the whole Blender 4.5 scene and writes a `.blend`, plus audio cues as JSON
 * `soundtrack.py`: synthesises the 48 kHz stereo soundtrack (numpy only), synced to the cues
 * `render.sh`: builds, renders (multi-process, resumable) and encodes the final MP4
