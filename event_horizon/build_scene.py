@@ -1650,7 +1650,7 @@ print("Collision avoidance ...")
 OBSTACLES = []
 for cam, frames, locs in CAMS:
     OBSTACLES.append((cam.name, list(zip(frames[::2], locs[::2])), 1.0))
-OBSTACLES.append(("astronaut", [(f, torso(tm(f))) for f in FRAMES[::2]], 0.9))
+OBSTACLES.append(("astronaut", [(f, torso(tm(f))) for f in FRAMES[::2]], 1.5))
 
 
 def conflict(b):
