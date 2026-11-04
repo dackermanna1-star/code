@@ -32,6 +32,7 @@ def build_world():
     clear_foliage(w, lane_cams, r=2.6)
     clear_foliage(w, [(74.5, 97.5), (121.9, 112.6), (122.6, 112.9), (122.1, 114.3), (123.5, 114.0)], r=3.2)
     clear_foliage(w, [(x, 97.5 + (x - 177) * 0.1) for x in range(172, 190, 2)], r=4.5)
+    clear_foliage(w, [(x, 98.3) for x in range(176, 212, 2)], r=3.5)
     wg.clear_plants(w, [(104, 96.4, 1.5), (101.4, 104.6, 1.2)])
     return w
 
@@ -261,13 +262,16 @@ def setup(d, w):
         for tf in (0.45, 2.3):
             if tf < t < tf + 0.35:
                 fl = 1.0 if (t < tf + 0.08 or tf + 0.16 < t < tf + 0.24) else 0.25
-        ctx.light("storm", flash=fl)
+        ctx.light("storm", flash=fl, exposure=1.7, fog_density=0.03)
         ctx.weather("rain", 1.0)
         props.set_vis(bolt1, 0.45 < t < 0.75)
         props.set_vis(bolt2, 2.3 < t < 2.55)
         loc, yaw, s = ctx.walk(steve, m_c7, surface="grass")
-        cam = Vector((177, 97.5, gz(177, 97.5) + 3.2)) + Vector((6.0, 0.6, 0.5)) * ease(ctx.u)
-        ctx.camera(cam, Vector((cx - 8, cy + 0.5, cave_floor + 3)), lens=28, shake_amp=0.06 + 0.25 * fl, shake_freq=3)
+        L = Vector(loc)
+        cam = L + Vector((-5.0 + 1.5 * ease(ctx.u), -2.4, 0))
+        cam.z = max(L.z, gz(cam.x, cam.y)) + 1.6
+        cave_pt = Vector((cx - 6, cy + 0.5, cave_floor + 1.8))
+        ctx.camera(cam, L.lerp(cave_pt, 0.3) + Vector((0, 0, 1.0)), lens=26, shake_amp=0.06 + 0.25 * fl, shake_freq=3)
         ctx.once(0.45, "thunder", dist=0.0)
         ctx.once(2.3, "thunder", dist=0.4)
 

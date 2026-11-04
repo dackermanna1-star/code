@@ -171,12 +171,12 @@ def setup(d, w):
     def A4(ctx):
         t = ctx.t
         ctx.light("sunrise", sun_el=5.0)
-        cam = S + Vector((-1.0, -1.15, 2.35)) + Vector((0.04, 0.0, -0.02)) * t
-        ctx.camera(cam, S + Vector((0.85, -0.1, 0.95)), lens=28, shake_amp=0.008, focus=2.2, fstop=4)
+        cam = S + Vector((2.15, -1.15, 1.0)) + Vector((-0.05, 0.02, 0.0)) * t
+        ctx.camera(cam, S + Vector((0.3, 0.0, 1.36)), lens=30, shake_amp=0.008, focus=2.3, fstop=4)
         ar = keys(t, [(0, 0), (0.7, 0), (1.5, 62), (4.2, 62), (5.0, 20)])
         al = keys(t, [(0, 0), (0.9, 0), (1.7, 58), (4.0, 58), (4.9, 18)])
         tw = 25 * math.sin(max(0, t - 2.0) * 2.2) * seg(t, 1.8, 2.4) * (1 - seg(t, 4.0, 4.4))
-        p = {"arm_r": ar, "arm_l": al, "arm_r_out": -10 * seg(t, 0.7, 1.5), "arm_l_out": -10 * seg(t, 0.9, 1.7),
+        p = {"arm_r": ar, "arm_l": al, "arm_r_out": -24 * seg(t, 0.7, 1.5), "arm_l_out": -24 * seg(t, 0.9, 1.7),
              "arm_r_twist": tw, "arm_l_twist": -tw, "head_pitch": keys(t, [(0, 0), (0.5, -35), (4.4, -35), (5, -5)]),
              "head_yaw": 8 * math.sin(t * 1.3) * seg(t, 1.5, 2)}
         ctx.pose(steve, (S.x, S.y, S.z), EAST, p)

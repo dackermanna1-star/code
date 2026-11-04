@@ -544,12 +544,24 @@ def quads_mesh(name, verts, uvs=None, cols=None, ao=None, mat=None, coll=None):
     return o
 
 
-def world_objects(world, name="terrain", coll=None, plants=True, sway_groups=4, seed=0):
+def world_objects(world, name="terrain", coll=None, plants=True, sway_groups=4, seed=0, chunk=None):
+    import os
+    chunk = chunk or int(os.environ.get("MC_CHUNK", "64"))
     res, water = world.mesh_arrays(seed=seed)
     objs = {}
     if len(res["verts"]):
-        objs["terrain"] = quads_mesh(name, res["verts"], res["uvs"], res["col"], res["ao"],
-                                     terrain_material(), coll)
+        v = res["verts"]
+        fmin = v.reshape(-1, 4, 3).min(axis=1)
+        key = (np.floor(fmin[:, 0] / chunk).astype(np.int64) * 10007 + np.floor(fmin[:, 1] / chunk).astype(np.int64))
+        order = np.argsort(key, kind="stable")
+        ks = key[order]
+        bounds = np.flatnonzero(np.diff(ks)) + 1
+        groups = np.split(order, bounds)
+        objs["terrain"] = []
+        for gi, g in enumerate(groups):
+            vi = (g[:, None] * 4 + np.arange(4)[None, :]).ravel()
+            objs["terrain"].append(quads_mesh(f"{name}_{gi}", v[vi], res["uvs"][vi], res["col"][vi], res["ao"][vi],
+                                              terrain_material(), coll))
     if len(water["verts"]):
         w = quads_mesh(name + "_water", water["verts"], water["uvs"], mat=water_material(), coll=coll)
         w.visible_shadow = False
