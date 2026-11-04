@@ -177,8 +177,8 @@ def setup(d, w):
         p["head_pitch"] = 8
         ctx.pose(steve, tuple(top), EAST, p)
         cam = clear_z(keys(t, [(0, top + Vector((-2.2, 1.1, 2.1))), (11, top + Vector((-3.6, 2.0, 2.7)))], fn=dr.ease_io))
-        tgt = keys(t, [(0, Vector((790, LANE - 3, top.z + 40))), (11, Vector((790, LANE - 5, top.z + 50)))], fn=dr.ease_io)
-        ctx.camera(cam, tgt, lens=lerp(17, 16, ease(u)), shake_amp=0.02, shake_freq=0.4)
+        tgt = keys(t, [(0, Vector((790, LANE - 3, top.z + 46))), (11, Vector((790, LANE - 5, top.z + 56)))], fn=dr.ease_io)
+        ctx.camera(cam, tgt, lens=lerp(20, 19, ease(u)), shake_amp=0.02, shake_freq=0.4)
         ctx.weather("dust", 1.0)
         ctx.once(0.0, "reveal_wall")
 
