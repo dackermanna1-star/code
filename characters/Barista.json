@@ -1,0 +1,31 @@
+{
+ "name": "Barista",
+ "rig": "default_no_toes",
+ "faceunits": false,
+ "subdiv": 0,
+ "phenotype": {
+  "gender": 0.0,
+  "age": 0.45,
+  "muscle": 0.5,
+  "weight": 0.5,
+  "height": 0.5,
+  "proportions": 0.5,
+  "race": {
+   "caucasian": 0.6,
+   "asian": 0.2,
+   "african": 0.2
+  }
+ },
+ "hair": "ponytail01/ponytail01.mhclo",
+ "eyebrows": "eyebrow002/eyebrow002.mhclo",
+ "skin": "young_caucasian_female/young_caucasian_female.mhmat",
+ "clothes": [
+  "female_casualsuit01/female_casualsuit01.mhclo",
+  "toigo_flats/toigo_flats.mhclo"
+ ],
+ "targets": [],
+ "style": {
+  "recolor": {}
+ },
+ "skin_type": "MAKESKIN"
+}

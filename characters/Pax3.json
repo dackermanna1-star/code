@@ -1,0 +1,31 @@
+{
+ "name": "Pax3",
+ "rig": "default_no_toes",
+ "faceunits": false,
+ "subdiv": 0,
+ "phenotype": {
+  "gender": 1.0,
+  "age": 0.35,
+  "muscle": 0.5,
+  "weight": 0.5,
+  "height": 0.5,
+  "proportions": 0.5,
+  "race": {
+   "caucasian": 0.0,
+   "asian": 0.0,
+   "african": 1.0
+  }
+ },
+ "hair": "short04/short04.mhclo",
+ "eyebrows": "eyebrow002/eyebrow002.mhclo",
+ "skin": "young_african_male/young_african_male.mhmat",
+ "clothes": [
+  "male_casualsuit02/male_casualsuit02.mhclo",
+  "shoes02/shoes02.mhclo"
+ ],
+ "targets": [],
+ "style": {
+  "recolor": {}
+ },
+ "skin_type": "MAKESKIN"
+}

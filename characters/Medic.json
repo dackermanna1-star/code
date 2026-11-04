@@ -1,0 +1,39 @@
+{
+ "name": "Medic",
+ "rig": "default_no_toes",
+ "faceunits": false,
+ "subdiv": 0,
+ "phenotype": {
+  "gender": 1.0,
+  "age": 0.4,
+  "muscle": 0.5,
+  "weight": 0.5,
+  "height": 0.5,
+  "proportions": 0.5,
+  "race": {
+   "caucasian": 0.6,
+   "asian": 0.2,
+   "african": 0.2
+  }
+ },
+ "hair": "short03/short03.mhclo",
+ "eyebrows": "eyebrow002/eyebrow002.mhclo",
+ "skin": "young_caucasian_male/young_caucasian_male.mhmat",
+ "clothes": [
+  "male_worksuit01/male_worksuit01.mhclo",
+  "shoes02/shoes02.mhclo"
+ ],
+ "targets": [],
+ "style": {
+  "recolor": {
+   "worksuit": [
+    0.85,
+    0.85,
+    0.85,
+    0.55,
+    1.1
+   ]
+  }
+ },
+ "skin_type": "MAKESKIN"
+}

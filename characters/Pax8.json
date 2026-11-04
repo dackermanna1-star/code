@@ -1,0 +1,31 @@
+{
+ "name": "Pax8",
+ "rig": "default_no_toes",
+ "faceunits": false,
+ "subdiv": 0,
+ "phenotype": {
+  "gender": 0.0,
+  "age": 0.45,
+  "muscle": 0.5,
+  "weight": 0.5,
+  "height": 0.5,
+  "proportions": 0.5,
+  "race": {
+   "caucasian": 0.0,
+   "asian": 0.0,
+   "african": 1.0
+  }
+ },
+ "hair": "ponytail01/ponytail01.mhclo",
+ "eyebrows": "eyebrow002/eyebrow002.mhclo",
+ "skin": "young_african_female/young_african_female.mhmat",
+ "clothes": [
+  "toigo_female_suit/toigo_female_suit.mhclo",
+  "toigo_flats/toigo_flats.mhclo"
+ ],
+ "targets": [],
+ "style": {
+  "recolor": {}
+ },
+ "skin_type": "MAKESKIN"
+}

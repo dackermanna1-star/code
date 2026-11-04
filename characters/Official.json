@@ -1,0 +1,39 @@
+{
+ "name": "Official",
+ "rig": "default_no_toes",
+ "faceunits": true,
+ "subdiv": 1,
+ "phenotype": {
+  "gender": 1.0,
+  "age": 0.62,
+  "muscle": 0.5,
+  "weight": 0.6,
+  "height": 0.5,
+  "proportions": 0.5,
+  "race": {
+   "caucasian": 0.6,
+   "asian": 0.2,
+   "african": 0.2
+  }
+ },
+ "hair": "short02/short02.mhclo",
+ "eyebrows": "eyebrow002/eyebrow002.mhclo",
+ "skin": "old_caucasian_male/old_caucasian_male.mhmat",
+ "clothes": [
+  "toigo_male_suit_tie_and_jacket/toigo_male_suit_tie_and_jacket.mhclo",
+  "mindfront_shoes_oxford_male/mindfront_shoes_oxford_male.mhclo",
+  "frankyaye_glasses_library_male/frankyaye_glasses_library_male.mhclo"
+ ],
+ "targets": [],
+ "style": {
+  "recolor": {},
+  "hair_dark": [
+   "short02"
+  ],
+  "hair_color": [
+   0.35,
+   0.33,
+   0.31
+  ]
+ }
+}

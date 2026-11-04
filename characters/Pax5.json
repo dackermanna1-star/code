@@ -1,0 +1,39 @@
+{
+ "name": "Pax5",
+ "rig": "default_no_toes",
+ "faceunits": false,
+ "subdiv": 0,
+ "phenotype": {
+  "gender": 1.0,
+  "age": 0.68,
+  "muscle": 0.5,
+  "weight": 0.7,
+  "height": 0.5,
+  "proportions": 0.5,
+  "race": {
+   "caucasian": 0.6,
+   "asian": 0.2,
+   "african": 0.2
+  }
+ },
+ "hair": "short01/short01.mhclo",
+ "eyebrows": "eyebrow002/eyebrow002.mhclo",
+ "skin": "old_caucasian_male/old_caucasian_male.mhmat",
+ "clothes": [
+  "male_casualsuit04/male_casualsuit04.mhclo",
+  "shoes02/shoes02.mhclo"
+ ],
+ "targets": [],
+ "style": {
+  "recolor": {},
+  "hair_dark": [
+   "short01"
+  ],
+  "hair_color": [
+   0.55,
+   0.54,
+   0.52
+  ]
+ },
+ "skin_type": "MAKESKIN"
+}

@@ -1,0 +1,31 @@
+{
+ "name": "Reporter3",
+ "rig": "default_no_toes",
+ "faceunits": false,
+ "subdiv": 0,
+ "phenotype": {
+  "gender": 1.0,
+  "age": 0.5,
+  "muscle": 0.5,
+  "weight": 0.5,
+  "height": 0.5,
+  "proportions": 0.5,
+  "race": {
+   "caucasian": 0.1,
+   "asian": 0.9,
+   "african": 0.0
+  }
+ },
+ "hair": "short01/short01.mhclo",
+ "eyebrows": "eyebrow002/eyebrow002.mhclo",
+ "skin": "middleage_asian_male/middleage_asian_male.mhmat",
+ "clothes": [
+  "male_casualsuit03/male_casualsuit03.mhclo",
+  "shoes02/shoes02.mhclo"
+ ],
+ "targets": [],
+ "style": {
+  "recolor": {}
+ },
+ "skin_type": "MAKESKIN"
+}

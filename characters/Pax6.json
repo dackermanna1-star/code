@@ -1,0 +1,31 @@
+{
+ "name": "Pax6",
+ "rig": "default_no_toes",
+ "faceunits": false,
+ "subdiv": 0,
+ "phenotype": {
+  "gender": 0.0,
+  "age": 0.6,
+  "muscle": 0.5,
+  "weight": 0.5,
+  "height": 0.5,
+  "proportions": 0.5,
+  "race": {
+   "caucasian": 0.6,
+   "asian": 0.2,
+   "african": 0.2
+  }
+ },
+ "hair": "elvs_short_side_do/elvs_short_side_do.mhclo",
+ "eyebrows": "eyebrow002/eyebrow002.mhclo",
+ "skin": "old_caucasian_female/old_caucasian_female.mhmat",
+ "clothes": [
+  "female_elegantsuit01/female_elegantsuit01.mhclo",
+  "toigo_flats/toigo_flats.mhclo"
+ ],
+ "targets": [],
+ "style": {
+  "recolor": {}
+ },
+ "skin_type": "MAKESKIN"
+}

@@ -1,0 +1,40 @@
+{
+ "name": "Thief",
+ "rig": "default_no_toes",
+ "faceunits": false,
+ "subdiv": 0,
+ "phenotype": {
+  "gender": 1.0,
+  "age": 0.35,
+  "muscle": 0.5,
+  "weight": 0.5,
+  "height": 0.5,
+  "proportions": 0.5,
+  "race": {
+   "caucasian": 0.6,
+   "asian": 0.2,
+   "african": 0.2
+  }
+ },
+ "hair": "short01/short01.mhclo",
+ "eyebrows": "eyebrow002/eyebrow002.mhclo",
+ "skin": "young_caucasian_male/young_caucasian_male.mhmat",
+ "clothes": [
+  "elvs_hooded_sweat_jacket1/elvs_hooded_sweat_jacket1.mhclo",
+  "punkduck_male_classic_jeans/punkduck_male_classic_jeans.mhclo",
+  "punkduck_comfortable_sneakers/punkduck_comfortable_sneakers.mhclo"
+ ],
+ "targets": [],
+ "style": {
+  "recolor": {
+   "hooded": [
+    0.06,
+    0.06,
+    0.07,
+    0.5,
+    1.1
+   ]
+  }
+ },
+ "skin_type": "MAKESKIN"
+}

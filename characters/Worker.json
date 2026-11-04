@@ -1,0 +1,38 @@
+{
+ "name": "Worker",
+ "rig": "default_no_toes",
+ "faceunits": true,
+ "subdiv": 1,
+ "phenotype": {
+  "gender": 1.0,
+  "age": 0.55,
+  "muscle": 0.5,
+  "weight": 0.6,
+  "height": 0.5,
+  "proportions": 0.5,
+  "race": {
+   "caucasian": 0.1,
+   "asian": 0.0,
+   "african": 0.9
+  }
+ },
+ "hair": "short01/short01.mhclo",
+ "eyebrows": "eyebrow002/eyebrow002.mhclo",
+ "skin": "middleage_african_male/middleage_african_male.mhmat",
+ "clothes": [
+  "male_worksuit01/male_worksuit01.mhclo",
+  "shoes02/shoes02.mhclo"
+ ],
+ "targets": [],
+ "style": {
+  "recolor": {
+   "worksuit": [
+    0.12,
+    0.22,
+    0.45,
+    0.5,
+    1.1
+   ]
+  }
+ }
+}

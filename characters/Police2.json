@@ -1,0 +1,39 @@
+{
+ "name": "Police2",
+ "rig": "default_no_toes",
+ "faceunits": false,
+ "subdiv": 0,
+ "phenotype": {
+  "gender": 1.0,
+  "age": 0.42,
+  "muscle": 0.5,
+  "weight": 0.5,
+  "height": 0.5,
+  "proportions": 0.5,
+  "race": {
+   "caucasian": 0.6,
+   "asian": 0.2,
+   "african": 0.2
+  }
+ },
+ "hair": "short01/short01.mhclo",
+ "eyebrows": "eyebrow002/eyebrow002.mhclo",
+ "skin": "young_caucasian_male/young_caucasian_male.mhmat",
+ "clothes": [
+  "male_worksuit01/male_worksuit01.mhclo",
+  "mindfront_shoes_oxford_male/mindfront_shoes_oxford_male.mhclo"
+ ],
+ "targets": [],
+ "style": {
+  "recolor": {
+   "worksuit": [
+    0.05,
+    0.07,
+    0.16,
+    0.5,
+    1.0
+   ]
+  }
+ },
+ "skin_type": "MAKESKIN"
+}

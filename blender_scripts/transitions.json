@@ -1,0 +1,74 @@
+[
+ {
+  "frame": 130,
+  "type": "whip"
+ },
+ {
+  "frame": 319,
+  "type": "dip"
+ },
+ {
+  "frame": 535,
+  "type": "whip"
+ },
+ {
+  "frame": 679,
+  "type": "dip"
+ },
+ {
+  "frame": 841,
+  "type": "whip"
+ },
+ {
+  "frame": 1015,
+  "type": "whip"
+ },
+ {
+  "frame": 1129,
+  "type": "flash"
+ },
+ {
+  "frame": 1393,
+  "type": "dip"
+ },
+ {
+  "frame": 1567,
+  "type": "whip"
+ },
+ {
+  "frame": 1768,
+  "type": "whip"
+ },
+ {
+  "frame": 1981,
+  "type": "dip"
+ },
+ {
+  "frame": 2125,
+  "type": "flash"
+ },
+ {
+  "frame": 2359,
+  "type": "flash"
+ },
+ {
+  "frame": 2497,
+  "type": "whip"
+ },
+ {
+  "frame": 2725,
+  "type": "whip"
+ },
+ {
+  "frame": 2989,
+  "type": "dip"
+ },
+ {
+  "frame": 3211,
+  "type": "dip"
+ },
+ {
+  "frame": 3409,
+  "type": "dip"
+ }
+]

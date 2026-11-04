@@ -1,0 +1,54 @@
+{
+ "name": "UKOfficer",
+ "rig": "default_no_toes",
+ "faceunits": true,
+ "subdiv": 1,
+ "phenotype": {
+  "gender": 1.0,
+  "age": 0.55,
+  "muscle": 0.5,
+  "weight": 0.62,
+  "height": 0.5,
+  "proportions": 0.5,
+  "race": {
+   "caucasian": 0.6,
+   "asian": 0.2,
+   "african": 0.2
+  }
+ },
+ "hair": "short04/short04.mhclo",
+ "eyebrows": "eyebrow002/eyebrow002.mhclo",
+ "skin": "old_caucasian_male/old_caucasian_male.mhmat",
+ "clothes": [
+  "elvs_male_shirt_tie_tucked1/elvs_male_shirt_tie_tucked1.mhclo",
+  "mindfront_male_trousers_2/mindfront_male_trousers_2.mhclo",
+  "mindfront_shoes_oxford_male/mindfront_shoes_oxford_male.mhclo"
+ ],
+ "targets": [],
+ "style": {
+  "recolor": {
+   "shirt_tie": [
+    0.92,
+    0.93,
+    0.95,
+    0.6,
+    1.1
+   ],
+   "trousers_2": [
+    0.06,
+    0.06,
+    0.08,
+    0.6,
+    1.1
+   ]
+  },
+  "hair_dark": [
+   "short04"
+  ],
+  "hair_color": [
+   0.25,
+   0.22,
+   0.2
+  ]
+ }
+}
