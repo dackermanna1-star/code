@@ -885,7 +885,7 @@ CAM("S1_ding", [dict(f=0.0, loc=(-0.9, -3.95, 2.0), at=(0.55, -1.5, 2.1), lens=1
                 dict(f=1.0, loc=(-0.75, -3.85, 2.0), at=(0.6, -1.6, 2.15), lens=19)])
 sa, sb = S("S2_stairs")
 skeys = []
-for fr, off, lens in ((sa, (-1.3, -1.6, -0.3), 18), ((sa + top) // 2, (-1.3, -1.7, 0.1), 20),
+for fr, off, lens in ((sa, (-1.3, -1.6, -0.3), 18), ((sa + top) // 2, (-0.3, -1.6, -0.3), 20),
                       (EV["thumbs"] - 6, (-0.5, -1.6, 0.0), 24), (sb, (-0.4, -1.2, -0.05), 26)):
     hp_ = wpos(hero.face, fr)
     lc = hp_ + Vector(off)
