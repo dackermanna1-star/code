@@ -280,7 +280,7 @@ place(sfx, creak(2.0), T(SHOT["K1_car_hanging"][0]) + 0.3, 0.3)
 place(sfx, creak(1.4), T(SHOT["K2_cables"][0]) + 0.1, 0.25, 0.4)
 place(sfx, impact(0.8, 120), T(EV["brake_glow"]), 0.35)
 place(sfx, hiss(1.4), T(EV["brake_glow"]) + 0.05, 0.25, 0.3)
-place(sfx, boom(2.8), T(EV["thirst"]) - 0.05, 0.9)
+place(sfx, boom(2.8), T(EV["thirst"]) - 0.05, 0.6)
 place(sfx, drip(), T(EV["thirst"]) + 0.55, 0.3)
 for txt, a, b in CARDS:
     place(sfx, riser(0.45), T(a) - 0.45, 0.25)
@@ -370,9 +370,13 @@ voice = np.zeros(N)
 voice[:min(N, len(vo))] = vo[:N]
 k = int(0.05 * SR)
 ve = np.convolve(np.abs(voice), np.ones(k) / k, mode="same")
-duck = 1 - 0.55 * np.clip(ve / 0.05, 0, 1)
+duck = 1 - 0.65 * np.clip(ve / 0.04, 0, 1)
 duck = np.convolve(duck, np.ones(int(0.15 * SR)) / int(0.15 * SR), mode="same")
-mix = mus * duck[:, None] * 0.9 + sfx * (1 - 0.35 * (1 - duck))[:, None] + np.stack([voice, voice], 1)
+SFX_G, MUS_G = 0.42, 0.5
+sduck = (1 - 0.55 * (1 - duck))[:, None]
+bg = mus * duck[:, None] * MUS_G + sfx * sduck * SFX_G
+mix = bg + np.stack([voice, voice], 1)
+np.save(os.path.join(BUILD, "stems_analysis.npy"), np.stack([voice, bg.mean(1)]).astype(np.float32))
 mix = np.tanh(mix * 1.1) / np.tanh(1.1)
 mix = norm(mix, 0.95)
 out = os.path.join(BUILD, "mix.wav")

@@ -185,7 +185,7 @@ if __name__ == "__main__":
     cmd = ["ffmpeg", "-y", "-loglevel", "error", "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{Wd}x{Hd}",
            "-r", str(FPS), "-i", "-", "-ss", f"{ss:.3f}", "-i", audio, "-map", "0:v", "-map", "1:a",
            "-vf", "hqdn3d=1.5:1.5:5:5", "-c:v", "libx264", "-preset", "slow", "-crf", "17", "-pix_fmt", "yuv420p", "-profile:v", "high",
-           "-c:a", "aac", "-b:a", "192k", "-shortest", "-movflags", "+faststart", OUT]
+           "-af", "loudnorm=I=-14:TP=-1.5:LRA=11", "-ar", "48000", "-c:a", "aac", "-b:a", "192k", "-shortest", "-movflags", "+faststart", OUT]
     pr = subprocess.Popen(cmd, stdin=subprocess.PIPE)
     for f in range(F0, F1 + 1):
         pr.stdin.write(process(f).tobytes())
