@@ -80,6 +80,9 @@ def main():
             print("DEBUG frame", f, "exposure", scn.view_settings.exposure,
                   {n.name: (tuple(round(v, 3) for v in n.outputs[0].default_value) if n.type == "RGB" else round(n.outputs[0].default_value, 4)) for n in ng.nodes if n.type in ("RGB", "VALUE")},
                   "sun", round(bpy.data.objects["Sun"].data.energy, 3))
+            print("DEBUG cam", tuple(round(v, 2) for v in bpy.data.objects["Cam"].matrix_world.translation),
+                  "steve", tuple(round(v, 2) for v in bpy.data.objects["steve"].matrix_world.translation),
+                  "scale", tuple(round(v, 3) for v in bpy.data.objects["steve"].scale))
         return
     if frames is not None:
         for f in frames:

@@ -18,6 +18,25 @@ def build_world():
 def setup(d, w):
     gz = lambda x, y: w.top_z(x, y)
     steve = make_steve(d, worn=0.7, worn_sword=True)
+    rx = wg.ED["ridge_x"]
+    hs = [(gz(x + 0.5, LANE), x) for x in range(rx - 12, rx + 10)]
+    hmax = max(h for h, _ in hs)
+    runs, cur = [], []
+    for h, x in hs:
+        if h == hmax:
+            cur.append(x)
+        else:
+            if cur:
+                runs.append(cur)
+            cur = []
+    if cur:
+        runs.append(cur)
+    best = max(runs, key=len)
+    crest0 = (best[0] + best[-1]) / 2.0 + 0.5
+
+    def clear_z(c, margin=1.0):
+        c.z = max(c.z, max(gz(c.x + dx, c.y + dy) for dx in (-0.7, 0, 0.7) for dy in (-0.7, 0, 0.7)) + margin)
+        return c
     dust = props.Precip("dust", count=700, box=(34, 34, 16), speed=0.4, drift=(1.5, 0.6), seed=12)
     d.weather["dust"] = dust
     rx = wg.ED["ridge_x"]
@@ -43,9 +62,9 @@ def setup(d, w):
         ctx.light("desolate")
         loc, yaw, s = ctx.walk(steve, m9, extra={"arm_r": 6 + 6 * math.sin(t * 4), "head_pitch": -15})
         L = Vector(loc)
-        tgt = L + Vector((0.3, -0.34, 0.9))
-        cam = L + Vector((0.8, -1.95, 1.05))
-        ctx.camera(cam, tgt, lens=40, shake_amp=0.012, focus=(cam - tgt).length, fstop=2.2)
+        tgt = L + Vector((0.3, -0.34, 0.88))
+        cam = L + Vector((1.3, -2.7, 1.15))
+        ctx.camera(cam, tgt, lens=36, shake_amp=0.012, focus=(cam - tgt).length, fstop=2.2)
 
     # ============================================================= D10  strange shapes on the horizon
     p10 = Path([(196, LANE), (201.5, LANE)], w)
@@ -99,14 +118,27 @@ def setup(d, w):
             p.update({"head_pitch": keys(t, [(6.4, 0), (7.2, -40)]), "lean": 4})
             ctx.pose(steve, loc, yaw, p)
         L = Vector(loc)
-        cam = Vector((345.5, 179.5, gz(342, 150) + 7.5)) + Vector((-1.5, -1.0, -1.0)) * ease(u)
-        ctx.camera(cam, L + Vector((0, 1.5, 0.6)), lens=24, shake_amp=0.03, shake_freq=0.5)
+        cam = clear_z(Vector((L.x - 4.5, 141.0, L.z + 2.6)), 1.2)
+        ctx.camera(cam, L + Vector((2.5, 6.0, 0.4)), lens=22, shake_amp=0.03, shake_freq=0.5)
         ctx.weather("dust", 1.0)
         ctx.once(6.6, "void_hum")
 
     # ============================================================= E3  climbing the ridge
-    crest0 = max((gz(x / 2.0, LANE), x / 2.0) for x in range(2 * (rx - 12), 2 * (rx + 8)))[1]
-    pe3 = Path([(rx - 22, LANE), (rx - 12, LANE + 0.3), (crest0 + 0.5, LANE)], w)
+    hs = [(gz(x + 0.5, LANE), x) for x in range(rx - 12, rx + 10)]
+    hmax = max(h for h, _ in hs)
+    runs, cur = [], []
+    for h, x in hs:
+        if h == hmax:
+            cur.append(x)
+        else:
+            if cur:
+                runs.append(cur)
+            cur = []
+    if cur:
+        runs.append(cur)
+    best = max(runs, key=len)
+    crest0 = (best[0] + best[-1]) / 2.0 + 0.5
+    pe3 = Path([(rx - 22, LANE), (rx - 12, LANE + 0.3), (crest0, LANE)], w)
     me3 = Mover(steve, pe3, [(0, 2.4)], gait="walk", surface="stone", hop_height=0.55)
 
     def E3(ctx):
@@ -120,8 +152,11 @@ def setup(d, w):
         ctx.once(0.0, "music_build")
 
     # ============================================================= E4  close: pause at the edge
-    crest_x = max((gz(x / 2.0, LANE), x / 2.0) for x in range(2 * (rx - 12), 2 * (rx + 8)))[1]
-    top = Vector((crest_x + 0.5, LANE, gz(crest_x + 0.5, LANE)))
+    top = Vector((crest0, LANE, gz(crest0, LANE)))
+
+    def clear_z(c, margin=1.0):
+        c.z = max(c.z, max(gz(c.x + dx, c.y + dy) for dx in (-0.7, 0, 0.7) for dy in (-0.7, 0, 0.7)) + margin)
+        return c
 
     def E4(ctx):
         t, u = ctx.t, ctx.u
@@ -129,8 +164,7 @@ def setup(d, w):
         p = breathe(t, 2.0, 0.6)
         p.update({"head_pitch": keys(t, [(0, -6), (2.0, 4), (5, 6)]), "head_yaw": keys(t, [(0, 0), (2.5, -6), (5, 0)])})
         ctx.pose(steve, tuple(top), EAST, p)
-        cam = top + Vector((2.3, -0.9, 1.55)) + Vector((-0.3, 0.1, 0.05)) * ease(u)
-        cam.z = max(cam.z, gz(cam.x, cam.y) + 0.6)
+        cam = clear_z(top + Vector((2.3, -0.9, 1.55)) + Vector((-0.3, 0.1, 0.05)) * ease(u), 0.6)
         ctx.camera(cam, top + Vector((0, 0, 1.58)), lens=45, shake_amp=0.01, focus=(cam - top).length - 0.3, fstop=2.8)
         ctx.weather("dust", 1.0)
         ctx.once(0.5, "wind_gust")
@@ -142,7 +176,7 @@ def setup(d, w):
         p = idle(t)
         p["head_pitch"] = 8
         ctx.pose(steve, tuple(top), EAST, p)
-        cam = keys(t, [(0, top + Vector((-1.9, 1.0, 1.95))), (11, top + Vector((-4.6, 3.3, 3.2)))], fn=dr.ease_io)
+        cam = clear_z(keys(t, [(0, top + Vector((-1.9, 1.0, 1.95))), (11, top + Vector((-4.6, 3.3, 3.2)))], fn=dr.ease_io))
         tgt = keys(t, [(0, Vector((790, LANE - 4, top.z + 4))), (11, Vector((790, LANE - 8, top.z + 22)))], fn=dr.ease_io)
         ctx.camera(cam, tgt, lens=lerp(24, 22, ease(u)), shake_amp=0.02, shake_freq=0.4)
         ctx.weather("dust", 1.0)
