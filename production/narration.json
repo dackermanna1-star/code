@@ -1,0 +1,127 @@
+{
+ "voice": "am_michael",
+ "speed": 1.07,
+ "notes": "Every line is checked against research_factsheet.md. Quotes are Yamaguchi's own words as reported by the Telegraph (via The Week), the Independent (via NYT) and the Mainichi (via AP). Forgotten-hanko story, river swim and 'dignity' quote deliberately omitted (unverified).",
+ "lines": [
+  {
+   "id": "L01",
+   "shot": "S01",
+   "pause_after": 0.6,
+   "text": "In August 1945, one man survived the atomic bomb at Hiroshima. Three days later, he survived it again."
+  },
+  {
+   "id": "L02",
+   "shot": "S02",
+   "pause_after": 0.4,
+   "text": "Tsutomu Yamaguchi, twenty-nine, designed oil tankers for Mitsubishi in Nagasaki."
+  },
+  {
+   "id": "L03",
+   "shot": "S03",
+   "pause_after": 0.6,
+   "text": "That May, he was sent to Hiroshima for three months, leaving his wife and baby son behind."
+  },
+  {
+   "id": "L04",
+   "shot": "S04",
+   "pause_after": 0.3,
+   "text": "August sixth was meant to be his last day there."
+  },
+  {
+   "id": "L05",
+   "shot": "S05",
+   "pause_after": 0.3,
+   "text": "At eight fifteen, he saw a lone B-29 high above, and two small parachutes."
+  },
+  {
+   "id": "L06",
+   "shot": "S06",
+   "pause_after": 2.2,
+   "text": "Then, in his words, a great flash in the sky, and he was blown over."
+  },
+  {
+   "id": "L07",
+   "shot": "S07",
+   "pause_after": 0.4,
+   "text": "He was about three kilometres away. His face and arms were burned, an eardrum burst, and for a time he could not see."
+  },
+  {
+   "id": "L08",
+   "shot": "S08",
+   "pause_after": 0.6,
+   "text": "By the end of the year, some one hundred and forty thousand people in Hiroshima would be dead."
+  },
+  {
+   "id": "L09",
+   "shot": "S09",
+   "pause_after": 0.4,
+   "text": "He found his two colleagues, and they survived the night together."
+  },
+  {
+   "id": "L10",
+   "shot": "S10",
+   "pause_after": 0.4,
+   "text": "The next day, they boarded a train home to Nagasaki."
+  },
+  {
+   "id": "L11",
+   "shot": "S11",
+   "pause_after": 0.4,
+   "text": "On August ninth, wrapped in bandages, he went back to work."
+  },
+  {
+   "id": "L12",
+   "shot": "S12",
+   "pause_after": 0.3,
+   "text": "He told his supervisor that one bomb had destroyed a whole city. His supervisor didn't believe him."
+  },
+  {
+   "id": "L13",
+   "shot": "S13",
+   "pause_after": 2.4,
+   "text": "At eleven oh two, the same white light filled the room."
+  },
+  {
+   "id": "L14",
+   "shot": "S14",
+   "pause_after": 0.5,
+   "text": "\"I thought the mushroom cloud had followed me from Hiroshima.\""
+  },
+  {
+   "id": "L15",
+   "shot": "S15",
+   "pause_after": 0.6,
+   "text": "Again, he was about three kilometres away, and again, he survived. So did his wife and son. Some seventy-four thousand people in Nagasaki did not."
+  },
+  {
+   "id": "L16",
+   "shot": "S16",
+   "pause_after": 0.4,
+   "text": "After the war, he went back to designing ships, and for decades, rarely spoke about it."
+  },
+  {
+   "id": "L17",
+   "shot": "S17",
+   "pause_after": 0.4,
+   "text": "In his eighties, he began telling his story, and in 2006, spoke at the United Nations against nuclear weapons."
+  },
+  {
+   "id": "L18",
+   "shot": "S18",
+   "pause_after": 0.4,
+   "text": "In 2009, Japan officially recognised him as a survivor of both bombings, the only person ever to receive that status."
+  },
+  {
+   "id": "L19",
+   "shot": "S19",
+   "pause_after": 0.6,
+   "text": "He hoped it would tell younger generations the horrifying history of the atomic bombings, even after he died."
+  },
+  {
+   "id": "L20",
+   "shot": "S20",
+   "pause_after": 2.5,
+   "text": "Tsutomu Yamaguchi died in 2010, aged ninety-three."
+  }
+ ]
+}

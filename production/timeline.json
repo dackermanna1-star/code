@@ -1,0 +1,393 @@
+{
+ "fps": 30,
+ "lines": [
+  {
+   "id": "L01",
+   "text": "In August 1945, one man survived the atomic bomb at Hiroshima. Three days later, he survived it again.",
+   "t": 0.6,
+   "audio_trim": 0.362,
+   "speech": 7.711,
+   "dur": 8.611
+  },
+  {
+   "id": "L02",
+   "text": "Tsutomu Yamaguchi, twenty-nine, designed oil tankers for Mitsubishi in Nagasaki.",
+   "t": 9.211,
+   "audio_trim": 0.324,
+   "speech": 5.266,
+   "dur": 5.966
+  },
+  {
+   "id": "L03",
+   "text": "That May, he was sent to Hiroshima for three months, leaving his wife and baby son behind.",
+   "t": 15.177,
+   "audio_trim": 0.367,
+   "speech": 5.345,
+   "dur": 6.245
+  },
+  {
+   "id": "L04",
+   "text": "August sixth was meant to be his last day there.",
+   "t": 21.422,
+   "audio_trim": 0.36,
+   "speech": 2.531,
+   "dur": 3.131
+  },
+  {
+   "id": "L05",
+   "text": "At eight fifteen, he saw a lone B-29 high above, and two small parachutes.",
+   "t": 24.553,
+   "audio_trim": 0.363,
+   "speech": 5.019,
+   "dur": 5.619
+  },
+  {
+   "id": "L06",
+   "text": "Then, in his words, a great flash in the sky, and he was blown over.",
+   "t": 30.172,
+   "audio_trim": 0.374,
+   "speech": 3.721,
+   "dur": 6.221
+  },
+  {
+   "id": "L07",
+   "text": "He was about three kilometres away. His face and arms were burned, an eardrum burst, and for a time he could not see.",
+   "t": 36.393,
+   "audio_trim": 0.377,
+   "speech": 7.191,
+   "dur": 7.891
+  },
+  {
+   "id": "L08",
+   "text": "By the end of the year, some one hundred and forty thousand people in Hiroshima would be dead.",
+   "t": 44.284,
+   "audio_trim": 0.377,
+   "speech": 5.02,
+   "dur": 5.92
+  },
+  {
+   "id": "L09",
+   "text": "He found his two colleagues, and they survived the night together.",
+   "t": 50.204,
+   "audio_trim": 0.374,
+   "speech": 3.248,
+   "dur": 3.948
+  },
+  {
+   "id": "L10",
+   "text": "The next day, they boarded a train home to Nagasaki.",
+   "t": 54.152,
+   "audio_trim": 0.344,
+   "speech": 2.996,
+   "dur": 3.696
+  },
+  {
+   "id": "L11",
+   "text": "On August ninth, wrapped in bandages, he went back to work.",
+   "t": 57.848,
+   "audio_trim": 0.358,
+   "speech": 3.213,
+   "dur": 3.913
+  },
+  {
+   "id": "L12",
+   "text": "He told his supervisor that one bomb had destroyed a whole city. His supervisor didn't believe him.",
+   "t": 61.761,
+   "audio_trim": 0.376,
+   "speech": 5.614,
+   "dur": 6.214
+  },
+  {
+   "id": "L13",
+   "text": "At eleven oh two, the same white light filled the room.",
+   "t": 67.975,
+   "audio_trim": 0.362,
+   "speech": 2.861,
+   "dur": 5.561
+  },
+  {
+   "id": "L14",
+   "text": "\"I thought the mushroom cloud had followed me from Hiroshima.\"",
+   "t": 73.536,
+   "audio_trim": 0.363,
+   "speech": 3.029,
+   "dur": 3.829
+  },
+  {
+   "id": "L15",
+   "text": "Again, he was about three kilometres away, and again, he survived. So did his wife and son. Some seventy-four thousand people in Nagasaki did not.",
+   "t": 77.365,
+   "audio_trim": 0.35,
+   "speech": 9.641,
+   "dur": 10.541
+  },
+  {
+   "id": "L16",
+   "text": "After the war, he went back to designing ships, and for decades, rarely spoke about it.",
+   "t": 87.906,
+   "audio_trim": 0.36,
+   "speech": 4.757,
+   "dur": 5.457
+  },
+  {
+   "id": "L17",
+   "text": "In his eighties, he began telling his story, and in 2006, spoke at the United Nations against nuclear weapons.",
+   "t": 93.362,
+   "audio_trim": 0.381,
+   "speech": 7.512,
+   "dur": 8.212
+  },
+  {
+   "id": "L18",
+   "text": "In 2009, Japan officially recognised him as a survivor of both bombings, the only person ever to receive that status.",
+   "t": 101.575,
+   "audio_trim": 0.362,
+   "speech": 8.493,
+   "dur": 9.193
+  },
+  {
+   "id": "L19",
+   "text": "He hoped it would tell younger generations the horrifying history of the atomic bombings, even after he died.",
+   "t": 110.767,
+   "audio_trim": 0.379,
+   "speech": 6.259,
+   "dur": 7.159
+  },
+  {
+   "id": "L20",
+   "text": "Tsutomu Yamaguchi died in 2010, aged ninety-three.",
+   "t": 117.927,
+   "audio_trim": 0.339,
+   "speech": 3.404,
+   "dur": 6.204
+  }
+ ],
+ "shots": [
+  {
+   "id": "S01a",
+   "set": "hiro_street",
+   "line": "L01",
+   "desc": "Hook: Yamaguchi on a Hiroshima street in morning light, slow push-in; title",
+   "f0": 1,
+   "f1": 152
+  },
+  {
+   "id": "S01b",
+   "set": "office",
+   "line": "L01",
+   "desc": "Hook: bandaged Yamaguchi in the Nagasaki office, light swelling at the window",
+   "f0": 153,
+   "f1": 276
+  },
+  {
+   "id": "S02",
+   "set": "office",
+   "line": "L02",
+   "desc": "Nagasaki design office: drafting oil-tanker plans",
+   "f0": 277,
+   "f1": 455
+  },
+  {
+   "id": "S03",
+   "set": "home",
+   "line": "L03",
+   "desc": "May 1945: leaving wife and baby son at the door of the Nagasaki house",
+   "f0": 456,
+   "f1": 643
+  },
+  {
+   "id": "S04",
+   "set": "hiro_street",
+   "line": "L04",
+   "desc": "6 August, Hiroshima: streetcar stops, he walks toward the shipyard",
+   "f0": 644,
+   "f1": 737
+  },
+  {
+   "id": "S05a",
+   "set": "hiro_street",
+   "line": "L05",
+   "desc": "He hears a plane, stops, looks up",
+   "f0": 738,
+   "f1": 807
+  },
+  {
+   "id": "S05b",
+   "set": "sky",
+   "line": "L05",
+   "desc": "POV: lone B-29 high above, two small parachutes",
+   "f0": 808,
+   "f1": 905
+  },
+  {
+   "id": "S06a",
+   "set": "hiro_street",
+   "line": "L06",
+   "desc": "Flash: white light floods the street",
+   "f0": 906,
+   "f1": 989
+  },
+  {
+   "id": "S06b",
+   "set": "hiro_street",
+   "line": "L06",
+   "desc": "Blast wave: dust wall, he is thrown down",
+   "f0": 990,
+   "f1": 1092
+  },
+  {
+   "id": "S07",
+   "set": "hiro_ruins",
+   "line": "L07",
+   "desc": "Dust-darkened field: he rises, burned and deafened",
+   "f0": 1093,
+   "f1": 1329
+  },
+  {
+   "id": "S08",
+   "set": "vista_hiro",
+   "line": "L08",
+   "desc": "Wide: the cloud over the flattened city",
+   "f0": 1330,
+   "f1": 1506
+  },
+  {
+   "id": "S09",
+   "set": "night_ruins",
+   "line": "L09",
+   "desc": "Night: three colleagues sit together amid the ruins",
+   "f0": 1507,
+   "f1": 1625
+  },
+  {
+   "id": "S10",
+   "set": "station",
+   "line": "L10",
+   "desc": "7 August: the evacuation train pulls out of the station",
+   "f0": 1626,
+   "f1": 1735
+  },
+  {
+   "id": "S11",
+   "set": "naga_harbor",
+   "line": "L11",
+   "desc": "9 August, Nagasaki: bandaged, he walks to the shipyard office",
+   "f0": 1736,
+   "f1": 1853
+  },
+  {
+   "id": "S12a",
+   "set": "office",
+   "line": "L12",
+   "desc": "He explains to his supervisor",
+   "f0": 1854,
+   "f1": 1946
+  },
+  {
+   "id": "S12b",
+   "set": "office",
+   "line": "L12",
+   "desc": "The supervisor does not believe him",
+   "f0": 1947,
+   "f1": 2039
+  },
+  {
+   "id": "S13a",
+   "set": "office",
+   "line": "L13",
+   "desc": "Wall clock: 11:02",
+   "f0": 2040,
+   "f1": 2103
+  },
+  {
+   "id": "S13b",
+   "set": "office",
+   "line": "L13",
+   "desc": "The same white light fills the room",
+   "f0": 2104,
+   "f1": 2206
+  },
+  {
+   "id": "S14",
+   "set": "office",
+   "line": "L14",
+   "desc": "On the floor, looking toward the window: the quote",
+   "f0": 2207,
+   "f1": 2321
+  },
+  {
+   "id": "S15a",
+   "set": "vista_naga",
+   "line": "L15",
+   "desc": "Cloud rising over Nagasaki's hills",
+   "f0": 2322,
+   "f1": 2425
+  },
+  {
+   "id": "S15b",
+   "set": "home",
+   "line": "L15",
+   "desc": "Reunited with wife and son",
+   "f0": 2426,
+   "f1": 2536
+  },
+  {
+   "id": "S15c",
+   "set": "vista_naga",
+   "line": "L15",
+   "desc": "The devastated Urakami valley, quiet",
+   "f0": 2537,
+   "f1": 2637
+  },
+  {
+   "id": "S16",
+   "set": "office_later",
+   "line": "L16",
+   "desc": "Years later: designing ships again, silent",
+   "f0": 2638,
+   "f1": 2801
+  },
+  {
+   "id": "S17",
+   "set": "un_hall",
+   "line": "L17",
+   "desc": "2006: speaking at the United Nations",
+   "f0": 2802,
+   "f1": 3047
+  },
+  {
+   "id": "S18a",
+   "set": "home_later",
+   "line": "L18",
+   "desc": "His hands holding the official recognition",
+   "f0": 3048,
+   "f1": 3185
+  },
+  {
+   "id": "S18b",
+   "set": "home_later",
+   "line": "L18",
+   "desc": "Old Yamaguchi, the document on the table",
+   "f0": 3186,
+   "f1": 3323
+  },
+  {
+   "id": "S19",
+   "set": "naga_sunset",
+   "line": "L19",
+   "desc": "Old Yamaguchi at the harbour at sunset",
+   "f0": 3324,
+   "f1": 3538
+  },
+  {
+   "id": "S20",
+   "set": "lanterns",
+   "line": "L20",
+   "desc": "Floating lanterns on the water; end card",
+   "f0": 3539,
+   "f1": 3829
+  }
+ ],
+ "total_frames": 3829,
+ "total_seconds": 127.63333333333334
+}
