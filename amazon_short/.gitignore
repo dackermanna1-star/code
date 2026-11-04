@@ -1,0 +1,16 @@
+assets/
+audio/sfx/originals/
+audio/music/originals/
+audio/mix/premix.wav
+renders/shots/
+renders/seq/
+renders/tests/
+renders/draft.mp4
+renders/*.log
+blend/shots/*.blend1
+blend/*.blend1
+__pycache__/
+audio/sfx/
+audio/music/
+audio/mix/
+blend/

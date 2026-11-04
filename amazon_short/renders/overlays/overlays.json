@@ -1,0 +1,47 @@
+[
+ {
+  "file": "/home/user/code/amazon_short/renders/overlays/heat.png",
+  "t0": 30.342,
+  "t1": 34.962
+ },
+ {
+  "file": "/home/user/code/amazon_short/renders/overlays/night1.png",
+  "t0": 65.045,
+  "t1": 67.645
+ },
+ {
+  "file": "/home/user/code/amazon_short/renders/overlays/day3.png",
+  "t0": 74.046,
+  "t1": 76.646
+ },
+ {
+  "file": "/home/user/code/amazon_short/renders/overlays/day5.png",
+  "t0": 101.592,
+  "t1": 104.192
+ },
+ {
+  "file": "/home/user/code/amazon_short/renders/overlays/microbes.png",
+  "t0": 42.187,
+  "t1": 44.147
+ },
+ {
+  "file": "/home/user/code/amazon_short/renders/overlays/flow.png",
+  "t0": 58.073,
+  "t1": 61.513
+ },
+ {
+  "file": "/home/user/code/amazon_short/renders/overlays/snake.png",
+  "t0": 86.512,
+  "t1": 89.132
+ },
+ {
+  "file": "/home/user/code/amazon_short/renders/overlays/juliane.png",
+  "t0": 108.516,
+  "t1": 117.246
+ },
+ {
+  "file": "/home/user/code/amazon_short/renders/overlays/tip.png",
+  "t0": 117.846,
+  "t1": 121.853
+ }
+]

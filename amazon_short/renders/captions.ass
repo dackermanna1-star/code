@@ -1,0 +1,134 @@
+[Script Info]
+ScriptType: v4.00+
+PlayResX: 1080
+PlayResY: 1920
+WrapStyle: 2
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Cap,Inter Display,92,&H00FFFFFF,&H00FFFFFF,&H00000000,&H64000000,-1,0,0,0,100,100,0,0,1,7,3,2,60,60,560,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 0,0:00:00.46,0:00:01.06,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}WHAT WOULD HAPPEN
+Dialogue: 0,0:00:01.06,0:00:01.68,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}IF YOU GOT
+Dialogue: 0,0:00:01.68,0:00:02.74,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}LOST ALONE IN
+Dialogue: 0,0:00:02.74,0:00:04.21,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}THE {\c&H32D7FF&}AMAZON{\c&HFFFFFF&} {\c&H32D7FF&}RAINFOREST?{\c&HFFFFFF&}
+Dialogue: 0,0:00:04.74,0:00:05.32,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}IT STARTS WITH
+Dialogue: 0,0:00:05.32,0:00:05.84,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}A FEW STEPS
+Dialogue: 0,0:00:05.84,0:00:06.48,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}OFF THE {\c&H32D7FF&}TRAIL.{\c&HFFFFFF&}
+Dialogue: 0,0:00:06.48,0:00:07.60,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}YOU TURN AROUND…
+Dialogue: 0,0:00:07.60,0:00:08.56,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}AND THE {\c&H32D7FF&}TRAIL{\c&HFFFFFF&}
+Dialogue: 0,0:00:08.56,0:00:09.37,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}IS {\c&H32D7FF&}GONE.{\c&HFFFFFF&}
+Dialogue: 0,0:00:09.88,0:00:10.56,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}EVERY DIRECTION
+Dialogue: 0,0:00:10.56,0:00:11.42,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}LOOKS THE {\c&H32D7FF&}SAME.{\c&HFFFFFF&}
+Dialogue: 0,0:00:11.42,0:00:12.74,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}THE CANOPY HIDES
+Dialogue: 0,0:00:12.74,0:00:13.20,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}THE {\c&H32D7FF&}SUN,{\c&HFFFFFF&}
+Dialogue: 0,0:00:13.20,0:00:14.10,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}AND YOUR PHONE
+Dialogue: 0,0:00:14.10,0:00:15.17,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}HAS NO {\c&H32D7FF&}SIGNAL.{\c&HFFFFFF&}
+Dialogue: 0,0:00:15.74,0:00:16.64,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}EXPERTS SAY THAT
+Dialogue: 0,0:00:16.64,0:00:17.32,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}WHEN YOU'RE LOST,
+Dialogue: 0,0:00:17.32,0:00:18.23,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}YOU SHOULD {\c&H32D7FF&}STOP{\c&HFFFFFF&}
+Dialogue: 0,0:00:18.23,0:00:18.98,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}AND {\c&H32D7FF&}STAY{\c&HFFFFFF&} {\c&H32D7FF&}PUT.{\c&HFFFFFF&}
+Dialogue: 0,0:00:18.98,0:00:20.12,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}BUT THAT ONLY
+Dialogue: 0,0:00:20.12,0:00:20.94,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}WORKS IF SOMEONE
+Dialogue: 0,0:00:20.94,0:00:21.62,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}KNOWS WHERE YOU
+Dialogue: 0,0:00:21.62,0:00:21.98,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}ARE.
+Dialogue: 0,0:00:21.98,0:00:23.39,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}AND {\c&H32D7FF&}NOBODY{\c&HFFFFFF&} DOES.
+Dialogue: 0,0:00:23.97,0:00:24.63,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}SO YOU WALK.
+Dialogue: 0,0:00:24.63,0:00:25.79,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}WITHOUT THE {\c&H32D7FF&}SUN{\c&HFFFFFF&}
+Dialogue: 0,0:00:25.79,0:00:26.49,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}OR LANDMARKS,
+Dialogue: 0,0:00:26.49,0:00:27.77,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}PEOPLE OFTEN WALK
+Dialogue: 0,0:00:27.77,0:00:28.69,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}IN {\c&H32D7FF&}CIRCLES{\c&HFFFFFF&} WITHOUT
+Dialogue: 0,0:00:28.69,0:00:29.82,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}REALIZING IT.
+Dialogue: 0,0:00:30.25,0:00:31.11,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}IT'S OVER {\c&H32D7FF&}THIRTY{\c&HFFFFFF&}
+Dialogue: 0,0:00:31.11,0:00:31.92,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}{\c&H32D7FF&}DEGREES,{\c&HFFFFFF&}
+Dialogue: 0,0:00:31.92,0:00:32.54,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}AND THE AIR
+Dialogue: 0,0:00:32.54,0:00:33.18,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}IS SO {\c&H32D7FF&}HUMID{\c&HFFFFFF&}
+Dialogue: 0,0:00:33.18,0:00:34.22,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}YOUR {\c&H32D7FF&}SWEAT{\c&HFFFFFF&} BARELY
+Dialogue: 0,0:00:34.22,0:00:35.43,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}EVAPORATES.
+Dialogue: 0,0:00:35.43,0:00:36.56,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}YOU'RE SOAKING WET,
+Dialogue: 0,0:00:36.56,0:00:37.10,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}BUT YOUR BODY
+Dialogue: 0,0:00:37.10,0:00:38.28,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}{\c&H32D7FF&}CAN'T{\c&HFFFFFF&} COOL DOWN.
+Dialogue: 0,0:00:39.13,0:00:39.59,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}YOU FIND A
+Dialogue: 0,0:00:39.59,0:00:39.93,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}{\c&H32D7FF&}STREAM.{\c&HFFFFFF&}
+Dialogue: 0,0:00:39.93,0:00:41.07,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}BUT UNTREATED,
+Dialogue: 0,0:00:41.07,0:00:42.25,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}THIS {\c&H32D7FF&}WATER{\c&HFFFFFF&} CAN
+Dialogue: 0,0:00:42.25,0:00:43.11,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}CARRY {\c&H32D7FF&}PARASITES{\c&HFFFFFF&}
+Dialogue: 0,0:00:43.11,0:00:43.97,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}AND {\c&H32D7FF&}BACTERIA,{\c&HFFFFFF&}
+Dialogue: 0,0:00:43.97,0:00:45.31,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}AND {\c&H32D7FF&}DIARRHEA{\c&HFFFFFF&} WOULD
+Dialogue: 0,0:00:45.31,0:00:46.07,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}DRAIN YOUR BODY
+Dialogue: 0,0:00:46.07,0:00:47.08,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}EVEN FASTER.
+Dialogue: 0,0:00:48.22,0:00:49.02,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}THEN THE AFTERNOON
+Dialogue: 0,0:00:49.02,0:00:49.88,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}{\c&H32D7FF&}RAIN{\c&HFFFFFF&} ARRIVES.
+Dialogue: 0,0:00:49.88,0:00:51.48,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}{\c&H32D7FF&}RAINWATER{\c&HFFFFFF&} IS ONE
+Dialogue: 0,0:00:51.48,0:00:52.02,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}OF THE {\c&H32D7FF&}SAFEST{\c&HFFFFFF&}
+Dialogue: 0,0:00:52.02,0:00:52.94,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}DRINKS OUT HERE,
+Dialogue: 0,0:00:52.94,0:00:53.70,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}SO YOU CATCH
+Dialogue: 0,0:00:53.70,0:00:54.62,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}EVERY DROP YOU
+Dialogue: 0,0:00:54.62,0:00:55.21,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}CAN.
+Dialogue: 0,0:00:55.70,0:00:56.18,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}AND THE {\c&H32D7FF&}STREAM{\c&HFFFFFF&}
+Dialogue: 0,0:00:56.18,0:00:56.70,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}GIVES YOU A
+Dialogue: 0,0:00:56.70,0:00:57.02,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}{\c&H32D7FF&}PLAN.{\c&HFFFFFF&}
+Dialogue: 0,0:00:57.02,0:00:58.60,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}SMALL STREAMS FLOW
+Dialogue: 0,0:00:58.60,0:00:59.52,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}INTO BIGGER {\c&H32D7FF&}RIVERS,{\c&HFFFFFF&}
+Dialogue: 0,0:00:59.52,0:01:00.52,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}AND {\c&H32D7FF&}RIVERS{\c&HFFFFFF&} ARE
+Dialogue: 0,0:01:00.52,0:01:01.38,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}WHERE PEOPLE LIVE.
+Dialogue: 0,0:01:01.38,0:01:02.44,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}SO YOU FOLLOW
+Dialogue: 0,0:01:02.44,0:01:03.35,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}IT {\c&H32D7FF&}DOWNSTREAM.{\c&HFFFFFF&}
+Dialogue: 0,0:01:04.70,0:01:05.77,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}{\c&H32D7FF&}NIGHT{\c&HFFFFFF&} FALLS FAST.
+Dialogue: 0,0:01:05.77,0:01:06.87,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}UNDER THE CANOPY,
+Dialogue: 0,0:01:06.86,0:01:07.84,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}IT'S {\c&H32D7FF&}PITCH{\c&HFFFFFF&} {\c&H32D7FF&}BLACK,{\c&HFFFFFF&}
+Dialogue: 0,0:01:07.84,0:01:08.69,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}AND THE FOREST
+Dialogue: 0,0:01:08.69,0:01:09.69,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}ONLY GETS LOUDER.
+Dialogue: 0,0:01:09.69,0:01:10.95,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}SOAKED TO THE
+Dialogue: 0,0:01:10.94,0:01:11.25,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}SKIN,
+Dialogue: 0,0:01:11.25,0:01:11.95,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}YOU {\c&H32D7FF&}SHIVER,{\c&HFFFFFF&}
+Dialogue: 0,0:01:11.94,0:01:12.67,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}EVEN IN THE
+Dialogue: 0,0:01:12.66,0:01:13.46,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}TROPICS.
+Dialogue: 0,0:01:14.46,0:01:15.20,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}BY DAY {\c&H32D7FF&}THREE,{\c&HFFFFFF&}
+Dialogue: 0,0:01:15.20,0:01:16.42,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}INSECT {\c&H32D7FF&}BITES{\c&HFFFFFF&} COVER
+Dialogue: 0,0:01:16.42,0:01:17.00,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}YOUR SKIN,
+Dialogue: 0,0:01:17.00,0:01:17.86,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}AND A SMALL
+Dialogue: 0,0:01:17.86,0:01:18.38,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}{\c&H32D7FF&}CUT{\c&HFFFFFF&} ON YOUR
+Dialogue: 0,0:01:18.38,0:01:19.20,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}ARM IS RED
+Dialogue: 0,0:01:19.20,0:01:19.78,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}AND SWOLLEN.
+Dialogue: 0,0:01:19.78,0:01:21.20,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}IN THIS HEAT,
+Dialogue: 0,0:01:21.20,0:01:22.14,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}WOUNDS CAN GET
+Dialogue: 0,0:01:22.14,0:01:23.31,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}{\c&H32D7FF&}INFECTED{\c&HFFFFFF&} IN {\c&H32D7FF&}DAYS.{\c&HFFFFFF&}
+Dialogue: 0,0:01:24.32,0:01:24.95,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}THEN YOU NEARLY
+Dialogue: 0,0:01:24.95,0:01:25.55,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}STEP ON A
+Dialogue: 0,0:01:25.55,0:01:26.17,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}{\c&H32D7FF&}FER-DE-LANCE,{\c&HFFFFFF&}
+Dialogue: 0,0:01:26.17,0:01:27.27,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}THE SNAKE BEHIND
+Dialogue: 0,0:01:27.27,0:01:28.08,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}MOST {\c&H32D7FF&}BITES{\c&HFFFFFF&} IN
+Dialogue: 0,0:01:28.08,0:01:28.66,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}THE {\c&H32D7FF&}AMAZON.{\c&HFFFFFF&}
+Dialogue: 0,0:01:28.66,0:01:29.94,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}YOU {\c&H32D7FF&}FREEZE,{\c&HFFFFFF&}
+Dialogue: 0,0:01:29.94,0:01:31.03,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}BACK AWAY SLOWLY,
+Dialogue: 0,0:01:31.03,0:01:31.74,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}AND GIVE IT
+Dialogue: 0,0:01:31.74,0:01:32.31,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}{\c&H32D7FF&}SPACE.{\c&HFFFFFF&}
+Dialogue: 0,0:01:33.22,0:01:33.86,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}YOU'RE {\c&H32D7FF&}STARVING,{\c&HFFFFFF&}
+Dialogue: 0,0:01:33.86,0:01:35.02,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}BUT UNKNOWN BERRIES
+Dialogue: 0,0:01:35.02,0:01:35.96,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}AND MUSHROOMS COULD
+Dialogue: 0,0:01:35.96,0:01:36.56,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}{\c&H32D7FF&}POISON{\c&HFFFFFF&} YOU.
+Dialogue: 0,0:01:36.56,0:01:37.68,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}YOU CAN LAST
+Dialogue: 0,0:01:37.68,0:01:38.68,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}{\c&H32D7FF&}WEEKS{\c&HFFFFFF&} WITHOUT FOOD.
+Dialogue: 0,0:01:38.68,0:01:39.94,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}{\c&H32D7FF&}WATER{\c&HFFFFFF&} IS WHAT
+Dialogue: 0,0:01:39.94,0:01:40.89,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}KEEPS YOU {\c&H32D7FF&}ALIVE.{\c&HFFFFFF&}
+Dialogue: 0,0:01:41.90,0:01:42.62,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}ON DAY {\c&H32D7FF&}FIVE,{\c&HFFFFFF&}
+Dialogue: 0,0:01:42.62,0:01:43.54,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}THE {\c&H32D7FF&}STREAM{\c&HFFFFFF&} OPENS
+Dialogue: 0,0:01:43.54,0:01:44.28,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}ONTO A WIDE
+Dialogue: 0,0:01:44.28,0:01:44.62,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}{\c&H32D7FF&}RIVER.{\c&HFFFFFF&}
+Dialogue: 0,0:01:44.62,0:01:45.42,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}AND THEN YOU
+Dialogue: 0,0:01:45.42,0:01:45.90,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}HEAR IT…
+Dialogue: 0,0:01:45.90,0:01:46.93,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}AN {\c&H32D7FF&}ENGINE.{\c&HFFFFFF&}
+Dialogue: 0,0:01:48.18,0:01:49.06,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}IN {\c&H32D7FF&}1971,{\c&HFFFFFF&}
+Dialogue: 0,0:01:49.06,0:01:50.58,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}AFTER A PLANE
+Dialogue: 0,0:01:50.58,0:01:50.92,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}CRASH,
+Dialogue: 0,0:01:50.92,0:01:52.93,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}{\c&H32D7FF&}SEVENTEEN-YEAR-OLD{\c&HFFFFFF&}
+Dialogue: 0,0:01:52.93,0:01:54.03,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}{\c&H32D7FF&}JULIANE{\c&HFFFFFF&} {\c&H32D7FF&}KOEPCKE{\c&HFFFFFF&}
+Dialogue: 0,0:01:54.03,0:01:55.38,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}SURVIVED {\c&H32D7FF&}ELEVEN{\c&HFFFFFF&}
+Dialogue: 0,0:01:55.38,0:01:56.10,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}{\c&H32D7FF&}DAYS{\c&HFFFFFF&} ALONE IN
+Dialogue: 0,0:01:56.10,0:01:57.17,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}THE {\c&H32D7FF&}AMAZON,{\c&HFFFFFF&}
+Dialogue: 0,0:01:57.17,0:01:58.11,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}BY DOING EXACTLY
+Dialogue: 0,0:01:58.11,0:01:58.54,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}THIS.
+Dialogue: 0,0:01:58.54,0:02:00.07,Cap,,0,0,0,,{\fscx80\fscy80\t(0,90,\fscx106\fscy106)\t(90,160,\fscx100\fscy100)}FOLLOWING THE {\c&H32D7FF&}WATER.{\c&HFFFFFF&}

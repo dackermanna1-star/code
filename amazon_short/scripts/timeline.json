@@ -1,0 +1,295 @@
+{
+ "fps": 30,
+ "total": 121.853,
+ "vo": {
+  "L01": 0.5,
+  "L02": 4.784,
+  "L03": 9.917,
+  "L04": 15.775,
+  "L05": 24.011,
+  "L06": 30.292,
+  "L07": 39.167,
+  "L08": 48.263,
+  "L09": 55.743,
+  "L10": 64.745,
+  "L11": 74.496,
+  "L12": 84.362,
+  "L13": 93.256,
+  "L14": 101.942,
+  "L15": 108.216
+ },
+ "shots": [
+  {
+   "id": "S01",
+   "start": 0.0,
+   "end": 4.384,
+   "f0": 0,
+   "frames": 132,
+   "desc": "Aerial over endless canopy, descend toward gap"
+  },
+  {
+   "id": "S02",
+   "start": 4.384,
+   "end": 6.794,
+   "f0": 132,
+   "frames": 72,
+   "desc": "Trail: character steps off trail following blue morpho"
+  },
+  {
+   "id": "S03",
+   "start": 6.794,
+   "end": 9.667,
+   "f0": 204,
+   "frames": 86,
+   "desc": "Over-shoulder turn around: trail gone"
+  },
+  {
+   "id": "S04",
+   "start": 9.667,
+   "end": 11.767,
+   "f0": 290,
+   "frames": 63,
+   "desc": "Orbit around character looking around, identical jungle"
+  },
+  {
+   "id": "S05",
+   "start": 11.767,
+   "end": 12.987,
+   "f0": 353,
+   "frames": 37,
+   "desc": "Low angle POV up through canopy, sun hidden"
+  },
+  {
+   "id": "S06",
+   "start": 12.987,
+   "end": 15.525,
+   "f0": 390,
+   "frames": 76,
+   "desc": "Phone close-up: No Service"
+  },
+  {
+   "id": "S07",
+   "start": 15.525,
+   "end": 19.265,
+   "f0": 466,
+   "frames": 112,
+   "desc": "Wide: sits on buttress root, calms down (stay put)"
+  },
+  {
+   "id": "S08",
+   "start": 19.265,
+   "end": 23.761,
+   "f0": 578,
+   "frames": 135,
+   "desc": "Slow push-in on worried face"
+  },
+  {
+   "id": "S09",
+   "start": 23.761,
+   "end": 24.981,
+   "f0": 713,
+   "frames": 36,
+   "desc": "Gets up and walks, low angle boots in mud"
+  },
+  {
+   "id": "S10",
+   "start": 24.981,
+   "end": 30.042,
+   "f0": 749,
+   "frames": 152,
+   "desc": "Top-down: walking in a circle, passes same log + orange fungus, trail line"
+  },
+  {
+   "id": "S11",
+   "start": 30.042,
+   "end": 35.162,
+   "f0": 901,
+   "frames": 154,
+   "desc": "Face close-up sweating, humid haze, 32C / 90% overlay"
+  },
+  {
+   "id": "S12",
+   "start": 35.162,
+   "end": 38.917,
+   "f0": 1055,
+   "frames": 113,
+   "desc": "Medium: pushes through foliage, shirt soaked, wipes brow"
+  },
+  {
+   "id": "S13",
+   "start": 38.917,
+   "end": 40.257,
+   "f0": 1168,
+   "frames": 40,
+   "desc": "Parts leaves: reveals stream"
+  },
+  {
+   "id": "S14",
+   "start": 40.257,
+   "end": 42.037,
+   "f0": 1208,
+   "frames": 53,
+   "desc": "Kneels at stream, scoops water in hands"
+  },
+  {
+   "id": "S15",
+   "start": 42.037,
+   "end": 44.197,
+   "f0": 1261,
+   "frames": 65,
+   "desc": "Macro zoom into water: microbes"
+  },
+  {
+   "id": "S16",
+   "start": 44.197,
+   "end": 47.663,
+   "f0": 1326,
+   "frames": 104,
+   "desc": "Lets water drain from hands, shakes head"
+  },
+  {
+   "id": "S17",
+   "start": 47.663,
+   "end": 50.433,
+   "f0": 1430,
+   "frames": 83,
+   "desc": "Rain arrives: wide with rain sheets and thunder"
+  },
+  {
+   "id": "S18",
+   "start": 50.433,
+   "end": 55.493,
+   "f0": 1513,
+   "frames": 152,
+   "desc": "Catches rain from leaf tip into bottle, drinks"
+  },
+  {
+   "id": "S19",
+   "start": 55.493,
+   "end": 57.673,
+   "f0": 1665,
+   "frames": 65,
+   "desc": "Looks at stream flowing, realization"
+  },
+  {
+   "id": "S20",
+   "start": 57.673,
+   "end": 61.613,
+   "f0": 1730,
+   "frames": 118,
+   "desc": "Aerial diagram: stream joins river, arrows"
+  },
+  {
+   "id": "S21",
+   "start": 61.613,
+   "end": 63.845,
+   "f0": 1848,
+   "frames": 67,
+   "desc": "Tracking: follows stream downstream"
+  },
+  {
+   "id": "S22",
+   "start": 63.845,
+   "end": 70.355,
+   "f0": 1915,
+   "frames": 196,
+   "desc": "Night falls timelapse, sits against buttress, fireflies"
+  },
+  {
+   "id": "S23",
+   "start": 70.355,
+   "end": 73.896,
+   "f0": 2111,
+   "frames": 106,
+   "desc": "Close-up shivering in dark, faint moonlight"
+  },
+  {
+   "id": "S24",
+   "start": 73.896,
+   "end": 76.786,
+   "f0": 2217,
+   "frames": 87,
+   "desc": "DAY 3: forearm with mosquitoes, bites, slap"
+  },
+  {
+   "id": "S25",
+   "start": 76.786,
+   "end": 83.862,
+   "f0": 2304,
+   "frames": 212,
+   "desc": "Cut on forearm red and swollen"
+  },
+  {
+   "id": "S26",
+   "start": 83.862,
+   "end": 86.312,
+   "f0": 2516,
+   "frames": 73,
+   "desc": "Ground-level: boot about to step, snake camouflaged"
+  },
+  {
+   "id": "S27",
+   "start": 86.312,
+   "end": 89.232,
+   "f0": 2589,
+   "frames": 88,
+   "desc": "Snake head close-up, tongue flick"
+  },
+  {
+   "id": "S28",
+   "start": 89.232,
+   "end": 93.006,
+   "f0": 2677,
+   "frames": 113,
+   "desc": "Freeze and back away slowly"
+  },
+  {
+   "id": "S29",
+   "start": 93.006,
+   "end": 96.866,
+   "f0": 2790,
+   "frames": 116,
+   "desc": "Exhausted crouch: berries & mushrooms, refuses"
+  },
+  {
+   "id": "S30",
+   "start": 96.866,
+   "end": 101.442,
+   "f0": 2906,
+   "frames": 137,
+   "desc": "Stumbling along stream, drinks"
+  },
+  {
+   "id": "S31",
+   "start": 101.442,
+   "end": 104.792,
+   "f0": 3043,
+   "frames": 101,
+   "desc": "Reveal: emerges onto wide river at golden hour"
+  },
+  {
+   "id": "S32",
+   "start": 104.792,
+   "end": 107.966,
+   "f0": 3144,
+   "frames": 95,
+   "desc": "Head turns to engine; boat rounds bend"
+  },
+  {
+   "id": "S33",
+   "start": 107.966,
+   "end": 116.246,
+   "f0": 3239,
+   "frames": 248,
+   "desc": "Waves at boat, boat approaches"
+  },
+  {
+   "id": "S34",
+   "start": 116.246,
+   "end": 121.853,
+   "f0": 3487,
+   "frames": 169,
+   "desc": "Final aerial pull back over river and canopy"
+  }
+ ]
+}
