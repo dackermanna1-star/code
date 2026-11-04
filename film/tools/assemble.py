@@ -143,6 +143,7 @@ def main():
     ap.add_argument("--audio", default=os.path.join(ROOT, "build", "audio", "film_audio.wav"))
     ap.add_argument("--crf", default="19")
     ap.add_argument("--range", default=None, help="t0:t1 seconds (preview a portion)")
+    ap.add_argument("--grain", type=float, default=0.004)
     a = ap.parse_args()
 
     total = tl.total_frames()
@@ -182,7 +183,7 @@ def main():
                 img = last
             g, add = gain_at(t, trans)
             img = img * vig * g + add
-            img = img + rng.normal(0, 0.012, size=(FH, FW, 1)).astype(np.float32)
+            img = img + rng.normal(0, a.grain, size=(FH, FW, 1)).astype(np.float32)
             canvas[Y0:Y0 + FH] = np.clip(img, 0, 1)
         # opening title over the sunrise aerial
         if 1.0 <= t <= 6.6:
