@@ -1,0 +1,6 @@
+build/frames/
+build/logs/
+build/*.blend1
+build/vo_*.wav
+build/vo48.wav
+__pycache__/
