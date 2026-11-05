@@ -49,7 +49,7 @@ def common_settings():
     bpy.context.view_layer.use_pass_mist = True
     sc.world.mist_settings.start = 0.5; sc.world.mist_settings.depth = 16.0; sc.world.mist_settings.falloff = "LINEAR"
     sc.render.use_compositing = False; sc.render.use_sequencer = False
-    flat_display_glass(); clear_ice()
+    flat_display_glass(); clear_ice(); crinkle_foil()
 
 
 def frames():
@@ -119,6 +119,42 @@ def soften_breath():
     mr_.inputs[1].default_value = 0.05; mr_.inputs[2].default_value = 0.35
     m.cycles.volume_step_rate = 3.0
     return m
+
+
+def crinkle_foil():
+    """Render-time patch for M_FoilBlanket: the build-time bump (Voronoi F1 at 7 cm cells, 1 mm bump distance) was
+    almost flat, so the blanket read as smooth molten gold in close-up. Edge-distance Voronoi gives the sharp creases
+    of crumpled foil, with a finer noise for small wrinkles; roughness varies a little across the sheet."""
+    m = bpy.data.materials.get("M_FoilBlanket")
+    if not m: return
+    nt = m.node_tree; N, L = nt.nodes, nt.links
+    vo = next(n for n in N if n.type == "TEX_VORONOI"); bp = next(n for n in N if n.type == "BUMP")
+    bs = next(n for n in N if n.type == "BSDF_PRINCIPLED"); tc = next(n for n in N if n.type == "TEX_COORD")
+    vo.feature = "DISTANCE_TO_EDGE"; vo.inputs["Scale"].default_value = 24.0
+    # creases hang vertically and are irregular: stretch the cells along Z and wobble them with noise
+    wob = N.new("ShaderNodeTexNoise"); wob.inputs["Scale"].default_value = 6.0; wob.inputs["Detail"].default_value = 2.0
+    L.new(tc.outputs["Object"], wob.inputs["Vector"])
+    wv = N.new("ShaderNodeVectorMath"); wv.operation = "MULTIPLY_ADD"
+    L.new(wob.outputs["Color"], wv.inputs[0]); wv.inputs[1].default_value = (0.05, 0.05, 0.05); L.new(tc.outputs["Object"], wv.inputs[2])
+    st = N.new("ShaderNodeVectorMath"); st.operation = "MULTIPLY"; st.inputs[1].default_value = (1.0, 1.0, 0.45)
+    L.new(wv.outputs[0], st.inputs[0])
+    for l in list(vo.inputs["Vector"].links): L.remove(l)
+    L.new(st.outputs[0], vo.inputs["Vector"])
+    for l in list(bp.inputs["Height"].links): L.remove(l)
+    nz = N.new("ShaderNodeTexNoise"); nz.inputs["Scale"].default_value = 90.0; nz.inputs["Detail"].default_value = 3.0
+    L.new(tc.outputs["Object"], nz.inputs["Vector"])
+    crease = N.new("ShaderNodeMath"); crease.operation = "POWER"; crease.inputs[1].default_value = 0.5
+    L.new(vo.outputs["Distance"], crease.inputs[0])
+    h = N.new("ShaderNodeMath"); h.operation = "MULTIPLY_ADD"; h.inputs[2].default_value = 0.0
+    L.new(nz.outputs["Fac"], h.inputs[0]); h.inputs[1].default_value = 0.15
+    tot = N.new("ShaderNodeMath"); tot.operation = "ADD"; L.new(crease.outputs[0], tot.inputs[0]); L.new(h.outputs[0], tot.inputs[1])
+    L.new(tot.outputs[0], bp.inputs["Height"])
+    bp.inputs["Strength"].default_value = 0.85; bp.inputs["Distance"].default_value = 0.012
+    rr = N.new("ShaderNodeMapRange"); rr.inputs[1].default_value = 0.3; rr.inputs[2].default_value = 0.7
+    rr.inputs[3].default_value = 0.14; rr.inputs[4].default_value = 0.3
+    L.new(nz.outputs["Fac"], rr.inputs[0]); L.new(rr.outputs[0], bs.inputs["Roughness"])
+    bs.inputs["Base Color"].default_value = (0.93, 0.7, 0.32, 1)
+    print("foil: crinkled")
 
 
 def flat_display_glass():

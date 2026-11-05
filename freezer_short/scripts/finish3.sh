@@ -1,5 +1,5 @@
 #!/bin/bash
-# Takes over from finish2.sh after late fixes (SH08b hands/camera; floor-ice black voids in five plates):
+# Takes over from finish2.sh after late fixes (SH08b hands/camera; floor-ice voids in five plates; foil crinkle):
 # wait for the running render queue, re-render SH08b with a fresh camera export, then composite,
 # remix audio, re-apply overlays to every frame and encode.
 R=/opt/work/renders; S=/home/user/code/freezer_short/scripts; LOG=/opt/work/render_queue.log
@@ -24,6 +24,17 @@ for f in range(s['f0'], s['f1']+1):
     p='/opt/work/final/%05d.png'%f
     if os.path.exists(p): os.remove(p)"
   echo "$(date +%H:%M:%S) DONE $sh plate (ice stagger)" >> $LOG
+done
+# foil blanket shots: crinkled-foil material (render-time patch) on the character pass
+for sh in SH23 SH24a; do
+  rm -f $R/$sh/${sh}_char_*.exr
+  blender -b $BLEND --python $S/render_shot.py -- $sh char $R/$sh final > $R/$sh/char.log 2>&1
+  python3 -c "
+import json, os; s=json.load(open('$R/shots.json'))['$sh']
+for f in range(s['f0'], s['f1']+1):
+    p='/opt/work/final/%05d.png'%f
+    if os.path.exists(p): os.remove(p)"
+  echo "$(date +%H:%M:%S) DONE $sh char (foil)" >> $LOG
 done
 echo "$(date +%H:%M:%S) FIXPASS2 RENDERED" >> $LOG
 cd $S && OMP_NUM_THREADS=2 python3 assemble.py | grep ASSEMBLED
