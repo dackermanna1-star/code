@@ -116,6 +116,12 @@ if PASS == "plate":
             for fc in list(o.animation_data.action.fcurves) if o.animation_data.action else []:
                 if fc.data_path == "hide_render": o.animation_data.action.fcurves.remove(fc)
         o.hide_render = True
+    # glazed ice instead of a mirror-black puddle (the dark glossy version read as a hole in the floor)
+    mi = bpy.data.materials.get("M_FloorIce")
+    if mi:
+        bi = mi.node_tree.nodes["Principled BSDF"]
+        bi.inputs["Base Color"].default_value = (0.5, 0.58, 0.66, 1); bi.inputs["Roughness"].default_value = 0.12
+        bi.inputs["Coat Weight"].default_value = 0.6; bi.inputs["Coat Roughness"].default_value = 0.05
     sc.cycles.samples = {"final": 12, "draft": 6, "tiny": 4}[Q]
     sc.cycles.adaptive_threshold = 0.02
     sc.cycles.use_denoising = True; sc.cycles.denoiser = "OPENIMAGEDENOISE"

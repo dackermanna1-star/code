@@ -834,8 +834,11 @@ def build(ids=None):
             A.face_keys(body_, ff, {"jawOpen": rnd.uniform(0.02, 0.22), "mouthFunnel": rnd.uniform(0, 0.4), "mouthPucker": rnd.uniform(0, 0.3),
                                     "mouthRollLower": rnd.uniform(0, 0.3), "eyeBlinkLeft": 0.35, "eyeBlinkRight": 0.4, "browInnerUp": 0.4,
                                     "mouthLeft": rnd.uniform(0, 0.2)})
-        cp, hp = orbit(rig, (f0 + f1) // 2, "head", 0.55, az=14, el=-4)
-        cam = camera("SH16c", f0, f1, cp, [(f0, hp + Vector((0, 0, -0.04)), 55), (f1, hp + Vector((0, 0, -0.04)), 58)], shake=0.25, fstop=2.0)
+        fm = (f0 + f1) // 2
+        mouth, fwd = mouth_world(rig, fm)
+        fw = facing(rig, fm); left = Vector((0, 0, 1)).cross(fw)
+        cp = mouth + (fw * math.cos(math.radians(18)) + left * math.sin(math.radians(18))) * 0.5 + Vector((0, 0, 0.03))
+        cam = camera("SH16c", f0, f1, tuple(cp), [(f0, mouth + Vector((0, 0, 0.02)), 50), (f1, mouth + Vector((0, 0, 0.02)), 54)], shake=0.25, fstop=2.8, focus=0.5)
         shot("SH16c", f0, f1, cam, dynamic=PUFFS, note="slurred speech CU")
     f0, f1 = F(67.4) + 1, F(69.3)
     if want("SH16d"):
