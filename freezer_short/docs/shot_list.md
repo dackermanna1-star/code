@@ -44,27 +44,27 @@
 | SH25a | 3620–3739 | 120.6–124.6 | thermal | CAM_SH25a | thermal warming up |
 | SH25b | 3740–3946 | 124.6–131.5 | plate | CAM_SH25b | door closes on the iced release; end card |
 
-## Narration timing
+## Narration timing (re-voiced after the fact-check)
 
 - **L01** 0.6–5.9s — Imagine you're stocking a giant industrial freezer... when the door slams shut behind you.
-- **L02** 6.2–11.5s — It's minus twenty degrees Celsius, and fans keep blasting frozen air across your body.
+- **L02** 6.2–11.3s — It's minus twenty degrees Celsius, and fans keep pushing freezing air across your body.
 - **L03** 11.7–13.6s — You push the door. It won't budge.
-- **L04** 14.0–22.5s — Within seconds, you feel cold. But that's just nerves in your skin sounding the alarm. Your core is still a normal thirty-seven degrees.
-- **L05** 22.8–29.0s — To protect it, your body squeezes the blood vessels in your skin, pulling warm blood away from your hands.
-- **L06** 29.2–33.9s — Then the shivering starts: rapid muscle twitches that burn energy to make heat.
-- **L07** 34.1–39.9s — But heat is escaping everywhere: into the air, out with every breath, and into anything you touch.
-- **L08** 40.2–44.8s — Your fingers go numb and clumsy. And the thick metal walls block your signal.
-- **L09** 45.1–49.4s — Then you remember: most freezers have an emergency release inside the door.
+- **L04** 14.0–22.6s — Within seconds, you feel cold. But that's just nerves in your skin sounding the alarm. Your core is still normal: around thirty-seven degrees.
+- **L05** 22.8–29.0s — To protect it, your body squeezes the blood vessels in your skin, cutting the flow of warm blood to your hands.
+- **L06** 29.2–34.0s — Then the shivering starts: rapid, involuntary muscle contractions that burn energy for heat.
+- **L07** 34.1–40.1s — But heat is escaping everywhere: into the air and walls, out with every breath, and into anything you touch.
+- **L08** 40.2–44.9s — Your fingers go numb and clumsy. And the metal-clad walls can block your signal.
+- **L09** 45.1–49.4s — Then you remember: most walk-in freezers have an emergency release inside the door.
 - **L10** 49.6–51.3s — But this one is jammed with ice.
 - **L11** 51.7–55.5s — You hurry to break it free... and the frosted floor takes your legs out.
 - **L12** 55.9–62.1s — Hours can pass. Your core slowly cools, and below thirty-five degrees, you have hypothermia.
-- **L13** 62.3–69.1s — In this mild stage, you shiver violently. Your hands fumble, your speech slurs, and your judgment starts to slip.
-- **L14** 69.4–77.0s — Your best move: get off the metal floor, which pulls heat out of you. Sit on cardboard, tuck your hands into your armpits, and curl up.
-- **L15** 77.4–86.6s — Nearing thirty-two degrees, something frightening can happen: the shivering stops. Not because you're warm, but because your body is running out of ways to fight.
+- **L13** 62.3–69.2s — In this mild stage, you'll likely shiver violently. Your hands fumble, your speech may slur, and your judgment starts to slip.
+- **L14** 69.4–77.2s — While you wait for help: get off the metal floor, which drains heat from you. Sit on cardboard, tuck your hands into your armpits, and curl up.
+- **L15** 77.4–86.7s — Somewhere below thirty-two, something frightening can happen: the shivering fades, then stops. Not because you're warm, but because your body is running out of ways to fight.
 - **L16** 86.8–91.4s — Confusion and drowsiness creep in. You might not even realize you're in danger.
 - **L17** 91.7–98.7s — Below about twenty-eight, people usually lose consciousness, and the heart's rhythm can turn dangerously unstable.
 - **L18** 99.3–100.7s — So... could you survive?
 - **L19** 101.2–107.6s — In cold air, serious hypothermia usually takes hours, not minutes. But there's no fixed countdown.
 - **L20** 107.9–114.6s — It depends on the temperature, moving air, your clothing, staying dry, your body and health... and how fast you're found.
-- **L21** 114.9–120.1s — Feeling cold is your body's alarm. Hypothermia is when that alarm goes quiet.
-- **L22** 120.4–128.5s — Doctors have even revived people from astonishingly low temperatures. As they say: nobody's dead until they're warm and dead.
+- **L21** 114.9–120.2s — Feeling cold is your body's alarm. The danger deepens when that alarm goes quiet.
+- **L22** 120.4–130.4s — In rare cases, doctors have revived people from astonishingly low body temperatures. That's why rescuers say: nobody's dead until they're warm and dead.
