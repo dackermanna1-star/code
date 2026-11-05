@@ -92,23 +92,26 @@ def stroke_text(d, xy, txt, fnt, fill, stroke=8, sfill=(0, 0, 0)):
     d.text(xy, txt, font=fnt, fill=fill, stroke_width=stroke, stroke_fill=sfill)
 
 
-def draw_captions(img, t):
+CAP_Y = {"SH06b": 1060, "SH10b": 660}   # caption baseline per shot (default 1290): keep hands / lips clear
+
+
+def draw_captions(img, t, y0=1290):
     ch = next((c for c in CHUNKS if c["s"] - 0.03 <= t <= c["e"]), None)
     if not ch: return img
     pop = ease((t - ch["s"]) / 0.12)
     size = int(78 * (0.88 + 0.12 * pop))
-    fnt = font(size)
+    fnt = font(size); fnt_full = font(78)
     words = [w["w"].upper().strip(",.:;") if w["w"][-1] in ",.:;" else w["w"].upper() for w in ch["words"]]
-    # wrap into lines <= 900px
+    # wrap into lines <= 920px at the FINAL size, so the pop-in never re-flows the lines
     lines, cur = [], []
     for i, w in enumerate(words):
         test = " ".join([x for _, x in cur] + [w])
-        if cur and fnt.getlength(test) > 920:
+        if cur and fnt_full.getlength(test) > 920:
             lines.append(cur); cur = []
         cur.append((i, w))
     lines.append(cur)
     lay = Image.new("RGBA", (W, H), (0, 0, 0, 0)); d = ImageDraw.Draw(lay)
-    y = 1290 - (len(lines) - 1) * size * 0.6
+    y = y0 - (len(lines) - 1) * size * 0.6
     for ln in lines:
         txt = " ".join(w for _, w in ln)
         x = W / 2 - fnt.getlength(txt) / 2
@@ -137,12 +140,20 @@ HUD_ON = [(F(19.4) + 1, F(28.7)), (F(55.4) + 1, F(86.9)), (F(91.7) + 1, F(99.2))
 
 def core_at(f):
     ks = CORE_KEYS
-    if f <= ks[0][0]: return ks[0][1], ks[0][2]
-    for a, b in zip(ks, ks[1:]):
-        if a[0] <= f <= b[0]:
-            u = (f - a[0]) / max(1, b[0] - a[0])
-            return a[1] + (b[1] - a[1]) * ease(u), (b[2] if u > 0.5 and b[2] else a[2])
-    return ks[-1][1], ks[-1][2]
+    if f <= ks[0][0]: tc, lab = ks[0][1], ks[0][2]
+    else:
+        tc, lab = ks[-1][1], ks[-1][2]
+        for a, b in zip(ks, ks[1:]):
+            if a[0] <= f <= b[0]:
+                u = (f - a[0]) / max(1, b[0] - a[0])
+                tc, lab = a[1] + (b[1] - a[1]) * ease(u), (b[2] if u > 0.5 and b[2] else a[2])
+                break
+    # the stage label switches exactly when the displayed core crosses a threshold (it used to lead it)
+    if tc < 28.0 - 1e-6: lab = "SEVERE"
+    elif tc < 32.0 - 1e-6: lab = "MODERATE"
+    elif tc < 35.0 - 1e-6: lab = "HYPOTHERMIA" if f < F(62.2) else "MILD HYPOTHERMIA"
+    elif lab not in ("NORMAL", ""): lab = ""
+    return tc, lab
 
 
 def temp_col(tc):
@@ -158,7 +169,7 @@ def draw_hud(img, f):
     tc, lab = core_at(f)
     lay = Image.new("RGBA", (W, H), (0, 0, 0, 0)); d = ImageDraw.Draw(lay)
     x0, y0 = 62, 262
-    d.rounded_rectangle((x0 - 20, y0 - 30, x0 + 345, y0 + 330), radius=26, fill=(8, 14, 24, int(150 * a)))
+    d.rounded_rectangle((x0 - 20, y0 - 30, x0 + 378, y0 + 330), radius=26, fill=(8, 14, 24, int(150 * a)))  # wide enough for HYPOTHERMIA
     # thermometer tube
     tx, top, bot = x0 + 30, y0 + 20, y0 + 250
     d.rounded_rectangle((tx - 14, top, tx + 14, bot), radius=14, outline=(230, 240, 255, int(255 * a)), width=4)
@@ -232,7 +243,8 @@ def nerve_pulses(img, f, sid):
         chain = [an[f"hand_{side}"], an[f"lowerarm_{side}"], an[f"upperarm_{side}"], an[f"clavicle_{side}"]]
         pts = [project(c, p) for p in chain]
         if any(p is None for p in pts): continue
-        d.line(pts, fill=(90, 200, 255, int(70 * a)), width=3, joint="curve")
+        d.line(pts, fill=(20, 60, 120, int(150 * a)), width=9, joint="curve")    # dark under-stroke for contrast on white
+        d.line(pts, fill=(110, 215, 255, int(200 * a)), width=5, joint="curve")
         seg = [math.dist(pts[i], pts[i + 1]) for i in range(len(pts) - 1)]; tot = sum(seg)
         for k in range(3):
             u = ((t - t0) * 0.8 + k / 3 + (0.15 if side == "r" else 0)) % 1.0
@@ -241,8 +253,9 @@ def nerve_pulses(img, f, sid):
                 if s_ <= L:
                     q = (pts[i][0] + (pts[i + 1][0] - pts[i][0]) * s_ / max(L, 1e-3), pts[i][1] + (pts[i + 1][1] - pts[i][1]) * s_ / max(L, 1e-3)); break
                 s_ -= L
-            r = 9 * (1 - 0.4 * u)
-            d.ellipse((q[0] - r, q[1] - r, q[0] + r, q[1] + r), fill=(210, 245, 255, int(255 * a * (1 - 0.5 * u))))
+            r = 14 * (1 - 0.35 * u)
+            d.ellipse((q[0] - r - 4, q[1] - r - 4, q[0] + r + 4, q[1] + r + 4), fill=(20, 60, 120, int(160 * a * (1 - 0.5 * u))))
+            d.ellipse((q[0] - r, q[1] - r, q[0] + r, q[1] + r), fill=(225, 250, 255, int(255 * a * (1 - 0.4 * u))))
     hp = project(c, an["head_tail"])
     if hp and t > 17.8:
         ring = ((t - 17.9) * 1.6) % 1.0
@@ -294,6 +307,14 @@ def heat_arrows(img, f, sid):
             pts = [(p[0] + 18 * math.sin(y0 / 40 + j * 0.8 + t * 3), y0 - j * 14) for j in range(9)]
             d.line(pts, fill=(255, 215, 140, int(170 * a * (1 - u) * min(1, u * 4))), width=6)
     return Image.alpha_composite(Image.alpha_composite(img, glow_layer(lay, 7)), lay)
+
+
+def floor_label_xy(f, sid):
+    """Just under where he sits on the floor (projected pelvis), kept clear of the HUD and the captions."""
+    c = cam(sid, f); an = ANCH.get(sid, {}).get(str(f))
+    p = project(c, an["pelvis"]) if c and an else None
+    if not p: return (W / 2 + 120, 1100)
+    return (min(max(p[0], 300), W - 300), min(max(p[1] + 170, 700), 1170))
 
 
 def label_chip(img, txt, xy, a, col=(255, 255, 255)):
@@ -467,14 +488,14 @@ def process(f, comp_root, final_dir):
     if sid == "SH08a": img = vessel_inset(img, f)
     if sid == "SH10a": img = heat_arrows(img, f, sid)
     if sid == "SH10c": img = label_chip(img, "HEAT  →  METAL", (W / 2 + 120, 690), ease((T(f) - 38.6) / 0.3))
-    if sid == "SH10b": img = label_chip(img, "WARM, MOIST BREATH", (W / 2, 520), ease((T(f) - 37.1) / 0.3))
-    if sid == "SH17a": img = label_chip(img, "HEAT  →  FLOOR", (W / 2 + 120, 690), ease((T(f) - 70.9) / 0.3) * ease((72.85 - T(f)) / 0.2))
+    if sid == "SH10b": img = label_chip(img, "WARM, MOIST BREATH", (300, 1110), ease((T(f) - 37.1) / 0.3))  # beside the mouth, in the vapour
+    if sid == "SH17a": img = label_chip(img, "HEAT  →  FLOOR", floor_label_xy(f, sid), ease((T(f) - 70.9) / 0.3) * ease((72.85 - T(f)) / 0.2))
     if sid == "SH15": img = label_chip(img, "HOURS PASS...", (W / 2, 210), ease((T(f) - 55.6) / 0.3) * ease((57.3 - T(f)) / 0.3))
     img = draw_hud(img, f)
     if sid == "SH20": img = ecg(img, f)
     if sid == "SH23": img = factors(img, f)
     img = title(img, f)
-    img = draw_captions(img, T(f))
+    img = draw_captions(img, T(f), CAP_Y.get(sid, 1290))
     img = end_card(img, f)
     img.convert("RGB").save(f"{final_dir}/{f:05d}.png", compress_level=1)
     return True
