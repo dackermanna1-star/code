@@ -110,6 +110,7 @@ elif mode == "master":
         st = strips.new_scene(name=s["id"], scene=sc, channel=2, frame_start=s["f0"])
         st.frame_final_end = s["f1"] + 1
         st.scene_camera = sc.camera
+        st.fit_method = 'SCALE_TO_FIT'   # shot scenes render at 576x1024, upscaled into the 1080x1920 edit
     for ch, (nm, path) in enumerate((("MIX", "audio/mix.wav"), ("NARRATION", "audio/stem_narration.wav"), ("MUSIC", "audio/stem_music.wav"), ("SFX", "audio/stem_sfx.wav"))):
         snd = strips.new_sound(name=nm, filepath=bpy.path.relpath(f"{ROOT}/{path}", start=PROJ), channel=6 + ch, frame_start=1)
         if nm != "MIX":
@@ -120,13 +121,11 @@ elif mode == "master":
         mv = strips.new_movie(name="FINAL_MP4", filepath=bpy.path.relpath(mp4, start=PROJ), channel=1, frame_start=1)
         mv.mute = True
     # subtitles
-    sys.path.insert(0, f"{ROOT}/scripts")
-    sys.argv = ["x"]
-    import post
-    for i, cap in enumerate(post.CAPS):
+    caps = json.load(open(f"{ROOT}/output/captions.json"))   # written by post.py's caption builder
+    for i, cap in enumerate(caps):
         f0 = int(cap["s"] * 30) + 1
         f1 = max(f0 + 1, int(cap["e"] * 30) + 1)
-        tx = strips.new_effect(name=f"SUB{i:03d}", type='TEXT', channel=10, frame_start=f0, frame_end=f1) if bpy.app.version < (4, 4) else strips.new_effect(name=f"SUB{i:03d}", type='TEXT', channel=10, frame_start=f0, length=f1 - f0)
+        tx = strips.new_effect(name=f"SUB{i:03d}", type='TEXT', channel=10, frame_start=f0, frame_end=f1)
         tx.text = " ".join(w["w"] for w in cap["words"]).upper()
         tx.font_size = 64
         tx.location = (0.5, 0.35)

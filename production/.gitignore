@@ -3,3 +3,4 @@ renders/
 __pycache__/
 blend/
 output/preview_*
+output/*_master_*.mp4
