@@ -43,7 +43,7 @@ fc.append(f"[{cur}]ass={R}renders/captions.ass:fontsdir=/usr/share/fonts/opentyp
 out = R + ('renders/draft.mp4' if draft else 'output/What_If_Lost_In_The_Amazon.mp4')
 os.makedirs(os.path.dirname(out), exist_ok=True)
 cmd = ['ffmpeg', '-y', '-v', 'error', *inputs, '-filter_complex', ';'.join(fc), '-map', '[vout]', '-map', '1:a',
-       '-c:v', 'libx264', '-preset', 'slow' if not draft else 'veryfast', '-b:v', '5600k', '-maxrate', '8000k', '-bufsize', '12000k', '-profile:v', 'high', '-pix_fmt', 'yuv420p',
+       '-c:v', 'libx264', '-preset', 'slow' if not draft else 'veryfast', *(['-b:v', '5600k', '-maxrate', '8000k', '-bufsize', '12000k'] if not draft else ['-crf', '26']), '-profile:v', 'high', '-pix_fmt', 'yuv420p',
        '-r', '30', '-c:a', 'aac', '-b:a', '192k', '-movflags', '+faststart', '-t', f"{TL['total']:.3f}", out]
 subprocess.run(cmd, check=True)
 print('wrote', out)
