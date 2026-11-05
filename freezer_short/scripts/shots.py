@@ -416,17 +416,25 @@ def ik_block(rig, sides, f0, f1):
             c.influence = 0.0; c.keyframe_insert("influence", frame=f)
 
 
-def tuck_arms(rig, f0, f1):
+def tuck_arms(rig, f0, f1, release=None):
     """Arms wrapped round the body, hands tucked at the opposite armpits (IK wrists, straight hands).
-    Continuity with SH17c and the advice in L14; the arm mocap underneath keeps the elbows alive."""
+    Continuity with SH17c and the advice in L14; the arm mocap underneath keeps the elbows alive.
+    release=(fa, fb): the hold lets go between fa and fb (arms fall to whatever the layers below say)."""
     ik_setup(rig); ik_block(rig, "lr", f0, f1)
-    for ff in list(range(f0, f1, 6)) + [f1]:
+    fend = release[1] if release else f1
+    for ff in list(range(f0, fend, 6)) + [fend]:
         fw = facing(rig, ff); ch = bpos(rig, "spine_03", ff, "tail")
         for side, opp, fwd, dz in (("l", "r", 0.13, -0.15), ("r", "l", 0.10, -0.12)):
             p = bpos(rig, f"upperarm_{opp}", ff, "head").lerp(ch, 0.2) + fw * fwd + Vector((0, 0, dz))
-            ik_key(rig, side, ff, 1.0, tuple(p))
+            ik_key(rig, side, ff, 1.0 if not release or ff <= release[0] else 0.0, tuple(p))
+    hk = [(f0, (0, 0, 0), 0.85), (f1, (0, 0, 0), 0.85)]
+    if release:
+        fa, fb = release
+        for side in "lr":
+            ik_key(rig, side, fa, 1.0); ik_key(rig, side, fb, 0.0); ik_key(rig, side, f1, 0.0)
+        hk = [(f0, (0, 0, 0), 0.85), (fa, (0, 0, 0), 0.85), (fb, (0, 0, 0), 0.0), (f1, (0, 0, 0), 0.0)]
     for side in "lr":  # hands continue the forearm line so they slide under the opposite arm
-        A.layer(act(rig), f"hand_{side}", f0, f1, [(f0, (0, 0, 0), 0.85), (f1, (0, 0, 0), 0.85)], mode="replace")
+        A.layer(act(rig), f"hand_{side}", f0, f1, hk, mode="replace")
 
 
 def hands_on(helper, patient, f0, f1):
@@ -1003,12 +1011,16 @@ def build(ids=None):
         for side, sg in (("l", 1), ("r", -1)):
             A.layer(a(), f"upperarm_{side}", f0, f1, [(f0, (0, 0, 0), 0), (sl0, (0, 0, 0), 0), (sl1, (0, 0, 0), 0.7), (f1, (0, 0, 0), 0.7)], mode="replace")
             A.layer(a(), f"lowerarm_{side}", f0, f1, [(f0, (0, 0, 0), 0), (sl0, (0, 0, 0), 0), (sl1, (0, 0, 20), 0.6), (f1, (0, 0, 20), 0.6)], mode="replace")
+        tuck_arms(rig, f0, f1, release=(sl0, sl1 - 8))
         A.hand_pose(a(), "l", [(f0, "tucked", 1.0), (sl1, "relaxed", 1.0), (f1, "relaxed", 1.0)]); A.hand_pose(a(), "r", [(f0, "tucked", 1.0), (sl1, "relaxed", 1.0), (f1, "relaxed", 1.0)])
         exh = A.breathe(a(), f0, f1, [(f0, 2.6), (f1, 3.6)], depth_deg=0.9); puffs(rig, exh, 0.45, dur=55)
         leo_face(f0, f1, {"eyeBlinkLeft": 0.6, "eyeBlinkRight": 0.65, "jawOpen": 0.06},
                  keys=[(sl0, {"eyeBlinkLeft": 0.7, "eyeBlinkRight": 0.75}), (sl1, {"eyeBlinkLeft": 1.0, "eyeBlinkRight": 1.0, "jawOpen": 0.1})], blink_s=0)
-        cp, hp = orbit(rig, sl1, "spine_02", 2.2, az=20, el=58)
-        cam = camera("SH20", f0, f1, cp, [(f0, hp, 40), (f1, hp + Vector((0, 0, -0.1)), 22)], shake=0.05)
+        # low front-side angle that follows his head down as he slumps, then eases back (the old high-angle
+        # pull-back started too tight and lost his head off the frame edge for the first seconds)
+        cp, _ = orbit(rig, f0, "head", 1.6, az=25, el=-12, where="mid")
+        keys = track(rig, "head", f0, f1, 10, 32, off=(0, 0, -0.08), where="mid", lens1=24)
+        cam = camera("SH20", f0, f1, cp, keys, shake=0.05)
         shot("SH20", f0, f1, cam, dynamic=PUFFS, note="slump, ECG overlay")
     slump_end = F(99.2)
 

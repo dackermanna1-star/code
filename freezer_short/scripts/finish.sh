@@ -3,12 +3,12 @@
 R=/opt/work/renders; S=/home/user/code/freezer_short/scripts
 until grep -q ALL_DONE /opt/work/render_queue.log; do sleep 60; done
 echo "$(date +%H:%M:%S) FIXPASS start" >> /opt/work/render_queue.log
-REDO="SH01 SH02 SH04 SH05 SH06a SH06b SH07 SH08b SH09 SH10b SH10c SH11a SH11b SH14 SH15 SH16c SH16d SH18 SH18c SH22 SH25a"
+REDO="SH01 SH02 SH04 SH05 SH06a SH06b SH07 SH08b SH09 SH10b SH10c SH11a SH11b SH14 SH15 SH16c SH16d SH18 SH18c SH20 SH22 SH25a"
 rm -f $R/SH01/SH01_char_*.exr $R/SH02/SH02_char_*.exr
-# full re-render: framing / animation fixes (SH18: camera follows the face, arms tucked; SH22: re-aimed, Maya's pose)
-for sh in SH06a SH11a SH11b SH16c SH18 SH22; do rm -f $R/$sh/${sh}_plate* $R/$sh/${sh}_char_*.exr $R/$sh/${sh}_breath_*.exr $R/$sh/breath.log; done
+# full re-render: framing / animation fixes (SH18: camera follows the face, arms tucked; SH20: low tracking angle; SH22: re-aimed, Maya's pose)
+for sh in SH06a SH11a SH11b SH16c SH18 SH20 SH22; do rm -f $R/$sh/${sh}_plate* $R/$sh/${sh}_char_*.exr $R/$sh/${sh}_breath_*.exr $R/$sh/breath.log; done
 # heavy-frost shots whose character pass was rendered before the strand-following hair rime patch
-for sh in SH20 SH21 SH22 SH23 SH24a; do
+for sh in SH21 SH23 SH24a; do
   if [ -f $R/$sh/char.log ] && ! grep -q "rime mask" $R/$sh/char.log; then
     rm -f $R/$sh/${sh}_char_*.exr; REDO="$REDO $sh"; echo "rime redo $sh" >> /opt/work/render_queue.log
   fi
