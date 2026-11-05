@@ -10,6 +10,15 @@ from mathutils import Vector, Euler
 ROOT = '/home/user/code/blender'
 HDRI_DIR = ROOT + '/assets_src/hdri'
 FPS = 30
+# Day-1 shots SH01-SH15 were rendered with an azimuth-inverted HDRI->lamp mapping; SH11 keeps it for continuity.
+LEGACY_SUN_AZIMUTH = False
+
+def sun_vector(u, lat):
+    """Direction toward the HDRI pixel at (u, latitude). Cycles maps u = 0.5 - atan2(y, x) / 2pi."""
+    lon = (u - 0.5) * 2 * math.pi
+    if LEGACY_SUN_AZIMUTH:
+        return Vector((-math.cos(lon) * math.cos(lat), math.sin(lon) * math.cos(lat), math.sin(lat)))
+    return Vector((math.cos(lon) * math.cos(lat), -math.sin(lon) * math.cos(lat), math.sin(lat)))
 
 # --------------------------------------------------------------------------- scene
 def new_scene(res=(648, 1152), frames=(1, 100)):
@@ -468,11 +477,7 @@ def make_world(hdri, rot_z=0.0, strength=1.0, sun_strength=4.0, sun_angle=0.6, c
     if add_sun:
         s = hdri_sun(path)
         # equirect u -> direction: Blender env maps u=0.5 to -Y... compute world dir of that pixel then apply rotation
-        lon = (s['u'] - 0.5) * 2 * math.pi
-        lat = s['el']
-        # Blender: direction (x,y,z) -> u = atan2(y, -x)/(2pi) + 0.5
-        # invert: phi = (u-0.5)*2pi ; x = -cos(phi)cos(lat), y = sin(phi)cos(lat)
-        d = Vector((-math.cos(lon) * math.cos(lat), math.sin(lon) * math.cos(lat), math.sin(lat)))
+        d = sun_vector(s['u'], s['el'])
         d.rotate(Euler((0, 0, rot_z)))
         ld = bpy.data.lights.new('Sun', 'SUN'); ld.energy = sun_strength; ld.angle = math.radians(sun_angle)
         if sun_color: ld.color = sun_color

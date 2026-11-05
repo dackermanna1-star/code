@@ -53,7 +53,7 @@ def bed_for(sid):
     if sid in ('SH01',): return [(bed, -16), (wind, -14)]
     if sid in ('SH07', 'SH27', 'SH29'): return [(bed, -20), (wind, -13)]
     if sid in ('SH18', 'SH19', 'SH20', 'SH21', 'SH23', 'SH24'): return [(calm, -12), (wind, -24)]
-    if sid == 'SH22': return [(bed, -15), (rain_rec, -9), (rain, -17)]
+    if sid == 'SH22': return [(bed, -12), (wind, -14)]    # grey, windy morning (no rain: it would contradict the thirst narration)
     return [(bed, -14), (wind, -26)]
 off = 0.0
 for sid, (t0, t1) in shots.items():

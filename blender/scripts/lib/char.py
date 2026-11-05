@@ -240,7 +240,7 @@ def tread_water(char, f0, f1, speed=1.0, effort=1.0, seed=1, head_up=8.0):
             d['lowerarm01.%s' % s] = compose(R('X', -22 - 8 * e * math.sin(ph + o + 1.2)), R('Z', sg * (8 + 26 * e * math.sin(ph + o))))
             d['wrist.%s' % s] = compose(R('Y', sg * 25 * e * math.cos(ph + o)), R('X', -10))
             # legs: alternating eggbeater circles
-            d['upperleg01.%s' % s] = compose(R('X', -30 - 15 * e * math.sin(ph + o)), R('Y', sg * (12 + 6 * math.cos(ph + o))))
+            d['upperleg01.%s' % s] = compose(R('X', -30 - 15 * e * math.sin(ph + o)), R('Y', -sg * (12 + 6 * math.cos(ph + o))))
             d['lowerleg01.%s' % s] = R('X', 50 + 28 * e * math.sin(ph + o + 1.4))
             d['foot.%s' % s] = R('X', 25 + 15 * math.sin(ph + o + 2.0))
         d['spine05'] = R('X', 6 + 2 * math.sin(ph * 2))
@@ -262,7 +262,7 @@ def float_back(char, sculls=True, spread=1.0, head_back=1.0):
             d['upperarm01.%s' % s] = compose(R('Y', -sg * (30 * spread)), R('X', 10 + sc_))
             d['lowerarm01.%s' % s] = R('X', 38)
             d['wrist.%s' % s] = R('Y', sg * 15 * math.sin(ph + o + 0.5) if sculls else 0)
-            d['upperleg01.%s' % s] = compose(R('Y', sg * 16 * spread), R('X', -6))
+            d['upperleg01.%s' % s] = compose(R('Y', -sg * 16 * spread), R('X', -6))   # -sg*Y = abduct (legs apart)
             d['lowerleg01.%s' % s] = R('X', 10)
             d['foot.%s' % s] = R('X', 30)
         d['neck01'] = R('X', -10 * head_back); d['neck02'] = R('X', -8 * head_back); d['head'] = R('X', -8 * head_back)

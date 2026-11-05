@@ -11,7 +11,7 @@ def build():
     c.add_face(lambda f: dict(face('effort', 1.0), eyeBlinkLeft=0.7, eyeBlinkRight=0.7))
     speed = 0.6
     xy = lambda f: (0.0, -speed * f / 30.0)
-    c.pivot_fn = lambda f: (Vector((0, 0, -0.07)), compose(R('Y', sw.roll(f) * 0.5), R('X', 80)))
+    c.pivot_fn = lambda f: (Vector((0, 0, -0.07)), compose(R('Z', sw.roll(f) * 0.5), R('X', 80)))
     probe = finish(c, o, N, xy_fn=xy, inertia=(0.3, 0.6), radius=0.9)
     droplets(c, frames=(1, N), rate=90, speed=1.2)
     o['mat'].node_tree.nodes['collar_foam'].outputs[0].default_value = 0.4

@@ -18,11 +18,11 @@ def build():
     probe = finish(c, o, N, inertia=(0.25, 0.55))
     o['mat'].node_tree.nodes['collar_foam'].outputs[0].default_value = 0.25
     cam = env.add_camera('Cam', lens=70, dof={'fstop': 2.0})
-    cam.data.dof.focus_object = cam_target(c.rig, (0, 0, 0), bone='head')
-    aimt = cam_target(c.root, (0.0, -0.06, 0.25)); env.aim(cam, aimt)
+    cam.data.dof.focus_object = cam_target(c.rig, (0, 0, 0), bone='eye.L')
+    aimt = cam_target(c.root, (0.0, -0.06, 0.2)); env.aim(cam, aimt)
     for f in range(1, N + 1, 3):
         k = ease((f - 1) / (N - 1))
-        env.key_loc(cam, f, Vector((0.62 - 0.12 * k, -1.35 + 0.25 * k, 0.24)))
-    ch.ride_swell(cam, probe, 1, N, amount=0.9, min_clear=0.14)
+        env.key_loc(cam, f, Vector((0.62 - 0.12 * k, -1.35 + 0.25 * k, 0.13)))
+    ch.ride_swell(cam, probe, 1, N, amount=0.92, min_clear=0.1)
     env.handheld(cam, amp_loc=0.004, amp_rot=0.003, freq=0.4, seed=17)
     return sc

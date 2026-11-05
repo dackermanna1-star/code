@@ -4,12 +4,12 @@ from common import *
 
 def build():
     sc, c, o, sun = setup('SH21', tod='night', ocean='glassy', water_mode='clear', vignette=0.5, water_kw={'near_transmission': 8.0},
-                          world_kw={'strength': 0.6, 'camera_sky_boost': 1.6})
+                          world_kw={'strength': 0.32, 'camera_sky_boost': 1.8})
     N = sc.frame_end   # 156
-    c.condition(wet=1.0, fatigue=0.7, sunburn=0.5, salt=0.4, cold=0.6)
+    c.condition(wet=1.0, fatigue=0.7, sunburn=0.5, salt=0.4, cold=0.9)
     probe = tread_in_place(c, o, N, depth=-0.22, speed=0.55, effort=0.6, yaw=25, lean=6, breath_bpm=20)
-    c.add(ch.shiver(lambda f: 0.4, seed=21))
-    c.add_face(lambda f: face('cold', 0.6))
+    c.add(ch.shiver(lambda f: 0.7, seed=21))
+    c.add_face(lambda f: face('cold', 0.85))
     c.add_face(ch.blinks(seed=21))
     finish(c, o, N, probe)
     glow_particles(c, ('wrist.L', 'wrist.R', 'lowerleg02.L', 'lowerleg02.R', 'foot.L', 'foot.R'), (1, N), rate=420, seed=21)

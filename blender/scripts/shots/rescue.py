@@ -3,11 +3,20 @@ from mathutils import Matrix
 from common import *
 import marine
 
-def heli(path_fn, N, hover=False, spin_deg=24.0):
+def heli(path_fn, N, hover=False, spin_deg=24.0, yaw_deg=None):
     root, rotor = marine.load_helicopter(hub_z=3.3)
     root.rotation_mode = 'QUATERNION'
     sc = bpy.context.scene
     prev = path_fn(0)
+    # initial heading: given, or the first direction of travel (no snap when it starts moving)
+    yaw0 = math.radians(yaw_deg) if yaw_deg is not None else None
+    if yaw0 is None:
+        for f in range(1, N + 1):
+            dd = path_fn(f) - path_fn(0)
+            if Vector((dd.x, dd.y, 0)).length > 0.5:
+                yaw0 = math.atan2(dd.y, dd.x) + math.pi / 2; break
+        if yaw0 is None: yaw0 = 0.0
+    root['yaw'] = yaw0; cur_yaw = yaw0
     for f in range(1, N + 1):
         p = path_fn(f)
         d = p - prev
@@ -15,14 +24,17 @@ def heli(path_fn, N, hover=False, spin_deg=24.0):
         wob = Vector((0.15 * math.sin(t * 0.9), 0.12 * math.sin(t * 0.7 + 1), 0.2 * math.sin(t * 1.1))) if hover else Vector()
         root.location = p + wob; root.keyframe_insert('location', frame=f)
         hd = Vector((d.x, d.y, 0))
-        if hd.length > 0.02:
-            yaw = math.atan2(hd.y, hd.x) + math.pi / 2     # nose is -Y in model space
-            pitch = min(0.25, hd.length * 30 / 400.0)       # nose-down when moving fast
+        if hd.length > 0.05 and yaw_deg is None:
+            target = math.atan2(hd.y, hd.x) + math.pi / 2     # nose is -Y in model space
+            dy = (target - cur_yaw + math.pi) % (2 * math.pi) - math.pi
+            cur_yaw += dy * 0.08                              # smooth heading changes
+            pitch = min(0.22, hd.length * 30 / 350.0)        # nose-down when moving fast
         else:
-            yaw = root.get('yaw', 0.0); pitch = 0.0
-        root['yaw'] = yaw
+            pitch = 0.0
+        yaw = cur_yaw
         from mathutils import Quaternion
-        q = Quaternion((0, 0, 1), yaw) @ Quaternion((1, 0, 0), -pitch + 0.03 * math.sin(t * 1.3)) @ Quaternion((0, 1, 0), 0.03 * math.sin(t * 0.8))
+        # +X rotation pitches the nose (-Y) DOWN
+        q = Quaternion((0, 0, 1), yaw) @ Quaternion((1, 0, 0), pitch + 0.03 * math.sin(t * 1.3)) @ Quaternion((0, 1, 0), 0.03 * math.sin(t * 0.8))
         root.rotation_quaternion = q; root.keyframe_insert('rotation_quaternion', frame=f)
         prev = p
     if rotor:
@@ -91,3 +103,15 @@ def cable(top_obj, bottom_obj):
     cs = cb.constraints.new('COPY_LOCATION'); cs.target = bottom_obj
     st = cb.constraints.new('STRETCH_TO'); st.target = top_obj; st.rest_length = 1.0; st.volume = 'NO_VOLUME'
     return cb
+
+def rescue_frame(sun):
+    """Shared geometry for SH25-SH29: d points toward the low sun; the helicopter comes out of the glare
+    along d and hovers slightly sunward of him; he faces d. Returns (d, side, yaw_deg_facing_d)."""
+    az = math.atan2(sun['dir'][1], sun['dir'][0])
+    d = Vector((math.cos(az), math.sin(az), 0))
+    side = d.cross(Vector((0, 0, 1)))
+    yaw = math.degrees(math.atan2(d.x, -d.y))    # character faces (sin y, -cos y)
+    return d, side, yaw
+
+HOVER_OFF = 1.2      # metres sunward of him
+HOVER_Z = 13.5

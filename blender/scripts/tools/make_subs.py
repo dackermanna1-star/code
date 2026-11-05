@@ -13,12 +13,12 @@ head = """[Script Info]
 ScriptType: v4.00+
 PlayResX: 1080
 PlayResY: 1920
-WrapStyle: 2
+WrapStyle: 0
 ScaledBorderAndShadow: yes
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Cap,Inter Display Black,96,&H00FFFFFF,&H00FFFFFF,&H00000000,&H90000000,-1,0,0,0,100,100,1,0,1,7,4,2,60,60,560,1
+Style: Cap,Inter Display Black,88,&H00FFFFFF,&H00FFFFFF,&H00000000,&H90000000,-1,0,0,0,100,100,1,0,1,7,4,2,80,80,560,1
 Style: Head,Inter Display Black,64,&H0000D7FF,&H00FFFFFF,&H00000000,&HA0101010,-1,0,0,0,100,100,2,0,3,18,0,8,60,60,250,1
 Style: Item,Inter Display Black,56,&H00FFFFFF,&H00FFFFFF,&H00000000,&HA0101010,-1,0,0,0,100,100,1,0,3,16,0,8,60,60,330,1
 Style: Src,Inter,34,&H00F0F0F0,&H00FFFFFF,&H00000000,&H80000000,-1,0,0,0,100,100,0,0,3,10,0,8,60,60,230,1
@@ -47,12 +47,21 @@ chunks = []; cur = []
 for w in words:
     cur.append(w)
     n_chars = sum(len(x['txt']) for x in cur) + len(cur) - 1
-    if w['brk'] or len(cur) >= 3 or n_chars >= 15:
+    if w['brk'] or len(cur) >= 3 or n_chars >= 13:
         chunks.append(cur); cur = []
 if cur: chunks.append(cur)
 
+# per-shot caption placement: move captions to the top where the face/graphic sits low in frame
+TOP_Y = {'SH05': 300, 'SH08': 300, 'SH09': 300, 'SH11': 330, 'SH12': 300, 'SH13': 300, 'SH14': 215, 'SH17': 300,
+         'SH18': 330, 'SH20': 300, 'SH24': 300, 'SH26': 330}
+def shot_at(t):
+    for sid, (a, b) in shots.items():
+        if a <= t < b: return sid
+    return None
 for i, ch in enumerate(chunks):
     start = ch[0]['s'] - 0.04
+    sid = shot_at(start + 0.05)
+    place = (r'{\an8\pos(540,%d)}' % TOP_Y[sid]) if sid in TOP_Y else ''
     nxt = chunks[i + 1][0]['s'] - 0.04 if i + 1 < len(chunks) else ch[-1]['e'] + 0.6
     end = min(nxt, ch[-1]['e'] + 0.45)
     for j, w in enumerate(ch):
@@ -66,7 +75,7 @@ for i, ch in enumerate(chunks):
             else:
                 parts.append(x['txt'])
         intro = r'{\fad(60,0)}' if j == 0 else ''
-        ev.append('Dialogue: 2,%s,%s,Cap,,0,0,0,,%s%s' % (ts(ws), ts(we), intro, ' '.join(parts)))
+        ev.append('Dialogue: 2,%s,%s,Cap,,0,0,0,,%s%s%s' % (ts(ws), ts(we), place, intro, ' '.join(parts)))
 
 # ---------------------------------------------------------------- labels for the verdict (SH27/SH28) and the real case (SH25/SH26)
 def word_time(seg_id, word, nth=0):
@@ -90,7 +99,7 @@ label('Item', '1  WATER TEMPERATURE', word_time('n34', 'temperature') - 0.15, en
 label('Item', '2  STAYING AFLOAT', word_time('n34', 'afloat') - 0.15, end28, 385)
 label('Item', "3  SOMEONE KNOWS YOU'RE MISSING", word_time('n34', 'anyone') - 0.1, end28, 470)
 # real case source tag
-label('Src', 'Real case: Carnival Valor, Gulf of Mexico, Nov 2022 - source: US Coast Guard', word_time('n30', '2022') - 0.2, shots['SH26'][1], 160)
+label('Src', 'Real case: Carnival Valor overboard, Gulf of Mexico, Nov 2022 (US Coast Guard)\\NRescue scene is a dramatization', word_time('n30', '2022') - 0.2, shots['SH26'][1], 150)
 
 open(OUT, 'w').write(head + '\n'.join(ev) + '\n')
 print('wrote', OUT, len(ev), 'events,', len(chunks), 'caption chunks')

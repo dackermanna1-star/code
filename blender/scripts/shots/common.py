@@ -29,6 +29,8 @@ TOD = {
 def setup(shot_id, tod='day', ocean='moderate', water_mode='clear', res=(576, 1024), samples=6, with_char=True,
           sun_rot=None, sun_toward=None, ocean_kw=None, water_kw=None, grade=None, seed=7, time_offset=0.0, vignette=0.3, world_kw=None, half=1500.0):
     n = frames_of(shot_id)
+    # day-1 shots (SH01-SH15) were rendered with the legacy (azimuth-inverted) sun mapping: keep them consistent
+    env.LEGACY_SUN_AZIMUTH = shot_id in ('SH01','SH02','SH03','SH04','SH05','SH06','SH07','SH08','SH09','SH10','SH11','SH12','SH13','SH14','SH15')
     sc = env.new_scene(res=res, frames=(1, n))
     sc.cycles.samples = samples
     sc['shot'] = shot_id
@@ -36,8 +38,7 @@ def setup(shot_id, tod='day', ocean='moderate', water_mode='clear', res=(576, 10
     if sun_rot is not None: p['rot'] = sun_rot
     if sun_toward is not None:
         s_ = env.hdri_sun(env.HDRI_DIR + '/' + p['hdri'] + '_4k.hdr')
-        lon = (s_['u'] - 0.5) * 2 * math.pi
-        d0 = Vector((-math.cos(lon), math.sin(lon), 0))
+        d0 = env.sun_vector(s_['u'], 0.0)
         p['rot'] = math.atan2(sun_toward[1], sun_toward[0]) - math.atan2(d0.y, d0.x)
     c = ch.Castaway() if with_char else None
     o = env.make_ocean(ocean, mode=water_mode, seed=seed, fx_empty=(c.fx if c else None), haze_color=p['haze'],

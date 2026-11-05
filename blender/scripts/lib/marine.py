@@ -151,14 +151,18 @@ def path_animate(obj, pts_fn, f0, f1, bank=0.6, head_axis='X', head_sign=-1, up=
     """Key location along pts_fn(f) and orient the head (along head_sign*axis) to the direction of travel, with banking."""
     sc = bpy.context.scene
     obj.rotation_mode = 'QUATERNION'
-    prev = pts_fn(f0 - 1); prevd = None
+    prev = pts_fn(f0 - 1); prevd = None; roll = 0.0
     for f in range(f0, f1 + 1):
         p = pts_fn(f); d = p - prev
         if d.length > 1e-6:
             q = d.to_track_quat(('-' + head_axis) if head_sign < 0 else head_axis, up)
             if prevd is not None and bank:
-                turn = prevd.normalized().cross(d.normalized()).z
-                q = q @ Quaternion((1, 0, 0), -turn * bank * 40)
+                # bank into the turn: angle proportional to the yaw rate (rad/frame), clamped, smoothed
+                turn = math.asin(max(-1.0, min(1.0, prevd.normalized().cross(d.normalized()).z)))
+                target = max(-0.45, min(0.45, -turn * bank * 15.0))
+                roll += (target - roll) * 0.15
+                axis = Vector((1, 0, 0)) if head_axis == 'X' else Vector((0, 1, 0))
+                q = q @ Quaternion(axis, roll)
             obj.rotation_quaternion = q; obj.keyframe_insert('rotation_quaternion', frame=f)
             prevd = d
         obj.location = p; obj.keyframe_insert('location', frame=f)
