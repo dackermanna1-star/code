@@ -31,6 +31,8 @@ def build():
     # strop paid out on the cable, swinging in the downwash; lands just in front of him and bobs
     strop, top = rescue.hanging_strop()
     tgt = side * 0.55 - d * 0.05 + Vector((0, 0, -0.03))       # beside him (not between him and the lens)
+    # once down, it floats on the local swell (not at mean sea level)
+    wz = {v[0]: v[1] for v in probe.sample(list(range(LAND - 40, N + 1)), lambda f: (tgt.x, tgt.y), radius=0.35)}
     for f in range(1, N + 1):
         hw = rescue.world_at(hroot, f, rescue.HOOK_CM)
         k = ease(min(1.0, max(0.0, (f - 60) / float(LAND - 60))))
@@ -39,8 +41,10 @@ def build():
         pos = hw - Vector((0, 0, L)) + sw
         m = ease(min(1.0, max(0.0, (f - (LAND - 50)) / 50.0)))            # guided toward him as it comes down
         pos = pos.lerp(Vector((tgt.x, tgt.y, pos.z)), m)
+        kl = ease((f - (LAND - 30)) / 30.0)
+        if kl > 0: pos.z += kl * wz.get(f, 0.0)
         if f >= LAND:
-            pos.z = tgt.z + 0.03 * math.sin(f / 7.0)
+            pos.z = wz.get(f, 0.0) - 0.03 + 0.02 * math.sin(f / 7.0)
         strop.location = pos; strop.keyframe_insert('location', frame=f)
         strop.rotation_euler = (0.15 * math.sin(f / 11.0), 0.1 * math.sin(f / 9.0), math.radians(yaw) + 0.5 * math.sin(f / 29.0))
         strop.keyframe_insert('rotation_euler', frame=f)
@@ -50,6 +54,7 @@ def build():
     # camera: in the water ~3.2 m in front of him, slow arc, looking slightly up (he sits low, sky above for the labels)
     cam = env.add_camera('Cam', lens=30, dof={'fstop': 4.0, 'dist': 3.2}, clip=(0.05, 80000))
     aimt = bpy.data.objects.new('Aim', None); sc.collection.objects.link(aimt)
+    cl = aimt.constraints.new('COPY_LOCATION'); cl.target = c.root; cl.use_offset = True   # follows his bob on the swell
     a0 = math.atan2(d.y, d.x)
     for f in range(1, N + 1, 3):
         k = ease((f - 1) / (N - 1))
