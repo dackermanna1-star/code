@@ -1,0 +1,14 @@
+{
+ "default": {"exposure": 0.42, "fog": 0.22, "fog_lum": 0.5, "contrast": 0.12, "sat": 0.98, "bloom": 0.25, "bloom_thr": 0.9, "vignette": 0.3, "grain": 0.014, "tone": 1.0, "warm": 0.0, "lens_frost": 0.0, "breath_gain": 1.4},
+ "SH01": {"warm": 0.35, "fog": 0.18},
+ "SH02": {"warm": 0.2},
+ "SH03": {"exposure": 0.38},
+ "SH04": {"fog": 0.32, "bloom": 0.35},
+ "SH15": {"lens_frost": 0.25},
+ "SH16a": {"lens_frost": 0.3}, "SH16b": {"lens_frost": 0.3}, "SH16c": {"lens_frost": 0.3}, "SH16d": {"lens_frost": 0.35},
+ "SH17b": {"lens_frost": 0.4}, "SH17c": {"lens_frost": 0.4},
+ "SH18": {"lens_frost": 0.5, "sat": 0.85}, "SH19": {"lens_frost": 0.6, "sat": 0.8}, "SH20": {"lens_frost": 0.7, "sat": 0.75, "exposure": 0.36},
+ "SH21": {"lens_frost": 0.6, "warm": 0.3}, "SH22": {"lens_frost": 0.5, "warm": 0.35}, "SH23": {"lens_frost": 0.3, "warm": 0.4},
+ "SH24a": {"warm": 0.8, "fog": 0.08, "sat": 1.05}, "SH24b": {"lens_frost": 0.4, "sat": 0.8},
+ "SH25b": {"lens_frost": 0.3}
+}

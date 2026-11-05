@@ -99,7 +99,7 @@ if PASS == "plate":
     Hp = max(my, mx * 16 / 9) * 1.04
     lens_p = 12.0 / Hp
     hmin = min(12.0 / l for l in lenses)
-    px_h = int(min(2700, max(1920, 1920 * Hp / hmin)) * SCALE) // 2 * 2
+    px_h = int(min(2300, max(1920, 1920 * Hp / hmin)) * SCALE) // 2 * 2
     px_w = int(px_h * 9 / 16) // 2 * 2
     pc_d = bpy.data.cameras.new("PlateCam"); pc_d.sensor_fit = "VERTICAL"; pc_d.sensor_height = 24.0
     pc_d.lens = lens_p; pc_d.clip_start = 0.02; pc_d.clip_end = 60
@@ -115,7 +115,7 @@ if PASS == "plate":
         o.hide_render = True
     for o in dyn:
         o.hide_render = True
-    sc.cycles.samples = {"final": 14, "draft": 6, "tiny": 4}[Q]
+    sc.cycles.samples = {"final": 12, "draft": 6, "tiny": 4}[Q]
     sc.cycles.adaptive_threshold = 0.02
     sc.cycles.use_denoising = True; sc.cycles.denoiser = "OPENIMAGEDENOISE"
     sc.cycles.denoising_quality = "HIGH"; sc.cycles.denoising_prefilter = "ACCURATE"
