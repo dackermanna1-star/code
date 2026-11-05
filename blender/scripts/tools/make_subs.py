@@ -10,7 +10,9 @@ def ts(t):
     return '%d:%02d:%05.2f' % (h, m, s)
 
 # Head/Item (the SH27/SH28 label stacks) use BorderStyle 3, whose box colour is OutlineColour: alpha &H70 (~56% opaque)
-# keeps the rotor blades, hoist cable and strop visible through the boxes while the text stays readable
+# keeps the rotor blades, hoist cable and strop visible through the boxes while the text stays readable. Box heights
+# are font + 2*Outline (Head 64+36 = 100, Item 56+28 = 84 px): stacked rows abut exactly, as overlapping see-through
+# boxes would leave darker seams
 head = """[Script Info]
 ScriptType: v4.00+
 PlayResX: 1080
@@ -22,7 +24,7 @@ ScaledBorderAndShadow: yes
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
 Style: Cap,Inter Display Black,88,&H00FFFFFF,&H00FFFFFF,&H00000000,&H90000000,-1,0,0,0,100,100,1,0,1,7,4,2,80,80,560,1
 Style: Head,Inter Display Black,64,&H0000D7FF,&H00FFFFFF,&H70000000,&HA0101010,-1,0,0,0,100,100,2,0,3,18,0,8,60,60,250,1
-Style: Item,Inter Display Black,56,&H00FFFFFF,&H00FFFFFF,&H70000000,&HA0101010,-1,0,0,0,100,100,1,0,3,16,0,8,60,60,330,1
+Style: Item,Inter Display Black,56,&H00FFFFFF,&H00FFFFFF,&H70000000,&HA0101010,-1,0,0,0,100,100,1,0,3,14,0,8,60,60,330,1
 Style: Src,Inter,34,&H00F0F0F0,&H00FFFFFF,&H00000000,&H80000000,-1,0,0,0,100,100,0,0,3,10,0,8,60,60,230,1
 
 [Events]
@@ -115,18 +117,18 @@ def label(style, text, t0, t1, y, fade=(180, 250), x=540):
 end27 = shots['SH27'][1]
 XL, XR = 280, 800
 label('Head', 'COLD WATER', word_time('n32', 'cold') - 0.1, end27, 130, x=XL)
-label('Item', 'SHOCK', word_time('n32', 'shock') - 0.05, end27, 228, x=XL)
-label('Item', 'HYPOTHERMIA', word_time('n32', 'hypothermia') - 0.05, end27, 313, x=XL)
+label('Item', 'SHOCK', word_time('n32', 'shock') - 0.05, end27, 226, x=XL)
+label('Item', 'HYPOTHERMIA', word_time('n32', 'hypothermia') - 0.05, end27, 310, x=XL)
 label('Head', 'WARM WATER', word_time('n33', 'warm') - 0.1, end27, 130, x=XR)
-label('Item', 'EXHAUSTION', word_time('n33', 'exhaustion') - 0.05, end27, 228, x=XR)
-label('Item', 'DROWNING', word_time('n33', 'drowning') - 0.05, end27, 313, x=XR)
-label('Item', 'THIRST', word_time('n33', 'thirst') - 0.05, end27, 398, x=XR)
-# SH28: compact stack above the helicopter (rotor top ~y 440)
+label('Item', 'EXHAUSTION', word_time('n33', 'exhaustion') - 0.05, end27, 226, x=XR)
+label('Item', 'DROWNING', word_time('n33', 'drowning') - 0.05, end27, 310, x=XR)
+label('Item', 'THIRST', word_time('n33', 'thirst') - 0.05, end27, 394, x=XR)
+# SH28: compact stack above the helicopter (rotor top ~y 290-390 in the render: the see-through boxes keep it visible)
 end28 = shots['SH28'][1]
 label('Head', 'YOUR ODDS DEPEND ON', word_time('n34', 'odds') - 0.1, end28, 110)
-label('Item', '1  WATER TEMPERATURE', word_time('n34', 'temperature') - 0.15, end28, 205)
+label('Item', '1  WATER TEMPERATURE', word_time('n34', 'temperature') - 0.15, end28, 206)
 label('Item', '2  STAYING AFLOAT', word_time('n34', 'afloat') - 0.15, end28, 290)
-label('Item', "3  SOMEONE KNOWS YOU'RE MISSING", word_time('n34', 'anyone') - 0.1, end28, 375)
+label('Item', "3  SOMEONE KNOWS YOU'RE MISSING", word_time('n34', 'anyone') - 0.1, end28, 374)
 # real case source tag
 label('Src', 'Real case: Carnival Valor overboard,\\NGulf of Mexico, Nov 2022 (US Coast Guard)\\NRescue scene is a dramatization', word_time('n30', 'people') - 0.15, shots['SH25'][1], 150, fade=(180, 120))
 

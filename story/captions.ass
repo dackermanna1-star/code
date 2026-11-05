@@ -9,7 +9,7 @@ ScaledBorderAndShadow: yes
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
 Style: Cap,Inter Display Black,88,&H00FFFFFF,&H00FFFFFF,&H00000000,&H90000000,-1,0,0,0,100,100,1,0,1,7,4,2,80,80,560,1
 Style: Head,Inter Display Black,64,&H0000D7FF,&H00FFFFFF,&H70000000,&HA0101010,-1,0,0,0,100,100,2,0,3,18,0,8,60,60,250,1
-Style: Item,Inter Display Black,56,&H00FFFFFF,&H00FFFFFF,&H70000000,&HA0101010,-1,0,0,0,100,100,1,0,3,16,0,8,60,60,330,1
+Style: Item,Inter Display Black,56,&H00FFFFFF,&H00FFFFFF,&H70000000,&HA0101010,-1,0,0,0,100,100,1,0,3,14,0,8,60,60,330,1
 Style: Src,Inter,34,&H00F0F0F0,&H00FFFFFF,&H00000000,&H80000000,-1,0,0,0,100,100,0,0,3,10,0,8,60,60,230,1
 
 [Events]
@@ -322,14 +322,14 @@ Dialogue: 2,0:02:04.72,0:02:04.78,Cap,,0,0,0,,LONG ENOUGH {\c&H0000D7FF&}{\t(0,8
 Dialogue: 2,0:02:04.78,0:02:04.95,Cap,,0,0,0,,{\fad(60,0)}{\c&H0000D7FF&}{\t(0,80,\fscx112\fscy112)\t(80,160,\fscx104\fscy104)}BE{\c&H00FFFFFF&\fscx100\fscy100} FOUND
 Dialogue: 2,0:02:04.95,0:02:06.16,Cap,,0,0,0,,BE {\c&H0000D7FF&}{\t(0,80,\fscx112\fscy112)\t(80,160,\fscx104\fscy104)}FOUND{\c&H00FFFFFF&\fscx100\fscy100}
 Dialogue: 1,0:01:46.78,0:01:52.60,Head,,0,0,0,,{\an8\pos(280,130)\fad(180,250)}COLD WATER
-Dialogue: 1,0:01:47.77,0:01:52.60,Item,,0,0,0,,{\an8\pos(280,228)\fad(180,250)}SHOCK
-Dialogue: 1,0:01:48.21,0:01:52.60,Item,,0,0,0,,{\an8\pos(280,313)\fad(180,250)}HYPOTHERMIA
+Dialogue: 1,0:01:47.77,0:01:52.60,Item,,0,0,0,,{\an8\pos(280,226)\fad(180,250)}SHOCK
+Dialogue: 1,0:01:48.21,0:01:52.60,Item,,0,0,0,,{\an8\pos(280,310)\fad(180,250)}HYPOTHERMIA
 Dialogue: 1,0:01:49.61,0:01:52.60,Head,,0,0,0,,{\an8\pos(800,130)\fad(180,250)}WARM WATER
-Dialogue: 1,0:01:50.56,0:01:52.60,Item,,0,0,0,,{\an8\pos(800,228)\fad(180,250)}EXHAUSTION
-Dialogue: 1,0:01:51.24,0:01:52.60,Item,,0,0,0,,{\an8\pos(800,313)\fad(180,250)}DROWNING
-Dialogue: 1,0:01:51.78,0:01:52.60,Item,,0,0,0,,{\an8\pos(800,398)\fad(180,250)}THIRST
+Dialogue: 1,0:01:50.56,0:01:52.60,Item,,0,0,0,,{\an8\pos(800,226)\fad(180,250)}EXHAUSTION
+Dialogue: 1,0:01:51.24,0:01:52.60,Item,,0,0,0,,{\an8\pos(800,310)\fad(180,250)}DROWNING
+Dialogue: 1,0:01:51.78,0:01:52.60,Item,,0,0,0,,{\an8\pos(800,394)\fad(180,250)}THIRST
 Dialogue: 1,0:01:53.13,0:01:58.90,Head,,0,0,0,,{\an8\pos(540,110)\fad(180,250)}YOUR ODDS DEPEND ON
-Dialogue: 1,0:01:54.44,0:01:58.90,Item,,0,0,0,,{\an8\pos(540,205)\fad(180,250)}1  WATER TEMPERATURE
+Dialogue: 1,0:01:54.44,0:01:58.90,Item,,0,0,0,,{\an8\pos(540,206)\fad(180,250)}1  WATER TEMPERATURE
 Dialogue: 1,0:01:55.69,0:01:58.90,Item,,0,0,0,,{\an8\pos(540,290)\fad(180,250)}2  STAYING AFLOAT
-Dialogue: 1,0:01:57.06,0:01:58.90,Item,,0,0,0,,{\an8\pos(540,375)\fad(180,250)}3  SOMEONE KNOWS YOU'RE MISSING
+Dialogue: 1,0:01:57.06,0:01:58.90,Item,,0,0,0,,{\an8\pos(540,374)\fad(180,250)}3  SOMEONE KNOWS YOU'RE MISSING
 Dialogue: 1,0:01:34.53,0:01:39.00,Src,,0,0,0,,{\an8\pos(540,150)\fad(180,120)}Real case: Carnival Valor overboard,\NGulf of Mexico, Nov 2022 (US Coast Guard)\NRescue scene is a dramatization
