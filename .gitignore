@@ -1,0 +1,9 @@
+# large third-party downloads (re-downloadable; see docs/CREDITS.md and the download commands in scripts)
+blender/assets_src/
+# rendered frames and per-shot working .blend files (regenerable from scripts)
+render/
+blender/shots/
+blender/tests/
+blender/lookdev/*.png
+__pycache__/
+*.pyc

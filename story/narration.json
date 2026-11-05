@@ -1,0 +1,181 @@
+{
+ "voice": "am_michael",
+ "speed": 1.12,
+ "segments": [
+  {
+   "id": "n01",
+   "pause_after": 0.56,
+   "text": "What happens if you're stranded in the middle of the ocean, with absolutely nothing around you?"
+  },
+  {
+   "id": "n02",
+   "pause_after": 0.28,
+   "text": "First comes the shock."
+  },
+  {
+   "id": "n03",
+   "pause_after": 0.48,
+   "text": "In cold water, your body gasps uncontrollably, and one gasp underwater can drown you."
+  },
+  {
+   "id": "n04",
+   "pause_after": 0.24,
+   "text": "You look around."
+  },
+  {
+   "id": "n05",
+   "pause_after": 0.2,
+   "text": "No boat. No land."
+  },
+  {
+   "id": "n06",
+   "pause_after": 0.56,
+   "text": "Just horizon, in every direction."
+  },
+  {
+   "id": "n07",
+   "pause_after": 0.24,
+   "text": "So you swim, toward nothing."
+  },
+  {
+   "id": "n08",
+   "pause_after": 0.24,
+   "text": "Exhaustion is one of the biggest killers out here,"
+  },
+  {
+   "id": "n09",
+   "pause_after": 0.56,
+   "text": "and drowning is usually quiet. No splashing, no cries for help."
+  },
+  {
+   "id": "n10",
+   "pause_after": 0.24,
+   "text": "Instead, float."
+  },
+  {
+   "id": "n11",
+   "pause_after": 0.24,
+   "text": "Tilt your head back, ears under, arms and legs spread."
+  },
+  {
+   "id": "n12",
+   "pause_after": 0.64,
+   "text": "It buys you time."
+  },
+  {
+   "id": "n13",
+   "pause_after": 0.24,
+   "text": "Hours pass."
+  },
+  {
+   "id": "n14",
+   "pause_after": 0.56,
+   "text": "There's no shade, and the water bounces sunlight right back into your face."
+  },
+  {
+   "id": "n15",
+   "pause_after": 0.24,
+   "text": "Soon, you're desperately thirsty."
+  },
+  {
+   "id": "n16",
+   "pause_after": 0.28,
+   "text": "But seawater is about three and a half percent salt."
+  },
+  {
+   "id": "n17",
+   "pause_after": 0.64,
+   "text": "To flush it out, your kidneys need more water than you drank. Every sip leaves you more dehydrated."
+  },
+  {
+   "id": "n18",
+   "pause_after": 0.24,
+   "text": "And you're not alone."
+  },
+  {
+   "id": "n19",
+   "pause_after": 0.24,
+   "text": "Small fish shelter in your shadow."
+  },
+  {
+   "id": "n20",
+   "pause_after": 0.4,
+   "text": "Then, something bigger comes to look."
+  },
+  {
+   "id": "n21",
+   "pause_after": 0.64,
+   "text": "Bites are rare, but splashing draws attention, so you stay still."
+  },
+  {
+   "id": "n22",
+   "pause_after": 0.32,
+   "text": "Then the sun sets."
+  },
+  {
+   "id": "n23",
+   "pause_after": 0.28,
+   "text": "Even warm water is colder than your body, and it drains your heat far faster than air."
+  },
+  {
+   "id": "n24",
+   "pause_after": 0.64,
+   "text": "In cold seas, hypothermia can kill within hours."
+  },
+  {
+   "id": "n25",
+   "pause_after": 0.72,
+   "text": "The night is pitch black, except for plankton that glow every time you move."
+  },
+  {
+   "id": "n26",
+   "pause_after": 0.28,
+   "text": "By day two, thirst and exhaustion cloud your mind."
+  },
+  {
+   "id": "n27",
+   "pause_after": 0.28,
+   "text": "Some survivors have seen ships and land that weren't there."
+  },
+  {
+   "id": "n28",
+   "pause_after": 0.72,
+   "text": "Without fresh water, you have days, not weeks."
+  },
+  {
+   "id": "n30",
+   "pause_after": 0.64,
+   "text": "But people do survive. In 2022, a man who fell from a cruise ship lasted at least fifteen hours in the Gulf of Mexico, with no life jacket."
+  },
+  {
+   "id": "n31",
+   "pause_after": 0.24,
+   "text": "So what kills you out here?"
+  },
+  {
+   "id": "n32",
+   "pause_after": 0.2,
+   "text": "In cold water, shock and hypothermia."
+  },
+  {
+   "id": "n33",
+   "pause_after": 0.4,
+   "text": "In warm water, exhaustion, drowning, and thirst."
+  },
+  {
+   "id": "n34",
+   "pause_after": 0.48,
+   "text": "Your odds depend on the water temperature, staying afloat, and whether anyone knows you're missing."
+  },
+  {
+   "id": "n35",
+   "pause_after": 0.24,
+   "text": "Because out here, survival isn't about swimming to safety."
+  },
+  {
+   "id": "n36",
+   "pause_after": 1.6,
+   "text": "It's about lasting long enough to be found."
+  }
+ ]
+}

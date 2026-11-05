@@ -1,0 +1,216 @@
+{
+ "fps": 30,
+ "note": "Cut times in seconds on the master timeline (VO from story/vo_timing.json). Each shot renders frames 1..N locally.",
+ "shots": [
+  [
+   "SH01",
+   0.0,
+   6.0,
+   "Aerial descent onto a tiny swimmer in endless ocean",
+   "n01"
+  ],
+  [
+   "SH02",
+   6.0,
+   10.2,
+   "Underwater: kicking up toward the bright surface through bubbles",
+   "n02-n03"
+  ],
+  [
+   "SH03",
+   10.2,
+   14.2,
+   "Surface burst close-up: gasping, coughing",
+   "n03"
+  ],
+  [
+   "SH04",
+   14.2,
+   17.6,
+   "Orbit: treading water, looking around in panic",
+   "n04-n05"
+  ],
+  [
+   "SH05",
+   17.6,
+   20.4,
+   "Wide from behind: nothing but horizon",
+   "n06"
+  ],
+  [
+   "SH06",
+   20.4,
+   22.5,
+   "Tracking: frantic front crawl",
+   "n07"
+  ],
+  [
+   "SH07",
+   22.5,
+   25.7,
+   "Aerial top-down rising: swimmer shrinks to a dot",
+   "n08"
+  ],
+  [
+   "SH08",
+   25.7,
+   30.2,
+   "Water-level: exhausted, mouth at the waterline, silent struggle",
+   "n09"
+  ],
+  [
+   "SH09",
+   30.2,
+   35.5,
+   "Top-down: rolls onto back, starfish float",
+   "n10-n11"
+  ],
+  [
+   "SH10",
+   35.5,
+   37.4,
+   "Underwater looking up at the floating silhouette",
+   "n12"
+  ],
+  [
+   "SH11",
+   37.4,
+   40.6,
+   "Time-lapse: sun climbs overhead",
+   "n13"
+  ],
+  [
+   "SH12",
+   40.6,
+   43.9,
+   "Face close-up squinting in glare, sunburn spreads",
+   "n14"
+  ],
+  [
+   "SH13",
+   43.9,
+   49.3,
+   "Thirst: cups seawater, sips, grimaces, spits",
+   "n15-n16"
+  ],
+  [
+   "SH14",
+   49.3,
+   56.0,
+   "Science insert: seawater in vs water out",
+   "n17"
+  ],
+  [
+   "SH15",
+   56.0,
+   59.9,
+   "Underwater: juvenile fish shelter in his shadow",
+   "n18-n19"
+  ],
+  [
+   "SH16",
+   59.9,
+   62.4,
+   "Underwater: a mako emerges from the blue haze",
+   "n20"
+  ],
+  [
+   "SH17",
+   62.4,
+   64.4,
+   "Above water: he freezes, eyes down, holding his breath",
+   "n21a"
+  ],
+  [
+   "SH17B",
+   64.4,
+   66.8,
+   "Underwater: the shark circles under his dangling legs and fades away",
+   "n21b"
+  ],
+  [
+   "SH18",
+   66.8,
+   70.4,
+   "Sunset: tiny silhouette against the sun",
+   "n22"
+  ],
+  [
+   "SH19",
+   70.4,
+   74.3,
+   "Dusk: shivering, arms wrapped",
+   "n23"
+  ],
+  [
+   "SH20",
+   74.3,
+   78.4,
+   "Cold close-up: blue lips, chattering",
+   "n24"
+  ],
+  [
+   "SH21",
+   78.4,
+   83.6,
+   "Night: bioluminescent plankton glow around his hands",
+   "n25"
+  ],
+  [
+   "SH22",
+   83.6,
+   87.2,
+   "Day two: grey drizzle, wrecked and sunburnt",
+   "n26"
+  ],
+  [
+   "SH23",
+   87.2,
+   90.6,
+   "Mirage: a ship shimmers on the horizon and dissolves",
+   "n27"
+  ],
+  [
+   "SH24",
+   90.6,
+   94.1,
+   "Weak float close-up, eyes closing",
+   "n28"
+  ],
+  [
+   "SH25",
+   94.1,
+   99.0,
+   "Rotor thump: he opens his eyes, a Coast Guard helicopter approaches",
+   "n30a"
+  ],
+  [
+   "SH26",
+   99.0,
+   104.3,
+   "Helicopter hovering, rotor wash; he raises an arm",
+   "n30b"
+  ],
+  [
+   "SH27",
+   104.3,
+   112.6,
+   "Aerial orbit of the rescue with threat labels",
+   "n31-n33"
+  ],
+  [
+   "SH28",
+   112.6,
+   118.9,
+   "Calm wide: three factors",
+   "n34"
+  ],
+  [
+   "SH29",
+   118.9,
+   127.5,
+   "Final pull-back to a speck in the ocean, fade out",
+   "n35-n36"
+  ]
+ ]
+}
