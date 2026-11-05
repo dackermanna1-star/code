@@ -106,7 +106,9 @@ def draw_overlays(img, f):
         k = o['kind']
         if k == 'title':
             s = 1 + 0.15 * (1 - ease(age / 0.25))
-            ft = font('Anton-Regular.ttf', int(150 * s)); fs = font('Montserrat.ttf', 46, b'Bold')
+            base_sz = 150
+            while base_sz > 60 and ImageDraw.Draw(img).textlength(o['text'], font=font('Anton-Regular.ttf', base_sz)) > W - 120: base_sz -= 6
+            ft = font('Anton-Regular.ttf', int(base_sz * s)); fs = font('Montserrat.ttf', 46, b'Bold')
             layer = Image.new('RGBA', img.size, (0, 0, 0, 0)); ld = ImageDraw.Draw(layer)
             ld.text((W / 2, H * 0.24), o['text'], font=ft, fill=(255, 255, 255, int(255 * a)), stroke_width=10, stroke_fill=(0, 0, 0, int(255 * a)), anchor='mm')
             if o.get('sub'):
@@ -206,7 +208,7 @@ def load_frame(f):
 
 trail = None
 proc = subprocess.Popen(['ffmpeg', '-y', '-loglevel', 'error', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-s', '%dx%d' % (W, H), '-r', str(FPS), '-i', '-',
-                         '-i', '/opt/work/final_audio.wav', '-c:v', 'libx264', '-preset', 'slow', '-crf', '17', '-pix_fmt', 'yuv420p',
+                         '-i', '/opt/work/final_audio.wav', '-c:v', 'libx264', '-preset', 'slow', '-crf', '21', '-maxrate', '5800k', '-bufsize', '11600k', '-pix_fmt', 'yuv420p',
                          '-profile:v', 'high', '-c:a', 'aac', '-b:a', '256k', '-shortest', '-movflags', '+faststart', OUT], stdin=subprocess.PIPE)
 prev_img = None
 for f in range(FIRST, LAST + 1):

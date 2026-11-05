@@ -37,7 +37,9 @@ The final video is `output/mehran_nasseri_short.mp4`.
 * `shots.py` / `shotkit.py` / `hero.py`: 20 shots in 13 groups, timed to the voiceover; per-shot cameras (DOF and
   handheld noise), crowds with pull-along suitcases, props passed between hands, lighting presets (day, morning,
   night, 2022), clock hands, and a time-lapse.
-* `render_anim.py` / `render_all.sh`: Eevee Next renders (CPU / software GL in this environment).
+* `render_anim.py` / `render_all.sh`: Eevee Next renders. This environment had no GPU, so Eevee ran on Mesa's
+  software renderer: frames were rendered at 723×1286 with 2 TAA samples, then upscaled and sharpened to
+  1080×1920 in post (about 6 s per frame, ~6 h for 3,631 frames).
 * `post_audio.py`: mixes the voiceover, music (with ducking), ambience and SFX cues exported by the shot builder.
 * `post_video.py`: upscale, colour grade per scene (sepia flashbacks, night, 2022), whip, dip and flash transitions,
   time-lapse ghost trails, titles and lower thirds, and word-highlighted captions; encodes to H.264/AAC.
