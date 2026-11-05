@@ -26,6 +26,10 @@ except Exception:
 LENS_FROST = cv2.imread("/opt/assets/gen/lens_frost.png", cv2.IMREAD_UNCHANGED)
 LENS_FROST = cv2.cvtColor(LENS_FROST, cv2.COLOR_BGRA2RGBA).astype(np.float32) / 255.0
 RNG = np.random.default_rng(1)
+_yy, _xx = np.mgrid[0:H, 0:W].astype(np.float32)
+_VIG = np.clip(np.sqrt(((_xx - W / 2) / (W / 2)) ** 2 * 0.9 + ((_yy - H / 2) / (H / 2)) ** 2 * 0.6) - 0.45, 0, 1) ** 1.6
+_TVIG = 1 - 0.35 * np.clip(np.sqrt(((_xx - W / 2) / (W / 2)) ** 2 + ((_yy - H / 2) / (H / 2)) ** 2 * 0.7) - 0.5, 0, 1)
+del _yy, _xx
 
 
 def read_exr(path):
@@ -168,9 +172,7 @@ def grade_display(disp, grade, f):
     disp = np.clip(disp, 0, 1)
     disp = disp + grade.get("contrast", 0.06) * np.sin((disp - 0.5) * math.pi) / math.pi * 2 * 0.5
     # vignette
-    yy, xx = np.mgrid[0:H, 0:W].astype(np.float32)
-    r = np.sqrt(((xx - W / 2) / (W / 2)) ** 2 * 0.9 + ((yy - H / 2) / (H / 2)) ** 2 * 0.6)
-    disp *= (1 - grade.get("vignette", 0.28) * np.clip(r - 0.45, 0, 1) ** 1.6)[..., None]
+    disp *= (1 - grade.get("vignette", 0.28) * _VIG)[..., None]
     # lens frost (late in the story)
     lf = grade.get("lens_frost", 0.0)
     if lf > 0:
@@ -178,6 +180,22 @@ def grade_display(disp, grade, f):
         a = np.clip(a * (1.0 + 0.6 * lf), 0, 0.92)
         blur = cv2.GaussianBlur(disp, (0, 0), 6)
         disp = disp * (1 - a) + (blur * 0.5 + LENS_FROST[..., :3] * 0.6) * a
+    # drifting ice-crystal motes in the frozen air (deterministic per frame -> temporally coherent)
+    mo = grade.get("motes", 1.0)
+    if mo > 0:
+        prng = np.random.default_rng(11)
+        n = 140
+        x0 = prng.uniform(0, W, n); y0 = prng.uniform(0, H, n)
+        vx = prng.uniform(-14, 6, n); vy = prng.uniform(4, 22, n)       # px per second (slow fall + fan drift)
+        sz = prng.uniform(0.8, 2.6, n); br = prng.uniform(0.25, 0.85, n); ph = prng.uniform(0, 6.28, n)
+        t = f / 30.0
+        xs = (x0 + vx * t + 18 * np.sin(t * 0.7 + ph)) % W; ys = (y0 + vy * t) % H
+        lay = np.zeros((H, W), np.float32)
+        tw = br * (0.55 + 0.45 * np.sin(t * 5.0 + ph * 3))
+        for x, y, r, b in zip(xs, ys, sz, tw):
+            cv2.circle(lay, (int(x), int(y)), max(1, int(r)), float(b), -1, lineType=cv2.LINE_AA)
+        lay = cv2.GaussianBlur(lay, (0, 0), 1.2) * mo
+        disp = disp + lay[..., None] * np.array([0.85, 0.92, 1.0], np.float32) * (1 - disp)
     # film grain
     g = grade.get("grain", 0.018)
     rng = np.random.default_rng(f)
@@ -198,9 +216,7 @@ def comp_thermal(shot, f, grade):
     im = im + n[..., None] * 0.025
     # faint scanlines / fixed-pattern
     im *= (0.97 + 0.03 * np.sin(np.arange(H) * 1.3))[:, None, None]
-    yy, xx = np.mgrid[0:H, 0:W].astype(np.float32)
-    r = np.sqrt(((xx - W / 2) / (W / 2)) ** 2 + ((yy - H / 2) / (H / 2)) ** 2 * 0.7)
-    im *= (1 - 0.35 * np.clip(r - 0.5, 0, 1))[..., None]
+    im *= _TVIG[..., None]
     return np.clip(im, 0, 1)
 
 
@@ -217,7 +233,7 @@ def run(sid, rdir, outdir, shots_meta, grade, frames=None):
         else:
             rgb, mist = comp_plate(shot, f, g)
             img = finish(rgb, mist, g, f)
-        cv2.imwrite(out, cv2.cvtColor((img * 255 + 0.5).astype(np.uint8), cv2.COLOR_RGB2BGR))
+        cv2.imwrite(out, cv2.cvtColor((img * 255 + 0.5).astype(np.uint8), cv2.COLOR_RGB2BGR), [cv2.IMWRITE_PNG_COMPRESSION, 1])
     return fr
 
 

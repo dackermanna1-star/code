@@ -111,9 +111,10 @@ if PASS == "plate":
         pc_d.dof.aperture_fstop = cam.data.dof.aperture_fstop * lens_p / lmid  # same physical aperture
     sc.camera = pc
     sc.render.resolution_x, sc.render.resolution_y = px_w, px_h
-    for o in char_objs | props:
-        o.hide_render = True
-    for o in dyn:
+    for o in char_objs | props | dyn:
+        if o.animation_data:  # keyed visibility would override the hide below
+            for fc in list(o.animation_data.action.fcurves) if o.animation_data.action else []:
+                if fc.data_path == "hide_render": o.animation_data.action.fcurves.remove(fc)
         o.hide_render = True
     sc.cycles.samples = {"final": 12, "draft": 6, "tiny": 4}[Q]
     sc.cycles.adaptive_threshold = 0.02

@@ -462,7 +462,7 @@ def process(f, comp_root, final_dir):
     img = title(img, f)
     img = draw_captions(img, T(f))
     img = end_card(img, f)
-    img.convert("RGB").save(f"{final_dir}/{f:05d}.png")
+    img.convert("RGB").save(f"{final_dir}/{f:05d}.png", compress_level=1)
     return True
 
 

@@ -470,14 +470,14 @@ def build(ids=None):
         begin(f0, f1)
         cold_state(f0, 0)
         place(rig, "111_36", 150, 800, f0, f1, (0.1, -2.2), path_deg=180, path_end=470)
-        cb = box.constraints.new("CHILD_OF"); cb.target = rig; cb.subtarget = "hand_r"
+        cb = box.constraints.new("CHILD_OF"); cb.target = rig; cb.subtarget = "spine_03"
         sc.frame_set(f0 + 50)
-        Mb = rig.matrix_world @ rig.pose.bones["hand_r"].matrix
+        Mb = rig.matrix_world @ rig.pose.bones["spine_03"].matrix
         cb.inverse_matrix = Mb.inverted()
         hl, hr = bpos(rig, "hand_l", f0 + 50), bpos(rig, "hand_r", f0 + 50)
         fw = facing(rig, f0 + 50)
         box.matrix_basis = Matrix.Translation((hl + hr) / 2 + fw * 0.07 + Vector((0, 0, -0.11))) @ \
-            Euler((0, 0, math.atan2(fw.y, fw.x))).to_matrix().to_4x4() @ Matrix.Diagonal((0.75, 0.75, 0.75, 1))
+            Euler((0, 0, math.atan2(fw.y, fw.x))).to_matrix().to_4x4() @ Matrix.Diagonal((0.8, (hl - hr).length / 0.52 * 0.92, 0.85, 1))
         GRIP(a(), f0, F(6.2), "grip", 0.8)
         exh = A.breathe(a(), f0, f1, [(f0, 1.4)], depth_deg=1.2)
         puffs(rig, [e for e in exh if e > f0 + 45], 0.6, dur=34)
