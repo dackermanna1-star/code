@@ -136,8 +136,11 @@ def comp_plate(shot, f, grade):
         d = read_exr(bp)
         b = cv2.resize(d["Combined"], (W, H), interpolation=cv2.INTER_CUBIC)
         b = gaussian(b, 2.0)
-        ba = np.clip(b[..., 3:4], 0, 1) * grade.get("breath_gain", 1.0)
-        rgb = rgb * (1 - ba) + np.clip(b[..., :3], 0, None) * grade.get("breath_gain", 1.0)
+        a0 = np.clip(b[..., 3:4], 0, 1)
+        cap = grade.get("breath_cap", 0.42); gain = grade.get("breath_gain", 1.0)
+        ba = cap * (1 - np.exp(-a0 * gain / cap))           # soft-limited opacity: wisps, never a veil
+        k = np.where(a0 > 1e-4, ba / np.maximum(a0, 1e-4), 0)
+        rgb = rgb * (1 - ba) + np.clip(b[..., :3], 0, None) * k
     return rgb, mist
 
 

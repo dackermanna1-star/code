@@ -253,6 +253,17 @@ if PASS == "breath":
     m = bpy.data.materials["M_Breath"]
     nz = [n for n in m.node_tree.nodes if n.type == "TEX_NOISE"][0]
     nz.inputs["Detail"].default_value = 2.0
+    # density must reach zero inside the unit cube: spherical gradient on 2x object coords, squared falloff
+    nt_ = m.node_tree
+    gr = [n for n in nt_.nodes if n.type == "TEX_GRADIENT"][0]
+    tco = [n for n in nt_.nodes if n.type == "TEX_COORD"][0]
+    vm = nt_.nodes.new("ShaderNodeVectorMath"); vm.operation = "SCALE"; vm.inputs["Scale"].default_value = 2.15
+    nt_.links.new(tco.outputs["Object"], vm.inputs[0]); nt_.links.new(vm.outputs[0], gr.inputs["Vector"])
+    sq = nt_.nodes.new("ShaderNodeMath"); sq.operation = "POWER"; sq.inputs[1].default_value = 1.6
+    mul_ = [l.to_node for l in gr.outputs["Fac"].links][0]
+    nt_.links.new(gr.outputs["Fac"], sq.inputs[0]); nt_.links.new(sq.outputs[0], mul_.inputs[1])
+    mr_ = [n for n in nt_.nodes if n.type == "MAP_RANGE"][0]
+    mr_.inputs[1].default_value = 0.05; mr_.inputs[2].default_value = 0.35
     m.cycles.volume_step_rate = 3.0
     wn = sc.world.node_tree.nodes["Background"]
     wn.inputs[0].default_value = (0.5, 0.62, 0.78, 1); wn.inputs[1].default_value = 0.55

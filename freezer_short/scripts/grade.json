@@ -12,7 +12,8 @@
   "tone": 1.0,
   "warm": 0.0,
   "lens_frost": 0.0,
-  "breath_gain": 0.8
+  "breath_gain": 0.8,
+  "breath_cap": 0.38
  },
  "SH01": {
   "warm": 0.35,
@@ -33,7 +34,8 @@
  },
  "SH16a": {
   "lens_frost": 0.3,
-  "breath_gain": 0.55
+  "breath_gain": 0.55,
+  "breath_cap": 0.3
  },
  "SH16b": {
   "lens_frost": 0.3
@@ -90,9 +92,18 @@
   "lens_frost": 0.3
  },
  "SH06b": {
-  "breath_gain": 0.45
+  "breath_gain": 0.45,
+  "breath_cap": 0.3
  },
  "SH09": {
-  "breath_gain": 0.55
+  "breath_gain": 0.55,
+  "breath_cap": 0.3
+ },
+ "SH08b": {
+  "breath_cap": 0.3
+ },
+ "SH10b": {
+  "breath_cap": 0.62,
+  "breath_gain": 1.3
  }
 }

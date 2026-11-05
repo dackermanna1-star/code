@@ -211,9 +211,14 @@ def draw_thermal_ui(img, f, sid):
 
 # ------------------------------------------------------------------ infographics
 def glow_layer(lay, r=8, k=1.6):
-    a = lay.split()[3].filter(ImageFilter.GaussianBlur(r)).point(lambda v: min(255, v * k))
-    g = Image.new("RGBA", lay.size, lay.split()[0:3] and (0, 0, 0, 0)); g = Image.merge("RGBA", (*lay.filter(ImageFilter.GaussianBlur(r)).split()[:3], a))
-    return g
+    a = np.asarray(lay, dtype=np.float32)
+    al = a[..., 3:4] / 255.0
+    pm = a[..., :3] * al
+    pmb = np.asarray(Image.fromarray(np.clip(pm, 0, 255).astype(np.uint8)).filter(ImageFilter.GaussianBlur(r)), dtype=np.float32)
+    ab = np.asarray(Image.fromarray((al[..., 0] * 255).astype(np.uint8)).filter(ImageFilter.GaussianBlur(r)), dtype=np.float32)[..., None] / 255.0
+    col = np.where(ab > 1e-3, pmb / np.maximum(ab, 1e-3), 0)
+    out = np.dstack([np.clip(col, 0, 255), np.clip(ab * 255 * k, 0, 255)]).astype(np.uint8)
+    return Image.fromarray(out, "RGBA")
 
 
 def nerve_pulses(img, f, sid):
@@ -238,12 +243,6 @@ def nerve_pulses(img, f, sid):
                 s_ -= L
             r = 9 * (1 - 0.4 * u)
             d.ellipse((q[0] - r, q[1] - r, q[0] + r, q[1] + r), fill=(210, 245, 255, int(255 * a * (1 - 0.5 * u))))
-    nk, hd = project(c, an["neck_01"]), project(c, an["head_tail"])
-    if nk and hd and t > 17.3:
-        u = clamp((t - 17.3) / 0.5)
-        q = (nk[0] + (hd[0] - nk[0]) * u, nk[1] + (hd[1] - nk[1]) * u)
-        d.line((nk, q), fill=(140, 225, 255, int(160 * a)), width=4)
-        d.ellipse((q[0] - 10, q[1] - 10, q[0] + 10, q[1] + 10), fill=(230, 250, 255, int(255 * a)))
     hp = project(c, an["head_tail"])
     if hp and t > 17.8:
         ring = ((t - 17.9) * 1.6) % 1.0
@@ -293,8 +292,8 @@ def heat_arrows(img, f, sid):
             u = ((t * 0.6 + k / 3 + hash(b) % 7 / 7) % 1.0)
             y0 = p[1] - 30 - u * 340
             pts = [(p[0] + 18 * math.sin(y0 / 40 + j * 0.8 + t * 3), y0 - j * 14) for j in range(9)]
-            d.line(pts, fill=(255, 170, 60, int(200 * a * (1 - u))), width=7)
-    return Image.alpha_composite(img, glow_layer(lay, 6))
+            d.line(pts, fill=(255, 215, 140, int(170 * a * (1 - u) * min(1, u * 4))), width=6)
+    return Image.alpha_composite(Image.alpha_composite(img, glow_layer(lay, 7)), lay)
 
 
 def label_chip(img, txt, xy, a, col=(255, 255, 255)):
