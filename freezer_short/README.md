@@ -31,6 +31,9 @@ Docs: `docs/narration.txt`, `docs/shot_list.md`, `docs/science_factsheet.md`, `d
 - To fit the CPU render budget, the character layer is rendered at 0.7× resolution and upscaled over full-resolution
   environment plates, so the character is slightly softer than the set. Plates are static per shot and re-projected
   for camera moves, so there is no parallax inside a shot.
-- Motion is retargeted motion capture plus hand-keyed layers, not bespoke performance capture; some hand poses
-  and contacts are approximations.
+- Motion is retargeted motion capture plus hand-keyed layers and IK (seated poses, planted feet, self-hug, hand
+  contacts), not bespoke performance capture; some hand poses and contacts are approximations.
+- The MakeHuman clothing deforms imperfectly in a few poses: T-shirt sleeves balloon at the shoulders when his arms
+  are crossed or raised, the overall straps can stand off the shoulders, and the hands read a little like mittens
+  in the tightest close-ups.
 - The thermal-camera shots are stylised illustrations, not measured data; frost is exaggerated for readability.
