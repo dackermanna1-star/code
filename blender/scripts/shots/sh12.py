@@ -20,7 +20,7 @@ def build():
     probe = finish(c, o, N, inertia=(0.25, 0.6), radius=1.0, cond_fn=lambda f: {'sunburn': 0.08 + 0.32 * ease((f - 1) / (N - 1))})
     o['mat'].node_tree.nodes['collar_foam'].outputs[0].default_value = 0.15
     cam = env.add_camera('Cam', lens=50, dof={'fstop': 2.8})
-    head = overhead_face_cam(c, cam, 105, height=(0.92, 0.8), toward_crown=0.3, N=N, side=0.04, aim_offset=0.09)
+    head = overhead_face_cam(c, cam, 105, height=(0.92, 0.8), toward_crown=0.3, N=N, side=0.04, aim_offset=0.04)
     cam.data.dof.focus_object = head
     ch.ride_swell(cam, probe, 1, N, amount=0.9, min_clear=0.5)
     env.handheld(cam, amp_loc=0.006, amp_rot=0.004, freq=0.5, seed=12)

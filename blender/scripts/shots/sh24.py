@@ -19,7 +19,7 @@ def build():
     o['mat'].node_tree.nodes['collar_foam'].outputs[0].default_value = 0.12
     cam = env.add_camera('Cam', lens=50, dof={'fstop': 2.8})
     # slightly from the crown side: the water beyond his head catches the bright evening sky
-    head = overhead_face_cam(c, cam, 105, height=(0.86, 0.76), toward_crown=0.3, N=N, aim_offset=0.09)
+    head = overhead_face_cam(c, cam, 105, height=(0.86, 0.76), toward_crown=0.3, N=N, aim_offset=0.04)
     cam.data.dof.focus_object = head
     ch.ride_swell(cam, probe, 1, N, amount=0.9, min_clear=0.45)
     env.handheld(cam, amp_loc=0.004, amp_rot=0.002, freq=0.4, seed=24)
