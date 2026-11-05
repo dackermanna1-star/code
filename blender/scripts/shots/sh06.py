@@ -17,7 +17,8 @@ def build():
     o['mat'].node_tree.nodes['collar_foam'].outputs[0].default_value = 0.6
     o['mat'].node_tree.nodes['ripple_amp'].outputs[0].default_value = 2.0
     cam = env.add_camera('Cam', lens=30, dof={'fstop': 3.2})
-    aimt = cam_target(c.root, (0, 0.25, 0.1)); env.aim(cam, aimt); cam.data.dof.focus_object = aimt
+    aimt = cam_target(c.root, (0, -0.55, 0.1)); env.aim(cam, aimt)          # lead room ahead of the swimmer
+    cam.data.dof.focus_object = cam_target(c.root, (0, 0.25, 0.1))
     for f in range(1, N + 1, 2):
         x, y = xy(f)
         env.key_loc(cam, f, Vector((2.2, y - 1.0 - 0.4 * f / N, 0.62)))

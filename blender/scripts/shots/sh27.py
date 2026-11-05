@@ -16,7 +16,7 @@ def build():
     rescue.downwash(c.root, (1, N), radius=(2.0, 9.0), rate=3000)
     rescue.churn_water(o)
     cam = env.add_camera('Cam', lens=24, clip=(0.5, 80000))
-    aimt = cam_target(None, tuple(d * 0.6 + Vector((0, 0, 3.0)))); env.aim(cam, aimt)
+    aimt = cam_target(None, tuple(d * 0.8 + Vector((0, 0, 9.0)))); env.aim(cam, aimt)   # helicopter mid-frame, below the labels
     base = math.atan2(-d.y, -d.x)          # start on the far side from the sun, orbit around
     for f in range(1, N + 1, 2):
         k = ease((f - 1) / (N - 1))
