@@ -270,6 +270,7 @@ def load_helicopter(hub_z=3.3):
     root.scale = (0.01, 0.01, 0.01)
     bpy.context.view_layer.update()
     rot = separate_rotor(meshes, hub_z=hub_z)
+    bpy.context.view_layer.update()
     if rot:
         mw = rot.matrix_world.copy(); rot.parent = root; rot.matrix_parent_inverse = root.matrix_world.inverted(); rot.matrix_world = mw
     return root, rot
