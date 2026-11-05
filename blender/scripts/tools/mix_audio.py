@@ -124,21 +124,24 @@ def heli_lp(x, fc):
     sos = signal.butter(4, fc, 'lowpass', fs=SR, output='sos'); return signal.sosfiltfilt(sos, x, axis=0)
 h_far = heli_lp(heli, 900)
 t0 = span('SH25')[0]; t1 = span('SH25')[1]
-place('sfx', h_far, t0 + 0.2, -20, fade_in=2.5, dur=t1 - t0 - 0.2, loop=True)
-place('sfx', heli, t0 + 2.6, -18, fade_in=2.0, dur=t1 - t0 - 2.6, loop=True)
-t0 = span('SH26')[0]; t1 = span('SH28')[1]
-place('sfx', heli, t0, -7, fade_in=0.15, dur=span('SH26')[1] - t0, loop=True)
-place('sfx', heli, span('SH27')[0], -12, dur=span('SH27')[1] - span('SH27')[0], loop=True, offset=3.0)   # aerial: further away
-place('sfx', heli, span('SH28')[0], -8, dur=span('SH28')[1] - span('SH28')[0], loop=True, offset=5.0)
+# distant rotor thump is audible before he lifts his head (~95.1 s), then grows into the SH26 hover
+place('sfx', h_far, t0 + 0.3, -5, fade_in=0.6, dur=t1 - t0 - 0.3, loop=True)
+place('sfx', heli, t0 + 1.8, -13, fade_in=3.0, dur=t1 - t0 - 1.8, loop=True)
+place('sfx', heli, span('SH26')[0], -7, fade_in=0.15, dur=span('SH26')[1] - span('SH26')[0], loop=True)
+place('sfx', heli, span('SH27')[0], -9, dur=span('SH27')[1] - span('SH27')[0], loop=True, offset=3.0)    # low orbit, ~16 m away
+place('sfx', heli, span('SH28')[0], -9, dur=span('SH28')[1] - span('SH28')[0], loop=True, offset=5.0)
 place('sfx', load(A + 'sfx/wind_bed.wav'), span('SH26')[0], -12, dur=span('SH26')[1] - span('SH26')[0], loop=True)  # downwash roar
 t0, t1 = span('SH29')
-place('sfx', heli_lp(heli, 1400), t0, -11, fade_out=t1 - t0 - 1.0, dur=t1 - t0, loop=True, offset=2.0)
+# hovers ~3 s while he is reeled in, then departs: fade over the rest of the shot
+place('sfx', heli_lp(heli, 2200), t0, -9, fade_out=t1 - t0 - 3.0, dur=t1 - t0, loop=True, offset=2.0)
 
 # ------------------------------------------------------------------ music: tension underscore, then hope
 LN3 = load(A + 'music/Long_Note_Three.mp3'); HOPE = load(A + 'music/Eternal_Hope.mp3')
 switch = span('SH25')[0]
 place('music', LN3, 0.0, -9, fade_in=1.5, fade_out=3.5, dur=switch + 1.5)
-place('music', HOPE, switch - 0.5, -9, fade_in=2.5, fade_out=3.0, dur=TOTAL - switch + 0.5)
+# Eternal Hope lifts at 85 s into the track: line that up with the cut to the hover (SH26), so the hope cue lands
+h_start = switch - 0.5
+place('music', HOPE, h_start, -7, fade_in=2.5, fade_out=3.0, dur=TOTAL - h_start, offset=85.0 - (span('SH26')[0] - h_start))
 
 # ------------------------------------------------------------------ ducking: music & ambience dip under the voice
 env = np.abs(mix['vo']).max(1)
@@ -155,7 +158,8 @@ def smooth(a, att, rel):
         out[i:i + 64] = y
     return out
 d = smooth(act, 0.06, 0.45)
-mix['music'] *= (1 - d * (1 - 10 ** (-8 / 20)))[:, None]
+duck_db = np.where(np.arange(N) < int(switch * SR), -8.0, -6.0)     # lighter ducking under the hope cue
+mix['music'] *= (1 - d * (1 - 10 ** (duck_db / 20)))[:, None]
 mix['amb'] *= (1 - d * (1 - 10 ** (-4 / 20)))[:, None]
 
 final = mix['vo'] * 1.0 + mix['music'] * 10 ** (4 / 20) + mix['amb'] * 10 ** (-3 / 20) + mix['sfx'] * 10 ** (-4 / 20)

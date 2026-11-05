@@ -279,28 +279,47 @@ def load_helicopter(hub_z=3.3):
         mw = rot.matrix_world.copy(); rot.parent = root; rot.matrix_parent_inverse = root.matrix_world.inverted(); rot.matrix_world = mw
     return root, rot
 
-def separate_rotor(meshes, hub_z=3.4):
-    """Separate faces whose vertices are all above hub_z into one 'MainRotor' object pivoting at the hub."""
+def separate_rotor(meshes, hub_z=3.4, hub_xy=(0.0, -1.82), r_max=6.4):
+    """Split the main rotor (4 blades + hub) off the fuselage by mesh island, and pivot it on the mast.
+    An island belongs to the rotor if it sits entirely above the mast fairing (zmin >= 2.95 m) and is either a
+    blade (reaches > 3 m from the mast axis) or a hub part (stays within 1 m of it); the tail (> r_max) stays put.
+    The pivot is the centroid of the blade islands (4 symmetric blades -> the mast axis)."""
     import bmesh
-    parts = []
+    hx, hy = hub_xy
+    parts = []; blade_c = []
     for o in meshes:
         mw = o.matrix_world
-        me = o.data
-        bm = bmesh.new(); bm.from_mesh(me)
-        faces = [f for f in bm.faces if all((mw @ v.co).z > hub_z for v in f.verts)]
-        if len(faces) < 10: bm.free(); continue
+        bm = bmesh.new(); bm.from_mesh(o.data)
+        seen = set(); take = []
+        for f0 in bm.faces:
+            if f0.index in seen: continue
+            stack = [f0]; comp = []; seen.add(f0.index)
+            while stack:
+                g = stack.pop(); comp.append(g)
+                for e in g.edges:
+                    for h in e.link_faces:
+                        if h.index not in seen: seen.add(h.index); stack.append(h)
+            pts = [mw @ v.co for v in {v for g in comp for v in g.verts}]
+            zmin = min(p.z for p in pts)
+            rr = [math.hypot(p.x - hx, p.y - hy) for p in pts]
+            rmax = max(rr)
+            if zmin < 2.95 or rmax > r_max: continue
+            if rmax > 3.0:
+                take += comp; blade_c.append(sum(pts, Vector()) / len(pts))
+            elif rmax <= 1.0:
+                take += comp
+        if not take: bm.free(); continue
         nm = bpy.data.meshes.new(o.name + '_rotor')
-        bm2 = bmesh.new()
-        vmap = {}
-        for f in faces:
+        bm2 = bmesh.new(); vmap = {}
+        for f in take:
             vs = []
             for v in f.verts:
                 if v not in vmap: vmap[v] = bm2.verts.new(mw @ v.co)
                 vs.append(vmap[v])
             try: bm2.faces.new(vs)
             except ValueError: pass
-        bmesh.ops.delete(bm, geom=faces, context='FACES')
-        bm.to_mesh(me); bm.free()
+        bmesh.ops.delete(bm, geom=take, context='FACES')
+        bm.to_mesh(o.data); bm.free()
         bm2.to_mesh(nm); bm2.free()
         nm.materials.append(o.data.materials[0] if o.data.materials else None)
         parts.append(nm)
@@ -313,9 +332,12 @@ def separate_rotor(meshes, hub_z=3.4):
     bpy.context.view_layer.objects.active = objs[0]
     if len(objs) > 1: bpy.ops.object.join()
     rot = bpy.context.view_layer.objects.active; rot.name = 'MainRotor'
-    # pivot at hub: centre of the rotor bbox in XY, lowest point in Z
-    bb = [rot.matrix_world @ Vector(c) for c in rot.bound_box]
-    hub = Vector(((min(v.x for v in bb) + max(v.x for v in bb)) / 2, (min(v.y for v in bb) + max(v.y for v in bb)) / 2, min(v.z for v in bb)))
+    if blade_c:
+        c = sum(blade_c, Vector()) / len(blade_c)
+        hub = Vector((c.x, c.y, min(v.co.z for v in rot.data.vertices)))
+    else:
+        hub = Vector((hx, hy, hub_z))
+    print('MainRotor: %d blade islands, pivot %s, %d faces' % (len(blade_c), tuple(round(x, 3) for x in hub), len(rot.data.polygons)))
     rot.data.transform(Matrix.Translation(-hub)); rot.location = hub
     return rot
 

@@ -14,6 +14,8 @@ GRADE = {
     'SH12': 'colorbalance=rm=-0.05:bm=0.03,eq=saturation=0.88',
     'SH13': 'colorbalance=rm=-0.05:bm=0.03,eq=saturation=0.9',
     'SH17': 'colorbalance=rm=-0.05:bm=0.03,eq=saturation=0.9',
+    # SH18 rendered washed-out near-white: pull it down ~1.5 stops into a saturated orange sunset, darker sea
+    'SH18': "curves=r='0/0 0.45/0.27 0.8/0.7 1/0.95':g='0/0 0.45/0.15 0.8/0.45 1/0.7':b='0/0 0.45/0.11 0.8/0.33 1/0.55',eq=saturation=1.2:contrast=1.05,vignette=PI/5",
     'SH24': 'colorbalance=rm=-0.06:bm=0.03,eq=saturation=0.86',
     'SH25': 'eq=saturation=0.95',
 }
@@ -59,6 +61,6 @@ vf = ("eq=contrast=1.03:saturation=1.04,noise=alls=3:allf=t,fade=t=out:st=%.3f:d
 cmd = ['ffmpeg', '-v', 'error', '-stats', '-y', '-f', 'concat', '-safe', '0', '-i', lst, '-i', '/home/user/code/audio/mix/stranded_mix.wav',
        '-vf', vf, '-af', 'apad', '-t', '%.4f' % (total / 30.0), '-c:v', 'libx264', '-preset', 'slow' if not draft else 'veryfast', '-crf', '17' if not draft else '23',
        '-profile:v', 'high', '-r', '30', '-c:a', 'aac', '-b:a', '256k', '-ar', '48000',
-       '-movflags', '+faststart', OUT + name]
+       '-movflags', '+faststart', (TMP if draft else OUT) + name]     # drafts never land in output/
 subprocess.run(cmd, check=True)
-print('wrote', OUT + name, 'frames', total)
+print('wrote', (TMP if draft else OUT) + name, 'frames', total)

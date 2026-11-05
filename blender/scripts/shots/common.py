@@ -66,6 +66,25 @@ def cam_target(parent=None, loc=(0, 0, 0), bone=None):
     t.location = loc
     return t
 
+def overhead_face_cam(c, cam, head_dir_deg, height=(0.9, 0.8), toward_crown=0.1, N=100, bone='eye.L', side=0.0):
+    """Camera above a face floating on its back, looking down at it with the face upright in frame (forehead up,
+    chin down): aims at the eye through an up-reference empty whose Z axis points toward the crown, so the shot never
+    looks up the throat. head_dir_deg: horizontal direction of the crown (deg from +X). Keys cam location (world)."""
+    eye = cam_target(c.rig, (0, 0, 0), bone=bone)
+    up = bpy.data.objects.new('AimUp', None); bpy.data.collections['Cameras'].objects.link(up)
+    cl = up.constraints.new('COPY_LOCATION'); cl.target = eye
+    up.rotation_euler = (math.radians(-90), 0, math.radians(head_dir_deg - 90))
+    tt = cam.constraints.new('TRACK_TO'); tt.target = up; tt.track_axis = 'TRACK_NEGATIVE_Z'; tt.up_axis = 'UP_Y'; tt.use_target_z = True
+    sc = bpy.context.scene; sc.frame_set(1)
+    e = eye.matrix_world.translation.copy()
+    hd = Vector((math.cos(math.radians(head_dir_deg)), math.sin(math.radians(head_dir_deg)), 0))
+    sd = Vector((-hd.y, hd.x, 0))
+    for f in range(1, N + 1, 3):
+        k = ease((f - 1) / max(1, N - 1))
+        z = height[0] + (height[1] - height[0]) * k
+        env.key_loc(cam, f, Vector((e.x, e.y, 0)) + hd * toward_crown + sd * side + Vector((0, 0, e.z + z)))
+    return eye
+
 def tread_in_place(c, o, N, depth=-0.24, speed=1.0, effort=1.0, yaw=0.0, lean=8.0, breath_bpm=22, breath_depth=1.0,
                    seed=1, xy_fn=None, yaw_fn=None, head_seed=3):
     c.add(ch.tread_water(c, 1, N, speed=speed, effort=effort))

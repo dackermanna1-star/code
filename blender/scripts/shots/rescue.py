@@ -113,5 +113,48 @@ def rescue_frame(sun):
     yaw = math.degrees(math.atan2(d.x, -d.y))    # character faces (sin y, -cos y)
     return d, side, yaw
 
-HOVER_OFF = 1.2      # metres sunward of him
-HOVER_Z = 13.5
+HOVER_OFF = 1.2      # metres sunward of him (SH26 arrival)
+HOVER_Z = 10.5       # hoist hover height (~35 ft); SH26 arrives 2 m higher and SH27 settles down to this
+ARRIVE_Z = HOVER_Z + 2.0
+HOOK_CM = (130.0, -150.0, 260.0)   # rescue hoist above the cabin door, model space (cm)
+
+def heli_yaw(d):
+    """Hover heading used in SH26-SH28 (nose toward the sun), degrees."""
+    return math.degrees(math.atan2(d.y, d.x)) + 90
+
+def hook_over_xy(d):
+    """Root position (XY) that puts the hoist hook straight above him (the origin)."""
+    q = Matrix.Rotation(math.radians(heli_yaw(d)), 3, 'Z')
+    h = q @ Vector((HOOK_CM[0] * 0.01, HOOK_CM[1] * 0.01, 0.0))
+    return Vector((-h.x, -h.y, 0.0))
+
+def world_at(ob, f, local=(0.0, 0.0, 0.0)):
+    """World position of a point in an (unparented, keyed) object's space at frame f, from its fcurves
+    (no scene evaluation: frame_set would re-simulate the ocean every call)."""
+    from mathutils import Quaternion
+    loc = Vector(ob.location); q = Quaternion(ob.rotation_quaternion)
+    ad = ob.animation_data
+    if ad and ad.action:
+        for fc in env.fcurves_of(ob):
+            if fc.data_path == 'location': loc[fc.array_index] = fc.evaluate(f)
+            elif fc.data_path == 'rotation_quaternion': q[fc.array_index] = fc.evaluate(f)
+    q.normalize()
+    return loc + q @ (Vector(local) * ob.scale.x)
+
+def hoist_hook(hroot):
+    hook = bpy.data.objects.new('HoistHook', None); bpy.context.scene.collection.objects.link(hook)
+    hook.parent = hroot; hook.location = HOOK_CM
+    return hook
+
+def hanging_strop():
+    """Empty rescue strop as it hangs from the hook: a vertical yellow loop. Returns (strop, top_attach_empty)."""
+    bpy.ops.mesh.primitive_torus_add(major_radius=0.24, minor_radius=0.05, location=(0, 0, 0))
+    s = bpy.context.object; s.name = 'StropHang'; env.link(s, 'Props')
+    s.data.transform(Matrix.Rotation(math.pi / 2, 4, 'X'))
+    s.data.transform(Matrix.Scale(0.7, 4, Vector((1, 0, 0))))
+    m = bpy.data.materials.new('StropHang'); m.use_nodes = True; b = m.node_tree.nodes['Principled BSDF']
+    b.inputs['Base Color'].default_value = (0.95, 0.55, 0.02, 1); b.inputs['Roughness'].default_value = 0.6
+    s.data.materials.append(m)
+    top = bpy.data.objects.new('StropTop', None); bpy.context.scene.collection.objects.link(top)
+    top.parent = s; top.location = (0, 0, 0.27)
+    return s, top
