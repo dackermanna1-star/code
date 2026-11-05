@@ -196,10 +196,21 @@ try:
     print("LUFS before", round(l, 1))
 except Exception as e:
     mix *= 0.5 / (np.sqrt(np.mean(mix ** 2)) * 4 + 1e-9)
-# soft limiter
-mix = np.tanh(mix / 0.95) * 0.95
+# true-peak limiter (-1.5 dBTP, so the AAC encode stays under -1 dBTP): 4x-oversampled peak estimate,
+# then a hold (12 ms) + average (10 ms) gain curve, which never exceeds the gain each sample needs.
+# (The old tanh soft clip + 0.98 sample-peak cap let inter-sample peaks reach 0 dBTP after encoding.)
+from scipy.signal import resample_poly
+from scipy.ndimage import minimum_filter1d, uniform_filter1d
+ceil = 10 ** (-1.5 / 20)
+up = np.abs(resample_poly(mix, 4, 1, axis=0)).max(axis=1)
+tp = up[: len(mix) * 4].reshape(-1, 4).max(axis=1)
+need = np.minimum(1.0, ceil / np.maximum(tp, 1e-9))
+ra, rh = int(0.010 * SR), int(0.012 * SR)
+gain = uniform_filter1d(minimum_filter1d(need, 2 * rh + 1, mode="nearest"), 2 * ra + 1, mode="nearest")
+mix = mix * gain[:, None]
+print("limiter: max gain reduction %.1f dB, %.2f%% of samples limited" % (-20 * np.log10(gain.min()), 100 * (gain < 0.999).mean()))
 pk = np.abs(mix).max()
-if pk > 0.98: mix *= 0.98 / pk
+if pk > ceil: mix *= ceil / pk
 import wave
 with wave.open(OUT, "wb") as w:
     w.setnchannels(2); w.setsampwidth(2); w.setframerate(SR)
