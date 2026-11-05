@@ -19,23 +19,30 @@ def load(path, gain_db=0.0):
     if x.shape[1] == 1: x = np.repeat(x, 2, 1)
     return x * 10 ** (gain_db / 20)
 
+def ns(sec): return int(round(sec * SR))    # seconds -> samples (round: int() truncation dropped a sample at e.g. 104.3 s)
+
 def place(bus, x, t, gain_db=0.0, fade_in=0.0, fade_out=0.0, dur=None, loop=False, offset=0.0):
-    a = int(t * SR)
+    a = ns(t)
     if loop:
-        x = np.roll(x, -int(offset * SR) % len(x), axis=0)
+        x = np.roll(x, -ns(offset) % len(x), axis=0)
     else:
-        x = x[int(offset * SR):]
+        x = x[ns(offset):]
     if dur is not None:
-        n = int(dur * SR)
+        n = ns(dur)
         if loop and len(x) < n:
             x = np.concatenate([x] * (n // len(x) + 1))
         x = x[:n]
     x = x.copy() * 10 ** (gain_db / 20)
     if fade_in > 0:
-        k = min(len(x), int(fade_in * SR)); x[:k] *= np.linspace(0, 1, k)[:, None]
+        k = min(len(x), ns(fade_in)); x[:k] *= np.linspace(0, 1, k)[:, None]
     if fade_out > 0:
-        k = min(len(x), int(fade_out * SR)); x[-k:] *= np.linspace(1, 0, k)[:, None]
+        k = min(len(x), ns(fade_out)); x[-k:] *= np.linspace(1, 0, k)[:, None]
+    if a < 0: x = x[-a:]; a = 0                 # a crossfade overlap reaching before 0 s
     b = min(N, a + len(x)); mix[bus][a:b] += x[:b - a]
+
+# consecutive per-shot loops (beds, helicopter) overlap by 2*XF across each cut with linear fades, instead of a hard
+# splice or a fade to silence on both sides (those read as ticks / drop-outs on the cut)
+XF = 0.05
 
 def span(sid): return shots[sid]
 
@@ -43,7 +50,7 @@ def span(sid): return shots[sid]
 vo = load(A + 'vo/vo_full.wav', 0.0)
 place('vo', vo, 0.0)
 
-# ------------------------------------------------------------------ ambience beds (hard switches at underwater cuts)
+# ------------------------------------------------------------------ ambience beds (switch at the cuts with a short crossfade)
 bed = load(A + 'sfx/ocean_bed.wav'); calm = load(A + 'sfx/ocean_bed_calm.wav'); wind = load(A + 'sfx/wind_bed.wav')
 under = load(A + 'sfx/underwater_bed.wav'); rain = load(A + 'sfx/rain_bed.wav'); sparkle = load(A + 'sfx/sparkle.wav')
 rain_rec = load(A + 'sfx_src/rain_rec.wav'); rain_rec = rain_rec / (np.abs(rain_rec).max() + 1e-9) * 0.7   # public-domain recording
@@ -58,7 +65,7 @@ def bed_for(sid):
 off = 0.0
 for sid, (t0, t1) in shots.items():
     for x, g in bed_for(sid):
-        place('amb', x, t0, g, fade_in=0.04, fade_out=0.04, dur=t1 - t0, loop=True, offset=(off % 30.0))
+        place('amb', x, t0 - XF, g, fade_in=2 * XF, fade_out=2 * XF, dur=t1 - t0 + 2 * XF, loop=True, offset=(off % 30.0))
     off += 7.3
     if sid == 'SH21': place('amb', sparkle, t0 + 0.4, -14, fade_in=0.5, fade_out=1.0, dur=t1 - t0 - 0.4, loop=True)
 
@@ -77,9 +84,11 @@ place('sfx', wu, 0.75, -6); place('sfx', wu, 1.3, -10)
 # plunge to underwater + bubbles
 t0 = span('SH02')[0]
 place('sfx', wd, t0 - 0.25, -6); place('sfx', bub, t0, -4); place('sfx', bub, t0 + 1.8, -8); place('sfx', bubs, t0 + 3.0, -6)
-# surfacing burst
+# surfacing burst: the head breaks the surface at ~10.30 s (SH03 local frame 4), spray peaks ~10.4 s.
+# Onset 5 builds for 0.17 s (low slosh) before its attack (-10 dB point) and crests 0.31 s in, so start it 0.04 s
+# before the cut: attack ~10.30 s, crest ~10.44 s. Onset 12 attacks at once: 0.12 s after the main attack.
 t0 = span('SH03')[0]
-splash(t0 + 0.32, -1, 5, 1.0); splash(t0 + 0.45, -6, 12, 0.8)
+splash(t0 - 0.04, -1, 5, 1.0); splash(t0 + 0.22, -6, 12, 0.8)
 for k, tt in enumerate((1.25, 1.8)): splash(t0 + tt, -14, 20 + k, 0.4)
 # panicked treading in SH04 (small sloshes)
 t0, t1 = span('SH04')
