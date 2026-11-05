@@ -274,6 +274,10 @@ if PASS == "plate":
         bi = mi.node_tree.nodes["Principled BSDF"]
         bi.inputs["Base Color"].default_value = (0.5, 0.58, 0.66, 1); bi.inputs["Roughness"].default_value = 0.12
         bi.inputs["Coat Weight"].default_value = 0.6; bi.inputs["Coat Roughness"].default_value = 0.05
+    # overlapping floor-ice slabs at the same height trap reflected rays between their faces, which rendered as
+    # hard-edged black voids where two patches overlap (SH14, SH15, SH16d): stagger their heights by 1.5 mm
+    for i, o in enumerate(sorted((o for o in bpy.data.objects if o.name.startswith("FloorIce_")), key=lambda o: o.name)):
+        o.location.z = 0.002 + 0.0015 * i
     sc.cycles.samples = {"final": 12, "draft": 6, "tiny": 4}[Q]
     sc.cycles.adaptive_threshold = 0.02
     sc.cycles.use_denoising = True; sc.cycles.denoiser = "OPENIMAGEDENOISE"
