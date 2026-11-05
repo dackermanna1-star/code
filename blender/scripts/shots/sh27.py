@@ -30,7 +30,7 @@ def build():
     hook = rescue.hoist_hook(hroot)
     # strop paid out on the cable, swinging in the downwash; lands just in front of him and bobs
     strop, top = rescue.hanging_strop()
-    tgt = d * 0.3 + side * 0.5 + Vector((0, 0, -0.03))        # beside him (not between him and the lens)
+    tgt = side * 0.55 - d * 0.05 + Vector((0, 0, -0.03))       # beside him (not between him and the lens)
     for f in range(1, N + 1):
         hw = rescue.world_at(hroot, f, rescue.HOOK_CM)
         k = ease(min(1.0, max(0.0, (f - 60) / float(LAND - 60))))

@@ -14,8 +14,9 @@ def build():
     shark, arm = marine.load_shark(2.6)
     def path(f):
         u = f / N
-        a = math.radians(205 - 75 * ease(min(u / 0.7, 1.0)))     # ~2 m/s arc under his legs
-        p = Vector((-0.3 + 2.4 * math.cos(a), -0.5 + 2.4 * math.sin(a), -3.0))
+        # ~2.5 m/s arc across the far side of the circle under his legs, so the pass stays inside the 9:16 frame
+        a = math.radians(140 - 110 * ease(min(u / 0.7, 1.0)))
+        p = Vector((-0.3 + 2.0 * math.cos(a), -0.5 + 2.0 * math.sin(a), -3.0))
         if u > 0.6:                                               # loses interest, glides off into the blue
             k = ease((u - 0.6) / 0.4)
             p += Vector((2.2 * k, 4.0 * k, -1.2 * k))

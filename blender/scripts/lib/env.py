@@ -178,7 +178,7 @@ def _img(nt, name, loc, colorspace='Non-Color', interp='Linear'):
 
 def water_material(name='Water', mode='clear', fx_empty=None, haze_color=(0.55, 0.65, 0.75),
                    haze_start=250.0, haze_end=9000.0, deep=(0.0015, 0.010, 0.022), crest=(0.006, 0.05, 0.055),
-                   near_transmission=14.0, caustic_strength=0.7, ripple_strength=1.0, roughness=0.035):
+                   near_transmission=14.0, caustic_strength=0.7, ripple_strength=1.0, roughness=0.035, transmit_tint=None):
     """Texture-driven ocean surface. mode: 'opaque' | 'clear' (transmissive near camera) | 'under'."""
     m = bpy.data.materials.new(name); m.use_nodes = True
     nt = m.node_tree; N = nt.nodes; L = nt.links
@@ -313,6 +313,13 @@ def water_material(name='Water', mode='clear', fx_empty=None, haze_color=(0.55, 
     tw.outputs[0].default_value = {'opaque': 0.0, 'clear': 1.0, 'under': 1.0}[mode]
     twm = math('MULTIPLY', 1.0 if mode == 'under' else near.outputs[0], tw.outputs[0], loc=(150, 0))
     L.new(twm, bsdf.inputs['Transmission Weight'])
+    if transmit_tint is not None and mode != 'opaque':
+        # Principled transmission is tinted by Base Color: near the camera use a light tint so a body just under the
+        # surface keeps its colour (the deep navy base colour turns everything seen through the water black)
+        tmix = _n(nt, 'ShaderNodeMix', (200, 450)); tmix.data_type = 'RGBA'; tmix.name = 'transmit_tint'
+        L.new(twm, tmix.inputs['Factor']); L.new(varmix.outputs['Result'], tmix.inputs['A'])
+        tmix.inputs['B'].default_value = (*transmit_tint, 1)
+        L.new(tmix.outputs['Result'], bsdf.inputs['Base Color'])
 
     # ---- foam (sim foam attribute + collar) broken by noise texture
     fattr = _n(nt, 'ShaderNodeAttribute', (-1300, 1500)); fattr.attribute_name = 'foam'

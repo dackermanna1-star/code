@@ -34,11 +34,13 @@ def build():
     c.pivot_fn = lambda f: (Vector((0, 0, depth(f) + (ch.tread_bob(f, 1.3, 0.04) if f > 20 else 0))), compose(R('X', 6), R('Z', 22)))
     probe = finish(c, o, N, inertia=(0.3, 0.55))
     # splash of droplets as the head breaks through + strong ring ripples
-    em, b = marine.bubble_emitter(c.rig, bone='head', offset=(0, 0.05, 0), frames=(9, 16), rate=900, size=(0.006, 0.02),
-                                  name='Splash', up_speed=2.6, spread=0.5, lifetime=40, seed=4)
+    # (from the neck/shoulder line at the waterline, low and wide, so it arcs out and falls back - not a fountain off the crown)
+    # radial burst (bone axes are not world-up, so no object-aligned velocity): ~1.6 m/s -> arcs < 0.15 m high
+    em, b = marine.bubble_emitter(c.rig, bone='neck01', offset=(0, 0.0, 0), frames=(5, 12), rate=1100, size=(0.006, 0.02),
+                                  name='Splash', up_speed=0.0, spread=0.06, lifetime=30, seed=4)
     st = em.particle_systems[0].settings
     st.effector_weights.gravity = 1.0; st.brownian_factor = 0.0; st.drag_factor = 0.05
-    st.object_align_factor[2] = 2.2; st.factor_random = 1.4
+    st.object_align_factor = (0, 0, 0); st.normal_factor = 1.6
     b.data.materials.clear(); b.data.materials.append(water_drop_material())
     ra = o['mat'].node_tree.nodes['ripple_amp']; ra.outputs[0].default_value = 2.5
     o['mat'].node_tree.nodes['collar_foam'].outputs[0].default_value = 0.9

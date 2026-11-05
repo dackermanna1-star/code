@@ -13,14 +13,18 @@ def build():
     c.add(ch.shiver(lambda f: 1.2, seed=20))
     c.add(ch.breathing(rate_bpm=30, depth=1.4))
     c.add_face(lambda f: dict(face('cold', 1.0), jawOpen=0.03 + 0.05 * abs(ch.smooth_noise(f / 30, 7, 13))))
+    c.add_face(lambda f: {'eyeSquintLeft': -0.22, 'eyeSquintRight': -0.22, 'eyeWideLeft': 0.18, 'eyeWideRight': 0.18})   # eyes read, not slits
     c.add_face(ch.blinks(seed=20, mean_gap=2.0))
     c.add(ch.look(ch.saccades(seed=20, spread=7, hold=(15, 35))))
-    c.pivot_fn = lambda f: (Vector((0, 0, -0.16)), compose(R('X', 7), R('Z', 25)))
+    c.pivot_fn = lambda f: (Vector((0, 0, -0.21)), compose(R('X', 7), R('Z', 25)))      # water at the collarbones: hides the neckline
     probe = finish(c, o, N, inertia=(0.25, 0.55))
     o['mat'].node_tree.nodes['collar_foam'].outputs[0].default_value = 0.25
     cam = env.add_camera('Cam', lens=85, dof={'fstop': 1.8})
     cam.data.dof.focus_object = cam_target(c.rig, (0, 0, 0), bone='eye.L')
-    aimt = cam_target(c.root, (0, -0.07, 0.24)); env.aim(cam, aimt)
+    aimt = cam_target(c.root, (0, -0.07, 0.19)); env.aim(cam, aimt)
+    # small cool fill near the lens: a catchlight in the eyes and a little shape on the face in the last light
+    lt = bpy.data.lights.new('EyeFill', 'POINT'); lt.energy = 4.0; lt.shadow_soft_size = 0.08; lt.color = (0.8, 0.88, 1.0)
+    lo = bpy.data.objects.new('EyeFill', lt); sc.collection.objects.link(lo); lo.parent = cam; lo.location = (0.12, 0.1, 0.0)
     for f in range(1, N + 1, 3):
         k = ease((f - 1) / (N - 1))
         env.key_loc(cam, f, Vector((0.6 - 0.1 * k, -1.5 + 0.2 * k, 0.2)))

@@ -3,7 +3,12 @@ Overhead: he stops fighting, leans back, ears go under, arms and legs open into 
 from common import *
 
 def build():
-    sc, c, o, sun = setup('SH09', tod='day', ocean='calm', water_mode='clear', vignette=0.3, water_kw={'near_transmission': 20.0})
+    # light transmission tint + dimmer volume glow: the body just under the surface keeps its colours (skin, shirt,
+    # shorts) instead of reading as a black wetsuit, while the deep water stays ocean-blue
+    sc, c, o, sun = setup('SH09', tod='day', ocean='calm', water_mode='clear', vignette=0.3,
+                          water_kw={'near_transmission': 20.0, 'transmit_tint': (0.55, 0.8, 0.85)})
+    for m in (o['mat'], o.get('volmat')):
+        if m is not None and 'vol_glow' in m.node_tree.nodes: m.node_tree.nodes['vol_glow'].inputs['Strength'].default_value = 0.25
     N = sc.frame_end   # 159
     c.condition(wet=1.0, fatigue=0.35)
     w_float = ch.ramp(35, 105)
