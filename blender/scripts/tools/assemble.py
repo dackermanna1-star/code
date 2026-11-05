@@ -17,6 +17,9 @@ GRADE = {
     'SH24': 'colorbalance=rm=-0.06:bm=0.03,eq=saturation=0.86',
     'SH25': 'eq=saturation=0.95',
 }
+# shots whose source is retimed in the edit: {shot: source_frames_used}
+# SH02: his head breaks the surface from ~frame 90, and SH03 shows the burst again -> play frames 1-88 in gentle slow motion
+RETIME = {'SH02': 88}
 black = TMP + '_black.png'
 subprocess.run(['ffmpeg', '-v', 'error', '-y', '-f', 'lavfi', '-i', 'color=c=black:s=576x1024', '-frames:v', '1', black], check=True)
 clips = []; missing = {}
@@ -34,6 +37,10 @@ for sid, t0, t1, *_ in shots:
     if missing.get(sid) and not draft:
         continue
     vf = 'scale=1080:1920:flags=lanczos,unsharp=5:5:0.45:5:5:0.0'
+    src_n = n
+    if sid in RETIME:
+        src_n = RETIME[sid]
+        vf = ('trim=end_frame=%d,setpts=(PTS-STARTPTS)*%d/%d,minterpolate=fps=30:mi_mode=mci:mc_mode=aobmc:me_mode=bidir:vsbmc=1,' % (src_n, n, src_n)) + vf
     if sid in GRADE: vf += ',' + GRADE[sid]
     clip = TMP + sid + '.mkv'
     subprocess.run(['ffmpeg', '-v', 'error', '-y', '-framerate', '30', '-i', seq + '%04d.png', '-vf', vf + ',format=yuv444p',
