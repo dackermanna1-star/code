@@ -59,6 +59,10 @@ def localize_images():
 
 if mode == "seq":
     name = os.path.basename(bpy.data.filepath)
+    if name == "seq_home.blend":   # S03/S15b were rebuilt into seq_home_fix.blend after review
+        for sn in ("S03", "S15b"):
+            if sn in bpy.data.scenes:
+                bpy.data.scenes.remove(bpy.data.scenes[sn])
     if "WORK" in bpy.data.scenes:
         w = bpy.data.scenes["WORK"]
         for o in list(w.collection.objects):
