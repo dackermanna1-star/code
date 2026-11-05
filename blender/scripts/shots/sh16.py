@@ -12,7 +12,7 @@ def build():
     finish(c, o, N, probe)
     shark, arm = marine.load_shark(2.6)
     # ~2.5 m/s cruise out of the blue haze toward the dangling legs, slight descent-then-rise
-    marine.path_animate(shark, lambda f: Vector((3.6 - 3.0 * ease(f / N), 9.0 - 5.6 * ease(f / N), -3.4 + 0.5 * ease(f / N))), 1, N)
+    marine.path_animate(shark, lambda f: Vector((3.0 - 2.8 * ease(f / N), 8.0 - 6.5 * ease(f / N), -3.4 + 0.8 * ease(f / N))), 1, N)
     cam = env.add_camera('Cam', lens=22)
     aimt = cam_target(None, (1.0, 5.0, -2.5)); env.aim(cam, aimt)
     for f in range(1, N + 1, 3):
