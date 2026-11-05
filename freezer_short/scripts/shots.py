@@ -692,8 +692,16 @@ def build(ids=None):
         A.hand_pose(a(), "l", [(f0, "claw", 0.8), (f0 + 25, "flat", 0.5), (f1, "claw", 0.8)])
         A.layer(a(), "hand_r", f0, f1, [(f0, (0, 0, 0), 1), (f0 + 18, (-25, 10, 15), 1), (f0 + 26, (10, -5, -5), 1), (f0 + 40, (-8, 0, 4), 1), (f1, (0, 0, 0), 1)])
         A.shiver(a(), f0, f1, [(f0, 1.4), (f1, 1.4)], seed=14)
-        cp, hp = orbit(rig, (f0 + f1) // 2, "hand_r", 0.6, az=5, el=30)
-        cam = camera("SH11a", f0, f1, cp, [(f0, hp, 40), (f1, hp, 46)], shake=0.25, fstop=2.2)
+        cp, hp = orbit(rig, (f0 + f1) // 2, "spine_03", 0.95, az=10, el=24, up=-0.2)
+        keys = []
+        for ff in list(range(f0, f1 + 1, 10)) + [f1]:
+            hm = (bpos(rig, "hand_l", ff) + bpos(rig, "hand_r", ff)) / 2
+            keys.append((ff, tuple(hm), 36))
+        sm = []
+        for i in range(len(keys)):
+            js = [Vector(keys[j][1]) for j in range(max(0, i - 1), min(len(keys), i + 2))]
+            sm.append((keys[i][0], tuple(sum(js, Vector()) / len(js)), 36 + 6 * i / max(1, len(keys) - 1)))
+        cam = camera("SH11a", f0, f1, cp, sm, shake=0.25, fstop=4.0, focus=0.9)
         shot("SH11a", f0, f1, cam, dynamic=PUFFS + ["Phone", "PhoneScreen"], note="fumbling phone")
     f0, f1 = F(42.5) + 1, F(45.1)
     if want("SH11b"):
