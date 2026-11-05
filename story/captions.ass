@@ -239,16 +239,16 @@ Dialogue: 2,0:01:22.03,0:01:22.32,Cap,,0,0,0,,THAT GLOW {\c&H0000D7FF&}{\t(0,80,
 Dialogue: 2,0:01:22.32,0:01:22.62,Cap,,0,0,0,,{\fad(60,0)}{\c&H0000D7FF&}{\t(0,80,\fscx112\fscy112)\t(80,160,\fscx104\fscy104)}TIME{\c&H00FFFFFF&\fscx100\fscy100} YOU MOVE
 Dialogue: 2,0:01:22.62,0:01:22.74,Cap,,0,0,0,,TIME {\c&H0000D7FF&}{\t(0,80,\fscx112\fscy112)\t(80,160,\fscx104\fscy104)}YOU{\c&H00FFFFFF&\fscx100\fscy100} MOVE
 Dialogue: 2,0:01:22.74,0:01:23.60,Cap,,0,0,0,,TIME YOU {\c&H0000D7FF&}{\t(0,80,\fscx112\fscy112)\t(80,160,\fscx104\fscy104)}MOVE{\c&H00FFFFFF&\fscx100\fscy100}
-Dialogue: 2,0:01:23.60,0:01:23.86,Cap,,0,0,0,,TIME YOU {\c&H0000D7FF&}MOVE{\c&H00FFFFFF&\fscx100\fscy100}
-Dialogue: 2,0:01:24.07,0:01:24.27,Cap,,0,0,0,,{\fad(60,0)}{\c&H0000D7FF&}{\t(0,80,\fscx112\fscy112)\t(80,160,\fscx104\fscy104)}BY{\c&H00FFFFFF&\fscx100\fscy100} DAY TWO
-Dialogue: 2,0:01:24.27,0:01:24.53,Cap,,0,0,0,,BY {\c&H0000D7FF&}{\t(0,80,\fscx112\fscy112)\t(80,160,\fscx104\fscy104)}DAY{\c&H00FFFFFF&\fscx100\fscy100} TWO
-Dialogue: 2,0:01:24.53,0:01:25.06,Cap,,0,0,0,,BY DAY {\c&H0000D7FF&}{\t(0,80,\fscx112\fscy112)\t(80,160,\fscx104\fscy104)}TWO{\c&H00FFFFFF&\fscx100\fscy100}
-Dialogue: 2,0:01:25.06,0:01:25.40,Cap,,0,0,0,,{\fad(60,0)}{\c&H0000D7FF&}{\t(0,80,\fscx112\fscy112)\t(80,160,\fscx104\fscy104)}THIRST{\c&H00FFFFFF&\fscx100\fscy100} AND EXHAUSTION
-Dialogue: 2,0:01:25.40,0:01:25.50,Cap,,0,0,0,,THIRST {\c&H0000D7FF&}{\t(0,80,\fscx112\fscy112)\t(80,160,\fscx104\fscy104)}AND{\c&H00FFFFFF&\fscx100\fscy100} EXHAUSTION
-Dialogue: 2,0:01:25.50,0:01:26.09,Cap,,0,0,0,,THIRST AND {\c&H0000D7FF&}{\t(0,80,\fscx112\fscy112)\t(80,160,\fscx104\fscy104)}EXHAUSTION{\c&H00FFFFFF&\fscx100\fscy100}
-Dialogue: 2,0:01:26.09,0:01:26.38,Cap,,0,0,0,,{\fad(60,0)}{\c&H0000D7FF&}{\t(0,80,\fscx112\fscy112)\t(80,160,\fscx104\fscy104)}CLOUD{\c&H00FFFFFF&\fscx100\fscy100} YOUR MIND
-Dialogue: 2,0:01:26.38,0:01:26.49,Cap,,0,0,0,,CLOUD {\c&H0000D7FF&}{\t(0,80,\fscx112\fscy112)\t(80,160,\fscx104\fscy104)}YOUR{\c&H00FFFFFF&\fscx100\fscy100} MIND
-Dialogue: 2,0:01:26.49,0:01:27.20,Cap,,0,0,0,,CLOUD YOUR {\c&H0000D7FF&}{\t(0,80,\fscx112\fscy112)\t(80,160,\fscx104\fscy104)}MIND{\c&H00FFFFFF&\fscx100\fscy100}
+Dialogue: 2,0:01:23.60,0:01:23.86,Cap,,0,0,0,,{\an8\pos(540,300)}TIME YOU {\c&H0000D7FF&}MOVE{\c&H00FFFFFF&\fscx100\fscy100}
+Dialogue: 2,0:01:24.07,0:01:24.27,Cap,,0,0,0,,{\an8\pos(540,300)}{\fad(60,0)}{\c&H0000D7FF&}{\t(0,80,\fscx112\fscy112)\t(80,160,\fscx104\fscy104)}BY{\c&H00FFFFFF&\fscx100\fscy100} DAY TWO
+Dialogue: 2,0:01:24.27,0:01:24.53,Cap,,0,0,0,,{\an8\pos(540,300)}BY {\c&H0000D7FF&}{\t(0,80,\fscx112\fscy112)\t(80,160,\fscx104\fscy104)}DAY{\c&H00FFFFFF&\fscx100\fscy100} TWO
+Dialogue: 2,0:01:24.53,0:01:25.06,Cap,,0,0,0,,{\an8\pos(540,300)}BY DAY {\c&H0000D7FF&}{\t(0,80,\fscx112\fscy112)\t(80,160,\fscx104\fscy104)}TWO{\c&H00FFFFFF&\fscx100\fscy100}
+Dialogue: 2,0:01:25.06,0:01:25.40,Cap,,0,0,0,,{\an8\pos(540,300)}{\fad(60,0)}{\c&H0000D7FF&}{\t(0,80,\fscx112\fscy112)\t(80,160,\fscx104\fscy104)}THIRST{\c&H00FFFFFF&\fscx100\fscy100} AND EXHAUSTION
+Dialogue: 2,0:01:25.40,0:01:25.50,Cap,,0,0,0,,{\an8\pos(540,300)}THIRST {\c&H0000D7FF&}{\t(0,80,\fscx112\fscy112)\t(80,160,\fscx104\fscy104)}AND{\c&H00FFFFFF&\fscx100\fscy100} EXHAUSTION
+Dialogue: 2,0:01:25.50,0:01:26.09,Cap,,0,0,0,,{\an8\pos(540,300)}THIRST AND {\c&H0000D7FF&}{\t(0,80,\fscx112\fscy112)\t(80,160,\fscx104\fscy104)}EXHAUSTION{\c&H00FFFFFF&\fscx100\fscy100}
+Dialogue: 2,0:01:26.09,0:01:26.38,Cap,,0,0,0,,{\an8\pos(540,300)}{\fad(60,0)}{\c&H0000D7FF&}{\t(0,80,\fscx112\fscy112)\t(80,160,\fscx104\fscy104)}CLOUD{\c&H00FFFFFF&\fscx100\fscy100} YOUR MIND
+Dialogue: 2,0:01:26.38,0:01:26.49,Cap,,0,0,0,,{\an8\pos(540,300)}CLOUD {\c&H0000D7FF&}{\t(0,80,\fscx112\fscy112)\t(80,160,\fscx104\fscy104)}YOUR{\c&H00FFFFFF&\fscx100\fscy100} MIND
+Dialogue: 2,0:01:26.49,0:01:27.20,Cap,,0,0,0,,{\an8\pos(540,300)}CLOUD YOUR {\c&H0000D7FF&}{\t(0,80,\fscx112\fscy112)\t(80,160,\fscx104\fscy104)}MIND{\c&H00FFFFFF&\fscx100\fscy100}
 Dialogue: 2,0:01:27.20,0:01:27.62,Cap,,0,0,0,,CLOUD YOUR {\c&H0000D7FF&}MIND{\c&H00FFFFFF&\fscx100\fscy100}
 Dialogue: 2,0:01:27.62,0:01:27.86,Cap,,0,0,0,,{\fad(60,0)}{\c&H0000D7FF&}{\t(0,80,\fscx112\fscy112)\t(80,160,\fscx104\fscy104)}SOME{\c&H00FFFFFF&\fscx100\fscy100} SURVIVORS
 Dialogue: 2,0:01:27.86,0:01:28.41,Cap,,0,0,0,,SOME {\c&H0000D7FF&}{\t(0,80,\fscx112\fscy112)\t(80,160,\fscx104\fscy104)}SURVIVORS{\c&H00FFFFFF&\fscx100\fscy100}

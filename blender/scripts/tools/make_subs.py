@@ -54,7 +54,7 @@ if cur: chunks.append(cur)
 # per-shot caption placement: top (\an8) where the face/graphic sits low in frame, low (\an2) under water-level
 # face close-ups (SH03/SH04: the default band lands on his mouth)
 TOP_Y = {'SH05': 300, 'SH08': 300, 'SH09': 300, 'SH11': 330, 'SH12': 300, 'SH13': 300, 'SH14': 1490, 'SH17': 300,   # SH14: below the BODY WATER meter (3D labels fill the top)
-         'SH18': 330, 'SH20': 300, 'SH24': 300}
+         'SH18': 330, 'SH20': 300, 'SH22': 300, 'SH24': 300}
 LOW_Y = {'SH03': 1770, 'SH04': 1770, 'SH27': 1770}
 # shots whose on-screen labels already spell out the narration: no word captions there (n32-n34)
 NO_CAPS = ('n32', 'n33', 'n34')
