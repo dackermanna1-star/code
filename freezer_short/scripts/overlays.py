@@ -224,21 +224,28 @@ def nerve_pulses(img, f, sid):
     if a <= 0: return img
     lay = Image.new("RGBA", (W, H), (0, 0, 0, 0)); d = ImageDraw.Draw(lay)
     for side in "lr":
-        chain = [an[f"hand_{side}"], an[f"lowerarm_{side}"], an[f"upperarm_{side}"], an[f"clavicle_{side}"], an["neck_01"], an["head"]]
+        chain = [an[f"hand_{side}"], an[f"lowerarm_{side}"], an[f"upperarm_{side}"], an[f"clavicle_{side}"]]
         pts = [project(c, p) for p in chain]
         if any(p is None for p in pts): continue
-        d.line(pts, fill=(90, 200, 255, int(110 * a)), width=5, joint="curve")
+        d.line(pts, fill=(90, 200, 255, int(70 * a)), width=3, joint="curve")
         seg = [math.dist(pts[i], pts[i + 1]) for i in range(len(pts) - 1)]; tot = sum(seg)
-        for k in range(4):
-            u = ((t - t0) * 0.9 + k * 0.25 + (0.12 if side == "r" else 0)) % 1.0
-            s = u * tot
+        for k in range(3):
+            u = ((t - t0) * 0.8 + k / 3 + (0.15 if side == "r" else 0)) % 1.0
+            s_ = u * tot
             for i, L in enumerate(seg):
-                if s <= L:
-                    q = (pts[i][0] + (pts[i + 1][0] - pts[i][0]) * s / L, pts[i][1] + (pts[i + 1][1] - pts[i][1]) * s / L); break
-                s -= L
-            d.ellipse((q[0] - 11, q[1] - 11, q[0] + 11, q[1] + 11), fill=(210, 245, 255, int(255 * a)))
+                if s_ <= L:
+                    q = (pts[i][0] + (pts[i + 1][0] - pts[i][0]) * s_ / max(L, 1e-3), pts[i][1] + (pts[i + 1][1] - pts[i][1]) * s_ / max(L, 1e-3)); break
+                s_ -= L
+            r = 9 * (1 - 0.4 * u)
+            d.ellipse((q[0] - r, q[1] - r, q[0] + r, q[1] + r), fill=(210, 245, 255, int(255 * a * (1 - 0.5 * u))))
+    nk, hd = project(c, an["neck_01"]), project(c, an["head_tail"])
+    if nk and hd and t > 17.3:
+        u = clamp((t - 17.3) / 0.5)
+        q = (nk[0] + (hd[0] - nk[0]) * u, nk[1] + (hd[1] - nk[1]) * u)
+        d.line((nk, q), fill=(140, 225, 255, int(160 * a)), width=4)
+        d.ellipse((q[0] - 10, q[1] - 10, q[0] + 10, q[1] + 10), fill=(230, 250, 255, int(255 * a)))
     hp = project(c, an["head_tail"])
-    if hp and t > 17.9:
+    if hp and t > 17.8:
         ring = ((t - 17.9) * 1.6) % 1.0
         rr = 40 + ring * 120
         d.ellipse((hp[0] - rr, hp[1] - rr, hp[0] + rr, hp[1] + rr), outline=(120, 220, 255, int(220 * a * (1 - ring))), width=6)

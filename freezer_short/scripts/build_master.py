@@ -154,7 +154,7 @@ def skin_material():
     sg = N.new("ShaderNodeSeparateColor"); L.new(gr.outputs[0], sg.inputs[0]); sg.location = (-300, -600)
     gb = LM.scene_attr(nt, "goosebumps", (-300, -800))
     gstr = N.new("ShaderNodeMath"); gstr.operation = "MULTIPLY_ADD"; gstr.location = (-100, -800)
-    L.new(gb.outputs["Fac"], gstr.inputs[0]); gstr.inputs[1].default_value = 0.35; gstr.inputs[2].default_value = 0.06
+    L.new(gb.outputs["Fac"], gstr.inputs[0]); gstr.inputs[1].default_value = 1.2; gstr.inputs[2].default_value = 0.06
     bump = N.new("ShaderNodeBump"); bump.inputs["Distance"].default_value = 0.0008; bump.location = (600, -600)
     L.new(sg.outputs[2], bump.inputs["Height"]); L.new(gstr.outputs[0], bump.inputs["Strength"])
     L.new(bump.outputs[0], b.inputs["Normal"])

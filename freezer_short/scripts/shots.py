@@ -569,8 +569,8 @@ def build(ids=None):
         cold_state(f0, 1); ramp("goosebumps", f0, 0.0, f1 - 10, 1.0)
         mocap(rig, "79_68", 400, 1100, f0, face_deg=180, pos=(-0.3, -2.8), speed=0.7, root_motion=False)
         GRIP(a(), f0, f1); A.shiver(a(), f0, f1, [(f0, 0.2), (f1, 0.5)], seed=6)
-        cp, hp = orbit(rig, (f0 + f1) // 2, "lowerarm_r", 0.62, az=25, el=12, where="mid")
-        cam = camera("SH06a", f0, f1, cp, [(f0, hp, 42), (f1, hp, 50)], shake=0.15, fstop=2.2)
+        cp, hp = orbit(rig, (f0 + f1) // 2, "lowerarm_r", 0.48, az=30, el=18, where="mid")
+        cam = camera("SH06a", f0, f1, cp, [(f0, hp, 40), (f1, hp, 46)], shake=0.12, fstop=5.6, focus=0.48)
         shot("SH06a", f0, f1, cam, dynamic=PUFFS, note="goosebumps CU")
     f0, f1 = F(16.0) + 1, F(19.4)
     if want("SH06b"):

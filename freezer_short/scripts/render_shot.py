@@ -154,8 +154,8 @@ if PASS == "char":
     sc.render.film_transparent = True
     bpy.context.view_layer.cycles.use_pass_shadow_catcher = True
     sc.render.resolution_x, sc.render.resolution_y = int(W * 0.7 * SCALE) // 2 * 2, int(H * 0.7 * SCALE) // 2 * 2
-    sc.cycles.samples = {"final": 6, "draft": 3, "tiny": 2}[Q]
-    sc.cycles.adaptive_threshold = 0.06
+    sc.cycles.samples = {"final": 5, "draft": 3, "tiny": 2}[Q]
+    sc.cycles.adaptive_threshold = 0.07
     for o in bpy.data.objects:
         if o.name.startswith("BreathPuff"): o.hide_render = True
     # level of detail: drop subdivision when the actors are small in frame
@@ -164,7 +164,7 @@ if PASS == "char":
         r0 = active_chars[0]
         top = world_to_camera_view(sc, cam, r0.matrix_world @ r0.pose.bones["head"].tail)
         bot = world_to_camera_view(sc, cam, r0.matrix_world @ r0.pose.bones["pelvis"].head)
-        if abs(top.y - bot.y) < 0.22 and top.z > 0:
+        if abs(top.y - bot.y) < 0.45 and top.z > 0:
             for c in CHAR_COLLS:
                 for o in bpy.data.collections[c].all_objects:
                     for md in o.modifiers:
@@ -286,6 +286,10 @@ if PASS == "thermal":
         for fc in list(sc.animation_data.action.fcurves):
             if fc.data_path == '["thermal_mode"]': sc.animation_data.action.fcurves.remove(fc)
     mt_c = bpy.data.materials["M_Thermal_Char"]; mt_e = bpy.data.materials["M_Thermal_Env"]
+    for n in mt_e.node_tree.nodes:  # more readable room structure in the thermal look
+        if n.type == "MATH" and n.operation == "MULTIPLY_ADD":
+            if abs(n.inputs[1].default_value - 0.06) < 1e-4: n.inputs[1].default_value = 0.17
+            if abs(n.inputs[1].default_value - 0.018) < 1e-4: n.inputs[1].default_value = 0.035; n.inputs[2].default_value = 0.06
     for o in bpy.data.objects:
         if o.type not in ("MESH", "CURVE", "FONT") or o.name.startswith("BreathPuff"):
             continue
