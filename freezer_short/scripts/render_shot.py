@@ -57,6 +57,48 @@ def frames():
     return fr
 
 
+def rime_hair_frost():
+    """Render-time patch for the heavy-frost part of the film (SH18 onwards).
+    The build-time frost mask (coarse noise through a hard map range) turns into black-and-white blotches
+    once it is strong. Here the mask follows the hair texture's own strands (bright strands rime first),
+    broken up by finer noise, so the hair reads as frosted strands with brown still showing between."""
+    for nm in ["Leo.short02", "Leo.eyebrow001", "Leo.eyelashes01"]:
+        o = bpy.data.objects.get(nm)
+        if not o or not o.data.materials: continue
+        trees = [o.data.materials[0].node_tree]
+        trees += [n.node_tree for n in trees[0].nodes if n.type == "GROUP"]
+        for nt in trees:
+            N, L = nt.nodes, nt.links
+            for mp in [n for n in N if n.type == "MAPPING"]:
+                if tuple(mp.inputs["Scale"].default_value) != (9.0, 9.0, 9.0): continue
+                mp.inputs["Scale"].default_value = (16, 16, 16)
+                sp = mp.outputs[0].links[0].to_node.outputs[0].links[0].to_node
+                mul = sp.outputs[2].links[0].to_node
+                mr = mul.outputs[0].links[0].to_node
+                amt = mul.inputs[1].links[0].from_socket
+                tex = next((n for n in N if n.type == "TEX_IMAGE" and n.image and "diffuse" in n.image.filepath.lower()), None)
+                def math(op, a, b, c=None):
+                    m = N.new("ShaderNodeMath"); m.operation = op
+                    for i, v in enumerate((a, b, c)):
+                        if v is None: continue
+                        if isinstance(v, (int, float)): m.inputs[i].default_value = v
+                        else: L.new(v, m.inputs[i])
+                    return m.outputs[0]
+                n_part = math("MULTIPLY", sp.outputs[2], 0.35)
+                if tex is not None and nm == "Leo.short02":
+                    bw = N.new("ShaderNodeRGBToBW"); L.new(tex.outputs["Color"], bw.inputs[0])
+                    ln = N.new("ShaderNodeMapRange"); L.new(bw.outputs[0], ln.inputs[0])
+                    ln.inputs[1].default_value = 0.016; ln.inputs[2].default_value = 0.092
+                    c = math("MULTIPLY_ADD", ln.outputs[0], 0.65, n_part)
+                else:
+                    c = math("MULTIPLY_ADD", sp.outputs[2], 0.6, 0.2)
+                lo = math("MULTIPLY_ADD", amt, -1.1, 1.0)
+                hi = math("ADD", lo, 0.45)
+                L.new(c, mr.inputs[0]); L.new(lo, mr.inputs[1]); L.new(hi, mr.inputs[2])
+                mr.inputs[3].default_value = 0.0; mr.inputs[4].default_value = 0.85
+                print("hair frost: rime mask on", nm)
+
+
 def cam_params(f):
     sc.frame_set(f)
     return cam.matrix_world.to_quaternion().copy(), cam.data.lens
@@ -159,6 +201,7 @@ if PASS == "char":
     common_settings()
     sc.render.film_transparent = True
     bpy.context.view_layer.cycles.use_pass_shadow_catcher = True
+    if S["f0"] >= json.loads(sc["shots"])["SH18"]["f0"]: rime_hair_frost()  # heavy rime from SH18 (below ~32 C) on
     sc.render.resolution_x, sc.render.resolution_y = int(W * 0.7 * SCALE) // 2 * 2, int(H * 0.7 * SCALE) // 2 * 2
     sc.cycles.samples = {"final": 5, "draft": 3, "tiny": 2}[Q]
     sc.cycles.adaptive_threshold = 0.07

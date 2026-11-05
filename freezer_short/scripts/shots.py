@@ -909,6 +909,16 @@ def build(ids=None):
         A.layer(a(), "spine_02", f0, f1, [(f0, (16, 0, 0), 1), (f1, (20, 0, 0), 1)])
         A.layer(a(), "neck_01", f0, f1, [(f0, (-14, 0, 0), 1), (f1, (-10, 0, 0), 1)])
         A.layer(a(), "head", f0, f1, [(f0, (-24, 0, 0), 1), (stop, (-24, 0, 0), 1), (f1, (-8, 0, 6), 1)])
+        # arms stay wrapped round the body with the hands tucked at the opposite armpits (continuity with SH17c
+        # and the advice in L14); the arm mocap underneath keeps the elbows alive
+        ik_setup(rig); ik_block(rig, "lr", f0, f1)
+        for ff in list(range(f0, f1, 6)) + [f1]:
+            fw = facing(rig, ff); ch = bpos(rig, "spine_03", ff, "tail")
+            for side, opp, fwd, dz in (("l", "r", 0.13, -0.15), ("r", "l", 0.10, -0.12)):
+                p = bpos(rig, f"upperarm_{opp}", ff, "head").lerp(ch, 0.2) + fw * fwd + Vector((0, 0, dz))
+                ik_key(rig, side, ff, 1.0, tuple(p))
+        for side in "lr":  # hands continue the forearm line so they slide under the opposite arm
+            A.layer(a(), f"hand_{side}", f0, f1, [(f0, (0, 0, 0), 0.85), (f1, (0, 0, 0), 0.85)], mode="replace")
         A.hand_pose(a(), "l", [(f0, "tucked", 1.0), (f1, "tucked", 1.0)]); A.hand_pose(a(), "r", [(f0, "tucked", 1.0), (f1, "tucked", 1.0)])
         A.shiver(a(), f0, f1, [(f0, 3.8), (F(80.8), 4.2), (F(81.6), 1.5), (stop + 4, 0.12), (f1, 0.05)], seed=27)
         exh = A.breathe(a(), f0, f1, [(f0, 0.9), (stop, 1.0), (stop + 20, 2.0), (f1, 2.4)], depth_deg=2.0); puffs(rig, exh, 0.8, dur=50)
@@ -917,8 +927,13 @@ def build(ids=None):
                                                                   "mouthPressLeft": 0.0, "mouthPressRight": 0.0, "jawOpen": 0.06}),
                        (f1, {"eyeBlinkLeft": 0.5, "eyeBlinkRight": 0.55, "jawOpen": 0.08})],
                  blink_s=2.5, chatter_amp=[(f0, 1.0), (F(80.8), 1.0), (F(81.6), 0.35), (stop + 2, 0.0), (f1, 0.0)])
-        cp, hp = orbit(rig, stop, "head", 0.95, az=8, el=-14, where="mid")
-        cam = camera("SH18", f0, f1, cp, [(f0, hp, 40), (stop, hp, 46), (f1, hp + Vector((0, 0, -0.02)), 62)], shake=0.3, shake_freq=0.7, fstop=2.4)
+        # the camera follows his face (a fixed aim at 0.95 m let the sway and the final head lift carry it
+        # out of frame); slow push-in towards the moment the shivering stops
+        cp, _ = orbit(rig, stop, "head", 1.4, az=10, el=-10, where="mid")
+        keys = track(rig, "head", f0, f1, 10, 38, off=(0, 0, -0.09), where="mid")
+        lens_at = lambda f: 38 + 4 * A.smooth(min(1, (f - f0) / (stop - f0))) + 8 * A.smooth(max(0, (f - stop) / (f1 - stop)))
+        keys = [(f, tg, lens_at(f)) for f, tg, _ in keys]
+        cam = camera("SH18", f0, f1, cp, keys, shake=0.25, shake_freq=0.7, fstop=2.4)
         shot("SH18", f0, f1, cam, dynamic=PUFFS, note="shivering stops")
     f0, f1 = F(84.0) + 1, F(86.9)
     if want("SH18c"):
