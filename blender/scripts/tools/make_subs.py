@@ -9,6 +9,8 @@ def ts(t):
     t = max(0.0, t); h = int(t // 3600); m = int(t % 3600 // 60); s = t % 60
     return '%d:%02d:%05.2f' % (h, m, s)
 
+# Head/Item (the SH27/SH28 label stacks) use BorderStyle 3, whose box colour is OutlineColour: alpha &H70 (~56% opaque)
+# keeps the rotor blades, hoist cable and strop visible through the boxes while the text stays readable
 head = """[Script Info]
 ScriptType: v4.00+
 PlayResX: 1080
@@ -19,8 +21,8 @@ ScaledBorderAndShadow: yes
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
 Style: Cap,Inter Display Black,88,&H00FFFFFF,&H00FFFFFF,&H00000000,&H90000000,-1,0,0,0,100,100,1,0,1,7,4,2,80,80,560,1
-Style: Head,Inter Display Black,64,&H0000D7FF,&H00FFFFFF,&H00000000,&HA0101010,-1,0,0,0,100,100,2,0,3,18,0,8,60,60,250,1
-Style: Item,Inter Display Black,56,&H00FFFFFF,&H00FFFFFF,&H00000000,&HA0101010,-1,0,0,0,100,100,1,0,3,16,0,8,60,60,330,1
+Style: Head,Inter Display Black,64,&H0000D7FF,&H00FFFFFF,&H70000000,&HA0101010,-1,0,0,0,100,100,2,0,3,18,0,8,60,60,250,1
+Style: Item,Inter Display Black,56,&H00FFFFFF,&H00FFFFFF,&H70000000,&HA0101010,-1,0,0,0,100,100,1,0,3,16,0,8,60,60,330,1
 Style: Src,Inter,34,&H00F0F0F0,&H00FFFFFF,&H00000000,&H80000000,-1,0,0,0,100,100,0,0,3,10,0,8,60,60,230,1
 
 [Events]
@@ -51,11 +53,14 @@ for w in words:
         chunks.append(cur); cur = []
 if cur: chunks.append(cur)
 
-# per-shot caption placement: top (\an8) where the face/graphic sits low in frame, low (\an2) under water-level
-# face close-ups (SH03/SH04: the default band lands on his mouth)
-TOP_Y = {'SH05': 300, 'SH08': 300, 'SH09': 300, 'SH11': 330, 'SH12': 300, 'SH13': 300, 'SH14': 1490, 'SH17': 300,   # SH14: below the BODY WATER meter (3D labels fill the top)
-         'SH18': 330, 'SH20': 300, 'SH22': 300, 'SH24': 300}
-LOW_Y = {'SH03': 1770, 'SH04': 1770, 'SH27': 1770}
+# per-shot caption placement: top (\an8) where the face/graphic/subject sits in the default band (SH02: diver's torso,
+# SH03/SH04: his mouth, SH21: the plankton glow); nothing may go below y~1570 (Shorts title/channel/subscribe UI), so
+# SH03/SH04/SH27 use the top band too (the SH27 captions end at 106.72 s, before the first label at 106.78 s)
+TOP_Y = {'SH02': 300, 'SH03': 300, 'SH04': 300, 'SH05': 300, 'SH08': 300, 'SH09': 300, 'SH11': 330, 'SH12': 300,
+         'SH13': 300, 'SH17': 300, 'SH18': 330, 'SH20': 300, 'SH21': 300, 'SH22': 300, 'SH24': 300, 'SH27': 300}
+# bottom-anchored (\an2): SH14 sits between the BODY WATER meter (ends ~y 1345; 3D labels fill the top) and the UI
+# zone, so two-line captions grow upward instead of down into it
+LOW_Y = {'SH14': 1550}
 # shots whose on-screen labels already spell out the narration: no word captions there (n32-n34)
 NO_CAPS = ('n32', 'n33', 'n34')
 cuts = sorted(set([a for a, b in shots.values()] + [b for a, b in shots.values()]))
@@ -84,6 +89,9 @@ for i, ch in enumerate(chunks):
         ws = start if j == 0 else w['s'] - 0.02
         we = (ch[j + 1]['s'] - 0.02) if j + 1 < len(ch) else end
         for n, (a, b) in enumerate(pieces(ws, we)):
+            # a word that already ended before the cut: drop a tiny (< 0.2 s) carry-over so the caption just ends at
+            # the cut instead of flashing for 1-2 frames at the incoming shot's position (e.g. 'NOT WEEKS' at 94.10)
+            if n > 0 and b - a < 0.2 and w['e'] <= a: continue
             parts = []
             for k, x in enumerate(ch):
                 if k == j:
@@ -120,7 +128,7 @@ label('Item', '1  WATER TEMPERATURE', word_time('n34', 'temperature') - 0.15, en
 label('Item', '2  STAYING AFLOAT', word_time('n34', 'afloat') - 0.15, end28, 290)
 label('Item', "3  SOMEONE KNOWS YOU'RE MISSING", word_time('n34', 'anyone') - 0.1, end28, 375)
 # real case source tag
-label('Src', 'Real case: Carnival Valor overboard, Gulf of Mexico, Nov 2022 (US Coast Guard)\\NRescue scene is a dramatization', word_time('n30', 'people') - 0.15, shots['SH25'][1], 150, fade=(180, 120))
+label('Src', 'Real case: Carnival Valor overboard,\\NGulf of Mexico, Nov 2022 (US Coast Guard)\\NRescue scene is a dramatization', word_time('n30', 'people') - 0.15, shots['SH25'][1], 150, fade=(180, 120))
 
 open(OUT, 'w').write(head + '\n'.join(ev) + '\n')
 print('wrote', OUT, len(ev), 'events,', len(chunks), 'caption chunks')
