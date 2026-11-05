@@ -110,7 +110,7 @@ elif mode == "master":
         st = strips.new_scene(name=s["id"], scene=sc, channel=2, frame_start=s["f0"])
         st.frame_final_end = s["f1"] + 1
         st.scene_camera = sc.camera
-        st.fit_method = 'SCALE_TO_FIT'   # shot scenes render at 576x1024, upscaled into the 1080x1920 edit
+        st.transform.scale_x = st.transform.scale_y = 1080 / 576   # shot scenes render at 576x1024
     for ch, (nm, path) in enumerate((("MIX", "audio/mix.wav"), ("NARRATION", "audio/stem_narration.wav"), ("MUSIC", "audio/stem_music.wav"), ("SFX", "audio/stem_sfx.wav"))):
         snd = strips.new_sound(name=nm, filepath=bpy.path.relpath(f"{ROOT}/{path}", start=PROJ), channel=6 + ch, frame_start=1)
         if nm != "MIX":
