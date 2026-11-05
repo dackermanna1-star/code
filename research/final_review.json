@@ -1,0 +1,623 @@
+{
+ "confirmed": [
+  {
+   "where": "Deliverable file, all shots (0-127.5 s): output/Stranded_What_Happens_If_You_Are_Stranded_In_The_Ocean_1080x1920.mp4",
+   "title": "The final MP4 has been deleted from output/ during this review, and git does not hold a copy",
+   "severity": "high",
+   "evidence": "At the start of the review, `ls output/` listed the final MP4 and ffprobe read it as 3823 frames / 127.433 s. Partway through, every ffmpeg call failed with 'No such file'. output/ now holds only stranded_draft.mp4, mtime 11:57:19. That matches commits 246735d 'Track the final video with Git LFS' (11:57:19) and 8e7b4fb 'Stop tracking the draft cut' (11:57:33). `git log --all` on the final MP4 path returns nothing. The only LFS object (.git/lfs/objects/ab/91/ab91..., 20,005,235 bytes) is the same size as the draft, not the final. I did not delete it: I made no changes to files outside the scratchpad. For the rest of this review I rebuilt 0-22.5 s in the scratchpad from the per-shot intermediates in scratchpad/assemble/ (SH01-SH06.mkv, 11:35-11:43), with the same eq and subtitles filters. Those frames match the review/frames PNGs.",
+   "fix": "Rebuild the final with blender/scripts/tools/assemble.py; this also picks up the SH02 frame-count fix below. Then commit the actual final MP4 to LFS, check with `git lfs ls-files` that the stored object is the final and not the draft, and confirm that output/ still contains the file afterwards.",
+   "upheld": 2,
+   "votes": 2,
+   "reasons": [
+    "UPHELD: I checked this and the report is correct. The final video file /home/user/code/output/Stranded_What_Happens_If_You_Are_Stranded_In_The_Ocean_1080x1920.mp4 does not exist. /home/user/code/output/ holds only stranded_draft.mp4. Its mtime is 11:57:19, the same second as commit 246735d \"Track the final video with Git LFS\", which changed only .gitattributes (output/*.mp4 filter=lfs). Commit 8e7b4fb \"Stop tracking the draft cut\" removed stranded_draft.mp4 from the index. `git log --all -- 'output/*'` lists only 5521635 and 8e7b4fb, and both touch only the draft. `git lfs ls-files` prints nothing. Th",
+    "UPHELD: I checked this myself and it is real. Right now /home/user/code/output/ holds only stranded_draft.mp4 (20,005,235 bytes, mtime 11:57:19). The deliverable named in the task, output/Stranded_What_Happens_If_You_Are_Stranded_In_The_Ocean_1080x1920.mp4, is not there. A find across the whole filesystem for '*Stranded_What_Happens*' turned up nothing.\n\nGit has no copy either:\n- `git log --all -- output/` shows only output/stranded_draft.mp4: added in 5521635 at 00:51, and dropped from the index in 8e7b4fb.\n- Commit 246735d, 'Track the final video with Git LFS', changed only .gitattributes (`output/*"
+   ]
+  },
+  {
+   "where": "SH03 11.0-14.13 s (review frames SH03_b_012.20, SH03_c_014.00); SH04 15.4-17.53 s, worst 16.9-17.53 s (SH04_c_017.40)",
+   "title": "Word-by-word captions sit across his mouth and nose in the face close-ups",
+   "severity": "medium",
+   "evidence": "The Cap style (bottom-aligned, MarginV 560, text at about y=1290-1370 of 1920) lands exactly on the waterline, which is where his head is. SH03 is a water-level close-up meant to show the gasp and cough. From 'UNCONTROLLABLY' at 11.0 s through 'AND ONE GASP', 'UNDERWATER CAN' and 'DROWN YOU' to the cut, the caption bar covers his mouth and chin. SH04: from 'AROUND' at 15.4 s the caption covers his chin and mouth, and at 17.2-17.5 s 'NO LAND' covers his face from the nose down. SH05 already moves its captions to the top with {\\an8\\pos(540,300)}.",
+   "fix": "In story/captions.ass, give the Cap events from 10.42 to 17.99 s (UNCONTROLLABLY ... NO LAND) a position clear of the face. Either use {\\an8\\pos(540,300)} as SH05 does, or for SH03 drop them low over the water reflection, about \\an2\\pos(540,1720). Then reassemble.",
+   "upheld": 2,
+   "votes": 2,
+   "reasons": [
+    "UPHELD: The finding holds up. In story/captions.ass, the Cap style is bottom-aligned with MarginV 560. Every Cap event from 10.42 s to 17.99 s (lines 43-57, UNCONTROLLABLY through NO LAND) has no position override. SH05 is the first shot to move its captions up, with {\\an8\\pos(540,300)}, starting at line 58 (17.99 s). The review frames, which were taken from the final video, show the overlap clearly. In SH03_b_012.20, 'AND ONE GASP' sits right across his open mouth and chin at the waterline, while the narration is talking about the gasp. In SH03_c_014.00, 'DROWN YOU' covers his mouth and chin. In SH04",
+    "UPHELD: The issue is real, so the finding stands. The cited final-video file (output/Stranded_What_Happens_If_You_Are_Stranded_In_The_Ocean_1080x1920.mp4) is not on disk. output/ holds only the older stranded_draft.mp4, which uses a different caption layout. I checked the review frames instead, which were extracted from the final video. I also used the scratchpad copy stranded_v1.mp4: its frames at 12.2 s and 17.4 s match SH03_b_012.20.png and SH04_c_017.40.png exactly (mean pixel difference 0.0), so it is the same render.\n\nWhat the frames show:\n- **SH03_b_012.20:** 'AND ONE GASP' sits right across hi"
+   ]
+  },
+  {
+   "where": "SH03 10.40-11.10 s (peak about 10.7 s; between review frames SH03_a_010.40 and SH03_b_012.20)",
+   "title": "Droplets shoot straight up out of the top of his head like a fountain after he has already surfaced",
+   "severity": "medium",
+   "evidence": "sh03.py emits the 'Splash' particles from the head bone at frames 9-16 with up_speed=2.6 and object_align 2.2. By then his head is fully out of the water (it breaks the surface at about local frame 4). At 10.7 s dozens of clear spheres stream upward from his scalp and fill the sky above him. They read as bubbles or a whale spout rather than water running off his face. This is a separate instance from the accepted SH13 droplet issue.",
+   "fix": "Emit during the break-through (local frames 3-8), from the face, chin and shoulder region. Use a much lower upward speed (about 0.6-1.0 m/s) and more spread so the droplets arc and fall back within about 0.3 m. Re-render SH03 frames 3-45, or composite out the high droplets.",
+   "upheld": 2,
+   "votes": 2,
+   "reasons": [
+    "UPHELD: The droplet fountain is real and easy to see.\n\nHow I checked: the cited final file (output/Stranded_What_Happens_If_You_Are_Stranded_In_The_Ocean_1080x1920.mp4) is not on disk. output/ holds only an older stranded_draft.mp4, which does not match the review frames. Instead I used the assembled SH03 intermediate clip, /tmp/claude-0/-home-user-code/73c477af-b034-5106-8934-46dafc95cd58/scratchpad/assemble/SH03.mkv, and the source renders in render/final/SH03. Those are the frames assemble.py concatenates into the final, with no retime. The review frames match those renders (SH03_a_010.40 best matc",
+    "UPHELD: The problem is real and easy to see. The cited path output/Stranded_..._1080x1920.mp4 is not in the working tree; output/ only holds stranded_draft.mp4, which is an older cut. I used /tmp/claude-0/-home-user-code/73c477af-b034-5106-8934-46dafc95cd58/scratchpad/stranded_v1.mp4 instead, because its frames at 10.40 s and 12.20 s match review/frames/SH03_a_010.40.png and SH03_b_012.20.png exactly (pixel difference 0). Frames I pulled from it at 10.25, 10.40, 10.55, 10.70, 10.85, 11.00, 11.15 and 11.35 s (tiled in /tmp/claude-0/-home-user-code/73c477af-b034-5106-8934-46dafc95cd58/scratchpad/qa_sk2d"
+   ]
+  },
+  {
+   "where": "SH01 0.0-1.6 s (SH01_a_000.20); SH03 10.3-11.0 s and 13.9-14.1 s (SH03_a_010.40, SH03_c_014.00)",
+   "title": "His orange T-shirt renders as a smooth, puffy orange collar that reads as a life vest or flotation ring",
+   "severity": "medium",
+   "evidence": "The shirt material (Castaway.shirt, saturated orange 0.85/0.3/0.012) on the crude T-shirt mesh shows as two glossy, inflated rounded pads around his neck. Top-down in SH01 it looks like a horseshoe buoy around his neck. At water level in SH03 it looks like a foam buoyancy vest. This undercuts the premise: the narration says 'absolutely nothing around you', the 'stay afloat' advice follows, and the story stresses having no flotation.",
+   "fix": "Make the shirt read as wet cloth. Darker or less saturated colour (e.g. faded red or navy), higher roughness, a wet-darkening response, and fit it tighter to the shoulders (shrinkwrap or corrective smooth) so it does not balloon. If a re-render is too costly, at least avoid the top-down and water-level angles that show the 'collar' silhouette.",
+   "upheld": 2,
+   "votes": 2,
+   "reasons": [
+    "UPHELD: The reviewer is right, and the problem is plain to see at the most important moment of the Short. It is not on the KNOWN AND ACCEPTED list: \"built from free MakeHuman assets\" is about where the assets came from, not how the shirt reads on screen.\n\n**What I checked**\n- The final video named in the task is not on disk. `output/` holds only `stranded_draft.mp4`, and git says the final was moved to LFS and not checked out.\n- So I checked the review frames, which the task says came from the final video, plus a close crop. I also pulled frames from the draft mp4. Its SH01 matches SH01_a exactly.\n\n**",
+    "UPHELD: The problem is real, and you can see it in the final video. The file on disk is output/stranded_draft.mp4 (127.5 s, 1080x1920); the long file name in the task does not exist.\n\n- **SH01, the opening hook (0.0-1.6 s):** I extracted frames at 0.2, 0.6 and 1.0 s, plus a crop of the swimmer at 1.0 s. They show two smooth, glossy, inflated-looking orange pads around his neck and shoulders, with only his head above them. Seen from above, this looks like a horseshoe buoy or water wings, not a shirt. It runs while the narration says \"with absolutely nothing around you\". By 1.4 s he is small, and by 2.2"
+   ]
+  },
+  {
+   "where": "SH09, 30.2-35.43 (worst 33.6-34.8; e.g. 34.6 and review frames SH09_b_032.85, SH09_c_035.30)",
+   "title": "Floating body renders pitch-black under the surface: reads as a black wetsuit with two orange 'breast cups' and a hooded face",
+   "severity": "high",
+   "evidence": "In the top-down float shot, everything just below the waterline renders near-black. Only the parts above the surface keep their colour. The arms and legs look like black neoprene. In SH06/SH07 (and again in SH10/SH11) they are bare skin with an orange shirt, so this is a continuity break. As he settles (33.6-34.6), the orange shirt shows only as two separate round orange blobs on the chest that read as breasts or bikini cups. At 34.2-34.8 the face shrinks to just the nose and lips inside a black 'hood'. This happens exactly while the VO gives the key instruction 'Tilt your head back, ears under, arms and legs spread', so the demo the viewer should copy looks bizarre. Grey mottled 'foam' blotches around the torso add to the camouflage-suit look.",
+   "fix": "Re-render SH09 with far less absorption or scattering in the ocean volume or surface shader for this camera, so skin and the shirt stay visible a few cm under water, as in SH10. Alternatively, raise the chest or keep it flatter at the surface so the shirt shows as one continuous patch, and keep the whole face above the waterline. Check frames 1000-1045.",
+   "upheld": 2,
+   "votes": 2,
+   "reasons": [
+    "UPHELD: The issue is real and easy to see. One note on the video file: output/ does not hold the final mp4 named in the task. It only has stranded_draft.mp4, which is black frames with captions. The final render is in the scratchpad as stranded_v1.mp4, 127.43 s. Its frame at 32.85 s is pixel-identical to review/frames/SH09_b_032.85.png (mean absolute difference 0.0), so I checked that file. At 31.0, 32.85, 33.6, 34.2, 34.6 and 35.0 s, every part of the character under the surface renders near-black. The arms, legs and torso look like a black wetsuit, with grey mottled foam blotches around the torso. A",
+    "UPHELD: The finding is real. One note on sources first: the cited file output/Stranded_What_Happens_If_You_Are_Stranded_In_The_Ocean_1080x1920.mp4 does not exist. output/ only holds stranded_draft.mp4, an older draft that git no longer tracks and that is mostly black after about 20 s, so it is not the deliverable. I checked against the scratchpad copy stranded_v1.mp4 instead. Its frame at 32.85 s matches review/frames/SH09_b_032.85.png (mean per-channel difference under 1.2/255). Frames I pulled from it at 33.6, 34.6 and a 34.6 crop show exactly what the reviewer describes. Every part of the body unde"
+   ]
+  },
+  {
+   "where": "SH07, 22.55-23.9 (clearest 22.9; also visible in review frame SH07_a_022.70)",
+   "title": "Disembodied lower leg/foot floating behind the swimmer in the aerial shot",
+   "severity": "medium",
+   "evidence": "From the top-down camera, only the orange shoulders and one arm of the crawling swimmer break the surface. About one body-length behind him a skin-coloured shin and foot pops in and out of the water with no visible link to the body, so it reads as a separate floating limb. At 22.9 it is a clear foot and lower leg about 60 px tall at 1080 width. It keeps flickering as a small skin dot until about 23.9.",
+   "fix": "Keep the kicking feet below the surface in SH07, for example by reducing the kick amplitude or lowering the legs. Or make the submerged legs faintly visible so the foot connects to the body.",
+   "upheld": 2,
+   "votes": 2,
+   "reasons": [
+    "UPHELD: The issue is real and a viewer can see it. I could not check the cited timestamps in the final video, because output/Stranded_What_Happens_If_You_Are_Stranded_In_The_Ocean_1080x1920.mp4 is not on disk. output/ holds only stranded_draft.mp4, an older cut with black placeholder frames at 22-24 s. I checked two other sources instead. (1) Review frame review/frames/SH07_a_022.70.png, which was extracted from the final video. Zoomed in, it shows the orange shoulders and dark head inside the splash ring. About 100 px (at 540 px width) lower-right of them, a separate skin-coloured oval sits in open d",
+    "UPHELD: The defect is real and visible. The final video named in the task is not in output/. That folder holds only stranded_draft.mp4, which is black behind the captions across SH07. Instead I checked against /tmp/claude-0/-home-user-code/73c477af-b034-5106-8934-46dafc95cd58/scratchpad/stranded_v1.mp4. It is 127.43 s long, and its frame at 22.7 s matches review/frames/SH07_a_022.70.png (mean pixel difference 0.86/255 at 540x960), so it is the render the review frames came from. I cropped a 400x400 area around the swimmer (x 420-820, y 940-1340 at 1080x1920) at 22.55, 22.7, 22.9, 23.1, 23.3, 23.5, 23."
+   ]
+  },
+  {
+   "where": "SH08, 25.7-30.2 (e.g. 25.8, 27.0, 29.95; review frames SH08_a_025.90, SH08_c_030.00)",
+   "title": "Face close-up: hair reads as a grey swim cap or bald scalp, and teeth render grey-blue",
+   "severity": "medium",
+   "evidence": "In SH03, SH04 and SH05 the character has full, glossy black hair. In SH08 the top of the head looks like bare skin up to the crown, with only a thin grey-blue band at the back, so he reads as bald or wearing a grey swim cap. The mouth is open in a large close-up for about half the shot (25.7-26.1, 26.9-27.4, 28.5-30.2), and the teeth show as dark blue-grey, which looks uncanny.",
+   "fix": "Check the hair material and visibility in the SH08 render. Make sure the hair mesh is present, and lower the sky reflection or raise the albedo darkness so it stays black. Brighten the teeth material, or reduce the mouth opening.",
+   "upheld": 2,
+   "votes": 2,
+   "reasons": [
+    "UPHELD: The problem is real and visible. The video named in the task, output/Stranded_..._1080x1920.mp4, is not on disk. Git shows it was moved to LFS and not checked out. The only file in output/ is stranded_draft.mp4, an older cut that is black behind the captions at 25.9-30.0 s. So I checked the review frames, which were taken from the final video. In /home/user/code/review/frames/SH08_a_025.90.png and SH08_c_030.00.png I cropped and enlarged the head 3x. The scalp up to the crown is bare skin with a strong highlight. The hair is only a thin grey-blue band along the top and back, so he looks bald o",
+    "UPHELD: The finding is confirmed. It shows clearly in the final frames.\n\nThe final video is not at the cited path (output/ only holds the old stranded_draft.mp4, which is black at these times). I extracted frames from the scratchpad render /tmp/claude-0/-home-user-code/73c477af-b034-5106-8934-46dafc95cd58/scratchpad/stranded_v1.mp4 instead. Its frame at 25.9 s matches review/frames/SH08_a_025.90.png exactly, so it is the same cut.\n\n**Hair.** I checked crops at 25.8, 27.0, 28.6 and 29.95 s (qa_sk2c_v1_*.png in the scratchpad). In all of them the skin of the forehead and scalp runs up to the top edge of"
+   ]
+  },
+  {
+   "where": "Deliverable; affects SH11-SH15 (37.4-59.9 s) and the whole video",
+   "title": "The final MP4 is missing. output/ holds only an old draft that is black in SH11-SH15",
+   "severity": "high",
+   "evidence": "/home/user/code/output/Stranded_What_Happens_If_You_Are_Stranded_In_The_Ocean_1080x1920.mp4 does not exist. The only file in /home/user/code/output/ is stranded_draft.mp4 (127.5 s). That draft shows plain black with captions over all of SH11-SH15: I sampled 38.0, 39.0, 40.4, 42.0, 46.0, 52.0 and 58.0 s and every frame was black. HEAD (8e7b4fb) stops tracking the draft and .gitattributes sends output/*.mp4 to LFS, but no final MP4 is in the index or the working tree. The review frames in review/frames are an exact pixel match (mean diff 0.0 at 39.00, 46.60 and 52.65) for /tmp/claude-0/-home-user-code/73c477af-b034-5106-8934-46dafc95cd58/scratchpad/stranded_v1.mp4. That file was encoded at 11:54, before the 11:57 commit 18bda7e that changed the captions and audio padding. So the frames I reviewed do not come from a final built with the current captions.ass. All later timestamps refer to that encode.",
+   "fix": "Run blender/scripts/tools/assemble.py without --draft so the named final file is written to output/. Re-extract review/frames from that file and check it. Delete or move the black stranded_draft.mp4 so nobody uploads it by mistake.",
+   "upheld": 2,
+   "votes": 2,
+   "reasons": [
+    "UPHELD: I checked this and it is real. The final deliverable /home/user/code/output/Stranded_What_Happens_If_You_Are_Stranded_In_The_Ocean_1080x1920.mp4 does not exist. A find over the whole filesystem turns up no file with that name. `git ls-files output/` and `git lfs ls-files` both come back empty. The only file in output/ is stranded_draft.mp4 (127.5 s, 11:57). HEAD 8e7b4fb removes the draft from git and .gitignore now ignores it. 246735d sends output/*.mp4 to LFS, but no final video was ever added.\n\nThe draft really is black where it matters. Average luma (YAVG) is about 13 at 38.0, 42.0, 46.0, 5",
+    "UPHELD: I checked this and the report holds. The final file /home/user/code/output/Stranded_What_Happens_If_You_Are_Stranded_In_The_Ocean_1080x1920.mp4 does not exist: ls fails and a find over the whole filesystem found nothing. The only file in output/ is stranded_draft.mp4 (127.5 s, 11:57). assemble.py (line 56) writes that name only in --draft mode, and that mode fills frames that were never rendered with black. I pulled frames from the draft at 39.0 s (caption \"HOURS PASS\") and 46.0 s (\"THIRSTY\"). Both are plain black with only the caption, and the mean luma is about 13-15 across 38-58 s. The same"
+   ]
+  },
+  {
+   "where": "SH14, about 50.6-56.0 s (e.g. SH14_b_052.65, SH14_c_055.80; also 51.2, 53.0, 53.6, 55.4)",
+   "title": "In the reviewed render, the SH14 captions cover the on-screen science labels",
+   "severity": "high",
+   "evidence": "In the reviewed encode the karaoke captions sit at the top (y\u2248215 at 1080 scale), in the same place as the rendered labels. 'SEAWATER / 3.5% SALT' is on screen from about 50.6 s and 'MORE WATER OUT / THAN IN' from about 53 s. At 51.2 'YOUR KIDNEYS NEED' covers 'SEAWATER'. At 52.65 and 53.0 'YOU DRANK' cuts through both labels. At 53.6-54.2 'EVERY SIP LEAVES' hides both. At 55.4-55.8 the two-line 'YOU MORE / DEHYDRATED' hides most of 'MORE WATER OUT THAN IN'. The current story/captions.ass already moves these lines to \\pos(540,1490). I burned the current .ass onto scratchpad/assemble/SH14.mkv as a test and the captions then sit cleanly below the BODY WATER meter. The shipped final would only have this fix if it is re-assembled.",
+   "fix": "Re-assemble with the current captions.ass. Then check frames at 51.2, 53.0 and 55.6 s in the new final to confirm the labels are clear.",
+   "upheld": 2,
+   "votes": 2,
+   "reasons": [
+    "UPHELD: Confirmed: the problem is real and a viewer would see it. The final frames show it. review/frames/SH14_b_052.65.png has 'YOU DRANK' printed over 'SEAWATER', cutting it to 'SEAWAT'. review/frames/SH14_c_055.80.png has 'YOU MORE / DEHYDRATED' covering 'SEAWATER' and most of 'MORE WATER OUT / THAN IN'. I pulled frames at 51.2, 52.65, 53.0, 53.8 and 55.6 s from the reviewed full-quality encode (scratchpad/stranded_v1.mp4, 1080x1920, 127.43 s, written 11:54, before the review frames). They show the same thing at the top of frame, about y=200 at 1080 scale. At 51.2 'YOUR KIDNEYS NEED' covers 'SEAWAT",
+    "UPHELD: The overlap is real and easy to see in the reviewed render, so this is not refuted. The named final file, output/Stranded_What_Happens_If_You_Are_Stranded_In_The_Ocean_1080x1920.mp4, does not exist on disk. output/ holds only the gitignored stranded_draft.mp4, which is black during SH14 because its frames are missing. The review frames match /tmp/claude-0/-home-user-code/73c477af-b034-5106-8934-46dafc95cd58/scratchpad/stranded_v1.mp4 exactly (SH14_b_052.65 pixel difference = 0.0), so that encode, written at 11:54:20, is the render that was reviewed. I extracted 51.2, 52.65, 53.0, 53.8, 55.6 an"
+   ]
+  },
+  {
+   "where": "SH12, 40.6-43.9 s (clearest in SH12_c_043.70 and around 41.5-42.5)",
+   "title": "The character's neck looks stretched and mannequin-like in the face close-up",
+   "severity": "medium",
+   "evidence": "The camera looks up from the chest at a head tilted far back. From the chin to the shirt neckline measures about 1.3-1.5 times the head's height, giving a long tubular 'giraffe' neck. The glossy, featureless skin and the hairless-looking crown (hair only shows as a dark edge behind the ears) make the head read like a mannequin. A full-resolution crop at 42.0 s confirms this.",
+   "fix": "Use a longer lens or a camera position closer to the face plane, nearer eye level. Tilt the head back less. Frame tighter on the face so the throat underside does not dominate.",
+   "upheld": 2,
+   "votes": 2,
+   "reasons": [
+    "UPHELD: The problem is real and easy to see. I could not pull frames from the final video because output/ holds only stranded_draft.mp4. That file is a different cut: at 43.70 s it shows only the 'YOUR FACE' caption on black. So I checked the frames that were extracted from the final video (review/frames/SH12_a_040.80, SH12_b_042.25, SH12_c_043.70) and the source renders (render/final/SH12/0010-0099, 648x1152).\n\nIn SH12_c_043.70 the head runs from about y=450 to the chin at about y=560, roughly 110 px. The neck runs from the chin to the shirt neckline at about y=800, roughly 240 px, so it is about twi",
+    "UPHELD: The finding holds. The named final MP4 is missing from output/: only an untracked stranded_draft.mp4 is there, and it differs from the review frames (it is black at 42.25 s). So I checked against /tmp/claude-0/-home-user-code/73c477af-b034-5106-8934-46dafc95cd58/scratchpad/stranded_v1.mp4, whose frames at 40.8, 42.25 and 43.7 s match the review frames exactly (mean pixel difference 0.0).\n\nWhat is on screen: at the start of SH12 (40.8-41.2 s, SH12_a_040.80) water covers the lower neck, so the neck looks normal. As the camera drifts, from about 41.7 s to the cut at 43.9 s (my frames at 42.0 and "
+   ]
+  },
+  {
+   "where": "SH15\u2192SH16 cut at about 59.9 s (SH15_c_059.70 vs. 59.87-60.3)",
+   "title": "Continuity break at the SH15/SH16 cut: body changes from flat to upright and the fish vanish",
+   "severity": "medium",
+   "evidence": "SH15 ends with him floating flat, arms out, seen from below, with about 15 small fish around him ('IN YOUR SHADOW' is on screen). On the very next frame SH16 shows his legs hanging straight down, as if treading water, in the top-right corner. Not a single fish is visible, though the narration had just said they shelter in his shadow.",
+   "fix": "Keep the same body pose (floating flat) at the start of SH16, or add a beat where he moves upright. Keep a few of the juvenile fish near him in SH16, so they scatter as the mako arrives rather than disappearing.",
+   "upheld": 2,
+   "votes": 2,
+   "reasons": [
+    "UPHELD: The finding holds. The pose change and the vanishing fish are both visible on screen, and the shot scripts explain both.\n\n**How I checked.** The final MP4 named in the task is not in the folder: output/ holds only an older stranded_draft.mp4, which does not match the review frames. So I used the review frames, which were taken from the final video, and the shot renders in render/final/SH15 and render/final/SH16. Those renders match the review frames: SH16/0009 against SH16_a_060.10 differs by a mean of about 1.75 out of 255, and SH15/0114 against SH15_c_059.70 by about 2.8.\n\n**Visual check.**\n",
+    "UPHELD: The issue is real and visible. The final mp4 named in the task is not in the working tree: output/ holds only stranded_draft.mp4, which is captions over a black background. So I checked against review/frames, which were extracted from the final video, and against the shot scripts.\n\nSH15_c_059.70 shows him lying flat on his back, seen from below, arms and legs spread, with about 12-15 juvenile fish under him. 0.4 s later, SH16_a_060.10 shows only his lower legs hanging straight down in the top-right corner, with no fish anywhere. The \"IN YOUR SHADOW\" caption (captions.ass, 59.25-60.26) is still"
+   ]
+  },
+  {
+   "where": "Deliverable (checked over SH16-SH19, 59.9-74.3 s)",
+   "title": "The named final MP4 is missing from output/. The only file there is an old draft that is black through SH16-SH19",
+   "severity": "high",
+   "evidence": "/home/user/code/output/Stranded_What_Happens_If_You_Are_Stranded_In_The_Ocean_1080x1920.mp4 does not exist, and git ls-files output is empty. The only file present is /home/user/code/output/stranded_draft.mp4 (3825 frames). In that draft, mean luma over 59.9-74.3 s is 0-4: captions over a black picture, e.g. a black frame at 60.10. The review frames match /tmp/claude-0/-home-user-code/73c477af-b034-5106-8934-46dafc95cd58/scratchpad/stranded_v1.mp4 exactly (pixel diff 0.0 at 60.10, 64.60 and 72.35), so I reviewed that file. If output/ is uploaded as it is, viewers get 15 s of black for these shots.",
+   "fix": "Put the real final render (the stranded_v1.mp4 cut) at output/Stranded_What_Happens_If_You_Are_Stranded_In_The_Ocean_1080x1920.mp4, or run assemble.py without --draft. Check it with ffprobe and take stranded_draft.mp4 out of output/.",
+   "upheld": 2,
+   "votes": 2,
+   "reasons": [
+    "UPHELD: I checked this myself and the report holds up. The final file output/Stranded_What_Happens_If_You_Are_Stranded_In_The_Ocean_1080x1920.mp4 does not exist anywhere on disk. A search with find / for \"Stranded_What_Happens*\" returns nothing. The only file in /home/user/code/output/ is stranded_draft.mp4 (3825 frames, 127.5 s).\n\nThe git history fits this. Commit 246735d adds an LFS rule for output/*.mp4. Commit 8e7b4fb then stops tracking output/stranded_draft.mp4, calling it \"superseded by the final video\". No final video was ever written or committed, and git ls-files shows no mp4 at all.\n\nThe dr",
+    "UPHELD: I checked this and the report is correct. /home/user/code/output/Stranded_What_Happens_If_You_Are_Stranded_In_The_Ocean_1080x1920.mp4 does not exist, and a filesystem-wide search turned up no copy anywhere else. The only file in output/ is stranded_draft.mp4 (3825 frames, 127.5 s). `git ls-files output` is empty: commit 246735d is titled \"Track the final video with Git LFS\" but only adds the LFS rule to .gitattributes, and HEAD 8e7b4fb removes the draft from tracking, so the final video was never committed.\n\nIn the draft, SH16 to SH19 is black with only the captions over it. Frames I pulled at"
+   ]
+  },
+  {
+   "where": "SH18, 66.733-70.333 (whole shot; e.g. 67.0, 68.6)",
+   "title": "The sunset shot is badly overexposed. It flashes near-white after dark shots and does not read as a sunset",
+   "severity": "high",
+   "evidence": "Mean luma of SH18 is 214, with 31% of pixels above 240 (clipped), measured at 68.5. All other shots measured from 5 to 76 s are 39-121, midday shots included. At the 66.733 cut the picture jumps from luma 62 (SH17B underwater) to 222, then drops to 90 in SH19. The sky is a flat pink-white haze, there is no visible sun disc (only a small flare on the horizon), and the scene never darkens. The sea is pink with smeared dark streaks and looks more like wet sand or mudflats than water (crop at 68.6). Under 'Then the sun sets' (67.3-68.6) this reads as a washed-out midday frame, not a sunset.",
+   "fix": "Re-expose or grade SH18 down by about 1.5-2 stops. Bring back the saturated orange/red sunset sky and a visible sun disc at or near the horizon, darken the sea so it reads as water, and roughly match SH18's brightness to SH17/SH19.",
+   "upheld": 2,
+   "votes": 2,
+   "reasons": [
+    "UPHELD: Confirmed. I could not open the final mp4: output/ only holds stranded_draft.mp4, because the final is tracked through Git LFS and isn't checked out. So I measured the review frames, which were taken from the final video. SH18 is overexposed throughout. Mean luma and share of clipped pixels (>240): SH18_a_067.00 is 226 / 36.5%, SH18_b_068.60 is 213 / 29.5%, SH18_c_070.20 is 218 / 31.5%. The shot before it, SH17B (064.6-066.6), is 63-64 with 0% clipped, and the shot after, SH19 (070.6-074.1), is 88-96. Across all 30 mid-shot frames, SH18 is the brightest by far. The next brightest are SH25/SH26",
+    "UPHELD: The report holds up. I checked the review frames, which were taken from the final video. The final MP4 itself is not on disk; output/ only contains stranded_draft.mp4, which is a superseded cut and is black at 68.6.\n\n1. **Brightness is far off the rest of the video.** I measured mean luma at 270x480 across every review frame:\n   - SH18: 226 at 67.00 (37% of pixels above 240), 213 at 68.60 (30%), 218 at 70.20 (31%).\n   - The shots on either side: SH17B is 62.6-64.4 and SH19 is 88-96.\n   - No other shot in the video goes above 187 or above 4% clipped. The brightest are SH25/26/28/29a at about 16"
+   ]
+  },
+  {
+   "where": "SH17B, 64.333-66.733 (shark absent 64.33-65.3; cropped at left edge 65.4-65.6; tiny speck from 66.3)",
+   "title": "Shark is mostly off-screen or cropped and never circles under his legs",
+   "severity": "medium",
+   "evidence": "Shot intent: 'the shark circles under his dangling legs and fades away', over 'splashing draws attention, so you stay still'. In a 5 fps scan the shark is not in frame for the first ~1 s. It enters at 65.4, half cut off by the left frame edge (crop at 65.55, x=0-200, y=1000-1100), and passes at mid-depth well left of and below the swimmer. By 66.3-66.7 it is a faint dark speck, and it never goes under his legs. For most of the shot the threat is not on screen.",
+   "fix": "Change the shark's path so it is in frame from the first frames, circles inside the frame directly beneath his feet, then fades into the blue. Or reframe or widen the camera so its pass stays inside the 9:16 frame.",
+   "upheld": 2,
+   "votes": 2,
+   "reasons": [
+    "UPHELD: The finding holds up. One caveat on the source: the final MP4 named in the task is not on disk. output/ only has stranded_draft.mp4, a placeholder with black frames and captions, and the only LFS object is that same draft. So I checked against the three review frames taken from the final video (review/frames/SH17B_a_064.60.png, SH17B_b_065.60.png, SH17B_c_066.60.png) and the source frames in render/final/SH17B (72 frames). Those source frames match the review frames apart from the burned-in captions (mean difference about 3-4 at render frames 9, 39 and 69).\n\nWhat I saw:\n- **64.33 to about 65.3",
+    "UPHELD: The claim holds. The final MP4 named in the task is not on disk: output/ only holds stranded_draft.mp4, an older draft that shows black at 65.6 s. So I checked the review frames taken from the final video, plus all 72 rendered source frames in /home/user/code/render/final/SH17B (frame f plays at about 64.4 + (f-1)/30 s; assemble.py only upscales and grades them, it does not reframe).\n\nWhat the frames show:\n- review/frames/SH17B_a_064.60.png: no shark. The swimmer is alone over empty blue, with the caption \"DRAWS ATTENTION\".\n- review/frames/SH17B_b_065.60.png: the shark is cut in half by the le"
+   ]
+  },
+  {
+   "where": "SH17 start, 62.333-62.73 (about 12 frames)",
+   "title": "Caption 'COMES TO LOOK' carries over the cut and lies across his eyes in the close-up",
+   "severity": "medium",
+   "evidence": "The ASS line 'COMES TO LOOK' (bottom style, ends 0:01:02.73) continues past the SH16->SH17 cut at 62.333. In the face close-up it sits right across the eyes and brows (crop at 62.40). After a 0.1 s gap the next caption, 'BITES ARE RARE', appears at the top (\\pos(540,300)), so the caption also jumps position right after the cut.",
+   "fix": "End the 'COMES TO LOOK' event at the cut (62.33), or give the events from 62.33 on the same \\an8\\pos(540,300) as the following SH17 lines.",
+   "upheld": 2,
+   "votes": 2,
+   "reasons": [
+    "UPHELD: The issue is real. The named final MP4 isn't in output/; only the gitignored stranded_draft.mp4 is there. So I checked the frames in review/frames, which were taken from the final video, together with story/captions.ass.\n- In captions.ass, line 166 (Cap style, bottom-anchored, MarginV 560) runs 0:01:01.71 to 0:01:02.73 with the text 'COMES TO LOOK' and no \\pos override.\n- The SH16 to SH17 cut is at about 62.33-62.40 (shots.json puts SH17 at 62.4, and assemble.py rounds shot lengths to whole frames).\n- review/frames/SH17_a_062.60.png, from the final video, clearly shows the white/yellow 'COMES ",
+    "UPHELD: This is real and visible. The named final file (output/Stranded_What_Happens_If_You_Are_Stranded_In_The_Ocean_1080x1920.mp4) is not on disk. output/ only has stranded_draft.mp4, an older draft with black filler at 62.6 s (PSNR about 10 dB against the review frames), so I could not use it. I checked against review/frames/SH17_a_062.60.png instead, which was taken from the final video. In that frame, the first frame of the SH17 head close-up, the bottom-style 'COMES TO LOOK' caption (Cap style, about y=1310 of 1920) sits right across his brows and upper eyes; a zoomed crop shows the text bar cov"
+   ]
+  },
+  {
+   "where": "SH19, 70.333-74.233 (e.g. 72.0, eyes at about y=1000-1020)",
+   "title": "Upper eyelids glow a saturated red. It reads as red eyeliner or glowing eyes, not cold",
+   "severity": "medium",
+   "evidence": "In every SH19 frame, both upper lids and lash lines show a bright red-orange band (crop at 72.0 and the face strip from 71.5-72.4). The face around them is pale pink and the scene is cold blue fog. In a medium shot that lasts the whole 3.9 s line about heat loss, it looks like make-up or a shader glitch.",
+   "fix": "Tone the eyelid/eye-socket redness in the SH19 skin or eye material well down, matching SH20's subtler red-rimmed eyes, then re-render or re-grade.",
+   "upheld": 2,
+   "votes": 2,
+   "reasons": [
+    "UPHELD: The issue is real and visible. The named final mp4 is not in output/ (only the git-ignored stranded_draft.mp4 is there), so I checked the review frames, which were taken from the final video and are 540x960. All three SH19 frames show it: SH19_a_070.60, SH19_b_072.35 and SH19_c_074.10. In 4x crops of the eye area (x 200-360, y 470-570 at 540 scale, so about y=1040 at 1080x1920), both upper lids and lash lines carry a bright, saturated red-orange band. It is much stronger than the pale pink face and stands out against the cold blue dusk scene. It looks like red eyeliner or eyeshadow, not cold. ",
+    "UPHELD: The issue is real and visible. The final mp4 named in the task isn't in output/; only output/stranded_draft.mp4 is there, and it's an older cut (mean pixel difference about 94 from the review frame at 72.35). So I checked the review frames that came from the final render. At all three SH19 sample times (SH19_a_070.60, SH19_b_072.35, SH19_c_074.10), enlarged crops of the face show a bright, saturated red-orange band along both upper eyelids and lash lines. The rest of the face is pale pink and the background is cold blue fog. At 72.35 it reads clearly as red eyeliner or a shader glow, and you c"
+   ]
+  },
+  {
+   "where": "SH24, 90.6-94.1 s (frames SH24_a_090.80, SH24_b_092.35, SH24_c_093.90; worst around 91.6-93.5)",
+   "title": "Face reads as a floating orange mask; the throat stretches into a glossy tube that changes shape",
+   "severity": "high",
+   "evidence": "In this close-up the waterline cuts the head with a hard, ragged black edge and no meniscus or foam. Hair, ears and the sides of the neck disappear into near-black water, so only a flat orange face shape remains, edged by what looks like a black hood. Below the chin the throat shows as a long, very shiny tube that reaches the bottom of the frame by 92.35 s, and its outline changes from frame to frame (compare 91.2 / 91.8 / 92.6 / 93.4) as the swell moves the waterline. The skin is plastic-shiny orange and the eyelash strips look stuck on over the closed lids. Over 3.5 s of narration ('Without fresh water, you have days, not weeks') the shot looks uncanny rather than weak. Close crop: /tmp/claude-0/-home-user-code/73c477af-b034-5106-8934-46dafc95cd58/scratchpad/qa_sh24_face.png",
+   "fix": "Re-render SH24 with more of the head and hair above water, or move the camera off the straight-down axis so the throat isn't foreshortened into a tube. Light the water around the head (sky reflection, or lower near_transmission and opaque water as in SH12) so the waterline reads as water and not a black void. Cut the skin specular and roughen the skin to lose the plastic sheen. Add the collar foam or meniscus at the waterline.",
+   "upheld": 2,
+   "votes": 2,
+   "reasons": [
+    "UPHELD: The problem is real and easy to see. The video path named in the task does not exist: output/ holds only stranded_draft.mp4, an older cut that shows black placeholders at 90.8-93.4 s. The scratchpad copy /tmp/claude-0/-home-user-code/73c477af-b034-5106-8934-46dafc95cd58/scratchpad/stranded_v1.mp4 (127.43 s, 1080x1920, 30 fps) matches review/frames/SH24_a_090.80.png pixel for pixel (mean diff 0.0), so I checked against that copy and the review frames.\n\nWhat I saw:\n- In SH24_a_090.80, SH24_b_092.35 and SH24_c_093.90, plus frames I pulled at 91.2, 91.8, 92.6 and 93.4 s (strip: /tmp/claude-0/-home",
+    "UPHELD: The problem is real and easy to see. The final video named in the task is not in the checkout: output/ holds only stranded_draft.mp4, an older cut that is black at 91-93.4 s with captions only, and the final file is tracked with Git LFS but not present. So I judged from the frames taken from the final video, review/frames/SH24_a_090.80.png, SH24_b_092.35.png and SH24_c_093.90.png, which I viewed at full size, plus the reviewer's tile, which agrees with them.\n\nWhat the frames show:\n- **Mask look:** in all three frames the face is a flat, shiny orange shape sitting in near-black water. The edge "
+   ]
+  },
+  {
+   "where": "SH23 -> SH24 -> SH25 cuts at 90.6 s and 94.1 s",
+   "title": "Lighting jumps from grey day to near-night and then to bright golden sun",
+   "severity": "medium",
+   "evidence": "Mean frame luminance (Y) is about 143 in SH23 (misty daylight), 37 in SH24 and 170 in SH25 (bright golden sky with the sun disk on the horizon). sh24.py intends 'late light' leading into the golden SH25, but SH24 renders almost as night: black-teal water with only the face lit by a hot warm key. So the edit goes day, then night, then bright golden light within 4 s, with no time-skip cue. A face lit this warmly in front of unlit black water also looks like a spotlight on stage.",
+   "fix": "Raise the SH24 world/sky strength and water reflection so it matches a late-afternoon golden key consistent with SH25. Or grade SH24 up to dusk-gold so the 94.1 s cut into SH25 reads as the same evening.",
+   "upheld": 2,
+   "votes": 2,
+   "reasons": [
+    "UPHELD: The issue is real and a viewer can see it. The final MP4 named in the task is not on disk: output/ holds only stranded_draft.mp4, which is mostly black at these times and has been replaced. So I checked the review frames, which were taken from the final video, plus review/sheet_3.jpg.\n\nMean luma of each frame:\n- SH21 night: 24-27\n- SH22: 71-77\n- SH23 (87.4, 88.9, 90.4 s): 147-150\n- SH24 (90.8, 92.35, 93.9 s): 21.8, 30.1, 23.3\n- SH25 (94.3, 96.55, 98.8 s): about 184\n\nSH24 is as dark as the night shot SH21. In SH24_a_090.80.png, SH24_b_092.35.png and SH24_c_093.90.png the water behind the face i",
+    "UPHELD: The issue is real and a viewer can see it. Note: the video at the cited path (output/Stranded_..._1080x1920.mp4) is not checked out because it is stored in Git LFS. The only file in output/ is stranded_draft.mp4, an older draft with black placeholder frames, so I did not use it. I checked the review frames instead, which were taken from the final video, plus the per-shot segments in scratchpad/assemble/SH23-25.mkv. Mean luma in the review frames is SH23 147-150 (grey, misty daylight: SH23_c_090.40), SH24 22-30 (SH24_a_090.80, b_092.35, c_093.90) and SH25 184 (SH25_a_094.30: bright golden sky, "
+   ]
+  },
+  {
+   "where": "SH20, 74.3-78.4 s (SH20_a_074.50, SH20_b_076.35, SH20_c_078.20; clearest at 75.1 s)",
+   "title": "Eyes render as solid black slits with no whites or iris in the frontal close-up",
+   "severity": "medium",
+   "evidence": "In the frontal face close-up both eye openings are uniformly dark navy/black, with no sclera, iris or catchlight, and a pale line shows under each lower lid like a gap between lid and eyeball. With the bruise-like shading under the eyes it reads as empty sockets for the whole 4 s shot. Zoom: /tmp/claude-0/-home-user-code/73c477af-b034-5106-8934-46dafc95cd58/scratchpad/qa_sh20_eyes.png",
+   "fix": "Check the eye/cornea material in the SH20 lighting: add a small catchlight or fill light, make sure the sclera texture renders and the cornea isn't occluding it, or open the lids slightly so some white shows. Close the gap between the lower lid and the eyeball.",
+   "upheld": 2,
+   "votes": 2,
+   "reasons": [
+    "UPHELD: Confirmed: the problem is real and visible, so I am not refuting it. I could not check the cited timestamps in the video itself. output/Stranded_What_Happens_If_You_Are_Stranded_In_The_Ocean_1080x1920.mp4 is not on disk. output/ only holds stranded_draft.mp4, an older cut whose frame at 76.35 s is black with only the caption. So I checked the review frames, which were taken from the final video: SH20_a_074.50, SH20_b_076.35 and SH20_c_078.20.\n\nIn all three frames, both eyes in the frontal face close-up are almost black slits. I sampled the left eye in SH20_b_076.35 at 540x960, rows 616-624 and",
+    "UPHELD: The issue is real and visible. One limit on my check: the final video file is not on disk. output/ only holds stranded_draft.mp4, an older cut that shows a black placeholder at 76.35 s, so I could not extract new frames from the final. I checked the three review frames taken from the final video (review/frames/SH20_a_074.50.png, SH20_b_076.35.png, SH20_c_078.20.png) and zoomed the eye region about 4x (/tmp/claude-0/-home-user-code/73c477af-b034-5106-8934-46dafc95cd58/scratchpad/qa_sk2z_eyes_stack.png).\n\nIn all three frames both eye openings are uniformly dark navy/black from corner to corner. "
+   ]
+  },
+  {
+   "where": "SH20, 74.3-78.4 s (e.g. 77.6 s; also visible at the end of SH19, 73.0-74.3 s)",
+   "title": "Bare chest shows through the T-shirt (costume break/cloth intersection)",
+   "severity": "medium",
+   "evidence": "The character wears a crew-neck orange T-shirt (elvs_crude_t-shirt_male), and SH12/SH22 show it covering the chest up to the base of the neck. In SH20, and in SH19 just before it, the orange cloth only appears on the tops of the shoulders, and bare skin runs from the neck straight down to the waterline across the collarbones. It looks like a deep scoop neck or a missing shirt front. Crops: /tmp/claude-0/-home-user-code/73c477af-b034-5106-8934-46dafc95cd58/scratchpad/qa_sh20_chest.png and /tmp/claude-0/-home-user-code/73c477af-b034-5106-8934-46dafc95cd58/scratchpad/qa_sh19_chest.png",
+   "fix": "Fix the body-through-shirt intersection in the shivering/cold pose: add a shrinkwrap/offset or a body-mask delete group under the shirt, or check the shirt's armature weights in this pose. Then re-render SH20 (and SH19).",
+   "upheld": 2,
+   "votes": 2,
+   "reasons": [
+    "UPHELD: The problem is real and you can see it, but the reviewer's explanation of the cause is wrong.\n\nI could not check the video file the task named. output/ only holds stranded_draft.mp4, and that file is black with captions only at 73-78 s. So I checked the review frames, which come from the final video, and the source renders in render/final.\n\nWhat I saw at the cited times:\n- **SH19, 70.6-74.1 s** (review frames SH19_a/b/c, render SH19/0078): orange cloth covers only the tops of the shoulders, with a dark neckline edge at the trapezius. Bare skin runs from the neck straight down to the waterline ",
+    "UPHELD: The problem is real and easy to see. Note that the final mp4 named in the task is not in output/. That folder only holds stranded_draft.mp4, which is still black at 74.6 and 77.6 s. So I checked the review frames, which were extracted from the final video, and pulled frames from the scratchpad stranded_v1.mp4.\n\nIn review/frames/SH19_a_070.60.png and SH19_c_074.10.png the orange shirt shows only as two rounded pads on the shoulders. Bare skin runs from the neck straight down to the waterline across the whole upper chest, and a thin dark seam sits on the inside edge of each pad. That looks like "
+   ]
+  },
+  {
+   "where": "SH20 start 74.3-74.74 s (SH20_a_074.50); SH24 start 90.6-91.0 s (SH24_a_090.80)",
+   "title": "Captions carried over from the previous shot sit across the mouth/face after the cut",
+   "severity": "medium",
+   "evidence": "captions.ass line 198 'FASTER THAN AIR' (bottom position, y around 1320) runs until 74.74, but the cut to the SH20 face close-up is at 74.3, so for about 0.44 s the caption covers the nose and mouth. Only after that does 'IN COLD SEAS' move to the top (pos 540,300). The same happens at SH24: line 239 'WEREN'T THERE' runs until 91.00 while SH24 starts at 90.6, so it covers the mouth and chin for about 0.4 s before 'WITHOUT FRESH' moves to the top.",
+   "fix": "End lines 198 and 239 at the cut (74.30 / 90.60), or give those carried-over events the same \\an8\\pos(540,300) override the incoming shot uses.",
+   "upheld": 2,
+   "votes": 2,
+   "reasons": [
+    "UPHELD: The issue is real and visible, but the reviewer overstates what the caption covers. Severity is closer to low than medium.\n\nSource checked: the final file named in the task (output/Stranded_..._1080x1920.mp4) is not in the working tree. output/ only holds stranded_draft.mp4, which does not match the review frames. I used /tmp/claude-0/-home-user-code/73c477af-b034-5106-8934-46dafc95cd58/scratchpad/stranded_v1.mp4 instead. It matches review/frames/SH20_a_074.50.png almost exactly (mean pixel difference 0.83/255).\n\nFiles: shots.json puts the cuts at 74.3 (SH19 to SH20) and 90.6 (SH23 to SH24). I",
+    "UPHELD: The problem is real and shows in the frames. It is brief, so medium is the most it deserves; low-medium is fair. One caveat: the final MP4 named in the task is not on disk. output/ only holds stranded_draft.mp4, an old cut of captions on black (a frame at 74.5 differs from the review frame by a mean of 118). So I checked the review frames, which were taken from the final video, against story/captions.ass and story/shots.json.\n\nTimings: shots.json puts the SH19->SH20 cut at 74.3 and the SH23->SH24 cut at 90.6. In captions.ass, 'FASTER THAN AIR' runs 73.82-74.74 and 'WEREN'T THERE' runs 90.11-91"
+   ]
+  },
+  {
+   "where": "Deliverable (all shots), output/",
+   "title": "Final video file missing at the stated path; output/ holds only the stale draft",
+   "severity": "medium",
+   "evidence": "This isn't something viewers see, but it matters for delivery. output/Stranded_What_Happens_If_You_Are_Stranded_In_The_Ocean_1080x1920.mp4 does not exist. output/ contains only stranded_draft.mp4, which is untracked after commit 8e7b4fb and differs from the review frames (mean pixel difference 30-117). The review frames match /tmp/claude-0/-home-user-code/73c477af-b034-5106-8934-46dafc95cd58/scratchpad/stranded_v1.mp4 exactly (difference 0.0), so that file was used for all extra frame checks.",
+   "fix": "Copy or move the final render (the scratchpad stranded_v1.mp4, if that's the approved cut) to output/ under the final filename and commit it through the LFS rule in .gitattributes. Delete or ignore the stale draft.",
+   "upheld": 2,
+   "votes": 2,
+   "reasons": [
+    "UPHELD: The finding holds; I checked it directly.\n- **Final file is missing:** /home/user/code/output/ contains only stranded_draft.mp4 (20 MB, 127.5 s). Nothing named Stranded_What_Happens_If_You_Are_Stranded_In_The_Ocean_1080x1920.mp4 exists anywhere on disk. That is the name assemble.py gives the non-draft output (line 56; OUT=/home/user/code/output/).\n- **Git never got it:** commit 246735d added the LFS rule `output/*.mp4` to .gitattributes. Commit 8e7b4fb removed the draft \"superseded by the final video\", but no final video was ever committed. `git ls-files output/` is empty. The draft is now git",
+    "UPHELD: The finding holds up. The final video is not at the stated path: `/home/user/code/output/Stranded_What_Happens_If_You_Are_Stranded_In_The_Ocean_1080x1920.mp4` does not exist, and nothing by that name exists anywhere else on the filesystem.\n\nWhat I checked:\n- **Files:** `output/` holds only `stranded_draft.mp4`. It was untracked in commit 8e7b4fb (\"Stop tracking the draft cut (superseded by the final video)\") and is now listed in `.gitignore`.\n- **Git:** commit 246735d (\"Track the final video with Git LFS\") only added the `output/*.mp4` LFS rule. `git ls-files output/` and `git lfs ls-files` ar"
+   ]
+  },
+  {
+   "where": "output/ (affects SH25-SH29 and the whole video)",
+   "title": "The final video file is missing; output/ holds only a stale draft that is black for SH25-SH29",
+   "severity": "high",
+   "evidence": "/home/user/code/output/Stranded_What_Happens_If_You_Are_Stranded_In_The_Ocean_1080x1920.mp4 does not exist anywhere on disk (checked with find /). The only video in output/ is stranded_draft.mp4, an older draft. Its frames for this range are black with captions only: mean luma is 1.3 at 96 s, 3.8 at 101.65 s, 6.6 at 108 s, 5.4 at 115 s and 3.6 at 122 s. It also carries an outdated source line ('Real case: Carnival Valor, Gulf of Mexico, Nov 2022 - source: US Coast Guard'). Commit 246735d only edited .gitattributes, so the final MP4 was never committed. To review, I rebuilt frames from the intermediate clips in scratchpad/assemble/SH25-29.mkv (written 11:42) with the same eq and captions.ass burn-in. These match the review/frames PNGs (mean abs diff 4.4/255 at 101.65 s), so the findings below describe the final cut.",
+   "fix": "Re-run blender/scripts/tools/assemble.py without --draft to regenerate output/Stranded_What_Happens_If_You_Are_Stranded_In_The_Ocean_1080x1920.mp4, then check it exists and its duration is 127.5 s. Delete or move output/stranded_draft.mp4 so the black-frame draft cannot be uploaded by mistake.",
+   "upheld": 2,
+   "votes": 2,
+   "reasons": [
+    "UPHELD: The finding holds. The final video is not on disk. /home/user/code/output/ contains only stranded_draft.mp4 (20 MB, 127.5 s). Running find for \"*Stranded*1080x1920*\" across the filesystem returns nothing. assemble.py writes 'Stranded_What_Happens_If_You_Are_Stranded_In_The_Ocean_1080x1920.mp4' only when run without --draft, and that output is missing. Git history matches the report: 246735d changed only .gitattributes (added the output/*.mp4 LFS rule), 8e7b4fb stopped tracking the draft, the tree is clean, and the draft is now gitignored. The video does not exist in the repo or in LFS. I pulle",
+    "UPHELD: I checked this myself and the claim holds. /home/user/code/output/ contains only stranded_draft.mp4 (20 MB, 127.5 s). The final file output/Stranded_What_Happens_If_You_Are_Stranded_In_The_Ocean_1080x1920.mp4 does not exist. A filesystem-wide find for *stranded* and *1080x1920* turns up only the draft, the audio mixes and the scratchpad files, including scratchpad/stranded_v1.mp4 (297 MB, 127.43 s). The git history fits this: 246735d changed only .gitattributes (output/*.mp4 to LFS), and 8e7b4fb removed the draft from the index but left it on disk. The final MP4 was never written or committed."
+   ]
+  },
+  {
+   "where": "SH25 ~97.0-99.0 (helicopter approaching), SH26 99.0-104.3 (e.g. 101.0-101.4, frames 60-71 of SH26), SH27 104.3-112.6 (smaller), SH28 112.6-118.9 (clearest at 114.0-115.0 and 118.4-118.9), SH29 118.9-121.0",
+   "title": "Helicopter main rotor is broken: blades frozen, a loose hub circles the fuselage, blade fragments fly around",
+   "severity": "high",
+   "evidence": "In SH26 and SH28 the helicopter fills the top of the frame. Its two thick main blades never move (same position relative to the fuselage in SH26_a/b/c and SH28_a/c). A separate small 4-blade hub circles around the fuselage once every 15 frames (24 deg/frame): left of the body, over the top, then right. Loose dark slivers (blade tips) circle the aircraft too, e.g. upper-left at 99.86, upper-right of the helicopter at 119.0-119.4. The 'blur' disc reads as a hard-edged grey translucent ellipse. Evidence tiles: /tmp/claude-0/-home-user-code/73c477af-b034-5106-8934-46dafc95cd58/scratchpad/qa/rotor26c.png (12 consecutive SH26 frames), /tmp/claude-0/-home-user-code/73c477af-b034-5106-8934-46dafc95cd58/scratchpad/qa/h29.png (SH29 start), /tmp/claude-0/-home-user-code/73c477af-b034-5106-8934-46dafc95cd58/scratchpad/qa/h25.png (SH25 end), /tmp/claude-0/-home-user-code/73c477af-b034-5106-8934-46dafc95cd58/scratchpad/qa/cut2829.png (left image: SH28 last frame). Likely cause: marine.separate_rotor() splits only faces whose vertices are all above hub_z=3.3, so the drooped outer blade sections stay on the fuselage and do not spin. It also places the pivot at the bbox centre of the split pieces rather than on the mast axis, so the hub swings in a circle.",
+   "fix": "Rebuild the rotor: split the full blades and hub by mesh island, material or object name instead of a Z threshold. Put the pivot on the mast axis (hub centroid in XY). Alternatively hide the GLB rotor and add a clean 4-blade rotor plus a soft-edged radial-gradient blur disc. Re-render SH25-SH29, which all call rescue.heli().",
+   "upheld": 2,
+   "votes": 2,
+   "reasons": [
+    "UPHELD: The finding is real. The broken rotor is easy to see and keeps coming back.\n\nHow I checked: the named final MP4 is not in the working tree. output/ holds only stranded_draft.mp4, which is untracked and shows black frames (captions only) at 101 s and 114 s. So I checked the frames in review/frames/, which were extracted from the final video, and the source renders in /home/user/code/render/final/SH26 and SH28, which assemble.py upscales.\n\n- **Final-video review frames:** SH26_a_099.20, SH26_b_101.65 and SH26_c_104.10 all show the two thick main blades at the same angle to the fuselage. Loose da",
+    "UPHELD: The claim is confirmed in the final video. output/ holds only stranded_draft.mp4, an older cut with black placeholders. The final video was checked from scratchpad/stranded_v1.mp4, whose 101.65 s frame matches review/frames/SH26_b_101.65.png exactly (mean pixel difference 0.0).\n- SH26, 16 consecutive frames from 100.9 s: the two thick main blades stay in the same place relative to the fuselage in every frame. A separate small 4-blade hub appears at a new spot each frame: left of the body, then upper-left, upper-middle and right. A loose blade sliver flies at the right of the frame at about 101"
+   ]
+  },
+  {
+   "where": "SH28 115.82-118.90 (worst 115.9-117.6); labels 113.13-118.90",
+   "title": "SH28: the captions sit on the hoisted man and the label stack covers the helicopter",
+   "severity": "high",
+   "evidence": "The camera tilts up with the hoist, so the man rises into the fixed caption band (y about 1250-1360). Over his head: 'STAYING AFLOAT' from about 115.9. His head and shoulders are fully hidden behind 'AND WHETHER ANYONE' (116.65-117.60). His torso is hidden behind the two-line 'KNOWS YOU'RE / MISSING' (117.60-118.90). See review frame SH28_b_115.75 and /tmp/claude-0/-home-user-code/73c477af-b034-5106-8934-46dafc95cd58/scratchpad/qa/c28.png (116.0 / 116.7 / 117.2 / 117.8). At the same time the 'YOUR ODDS DEPEND ON / 1 / 2 / 3' label boxes (y 200-520) lie over the fuselage and hoist at the top (SH28_c_118.70). The rescue pay-off is hidden behind text.",
+   "fix": "For SH28 from about 115.4 on, move the word captions below him (\\an2, y about 1650-1750) or into clear sky beside him. Shift the label stack, or re-aim the SH28 camera so he rises through the frame's empty middle and the helicopter sits below the labels.",
+   "upheld": 2,
+   "votes": 2,
+   "reasons": [
+    "UPHELD: The caption overlap is real. output/ now holds only stranded_draft.mp4, which is a captions-only draft on black. So I checked scratchpad/stranded_v1.mp4 instead: it matches review frames SH28_b_115.75 and SH28_c_118.70 almost exactly (mean pixel difference about 1.3/255), so it is the final render. I pulled frames at 115.4-118.8 and close crops at 116.65, 116.85, 117.05, 117.25, 117.75 and 118.0.\n\nAs the camera tilts up, the hoisted man rises straight into the fixed word-caption band:\n- **115.9-116.3:** 'STAYING AFLOAT' sits just above or at his head.\n- **116.65-116.85:** 'AND WHETHER ANYONE' ",
+    "UPHELD: The overlap is real and visible. One caveat about the source: the final MP4 named in the task is not in output/, where only stranded_draft.mp4 (captions on black) remains. So I rebuilt SH28 the way assemble.py does it, from the intermediate clip assemble/SH28.mkv plus story/captions.ass, offset to 112.6 s. That rebuild matches the review frames from the final video (mean absolute difference about 4-6/255 against SH28_b_115.75 and SH28_c_118.70, which is within noise). The rebuilt frames are in /tmp/claude-0/-home-user-code/73c477af-b034-5106-8934-46dafc95cd58/scratchpad/s2/grid28.png.\n\nWhat th"
+   ]
+  },
+  {
+   "where": "SH27 105.2-112.6 (fully hidden 107.78-109.55); labels 111.24-112.60",
+   "title": "SH27: bottom captions sit on the swimmer for the whole aerial; the WARM WATER labels cover the helicopter",
+   "severity": "medium",
+   "evidence": "In the aerial orbit the swimmer, with his ripple rings, sits at y about 1240-1260, the same band as the captions. 'SO WHAT KILLS', 'YOU OUT HERE?', 'IN COLD WATER', 'IN WARM WATER', 'EXHAUSTION', 'DROWNING' and 'AND THIRST' each cover part of him. The two-line 'SHOCK AND / HYPOTHERMIA' (107.78-109.55) hides him completely (SH27_b_108.45; /tmp/claude-0/-home-user-code/73c477af-b034-5106-8934-46dafc95cd58/scratchpad/qa/s27.png). From 111.24 the 'DROWNING' and 'THIRST' label boxes (y 615-760) sit on the helicopter cabin, leaving only the tail and nose visible (SH27_c_112.40; /tmp/claude-0/-home-user-code/73c477af-b034-5106-8934-46dafc95cd58/scratchpad/qa/l27.png).",
+   "fix": "In SH27 put the captions lower (y about 1550-1650, open water) or frame the aerial so the swimmer sits around y 1500+. Tighten the label stack (smaller spacing, start at y about 150) or place the helicopter lower in frame so the six label boxes clear it.",
+   "upheld": 2,
+   "votes": 2,
+   "reasons": [
+    "UPHELD: The finding holds, though a few details are overstated. The named final mp4 is not on disk: output/ holds only stranded_draft.mp4, a black text-only cut, and the LFS object is that same draft. So I checked two things. First, the review frames, which come from the final video. Second, my own rebuild of the shot: the per-shot clip scratchpad/assemble/SH27.mkv with story/captions.ass burned in at a 104.3 s offset. Outside the caption areas the rebuild matches the review frames (mean pixel difference 4-9).\n\n(1) Swimmer hidden. In this aerial the swimmer and his ripple rings sit at about y 1180-126",
+    "UPHELD: The core of the report is confirmed. The final video file named in the task is not on disk: output/ holds only stranded_draft.mp4, an older cut whose frames do not match the review frames. So I checked the review frames taken from the final video, plus story/captions.ass.\n\n(1) SH27_b_108.45.png: the swimmer sits at about y 1250 (full scale). He is hidden behind the two-line caption 'SHOCK AND / HYPOTHERMIA' (Cap style is bottom-aligned with MarginV 560, so the text spans roughly y 1180-1360; on screen 107.78-109.55 per captions.ass lines 285-287). A zoomed crop shows only a faint ripple ring t"
+   ]
+  },
+  {
+   "where": "SH26 99.82-104.30 (caption jump at 99.82); source note 96.31-104.30",
+   "title": "SH26: captions jump from bottom to top mid-sentence and pile onto the hovering helicopter",
+   "severity": "medium",
+   "evidence": "'CRUISE SHIP LASTED' plays at the normal bottom position. At 99.82, mid-sentence, 'AT LEAST FIFTEEN' jumps to \\pos(540,330) (/tmp/claude-0/-home-user-code/73c477af-b034-5106-8934-46dafc95cd58/scratchpad/qa/jump.png). From then until the cut, the word captions sit across the helicopter fuselage and rotor: 'GULF OF MEXICO' at 101.4-102.6 (SH26_b_101.65) and 'JACKET' at 103.4-104.3 (SH26_c_104.10). The 3-line source note sits on the tail boom just above them. The helicopter is the subject of the shot. The bottom band (y about 1310) is empty sky here: the swimmer and his raised arm sit at y about 1600-1800, so the move was not needed.",
+   "fix": "Keep the n30 captions at the default bottom position for all of SH26: drop the \\an8\\pos(540,330) override on lines 263-275 of captions.ass. Optionally put the source note in a corner or under the helicopter so it does not cover the fuselage.",
+   "upheld": 2,
+   "votes": 2,
+   "reasons": [
+    "UPHELD: Confirmed in the final picture. output/ only holds stranded_draft.mp4, so I checked the scratchpad copy stranded_v1.mp4. A frame from it at 101.65 matches review/frames/SH26_b_101.65.png (mean absolute difference 0.77/255 at 540x960), so it is the same render. The reviewer's jump.png was not in the scratchpad, so I took fresh frames. At 99.75 'CRUISE SHIP LASTED' is at the default bottom position, about y 1310, over empty sky. At 99.88 'AT LEAST FIFTEEN' has jumped to the top, mid-sentence and 0.8 s after the SH25/SH26 cut. The cause is make_subs.py: it chooses each caption chunk's position fr",
+    "UPHELD: The problem is real and easy to see. The path in the task (output/Stranded_..._1080x1920.mp4) does not exist in the working tree. output/ only holds an older stranded_draft.mp4 with black placeholder frames. I checked frames from the scratchpad stranded_v1.mp4 instead, and they match the review frames pixel for pixel: mean difference 0.0 at 101.65 and at 104.10, so it is the final video. In captions.ass, the word captions for \"A man who fell from a cruise ship lasted at least fifteen hours in the Gulf of Mexico with no life jacket\" use the default bottom position up to 'CRUISE SHIP LASTED' (en"
+   ]
+  },
+  {
+   "where": "SH28 ~114.0-116.0 (clearest 115.0-115.8)",
+   "title": "SH28: during the hoist he looks like he is standing on the water",
+   "severity": "medium",
+   "evidence": "He rises straight up in a stiff upright pose, legs straight and feet flat at the waterline. For about 1.5 s he looks like he is standing knee-deep or on the surface rather than being lifted (review frame SH28_b_115.75; /tmp/claude-0/-home-user-code/73c477af-b034-5106-8934-46dafc95cd58/scratchpad/qa/rise28.png). No water sheets off his shorts or legs as he clears the surface, though the SH28 script header says 'water pouring off his legs'. Seen from behind, the cable also seems to end in the top of his head.",
+   "fix": "Pose him hanging in the strop: hips and knees bent, legs trailing, body tilted slightly. Shorten the time his feet sit at the surface (faster clear-the-water phase), and add splash and run-off particles from his shorts and legs as he leaves the water.",
+   "upheld": 2,
+   "votes": 2,
+   "reasons": [
+    "UPHELD: The problem is real. The final MP4 named in the task is not in the working tree: commit 246735d only added an LFS rule for output/*.mp4, and the only file in output/ is the older stranded_draft.mp4. In that draft, SH28 (112.6-118.9 s) is black with captions only. So I checked the shipped review frame and the SH28 source renders that assemble.py uses (render/final/SH28/0001-0189.png, 30 fps, frame f = 112.6 + (f-1)/30 s). Review frame SH28_b_115.75.png is identical to render frame ~0095. It shows the man from behind, upright, legs straight and feet flat at the waterline under ripple rings. It r",
+    "UPHELD: The problem is real and easy to see. The final video named in the task is not on disk: output/ holds only stranded_draft.mp4, and SH28 is a black placeholder in that file. So I checked the official review frame /home/user/code/review/frames/SH28_b_115.75.png. I also pulled frames from the per-shot clip /tmp/claude-0/-home-user-code/73c477af-b034-5106-8934-46dafc95cd58/scratchpad/assemble/SH28.mkv. Its frame at 115.75 matches the review frame apart from the captions and the grade. My frames at 114.5, 115.0, 115.3, 115.6, 115.9, 116.2 and 116.6 s are in /tmp/claude-0/-home-user-code/73c477af-b03"
+   ]
+  },
+  {
+   "where": "output/ (whole film). Draft black gaps at 20.4-44.9 s, 45.1-54.4 s, 56.3-63.6 s, 64.6-80.6 s, 92.2-98.7 s, 102.7-107.8 s and 123.3-127.5 s",
+   "title": "The final video file is missing. output/ holds only an old draft with long black gaps",
+   "severity": "high",
+   "evidence": "output/Stranded_What_Happens_If_You_Are_Stranded_In_The_Ocean_1080x1920.mp4 does not exist anywhere on disk (checked with find /). output/ holds only stranded_draft.mp4, which git commit 8e7b4fb untracked as 'superseded by the final video'. That draft was assembled in --draft mode before all frames were rendered. ffmpeg blackdetect finds the black runs listed under 'where'; it may also flag a few genuinely dark shots such as SH21, but 20.4-44.9 s covers the bright SH06-SH13 shots. A grab at 25.9 s and one at 44.1 s show only the caption on black. captions.ass (11:56:47) is also newer than the review frames (11:54), so the frames may not match the caption file. I reviewed picture content from render/final/<SHOT>/*.png together with the review frames.",
+   "fix": "Rebuild the final with assemble.py (no --draft; all render/final frame counts are complete) and check that the named file exists. Re-extract the review frames from that build. Do not publish stranded_draft.mp4.",
+   "upheld": 2,
+   "votes": 2,
+   "reasons": [
+    "UPHELD: I checked this myself and the finding holds. output/Stranded_What_Happens_If_You_Are_Stranded_In_The_Ocean_1080x1920.mp4 does not exist. A `find /` for '*Stranded_What*' returned nothing, and output/ holds only stranded_draft.mp4 (1080x1920, 30 fps, 127.5 s). Git history matches the report. Commit 246735d added LFS tracking for output/*.mp4 but committed only .gitattributes. Commit 8e7b4fb then untracked the draft as 'superseded by the final video', yet no final video was ever written. Running ffmpeg blackdetect (d=0.5, pix_th=0.05) on the draft gives long black runs: 20.4-54.83 s, 54.87-98.7 ",
+    "UPHELD: The finding holds. The deliverable named in the task, output/Stranded_What_Happens_If_You_Are_Stranded_In_The_Ocean_1080x1920.mp4, is not on disk. A find across the filesystem for \"*Stranded_What*\" and \"*1080x1920*.mp4\" returned nothing. output/ holds only stranded_draft.mp4 (20 MB, written 11:57). That is the name assemble.py uses in --draft mode (line 56: 'stranded_draft.mp4' if draft else 'Stranded_What_...mp4'), and draft mode fills missing frames with black. Git history matches: 246735d only added the LFS rule to .gitattributes and never added a video, and 8e7b4fb untracked the draft as '"
+   ]
+  },
+  {
+   "where": "SH12, about 40.9-41.6 s (render frames 10-30) and 43.7-43.9 s (frames 95-99). Review frame SH12_c_043.70 shows the start of it.",
+   "title": "SH12 close-up: head and neck look cut off from the torso",
+   "severity": "high",
+   "evidence": "In render/final/SH12/0010-0030 and 0095-0099, the bottom of the neck ends in a rounded stump. A band of dark water separates it from the shoulders and the shirt collar, so it reads as a severed head floating above the body. In the frames between, the neck is reconnected but stretched into a long tube with a pinch at the collar (frames 5 and 95). This is the sunburn close-up, right under the caption 'AND THE WATER BOUNCES SUNLIGHT RIGHT BACK INTO YOUR FACE'.",
+   "fix": "Raise the torso or lower the head pivot so the neck stays above the waterline. Alternatively, keep the water surface from cutting between neck and collar (adjust the ocean displacement near the body or add a contact mask), and reduce the head tilt that stretches the neck.",
+   "upheld": 2,
+   "votes": 2,
+   "reasons": [
+    "UPHELD: The problem is real. The named final MP4 is not in output/. That folder holds only stranded_draft.mp4, an older cut with black placeholder frames at SH12 (its frame at 43.70 differs from review frame SH12_c). So I checked the frames that feed the final video instead: the render/final/SH12 PNGs, rendered 10:53-11:34, and the assembled clip assemble/SH12.mkv in the scratchpad, built at 11:38. I also checked the review frames, which were taken from the final video.\n\nWhat the frames show:\n- Render frames 8 to 30, about 40.83 to 41.57 s on the master timeline (SH12 runs 40.6 to 43.9): the bottom of",
+    "UPHELD: The defect is real and easy to see. One thing about the files first: output/Stranded_What_Happens_If_You_Are_Stranded_In_The_Ocean_1080x1920.mp4 does not exist. The only file in output/ is stranded_draft.mp4, and it does not match the review frames (mean pixel difference about 39). The file that does match is /tmp/claude-0/-home-user-code/73c477af-b034-5106-8934-46dafc95cd58/scratchpad/stranded_v1.mp4 (127.43 s, 1080x1920, 30 fps): its frame at 43.70 s is pixel-identical to review/frames/SH12_c_043.70.png (mean difference 0.0). I extracted frames from that file at 40.65, 40.95, 41.10, 41.30, 4"
+   ]
+  },
+  {
+   "where": "SH26 99.0-104.3 s (e.g. 99.3-99.4 s), SH27 104.3-104.6 s, SH28 112.6-118.9 s (e.g. 116.2-117.3 s), SH29 118.9-119.3 s",
+   "title": "Helicopter rotor is broken: frozen blade bar, a second spinning rotor off the mast, and a loose fragment flying around it",
+   "severity": "high",
+   "evidence": "render/final/SH26/0010-0013: a long black two-blade bar crosses the fuselage at the same angle in every frame and does not spin. A thin four-blade rotor spins beside the fuselage, not centred on the mast, and a small dark blade-like piece flies freely through the frame (SH26 frames 11-12; SH27 frame 1, next to the tail; SH29 frames 1 and 10, off the rotor disc). SH28 frames 110-130 and SH29 frames 1-10 show the same thing: the four-blade hub sits beside or in front of the cabin while the static bar stays fixed. The helicopter is the hero object of the rescue and fills the frame in SH26, SH28 and SH29.",
+   "fix": "Hide the model's original main-rotor blades or drive them with the rotor animation, parent the spinning rotor to the mast pivot, and delete or hide the stray blade object. Add motion blur or a blurred disc so the rotor reads as spinning.",
+   "upheld": 2,
+   "votes": 2,
+   "reasons": [
+    "UPHELD: The report holds up. The final MP4 named in the task is not on disk: output/ holds only stranded_draft.mp4, and the final is LFS-tracked but not checked out. I checked the review frames taken from the final video and the source renders that assemble.py concatenates, which are all older than the review frames.\n\nSH26: render/final/SH26 frames 8-16 (99.23-99.50 s) show a long black two-blade bar across the fuselage at the same angle in every frame. A thin four-blade rotor spins beside the fuselage, and its hub moves from frame to frame instead of staying on the mast. A small dark blade-shaped fra",
+    "UPHELD: The defect is real and visible. output/ only contains the old stranded_draft.mp4, which shows black placeholders at these times. I checked a copy of the final cut instead: scratchpad/stranded_v1.mp4. Its frame at 99.20 s is pixel-identical to review/frames/SH26_a_099.20.png (mean difference 0). What I saw in that file:\n(1) SH26, 99.0-99.6 s, 18 consecutive frames: a long, thick black two-blade bar crosses the fuselage at exactly the same angle in every frame and never turns. The same bar is in review/frames SH26_a_099.20 and SH26_b_101.65. A thin four-blade rotor with a hub spins separately ne"
+   ]
+  },
+  {
+   "where": "SH28 112.6-118.9 s; worst 113.9 s (render frame 40) and 115.6-117.0 s (frames 90-110). Review frame SH28_b_115.75.",
+   "title": "Hoist rescue looks wrong: cable goes into his head, he sinks out of sight, then rises stiffly and stands on the water",
+   "severity": "high",
+   "evidence": "In every SH28 frame the hoist cable ends at the top of his head, with no hook and no attachment to the yellow collar. At frame 40 he is almost fully under water (only a dark blob at the cable end), although in SH28 frame 1 he had his head above water. He then rises vertically in a rigid standing pose. At frames 90-110 his whole body is above the water with his feet planted on the surface and ripples around his ankles, so he appears to stand on the sea. Meanwhile he hugs the ring at chest height instead of wearing it under his arms.",
+   "fix": "Attach the cable to the collar's hook point and put the collar under his armpits. Keep his head above water throughout. Animate the lift with legs trailing and bent and his body swinging, and take him out of the water quickly instead of rising like an elevator. Or cut from the in-water hook-up straight to the hanging shot.",
+   "upheld": 2,
+   "votes": 2,
+   "reasons": [
+    "UPHELD: The problem is real and easy to see. The named final mp4 is not on disk: output/ only holds stranded_draft.mp4, which differs from the review frames, and the final was never committed to LFS. So I checked the review frames, which were taken from the final video, against render/final/SH28/0001-0189.png. The 189 frames cover 112.6-118.9 s, and the render content matches the review frames.\n\n(1) The cable ends at the top of his head in every frame. There is no visible hook and no link to the yellow ring. Visible in /home/user/code/review/frames/SH28_a_112.80.png and SH28_b_115.75.png, and in rende",
+    "UPHELD: The problem is real and easy to see. The named final MP4 is not in output/. It was untracked when moved to LFS, and the stranded_draft.mp4 left behind shows black at SH28. So I checked the review frames, which come from the final video, and the SH28 source renders in /home/user/code/render/final/SH28/ (frames 0001-0189). Review frame SH28_b_115.75.png matches render frame ~95 and shows all four defects. (1) The hoist cable ends at the top of his head in every frame. There is no hook and nothing joins it to the yellow ring. (2) He sinks: at frame 1 his head and shoulders are above the water, an"
+   ]
+  },
+  {
+   "where": "SH24 90.6-94.1 s (cuts SH23\u2192SH24 at 90.6 s and SH24\u2192SH25 at 94.1 s). Review frames SH24_a_090.80, SH24_b_092.35, SH24_c_093.90.",
+   "title": "SH24 looks like night and turns his face into a mask, breaking the day-2 chronology",
+   "severity": "medium",
+   "evidence": "SH23 is a pale grey misty day and SH25 is bright golden hour, but SH24 (meant as day-2 late afternoon) is near-black navy water with the face lit saturated orange. Viewers will read it as a second night, followed by a jump to sunset. The face is also framed by a black blob (hair and dark water) like a hood. The neck is a long glossy tube that tapers to a point at frame 1 (90.6 s) and is stretched at 92.35 s, so the head reads as a floating waxy mask. His skin was pale in SH22 three shots earlier.",
+   "fix": "Re-light SH24 with the day-2 overcast or late-afternoon environment (brighter, warmer, low sun), keep his skin tone consistent with SH22/SH25, and reframe or pose to avoid the stretched neck. A small lift toward warm light would bridge into SH25's golden hour.",
+   "upheld": 2,
+   "votes": 2,
+   "reasons": [
+    "UPHELD: The issue is real and easy to see. The final video file named in the task is not in output/ (only stranded_draft.mp4, an older cut with black placeholder frames, is there). I used /tmp/claude-0/-home-user-code/73c477af-b034-5106-8934-46dafc95cd58/scratchpad/stranded_v1.mp4 instead. Its frames at 90.8, 92.35 and 93.9 s match review/frames/SH24_* exactly (mean pixel difference 0.0), so it is the same video.\n\nWhat the frames show:\n1. SH24 (90.6-94.1 s, \"Weak float close-up, eyes closing\", which follows \"Day two\" SH22 and the misty SH23) is very dark. The water is near-black navy and the face is l",
+    "UPHELD: The issue is real and a viewer would see it. One caveat: the named final MP4 is not on disk. output/ only holds stranded_draft.mp4, an older cut with a black placeholder at 92.35 s (git LFS commit 246735d tracks the final, but the file was never checked out). So I checked the review frames, which the task says come from the final video, against the source renders in /home/user/code/render/final/SH24/0001-0105.png. They match.\n\nBrightness: average frame luma is 21.8, 30.1 and 23.3 for SH24_a_090.80, SH24_b_092.35 and SH24_c_093.90. That compares with 147 at SH23_c_090.40 (pale grey mist) and 18"
+   ]
+  },
+  {
+   "where": "SH27 104.3-112.6 s (cuts SH26\u2192SH27 at 104.3 s and SH27\u2192SH28 at 112.6 s). Review frames SH27_a_104.50, SH27_b_108.45, SH27_c_112.40.",
+   "title": "SH27 rescue orbit breaks continuity: helicopter skims the water away from him, and he is only a speck",
+   "severity": "medium",
+   "evidence": "In SH26 the helicopter hovers directly over him with rotor wash. In SH27 it flies a few metres above the sea, well away from him. At 108.45 s it seems to sit on the water in the sun glitter. In SH28 it is directly overhead again with the hoist down. The man is a few pixels inside ripple rings (render SH27/0001 and 0249: only a raised arm of about 3 px is visible). From 111.8 s the WARM WATER/DROWNING/THIRST labels cover the helicopter.",
+   "fix": "Re-block SH27 with the helicopter hovering 15-20 m above him, its downwash ring on the water, the orbit centred on him, and the camera close enough that he reads clearly. Shift the label stack or the helicopter so they don't overlap.",
+   "upheld": 2,
+   "votes": 2,
+   "reasons": [
+    "UPHELD: The issue is real. Note that output/ holds only stranded_draft.mp4 (the named final file is missing), and that draft is black with captions only from SH25 onward, so I checked against the review frames and the final render render/final/SH27/0001-0249 instead. In review/frames/SH27_a_104.50, _b_108.45 and _c_112.40, and in an 8-frame grid of the render, the helicopter stays a quarter to a third of the frame above the man and is always seen against the sea, never the sky. It reads as flying low over water well beyond him. At 108.45 s it is head-on in the sun glitter and looks like it is sitting ",
+    "UPHELD: The problem is real and a viewer can see it. One part of the cause is misread, and that changes the fix.\n\nSource used: output/ no longer contains Stranded_What_Happens_If_You_Are_Stranded_In_The_Ocean_1080x1920.mp4. The only file there is an old stranded_draft.mp4, which shows black placeholder frames at 108.45 s. I checked against review/frames/SH27_b_108.45.png and against /tmp/claude-0/-home-user-code/73c477af-b034-5106-8934-46dafc95cd58/scratchpad/stranded_v1.mp4. That second file matches the review frame exactly (mean difference 0.0), so I took my frames from it.\n\nWhat I saw at 104.35, 10"
+   ]
+  },
+  {
+   "where": "SH09 30.2-35.5 s (clearest 32.8-35.5 s); also SH22 83.6-87.2 s",
+   "title": "Character looks like he's wearing a black wetsuit with a small orange bib instead of a t-shirt and shorts",
+   "severity": "medium",
+   "evidence": "Review frames SH09_b_032.85 and SH09_c_035.30 and render SH09/0060 and 0159: his arms, legs, neck, shorts and most of the shirt render near-black, and only a diamond-shaped orange patch shows on the chest. This contradicts the yellow-orange t-shirt, navy shorts and bare skin seen in SH05-SH08 and SH11. SH22 shows the same black, tendril-like submerged arms on each side of the shirt.",
+   "fix": "Lighten the underwater absorption/volume in the top-down shots or raise the body so the shirt and limbs sit at the surface. Alternatively, add a little fill light so skin and shirt keep their colour.",
+   "upheld": 2,
+   "votes": 2,
+   "reasons": [
+    "UPHELD: Confirmed, and it looks worse than reported. The named final mp4 isn't in output/: it is LFS-tracked and not checked out, and output/stranded_draft.mp4 is an older caption-on-black draft. I checked the review frames, which are extracted from the final, plus the scratchpad copy stranded_v1.mp4, whose frame at 32.85 s matches review/frames/SH09_b_032.85.png (mean pixel difference under 1/255), and render/final/SH09/0159.png. SH09 is the top-down starfish float. In SH09_b_032.85, SH09_c_035.30 and frames I pulled at 33.6 s and 34.6 s, his neck, arms, legs, shorts and most of the shirt render near",
+    "UPHELD: The SH09 problem is real and easy to see. In review frames SH09_b_032.85 and SH09_c_035.30, and in render/final/SH09/0159.png (so the cause is the render, not the edit), the floating character is near-black everywhere except his face and a small diamond-shaped orange patch on the chest. That covers arms, hands, neck, the shirt's shoulders and belly, shorts and legs. He reads as a man in a black wetsuit with an orange bib. SH01 at 1.0 s (orange shirt over the shoulders, skin-coloured neck) and SH11_b_039.00 (orange shirt, light-coloured limbs) show a different outfit, so this is a costume conti"
+   ]
+  },
+  {
+   "where": "SH01 3.6-6.0 s (render frames ~110-180). Cut SH01\u2192SH02 at 6.0 s.",
+   "title": "Opening hook loses the swimmer: 2.4 s of empty ocean with visible texture tiling, and the move runs opposite to the plan",
+   "severity": "medium",
+   "evidence": "shots.json plans 'Aerial descent onto a tiny swimmer'. The render starts close on him (0.0-1.5 s), pulls up and away, and he disappears completely by about 3.6 s. From 4.0 s to the cut, the frame is soft blotchy water with repeating diamond-shaped highlight patches (tiling). It sits under 'NOTHING AROUND YOU?', so 'you' is not on screen. SH01 also shows him calmly afloat at the surface before SH02 shows him underwater kicking up, which muddles the order of events in the first 10 s.",
+   "fix": "Reverse the move (descend onto him) or stop the pull-back while he is still a clearly visible dot at frame centre, and hide the tiling with distance fog or a larger tile. Alternatively, open on the underwater shot first so the story runs in order.",
+   "upheld": 2,
+   "votes": 2,
+   "reasons": [
+    "UPHELD: The main claim holds up. The cited file name does not exist; the only video in output/ is stranded_draft.mp4 (127.5 s, 1080x1920, 30 fps), and its frames match review/frames/SH01_*. Frames I pulled from it at 0.5, 1.5, 2.5, 3.0, 3.3, 3.6, 4.0, 4.3, 4.8, 5.0 and 5.6 s, plus SH01_c_005.80.png, show this: he is large and centred at 0.2-0.5 s, small at 1.5 s, a dot at 2.5 s, and a barely visible speck at 3.6 s. From about 4.0 s to the cut at 6.0 s there is no swimmer at all, only soft, murky water with a sun-glint patch. That covers both 'WITH ABSOLUTELY' and 'NOTHING AROUND YOU?', so 'you' is off",
+    "UPHELD: The core problem is real and visible, but parts of the report are overstated or misread. I'd rate it low-medium, not medium.\n\nSource checked: output/ has no Stranded_..._1080x1920.mp4, only stranded_draft.mp4, whose frames differ from the review frames. The review frames SH01_b_003.00.png and SH01_c_005.80.png match /tmp/claude-0/-home-user-code/73c477af-b034-5106-8934-46dafc95cd58/scratchpad/stranded_v1.mp4 exactly (mean difference 0.0), so I treated that file as the final cut.\n\nWhat I saw:\n- 0.2-1.0 s: close top-down shot of his face.\n- 1.8 s: a small figure.\n- At full 1080 px width, he shri"
+   ]
+  },
+  {
+   "where": "output/ (whole video, 0-127.5 s)",
+   "title": "The final MP4 is missing; output/ holds only an old, mostly black draft",
+   "severity": "high",
+   "evidence": "output/Stranded_What_Happens_If_You_Are_Stranded_In_The_Ocean_1080x1920.mp4 is not on disk, and git does not track it either. Commit 246735d added the LFS rule (output/*.mp4) but no MP4 was committed, and `git ls-files output` is empty. The only video is output/stranded_draft.mp4, which .gitignore excludes. It is a --draft cut (veryfast, CRF 23) made from an older render and older captions. blackdetect finds black at 20.40-54.83, 54.87-98.70, 99.83-107.80, 112.60-113.17, 113.97-114.47 and 118.90-127.47 s. At 104.10 the draft shows a black frame with JACKET centred at the bottom. ffprobe of the draft: one H.264 High stream, 1080x1920, 30/1 fps, 3825 frames, 127.500 s, and one AAC LC stream, 48 kHz stereo, 127.500 s. Audio and video lengths match, and 127.5 s equals the shots.json total, but the codec, duration and A/V checks could not be run on the real final. Every frame in render/final/<SH>/ exists, so nothing stops a full assembly.",
+   "fix": "Run blender/scripts/tools/assemble.py without --draft so it writes the named final from the current captions.ass and stranded_mix.wav. Check the result with ffprobe (expect one h264 1080x1920 30 fps stream, one aac stream, both 127.5 s), regenerate review/frames and the contact sheets from it, and commit the MP4 through LFS.",
+   "upheld": 2,
+   "votes": 2,
+   "reasons": [
+    "UPHELD: The finding holds; I checked it directly. /home/user/code/output/ contains only stranded_draft.mp4 (20,005,235 bytes). The named final, Stranded_What_Happens_If_You_Are_Stranded_In_The_Ocean_1080x1920.mp4, is not in output/, and `find /` turns up no copy anywhere. `git ls-files output` is empty, and `git lfs ls-files` lists nothing. Commit 246735d only adds the LFS rule `output/*.mp4` to .gitattributes, and 8e7b4fb only stops tracking the draft, so no final MP4 was ever committed. .gitignore excludes output/stranded_draft.mp4.\n\nffprobe of the draft: h264 1080x1920, 3825 frames, 127.5 s; aac, 1",
+    "UPHELD: The report holds up. output/ contains only stranded_draft.mp4 (20,005,235 bytes). The named final, output/Stranded_What_Happens_If_You_Are_Stranded_In_The_Ocean_1080x1920.mp4, is not on disk, and a filesystem-wide search found no copy. `git ls-files output` is empty. Commit 246735d added only the .gitattributes LFS rule, and commit 8e7b4fb stopped tracking the draft, so no final MP4 was ever committed. .gitignore excludes output/stranded_draft.mp4.\n\nffprobe of the draft matches the report: one h264 High stream at 1080x1920 and 30/1 fps with 3825 frames, and one AAC LC stream at 48 kHz stereo, "
+   ]
+  },
+  {
+   "where": "SH14, 49.74-56.28 (review frames SH14_b_052.65, SH14_c_055.80)",
+   "title": "In the reviewed cut, the SH14 captions sit on top of the 3D science labels; captions.ass fixes this but it was never burned in",
+   "severity": "high",
+   "evidence": "The review frames and sheets were written 11:54-11:55. captions.ass was changed at 11:56:47 (commit 18bda7e moved SH14 captions from y=215 to y=1490). In the reviewed frames, 'YOU DRANK' is drawn over 'SEAWATER 3.5% SALT' at 52.65, and 'YOU MORE / DEHYDRATED' covers both 'SEAWATER 3.5% SALT' and 'MORE WATER OUT THAN IN' at 55.80. Those are the key labels of the science insert and they are unreadable. I burned the current captions.ass onto render/final/SH14 frames 101 and 187: the caption now sits below the BODY WATER meter and nothing collides.",
+   "fix": "Re-assemble with the current captions.ass (see the first finding) and confirm SH14 at about 52.6 and 55.5 s in the new final.",
+   "upheld": 2,
+   "votes": 2,
+   "reasons": [
+    "UPHELD: Confirmed. The final file named in the task (output/Stranded_..._1080x1920.mp4) is not on disk. output/ only holds the old stranded_draft.mp4, which shows black frames at SH14. The cut that was actually reviewed is /tmp/claude-0/-home-user-code/73c477af-b034-5106-8934-46dafc95cd58/scratchpad/stranded_v1.mp4, written 11:54:20. A frame I took from it at 52.65 s matches review/frames/SH14_b_052.65.png exactly (mean pixel difference 0.0). In that cut, at 52.65 s, the caption 'YOU DRANK' is drawn over the 3D label 'SEAWATER', which shows as 'SEAWAT...' (frame /tmp/claude-0/-home-user-code/73c477af-",
+    "UPHELD: The finding holds. The SH14 captions are burned in on top of the 3D science labels in the cut that was reviewed.\n\nWhat I checked:\n1. The video named as the final, output/Stranded_What_Happens_If_You_Are_Stranded_In_The_Ocean_1080x1920.mp4, is not on disk. I searched the whole filesystem for it.\n2. The only file in output/ is stranded_draft.mp4 (written 11:57:19). It is a black placeholder with white and yellow captions, so it is not the final either.\n3. The reviewed cut is in the scratchpad: /tmp/claude-0/-home-user-code/73c477af-b034-5106-8934-46dafc95cd58/scratchpad/stranded_v1.mp4 (written "
+   ]
+  },
+  {
+   "where": "SH25, 94.1-99.0 s (head lift at frames 30-52, about 95.1-95.8 s); cut to SH26 at 99.0",
+   "title": "The rotor thump that makes him look up is effectively inaudible; the helicopter sound jumps in only at the SH26 cut",
+   "severity": "medium",
+   "evidence": "mix_audio.py places a 900 Hz low-passed helicopter loop at -20 dB with a 2.5 s fade-in from 94.3, plus the full loop at -18 dB from 96.7 with a 2 s fade-in. Measured from the stems with the final bus gains, in the 30-150 Hz band: during 95.1-95.8 the helicopter is at -64 dB, against -40 dB for the ocean bed and -32 dB for the VO. During 98.0-99.0 it is still -53 dB against -41 dB for the bed. Across the 99.0 cut it rises by 10-15 dB (to -43 dB, and -37 dB in the 150-600 Hz band). The shot is written as 'a thudding sound, he lifts his head', but nothing audible motivates the look, and there is no build-up to the approach.",
+   "fix": "Start an audible thump (about -8 to -10 dB) around 94.6-95.0, before the head lift, and ramp it up across SH25 into the SH26 level. Duck the ocean bed under it, or keep the 900 Hz low-pass at a higher gain for distance.",
+   "upheld": 2,
+   "votes": 2,
+   "reasons": [
+    "UPHELD: The finding holds; I measured it. In mix_audio.py lines 125-128, SH25 (94.1-99.0) gets only two helicopter cues: a 900 Hz low-passed loop at -20 dB with a 2.5 s fade-in from 94.3, and the full loop at -18 dB with a 2 s fade-in from 96.7. Both sit on the sfx bus, which is mixed at -4 dB. Line 130 then starts the loop at -7 dB right at the SH26 cut (99.0) with a 0.15 s fade-in. Nothing else is on the sfx bus during SH25.\n\nI checked the stems against the mix. The bus-weighted stems correlate 0.9997 with stranded_premaster.wav, and the video audio correlates 0.9999 with stranded_mix.wav, which ass",
+    "UPHELD: The claim holds up. The video file named in the task (output/Stranded_..._1080x1920.mp4) is not on disk; output/ holds only stranded_draft.mp4. But both cuts take their sound from audio/mix/stranded_mix.wav (written 11:35; mix_audio.py unchanged since 04:38), and the draft's audio matches that mix sample for sample (lag 0, correlation 0.99993). So the final carries the same soundtrack.\n\nMeasured from the stems with the bus gains in mix_audio.py (sfx -4 dB, amb -3 dB, music +4 dB). The only SFX in SH25 is the helicopter.\n- Head lift, 95.1-95.8 s: helicopter -56.7 dB broadband, against -38.5 dB "
+   ]
+  },
+  {
+   "where": "SH14-SH29, especially SH23-SH29 (87-127.5 s)",
+   "title": "The music is buried, so the 'hope' cue for the rescue and ending is effectively missing",
+   "severity": "medium",
+   "evidence": "Eternal_Hope.mp3 starts with a quiet intro (short-term loudness about -32 LUFS over its first 40 s, against -23.8 LUFS integrated for the whole track). It is placed at -9 dB and ducked another 8 dB under the VO. Per-shot RMS of the music stem is -45 to -52 dB in SH23-SH29, against -27 dB for the VO and -31 to -37 dB for the ambience and SFX. Even in VO-free half-second windows the music sits 10-18 dB under the beds: 104.0 s, -42.6 vs -31.0; 118.5 s, -49.2 vs -32.3; 125.5 s, -49.2 vs -35.7. The 'tension underscore' from SH14 to SH24 is similarly low (-43 to -52 dB). The planned 'tension, then hope' lift does not come across.",
+   "fix": "Loudness-normalise both music files (for example to -23 LUFS) before placing them, raise the HOPE gain by about 8-10 dB, or start it at an offset where the swell begins, and reduce the ducking depth (for example -5 dB). Then re-check the music level against the beds in the VO gaps.",
+   "upheld": 2,
+   "votes": 2,
+   "reasons": [
+    "UPHELD: The core claim holds, measured against the audio in the final file. The named file is not on disk. The only video in /home/user/code/output is stranded_draft.mp4 (127.5 s). Its AAC track matches /home/user/code/audio/mix/stranded_premaster.wav with zero lag and correlation 0.994 to 0.9999 at 20, 100 and 120 s, so the stems in audio/mix show what the viewer hears.\n\n**The settings match the reviewer's description.** In /home/user/code/blender/scripts/tools/mix_audio.py, lines 138-141 place HOPE at offset 0 with -9 dB, starting at the SH25 cut minus 0.5 s. Line 158 ducks music 8 dB under the VO, ",
+    "UPHELD: The finding holds up when measured on the final audio. The named final mp4 is not on disk, but its Git LFS object (.git/lfs/objects/ab/91/ab916cbe...) and output/stranded_draft.mp4 are the same size (20005235 bytes) and length (127.5 s). The audio in output/stranded_draft.mp4 matches audio/mix/stranded_premaster.wav (correlation 0.996 at zero lag), so the stems in audio/mix/ are what ships.\n\nmix_audio.py places Eternal_Hope.mp3 at -9 dB starting at offset 0, from SH25 start minus 0.5 s. It ducks the music 8 dB under the VO and adds +4 dB on the music bus. The track's first 34 s, the only part "
+   ]
+  },
+  {
+   "where": "SH03 12.2-14.2 s (SH03_b_012.20, SH03_c_014.00); SH04 17.0-17.6 s (SH04_c_017.40)",
+   "title": "Bottom captions cover his mouth and chin through the gasp/cough close-up",
+   "severity": "medium",
+   "evidence": "SH03 and SH04 are not in make_subs.py TOP_Y, so captions use the default MarginV of 560 (about y=1300-1400). In the SH03 water-level close-up his face sits exactly there. 'AND ONE GASP', 'UNDERWATER CAN' and 'DROWN YOU' run across his mouth from about 12.2 s to the cut (review frame 12.20, plus simulated burns at 12.5/13.0/13.5/14.0). In SH04, 'NO LAND' lies across his mouth at 17.0-17.6. These lines are about his gasp, the action in that shot.",
+   "fix": "Add SH03 and SH04 to TOP_Y (for example 300), or put their captions below the waterline (about y=1650).",
+   "upheld": 2,
+   "votes": 2,
+   "reasons": [
+    "UPHELD: The issue is real and easy to see. In the review frames taken from the final video, the bottom caption sits right on his mouth and chin. In SH03_b_012.20.png, \"AND ONE GASP\" runs across his mouth at the waterline, the spot where the gasp happens. In SH03_c_014.00.png, \"DROWN YOU\" covers his mouth and chin. In SH04_c_017.40.png, \"NO LAND\" lies across his mouth and lower face. make_subs.py line 55 confirms the cause: TOP_Y lists SH05, SH08, SH09, SH11, SH12, SH13, SH14 and SH17, but not SH03 or SH04, so both shots use the default bottom position. One caveat on my own check: the final .mp4 named ",
+    "UPHELD: The issue is real: the captions sit on his mouth and chin in the close-ups. The reviewer's description is accurate.\n\nEvidence from the review frames (taken from the final video):\n- **SH03 at 12.20 s:** 'AND ONE GASP' runs straight across his mouth (/home/user/code/review/frames/SH03_b_012.20.png).\n- **SH03 at 14.00 s:** 'DROWN YOU' covers his mouth and chin (/home/user/code/review/frames/SH03_c_014.00.png).\n- **SH04 at 17.40 s:** 'NO LAND' lies across his mouth (/home/user/code/review/frames/SH04_c_017.40.png).\n\nThe cause is in /home/user/code/blender/scripts/tools/make_subs.py. Line 55 sets T"
+   ]
+  },
+  {
+   "where": "SH26 99.0-104.3 (SH26_a_099.20, SH26_b_101.65, SH26_c_104.10); SH27 111.2-112.6 (SH27_c_112.40)",
+   "title": "The source label and captions are drawn over the hovering helicopter; the SH27 label stack hides the helicopter",
+   "severity": "medium",
+   "evidence": "In SH26 the Src label (\\an8 \\pos(540,150); it wraps to 3 lines) sits on the helicopter's tail boom and rotor for the whole shot. The y=330 captions 'AT LEAST FIFTEEN', 'GULF OF MEXICO' and 'JACKET' are written across its fuselage. The middle of the frame (about y=700-1350) is empty sky. In SH27 the Item labels EXHAUSTION, DROWNING and THIRST (y=530-700) cover the helicopter body by 112.0-112.4. The sh27.py comment intends 'helicopter mid-frame, below the labels', but the orbit carries it up under them.",
+   "fix": "For SH26, put the captions in the empty sky (about y=1000) and move the Src label to the bottom band (about y=1750), or into SH25 only. For SH27, tighten or raise the label stack, or adjust the orbit or aim so the helicopter stays below about y=800 at the end of the shot.",
+   "upheld": 2,
+   "votes": 2,
+   "reasons": [
+    "UPHELD: Confirmed as real, and medium severity fits. The video path named in the task does not exist: output/ holds only stranded_draft.mp4, a captions-only draft on black. So I checked against review/frames and the scratchpad /tmp/claude-0/-home-user-code/73c477af-b034-5106-8934-46dafc95cd58/scratchpad/stranded_v1.mp4. That file matches review/frames/SH26_c_104.10.png almost exactly (mean pixel difference 1.8/255). From it I pulled frames at 99.5, 100.3, 102.2 and 103.6 for SH26, and at 110.0, 111.0, 111.5, 112.0 and 112.5 for SH27.\n\nSH26 (about 99.0-104.3): the 3-line Src label ('Real case: Carnival",
+    "UPHELD: The finding is real and visible in the final frames. Note that output/ holds only stranded_draft.mp4, an old captions-on-black placeholder; the named final file is missing. I checked against the review frames instead, and against scratchpad stranded_v1.mp4, which matches them. SH26 (SH26_a_099.20, SH26_b_101.65, SH26_c_104.10): the 3-line Src box (\\an8\\pos(540,150)) sits on the helicopter's tail boom and rotor for the whole shot. The y=330 captions ('GULF OF MEXICO' at 101.65, 'JACKET' at 104.10, and 'AT LEAST FIFTEEN' from 99.82) are written straight across the red fuselage, while the middle "
+   ]
+  },
+  {
+   "where": "SH28 114.4-118.9 s (SH28_b_115.75, SH28_c_118.70)",
+   "title": "Hoist shot: bottom captions sit on the rising man and the top labels cover the helicopter",
+   "severity": "medium",
+   "evidence": "As he is winched up through the default caption band: 'TEMPERATURE' is over his head and strop at about 114.6, 'STAYING AFLOAT' over his head at 115.4-115.75, 'AND WHETHER ANYONE' across his chest at 116.2, and 'KNOWS YOU'RE MISSING' right at his feet at 117.8-118.7. Meanwhile the label stack (YOUR ODDS DEPEND ON plus items 1-3, y=200-470) is drawn over the helicopter fuselage and rotor from about 116 s. The rescued man and the aircraft are the subject of the shot.",
+   "fix": "Use a time-varying caption position in SH28 (low, about y=1750, once he has cleared the water at about 114.5 s), or drop the karaoke captions while the Head/Item labels already show the same words. Shift the label stack, or reframe so the helicopter sits below it.",
+   "upheld": 2,
+   "votes": 2,
+   "reasons": [
+    "UPHELD: The overlap is real and easy to see. Before checking, note that the video path given in the task, output/Stranded_..._1080x1920.mp4, is not in this checkout. Git tracks it with LFS and it was not pulled. The only file in output/ is stranded_draft.mp4, an older cut: SH28 is black in it and its captions have no boxes. Instead I used /tmp/claude-0/-home-user-code/73c477af-b034-5106-8934-46dafc95cd58/scratchpad/stranded_v1.mp4 (127.43 s). Its frame at 115.75 matches review/frames/SH28_b_115.75.png exactly, pixel for pixel. Frames I pulled from it at 113.6-118.3 s show:\n(1) The bottom karaoke capti",
+    "UPHELD: The problem is real, but some of the reported timings are off. The final file named in the task is not in output/. That folder only holds stranded_draft.mp4, an older version with captions on a black background. I used /tmp/claude-0/-home-user-code/73c477af-b034-5106-8934-46dafc95cd58/scratchpad/stranded_v1.mp4 instead, because its frames at 112.80, 115.75 and 118.70 are pixel-identical to review/frames/SH28_a/b/c. I extracted frames from it at 113.6-118.3 s, plus close crops of the caption band at 116.0-118.0 s.\n\nThe Cap style is bottom-aligned with MarginV 560, so captions sit at about y=126"
+   ]
+  },
+  {
+   "where": "SH28 -> SH29 cut at 118.9 (SH28_c_118.70 vs SH29_a_119.10)",
+   "title": "Continuity: the man vanishes from the hoist between shots",
+   "severity": "medium",
+   "evidence": "At 118.70 he still hangs about 3 m below the helicopter on the cable. At 119.10, 0.4 s later, there is no cable and no man, and the helicopter is already banking away ('man aboard' in sh29.py). The heli audio carries straight across the cut, which makes the jump easier to notice.",
+   "fix": "End SH28 once he reaches the door, or start SH29 with a short beat (or a cutaway) that shows the hoist finished; alternatively keep the cable and strop visible at the start of SH29.",
+   "upheld": 2,
+   "votes": 2,
+   "reasons": [
+    "UPHELD: The finding holds up and it is visible. The final video named in the task (output/Stranded_What_Happens_If_You_Are_Stranded_In_The_Ocean_1080x1920.mp4) is not on disk. output/ only holds stranded_draft.mp4, which is black frames with captions. So I checked the provided final-video frames and the matching edit /tmp/claude-0/-home-user-code/73c477af-b034-5106-8934-46dafc95cd58/scratchpad/stranded_v1.mp4. I pulled frames at 118.20, 118.70, 118.85, 118.95, 119.10, 119.50 and 120.50 into /tmp/claude-0/-home-user-code/73c477af-b034-5106-8934-46dafc95cd58/scratchpad/qa_k29v_strip.png.\n\n- **SH28_c_118",
+    "UPHELD: The issue is real, though medium may overstate it. The cited MP4 is not on disk: output/ only holds stranded_draft.mp4, an older cut with black placeholders at these times. So I checked the review frames taken from the final video and the source renders that assemble.py hard-cuts together. The SH28/SH29 cut at 118.9 s is a plain hard cut, with no dissolve in assemble.py. SH28_c_118.70.png and render/final/SH28/0189.png (the last SH28 frame) show him still hanging on the cable about one body length below the helicopter, well short of the door. In SH29_a_119.10.png and render/final/SH29/0001.png"
+   ]
+  }
+ ],
+ "refuted": [
+  {
+   "where": "SH01, 3.5-6.0 s (swimmer unreadable from about 3.5 s and gone by about 4.3 s; review frame SH01_c_005.80)",
+   "title": "The hook ends on an empty, soft blue frame: the swimmer disappears while the narration says 'nothing around YOU?'",
+   "upheld": 1
+  },
+  {
+   "where": "SH10, 35.43-37.4 (review frames SH10_a_035.70, SH10_b_036.45, SH10_c_037.20)",
+   "title": "Underwater silhouette looks headless",
+   "upheld": 1
+  },
+  {
+   "where": "SH12, 40.6-43.9 s (SH12_a_040.80, SH12_b_042.25, SH12_c_043.70)",
+   "title": "The 'glare' shot looks like night and does not match 'the water bounces sunlight right back into your face'",
+   "upheld": 1
+  },
+  {
+   "where": "SH18, 66.733-70.333 (e.g. 68.6, head at about x=540, y=1490)",
+   "title": "Swimmer is front-lit with his face visible, though the sun is right behind him. The planned silhouette never happens",
+   "upheld": 0
+  },
+  {
+   "where": "SH15->SH16 cut at 59.833 (SH15 last frame 59.80, SH16 60.0)",
+   "title": "Continuity break: his body flips from a horizontal float to upright dangling legs, and the fish vanish",
+   "upheld": 1
+  },
+  {
+   "where": "SH13 43.9-49.3 s, SH17 62.4-64.4 s, SH17B 64.4-66.8 s, SH18 66.8-70.4 s (cuts at 43.9, 64.4 and 66.8 s)",
+   "title": "Day-1 time of day jumps around: midday/afternoon shots look dusky, and the sunset doesn't read as a sunset",
+   "upheld": 1
+  },
+  {
+   "where": "SH10 35.5-37.4 s. Review frames SH10_a_035.70, SH10_b_036.45, SH10_c_037.20.",
+   "title": "Underwater silhouette reads as headless",
+   "upheld": 0
+  },
+  {
+   "where": "SH12 40.6-43.9 s, SH22 83.6-87.2 s, SH24 90.6-94.1 s, SH25-SH28 94.1-118.9 s",
+   "title": "His physical decline doesn't read: no visible sunburn, day-2 face is the palest in the film, and the salt crust appears once then vanishes",
+   "upheld": 0
+  },
+  {
+   "where": "SH17B 64.4-66.8 s (shark at 65.4-66.8 s). Review frames SH17B_b_065.60, SH17B_c_066.60.",
+   "title": "Shark beat is barely visible: the shark is cut off at the left edge and never circles under his legs",
+   "upheld": 0
+  }
+ ]
+}
