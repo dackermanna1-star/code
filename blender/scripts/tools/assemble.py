@@ -45,7 +45,7 @@ for sid, t0, t1, *_ in shots:
     if sid in RETIME:
         src_n = RETIME[sid]
         # minterpolate stops at the last source timestamp (n-2 frames): hold the last frame so the clip is exactly n long
-        vf = ('trim=end_frame=%d,setpts=(PTS-STARTPTS)*%d/%d,minterpolate=fps=30:mi_mode=mci:mc_mode=aobmc:me_mode=bidir:vsbmc=1,tpad=stop_mode=clone:stop=6,' % (src_n, n, src_n)) + vf
+        vf = ('trim=end_frame=%d,setpts=(PTS-STARTPTS)*%d/%d,minterpolate=fps=30:mi_mode=mci:mc_mode=aobmc:me_mode=bidir:vsbmc=1,tpad=stop_mode=clone:stop=6,setpts=N/(30*TB),' % (src_n, n, src_n)) + vf
     if sid in GRADE: vf += ',' + GRADE[sid]
     clip = TMP + sid + '.mkv'
     if only and sid not in only and os.path.exists(clip):
