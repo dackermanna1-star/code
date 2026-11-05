@@ -40,8 +40,15 @@ function hiddenWorld(r) { var wi = N2.worldInfo && N2.worldInfo[r]; return !!(wi
 function freshData() { return { v: 1, dreams: {}, nights: {}, seq: 0, thumbs: {}, flags: {} }; }
 var D = (function () {
   var d = N2.save.get("journal", null);
-  if (!d || typeof d !== "object" || d.v !== 1 || !d.dreams) d = freshData();
-  d.nights = d.nights || {}; d.thumbs = d.thumbs || {}; d.flags = d.flags || {}; d.seq = d.seq || 0;
+  if (!d || typeof d !== "object" || Array.isArray(d) || d.v !== 1) d = freshData();
+  // repair a type-confused save member by member instead of failing on every dream
+  function obj(o) { return o && typeof o === "object" && !Array.isArray(o) ? o : {}; }
+  d.dreams = obj(d.dreams); d.nights = obj(d.nights); d.thumbs = obj(d.thumbs); d.flags = obj(d.flags);
+  d.seq = isFinite(+d.seq) ? +d.seq : 0;
+  var k;
+  for (k in d.dreams) { var e = d.dreams[k]; if (!e || typeof e !== "object" || Array.isArray(e)) { delete d.dreams[k]; continue; } if (typeof e.r !== "string") e.r = k; e.v = +e.v || 0; e.s = +e.s || 0; e.f = Math.max(1, +e.f || +e.l || 1); e.l = Math.max(e.f, +e.l || e.f); if (e.n != null && typeof e.n !== "string") delete e.n; if (e.p != null && !Array.isArray(e.p)) delete e.p; }
+  for (k in d.nights) { var r = d.nights[k]; if (!r || typeof r !== "object" || Array.isArray(r)) { delete d.nights[k]; continue; } if (!Array.isArray(r.d)) r.d = []; r.pk = +r.pk || 0; r.sh = +r.sh || 0; r.ph = +r.ph || 0; r.rc = +r.rc || 0; }
+  for (k in d.thumbs) if (typeof d.thumbs[k] !== "number" || !isFinite(d.thumbs[k])) d.thumbs[k] = 0;
   return d;
 })();
 var PH = (function () { var p = N2.save.get("photos", []); return Array.isArray(p) ? p.filter(function (x) { return x && x.data; }) : []; })();
@@ -162,10 +169,10 @@ function remembered(r, isNew) {
 
 /* ========================================= capture (thumbnails + photos) */
 var capC = null, capX = null, shotPending = false, lastShot = -1e9;
-function captureThumb() {
+function captureThumb(final) {
   var w = want; if (!w) return;
   var src = renderer && renderer.domElement; if (!src || !src.width) return;
-  if (!capC) { capC = document.createElement("canvas"); capC.width = THUMB_W; capC.height = THUMB_H; capX = capC.getContext("2d"); }
+  if (!capC) { capC = document.createElement("canvas"); capC.width = THUMB_W; capC.height = THUMB_H; capX = capC.getContext("2d", { willReadFrequently: true }) || capC.getContext("2d"); }
   var W = src.width, H = src.height, ar = THUMB_W / THUMB_H, cw, ch;
   if (W / H > ar) { ch = H; cw = H * ar; } else { cw = W; ch = W / ar; }
   capX.imageSmoothingEnabled = true;
@@ -175,24 +182,33 @@ function captureThumb() {
   for (var i = 0; i < px.length; i += 4 * 37) { sum += px[i] + px[i + 1] + px[i + 2]; n++; }
   var avg = sum / (n * 3);
   w.tries++;
-  if ((avg < 4 || avg > 246) && w.tries < 4) { w.wait = 1.2; return; }
+  if (avg < 4 || avg > 246) { if (final || w.tries >= 4) want = null; return; }
   var url = capC.toDataURL("image/jpeg", THUMB_Q);
   want = null;
   storeThumb(w.r, url);
-  remembered(w.r, w.isNew);
+  if (!w.noted) remembered(w.r, w.isNew);
   if (ui.open && ui.tab === "dreams") render();
 }
 var waitT = 0;
+// Reading the WebGL canvas back is a synchronous GPU stall (0.1-0.8 s on software GL), so a
+// thumbnail is never taken while you walk: it waits for a quiet moment — the first frame of the
+// warp out (the dream still fully visible, the screen about to go white), pausing, or a panel opening.
+var capArm = false;
+N2.on("warp", function () { if (want && N2.lastZone === want.zone && timeInDream > 1.2) capArm = true; });
+N2.on("uiOpen", function () { if (want && N2.lastZone === want.zone && phase === "play" && timeInDream > 1.2) capArm = true; });
+var _wasPaused = false;
 N2.on("afterRender", function () {
   try {
     if (shotPending) { shotPending = false; try { takePhoto(); } catch (e2) { document.body.classList.remove("n2j-snap"); if (window.console) console.error("[N2] journal photo", e2); } }
-    if (want && phase === "play" && !paused && !N2.uiOpen && N2.lastZone === want.zone && timeInDream > 2.4 && fade < 0.02) {
-      if (want.wait > 0) return;
-      captureThumb();
-    }
+    if (!want) { capArm = false; _wasPaused = paused; return; }
+    if (paused && !_wasPaused && phase === "play" && N2.lastZone === want.zone && timeInDream > 1.2) capArm = true;
+    _wasPaused = paused;
+    if (N2.lastZone !== want.zone) { capArm = false; return; }
+    // the "written down" note still appears a couple of seconds in, without touching the canvas
+    if (!want.noted && phase === "play" && !paused && !N2.uiOpen && timeInDream > 2.4 && fade < 0.02) { want.noted = true; remembered(want.r, want.isNew); }
+    if (capArm && fade < 0.06) { capArm = false; captureThumb(true); }
   } catch (e) { want = null; }
 });
-N2.on("play", function (dt) { if (want && want.wait > 0) want.wait -= dt; });
 
 /* ---- the camera ---- */
 var flashEl = null, lastFull = null;
@@ -226,13 +242,19 @@ function takePhoto() {
   var src = renderer.domElement, W = src.width, H = src.height;
   var r = N2.lastZone && !N2.lastZone.bedroom ? N2.lastZone.archetypeName : "__bedroom";
   var nm = inBedroom ? "the waking room" : nameOf(r);
+  // the sequel lenses draw straight into a low-res canvas (~288 lines): enlarge it with
+  // crisp nearest-neighbour pixels so the photo keeps the dream's pixel look and the
+  // date stamp stays small and sharp
+  var k = H > 0 && H < 480 ? Math.ceil(540 / H) : 1;
+  W *= k; H *= k;
   var c = document.createElement("canvas"); c.width = W; c.height = H;
-  var x = c.getContext("2d"); x.drawImage(src, 0, 0);
+  var x = c.getContext("2d"); x.imageSmoothingEnabled = false; x.drawImage(src, 0, 0, W, H);
   stamp(x, W, H, "night " + day + " · " + nm);
   var full = null; try { full = c.toDataURL("image/jpeg", 0.92); } catch (e) {}
-  var sc = Math.min(1, PHOTO_W / W), c2 = document.createElement("canvas");
-  c2.width = Math.round(W * sc); c2.height = Math.round(H * sc);
-  var x2 = c2.getContext("2d"); x2.imageSmoothingEnabled = true; x2.drawImage(c, 0, 0, c2.width, c2.height);
+  // stored copy: native pixels for the low-res lenses (keeps localStorage small), else capped at PHOTO_W
+  var c2 = document.createElement("canvas"), x2;
+  if (k > 1) { c2.width = src.width; c2.height = src.height; x2 = c2.getContext("2d"); x2.drawImage(src, 0, 0); stamp(x2, c2.width, c2.height, "night " + day + " · " + nm); }
+  else { var sc = Math.min(1, PHOTO_W / W); c2.width = Math.round(W * sc); c2.height = Math.round(H * sc); x2 = c2.getContext("2d"); x2.imageSmoothingEnabled = true; x2.drawImage(c, 0, 0, c2.width, c2.height); }
   var small = c2.toDataURL("image/jpeg", PHOTO_Q);
   var rec = { id: now().toString(36) + Math.floor(Math.random() * 1e4).toString(36), t: now(), n: day, r: r, nm: nm, w: c2.width, h: c2.height, data: small };
   var faded = null;
@@ -408,7 +430,8 @@ N2.ui.css([
   " .jb{width:100vw;}",
   " .jtabs{padding:0 8px;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;}.jtabs::-webkit-scrollbar{display:none;}",
   " .jtab{padding:7px 10px 6px;font-size:10px;letter-spacing:.14em;}.jtab .k{display:none;}",
-  " .jx{top:-30px;right:6px;background:#0d1324;border-radius:6px;}",
+  " .jtabs{padding-right:104px;}",
+  " .jx{position:fixed;top:calc(2px + env(safe-area-inset-top));right:calc(4px + env(safe-area-inset-right));height:34px;min-width:84px;padding:0 12px;color:var(--ink2);background:#0d1324;border:1px solid rgba(160,190,210,.24);border-bottom:0;border-radius:7px 7px 0 0;z-index:90;}",
   " .jsp{grid-template-columns:1fr;height:calc(100vh - 40px);border-radius:0;box-shadow:none;}",
   " .jl{border-radius:0;}.jgut,.jrib{display:none;}",
   " .jr{position:absolute;inset:0;border-radius:0;transform:translateX(104%);transition:transform .45s cubic-bezier(.2,.8,.2,1);z-index:3;box-shadow:-20px 0 40px rgba(0,0,0,.5);}",
@@ -428,7 +451,7 @@ N2.ui.css([
   ".jpv{background:#efe9da;padding:14px 14px 64px;width:min(84vw,560px);box-shadow:0 26px 70px rgba(0,0,0,.7),0 0 0 1px rgba(0,0,0,.2);position:relative;",
   "transform:translateY(40px) rotate(-5deg) scale(.92);opacity:0;transition:transform .9s cubic-bezier(.2,.9,.25,1.05),opacity .5s ease;}",
   ".jpv.in{transform:rotate(-1.6deg);opacity:1;}",
-  ".jpv .im{display:block;width:100%;background-size:cover;background-position:center;background-color:#2a2a30;filter:brightness(2.1) contrast(.45) saturate(0) blur(1.5px);opacity:.55;transition:filter 3.2s ease .3s,opacity 2.4s ease .2s;}",
+  ".jpv .im{display:block;width:100%;image-rendering:pixelated;background-size:cover;background-position:center;background-color:#2a2a30;filter:brightness(2.1) contrast(.45) saturate(0) blur(1.5px);opacity:.55;transition:filter 3.2s ease .3s,opacity 2.4s ease .2s;}",
   ".jpv.dev .im{filter:none;opacity:1;}",
   ".jpv .cap{position:absolute;left:18px;right:18px;bottom:16px;display:flex;justify-content:space-between;align-items:baseline;gap:10px;}",
   ".jpv .cap b{font-family:" + SERIF + ";font-style:italic;font-weight:normal;font-size:21px;color:#2d2944;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}",
@@ -492,7 +515,7 @@ var SORTS = [["recent", "recent"], ["az", "a – z"], ["most", "most dreamt"], [
 
 /* ======================================================= recall + entries */
 function entriesSorted(sort) {
-  var a = []; for (var k in D.dreams) a.push(D.dreams[k]);
+  var a = []; for (var k in D.dreams) if (D.dreams[k] && typeof D.dreams[k] === "object") a.push(D.dreams[k]);
   if (sort === "az") a.sort(function (x, y) { return (x.n || x.r) < (y.n || y.r) ? -1 : 1; });
   else if (sort === "most") a.sort(function (x, y) { return (y.v - x.v) || (y.s - x.s); });
   else if (sort === "new") { a = a.filter(function (e) { var wi = N2.worldInfo && N2.worldInfo[e.r]; return !!(wi && wi.sequel); }); a.sort(function (x, y) { return y.s - x.s; }); }
@@ -980,7 +1003,7 @@ function showPolaroid(rec, faded, stored) {
 function closePolaroid(relock) {
   if (!PV || !N2.ui.isOpen(POLA)) return;
   N2.ui.close(POLA);
-  if (relock && phase === "play") { try { tryLock(); } catch (e) {} }
+  if (relock && phase === "play" && !paused && !useDrag) { try { tryLock(); } catch (e) {} }
 }
 
 /* ===================================================== global key handler */
@@ -991,12 +1014,15 @@ N2.on("keydown", function (e) {
       var c = e.code;
       if (c === "KeyS" || c === "Enter") { var a = PV.querySelector("a[data-a='save']"); if (a) a.click(); }
       else if (c === "KeyJ") { closePolaroid(false); open("photographs"); }
-      else if (c === "KeyC" || c === "Escape" || c === "Space" || c === "KeyE") closePolaroid(true);
+      else if (c === "Escape") closePolaroid(false);      // esc is never a gesture: no pointer-lock request
+      else if (c === "KeyC" || c === "Space" || c === "KeyE") closePolaroid(!e.repeat);
       return true;
     }
     if (top === PANEL) { if (!recalling) journalKey(e); return true; }
     if (N2.uiOpen) return false;
     if (e.repeat) return false;
+    // never open the book underneath the title's prologue / ending, or during the story's ending
+    try { var _T = N2.mods.title, _ts = _T && _T.state ? _T.state() : null; if (N2.storyEnding || (_ts && (_ts.ending || _ts.prologue))) return false; } catch (er2) {}
     if (e.code === "KeyJ" && phase !== "title") { open(); return true; }
     if (e.code === "KeyC" && N2.canAct()) { snap(); return true; }
   } catch (er) { if (window.console) console.error("[N2] journal key", er); }

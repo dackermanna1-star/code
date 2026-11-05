@@ -822,10 +822,13 @@ function wakeStep(dt) {
 }
 
 /* =========================================================== THE LUCID HOUR */
-var LH = null;
+var LH = null, lhTicket = false;
 var PATH_END = -138, DOOR_Z = -143.5;
 function buildLucidHour(P, mood) {
-  var lh = LH = { t: 0, fig: null, lanterns: [], said: -1, ending: false, walkedOff: false, leave: -1, finalSaid: false };
+  // only a real way in (the threshold's light, or the debug bridge) arms the ending: a dream replayed
+  // from memory must never run the credits again
+  var lh = LH = { t: 0, fig: null, lanterns: [], said: -1, ending: false, walkedOff: false, leave: -1, finalSaid: false, armed: lhTicket };
+  lhTicket = false;
   P.sky.set(0x0b1030); P.fog = new THREE.Color(0x141838); P.glow.set(0xf3c99a); P.accent.set(0x8fd0d2); P.wallA.set(0xb8b0c8); P.wallB.set(0x4a4466); P.ground.set(0x2a2c48); P.figure.set(0x1c2238);
   var wm = objMat({ map: waterTex("#3a4470", "#6a72a0", "#e9d8e8"), color: 0xb0b8d8, bright: 0.8, scroll: new THREE.Vector2(0.002, 0.004) });
   setRepeat(wm, 52, 52);
@@ -937,7 +940,11 @@ function updateLucidHour(dt) {
   // step off the path once and the water holds you
   if (!lh.wet && Math.abs(pos.x) > 1.6 && pos.z > PATH_END) { lh.wet = true; hint("the water holds you up. it always did."); }
   // the door home
-  if (phase === "play" && !lh.ending && Math.hypot(pos.x, pos.z - DOOR_Z) < 1.0) { lh.ending = true; triggerEnding(); }
+  if (phase === "play" && !lh.ending && Math.hypot(pos.x, pos.z - DOOR_Z) < 1.0) {
+    lh.ending = true;
+    if (lh.armed) triggerEnding();
+    else { hint("the door is only painted here. you remember it better than this."); }
+  }
 }
 
 /* =================================================================== ending */
@@ -945,6 +952,8 @@ var endingOn = false;
 function triggerEnding() {
   if (endingOn) return; endingOn = true; N2.storyEnding = true;
   hideLetter();
+  // nothing may stay open over (or under) the ending
+  try { var _g = 0; while (N2.ui.top() && _g++ < 12) N2.ui.close(N2.ui.top()); } catch (e) {}
   st.completed = true; st.newGamePlus = true; st.endings = (st.endings || 0) + 1; st.sillSeen = false; save();
   try { N2.emit("ending"); } catch (e) {}
   chord([261.6, 329.6, 392, 493.9, 587.3], 0.5, 8, 0.05, "triangle"); tone(130.8, 0, 9, 0.05);
@@ -954,7 +963,15 @@ function triggerEnding() {
   try { if (document.exitPointerLock) document.exitPointerLock(); } catch (e) {}
   var done = false, finish = function () {
     if (done) return; done = true; endingOn = false; N2.storyEnding = false;
+    try { var _g = 0; while (N2.ui.top() && _g++ < 12) N2.ui.close(N2.ui.top()); } catch (e) {}
+    // close the night properly (as startGraph would) so journal, lantern oil, lucid and title all see it end
+    var gp = null;
+    try {
+      gp = { day: day, x: clamp(tanh(dayMood.e * 0.25), -1, 1), y: clamp(tanh(dayMood.b * 0.25), -1, 1) };
+      graphHistory.push(gp); if (graphHistory.length > 64) graphHistory.shift();
+    } catch (e) {}
     day++; saveNight(); applyNightProgression(); dayMood = { b: 0, e: 0 }; warpsToday = 0;
+    try { N2.emit("nightEnd", day - 1, gp); } catch (e) {}
     LH = null; graphTimer = 0;        // → base builds the waking room and fades in
   };
   setTimeout(function () {
@@ -1080,7 +1097,7 @@ N2.on("dreamBuilt", function (z) {
     spawnShard(false);
   } catch (e) { if (window.console) console.error("[N2] story dreamBuilt", e); }
 });
-N2.on("warp", function () { stopHum(); });
+N2.on("warp", function (nudge, kind, target) { stopHum(); if (target === L_NAME && kind === "lucidhour") lhTicket = true; });
 N2.on("play", function (dt) {
   try {
     updateShard(dt);
@@ -1177,6 +1194,7 @@ S.litAll = function () {
 };
 S.spawnShard = function () { if (shard) return S.shard(); spawnShard(true); return S.shard(); };
 function goTo(name) {
+  if (name === L_NAME) lhTicket = true;
   if (phase === "play") { doWarp({ b: 0, e: 0 }, "story-debug", name); return "warping"; }
   buildNextDream(false, name); phase = "play"; fade = 0; return "built";
 }

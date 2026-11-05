@@ -2,3 +2,4 @@ dist/*.test.html
 dist/*-*.html
 !dist/nemuri-ii.html
 shots/
+dist/*.artifact.html

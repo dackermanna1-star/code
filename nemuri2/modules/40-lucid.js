@@ -137,6 +137,7 @@ N2.ui.css([
   "#n2l-hud .pips b.on{opacity:.8;}",
   "#n2l-hud .pips b.act{opacity:1;color:var(--n2-gold);text-shadow:0 0 6px rgba(240,215,154,.8);}",
   "#n2l-hands{position:fixed;left:0;top:0;width:100vw;height:100vh;z-index:39;pointer-events:none;image-rendering:pixelated;image-rendering:crisp-edges;opacity:0;transition:opacity .25s ease;}",
+  "body.n2l-checking #n2-top{opacity:0;transition:opacity .3s ease;}",
   "#n2l-rc{position:fixed;left:50%;width:min(92vw,720px);transform:translateX(-50%);top:15%;padding:14px 0 16px;z-index:43;pointer-events:none;text-align:center;font-family:ui-monospace,'SF Mono',Menlo,Consolas,monospace;color:var(--n2-ink);text-transform:lowercase;opacity:0;transition:opacity .5s ease;}",
   "#n2l-rc .cnt{font-size:13px;letter-spacing:.34em;min-height:18px;text-shadow:0 0 5px rgba(4,6,14,.6),0 1px 1px rgba(4,6,14,.45);}",
   "#n2l-rc .cnt span{opacity:0;transition:opacity .25s ease,color .6s ease;color:var(--n2-dim);}",
@@ -517,12 +518,12 @@ function startCheck() {
   var words = [];
   for (var i = 0; i < rc.plan.total; i++) { var s = document.createElement("span"); s.textContent = NUMW[i] || "?"; rcCnt.appendChild(s); words.push(s); if (i < rc.plan.total - 1) rcCnt.appendChild(document.createTextNode(" ")); }
   rc.words = words;
-  cvs.style.opacity = "1"; rcEl.style.opacity = "1";
+  cvs.style.opacity = "1"; rcEl.style.opacity = "1"; document.body.classList.add("n2l-checking");
   if (audio.ctx) { try { audio.noise(0.5, "bandpass", 700, 320, 0.03, 0); } catch (e) {} }
   if (!sv.hinted) { sv.hinted = true; persist(); }
 }
 function endCheck() {
-  rc.active = false; flushPresent(); cvs.style.opacity = "0"; rcEl.style.opacity = "0";
+  rc.active = false; flushPresent(); cvs.style.opacity = "0"; rcEl.style.opacity = "0"; document.body.classList.remove("n2l-checking");
   rc.cool = 0.6;
   setTimeout(function () { if (!rc.active) { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, CW, CH); } }, 300);
 }
@@ -653,7 +654,7 @@ function doStillness() {
   stillPrevFrozen = !!freezeBeings;
   freezeBeings = true; stillT = STILL_DUR;
   stillEl.classList.add("on");
-  try { audio.fadeMaster(0.035, 0.6); } catch (e) {}
+  try { if (N2.duck) N2.duck("stillness", 0.035, 0.6, STILL_DUR + 4); else audio.fadeMaster(0.035, 0.6); } catch (e) {}
   if (audio.ctx) { try { audio.tone(1318, "sine", 0.03, 0.005, 2.4, 0); audio.tone(659, "sine", 0.03, 0.005, 3, 0); } catch (e) {} }
   say("still", pick(["the dream holds its breath", "everything waits for you", "hush."]), 1);
   try { N2.emit("stillness", true); } catch (e) {}
@@ -664,7 +665,8 @@ function endStillness(quiet) {
   // leave the freeze on only if a stillness anomaly of the dream itself is still running
   freezeBeings = !!(stillPrevFrozen && emergent);
   if (!emergent) emergentDesat = 0;
-  if (!quiet && !paused) { try { audio.fadeMaster(audio.muted ? 0 : 0.28, 1.4); } catch (e) {} }
+  if (N2.unduck) { try { N2.unduck("stillness", 1.4, quiet || paused); } catch (e) {} }
+  else if (!quiet && !paused) { try { audio.fadeMaster(audio.muted ? 0 : 0.28, 1.4); } catch (e) {} }
   try { N2.emit("stillness", false); } catch (e) {}
 }
 // the rain hangs in the air while the dream is still
@@ -807,12 +809,28 @@ N2.on("dreamBuilt", function (z, firstOfDay) {
       var carry = fromBedroom ? fl : fl + Math.max(0, level - fl) * 0.72;
       fromBedroom = false;
       setLevel(Math.max(fl, carry), "dream", false);
-      if (sv.checks === 0) setTimeout(function () { if (sv.checks === 0 && level < 0.5 && dreaming() && phase === "play" && !rc.active) say("hint2", "is this a dream? (r — look at your hands)", 1); }, 22000);
+      if (sv.checks === 0) setTimeout(function () { if (sv.checks === 0 && level < 0.5 && dreaming() && phase === "play" && !rc.active) say("hint2", (N2.mods.input && N2.mods.input.isTouch && N2.mods.input.isTouch()) ? "is this a dream? (tap hands, and look at them)" : "is this a dream? (r — look at your hands)", 1); }, 22000);
     }
-    checkUnlocks(true);
+    queueUnlocks();
     renderPips();
   } catch (e) {}
 });
+// a power whose night has come unlocks with its full announcement — but only once the player has
+// actually arrived (the fade is over, nothing covers the screen), not silently during the build
+var unlockQ = null;
+function queueUnlocks() {
+  if (unlockQ) return;
+  var tries = 0;
+  (function wait() {
+    unlockQ = setTimeout(function () {
+      unlockQ = null;
+      try {
+        if (phase === "play" && !paused && !N2.uiOpen && !(rc && rc.active)) { checkUnlocks(false); return; }
+        if (++tries < 60 && phase !== "title") wait();
+      } catch (e) {}
+    }, tries ? 700 : 2500);
+  })();
+}
 var fromBedroom = false;
 
 N2.on("warp", function (nudge, kind, target) {

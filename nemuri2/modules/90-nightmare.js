@@ -54,10 +54,13 @@ N2.ui.css([
   ".n2nm.lit .n2nm-bar i{background:#eab070;box-shadow:0 0 6px rgba(240,176,100,.8);}",
   ".n2nm.low .n2nm-bar i{animation:n2nmLow 1.1s steps(2) infinite;}",
   "@keyframes n2nmLow{50%{opacity:.25}}",
-  ".n2nm-cue{color:rgba(214,204,222,.78);font-size:10px;letter-spacing:.22em;opacity:0;transition:opacity .6s ease;text-transform:lowercase;white-space:nowrap;}",
+  ".n2nm-cue{color:rgba(232,226,238,.94);font-size:11.5px;letter-spacing:.2em;opacity:0;transition:opacity .6s ease;text-transform:lowercase;white-space:nowrap;",
+  "background:rgba(4,6,14,.58);padding:4px 9px;border-radius:3px;text-shadow:0 0 3px #000,0 0 8px rgba(0,0,0,.8);box-shadow:0 0 14px rgba(4,6,14,.4);}",
   ".n2nm-cue.on{opacity:1;}",
-  ".n2nm-cue b{font-weight:normal;color:#f2dca4;}",
-  ".n2nm-cue .ar{display:inline-block;width:1.2em;text-align:center;color:#f2dca4;}",
+  ".n2nm-cue b{font-weight:normal;color:#ffe3a0;text-shadow:0 0 3px #000,0 0 8px rgba(255,200,110,.45);}",
+  ".n2nm-cue .ar{display:inline-block;width:1.2em;text-align:center;color:#ffe3a0;font-size:13px;}",
+  ".n2nm.chase .n2nm-row{color:rgba(246,222,182,.95);text-shadow:0 0 3px #000,0 0 7px rgba(0,0,0,.7);}",
+  "body.n2in-touch #n2-bl{bottom:calc(180px + env(safe-area-inset-bottom, 0px));left:calc(16px + env(safe-area-inset-left, 0px));}",
   ".n2nm-cue.near{color:rgba(240,190,200,.92);}"
 ].join("\n"), "n2-nightmare-css");
 
@@ -85,6 +88,7 @@ function tickHud(dt) {
   hud.classList.toggle("on", !!show);
   hud.classList.toggle("lit", litK > 0.5);
   hud.classList.toggle("low", sv.oil < 0.15 && lit);
+  hud.classList.toggle("chase", C.state !== "idle" && C.state !== "escaping");
   var w = Math.round(sv.oil * 100);
   if (w !== _lastOilW) { _lastOilW = w; var i = hudBar.firstChild; if (i) i.style.width = w + "%"; }
   var wd = sv.oil <= 0.001 ? "dry" : lit ? "lit" : "lantern";
@@ -243,7 +247,12 @@ function tickLanternVisual(dt) {
   LP.swing.rotation.z = pend.az; LP.swing.rotation.x = pend.ax;
   var bob = Math.sin(bp * 2) * 0.012 * Math.min(1, Math.abs(fwd) / 4), side = Math.cos(bp) * 0.008 * Math.min(1, Math.abs(fwd) / 4);
   var lift = sm(raiseK);
-  rig.position.set(0.41 + side - cl(yawRate, -3, 3) * 0.004, -0.17 + bob - (1 - lift) * 0.5 + Math.sin(performance.now() * 0.0011) * 0.003, -0.62);
+  // keep it inside the frustum on narrow (portrait) screens: the visible half-width at the rig's depth
+  var asp = (camera && camera.aspect) || 1.6, hw = 0.62 * Math.tan(((camera && camera.fov) || 72) * Math.PI / 360) * asp;
+  var rx = Math.min(0.41, hw * 0.7);
+  var tall = asp < 1;                       // portrait phone: smaller, and lifted clear of the thumb buttons
+  rig.scale.setScalar(tall ? 0.42 : 0.62);
+  rig.position.set(rx + side - cl(yawRate, -3, 3) * 0.004, (tall ? -0.06 : -0.17) + bob - (1 - lift) * 0.5 + Math.sin(performance.now() * 0.0011) * 0.003, -0.62);
   rig.rotation.z = -0.06 + cl(yawRate * 0.01, -0.08, 0.08);
   // light
   var b = 0.4 + litK * (1.1 + flick * 0.22);
@@ -251,6 +260,45 @@ function tickLanternVisual(dt) {
   LP.halo.material.opacity = litK * (0.42 + flick * 0.34);
   LP.core.material.opacity = litK * (0.6 + flick * 0.4);
   var hs = 0.4 + flick * 0.12; LP.halo.scale.set(hs, hs, 1);
+  tickPool(visibleNow);
+}
+
+/* ---------- the pool of warm light the lantern throws on the ground around you ---------- */
+var pool = null, poolY = 0;
+function poolTexture() {
+  var c = document.createElement("canvas"); c.width = c.height = 128; var x = c.getContext("2d");
+  // premultiplied (fades to black): it is drawn with a "screen" blend, which brightens dark ground
+  // strongly and bright ground (snow, sand) only a little, so it never blows out to white
+  x.fillStyle = "#000"; x.fillRect(0, 0, 128, 128);
+  var g = x.createRadialGradient(64, 64, 0, 64, 64, 64);
+  g.addColorStop(0, "rgb(255,214,150)"); g.addColorStop(0.22, "rgb(184,135,80)"); g.addColorStop(0.55, "rgb(60,36,18)"); g.addColorStop(1, "rgb(0,0,0)");
+  x.fillStyle = g; x.fillRect(0, 0, 128, 128);
+  return new THREE.CanvasTexture(c);
+}
+function buildPool() {
+  var m = new THREE.MeshBasicMaterial({ map: poolTexture(), color: 0x000000, transparent: true, depthWrite: false, fog: false,
+    blending: THREE.CustomBlending, blendEquation: THREE.AddEquation, blendSrc: THREE.OneMinusDstColorFactor, blendDst: THREE.OneFactor,
+    // no depth test: on uneven ground a flat disc would be cut off by every rise; drawn on top it
+    // simply warms whatever is at your feet (and the near side of anything standing there)
+    depthTest: false });
+  pool = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), m);
+  pool.rotation.x = -Math.PI / 2; pool.renderOrder = 50; pool.frustumCulled = false; pool.visible = false;
+  scene.add(pool);
+}
+function tickPool(visibleNow) {
+  if (!scene) return;
+  if (!pool) { try { buildPool(); } catch (e) { pool = false; } }
+  if (!pool) return;
+  if (pool.parent !== scene) scene.add(pool);
+  var k = litK * (inBedroom ? 0.5 : 1);
+  pool.visible = visibleNow && k > 0.02 && !(zoneFlags && zoneFlags.flight && !grounded && pos.y - poolY > 6);
+  if (!pool.visible) return;
+  if (grounded || Math.abs(pos.y - poolY) > 8) poolY = pos.y;
+  // a little ahead and to the right, where the lantern hangs
+  var fx = -Math.sin(yaw), fz = -Math.cos(yaw), rx = Math.cos(yaw), rz = -Math.sin(yaw);
+  pool.position.set(pos.x + fx * 1.6 + rx * 0.5, poolY + 0.04, pos.z + fz * 1.6 + rz * 0.5);
+  var sz = 11 * (0.94 + flick * 0.08) * (0.7 + 0.3 * k); pool.scale.set(sz, sz, 1);
+  pool.material.color.setRGB(1, 0.72, 0.46).multiplyScalar(k * (0.62 + flick * 0.12));
 }
 function safeCall(f) { try { return f(); } catch (e) { return null; } }
 
@@ -278,6 +326,20 @@ function tickFog(dt) {
   var mf = (1 + 0.62 * lk) * (1 - 0.2 * chaseFog) * (1 - 0.6 * fogDip);
   v.set(fogBase.x * mn, fogBase.y * mf);
   fogWritten.set(v.x, v.y);
+}
+
+// an anomaly that snapshots the fog (the base's "breathing") must snapshot the dream's own fog, not
+// the lantern-multiplied one — otherwise it writes the pushed-back value back as the new base and the
+// push-back sticks (and doubles when lit again). Hand it the unmultiplied fog first.
+if (typeof startEmergent === "function") {
+  var _startEmergent = startEmergent;
+  startEmergent = function () {
+    try {
+      var v = U_fogDist && U_fogDist.value;
+      if (v && Math.abs(v.x - fogWritten.x) < 1e-4 && Math.abs(v.y - fogWritten.y) < 1e-4) { v.set(fogBase.x, fogBase.y); fogWritten.set(v.x, v.y); }
+    } catch (e) {}
+    return _startEmergent.apply(this, arguments);
+  };
 }
 
 /* ------------------- dark things hesitate in the light ---------------------- */
@@ -516,6 +578,7 @@ function nightCount() { return sv.nights[String(day)] | 0; }
 function maxPerNight() { return day < 9 ? 1 : 2; }
 function eligibleWorld(z) {
   if (!z || z.bedroom || inBedroom) return false;
+  if (z.sanctuary || z.noChase || z.n2story || N2.storyEnding) return false;
   var n = z.archetypeName, info = N2.worldInfo && N2.worldInfo[n];
   if (info && info.hidden) return false;
   if (/threshold|lucid_hour/.test(String(n || ""))) return false;
@@ -539,7 +602,13 @@ function findSpawnSpot(door, minD, maxD) {
   for (var i = 0; i < 24; i++) {
     var s = N2.findSpot(minD || 30, maxD || 46, null, null, 30); if (!s || Math.abs(s.y - pos.y) > 8) continue;
     var sc = 0;
-    if (door) { var dd = Math.hypot(s.x - door.x, s.z - door.z); sc += Math.min(dd, 50); }
+    if (door) {
+      var dd = Math.hypot(s.x - door.x, s.z - door.z); sc += Math.min(dd, 50) * 0.5;
+      // flank the way to the door (40-80 degrees off it), so the run to it has to pass near the thing
+      var ax = s.x - pos.x, az = s.z - pos.z, bx = door.x - pos.x, bz = door.z - pos.z;
+      var cs = (ax * bx + az * bz) / ((Math.hypot(ax, az) * Math.hypot(bx, bz)) || 1);
+      if (cs > 0.15 && cs < 0.78) sc += 22; else if (cs > 0.78) sc -= 30;   // never straight on the path
+    }
     if (!inView(s.x, s.z, 0.95)) sc += 8;           // usually not dead ahead, but often at the edge of seeing
     if (sc > bestScore) { bestScore = sc; best = s; }
   }
@@ -550,10 +619,10 @@ function startOmen(forced) {
   if (C.state !== "idle" || phase !== "play" || dying || inBedroom) return false;
   var door = findDoorSpot();
   if (!door) { if (forced) console.log("[N2 nightmare] no exit door spot here — no chase"); return false; }
-  C.state = "omen"; C.t = 0; C.forced = !!forced; C.door = door; C.spawn = null; C.flickT = 0.2; C.said = {}; C.chaseT = 0; C.relocT = 0;
+  C.state = "omen"; C.t = 0; C.forced = !!forced; C.door = door; C.spawn = null; C.flickT = 0.2; C.said = {}; C.chaseT = 0; C.relocT = 0; C.walkDoor = null;
   C.omenDur = forced && forced.fast ? 0.6 : 4.6;
   if (!forced || !forced.free) { sv.nights[String(day)] = nightCount() + 1; pruneNights(); persist(); }
-  try { if (!audio.muted) audio.fadeMaster(0.05, 1.4); } catch (e) {}
+  try { if (N2.duck) N2.duck("omen", 0.05, 1.4, 20); else if (!audio.muted) audio.fadeMaster(0.05, 1.4); } catch (e) {}
   say(OMEN_LINES[(Math.random() * OMEN_LINES.length) | 0]);
   try { hangerSound(rnd(-0.8, 0.8), 0.05); } catch (e) {}
   return true;
@@ -573,7 +642,7 @@ function appear() {
   C.ent = { obj: C.P.root, kind: "pursuer_coats", cfg: { disp: "evil", speed: 0, kind: "pursuer" }, st: { move: 0 }, parts: {}, _n2nm: 1, update: function () {} };
   try { entities.push(C.ent); } catch (e) {}
   C.state = "appear"; C.t = 0;
-  try { audio.fadeMaster(0.28, 2.4); } catch (e) {}
+  restoreVol(2.4);
   audioStart();
   try { N2.emit("chaseStart"); } catch (e) {}
   if (!sv.seen) { sv.seen = true; persist(); try { N2.ui.toast("something has noticed you", "find the glowing door · light keeps it back", 4200); } catch (e) {} }
@@ -584,11 +653,19 @@ function abortChase(why) {
   // nothing visible started yet (or it must vanish quietly)
   var wasActive = active();
   cleanupChase();
-  try { if (!audio.muted) audio.fadeMaster(0.28, 1.6); } catch (e) {}
+  restoreVol(1.6);
   if (wasActive) try { N2.emit("chaseEnd", true); } catch (e) {}
   if (why) console.log("[N2 nightmare] chase aborted:", why);
 }
+// the omen hushes the dream; give the hush back (through the shared duck registry when there is one)
+function restoreVol(secs) {
+  try {
+    if (N2.unduck) { if (!N2.unduck("omen", secs) && !audio.muted && !paused && !(N2.ducked && N2.ducked() != null)) audio.fadeMaster(0.28, secs); }
+    else if (!audio.muted) audio.fadeMaster(0.28, secs);
+  } catch (e) {}
+}
 function cleanupChase() {
+  try { if (N2.unduck) N2.unduck("omen", 1.2, true); } catch (e) {}
   audioStop();
   if (C.ent) { var i = entities.indexOf(C.ent); if (i >= 0) entities.splice(i, 1); }
   // meshes belong to the dream group and go with it; if we end mid-dream, remove them
@@ -606,7 +683,7 @@ function endChase(escaped, how) {
   if (C.ent) { var i = entities.indexOf(C.ent); if (i >= 0) entities.splice(i, 1); C.ent = null; }
   C.state = "idle"; C.dist = 99; fogDip = 0;
   if (was !== "omen") try { N2.emit("chaseEnd", !!escaped); } catch (e) {}
-  else try { if (!audio.muted) audio.fadeMaster(0.28, 1.2); } catch (e) {}
+  else restoreVol(1.2);
   if (how === "lost") {
     // it forgets you: let it sink away and the door close
     var P = C.P, D = C.D; C.P = null; C.D = null; C.door = null;
@@ -689,7 +766,7 @@ function tickCaught(dt) {
   if (C.t > 6 && phase === "play") { try { doWarp({ b: -0.8, e: -0.4 }, "death"); } catch (e) {} }
 }
 
-var ST_WALK = 6, RUN_RAMP = 4, MAX_CHASE = 150;
+var ST_WALK = 2.4, RUN_RAMP = 3, MAX_CHASE = 150;
 function tickChase(dt) {
   if (C.state === "idle") { if (sinking.length) tickSinking(dt); return; }
   if (sinking.length) tickSinking(dt);
@@ -721,15 +798,19 @@ function tickChase(dt) {
     P.tilt += ((C.t > 1 ? 0.42 : 0) - P.tilt) * Math.min(1, dt * 1.5 * ts);
     if (C.t > 2.8) { C.state = "walk"; C.t = 0; }
   } else if (C.state === "walk") {
-    base = 1.9; P.tilt += (0.18 - P.tilt) * Math.min(1, dt * ts);
-    if (C.t > ST_WALK) { C.state = "run"; C.t = 0; if (Math.random() < 0.7) say(pickOne(RUN_LINES)); }
+    base = 2.3; P.tilt += (0.18 - P.tilt) * Math.min(1, dt * ts);
+    // it breaks into a run after a moment — or at once, if it sees you fleeing for the door
+    if (C.walkDoor == null) C.walkDoor = C.doorDist;
+    var fleeing = C.walkDoor - C.doorDist > 4 && d > 20;
+    if (C.t > ST_WALK || (fleeing && C.t > 0.6)) { C.state = "run"; C.t = 0; C.walkDoor = null; if (Math.random() < 0.7) say(pickOne(RUN_LINES)); }
   } else if (C.state === "run") {
-    var runV = cl((moveSpeed || 5) * 1.12, 4.4, 8);
+    // nearly a sprint: running for the door keeps you ahead of it, walking or looking back does not
+    var runV = cl((moveSpeed || 5) * 1.7, 4.4, 8.6);
     base = 1.9 + (runV - 1.9) * sm(C.t / RUN_RAMP);
     P.tilt += (0.05 - P.tilt) * Math.min(1, dt * 2 * ts);
   }
   var seen = inView(C.x, C.z, 0.8);
-  var mul = seen ? 0.88 : 1.2;                                   // it is faster when you are not looking
+  var mul = seen ? 0.86 : 1.12;                                  // it is faster when you are not looking
   var light = (litK > 0.25 && d < 18) ? litK * (1 - d / 18 * 0.5) : 0;
   P.shield += ((light > 0.2 ? 1 : 0) - P.shield) * Math.min(1, dt * 3 * ts);
   if (light > 0.2 && !C.said.light) { C.said.light = true; say("it does not like the light"); sv.lightHint = true; }
@@ -762,12 +843,20 @@ function tickChase(dt) {
   if (C.D) animDoor(C.D, dt);
   // it gets bored of distance: when far and unseen, it is suddenly closer
   C.relocT -= dt;
-  if (C.state === "run" && d > 44 && !seen && C.relocT <= 0 && !frozen) {
-    C.relocT = 9;
+  if ((C.state === "run" || C.state === "walk") && d > 26 && !seen && C.relocT <= 0 && !frozen && C.chaseT > 4) {
+    C.relocT = 7;
     var fx = -Math.sin(yaw), fz = -Math.cos(yaw);
     var s2 = null;
-    for (var k = 0; k < 8 && !s2; k++) { var cand = N2.findSpot(0, 6, pos.x - fx * 28, pos.z - fz * 28, 12); if (cand && Math.abs(cand.y - pos.y) < 6 && !inView(cand.x, cand.z, 0.5)) s2 = cand; }
-    if (s2) { C.x = s2.x; C.y = s2.y; C.z = s2.z; try { hangerSound(0, 0.08); } catch (e) {} }
+    for (var k = 0; k < 10 && !s2; k++) {
+      var back = rnd(18, 26), cand = N2.findSpot(0, 4, pos.x - fx * back, pos.z - fz * back, 12);
+      if (cand && Math.abs(cand.y - pos.y) < 6 && !inView(cand.x, cand.z, 0.5) && Math.hypot(cand.x - pos.x, cand.z - pos.z) > 14 &&
+          (!C.door || Math.hypot(cand.x - C.door.x, cand.z - C.door.z) > 10)) s2 = cand;
+    }
+    if (s2) {
+      C.x = s2.x; C.y = s2.y; C.z = s2.z; try { hangerSound(0, 0.08); } catch (e) {}
+      if (C.state === "walk") { C.state = "run"; C.t = 0; C.walkDoor = null; }
+      if (!C.said.behind) { C.said.behind = true; say(pickOne(["it is behind you now", "closer. you did not see it move", "the coats rustle, just behind"])); }
+    }
   }
   // caught?
   if (d < 1.35 && Math.abs(pos.y - C.y) < 2.8 && !frozen && !dying && C.chaseT > 2) { caught(); return; }
@@ -896,7 +985,7 @@ N2.on("dreamBuilt", function (z, firstOfDay) {
       // rebuilt without a warp (debug, a story set-piece): close the chase so every listener hears it end
       var was = C.state;
       audioStop(); C.state = "idle"; C.P = null; C.D = null; C.ent = null; C.door = null;
-      try { if (!audio.muted) audio.fadeMaster(0.28, 1.2); } catch (e) {}
+      restoreVol(1.2);
       if (was === "appear" || was === "walk" || was === "run" || was === "escaping") try { N2.emit("chaseEnd", true); } catch (e) {}
       else if (was === "caught" && !C.said.wake) try { N2.emit("chaseEnd", false); } catch (e) {}
     }
@@ -908,7 +997,7 @@ N2.on("dreamBuilt", function (z, firstOfDay) {
     if (z && z.bedroom) { if (sv.oil < 1) hudShowT = 4; return; }
     if (!sv.hinted && eligibleWorld(z)) {
       sv.hinted = true; persist();
-      setTimeout(function () { if (N2.isDreaming() && C.state === "idle" && !lit) try { N2.ui.toast("you are carrying a paper lantern", "f — light it against the dark", 4200); } catch (e) {} }, 6500);
+      setTimeout(function () { if (N2.isDreaming() && C.state === "idle" && !lit) try { N2.ui.toast("you are carrying a paper lantern", (N2.mods.input && N2.mods.input.isTouch && N2.mods.input.isTouch()) ? "tap lantern to light it against the dark" : "f — light it against the dark", 4200); } catch (e) {} }, 6500);
     }
     if (!eligibleWorld(z)) return;
     if (!(day >= 3 || nightStage >= 1)) return;
@@ -934,7 +1023,7 @@ N2.on("beforeWarp", function (nudge, kind) {
 N2.on("warp", function (nudge, kind) {
   try {
     if (C.state === "idle") return;
-    if (C.state === "omen") { cleanupChase(); try { if (!audio.muted) audio.fadeMaster(0.28, 1.2); } catch (e) {} return; }
+    if (C.state === "omen") { cleanupChase(); restoreVol(1.2); return; }
     if (C.state === "caught") { if (!C.said.wake) { sv.caught++; persist(); try { N2.emit("chaseEnd", false); } catch (e) {} } audioStop(); C.state = "idle"; C.P = null; C.D = null; C.door = null; C.ent = null; return; }
     if (kind === "death") { endChase(false, "caught"); return; }
     endChase(true, "door");     // the glowing door, or any door the dream offered
@@ -958,6 +1047,7 @@ NM.forceChase = function (opts) {
   try {
     if (C.state !== "idle") return true;
     if (phase !== "play" || inBedroom) return false;
+    if (!eligibleWorld(N2.lastZone)) return false;
     return startOmen(opts || { free: true });
   } catch (e) { console.error("[N2 nightmare] forceChase", e); return false; }
 };

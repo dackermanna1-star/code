@@ -428,8 +428,27 @@ function installGraph() {
   A.vol = c.createGain(); A.vol.gain.value = volK();
   A.bus.connect(A.comp); A.wetSum.connect(A.comp);
   A.comp.connect(A.makeup); A.makeup.connect(A.lim); A.lim.connect(A.vol); A.vol.connect(c.destination);
-  A.slots = [];
+  A.slots = []; roomSlots = {};
   setRoom(wantKind, true);
+  // build the other rooms' convolvers in idle moments, so no later dream build pays for one
+  var warm = ["exterior", "interior", "void", "room"], idle = window.requestIdleCallback || function (f) { return setTimeout(f, 1); };
+  (function next() {
+    var k = warm.shift(); if (!k) return;
+    setTimeout(function () { idle(function () { try { if (A && !A.fallback && audio.ctx) roomSlot(k); } catch (e) {} next(); }, { timeout: 4000 }); }, 2500);
+  })();
+}
+// one convolver per room kind, built once per session and kept (assigning a convolver's buffer
+// partitions the whole impulse on the main thread — 10-50 ms — so it must not happen on every build);
+// switching rooms only re-routes the send and crossfades the wet gains
+var roomSlots = {};
+function roomSlot(kind) {
+  var sl = roomSlots[kind]; if (sl) return sl;
+  var c = audio.ctx;
+  var cv = c.createConvolver(); cv.normalize = true; cv.buffer = impulse(kind);
+  var g = c.createGain(); g.gain.value = 0.0001;
+  cv.connect(g); g.connect(A.wetSum);
+  sl = roomSlots[kind] = { cv: cv, g: g, kind: kind, live: false, offT: null };
+  return sl;
 }
 function setRoom(kind, instant) {
   wantKind = kind;
@@ -437,14 +456,16 @@ function setRoom(kind, instant) {
   if (kind === roomKind) return;
   var c = audio.ctx, now = c.currentTime, P = ROOMS[kind];
   try {
-    var cv = c.createConvolver(); cv.normalize = true; cv.buffer = impulse(kind);
-    var g = c.createGain(); g.gain.value = 0.0001;
-    A.send.connect(cv); cv.connect(g); g.connect(A.wetSum);
-    g.gain.setValueAtTime(0.0001, now); g.gain.linearRampToValueAtTime(P.wet, now + (instant ? 0.05 : 1.4));
-    var old = A.slots.slice(); A.slots = [{ cv: cv, g: g }];
+    var sl = roomSlot(kind);
+    if (sl.offT) { clearTimeout(sl.offT); sl.offT = null; }
+    if (!sl.live) { A.send.connect(sl.cv); sl.live = true; }
+    sl.g.gain.cancelScheduledValues(now); sl.g.gain.setValueAtTime(Math.max(0.0001, sl.g.gain.value), now); sl.g.gain.linearRampToValueAtTime(P.wet, now + (instant ? 0.05 : 1.4));
+    var old = A.slots.filter(function (s) { return s !== sl; }); A.slots = [sl];
     old.forEach(function (s) {
       try { s.g.gain.cancelScheduledValues(now); s.g.gain.setValueAtTime(s.g.gain.value, now); s.g.gain.linearRampToValueAtTime(0.0001, now + 1.2); } catch (e) {}
-      setTimeout(function () { try { A.send.disconnect(s.cv); } catch (e) {} try { s.cv.disconnect(); s.g.disconnect(); } catch (e) {} }, 1600 + ROOMS[kind].len * 1000);
+      // stop feeding it once faded (the node itself is kept for next time)
+      if (s.offT) clearTimeout(s.offT);
+      s.offT = setTimeout(function () { s.offT = null; if (A.slots.indexOf(s) >= 0) return; try { A.send.disconnect(s.cv); } catch (e) {} s.live = false; }, 1600);
     });
     roomKind = kind;
   } catch (e) { if (window.console) console.warn("[N2 input] reverb", e); }
@@ -485,11 +506,21 @@ function classify(z) {
     if (!_rc) _rc = new THREE.Raycaster();
     _rc.camera = camera; _rc.near = 0.3;
     var eyeY = pos.y + (eyeH || 1.6), up = new THREE.Vector3(0, 1, 0), o = new THREE.Vector3(), d = new THREE.Vector3(), hits;
+    // only meshes whose bounds come within reach of the probes (no points / sprites / far-off
+    // scenery): raycasting the whole tree cost 35-130 ms per build
+    var near = [], cen = new THREE.Vector3(ox, eyeY, oz), sph = new THREE.Sphere();
+    z.group.updateMatrixWorld(true);
+    z.group.traverse(function (m) {
+      if (!m.isMesh || !m.visible || !m.geometry || !m.geometry.attributes || !m.geometry.attributes.position) return;
+      var g = m.geometry; if (!g.boundingSphere) g.computeBoundingSphere(); if (!g.boundingSphere) return;
+      sph.copy(g.boundingSphere).applyMatrix4(m.matrixWorld);
+      if (sph.center.distanceTo(cen) - sph.radius < 23) { if (!g.boundingBox) g.computeBoundingBox(); near.push(m); }   // the box lets most rays skip the triangles
+    });
     var offs = [[0, 0], [3, 0], [-3, 0], [0, 3], [0, -3]];
     _rc.far = 18;
-    for (i = 0; i < offs.length; i++) { o.set(ox + offs[i][0], eyeY, oz + offs[i][1]); _rc.set(o, up); hits = _rc.intersectObject(z.group, true); if (hits.length) ceil++; }
+    for (i = 0; i < offs.length; i++) { o.set(ox + offs[i][0], eyeY, oz + offs[i][1]); _rc.set(o, up); hits = _rc.intersectObjects(near, false); if (hits.length) ceil++; }
     _rc.far = 22; o.set(ox, eyeY, oz);
-    for (i = 0; i < 8; i++) { a = i / 8 * Math.PI * 2; d.set(Math.cos(a), 0, Math.sin(a)); _rc.set(o, d); hits = _rc.intersectObject(z.group, true); if (hits.length) walls++; }
+    for (i = 0; i < 8; i++) { a = i / 8 * Math.PI * 2; d.set(Math.cos(a), 0, Math.sin(a)); _rc.set(o, d); hits = _rc.intersectObjects(near, false); if (hits.length) walls++; }
   }
   IN._probe = { ground: Math.round(frac * 100) / 100, ceil: ceil, walls: walls, far: far };
   if (ceil >= 3 || (ceil >= 2 && walls >= 6)) return "interior";

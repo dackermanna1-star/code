@@ -1506,10 +1506,32 @@ reg("lighthouse_of_windows", "the lighthouse of other windows", 1, ["lighthouse"
   // the lamp and its two slow beams
   var core = N2.glowSprite(0xfff4d0, 7); core.position.set(TX, TOP + 2.6, TZ); buildGroup.add(core);
   var beamG = new THREE.Group(); beamG.position.set(TX, TOP + 2.6, TZ); buildGroup.add(beamG);
-  var bm = new MB({ amb: 1 });
-  bm.geo(ugeo("cyl", 0.04, 12), 0, 0, -70, 12, 140, 12, 0x000000, { rx: -Math.PI / 2, glow: true, col2: 0x4a4026 });
-  bm.geo(ugeo("cyl", 0.04, 12), 0, 0, 70, 12, 140, 12, 0x000000, { rx: Math.PI / 2, glow: true, col2: 0x4a4026 });
-  bm.build({ add: true, parent: beamG, nocull: true });
+  // two soft cones of light: narrow at the lamp, widening outward, bright near the lamp and fading
+  // along their length and toward their edges (view-facing falloff), so they read as light, not as a slab
+  var BEAM_L = 150, beamGeo = new THREE.CylinderGeometry(10, 0.35, BEAM_L, 20, 1, true); beamGeo.translate(0, BEAM_L / 2, 0);
+  var beamMat = new THREE.ShaderMaterial({
+    uniforms: { uCol: { value: new THREE.Color(0xffd994) }, uI: { value: 0.62 }, uL: { value: BEAM_L } },
+    vertexShader: [
+      "uniform float uL; varying float vL; varying float vF; varying float vD;",
+      "void main() {",
+      "  vec4 mv = modelViewMatrix * vec4(position, 1.0);",
+      "  vec3 n = normalize(normalMatrix * normal); vec3 v = normalize(-mv.xyz);",
+      "  vF = abs(dot(n, v)); vL = position.y / uL; vD = -mv.z;",
+      "  gl_Position = projectionMatrix * mv;",
+      "}"].join("\n"),
+    fragmentShader: [
+      "uniform vec3 uCol; uniform float uI; varying float vL; varying float vF; varying float vD;",
+      "void main() {",
+      "  float along = pow(clamp(1.0 - vL, 0.0, 1.0), 1.7) * smoothstep(0.0, 0.025, vL);",
+      "  float edge = pow(clamp(vF, 0.0, 1.0), 2.4);",
+      "  float near = smoothstep(1.5, 9.0, vD);",
+      "  vec3 c = mix(uCol, vec3(1.0, 0.97, 0.9), along * along * 0.5);",
+      "  gl_FragColor = vec4(c * uI * along * edge * near, 1.0);",
+      "}"].join("\n"),
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, fog: false
+  });
+  var beamA = new THREE.Mesh(beamGeo, beamMat); beamA.rotation.x = -Math.PI / 2; beamA.frustumCulled = false; beamA.renderOrder = 20; beamG.add(beamA);
+  var beamB = new THREE.Mesh(beamGeo, beamMat); beamB.rotation.x = Math.PI / 2; beamB.frustumCulled = false; beamB.renderOrder = 20; beamG.add(beamB);
   beamG.rotation.x = 0.06;
   anim(function (dt, t) { beamG.rotation.y = t * 0.35; });
   // soft rails: the stair and gallery hold you without pulling you away
@@ -1578,6 +1600,8 @@ reg("inside_the_snowglobe", "inside the snow globe", 1, ["snow", "town", "glass"
   var placed = [];
   function freeAt(x, z, rr2) { for (var i = 0; i < placed.length; i++) { var p = placed[i]; if ((p[0] - x) * (p[0] - x) + (p[1] - z) * (p[1] - z) < (p[2] + rr2) * (p[2] + rr2)) return false; } return true; }
   placed.push([0, 0, 8]); placed.push([0, 14, 4]);
+  // keep the spawn and its first view clear: nothing grows on top of you or fills the screen
+  placed.push([0, 30, 6]); placed.push([0, 22, 4.5]);
   var wl = new MB({ amb: 1 });
   for (var h = 0; h < 60 && placed.length < 34; h++) {
     var ha = rng() * TAU, hd = rrange(14, R - 12), hx = Math.cos(ha) * hd, hz = Math.sin(ha) * hd, hw = rrange(2.6, 4), hdp = rrange(2.6, 4.2), hh = rrange(2.4, 4.2);

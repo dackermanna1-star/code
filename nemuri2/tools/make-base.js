@@ -152,6 +152,7 @@ init();
 
 })();`);
 // sequel identity in the build stamp (modules handle the rest of the revamp)
+patch('<title>nemuri — a dream toy</title>', '<title>nemuri II</title>');
 patch('<div class="build">nemuri // build 1.19.0</div>', '<div class="build">nemuri II // build 2.0.0</div>');
 fs.writeFileSync(path.join(root, 'src/base.html'), s);
 console.log('base.html written', s.length);

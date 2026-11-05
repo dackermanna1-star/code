@@ -62,6 +62,8 @@ N2.ui.css([
   ".n2t-q{font-size:11px;letter-spacing:.22em;color:#c9b88f;margin:0 0 10px;text-align:center;line-height:1.9;}",
   ".n2t-keys{position:absolute;left:0;right:0;bottom:38px;z-index:3;text-align:center;font-size:9px;letter-spacing:.26em;color:#3e4a60;opacity:0;transition:opacity 1.2s ease .8s;pointer-events:none;}",
   "#title.armed .n2t-keys{opacity:1;}",
+  ".n2t-keys .tch{display:none;}",
+  "@media (pointer:coarse){.n2t-keys .kb{display:none;}.n2t-keys .tch{display:inline;}}",
   "@media (max-height:620px){.n2t-it{height:33px;}.n2t-it small{margin-top:1px;}#title.armed .n2t-logo{transform:translateY(-44px) scale(.62);}.n2t-keys{display:none;}}",
   "@media (max-height:470px){#title.armed .n2t-logo{transform:translateY(-36px) scale(.46);}}",
   /* ---- prologue ---- */
@@ -82,12 +84,17 @@ N2.ui.css([
   ".n2p-t{margin-top:12px;font-size:17px;letter-spacing:.5em;padding-left:.5em;color:var(--t-gold);}",
   ".n2p-w{margin:12px 0 22px;font-size:10px;letter-spacing:.22em;color:var(--t-dim);max-width:86vw;line-height:1.8;}",
   ".n2p-w b{font-weight:normal;color:var(--t-teal);}",
+  ".n2p-m{display:flex;flex-direction:column;align-items:center;}",
+  ".n2p-m .n2t-it{min-width:270px;}",
   ".n2p .n2t-it{height:34px;}",
   ".n2p-h{margin-top:20px;font-size:9px;letter-spacing:.28em;color:#3e4a60;}",
   /* ---- help ---- */
   "#n2-help .n2-sheet{width:min(94vw,900px);background:linear-gradient(180deg,rgba(9,15,30,.96),rgba(5,8,17,.97));border-color:rgba(143,208,210,.22);box-shadow:0 0 90px rgba(90,140,190,.16);position:relative;}",
   "#n2-help h2{color:var(--t-gold);letter-spacing:.4em;}",
   ".n2h-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:18px 26px;}",
+  "@media (min-width:1100px){#n2-help .n2-sheet{width:min(94vw,1180px);}.n2h-grid{grid-template-columns:repeat(4,1fr);gap:16px 24px;}}",
+  "@media (max-height:780px){.n2h-r{padding:1px 0;}.n2h-grid{gap:12px 24px;}#n2-help h2{margin-bottom:10px;}}",
+  "#n2-help .n2-sheet.more::after{content:'more \\2193';position:sticky;bottom:-22px;display:block;margin:0 -26px -22px;padding:26px 0 8px;text-align:center;font-size:9px;letter-spacing:.3em;color:#8fd0d2;background:linear-gradient(180deg,rgba(5,8,17,0),rgba(5,8,17,.96) 60%);pointer-events:none;}",
   ".n2h-g h3{margin:0 0 8px;font-weight:normal;font-size:10px;letter-spacing:.34em;color:var(--t-teal);text-transform:lowercase;border-bottom:1px solid rgba(143,208,210,.14);padding-bottom:6px;}",
   ".n2h-r{display:flex;align-items:baseline;gap:12px;padding:3px 0;font-size:11px;letter-spacing:.08em;color:#c7ccd2;line-height:1.5;}",
   ".n2h-r.off{color:#566276;}",
@@ -134,6 +141,8 @@ N2.ui.css([
   "#n2t-end .ct{font-size:clamp(12px,1.7vw,15px);letter-spacing:.5em;padding-left:.5em;color:var(--t-gold);}",
   "#n2t-end .cl{font-size:11px;letter-spacing:.24em;color:#9aa6b4;opacity:0;transition:opacity 2s ease;}",
   "#n2t-end .cl.on{opacity:1;}",
+  "#n2t-end .cr{padding:0 20px;box-sizing:border-box;}#n2t-end .cl{max-width:100%;line-height:1.7;}",
+  "@media (max-width:480px){#n2t-end .cl{letter-spacing:.12em;font-size:10px;}#n2t-end .ct{letter-spacing:.3em;padding-left:.3em;}}",
   "#n2t-end .ek{position:absolute;bottom:24px;left:0;right:0;text-align:center;font-size:10px;letter-spacing:.32em;color:#56647a;opacity:0;transition:opacity 1.4s ease;}",
   "#n2t-end .ek.on{opacity:1;}",
   /* ---- flash ---- */
@@ -376,7 +385,7 @@ function buildTitle() {
       "<div class='n2t-prompt prompt'>click to begin</div>" +
     "</div>" +
     "<div class='n2t-menu' id='n2t-menu'></div>" +
-    "<div class='n2t-keys'>↑ ↓ choose · enter · f1 controls</div>" +
+    "<div class='n2t-keys'><span class='kb'>↑ ↓ choose · enter · f1 controls</span><span class='tch'>tap to choose</span></div>" +
     "<div class='n2t-credit'>a sequel to nemuri — an original dream toy</div>" +
     "<div id='n2t-veil'></div>";
   cv = $("n2t-cv"); menuEl = $("n2t-menu");
@@ -508,7 +517,7 @@ function prologueInput() {
 }
 
 /* ================================================================== pause */
-var pauseEl0 = $("pause"), pItems = [], pFocus = 0;
+var pauseEl0 = $("pause"), pItems = [], pFocus = 0, pConfirm = false;
 function buildPause() {
   if (!pauseEl0) return;
   pauseEl0.innerHTML = "<div class='n2p'><div class='n2p-g'>ねむり<span>II</span></div><div class='n2p-t'>paused</div><div class='n2p-w' id='n2p-w'></div><div class='n2p-m' id='n2p-m'></div><div class='n2p-h'>click anywhere else to wake back in</div></div>";
@@ -529,15 +538,33 @@ function refreshPause() {
   h += "<button class='n2t-it' data-n2p='title'>return to title<small>tonight's dreams will fade</small><span class='ln'></span></button>";
   m.innerHTML = h;
   pItems = Array.prototype.slice.call(m.querySelectorAll("[data-n2p]"));
+  pConfirm = false;
   setPFocus(0);
 }
-function setPFocus(i) { if (!pItems.length) return; pFocus = (i + pItems.length) % pItems.length; for (var k = 0; k < pItems.length; k++) pItems[k].classList.toggle("f", k === pFocus); }
+// focus stops at the ends (no wrap), so a stray W from "resume" can never land on "return to title"
+function setPFocus(i) {
+  if (!pItems.length) return;
+  var nf = Math.max(0, Math.min(pItems.length - 1, i));
+  if (nf !== pFocus && pConfirm) unconfirmTitle();
+  pFocus = nf;
+  for (var k = 0; k < pItems.length; k++) pItems[k].classList.toggle("f", k === pFocus);
+}
+function titleBtn() { for (var i = 0; i < pItems.length; i++) if (pItems[i].getAttribute("data-n2p") === "title") return pItems[i]; return null; }
+function unconfirmTitle() {
+  pConfirm = false;
+  var b = titleBtn(); if (b) b.innerHTML = "return to title<small>tonight's dreams will fade</small><span class='ln'></span>";
+}
 function pauseAct(a) {
   if (a === "resume") { if (paused) { togglePause(); safe(function () { tryLock(); }); } }
   else if (a === "journal") { tick(); safe(function () { N2.mods.journal.open(); }); }
   else if (a === "settings") { tick(); safe(function () { N2.mods.lens.openSettings(); }); }
   else if (a === "controls") { tick(); openHelp(); }
-  else if (a === "title") { N2.chime(220, 2, 0.05); safe(function () { audio.fadeMaster(0, 0.4); }); if (fadeEl) { fadeEl.style.background = "#050912"; } setTimeout(function () { location.reload(); }, 450); }
+  else if (a === "title" && !pConfirm) {
+    // two steps, like "new dream" on the menu: the first only asks
+    pConfirm = true; tick(440);
+    var tb = titleBtn(); if (tb) { tb.innerHTML = "really leave the dream?<small>choose again to return to the title</small><span class='ln'></span>"; setPFocus(pItems.indexOf(tb)); }
+  }
+  else if (a === "title") { pConfirm = false; N2.chime(220, 2, 0.05); safe(function () { audio.fadeMaster(0, 0.4); }); if (fadeEl) { fadeEl.style.background = "#050912"; } setTimeout(function () { location.reload(); }, 450); }
 }
 var _togglePause = togglePause;
 togglePause = function () {
@@ -547,9 +574,14 @@ togglePause = function () {
 };
 function pauseKey(e) {
   var c = e.code;
-  if (c === "ArrowUp" || c === "KeyW") { setPFocus(pFocus - 1); tick(659.3); return true; }
-  if (c === "ArrowDown" || c === "KeyS" || c === "Tab") { setPFocus(pFocus + 1); tick(659.3); return true; }
-  if (c === "Enter" || c === "Space" || c === "NumpadEnter" || c === "KeyE") { var b = pItems[pFocus]; if (b) pauseAct(b.getAttribute("data-n2p")); return true; }
+  var nav = c === "ArrowUp" || c === "KeyW" || c === "ArrowDown" || c === "KeyS" || c === "Tab";
+  // held movement keys auto-repeat into the menu: ignore repeats entirely
+  if (e.repeat) return nav || c === "Space" || c === "Enter" || c === "NumpadEnter" || c === "KeyE";
+  if (c === "ArrowUp" || c === "KeyW") { var o = pFocus; setPFocus(pFocus - 1); if (o !== pFocus) tick(659.3); return true; }
+  if (c === "ArrowDown" || c === "KeyS" || c === "Tab") { var o2 = pFocus; setPFocus(pFocus + 1); if (o2 !== pFocus) tick(659.3); return true; }
+  // space is the jump key: it never activates a menu item
+  if (c === "Space") return true;
+  if (c === "Enter" || c === "NumpadEnter" || c === "KeyE") { var b = pItems[pFocus]; if (b) pauseAct(b.getAttribute("data-n2p")); return true; }
   return false;
 }
 
@@ -592,7 +624,12 @@ function openHelp() {
   h += "</div><div class='n2h-tip'>when something feels wrong, look at your hands.<br>doors, edges and walls carry you onward — press v to stay a while.<br><span style='color:#56647a'>esc to close</span></div>";
   p._body.innerHTML = h;
   N2.ui.open(HELP);
+  // a small "more" hint while the sheet scrolls (only when it does not all fit)
+  var sh = p.sheet;
+  if (!sh._moreBound) { sh._moreBound = true; sh.addEventListener("scroll", function () { moreHint(sh); }, { passive: true }); window.addEventListener("resize", function () { if (N2.ui.isOpen(HELP)) moreHint(sh); }); }
+  sh.scrollTop = 0; moreHint(sh);
 }
+function moreHint(sh) { try { sh.classList.toggle("more", sh.scrollTop + sh.clientHeight < sh.scrollHeight - 4); } catch (e) {} }
 function toggleHelp() { if (N2.ui.isOpen(HELP)) N2.ui.close(HELP); else if (!N2.uiOpen) openHelp(); }
 N2.on("uiClose", function (id) { if (id === HELP && phase === "play" && !paused && !N2.uiOpen && !useDrag) safe(function () { tryLock(); }); });
 
@@ -883,6 +920,8 @@ N2.on("keydown", function (e) {
   var c = e.code;
   if (endS) { if (!e.repeat) endInput(); return true; }
   if (prologueOn) { if (!e.repeat) prologueInput(); return true; }
+  // the story's ending is fading in: no panel, lens or pause may open over it
+  if (N2.storyEnding) return true;
   if (c === "F1" || c === "Slash") { if (N2.ui.top() === HELP) { N2.ui.close(HELP); return true; } if (!N2.uiOpen) { openHelp(); return true; } return false; }
   if (N2.uiOpen) return false;
   if (phase === "title") { if (c === "KeyO") return false; titleKey(e); return true; }
@@ -909,7 +948,7 @@ function wrapRender() {
 N2.on("frame", function (dt) {
   try {
     if (!renderWrapped) wrapRender();
-    if (phase === "title" && painter && titleEl0 && titleEl0.style.display !== "none") { tAcc += dt; if (tAcc >= (reduced() ? 0.25 : 0.03)) { painter.draw(tAcc); tAcc = 0; } }
+    if (phase === "title" && painter && !prologueOn && titleEl0 && titleEl0.style.display !== "none") { tAcc += dt; if (tAcc >= (reduced() ? 0.25 : 0.03)) { painter.draw(tAcc); tAcc = 0; } }
     if (endP && endEl2) { endP.dawn += ((endP.dawnTarget || 0) - endP.dawn) * Math.min(1, dt * 0.25); endP.lit = Math.max(0, 7 * (1 - endP.dawn * 1.15)); endP.wake = Math.min(0.5, endP.dawn); endP.draw(dt); }
     tickFlash(dt);
     if (gOn) {

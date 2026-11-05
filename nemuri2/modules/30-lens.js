@@ -194,12 +194,35 @@ function syncTree(root) {
 }
 
 /* ------------------------------------------------------------- sky dome ---- */
-var SKY_VERT = "varying vec3 vDir; void main(){ vDir = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }";
-var SKY_FRAG = [
+// The smooth parts of the sky (gradient, horizon glow, wide moon glow) are evaluated per VERTEX on a
+// dense dome and interpolated; only the sharp parts (moon disc + halo core, stars, aurora rays) stay
+// per pixel. Software GL shades every dome fragment even where the world covers it (no early-z), so
+// the per-pixel cost is what matters. The dome sits on the far plane (z = w) and draws after the opaque
+// world with a LessEqual test, so it never paints over anything.
+var SKY_VERT = [
   "varying vec3 vDir;",
+  "varying vec3 vBase;",
   "uniform vec3 uSkyTop;",
   "uniform vec3 uSkyHor;",
   "uniform vec3 uGlowC;",
+  "uniform vec3 uKeyDir;",
+  "uniform vec3 uMoonC;",
+  SKY_FN,
+  "void main() {",
+  "  vDir = position;",
+  "  vec3 d = normalize(position); float el = d.y;",
+  "  vec3 c = skyAt(el);",
+  "  c += uGlowC * (0.12 * exp(-abs(el) * 10.0));",                 // horizon glow
+  "  float md = max(dot(d, uKeyDir), 0.0);",
+  "  c += uMoonC * (pow(md, 6.0) * 0.05);",                          // the wide part of the moon's glow
+  "  vBase = c;",
+  "  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);",
+  "  gl_Position.z = gl_Position.w;",
+  "}"
+].join("\n");
+var SKY_FRAG = [
+  "varying vec3 vDir;",
+  "varying vec3 vBase;",
   "uniform vec3 uKeyDir;",
   "uniform vec3 uMoonC;",
   "uniform vec3 uAurora;",
@@ -207,18 +230,19 @@ var SKY_FRAG = [
   "uniform float uTime;",
   "uniform float uMotion;",
   "uniform float uAuroraAmt;",
-  SKY_FN,
   "float h3(vec3 p) { p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }",
   "void main() {",
+  "  vec3 c = vBase;",
   "  vec3 d = normalize(vDir);",
   "  float el = d.y;",
-  "  vec3 c = skyAt(el);",
-  "  c += uGlowC * (0.12 * exp(-abs(el) * 10.0));",                 // horizon glow
-  "  float md = max(dot(d, uKeyDir), 0.0);",
-  "  float disc = smoothstep(0.9988, 0.9993, md);",
-  "  c = mix(c, uMoonC, disc * (0.35 + 0.6 * uNight));",
-  "  c += uMoonC * (pow(md, 48.0) * 0.16 + pow(md, 6.0) * 0.05);",      // moon halo
-  "  if (uNight > 0.01 && el > -0.02) {",
+  "  float md = dot(d, uKeyDir);",
+  "  if (md > 0.93) {",
+  "    float disc = smoothstep(0.9988, 0.9993, md);",
+  "    c = mix(c, uMoonC, disc * (0.35 + 0.6 * uNight));",
+  "    c += uMoonC * (pow(md, 48.0) * 0.16);",                       // moon halo core
+  "  }",
+  "#ifdef STARS",
+  "  if (el > -0.02) {",
   "    float t = uTime * uMotion;",
   "    vec3 sd = d * 110.0; vec3 cell = floor(sd); float hs = h3(cell);",
   "    if (hs > 0.972) {",
@@ -226,8 +250,9 @@ var SKY_FRAG = [
   "      float tw = 0.65 + 0.35 * sin(t * (1.0 + hs * 3.0) + hs * 40.0);",
   "      c += vec3(0.9, 0.92, 1.0) * s * tw * uNight * smoothstep(-0.02, 0.18, el) * (hs > 0.993 ? 1.0 : 0.45);",
   "    }",
-  "    float az = atan(d.z, d.x);",
-  "    if (uAuroraAmt > 0.01) {",
+  "#ifdef AURORA",
+  "    if (el > 0.15 && el < 0.78) {",
+  "      float az = atan(d.z, d.x);",
   "      float base = 0.3 + 0.06 * sin(az * 2.0 + t * 0.03) + 0.025 * sin(az * 5.0 - t * 0.05);",
   "      float x = el - base;",
   "      float sheet = smoothstep(-0.025, 0.0, x) * exp(-max(x, 0.0) * 9.0);",
@@ -235,19 +260,46 @@ var SKY_FRAG = [
   "      float fold = 0.5 + 0.5 * sin(az * 3.0 + t * 0.02);",
   "      c += uAurora * sheet * rays * fold * uNight * uAuroraAmt * 0.32;",
   "    }",
+  "#endif",
   "  }",
+  "#endif",
   "  gl_FragColor = vec4(c, 1.0);",
   "}"
 ].join("\n");
-var skyDome = null;
+var skyDome = null, ownSky = false;
+// software GL runs every instruction of a branch for every pixel (masked), so the star and aurora
+// code is compiled in only when the sky is actually dark (with hysteresis; programs are cached)
+var skyStars = false, skyAur = false;
+function syncSkyDefines() {
+  if (!skyDome) return;
+  var n = U_night.value, st = skyStars ? n > 0.004 : n > 0.02, au = st && U_auroraAmt.value > 0.01;
+  if (st === skyStars && au === skyAur) return;
+  skyStars = st; skyAur = au;
+  var d = {}; if (st) d.STARS = 1; if (au) d.AURORA = 1;
+  skyDome.material.defines = d; skyDome.material.needsUpdate = true;
+}
+// a dream that brings its own full sky dome (a big inside-out sphere) hides ours: it would be overdrawn anyway
+function hasOwnSky(z) {
+  var found = false;
+  try {
+    if (z && z.group) z.group.traverse(function (o) {
+      if (found || !o.isMesh || !o.material || o.material.side !== THREE.BackSide || !o.geometry) return;
+      var g = o.geometry; if (!g.boundingSphere) g.computeBoundingSphere();
+      var sc = o.scale ? Math.max(o.scale.x, o.scale.y, o.scale.z) : 1;
+      if (g.boundingSphere && g.boundingSphere.radius * sc > 250 && o.material.depthTest !== false && o.material.opacity !== 0 && !o.material.transparent) found = true;
+    });
+  } catch (e) { found = false; }
+  return found;
+}
 function ensureDome() {
   if (skyDome || !scene) return skyDome;
   var mat = new THREE.ShaderMaterial({
-    vertexShader: SKY_VERT, fragmentShader: SKY_FRAG, side: THREE.BackSide, depthTest: false, depthWrite: false, fog: false,
+    vertexShader: SKY_VERT, fragmentShader: SKY_FRAG, side: THREE.BackSide, depthTest: true, depthFunc: THREE.LessEqualDepth, depthWrite: false, fog: false,
     uniforms: { uSkyTop: U_skyTop, uSkyHor: U_skyHor, uGlowC: U_glowC, uKeyDir: U_keyDir, uMoonC: U_moonC, uAurora: U_aurora, uNight: U_night, uTime: U_time, uMotion: U_motion, uAuroraAmt: U_auroraAmt }
   });
-  skyDome = new THREE.Mesh(new THREE.SphereGeometry(400, 32, 16), mat);
-  skyDome.frustumCulled = false; skyDome.renderOrder = -1e6; skyDome.name = "n2-sky";
+  skyDome = new THREE.Mesh(new THREE.SphereGeometry(400, 40, 36), mat);
+  // after the world's opaque meshes (renderOrder 0), before a world's own sky dome (1000) and the lantern (9990+)
+  skyDome.frustumCulled = false; skyDome.renderOrder = 999; skyDome.name = "n2-sky";
   scene.add(skyDome);
   return skyDome;
 }
@@ -421,7 +473,7 @@ var GRADE_FRAG = [
   "  o *= 0.93 + (hash(floor(p * vec2(0.5, 1.0))) * 0.5 + hash(floor(p * vec2(1.0, 0.33)) + 7.0) * 0.5) * 0.1;",
   "  o += grain * uGrain * 0.035;",
   "#endif",
-  "  o = mix(o, o * vec3(1.1, 0.98, 0.82), uWarm * 0.55);",
+  "  o = mix(o, o * vec3(1.13, 0.99, 0.78), uWarm * 0.62);",
   "  float qd = dot(q, q);",
   "  o *= 1.0 - qd * uVig * uVigK;",
   "  o *= 1.0 + uPulse * 0.12 * (1.0 - qd * 3.0);",
@@ -576,6 +628,7 @@ function tickSky() {
   U_skyHor.value.setHSL(_hsl.h, Math.min(0.8, _hsl.s * 1.15 + 0.04), Math.min(0.92, _hsl.l * 1.16 + 0.02));
   U_skyHor.value.lerp(U_glowC.value, 0.1);
   U_night.value = Math.max(0, Math.min(1, (0.2 - L) / 0.15));
+  syncSkyDefines();
   skyL += (Math.max(L, lum(U_fog.value)) - skyL) * 0.1;
   U_eyeY.value = pos.y;
 }
@@ -609,7 +662,8 @@ function tickLens(dt) {
   if (isClassic()) return;
   var t = U_time.value;
   var heart = chaseS > 0.01 ? Math.pow(Math.max(0, Math.sin(t * 7.2)), 8) * chaseS : 0;
-  GU.uGrain.value = (s.grain == null ? 0.5 : +s.grain) * (L.grain || 1);
+  var g0 = +s.grain; if (s.grain == null || !isFinite(g0)) g0 = 0.5;
+  GU.uGrain.value = Math.max(0, Math.min(1, g0)) * (L.grain || 1);
   GU.uBloomAmt.value = (L.bloom || 0) * (1 + lucS * 0.7 + pulseV * 0.5) * (1 - Math.min(0.7, skyL * 1.1));
   GU.uOutline.value = L.outline || 0;
   GU.uRampMix.value = (L.ramp || 0) * (1 - lucS * 0.3);
@@ -750,11 +804,11 @@ N2.on("start", function () {
   } catch (e) { if (window.console) console.warn("[N2 lens] start", e); }
 });
 N2.on("dreamBuilt", function (z) {
-  try { ensureMats(); ensureDome(); tuneDream(z); applyFov(); if (z && z.group) syncTree(z.group); } catch (e) {}
+  try { ensureMats(); ensureDome(); tuneDream(z); applyFov(); if (z && z.group) syncTree(z.group); ownSky = hasOwnSky(z); } catch (e) {}
 });
 N2.on("beforeRender", function () {
   try {
-    if (skyDome && camera) { skyDome.position.copy(camera.position); skyDome.visible = !isClassic(); }
+    if (skyDome && camera) { skyDome.position.copy(camera.position); skyDome.visible = !isClassic() && !ownSky; }
     if (!isClassic()) tickSky();
   } catch (e) {}
 });
@@ -801,6 +855,8 @@ N2.ui.css([
   ".n2-rng span{min-width:46px;text-align:right;font-size:11px;letter-spacing:.12em;color:var(--n2-teal);}",
   ".n2-set-desc{margin:14px 10px 4px;min-height:16px;font-size:10px;letter-spacing:.18em;color:var(--n2-dim);}",
   ".n2-set-foot{display:flex;justify-content:space-between;align-items:center;margin-top:14px;padding:0 10px;}",
+  ".n2-set-foot{gap:10px;flex-wrap:wrap;}.n2-set-tch{display:none;}",
+  "@media (pointer:coarse){.n2-set-kb{display:none;}.n2-set-tch{display:inline;}}",
   ".n2-set-foot .n2-muted{font-size:10px;letter-spacing:.14em;}",
   ".n2-set-foot>div{display:flex;gap:8px;flex-shrink:0;margin-left:12px;}",
   "@media (max-width:560px){.n2-set-row{grid-template-columns:1fr;gap:6px;}}"
@@ -835,7 +891,8 @@ function buildPanel() {
   });
   descEl = N2.ui.el("div", "n2-set-desc", "", sheet);
   var foot = N2.ui.el("div", "n2-set-foot", "", sheet);
-  N2.ui.el("span", "n2-muted", "↑↓ choose · ←→ change · l cycles lenses", foot);
+  N2.ui.el("span", "n2-muted n2-set-kb", "↑↓ choose · ←→ change · l cycles lenses", foot);
+  N2.ui.el("span", "n2-muted n2-set-tch", "tap or slide to change", foot);
   var btns = N2.ui.el("div", "", "", foot);
   var reset = N2.ui.el("button", "n2-btn", "defaults", btns); reset.type = "button";
   reset.addEventListener("click", function () { var d = N2.settingsDefaults || {}; for (var k in d) N2.setSetting(k, d[k]); N2.ui.toast("settings restored"); });

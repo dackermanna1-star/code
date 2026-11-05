@@ -20,6 +20,7 @@ N2.save = {
     try { return JSON.parse(raw); } catch (e) { return dflt; }
   },
   set: function (key, value) {
+    if (this._wiped) return false;   // a wipe is followed by a reload: no module may write the old state back (e.g. on beforeunload)
     var raw; try { raw = JSON.stringify(value); } catch (e) { return false; }
     _mem[key] = raw;
     try { if (window.localStorage) localStorage.setItem(this.prefix + key, raw); return true; } catch (e) { return false; }
@@ -27,7 +28,7 @@ N2.save = {
   remove: function (key) { delete _mem[key]; try { if (window.localStorage) localStorage.removeItem(this.prefix + key); } catch (e) {} },
   // wipe every sequel key (and the original's night counter) — "new dream" from the menu
   wipeAll: function () {
-    _mem = {};
+    _mem = {}; this._wiped = true;
     try {
       if (!window.localStorage) return;
       var dead = [];
@@ -52,7 +53,19 @@ var SETTINGS_DEFAULT = {
 };
 N2.settings = (function () {
   var s = N2.save.get("settings", {}), o = {};
-  for (var k in SETTINGS_DEFAULT) o[k] = (s && s.hasOwnProperty(k)) ? s[k] : SETTINGS_DEFAULT[k];
+  if (!s || typeof s !== "object" || Array.isArray(s)) s = {};
+  for (var k in SETTINGS_DEFAULT) {
+    var v = s.hasOwnProperty(k) ? s[k] : undefined, dv = SETTINGS_DEFAULT[k];
+    // keep a stored value only if it has the default's type (and is a finite number when numeric)
+    var ok = v !== undefined && v !== null && typeof v === typeof dv && (typeof dv !== "number" || isFinite(v));
+    o[k] = ok ? v : dv;
+  }
+  if (o.grain < 0 || o.grain > 1) o.grain = SETTINGS_DEFAULT.grain;
+  if (o.volume < 0 || o.volume > 1) o.volume = SETTINGS_DEFAULT.volume;
+  if (o.sens <= 0 || o.sens > 10) o.sens = SETTINGS_DEFAULT.sens;
+  if (o.fov < 30 || o.fov > 140) o.fov = SETTINGS_DEFAULT.fov;
+  if (o.resScale <= 0 || o.resScale > 4) o.resScale = SETTINGS_DEFAULT.resScale;
+  if (!/^(auto|on|off)$/.test(o.touch)) o.touch = SETTINGS_DEFAULT.touch;
   return o;
 })();
 N2.setSetting = function (key, value) {
@@ -116,7 +129,10 @@ N2.ui = {
     if (!this._busy) this._next();
   },
   _next: function () {
-    var self = this, it = this._q.shift(); if (!it) { this._busy = false; return; }
+    var self = this;
+    // hold toasts while the reality-check hands are up, so they never cover the count
+    try { var _L = N2.mods.lucid; if (this._q.length && _L && _L.checking && _L.checking()) { this._busy = true; setTimeout(function () { self._next(); }, 350); return; } } catch (e) {}
+    var it = this._q.shift(); if (!it) { this._busy = false; return; }
     this._busy = true;
     var t = this.el("div", "n2-toast", "", this.region("top"));
     t.textContent = it.text;
@@ -161,10 +177,49 @@ for (var _r in { tl: 1, tr: 1, bl: 1, br: 1, top: 1, center: 1 }) N2.ui.region(_
 function applyHud() { document.body.classList.toggle("n2-nohud", !N2.settings.hud); }
 applyHud();
 N2.on("settings", function (s, key) { if (key === "hud") applyHud(); });
+// the base only refreshes the bedroom focus prompt while inside the bedroom, so a
+// "press E to sleep" line could linger into the first dream: clear it on leaving.
+N2.on("dreamBuilt", function (z) {
+  try { if (z && !z.bedroom && bedFocus) { bedFocus = null; if (hintEl && /^press E/.test(hintEl.textContent || "")) hintEl.style.opacity = "0"; } } catch (e) {}
+}, -50);
+// the base replays a remembered dream on ~16% of warps: hidden (story) worlds must never come
+// back that way, so keep them — and the waking room — out of its memory list
+N2.on("dreamBuilt", function () {
+  try {
+    if (memories && memories.length) memories = memories.filter(function (m) {
+      if (!m || !m.recipe || m.recipe === "__bedroom") return false;
+      var wi = N2.worldInfo[m.recipe]; return !(wi && wi.hidden);
+    });
+  } catch (e) {}
+}, 200);
+
+// a malformed nemuri_motifs save (from the original game) would make every dream build throw
+// inside audio._rememberMotif: keep only well-formed motifs
+try {
+  if (!Array.isArray(audio._motifs)) audio._motifs = [];
+  audio._motifs = audio._motifs.filter(function (m) { return m && typeof m === "object" && Array.isArray(m.seq); });
+  if (!audio._heard || typeof audio._heard !== "object" || Array.isArray(audio._heard)) audio._heard = {};
+} catch (e) {}
+
+// one safe pointer-lock request for everyone: requestPointerLock returns a promise that rejects
+// (an uncaught pageerror) without user activation — e.g. right after an Esc, which never counts as
+// a gesture. Never lock under a panel or the pause menu, and never as part of an Esc close.
+var _escClosing = false;
+tryLock = function () {
+  try {
+    var el = renderer && renderer.domElement; if (!el || !el.requestPointerLock) return false;
+    if (_escClosing || paused || N2.uiOpen) return false;
+    var ua = navigator.userActivation; if (ua && !ua.isActive) return false;
+    var p = el.requestPointerLock();
+    if (p && typeof p.catch === "function") p.catch(function () {});
+    return true;
+  } catch (e) { return false; }
+};
+N2.relock = function () { return tryLock(); };
 
 // Esc closes the top-most panel; H toggles the HUD. Priority 100 so it runs first.
 N2.on("keydown", function (e) {
-  if (N2.uiOpen && (e.code === "Escape")) { N2.ui.close(N2.ui.top()); return true; }
+  if (N2.uiOpen && (e.code === "Escape")) { _escClosing = true; try { N2.ui.close(N2.ui.top()); } finally { _escClosing = false; } return true; }
   if (!N2.uiOpen && e.code === "KeyH" && phase !== "title") { N2.setSetting("hud", !N2.settings.hud); return true; }
   return false;
 }, 100);
@@ -260,6 +315,42 @@ N2.addToDream = function (obj) { if (currentGroup) currentGroup.add(obj); else s
 N2.dreamName = function () { return N2.lastZone ? N2.lastZone.archetypeName : null; };
 N2.isDreaming = function () { return !inBedroom && N2.lastZone && !N2.lastZone.bedroom; };
 N2.night = function () { return day; };
+
+/* ---------------------------------------------------------- volume ducks ---- */
+// Modules that hush the dream for a while (stillness, a nightmare's omen) register a duck; while
+// any duck is active, no master-volume fade (pause resume, another module's restore) goes above
+// the quietest one. Each duck expires on its own (ttl) so none can stick.
+var _ducks = {};
+function duckMin() {
+  var m = null, t = performance.now();
+  for (var k in _ducks) { var d = _ducks[k]; if (d.until < t) { delete _ducks[k]; continue; } if (m == null || d.level < m) m = d.level; }
+  return m;
+}
+function installDuck() {
+  if (!audio || typeof audio.fadeMaster !== "function" || audio.fadeMaster._n2duck) return;
+  var prev = audio.fadeMaster;
+  var f = function (v, t) { var m = duckMin(); if (m != null && v > m) v = m; return prev.call(this, v, t); };
+  f._n2duck = true; audio.fadeMaster = f;
+}
+N2.duck = function (id, level, secs, ttl) {
+  try {
+    installDuck();
+    _ducks[id] = { level: level, until: performance.now() + (ttl || 30) * 1000 };
+    if (!paused) audio.fadeMaster(level, secs == null ? 0.6 : secs);
+  } catch (e) {}
+};
+N2.unduck = function (id, secs, noFade) {
+  try {
+    if (!_ducks[id]) return false;
+    delete _ducks[id];
+    installDuck();
+    if (!noFade && !paused && audio.ctx && !audio.muted) audio.fadeMaster(0.28, secs == null ? 1.2 : secs);   // clamped by any other duck
+    return true;
+  } catch (e) { return false; }
+};
+N2.ducked = function () { return duckMin(); };
+N2.on("start", function () { try { installDuck(); } catch (e) {} });
+N2.on("commitTransition", function () { _ducks = {}; });
 
 /* ---------------------------------------------------------- tiny sounds ---- */
 // a soft chime, usable by any module (respects mute through audio.master)
