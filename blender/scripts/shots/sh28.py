@@ -36,7 +36,7 @@ def build():
     sc.collection.objects.link(bpy.data.objects['WashC'])
     rescue.churn_water(o)
     droplets(c, bones=('foot.L', 'foot.R', 'lowerleg02.L', 'lowerleg02.R'), frames=(70, N), rate=90, speed=0.0, size=(0.004, 0.012))
-    for e_ in [o_ for o_ in bpy.data.objects if o_.name.startswith('Drops_')]:
+    for e_ in [o_ for o_ in bpy.data.objects if o_.name.startswith('Drops_') and o_.particle_systems]:
         st_ = e_.particle_systems[0].settings; st_.factor_random = 0.15; st_.normal_factor = 0.0; st_.object_align_factor = (0, 0, 0)
     cam = env.add_camera('Cam', lens=18)
     aimt = bpy.data.objects.new('Aim', None); sc.collection.objects.link(aimt)

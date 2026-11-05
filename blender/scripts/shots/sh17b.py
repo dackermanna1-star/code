@@ -21,8 +21,8 @@ def build():
             p += Vector((2.2 * k, 4.0 * k, -1.2 * k))
         return p
     marine.path_animate(shark, path, 1, N, bank=0.8)
-    cam = env.add_camera('Cam', lens=20)
-    aimt = cam_target(None, (0.0, 0.6, -2.2)); env.aim(cam, aimt)
+    cam = env.add_camera('Cam', lens=18)
+    aimt = cam_target(None, (-0.3, -0.3, -2.5)); env.aim(cam, aimt)   # centre of the shark's circle
     for f in range(1, N + 1, 3):
         k = ease((f - 1) / (N - 1))
         env.key_loc(cam, f, Vector((-1.8 + 0.3 * k, -3.6 + 0.3 * k, -2.9 - 0.2 * k)))

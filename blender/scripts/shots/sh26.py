@@ -22,10 +22,10 @@ def build():
     rescue.downwash(c.root, (1, N), radius=(2.0, 9.0), rate=4200)
     rescue.churn_water(o)
     cam = env.add_camera('Cam', lens=17)
-    aimt = cam_target(None, tuple(d * 1.2 + Vector((0, 0, 5.2)))); env.aim(cam, aimt)
+    aimt = cam_target(None, tuple(d * 1.0 + Vector((0, 0, 3.2)))); env.aim(cam, aimt)
     for f in range(1, N + 1, 3):
         k = ease((f - 1) / (N - 1))
-        env.key_loc(cam, f, -d * (2.4 - 0.3 * k) + side * 0.9 + Vector((0, 0, 0.35)))
+        env.key_loc(cam, f, -d * (3.5 - 0.3 * k) + side * 1.0 + Vector((0, 0, 0.35)))
     ch.ride_swell(cam, probe, 1, N, amount=0.8, min_clear=0.22)
     env.handheld(cam, amp_loc=0.03, amp_rot=0.012, freq=1.2, seed=26)
     return sc
