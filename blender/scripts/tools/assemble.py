@@ -16,7 +16,8 @@ GRADE = {
     'SH17': 'colorbalance=rm=-0.05:bm=0.03,eq=saturation=0.9',
     # SH18 rendered washed-out near-white: pull it down ~1.5 stops into a saturated orange sunset, darker sea
     'SH18': "curves=r='0/0 0.45/0.27 0.8/0.7 1/0.95':g='0/0 0.45/0.15 0.8/0.45 1/0.7':b='0/0 0.45/0.11 0.8/0.33 1/0.55',eq=saturation=1.2:contrast=1.05,vignette=PI/5",
-    'SH24': 'colorbalance=rm=-0.06:bm=0.03,eq=saturation=0.86',
+    # SH24 (golden-evening overhead float): lift out of the 'night' look and warm toward SH25
+    'SH24': 'eq=gamma=1.25:brightness=0.02:saturation=0.92,colorbalance=rs=0.07:gs=0.02:bs=-0.06:rm=-0.02:rh=0.04:bh=-0.04',
     'SH25': 'eq=saturation=0.95',
 }
 # shots whose source is retimed in the edit: {shot: source_frames_used}
