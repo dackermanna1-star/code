@@ -11,6 +11,9 @@ def build(cam_xy, seed=311, extra_clear=()):
     far['canopy'].location.z = -2.0
     west = AE.build_aerial(dict(center=(-640, 560), size=1200, res=4.0, seed=seed + 1, mist=0.0, mist_levels=[], bank_south=-8))
     west['canopy'].name = 'AER_WestBank'; west['canopy'].location.z = -2.0
+    rm = bpy.data.materials.get('MAT_River')
+    if rm:
+        b = rm.node_tree.nodes['Principled BSDF']; b.inputs['Transmission Weight'].default_value = 0.0; b.inputs['Roughness'].default_value = 0.06
     rp = bpy.data.objects.get('ENV_RiverWater')
     if rp: rp.scale = (3000, 3000, 1); rp.location = (0, RY - 1500, rp.location.z)
     ENV.world_hdri(0.9, 0.6, 'qwantani_sunset_puresky_2k.hdr', (0.7, 0.85, 1.05, 1))
@@ -49,6 +52,4 @@ def boat_with_driver(path_keys, wave_frames=None):
     # wake foam strip behind the boat
     wk = bpy.data.materials.new('MAT_Wake'); wk.use_nodes = True; b = wk.node_tree.nodes['Principled BSDF']
     b.inputs['Base Color'].default_value = (0.8, 0.76, 0.66, 1); b.inputs['Alpha'].default_value = 0.35; b.inputs['Roughness'].default_value = 0.4
-    bpy.ops.mesh.primitive_plane_add(size=1); w = bpy.context.active_object; w.name = 'FX_Wake'; w.scale = (10, 2.6, 1); w.data.materials.append(wk)
-    w.parent = boat; w.location = (-7.5, 0, 0.74)
     return boat, rig

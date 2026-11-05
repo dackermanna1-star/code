@@ -26,8 +26,8 @@ c1 = camera('CAM_OTS', ots((-60, -22)), (-60, -22, 0.5), 32)
 cam_path(c1, [(1, ots((-60, -22)), Vector((-60, -22, 0.4))), (130, ots((-18, -13)), Vector((-18, -13, 0.3)))])
 focus_on(c1, boat, None, 4.0)
 hd = Vector((0.55, -3.3, ENV.height_at(T, 0.55, -3.3) + 1.5))
-c2 = camera('CAM_Front', (3.2, -5.4, hd.z - 0.2), hd, 28)
-cam_path(c2, [(131, (3.4, -5.6, hd.z - 0.25), hd + Vector((-1.5, -1.5, -0.4))), (N, (3.0, -5.2, hd.z - 0.15), hd + Vector((-2.5, -2.6, -0.6)))])
+c2 = camera('CAM_Front', (6.5, -15.5, 1.1), hd, 26)
+cam_path(c2, [(131, (6.5, -15.5, 1.1), Vector((-3.5, -7.5, 0.2))), (N, (6.2, -15.0, 1.15), Vector((-0.2, -6.6, 0.5)))])
 focus_on(c2, rig, 'Head', 4.0)
 for c in (c1, c2): handheld(c, 1, N, amp=0.004, rot_amp=0.003, seed=33); c.data.clip_end = 2000
 s.camera = c1; s.timeline_markers.new('ots', frame=1).camera = c1; s.timeline_markers.new('front', frame=131).camera = c2
