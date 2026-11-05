@@ -130,8 +130,8 @@ def draw_captions(img, t):
 CORE_KEYS = [  # (frame, temp, label)
     (F(19.4), 37.0, "NORMAL"), (F(25.8), 37.0, "NORMAL"),
     (F(55.5), 37.0, "NORMAL"), (F(58.6), 36.0, ""), (F(59.6), 35.0, "HYPOTHERMIA"), (F(62.2), 34.8, "MILD HYPOTHERMIA"),
-    (F(69.3), 33.8, "MILD HYPOTHERMIA"), (F(77.4), 33.0, "MILD HYPOTHERMIA"), (F(78.5), 32.3, "MILD HYPOTHERMIA"),
-    (F(81.6), 32.0, "MODERATE"), (F(86.9), 31.2, "MODERATE"), (F(91.8), 29.6, "MODERATE"), (F(92.5), 28.0, "SEVERE"), (F(99.2), 27.6, "SEVERE")]
+    (F(69.3), 33.8, "MILD HYPOTHERMIA"), (F(77.4), 32.9, "MILD HYPOTHERMIA"), (F(79.3), 32.0, "MODERATE"),
+    (F(81.95), 31.1, "MODERATE"), (F(86.9), 30.5, "MODERATE"), (F(91.8), 29.4, "MODERATE"), (F(92.5), 28.0, "SEVERE"), (F(99.2), 27.6, "SEVERE")]
 HUD_ON = [(F(19.4) + 1, F(28.7)), (F(55.4) + 1, F(86.9)), (F(91.7) + 1, F(99.2))]
 
 
@@ -400,7 +400,7 @@ def title(img, f):
 
 def end_card(img, f):
     t = T(f)
-    a = ease((t - 128.65) / 0.5)
+    a = ease((t - 129.85) / 0.5)
     if a <= 0: return img
     dark = Image.new("RGBA", (W, H), (0, 4, 10, int(170 * a)))
     img = Image.alpha_composite(img, dark)
@@ -441,17 +441,22 @@ def fades(arr, f):
     if F(55.4) - 3 <= f <= F(55.4) + 4: k = min(k, 0.15 + 0.85 * abs(f - F(55.4)) / 4)  # time-lapse dip
     for jc in (F(55.4) + 59, F(55.4) + 123):  # time-lapse jump flashes
         if jc - 1 <= f <= jc + 1: a = a * 0.7 + 255 * 0.3
-    if f >= F(131.2): k *= 1 - ease((f - F(131.2)) / 9)
+    if f >= F(132.6): k *= 1 - ease((f - F(132.6)) / 11)
     return np.clip(a * k, 0, 255).astype(np.uint8)
 
 
+LAST = max(v["f1"] for v in SHOTS.values())
+TOTAL_FRAMES = F(133.0)
+
+
 def process(f, comp_root, final_dir):
-    sid, s = shot_of(f)
-    src = f"{comp_root}/{sid}/{f:05d}.png" if sid else None
+    sid, s = shot_of(min(f, LAST))
+    src = f"{comp_root}/{sid}/{min(f, LAST):05d}.png" if sid else None
     if not src or not os.path.exists(src):
         return False
     arr = np.asarray(Image.open(src).convert("RGB"))
     if sid == "SH19": arr = pov_confusion(arr, f)
+    if f > LAST: sid = "END"
     arr = fades(arr, f)
     img = Image.fromarray(arr).convert("RGBA")
     if s["mode"] == "thermal": img = draw_thermal_ui(img, f, sid)

@@ -1,0 +1,23 @@
+# id | pause_after_seconds | text
+L01|0.30|Imagine you're stocking a giant industrial freezer... when the door slams shut behind you.
+L02|0.25|It's minus twenty degrees Celsius, and fans keep blasting frozen air across your body.
+L03|0.40|You push the door. It won't budge.
+L04|0.35|Within seconds, you feel cold. But that's just nerves in your skin sounding the alarm. Your core is still a normal thirty-seven degrees.
+L05|0.25|To protect it, your body squeezes the blood vessels in your skin, pulling warm blood away from your hands.
+L06|0.25|Then the shivering starts: rapid muscle twitches that burn energy to make heat.
+L07|0.35|But heat is escaping everywhere: into the air, out with every breath, and into anything you touch.
+L08|0.35|Your fingers go numb and clumsy. And the thick metal walls block your signal.
+L09|0.20|Then you remember: most freezers have an emergency release inside the door.
+L10|0.35|But this one is jammed with ice.
+L11|0.45|You hurry to break it free... and the frosted floor takes your legs out.
+L12|0.25|Hours can pass. Your core slowly cools, and below thirty-five degrees, you have hypothermia.
+L13|0.30|In this mild stage, you shiver violently. Your hands fumble, your speech slurs, and your judgment starts to slip.
+L14|0.35|Your best move: get off the metal floor, which pulls heat out of you. Sit on cardboard, tuck your hands into your armpits, and curl up.
+L15|0.25|Nearing thirty-two degrees, something frightening can happen: the shivering stops. Not because you're warm, but because your body is running out of ways to fight.
+L16|0.35|Confusion and drowsiness creep in. You might not even realize you're in danger.
+L17|0.55|Below about twenty-eight, people usually lose consciousness, and the heart's rhythm can turn dangerously unstable.
+L18|0.45|So... could you survive?
+L19|0.30|In cold air, serious hypothermia usually takes hours, not minutes. But there's no fixed countdown.
+L20|0.35|It depends on the temperature, moving air, your clothing, staying dry, your body and health... and how fast you're found.
+L21|0.30|Feeling cold is your body's alarm. Hypothermia is when that alarm goes quiet.
+L22|0.80|Doctors have even revived people from astonishingly low temperatures. As they say: nobody's dead until they're warm and dead.

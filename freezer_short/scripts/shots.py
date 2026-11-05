@@ -672,10 +672,11 @@ def build(ids=None):
         fr_ = f0 + 10
         ik_block(rig, "r", f0, f1)
         cpt = Vector((-2.31, -2.12, 1.08))
-        ik_key(rig, "r", f0, 0.0, tuple(cpt + Vector((0.25, 0, -0.1)))); ik_key(rig, "r", fr_, 1.0, tuple(cpt)); ik_key(rig, "r", f1, 1.0, tuple(cpt))
-        A.hand_pose(a(), "r", [(f0, "grip", 1.0), (fr_, "grip", 0.7), (f1, "grip", 0.7)])
-        hs = bpy.data.objects["HeatSpot_0"]; hs.location = cpt; hs.scale = (0.07, 0.07, 0.07)
-        ramp("heat0", fr_, 0.0, f1, 0.55)
+        ik_key(rig, "r", f0, 0.0, tuple(cpt + Vector((0.25, 0, -0.1)))); ik_key(rig, "r", fr_, 1.0, tuple(cpt))
+        ik_key(rig, "r", fr_ + 12, 1.0, tuple(cpt)); ik_key(rig, "r", fr_ + 22, 0.0, tuple(cpt + Vector((0.3, 0.05, -0.1))))
+        A.hand_pose(a(), "r", [(f0, "grip", 1.0), (fr_, "grip", 0.7), (fr_ + 12, "grip", 0.7), (fr_ + 22, "grip", 1.0), (f1, "grip", 1.0)])
+        hs = bpy.data.objects["HeatSpot_0"]; hs.location = cpt; hs.scale = (0.11, 0.11, 0.11)
+        keyprop("heat0", fr_, 0.0, "BEZIER"); keyprop("heat0", fr_ + 10, 0.32, "BEZIER"); keyprop("heat0", f1, 0.05, "CONSTANT")
         cp, hp = orbit(rig, fr_, "spine_03", 1.6, az=-125, el=10)
         cam = camera("SH10c", f0, f1, cp, [(f0, cpt.lerp(hp, 0.3), 30), (f1, cpt.lerp(hp, 0.15), 38)], shake=0.1)
         shot("SH10c", f0, f1, cam, mode="thermal", note="thermal hand on metal")
@@ -896,7 +897,7 @@ def build(ids=None):
 
     # ---------------------------------------------------------- SH18 nearing 32: shivering stops
     f0, f1 = F(77.4) + 1, F(84.0)
-    stop = F(81.55)
+    stop = F(81.95)
     if want("SH18"):
         begin(f0, f1)
         cold_state(f0, 4)
@@ -906,13 +907,13 @@ def build(ids=None):
         A.layer(a(), "neck_01", f0, f1, [(f0, (-14, 0, 0), 1), (f1, (-10, 0, 0), 1)])
         A.layer(a(), "head", f0, f1, [(f0, (-24, 0, 0), 1), (stop, (-24, 0, 0), 1), (f1, (-8, 0, 6), 1)])
         A.hand_pose(a(), "l", [(f0, "tucked", 1.0), (f1, "tucked", 1.0)]); A.hand_pose(a(), "r", [(f0, "tucked", 1.0), (f1, "tucked", 1.0)])
-        A.shiver(a(), f0, f1, [(f0, 3.8), (stop - 4, 4.2), (stop + 5, 0.15), (f1, 0.05)], seed=27)
+        A.shiver(a(), f0, f1, [(f0, 3.8), (F(80.8), 4.2), (F(81.6), 1.5), (stop + 4, 0.12), (f1, 0.05)], seed=27)
         exh = A.breathe(a(), f0, f1, [(f0, 0.9), (stop, 1.0), (stop + 20, 2.0), (f1, 2.4)], depth_deg=2.0); puffs(rig, exh, 0.8, dur=50)
         leo_face(f0, f1, {"browInnerUp": 0.6, "eyeSquintLeft": 0.5, "eyeSquintRight": 0.5},
                  keys=[(stop, {"browInnerUp": 0.6}), (stop + 15, {"browInnerUp": 0.1, "eyeSquintLeft": 0.0, "eyeSquintRight": 0.0, "eyeBlinkLeft": 0.35, "eyeBlinkRight": 0.4,
                                                                   "mouthPressLeft": 0.0, "mouthPressRight": 0.0, "jawOpen": 0.06}),
                        (f1, {"eyeBlinkLeft": 0.5, "eyeBlinkRight": 0.55, "jawOpen": 0.08})],
-                 blink_s=2.5, chatter_amp=[(f0, 1.0), (stop - 2, 1.0), (stop + 3, 0.0), (f1, 0.0)])
+                 blink_s=2.5, chatter_amp=[(f0, 1.0), (F(80.8), 1.0), (F(81.6), 0.35), (stop + 2, 0.0), (f1, 0.0)])
         cp, hp = orbit(rig, stop, "head", 0.95, az=8, el=-14, where="mid")
         cam = camera("SH18", f0, f1, cp, [(f0, hp, 40), (stop, hp, 46), (f1, hp + Vector((0, 0, -0.02)), 62)], shake=0.3, shake_freq=0.7, fstop=2.4)
         shot("SH18", f0, f1, cam, dynamic=PUFFS, note="shivering stops")
@@ -1030,7 +1031,7 @@ def build(ids=None):
     f0, f1 = F(120.6) + 1, F(124.6)
     if want("SH25a"):
         begin(f0, f1)
-        cold_state(f0, 3); ramp("thermal_temp", f0, 0.74, f1, 1.0); ramp("thermal_hands", f0, 0.2, f1, 0.85)
+        cold_state(f0, 3); ramp("thermal_temp", f0, 0.74, f1, 0.87); ramp("thermal_hands", f0, 0.18, f1, 0.26)
         place(rig, "22_03", 300, 1000, f0, f0, (out_seat.x, out_seat.y), face_deg=0, speed=0.6)
         mocap(rig, "80_41", 300, 900, f0, face_deg=0, speed=0.6, bones=ARMS, root_motion=False)
         A.shiver(a(), f0, f1, [(f0, 2.0), (f1, 1.2)], seed=32)

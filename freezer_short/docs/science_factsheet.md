@@ -1,4 +1,8 @@
-# Science fact sheet — "Could you survive trapped in a giant industrial freezer?"
+# Science fact sheet
+
+> Updated after an adversarial multi-agent fact-check. See `factcheck_report.md`; the wording below follows the original script, and the corrected lines are in `narration.txt`.
+
+ — "Could you survive trapped in a giant industrial freezer?"
 
 Every claim in the narration, what it is based on, and how it was kept careful.
 
