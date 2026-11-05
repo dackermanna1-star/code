@@ -39,8 +39,10 @@ var VC_VERT = [
   "  else if (aFx < 0.0) vCol *= mix(1.0, 0.12, step(fract(uT * uRate.z * 0.02 + ph * 3.7), -aFx));",
   "#endif",
   "  vec4 mv = modelViewMatrix * vec4(p, 1.0); vDist = -mv.z;",
-  "  vec4 clip = projectionMatrix * mv; vec3 ndc = clip.xyz / clip.w;",
-  "  ndc.xy = floor(ndc.xy * uGrid + 0.5) / uGrid; clip.xyz = ndc * clip.w; gl_Position = clip;",
+  "  vec4 clip = projectionMatrix * mv;",
+  "  if (abs(clip.w) < 0.002) clip.w = 0.002;",   // a vertex exactly in the eye's plane makes the rasteriser drop its triangle
+  "  if (clip.w > 0.05) { vec2 nd = clip.xy / clip.w; nd = floor(nd * uGrid + 0.5) / uGrid; clip.xy = nd * clip.w; }",   // snap (only in front of the eye: no NaN at w = 0)
+  "  gl_Position = clip;",
   "#ifdef MAP",
   "  vUvA = uv * clip.w; vWA = clip.w;",
   "#endif",
@@ -466,6 +468,24 @@ function zone(o) {
     audioOverride: soundPreset(o.sound || "hum", o.P, o.mood), n2pack: "a"
   };
 }
+// water without textures: a flat sheet plus drifting additive glints (no affine
+// texture smear on the big near triangles, and much cheaper to fill)
+function waterSheet(o) {
+  var b = new MB({ amb: 1 });
+  b.geo(ugeo("planeN", o.seg || 8, o.seg || 8), o.x || 0, o.y || 0, o.z || 0, o.w, o.d, 1, o.col, { rx: -Math.PI / 2, glow: true });
+  var base = b.build(o.opacity != null ? { transparent: true, opacity: o.opacity, order: o.order, nochunk: true } : { nochunk: true });
+  var hl = new MB({ amb: 1 }), fdx = o.flow ? o.flow[0] : 0, fdz = o.flow ? o.flow[1] : 0, wrap = o.wrap || 0;
+  var ang = o.flow ? Math.atan2(fdx, fdz) : (o.angle || 0);
+  for (var i = 0; i < (o.n || 300); i++) {
+    var x = (o.x || 0) + rrange(-o.w / 2, o.w / 2), z = (o.z || 0) + rrange(-o.d / 2, o.d / 2);
+    if (o.keep && !o.keep(x, z)) continue;
+    if (wrap) { x -= fdx * wrap / 2; z -= fdz * wrap / 2; }
+    var len = rrange(o.len ? o.len[0] : 1, o.len ? o.len[1] : 4), c = o.hi[(rng() * o.hi.length) | 0];
+    hl.quadXY(x, (o.y || 0) + 0.03, z, rrange(0.06, o.thick || 0.18), len, c, { rx: -Math.PI / 2, ry: ang + Math.PI / 2 + (o.flow ? Math.PI / 2 : 0), glow: true, fl: wrap ? 1 : 0, tw: o.tw != null ? o.tw : 0.7 });
+  }
+  var hm = hl.build(wrap ? { add: true, flow: [fdx, 0, fdz, wrap], flowSpeed: o.speed || 1, twSpeed: o.twSpeed || 2 } : { add: true, twSpeed: o.twSpeed || 2 });
+  return { base: base, glints: hm };
+}
 function tint(hex, dh, ds, dl) { return new THREE.Color(hex).offsetHSL(rrange(-(dh || 0), dh || 0), rrange(-(ds || 0), ds || 0), rrange(-(dl || 0), dl || 0)); }
 function mix(a, b, t) { return new THREE.Color(a).lerp(new THREE.Color(b), t); }
 function onward() { try { return pickR(ALL_NAMES); } catch (e) { return null; } }
@@ -639,8 +659,8 @@ reg("stair_nave_into_cloud", "the nave of stairs", 1, ["cathedral", "cloud", "st
   sm.build();
   // light falling through the lancets: long additive shafts
   var lb = new MB({ amb: 1 });
-  for (var ls = 0; ls < 14; ls++) {
-    var lzz = -55 + ls * 11 + rrange(-2, 2), lsx = rng() < 0.5 ? -1 : 1;
+  for (var ls = 0; ls < 9; ls++) {
+    var lzz = -50 + ls * 16 + rrange(-2, 2), lsx = rng() < 0.5 ? -1 : 1;
     var top = [lsx * 25, 20, lzz], bot = [lsx * rrange(4, 10), 0, lzz + rrange(-3, 6)];
     lb.seg(top[0], top[1], top[2], bot[0], bot[1], bot[2], rrange(1.6, 2.8), 6, warm ? 0x2a2218 : 0x1c2228, { glow: true, ao: [0, 20, 0.1, 1] });
   }
@@ -648,7 +668,7 @@ reg("stair_nave_into_cloud", "the nave of stairs", 1, ["cathedral", "cloud", "st
   // the cloud ceiling, drifting slowly sideways
   var cl = new MB({ light: [0.2, 1, 0.3], amb: 0.62 });
   var cloudCol = warm ? 0xf2ebf0 : 0xeef2f6;
-  for (var c = 0; c < 64; c++) {
+  for (var c = 0; c < 44; c++) {
     var ccx = -150, ccy = rrange(38, 58), ccz = rrange(-80, 120), ph = rng(), big = rrange(7, 17);
     for (var pf = 0; pf < 3; pf++) cl.geo(ugeo("ico"), ccx + rrange(-big, big), ccy + rrange(-1.5, 2.5), ccz + rrange(-big * 0.6, big * 0.6), big * rrange(0.7, 1.2), big * rrange(0.3, 0.45), big * rrange(0.6, 0.9), cloudCol, { fl: 1, ph: ph, under: 0.78, ry: rng() * 6 });
   }
@@ -696,10 +716,7 @@ reg("dawn_clock_sea", "a sea of clocks at dawn", 1, ["sea", "clocks", "dawn"], f
   var SEA = -0.45;
   g.add(function (x, z) { return (x * x + z * z < 150 * 150) ? SEA : null; });
   // the sea: shallow, gently scrolling, glittering on the path to the sun
-  var seaTex = tex(function (x, s) { x.fillStyle = "#59587e"; x.fillRect(0, 0, s, s); for (var i = 0; i < 70; i++) { var yy = (rng() * s) | 0, xx = (rng() * s) | 0, w = 6 + rng() * 26; x.fillStyle = rng() < 0.5 ? "rgba(255,214,180,0.35)" : "rgba(40,40,80,0.4)"; x.fillRect(xx, yy, w, 1); } });
-  var sea = new MB({ amb: 1 });
-  sea.geo(ugeo("planeN", 12, 12), 0, 0, 0, 340, 340, 1, 0xffffff, { rx: -Math.PI / 2, uvs: [26, 26], glow: true });
-  sea.build({ map: seaTex, scroll: new THREE.Vector2(0.004, 0.012) });
+  waterSheet({ w: 340, d: 340, col: 0x55547c, hi: [0x4a3a3a, 0x3a3038, 0x2a2834], n: 520, len: [2, 7], angle: Math.PI / 2, tw: 0.8, twSpeed: 1.2 });
   var gl = new PC();
   for (var i = 0; i < 520; i++) { var gz = rrange(10, 240), spread = 2 + gz * 0.16; gl.add(rrange(-spread, spread), 0.05, gz, i % 3 ? 0xffd6a0 : 0xfff0d8, rrange(0.08, 0.2), { tw: 0.95 }); }
   gl.build({ twSpeed: 3.2, bright: 1.1 });
@@ -897,10 +914,7 @@ reg("drowned_city_night_rail", "the last train over the drowned city", 0, ["trai
   for (var f = 0; f < 34; f++) { var fs = f % 2 ? 1 : -1, fx = fs * rrange(90, 200), fh = rrange(20, 70), fw = rrange(10, 24), ph4 = rng(); far.box(fx, fh / 2 - 2, -LEN / 2, fw, fh + 4, fw, 0x1c2234, { fl: 1, ph: ph4, faces: "px nx py pz nz" }); for (var fw2 = 0; fw2 < 6; fw2++) far.box(fx - fs * (fw / 2 + 0.05), rrange(2, fh - 2), -LEN / 2 + rrange(-fw / 2, fw / 2), 0.05, 1.2, 1.0, pick(lit), { fl: 1, ph: ph4, glow: true, faces: fs > 0 ? "nx" : "px" }); }
   far.build({ flow: [0, 0, 1, LEN], flowSpeed: 4 });
   // the black water, holding everything twice
-  var wt = tex(function (x, s) { x.fillStyle = "#ffffff"; x.fillRect(0, 0, s, s); for (var i = 0; i < 90; i++) { x.fillStyle = "rgba(0,0,10," + (0.15 + rng() * 0.3) + ")"; x.fillRect((rng() * s) | 0, (rng() * s) | 0, 10 + rng() * 40, 1); } });
-  var water = new MB({ amb: 1 });
-  water.geo(ugeo("planeN", 10, 20), 0, 0, 0, 500, 600, 1, 0x0a1426, { rx: -Math.PI / 2, glow: true, uvs: [30, 36] });
-  water.build({ map: wt, transparent: true, opacity: 0.78, scroll: new THREE.Vector2(0, -0.09), order: 2 });
+  waterSheet({ w: 300, d: LEN, col: 0x0a1426, opacity: 0.78, order: 2, hi: [0x1a2230, 0x22283a, 0x2a2a30], n: 420, len: [2, 9], flow: [0, 1], wrap: LEN, speed: 14, thick: 0.12 });
   // things left behind
   var tk = new MB({ amb: 0.8 });
   var tz = z0 + CL + GAP + 4.3;
@@ -919,7 +933,7 @@ reg("drowned_city_night_rail", "the last train over the drowned city", 0, ["trai
   var beat = 0, cl = { x: 0, z: 0, r: 999, a: 0.42, b: 0.44, fn: function () { beat++; var c2 = audio.ctx; if (!c2) return; audio.noise(0.06, "lowpass", 380, 160, (beat % 4 < 2) ? 0.07 : 0.035, rr(-0.2, 0.2)); } };
   soundSpots([cl, { x: 0, z: 0, r: 999, a: 6, b: 14, fn: function () { audio.noise(1.4, "bandpass", 700, 300, 0.03, rr(-0.6, 0.6)); } }]);
   // the whole train sways a little
-  anim(function (dt, t) { if (camera) camera.rotation.z = Math.sin(t * 1.7) * 0.006 + Math.sin(t * 5.3) * 0.002; });
+  anim(function (dt, t) { if (camera && !(N2.settings && N2.settings.reducedMotion)) camera.rotation.z = Math.sin(t * 1.7) * 0.006 + Math.sin(t * 5.3) * 0.002; });
   return zone({ P: P, mood: mood, spawn: { x: 0, z: z0 + CL + GAP + 3, y: FLOOR, yaw: 0 }, ground: g.fn(), fog: [FOG, 14, 150], sky: SKY[1], killY: 3, sound: "machine" });
 });
 
@@ -944,7 +958,7 @@ reg("sky_lake_rain_forest", "where the rain goes up", 1, ["forest", "rain", "lak
   var mb = new MB({ light: [0.2, 1.0, 0.1], amb: 0.55 });
   mb.field(0, 0, 190, 190, 30, 30, hgt, function (x, y, z) { var n = Math.sin(x * 0.31) * Math.cos(z * 0.27); return mix(0x1a3424, 0x2e4a30, 0.5 + n * 0.5); });
   // ferns and stones along the floor
-  for (var fn2 = 0; fn2 < 160; fn2++) { var fx = rrange(-80, 80), fz = rrange(-80, 80); if (Math.abs(fx - TX) < 9 && Math.abs(fz - TZ) < 9) continue; var fy = hgt(fx, fz); if (rng() < 0.7) { for (var fr = 0; fr < 3; fr++) mb.seg(fx, fy, fz, fx + rrange(-1.2, 1.2), fy + rrange(0.4, 0.9), fz + rrange(-1.2, 1.2), 0.25, 0.04, 0x3a6a3e, {}); } else mb.geo(ugeo("ico"), fx, fy, fz, rrange(0.4, 1.1), rrange(0.3, 0.6), rrange(0.4, 1.0), 0x4a5452, { ry: rng() * 6 }); }
+  for (var fn2 = 0; fn2 < 90; fn2++) { var fx = rrange(-80, 80), fz = rrange(-80, 80); if (Math.abs(fx - TX) < 9 && Math.abs(fz - TZ) < 9) continue; var fy = hgt(fx, fz); if (rng() < 0.7) { for (var fr = 0; fr < 3; fr++) { var ex2 = fx + rrange(-1.2, 1.2), ez2 = fz + rrange(-1.2, 1.2); mb.tri(new THREE.Vector3(fx - 0.12, fy, fz), new THREE.Vector3(fx + 0.12, fy, fz), new THREE.Vector3(ex2, fy + rrange(0.4, 0.9), ez2), 0x3a6a3e, { glow: true }); } } else mb.geo(ugeo("ico"), fx, fy, fz, rrange(0.4, 1.1), rrange(0.3, 0.6), rrange(0.4, 1.0), 0x4a5452, { ry: rng() * 6 }); }
   // puddles: the sky shows in them, and the rain leaves from them
   var pud = new MB({ amb: 1 }), puddles = [];
   for (var p = 0; p < 26; p++) { var px = rrange(-70, 70), pz = rrange(-70, 70), pr = rrange(1.2, 3.6); if (Math.abs(px - TX) < 12 && Math.abs(pz - TZ) < 12) continue; pud.disc(px, hgt(px, pz) + 0.06, pz, pr, mix(SKY[3], 0xffffff, 0.15), 10, { glow: true }); puddles.push([px, pz, pr]); }
@@ -968,10 +982,12 @@ reg("sky_lake_rain_forest", "where the rain goes up", 1, ["forest", "rain", "lak
   for (var it = 0; it < 46; it++) { var ix2 = rrange(-110, 110), iz = rrange(-110, 110); firTree(inv, ix2, LAKE_Y + 0.5, iz, rrange(8, 20), -1, { sway: 0.15, ph: rng() }); }
   mb.build(); trees.build(); inv.build({ bobSpeed: 0.2 });
   // the lake overhead: seen from beneath, rippling and lit
-  var lt = tex(function (x, s) { x.fillStyle = "#ffffff"; x.fillRect(0, 0, s, s); for (var i = 0; i < 120; i++) { x.fillStyle = "rgba(20,60,70," + (0.12 + rng() * 0.25) + ")"; x.beginPath(); x.arc(rng() * s, rng() * s, 2 + rng() * 14, 0, 6.3); x.fill(); } });
-  var lake = new MB({ amb: 1 });
-  lake.geo(ugeo("planeN", 12, 12), 0, LAKE_Y, 0, 420, 420, 1, mix(SKY[3], 0xffffff, 0.2), { rx: Math.PI / 2, glow: true, uvs: [18, 18] });
-  lake.build({ map: lt, scroll: new THREE.Vector2(0.01, 0.006), side: THREE.DoubleSide });
+  var lk = new MB({ amb: 1 });
+  lk.geo(ugeo("planeN", 6, 6), 0, LAKE_Y, 0, 420, 420, 1, mix(SKY[3], 0xffffff, 0.12), { rx: Math.PI / 2, glow: true });
+  lk.build({ nochunk: true });
+  var rip = new MB({ amb: 1 });
+  for (var rp = 0; rp < 340; rp++) { var rx0 = rrange(-150, 150), rz0 = rrange(-150, 150); rip.quadXY(rx0, LAKE_Y - 0.05, rz0, rrange(0.1, 0.3), rrange(2, 7), mix(SKY[2], 0x000000, 0.3), { rx: Math.PI / 2, ry: rrange(-0.3, 0.3), glow: true, tw: 0.9, ph: rng() }); }
+  rip.build({ add: true, twSpeed: 0.8, side: THREE.DoubleSide });
   // the rain, rising
   var rain = new MB({ amb: 1 });
   for (var r = 0; r < 700; r++) { var rx = rrange(-50, 50), rz = rrange(-50, 50); rain.box(rx, hgt(rx, rz), rz, 0.05, rrange(0.9, 1.8), 0.05, mix(0x6aa0a8, 0xc8f0f0, rng()), { fl: 1, glow: true, faces: "px pz" }); }
@@ -1149,7 +1165,7 @@ reg("endless_spiral_library", "the library that goes down", 0, ["library", "spir
   var v = rng();
   var FOG = v < 0.5 ? 0x1c120c : 0x10121a, WALL = v < 0.5 ? 0xd8b898 : 0xb8c0d8, PLANK = v < 0.5 ? 0x6a4a34 : 0x4a4a5a, PLANK2 = v < 0.5 ? 0x5a3e2c : 0x3e3e4c, RAIL = v < 0.5 ? 0x3a261a : 0x2a2a34;
   var LIGHT = v < 0.5 ? 0x3a2812 : 0x1e2838;
-  var PITCH = 9, R0 = 10.5, R1 = 16.6, RW = 17.2, K0 = -3, K1 = 3, BRIDGE_A = Math.PI / 2;
+  var PITCH = 9, R0 = 10.5, R1 = 16.6, RW = 17.2, K0 = -4, K1 = 4, BRIDGE_A = Math.PI / 2;
   skyDome({ c: [FOG, FOG, FOG, FOG] });
   var g = new GS();
   g.helix(0, 0, R0 - 0.1, R1 + 0.3, 0, PITCH, 0, K0 - 1, K1 + 1);
@@ -1254,7 +1270,7 @@ reg("endless_spiral_library", "the library that goes down", 0, ["library", "spir
     { x: 0, z: 0, r: 999, a: 14, b: 26, fn: function () { audio.gong(rrange(55, 73), rr(-0.4, 0.4)); } }
   ]);
   var sa = 0.6, sr = 13.6;
-  return zone({ P: P, mood: mood, spawn: { x: Math.cos(sa) * sr, z: Math.sin(sa) * sr, y: PITCH * sa / TAU, yaw: yawTo(Math.sin(sa), -Math.cos(sa)) }, ground: g.fn(), fog: [FOG, 6, 52], sky: FOG, killY: -34, sound: "choir" });
+  return zone({ P: P, mood: mood, spawn: { x: Math.cos(sa) * sr, z: Math.sin(sa) * sr, y: PITCH * sa / TAU, yaw: yawTo(Math.sin(sa), -Math.cos(sa)) }, ground: g.fn(), fog: [FOG, 6, 48], sky: FOG, killY: -40, sound: "choir" });
 });
 
 /* =============================================================================
@@ -1324,11 +1340,8 @@ reg("unpeopled_lantern_river", "the festival nobody came to", 0, ["river", "lant
   mb.box(RW + 22, BANK - 0.2, LAKE + 40, 44, 0.4, 80, 0x4a4048, { faces: "py" }); g.rect(RW + 22, LAKE + 40, 22, 40, BANK);
   mb.box(RW + 0.3, BANK / 2 - 0.4, LAKE + 40, 0.6, BANK + 0.8, 80, 0x3a3038, { faces: "nx py" });
   // water
-  var wt = tex(function (x, s) { x.fillStyle = "#ffffff"; x.fillRect(0, 0, s, s); for (var i = 0; i < 80; i++) { x.fillStyle = "rgba(10,0,30," + (0.1 + rng() * 0.25) + ")"; x.fillRect((rng() * s) | 0, (rng() * s) | 0, 8 + rng() * 30, 1); } });
-  var water = new MB({ amb: 1 });
-  water.geo(ugeo("planeN", 4, 24), 0, 0, 60, 2 * RW, 400, 1, 0x2a2440, { rx: -Math.PI / 2, glow: true, uvs: [3, 50] });
-  water.geo(ugeo("planeN", 10, 10), -60, 0, LAKE + 70, 140, 140, 1, 0x2a2440, { rx: -Math.PI / 2, glow: true, uvs: [18, 18] });
-  water.build({ map: wt, scroll: new THREE.Vector2(0, -0.02), nochunk: true });
+  waterSheet({ x: 0, z: 60, w: 2 * RW, d: 400, seg: 4, col: 0x2a2440, hi: [0x2a2030, 0x3a2a30, 0x201a2a], n: 260, len: [1, 4], flow: [0, 1], wrap: 400, speed: 1.2, thick: 0.1 });
+  waterSheet({ x: -60, z: LAKE + 70, w: 140, d: 140, col: 0x2a2440, hi: [0x2a2030, 0x3a2a30], n: 160, len: [1, 4], angle: Math.PI / 2, thick: 0.1 });
   // the stone bridge: an arch you can walk over
   var BZ = 30, SPAN = RW + 3, RISE = 3.2;
   function archY(x) { var t = (x + SPAN) / (2 * SPAN); return BANK + RISE * Math.sin(Math.PI * clamp(t, 0, 1)); }
@@ -1344,7 +1357,7 @@ reg("unpeopled_lantern_river", "the festival nobody came to", 0, ["river", "lant
     for (var lz = Z0 + 4; lz < Z1; lz += 12) {
       var lx = s3 * (RW + 2.2);
       mb.geo(ugeo("cyl", 1, 5), lx, BANK + 2.6, lz, 0.1, 5.2, 0.1, 0x2a2026, {});
-      if (prev) for (var li = 1; li < 6; li++) { var t = li / 6, gx = lx, gz = prev + (lz - prev) * t, gy = BANK + 5 - Math.sin(Math.PI * t) * 1.4, lc = LCOL[(li + lz) % 4]; gl.geo(ugeo("cyl", 0.8, 6), gx, gy, gz, 0.22, 0.42, 0.22, lc, { glow: true, sway: 0.04, ph: lz * 0.01 }); if (li % 2) glP.add(gx, gy, gz, lc, 0.9, {}); }
+      if (prev) for (var li = 1; li < 6; li++) { var t = li / 6, gx = lx, gz = prev + (lz - prev) * t, gy = BANK + 5 - Math.sin(Math.PI * t) * 1.4, lc = LCOL[(li + lz) % 4]; gl.geo(ugeo("cyl", 0.8, 6), gx, gy, gz, 0.22, 0.42, 0.22, lc, { glow: true, sway: 0.04, ph: lz * 0.01 }); if (li % 3 === 1) glP.add(gx, gy, gz, lc, 0.5, {}); }
       prev = lz;
     }
   }
@@ -1357,37 +1370,40 @@ reg("unpeopled_lantern_river", "the festival nobody came to", 0, ["river", "lant
     mb.box(stallX + 0.2, BANK + 2.9, sz, 2.2, 0.08, 3.8, awn, { rz: -0.25 });
     pushSolidBox(stallX, sz, 0.8, 1.7, 0, BANK, BANK + 1.0);
     for (var gd = 0; gd < 5; gd++) gl.box(stallX + rrange(-0.5, 0.5), BANK + 1.08, sz + rrange(-1.4, 1.4), 0.2, 0.16, 0.2, pick([0xffd8a0, 0xff9aa8, 0xa8e0ff, 0xfff0c0]), { glow: true });
-    gl.geo(ugeo("oct"), stallX + 0.5, BANK + 2.4, sz, 0.2, 0.3, 0.2, 0xffd890, { glow: true }); glP.add(stallX + 0.5, BANK + 2.4, sz, 0xffc070, 1.6, {});
+    gl.geo(ugeo("oct"), stallX + 0.5, BANK + 2.4, sz, 0.2, 0.3, 0.2, 0xffd890, { glow: true }); glP.add(stallX + 0.5, BANK + 2.4, sz, 0xffc070, 0.8, {});
   }
   // the lantern tree on the island; steps circle its trunk to a platform
   var TRK = 0x3a2a26, TH = 16;
   mb.geo(ugeo("cyl", 0.6, 7), IX, 1.1 + TH / 2, IZ, 1.0, TH, 1.0, TRK, {});
-  for (var tb = 0; tb < 10; tb++) { var ta = tb / 10 * TAU + rng(), tl = rrange(4, 8), ty = 1.1 + rrange(7, TH), ex = IX + Math.cos(ta) * tl, ez = IZ + Math.sin(ta) * tl, ey = ty + rrange(1, 4); mb.seg(IX, ty, IZ, ex, ey, ez, 0.3, 0.3, TRK); for (var hl = 0; hl < 4; hl++) { var hx = IX + (ex - IX) * (0.4 + hl * 0.2), hz = IZ + (ez - IZ) * (0.4 + hl * 0.2), hy = ty + (ey - ty) * (0.4 + hl * 0.2) - 0.9; gl.geo(ugeo("cyl", 0.8, 6), hx, hy, hz, 0.25, 0.45, 0.25, pick(LCOL), { glow: true, sway: 0.05 }); glP.add(hx, hy, hz, 0xffb060, 1.0, {}); } }
+  for (var tb = 0; tb < 10; tb++) { var ta = tb / 10 * TAU + rng(), tl = rrange(4, 8), ty = 1.1 + rrange(7, TH), ex = IX + Math.cos(ta) * tl, ez = IZ + Math.sin(ta) * tl, ey = ty + rrange(1, 4); mb.seg(IX, ty, IZ, ex, ey, ez, 0.3, 0.3, TRK); for (var hl = 0; hl < 4; hl++) { var hx = IX + (ex - IX) * (0.4 + hl * 0.2), hz = IZ + (ez - IZ) * (0.4 + hl * 0.2), hy = ty + (ey - ty) * (0.4 + hl * 0.2) - 0.9; gl.geo(ugeo("cyl", 0.8, 6), hx, hy, hz, 0.25, 0.45, 0.25, pick(LCOL), { glow: true, sway: 0.05 }); if (hl % 2) glP.add(hx, hy, hz, 0xffb060, 0.6, {}); } }
   var PLAT = 5.5, nst = 14, TURN = 0.8, PR7 = 2.6;
   for (var tsx = 0; tsx < nst; tsx++) { var sa2 = (tsx + 0.5) / nst * TAU * TURN, sr2 = 3.45; mb.box(IX + Math.cos(sa2) * sr2, 1.1 + (tsx + 1) * (PLAT - 1.1) / nst - 0.1, IZ + Math.sin(sa2) * sr2, 1.6, 0.2, 1.2, 0x6a5444, { ry: -sa2 + Math.PI / 2 }); }
   var hel7 = new GS(); hel7.helix(IX, IZ, PR7 + 0.05, 4.3, 1.1, (PLAT - 1.1) / TURN, 0, 0, 0);
   g.add(function (x, z) { var r7 = hel7.sample(x, z); return (r7.on && r7.y <= PLAT + 0.05) ? r7.y : null; });
   mb.geo(ugeo("cyl", 1, 12), IX, PLAT - 0.15, IZ, PR7, 0.3, PR7, 0x6a5444, {});
-  g.disc(IX, IZ, PR7 + 0.05, PLAT, 1.0);
-  pushSolidCyl(IX, IZ, 1.0, 0, PLAT - 0.4);
+  g.disc(IX, IZ, PR7 + 0.05, PLAT);
+  pushSolidCyl(IX, IZ, 1.0, 0, PLAT + 4);
   // willows along the east bank, their long hair hanging toward the water; benches between
   var wil = new MB({ light: [0.2, 0.8, 0.6], amb: 0.5 });
   for (var wl = 0; wl < 9; wl++) {
     var wx = RW + rrange(5, 9), wz = Z0 + 16 + wl * 15 + rrange(-3, 3), wh = rrange(5, 7);
     wil.geo(ugeo("cyl", 0.55, 6), wx, BANK + wh / 2, wz, 0.4, wh, 0.4, 0x2a2224, { rz: rrange(-0.15, 0.05) });
     pushSolidCyl(wx, wz, 0.45, BANK - 1, BANK + wh);
-    for (var wb = 0; wb < 22; wb++) { var wa = rng() * TAU, wr = rrange(0.8, 3.4), hx2 = wx + Math.cos(wa) * wr, hz2 = wz + Math.sin(wa) * wr, top = BANK + wh + rrange(-0.4, 0.8) - wr * 0.25, len = rrange(2.2, 4.2); wil.box(hx2, top - len / 2, hz2, 0.12, len, 0.12, mix(0x2a4a3a, 0x4a6a4a, rng()), { sway: 0.12, ph: wz * 0.02 + wb * 0.01, faces: "px nx pz nz" }); }
+    for (var wb = 0; wb < 14; wb++) { var wa = rng() * TAU, wr = rrange(0.8, 3.4), hx2 = wx + Math.cos(wa) * wr, hz2 = wz + Math.sin(wa) * wr, top = BANK + wh + rrange(-0.4, 0.8) - wr * 0.25, len = rrange(2.2, 4.2); wil.box(hx2, top - len / 2, hz2, 0.12, len, 0.12, mix(0x2a4a3a, 0x4a6a4a, rng()), { sway: 0.12, ph: wz * 0.02 + wb * 0.01, faces: "px nx pz nz" }); }
     wil.geo(ugeo("ico"), wx, BANK + wh + 0.4, wz, 3.2, 1.2, 3.2, 0x2e4a3a, { ry: rng() * 6 });
     if (wl % 2) { var bz2 = wz + 7; wil.box(RW + 4, BANK + 0.45, bz2, 0.5, 0.08, 1.8, 0x5a4030, {}); wil.box(RW + 4.22, BANK + 0.75, bz2, 0.06, 0.5, 1.8, 0x5a4030, {}); for (var bl = -1; bl <= 1; bl += 2) wil.box(RW + 4, BANK + 0.22, bz2 + bl * 0.75, 0.45, 0.45, 0.06, 0x3a2a22, {}); }
   }
+  // paper lamps on posts along the east bank, and low hills far off on both sides
+  for (var lpz = Z0 + 8; lpz < Z1 + 60; lpz += 14) { var lpx = RW + 13; wil.box(lpx, BANK + 1.1, lpz, 0.1, 2.2, 0.1, 0x2a2026, { faces: "px nx pz nz" }); gl.box(lpx, BANK + 2.35, lpz, 0.42, 0.5, 0.42, pick(LCOL), { glow: true, faces: "px nx py pz nz" }); glP.add(lpx, BANK + 2.35, lpz, 0xffc070, 0.7, {}); }
+  for (var hl2 = 0; hl2 < 16; hl2++) { var hs2 = hl2 % 2 ? 1 : -1, hx3 = hs2 * rrange(70, 130), hz3 = rrange(-140, 260), hw3 = rrange(30, 60); wil.geo(ugeo("ico"), hx3, -2, hz3, hw3, rrange(8, 18), hw3 * 0.8, mix(0x1e1626, 0x2a2232, rng()), { ry: rng() * 6 }); }
   wil.build({ bobSpeed: 0.6 });
   mb.build(); gl.build({ bobSpeed: 0.9 }); glP.build({ bright: 0.5 });
   // the lanterns on the river, drifting downstream, each with its own reflection
   var fl = new MB({ amb: 1 }), rf = new MB({ amb: 1 }), FLOW = 260;
-  for (var f = 0; f < 150; f++) {
+  for (var f = 0; f < 110; f++) {
     var fx = rrange(-RW + 1, RW - 1), ph = rng(), lc2 = pick(LCOL), sc = rrange(0.7, 1.2);
     fl.box(fx, 0.3 * sc, Z0 - 20, 0.42 * sc, 0.5 * sc, 0.42 * sc, lc2, { fl: 1, ph: ph, bob: 0.05, glow: true, faces: "px nx py pz nz" });
-    fl.box(fx, 0.06, Z0 - 20, 0.6 * sc, 0.08, 0.6 * sc, 0x3a2a22, { fl: 1, ph: ph, bob: 0.05, faces: "px nx py pz nz" });
+    fl.box(fx, 0.06, Z0 - 20, 0.6 * sc, 0.08, 0.6 * sc, 0x3a2a22, { fl: 1, ph: ph, bob: 0.05, faces: "py" });
     rf.quadXY(fx, 0.02, Z0 - 20 + 0.9, 0.35 * sc, 2.4, mix(lc2, 0x000000, 0.55), { fl: 1, ph: ph, rx: -Math.PI / 2, glow: true, tw: 0.4 });
   }
   fl.build({ flow: [0, 0, 1, FLOW], flowSpeed: 1.2, bobSpeed: 1.2 });
@@ -1405,10 +1421,6 @@ reg("unpeopled_lantern_river", "the festival nobody came to", 0, ["river", "lant
   var rising = 0, ry0 = BANK + 0.3;
   sayIx(relM, relX, relZ, 2.2, ["you write nothing on it. it rises anyway", "it goes up to join the others", "the sky takes it gently, like a letter"], { kind: "lantern", y: BANK, on: function () { rising = 1; if (relM) relM.position.y = 0; } });
   anim(function (dt) { if (rising && relM) { relM.position.y += dt * 1.6; relM.position.x += Math.sin(T() * 0.7) * dt * 0.3; if (relM.position.y > 60) { relM.position.y = 0; rising = 0; } } });
-  var bell = new MB({ amb: 0.8 }), bellZ = Z0 + 12 + 4 * 13;
-  bell.box(stallX + 0.7, BANK + 1.25, bellZ - 1.2, 0.04, 0.3, 0.04, 0x2a2a2a); bell.cone(stallX + 0.7, BANK + 1.08, bellZ - 1.2, 0.14, 0.22, 0xc8a050, 8);
-  var bellM = bell.build({ nochunk: true });
-  sayIx(bellM, stallX + 0.7, bellZ - 1.2, 2.4, ["no one comes. you ring it again, for them", "the bell sounds out over the water. nothing answers but the lanterns", "maybe they are all on the river already"], { kind: "bell", y: BANK, sound: function () { if (audio.ctx) audio.creature("bell", 0, 1.4); } });
   var mask = new MB({ amb: 0.9 }), maskZ = Z0 + 12 + 6 * 13;
   mask.sph(stallX - 0.2, BANK + 2.0, maskZ + 1.7, 0.22, 0.28, 0.08, 0xf0e8dc, {}); mask.box(stallX - 0.28, BANK + 2.05, maskZ + 1.62, 0.05, 0.02, 0.02, 0x2a2026, { glow: true }); mask.box(stallX - 0.12, BANK + 2.05, maskZ + 1.62, 0.05, 0.02, 0.02, 0x2a2026, { glow: true });
   var maskM = mask.build({ nochunk: true });
@@ -1450,10 +1462,7 @@ reg("lighthouse_of_windows", "the lighthouse of other windows", 1, ["lighthouse"
   // rocks heaped along the shore
   for (var r = 0; r < 160; r++) { var rx = rrange(-55, 55), rz = rrange(-75, 75), e = landE(rx, rz); if (e > 0.5 || e < -4) continue; land.geo(ugeo("ico"), rx, hgt(rx, rz) + rrange(-0.3, 0.4), rz, rrange(0.8, 2.6), rrange(0.6, 1.8), rrange(0.8, 2.4), mix(0x22222c, 0x4a4a54, rng()), { ry: rng() * 6, rx: rng() }); }
   // the sea, and the windows' light lying on it
-  var st = tex(function (x, s) { x.fillStyle = "#ffffff"; x.fillRect(0, 0, s, s); for (var i = 0; i < 100; i++) { x.fillStyle = "rgba(0,0,20," + (0.15 + rng() * 0.35) + ")"; x.fillRect((rng() * s) | 0, (rng() * s) | 0, 6 + rng() * 30, 1); } });
-  var sea = new MB({ amb: 1 });
-  sea.geo(ugeo("planeN", 14, 14), 0, 0, 0, 500, 500, 1, 0x0e1a2c, { rx: -Math.PI / 2, glow: true, uvs: [40, 40] });
-  sea.build({ map: st, scroll: new THREE.Vector2(0.006, 0.012), nochunk: true });
+  waterSheet({ w: 500, d: 500, seg: 10, col: 0x0e1a2c, hi: [0x16202e, 0x1a2434, 0x202a3a], n: 420, len: [2, 6], flow: [0.3, 1], wrap: 500, speed: 0.8, thick: 0.14, keep: function (x, z) { return landE(x, z) < -1; } });
   var WCOL = [0xffc878, 0xffe0a8, 0xffb070, 0xa8c8ff, 0xffd0d8, 0xc8ffd8, 0xfff0c8];
   var glint = new MB({ amb: 1 });
   for (var gl2 = 0; gl2 < 70; gl2++) { var ga = rng() * TAU, gd = rrange(26, 70), gx = TX + Math.cos(ga) * gd, gz = TZ + Math.sin(ga) * gd; if (landE(gx, gz) > -1) continue; glint.quadXY(gx, 0.04, gz, 0.3, rrange(1.5, 4), mix(pick(WCOL), 0x000000, 0.5), { rx: -Math.PI / 2, ry: ga + Math.PI / 2, glow: true, tw: 0.8 }); }
@@ -1500,7 +1509,7 @@ reg("lighthouse_of_windows", "the lighthouse of other windows", 1, ["lighthouse"
   var bm = new MB({ amb: 1 });
   bm.geo(ugeo("cyl", 0.04, 12), 0, 0, -70, 12, 140, 12, 0x000000, { rx: -Math.PI / 2, glow: true, col2: 0x4a4026 });
   bm.geo(ugeo("cyl", 0.04, 12), 0, 0, 70, 12, 140, 12, 0x000000, { rx: Math.PI / 2, glow: true, col2: 0x4a4026 });
-  bm.build({ add: true, parent: beamG, nocull: true, side: THREE.DoubleSide });
+  bm.build({ add: true, parent: beamG, nocull: true });
   beamG.rotation.x = 0.06;
   anim(function (dt, t) { beamG.rotation.y = t * 0.35; });
   // soft rails: the stair and gallery hold you without pulling you away
@@ -1561,8 +1570,8 @@ reg("inside_the_snowglobe", "inside the snow globe", 1, ["snow", "town", "glass"
   out.box(0, 120, -360, 420, 8, 6, 0x2a1e18); out.box(0, 330, -360, 420, 8, 6, 0x2a1e18); out.box(-210, 225, -360, 8, 218, 6, 0x2a1e18); out.box(210, 225, -360, 8, 218, 6, 0x2a1e18); out.box(0, 225, -360, 6, 218, 6, 0x2a1e18);
   out.box(0, 225, -366, 420, 210, 2, 0x1a2440, { glow: true });
   out.build({ nofog: false });
-  var moon = N2.glowSprite(0xe8eeff, 70); moon.position.set(-90, 260, -362); buildGroup.add(moon);
-  var lampGlow = N2.glowSprite(warmLamp, 160); lampGlow.position.set(92, 110, -88); buildGroup.add(lampGlow);
+  var moon = N2.glowSprite(0xe8eeff, 46); moon.position.set(-90, 260, -362); buildGroup.add(moon);
+  var lampGlow = N2.glowSprite(warmLamp, 100); lampGlow.position.set(92, 110, -88); buildGroup.add(lampGlow);
   var outStars = new PC(); for (var os = 0; os < 120; os++) outStars.add(rrange(-200, 200), rrange(130, 320), -364, 0xffffff, rrange(1, 2.4), { tw: 0.8 }); outStars.build({ scale: 1, nofog: true });
   // the town: little houses with warm windows, a ring road, firs
   var HOUSE = [0x6a4a4a, 0x4a5a6a, 0x7a6a5a, 0x5a4a62, 0x6a6a5a], ROOF = 0xf0f4fa;
@@ -1607,9 +1616,6 @@ reg("inside_the_snowglobe", "inside the snow globe", 1, ["snow", "town", "glass"
   var bellM = bell.build({ nochunk: true });
   sayIx(bellM, BX, BZ, 3.0, ["the bell rings. the snow listens", "far outside the glass, something enormous turns its head", "the sound stays inside. it has nowhere else to go"], { kind: "bell", y: by0 + BH, sound: function () { if (audio.ctx) { audio.gong(98, 0); audio.creature("bell", 0, 0.8); } } });
   // the glass: faint, with long curved highlights
-  var gls = new MB({ amb: 1 });
-  gls.geo(ugeo("sph", 28, 14), 0, 0, 0, R + 0.5, R + 0.5, R + 0.5, 0x1a2230, { glow: true });
-  gls.build({ add: true, side: THREE.BackSide, nochunk: true });
   var hl = new MB({ amb: 1 });
   for (var hi = 0; hi < 3; hi++) { var h0 = -0.9 + hi * 0.35; for (var hs = 0; hs < 10; hs++) { var e0 = 0.4 + hs * 0.08, e1 = e0 + 0.08; var p0 = new THREE.Vector3().setFromSphericalCoords(R - 0.3, e0, h0), p1 = new THREE.Vector3().setFromSphericalCoords(R - 0.3, e1, h0), p2 = new THREE.Vector3().setFromSphericalCoords(R - 0.3, e1, h0 + 0.05), p3 = new THREE.Vector3().setFromSphericalCoords(R - 0.3, e0, h0 + 0.05); hl.quad(p0, p1, p2, p3, 0x2a3038, { glow: true }); } }
   hl.build({ add: true, side: THREE.DoubleSide, nochunk: true });
@@ -1620,7 +1626,7 @@ reg("inside_the_snowglobe", "inside the snow globe", 1, ["snow", "town", "glass"
   // touch the glass: it shakes, and the snow swirls up
   var storm = 0, EX = 0, EZ = R - 4;
   var edge = new THREE.Object3D(); edge.position.set(EX, hgt(EX, EZ) + 1.5, EZ); buildGroup.add(edge);
-  sayIx(edge, EX, EZ, 3.0, ["you touch the glass. the whole world trembles, and the snow remembers to fall", "it is cold. on the other side, it is warm", "your breath fogs the glass from the inside"], { kind: "glass", y: hgt(EX, EZ), on: function () { storm = 6; try { shake = Math.max(shake, 1.2); } catch (e) {} if (audio.ctx) audio.creature("low", 0, 0.6); } });
+  sayIx(edge, EX, EZ, 3.0, ["you touch the glass. the whole world trembles, and the snow remembers to fall", "it is cold. on the other side, it is warm", "your breath fogs the glass from the inside"], { kind: "glass", y: hgt(EX, EZ), on: function () { storm = 6; try { if (!(N2.settings && N2.settings.reducedMotion)) shake = Math.max(shake, 1.2); } catch (e) {} if (audio.ctx) audio.creature("low", 0, 0.6); } });
   anim(function (dt) {
     if (!snow) return; var u = snow.material.uniforms;
     if (storm > 0) { storm -= dt; u.uRate.value.x = 0.9 + storm * 1.6; u.uRate.value.y = 0.5 + storm * 0.5; } else { u.uRate.value.x = 0.9; u.uRate.value.y = 0.5; }
@@ -1745,9 +1751,10 @@ reg("paper_moon_harbour", "the paper moon harbour", 1, ["paper", "harbour", "moo
   anim(function (dt, t2) { mg.rotation.y = Math.sin(t2 * 0.15) * 0.35; mg.rotation.z = Math.sin(t2 * 0.11) * 0.04; moonK += ((moonOn ? 1 : 0.08) - moonK) * Math.min(1, dt * 3); if (moonMesh && moonMesh.material) moonMesh.material.uniforms.uBright.value = 0.15 + moonK * 0.85; mglow.material.opacity = moonK; });
   // a pull-cord on a post at the start of the pier: it is the moon's switch
   var cord = new MB({ amb: 0.8 });
-  cord.box(PX + 2.6, PY + 1.6, PZ0 - 2, 0.16, 3.2, 0.16, PAPER2); cord.box(PX + 2.3, PY + 3.1, PZ0 - 2, 0.6, 0.08, 0.08, PAPER2); cord.box(PX + 2.05, PY + 2.2, PZ0 - 2, 0.02, 1.8, 0.02, 0x6a6a7a, { glow: true }); cord.geo(ugeo("oct"), PX + 2.05, PY + 1.3, PZ0 - 2, 0.07, 0.1, 0.07, 0xf0e0b0, { glow: true });
+  var CZ = PZ0 - 9;
+  cord.box(PX + 2.6, PY + 1.6, CZ, 0.16, 3.2, 0.16, PAPER2); cord.box(PX + 2.3, PY + 3.1, CZ, 0.6, 0.08, 0.08, PAPER2); cord.box(PX + 2.05, PY + 2.2, CZ, 0.02, 1.8, 0.02, 0x6a6a7a, { glow: true }); cord.geo(ugeo("oct"), PX + 2.05, PY + 1.3, CZ, 0.07, 0.1, 0.07, 0xf0e0b0, { glow: true });
   var cordM = cord.build({ nochunk: true });
-  sayIx(cordM, PX + 2.2, PZ0 - 2, 2.2, ["you pull the string. far away, the moon goes out", "you pull again. it comes back, a little brighter, as if it missed you", "someone hung it up there by hand. you can see the tape"], { kind: "cord", y: PY, on: function () { moonOn = moonOn ? 0 : 1; if (audio.ctx) audio.creature("tick", 0, 0.8); } });
+  sayIx(cordM, PX + 2.2, CZ, 2.2, ["you pull the string. far away, the moon goes out", "you pull again. it comes back, a little brighter, as if it missed you", "someone hung it up there by hand. you can see the tape"], { kind: "cord", y: PY, on: function () { moonOn = moonOn ? 0 : 1; if (audio.ctx) audio.creature("tick", 0, 0.8); } });
   var letter = new MB({ amb: 0.7 });
   paperBoat(letter, PX - 1.2, PY + 0.05, PZ0 - 14, 0.28, 0.6, { col: 0xf4ecd8 });
   var letterM = letter.build({ nochunk: true });

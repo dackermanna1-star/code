@@ -604,6 +604,13 @@ populateDream = function (z) {
   } catch (er) {}
   return r;
 };
+// probe the current dream's floor as the player's feet would at height fromY (tests / other modules)
+WB.probe = function (x, z, fromY) {
+  var old = groundClampY, g = null;
+  try { groundClampY = fromY + 0.6; g = N2.lastZone && N2.lastZone.ground ? N2.lastZone.ground(x, z) : null; } catch (e) {}
+  groundClampY = old;
+  return g;
+};
 N2.on("play", function () {
   // walls in these rooms are walls: the way on is through their doors
   if (N2.lastZone && N2.lastZone._n2b && isMine(N2.lastZone.archetypeName)) wallPush = 0;
@@ -1954,8 +1961,8 @@ defineWorld("coat_theatre", { title: "the theatre of coats", tags: ["interior", 
   }
   // the balcony and its two rows
   K.slab(-12, 18, 12, 26, BY, 0x3a1416, { t: 0.4, skip: "", seg: 4 });
-  K.box(-0.7, BY + 0.55, 18, 22.6, 1.1, 0.25, red, { seg: 2 }); K.box(-0.7, BY + 1.12, 18, 22.8, 0.08, 0.35, gold, { seg: 0 });
-  K.solid(-0.7, BY, 18, 22.6, 1.4, 0.3);
+  K.box(-0.9, BY + 0.55, 18, 22.2, 1.1, 0.25, red, { seg: 2 }); K.box(-0.9, BY + 1.12, 18, 22.4, 0.08, 0.35, gold, { seg: 0 });
+  K.solid(-0.9, BY, 18, 22.2, 1.4, 0.3);
   for (var br = 0; br < 2; br++) { var bz = 20.5 + br * 2.2; for (var bi = 0; bi < 14; bi++) { var bx = -8.6 + bi * 1.25; if (Math.abs(bx) < 1.2) continue; seatB.box(bx, BY + 0.42, bz, 0.95, 0.12, 0.6, red); seatB.box(bx, BY + 0.85, bz + 0.33, 0.95, 0.85, 0.12, red); if (rng() < 0.85) coatPos.push({ x: bx, y: BY + 0.48, z: bz, ry: 0, ph: rng() * TAU, front: 20 }); } K.solid(-4.6, BY, bz + 0.05, 8.2, 1.3, 0.75); K.solid(5.1, BY, bz + 0.05, 7.8, 1.3, 0.75); }
   K.stairs(11.1, 5.5, "+z", 12.5, 1.4, floorY(5.5), BY, 0x4a1a1a, { solid: true });
   K.light(0, BY + 2.5, 22, 0xffa070, 9, 0.6);
@@ -2242,7 +2249,7 @@ defineWorld("vending_alcove_world_end", { title: "the vending machines at the en
   K.cyl(3.6, 0.3, -4.6, 0.25, 0.2, 0.6, 0xc8c0b0, { n: 8 }); for (var pl = 0; pl < 7; pl++) K.box(3.6 + rr(-0.3, 0.3), 0.8 + pl * 0.12, -4.6 + rr(-0.3, 0.3), 0.25, 0.02, 0.45, 0x3a6a4a, { seg: 0, ry: rng() * 3, rx: rr(-0.5, 0.5) });
   // ---- where the building stops ----
   var shard = K.batch({ seg: 0 });
-  for (var sx = -4.2; sx < 4.2; sx += 0.7) { var d = rr(0.2, 1.0); shard.box(sx + 0.35, -0.15, -6 - d / 2 + 0.05, 0.7, 0.3, d, 0xb8c8b8, { ry: rr(-0.2, 0.2), rz: rr(-0.1, 0.1) }); shard.box(sx + 0.35, H + 0.15, -5.2 - d / 2, 0.7, 0.3, d * 0.8, 0xd8e4dc, { ry: rr(-0.2, 0.2) }); K.walk(sx, -6 - d + 0.3, sx + 0.7, -6, 0); }
+  for (var sx = -4.2; sx < 4.2; sx += 0.7) { var d = rr(0.2, 1.0); shard.box(sx + 0.35, -0.15, -6 - d / 2 + 0.05, 0.7, 0.3, d, 0xb8c8b8, { ry: rr(-0.2, 0.2), rz: rr(-0.1, 0.1) }); shard.box(sx + 0.35, H + 0.15, -5.2 - d / 2, 0.7, 0.3, d * 0.8, 0xd8e4dc, { ry: rr(-0.2, 0.2) }); K.walk(sx, -6.7, sx + 0.7, -6, 0); }
   for (var ws = 0; ws < 5; ws++) { shard.box(-4.2, ws * 0.6 + 0.3, -5.4 - rr(0, 0.8), 0.3, 0.6, rr(0.2, 1.0), wall); shard.box(4.2, ws * 0.6 + 0.3, -5.4 - rr(0, 0.8), 0.3, 0.6, rr(0.2, 1.0), wall); }
   shard.box(0, -3, -6.3, 8.6, 6, 0.6, 0x6a6a70, { ry: 0.02 });
   // the dawn: a sun that has been rising for a long time, a sea of cloud beneath
@@ -2267,7 +2274,7 @@ defineWorld("vending_alcove_world_end", { title: "the vending machines at the en
   // the floor goes on, in pieces, rising
   var chunks = [], CN = 10;
   for (var ck = 0; ck < CN; ck++) {
-    var cz = -7.6 - ck * 2.45, cx2 = Math.sin(ck * 0.9) * 1.4, cy = 0.33 * (ck + 1), sz = rr(2.4, 2.9);
+    var cz = -7.5 - ck * 2.3, cx2 = Math.sin(ck * 0.9) * 1.4, cy = 0.33 * (ck + 1), sz = rr(2.5, 2.9);
     var cbk = K.batch({ seg: 0, chunk: 0 });
     cbk.box(0, -0.1, 0, sz, 0.2, sz, 0xb8c8b8, { ry: rr(-0.15, 0.15) }); cbk.cone(0, -0.8, 0, sz * 0.55, 1.2, 0x6a6a70, { rx: Math.PI, n: 5, faceVary: 0.3 });
     if (rng() < 0.4) cbk.box(rr(-0.6, 0.6), 0.02, rr(-0.6, 0.6), 0.3, 0.01, 0.3, 0x8aa0a0);
@@ -2276,7 +2283,7 @@ defineWorld("vending_alcove_world_end", { title: "the vending machines at the en
     (function (r, cx3, cz3, half) { K.walk(cx3 - half, cz3 - half, cx3 + half, cz3 + half, function () { return r.y + Math.sin(tNow() * 0.5 + r.ph) * 0.05; }); })(rec, cx2, cz, sz / 2 - 0.05);
     chunks.push(rec);
   }
-  var IZ = -7.6 - CN * 2.45 - 1.9, IY = 0.33 * (CN + 1);
+  var IZ = -7.5 - CN * 2.3 - 1.9, IY = 0.33 * (CN + 1);
   K.slab(-3, IZ - 3, 3, IZ + 3, IY, 0xb8c8b8, { t: 0.3, skip: "" }); K.cone(0, IY - 1.6, IZ, 4, 2.6, 0x6a6a70, { rx: Math.PI, n: 6, faceVary: 0.3 });
   var lastChair = new THREE.Group(); lastChair.position.set(0, IY, IZ + 0.6); buildGroup.add(lastChair);
   var lcb = K.batch({ seg: 0, chunk: 0, parent: lastChair }); lcb.box(0, 0.44, 0, 0.5, 0.06, 0.48, 0xd8a05a); lcb.box(0, 0.72, 0.24, 0.5, 0.5, 0.05, 0xd8a05a); lcb.box(0, 0.21, 0, 0.44, 0.42, 0.4, 0x6a6a6a); lcb.mesh(0, 0, 0, lastChair);
