@@ -429,6 +429,30 @@ def tuck_arms(rig, f0, f1):
         A.layer(act(rig), f"hand_{side}", f0, f1, [(f0, (0, 0, 0), 0.85), (f1, (0, 0, 0), 0.85)], mode="replace")
 
 
+def hands_on(helper, patient, f0, f1):
+    """IK: the helper's hands rest on the patient's near upper arm and forearm, settling on over ~10 frames."""
+    near = min("lr", key=lambda sd: (bpos(patient, f"upperarm_{sd}", f0) - bpos(helper, "pelvis", f0)).length)
+    for side in "lr":
+        nm = f"IKM_hand_{side}"
+        if nm not in bpy.data.objects:
+            e = bpy.data.objects.new(nm, None); bpy.data.collections["PROPS"].objects.link(e); e.empty_display_size = 0.05
+            c = helper.pose.bones[f"lowerarm_{side}"].constraints.new("IK"); c.name = "IK"
+            c.target = e; c.chain_count = 2; c.influence = 0.0; c.use_stretch = False
+            c.keyframe_insert("influence", frame=1)
+    for ff in list(range(f0, f1, 6)) + [f1]:
+        sh = bpos(patient, f"upperarm_{near}", ff, "head"); up = bpos(patient, f"upperarm_{near}", ff, "mid")
+        fore = bpos(patient, f"lowerarm_{near}", ff, "mid")
+        out = (sh - bpos(patient, "spine_03", ff, "tail")); out.z = 0; out = out.normalized()
+        for side, p in (("r", up + out * 0.05 + Vector((0, 0, -0.03))), ("l", fore + out * 0.05)):
+            e = bpy.data.objects[f"IKM_hand_{side}"]; e.location = p; e.keyframe_insert("location", frame=ff)
+            A.assign(e, e.animation_data.action)
+    for side in "lr":
+        c = helper.pose.bones[f"lowerarm_{side}"].constraints["IK"]
+        for ff, v in ((f0 - 1, 0.0), (f0, 0.0), (f0 + 10, 1.0), (f1, 1.0), (f1 + 1, 0.0)):
+            c.influence = v; c.keyframe_insert("influence", frame=ff)
+    A.assign(helper, helper.animation_data.action)
+
+
 def phone_drop(f_drop, floor_z=0.005):
     """Release the phone from the hand and let it fall with a small bounce (hand-keyed)."""
     ph = bpy.data.objects["Phone"]; sc = bpy.context.scene
@@ -1009,9 +1033,21 @@ def build(ids=None):
         cold_state(f0, 5); door(f0, -95.0, "CONSTANT"); dock_light(f0, 900.0, "CONSTANT")
         canon = A.canon_angle(BVH.format("22_03"))
         mocap_pair(rig, "22_03", my, "23_03", 30, 560, f0, face_deg=90, pos=(seat.x + 0.08, seat.y), speed=0.65)
+        tuck_arms(rig, f0, f1)
+        A.hand_pose(a(), "l", [(f0, "tucked", 1.0), (f1, "tucked", 1.0)]); A.hand_pose(a(), "r", [(f0, "tucked", 1.0), (f1, "tucked", 1.0)])
+        # Maya stays bent over him with her hands on his arm and shoulder. (The kneel-and-hug take ended with
+        # her head in his lap: his seat is much higher than the original actor's.)
+        mact = act(my)
+        A.hold(mact, A.ALL_BODY, f0 + 4, f0, f1)
+        A.layer(mact, "spine_03", f0, f1, [(f0, (0, 0, 0), 1), (f0 + 50, (5, 0, 0), 1), (f1, (7, 0, -3), 1)])
+        A.layer(mact, "head", f0, f1, [(f0, (0, 0, 0), 1), (f0 + 45, (8, 0, 5), 1), (f0 + 120, (12, 0, -3), 1), (f1, (9, 0, 4), 1)])
+        A.breathe(mact, f0, f1, [(f0, 1.5)], depth_deg=1.5)
+        hands_on(my, rig, f0, f1)
         exh = A.breathe(a(), f0, f1, [(f0, 3.0), (f1, 2.0)], depth_deg=1.0); puffs(rig, exh, 0.5, dur=50)
         leo_face(f0, f1, {"eyeBlinkLeft": 0.8, "eyeBlinkRight": 0.8}, keys=[(f0 + 120, {"eyeBlinkLeft": 0.45, "eyeBlinkRight": 0.5, "browInnerUp": 0.4})], blink_s=4.0)
-        cam = camera("SH22", f0, f1, (0.9, -0.6, 1.2), [(f0, (seat.x + 0.4, seat.y - 0.2, 0.8), 26), (f1, (seat.x + 0.4, seat.y - 0.2, 0.75), 30)], shake=0.2)
+        # aim between the two of them (the old aim left Maya cut off at the frame edge)
+        mid = lambda f: (bpos(rig, "head", f) + bpos(rig, "pelvis", f) + bpos(my, "head", f) + bpos(my, "pelvis", f)) / 4
+        cam = camera("SH22", f0, f1, (0.9, -0.6, 1.2), [(f0, mid(f0 + 40) + Vector((0.0, 0.0, 0.05)), 24), (f1, mid(f1 - 20) + Vector((0.0, 0.0, 0.05)), 27)], shake=0.2)
         shot("SH22", f0, f1, cam, dynamic=PUFFS + DOOR_PARTS, chars=("Leo", "Maya"), note="rescue")
 
     # ---------------------------------------------------------- SH23 factors: walking out to the warm dock
@@ -1059,6 +1095,8 @@ def build(ids=None):
         cold_state(f0, 3); ramp("thermal_temp", f0, 0.74, f1, 0.87); ramp("thermal_hands", f0, 0.18, f1, 0.26)
         place(rig, "22_03", 300, 1000, f0, f0, (out_seat.x, out_seat.y), face_deg=0, speed=0.6)
         mocap(rig, "80_41", 300, 900, f0, face_deg=0, speed=0.6, bones=ARMS, root_motion=False)
+        tuck_arms(rig, f0, f1)
+        A.hand_pose(a(), "l", [(f0, "tucked", 1.0), (f1, "tucked", 1.0)]); A.hand_pose(a(), "r", [(f0, "tucked", 1.0), (f1, "tucked", 1.0)])
         A.shiver(a(), f0, f1, [(f0, 2.0), (f1, 1.2)], seed=32)
         cp, hp = orbit(rig, f0, "spine_02", 1.45, az=-15, el=6)
         cam = camera("SH25a", f0, f1, cp, [(f0, hp, 30), (f1, hp, 33)], shake=0.08)

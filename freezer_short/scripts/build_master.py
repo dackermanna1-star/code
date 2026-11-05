@@ -272,31 +272,8 @@ scr.materials.append(ms)
 phone.location = (0, -30, 0)
 cof = phone.constraints.new("CHILD_OF"); cof.target = rig; cof.subtarget = "hand_r"; cof.influence = 0.0
 cof.set_inverse_pending = False
-# ---- emergency foil blanket: shell around Leo's torso/shoulders that deforms with his rig
-bl = body.copy(); bl.data = body.data.copy(); bl.name = "FoilBlanket"; bl.data.name = "FoilBlanket"
-C_PROPS.objects.link(bl)
-keep_groups = ["spine_01", "spine_02", "spine_03", "clavicle_l", "clavicle_r", "upperarm_l", "upperarm_r", "neck_01", "pelvis", "thigh_l", "thigh_r", "lowerarm_l", "lowerarm_r"]
-wsb = vg_weights(bl, keep_groups)
-bm = bmesh.new(); bm.from_mesh(bl.data)
-bm.verts.ensure_lookup_table()
-helper = set(v.index for v in bl.data.vertices if v.co.z > 1.62 or v.co.z < 0.55)
-body_idx = bl.vertex_groups["body"].index
-kill = []
-for v in bm.verts:
-    w = wsb[v.index]; s_ = sum(w.values())
-    inb = any(g.group == body_idx for g in bl.data.vertices[v.index].groups)
-    if (not inb) or s_ < 0.5 or v.index in helper or (abs(v.co.x) > 0.42):
-        kill.append(v)
-bmesh.ops.delete(bm, geom=kill, context="VERTS")
-for v in bm.verts:
-    v.co += v.normal * (0.045 + 0.02 * math.sin(v.co.z * 40) * math.cos(v.co.x * 33))
-bm.to_mesh(bl.data); bm.free()
-if bl.data.shape_keys:
-    bl.shape_key_clear()
-for md in list(bl.modifiers):
-    if md.type == "MASK": bl.modifiers.remove(md)
-sol = bl.modifiers.new("Solid", "SOLIDIFY"); sol.thickness = 0.004
-bl.data.materials.clear()
+# ---- emergency foil blanket: crumpled sheet round Leo's shoulders/upper arms/back, deforms with his rig
+import lib_blanket
 mf = bpy.data.materials.new("M_FoilBlanket"); mf.use_nodes = True
 bf = mf.node_tree.nodes["Principled BSDF"]
 bf.inputs["Base Color"].default_value = (0.95, 0.66, 0.25, 1); bf.inputs["Metallic"].default_value = 1.0
@@ -305,7 +282,7 @@ tcn = mf.node_tree.nodes.new("ShaderNodeTexCoord"); vo = mf.node_tree.nodes.new(
 mf.node_tree.links.new(tcn.outputs["Object"], vo.inputs["Vector"])
 bpn = mf.node_tree.nodes.new("ShaderNodeBump"); bpn.inputs["Strength"].default_value = 0.6
 mf.node_tree.links.new(vo.outputs["Distance"], bpn.inputs["Height"]); mf.node_tree.links.new(bpn.outputs[0], bf.inputs["Normal"])
-bl.data.materials.append(mf)
+bl = lib_blanket.build_foil_blanket(material=mf)
 bl.hide_render = True; bl["hide_until"] = 1e9
 
 # ---- breath vapour puffs (Cycles volumes), pool of 4, animated per exhale by shot scripts
