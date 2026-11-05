@@ -39,6 +39,6 @@ Music by Kevin MacLeod (incompetech.com), licensed under Creative Commons: By At
 
 Character built with MPFB 2 / MakeHuman community assets (CC0). Swim shorts "elvs_male_swim_shorts1" by Elvaerwyn (CC-BY 4.0).
 Skies: Poly Haven HDRIs (CC0).
-Splash sound: "Bathtub water splashes" (Wikimedia Commons, public domain).
+Sounds: "Bathtub water splashes" by gradha and "Rain (1)" by ezwa (Wikimedia Commons, public domain); other sounds synthesised for this video.
 Narration voice: Kokoro-82M text-to-speech (Apache-2.0).
 Made with Blender 4.5 (Cycles).

@@ -46,13 +46,14 @@ place('vo', vo, 0.0)
 # ------------------------------------------------------------------ ambience beds (hard switches at underwater cuts)
 bed = load(A + 'sfx/ocean_bed.wav'); calm = load(A + 'sfx/ocean_bed_calm.wav'); wind = load(A + 'sfx/wind_bed.wav')
 under = load(A + 'sfx/underwater_bed.wav'); rain = load(A + 'sfx/rain_bed.wav'); sparkle = load(A + 'sfx/sparkle.wav')
+rain_rec = load(A + 'sfx_src/rain_rec.wav'); rain_rec = rain_rec / (np.abs(rain_rec).max() + 1e-9) * 0.7   # public-domain recording
 UNDER = ['SH02', 'SH10', 'SH15', 'SH16', 'SH17B']
 def bed_for(sid):
     if sid in UNDER: return [(under, -10)]
     if sid in ('SH01',): return [(bed, -16), (wind, -14)]
     if sid in ('SH07', 'SH27', 'SH29'): return [(bed, -20), (wind, -13)]
     if sid in ('SH18', 'SH19', 'SH20', 'SH21', 'SH23', 'SH24'): return [(calm, -12), (wind, -24)]
-    if sid == 'SH22': return [(bed, -14), (rain, -11)]
+    if sid == 'SH22': return [(bed, -15), (rain_rec, -9), (rain, -17)]
     return [(bed, -14), (wind, -26)]
 off = 0.0
 for sid, (t0, t1) in shots.items():

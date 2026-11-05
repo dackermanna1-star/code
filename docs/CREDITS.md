@@ -28,8 +28,9 @@
 - "Long Note Three" and "Eternal Hope" by Kevin MacLeod (incompetech.com), licensed under Creative Commons: By Attribution 4.0 License, http://creativecommons.org/licenses/by/4.0/
 
 ## Sound
-- "Bathtub water splashes" (Wikimedia Commons, public domain): https://commons.wikimedia.org/wiki/File:Bathtub_water_splashes.ogg
-- All other sounds (open-ocean bed, wind, underwater bed, bubbles, rain, heartbeat, whooshes, sub hit, helicopter) were synthesised for this film (`blender/scripts/tools/synth_sfx.py`).
+- "Bathtub water splashes" by gradha (Wikimedia Commons, public domain): https://commons.wikimedia.org/wiki/File:Bathtub_water_splashes.ogg
+- "Rain (1)" by ezwa (Wikimedia Commons, public domain): https://commons.wikimedia.org/wiki/File:Rain_(1).ogg
+- All other sounds (open-ocean bed, wind, underwater bed, bubbles, rain drops, heartbeat, whooshes, sub hit, helicopter) were synthesised for this film (`blender/scripts/tools/synth_sfx.py`).
 
 ## Skies (Poly Haven, CC0)
 - kloofendal_48d_partly_cloudy_puresky: https://polyhaven.com/a/kloofendal_48d_partly_cloudy_puresky
