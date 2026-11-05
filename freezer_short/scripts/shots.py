@@ -748,7 +748,9 @@ def build(ids=None):
         begin(f0, f1)
         cold_state(f0, 2); ramp("cold_hands", f0, 0.2, f1, 0.55)
         mocap(rig, "79_68", 560, 1180, f0, face_deg=180, pos=(0.0, -1.0), speed=0.7, root_motion=False)
-        hands_front(rig, f0, f1)
+        hands_front(rig, f0, f1, fwd=0.30, down=0.05)   # held up in front of the chest, looking at them
+        for side in "lr":  # hands continue the forearm line (forward / inward), not the mocap's outward flick
+            A.layer(a(), f"hand_{side}", f0, f1, [(f0, (0, 0, 0), 0.8), (f1, (0, 0, 0), 0.8)], mode="replace")
         A.hand_pose(a(), "l", [(f0, "claw", 0.8), (f0 + 30, "grip", 0.9), (f1, "claw", 0.9)])
         A.hand_pose(a(), "r", [(f0, "claw", 0.8), (f0 + 30, "grip", 0.9), (f1, "claw", 0.9)])
         A.shiver(a(), f0, f1, [(f0, 0.7), (f1, 0.9)], seed=11)
@@ -756,7 +758,8 @@ def build(ids=None):
         fm = (f0 + f1) // 2
         hm = (bpos(rig, "hand_l", fm) + bpos(rig, "hand_r", fm)) / 2
         fw = facing(rig, fm)
-        cam = camera("SH08b", f0, f1, tuple(hm + fw * 0.85 + Vector((0.12, 0, 0.12))), [(f0, hm, 38), (f1, hm, 44)], shake=0.18, fstop=2.5)
+        hc = hm + fw * 0.07   # centre of the hands, a little in front of the wrists
+        cam = camera("SH08b", f0, f1, tuple(hm + fw * 0.85 + Vector((0.12, 0, 0.3))), [(f0, hc + Vector((0, 0, 0.08)), 30), (f1, hc + Vector((0, 0, 0.08)), 34)], shake=0.18, fstop=2.8)
         shot("SH08b", f0, f1, cam, dynamic=PUFFS, note="pale hands CU")
 
     # ---------------------------------------------------------- SH09 the shivering starts
