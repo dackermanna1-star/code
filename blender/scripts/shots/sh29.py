@@ -15,7 +15,8 @@ def build():
     d, side, yaw = rescue.rescue_frame(sun)
     p_hover = rescue.hook_over_xy(d) + Vector((0, 0, rescue.HOVER_Z))
     def path(f):
-        k = ease_in(min(1.0, max(0.0, (f - HOLD) / (N - HOLD))))
+        u = min(1.0, max(0.0, (f - HOLD) / (N - HOLD)))
+        k = u ** 1.7                                   # pulls away briskly, toward the low sun
         return p_hover + Vector((0, 0, 25 * k)) + d * (420 * k)
     hroot, rotor = rescue.heli(path, N, hover=True, yaw_deg=rescue.heli_yaw(d))
     # him: continue the SH28 hoist (same pose/swing phases), reel the last ~3.8 m, then in through the door
@@ -52,7 +53,7 @@ def build():
     aimt = bpy.data.objects.new('Aim', None); sc.collection.objects.link(aimt)
     for f in range(1, N + 1, 2):
         k = ease((f - 1) / (N - 1))
-        kk = ease(max(0.0, (k - 0.5) / 0.5))     # hold on the helicopter, then settle on the sun-glitter horizon
+        kk = ease(max(0.0, (k - 0.58) / 0.42))   # hold on the helicopter, then settle on the sun-glitter horizon
         aimt.location = (path(f) + Vector((0, 0, 0.5))) * (1 - kk) + (d * 2500 + Vector((0, 0, -60))) * kk
         aimt.keyframe_insert('location', frame=f)
         env.key_loc(cam, f, -d * (22 + 160 * k) - side * 6 * (1 - k) + Vector((0, 0, 6 + 260 * k ** 1.3)))
