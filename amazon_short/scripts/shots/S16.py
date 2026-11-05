@@ -4,6 +4,7 @@ from shotlib import *
 import stream_set
 s, sh = setup('S16'); N = sh['frames']
 E = stream_set.build((4.2, 1.4), extra_clear=[(1.9, 0.0, 1.6), (3.6, 1.1, 1.4)])
+bpy.data.objects['ENV_StreamWater'].location.z -= 0.12
 T = E['terrain']
 col, rig, acts = character(0.42, 0.8, ['UAL_Fixing_Kneeling', 'UAL_Idle_No_Loop', 'UAL_Idle_Loop'])
 place(rig, T, 1.8, 0.05, -90)
