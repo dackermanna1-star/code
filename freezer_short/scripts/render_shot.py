@@ -99,6 +99,27 @@ def rime_hair_frost():
                 print("hair frost: rime mask on", nm)
 
 
+def soften_breath():
+    """Render-time patch for M_Breath (used by the breath AND the thermal pass).
+    The build-time falloff (spherical gradient on raw object coords) is still ~0.5 on the faces of the unit cube,
+    so density/emission are cut off by the cube and the puffs render as boxes. Here the field reaches zero inside
+    the cube: spherical gradient on 2.15x object coords, ^1.6 falloff, wider map range."""
+    m = bpy.data.materials["M_Breath"]; nt_ = m.node_tree
+    nz = [n for n in nt_.nodes if n.type == "TEX_NOISE"][0]
+    nz.inputs["Detail"].default_value = 2.0
+    gr = [n for n in nt_.nodes if n.type == "TEX_GRADIENT"][0]
+    tco = [n for n in nt_.nodes if n.type == "TEX_COORD"][0]
+    vm = nt_.nodes.new("ShaderNodeVectorMath"); vm.operation = "SCALE"; vm.inputs["Scale"].default_value = 2.15
+    nt_.links.new(tco.outputs["Object"], vm.inputs[0]); nt_.links.new(vm.outputs[0], gr.inputs["Vector"])
+    sq = nt_.nodes.new("ShaderNodeMath"); sq.operation = "POWER"; sq.inputs[1].default_value = 1.6
+    mul_ = [l.to_node for l in gr.outputs["Fac"].links][0]
+    nt_.links.new(gr.outputs["Fac"], sq.inputs[0]); nt_.links.new(sq.outputs[0], mul_.inputs[1])
+    mr_ = [n for n in nt_.nodes if n.type == "MAP_RANGE"][0]
+    mr_.inputs[1].default_value = 0.05; mr_.inputs[2].default_value = 0.35
+    m.cycles.volume_step_rate = 3.0
+    return m
+
+
 def cam_params(f):
     sc.frame_set(f)
     return cam.matrix_world.to_quaternion().copy(), cam.data.lens
@@ -261,6 +282,16 @@ if PASS == "char":
             for pb in r.pose.bones:
                 for p in (pb.head, pb.tail):
                     pts.append(r.matrix_world @ p)
+        # bone joints alone under-estimate the silhouette (shoulders, knees and hair were clipped by the border in
+        # close-ups): add the corners of the deformed meshes' bounding boxes, incl. a visible foil blanket
+        dg = bpy.context.evaluated_depsgraph_get()
+        meshes = [o for c in CHAR_COLLS if c.replace("CHR_", "") in S["chars"] for o in bpy.data.collections[c].all_objects
+                  if o.type == "MESH" and not o.hide_render]
+        if "Leo" in S["chars"] and "FoilBlanket" in bpy.data.objects and not bpy.data.objects["FoilBlanket"].hide_render:
+            meshes.append(bpy.data.objects["FoilBlanket"])
+        for o in meshes:
+            oe = o.evaluated_get(dg)
+            pts += [oe.matrix_world @ Vector(c) for c in oe.bound_box]
         if any(o.name.startswith("Door") for o in dyn) or any(o.name.startswith("Evap") for o in dyn):
             return (0, 1, 0, 1)
         if not pts:
@@ -270,7 +301,7 @@ if PASS == "char":
             v = world_to_camera_view(sc, cam, p)
             if v.z <= 0: return (0, 1, 0, 1)
             xs.append(v.x); ys.append(v.y)
-        m = 0.07
+        m = 0.04
         b = (max(0, min(xs) - m), min(1, max(xs) + m), max(0, min(ys) - m * 1.6), min(1, max(ys) + m * 1.2))
         if b[1] <= b[0] or b[3] <= b[2]: return None
         return b
@@ -303,21 +334,7 @@ if PASS == "breath":
     sc.cycles.samples = 24; sc.cycles.use_denoising = True; sc.cycles.denoiser = "OPENIMAGEDENOISE"
     sc.cycles.denoising_quality = "BALANCED"; sc.cycles.denoising_prefilter = "FAST"
     sc.cycles.max_bounces = 2; sc.cycles.diffuse_bounces = 0; sc.cycles.glossy_bounces = 0; sc.cycles.volume_bounces = 0
-    m = bpy.data.materials["M_Breath"]
-    nz = [n for n in m.node_tree.nodes if n.type == "TEX_NOISE"][0]
-    nz.inputs["Detail"].default_value = 2.0
-    # density must reach zero inside the unit cube: spherical gradient on 2x object coords, squared falloff
-    nt_ = m.node_tree
-    gr = [n for n in nt_.nodes if n.type == "TEX_GRADIENT"][0]
-    tco = [n for n in nt_.nodes if n.type == "TEX_COORD"][0]
-    vm = nt_.nodes.new("ShaderNodeVectorMath"); vm.operation = "SCALE"; vm.inputs["Scale"].default_value = 2.15
-    nt_.links.new(tco.outputs["Object"], vm.inputs[0]); nt_.links.new(vm.outputs[0], gr.inputs["Vector"])
-    sq = nt_.nodes.new("ShaderNodeMath"); sq.operation = "POWER"; sq.inputs[1].default_value = 1.6
-    mul_ = [l.to_node for l in gr.outputs["Fac"].links][0]
-    nt_.links.new(gr.outputs["Fac"], sq.inputs[0]); nt_.links.new(sq.outputs[0], mul_.inputs[1])
-    mr_ = [n for n in nt_.nodes if n.type == "MAP_RANGE"][0]
-    mr_.inputs[1].default_value = 0.05; mr_.inputs[2].default_value = 0.35
-    m.cycles.volume_step_rate = 3.0
+    soften_breath()
     wn = sc.world.node_tree.nodes["Background"]
     wn.inputs[0].default_value = (0.5, 0.62, 0.78, 1); wn.inputs[1].default_value = 0.55
     for o in bpy.data.objects:
@@ -354,6 +371,13 @@ if PASS == "thermal":
         if n.type == "MATH" and n.operation == "MULTIPLY_ADD":
             if abs(n.inputs[1].default_value - 0.06) < 1e-4: n.inputs[1].default_value = 0.17
             if abs(n.inputs[1].default_value - 0.018) < 1e-4: n.inputs[1].default_value = 0.035; n.inputs[2].default_value = 0.06
+    # breath puffs keep M_Breath here (warm emission from thermal_mode): give them the same soft falloff as the
+    # breath pass, and make them emission-only (no density: nothing to scatter with the lights off, and the
+    # extinction only adds a dark, noisy fringe at 6 spp)
+    mb = soften_breath()
+    pvb = next(n for n in mb.node_tree.nodes if n.type == "PRINCIPLED_VOLUME")
+    for l in list(pvb.inputs["Density"].links): mb.node_tree.links.remove(l)
+    pvb.inputs["Density"].default_value = 0.0
     for o in bpy.data.objects:
         if o.type not in ("MESH", "CURVE", "FONT") or o.name.startswith("BreathPuff"):
             continue

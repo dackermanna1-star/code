@@ -124,8 +124,29 @@ def comp_plate(shot, f, grade):
         a = np.clip(ch[..., 3:4], 0, 1)
         scp = d.get("Shadow Catcher")
         if scp is not None:
-            scp = cv2.resize(scp, (W, H), interpolation=cv2.INTER_LINEAR)
-            scp = np.where(scp <= 1e-5, 1.0, scp)
+            # The char pass is a border render without crop: outside the border rectangle every pass is 0, but the
+            # shadow catcher is a multiplier whose neutral value is 1. Make it 1 there in the low-res buffer
+            # *before* resampling (filling after the resize misses the 1-2 px row/column that the bilinear filter
+            # blends from 0 and ~1, which darkened the plate along the border: line / rectangle outline), and ease
+            # it to 1 over the last few px inside interior border edges so a catcher shadow clipped by the border
+            # fades out instead of ending in a hard step. The rectangle comes from lossless channels (Mist.Z
+            # float32, alpha), which are exactly 0 outside the border.
+            hb, wb = scp.shape[:2]
+            inside = (d["Mist.Z"] > 0) | (d["Combined"][..., 3] > 0)
+            rows = np.flatnonzero(inside.any(1)); cols = np.flatnonzero(inside.any(0))
+            if len(rows) == 0:
+                scp = np.ones((H, W, 3), np.float32)
+            else:
+                r0, r1, c0, c1 = rows[0], rows[-1], cols[0], cols[-1]
+                yy = np.arange(hb, dtype=np.float32)[:, None]; xx = np.arange(wb, dtype=np.float32)[None, :]
+                dist = np.full((hb, wb), 1e6, np.float32)        # px to the nearest border edge inside the frame
+                if r0 > 0: dist = np.minimum(dist, yy - r0 + 0.5)
+                if r1 < hb - 1: dist = np.minimum(dist, r1 - yy + 0.5)
+                if c0 > 0: dist = np.minimum(dist, xx - c0 + 0.5)
+                if c1 < wb - 1: dist = np.minimum(dist, c1 - xx + 0.5)
+                ramp = np.clip(dist / 20.0, 0, 1); ramp = ramp * ramp * (3 - 2 * ramp)   # 0 outside -> 1 at 20 px in
+                scp = 1.0 - (1.0 - np.clip(scp, 0.0, 1.0)) * ramp[..., None]
+                scp = cv2.resize(scp, (W, H), interpolation=cv2.INTER_LINEAR)
             scp = np.clip(scp, 0.0, 1.0)
             rgb = rgb * scp
         cm = cv2.resize(d["Mist.Z"], (W, H), interpolation=cv2.INTER_LINEAR)

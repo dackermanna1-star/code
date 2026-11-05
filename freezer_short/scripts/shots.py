@@ -55,7 +55,7 @@ def key_obj(obj, path, frame, value, index=-1, interp="BEZIER"):
 
 
 # ------------------------------------------------------------------ cameras
-def camera(sid, f0, f1, loc, keys, shake=0.0, shake_freq=0.6, fstop=None, focus=None, roll_keys=None, seed=0):
+def camera(sid, f0, f1, loc, keys, shake=0.0, shake_freq=0.6, fstop=None, focus=None, roll_keys=None, seed=0, focus_track=None):
     """keys: list of (frame, target_xyz, lens_mm). Location fixed (plate compatible)."""
     sc = bpy.context.scene
     cd = bpy.data.cameras.new("CAM_" + sid)
@@ -93,6 +93,12 @@ def camera(sid, f0, f1, loc, keys, shake=0.0, shake_freq=0.6, fstop=None, focus=
     if fstop:
         cd.dof.use_dof = True; cd.dof.aperture_fstop = fstop
         cd.dof.focus_distance = focus if focus else (Vector(keys[0][1]) - loc).length
+        if focus_track:  # (rig, bone, where[, offset]): keep that point in focus as it moves
+            frig, fb, fw_ = focus_track[:3]; foff = Vector(focus_track[3]) if len(focus_track) > 3 else Vector()
+            for f in range(f0, f1 + 1, 2):
+                cd.dof.focus_distance = (bpos(frig, fb, f, fw_) + foff - loc).length
+                cd.keyframe_insert("dof.focus_distance", frame=f)
+            A.assign(cd, cd.animation_data.action)
     return cam
 
 
@@ -408,15 +414,73 @@ def ik_key(rig, side, frame, infl, pos=None):
     A.assign(rig, rig.animation_data.action)
 
 
-def ik_block(rig, sides, f0, f1):
-    """Zero IK influence just outside [f0, f1] so curves never bleed into neighbouring shots."""
+def _has_key(obj, path, frame):
+    ad = obj.animation_data
+    fc = ad.action.fcurves.find(path) if ad and ad.action else None
+    return bool(fc) and any(abs(k.co[0] - frame) < 0.01 for k in fc.keyframe_points)
+
+
+def ik_block(rig, sides, f0, f1, bone="lowerarm_{}", name="IK"):
+    """Zero IK influence just outside [f0, f1] so curves never bleed into neighbouring shots.
+    A key already sitting at f0-1 is the previous shot's last frame, so it is left alone."""
     for side in sides:
-        c = rig.pose.bones[f"lowerarm_{side}"].constraints["IK"]
+        bn = bone.format(side); c = rig.pose.bones[bn].constraints[name]
         for f in (f0 - 1, f1 + 1):
+            if f == f0 - 1 and _has_key(rig, f'pose.bones["{bn}"].constraints["{name}"].influence', f): continue
             c.influence = 0.0; c.keyframe_insert("influence", frame=f)
 
 
-def tuck_arms(rig, f0, f1, release=None):
+def _ensure_pelvis_loc(rig, f0, f1):
+    act_ = act(rig)
+    for c in range(3):
+        if act_.fcurves.find('pose.bones["pelvis"].location', index=c) is None:
+            for f in (f0, f1): rig.pose.bones["pelvis"].keyframe_insert("location", index=c, frame=f)
+    A.assign(rig, act_)
+
+
+def ground_feet(rig, f0, f1, ankle=0.085):
+    """Some takes carry their actor's stool/platform height: drop the pelvis so the lower foot rests on the floor."""
+    lows = []
+    for f in range(f0, f1 + 1, 2):
+        lows.append(min(bpos(rig, b, f).z for b in ("foot_l", "foot_r")))
+    dz = ankle - sorted(lows)[len(lows) // 4]
+    if abs(dz) < 0.015: return 0.0
+    _ensure_pelvis_loc(rig, f0, f1)
+    A.pelvis_offset(act(rig), f0, f1, [(f0, (0, 0, dz)), (f1, (0, 0, dz))])
+    return dz
+
+
+def sit_on(rig, f0, f1, seat_top, start=None, seated=None, ankle=0.085):
+    """Seat the hips on the box and keep the feet on the floor (leg IK). The sitting take (CMU 22_03) was
+    recorded on a tall stool, so without this he hovers ~0.4 m above a 0.46 m box with his feet in the air.
+    start/seated: frames over which he lowers onto the seat (default: seated for the whole range)."""
+    fs = seated if seated is not None else f0
+    dz = seat_top + 0.095 - bpos(rig, "pelvis", max(fs, f0 + 1)).z
+    w = (lambda f: A.weight_curve([(start, 0.0), (seated, 1.0)], f)) if start is not None else (lambda f: 1.0)
+    frames = list(range(f0, f1, 4)) + [f1]
+    feet = {ff: {sd: bpos(rig, f"foot_{sd}", ff) for sd in "lr"} for ff in frames}   # before the offset
+    _ensure_pelvis_loc(rig, f0, f1)
+    keys = [(f0, (0, 0, dz))] if start is None else [(f0, (0, 0, 0)), (start, (0, 0, 0)), (seated, (0, 0, dz))]
+    A.pelvis_offset(act(rig), f0, f1, keys + [(f1, (0, 0, dz))])
+    for sd in "lr":
+        nm = f"IKF_foot_{sd}"
+        if nm not in bpy.data.objects:
+            e = bpy.data.objects.new(nm, None); bpy.data.collections["PROPS"].objects.link(e); e.empty_display_size = 0.05
+            c = rig.pose.bones[f"calf_{sd}"].constraints.new("IK"); c.name = "IKleg"
+            c.target = e; c.chain_count = 2; c.influence = 0.0; c.use_stretch = False
+            c.keyframe_insert("influence", frame=1)
+    ik_block(rig, "lr", f0, f1, bone="calf_{}", name="IKleg")
+    for ff in frames:
+        for sd in "lr":
+            fp = feet[ff][sd]
+            e = bpy.data.objects[f"IKF_foot_{sd}"]; e.location = (fp.x, fp.y, ankle); e.keyframe_insert("location", frame=ff)
+            A.assign(e, e.animation_data.action)
+            c = rig.pose.bones[f"calf_{sd}"].constraints["IKleg"]; c.influence = w(ff); c.keyframe_insert("influence", frame=ff)
+    A.assign(rig, act(rig))
+    return dz
+
+
+def tuck_arms(rig, f0, f1, release=None, ramp_in=0, reach=0.2, fwd=(0.13, 0.10)):
     """Arms wrapped round the body, hands tucked at the opposite armpits (IK wrists, straight hands).
     Continuity with SH17c and the advice in L14; the arm mocap underneath keeps the elbows alive.
     release=(fa, fb): the hold lets go between fa and fb (arms fall to whatever the layers below say)."""
@@ -424,9 +488,11 @@ def tuck_arms(rig, f0, f1, release=None):
     fend = release[1] if release else f1
     for ff in list(range(f0, fend, 6)) + [fend]:
         fw = facing(rig, ff); ch = bpos(rig, "spine_03", ff, "tail")
-        for side, opp, fwd, dz in (("l", "r", 0.13, -0.15), ("r", "l", 0.10, -0.12)):
-            p = bpos(rig, f"upperarm_{opp}", ff, "head").lerp(ch, 0.2) + fw * fwd + Vector((0, 0, dz))
-            ik_key(rig, side, ff, 1.0 if not release or ff <= release[0] else 0.0, tuple(p))
+        for side, opp, fd, dz in (("l", "r", fwd[0], -0.15), ("r", "l", fwd[1], -0.12)):
+            p = bpos(rig, f"upperarm_{opp}", ff, "head").lerp(ch, reach) + fw * fd + Vector((0, 0, dz))
+            w = 1.0 if not release or ff <= release[0] else 0.0
+            if ramp_in: w *= A.smooth(min(1.0, (ff - f0) / ramp_in))
+            ik_key(rig, side, ff, w, tuple(p))
     hk = [(f0, (0, 0, 0), 0.85), (f1, (0, 0, 0), 0.85)]
     if release:
         fa, fb = release
@@ -435,6 +501,17 @@ def tuck_arms(rig, f0, f1, release=None):
         hk = [(f0, (0, 0, 0), 0.85), (fa, (0, 0, 0), 0.85), (fb, (0, 0, 0), 0.0), (f1, (0, 0, 0), 0.0)]
     for side in "lr":  # hands continue the forearm line so they slide under the opposite arm
         A.layer(act(rig), f"hand_{side}", f0, f1, hk, mode="replace")
+
+
+def hands_front(rig, f0, f1, fwd=0.33, down=0.24, sep=0.085, rub=0.022):
+    """IK: both wrists held out in front of the chest (forearms clear of the torso), rubbing slowly."""
+    ik_setup(rig); ik_block(rig, "lr", f0, f1)
+    for ff in list(range(f0, f1, 4)) + [f1]:
+        fw = facing(rig, ff); left = Vector((0, 0, 1)).cross(fw); ch = bpos(rig, "spine_03", ff, "tail")
+        ph = math.sin(2 * math.pi * 1.1 * (ff - f0) / FPS)
+        for side, sg in (("l", 1), ("r", -1)):
+            p = ch + fw * fwd + left * (sg * sep + rub * ph) + Vector((0, 0, -down + 0.012 * sg * ph))
+            ik_key(rig, side, ff, 1.0, tuple(p))
 
 
 def hands_on(helper, patient, f0, f1):
@@ -561,7 +638,7 @@ def build(ids=None):
     if want("SH03"):
         begin(f0, f1)
         cold_state(f0, 0); door(f0, 0.0, "CONSTANT"); dock_light(f0, 0.0, "CONSTANT"); park(rig, f0)
-        cam = camera("SH03", f0, f1, (0.72, -3.8, 1.55), [(f0, (1.05, -4.47, 1.65), 50), (f1, (1.05, -4.47, 1.655), 80)], shake=0.12, fstop=2.0)
+        cam = camera("SH03", f0, f1, (0.72, -3.8, 1.55), [(f0, (1.05, -4.47, 1.65), 50), (f1, (1.068, -4.47, 1.655), 74)], shake=0.12, fstop=2.0)
         shot("SH03", f0, f1, cam, chars=(), note="display close-up")
 
     # ---------------------------------------------------------- SH04 evaporator fans blasting frozen air
@@ -577,7 +654,16 @@ def build(ids=None):
         exh = A.breathe(a(), f0, f1, [(f0, 1.2)], depth_deg=1.8)
         puffs(rig, exh, 0.9, dur=40, drift=(0, 0.25, 0.1))
         leo_face(f0, f1, {"browInnerUp": 0.4, "eyeSquintLeft": 0.3, "eyeSquintRight": 0.3}, blink_s=2.5)
-        cam = camera("SH04", f0, f1, (1.35, 1.25, 0.45), [(f0, (0.15, 6.0, 2.55), 19), (f1, (0.1, 6.0, 2.7), 22)], shake=0.2)
+        # (the old low camera behind him filled the frame with the seat of his overalls)
+        for k in range(3):
+            for j in range(5):
+                bo = bpy.data.objects.get(f"Evap_Blade_{k}_{j}")
+                if bo and bo.animation_data:
+                    for dv in bo.animation_data.drivers: dv.driver.expression = dv.driver.expression.replace("frame*0.21", "frame*0.42")
+            ho = bpy.data.objects.get(f"Evap_Hub_{k}")
+            if ho and ho.animation_data:
+                for dv in ho.animation_data.drivers: dv.driver.expression = dv.driver.expression.replace("frame*0.21", "frame*0.42")
+        cam = camera("SH04", f0, f1, (1.15, 2.3, 1.5), [(f0, (0.2, 6.0, 2.6), 21), (f1, (0.15, 6.0, 2.7), 23)], shake=0.2)
         shot("SH04", f0, f1, cam, dynamic=PUFFS + FANS, note="fans")
 
     # ---------------------------------------------------------- SH05 push the door / it won't budge / bang
@@ -636,7 +722,9 @@ def build(ids=None):
         begin(f0, f1)
         cold_state(f0, 1); state(f0, thermal_temp=1.0, thermal_hands=1.0)
         mocap(rig, "80_41", 220, 1000, f0, face_deg=180, pos=(0.0, -1.0), speed=0.85, root_motion=False)
-        GRIP(a(), f0, f1); A.shiver(a(), f0, f1, [(f0, 0.5), (f1, 0.6)], seed=8)
+        tuck_arms(rig, f0, f1)
+        A.hand_pose(a(), "l", [(f0, "tucked", 1.0), (f1, "tucked", 1.0)]); A.hand_pose(a(), "r", [(f0, "tucked", 1.0), (f1, "tucked", 1.0)])
+        A.shiver(a(), f0, f1, [(f0, 0.5), (f1, 0.6)], seed=8)
         exh = A.breathe(a(), f0, f1, [(f0, 1.2)], depth_deg=1.8); puffs(rig, exh, 1.0, dur=40)
         cp, hp = orbit(rig, f0, "spine_02", 3.1, az=6, el=4)
         cam = camera("SH07", f0, f1, cp, [(f0, hp + Vector((0, 0, 0.05)), 30), (f1, hp + Vector((0, 0, 0.1)), 33)], shake=0.12)
@@ -651,15 +739,16 @@ def build(ids=None):
         A.hand_pose(a(), "l", [(f0, "relaxed", 1.0), (f1, "claw", 0.6)]); A.hand_pose(a(), "r", [(f0, "relaxed", 1.0), (f1, "claw", 0.6)])
         A.shiver(a(), f0, f1, [(f0, 0.6), (f1, 0.8)], seed=10)
         exh = A.breathe(a(), f0, f1, [(f0, 1.1)], depth_deg=1.8); puffs(rig, exh, 1.0, dur=40)
-        cp, hp = orbit(rig, f0, "spine_02", 2.6, az=6, el=6)
+        cp, hp = orbit(rig, f0, "spine_02", 2.4, az=38, el=10)
         hm = (bpos(rig, "hand_l", f1) + bpos(rig, "hand_r", f1)) / 2
-        cam = camera("SH08a", f0, f1, cp, [(f0, hp, 30), (f0 + 25, hp, 30), (f1, hm, 60)], shake=0.1)
+        cam = camera("SH08a", f0, f1, cp, [(f0, hp, 32), (f0 + 25, hp, 32), (f1, hm, 60)], shake=0.1)
         shot("SH08a", f0, f1, cam, mode="thermal", dynamic=PUFFS, note="thermal hands cooling + vessel inset")
     f0, f1 = F(25.8) + 1, F(28.7)
     if want("SH08b"):
         begin(f0, f1)
         cold_state(f0, 2); ramp("cold_hands", f0, 0.2, f1, 0.55)
         mocap(rig, "79_68", 560, 1180, f0, face_deg=180, pos=(0.0, -1.0), speed=0.7, root_motion=False)
+        hands_front(rig, f0, f1)
         A.hand_pose(a(), "l", [(f0, "claw", 0.8), (f0 + 30, "grip", 0.9), (f1, "claw", 0.9)])
         A.hand_pose(a(), "r", [(f0, "claw", 0.8), (f0 + 30, "grip", 0.9), (f1, "claw", 0.9)])
         A.shiver(a(), f0, f1, [(f0, 0.7), (f1, 0.9)], seed=11)
@@ -676,13 +765,15 @@ def build(ids=None):
         begin(f0, f1)
         cold_state(f0, 2)
         mocap(rig, "80_41", 230, 900, f0, face_deg=180, pos=(-0.6, -1.2), speed=0.8, root_motion=False)
+        tuck_arms(rig, f0, f1)
+        A.hand_pose(a(), "l", [(f0, "tucked", 1.0), (f1, "tucked", 1.0)]); A.hand_pose(a(), "r", [(f0, "tucked", 1.0), (f1, "tucked", 1.0)])
         A.shiver(a(), f0, f1, [(f0, 0.3), (f0 + 25, 2.2), (f1, 2.6)], seed=9)
-        GRIP(a(), f0, f1)
         exh = A.breathe(a(), f0, f1, [(f0, 1.1), (f1, 0.9)], depth_deg=2.2); puffs(rig, exh, 1.0, dur=40)
         leo_face(f0, f1, {"browInnerUp": 0.55, "eyeSquintLeft": 0.35, "eyeSquintRight": 0.35, "mouthFrownLeft": 0.3, "mouthFrownRight": 0.3},
                  blink_s=2.2, chatter_amp=[(f0, 0.0), (f0 + 30, 0.8), (f1, 1.0)])
         cp, hp = orbit(rig, (f0 + f1) // 2, "neck_01", 1.25, az=8, el=2)
-        cam = camera("SH09", f0, f1, cp, [(f0, hp + Vector((0, 0, -0.04)), 40), (f1, hp + Vector((0, 0, 0.02)), 50)], shake=0.45, shake_freq=0.9, fstop=2.8)
+        cam = camera("SH09", f0, f1, cp, [(f0, hp + Vector((0, 0, -0.04)), 40), (f1, hp + Vector((0, 0, 0.02)), 50)], shake=0.45, shake_freq=0.9, fstop=2.8,
+                     focus_track=(rig, "head", "mid"))
         shot("SH09", f0, f1, cam, dynamic=PUFFS, note="shivering MCU")
 
     # ---------------------------------------------------------- SH10 heat escaping: air / breath / touch
@@ -691,6 +782,8 @@ def build(ids=None):
         begin(f0, f1)
         cold_state(f0, 2); state(f0, thermal_temp=0.97, thermal_hands=0.45)
         mocap(rig, "80_41", 300, 1000, f0, face_deg=180, pos=(0.0, -1.0), speed=0.8, root_motion=False)
+        tuck_arms(rig, f0, f1)
+        A.hand_pose(a(), "l", [(f0, "tucked", 1.0), (f1, "tucked", 1.0)]); A.hand_pose(a(), "r", [(f0, "tucked", 1.0), (f1, "tucked", 1.0)])
         A.shiver(a(), f0, f1, [(f0, 2.0), (f1, 2.0)], seed=12)
         exh = A.breathe(a(), f0, f1, [(f0, 1.1)], depth_deg=2.0); puffs(rig, exh, 1.0, dur=45)
         cp, hp = orbit(rig, f0, "spine_03", 2.6, az=0, el=8)
@@ -780,15 +873,20 @@ def build(ids=None):
         A.shiver(a(), f0, f1, [(f0, 1.2), (f1, 0.8)], seed=16)
         leo_face(f0, f1, {"browInnerUp": 0.5}, keys=[(f0 + 6, {"eyeWideLeft": 0.8, "eyeWideRight": 0.8, "browOuterUpLeft": 0.6, "browOuterUpRight": 0.6, "jawOpen": 0.15}),
                                                      (f1, {"eyeLookOutRight": 0.6, "eyeLookInLeft": 0.6})], blink_s=0)
-        cp, hp = orbit(rig, (f0 + f1) // 2, "head", 0.72, az=6, el=-2, where="mid")
-        cam = camera("SH12a", f0, f1, cp, [(f0, hp, 52), (f1, hp, 56)], shake=0.15, fstop=2.2)
+        # aim just below the eyes so they sit in the upper part of the frame, clear of the captions
+        fm = (f0 + f1) // 2
+        mouth, _ = mouth_world(rig, fm)
+        eyes = lambda f: mouth_world(rig, f)[0] + (bpos(rig, "head", f, "mid") - mouth_world(rig, f)[0]) * 0.55
+        cp, _ = orbit(rig, fm, "head", 0.78, az=6, el=-10, where="mid")
+        cam = camera("SH12a", f0, f1, cp, [(f0, eyes(f0) + Vector((0, 0, -0.035)), 50), (f1, eyes(f1) + Vector((0, 0, -0.035)), 54)], shake=0.15, fstop=2.8,
+                     focus=(eyes(fm) - Vector(cp)).length)
         shot("SH12a", f0, f1, cam, dynamic=PUFFS, note="realisation CU")
     f0, f1 = F(46.3) + 1, F(49.5)
     if want("SH12b"):
         begin(f0, f1)
         cold_state(f0, 2); park(rig, f0)
         rel = Vector((0.44, -4.40, 1.08))
-        cam = camera("SH12b", f0, f1, (0.1, -3.5, 1.3), [(f0, rel + Vector((0, 0, 0.04)), 30), (f1, rel, 70)], shake=0.12, fstop=2.0)
+        cam = camera("SH12b", f0, f1, (0.1, -3.5, 1.3), [(f0, rel + Vector((0, 0, 0.04)), 30), (f1, rel + Vector((-0.025, 0, 0.01)), 62)], shake=0.12, fstop=2.0)
         shot("SH12b", f0, f1, cam, chars=(), note="push-in on iced release")
 
     # ---------------------------------------------------------- SH13 hand pushes the iced release - nothing
@@ -796,17 +894,20 @@ def build(ids=None):
     if want("SH13"):
         begin(f0, f1)
         cold_state(f0, 2)
-        mocap(rig, "80_41", 300, 700, f0, face_deg=0, pos=(0.58, -3.85), speed=0.6, root_motion=False)
-        rel = Vector((0.44, -4.335, 1.05))
+        mocap(rig, "80_41", 300, 700, f0, face_deg=0, pos=(0.56, -4.0), speed=0.6, root_motion=False)
+        rel = Vector((0.415, -4.335, 1.05))  # contact point: slightly right of the cap so the hand lands centrally
         ik_block(rig, "r", f0, f1)
-        ik_key(rig, "r", f0, 1.0, tuple(rel + Vector((0.02, 0.08, -0.05))))
+        # wrist targets: flat hand ~0.17 m long, so the fingertips/palm meet the ice face when pushing;
+        # then a fist bang (knuckles ~0.09 m past the wrist)
+        ik_key(rig, "r", f0, 1.0, tuple(rel + Vector((0.02, 0.22, 0.03))))
         for k, ff in enumerate([f0 + 8, f0 + 16, f0 + 24, f0 + 32]):
-            ik_key(rig, "r", ff, 1.0, tuple(rel + Vector((0, 0.005 if k % 2 == 0 else 0.05, 0))))
-        ik_key(rig, "r", f0 + 40, 1.0, tuple(rel + Vector((0.0, 0.09, 0.05)))); ik_key(rig, "r", f0 + 46, 1.0, tuple(rel + Vector((0, 0.0, 0.0))))
-        ik_key(rig, "r", f1, 1.0, tuple(rel + Vector((0, 0.06, 0.02))))
+            ik_key(rig, "r", ff, 1.0, tuple(rel + Vector((0, 0.155 if k % 2 == 0 else 0.2, 0.0))))
+        ik_key(rig, "r", f0 + 40, 1.0, tuple(rel + Vector((0.0, 0.2, 0.07)))); ik_key(rig, "r", f0 + 46, 1.0, tuple(rel + Vector((0, 0.085, 0.01))))
+        ik_key(rig, "r", f1, 1.0, tuple(rel + Vector((0, 0.13, 0.03))))
+        A.layer(a(), "hand_r", f0, f1, [(f0, (0, 0, 0), 0.7), (f1, (0, 0, 0), 0.7)], mode="replace")
         A.hand_pose(a(), "r", [(f0, "flat", 1.0), (f0 + 34, "flat", 1.0), (f0 + 40, "fist", 1.0), (f1, "fist", 1.0)])
         A.shiver(a(), f0, f1, [(f0, 1.0), (f1, 1.0)], seed=17)
-        cam = camera("SH13", f0, f1, (0.05, -3.95, 1.32), [(f0, rel + Vector((0.05, 0.03, 0.0)), 30), (f1, rel + Vector((0.05, 0.03, 0.0)), 34)], shake=0.35, shake_freq=0.9, fstop=3.5, focus=0.62)
+        cam = camera("SH13", f0, f1, (0.0, -3.9, 1.3), [(f0, rel + Vector((0.03, 0.04, 0.0)), 26), (f1, rel + Vector((0.03, 0.04, 0.0)), 30)], shake=0.35, shake_freq=0.9, fstop=4.0, focus=0.68)
         shot("SH13", f0, f1, cam, dynamic=PUFFS, note="hand on iced release")
         ik_key(rig, "r", f1 + 1, 0.0)
 
@@ -822,7 +923,7 @@ def build(ids=None):
         leo_face(f0, f1, {"browDownLeft": 0.4, "browDownRight": 0.4, "jawOpen": 0.1},
                  keys=[(fs, {"eyeWideLeft": 0.9, "eyeWideRight": 0.9, "jawOpen": 0.35, "browInnerUp": 0.8}),
                        (fs + 22, {"eyeSquintLeft": 0.9, "eyeSquintRight": 0.9, "jawOpen": 0.2, "mouthStretchLeft": 0.7, "mouthStretchRight": 0.7})], blink_s=0)
-        cam = camera("SH14", f0, f1, (1.55, 1.1, 0.75), track(rig, "pelvis", f0, f1, 12, 22, off=(0, 0, 0.1)), shake=0.3)
+        cam = camera("SH14", f0, f1, (-1.25, 2.15, 1.25), track(rig, "spine_02", f0, f1, 8, 24, off=(0, 0, -0.05), lens1=22), shake=0.3)
         shot("SH14", f0, f1, cam, dynamic=PUFFS, note="slip and fall")
 
     # ---------------------------------------------------------- SH15 time-lapse: hours can pass / below 35 = hypothermia
@@ -834,6 +935,7 @@ def build(ids=None):
         place(rig, "111_06", 1090, 1500, fa, fa, (0.6, 1.1), face_deg=180)
         place(rig, "91_14", 420, 900, fb_, fb_, (0.1, -0.6), path_deg=0, path_end=700)
         mocap(rig, "80_42", 250, 1000, fc, face_deg=90, pos=(-1.72, -0.9), speed=0.8, root_motion=False)
+        ground_feet(rig, fa, fb_ - 1)   # the get-up take floated ~0.85 m above the floor
         A.shiver(a(), fa, f1, [(fa, 1.0), (f1, 2.0)], seed=19)
         GRIP(a(), fc, f1)
         exh = A.breathe(a(), fc, f1, [(fc, 1.2)], depth_deg=1.8); puffs(rig, exh, 0.9, dur=40)
@@ -864,8 +966,15 @@ def build(ids=None):
         A.hand_pose(a(), "r", [(f0, "grip", 1.0), (f0 + 14, "claw", 0.6), (f0 + 18, "flat", 0.6), (f1, "claw", 0.8)])
         A.shiver(a(), f0, f1, [(f0, 3.5), (f1, 3.5)], seed=21)
         phone_drop(f0 + 17)
-        cp, hp = orbit(rig, f0 + 10, "hand_r", 0.9, az=20, el=-10)
-        cam = camera("SH16b", f0, f1, cp, [(f0, hp, 34), (f0 + 18, hp + Vector((0, 0, -0.3)), 32), (f1, hp + Vector((0, 0, -0.6)), 30)], shake=0.35, fstop=2.8)
+        cp, hp = orbit(rig, f0 + 10, "hand_r", 1.25, az=28, el=-4)
+        ph_ = bpy.data.objects["Phone"]
+        def ppos(f):
+            sc.frame_set(f); return ph_.matrix_world.to_translation()
+        pk = []
+        for ff in list(range(f0, f1, 3)) + [f1]:
+            pk.append((ff, ppos(ff) * 0.55 + bpos(rig, "hand_r", ff) * 0.45))
+        pk = [(f, sum((pk[j][1] for j in range(max(0, i - 1), min(len(pk), i + 2))), Vector()) / len(pk[max(0, i - 1):i + 2])) for i, (f, _) in enumerate(pk)]
+        cam = camera("SH16b", f0, f1, cp, [(f, tuple(p), 30) for f, p in pk], shake=0.3, fstop=4.0, focus_track=(rig, "hand_r", "head"))
         shot("SH16b", f0, f1, cam, dynamic=PUFFS + ["Phone", "PhoneScreen"], note="phone drops")
     f0, f1 = F(66.3) + 1, F(67.4)
     if want("SH16c"):
@@ -890,9 +999,11 @@ def build(ids=None):
         begin(f0, f1)
         cold_state(f0, 3)
         place(rig, "91_09", 900, 1300, f0, f0, (0.0, 0.4), path_deg=0, path_end=1120)
+        ground_feet(rig, f0, f1)
+        A.hand_pose(a(), "l", [(f0, "claw", 0.8), (f1, "claw", 0.8)]); A.hand_pose(a(), "r", [(f0, "claw", 0.8), (f1, "claw", 0.8)])
         A.shiver(a(), f0, f1, [(f0, 2.5), (f1, 2.5)], seed=23)
         leo_face(f0, f1, {"eyeBlinkLeft": 0.3, "eyeBlinkRight": 0.35, "browInnerUp": 0.3, "jawOpen": 0.08}, blink_s=1.5)
-        cam = camera("SH16d", f0, f1, (1.2, -2.6, 1.3), track(rig, "spine_03", f0, f1, 10, 28), shake=0.5, roll_keys=[(f0, 10), (f1, 16)])
+        cam = camera("SH16d", f0, f1, (1.2, -2.6, 1.3), track(rig, "spine_01", f0, f1, 10, 25), shake=0.5, roll_keys=[(f0, 10), (f1, 16)])
         shot("SH16d", f0, f1, cam, dynamic=PUFFS, note="stagger, judgement slipping")
 
     # ---------------------------------------------------------- SH17 best move: off the metal floor, onto cardboard, curl up
@@ -902,12 +1013,16 @@ def build(ids=None):
         begin(f0, f1)
         cold_state(f0, 3); state(f0, thermal_temp=0.93, thermal_hands=0.3)
         place(rig, "82_05", 300, 900, f0, f0, (-0.9, -0.7), face_deg=90)
+        ground_feet(rig, f0, f1)   # the floor-sitting take floated ~0.8 m up
+        tuck_arms(rig, f0, f1)
+        A.hand_pose(a(), "l", [(f0, "tucked", 1.0), (f1, "tucked", 1.0)]); A.hand_pose(a(), "r", [(f0, "tucked", 1.0), (f1, "tucked", 1.0)])
         A.shiver(a(), f0, f1, [(f0, 2.0), (f1, 2.0)], seed=24)
-        pv = bpos(rig, "pelvis", f0 + 30)
+        pv = bpos(rig, "pelvis", (f0 + f1) // 2)
         hs = bpy.data.objects["HeatSpot_1"]; hs.location = (pv.x, pv.y, 0.0); hs.scale = (0.45, 0.45, 0.45)
         ramp("heat1", f0 + 5, 0.15, f1, 0.75)
         cp, hp = orbit(rig, f0 + 30, "spine_02", 2.6, az=35, el=24)
-        cam = camera("SH17a", f0, f1, cp, [(f0, hp + Vector((0, 0, -0.25)), 28), (f1, hp + Vector((0, 0, -0.25)), 30)], shake=0.08)
+        left_ = Vector((0, 0, 1)).cross(facing(rig, f0 + 30))
+        cam = camera("SH17a", f0, f1, cp, [(f0, hp + Vector((0, 0, -0.25)) - left_ * 0.25, 28), (f1, hp + Vector((0, 0, -0.25)) - left_ * 0.25, 30)], shake=0.08)
         shot("SH17a", f0, f1, cam, mode="thermal", dynamic=PUFFS, note="thermal: floor steals heat")
     # seat dressing (in the plates from here on)
     sit_f = F(72.9) + 30
@@ -921,10 +1036,12 @@ def build(ids=None):
         mocap(rig, "80_42", 400, 600, f0, face_deg=90, pos=(seat.x + 0.35, seat.y), speed=0.8, root_motion=False)
         place(rig, "22_03", 60, 800, f0 + 26, f0 + 26, (seat.x + 0.08, seat.y), face_deg=90)
         A.transition(a(), A.ALL_BODY, f0 + 8, f0 + 26)
+        sit_on(rig, f0, f1, 0.46, start=f0 + 8, seated=f0 + 26)
         A.shiver(a(), f0, f1, [(f0, 2.5), (f1, 2.5)], seed=25)
         GRIP(a(), f0, f1)
+        tuck_arms(rig, f0 + 22, f1, ramp_in=18)  # wraps his arms round himself as he sits (continuity into SH17c)
         cp, hp = orbit(rig, f0 + 30, "spine_02", 2.4, az=40, el=8)
-        cam = camera("SH17b", f0, f1, cp, [(f0, hp + Vector((0, 0, 0.1)), 28), (f1, hp, 30)], shake=0.2)
+        cam = camera("SH17b", f0, f1, cp, track(rig, "spine_03", f0, f1, 10, 29, off=(0, 0, 0.12)), shake=0.2)
         shot("SH17b", f0, f1, cam, dynamic=PUFFS, note="sits on cardboard")
     f0, f1 = F(74.8) + 1, F(77.4)
     if want("SH17c"):
@@ -934,6 +1051,8 @@ def build(ids=None):
         mocap(rig, "80_41", 260, 900, f0, face_deg=90, speed=0.8, bones=ARMS, root_motion=False)
         A.layer(a(), "spine_02", f0, f1, [(f0, (0, 0, 0), 0), (f0 + 30, (14, 0, 0), 1), (f1, (18, 0, 0), 1)])
         A.layer(a(), "neck_01", f0, f1, [(f0, (0, 0, 0), 0), (f0 + 30, (10, 0, 0), 1), (f1, (14, 0, 0), 1)])
+        sit_on(rig, f0, f1, 0.46)
+        tuck_arms(rig, f0, f1, reach=0.38, fwd=(0.11, 0.08))
         A.hand_pose(a(), "l", [(f0, "grip", 1.0), (f0 + 25, "tucked", 1.0), (f1, "tucked", 1.0)])
         A.hand_pose(a(), "r", [(f0, "grip", 1.0), (f0 + 25, "tucked", 1.0), (f1, "tucked", 1.0)])
         A.shiver(a(), f0, f1, [(f0, 2.8), (f1, 3.0)], seed=26)
@@ -954,6 +1073,7 @@ def build(ids=None):
         A.layer(a(), "spine_02", f0, f1, [(f0, (16, 0, 0), 1), (f1, (20, 0, 0), 1)])
         A.layer(a(), "neck_01", f0, f1, [(f0, (-14, 0, 0), 1), (f1, (-10, 0, 0), 1)])
         A.layer(a(), "head", f0, f1, [(f0, (-24, 0, 0), 1), (stop, (-24, 0, 0), 1), (f1, (-8, 0, 6), 1)])
+        sit_on(rig, f0, f1, 0.46)
         tuck_arms(rig, f0, f1)
         A.hand_pose(a(), "l", [(f0, "tucked", 1.0), (f1, "tucked", 1.0)]); A.hand_pose(a(), "r", [(f0, "tucked", 1.0), (f1, "tucked", 1.0)])
         A.shiver(a(), f0, f1, [(f0, 3.8), (F(80.8), 4.2), (F(81.6), 1.5), (stop + 4, 0.12), (f1, 0.05)], seed=27)
@@ -978,6 +1098,7 @@ def build(ids=None):
         place(rig, "22_03", 300, 900, f0, f0, (seat.x + 0.08, seat.y), face_deg=90, speed=0.5)
         mocap(rig, "80_41", 400, 900, f0, face_deg=90, speed=0.5, bones=ARMS, root_motion=False)
         A.layer(a(), "spine_02", f0, f1, [(f0, (18, 0, 0), 1), (f1, (22, 0, 0), 1)])
+        sit_on(rig, f0, f1, 0.46)
         tuck_arms(rig, f0, f1)
         A.hand_pose(a(), "l", [(f0, "tucked", 1.0), (f1, "tucked", 1.0)]); A.hand_pose(a(), "r", [(f0, "tucked", 1.0), (f1, "tucked", 1.0)])
         exh = A.breathe(a(), f0, f1, [(f0, 2.4)], depth_deg=1.5); puffs(rig, exh, 0.7, dur=50)
@@ -1011,6 +1132,7 @@ def build(ids=None):
         for side, sg in (("l", 1), ("r", -1)):
             A.layer(a(), f"upperarm_{side}", f0, f1, [(f0, (0, 0, 0), 0), (sl0, (0, 0, 0), 0), (sl1, (0, 0, 0), 0.7), (f1, (0, 0, 0), 0.7)], mode="replace")
             A.layer(a(), f"lowerarm_{side}", f0, f1, [(f0, (0, 0, 0), 0), (sl0, (0, 0, 0), 0), (sl1, (0, 0, 20), 0.6), (f1, (0, 0, 20), 0.6)], mode="replace")
+        sit_on(rig, f0, f1, 0.46)
         tuck_arms(rig, f0, f1, release=(sl0, sl1 - 8))
         A.hand_pose(a(), "l", [(f0, "tucked", 1.0), (sl1, "relaxed", 1.0), (f1, "relaxed", 1.0)]); A.hand_pose(a(), "r", [(f0, "tucked", 1.0), (sl1, "relaxed", 1.0), (f1, "relaxed", 1.0)])
         exh = A.breathe(a(), f0, f1, [(f0, 2.6), (f1, 3.6)], depth_deg=0.9); puffs(rig, exh, 0.45, dur=55)
@@ -1033,6 +1155,12 @@ def build(ids=None):
         dock_light(f0 + 14, 0.0); dock_light(f1 - 2, 900.0)
         A.hold(a(), A.ALL_BODY + ["Root"], slump_end, f0, f1) if False else None
         A.hold(a(), A.ALL_BODY, slump_end, f0, f1)
+        for sd in ("lr" if "IKF_foot_l" in bpy.data.objects else ""):  # legs: keep SH20's planted feet through the hold
+            e = bpy.data.objects[f"IKF_foot_{sd}"]; sc.frame_set(slump_end); p_ = e.location.copy()
+            c = rig.pose.bones[f"calf_{sd}"].constraints["IKleg"]
+            for ff in (f0, f1):
+                e.location = p_; e.keyframe_insert("location", frame=ff); c.influence = 1.0; c.keyframe_insert("influence", frame=ff)
+            c.influence = 0.0; c.keyframe_insert("influence", frame=f1 + 1)
         park(my, f0); park(my, f1)
         cam = camera("SH21", f0, f1, (-1.05, -1.75, 0.32), [(f0, (0.05, -4.5, 1.0), 22), (f1, (0.05, -4.5, 1.08), 24)], shake=0.08)
         shot("SH21", f0, f1, cam, dynamic=PUFFS + DOOR_PARTS, note="door opens, light floods in",
@@ -1045,6 +1173,7 @@ def build(ids=None):
         cold_state(f0, 5); door(f0, -95.0, "CONSTANT"); dock_light(f0, 900.0, "CONSTANT")
         canon = A.canon_angle(BVH.format("22_03"))
         mocap_pair(rig, "22_03", my, "23_03", 30, 560, f0, face_deg=90, pos=(seat.x + 0.08, seat.y), speed=0.65)
+        sit_on(rig, f0, f1, 0.46)
         tuck_arms(rig, f0, f1)
         A.hand_pose(a(), "l", [(f0, "tucked", 1.0), (f1, "tucked", 1.0)]); A.hand_pose(a(), "r", [(f0, "tucked", 1.0), (f1, "tucked", 1.0)])
         # Maya stays bent over him with her hands on his arm and shoulder. (The kneel-and-hug take ended with
@@ -1068,6 +1197,8 @@ def build(ids=None):
         begin(f0, f1)
         cold_state(f0, 4); door(f0, -95.0, "CONSTANT"); dock_light(f0, 900.0, "CONSTANT")
         mocap_pair(rig, "23_01", my, "22_01", 300, 1200, f0, face_deg=0, pos=(seat.x + 0.08, seat.y))
+        ground_feet(rig, f0, f1)
+        hands_on(my, rig, f0, f1)
         A.shiver(a(), f0, f1, [(f0, 1.2), (f1, 1.5)], seed=30)
         exh = A.breathe(a(), f0, f1, [(f0, 1.6)], depth_deg=1.2); puffs(rig, exh, 0.6, dur=45)
         leo_face(f0, f1, {"browInnerUp": 0.4, "eyeBlinkLeft": 0.3, "eyeBlinkRight": 0.3}, blink_s=2.5)
@@ -1087,6 +1218,7 @@ def build(ids=None):
             ds.location = (out_seat.x - 0.05, out_seat.y, 0); ds.scale = (1.2, 1.1, 1.35); ds.rotation_euler = (0, 0, math.radians(90))
         place(rig, "22_03", 300, 1000, f0, f0, (out_seat.x, out_seat.y), face_deg=0, speed=0.7)
         mocap(rig, "80_41", 300, 900, f0, face_deg=0, speed=0.7, bones=ARMS, root_motion=False)
+        sit_on(rig, f0, f1, 0.46)
         A.shiver(a(), f0, f1, [(f0, 2.4), (f1, 2.6)], seed=31)
         GRIP(a(), f0, f1, "tucked")
         leo_face(f0, f1, {"browInnerUp": 0.5, "eyeSquintLeft": 0.3, "eyeSquintRight": 0.3}, blink_s=2.2, chatter_amp=[(f0, 0.6), (f1, 0.6)])
@@ -1107,6 +1239,7 @@ def build(ids=None):
         cold_state(f0, 3); ramp("thermal_temp", f0, 0.74, f1, 0.87); ramp("thermal_hands", f0, 0.18, f1, 0.26)
         place(rig, "22_03", 300, 1000, f0, f0, (out_seat.x, out_seat.y), face_deg=0, speed=0.6)
         mocap(rig, "80_41", 300, 900, f0, face_deg=0, speed=0.6, bones=ARMS, root_motion=False)
+        sit_on(rig, f0, f1, 0.46)
         tuck_arms(rig, f0, f1)
         A.hand_pose(a(), "l", [(f0, "tucked", 1.0), (f1, "tucked", 1.0)]); A.hand_pose(a(), "r", [(f0, "tucked", 1.0), (f1, "tucked", 1.0)])
         A.shiver(a(), f0, f1, [(f0, 2.0), (f1, 1.2)], seed=32)

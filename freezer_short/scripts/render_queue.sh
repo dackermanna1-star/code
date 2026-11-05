@@ -4,7 +4,8 @@ BLEND=/opt/work/blend/anim.blend
 R=/opt/work/renders
 S=/home/user/code/freezer_short/scripts/render_shot.py
 LOG=/opt/work/render_queue.log
-SHOTS="SH01 SH02 SH03 SH04 SH05 SH06a SH06b SH07 SH08a SH08b SH09 SH10a SH10b SH10c SH11a SH11b SH12a SH12b SH13 SH14 SH15 SH16a SH16b SH16c SH16d SH17a SH17b SH17c SH18 SH18c SH19 SH20 SH21 SH22 SH23 SH24a SH24b SH25a SH25b"
+ALL_SHOTS="SH01 SH02 SH03 SH04 SH05 SH06a SH06b SH07 SH08a SH08b SH09 SH10a SH10b SH10c SH11a SH11b SH12a SH12b SH13 SH14 SH15 SH16a SH16b SH16c SH16d SH17a SH17b SH17c SH18 SH18c SH19 SH20 SH21 SH22 SH23 SH24a SH24b SH25a SH25b"
+SHOTS="${QUEUE_SHOTS:-$ALL_SHOTS}"   # optional render order override (same shot set)
 THERMAL="SH07 SH08a SH10a SH10c SH17a SH18c SH25a"
 NOCHAR="SH03 SH12b SH19 SH24b SH25b"
 blender -b $BLEND --python-expr "import bpy; open('$R/shots.json','w').write(bpy.context.scene['shots'])" > /dev/null 2>&1

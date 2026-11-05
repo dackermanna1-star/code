@@ -422,13 +422,16 @@ def pov_confusion(arr, f):
     off = int(10 + 16 * (0.5 + 0.5 * math.sin(t * 2.1)))
     img = Image.fromarray(arr)
     b = img.filter(ImageFilter.GaussianBlur(2 + 3 * u))
-    sh = Image.fromarray(np.roll(np.asarray(b), off, axis=1))
+    # ghost image shifted right by `off` px; mirror the left border instead of np.roll, which wrapped the right
+    # edge round into a flat 10-25 px bar with a hard seam down the left side of the frame
+    ba = np.asarray(b)
+    sh = Image.fromarray(np.ascontiguousarray(np.pad(ba, ((0, 0), (off, 0), (0, 0)), mode="reflect")[:, :ba.shape[1]]))
     out = Image.blend(b, sh, 0.42)
     a = np.asarray(out).astype(np.float32)
     lum = a.mean(axis=2, keepdims=True); a = lum + (a - lum) * 0.75
     for c0, c1 in [(s0 + 40, s0 + 50), (s0 + 92, s0 + 108), (s0 + 128, s1)]:
         if c0 <= f <= c1:
-            k = math.sin(math.pi * (f - c0) / (c1 - c0)) if f < c1 or c1 != s1 else 1.0
+            k = math.sin(math.pi * (f - c0) / (c1 - c0))  # every blink reopens by c1 (no black last frame before the cut)
             a *= (1 - 0.95 * clamp(k))
     return np.clip(a, 0, 255).astype(np.uint8)
 
