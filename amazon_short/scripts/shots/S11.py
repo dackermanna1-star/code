@@ -32,6 +32,13 @@ day_light(4.0, (60, 0, 200), 0.85, 1.6, sun_col=(1.0, 0.88, 0.7), exposure=0.8)
 cam = camera('CAM', (0.1, -1.0, 1.65), (0, 0.5, 1.6), 55)
 y0 = ENV.height_at(T, 0, 2)
 cam_path(cam, [(1, (0.35, 2.15, 1.75 + y0), (0.12, 3.2, 1.5 + y0)), (N, (0.15, -3.55, 1.72 + ENV.height_at(T, 0, -3)), (-0.1, -2.4, 1.5 + ENV.height_at(T, 0, -3)))])
+ht = empty('HEAD_TGT'); hc = ht.constraints.new('COPY_LOCATION'); hc.target = rig; hc.subtarget = 'Head'; hc.head_tail = 0.4
+cam.animation_data_clear(); cam.constraints.clear()
+cam.location = (0.22, -1.05, 0.06)
+for f, off in ((1, (0.25, -1.1, 0.07)), (N, (0.12, -0.85, 0.04))):
+    cam.location = off; cam.keyframe_insert('location', frame=f)
+cc = cam.constraints.new('COPY_LOCATION'); cc.target = ht; cc.use_offset = True
+track_cam(cam, ht)
 handheld(cam, 1, N, amp=0.004, rot_amp=0.003, seed=11)
 focus_on(cam, rig, 'Head', 2.0)
 # thick humid haze
