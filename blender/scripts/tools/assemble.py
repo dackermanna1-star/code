@@ -8,6 +8,7 @@ OUT = '/home/user/code/output/'
 TMP = '/tmp/claude-0/-home-user-code/73c477af-b034-5106-8934-46dafc95cd58/scratchpad/assemble/'
 shots = json.load(open('/home/user/code/story/shots.json'))['shots']
 draft = '--draft' in sys.argv
+only = sys.argv[sys.argv.index('--only') + 1].split(',') if '--only' in sys.argv else None   # reuse other clips
 os.makedirs(TMP, exist_ok=True); os.makedirs(OUT, exist_ok=True)
 # per-shot colour corrections (warm-light close-ups read too orange on skin; matched toward neighbours)
 GRADE = {
@@ -43,9 +44,12 @@ for sid, t0, t1, *_ in shots:
     src_n = n
     if sid in RETIME:
         src_n = RETIME[sid]
-        vf = ('trim=end_frame=%d,setpts=(PTS-STARTPTS)*%d/%d,minterpolate=fps=30:mi_mode=mci:mc_mode=aobmc:me_mode=bidir:vsbmc=1,' % (src_n, n, src_n)) + vf
+        # minterpolate stops at the last source timestamp (n-2 frames): hold the last frame so the clip is exactly n long
+        vf = ('trim=end_frame=%d,setpts=(PTS-STARTPTS)*%d/%d,minterpolate=fps=30:mi_mode=mci:mc_mode=aobmc:me_mode=bidir:vsbmc=1,tpad=stop_mode=clone:stop=6,' % (src_n, n, src_n)) + vf
     if sid in GRADE: vf += ',' + GRADE[sid]
     clip = TMP + sid + '.mkv'
+    if only and sid not in only and os.path.exists(clip):
+        clips.append(clip); continue
     subprocess.run(['ffmpeg', '-v', 'error', '-y', '-framerate', '30', '-i', seq + '%04d.png', '-vf', vf + ',format=yuv444p',
                     '-c:v', 'libx264', '-preset', 'veryfast' if draft else 'medium', '-qp', '0' if not draft else '12',
                     '-frames:v', str(n), clip], check=True)
