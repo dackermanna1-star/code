@@ -454,7 +454,7 @@ TOTAL_FRAMES = F(133.0)
 
 def process(f, comp_root, final_dir):
     sid, s = shot_of(min(f, LAST))
-    src = f"{comp_root}/{sid}/{min(f, LAST):05d}.png" if sid else None
+    src = f"{comp_root}/{sid}/{min(f, LAST):05d}.jpg" if sid else None
     if not src or not os.path.exists(src):
         return False
     arr = np.asarray(Image.open(src).convert("RGB"))

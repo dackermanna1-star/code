@@ -49,6 +49,7 @@ def common_settings():
     bpy.context.view_layer.use_pass_mist = True
     sc.world.mist_settings.start = 0.5; sc.world.mist_settings.depth = 16.0; sc.world.mist_settings.falloff = "LINEAR"
     sc.render.use_compositing = False; sc.render.use_sequencer = False
+    flat_display_glass(); clear_ice()
 
 
 def frames():
@@ -118,6 +119,94 @@ def soften_breath():
     mr_.inputs[1].default_value = 0.05; mr_.inputs[2].default_value = 0.35
     m.cycles.volume_step_rate = 3.0
     return m
+
+
+def flat_display_glass():
+    """TempDisplay_Glass is an unbevelled 8-vertex box that box() shaded smooth, so its front face interpolates the corner
+    normals (+-0.577, 0.577, +-0.577): the flat glass shades like a convex mirror (normal tilted ~25 deg at the "2"), and its
+    near-grazing reflection picks up the emissive digits 1 mm in front of it -> the shrunken, offset ghost "2"/"0" in SH03."""
+    g = bpy.data.objects.get("TempDisplay_Glass")
+    if g: g.data.shade_flat()
+
+
+def clear_ice():
+    """Render-time replacement for M_Ice (Release_Ice). The build-time material (85 % rough, bumpy transmission + 15 %
+    diffuse + coat) read as grey putty: with refractive caustics off, shadow rays and diffuse bounces cannot pass a
+    refractive surface, so the cap/backplate inside were unlit and only the diffuse/coat skin showed.
+    Here: smooth, fully transmissive, faintly blue ice; shadow and diffuse rays see a tinted Transparent BSDF instead
+    (cap and backplate are lit through it, no caustics needed, no noise); trapped-air bubbles are faked with three
+    parallax-offset Voronoi layers (fixed in object space, so they ride with the door), plus a faint frosty veil."""
+    m = bpy.data.materials.get("M_Ice")
+    if not m: return
+    nt = m.node_tree; N, L = nt.nodes, nt.links
+    out = next(n for n in N if n.type == "OUTPUT_MATERIAL" and n.is_active_output)
+    for n in [n for n in N if n != out]: N.remove(n)
+    def node(t, **inp):
+        n = N.new(t)
+        for k, v in inp.items(): n.inputs[k].default_value = v
+        return n
+    tc = N.new("ShaderNodeTexCoord"); geo = N.new("ShaderNodeNewGeometry"); lp = N.new("ShaderNodeLightPath")
+    # body: clear, smooth, barely blue (IOR of ice)
+    b = node("ShaderNodeBsdfPrincipled", **{"Base Color": (0.74, 0.88, 1.0, 1.0), "IOR": 1.31, "Transmission Weight": 1.0,
+                                             "Coat Weight": 0.0, "Specular IOR Level": 0.5})
+    # gentle melt ripples (low-frequency, weak) + roughness 0.03..0.10
+    nz = node("ShaderNodeTexNoise", Scale=7.0, Detail=2.0, Roughness=0.5); L.new(tc.outputs["Object"], nz.inputs["Vector"])
+    bp = node("ShaderNodeBump", Strength=0.08, Distance=0.003); L.new(nz.outputs["Fac"], bp.inputs["Height"])
+    L.new(bp.outputs["Normal"], b.inputs["Normal"])
+    rr = N.new("ShaderNodeMapRange"); rr.clamp = True
+    rr.inputs["From Min"].default_value = 0.3; rr.inputs["From Max"].default_value = 0.7
+    rr.inputs["To Min"].default_value = 0.03; rr.inputs["To Max"].default_value = 0.10
+    L.new(nz.outputs["Fac"], rr.inputs["Value"]); L.new(rr.outputs["Result"], b.inputs["Roughness"])
+    # trapped-air bubbles: Voronoi sampled a little *inside* along the view ray (parallax), in object space
+    masks = []
+    for depth, scale, rad, keep in [(0.004, 140.0, 0.16, 0.45), (0.014, 90.0, 0.15, 0.5), (0.03, 60.0, 0.12, 0.6)]:
+        off = N.new("ShaderNodeVectorMath"); off.operation = "MULTIPLY_ADD"
+        L.new(geo.outputs["Incoming"], off.inputs[0]); off.inputs[1].default_value = (-depth, -depth, -depth)
+        L.new(geo.outputs["Position"], off.inputs[2])
+        vt = N.new("ShaderNodeVectorTransform"); vt.vector_type = "POINT"; vt.convert_from = "WORLD"; vt.convert_to = "OBJECT"
+        L.new(off.outputs["Vector"], vt.inputs["Vector"])
+        vo = N.new("ShaderNodeTexVoronoi"); vo.voronoi_dimensions = "3D"; vo.feature = "F1"
+        vo.inputs["Scale"].default_value = scale; vo.inputs["Randomness"].default_value = 1.0
+        L.new(vt.outputs["Vector"], vo.inputs["Vector"])
+        dm = N.new("ShaderNodeMapRange"); dm.clamp = True
+        dm.inputs["From Min"].default_value = rad * 0.55; dm.inputs["From Max"].default_value = rad
+        dm.inputs["To Min"].default_value = 1.0; dm.inputs["To Max"].default_value = 0.0
+        L.new(vo.outputs["Distance"], dm.inputs["Value"])
+        sp = N.new("ShaderNodeSeparateColor"); L.new(vo.outputs["Color"], sp.inputs["Color"])
+        gt = N.new("ShaderNodeMath"); gt.operation = "GREATER_THAN"; gt.inputs[1].default_value = keep
+        L.new(sp.outputs["Red"], gt.inputs[0])
+        mk = N.new("ShaderNodeMath"); mk.operation = "MULTIPLY"; L.new(dm.outputs["Result"], mk.inputs[0]); L.new(gt.outputs[0], mk.inputs[1])
+        masks.append(mk.outputs[0])
+    bm = masks[0]
+    for mk in masks[1:]:
+        mx_ = N.new("ShaderNodeMath"); mx_.operation = "MAXIMUM"; L.new(bm, mx_.inputs[0]); L.new(mk, mx_.inputs[1]); bm = mx_.outputs[0]
+    # frosty veil: whiter where the view grazes the lump (longer path through ice) and in soft patches; the face stays clear
+    lw = node("ShaderNodeLayerWeight", Blend=0.35)
+    rim = N.new("ShaderNodeMapRange"); rim.clamp = True
+    rim.inputs["From Min"].default_value = 0.35; rim.inputs["From Max"].default_value = 0.95
+    rim.inputs["To Min"].default_value = 0.0; rim.inputs["To Max"].default_value = 0.5
+    L.new(lw.outputs["Facing"], rim.inputs["Value"])
+    nz2 = node("ShaderNodeTexNoise", Scale=12.0, Detail=4.0, Roughness=0.55); L.new(tc.outputs["Object"], nz2.inputs["Vector"])
+    pt = N.new("ShaderNodeMapRange"); pt.clamp = True
+    pt.inputs["From Min"].default_value = 0.45; pt.inputs["From Max"].default_value = 0.68
+    pt.inputs["To Min"].default_value = 0.04; pt.inputs["To Max"].default_value = 0.3
+    L.new(nz2.outputs["Fac"], pt.inputs["Value"])
+    vl = N.new("ShaderNodeMath"); vl.operation = "MAXIMUM"; L.new(rim.outputs["Result"], vl.inputs[0]); L.new(pt.outputs["Result"], vl.inputs[1])
+    veil = node("ShaderNodeBsdfDiffuse", Color=(0.84, 0.92, 1.0, 1.0))
+    mixv = N.new("ShaderNodeMixShader"); L.new(vl.outputs[0], mixv.inputs[0]); L.new(b.outputs[0], mixv.inputs[1]); L.new(veil.outputs[0], mixv.inputs[2])
+    bf = N.new("ShaderNodeMath"); bf.operation = "MULTIPLY"; bf.inputs[1].default_value = 0.8; L.new(bm, bf.inputs[0])
+    bub = node("ShaderNodeBsdfDiffuse", Color=(0.95, 0.98, 1.0, 1.0))
+    mix1 = N.new("ShaderNodeMixShader"); L.new(bf.outputs[0], mix1.inputs[0]); L.new(mixv.outputs[0], mix1.inputs[1]); L.new(bub.outputs[0], mix1.inputs[2])
+    # shadow + diffuse rays: tinted transparency (no refraction) so light reaches the cap/backplate inside
+    sd = N.new("ShaderNodeMath"); sd.operation = "MAXIMUM"
+    L.new(lp.outputs["Is Shadow Ray"], sd.inputs[0]); L.new(lp.outputs["Is Diffuse Ray"], sd.inputs[1])
+    tr = node("ShaderNodeBsdfTransparent", Color=(0.86, 0.94, 1.0, 1.0))
+    mix2 = N.new("ShaderNodeMixShader"); L.new(sd.outputs[0], mix2.inputs[0]); L.new(mix1.outputs[0], mix2.inputs[1]); L.new(tr.outputs[0], mix2.inputs[2])
+    L.new(mix2.outputs[0], out.inputs["Surface"])
+    ice = bpy.data.objects.get("Release_Ice")
+    if ice and "ss" not in ice.modifiers:  # the 162-vertex lump showed polygonal facets along its silhouette
+        ss = ice.modifiers.new("ss", "SUBSURF"); ss.levels = 0; ss.render_levels = 2
+    print("ice: clear material on M_Ice")
 
 
 def cam_params(f):

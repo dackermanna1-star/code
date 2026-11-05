@@ -8,10 +8,12 @@ echo "$(date +%H:%M:%S) FIXPASS2 start" >> $LOG
 for sh in SH04 SH06a SH08b SH09 SH11a SH11b SH12a SH13 SH14 SH16b SH16c SH16d SH17b SH17c SH18 SH20 SH22 SH23 SH24a; do
   rm -f $R/$sh/${sh}_plate* $R/$sh/${sh}_char_*.exr $R/$sh/${sh}_breath_*.exr $R/$sh/breath.log
 done
-# plates only (floor ice, ghost-free door variants, SH03/SH12b framing)
-for sh in SH01 SH02 SH03 SH12b SH15 SH21; do rm -f $R/$sh/${sh}_plate*; done
+# plates only (floor ice, ghost-free door variants, SH03/SH12b framing, flat display glass, clear release ice)
+for sh in SH01 SH02 SH03 SH05 SH06b SH12b SH15 SH19 SH21; do rm -f $R/$sh/${sh}_plate*; done
 # character passes (SH01/SH02 framing + boundary fixes; SH15 grounded get-up)
-for sh in SH01 SH02 SH15; do rm -f $R/$sh/${sh}_char_*.exr $R/$sh/${sh}_breath_*.exr $R/$sh/breath.log; done
+for sh in SH01 SH02 SH15 SH21; do rm -f $R/$sh/${sh}_char_*.exr $R/$sh/${sh}_breath_*.exr $R/$sh/breath.log; done
+# SH25b: door + iced release now come from a char pass (the plates leave an animated door out)
+rm -f $R/SH25b/SH25b_plate* $R/SH25b/SH25b_char_*.exr $R/SH25b/SH25b_breath_*.exr $R/SH25b/breath.log   # plate1 was truncated (disk full)
 # thermal passes (soft breath, tucked arms, grounding, new angles)
 for sh in SH07 SH08a SH10a SH10c SH17a SH18c SH25a; do rm -f $R/$sh/${sh}_thermal_*.png; done
 # breath passes

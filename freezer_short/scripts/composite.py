@@ -250,14 +250,14 @@ def run(sid, rdir, outdir, shots_meta, grade, frames=None):
     shot = Shot(sid, rdir, meta)
     fr = frames or list(range(meta["f0"], meta["f1"] + 1))
     for f in fr:
-        out = f"{outdir}/{f:05d}.png"
+        out = f"{outdir}/{f:05d}.jpg"  # intermediate: JPEG q95 keeps disk use in budget
         g = dict(grade); g.update(shot.cam[f].get("grade", {}))
         if shot.mode == "thermal":
             img = comp_thermal(shot, f, g)
         else:
             rgb, mist = comp_plate(shot, f, g)
             img = finish(rgb, mist, g, f)
-        cv2.imwrite(out, cv2.cvtColor((img * 255 + 0.5).astype(np.uint8), cv2.COLOR_RGB2BGR), [cv2.IMWRITE_PNG_COMPRESSION, 1])
+        cv2.imwrite(out, cv2.cvtColor((img * 255 + 0.5).astype(np.uint8), cv2.COLOR_RGB2BGR), [cv2.IMWRITE_JPEG_QUALITY, 95])
     return fr
 
 

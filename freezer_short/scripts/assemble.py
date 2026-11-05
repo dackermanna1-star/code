@@ -19,7 +19,8 @@ def ready(sid, s):
     if s["mode"] == "thermal":
         return len([x for x in os.listdir(d) if "_thermal_" in x]) >= s["f1"] - s["f0"] + 1
     if not os.path.exists(f"{d}/{sid}_plate.json"): return False
-    if s["chars"]:
+    # an animated door is drawn in the char pass even when no actor is in the shot (SH25b)
+    if s["chars"] or any(n.startswith("Door") for n in s["dynamic"]):
         n = len([x for x in os.listdir(d) if "_char_" in x])
         if n < s["f1"] - s["f0"] + 1: return False
         if not os.path.exists(f"{d}/breath.log") or "BREATH" not in open(f"{d}/breath.log").read(): return False
