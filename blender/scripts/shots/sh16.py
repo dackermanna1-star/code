@@ -1,5 +1,6 @@
-"""SH16 - "Then, something bigger comes to look."  Underwater wide into the blue: his legs hang at the top of
-frame; out of the haze a shortfin mako glides in, slow and curious."""
+"""SH16 - "Then, something bigger comes to look."  Underwater wide into the blue: continuing from SH15 he floats flat
+with the little fish in his shadow, then rolls upright, legs dropping into the top of frame, as out of the haze a
+shortfin mako glides in, slow and curious, and the fish scatter."""
 from common import *
 import marine
 
@@ -8,8 +9,25 @@ def build():
     N = sc.frame_end   # 75
     c.condition(wet=1.0, fatigue=0.5, sunburn=0.45, salt=0.3)
     marine.underwater_camera_setup(sc, o, sun)
-    probe = tread_in_place(c, o, N, depth=-0.22, speed=0.7, effort=0.55, yaw=60, lean=4)
-    finish(c, o, N, probe)
+    # continuity with SH15: he starts floating flat on his back, then rolls upright to tread as the shape appears
+    w = ch.ramp(6, 40)
+    c.add(ch.weight(ch.float_back(c), lambda f: 1 - w(f)))
+    c.add(ch.weight(ch.tread_water(c, 1, N, speed=0.7, effort=0.55), w))
+    c.add(ch.breathing(rate_bpm=22, depth=1.0)); c.add(ch.micro_head(seed=3, amp=2.0))
+    q_float = compose(R('X', -76), R('Z', 70)); q_tread = compose(R('X', 4), R('Z', 60))
+    def pivot(f):
+        k = w(f)
+        loc = Vector((0, 0.15, -0.11)).lerp(Vector((0, 0, -0.22 + ch.tread_bob(f, 0.7, 0.035 * 0.55))), k)
+        return loc, q_float.slerp(q_tread, k)
+    c.pivot_fn = pivot
+    probe = ch.OceanProbe(o['ocean'])
+    finish(c, o, N, probe, inertia=(0.22, 0.6), radius=1.0)
+    # the juvenile trevally from SH15 are still in his shadow, and dart away as the mako comes in
+    tpl = marine.fish_template('trevally_juv', length=0.2)
+    def centre(f):
+        e = ease((f - 22) / 30.0)
+        return Vector((0.1 - 3.2 * e + 0.1 * math.sin(f / 20), 0.3 * e, -0.95 - 0.6 * e + 0.1 * math.sin(f / 25)))
+    marine.school(tpl, 12, centre, seed=3, spread=(0.55, 0.9, 0.22))
     shark, arm = marine.load_shark(2.6)
     # ~2.5 m/s cruise out of the blue haze toward the dangling legs, slight descent-then-rise
     marine.path_animate(shark, lambda f: Vector((3.0 - 2.8 * ease(f / N), 8.0 - 6.5 * ease(f / N), -3.4 + 0.8 * ease(f / N))), 1, N)

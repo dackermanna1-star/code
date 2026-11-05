@@ -31,3 +31,23 @@ A 127-second vertical (1080×1920, 30 fps) 3D animated YouTube Short, made in **
 5. `python3 blender/scripts/tools/assemble.py`
 
 Large downloaded source assets (`blender/assets_src/`) and rendered frames (`render/`) are not committed.
+
+## Review passes
+
+Two adversarial reviews were run on the cut (`research/prerender_review.json`, `research/final_review.json`).
+Fixes after the final review:
+
+- **Helicopter rotor:** the main rotor is split off the model by mesh island (4 blades + hub) and spins on the mast; nothing is left frozen or orbiting the fuselage.
+- **Rescue (SH25–SH29):** hoist hover at ~10.5 m with the hook over him. SH27 is a water-level shot of the strop being paid out to him. SH28 is a side-on hoist with legs trailing and the cable on a chest D-ring. SH29 reels him in through the door before the helicopter leaves. Labels sit in the sky, clear of the helicopter.
+- **Bodies under water (SH09, SH22, SH12, SH24):** the water surface's deep-navy base colour was tinting everything seen through it nearly black. Near the camera, transmission now uses a light tint, so skin, shirt and shorts keep their colour.
+- **Face close-ups (SH12, SH24):** the camera is overhead with the face upright in frame, instead of looking up the throat. SH24 is lit by the rescue's golden evening light.
+- **Other shots:** SH16 continues SH15's flat float and fish. SH17B keeps the mako's pass in frame. SH20 has readable eyes and the waterline at the collarbones. SH03's splash no longer fountains off the crown. SH18 is graded into a sunset.
+- **Captions and labels:** events are split at cuts, so carried-over words take the incoming shot's position. Captions sit low in the water-level face close-ups. Word captions are dropped where the labels already show the same words.
+- **Mix:** the distant rotor is audible before he looks up, and the hope cue is lined up with the hover.
+
+## Known limitations
+
+- **Resolution:** frames are rendered at 576×1024, or 648×1152 for close-ups, on a 4-core CPU with no GPU, then Lanczos-upscaled to 1080×1920. Fine detail is softer than a native 1080p render.
+- **Character:** an MPFB2/MakeHuman figure with stylised materials. The orange T-shirt can read as a thick collar in some angles, and the eyelid redness in SH19 is strong.
+- **Sound:** the music is Kevin MacLeod (CC-BY). Most SFX (helicopter, wind, heartbeat, underwater) are synthesised. Only one recorded splash is used.
+- **Day-1 shots (SH01–SH15):** these were rendered with an earlier sun-azimuth mapping, kept for internal consistency.

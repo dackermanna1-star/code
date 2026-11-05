@@ -66,13 +66,15 @@ def cam_target(parent=None, loc=(0, 0, 0), bone=None):
     t.location = loc
     return t
 
-def overhead_face_cam(c, cam, head_dir_deg, height=(0.9, 0.8), toward_crown=0.1, N=100, bone='eye.L', side=0.0):
+def overhead_face_cam(c, cam, head_dir_deg, height=(0.9, 0.8), toward_crown=0.1, N=100, bone='eye.L', side=0.0, aim_offset=0.0):
     """Camera above a face floating on its back, looking down at it with the face upright in frame (forehead up,
     chin down): aims at the eye through an up-reference empty whose Z axis points toward the crown, so the shot never
     looks up the throat. head_dir_deg: horizontal direction of the crown (deg from +X). Keys cam location (world)."""
     eye = cam_target(c.rig, (0, 0, 0), bone=bone)
     up = bpy.data.objects.new('AimUp', None); bpy.data.collections['Cameras'].objects.link(up)
-    cl = up.constraints.new('COPY_LOCATION'); cl.target = eye
+    hd0 = Vector((math.cos(math.radians(head_dir_deg)), math.sin(math.radians(head_dir_deg)), 0))
+    up.location = hd0 * aim_offset          # aim a little toward the crown: face sits lower, chest leaves the frame
+    cl = up.constraints.new('COPY_LOCATION'); cl.target = eye; cl.use_offset = True
     up.rotation_euler = (math.radians(-90), 0, math.radians(head_dir_deg - 90))
     tt = cam.constraints.new('TRACK_TO'); tt.target = up; tt.track_axis = 'TRACK_NEGATIVE_Z'; tt.up_axis = 'UP_Y'; tt.use_target_z = True
     sc = bpy.context.scene; sc.frame_set(1)
