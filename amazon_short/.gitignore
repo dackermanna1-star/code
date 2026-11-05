@@ -13,5 +13,8 @@ __pycache__/
 audio/sfx/
 audio/music/
 audio/mix/
-blend/
+blend/shots/
+blend/anim_lib.blend
+blend/char_*.blend
+blend/plants_lib.blend
 output/DRAFT_*
