@@ -35,8 +35,8 @@ CAST = {
                          hair_color=(0.07, 0.065, 0.06), targets={}),
     "Wife": dict(gender=0.0, age=0.48, muscle=0.4, weight=0.45, height=0.3, proportions=0.6,
                  race={"asian": 1.0, "caucasian": 0.0, "african": 0.0},
-                 skin="young_asian_female", hair="ponytail01", brows="eyebrow006", clothes=["female_casualsuit01", "shoes04"],
-                 colors={"jacket": (0.62, 0.58, 0.5), "pants": (0.07, 0.09, 0.16), "shirt": (0.62, 0.58, 0.5)},
+                 skin="young_asian_female", hair="ponytail01", brows="eyebrow006", clothes=["female_elegantsuit01"],
+                 colors={"jacket": (0.33, 0.36, 0.42), "pants": (0.08, 0.1, 0.17), "shirt": (0.33, 0.36, 0.42)},
                  hair_color=(0.03, 0.025, 0.02), targets={}),
     "Supervisor": dict(gender=1.0, age=0.72, muscle=0.45, weight=0.62, height=0.4, proportions=0.5,
                        race={"asian": 1.0, "caucasian": 0.0, "african": 0.0},
@@ -392,34 +392,28 @@ def kasuri(name, base=(0.05, 0.07, 0.16), dot=(0.75, 0.72, 0.65), scale=60):
 
 
 def period_dress_woman(name, rig, body, parts):
-    """1940s wartime women's wear: wrap top (kasuri) and baggy monpe trousers, as shells over the body."""
-    top_groups = ("Spine", "Spine1", "LowerBack", "LeftShoulder", "RightShoulder", "LeftArm", "RightArm", "LeftForeArm", "RightForeArm")
-    top = _shell(name + "_WrapTop", body, rig, groups=top_groups, offset=0.022, zmin=None, zmax=None,
-                 mat=kasuri("M_KasuriTop", base=(0.16, 0.17, 0.22), dot=(0.6, 0.58, 0.52), scale=45))
-    pants = _shell(name + "_Monpe", body, rig, groups=("Hips", "LeftUpLeg", "RightUpLeg", "LeftLeg", "RightLeg", "LHipJoint", "RHipJoint"),
-                   offset=0.035, zmin=None, zmax=None, mat=kasuri("M_KasuriMonpe"))
-    for o in parts:
-        if o.type == 'MESH' and any(k in o.name.lower() for k in ("casualsuit", "shoes")):
-            o.hide_render = True; o.hide_viewport = True
-    return [top, pants]
+    """1940s look from the fitted MakeHuman blouse/skirt (recoloured muted indigo/grey in build()).
+    Earlier inflated-shell garments deformed badly under mocap and were dropped."""
+    return []
 
 
 def baby(name, c, skin_src=None):
-    """Swaddled infant (Katsutoshi, a few months old): wrapped bundle with a small face."""
-    cloth = kasuri("M_Swaddle", base=(0.42, 0.3, 0.22), dot=(0.5, 0.38, 0.28), scale=20)
-    skin = Y.mat_basic("M_BabySkin", (0.8, 0.6, 0.5, 1), rough=0.5, sss=0.3)
+    """Infant (Katsutoshi, a few months old) carried on the back: dark kasuri bundle, small head with black hair."""
+    cloth = kasuri("M_SwaddleIndigo", base=(0.05, 0.07, 0.15), dot=(0.55, 0.55, 0.5), scale=35)
+    skin = Y.mat_basic("M_BabySkin", (0.78, 0.56, 0.44, 1), rough=0.5, sss=0.3)
+    hair = Y.mat_basic("M_BabyHair", (0.02, 0.018, 0.016, 1), rough=0.6)
     bpy.ops.mesh.primitive_uv_sphere_add(segments=24, ring_count=12, radius=1)
-    b = bpy.context.active_object; b.name = name + "_Bundle"; b.scale = (0.11, 0.09, 0.2)
+    b = bpy.context.active_object; b.name = name + "_Bundle"; b.scale = (0.12, 0.08, 0.17)
     Y.assign(b, cloth); Y.smooth(b)
-    bpy.ops.mesh.primitive_uv_sphere_add(segments=24, ring_count=12, radius=0.055, location=(0, -0.03, 0.17))
+    bpy.ops.mesh.primitive_uv_sphere_add(segments=24, ring_count=12, radius=0.058, location=(0.0, 0.0, 0.19))
     h = bpy.context.active_object; h.name = name + "_Head"; Y.assign(h, skin); Y.smooth(h)
-    bpy.ops.mesh.primitive_uv_sphere_add(segments=24, ring_count=12, radius=0.068, location=(0, 0.01, 0.18))
-    hood = bpy.context.active_object; hood.name = name + "_Hood"; hood.scale = (1.05, 1.0, 1.05); Y.assign(hood, cloth)
-    bm = bmesh.new(); bm.from_mesh(hood.data)
-    for v in [v for v in bm.verts if v.co.y < -0.035]:
+    bpy.ops.mesh.primitive_uv_sphere_add(segments=24, ring_count=12, radius=0.061, location=(0.0, 0.012, 0.205))
+    hr = bpy.context.active_object; hr.name = name + "_Hair"
+    bm = bmesh.new(); bm.from_mesh(hr.data)
+    for v in [v for v in bm.verts if v.co.z < -0.005]:
         bm.verts.remove(v)
-    bm.to_mesh(hood.data); bm.free(); Y.smooth(hood)
+    bm.to_mesh(hr.data); bm.free(); Y.assign(hr, hair); Y.smooth(hr)
     root = bpy.data.objects.new(name, None); c.objects.link(root)
-    for o in (b, h, hood):
+    for o in (b, h, hr):
         Y.link_to(o, c); o.parent = root
     return root

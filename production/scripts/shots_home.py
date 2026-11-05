@@ -51,6 +51,22 @@ def suitcase(rig, c, name):
     except Exception as e:
         print("suitcase failed", e); return None
     s.name = name
+    s.data.transform(s.matrix_basis)          # bake import rotation/scale (glTF is Y-up)
+    s.matrix_basis = Matrix.Identity(4)
+    # the Poly Haven asset contains two suitcases side by side: keep only one (loose parts split by x)
+    import bmesh as _bm
+    bb0 = [Vector(v) for v in s.bound_box]
+    xs = [v.x for v in bb0]; ys = [v.y for v in bb0]
+    bm_ = _bm.new(); bm_.from_mesh(s.data)
+    if (max(xs) - min(xs)) > (max(ys) - min(ys)):
+        mid = (max(xs) + min(xs)) / 2
+        _bm.ops.delete(bm_, geom=[v for v in bm_.verts if v.co.x > mid], context='VERTS')
+    else:
+        mid = (max(ys) + min(ys)) / 2
+        _bm.ops.delete(bm_, geom=[v for v in bm_.verts if v.co.y > mid], context='VERTS')
+    bm_.to_mesh(s.data); bm_.free()
+    cen = sum((Vector(v) for v in s.bound_box), Vector()) / 8
+    s.data.transform(Matrix.Translation((-cen.x, -cen.y, 0)))
     bb = [Vector(v) for v in s.bound_box]
     h = max(v.z for v in bb) - min(v.z for v in bb)
     sc_ = 0.42 / max(h, 0.01)
