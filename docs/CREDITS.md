@@ -17,12 +17,12 @@
 - Source: https://static.makehumancommunity.org/assets/assetpacks/index.html
 
 ## 3D models (Sketchfab, via the Objaverse dataset; **CC-BY 4.0**)
-- Shortfin mako shark (animated): "Model 62A - Shortfin Mako Shark" by DigitalLife3D (CC-BY 4.0). https://sketchfab.com/3d-models/d5727703d975454893724ea58d195ddf
+- Oceanic whitetip shark (swim motion added procedurally): "Oceanic White Tip Shark" by Dreamwasabducted (CC-BY 4.0). https://sketchfab.com/3d-models/oceanic-white-tip-shark-9027e777c97a40e5854df3e6352140cd
 - Juvenile bigeye trevally (fish under the castaway): "ギンガメアジ 幼魚 Bigeye Trevally, Caranx sexfasciatus" by ffishAsia-and-floraZia (CC-BY 4.0). https://sketchfab.com/3d-models/cad0abfc668e4e3486e930491ac0d840
 - US Coast Guard MH-65 Dolphin helicopter: "MH-65 Dolphin" by Sengchor (CC-BY 4.0). https://sketchfab.com/3d-models/7e35835b0f434755993232e615d4f768
 - Cargo ship (mirage): "Cargo ship" by hungry_drifter (CC-BY 4.0). https://sketchfab.com/3d-models/b7c97df584824ca682d26daabf401f87
 
-(Also downloaded for evaluation but not used in the film: an animated seagull, a juvenile green sea turtle and a Portuguese man o' war.)
+(Also downloaded for evaluation but not used in the film: an animated seagull, a juvenile green sea turtle, a Portuguese man o' war, and "Model 62A - Shortfin Mako" by DigitalLife3D, which was dropped because its licence is CC-BY-NC 4.0.)
 
 ## Music
 - "Long Note Three" and "Eternal Hope" by Kevin MacLeod (incompetech.com), licensed under Creative Commons: By Attribution 4.0 License, http://creativecommons.org/licenses/by/4.0/

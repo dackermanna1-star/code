@@ -74,6 +74,11 @@ class Castaway:
             pb.rotation_mode = 'QUATERNION'
         self.rest = {b.name: b.matrix_local.to_quaternion() for b in self.rig.data.bones}
         self.keys = self.body.data.shape_keys.key_blocks
+        # eyes: the procedural eye has a transmissive cornea shell around the eyeball; in Cycles a glass shell blocks shadow rays,
+        # so iris and sclera got no direct light and rendered as black holes. The eye mesh must not cast shadows.
+        for o in self.col.objects:
+            if o.type == 'MESH' and o.name.endswith('high-poly'):
+                o.visible_shadow = False
         # hair cards / teeth / tongue gain nothing from render subdivision (6s/frame sync)
         for o in self.col.objects:
             if any(k in o.name for k in ('eyebrows', 'eyelashes', 'teeth', 'tongue')):

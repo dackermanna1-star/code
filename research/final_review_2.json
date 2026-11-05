@@ -1,0 +1,560 @@
+{
+ "confirmed": [
+  {
+   "dim": "bodies",
+   "where": "SH24 90.6-94.1 s. Worst 90.9-91.8 s (native frames 0012-0036) and 93.4-94.0 s (native 0084-0102). Better only around 92.0-93.2 s.",
+   "title": "SH24: face still reads as a floating mask, and the chin runs into a pointed glossy V of submerged throat",
+   "severity": "high",
+   "evidence": "Review still SH24_a_090.80 and crops at 90.9 / 91.3 / 93.7 s (m_z24.png), plus native montage m_r24.png.\n\nThe waterline cuts a hard, clean oval across the hairline/forehead and around the jaw. The hair is a dark smudge under the surface, and the face floats as a smooth orange oval on dark teal water. Below the chin, the submerged throat refracts into a pointed V with a glossy streak, like an elongated chin. While he bobs, the throat changes from a V (frames 12-24) to a rounded tube (48) to a long bare neck (54-78) and back to a V (90-102).\n\nThe saturated purple under-eye patches read as bruises at phone size. There is no meniscus, foam or surface glint at the face edge, so nothing tells the eye it is water.\n\nThe overhead camera fix landed, but the 'mask' read flagged last round is still present for about half the shot, starting from its first frame.",
+   "fix": "sh24.py:\n- Raise the float so the waterline stays below the jaw and throat for the whole shot: pivot Vector((0,0.15,-0.11)) to about -0.05, and/or reduce the swell amplitude felt by finish()/apply_buoyancy (lower inertia gain or a calmer ocean).\n- Raise collar_foam from 0.12 to about 0.4 so a wet rim shows where skin meets water.\n- Cut the fatigue under-eye tint to about half.\n- Re-render, then check native frames 10-40 and 80-105 for an unbroken jaw-to-collar line.",
+   "verdict": {
+    "index": 0,
+    "real": true,
+    "severity": "high",
+    "reason": "Reproduced. Looked at final frames at 90.65, 90.9, 91.3, 91.8, 92.3, 92.8, 93.2, 93.5, 93.7, 94.0 and 94.05 s, full-res crops at 90.9 and 93.7 s, and review still SH24_a_090.80. At 90.65-91.8 s and 93.2-94.05 s the waterline cuts a clean oval across the hairline: the hair is a dark smudge under the surface and the face is a smooth orange oval. The throat below the chin refracts into a pointed glossy V that reads as an elongated chin. Around 92.3-92.8 s the neck is out, but it then reads as a long bare column. The purple under-eye patches read as bruises, and there is no meniscus or foam at the face edge. sh24.py has pivot z=-0.11 and collar_foam 0.12, as stated. At 540x960 (SH24_a) it reads as a mask at a glance in a 3.5 s face close-up, so high stands."
+   }
+  },
+  {
+   "dim": "captions",
+   "where": "SH03 10.20-14.20, SH04 14.20-17.60, SH27 104.30-106.72 (24 caption events)",
+   "title": "Captions in SH03, SH04 and SH27 sit entirely inside the YouTube Shorts bottom UI zone",
+   "severity": "high",
+   "evidence": "make_subs.py LOW_Y = {'SH03':1770,'SH04':1770,'SH27':1770} gives \\an2\\pos(540,1770). The libass render measures the text at y=1683-1764 (x 137-948) in every frame of these spans. That is 110-190 px below the y=1570 limit, exactly where the Shorts title, channel name and subscribe row are drawn. Affected: 'YOUR BODY GASPS / UNCONTROLLABLY / AND ONE GASP / UNDERWATER CAN / DROWN YOU / YOU LOOK AROUND / NO BOAT / NO LAND' and 'JACKET / SO WHAT KILLS / YOU OUT HERE?'. That is 7.4 s of the opening hook plus 2.4 s in SH27. Contact sheet sheets/sh03_04.png (10.25, 10.9, 11.9, 12.8, 13.6, 14.25, 14.9, 15.6, 16.4, 17.2) shows every caption below the red 1570 line. sheets/SH27.png (104.37, 105.28, 106.18) shows the same.",
+   "fix": "In blender/scripts/tools/make_subs.py, move these three shots out of LOW_Y and into TOP_Y at y=300 (\\an8). The top band is clear in all three: in SH03 the head top is at y>=708 (10.9 s) and the band is sky and clouds; in SH04 the head is at y~930-1330 under sky; in SH27 the band is open sky before the first label at 106.78 and the strop enters only at ~109.0. The current low placement exists only because the default 1273-1354 band hits the mouth; the top band avoids the face as well. Re-run make_subs.py and assemble.py.",
+   "verdict": {
+    "index": 0,
+    "real": true,
+    "severity": "high",
+    "reason": "Reproduced. make_subs.py has LOW_Y={'SH03':1770,'SH04':1770,'SH27':1770}, and captions.ass holds 24 events with \\an2\\pos(540,1770): 10.20-17.60, plus 7 events in SH27 at 104.30-106.72. I rendered captions.ass alone with libass on black at 1080x1920. Glyph pixels sit at y 1691-1753 throughout 10.3-17.4 s and 104.6-106.4 s, about 1683-1764 with the outline. Frames from the final video at 10.9, 12.8, 15.6, 17.2, 105.3 and 106.2 s (scratch sheet_low.png, red line at y=1570) put every caption at 88-91% of frame height. On most phones YouTube Shorts draws the channel name, Subscribe button and title in that band, so 7.4 s of the opening-hook captions plus 2.4 s in SH27 would collide with platform text. Exactly where the overlay falls varies a little by device, but this placement is well past any common Shorts safe zone. The proposed top band at y~300 is clear in all three shots: sky or clouds above his head in SH03/SH04, and empty sky in SH27 before the labels at 106.78."
+   }
+  },
+  {
+   "dim": "av_tech",
+   "where": "SH16 59.9-62.4 s and SH17B 64.4-66.8 s (mako on screen); docs/CREDITS.md line 20; docs/youtube_description.md line 35",
+   "title": "Mako shark model is CC BY-NC 4.0 (NonCommercial) but credited as CC BY 4.0",
+   "severity": "high",
+   "evidence": "The shark is loaded by marine.load_shark() through import_glb('mako') in sh16.py and sh17b.py. Sketchfab's own metadata inside blender/assets_src/objaverse/mako.glb (glTF asset.extras) reads: license 'CC-BY-NC-4.0 (http://creativecommons.org/licenses/by-nc/4.0/)', title 'Model 62A - Shortfin Mako', author DigitalLife3D. CREDITS.md and the YouTube description both list it as 'CC-BY 4.0' and give the title as '...Mako Shark'. All the other GLBs used (mh65, cargoship, trevally_juv) really are CC-BY-4.0 per the same metadata. A YouTube Short that may be monetized is commercial use under BY-NC, and the credit text as published misstates the licence.",
+   "fix": "Preferred: swap the shark for blender/assets_src/objaverse/whitetip.glb ('Oceanic White Tip Shark' by Dreamwasabducted, embedded licence CC-BY-4.0), then re-render SH16/SH17B, re-assemble, and update the credits. Neither the narration nor the captions name the species, and an oceanic whitetip is the classic open-ocean castaway shark. Otherwise keep the mako, correct both credit files to 'CC BY-NC 4.0' with the exact title, and keep the video non-commercial (not monetized).",
+   "verdict": {
+    "index": 0,
+    "real": true,
+    "severity": "high",
+    "reason": "Reproduced. The glTF asset.extras in blender/assets_src/objaverse/mako.glb give license 'CC-BY-NC-4.0', title 'Model 62A - Shortfin Mako', author DigitalLife3D. whitetip.glb, mh65.glb, cargoship.glb and trevally_juv.glb all carry CC-BY-4.0. sh16.py:31 and sh17b.py:14 call marine.load_shark(), which runs import_glb('mako') (marine.py:138). The shark is plainly on screen: I extracted frames at 61.5 s (head-on approach) and 65.5 s (side pass). docs/CREDITS.md:20 lists it as CC-BY 4.0 under a heading that says all models are CC-BY 4.0. docs/youtube_description.md:35 also puts it under a 'CC-BY 4.0' heading, and both use the wrong title ('...Mako Shark'). Viewers won't notice, but the published credits misstate the licence, and NonCommercial blocks monetising the Short. I keep it high as a publication/compliance blocker. The minimum fix is cheap: correct both credit files and don't monetise. The whitetip swap is the clean fix."
+   }
+  },
+  {
+   "dim": "bodies",
+   "where": "SH22 83.6-87.2 s (whole shot, e.g. 84.5 s and 86.9 s; review stills SH22_a/b/c)",
+   "title": "SH22: submerged shoulders and arms still render charcoal, so the orange shirt still reads as a bib on a black wetsuit",
+   "severity": "medium",
+   "evidence": "Crops in m_z22.png (84.5 s, 86.9 s). Everything under the surface around the orange torso is dark grey/black: shoulders, upper arms and the area at the waist.\n\nMeasured on the full-res frame at 84.5 s:\n\n| Patch | Mean RGB | Luma |\n|---|---|---|\n| Left submerged arm | (45,65,75) | 60 |\n| Right submerged arm | (39,49,53) | 46 |\n| Face | (146,106,91) | 116 |\n| Shirt | (152,114,76) | 121 |\n| Open water | (16,61,84) | 50 |\n\nSo the limbs are colourless and as dark as the water. Skin only shows when the right arm surfaces at about 86.7-87.15 s. The fix applied to SH09 (which now reads correctly) did not carry over. sh22.py passes only transmit_tint, without the near_transmission value that SH09 (20.0) and SH12/SH24 (6.0) use.\n\nThe shot also reads saturated teal, not the grey drizzle the script calls for: mean (38,65,76) at 87.1 s against SH23's grey (144,152,153) at 87.3 s.",
+   "fix": "In sh22.py setup(), use water_kw={'near_transmission': 20.0, 'transmit_tint': (0.55,0.8,0.85)} as in SH09 (keep the vol_glow 0.25 override). Optionally desaturate the overcast grade toward SH23's grey. Re-render SH22 and check that the arm patches come out skin-hued (R > G).",
+   "verdict": {
+    "index": 1,
+    "real": true,
+    "severity": "medium",
+    "reason": "Reproduced at 83.7, 84.5, 85.2, 85.9, 86.5 and 86.9 s, with a full-res crop at 84.5 s. The submerged shoulders and arms are charcoal and colourless, so the orange shirt reads as a hard-edged bib on a black wetsuit. My patches at 84.5 s: left arm RGB (64,68,69), right arm (49,54,55), left shoulder (37,37,34), against face (158,112,96) and shirt (150,112,75). sh22.py passes only transmit_tint, so near_transmission falls back to the env.py default of 14.0. That is lower than SH09's 20.0, though not literally 'missing'. The SH09 colour fix did not carry over here. The 'saturated teal, not grey' remark is secondary and a matter of taste."
+   }
+  },
+  {
+   "dim": "bodies",
+   "where": "SH09 33.0-35.45 s (two round blobs 33.0-34.8 s, one large plate 35.0-35.45 s; also 32.8 s); review stills SH09_b_032.85, SH09_c_035.30",
+   "title": "SH09: orange shirt 'islands' still poke through the surface on his chest and read as breast cups",
+   "severity": "medium",
+   "evidence": "Chest crops in m_c09.png and m_z09b.png. While the starfish float settles, the shirt above the pectorals breaks the surface as two separate, saturated, round orange patches, each about 40-60 px across in the 1080-wide frame. The rest of the shirt is under water and brownish. The patches look like bra cups. At 35.0-35.45 s they merge into one hard-edged orange plate.\n\nThis is the 'two orange breast cups' part of last round's SH09 finding. The black-body part is fixed, this part is not. sh09.py's final float depth is -0.24+0.13 = -0.11, which leaves the pecs right at the mean waterline, so every swell toggles them in and out.",
+   "fix": "In sh09.py pivot(), move the settled depth clear of the pec line: either -0.05 (chest fully out, as sh22.py does for 'no shirt islands') or about -0.17 (chest fully under). Alternatively lower the buoyancy inertia so the swell does not cross it. Re-render frames 100-159.",
+   "verdict": {
+    "index": 2,
+    "real": true,
+    "severity": "medium",
+    "reason": "Reproduced in chest crops at 32.85, 33.2, 34.0, 34.8, 35.2 and 35.4 s. At 32.85, 33.2 and 34.8 s two separate round, saturated orange patches poke through on the pectorals and read as bra cups, while the rest of the shirt is brown under water. At 35.2-35.4 s they merge into one hard-edged orange plate. At 34.0 s they are mostly submerged, so the effect toggles with the swell. sh09.py pivot gives a settled z of -0.24+0.13 = -0.11, as stated. The man is small in this wide overhead shot, but the cups are visible at phone size."
+   }
+  },
+  {
+   "dim": "bodies",
+   "where": "SH20 74.3-78.4 s (e.g. 75.0, 75.6, 76.3, 77.6 s; native frame 0040). Same eyes in SH03 13.0-13.6 s.",
+   "title": "Open eyes render as solid dark-navy holes with no sclera or iris (SH20 close-up, also SH03)",
+   "severity": "medium",
+   "evidence": "Crops in m_z20.png (final) and m_r20e.png (native SH20 frame 40); SH03 crops in m_e03.png (12.9 s, 13.3 s).\n\nThe eyeWide/squint change in sh20.py opens the eyes, but the whole aperture is near black. Native frame 40 eye pixels average RGB (18,12,36), against cheek skin at (158,97,114). In the final at 75.0 s the eye interior luma is p50 17-25 of 255, against skin at about 138. No white sclera or iris shows anywhere, only a thin pale lower-lid rim. The SH03 frontal frames show the same black eyes.\n\nWhere last round's eyes were black slits, they are now wide, dark, doll-like eyes in a 4 s frontal close-up during the hypothermia line.",
+   "fix": "Treat this as a character-material fix, not per shot:\n- Stop the MPFB procedural-eye cornea from shadowing the eyeball: set visible_shadow=False on the Eyes object (or its cornea part), or switch the cornea to a transparent/low-IOR shader.\n- Make sure the sclera base colour is about 0.8 albedo.\n- Re-render SH20, check native frame 40 for visible whites, and spot-check SH03 frames 85-100.",
+   "verdict": {
+    "index": 3,
+    "real": true,
+    "severity": "medium",
+    "reason": "Reproduced. In final crops at 75.0, 76.3 and 77.6 s the whole eye aperture is solid dark navy, with no sclera or iris, only a pale lower-lid rim. Measured at 75.0 s: left eye mean (6,8,31), luma p50 8; right eye (20,19,43), p50 15; cheek (146,90,106), p50 102. Native SH20/0040.png shows the same black eyes. SH03 crops at 12.9, 13.0, 13.3 and 13.6 s also show dark eye holes. The eyes are wider than last round's slits, but they still read as black, doll-like eyes in a frontal 4 s close-up."
+   }
+  },
+  {
+   "dim": "bodies",
+   "where": "SH12 40.63-41.80 s (final frames 1219-1254) and 43.47-43.85 s (frames 1304-1314); review still SH12_c_043.70",
+   "title": "SH12: a band of water across the throat separates the face oval from the chest, so the head looks cut off",
+   "severity": "medium",
+   "evidence": "Sequence montage m_f12.png and crops at 41.3 / 43.2 s (m_z12.png).\n\nIn the first 1.2 s and last 0.4 s, the face is above water inside a hard oval waterline that crosses the forehead hair at 41.3 s. The throat is submerged, shown only by a caustic pattern. The upper chest and shirt neckline are above water again below it, with a pale skin semicircle visible at frames 1249-1254. That reads as a face mask, then a gap, then the torso.\n\nFrom 42.0 to 43.3 s the neck is out and continuous, and in proportion, so the stretched-neck part of the old finding is fixed. sh12.py puts the pivot at z=-0.10 ('waterline at the jaw'), which puts the throat at the waterline as the swell moves.",
+   "fix": "In sh12.py:\n- Raise the pivot z from -0.10 to about -0.05 so the throat stays out through the swell, or calm the ocean ('glassy') for this close-up.\n- Raise collar_foam from 0.15 to about 0.4 so the waterline reads as water.\n- Re-render, and verify native frames 1-35 and 85-99.",
+   "verdict": {
+    "index": 4,
+    "real": true,
+    "severity": "medium",
+    "reason": "Reproduced at 40.65, 40.9, 41.1, 41.3, 41.6, 41.8, 43.5 and 43.8 s, with full-res crops at 41.3 and 43.8 s. The face sits inside a clean oval waterline, which crosses the forehead hair at 41.3 s. The throat is a submerged band shown only by caustics, and below it a hard-edged semicircle of shirt neckline is above water again, so it reads as mask, gap, torso. From 42.0 to 43.3 s the neck is out and continuous. sh12.py pivot is z=-0.10 and collar_foam 0.15, as stated. The caustics at least tell the eye that this is water, so it is less severe than SH24. Medium."
+   }
+  },
+  {
+   "dim": "bodies",
+   "where": "SH03 10.45-11.03 s; the pop is 10.90-10.97 s (native SH03 frames 21-24, final frames 327-329)",
+   "title": "SH03: he surfaces chest-high, as if standing in a pool, then drops about a head-height in 3 frames",
+   "severity": "medium",
+   "evidence": "m_s03c.png (final frames 318-340), m_r03b.png (native 21, 22, 23, 24, 25, 30) and r03_20_ruler.png.\n\nFrom about 10.45 s the whole shirt yoke and shoulders sit above the surface, with the waterline below the V-neck. With his head thrown back, his neck is a long thick column: about 195 px chin to neckline against 185 px crown to chin in native frame 20.\n\nThen, between native frames 22 and 24 (0.067 s), his shoulders vanish and the water is at his chin. The horizon stays fixed in frame, so this is the body dropping, not the camera. That is roughly 0.25-0.3 m in 2-3 frames, a visible jerk at 'UNCONTROLLABLY'.\n\nsh03.py's depth() only sinks 0.12 m over 20 frames after f14, so the extra rise and fall comes from the buoyancy/ride_swell layer stacking with the burst.",
+   "fix": "In sh03.py, cap the burst lower (the f<14 curve ending at about -0.25 instead of -0.10) so the waterline stays at the collarbones. Clamp the root's per-frame Z change in apply_buoyancy for this shot (for example at 0.02 m/frame), or raise its inertia, so the settle eases over 15 or more frames. Re-render frames 1-40.",
+   "verdict": {
+    "index": 6,
+    "real": true,
+    "severity": "medium",
+    "reason": "Reproduced in final frames 10.8-11.03 s (frame strip) and native SH03 frames 20-25. In native frames 20-22 the shirt yoke and shoulders are well above water, with his head thrown back on a long neck. By frame 24 the water is at his chin. That is a drop of about shoulder-to-chin height in 3-4 frames, while the horizon stays at the same image height, so it is the body moving, not the camera. sh03.py depth() only sinks from -0.10 to -0.22 over 20 frames after f14, so the extra rise comes from the buoyancy layer. It is a visible jerk at 'UNCONTROLLABLY'."
+   }
+  },
+  {
+   "dim": "continuity",
+   "where": "SH15->SH16 cut, 59.9-61.0 s (frames 1797-1830)",
+   "title": "SH16 does not show him continuing from SH15: he is out of frame for the first ~1.1 s, so the 'floats flat, then rolls upright' fix is not on screen",
+   "severity": "medium",
+   "evidence": "SH15 last frame (f1796, 59.87 s; render/final/SH15 last frame) has him large at top-centre, floating flat with about 12 juvenile fish around him. SH16 frame 1 (f1797, 59.90 s; render/final/SH16/0001.png) shows empty open blue with 4 fish. The only trace of him is a hand at the top edge (y<90 of 1024). Frames 59.93, 60.20, 60.47 and 60.73 are the same: empty blue and fish, nobody in frame. His legs drop into the top-right only at about 61.0 s (f1830). So the cut goes from 'man with fish' to 'no man'. The roll from flat to upright that sh16.py animates (w = ramp(6,40)) happens entirely above the frame. Cause: the camera at (-1.2,-1.6,-1.9) with lens 22 is aimed at (1,5,-2.5), toward the mako, which leaves the floating body above the top edge. Files: sh16.png and sh15_16_native.png in the scratch dir.",
+   "fix": "In blender/scripts/shots/sh16.py, animate the aim target over local frames 1-40. Start it on his floating body, about (0,0.1,-0.4), so it matches SH15's framing, and move it to (1,5,-2.5) as the shark appears. Alternatively, start the camera about 15 deg tilted up. Re-render SH16 frames 1-45. A cheaper option is to trim SH16's head and hold SH15 longer, but that also drops the roll.",
+   "verdict": {
+    "index": 0,
+    "real": true,
+    "severity": "medium",
+    "reason": "I reproduced this. In the strip at 59.80-62.20 s (/tmp/claude-0/-home-user-code/73c477af-b034-5106-8934-46dafc95cd58/scratchpad/verify/continuity/strip16.png), the last SH15 frame shows him floating with about 12 fish. At 59.93, 60.20, 60.47 and 60.73 s there is only open blue, 4-5 fish, a tiny distant mako, and a hand or arm at the very top edge. I compared native frames in n1516.png: SH15/0117 against SH16/0001, 0020 and 0035. They show the same thing: on 0001 only the hand reaches into the top edge, and the legs enter top-right only around local frame 34. That is about 61.0-61.3 s, the point where I first see a dark shape and then legs in the video. sh16.py aims the 22 mm camera at the fixed point (1,5,-2.5) and animates the roll with w=ramp(6,40). The floating-flat start and most of the roll therefore happen out of frame. 'Entirely above frame' is slightly too strong: the legs swinging in at 61.0-61.3 s are the tail of the roll, since ramp(6,40) ends at about 61.2 s. Still, the continuity claimed in fix 5 does not appear on screen, and at the cut he disappears for about 1.1 s while the fish count drops. An attentive viewer would notice, so medium."
+   }
+  },
+  {
+   "dim": "continuity",
+   "where": "SH17B, 65.87-65.97 s (frames 1976-1978; SH17B local frames 45-47)",
+   "title": "The mako snaps about 90 deg, from side-on to head-on, in two frames",
+   "severity": "medium",
+   "evidence": "Single-frame crops (shk2.png and shk.png). At f1975 and f1976 the shark is side-on, swimming right across the frame. At f1977 it is rotated about 45 deg. At f1978 it faces the camera head-on and has jumped left. There is no turning arc in between. It happens on the word 'STILL', the payoff of the shark beat. Cause: in sh17b.py, path() ends the arc at u=0.7 with ease() (velocity going to 0) and starts the glide-off at u>0.6 (velocity starting from 0). marine.path_animate orients the shark purely to d = p(f)-p(f-1), so the heading flips to the new (2.2,4.0,-1.2) direction once that term dominates. Banking is smoothed but yaw is not.",
+   "fix": "In sh17b.py, blend the glide-off as a continuation of the arc tangent, for example by starting it earlier with non-zero arc velocity. Alternatively, in lib/marine.py path_animate, smooth the heading by slerping each frame's track quaternion from the previous one with a max yaw of about 6 deg per frame. Re-render SH17B frames 38-72.",
+   "verdict": {
+    "index": 1,
+    "real": true,
+    "severity": "medium",
+    "reason": "I reproduced this with single-frame crops of video frames 1973-1982 (kcstrip.png). Through f1976 the shark is side-on, heading right. At f1977 it is pitched and yawed about 45 deg and shifted right. At f1978 it is end-on, pointing along the camera axis, and has jumped left and down. f1979-1982 then continue smoothly. I ran sh17b.py path() with smootherstep ease and N=72 and printed the heading per frame. The heading goes from -56 deg at local frame 44 to -37 at f45, +19 at f46 and +48 at f47: about 105 deg of yaw in 3 frames, 56 deg of it in one frame. Speed also drops to about 0.02 m/frame at f45. This matches the claimed cause: the eased arc overlaps the glide-off term that starts from zero velocity, and path_animate's orientation follows the per-frame delta with no yaw smoothing. One small error: going by the path direction, the end-on view at f1978 is the shark heading away from the camera, not toward it ('head-on'). That does not change the defect. The flip is visible at normal speed during the 'STILL' beat."
+   }
+  },
+  {
+   "dim": "continuity",
+   "where": "SH24, 90.6-94.1 s (worst 93.2-94.07 s); review frames SH24_b_092.35, SH24_c_093.90",
+   "title": "The final face close-up reads as a mask: a hard oval edge across forehead and temples, a dark helmet of hair, and grey-brown smoky blotches around the neck",
+   "severity": "medium",
+   "evidence": "Full-resolution crops at 91.0 and 93.7 s (sh24_pair.png), compared against render/final/SH24/0040.png and 0100.png. The face is bounded by a perfectly clean oval edge from temple to temple, about 1-2 cm above the eyebrows. There is no meniscus, foam or highlight on that edge, and the hair beyond it is a uniform dark cap. The result looks like a latex mask on a balaclava. SH12, with the same overhead framing (render/final/SH12/0050.png), shows a natural hairline. Under the chin, the water over the neck and shoulders renders as grey-brown smoke or rock-like blotches (sh24_bottom.png, SH24/0060 rows 850-1050). Meanwhile the T-shirt neckline at the bottom edge is clean and fully saturated orange. The water does not read as water, unlike SH12's teal water with caustics. This was re-rendered this round (fix 4), and it is the last time we see his face.",
+   "fix": "In sh24.py, add a waterline meniscus or foam band where the surface meets the head, as SH20 does with collar_foam. Reduce water_kw near_transmission (6.0) and the transmit_tint so the water over the neck looks like SH12: clear teal with caustics. Or raise the head about 3 cm so the surface meets the hair behind the hairline, not the forehead. Re-render SH24.",
+   "verdict": {
+    "index": 2,
+    "real": true,
+    "severity": "medium",
+    "reason": "I reproduced this. Frames at 90.8, 91.6, 92.35, 93.0 and 93.7 s (s24strip.png, s22_24_more.png) and a full-resolution crop of the forehead at 93.7 s (s24_head.png) all show it. The face is bounded by a perfectly clean, smooth oval edge across the forehead and temples, with no meniscus or highlight, and the hair beyond it reads as a dark cap. At 90.8, 91.6 and 93.7 s the water over the neck and shoulders is grey-brown smoky or rock-like texture. At 92.35 and 93.0 s, where the shirt shows, the neckline is clean saturated orange. SH12 at 42.2 s (s12_22_09.png) has a natural hairline and teal water with caustics over the shoulders, so the difference is clear. It is consistent for most of the shot and it is the last view of his face, so it stays medium."
+   }
+  },
+  {
+   "dim": "continuity",
+   "where": "SH22, 83.6-87.2 s (review frames SH22_a_083.80, SH22_b_085.40)",
+   "title": "Day-two float: the shirt renders as a flat, unshaded orange bib and the arms and shoulders still read as a charcoal wetsuit",
+   "severity": "medium",
+   "evidence": "Full-resolution crop at 85.4 s (sh22_854.png) and render/final/SH22/0050.png. The part of the T-shirt above water is a flat, evenly lit orange shield shape with a hard outline and no folds, sleeves or shading, with white salt blotches on it. Around it, the shoulders and both arms are dark grey-brown with foam patches, so the arms look like long dark sleeves. Compare SH09 at 34.0 s (sh09_34.png), where the submerged arms and legs now read as skin; that fix landed. Fix 3 ('SH22 no longer black wetsuit') therefore did not fully land. Also, nothing in the shot says 'grey drizzle' (shots.json): it is a top-down shot on deep blue water. The narration still carries 'day two'.",
+   "fix": "In sh22.py, apply the SH09 or SH12 near-camera transmission treatment (transmit_tint, near_transmission) so the submerged arms and torso read as skin through the water. Lower the pivot about 3 cm (currently (0,0.15,-0.09)) so the waterline crosses the shirt with a natural cloth fold rather than a flat cap. Optionally add light rain rings or drizzle streaks to sell the grey day two. Re-render SH22.",
+   "verdict": {
+    "index": 3,
+    "real": true,
+    "severity": "medium",
+    "reason": "I reproduced this at 83.8, 85.4 and 86.9 s (s12_22_09.png, s22_24_more.png) and in a full-resolution crop at 85.4 s (s22_crop.png). The above-water T-shirt is a flat, evenly lit orange bib with a hard cut-out outline, no folds or shading, and white salt blotches. The shoulders and both arms are dark charcoal or grey-brown with foam patches, so they read as dark sleeves or a wetsuit for the whole shot. SH09 at 34.0 s shows the arms and legs reading as skin, so fix 3 landed for SH09 but not for SH22. The note that nothing suggests 'grey drizzle' is also accurate: it is a top-down shot on clear blue water. Medium is fair."
+   }
+  },
+  {
+   "dim": "captions",
+   "where": "SH28 115.7-118.9 (strongest 117.06-118.9 while item 3 is shown)",
+   "title": "SH28 'YOUR ODDS DEPEND ON' stack still covers the top of the main rotor",
+   "severity": "medium",
+   "evidence": "The label stack ends at y=360 after item 2 (115.69) and at y=446 after item 3 (117.06); the boxes are opaque black (BorderStyle 3). The dark-pixel top of the rotor in render/final/SH28 frames, scaled to 1920, reaches y=291-386 throughout 117.06-118.9 and 319-356 during 115.7-117.0. The blade tips and the upper rotor disc therefore pass up to ~150 px behind the boxes. Full-res crops (sheets/sh28_top_full.png at 117.3, 118.0, 118.6) show blades vanishing into the '3 SOMEONE KNOWS YOU'RE MISSING' box, which rests on the rotor hub. At 116.5 a blade tip touches the '2 STAYING AFLOAT' box. The sh28.py layout comment ('labels <= ~440, rotor top ~440') did not land.",
+   "fix": "Preferred: in blender/scripts/shots/sh28.py, raise the camera aim elevation (the 3.4+0.6k degree term) by about 5 degrees. At lens 30 that is roughly 31 px/deg, which moves the helicopter ~160 px lower so the rotor tips stay below ~460, then re-render SH28. ASS-only fallback: give the SH28 Head/Item boxes a translucent box colour (OutlineColour alpha around &H70 in make_subs.py's label()), so the blades stay visible behind the stack. A smaller font alone cannot clear y=291.",
+   "verdict": {
+    "index": 2,
+    "real": true,
+    "severity": "medium",
+    "reason": "Reproduced. In the libass render, item 3 sits at y 385-420 (glyphs), and with the 16 px box it spans about 369-436 from 117.06 s. Measured on the clean render/final/SH28 PNGs scaled to 1920, the topmost dark rotor pixel is at y 300-386 throughout and 313-375 during 115.8-117.0. Full-res crops at 117.3, 117.8, 118.3 and 118.7 s (sh28_full.png) show the opaque '3 SOMEONE KNOWS YOU'RE MISSING' box sitting directly on the rotor hub, with a foreshortened blade running up into the box and the top of the translucent rotor disc hidden behind it. At 116.5 s the disc top touches the '2 STAYING AFLOAT' box. The sh28.py comment ('labels <= ~440, rotor top ~440') is not met: the rotor reaches ~300. This is a visible layout clash on the subject of the shot."
+   }
+  },
+  {
+   "dim": "captions",
+   "where": "SH27 109.0-109.35 (strop entry), cable 109.0-112.6",
+   "title": "SH27 rescue strop drops into frame behind the opaque COLD WATER label boxes",
+   "severity": "medium",
+   "evidence": "The left label column is centred at x=280 (boxes x 74-484, y 112-384). The yellow strop is paid out along x~300-450. In sheets/sh27_strop.png at 109.0, 109.1, 109.2 and 109.3 the ring enters at the top edge, is half-hidden behind the COLD WATER and SHOCK boxes at 109.1 and behind HYPOTHERMIA at 109.2, and only appears whole below the stack from 109.3. For the rest of SH27 the hoist cable (x~306-360) is cut by the three left boxes (sheets/sh27_top_full.png at 110.0, 111.0, 112.2). The key rescue object appears to come out from under a caption instead of from the sky.",
+   "fix": "Choose one: (a) in make_subs.py's label(), make the label boxes semi-transparent (BorderStyle 3 boxes use OutlineColour, so set its alpha to about &H70) so the strop and cable stay visible through them; (b) in blender/scripts/shots/sh27.py, shift the strop/cable drop point to x>=520 px, clear of the left column; or (c) move the left column off the strop path. The COLD items must be visible at 106.78-108.21, so they cannot simply start after 109.3.",
+   "verdict": {
+    "index": 3,
+    "real": true,
+    "severity": "medium",
+    "reason": "Reproduced in frames from the final video at 108.8-112.2 s (sh27_strop.png). The yellow ring enters at the top edge at ~108.95 s. At 109.05 its lower part is hidden behind the COLD WATER box, and at 109.15 it is half hidden behind SHOCK/HYPOTHERMIA. It shows whole below the stack only from ~109.25-109.35. After that the cable runs straight down from under the HYPOTHERMIA box for the rest of SH27 (110.0, 111.0, 112.2), so the rescue line seems to hang from the label column. The occlusion of the ring lasts only about 0.3 s, but the eye follows the ring there. The description and timings are accurate."
+   }
+  },
+  {
+   "dim": "rescue",
+   "where": "SH26->SH27 cut at 104.3 s and SH28->SH29 cut at 118.9 s (all of SH27 104.3-112.6 and SH28 112.6-118.9)",
+   "title": "Rescue light jumps warm -> cool flat blue -> warm golden within one continuous action",
+   "severity": "low",
+   "evidence": "Mean RGB of the whole frame (540x960 extracts): 104.2 s (SH26) 179,177,168, water band 194,178,156. 104.4 s (SH27) 132,143,143, water 57,66,65. SH28 at 112.7/115.7/118.8 s: 116,123,126 / 113,118,118 / 112,117,118, water R/B about 0.70. 119.0 s (SH29) 189,185,175, water 152,146,135. At 118.9 s the man is on the hoist in both shots, but the frame brightens about 60% (Y about 116 -> 186) and turns from grey-blue to golden backlight. SH28 is side-on to a low sun, yet the red helicopter is lit flat and neutral, with no warm side light or long shadows, so it reads as an overcast midday. All five shots are rendered tod='golden', and assemble.py grades only SH25 (no grade on SH26-SH29). See scratchpad/verify/rescue/cuts.png (104.25/104.33/112.57/112.63/118.87/118.93) and review frames SH27_a_104.50, SH28_c_118.70, SH29_a_119.10. SH27 is partly justified as a reverse angle (anti-sun sky, his skin is warm). SH28 is the outlier.",
+   "fix": "In blender/scripts/tools/assemble.py GRADE, add a warm match for SH28 and a lighter one for SH27, e.g. 'SH28': 'colorbalance=rs=0.06:gs=0.01:bs=-0.06:rm=0.04:bm=-0.04:rh=0.03:bh=-0.03,eq=gamma=1.12:saturation=1.05' and about half that for SH27. Better: in sh28.py move the camera azimuth about 30-40 deg toward the sun so the left of frame carries the warm sky glow and the helicopter gets warm side light.",
+   "verdict": {
+    "index": 0,
+    "real": true,
+    "severity": "low",
+    "reason": "I reproduced the jump. Mean RGB of 540x960 extracts: 104.2 s 179,177,168 (Y 177); 104.4 s 132,143,143 (Y 140); 112.7 s 116,123,126 (Y 121); 115.7 s 113,118,118; 118.8 s 112,117,118 (Y 116); 119.0 s 189,185,175 (Y 185). In the 30-frame sheet across 118.4-119.4 s (scratchpad/verify/rescue_v/sheet_cut2829.png), the hoist goes in one cut from a grey-blue sea to a bright pink-gold one. My water bands read R/B 0.90 in SH28 and 1.14 in SH29, not 0.70, but the direction is the same. I confirmed that all five shots use tod='golden' and that GRADE in assemble.py only touches SH25. Much of the change follows from the camera direction: sh28.py places the camera at -side*r, which is exactly 90 deg off the sun, so the camera-facing side of the helicopter only gets sky light, and SH27 is a reverse angle away from the sun. It is a grade-continuity polish issue, not a broken story beat, so I downgraded it from medium to low."
+   }
+  },
+  {
+   "dim": "rescue",
+   "where": "SH27 end 110.4-112.6 s -> SH28 start 112.6-114.5 s",
+   "title": "He never reaches for or puts on the strop; next shot he is already rigged and lifted",
+   "severity": "low",
+   "evidence": "The strop lands about 0.5 m to his right (frame-left) at about 110.4-110.8 s and floats there untouched until the cut (SH27_c_112.40; render SH27/0180-0249 in r27_land.png). His hands come up in front of his chest and chin toward the lens (frames 202, 210, 232) and never go toward the strop, though sh27.py says 'he reaches for it'. By 112.5 s the water is at his chin. 0.7 s after the cut (LIFT0 = frame 22, about 113.3 s) the wide SH28 has him already in the strop. The yellow first shows on his back at about 113.9-114.2 s, and he is clear of the water by 114.5 s (r28_exit.png). The step that motivates the hoist is missing, so the strop seems to jump from beside him to around him.",
+   "fix": "In sh27.py, after LAND key his right arm to the strop's position (about frames LAND+10..LAND+40), then pull it toward him and over his head/shoulders in the last ~1.2 s. Alternatively, start SH28 with the strop visibly around him at the surface and delay LIFT0 by ~10 frames.",
+   "verdict": {
+    "index": 1,
+    "real": true,
+    "severity": "low",
+    "reason": "Confirmed. The 109.8-112.6 s sheet at 5 fps (sheet27end.png) shows the strop landing frame-left beside him. LAND=196 puts that at 110.8 s. It floats untouched until the cut. His right arm drops, his hands come up to his chest and chin toward the lens, and by about 112.4 s the water is at his chin. In the SH28 crop sheet (112.6-115.0 s, sheet28start.png) he is already rigged and rising out of the water by about 113.8 s. sh27.py's docstring says 'he reaches for it', but the KeyPoses only go to cup_hands_pose. Viewers can fill the gap as an ellipsis, so it stays low."
+   }
+  },
+  {
+   "dim": "rescue",
+   "where": "SH28 115.69-118.90 s (labels 2 and 3); SH27 109.0-109.25 s (strop entry) and 110.0-112.6 s (cable top)",
+   "title": "Label boxes overlap the upper rotor in SH28 and hide the strop's entry in SH27",
+   "severity": "low",
+   "evidence": "Full-res crops at 116.2/117.8/118.5 s (scratchpad/verify/rescue/lab28.png): '2 STAYING AFLOAT' (box about y 290-355) and '3 SOMEONE KNOWS YOU'RE MISSING' (box about y 375-444) sit on the upper half of the rotor disc. The disc top is at about y 340 and the hub at about y 486, so the far blade sweeps behind the boxes on every pass, and the bottom edge of the row-3 box rests just above the rotor head. The sh28.py layout comment assumed 'rotor top ~440'. Fuselage, hoist and man stay clear. SH27: per-frame sheet strop_lab.png shows the yellow strop entering behind the COLD WATER/SHOCK/HYPOTHERMIA stack at 109.0-109.25 s. Afterwards the upper part of the cable runs behind the left label column (cable x about 270 px, column x about 74-476).",
+   "fix": "make_subs.py: compact the SH28 stack (item spacing 85 -> 68 px and/or Item font 56 -> 48, so row 3 ends at y <= 330), or in sh28.py lower the aim by ~0.5 deg so the rotor top sits at y >= 460. SH27: shift tgt/camera arc so the cable drops between the two label columns (x about 540), or start the strop's descent below y about 450.",
+   "verdict": {
+    "index": 2,
+    "real": true,
+    "severity": "low",
+    "reason": "Confirmed with full-res crops at 116.2, 117.8 and 118.5 s (lab28.png). Box '2 STAYING AFLOAT' sits at about y 280-363 and box 3 at about y 363-445. The rotor disc top is at about y 337 and the hub at about y 498, so the blades sweep behind the boxes, and the bottom of the row-3 box nearly touches the rotor head. The sh28.py comment assumed 'rotor top ~440'. For SH27, a 30 fps sheet from 108.7 s (strop_entry.png) shows the yellow strop entering from the top behind the COLD WATER/SHOCK/HYPOTHERMIA stack for about 0.3 s (about 109.0-109.3 s), and the cable later runs behind the left column. The fuselage, the man and the hoist stay clear, so it is minor clutter."
+   }
+  },
+  {
+   "dim": "rescue",
+   "where": "SH26 99.0-104.3 s (most visible), also SH25 96.5-99.0 and SH28 112.6-118.9 s",
+   "title": "Rotor 'blur' disc reads as a hard-edged smoked-glass ellipse",
+   "severity": "low",
+   "evidence": "The disc is now centred on the mast (good). It is still a uniform 12%-mix grey NGON with a crisp 1-2 px rim, and the blades are rendered with no motion blur. At 104.1 s full res (scratchpad/verify/rescue/t104_top.png) the disc fills the top ~40% of the frame. Radial luminance profiles step 168->187 and 187->196 across the rim in under 3 px (disc_edge.png). The circle shows clearly in the 99.0-104.25 contact sheet s26.png.",
+   "fix": "rescue.heli: drive the disc's Mix factor with a spherical Gradient Texture so it fades to 0 at the rim (e.g. 0.08 at the centre -> 0 at r = 6.1 m), and/or turn on per-object motion blur for MainRotor only. Alternatively drop the disc to a mix of about 0.05.",
+   "verdict": {
+    "index": 3,
+    "real": true,
+    "severity": "low",
+    "reason": "Confirmed. In the full-res frames at 101.0 and 104.1 s (disc_sheet.png), a darker smoked-glass ellipse fills roughly the top third of SH26. The rim crop (rim101.png) shows a crisp edge with a thin rim line. The luminance step at (900,470) is 167 -> 173-176 within about 2 px. The blades are sharp black bars with no motion blur. The same disc shows clearly in the native SH28 render frame 0100 (heli28_crop.png). It reads as a CG rotor-blur convention rather than a broken element, so it stays low."
+   }
+  },
+  {
+   "dim": "rescue",
+   "where": "SH26 99.0-104.3 s, SH27 104.3-112.6 s, SH28 112.6-118.9 s",
+   "title": "Rotor downwash missing: glassy sea with tidy pond ripples under a 10-12 m hover",
+   "severity": "low",
+   "evidence": "The helicopter hovers at 12.5 m (SH26) and 10.5 m (SH28) directly over him. The sea stays mirror-calm with the sun glitter intact, plus neat concentric rings like a dropped stone. The downwash spray (particle_size 0.012, alpha 0.45) shows only as sparse grey flecks. See full-res crops at 101.65 s and 115.0 s (scratchpad/verify/rescue/wash.png), SH26_b_101.65 and SH28_b_115.75. sh26.py promises 'a storm of spray'. An attentive viewer familiar with hoist rescues will find the calm water off.",
+   "fix": "rescue.downwash: much larger, brighter mist instances (size 0.05-0.15 m, emission/white, lifetime 40) concentrated in a 4-10 m ring. rescue.churn_water: add a radial, wind-roughened normal/foam noise inside ~10 m instead of only concentric ripples. Optionally add a spray layer on him in SH26/SH27.",
+   "verdict": {
+    "index": 4,
+    "real": true,
+    "severity": "low",
+    "reason": "Confirmed with water crops at 101.65 s (SH26), 106.5 s (SH27) and 115.0 s (SH28) (wash_v.png). Under a 10.5-12.5 m hover the sea stays glassy, with sun glitter and neat concentric 'dropped stone' rings around him. The only spray is sparse small white dots, which look like floating beads in SH27. There is no roughened or misted downwash circle. It is a realism issue that viewers who know hoist rescues will spot. Most viewers will not, so it stays low."
+   }
+  },
+  {
+   "dim": "rescue",
+   "where": "SH29 121.9-127.5 s (helicopter tracking: render SH29/0091-0258)",
+   "title": "Departure 'toward the sun' doesn't read: the helicopter shrinks in place, then drops to the bottom of frame as a 2-5 px dot",
+   "severity": "low",
+   "evidence": "From 121.9 s (HOLD) to about 123.6 s the aim follows the helicopter, so it stays at frame centre (native y about 515) and just shrinks. When the tilt-up starts (123.65 s), it slides down the frame from native y 533 to 891 within about 1 s. In the final, it passes behind the 'IT'S ABOUT LASTING' caption at 123.95-124.0 s (red-pixel track: y 1264 at 123.93 s, gone for 2 frames, y 1384 at 124.03 s). It then sits at y about 1650-1670 px (0.86 of frame height) at 124.6-125.2 s and creeps up to y about 1350 by 127.3 s. By then it is 2-10 red pixels, far below the sun glitter (y about 0.41-0.55 of frame height); see dep29.png. The end on the empty ocean reads well, but the beat of the helicopter flying off into the sun is never seen.",
+   "fix": "sh29.py: keep it on the sun path in the final framing. Raise the departure climb (25 m -> ~60 m) and/or lower the final aim (d*2500 at z -60 -> about z -150) so its silhouette ends near the glitter at y about 0.45-0.5. Alternatively start the tilt (kk) only once it is visibly moving (k about 0.7) and keep it at least 8-10 px wide. Make sure its path avoids the caption band y 1270-1360.",
+   "verdict": {
+    "index": 5,
+    "real": true,
+    "severity": "low",
+    "reason": "I tracked red pixels per frame from 121.0 to 127.5 s. The helicopter stays at frame centre (x about 541, y about 960-970) while it shrinks from 4588 to 232 px between 121.0 and 123.6 s. During the tilt it drops from y 1000 at 123.7 s to y 1672 at 124.7 s, nearly vanishes behind the 'IT'S ABOUT LASTING' caption at 124.0 s (7 px), sits at y about 1650-1676 (0.87 of frame height) at 124.6-125.2 s, and creeps up to y about 1460 by 126.6 s before it is lost in the fade. The reviewer's '1350 by 127.3 s' is slightly off, because it is gone in the fade by about 126.7 s. At 125.0 s (d125.png, d125crop.png) it is a top-down speck about 15 px long near the bottom of frame, far below the sun glitter at about 0.41-0.6 of frame height. Small scale is an accepted limitation, but the trajectory means the 'departs toward the sun' beat never reads. Low."
+   }
+  },
+  {
+   "dim": "bodies",
+   "where": "SH15 to SH16 cut at 59.9 s (final frame 1796 to 1797) through about 60.8 s (native SH16 frames 1-27)",
+   "title": "SH15 to SH16 continuity: the floating body and most of the fish vanish at the cut; only a hand shows at the top edge",
+   "severity": "low",
+   "evidence": "m_cut16.png (frames 1795-1815) and native m_r16.png (frames 1-40).\n\nThe last SH15 frame shows him floating flat across the upper half of frame with about 15 juvenile fish around him. The first SH16 frame is an almost empty blue field: one hand at the top edge and 4-5 tiny fish. His legs only drop into the top-right corner from about 60.9 s.\n\nThe top third of the frame also jumps from luma about (G54,B73) to (G86,B115): dark, textured surface to flat bright blue.\n\nFix item 5 ('starts floating flat with the small fish, rolls upright') is in the animation but happens off-frame. sh16.py aims the 22 mm camera at (1,5,-2.5), out into the blue, from z=-1.9, so the body near the surface sits above the frame.",
+   "fix": "In sh16.py, start the camera aim near the man (for example cam_target near (0,0.3,-0.4) over frames 1-20) so the floating body and the school sit in the upper frame as at the end of SH15. Then tilt or blend the aim to (1,5,-2.5) by about frame 35 as the mako appears. Alternatively match SH15's end framing for the first 15 frames. Re-render SH16.",
+   "verdict": {
+    "index": 5,
+    "real": true,
+    "severity": "low",
+    "reason": "Reproduced at 59.5, 59.85, 59.95, 60.2, 60.5, 60.8 and 61.0 s, with a full-res comparison of 59.85, 59.95 and 60.5 s. The last SH15 frame shows him floating with about 15 juvenile fish. The first SH16 frame is a near-empty blue field with one hand at the top edge and 4 fish, while the 'IN YOUR SHADOW' caption continues; his legs drop in from about 61.0 s. sh16.py does aim the camera at (1,5,-2.5) from z=-1.9, so the flat-to-upright roll happens off-frame. I re-grade it to low: it reads as a new angle looking out into the blue for the mako, and the hand and fish at the top keep the geography. It is mild, not a story break."
+   }
+  },
+  {
+   "dim": "bodies",
+   "where": "SH19 to SH20 cut at 74.3 s (74.25 vs 74.32 s); SH20 74.3-75.4 s and 77.0-78.4 s",
+   "title": "SH20 waterline sits at the chin, not the collarbones: depth jumps at the cut and the head looks set on the water",
+   "severity": "low",
+   "evidence": "m_c20.png, m_s20.png and native m_r20.png (frames 1, 20, 80, 100).\n\nThe last SH19 frame shows his shoulders and orange shirt well above water. The first SH20 frame has the water at his chin, a jump of a full neck length at a cut-in. Shoulders only appear around 75.8-76.6 s (native 50-70). For roughly 2.6 of the shot's 4.1 s, only the head shows, cut off at the jaw.\n\nThe stated 'waterline at collarbones' (pivot z=-0.21 in sh20.py) is cancelled out by the buoyancy and swell offset.",
+   "fix": "In sh20.py, raise pivot z from -0.21 to about -0.13, or reduce the swell/buoyancy amplitude for this shot, so the waterline holds at the collarbones as in the end of SH19. Keep the neckline hidden with the existing hug pose. Re-render.",
+   "verdict": {
+    "index": 8,
+    "real": true,
+    "severity": "low",
+    "reason": "Reproduced at 74.25, 74.35, 74.8, 75.0, 75.6, 76.0, 76.3, 76.8, 77.2, 77.6, 78.0 and 78.35 s. The last SH19 frame (74.25 s) shows the orange shirt and shoulders well above water. SH20 opens at 74.35 s with the water at his chin. Shoulders show only around 76.0-76.8 s, and at 77.2-78.35 s it is chin-level again, so about 2.5 of the shot's 4.1 s are head-only. sh20.py pivot is z=-0.21 with the comment 'water at the collarbones', so the stated fix did not land on screen. It is plausible as him sinking in cold water and it comes across a change of angle, so low is fair."
+   }
+  },
+  {
+   "dim": "bodies",
+   "where": "SH03 10.43-10.57 s (final frames 313-317; native frames 8-12)",
+   "title": "SH03 splash: several droplets render as solid black dots on his neck and chest",
+   "severity": "low",
+   "evidence": "m_d03.png (frames 311-325) and the native crop r03_drops.png (frames 9-12).\n\nAmong the clear droplets there are 3-8 opaque black spheres, about 20-35 px across in the 1080-wide frame, sitting on the throat and shirt. Frame 317 at 10.57 s is the worst. They look like moles or holes for about 5 frames.\n\nThe emitter sits at neck01 with offset (0,0,0), so particles are born inside the mesh, and their refraction sees the body's interior.",
+   "fix": "In sh03.py, move the Splash emitter outside the skin: offset forward and up from the neck bone, by about 0.1 m along the face normal. Or emit from a ring at the waterline instead, or delay visibility by 2-3 frames. Then re-render frames 5-16.",
+   "verdict": {
+    "index": 9,
+    "real": true,
+    "severity": "low",
+    "reason": "Reproduced in a full-res 500x500 crop strip of six consecutive frames from 10.40 s. From about 10.43 to 10.57 s, several opaque black spheres sit among the clear droplets on the throat and the shirt V-neck. They are roughly 20-35 px across in the 1080-wide frame and are worst in the last frames of the strip. sh03.py builds the Splash emitter on bone neck01 with offset (0,0,0), which supports the stated cause: particles born inside the mesh. It lasts only about 5 frames during a busy splash, so low."
+   }
+  },
+  {
+   "dim": "continuity",
+   "where": "SH20, 74.3-75.7 s and 77.5-78.4 s (review frames SH20_a_074.50, SH20_c_078.20)",
+   "title": "Fix 5 ('waterline at collarbones') holds only mid-shot: in the first and last ~1.3 s he is a floating head cut at the chin or lips",
+   "severity": "low",
+   "evidence": "Crops at 74.5, 75.3, 76.3 and 77.9 s (s20.png), plus native frames SH20/0001, 0030, 0060 and 0110 (sh20_native.png). At 74.5 and 75.3 s the water meets the chin, with no neck or shoulders, and the reflection hangs below. At 76.3 s shoulders and collarbones show, the only good stretch (about 75.9-77.3 s). At 77.9 s the surface reaches the lower lip, which hides the 'blue lips, chattering' the shot exists for. This lands under 'kill within hours' (77.08-78.2 s). sh20.py sets pivot z=-0.21 'water at the collarbones', but ch.ride_swell and the ocean probe move him by roughly a neck-length.",
+   "fix": "In sh20.py, raise the pivot about 6-8 cm (z of about -0.14) or damp the probe inertia (inertia=(0.25,0.55), giving a smaller vertical follow) so the lowest point of the bob still keeps the collarbones dry. Re-render SH20.",
+   "verdict": {
+    "index": 4,
+    "real": true,
+    "severity": "low",
+    "reason": "This partly reproduces. In a 10-frame strip from 74.4 to 78.25 s (s20strip.png), the water meets the chin with no neck or shoulders at 74.4-75.3 s and again at 77.3-78.25 s. Shoulders and collarbones show only around 75.8-76.8 s. So the collarbone waterline from fix 5 holds only mid-shot, and sh20.py's fixed pivot z=-0.21 plus ride_swell and probe motion explain it. However, the full-resolution crop at 77.95 s (s20_lip.png) shows the waterline just below the lower lip, and both lips stay fully visible. The claim that it hides the 'blue lips, chattering' is overstated. A head bobbing between chin-deep and collarbone-deep is also a plausible look for someone treading water. This is polish rather than a clear break, so low."
+   }
+  },
+  {
+   "dim": "continuity",
+   "where": "SH29, 121.7-124.3 s (whip at 123.75-124.15 s, frames 3713-3725)",
+   "title": "Final camera move: ~2 s looking straight down at the water with the helicopter as a speck, then a fast whip-tilt up to the horizon",
+   "severity": "low",
+   "evidence": "Frame strips sh29_dep.png and sh29_jump.png (every 3 frames). From 121.7 to 123.7 s the frame is almost all water, with the departing helicopter a 4-8 px red dot. A red-pixel track finds 8 px at 123.0 s, 1 px at 123.6 s and none at 124.0-124.3 s. Then the horizon enters at the top edge at 123.80 s and drops to about 17% of frame height by 124.0 s and about 30% by 124.2 s, after which it creeps only to about 35-37% by 125 s. The global frame-difference scan puts f3714-3724 (mean abs diff 12.8-14.7) as the largest non-cut motion in the film, the same as the SH04 orbit. This lands on the closing line 'It's about lasting long enough to be found', and the 'departs toward the sun' beat is not readable: the helicopter is gone before the horizon appears. Cause: sh29.py linearly interpolates the Aim empty's position from the helicopter (about 30 m away) to a point 2500 m out (kk ease). From a camera about 200 m up, almost all of the pitch change is packed into the first ~15% of that interpolation.",
+   "fix": "In blender/scripts/shots/sh29.py, interpolate the camera's look direction (pitch and yaw angles, or slerp between the two look-at quaternions) with the ease, not the aim point's position. Keep the helicopter inside the upper third until it reaches the sun glitter, and start the pitch-up earlier (kk from k>0.45) so it spreads over about 2 s. Re-render SH29 frames from about 150.",
+   "verdict": {
+    "index": 5,
+    "real": true,
+    "severity": "low",
+    "reason": "The camera move reproduces but part of the description is wrong. A 4 fps strip from 120.5 to 126 s and every second frame from f3706 to f3734 (z29strip.png, wstrip.png) show the camera tilting down from 120.5 to 122.0 s until the horizon leaves the top. It holds on water until about 123.7 s. Then it pitches up quickly: the horizon is at about 4% of frame height at f3714, 16% at f3718, 25% at f3722 and 30% at f3726, after which it decelerates. A global frame-difference scan puts f3713-3726 (mean abs diff 12-15.9) as the largest non-cut motion in the film, on par with the SH04 orbit. Modelling sh29.py's aim interpolation gives a pitch of -36 deg at 123.5 s, -25.6 at 123.9, -17 at 124.1 and -12 at 124.3: about 24 deg in 0.6 s while kk goes from 0 to 0.26. The stated cause, position-lerping the aim point toward a target 2500 m out, is correct. The camera is about 36 deg down, not straight down. The claim that the helicopter is gone before the horizon appears is false. Full-resolution crops (heli_speck.png) show the helicopter, rotor and all, about 25-40 px tall at 1080x1920, at y\u2248940 at 123.0-123.5 s. It then slides down to y\u22481500 at 124.2 s and y\u22481660 (86% of frame height) at 124.6-125.2 s, so it stays in frame. The reviewer's red-pixel track at reduced resolution missed it. The departure is still on screen and the tilt is eased rather than a whip-cut. What remains is a brisk tilt-up under the closing line, a camera-timing polish issue, so low."
+   }
+  },
+  {
+   "dim": "captions",
+   "where": "SH21 78.40-83.60 (worst 79.5-83.6: 'PITCH BLACK', 'EXCEPT FOR PLANKTON', 'THAT GLOW EVERY', 'TIME YOU MOVE')",
+   "title": "SH21 captions are burned over the bioluminescent glow, the subject of the shot",
+   "severity": "low",
+   "evidence": "SH21 uses the default band, y=1273-1354. In sheets/sh21_mid.png (79.6, 80.2, 81.0, 81.8, 82.5, 83.2, crop y 800-1700) the caption sits on the cyan plankton glow around both hands in every frame. 'PITCH BLACK' covers the left-hand glow, 'EXCEPT FOR PLANKTON' spans both patches, 'TIME YOU MOVE' covers the right patch. White text over the bright glow also reads worse than elsewhere. The top half of the frame (y<650) is empty dark water (sheets/SH20_SH21.png). 'EXCEPT FOR PLANKTON' also reaches x=1004 at mid-height (80.55-81.47), which is the Shorts right action-button rail.",
+   "fix": "In make_subs.py, add 'SH21': 300 to TOP_Y. The top band is empty dark water, the head starts at y~666, and moving there also clears the right-rail overlap.",
+   "verdict": {
+    "index": 1,
+    "real": true,
+    "severity": "low",
+    "reason": "Partly reproduced. SH21 uses the default band (glyphs y 1282-1342). Full-res crops at 79.6, 81.0 and 82.9 s (sh21_crop.png) show the caption across the lower part of the cyan glow patches around his hands, and the top half of the frame is plain dark water. However, most of the glow stays visible above and beside the text, and the outlined text reads cleanly; it does not read worse over the glow. 'EXCEPT FOR PLANKTON' reaches x~990 glyph / ~997 with outline only for about 80.6-81.4 s, which brushes the right rail by at most one letter. This is a composition polish item, so medium overstates it."
+   }
+  },
+  {
+   "dim": "captions",
+   "where": "SH14 54.36-56.00 ('YOU MORE / DEHYDRATED'); single-line captions 49.30-54.36",
+   "title": "SH14 captions dip into the bottom UI zone; the two-line caption reaches y=1668",
+   "severity": "low",
+   "evidence": "SH14 is top-anchored at \\an8\\pos(540,1490), so two-line captions grow downward. Measured: single lines span y=1499-1580, about 10 px past 1570. 'YOU MORE DEHYDRATED' wraps to two lines and spans y=1499-1668 for 1.6 s, about 100 px into the zone. See sheets/SH14.png at 54.47, 55.20 and 55.93, and fr/sh14_55.png. The SH14 graphics (BODY WATER meter) end around y<=1345, so there is room above.",
+   "fix": "In make_subs.py, anchor SH14 from the bottom: use \\an2\\pos(540,1550) instead of \\an8 at 1490. One-line text then sits at ~1465-1550 and two-line text at ~1380-1550, still below the meter. Alternatively, force the SH14 chunks to stay on one line.",
+   "verdict": {
+    "index": 4,
+    "real": true,
+    "severity": "low",
+    "reason": "Reproduced. SH14 is \\an8\\pos(540,1490). In the libass render, one-line captions span glyphs y 1506-1569, about 1580 with the outline, so they sit right at the ~1570 edge. 'YOU MORE / DEHYDRATED' wraps to two lines from 54.36 to 56.00 s, with the second line at y 1596-1657 (about 1668 with the outline). I confirmed this in the final-video frame at 55.2 s (sh14.png). That puts one line about 90 px into the lower UI area for 1.6 s. The meter bar ends at about y 1350, so an \\an2 bottom anchor near 1550 would fit. The finding is real, but it is brief and only partly in the zone, so it is much milder than #0 and I grade it low rather than medium."
+   }
+  },
+  {
+   "dim": "captions",
+   "where": "SH02 6.00-10.20",
+   "title": "SH02 captions sit across the diver's torso for the whole shot",
+   "severity": "low",
+   "evidence": "In sheets/sh02.png (6.3, 7.0, 7.6, 8.4, 9.2, 9.8) and SH01_SH02.png, the default band (y 1273-1354) cuts through the silhouette's chest and hips in every frame: 'FIRST COMES THE', 'SHOCK', 'IN COLD WATER', 'YOUR BODY GASPS'. The head stays clear, above the caption. The upper third of the frame is bright surface water with no subject.",
+   "fix": "Add 'SH02': 300 to TOP_Y in make_subs.py, or use a low band (\\an2 at ~1550) below the feet, which are at ~y 1450-1500 early in the shot and rise from there.",
+   "verdict": {
+    "index": 6,
+    "real": true,
+    "severity": "low",
+    "reason": "Reproduced. In final-video frames at 7.0, 7.6, 8.4, 9.2 and 9.8 s (sh02.png), the default band (y~1283-1342) runs across the diver silhouette's chest/hips in each one: 'FIRST COMES THE', 'SHOCK', 'IN COLD WATER', 'YOUR BODY GASPS'. There is no caption at 6.3 s. The head and limbs stay readable, so the figure is still clear. This is composition polish, not a clear defect. The upper frame is open water with only a small bright splash patch."
+   }
+  },
+  {
+   "dim": "captions",
+   "where": "94.10-94.16 (frames 2823-2824, SH24->SH25 cut)",
+   "title": "Two-frame 'NOT WEEKS' flash at a new position right after the SH25 cut",
+   "severity": "low",
+   "evidence": "The split-at-cut logic leaves a 0.06 s remainder of 'NOT WEEKS' on the incoming shot. fr/cut94_tile.png (frames 2820-2827) shows it at the top for 3 frames in SH24, then at the lower-middle band for 2 frames over the SH25 sky, then no caption until 94.52. The word 'weeks' ended at 93.71, so the 2-frame jump reads as a flicker. The same rule makes a 1.5-frame, 30 px jump at 40.60-40.65 (SH11->SH12), which is not visible.",
+   "fix": "In make_subs.py's pieces(), drop a carried-over piece shorter than ~0.2 s when its word has already ended. The caption then just ends at the cut.",
+   "verdict": {
+    "index": 7,
+    "real": true,
+    "severity": "low",
+    "reason": "Reproduced. captions.ass line 272 is 'NOT WEEKS' at 1:34.10-1:34.16 with no position override, i.e. the default lower-middle band, while line 271 has it at \\an8 y=300 in SH24. A tile of frames 2819-2828 (fr/cut94.png) shows it at the top on 2819-2822 and at the lower-middle band over the SH25 sunset on frames 2823-2824. After that there is no caption until 94.52 s ('weeks' ended at 93.71). The 2-frame jump sits right at a big scene change, so it is minor polish."
+   }
+  },
+  {
+   "dim": "captions",
+   "where": "SH25 94.53-99.00",
+   "title": "Source note wraps 'Gulf / of Mexico' across lines",
+   "severity": "low",
+   "evidence": "fr/sh25_note.png (96.0 s): smart-wrap gives 'Real case: Carnival Valor overboard, Gulf' / 'of Mexico, Nov 2022 (US Coast Guard)' / 'Rescue scene is a dramatization'. The facts are correct (Carnival Valor, Nov 23-24 2022, USCG rescue after 15+ h).",
+   "fix": "In make_subs.py line 123, insert an explicit \\N after 'overboard,', i.e. 'Real case: Carnival Valor overboard,\\NGulf of Mexico, Nov 2022 (US Coast Guard)\\NRescue scene is a dramatization'.",
+   "verdict": {
+    "index": 8,
+    "real": true,
+    "severity": "low",
+    "reason": "Reproduced. A full-res crop at 96.0 s (fr/sh25note.png) shows 'Real case: Carnival Valor overboard, Gulf' / 'of Mexico, Nov 2022 (US Coast Guard)' / 'Rescue scene is a dramatization'. The label() call in make_subs.py has only one \\N, after the source part, so libass smart-wraps the place name across lines. This is cosmetic polish, and the proposed explicit \\N after 'overboard,' fixes it."
+   }
+  },
+  {
+   "dim": "av_tech",
+   "where": "SH03 10.2-10.9 s (head breaks the surface at 10.30 s, frame 309)",
+   "title": "Surfacing splash lands 0.35-0.5 s after the head breaks the surface",
+   "severity": "low",
+   "evidence": "In sh03_tile.png (every frame from 10.20 s), the head first shows at 10.30 s and is fully out with peak spray at 10.37-10.43 s. mix_audio.py places splash(t0+0.32, -1 dB, idx 5) and splash(t0+0.45, -6 dB, idx 12). Measured in bathtub_splashes.wav, onset idx 5 has 0.17 s of near-silence before its attack (-10 dB point) and peaks 0.31 s in; idx 12 peaks 0.11 s in. In the final, the main splash attack is therefore at about 10.65 s and its peak at 10.73-10.80 s. The loudest HF transient in the final is at 10.775 s: -5.8 dBFS above 6 kHz, 18 dB over the local background. Before that, the SFX stem has only a soft -27 dB rustle at 10.34-10.38 s. The big splash is heard when he is already up and still.",
+   "fix": "In blender/scripts/tools/mix_audio.py, move the main burst so its attack hits about 10.30 s. Either use splash(t0 - 0.04, -1, 5, 1.0), which accounts for idx 5's 0.17 s pre-roll, or switch to an onset with an immediate attack (idx 3, 6, 8, 14 or 17 have attack \u22640.03 s and peak \u22640.03 s) at t0 + 0.10. Put the secondary one at about t0 + 0.18. Alternatively, correct splash_onsets.json idx 5 from 7.00 to about 7.17. Then re-mix and re-mux.",
+   "verdict": {
+    "index": 1,
+    "real": true,
+    "severity": "low",
+    "reason": "The measurement reproduces, but the effect is milder than described. Exact frames 306-317 (select filter) show the top of the head at frame 309 (10.30 s), head and neck out by 10.37-10.40 s, shoulders bursting up with droplets at 10.43-10.57 s, and droplets mostly gone by about 10.75 s. The SFX stem with bus gain stays at -30 to -38 dB through 10.30-10.50 s. The >6 kHz splash content starts rising at 10.48 s (-59 to -48 dB) and sits around -40 to -44 dB over 10.58-10.74 s. It crests at 10.76-10.80 s (sfx stem -22.8 dB, final HF about -25 dBFS), where it is louder than the VO. In the source, onset idx 5 builds from about -32 dB and peaks 0.31 s after its placed start, which puts the crest at 10.80 s as claimed. So the audible splash starts about 0.18 s after the head breaks the surface and roughly with the shoulder surge, while its crest lands about 0.3-0.45 s late. The emergence is a slow rise, not a sharp impact, and the VO 'gasps/uncontrollably' runs over it, so I grade it polish, not medium."
+   }
+  },
+  {
+   "dim": "av_tech",
+   "where": "SH04-SH05, 15.7-18.4 s ('You look around. / No boat. No land. / Just horizon')",
+   "title": "Music swell sits level with (or above) the narration",
+   "severity": "low",
+   "evidence": "Momentary loudness of the stems with the final bus and loudnorm gains: music (Long Note Three) swells to -12.7 LUFS at 16.3 s. The narration's median while speaking is -15.8 LUFS. During speech it stays within 0-2 LU of the voice: at 17.4 s VO -17.0 / music -17.4; at 17.5 s VO -18.5 / music -17.0; at 18.2 s VO -16.3 / music -13.8. Everywhere else the median VO-music separation is 15.3 LU. The 450 ms duck release lets the swell back up in the short pauses at 15.8-16.3 and 17.6-18.1 s, and the duck then re-engages mid-word.",
+   "fix": "In mix_audio.py, add a music gain dip of about -5 dB over 15.4-18.7 s. Or make the duck hold through pauses shorter than about 0.6 s, e.g. release 0.45 s to a hold/hysteresis so 'act' stays 1 across short gaps. Re-mix.",
+   "verdict": {
+    "index": 2,
+    "real": true,
+    "severity": "low",
+    "reason": "Reproduced with BS.1770 K-weighted momentary loudness (400 ms) of the stems at their bus gains. Music rises to -12.5 LUFS at 16.1-16.2 s, against a median active VO of -15.5. During the words it sits level with or above the VO. 'land' (17.00-17.67 s): VO -14.8 to -18.2, music -16.2 to -17.2. 'Just' (18.03-18.25 s): VO -16.0, music -13.6. At 18.1 s: VO -14.6, music -14.5. The median VO-music separation over the whole film is 15.3 LU, so this stretch is a clear outlier. The words remain readable from the captions and the music is a soft pad, so low is right."
+   }
+  },
+  {
+   "dim": "av_tech",
+   "where": "SH25\u2192SH26 cut, 97.8-99.0 s",
+   "title": "'Eternal Hope' lift starts 1.2 s before the SH26 cut, not on it",
+   "severity": "low",
+   "evidence": "mix_audio.py assumes the track lifts at 85.0 s and maps track 85.0 s to 99.0 s (offset 79.6 s, start 93.6 s). The 50 ms RMS of Eternal_Hope.mp3 shows the new section's first downbeat at track 83.80 s (-38.8 \u2192 -21.9 dB). The following accents are at 84.65 s and 85.75 s, and an earlier note is at 82.70 s. The music stem confirms this: the jump from -38 to -24 dB lands at 97.80 s, accents fall at 98.65 and 99.75 s, and at the 99.00 cut the music is decaying with no new attack (-29.8 dB at 99.00).",
+   "fix": "Shift the HOPE placement 1.2 s later: offset = 83.80 - (span('SH26')[0] - h_start), so the downbeat lands on 99.0. Alternatively shift it 0.35 s so the 98.65 accent hits the cut. Check that the 2.5 s fade-in still clears the Long Note Three tail, then re-mix.",
+   "verdict": {
+    "index": 3,
+    "real": true,
+    "severity": "low",
+    "reason": "Reproduced. The placement maps track time to timeline time + 14.0 s (h_start 93.6, offset 79.6). The 50 ms RMS of Eternal_Hope.mp3 shows a soft entry at 82.70 s (-52 to -32 dB). The fuller section lands at 83.80 s (-40 to -25 dB), with accents at 84.65 and 85.75 s. Nothing happens at 85.0 s, the time the script comment assumes. In stem_music.wav these fall at 96.70, 97.80, 98.65 and 99.75 s. At the 99.00 s SH26 cut the music is decaying (-45 dB in the 0.5 s window from 99.0 s, versus -39 dB from 98.5 s). So round-change item 7, 'aligned to the SH26 cut', did not land precisely. Missing a cut by about 1.2 s, under ducked VO, is polish."
+   }
+  },
+  {
+   "dim": "av_tech",
+   "where": "Cuts at 99.0, 104.3, 112.6, 118.9 s (helicopter loops); ambience at every cut, audible at 87.2, 90.6, 94.1 s",
+   "title": "Edit ticks and ambience drop-outs at cuts (hard splices with no crossfade)",
+   "severity": "low",
+   "evidence": "(1) Helicopter loops are hard-cut per shot with different offsets. place() truncates int((t1-t0)*SR), so SH26 and SH27 end one sample early: there is a zero sample at 104.3 and 112.6 (e.g. stem values -0.0316, 0.0, -0.0165). At 99.0, the SH25 layers stop at -0.081 while SH26 starts from 0. In the final, the >6 kHz peak at 104.295 s is -30.5 dBFS against a -61 dBFS local background (34x). At 112.600 s it is -37 against -61 dBFS, and at 118.895 s -40.6 against -62.7 dBFS. All three fall in narration pauses, so they read as ticks on headphones. (2) The beds use a 40 ms fade-out followed by a 40 ms fade-in with no overlap. The bed dips 15-20 dB at every cut, and at quiet cuts the whole mix dips 8-10 dB: 20 ms RMS reaches -44 dBFS at 94.10 s, and -40 to -42 dBFS at 90.58-90.62 and 87.2 s.",
+   "fix": "In mix_audio.py, compute sample counts with round() instead of int(). Crossfade consecutive helicopter segments: start each at t0 - 0.05 with fade_in 0.1, and give the previous one fade_out 0.1, including the SH25 h_far/heli layers. Overlap each bed segment with the next by its fade length (place at t0 - 0.06 with 0.12 s fades), or use one continuous bed with gain automation. Re-mix.",
+   "verdict": {
+    "index": 4,
+    "real": true,
+    "severity": "low",
+    "reason": "Reproduced. (1) Sample-level discontinuities in stem_sfx.wav: at 99.0 s it steps from -0.080 to +0.007, and at 104.3 s and 112.6 s there is a single 0.0 sample between the segments (-0.0316, 0, -0.0165 and 0.0289, 0, 0.0113), as the int() truncation predicts. In the final AAC audio, the >6 kHz 10 ms peak at 104.3 s is -30.5 dBFS against a median background of -60. At 112.6 s it is -37.0 vs -59.4, and at 118.9 s -40.5 vs -61.6. All three fall in narration pauses (after 'jacket.' at 104.335, after 'thirst.' at 112.663, after 'missing.' at 118.868). At 99.0 s the click is masked by 'cruise'. (2) The ambience stem dips 13-23 dB within \u00b140 ms of every cut. At quiet cuts the final mix dips 15-17 dB in 20 ms RMS (59.9, 90.6 and 94.1 s), and about 10 dB at 87.2 s. These are faint ticks or hiccups that sit on picture cuts, so attentive headphone listening only. Low."
+   }
+  },
+  {
+   "dim": "av_tech",
+   "where": "SH29 118.9-125 s",
+   "title": "Helicopter departure sound does not follow the picture",
+   "severity": "low",
+   "evidence": "sh29_tile.png shows the helicopter shrinking: mid-frame at 120.4 s, a small dot by 121.9 s, out of frame by about 123.9 s while the camera climbs. SFX momentary loudness holds the hover level, -26.2 to -28.4 LUFS, from 118.9 to 122.6 s. It is still -29 to -31 at 123-124 s and falls 6 dB below hover only around 124.6 s (linear-amplitude fade 121.9 \u2192 127.5). Separately, the fixed 2.2 kHz low-pass cuts the rotor's >3 kHz band by about 20 dB right at the 118.9 cut, while the helicopter is at its biggest and closest in the frame.",
+   "fix": "In mix_audio.py, keep the SH29 rotor unfiltered for the first ~1.5 s. Then use a dB-linear fade that starts at about 120.4 s and reaches about -15 dB by 123 s, with the low-pass swept from about 8 kHz to about 1 kHz over 120.4-123 s instead of a fixed heli_lp(heli, 2200) from the cut.",
+   "verdict": {
+    "index": 5,
+    "real": true,
+    "severity": "low",
+    "reason": "Reproduced. Frames every 0.5 s from 118.95 s: the helicopter is large at 118.95-119.95 s, mid-frame and smaller at 120.45 s, small at 121.45 s, a tiny red dot at 121.95-123.45 s, and gone at about 123.95 s. The SFX stem's momentary loudness holds -25.9 to -28.3 LUFS from 119.0 to 122.5 s, then falls: -28.9 at 123.5 s, -30.9 at 124.0 s, -32.9 at 124.5 s. That matches the linear fade_out = t1-t0-3.0, which starts at 121.9 s. The >3 kHz band does drop about 17-21 dB at the 118.9 s cut (-62.6 to -84 dB). But that band was already about 35 dB below the stem's overall level, so the extra dullness at the cut is barely perceptible. The real mismatch is that the level does not follow the helicopter shrinking to a dot for about 2-3 s. That happens under VO and music, so low."
+   }
+  }
+ ],
+ "refuted": [
+  {
+   "dim": "bodies",
+   "where": "SH23 to SH24 cut at 90.6 s and SH24 to SH25 cut at 94.1 s",
+   "title": "SH24 'golden evening' grade doesn't land: the shot is dark saturated teal between a bright grey SH23 and a bright warm SH25",
+   "severity": "medium",
+   "evidence": "Mean frame colour and luma, from m_s24.png and measurements:\n\n| Time | Shot | Mean RGB | Luma |\n|---|---|---|---|\n| 90.5 s | SH23 | (141,150,150) | 147 |\n| 90.7 s | SH24 | (56,79,78) | 72 |\n| 94.0 s | SH24 | (62,81,78) | 75 |\n| 94.2 s | SH25 | (184,182,167) | 181 |\n\nWater patches: SH24 (24,72,80) luma 59, SH23 (108,119,120) luma 116, SH25 near the man (150,144,123) luma 143.\n\nOnly the face has a warm key. The water has no golden cast or sun glints, so SH24 reads as a cold, darker, different time of day: about half the brightness of both neighbours and the opposite hue to SH25. The sh24.py comment ('the water beyond his head catches the bright evening sky') is not visible in the render.",
+   "fix": "For SH24:\n- Warm and lift the water: a warmer transmit_tint/world colour or a stronger golden sun on the surface, and point the camera so sky reflection reaches the water.\n- Or apply a grade in assemble.py for SH24 only (warm the shadows and midtones and lift exposure), with a target water luma of about 110-130 and R>B like SH25.\n- Keep the face from clipping.",
+   "verdict": {
+    "index": 7,
+    "real": false,
+    "severity": "low",
+    "reason": "The numbers reproduce: mean luma 148 at 90.5 s, 74 at 90.7 s, 77 at 94.0 s and 181 at 94.2 s. But it is not a clear defect. SH24 has the warm golden key on the face, which was the fix. Dark teal water seen from straight overhead is physically consistent, since reflection at near-normal incidence is low. It also matches the film's other overhead float shots and is actually brighter than them: SH24 frame luma 78 at 92.35 s, SH12 62 at 42.4 s, SH22 57 at 84.5 s, SH09 44 at 33.2 s. Last round's 'near-night' problem no longer holds. A luma difference between a close-up and the wides around it is an editing and taste choice, not a breakage."
+   }
+  },
+  {
+   "dim": "captions",
+   "where": "SH21 80.55-81.47; SH13 44.77-45.47; SH27 109.61-112.6; SH28 117.06-118.9; SH14 3D label 53.0-56.0",
+   "title": "Captions and labels cross into the right-edge UI band (x>960)",
+   "severity": "low",
+   "evidence": "Measured bounding boxes: SH21 'EXCEPT FOR PLANKTON' x 78-1004 at y 1273-1354 (mid-height, over the like/comment rail). SH13 'YOU'RE DESPERATELY' x 85-997 at y 310-389 (the scale pop takes it to 997). SH27 'WARM WATER' column x 610-1021 at y 112-469; the header box at y 112-200 also sits under the top-right search/menu icons. SH28 '3  SOMEONE KNOWS YOU'RE MISSING' box x 75-1004 at y 375-446. The SH14 3D label 'MORE WATER OUT THAN IN' reaches about x 988 (fr/sh14_55.png).",
+   "fix": "SH21 is fixed by moving it to the top (see the SH21 finding). In make_subs.py: move SH27 XR from 800 to ~760 and XL from 280 to ~250, or drop the Head size to ~58; shorten the SH28 item 3 to '3  SOMEONE KNOWS' or set its font to ~50; cap the highlight pop (\\fscx112) for chunks wider than ~800 px. In sh14.py, nudge the right 3D label ~40 px left.",
+   "verdict": {
+    "index": 5,
+    "real": false,
+    "severity": "low",
+    "reason": "The measurements are roughly right. Glyph x maxima: SH13 964-986 at y 317-378; SH21 990-994 at y 1283-1342; SH27 WARM WATER header 1000 (box ~1018) at y 142-181; SH28 item 3 986 (box ~1002) at y 385-420. The UI premise does not hold for most of them, though. The Shorts right action rail sits in the lower half of the frame, not at y 300-450, so the SH13 and SH28 cases overlap nothing. SH21 overlaps by roughly one letter for under 1 s. The SH27 header near the top-right icons is marginal and depends on the device. The 3D label was not separately confirmed beyond the 55.2 frame, where it ends around x~1030/1080 but at the very top (y~240), not in a UI rail. The safe margins here are thin, but this is speculative and mostly misdescribed."
+   }
+  },
+  {
+   "dim": "av_tech",
+   "where": "Repo: audio/sfx_src/Oceanwavescrushing.ogg (listed in audio/sfx_src/licenses.json)",
+   "title": "Unused CC BY 3.0 recording is redistributed in the repo without attribution",
+   "severity": "low",
+   "evidence": "licenses.json lists 'Oceanwavescrushing.ogg', CC BY 3.0, by Luftrum. The file is tracked in git (git ls-files) but no script loads it; grep of blender/scripts finds no reference, and the ocean beds are synthesised. CREDITS.md does not mention it. Every asset that is actually used is credited correctly (HDRIs, MH-65, cargo ship, trevally, Kevin MacLeod tracks, Bathtub splashes), apart from the mako licence in the first finding.",
+   "fix": "Either git rm audio/sfx_src/Oceanwavescrushing.ogg (and the unused PD Rain_(1).ogg/rain_rec.wav, if you want to tidy up), or add a 'Sound (included in repo, not used in the film)' credit for 'Oceanwavescrushing' by Luftrum, CC BY 3.0, with its Commons URL.",
+   "verdict": {
+    "index": 6,
+    "real": false,
+    "severity": "low",
+    "reason": "The file is tracked (git ls-files) and unused: the only reference to 'Oceanwaves' in any text file in the repo is audio/sfx_src/licenses.json. But it is not 'without attribution'. That licenses.json, in the same directory, records artist Luftrum, CC BY 3.0 and the Commons source URL, which is reasonable attribution for a repo copy. It is not in the film, so the video's credits don't need it. What remains is repo tidiness, not an audio/video defect, and the finding misdescribes it."
+   }
+  }
+ ],
+ "checked": [
+  {
+   "dim": "rescue",
+   "checked": "Final MP4 94.1-127.5 s: extracted every frame from 93.5 s to the end (1020 frames, 540x960) into scratchpad/verify/rescue/f/. Scene-cut detection confirms the cuts are exactly at 94.1, 99.0, 104.3, 112.6 and 118.9. Built contact sheets every 0.25-0.35 s for each shot (s25.png, s26.png, s27a/b.png, s28a/b.png, s29a/b.png). Made per-frame sheets for the strop entry at 108.9-109.4 (strop_lab.png), the SH29 tilt at 123.5-124.4 (tilt.png) and the SH26 glare at 99.9-100.4 and 103.9-104.3. Pulled full-res 1080x1920 frames at 104.1, 115.0, 116.2, 117.8, 118.5, 119.6-121.8 and 122.5-126.0. Native renders: SH26 0001-0008 and 0060-0071, SH25 0130-0146, SH28 0100-0107 (rotor); SH28 0001-0189 zoomed on the hoist and water exit (r28_lift1/2.png, r28_exit.png, r28_zoom.png); SH27 0180-0249 for the strop landing (r27_land.png); SH29 0001-0023 and 0070-0092 for the reel-in (r29_in.png). Tracked the red helicopter pixels in SH29 0001-0258 and in the final frames at 123.8-124.25. Measured mean RGB per shot and across each cut, the luminance profile across the rotor-disc edge, and the SFX/VO/music/amb stem RMS per shot and in 50 ms windows around each cut. Compared label/caption positions from captions.ass with the frames, the VO word timings (n30-n36) with the labels, and sh25-sh29.py and rescue.py with what is on screen. Checked and fine: a clean 4-blade rotor turning on the mast in SH25/26/28/29 (no frozen bar, no second rotor, no fragments, disc centred); heading and height continuous (nose toward the sun, hook over him at 10.5 m); he stays on the cable across the SH28->SH29 cut and goes into the cabin side at 121.4-121.6 s, before he is hidden at 121.9 s, so no pop; he leaves the water in about 0.5 s with bent legs and does not sink; source note only in SH25; captions never cover him or the helicopter; labels appear in time with the VO words; the shot ends on the open ocean with a fade."
+  },
+  {
+   "dim": "bodies",
+   "checked": "Final MP4 (3825 frames, 127.5 s). I looked at frames from it and at the native renders in render/final/SH03, SH16, SH20 and SH24, and read the scripts sh03, sh09, sh12, sh16, sh20, sh22 and sh24.py. All montages and crops are in /tmp/claude-0/-home-user-code/73c477af-b034-5106-8934-46dafc95cd58/scratchpad/verify/character/.\n\nSpans sampled:\n- SH03: 10.0-14.3 s, every 0.1-0.4 s, plus frame-accurate frames 311-340 and native frames 9-30 and 40-117 (m_s03a/b/c/e, m_d03, m_r03/b/c, r03_drops, r03_20_ruler).\n- SH09: 30.1-35.55 s every 0.2-0.4 s, with zoomed chest and face crops (m_s09, m_z09b, m_c09, m_fc09, m_t09).\n- SH12: 40.5-43.95 s, frame-accurate every 5 frames from 1219 to 1314 (m_s12, m_f12, m_z12).\n- SH15 to SH16 cut: frames 1795-1815 and native SH16 frames 1-40 (m_cut16, m_r16). SH16 every 0.3 s.\n- SH17B: 64.2-66.85 s every 0.25 s (m_s17b).\n- SH19 to SH20 cut and SH20: 74.1-78.5 s, native frames 1-100, eye crops (m_c20, m_s20, m_r20, m_r20e, m_z20).\n- SH22: 83.4-87.3 s (m_s22, m_z22).\n- SH23 to SH24 to SH25: 90.4-95.2 s, native SH24 frames 1-102 (m_s24, m_z24, m_r24).\n\nMeasurements: mean RGB and luma at every cut in scope, and eye, arm, water and skin patch colours.\n\nFixes that landed and are fine:\n- SH03: no fountain. The splash now arcs low.\n- SH09: the body no longer reads black. Skin, shirt and shorts keep their colour under water.\n- SH12, SH22, SH24: the overhead camera keeps the face upright and never looks up the throat. The SH12 neck is in proportion mid-shot (chin to neckline is about 0.58 x brow to chin at 43.2 s).\n- SH16: the mako is visible and grows toward camera.\n- SH17B: the shark enters at the left, passes under him and recedes, and stays in frame after it enters.\n- SH18: now reads as a sunset."
+  },
+  {
+   "dim": "continuity",
+   "checked": "Final MP4 probe: 3825 frames / 127.5 s at 30 fps; AAC also 127.5 s. Extracted every 6th frame (0.2 s) of the whole film and built 0.4 s timeline contact sheets (tl_00..tl_19). Extracted the last and first frame either side of all 29 cuts (cutsheet_*). Ran a whole-film scan on 72x128 luma for black frames, frozen frames, global jumps outside cuts, and local block pops and flickers. Result: no frozen frames, no black frames except the fade, and only two non-cut motion spikes (the SH04 orbit at 16.4-16.7 s and the SH29 tilt at 123.8-124.1 s). Checked these frame by frame:\n- SH01 altitude and swimmer visibility\n- SH02/SH03 surfacing and splash (the fountain fix landed; droplets now stay around the neck)\n- SH04 orbit, SH06 sky droplets, SH09 body tint (fix landed), SH10, SH11 time-lapse\n- SH12/SH13 hands and spit (accepted droplet issue)\n- SH15/SH16 cut and native renders, SH17B shark path frame by frame (f1970-1994 and f1975-1979)\n- SH20 at 74.5/75.3/76.3/77.9 plus native frames, SH22 and SH24 at full resolution plus native frames compared with SH12\n- SH23 mirage fade in and out (works), SH25 source note (legible), SH26 rotor frames and glint (smooth, no flicker defect)\n- SH26 to SH27 arm continuity (consistent: right arm in both), SH27 strop landing, SH28 hoist start and labels, SH29 reel-in (f3630-3647: he slides in through the door) and departure\n- SH29 helicopter pixel tracking and horizon through the tilt\n- Fade-out: picture luma 165 down to 4.8 from 126.5 to 127.5 s, linear; audio -26 dB down to -118 dB.\nAlso checked the light chronology: morning, then noon (SH11/12), hazy afternoon (SH13), late afternoon (SH17), sunset (SH18), dusk (SH19/20), night (SH21), grey day two (SH22/23), golden (SH24-29). The order is consistent. Checked the condition parameters in sh*.py; fatigue, sunburn and salt rise monotonically. Scratch evidence is in /tmp/claude-0/-home-user-code/73c477af-b034-5106-8934-46dafc95cd58/scratchpad/verify/story/."
+  },
+  {
+   "dim": "captions",
+   "checked": "Parsed all 321 ASS events (story/captions.ass): 282 word-highlight runs, 18 labels and the SH25 source note. Matched every caption highlight against the 310 words in vo_timing.json; n32-n34 are left out on purpose. All words are present, in order and spelled correctly. Every highlight starts 0.015-0.045 s before its word. The longest linger after a word ends is 0.455 s, and only in pauses. Cross-correlation shows stem_vo sits at 0.000 s lag in the MP4 audio at 6 points. VO onsets per segment fall within 0.08 s of vo_timing. Rendered cap-only and label-only versions of the ASS with libass and the Inter fonts on a grey canvas at 10 fps (1275 frames). From these I measured exact text/box bounding boxes for every frame against the YouTube Shorts zones (y>1570, x>960). Checked every cut: each carried-over piece uses the incoming shot's position. Contact sheets of 10 frames per shot or shot pair, with safe-area lines drawn, are in /tmp/claude-0/-home-user-code/73c477af-b034-5106-8934-46dafc95cd58/scratchpad/verify/captions/sheets/ (sh03_04, SH01_SH02 ... SH29). Also looked at full-res crops: SH28 top at 116.5/117.3/118.0/118.6 (sh28_top_full.png), SH27 top at 109.0/110.0/111.0/112.2 (sh27_top_full.png), the SH27 strop descent at 108.7-109.5 in 0.1 s steps (sh27_strop.png), SH21 79.6-83.2 (sh21_mid.png), SH19 70.6-74.1, SH02 6.3-9.8, SH29 123.5-126.0, SH14 at 55.0, the SH25 note at 96.0, and frames 2820-2827 around the 94.1 s cut (fr/cut94_tile.png). Measured the SH28 rotor top in render/final/SH28/*.png (dark-pixel top per frame, scaled x1.875) against the label stack bottom. Fact-checked the label and note text: 3.5% salt, more water out than in, COLD = SHOCK/HYPOTHERMIA, WARM = EXHAUSTION/DROWNING/THIRST, Carnival Valor, Gulf of Mexico, Nov 2022, USCG, 15+ h. All correct. The SH28 item says 'SOMEONE KNOWS YOU'RE MISSING' where the narration says 'anyone'; that is acceptable."
+  },
+  {
+   "dim": "av_tech",
+   "checked": "Technical: ran ffprobe on the final. Video is H.264 High@5.0, 1080x1920, yuv420p, 30/1, nb_frames=3825, 127.500 s, 18.5 Mb/s. Audio is AAC-LC, 48 kHz stereo, 127.500 s, starts at 0. Atom order is ftyp, moov at offset 32, free, mdat, so faststart is OK.\n- Decoded all 3825 frames to grayscale and differenced them. All 29 cuts land exactly on round(t0*30), with peak diffs of 13.5 to 113.8 against a 0.2 to 8.9 floor. No duplicated or dropped frames, apart from the 2-frame hold at the end of SH02 (frames 303-305) that the assembly does on purpose. The video fades to luma 5 over the last 29 frames.\n- Loudness (ebur128 on the decoded AAC): I = -15.0 LUFS, LRA 3.0 LU, true peak -1.4 dBTP. Sample peak is 0.85 and no samples are clipped.\n- The decoded AAC matches stranded_mix.wav at lag 0, with a residual of -36.8 dB.\n- No silent gaps. The lowest 20 ms RMS is -44 dBFS at cut 94.10, and the audio fades cleanly to -85 dBFS at the end.\n- VO sync: speech onsets in the VO stem match the vo_timing word starts within 20-60 ms, e.g. 'First' 6.41/6.44, 'Hours' 38.02/38.04, 'Then' 60.30/60.35, 'But' 94.56/94.62, 'Your odds' 113.04/113.10, n36 123.31/123.39. Segment-final word ends in the json run 0.3-0.4 s long (Kokoro); word starts are correct.\n- Momentary loudness per stem at 0.1 s steps: VO minus music has a median of 15.3 LU while speech is active.\n- Helicopter: audible in the mids from about 94.8 s, before the head lift. It builds through SH25 from -36 to -24 LUFS(S) and peaks at -20.6 in SH26. SFX+ambience combined stays continuous across 104.3 (-21.6 LUFS) and runs -22 to -22.6 through SH27-SH28.\n- Looked at frame tiles in the scratchpad (verify/audio_tech): sh03_tile.png (10.2-10.77 s, every frame), sh25_tile.png (94.1-96.4), sh16_tile.png (59.9-62.5), sh06_tile.png (20.4-22.4), sh29_tile.png (118.9-127.4), and heli_cuts.png (review stills SH26_c..SH29_a).\n- Read mix_audio.py and measured the splash onsets in bathtub_splashes.wav, the Eternal_Hope.mp3 envelope, and click/discontinuity behaviour at each cut.\n- Repo: the MP4 is LFS-tracked. The pointer oid matches sha256 7b4ea520..., .gitattributes has output/*.mp4, output/ holds only the final, and the tree is clean.\n- Credits: read CREDITS.md and youtube_description.md, checked that every HDRI, GLB, music file and sound the scripts use is credited, and read the license metadata embedded in every Objaverse GLB."
+  }
+ ]
+}

@@ -17,7 +17,7 @@ def build():
     def path(f):
         u = min(1.0, max(0.0, (f - HOLD) / (N - HOLD)))
         k = u ** 1.7                                   # pulls away briskly, toward the low sun
-        return p_hover + Vector((0, 0, 25 * k)) + d * (420 * k)
+        return p_hover + Vector((0, 0, 60 * k)) + d * (420 * k)        # climbs so it stays on the glitter path in the final framing
     hroot, rotor = rescue.heli(path, N, hover=True, yaw_deg=rescue.heli_yaw(d))
     # him: continue the SH28 hoist (same pose/swing phases), reel the last ~3.8 m, then in through the door
     F0 = 189                       # SH28 length: phases continue from its last frame
@@ -51,12 +51,16 @@ def build():
     rescue.churn_water(o) if 'ripple_amp' in o['mat'].node_tree.nodes else None
     cam = env.add_camera('Cam', lens=28, clip=(0.5, 90000))
     aimt = bpy.data.objects.new('Aim', None); sc.collection.objects.link(aimt)
+    far = d * 2500 + Vector((0, 0, -60))                       # the sun-glitter horizon
     for f in range(1, N + 1, 2):
         k = ease((f - 1) / (N - 1))
-        kk = ease(max(0.0, (k - 0.58) / 0.42))   # hold on the helicopter, then settle on the sun-glitter horizon
-        aimt.location = (path(f) + Vector((0, 0, 0.5))) * (1 - kk) + (d * 2500 + Vector((0, 0, -60))) * kk
+        kk = ease(max(0.0, (k - 0.45) / 0.55))   # hold on the helicopter, then turn smoothly toward the horizon
+        cp = -d * (22 + 160 * k) - side * 6 * (1 - k) + Vector((0, 0, 6 + 260 * k ** 1.3))
+        # interpolate the look DIRECTION (not the aim point: blending a near and a 2.5 km point whips the camera)
+        v1 = (path(f) + Vector((0, 0, 0.5)) - cp).normalized(); v2 = (far - cp).normalized()
+        aimt.location = cp + v1.slerp(v2, kk) * 100.0
         aimt.keyframe_insert('location', frame=f)
-        env.key_loc(cam, f, -d * (22 + 160 * k) - side * 6 * (1 - k) + Vector((0, 0, 6 + 260 * k ** 1.3)))
+        env.key_loc(cam, f, cp)
     env.aim(cam, aimt)
     env.handheld(cam, amp_loc=0.05, amp_rot=0.002, freq=0.3, seed=29)
     return sc

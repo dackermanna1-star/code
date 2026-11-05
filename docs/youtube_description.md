@@ -32,7 +32,7 @@ Music by Kevin MacLeod (incompetech.com), licensed under Creative Commons: By At
 - "Eternal Hope"
 
 3D models from Sketchfab (via the Objaverse dataset), CC-BY 4.0:
-- "Model 62A - Shortfin Mako Shark" by DigitalLife3D
+- "Oceanic White Tip Shark" by Dreamwasabducted
 - "Bigeye Trevally, Caranx sexfasciatus (juvenile)" by ffishAsia-and-floraZia
 - "MH-65 Dolphin" by Sengchor
 - "Cargo ship" by hungry_drifter

@@ -21,7 +21,7 @@ def build():
     c.add_face(ch.blinks(seed=12, f0=130))
     def pivot(f):
         k = w_float(f)
-        return (Vector((0, 0.15 * k, -0.24 + 0.13 * k)), compose(R('X', 8 - 86 * k), R('Z', 30)))
+        return (Vector((0, 0.15 * k, -0.24 + 0.19 * k)), compose(R('X', 8 - 86 * k), R('Z', 30)))   # settled chest clear of the surface (no shirt 'islands')
     c.pivot_fn = pivot
     probe = finish(c, o, N, inertia=(0.22, 0.6), radius=1.0)
     o['mat'].node_tree.nodes['collar_foam'].outputs[0].default_value = 0.12

@@ -1,4 +1,4 @@
-"""SH17B - "...splashing draws attention, so you stay still." Underwater: the mako circles once beneath his
+"""SH17B - "...splashing draws attention, so you stay still." Underwater: the oceanic whitetip circles once beneath his
 motionless legs, then loses interest and fades back into the blue."""
 from common import *
 import marine
@@ -11,14 +11,16 @@ def build():
     c.add(ch.tread_water(c, 1, N, speed=0.45, effort=0.25))
     c.pivot_fn = lambda f: (Vector((0, 0, -0.2)), compose(R('X', 4), R('Z', 22)))
     probe = finish(c, o, N, inertia=(0.25, 0.55))
-    shark, arm = marine.load_shark(2.6)
+    shark, arm = marine.load_shark(2.1)
     def path(f):
         u = f / N
-        # ~2.5 m/s arc across the far side of the circle under his legs, so the pass stays inside the 9:16 frame
-        a = math.radians(140 - 110 * ease(min(u / 0.7, 1.0)))
+        # constant-speed arc (~2.3 m/s) across the far side of the circle under his legs, easing out past u=0.7 while the
+        # glide-off into the blue builds up from zero: velocity stays continuous, so the turn away reads as a turn (no snap)
+        g = u / 0.7 if u <= 0.7 else 1.0 + (0.3 / 0.7) * 0.5 * (1 - (1 - (u - 0.7) / 0.3) ** 2)
+        a = math.radians(140 - 110 * g)
         p = Vector((-0.3 + 2.0 * math.cos(a), -0.5 + 2.0 * math.sin(a), -3.0))
         if u > 0.6:                                               # loses interest, glides off into the blue
-            k = ease((u - 0.6) / 0.4)
+            k = ((u - 0.6) / 0.4) ** 2
             p += Vector((2.2 * k, 4.0 * k, -1.2 * k))
         return p
     marine.path_animate(shark, path, 1, N, bank=0.8)

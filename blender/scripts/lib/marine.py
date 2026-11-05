@@ -134,28 +134,59 @@ def school(tpl, n, center_fn, seed=0, spread=(1.2, 1.2, 0.5), heading_fn=None, s
     return fishes
 
 # ------------------------------------------------------------------ shark
-def load_shark(length=2.6):
-    objs = import_glb('mako')
-    arm = next(o for o in objs if o.type == 'ARMATURE')
-    root = make_root(objs, 'Mako')
-    root.scale = (length / 3.2,) * 3
-    act = bpy.data.actions.get('Action')
-    ad = arm.animation_data or arm.animation_data_create()
-    if act:
-        ad.action = None
-        tr = ad.nla_tracks.new(); st = tr.strips.new('swim', 1, act)
-        st.repeat = 40; st.scale = 1.25   # slower, calmer cruising beat
-    return root, arm
+def load_shark(length=2.6, species='whitetip'):
+    """Returns (shark_object, armature_or_None).
+    'whitetip': Oceanic White Tip Shark by Dreamwasabducted (CC-BY 4.0) - static mesh, animated with the travelling-wave swim
+    deformer (slow tail beat). 'mako': the rigged Model 62A Shortfin Mako (CC-BY-NC 4.0 - non-commercial only, not used)."""
+    if species == 'mako':
+        objs = import_glb('mako')
+        arm = next(o for o in objs if o.type == 'ARMATURE')
+        root = make_root(objs, 'Mako')
+        root.scale = (length / 3.2,) * 3
+        act = bpy.data.actions.get('Action')
+        ad = arm.animation_data or arm.animation_data_create()
+        if act:
+            ad.action = None
+            tr = ad.nla_tracks.new(); st = tr.strips.new('swim', 1, act)
+            st.repeat = 40; st.scale = 1.25   # slower, calmer cruising beat
+        return root, arm
+    objs = import_glb('whitetip')
+    meshes = [o for o in objs if o.type == 'MESH']
+    bpy.ops.object.select_all(action='DESELECT')
+    for o in meshes:
+        mw = o.matrix_world.copy(); o.parent = None; o.matrix_world = mw; o.select_set(True)
+    bpy.context.view_layer.objects.active = meshes[0]
+    bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
+    if len(meshes) > 1: bpy.ops.object.join()
+    tpl = bpy.context.object
+    for o in objs:
+        if o.name in bpy.data.objects and o != tpl: bpy.data.objects.remove(o, do_unlink=True)
+    tpl.data.transform(Matrix.Rotation(-math.pi / 2, 4, 'Z'))       # model: head toward -Y -> head toward -X (fish convention)
+    bb = [Vector(c) for c in tpl.bound_box]
+    mn = Vector([min(v[i] for v in bb) for i in range(3)]); mx = Vector([max(v[i] for v in bb) for i in range(3)])
+    tpl.data.transform(Matrix.Translation(-(mn + mx) / 2))
+    tpl.data.transform(Matrix.Scale(length / (mx.x - mn.x), 4))
+    tpl.name = 'whitetip_tpl'; tpl['length'] = length
+    tpl.hide_render = True; tpl.hide_viewport = True
+    shark = make_fish(tpl, phase=0.0, freq=0.7, amp=0.07, name='Whitetip')
+    md = shark.modifiers['swim']
+    ids = {s.name: s.identifier for s in md.node_group.interface.items_tree if s.item_type == 'SOCKET' and s.in_out == 'INPUT'}
+    md[ids['Wavelength']] = 1.0
+    return shark, None
 
-def path_animate(obj, pts_fn, f0, f1, bank=0.6, head_axis='X', head_sign=-1, up='Z'):
+def path_animate(obj, pts_fn, f0, f1, bank=0.6, head_axis='X', head_sign=-1, up='Z', max_turn=6.0):
     """Key location along pts_fn(f) and orient the head (along head_sign*axis) to the direction of travel, with banking."""
     sc = bpy.context.scene
     obj.rotation_mode = 'QUATERNION'
-    prev = pts_fn(f0 - 1); prevd = None; roll = 0.0
+    prev = pts_fn(f0 - 1); prevd = None; roll = 0.0; prevq = None
     for f in range(f0, f1 + 1):
         p = pts_fn(f); d = p - prev
         if d.length > 1e-6:
             q = d.to_track_quat(('-' + head_axis) if head_sign < 0 else head_axis, up)
+            if prevq is not None:                       # heading turns at most max_turn deg/frame: no snaps
+                ang = prevq.rotation_difference(q).angle
+                if ang > math.radians(max_turn): q = prevq.slerp(q, math.radians(max_turn) / ang)
+            prevq = q.copy()
             if prevd is not None and bank:
                 # bank into the turn: angle proportional to the yaw rate (rad/frame), clamped, smoothed
                 turn = math.asin(max(-1.0, min(1.0, prevd.normalized().cross(d.normalized()).z)))

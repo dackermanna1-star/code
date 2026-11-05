@@ -10,8 +10,10 @@ def build():
     c.condition(wet=1.0)
     # head rises out of the water (pivot depth) then settles into treading
     def depth(f):
-        if f < 14: return -0.85 + 0.75 * ease_out((f - 1) / 13)   # burst up
-        return -0.10 - 0.12 * ease((f - 14) / 20)              # sink back to treading depth
+        # burst up to treading depth with the waterline near the collarbones (not chest-high, which then had to drop
+        # a head-height to settle); after that only a gentle settle
+        if f < 14: return -0.85 + 0.62 * ease_out((f - 1) / 13)
+        return -0.23 - 0.02 * ease((f - 14) / 24)
     c.add(ch.tread_water(c, 1, N, speed=1.3, effort=1.3))
     c.add(ch.micro_head(seed=7, amp=3.0, freq=0.8))
     # gasp: head thrown back on the inhale, then two coughs jerk it forward
@@ -59,6 +61,7 @@ def water_drop_material():
     if 'Droplet' in bpy.data.materials: return bpy.data.materials['Droplet']
     m = bpy.data.materials.new('Droplet'); m.use_nodes = True
     b = m.node_tree.nodes['Principled BSDF']
-    b.inputs['Base Color'].default_value = (0.8, 0.9, 1.0, 1); b.inputs['Roughness'].default_value = 0.02
-    b.inputs['Transmission Weight'].default_value = 1.0; b.inputs['IOR'].default_value = 1.33
+    # mostly clear water, but with a little white body so small drops never refract into solid black dots
+    b.inputs['Base Color'].default_value = (0.92, 0.96, 1.0, 1); b.inputs['Roughness'].default_value = 0.06
+    b.inputs['Transmission Weight'].default_value = 0.72; b.inputs['IOR'].default_value = 1.33
     return m

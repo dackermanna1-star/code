@@ -1,6 +1,6 @@
 """SH16 - "Then, something bigger comes to look."  Underwater wide into the blue: continuing from SH15 he floats flat
 with the little fish in his shadow, then rolls upright, legs dropping into the top of frame, as out of the haze a
-shortfin mako glides in, slow and curious, and the fish scatter."""
+oceanic whitetip glides in, slow and curious, and the fish scatter."""
 from common import *
 import marine
 
@@ -22,17 +22,20 @@ def build():
     c.pivot_fn = pivot
     probe = ch.OceanProbe(o['ocean'])
     finish(c, o, N, probe, inertia=(0.22, 0.6), radius=1.0)
-    # the juvenile trevally from SH15 are still in his shadow, and dart away as the mako comes in
+    # the juvenile trevally from SH15 are still in his shadow, and dart away as the shark comes in
     tpl = marine.fish_template('trevally_juv', length=0.2)
     def centre(f):
         e = ease((f - 22) / 30.0)
         return Vector((0.1 - 3.2 * e + 0.1 * math.sin(f / 20), 0.3 * e, -0.95 - 0.6 * e + 0.1 * math.sin(f / 25)))
     marine.school(tpl, 12, centre, seed=3, spread=(0.55, 0.9, 0.22))
-    shark, arm = marine.load_shark(2.6)
+    shark, arm = marine.load_shark(2.1)
     # ~2.5 m/s cruise out of the blue haze toward the dangling legs, slight descent-then-rise
-    marine.path_animate(shark, lambda f: Vector((3.0 - 2.8 * ease(f / N), 8.0 - 6.5 * ease(f / N), -3.4 + 0.8 * ease(f / N))), 1, N)
+    marine.path_animate(shark, lambda f: Vector((3.0 - 2.5 * ease(f / N), 8.0 - 5.4 * ease(f / N), -3.4 + 0.6 * ease(f / N))), 1, N)   # stops ~4 m from the lens
     cam = env.add_camera('Cam', lens=22)
-    aimt = cam_target(None, (1.0, 5.0, -2.5)); env.aim(cam, aimt)
+    # open on him floating flat at the surface (continuity with SH15), then pan down/out to the shark as it appears
+    aimt = cam_target(None, (0.0, 0.2, -0.5)); env.aim(cam, aimt)
+    aimt.keyframe_insert('location', frame=1); aimt.keyframe_insert('location', frame=16)
+    aimt.location = (1.0, 5.0, -2.5); aimt.keyframe_insert('location', frame=46)
     for f in range(1, N + 1, 3):
         k = ease((f - 1) / (N - 1))
         env.key_loc(cam, f, Vector((-1.2 + 0.2 * k, -1.6 + 0.3 * k, -1.9)))

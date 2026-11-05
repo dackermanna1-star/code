@@ -4,9 +4,11 @@ from common import *
 
 def build():
     sc, c, o, sun = setup('SH22', tod='overcast', ocean='moderate', water_mode='clear', vignette=0.42, grade='overcast',
-                          water_kw={'transmit_tint': (0.55, 0.8, 0.85)})      # limbs under the surface keep their colour
+                          water_kw={'near_transmission': 20.0, 'transmit_tint': (0.75, 0.92, 0.95)})   # limbs under the surface keep their colour
     for m in (o['mat'], o.get('volmat')):
-        if m is not None and 'vol_glow' in m.node_tree.nodes: m.node_tree.nodes['vol_glow'].inputs['Strength'].default_value = 0.25
+        if m is not None and 'vol_glow' in m.node_tree.nodes:
+            m.node_tree.nodes['vol_glow'].inputs['Strength'].default_value = 0.15     # greyer, less teal under the overcast
+            m.node_tree.nodes['vol_abs'].inputs['Density'].default_value = 0.15       # shallow limbs keep skin tone in the dim light
     N = sc.frame_end   # 108
     c.condition(wet=1.0, fatigue=0.85, sunburn=0.58, salt=0.6, cold=0.6)
     c.add(ch.float_back(c, spread=0.85, head_back=0.9)); c.add(ch.breathing(rate_bpm=16, depth=0.9))
