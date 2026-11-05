@@ -416,6 +416,19 @@ def ik_block(rig, sides, f0, f1):
             c.influence = 0.0; c.keyframe_insert("influence", frame=f)
 
 
+def tuck_arms(rig, f0, f1):
+    """Arms wrapped round the body, hands tucked at the opposite armpits (IK wrists, straight hands).
+    Continuity with SH17c and the advice in L14; the arm mocap underneath keeps the elbows alive."""
+    ik_setup(rig); ik_block(rig, "lr", f0, f1)
+    for ff in list(range(f0, f1, 6)) + [f1]:
+        fw = facing(rig, ff); ch = bpos(rig, "spine_03", ff, "tail")
+        for side, opp, fwd, dz in (("l", "r", 0.13, -0.15), ("r", "l", 0.10, -0.12)):
+            p = bpos(rig, f"upperarm_{opp}", ff, "head").lerp(ch, 0.2) + fw * fwd + Vector((0, 0, dz))
+            ik_key(rig, side, ff, 1.0, tuple(p))
+    for side in "lr":  # hands continue the forearm line so they slide under the opposite arm
+        A.layer(act(rig), f"hand_{side}", f0, f1, [(f0, (0, 0, 0), 0.85), (f1, (0, 0, 0), 0.85)], mode="replace")
+
+
 def phone_drop(f_drop, floor_z=0.005):
     """Release the phone from the hand and let it fall with a small bounce (hand-keyed)."""
     ph = bpy.data.objects["Phone"]; sc = bpy.context.scene
@@ -909,16 +922,7 @@ def build(ids=None):
         A.layer(a(), "spine_02", f0, f1, [(f0, (16, 0, 0), 1), (f1, (20, 0, 0), 1)])
         A.layer(a(), "neck_01", f0, f1, [(f0, (-14, 0, 0), 1), (f1, (-10, 0, 0), 1)])
         A.layer(a(), "head", f0, f1, [(f0, (-24, 0, 0), 1), (stop, (-24, 0, 0), 1), (f1, (-8, 0, 6), 1)])
-        # arms stay wrapped round the body with the hands tucked at the opposite armpits (continuity with SH17c
-        # and the advice in L14); the arm mocap underneath keeps the elbows alive
-        ik_setup(rig); ik_block(rig, "lr", f0, f1)
-        for ff in list(range(f0, f1, 6)) + [f1]:
-            fw = facing(rig, ff); ch = bpos(rig, "spine_03", ff, "tail")
-            for side, opp, fwd, dz in (("l", "r", 0.13, -0.15), ("r", "l", 0.10, -0.12)):
-                p = bpos(rig, f"upperarm_{opp}", ff, "head").lerp(ch, 0.2) + fw * fwd + Vector((0, 0, dz))
-                ik_key(rig, side, ff, 1.0, tuple(p))
-        for side in "lr":  # hands continue the forearm line so they slide under the opposite arm
-            A.layer(a(), f"hand_{side}", f0, f1, [(f0, (0, 0, 0), 0.85), (f1, (0, 0, 0), 0.85)], mode="replace")
+        tuck_arms(rig, f0, f1)
         A.hand_pose(a(), "l", [(f0, "tucked", 1.0), (f1, "tucked", 1.0)]); A.hand_pose(a(), "r", [(f0, "tucked", 1.0), (f1, "tucked", 1.0)])
         A.shiver(a(), f0, f1, [(f0, 3.8), (F(80.8), 4.2), (F(81.6), 1.5), (stop + 4, 0.12), (f1, 0.05)], seed=27)
         exh = A.breathe(a(), f0, f1, [(f0, 0.9), (stop, 1.0), (stop + 20, 2.0), (f1, 2.4)], depth_deg=2.0); puffs(rig, exh, 0.8, dur=50)
@@ -942,8 +946,11 @@ def build(ids=None):
         place(rig, "22_03", 300, 900, f0, f0, (seat.x + 0.08, seat.y), face_deg=90, speed=0.5)
         mocap(rig, "80_41", 400, 900, f0, face_deg=90, speed=0.5, bones=ARMS, root_motion=False)
         A.layer(a(), "spine_02", f0, f1, [(f0, (18, 0, 0), 1), (f1, (22, 0, 0), 1)])
+        tuck_arms(rig, f0, f1)
+        A.hand_pose(a(), "l", [(f0, "tucked", 1.0), (f1, "tucked", 1.0)]); A.hand_pose(a(), "r", [(f0, "tucked", 1.0), (f1, "tucked", 1.0)])
         exh = A.breathe(a(), f0, f1, [(f0, 2.4)], depth_deg=1.5); puffs(rig, exh, 0.7, dur=50)
         cp, hp = orbit(rig, f0, "spine_02", 2.3, az=25, el=12)
+        hp = hp + Vector((0, 0, 0.12))  # keep his head clear of the CORE HUD
         cam = camera("SH18c", f0, f1, cp, [(f0, hp, 30), (f1, hp, 34)], shake=0.06)
         shot("SH18c", f0, f1, cam, mode="thermal", dynamic=PUFFS, note="thermal: body dimming")
 
