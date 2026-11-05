@@ -155,6 +155,10 @@ lucid: `lucid` · journal: `journal`, `photos` · story: `story` · lens/setting
 ---------------------------------------------------------------------------------------------------
 
 ### 20-title.js — title, menus, help, the waking graph, ending screen (`N2.mods.title`)
+* **New visual identity** (see the 30-lens ART DIRECTION: "completely different but kinda samey"): the
+  original UI is violet-on-near-black. The sequel keeps the monospace, lowercase, the glyph and the
+  hushed layout, but moves to its own palette: deep moonlit blue-black with pale moon-gold and soft
+  teal/aqua accents, a little warm lantern-amber. Use the same identity for menus, pause, help, graph.
 * Replace the title screen with the sequel's: big `ねむり` glyph + a luminous `II`, subtitle
   `the lucid hour` / `めいせき`, new tagline, animated background (canvas: slow drifting stars/
   particles/ripples; respect `reducedMotion`), credit line: `a sequel to nemuri — an original dream toy`.
@@ -172,6 +176,42 @@ lucid: `lucid` · journal: `journal`, `photos` · story: `story` · lens/setting
   Keep timing compatible: base hides it after `graphTimer` (4.6 s) — you may extend `graphTimer`.
 * `N2.mods.title.showEnding(lines[], onDone)` — full-screen ending/credits sequence (used by story).
 * `N2.mods.title.flash(text)` — a big centered whisper for important moments (power unlocked, lantern lit).
+
+### 30-lens.js — ART DIRECTION: a new look for the sequel (top priority of this module)
+The user asked: **"It has to have completely different but kinda samey graphics."** nemuri II must be
+recognisable at a glance as a *different game* from nemuri 1, while staying in the same family
+(low-res, dithered, vertex-snapped, foggy, dreamy, unlit-feeling, monospace UI). Think "the same
+dreamer, years later, dreaming in a new medium". The new look is the **default** (`settings.lens`
+default = `"lucid"`, change `SETTINGS_DEFAULT.lens` usage accordingly — you may treat a stored value of
+`"classic"` from before the first run as unset only if the user never chose it). `classic` remains a
+selectable lens that reproduces the original exactly (it is the "nemuri 1 look"; regression-test it).
+Required ingredients of the new look (tune until screenshots look gorgeous, side by side with classic):
+1. **New world shader.** Materials come from `objMat()` which builds a ShaderMaterial from the globals
+   `OBJECT_VERT` / `OBJECT_FRAG` at material-creation time (during dream builds, after modules load), so at
+   module load you can reassign `OBJECT_VERT`/`OBJECT_FRAG` and wrap `objMat` to add uniforms
+   (`uStyle` shared uniform object: 0 = classic exact original math, 1 = sequel) and
+   `extensions: { derivatives: true }`. Sequel shading: faceted "moonlight" — a per-pixel face normal from
+   `dFdx/dFdy` of the view-space position, lit by one soft directional key light + hemispheric ambient
+   (sky tint from above, ground/fog tint from below) so geometry finally has form and depth; a subtle
+   rim/fresnel glow on silhouettes in the dream's glow colour; **height mist** (fog thicker near the
+   ground, clearer above); distance hue-shift toward the sky colour (aerial perspective). Keep PS1 vertex
+   snapping (perhaps a slightly finer grid) and affine texture wobble so it is still "samey". Emissive
+   things (`uBright` > ~1.3) should stay flat/glowing (no shading) and feed bloom.
+   Also handle non-objMat materials gracefully (some code uses other THREE materials — leave them).
+2. **New default post look ("lucid" lens):** a somewhat higher internal resolution than the original 232
+   lines (e.g. ~288-320; respect the resScale setting), soft bloom, a gentle **ink outline** from colour /
+   luminance edge detection in the post pass, a **curated palette ramp** colour quantisation (map luminance
+   through a per-dream 4-6 colour gradient derived from `zone.palette` / fog / sky — painterly, like a limited
+   print) instead of the original's uniform posterize, a different dither (blue-noise-like interleaved
+   gradient noise instead of Bayer 8x8), film grain, breathing vignette.
+3. **Sky:** the original uses a flat clear colour. In the sequel lens add a gradient sky (zenith → horizon
+   glow, faint large stars/aurora bands when the sky is dark) — e.g. a big inverted sphere added to each
+   dream on `dreamBuilt` with its own shader (depthWrite false, renderOrder first), or done in post where
+   depth is far (no depth texture is available by default — a sky dome is simpler). Remove it in classic.
+4. Other lenses (`vhs`, `ink`, `dusk`) build on the sequel world shader too, each with its own grade.
+5. Deliver side-by-side screenshots (classic vs lucid) of at least 4 different worlds + the bedroom, READ
+   them, and iterate until lucid is clearly a new, more beautiful look that still feels like nemuri.
+   Performance: SwiftShader fps must stay within ~20% of classic.
 
 ### 30-lens.js — visual upgrade + settings (`N2.mods.lens`)
 * Replace `postMat.fragmentShader` (at `start`, or by wrapping `init`-created material — set

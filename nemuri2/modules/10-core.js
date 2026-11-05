@@ -39,7 +39,7 @@ N2.save = {
 
 /* ------------------------------------------------------------- settings ---- */
 var SETTINGS_DEFAULT = {
-  lens: "classic",        // post-processing preset (owned by lens module)
+  lens: "lucid",          // post-processing preset (owned by lens module); "lucid" = the sequel look, "classic" = nemuri 1
   resScale: 1,            // internal render height multiplier (0.7 / 1 / 1.4 / 2)
   fov: 72,                // base field of view; zones may still override
   sens: 1,                // mouse sensitivity multiplier
@@ -75,7 +75,7 @@ N2.canAct = function () { return phase === "play" && !paused && !N2.uiOpen; };
 
 /* ------------------------------------------------------------------ ui ---- */
 var css = [
-  ":root{--n2-ink:#e4dcf0;--n2-dim:#8b7fa6;--n2-glow:#c9b4ff;--n2-teal:#8fc6d6;--n2-rose:#e0a6c8;--n2-gold:#f0d79a;--n2-bg:rgba(8,6,16,.86);--n2-line:rgba(180,150,230,.28);}",
+  ":root{--n2-ink:#e6e4da;--n2-dim:#7f8fa3;--n2-glow:#f0d9a0;--n2-teal:#8fd0d2;--n2-rose:#e0a6c8;--n2-gold:#f0d79a;--n2-amber:#e8a860;--n2-bg:rgba(6,10,20,.88);--n2-line:rgba(160,190,210,.26);}",
   ".n2-region{position:fixed;z-index:42;pointer-events:none;display:flex;flex-direction:column;gap:6px;font-family:ui-monospace,'SF Mono',Menlo,Consolas,monospace;color:var(--n2-ink);font-size:11px;letter-spacing:.12em;}",
   ".n2-region>*{pointer-events:none;}",
   "#n2-tl{left:14px;top:34px;align-items:flex-start;}",
