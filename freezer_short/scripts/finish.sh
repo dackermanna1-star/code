@@ -4,7 +4,7 @@ R=/opt/work/renders; S=/home/user/code/freezer_short/scripts
 until grep -q ALL_DONE /opt/work/render_queue.log; do sleep 60; done
 echo "$(date +%H:%M:%S) FIXPASS start" >> /opt/work/render_queue.log
 rm -f $R/SH01/SH01_char_*.exr $R/SH02/SH02_char_*.exr
-for sh in SH06a SH11a; do rm -f $R/$sh/${sh}_plate* $R/$sh/${sh}_char_*.exr $R/$sh/${sh}_breath_*.exr $R/$sh/breath.log; done
+for sh in SH06a SH11a SH11b; do rm -f $R/$sh/${sh}_plate* $R/$sh/${sh}_char_*.exr $R/$sh/${sh}_breath_*.exr $R/$sh/breath.log; done
 cd /opt/work && blender -b blend/master.blend --python $S/build_anim.py -- /opt/work/blend/anim_new.blend > /opt/work/tmp/rebake_fix.log 2>&1 && mv -f blend/anim_new.blend blend/anim.blend
 rm -f $R/SH07/SH07_thermal_*.png
 for sh in SH01 SH02 SH04 SH05 SH06b SH08b SH09 SH10b SH11a SH11b; do rm -f $R/$sh/${sh}_breath_*.exr $R/$sh/breath.log; done

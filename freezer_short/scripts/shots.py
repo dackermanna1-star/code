@@ -326,7 +326,7 @@ def phone_setup(rig, f_ref, f_key=None):
     n = (to_face - along * to_face.dot(along)).normalized()   # screen normal, towards the face
     x = along.cross(n).normalized()
     R = Matrix((x, -n, along)).transposed()  # phone local: X=x, -Y = screen normal, Z = long axis
-    W = Matrix.Translation(hand.lerp(mid, 0.85) + n * 0.022) @ R.to_4x4()
+    W = Matrix.Translation(hand.lerp(mid, 0.8) + n * 0.032) @ R.to_4x4()
     L = Mb.inverted() @ W
     ph.rotation_mode = "QUATERNION"
     ph.matrix_basis = L
@@ -688,7 +688,7 @@ def build(ids=None):
         cold_state(f0, 2); state(f0, cold_hands=0.6)
         mocap(rig, "79_80", 160, 700, f0, face_deg=180, pos=(-0.2, -2.2), speed=0.9, root_motion=False)
         phone_setup(rig, f0 + 20, f0); phone_hold(f0, 1.0)
-        A.hand_pose(a(), "r", [(f0, "relaxed", 1.0), (f0 + 20, "claw", 0.5), (f0 + 30, "relaxed", 1.0), (f1, "relaxed", 0.9)])
+        A.hand_pose(a(), "r", [(f0, "flat", 1.0), (f0 + 20, "claw", 0.4), (f0 + 30, "flat", 1.0), (f1, "flat", 1.0)])
         A.hand_pose(a(), "l", [(f0, "claw", 0.8), (f0 + 25, "flat", 0.5), (f1, "claw", 0.8)])
         A.layer(a(), "hand_r", f0, f1, [(f0, (0, 0, 0), 1), (f0 + 18, (-25, 10, 15), 1), (f0 + 26, (10, -5, -5), 1), (f0 + 40, (-8, 0, 4), 1), (f1, (0, 0, 0), 1)])
         A.shiver(a(), f0, f1, [(f0, 1.4), (f1, 1.4)], seed=14)
@@ -709,7 +709,7 @@ def build(ids=None):
         cold_state(f0, 2)
         mocap(rig, "79_80", 300, 800, f0, face_deg=180, pos=(-0.2, -2.2), speed=0.9, root_motion=False)
         phone_setup(rig, f0 + 5, f0); phone_hold(f0, 1.0)
-        A.hand_pose(a(), "r", [(f0, "relaxed", 0.8), (f1, "relaxed", 0.8)])
+        A.hand_pose(a(), "r", [(f0, "flat", 1.0), (f1, "flat", 1.0)])
         A.shiver(a(), f0, f1, [(f0, 1.2), (f1, 1.2)], seed=15)
         exh = A.breathe(a(), f0, f1, [(f0, 1.2)], depth_deg=1.6); puffs(rig, exh, 0.9, dur=40)
         fm = (f0 + f1) // 2
