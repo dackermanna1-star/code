@@ -177,9 +177,13 @@ if PASS == "plate":
             piv = bpy.data.objects["Door_Pivot"]
             if piv.animation_data: piv.animation_data.action = None
             piv.rotation_euler[2] = math.radians(v["door"])
+            # an animated door is drawn per frame in the char pass; leaving it in the plates as well ghosts the
+            # closed door through the doorway while the variants cross-fade, so the variants then only carry
+            # the change in dock light
+            door_dynamic = bpy.data.objects["Door_Slab"] in dyn
             for n in ["Door_Slab", "Door_Gasket", "Door_KickPlate", "Release_Rod", "Release_Cap", "Release_Backplate",
                       "ReleaseLabel_0", "ReleaseLabel_1", "ReleaseLabel_2", "Release_Ice", "Door_Pivot"]:
-                bpy.data.objects[n].hide_render = False
+                bpy.data.objects[n].hide_render = door_dynamic
         if "dock" in v:
             l = bpy.data.lights["Dock_Warm"]
             if l.animation_data: l.animation_data.action = None
