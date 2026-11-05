@@ -57,8 +57,8 @@ name = 'stranded_draft.mp4' if draft else 'Stranded_What_Happens_If_You_Are_Stra
 vf = ("eq=contrast=1.03:saturation=1.04,noise=alls=3:allf=t,fade=t=out:st=%.3f:d=1.0,"
       "subtitles=/home/user/code/story/captions.ass:fontsdir=/usr/share/fonts/opentype/inter,format=yuv420p" % (total / 30 - 1.0))
 cmd = ['ffmpeg', '-v', 'error', '-stats', '-y', '-f', 'concat', '-safe', '0', '-i', lst, '-i', '/home/user/code/audio/mix/stranded_mix.wav',
-       '-vf', vf, '-c:v', 'libx264', '-preset', 'slow' if not draft else 'veryfast', '-crf', '17' if not draft else '23',
+       '-vf', vf, '-af', 'apad', '-t', '%.4f' % (total / 30.0), '-c:v', 'libx264', '-preset', 'slow' if not draft else 'veryfast', '-crf', '17' if not draft else '23',
        '-profile:v', 'high', '-r', '30', '-c:a', 'aac', '-b:a', '256k', '-ar', '48000',
-       '-shortest', '-movflags', '+faststart', OUT + name]
+       '-movflags', '+faststart', OUT + name]
 subprocess.run(cmd, check=True)
 print('wrote', OUT + name, 'frames', total)

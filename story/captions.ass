@@ -130,24 +130,24 @@ Dialogue: 2,0:00:48.12,0:00:48.20,Cap,,0,0,0,,{\an8\pos(540,300)}{\fad(60,0)}{\c
 Dialogue: 2,0:00:48.20,0:00:48.48,Cap,,0,0,0,,{\an8\pos(540,300)}A {\c&H0000D7FF&}{\t(0,80,\fscx112\fscy112)\t(80,160,\fscx104\fscy104)}HALF{\c&H00FFFFFF&\fscx100\fscy100} PERCENT
 Dialogue: 2,0:00:48.48,0:00:48.82,Cap,,0,0,0,,{\an8\pos(540,300)}A HALF {\c&H0000D7FF&}{\t(0,80,\fscx112\fscy112)\t(80,160,\fscx104\fscy104)}PERCENT{\c&H00FFFFFF&\fscx100\fscy100}
 Dialogue: 2,0:00:48.82,0:00:49.74,Cap,,0,0,0,,{\an8\pos(540,300)}{\fad(60,0)}{\c&H0000D7FF&}{\t(0,80,\fscx112\fscy112)\t(80,160,\fscx104\fscy104)}SALT{\c&H00FFFFFF&\fscx100\fscy100}
-Dialogue: 2,0:00:49.74,0:00:49.87,Cap,,0,0,0,,{\an8\pos(540,215)}{\fad(60,0)}{\c&H0000D7FF&}{\t(0,80,\fscx112\fscy112)\t(80,160,\fscx104\fscy104)}TO{\c&H00FFFFFF&\fscx100\fscy100} FLUSH IT
-Dialogue: 2,0:00:49.87,0:00:50.14,Cap,,0,0,0,,{\an8\pos(540,215)}TO {\c&H0000D7FF&}{\t(0,80,\fscx112\fscy112)\t(80,160,\fscx104\fscy104)}FLUSH{\c&H00FFFFFF&\fscx100\fscy100} IT
-Dialogue: 2,0:00:50.14,0:00:50.21,Cap,,0,0,0,,{\an8\pos(540,215)}TO FLUSH {\c&H0000D7FF&}{\t(0,80,\fscx112\fscy112)\t(80,160,\fscx104\fscy104)}IT{\c&H00FFFFFF&\fscx100\fscy100}
-Dialogue: 2,0:00:50.21,0:00:50.74,Cap,,0,0,0,,{\an8\pos(540,215)}{\fad(60,0)}{\c&H0000D7FF&}{\t(0,80,\fscx112\fscy112)\t(80,160,\fscx104\fscy104)}OUT{\c&H00FFFFFF&\fscx100\fscy100}
-Dialogue: 2,0:00:50.74,0:00:50.93,Cap,,0,0,0,,{\an8\pos(540,215)}{\fad(60,0)}{\c&H0000D7FF&}{\t(0,80,\fscx112\fscy112)\t(80,160,\fscx104\fscy104)}YOUR{\c&H00FFFFFF&\fscx100\fscy100} KIDNEYS NEED
-Dialogue: 2,0:00:50.93,0:00:51.41,Cap,,0,0,0,,{\an8\pos(540,215)}YOUR {\c&H0000D7FF&}{\t(0,80,\fscx112\fscy112)\t(80,160,\fscx104\fscy104)}KIDNEYS{\c&H00FFFFFF&\fscx100\fscy100} NEED
-Dialogue: 2,0:00:51.41,0:00:51.66,Cap,,0,0,0,,{\an8\pos(540,215)}YOUR KIDNEYS {\c&H0000D7FF&}{\t(0,80,\fscx112\fscy112)\t(80,160,\fscx104\fscy104)}NEED{\c&H00FFFFFF&\fscx100\fscy100}
-Dialogue: 2,0:00:51.66,0:00:51.92,Cap,,0,0,0,,{\an8\pos(540,215)}{\fad(60,0)}{\c&H0000D7FF&}{\t(0,80,\fscx112\fscy112)\t(80,160,\fscx104\fscy104)}MORE{\c&H00FFFFFF&\fscx100\fscy100} WATER THAN
-Dialogue: 2,0:00:51.92,0:00:52.31,Cap,,0,0,0,,{\an8\pos(540,215)}MORE {\c&H0000D7FF&}{\t(0,80,\fscx112\fscy112)\t(80,160,\fscx104\fscy104)}WATER{\c&H00FFFFFF&\fscx100\fscy100} THAN
-Dialogue: 2,0:00:52.31,0:00:52.41,Cap,,0,0,0,,{\an8\pos(540,215)}MORE WATER {\c&H0000D7FF&}{\t(0,80,\fscx112\fscy112)\t(80,160,\fscx104\fscy104)}THAN{\c&H00FFFFFF&\fscx100\fscy100}
-Dialogue: 2,0:00:52.41,0:00:52.59,Cap,,0,0,0,,{\an8\pos(540,215)}{\fad(60,0)}{\c&H0000D7FF&}{\t(0,80,\fscx112\fscy112)\t(80,160,\fscx104\fscy104)}YOU{\c&H00FFFFFF&\fscx100\fscy100} DRANK
-Dialogue: 2,0:00:52.59,0:00:53.45,Cap,,0,0,0,,{\an8\pos(540,215)}YOU {\c&H0000D7FF&}{\t(0,80,\fscx112\fscy112)\t(80,160,\fscx104\fscy104)}DRANK{\c&H00FFFFFF&\fscx100\fscy100}
-Dialogue: 2,0:00:53.45,0:00:53.81,Cap,,0,0,0,,{\an8\pos(540,215)}{\fad(60,0)}{\c&H0000D7FF&}{\t(0,80,\fscx112\fscy112)\t(80,160,\fscx104\fscy104)}EVERY{\c&H00FFFFFF&\fscx100\fscy100} SIP LEAVES
-Dialogue: 2,0:00:53.81,0:00:54.08,Cap,,0,0,0,,{\an8\pos(540,215)}EVERY {\c&H0000D7FF&}{\t(0,80,\fscx112\fscy112)\t(80,160,\fscx104\fscy104)}SIP{\c&H00FFFFFF&\fscx100\fscy100} LEAVES
-Dialogue: 2,0:00:54.08,0:00:54.36,Cap,,0,0,0,,{\an8\pos(540,215)}EVERY SIP {\c&H0000D7FF&}{\t(0,80,\fscx112\fscy112)\t(80,160,\fscx104\fscy104)}LEAVES{\c&H00FFFFFF&\fscx100\fscy100}
-Dialogue: 2,0:00:54.36,0:00:54.53,Cap,,0,0,0,,{\an8\pos(540,215)}{\fad(60,0)}{\c&H0000D7FF&}{\t(0,80,\fscx112\fscy112)\t(80,160,\fscx104\fscy104)}YOU{\c&H00FFFFFF&\fscx100\fscy100} MORE DEHYDRATED
-Dialogue: 2,0:00:54.53,0:00:54.76,Cap,,0,0,0,,{\an8\pos(540,215)}YOU {\c&H0000D7FF&}{\t(0,80,\fscx112\fscy112)\t(80,160,\fscx104\fscy104)}MORE{\c&H00FFFFFF&\fscx100\fscy100} DEHYDRATED
-Dialogue: 2,0:00:54.76,0:00:56.28,Cap,,0,0,0,,{\an8\pos(540,215)}YOU MORE {\c&H0000D7FF&}{\t(0,80,\fscx112\fscy112)\t(80,160,\fscx104\fscy104)}DEHYDRATED{\c&H00FFFFFF&\fscx100\fscy100}
+Dialogue: 2,0:00:49.74,0:00:49.87,Cap,,0,0,0,,{\an8\pos(540,1490)}{\fad(60,0)}{\c&H0000D7FF&}{\t(0,80,\fscx112\fscy112)\t(80,160,\fscx104\fscy104)}TO{\c&H00FFFFFF&\fscx100\fscy100} FLUSH IT
+Dialogue: 2,0:00:49.87,0:00:50.14,Cap,,0,0,0,,{\an8\pos(540,1490)}TO {\c&H0000D7FF&}{\t(0,80,\fscx112\fscy112)\t(80,160,\fscx104\fscy104)}FLUSH{\c&H00FFFFFF&\fscx100\fscy100} IT
+Dialogue: 2,0:00:50.14,0:00:50.21,Cap,,0,0,0,,{\an8\pos(540,1490)}TO FLUSH {\c&H0000D7FF&}{\t(0,80,\fscx112\fscy112)\t(80,160,\fscx104\fscy104)}IT{\c&H00FFFFFF&\fscx100\fscy100}
+Dialogue: 2,0:00:50.21,0:00:50.74,Cap,,0,0,0,,{\an8\pos(540,1490)}{\fad(60,0)}{\c&H0000D7FF&}{\t(0,80,\fscx112\fscy112)\t(80,160,\fscx104\fscy104)}OUT{\c&H00FFFFFF&\fscx100\fscy100}
+Dialogue: 2,0:00:50.74,0:00:50.93,Cap,,0,0,0,,{\an8\pos(540,1490)}{\fad(60,0)}{\c&H0000D7FF&}{\t(0,80,\fscx112\fscy112)\t(80,160,\fscx104\fscy104)}YOUR{\c&H00FFFFFF&\fscx100\fscy100} KIDNEYS NEED
+Dialogue: 2,0:00:50.93,0:00:51.41,Cap,,0,0,0,,{\an8\pos(540,1490)}YOUR {\c&H0000D7FF&}{\t(0,80,\fscx112\fscy112)\t(80,160,\fscx104\fscy104)}KIDNEYS{\c&H00FFFFFF&\fscx100\fscy100} NEED
+Dialogue: 2,0:00:51.41,0:00:51.66,Cap,,0,0,0,,{\an8\pos(540,1490)}YOUR KIDNEYS {\c&H0000D7FF&}{\t(0,80,\fscx112\fscy112)\t(80,160,\fscx104\fscy104)}NEED{\c&H00FFFFFF&\fscx100\fscy100}
+Dialogue: 2,0:00:51.66,0:00:51.92,Cap,,0,0,0,,{\an8\pos(540,1490)}{\fad(60,0)}{\c&H0000D7FF&}{\t(0,80,\fscx112\fscy112)\t(80,160,\fscx104\fscy104)}MORE{\c&H00FFFFFF&\fscx100\fscy100} WATER THAN
+Dialogue: 2,0:00:51.92,0:00:52.31,Cap,,0,0,0,,{\an8\pos(540,1490)}MORE {\c&H0000D7FF&}{\t(0,80,\fscx112\fscy112)\t(80,160,\fscx104\fscy104)}WATER{\c&H00FFFFFF&\fscx100\fscy100} THAN
+Dialogue: 2,0:00:52.31,0:00:52.41,Cap,,0,0,0,,{\an8\pos(540,1490)}MORE WATER {\c&H0000D7FF&}{\t(0,80,\fscx112\fscy112)\t(80,160,\fscx104\fscy104)}THAN{\c&H00FFFFFF&\fscx100\fscy100}
+Dialogue: 2,0:00:52.41,0:00:52.59,Cap,,0,0,0,,{\an8\pos(540,1490)}{\fad(60,0)}{\c&H0000D7FF&}{\t(0,80,\fscx112\fscy112)\t(80,160,\fscx104\fscy104)}YOU{\c&H00FFFFFF&\fscx100\fscy100} DRANK
+Dialogue: 2,0:00:52.59,0:00:53.45,Cap,,0,0,0,,{\an8\pos(540,1490)}YOU {\c&H0000D7FF&}{\t(0,80,\fscx112\fscy112)\t(80,160,\fscx104\fscy104)}DRANK{\c&H00FFFFFF&\fscx100\fscy100}
+Dialogue: 2,0:00:53.45,0:00:53.81,Cap,,0,0,0,,{\an8\pos(540,1490)}{\fad(60,0)}{\c&H0000D7FF&}{\t(0,80,\fscx112\fscy112)\t(80,160,\fscx104\fscy104)}EVERY{\c&H00FFFFFF&\fscx100\fscy100} SIP LEAVES
+Dialogue: 2,0:00:53.81,0:00:54.08,Cap,,0,0,0,,{\an8\pos(540,1490)}EVERY {\c&H0000D7FF&}{\t(0,80,\fscx112\fscy112)\t(80,160,\fscx104\fscy104)}SIP{\c&H00FFFFFF&\fscx100\fscy100} LEAVES
+Dialogue: 2,0:00:54.08,0:00:54.36,Cap,,0,0,0,,{\an8\pos(540,1490)}EVERY SIP {\c&H0000D7FF&}{\t(0,80,\fscx112\fscy112)\t(80,160,\fscx104\fscy104)}LEAVES{\c&H00FFFFFF&\fscx100\fscy100}
+Dialogue: 2,0:00:54.36,0:00:54.53,Cap,,0,0,0,,{\an8\pos(540,1490)}{\fad(60,0)}{\c&H0000D7FF&}{\t(0,80,\fscx112\fscy112)\t(80,160,\fscx104\fscy104)}YOU{\c&H00FFFFFF&\fscx100\fscy100} MORE DEHYDRATED
+Dialogue: 2,0:00:54.53,0:00:54.76,Cap,,0,0,0,,{\an8\pos(540,1490)}YOU {\c&H0000D7FF&}{\t(0,80,\fscx112\fscy112)\t(80,160,\fscx104\fscy104)}MORE{\c&H00FFFFFF&\fscx100\fscy100} DEHYDRATED
+Dialogue: 2,0:00:54.76,0:00:56.28,Cap,,0,0,0,,{\an8\pos(540,1490)}YOU MORE {\c&H0000D7FF&}{\t(0,80,\fscx112\fscy112)\t(80,160,\fscx104\fscy104)}DEHYDRATED{\c&H00FFFFFF&\fscx100\fscy100}
 Dialogue: 2,0:00:56.46,0:00:56.63,Cap,,0,0,0,,{\fad(60,0)}{\c&H0000D7FF&}{\t(0,80,\fscx112\fscy112)\t(80,160,\fscx104\fscy104)}AND{\c&H00FFFFFF&\fscx100\fscy100} YOU'RE NOT
 Dialogue: 2,0:00:56.63,0:00:56.75,Cap,,0,0,0,,AND {\c&H0000D7FF&}{\t(0,80,\fscx112\fscy112)\t(80,160,\fscx104\fscy104)}YOU'RE{\c&H00FFFFFF&\fscx100\fscy100} NOT
 Dialogue: 2,0:00:56.75,0:00:56.98,Cap,,0,0,0,,AND YOU'RE {\c&H0000D7FF&}{\t(0,80,\fscx112\fscy112)\t(80,160,\fscx104\fscy104)}NOT{\c&H00FFFFFF&\fscx100\fscy100}

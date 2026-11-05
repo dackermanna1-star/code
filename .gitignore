@@ -7,3 +7,8 @@ blender/tests/
 blender/lookdev/*.png
 __pycache__/
 *.pyc
+
+# review frames are regenerable; final video is added via Git LFS
+review/frames/
+review/row_*.png
+output/stranded_draft.mp4

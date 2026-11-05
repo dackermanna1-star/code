@@ -52,7 +52,7 @@ for w in words:
 if cur: chunks.append(cur)
 
 # per-shot caption placement: move captions to the top where the face/graphic sits low in frame
-TOP_Y = {'SH05': 300, 'SH08': 300, 'SH09': 300, 'SH11': 330, 'SH12': 300, 'SH13': 300, 'SH14': 215, 'SH17': 300,
+TOP_Y = {'SH05': 300, 'SH08': 300, 'SH09': 300, 'SH11': 330, 'SH12': 300, 'SH13': 300, 'SH14': 1490, 'SH17': 300,   # SH14: below the BODY WATER meter (3D labels fill the top)
          'SH18': 330, 'SH20': 300, 'SH24': 300, 'SH26': 330}
 def shot_at(t):
     for sid, (a, b) in shots.items():
