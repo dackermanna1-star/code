@@ -12,8 +12,8 @@ def build():
     def depth(f):
         # burst up to treading depth with the waterline near the collarbones (not chest-high, which then had to drop
         # a head-height to settle); after that only a gentle settle
-        if f < 14: return -0.85 + 0.62 * ease_out((f - 1) / 13)
-        return -0.23 - 0.02 * ease((f - 14) / 24)
+        if f < 14: return -0.85 + 0.67 * ease_out((f - 1) / 13)
+        return -0.18 - 0.02 * ease((f - 14) / 24)
     c.add(ch.tread_water(c, 1, N, speed=1.3, effort=1.3))
     c.add(ch.micro_head(seed=7, amp=3.0, freq=0.8))
     # gasp: head thrown back on the inhale, then two coughs jerk it forward
