@@ -6,7 +6,7 @@ import aerial as AE
 s, sh = setup('S20'); N = sh['frames']
 RIV = dict(y=150, width=95); ST = dict(p0=(-260, -330), p1=(0, AE.river_center(0, RIV) - 40), width=7)
 huts = [(170 + 14 * k, AE.river_center(170 + 14 * k, RIV) - RIV['width'] / 2 - 14 - 5 * (k % 2)) for k in range(5)]
-A = AE.build_aerial(dict(center=(0, 0), size=1100, res=4.0, seed=2, river=RIV, stream=ST, huts=huts, mist=0.35, mist_levels=[48]))
+A = AE.build_aerial(dict(center=(0, 0), size=1100, res=4.0, seed=2, river=RIV, stream=ST, huts=huts, mist=0.12, mist_levels=[48]))
 ENV.world_hdri(1.0, 1.0, 'kloofendal_48d_partly_cloudy_puresky_2k.hdr'); s.view_settings.exposure = 0.3
 ENV.sun(4.5, (math.radians(40), 0, math.radians(160)), (1.0, 0.95, 0.85), 1.0)
 # path curve: stream -> river (downstream towards +x) -> village
