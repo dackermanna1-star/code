@@ -71,3 +71,21 @@ alpha = np.clip(mask * (0.55 + 0.45 * (1 - cr)), 0, 1) * 0.85
 col = np.dstack([0.86 + 0.1 * cr, 0.93 + 0.05 * cr, np.ones_like(cr)])
 Image.fromarray((np.dstack([col, alpha]).clip(0, 1) * 255).astype(np.uint8), "RGBA").save(f"{OUT}/lens_frost.png")
 print("ok")
+
+# phone lock screen ("No Service" / call failed)
+from PIL import ImageDraw, ImageFont
+FB = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"; FR = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
+W2, H2 = 540, 1170
+im = Image.new("RGB", (W2, H2)); d = ImageDraw.Draw(im)
+for y in range(H2):
+    c = int(18 + 40 * y / H2); d.line([(0, y), (W2, y)], fill=(c // 2, c // 2 + 6, c + 30))
+d.text((34, 22), "No Service", font=ImageFont.truetype(FB, 30), fill=(255, 255, 255))
+d.rounded_rectangle((W2 - 100, 28, W2 - 40, 52), radius=6, outline=(255, 255, 255), width=3)
+d.rectangle((W2 - 96, 32, W2 - 82, 48), fill=(255, 80, 60))
+d.text((W2 / 2, 230), "2:47", font=ImageFont.truetype(FB, 150), fill=(240, 244, 255), anchor="mm")
+d.text((W2 / 2, 345), "Tuesday, November 4", font=ImageFont.truetype(FR, 30), fill=(220, 226, 240), anchor="mm")
+d.rounded_rectangle((40, 520, W2 - 40, 670), radius=28, fill=(40, 44, 60))
+d.text((70, 550), "Call Failed", font=ImageFont.truetype(FB, 36), fill=(255, 255, 255))
+d.text((70, 608), "No network connection.", font=ImageFont.truetype(FR, 28), fill=(210, 214, 226))
+im.save(f"{OUT}/phone_screen.png")
+print("phone ok")

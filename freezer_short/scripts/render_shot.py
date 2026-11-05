@@ -1,0 +1,312 @@
+"""Render passes for one shot.
+
+blender -b anim.blend --python render_shot.py -- <shot> <pass> <outdir> [quality] [frame_step]
+pass:
+  plate    : environment only, from a static overscan "plate camera" (one frame per plate variant)
+  char     : per-frame character pass (env = holdout, still casts shadows), EXR with alpha,
+             shadow-catcher multiplier and mist; rendered inside a border around the actors
+  thermal  : per-frame thermal-camera look (emission only, low res)
+  camjson  : export per-frame camera rotation/lens for the compositor
+"""
+import bpy, sys, os, json, math
+from mathutils import Vector, Quaternion, Matrix
+from bpy_extras.object_utils import world_to_camera_view
+
+argv = sys.argv[sys.argv.index("--") + 1:]
+SID, PASS, OUT = argv[0].split(",")[0], argv[1], argv[2]
+Q = argv[3] if len(argv) > 3 else "final"
+STEP = int(argv[4]) if len(argv) > 4 else 1
+FR_ONLY = [int(x) for x in argv[5].split(",")] if len(argv) > 5 and argv[5] else None
+os.makedirs(OUT, exist_ok=True)
+sc = bpy.context.scene
+S = json.loads(sc["shots"])[SID]
+cam = bpy.data.objects[S["camera"]]
+sc.camera = cam
+W, H = 1080, 1920
+SCALE = {"final": 1.0, "draft": 0.5, "tiny": 0.25}[Q]
+
+CHAR_COLLS = ["CHR_Leo", "CHR_Maya"]
+char_objs = set()
+for c in CHAR_COLLS:
+    char_objs |= set(bpy.data.collections[c].all_objects)
+props = set(bpy.data.collections["PROPS"].all_objects)
+dyn = set(bpy.data.objects[n] for n in S["dynamic"] if n in bpy.data.objects)
+env_objs = [o for o in bpy.data.objects if o.type in ("MESH", "CURVE", "FONT") and o not in char_objs and o not in props
+            and not o.users_collection[0].name.startswith("ASSET_LIB")]
+active_chars = [bpy.data.objects[n] for n in S["chars"]]
+
+
+def common_settings():
+    sc.render.engine = "CYCLES"
+    sc.cycles.device = "CPU"
+    sc.cycles.use_light_tree = False
+    sc.render.use_persistent_data = True
+    sc.render.resolution_percentage = 100
+    sc.view_settings.view_transform = "Standard"  # linear EXR out; display transform done in the compositor
+    sc.render.image_settings.file_format = "OPEN_EXR_MULTILAYER"
+    sc.render.image_settings.color_depth = "16"
+    sc.render.image_settings.exr_codec = "DWAA"
+    bpy.context.view_layer.use_pass_mist = True
+    sc.world.mist_settings.start = 0.5; sc.world.mist_settings.depth = 16.0; sc.world.mist_settings.falloff = "LINEAR"
+    sc.render.use_compositing = False; sc.render.use_sequencer = False
+
+
+def frames():
+    fr = list(range(S["f0"], S["f1"] + 1, STEP))
+    if FR_ONLY: fr = [f for f in fr if f in FR_ONLY]
+    return fr
+
+
+def cam_params(f):
+    sc.frame_set(f)
+    return cam.matrix_world.to_quaternion().copy(), cam.data.lens
+
+
+# ------------------------------------------------------------------ CAMERA JSON
+if PASS == "camjson":
+    ALLS = json.loads(sc["shots"])
+    for sid in (argv[0].split(",") if "," in argv[0] else [SID]):
+        S2 = ALLS[sid]; c2 = bpy.data.objects[S2["camera"]]
+        out = {}
+        for f in range(S2["f0"], S2["f1"] + 1):
+            sc.frame_set(f)
+            out[f] = {"q": list(c2.matrix_world.to_quaternion()), "lens": c2.data.lens, "loc": list(c2.matrix_world.to_translation()),
+                      "dof": c2.data.dof.use_dof, "door": math.degrees(bpy.data.objects["Door_Pivot"].rotation_euler[2]),
+                      "dock": bpy.data.lights["Dock_Warm"].energy, "frost": float(sc.get("frost", 0.3))}
+        os.makedirs(f"{OUT}/{sid}", exist_ok=True)
+        json.dump(out, open(f"{OUT}/{sid}/{sid}_cam.json", "w"))
+        print("CAMJSON", sid)
+    sys.exit(0)
+
+# ------------------------------------------------------------------ PLATE
+if PASS == "plate":
+    common_settings()
+    fr = list(range(S["f0"], S["f1"] + 1))
+    qs = []; lenses = []
+    for f in fr[::2] + [fr[-1]]:
+        q, l = cam_params(f); qs.append(q); lenses.append(l)
+    # mean orientation
+    qm = qs[len(qs) // 2].copy()
+    # half extents needed (tangent space) in plate camera
+    mx = my = 0.0
+    for q, l in zip(qs, lenses):
+        h = 12.0 / l; w = h * 9 / 16
+        for sx in (-1, 1):
+            for sy in (-1, 1):
+                d = q @ Vector((sx * w, sy * h, -1.0))
+                dp = qm.inverted() @ d
+                mx = max(mx, abs(dp.x / -dp.z)); my = max(my, abs(dp.y / -dp.z))
+    Hp = max(my, mx * 16 / 9) * 1.04
+    lens_p = 12.0 / Hp
+    hmin = min(12.0 / l for l in lenses)
+    px_h = int(min(2700, max(1920, 1920 * Hp / hmin)) * SCALE) // 2 * 2
+    px_w = int(px_h * 9 / 16) // 2 * 2
+    pc_d = bpy.data.cameras.new("PlateCam"); pc_d.sensor_fit = "VERTICAL"; pc_d.sensor_height = 24.0
+    pc_d.lens = lens_p; pc_d.clip_start = 0.02; pc_d.clip_end = 60
+    pc = bpy.data.objects.new("PlateCam", pc_d); sc.collection.objects.link(pc)
+    pc.location = cam.matrix_world.to_translation(); pc.rotation_mode = "QUATERNION"; pc.rotation_quaternion = qm
+    if cam.data.dof.use_dof:
+        lmid = lenses[len(lenses) // 2]
+        pc_d.dof.use_dof = True; pc_d.dof.focus_distance = cam.data.dof.focus_distance
+        pc_d.dof.aperture_fstop = cam.data.dof.aperture_fstop * lens_p / lmid  # same physical aperture
+    sc.camera = pc
+    sc.render.resolution_x, sc.render.resolution_y = px_w, px_h
+    for o in char_objs | props:
+        o.hide_render = True
+    for o in dyn:
+        o.hide_render = True
+    sc.cycles.samples = {"final": 14, "draft": 6, "tiny": 4}[Q]
+    sc.cycles.adaptive_threshold = 0.02
+    sc.cycles.use_denoising = True; sc.cycles.denoiser = "OPENIMAGEDENOISE"
+    sc.cycles.denoising_quality = "HIGH"; sc.cycles.denoising_prefilter = "ACCURATE"
+    variants = S["plate_variants"] or [{}]
+    fm = (S["f0"] + S["f1"]) // 2
+    meta = {"lens": lens_p, "q": list(qm), "w": px_w, "h": px_h, "variants": variants, "loc": list(pc.location)}
+    for vi, v in enumerate(variants):
+        sc.frame_set(fm)
+        if "door" in v:
+            piv = bpy.data.objects["Door_Pivot"]
+            if piv.animation_data: piv.animation_data.action = None
+            piv.rotation_euler[2] = math.radians(v["door"])
+            for n in ["Door_Slab", "Door_Gasket", "Door_KickPlate", "Release_Rod", "Release_Cap", "Release_Backplate",
+                      "ReleaseLabel_0", "ReleaseLabel_1", "ReleaseLabel_2", "Release_Ice", "Door_Pivot"]:
+                bpy.data.objects[n].hide_render = False
+        if "dock" in v:
+            l = bpy.data.lights["Dock_Warm"]
+            if l.animation_data: l.animation_data.action = None
+            l.energy = v["dock"]
+        if "frost" in v:
+            if sc.animation_data and sc.animation_data.action:
+                for fc in list(sc.animation_data.action.fcurves):
+                    if fc.data_path == '["frost"]': sc.animation_data.action.fcurves.remove(fc)
+            sc["frost"] = v["frost"]
+        bpy.context.view_layer.update()
+        sc.render.filepath = f"{OUT}/{SID}_plate{vi}.exr"
+        bpy.ops.render.render(write_still=True)
+    json.dump(meta, open(f"{OUT}/{SID}_plate.json", "w"))
+    print("PLATE", SID, px_w, px_h, lens_p)
+    sys.exit(0)
+
+# ------------------------------------------------------------------ CHARACTER PASS
+if PASS == "char":
+    common_settings()
+    sc.render.film_transparent = True
+    bpy.context.view_layer.cycles.use_pass_shadow_catcher = True
+    sc.render.resolution_x, sc.render.resolution_y = int(W * 0.7 * SCALE) // 2 * 2, int(H * 0.7 * SCALE) // 2 * 2
+    sc.cycles.samples = {"final": 6, "draft": 3, "tiny": 2}[Q]
+    sc.cycles.adaptive_threshold = 0.06
+    for o in bpy.data.objects:
+        if o.name.startswith("BreathPuff"): o.hide_render = True
+    # level of detail: drop subdivision when the actors are small in frame
+    sc.frame_set((S["f0"] + S["f1"]) // 2)
+    if active_chars:
+        r0 = active_chars[0]
+        top = world_to_camera_view(sc, cam, r0.matrix_world @ r0.pose.bones["head"].tail)
+        bot = world_to_camera_view(sc, cam, r0.matrix_world @ r0.pose.bones["pelvis"].head)
+        if abs(top.y - bot.y) < 0.22 and top.z > 0:
+            for c in CHAR_COLLS:
+                for o in bpy.data.collections[c].all_objects:
+                    for md in o.modifiers:
+                        if md.type == "SUBSURF": md.render_levels = 0
+            print("LOD: subdivision off")
+    sc.cycles.use_denoising = True; sc.cycles.denoiser = "OPENIMAGEDENOISE"
+    sc.cycles.denoising_quality = "BALANCED"; sc.cycles.denoising_prefilter = "FAST"
+    sc.cycles.max_bounces = 4; sc.cycles.diffuse_bounces = 1; sc.cycles.glossy_bounces = 1
+    sc.cycles.transmission_bounces = 2; sc.cycles.transparent_max_bounces = 6; sc.cycles.volume_bounces = 0
+    sc.cycles.caustics_refractive = True; sc.cycles.caustics_reflective = True  # light must reach the iris through the cornea
+    # ambient fill standing in for the room's bounce light (env is invisible to diffuse rays)
+    wn = sc.world.node_tree.nodes["Background"]
+    wn.inputs[0].default_value = (0.5, 0.62, 0.78, 1); wn.inputs[1].default_value = 0.55
+    sc.world.cycles.sampling_method = "AUTOMATIC"
+    for o in env_objs:
+        if o in dyn:
+            continue
+        o.is_holdout = True
+        o.visible_diffuse = False; o.visible_glossy = False; o.visible_transmission = False
+        o.visible_volume_scatter = False; o.visible_shadow = True
+    # wider, softer world for warm scenes (door open): keep the dock light; nothing else to do
+    for c in CHAR_COLLS:
+        if c.replace("CHR_", "") not in S["chars"]:
+            for o in bpy.data.collections[c].all_objects: o.hide_render = True
+    # moving shadow catcher disc under the actor(s)
+    import bmesh
+    bm = bmesh.new(); bmesh.ops.create_circle(bm, cap_ends=True, segments=32, radius=1.0)
+    me = bpy.data.meshes.new("ShadowCatcher"); bm.to_mesh(me); bm.free()
+    catcher = bpy.data.objects.new("ShadowCatcher", me); sc.collection.objects.link(catcher)
+    catcher.is_shadow_catcher = True; catcher.visible_shadow = False
+    mcat = bpy.data.materials.new("M_Catcher"); mcat.use_nodes = True
+    mcat.node_tree.nodes["Principled BSDF"].inputs["Base Color"].default_value = (0.6, 0.62, 0.66, 1)
+    mcat.node_tree.nodes["Principled BSDF"].inputs["Roughness"].default_value = 0.7
+    me.materials.append(mcat)
+    catcher.hide_render = len(active_chars) == 0
+    bpy.data.objects["Floor"].is_holdout = True
+
+    def actors_border(f):
+        pts = []
+        for r in active_chars:
+            for pb in r.pose.bones:
+                for p in (pb.head, pb.tail):
+                    pts.append(r.matrix_world @ p)
+        if any(o.name.startswith("Door") for o in dyn) or any(o.name.startswith("Evap") for o in dyn):
+            return (0, 1, 0, 1)
+        if not pts:
+            return None
+        xs, ys = [], []
+        for p in pts:
+            v = world_to_camera_view(sc, cam, p)
+            if v.z <= 0: return (0, 1, 0, 1)
+            xs.append(v.x); ys.append(v.y)
+        m = 0.07
+        b = (max(0, min(xs) - m), min(1, max(xs) + m), max(0, min(ys) - m * 1.6), min(1, max(ys) + m * 1.2))
+        if b[1] <= b[0] or b[3] <= b[2]: return None
+        return b
+
+    for f in frames():
+        out = f"{OUT}/{SID}_char_{f:04d}.exr"
+        if os.path.exists(out): continue
+        sc.frame_set(f)
+        if active_chars:
+            pel = [r.matrix_world @ r.pose.bones["pelvis"].head for r in active_chars]
+            c = sum(pel, Vector()) / len(pel)
+            catcher.location = (c.x, c.y, 0.002); catcher.scale = (1.4, 1.4, 1)
+        b = actors_border(f)
+        if b is None:
+            sc.render.use_border = True; sc.render.use_crop_to_border = False
+            sc.render.border_min_x, sc.render.border_max_x, sc.render.border_min_y, sc.render.border_max_y = 0, 0.01, 0, 0.01
+        else:
+            sc.render.use_border = True; sc.render.use_crop_to_border = False
+            sc.render.border_min_x, sc.render.border_max_x, sc.render.border_min_y, sc.render.border_max_y = b
+        sc.render.filepath = out
+        bpy.ops.render.render(write_still=True)
+    print("CHAR", SID)
+    sys.exit(0)
+
+# ------------------------------------------------------------------ BREATH (low-res volume pass)
+if PASS == "breath":
+    common_settings()
+    sc.render.film_transparent = True
+    sc.render.resolution_x, sc.render.resolution_y = int(270 * max(SCALE, 0.5) * 2) // 2, int(480 * max(SCALE, 0.5) * 2) // 2
+    sc.cycles.samples = 24; sc.cycles.use_denoising = True; sc.cycles.denoiser = "OPENIMAGEDENOISE"
+    sc.cycles.denoising_quality = "BALANCED"; sc.cycles.denoising_prefilter = "FAST"
+    sc.cycles.max_bounces = 2; sc.cycles.diffuse_bounces = 0; sc.cycles.glossy_bounces = 0; sc.cycles.volume_bounces = 0
+    m = bpy.data.materials["M_Breath"]
+    nz = [n for n in m.node_tree.nodes if n.type == "TEX_NOISE"][0]
+    nz.inputs["Detail"].default_value = 2.0
+    m.cycles.volume_step_rate = 3.0
+    wn = sc.world.node_tree.nodes["Background"]
+    wn.inputs[0].default_value = (0.5, 0.62, 0.78, 1); wn.inputs[1].default_value = 0.55
+    for o in bpy.data.objects:
+        if o.type not in ("MESH", "CURVE", "FONT") or o.name.startswith("BreathPuff"):
+            continue
+        o.is_holdout = True; o.visible_diffuse = False; o.visible_glossy = False; o.visible_transmission = False
+    puffs_ = [o for o in bpy.data.objects if o.name.startswith("BreathPuff")]
+    for f in frames():
+        out = f"{OUT}/{SID}_breath_{f:04d}.exr"
+        if os.path.exists(out): continue
+        sc.frame_set(f)
+        live = [o for o in puffs_ if o.get("puff", 0) > 0.01 and o.location.y > -20]
+        if not live: continue
+        sc.render.filepath = out
+        bpy.ops.render.render(write_still=True)
+    print("BREATH", SID)
+    sys.exit(0)
+
+# ------------------------------------------------------------------ THERMAL
+if PASS == "thermal":
+    common_settings()
+    sc.render.resolution_x, sc.render.resolution_y = int(540 * SCALE * 2) // 2, int(960 * SCALE * 2) // 2
+    if Q != "final":
+        sc.render.resolution_x, sc.render.resolution_y = 270, 480
+    sc.cycles.samples = 6; sc.cycles.use_denoising = False
+    sc.cycles.max_bounces = 0
+    sc.world.node_tree.nodes["Background"].inputs[1].default_value = 0.0
+    sc["thermal_mode"] = 1.0
+    if sc.animation_data and sc.animation_data.action:
+        for fc in list(sc.animation_data.action.fcurves):
+            if fc.data_path == '["thermal_mode"]': sc.animation_data.action.fcurves.remove(fc)
+    mt_c = bpy.data.materials["M_Thermal_Char"]; mt_e = bpy.data.materials["M_Thermal_Env"]
+    for o in bpy.data.objects:
+        if o.type not in ("MESH", "CURVE", "FONT") or o.name.startswith("BreathPuff"):
+            continue
+        if o.name == "FoilBlanket" or o.name.startswith("Phone"):
+            o.hide_render = True; continue
+        m = mt_c if o in char_objs else mt_e
+        if o.type == "MESH" and o.data.users > 1 and o not in char_objs:
+            pass
+        for slot in o.material_slots:
+            slot.link = "OBJECT"; slot.material = m
+        if not o.material_slots:
+            o.data.materials.append(m) if o.type == "MESH" and o.data.users == 1 else None
+    for c in CHAR_COLLS:
+        if c.replace("CHR_", "") not in S["chars"]:
+            for o in bpy.data.collections[c].all_objects: o.hide_render = True
+    for l in bpy.data.lights:
+        l.energy = 0
+    sc.render.image_settings.file_format = "PNG"; sc.render.image_settings.color_depth = "16"
+    for f in frames():
+        out = f"{OUT}/{SID}_thermal_{f:04d}.png"
+        if os.path.exists(out): continue
+        sc.frame_set(f); sc.render.filepath = out
+        bpy.ops.render.render(write_still=True)
+    print("THERMAL", SID)
+    sys.exit(0)
