@@ -138,9 +138,10 @@ function splitShot(s, baseAng, n, dmgK, spread) {
     c.split = true;
   }
 }
-function shotBlast(s) {
+function shotBlast(s, hitE) {
+  // hitE: the enemy the shot struck (already took the full hit) — excluded so the blast is 60% to everything *around* it
   const P = SIM.player, rad = s.flags.blast * (P.st.blastRadiusMult || 1);
-  explode(s.x, s.y, rad, s.dmg * 0.6, { byPlayer: true, hex: SHOT_STYLES[s.style].hex, small: true, noSelf: true });
+  explode(s.x, s.y, rad, s.dmg * 0.6, { byPlayer: true, hex: SHOT_STYLES[s.style].hex, small: true, exclude: hitE });
 }
 
 function shotHitEnemy(s, e) {
@@ -166,7 +167,7 @@ function shotHitEnemy(s, e) {
       c.split = true; c.hit = new Set([e.id]);
     }
   }
-  if (f.blast) shotBlast(s);
+  if (f.blast) shotBlast(s, e);
 }
 
 /* ==========================================================================
@@ -178,8 +179,9 @@ function enemyDamageMult(e) {
   if (e.markT > 0) m *= 1.5;
   const P = SIM.player;
   if (P) {
-    m *= 1 + P.memoryBonus(e.type);
-    if (P.st.execute && e.isBoss && e.hp < e.maxHp * P.st.execute) m *= 1.15;
+    const ref = e.forward || e; // worm segments: measure memory/execute against the head they forward to
+    m *= 1 + P.memoryBonus(ref.type);
+    if (P.st.execute && ref.isBoss && ref.hp < ref.maxHp * P.st.execute) m *= 1.15;
   }
   return m;
 }
@@ -233,7 +235,14 @@ function killEnemy(e, o = {}) {
   }
   if (e.onDeath) e.onDeath(e);
   // elite volatile
-  if (e.elite === 'volatile') enemyRing(e.x, e.y, 10, 4.2, { style: 'acid', delay: 0.05 });
+  // (telegraphed like the Rot Carrier pop; no owner, or updateTeles would cancel it because e is dead)
+  if (e.elite === 'volatile') {
+    const vx = e.x, vy = e.y;
+    telegraph({ kind: 'disc', x: vx, y: vy, r: 1.6, dur: 0.5, warm: true, then: () => {
+      enemyRing(vx, vy, 10, 4.2, { style: 'acid' });
+      sfx('explosion', { vol: 0.5 }); burst(vx, vy, ELITES.volatile.color, 16, 4.5, { life: 0.45 });
+    } });
+  }
   // marked targets burst
   if (e.markT > 0 && P) explode(e.x, e.y, 1.8, P.baseDmg() * 2.2, { byPlayer: true, hex: '#9dff7a' });
   if (P && !e.isBoss && !e.summoned) {
@@ -256,12 +265,18 @@ function killEnemy(e, o = {}) {
 function applyBurn(e, dps) {
   if (e.dead) return;
   const k = SIM.player ? SIM.player.st.dotMult : 1;
-  e.burnT = 3; e.burnDps = Math.max(e.burnDps || 0, dps * k);
+  // refresh keeps the *decayed* old rate at most, so one huge proc does not lock in forever
+  const old = e.burnT > 0 ? (e.burnDps || 0) * e.burnT / 3 : 0;
+  e.burnDps = Math.max(dps * k, old); e.burnT = 3;
 }
 function applyPoison(e, dps) {
   if (e.dead) return;
   const k = SIM.player ? SIM.player.st.dotMult : 1;
-  e.poisonT = 4; e.poisonStacks = Math.min(5, (e.poisonStacks || 0) + 1); e.poisonDps = Math.max(e.poisonDps || 0, dps * k);
+  // each stack is one application: per-stack rate is the running average of applications
+  const active = e.poisonT > 0 && e.poisonStacks > 0;
+  const n = Math.min(5, (active ? e.poisonStacks : 0) + 1);
+  e.poisonDps = active ? ((e.poisonDps || 0) * (n - 1) + dps * k) / n : dps * k;
+  e.poisonStacks = n; e.poisonT = 4;
 }
 function applyLatch(e, dps) {
   if (e.dead) return;
@@ -270,7 +285,12 @@ function applyLatch(e, dps) {
   e.latches.push({ t: 2.5, dps, a: rnd(0, TAU) });
 }
 function applySlow(e, t, k) { e.slowT = Math.max(e.slowT || 0, t * (e.isBoss ? 0.5 : 1)); e.slowK = k; }
-function applyStun(e, t) { if (e.isBoss || e.stunImmune) return; e.stunT = Math.max(e.stunT || 0, t); sfx('stun', { vol: 0.5 }); }
+function applyStun(e, t) {
+  if (e.isBoss || e.stunImmune || e.stunCd > 0) return;
+  e.stunT = Math.max(e.stunT || 0, t);
+  e.stunCd = t + 1.0; // re-stun lockout: caps uptime (~37%) regardless of pellet count / fire rate
+  sfx('stun', { vol: 0.5 });
+}
 
 function updateStatus(e, dt) {
   e.hurtT = Math.max(0, (e.hurtT || 0) - dt);
@@ -278,10 +298,12 @@ function updateStatus(e, dt) {
   if (e.markT > 0) e.markT -= dt;
   if (e.slowT > 0) e.slowT -= dt;
   if (e.stunT > 0) e.stunT -= dt;
+  if (e.stunCd > 0) e.stunCd -= dt;
   let dot = 0, hex = '#ffa060';
   if (e.burnT > 0) { e.burnT -= dt; dot += e.burnDps; if (Math.random() < dt * 8) burst(e.x, e.y, '#ff8a2a', 1, 1.2, { life: 0.4, size: 0.06, up: 2.5 }); }
+  else e.burnDps = 0;
   if (e.poisonT > 0) { e.poisonT -= dt; dot += e.poisonDps * e.poisonStacks; hex = '#9aff5a'; if (Math.random() < dt * 6) burst(e.x, e.y, '#9aff5a', 1, 1, { life: 0.4, size: 0.05, up: 1.5 }); }
-  else e.poisonStacks = 0;
+  else { e.poisonStacks = 0; e.poisonDps = 0; }
   if (e.latches && e.latches.length) {
     for (let i = e.latches.length - 1; i >= 0; i--) { const L = e.latches[i]; L.t -= dt; dot += L.dps; if (L.t <= 0) e.latches.splice(i, 1); }
     hex = '#c9bcff';
@@ -337,11 +359,17 @@ function enemyFan(x, y, ang, n, spread, speed, o = {}) {
 }
 function updateEShots(dt) {
   const room = SIM.room, P = SIM.player;
+  // NOTE: hurtPlayer / onExpire can mutate SIM.eshots mid-loop (revive -> clearEShots, Platelet Plug ->
+  // clearNearbyShots, boss killed by the plug -> onBossKilled). Remove by identity and clamp i afterwards.
   for (let i = SIM.eshots.length - 1; i >= 0; i--) {
+    if (i >= SIM.eshots.length) i = SIM.eshots.length - 1;
+    if (i < 0) break;
     const s = SIM.eshots[i];
+    if (!s) continue;
+    if (s.dead) { SIM.eshots.splice(i, 1); continue; }
     if (s.delay > 0) { s.delay -= dt; continue; }
     s.t += dt;
-    if (s.t >= s.life || s.dead) { if (s.onExpire && !s.dead) s.onExpire(s); SIM.eshots.splice(i, 1); continue; }
+    if (s.t >= s.life) { s.dead = true; if (s.onExpire) s.onExpire(s); removeEShot(s); continue; }
     if (s.accel) { const sp = Math.hypot(s.vx, s.vy), ns = clamp(sp + s.accel * dt, 0.3, s.maxSpeed), k = ns / Math.max(0.001, sp); s.vx *= k; s.vy *= k; }
     if (s.curve) { const a = Math.atan2(s.vy, s.vx) + s.curve * dt, sp = Math.hypot(s.vx, s.vy); s.vx = Math.cos(a) * sp; s.vy = Math.sin(a) * sp; }
     if (s.homing && P) { const a = Math.atan2(s.vy, s.vx), w = angleTo(s.x, s.y, P.x, P.y), sp = Math.hypot(s.vx, s.vy); const na = a + clamp(angDiff(a, w), -1, 1) * s.homing * dt; s.vx = Math.cos(na) * sp; s.vy = Math.sin(na) * sp; }
@@ -349,8 +377,8 @@ function updateEShots(dt) {
     s.x += s.vx * dt; s.y += s.vy * dt;
     if (!s.spectral && World.blockedAt(room, s.x, s.y, MASK_SHOT)) {
       burst(s.x, s.y, ESHOT_STYLES[s.style] || '#ff3d7f', 3, 1.6, { life: 0.2, size: 0.05 });
-      if (s.onExpire) s.onExpire(s);
-      SIM.eshots.splice(i, 1); continue;
+      s.dead = true; if (s.onExpire) s.onExpire(s);
+      removeEShot(s); continue;
     }
     if (s.spectral && (s.x < -2 || s.y < -2 || s.x > room.W + 2 || s.y > room.H + 2)) { SIM.eshots.splice(i, 1); continue; }
     // companions / satellites block
@@ -367,14 +395,15 @@ function updateEShots(dt) {
     if (P && !P.dead) {
       const rr = P.hitR + s.r * 0.85;
       if (dist2(s.x, s.y, P.x, P.y) < rr * rr) {
-        if (hurtPlayer(s.dmg, { x: s.x, y: s.y, kind: 'shot' })) { SIM.eshots.splice(i, 1); continue; }
+        if (hurtPlayer(s.dmg, { x: s.x, y: s.y, kind: 'shot' })) { s.dead = true; removeEShot(s); continue; }
       }
     }
   }
 }
+function removeEShot(s) { const j = SIM.eshots.indexOf(s); if (j >= 0) SIM.eshots.splice(j, 1); }
 function clearEShots(fx) {
-  if (fx) for (const s of SIM.eshots) burst(s.x, s.y, ESHOT_STYLES[s.style] || '#ff3d7f', 2, 1.5, { life: 0.3, size: 0.05 });
-  SIM.eshots.length = 0;
+  for (const s of SIM.eshots) { if (fx && !s.dead) burst(s.x, s.y, ESHOT_STYLES[s.style] || '#ff3d7f', 2, 1.5, { life: 0.3, size: 0.05 }); s.dead = true; }
+  SIM.eshots.length = 0; // safe mid-updateEShots: that loop clamps its index and skips holes
 }
 
 /* ==========================================================================
@@ -390,6 +419,7 @@ function updateZones(dt) {
   const P = SIM.player;
   for (let i = SIM.zones.length - 1; i >= 0; i--) {
     const z = SIM.zones[i];
+    if (!z) continue; // array may be emptied/replaced mid-loop (boss killed by a zone tick)
     if (z.delay > 0) { z.delay -= dt; continue; }
     z.t += dt;
     if (z.t >= z.life) { SIM.zones.splice(i, 1); continue; }
@@ -419,10 +449,11 @@ function telegraph(o) {
 function updateTeles(dt) {
   for (let i = SIM.teles.length - 1; i >= 0; i--) {
     const t = SIM.teles[i];
+    if (!t) continue; // array may be emptied mid-loop (a tele's then() killing the boss)
     if (t.owner && t.owner.dead && !t.persist) { SIM.teles.splice(i, 1); continue; }
     if (t.follow) t.follow(t);
     t.t += dt;
-    if (t.t >= t.dur) { SIM.teles.splice(i, 1); if (t.then) t.then(t); }
+    if (t.t >= t.dur) { const j = SIM.teles.indexOf(t); if (j >= 0) SIM.teles.splice(j, 1); if (t.then) t.then(t); }
   }
 }
 /** damaging beam (line segment) active for dur */
@@ -435,6 +466,7 @@ function updateBeams(dt) {
   const P = SIM.player;
   for (let i = SIM.beams.length - 1; i >= 0; i--) {
     const b = SIM.beams[i];
+    if (!b) continue; // array may be emptied mid-loop (beam hit -> Platelet Plug -> boss kill)
     b.t += dt;
     if (b.t >= b.dur || (b.owner && b.owner.dead)) { SIM.beams.splice(i, 1); continue; }
     if (b.follow) b.follow(b, dt);

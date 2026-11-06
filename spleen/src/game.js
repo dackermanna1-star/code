@@ -65,6 +65,8 @@ function startRun(strainId, fever, seed) {
   if (window.__SPLEEN && __SPLEEN.presetMuts) for (const id of __SPLEEN.presetMuts) if (MUT[id]) P.addMutation(id, true);
   P.hp = P.st.maxHp;
   Game.state = 'play'; Game.paused = false;
+  Game.sub = 'room'; Game.introT = 0; Game.dyingT = 0;
+  SIM.slowmo = 0; SIM.hitstop = 0; SIM.combatAllowed = true;
   UI.showScreen(null); UI.showHUD(true);
   enterFloor(window.__SPLEEN && __SPLEEN.startFloor ? __SPLEEN.startFloor : 0, true);
 }
@@ -145,7 +147,7 @@ function enterRoom(roomId, viaDoor) {
   // leftover pickups
   if (room.leftover) { for (const l of room.leftover) { const p = spawnPickup(l.kind, l.x, l.y, l.value); p.vx = p.vy = 0; p.vh = 0; p.t = 1; } room.leftover = null; }
   // content
-  SIM.roomLocked = false; SIM.pendingWaves = null;
+  SIM.roomLocked = false; SIM.combatAllowed = true; SIM.pendingWaves = null;
   if (!room.cleared) {
     if (room.type === 'normal' || room.type === 'elite') {
       if (!room.plan) room.plan = planEncounter(room, floor.idx, makeRng(room.seed ^ 0x1234));
@@ -205,6 +207,7 @@ function roomCleared() {
   const cx = room.W / 2, cy = room.H / 2;
   const spot = World.nearestOpen(room, cx, cy);
   if (room.type === 'elite') {
+    room.rewardSpot = { x: spot.x, y: spot.y };
     spawnCyst(spot.x, spot.y, 'elite');
   } else {
     const r = Math.random();
@@ -246,7 +249,7 @@ function setupInteractables(room) {
   if (room.type === 'mutation' && !room.taken) spawnCyst(cx, cy - 0.5, 'mutation');
   if (room.type === 'shop') spawnShopkeeper(cx, cy - 1.2);
   if (room.type === 'tumor' && !room.taken) spawnTumor(cx, cy - 0.5);
-  if (room.type === 'elite' && room.cleared && !room.taken) spawnCyst(cx, cy, 'elite');
+  if (room.type === 'elite' && room.cleared && !room.taken) { const s = room.rewardSpot || World.nearestOpen(room, cx, cy); spawnCyst(s.x, s.y, 'elite'); }
   if (room.type === 'boss' && room.cleared) {
     if (!room.taken) spawnCyst(cx, cy + 1.6, 'boss');
     spawnPortal(cx, cy - 2.2);
@@ -261,16 +264,17 @@ function spawnCyst(x, y, source) {
   const ring = Gfx.part('torus', Gfx.glowMat(gold, { glow: 0.9 }), root, 0, 0.4, 0, 0.75);
   root.position.set(x, 0, -y);
   return addInteract({
-    kind: 'cyst', x, y, r: 0.7, node: root, label: 'MUTATION CYST', sub: source === 'boss' ? 'choose a rare adaptation' : 'choose 1 of ' + choiceCount(),
+    kind: 'cyst', x, y, r: 0.7, node: root, label: 'MUTATION CYST', sub: source === 'boss' ? 'choose an empowered adaptation' : 'choose 1 of ' + choiceCount(),
     hex: gold, solid: true,
     anim(t) { orb.position.y = 1.0 + Math.sin(t * 2) * 0.12; orb.rotation.y = t * 0.8; orb.rotation.z = Math.sin(t) * 0.3; ring.rotation.y = t; ring.scaling.setAll(0.75 + Math.sin(t * 3) * 0.05); inner.position.y = orb.position.y; },
     use(it) {
-      const opts = rollMutations(choiceCount(), { minRarity: source === 'boss' ? 'uncommon' : null, rareBoost: source === 'boss' ? 2 : source === 'elite' ? 1.4 : 1 });
+      const opts = rollMutations(choiceCount(), cystRollOpts(source));
       openMutationChoice(opts, source, () => { SIM.room.taken = true; removeInteract(it); burst(x, y, gold, 30, 5, { life: 0.6, up: 4 }); });
     },
   });
 }
 function choiceCount() { return META.perks.library ? 4 : 3; }
+function cystRollOpts(source) { return { minRarity: source === 'boss' ? 'uncommon' : null, rareBoost: source === 'boss' ? 2 : source === 'elite' ? 1.4 : 1 }; }
 function spawnShopkeeper(x, y) {
   const root = Gfx.node('shop');
   const mat = Gfx.cellMat('#7dffb0', { rim: 1.6, core: 0.35, glow: 0.45, dark: 0.55, alpha: 0.8 });
@@ -382,12 +386,13 @@ function openMutationChoice(ids, source, onDone) {
   Game.sub = 'modal';
   const free = META.perks.reroll ? 1 : 0;
   let rerolls = free;
+  const skipIron = () => Math.round((8 + SIM.floor.idx * 2) * ((SIM.player.st && SIM.player.st.ironMult) || 1));
   const show = (opts) => UI.choice({
     title: source === 'boss' ? 'ADAPT' : 'MUTATE', sub: 'Choose one. The others dissolve.', options: opts.map(id => MUT[id]), rerolls,
-    skipIron: 8 + SIM.floor.idx * 2,
+    skipIron: skipIron(),
     onPick(id) { SIM.player.addMutation(id); SIM.run.stats.mutations++; META.seenMut[id] = true; saveMeta(); sfx('pickup_mutation'); closeModal(); onDone && onDone(); },
-    onSkip() { SIM.player.addIron(8 + SIM.floor.idx * 2, true); sfx('pickup_iron'); closeModal(); onDone && onDone(); },
-    onReroll() { if (rerolls <= 0) return; rerolls--; sfx('reroll'); show(rollMutations(ids.length, { exclude: opts, minRarity: source === 'boss' ? 'uncommon' : null })); },
+    onSkip() { SIM.player.addIron(skipIron(), true); sfx('pickup_iron'); closeModal(); onDone && onDone(); },
+    onReroll() { if (rerolls <= 0) return; rerolls--; SIM.run.rerollsUsed = (SIM.run.rerollsUsed || 0) + 1; sfx('reroll'); show(rollMutations(ids.length, Object.assign(cystRollOpts(source), { exclude: opts }))); },
   });
   show(ids);
 }
@@ -406,11 +411,19 @@ function makeShopStock() {
 function openShop(stock) {
   Game.sub = 'modal';
   const P = SIM.player;
+  // replace stale mutation slots the player can no longer take (taken elsewhere since the stock was rolled)
+  for (const it of stock) if (it.kind === 'mutation' && !it.sold && !P.canTake(it.id)) {
+    const nid = rollMutations(1, { exclude: stock.filter(x => x.kind === 'mutation').map(x => x.id) })[0];
+    if (nid) { it.id = nid; it.price = shopPrice(MUT[nid]); } else it.sold = true;
+  }
   const show = () => UI.shop({
-    stock, iron: P.iron, hp: P.hp, maxHp: P.st.maxHp, noHeal: P.st.noHeal,
+    stock, iron: P.iron, hp: P.hp, maxHp: P.st.maxHp, noHeal: P.st.noHeal, shield: P.shield,
+    canTake: (id) => P.canTake(id),
     onBuy(item) {
       if (item.sold || P.iron < item.price) { sfx('ui_error'); return; }
+      if (item.kind === 'mutation' && !P.canTake(item.id)) { sfx('ui_error'); return; }
       if (item.kind === 'heal' && (P.hp >= P.st.maxHp || P.st.noHeal)) { sfx('ui_error'); return; }
+      if (item.kind === 'mucus' && P.shield >= 6) { sfx('ui_error'); return; }
       P.iron -= item.price; sfx('buy');
       if (item.kind === 'mutation') { P.addMutation(item.id); SIM.run.stats.mutations++; item.sold = true; META.seenMut[item.id] = true; saveMeta(); }
       else if (item.kind === 'heal') { P.heal(1); item.price = Math.round(item.price * 1.25); }
@@ -450,11 +463,25 @@ function startBossIntro(room) {
   sfx('roar'); Gfx.addShake(0.6);
   UI.bossIntro(def);
 }
+/** Expire enemy hazards IN PLACE (never resize/reassign the arrays: this can run from inside
+    their update loops). Each update loop drops the expired entries on its next visit. */
+function expireEnemyHazards() {
+  for (const s of SIM.eshots) {
+    if (!s.dead && !(s.delay > 0)) burst(s.x, s.y, ESHOT_STYLES[s.style] || '#ff3d7f', 2, 1.5, { life: 0.3, size: 0.05 });
+    s.dead = true; s.delay = 0;
+  }
+  for (const b of SIM.beams) { b.t = b.dur; b.follow = null; }
+  for (const t of SIM.teles) { t.then = null; t.follow = null; t.t = t.dur; }
+  for (const z of SIM.zones) if (z.owner !== 'player') { z.t = z.life; z.delay = 0; }
+  for (const l of SIM.lobs) { l.onLand = null; l.t = l.dur; }
+}
 function onBossKilled(e) {
   const run = SIM.run, room = SIM.room, P = SIM.player;
   run.stats.bossesKilled++;
-  clearEShots(true); SIM.beams.length = 0; SIM.teles.length = 0; SIM.zones = SIM.zones.filter(z => z.owner === 'player');
+  // kill summons first (their death effects may create hazards), then expire every enemy hazard
   for (const o of SIM.enemies) if (!o.dead && o !== e) killEnemy(o, { src: 'boss' });
+  expireEnemyHazards();
+  if (P) P.invulnT = Math.max(P.invulnT || 0, 2);
   SIM.slowmo = 1.4;
   sfx('boss_death'); Gfx.addShake(1); Gfx.caPulse = 1; Input.rumble(1, 600);
   for (let i = 0; i < 6; i++) after(i * 0.16 * 0.3, () => explode(e.x + rnd(-1.5, 1.5), e.y + rnd(-1.5, 1.5), 1.6, 0, { hex: e.color, fxOnly: true }));
@@ -464,7 +491,7 @@ function onBossKilled(e) {
   if (bossId === 'colony') unlock('macrophage');
   if (bossId === 'endocardia') unlock('tcell');
   after(1.6 * 0.3 + 0.4, () => {
-    if (SIM.room !== room || !SIM.player) return;
+    if (SIM.room !== room || !SIM.player || SIM.player.dead) return;
     room.cleared = true; lockRoom(false); SIM.boss = null;
     P.heal(2);
     sfx('door_open');
@@ -486,7 +513,7 @@ function unlock(key) {
   sfx('unlock');
 }
 function memoryEarned(run, won) {
-  const base = Math.floor(run.stats.kills / 5) + run.floorIdx * 6 + run.stats.bossesKilled * 12 + (won ? 40 : 0);
+  const base = 5 + run.stats.roomsCleared * 2 + Math.floor(run.stats.kills / 4) + run.floorIdx * 6 + run.stats.bossesKilled * 12 + (won ? 40 : 0);
   return Math.round(base * (1 + 0.25 * run.fever));
 }
 function endRun(won) {
@@ -523,7 +550,21 @@ Bus.on('enemyKilled', (e) => { if (e.isBoss && e.isMainBoss !== false) onBossKil
    MAIN LOOP
    ========================================================================== */
 let lastT = performance.now();
+const _frameErrs = new Set();
 function frame() {
+  try { frameBody(); }
+  catch (err) {
+    const k = String(err && (err.stack || err.message) || err);
+    if (!_frameErrs.has(k)) {
+      _frameErrs.add(k);
+      console.error('[SPLEEN] frame error:', err);
+      try { UI.toast('ERROR (see console)', null, 'small'); } catch (e) { }
+    }
+  } finally {
+    try { Input.endFrame(); } catch (e) { }
+  }
+}
+function frameBody() {
   const now = performance.now();
   let rdt = Math.min(0.05, (now - lastT) / 1000); lastT = now;
   if (window.__SPLEEN && __SPLEEN.fixedDt) rdt = __SPLEEN.fixedDt;
@@ -539,17 +580,21 @@ function frame() {
   else {
     UI.menuFrame(rdt);
     if (Game.state === 'title') renderTitle(rdt);
-    else if (Game.state === 'over' && SIM.room && SIM.player) { updateParticles(rdt * 0.3); renderFrame(rdt * 0.3, true); }
+    else if (Game.state === 'over' && SIM.room && SIM.player) { updateParticles(rdt * 0.3); throttledMenuRender(rdt, 0.3); }
   }
-  Input.endFrame();
+}
+/** menus over a frozen-ish world: render at ~12fps (the canvas is under a blurred backdrop) */
+function throttledMenuRender(rdt, scale) {
+  Game.menuRenderAcc = (Game.menuRenderAcc || 0) + rdt;
+  if (Game.menuRenderAcc >= 1 / 12 || Game.gfxDirty) { renderFrame(Game.menuRenderAcc * scale, true); Game.menuRenderAcc = 0; Game.gfxDirty = false; }
 }
 
 function playFrame(rdt) {
   const P = SIM.player;
   // pause
   if (Input.pause && !P.dead && (Game.paused || Game.sub === 'room' || Game.sub === 'intro')) { togglePause(); renderFrame(0); return; }
-  if (Game.paused) { UI.menuFrame(rdt); renderFrame(0); return; }
-  if (Game.sub === 'modal') { UI.menuFrame(rdt); renderFrame(rdt * 0.2, true); return; }
+  if (Game.paused) { UI.menuFrame(rdt); if (!Game.pauseDrawn || Game.gfxDirty) { renderFrame(0); Game.pauseDrawn = true; Game.gfxDirty = false; } return; }
+  if (Game.sub === 'modal') { UI.menuFrame(rdt); throttledMenuRender(rdt, 0.2); return; }
   // mouse world pos
   Input.mouseWorld = Gfx.screenToWorld(Input.mouse.x, Input.mouse.y, 0.6);
   Input.playerPos = P;
@@ -598,9 +643,23 @@ function simStep(dt) {
 
 function togglePause() {
   Game.paused = !Game.paused;
-  if (Game.paused) { Game.pauseStart = performance.now(); UI.pause(true); try { AUDIO.setLowpass(true); } catch (e) { } sfx('ui_open'); }
+  if (Game.paused) { Game.pauseStart = performance.now(); Game.pauseDrawn = false; UI.pause(true); try { AUDIO.setLowpass(true); } catch (e) { } sfx('ui_open'); }
   else { SIM.run.pausedTime = (SIM.run.pausedTime || 0) + (performance.now() - Game.pauseStart) / 1000; UI.pause(false); try { AUDIO.setLowpass(false); } catch (e) { } }
 }
+function autoPause() {
+  const P = SIM.player;
+  if (Game.state === 'play' && !Game.paused && !Game.autopilot && !window.__TEST__ && P && !P.dead && (Game.sub === 'room' || Game.sub === 'intro')) togglePause();
+}
+window.addEventListener('blur', autoPause);
+window.addEventListener('resize', () => { Game.gfxDirty = true; });
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) { autoPause(); Game.hiddenAt = performance.now(); }
+  else if (Game.hiddenAt != null) {
+    // hidden time while not paused (modal/transition/dying) is not covered by pause accounting
+    if (SIM.run && !SIM.run.ended && !Game.paused) SIM.run.pausedTime = (SIM.run.pausedTime || 0) + (performance.now() - Game.hiddenAt) / 1000;
+    Game.hiddenAt = null;
+  }
+});
 function abandonRun() {
   if (Game.paused) togglePause();
   endRun(false);
@@ -618,6 +677,15 @@ function toTitle() {
    RENDER SYNC
    ========================================================================== */
 const _styleCache = {};
+const _O_PS = { glow: 1.0, k: 1.15 }, _O_ES = { glow: 1.2, k: 1.0 }, _O_CORE = { glow: 0.5, k: 1.2 },
+  _O_PT = { glow: 0.55, max: 260, k: 1.1 }, _O_LOB = { glow: 0.9 }, _O_RING = { glow: 1.0, additive: true, max: 60 },
+  _O_NET = { glow: 0.1, alpha: 0.35, k: 0.7, max: 120 }, _O_ARC = { glow: 1.2, max: 120 }, _O_LATCH = { glow: 0.8, max: 200 };
+/** per-prefix Map cache in front of Gfx.bulletPool (avoids per-object key strings / opts literals) */
+function cachedPool(prefix, id, shape, hex, opts) {
+  const m = _styleCache[prefix] || (_styleCache[prefix] = new Map());
+  let p = m.get(id); if (!p) { p = Gfx.bulletPool(prefix + id, shape, hex, opts); m.set(id, p); } return p;
+}
+let _zoneMap = null;
 function renderFrame(dt, frozen) {
   const P = SIM.player, room = SIM.room;
   if (!room) { Gfx.render(dt); return; }
@@ -636,16 +704,16 @@ function renderFrame(dt, frozen) {
   // player shots
   for (const s of SIM.pshots) {
     const st = SHOT_STYLES[s.style] || SHOT_STYLES.neut;
-    const pool = Gfx.bulletPool('ps_' + s.style, 'sphereLo', st.hex, { glow: 1.0, k: 1.15 });
+    const pool = cachedPool('ps_', s.style, 'sphereLo', st.hex, _O_PS);
     const a = Math.atan2(s.vy, s.vx), fade = s.t > s.life - 0.08 ? (s.life - s.t) / 0.08 : 1;
     pool.push(s.x, s.h, -s.y, s.r * st.sx * fade, s.r * st.sy, s.r * st.sy * fade, a);
   }
   // enemy shots: glowing halo + white core (streaks for 'streak')
+  const core = Gfx.bulletPool('es_core', 'sphereLo', '#fff4f8', _O_CORE);
   for (const s of SIM.eshots) {
-    if (s.delay > 0) continue;
+    if (s.delay > 0 || s.dead) continue;
     const hex = ESHOT_STYLES[s.style] || '#ff3d7f';
-    const halo = Gfx.bulletPool('es_' + s.style, 'sphereLo', hex, { glow: 1.2, k: 1.0 });
-    const core = Gfx.bulletPool('es_core', 'sphereLo', '#fff4f8', { glow: 0.5, k: 1.2 });
+    const halo = cachedPool('es_', s.style, 'sphereLo', hex, _O_ES);
     const pop = s.t < 0.08 ? 0.5 + s.t / 0.16 : 1;
     if (s.streak) { const a = Math.atan2(s.vy, s.vx); halo.push(s.x, s.h, -s.y, s.r * 2.2, s.r, s.r, a); core.push(s.x, s.h + 0.02, -s.y, s.r * 1.3, s.r * 0.5, s.r * 0.5, a); }
     else { halo.push(s.x, s.h, -s.y, s.r * pop, s.r * pop, s.r * pop); core.push(s.x, s.h + 0.03, -s.y, s.r * 0.55, s.r * 0.55, s.r * 0.55); }
@@ -653,7 +721,7 @@ function renderFrame(dt, frozen) {
   // particles
   for (const p of SIM.particles) {
     const k = 1 - p.t / p.life;
-    Gfx.particlePool(p.hex).push(p.x, p.h, -p.y, p.size * k, p.size * k, p.size * k);
+    cachedPool('pt_', p.hex, 'icoFlat', p.hex, _O_PT).push(p.x, p.h, -p.y, p.size * k, p.size * k, p.size * k);
   }
   // telegraphs
   for (const t of SIM.teles) {
@@ -675,32 +743,33 @@ function renderFrame(dt, frozen) {
     pools.beamCore.push(cx, 0.52, -cy, b.len / 2, 1, b.w / 5 * k, b.ang);
   }
   // zones
+  const zmap = _zoneMap || (_zoneMap = { spore: pools.zSpore, acid: pools.zAcid, net: pools.zNet, bio: pools.zBio, rot: pools.zRot, pull: pools.zPull });
   for (const z of SIM.zones) {
     if (z.delay > 0) continue;
     const k = z.t < 0.2 ? z.t / 0.2 : z.t > z.life - 0.4 ? Math.max(0, (z.life - z.t) / 0.4) : 1;
-    const pool = { spore: pools.zSpore, acid: pools.zAcid, net: pools.zNet, bio: pools.zBio, rot: pools.zRot, pull: pools.zPull }[z.kind] || pools.zSpore;
+    const pool = zmap[z.kind] || pools.zSpore;
     const wob = 1 + Math.sin(SIM.time * 4 + z.x) * 0.04;
     pool.push(z.x, 0.025, -z.y, z.r * k * wob, 1, z.r * k * wob);
     if (z.kind === 'net') {
       pools.netRing.push(z.x, 0.06, -z.y, z.r * k, 0.12, z.r * k);
-      const sp = Gfx.bulletPool('netStrand', 'plane', '#bff8ff', { glow: 0.1, alpha: 0.35, k: 0.7, max: 120 });
+      const sp = Gfx.bulletPool('netStrand', 'plane', '#bff8ff', _O_NET);
       for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI + z.x; sp.push(z.x, 0.05, -z.y, z.r * k, 1, 0.025, a); }
     }
   }
   // lobs
   for (const l of SIM.lobs) {
     const k = l.t / l.dur, x = lerp(l.x0, l.x1, k), y = lerp(l.y0, l.y1, k), h = 0.5 + l.peak * 4 * k * (1 - k);
-    Gfx.bulletPool('lob_' + l.hex, 'sphere', l.hex, { glow: 0.9 }).push(x, h, -y, l.size, l.size, l.size);
+    cachedPool('lob_', l.hex, 'sphere', l.hex, _O_LOB).push(x, h, -y, l.size, l.size, l.size);
     pools.shadow.push(x, 0.01, -y, l.size * 1.3, 1, l.size * 1.3);
   }
   // rings
   for (const r of SIM.rings) {
     const k = r.t / r.life, rr = r.r * (0.25 + 0.75 * easeOut(k));
-    Gfx.bulletPool('ring_' + r.hex, 'torus', r.hex, { glow: 1.0, additive: true, max: 60 }).push(r.x, 0.15, -r.y, rr, 1 - k, rr);
+    cachedPool('ring_', r.hex, 'torus', r.hex, _O_RING).push(r.x, 0.15, -r.y, rr, 1 - k, rr);
   }
   // chain arcs
   for (const a of SIM.arcs) {
-    const pool = Gfx.bulletPool('arc', 'plane', '#cfeaff', { glow: 1.2, max: 120 });
+    const pool = Gfx.bulletPool('arc', 'plane', '#cfeaff', _O_ARC);
     let px = a.x0, py = a.y0;
     for (let i = 1; i <= 4; i++) {
       const k = i / 4, jx = i < 4 ? rnd(-0.3, 0.3) : 0, jy = i < 4 ? rnd(-0.3, 0.3) : 0;
@@ -713,8 +782,8 @@ function renderFrame(dt, frozen) {
   // enemy latched antibodies (b-cell) drawn as little dots orbiting
   for (const e of SIM.enemies) {
     if (e.latches && e.latches.length && !e.dead) {
-      const pool = Gfx.bulletPool('latch', 'sphereLo', '#c9bcff', { glow: 0.8, max: 200 });
-      e.latches.forEach((L) => { const a = L.a + SIM.time * 2; pool.push(e.x + Math.cos(a) * e.r * 0.95, 0.6 + Math.sin(a * 2) * 0.1, -(e.y + Math.sin(a) * e.r * 0.95), 0.07, 0.07, 0.07); });
+      const pool = Gfx.bulletPool('latch', 'sphereLo', '#c9bcff', _O_LATCH);
+      for (let i = 0; i < e.latches.length; i++) { const a = e.latches[i].a + SIM.time * 2; pool.push(e.x + Math.cos(a) * e.r * 0.95, 0.6 + Math.sin(a * 2) * 0.1, -(e.y + Math.sin(a) * e.r * 0.95), 0.07, 0.07, 0.07); }
     }
   }
   Gfx.endPools();

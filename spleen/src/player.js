@@ -29,7 +29,7 @@ function makePlayer(strainId, run) {
   const P = {
     strain: def, x: 8.5, y: 5.5, vx: 0, vy: 0, color: def.color,
     hp: 0, shield: 0, iron: 0, mutations: [], counts: {}, st: null, hooks: null,
-    fireT: 0, charge: 0, chargeHeld: false, lastFire: 0, dashT: 0, dashCd: 0, dashDX: 1, dashDY: 0,
+    fireT: 0, charge: 0, chargeHeld: false, pendingLance: 0, lastFire: 0, dashT: 0, dashCd: 0, dashDX: 1, dashDY: 0,
     invulnT: 0, hurtFlash: 0, abilityT: 0, abilityMax: def.abilityCd, abilityReadyPlayed: true,
     aimAng: 0, node: null, vis: null, dead: false, revives: 0, reviveHp: [],
     volley: 0, adrenalShots: 0, cytokineStacks: 0, species: new Set(), synergies: {}, run,
@@ -61,30 +61,37 @@ function makePlayer(strainId, run) {
     if (st.phage) P.hooks.onKill.push((e) => {
       for (let k = 0; k < st.phage; k++) {
         const a = rnd(0, TAU);
-        spawnPShot(e.x, e.y, a, { speed: 7, r: 0.12, dmg: P.baseDmg() * 0.7, life: 1.6, style: 'phage', homing: 1.4, knock: 0.3, owner: 'phage' });
+        spawnPShot(e.x, e.y, a, { speed: 7, r: 0.12, dmg: P.effDmg() * 0.7, life: 1.6, style: 'phage', homing: 1.4, knock: 0.3, owner: 'phage' });
       }
     });
     if (st.deathBlast) P.hooks.onKill.push((e, o) => {
-      if (o && o.src === 'stormblast') return;
+      // pathogens killed by a storm blast explode too; hop counter caps the chain length
+      const depth = (o && o.src === 'stormblast') ? (o.stormDepth || 0) + 1 : 0;
+      if (depth > 6) return;
       const r = (1.3 + e.r) * st.blastRadiusMult;
       // defer so chain reactions resolve over a few frames (looks great, avoids recursion)
-      after(0.06, () => { if (SIM.player === P && !P.dead) explodeStorm(e.x, e.y, r, P.baseDmg() * 1.6, st.blastChain); });
+      after(0.06, () => { if (SIM.player === P && !P.dead) explodeStorm(e.x, e.y, r, P.effDmg() * 1.6, st.blastChain, depth); });
     });
     if (st.cytokine) P.hooks.onKill.push(() => { P.cytokineStacks = Math.min(10, P.cytokineStacks + 1); });
     if (st.plateletPlug) P.hooks.onHurt.push(() => {
       addRing(P.x, P.y, 3, '#ffc0d0', 0.4);
-      for (const e of SIM.enemies) if (!e.dead && dist2(e.x, e.y, P.x, P.y) < 9) dealDamage(e, P.baseDmg() * 2, { x: P.x, y: P.y, vx: e.x - P.x, vy: e.y - P.y, knock: 3, src: 'plug' });
+      for (const e of SIM.enemies) if (!e.dead && dist2(e.x, e.y, P.x, P.y) < 9) dealDamage(e, P.effDmg() * 2, { x: P.x, y: P.y, vx: e.x - P.x, vy: e.y - P.y, knock: 3, src: 'plug' });
       clearNearbyShots(P.x, P.y, 2.2);
     });
     syncCompanions();
   };
-  function explodeStorm(x, y, r, dmg, chain) {
+  function explodeStorm(x, y, r, dmg, chain, depth = 0) {
     burst(x, y, '#ffd36b', 16, r * 4, { life: 0.35, size: 0.09 });
     addRing(x, y, r, '#ffd36b', 0.3);
     sfx('explosion', { vol: 0.5, rate: rnd(1.1, 1.4) });
     Gfx.addShake(0.2);
-    for (const e of SIM.enemies) if (!e.dead && e.spawning <= 0 && dist2(e.x, e.y, x, y) < (r + e.r) ** 2) dealDamage(e, dmg, { x, y, vx: e.x - x, vy: e.y - y, knock: 1.2, src: 'stormblast', silent: true });
-    if (chain) { const t = nearestEnemy(x, y, 4); if (t) chainLightning(t, dmg * 0.5, 2, new Set()); }
+    for (const e of SIM.enemies) if (!e.dead && e.spawning <= 0 && dist2(e.x, e.y, x, y) < (r + e.r) ** 2) dealDamage(e, dmg, { x, y, vx: e.x - x, vy: e.y - y, knock: 1.2, src: 'stormblast', stormDepth: depth, silent: true });
+    if (chain) { const t = nearestEnemy(x, y, 4); if (t) {
+      // arc from the blast point to t, then two real hops onward from t
+      SIM.arcs.push({ x0: x, y0: y, x1: t.x, y1: t.y, t: 0, life: 0.16, hex: '#bfe8ff' });
+      dealDamage(t, dmg * 0.5, { src: 'chain', knock: 0.2 });
+      chainLightning(t, dmg * 0.5, 2);
+    } }
   }
   function clearNearbyShots(x, y, r) {
     for (let i = SIM.eshots.length - 1; i >= 0; i--) { const s = SIM.eshots[i]; if (dist2(s.x, s.y, x, y) < r * r) { burst(s.x, s.y, '#ffc0d0', 2, 2, { life: 0.2 }); SIM.eshots.splice(i, 1); } }
@@ -92,11 +99,16 @@ function makePlayer(strainId, run) {
 
   P.baseDmg = function () {
     let d = def.dmg * P.st.dmgMult;
-    if (P.st.oncogene) d *= 1 + 0.04 * (run.stats.roomsCleared || 0);
+    // only rooms cleared since ONCOGENE was taken count; capped at +100%
+    if (P.st.oncogene) d *= 1 + Math.min(1, 0.04 * Math.max(0, (run.stats.roomsCleared || 0) - (P.oncoBase || 0)));
     if (P.st.cytokine) d *= 1 + 0.04 * P.cytokineStacks;
     if (P.st.speciesBonus) d *= 1 + Math.min(0.4, 0.04 * P.species.size);
     return d;
   };
+  // strain-agnostic base for companions/auras/on-kill/on-hurt effects: per-shot damage
+  // normalised to the Neutrophil's weapon DPS (3.0 x 3.6/s), so these don't swing 5-7x by strain
+  const EFF_K = (def.fireRate * (def.pellets || 1) * (def.weapon === 'antibody' ? 1.875 : 1)) / 3.6;
+  P.effDmg = () => P.baseDmg() * EFF_K;
   P.memoryBonus = function (type) {
     const kills = (META.codex && META.codex[type]) || 0;
     const cap = META.perks && META.perks.memtcell ? 0.2 : 0.1;
@@ -108,10 +120,12 @@ function makePlayer(strainId, run) {
   P.range = () => def.range * P.st.rangeMult;
   P.speed = () => def.speed * P.st.speedMult;
 
+  // returns true only if HP actually went up
   P.heal = function (n) {
-    if (P.st && P.st.noHeal && n < 50) return;
+    if (P.st && P.st.noHeal && n < 50) return false;
     const before = P.hp; P.hp = Math.min(P.st ? P.st.maxHp : def.hp, P.hp + n);
-    if (P.hp > before) { sfx('heal'); Bus.emit('heal'); }
+    if (P.hp > before) { sfx('heal'); Bus.emit('heal'); return true; }
+    return false;
   };
   P.addShield = function (n) { P.shield = Math.min(6, P.shield + n); Bus.emit('shield'); };
   P.addIron = function (n, raw) { const v = raw ? n : Math.round(n * (P.st ? P.st.ironMult : 1) * 10) / 10; P.iron += v; run.stats.ironGained += v; Bus.emit('iron'); };
@@ -121,6 +135,8 @@ function makePlayer(strainId, run) {
     const m = MUT[id]; if (!m) return;
     P.mutations.push(id); P.counts[id] = (P.counts[id] || 0) + 1;
     if (m.cost) { P.maxHpPaid = (P.maxHpPaid || 0) + m.cost; }
+    // ONCOGENE counts rooms from the moment it is taken
+    if (id === 'oncogene' && P.counts[id] === 1) P.oncoBase = (run.stats && run.stats.roomsCleared) || 0;
     P.recompute();
     if (m.cost) { /* malignant: pay max HP via a permanent negative */ }
     if (m.onGain) m.onGain(P);
@@ -156,7 +172,7 @@ function makePlayer(strainId, run) {
     else if (P.dashT > 0) {
       P.dashT -= dt;
       P.vx = P.dashDX * DASH_SPEED; P.vy = P.dashDY * DASH_SPEED;
-      if (st.biofilm) { P.bioT -= dt; if (P.bioT <= 0) { P.bioT = 0.045; spawnZone(P.x, P.y, 0.6, 2.4, 'bio', { owner: 'player', dps: P.baseDmg() * 1.1 }); } }
+      if (st.biofilm) { P.bioT -= dt; if (P.bioT <= 0) { P.bioT = 0.045; spawnZone(P.x, P.y, 0.6, 2.4, 'bio', { owner: 'player', dps: P.effDmg() * 1.1 }); } }
       if (Math.random() < 0.7) burst(P.x, P.y, P.color, 1, 0.5, { life: 0.3, size: 0.1, grav: 0, h: 0.5 });
     } else {
       const sp = P.speed() * (P.chargeHeld && def.weapon === 'lance' ? 0.78 : 1);
@@ -164,7 +180,7 @@ function makePlayer(strainId, run) {
       const k = damp(inp.move.x || inp.move.y ? 14 : 10, dt);
       P.vx = lerp(P.vx, tx, k); P.vy = lerp(P.vy, ty, k);
       // dash
-      if (inp.dash && P.dashCd <= 0) startDash();
+      if (inp.dash && P.dashCd <= 0) { inp.dash = false; startDash(); } // consume edge (2 substeps below 50fps)
     }
     // move + collide
     applyFlow(P, dt, 0.55);
@@ -176,6 +192,7 @@ function makePlayer(strainId, run) {
     updateWeapon(dt);
     // --- ability
     if (inp.ability && SIM.combatAllowed) {
+      inp.ability = false; // one-frame edge; playFrame may run 2 substeps per frame below 50fps
       if (P.abilityT <= 0) useAbility();
       else { sfx('ui_error', { vol: 0.4 }); }
     }
@@ -191,7 +208,7 @@ function makePlayer(strainId, run) {
       P.auraTick += dt;
       if (P.auraTick >= 0.25) {
         P.auraTick = 0;
-        for (const e of SIM.enemies) if (!e.dead && e.spawning <= 0 && dist2(e.x, e.y, P.x, P.y) < (e.r + P.hitR + 0.5) ** 2) dealDamage(e, P.baseDmg() * st.contactAura * 0.25, { dot: true, dotHex: '#c06bff', src: 'aura' });
+        for (const e of SIM.enemies) if (!e.dead && e.spawning <= 0 && dist2(e.x, e.y, P.x, P.y) < (e.r + P.hitR + 0.5) ** 2) dealDamage(e, P.effDmg() * st.contactAura * 0.25, { dot: true, dotHex: '#c06bff', src: 'aura' });
       }
     }
     updateCompanions(dt);
@@ -222,11 +239,14 @@ function makePlayer(strainId, run) {
   function muzzle(ang) { return { x: P.x + Math.cos(ang) * (P.hitR + 0.12), y: P.y + Math.sin(ang) * (P.hitR + 0.12) }; }
 
   function updateWeapon(dt) {
-    P.fireT = Math.max(0, P.fireT - dt);
+    P.fireT -= dt;
     const canFire = SIM.combatAllowed && !P.engulf;
     const firing = Input.firing && canFire;
     if (def.weapon === 'lance') {
+      P.fireT = Math.max(0, P.fireT);
       const rate = P.fireRate();
+      // a release buffered during the post-shot cooldown fires as soon as it ends
+      if (P.pendingLance > 0 && P.fireT <= 0) { if (canFire) fireLance(P.pendingLance); P.pendingLance = 0; }
       if (firing) {
         P.chargeHeld = true;
         const before = P.charge;
@@ -235,15 +255,18 @@ function makePlayer(strainId, run) {
         if (P.charge >= 1 && P.fireT <= 0) { fireLance(1); P.charge = 0; }
       } else if (P.chargeHeld) {
         P.chargeHeld = false;
-        if (P.fireT <= 0) fireLance(P.charge);
+        if (P.fireT <= 0) fireLance(P.charge); else P.pendingLance = P.charge;
         P.charge = 0;
       }
       return;
     }
-    if (firing && P.fireT <= 0) {
-      P.fireT = 1 / P.fireRate();
-      if (def.weapon === 'spray') fireSpray(); else fireStream();
-    }
+    if (firing) {
+      if (P.fireT <= 0) {
+        // carry the leftover (capped at one step) so the real rate matches the stat at any refresh rate
+        P.fireT = Math.max(P.fireT, -dt) + 1 / P.fireRate();
+        if (def.weapon === 'spray') fireSpray(); else fireStream();
+      }
+    } else P.fireT = Math.max(0, P.fireT);
   }
   function fireStream() {
     const st = P.st, isAnti = def.weapon === 'antibody';
@@ -285,7 +308,7 @@ function makePlayer(strainId, run) {
         pierce: st.pierce, bounce: st.bounce, homing: st.homing, crit, flags, knock: 0.8, decel: 1.2,
       });
     }
-    complementShot(dmg * 2);
+    complementShot(dmg / multishotK(n / def.pellets) * def.pellets); // big shot = 3 base volleys, like stream/lance
     sfx('shoot_macrophage', { vol: 0.7, rate: rnd(0.94, 1.06) });
     Gfx.addShake(0.08);
     P.vx -= Math.cos(P.aimAng) * 1.5; P.vy -= Math.sin(P.aimAng) * 1.5;
@@ -381,7 +404,7 @@ function makePlayer(strainId, run) {
       }
     }
     if (E.t >= E.dur) {
-      if (E.kills >= 3) { P.heal(1); Gfx.floatText(P.x, P.y, 'DIGESTED +1', '#ffc27a', 14, { h: 1.8 }); }
+      if (E.kills >= 3 && P.heal(1)) { Gfx.floatText(P.x, P.y, 'DIGESTED +1', '#ffc27a', 14, { h: 1.8 }); }
       P.engulf = null; P.vx *= 0.3; P.vy *= 0.3;
     }
   }
@@ -444,7 +467,7 @@ function makePlayer(strainId, run) {
         c.tick += dt;
         if (c.tick >= 0.25) {
           c.tick = 0;
-          for (const e of SIM.enemies) if (!e.dead && e.spawning <= 0 && dist2(e.x, e.y, c.x, c.y) < (e.r + c.r + 0.1) ** 2) dealDamage(e, P.baseDmg() * 1.0 * st.companionMult, { x: c.x, y: c.y, knock: 0.6, src: 'satellite', silent: true });
+          for (const e of SIM.enemies) if (!e.dead && e.spawning <= 0 && dist2(e.x, e.y, c.x, c.y) < (e.r + c.r + 0.1) ** 2) dealDamage(e, P.effDmg() * 1.0 * st.companionMult, { x: c.x, y: c.y, knock: 0.6, src: 'satellite', silent: true });
         }
       } else {
         const i = others.indexOf(c), n = others.length;
@@ -457,7 +480,7 @@ function makePlayer(strainId, run) {
           if (tgt && c.fireT <= 0) {
             c.fireT = 0.5;
             const a = angleTo(c.x, c.y, tgt.x, tgt.y);
-            spawnPShot(c.x, c.y, a, { speed: 11, r: 0.11, dmg: P.baseDmg() * 0.45 * st.companionMult, life: 0.8, style: 'helper', homing: 0.3, knock: 0.4, owner: 'helper' });
+            spawnPShot(c.x, c.y, a, { speed: 11, r: 0.11, dmg: P.effDmg() * 0.45 * st.companionMult, life: 0.8, style: 'helper', homing: 0.3, knock: 0.4, owner: 'helper' });
             sfx('shoot_helper', { vol: 0.35, rate: rnd(0.95, 1.1) });
           }
         } else if (c.kind === 'mast' && SIM.combatAllowed) {
@@ -467,7 +490,7 @@ function makePlayer(strainId, run) {
             const R = 2.7;
             addRing(c.x, c.y, R, '#ffd36b', 0.4);
             let any = false;
-            for (const e of SIM.enemies) if (!e.dead && e.spawning <= 0 && dist2(e.x, e.y, c.x, c.y) < (R + e.r) ** 2) { any = true; dealDamage(e, P.baseDmg() * 2.6 * st.companionMult, { x: c.x, y: c.y, vx: e.x - c.x, vy: e.y - c.y, knock: 2.2, src: 'mast' }); }
+            for (const e of SIM.enemies) if (!e.dead && e.spawning <= 0 && dist2(e.x, e.y, c.x, c.y) < (R + e.r) ** 2) { any = true; dealDamage(e, P.effDmg() * 2.6 * st.companionMult, { x: c.x, y: c.y, vx: e.x - c.x, vy: e.y - c.y, knock: 2.2, src: 'mast' }); }
             if (any) sfx('stun', { vol: 0.4, rate: 1.5 });
           }
         }
@@ -526,6 +549,9 @@ function animatePlayerVis(P, dt) {
   const v = P.vis; if (!v) return;
   const t = SIM.time;
   v.root.position.set(P.x, 0, -P.y);
+  // UNCONTROLLED GROWTH: the cell visibly swells with its hitbox (root origin is at floor level)
+  const hs = (P.st && P.st.hitboxMult) || 1;
+  if (v.hs !== hs) { v.hs = hs; v.root.scaling.setAll(hs); }
   v.body.rotation.y = P.aimAng;
   const sp = Math.hypot(P.vx, P.vy);
   P.recoil = Math.max(0, (P.recoil || 0) - dt * 8);

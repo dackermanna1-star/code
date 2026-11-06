@@ -83,6 +83,7 @@ const AI_INIT = {
   bouncer: (e) => { const a = rndPick([0.785, 2.356, 3.927, 5.498]) + rnd(-0.2, 0.2); e.data.dx = Math.cos(a); e.data.dy = Math.sin(a); },
   worm: (e) => { e.data.hist = []; e.data.ph = rnd(0, TAU); },
   turncoat: (e) => { e.data.dashCd = rnd(2, 3.5); },
+  burrower: (e) => { e.t = rnd(2.2, 2.6); e.data.shot = false; e.data.wind = false; }, // start surfaced (shot gets its wind-up)
 };
 
 const AI = {
