@@ -23,11 +23,11 @@ export function fists() {
     meta: {
       kind: 'fists', weight: 0.05,
       // classic Minecraft empty hand: arm points straight into the scene from the bottom edge, right of centre
-      hip: { pos: [0.088, -0.09, -0.43], rot: [0, 0, 0.3] },
+      hip: { pos: [0.085, -0.104, -0.365], rot: [0, 0, 0] },
       sprint: { pos: [0.085, -0.14, -0.4], rot: [-0.15, 0.1, 0.05] },
       hands: { R: 'handR', L: null },
       freeL: { pos: [-0.15, -0.17, -0.35] },
-      shoulders: { R: [0.13, -0.53, 0.06], L: [-0.3, -0.45, 0.0] },
+      shoulders: { R: [0.12, -0.64, -0.03], L: [-0.3, -0.45, 0.0] },
       armScale: 1.85,
       swing: 'punch',
     },

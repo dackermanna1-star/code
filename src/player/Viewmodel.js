@@ -931,7 +931,8 @@ export class Viewmodel {
       _sR.lerp(_t, out.shR.w);
     }
     _upR.copy(_up);
-    if (meta.kind === 'fists' || meta.hold === 'bow') _upR.copy(_rigUp).lerp(_up, 0.5).normalize();
+    if (meta.kind === 'fists') _upR.copy(_rigUp);
+    else if (meta.hold === 'bow') _upR.copy(_rigUp).lerp(_up, 0.5).normalize();
     this.arms.place(this.arms.R, hR, _sR, _upR, meta.armScale || 1);
     this.arms.place(this.arms.L, hL, _sL, upL);
     // a hand right in front of the eye (bow at full draw) reads as a giant block: hide it
