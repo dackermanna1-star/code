@@ -1,7 +1,7 @@
 // A* pathfinding over walkable voxel cells for zombies.
 // A node is a standing position (x, y, z): block (x, y-1, z) supports, cells y and y+1 are passable.
 // Closed doors / glass / barricades are "bashable": passable at extra cost (the zombie breaks through).
-import { BLOCKS, SOLID, IS_DOOR, B } from '../world/blocks.js';
+import { BLOCKS, SOLID, IS_DOOR, B, FACING_DIR } from '../world/blocks.js';
 
 const MAX_NODES = 900;
 
@@ -14,10 +14,12 @@ function passable(world, x, y, z) {
 }
 
 const LOW_TOP = new Uint8Array(256);
+const STAIRS = new Uint8Array(256);
 for (const d of BLOCKS) {
   if (d.solid && d.render === 'boxes' && !d.door) {
     const top = Math.max(...(d.boxes || [[0, 0, 0, 1, 1, 1]]).map((bx) => bx[4]));
     LOW_TOP[d.id] = top <= 0.6 || d.name.includes('stairs') ? 1 : 0;
+    if (d.name.includes('stairs') && d.oriented) STAIRS[d.id] = 1;
   }
 }
 
@@ -45,6 +47,19 @@ export function groundAt(world, x, y, z) {
   }
   for (let dy = 1; dy <= 2; dy++) if (standable(world, x, y + dy, z)) return y + dy;
   return -1;
+}
+
+/** Is the point (x, z) at standing height y inside one of the (rotated) vehicle colliders, grown by `pad`? */
+export function vehicleBlocks(cars, x, y, z, pad = 0.3) {
+  for (let i = 0; i < cars.length; i++) {
+    const c = cars[i];
+    if (y >= c.top - 0.2 || y + 1.8 <= c.bottom) continue;
+    const rx = x - c.x, rz = z - c.z;
+    if (rx * rx + rz * rz > (c.r + pad + 0.8) ** 2) continue;
+    const lx = rx * c.cos - rz * c.sin, lz = rx * c.sin + rz * c.cos;
+    if (Math.abs(lx) < c.hx + pad && Math.abs(lz) < c.hz + pad) return true;
+  }
+  return false;
 }
 
 const DIRS = [[1, 0, 1], [-1, 0, 1], [0, 1, 1], [0, -1, 1], [1, 1, 1.414], [1, -1, 1.414], [-1, 1, 1.414], [-1, -1, 1.414]];
@@ -79,6 +94,8 @@ class Heap {
  */
 export function findPath(world, sx, sy, sz, tx, ty, tz, opts = {}) {
   const canJump = opts.canJump !== false;
+  const noBash = !!opts.noBash; // wandering zombies don't break into buildings: doors / windows are walls
+  const cars = opts.cars && opts.cars.length ? opts.cars : null; // vehicle colliders to walk around
   const maxNodes = opts.maxNodes || MAX_NODES;
   const key = (x, y, z) => (x * 64 + y) * 1100 + z;
   const open = new Heap();
@@ -97,6 +114,9 @@ export function findPath(world, sx, sy, sz, tx, ty, tz, opts = {}) {
     const ch = h(cur.x, cur.y, cur.z);
     if (ch < bestH) { bestH = ch; best = cur; }
     if (cur.x === tx && cur.z === tz && Math.abs(cur.y - ty) <= 1) { best = cur; break; }
+    const curId = world.get(cur.x, cur.y, cur.z);
+    const curLow = LOW_TOP[curId] ? 0.5 : 0;
+    const curStair = STAIRS[curId] ? world.getMeta(cur.x, cur.y, cur.z) & 3 : -1;
     for (const [dx, dz, cost] of DIRS) {
       const nx = cur.x + dx, nz = cur.z + dz;
       if (dx && dz) {
@@ -104,13 +124,27 @@ export function findPath(world, sx, sy, sz, tx, ty, tz, opts = {}) {
         if (!standable(world, cur.x + dx, cur.y, cur.z) && !standable(world, cur.x, cur.y, cur.z + dz)) continue;
         if (passable(world, cur.x + dx, cur.y + 1, cur.z) === 1 || passable(world, cur.x, cur.y + 1, cur.z + dz) === 1) continue;
       }
-      // try same level, step up 1 (jump), drop down up to 3
+      // try same level, step up 1, drop down up to 3. Heights are real foot heights: a slab / stair cell is
+      // stood on at +0.5 (a stair's back half at +1), so stairs are walked up from their low front side,
+      // and a 1-block step needs a jump (which crawlers can't do).
+      let hc = curLow;
+      if (curStair >= 0 && dx === -FACING_DIR[curStair][0] && dz === -FACING_DIR[curStair][2]) hc = 1; // over the high back edge
       for (const dy of [0, 1, -1, -2, -3]) {
-        if (dy === 1 && !canJump) continue;
         const ny = cur.y + dy;
         const s = standable(world, nx, ny, nz);
         if (!s) continue;
-        if (dy === 1 && passable(world, cur.x, cur.y + 2, cur.z) === 1) break; // no headroom to jump
+        const nid = world.get(nx, ny, nz);
+        let low = LOW_TOP[nid] ? 0.5 : 0;
+        if (STAIRS[nid]) {
+          const f = FACING_DIR[world.getMeta(nx, ny, nz) & 3];
+          if (dx !== -f[0] || dz !== -f[2]) low = 1; // entering from the side / back: the high half is in the way
+        }
+        const rise = dy + low - hc;
+        if (rise > 1.15) continue;
+        const jump = rise > 0.6;
+        if (jump && (!canJump || passable(world, cur.x, cur.y + 2, cur.z) === 1)) continue; // can't jump / no headroom
+        if (s === 2 && noBash) break;
+        if (cars && vehicleBlocks(cars, nx + 0.5, ny, nz + 0.5)) break;
         if (dy < 0) {
           // need free space to walk off the edge
           let ok = true;
@@ -118,7 +152,7 @@ export function findPath(world, sx, sy, sz, tx, ty, tz, opts = {}) {
           if (!ok) break;
         }
         const k = key(nx, ny, nz);
-        const g = cur.g + cost + (s === 2 ? 10 : 0) + (dy === 1 ? 0.8 : dy < 0 ? 0.3 * -dy : 0);
+        const g = cur.g + cost + (s === 2 ? 10 : 0) + (jump ? 0.8 : rise > 0.1 ? 0.15 : dy < 0 ? 0.3 * -dy : 0);
         let n = nodes.get(k);
         if (n && (n.closed || n.g <= g)) break;
         if (!n) { n = { x: nx, y: ny, z: nz, g, f: 0, parent: cur, bash: s === 2, closed: false }; nodes.set(k, n); }

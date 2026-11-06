@@ -4,8 +4,10 @@ import * as THREE from 'three';
 import { Zombie, OUTFIT_LOOT } from './Zombie.js';
 import { createZombieVisual } from './zombie/ZombieModel.js';
 import { ZONES } from '../world/World.js';
-import { B, BLOCKS, IS_DOOR, SOLID } from '../world/blocks.js';
-import { groundAt, standable } from './pathfind.js';
+import { B, BLOCKS, IS_DOOR, SOLID, getCollisionBoxes } from '../world/blocks.js';
+import { groundAt, standable, vehicleBlocks } from './pathfind.js';
+import { lineOfSight } from '../world/raycast.js';
+import { boxFree } from '../core/physics.js';
 import { generateLoot } from '../items/loot.js';
 import { makeRng, clamp } from '../core/rng.js';
 
@@ -17,7 +19,11 @@ const ZONE_DENSITY = {
 };
 const GROUND_BLOCKS = new Set(['grass', 'dirt', 'asphalt', 'asphalt_cracked', 'road_yellow_x', 'road_yellow_z', 'road_white_x', 'road_white_z',
   'crosswalk_x', 'crosswalk_z', 'parking_line_x', 'parking_line_z', 'manhole', 'sidewalk', 'concrete', 'concrete_dark', 'gravel', 'sand',
-  'forest_floor', 'dry_grass', 'mud', 'dirt_path', 'cobblestone', 'stone'].map((n) => B[n]));
+  'forest_floor', 'dry_grass', 'mud', 'dirt_path', 'cobblestone', 'stone'].map((n) => B[n]).filter((id) => id !== undefined));
+// spawn columns may be covered by plants (tall grass, flowers, bushes) or a tree canopy: look through those
+const SEE_THROUGH = new Uint8Array(256);
+for (const d of BLOCKS) if (d && (!d.solid || d.mat === 'leaves')) SEE_THROUGH[d.id] = 1;
+const BUSY = new Set(['stagger', 'down', 'getup', 'scream', 'bash']);
 
 function outfitForZone(zone, r) {
   switch (zone) {
@@ -43,10 +49,12 @@ export class ZombieManager {
     this.spawnT = 1;
     this.densityT = 0;
     this.localDensity = 0.3;
-    this.pathBudget = 0;
+    this.pathBudget = 0; this.pathMs = 0;
     this.voiceT = 0;
     this.cellKills = new Map();
     this.staticState = new Map(); // spawn index -> remaining
+    this.staticQueue = new Set(); // static spawn groups waiting to be placed (a few zombies per frame)
+    this.evict = []; // old corpses to dispose of
     this.rng = makeRng((game.world.seed || 1) ^ 0x5bd1e995);
     this.tmp = new THREE.Vector3();
   }
@@ -75,7 +83,14 @@ export class ZombieManager {
   }
 
   spawn(x, y, z, opts = {}) {
-    const zone = this.game.world.getZone(x, z);
+    // standing cell holds a low block (slab, bed, stair step)? put the feet on top of it, not inside it
+    const w = this.game.world, ix = Math.floor(x), iy = Math.floor(y), iz = Math.floor(z);
+    const cid = w.get(ix, iy, iz);
+    if (SOLID[cid]) {
+      const boxes = getCollisionBoxes(cid, w.getMeta(ix, iy, iz));
+      if (boxes) { let top = 0; for (const b of boxes) top = Math.max(top, b[4]); y = Math.max(y, iy + top + 0.01); }
+    }
+    const zone = w.getZone(x, z);
     const variant = opts.variant || this.pickVariant();
     const outfit = opts.outfit || outfitForZone(zone, Math.random());
     const zb = new Zombie(this, { x, y, z, variant, outfit, seed: (Math.random() * 1e9) | 0, state: opts.state });
@@ -95,6 +110,27 @@ export class ZombieManager {
   }
   cellKey(x, z) { return (Math.floor(x / 64) << 8) | Math.floor(z / 64); }
 
+  /** Ground standing y for a random spawn at column (ix, iz), or -1 (roofs, water, inside buildings...). */
+  spawnGroundY(ix, iz) {
+    const w = this.game.world;
+    let y = w.roofY(ix, iz);
+    // look down through plants / bushes / a tree canopy
+    let n = 0;
+    while (y > 1 && SEE_THROUGH[w.get(ix, y, iz)] && n++ < 12) y--;
+    const gid = w.get(ix, y, iz);
+    if (!GROUND_BLOCKS.has(gid)) return -1;
+    // natural ground is solid underneath; a flat roof / bridge deck has air (rooms) below it
+    if (!SOLID[w.get(ix, y - 1, iz)] || !SOLID[w.get(ix, y - 2, iz)]) return -1;
+    if (standable(w, ix, y + 1, iz) !== 1) return -1;
+    return y + 1;
+  }
+
+  /** Could the player see a zombie standing at (x, y, z)? */
+  visibleToPlayer(x, y, z) {
+    const g = this.game, p = g.player;
+    return lineOfSight(g.world, p.x, p.y + (p.eye || 1.6), p.z, x, y + 1.5, z) || lineOfSight(g.world, p.x, p.y + (p.eye || 1.6), p.z, x, y + 0.4, z);
+  }
+
   trySpawnAround() {
     const g = this.game, p = g.player, w = g.world;
     for (let attempt = 0; attempt < 6; attempt++) {
@@ -105,15 +141,14 @@ export class ZombieManager {
       const dens = this.densityAt(x, z);
       if (Math.random() > dens * 1.2) continue;
       const ix = Math.floor(x), iz = Math.floor(z);
-      const top = w.roofY(ix, iz);
-      if (!GROUND_BLOCKS.has(w.get(ix, top, iz))) continue;
-      const y = top + 1;
-      if (!standable(w, ix, y, iz)) continue;
-      // avoid spawning in plain view nearby
+      const y = this.spawnGroundY(ix, iz);
+      if (y < 0) continue;
+      // avoid spawning in plain view nearby (in front, or anywhere with a clear line of sight)
       const dx = x - p.x, dz = z - p.z;
       const fwd = p.forward(this.tmp);
       const dot = (dx * fwd.x + dz * fwd.z) / dist;
       if (dist < 60 && dot > 0.3) continue;
+      if (dist < 64 && this.visibleToPlayer(ix + 0.5, y, iz + 0.5)) continue;
       const zb = this.spawn(ix + 0.5, y, iz + 0.5);
       if (Math.random() < 0.35) zb.pickWander(14);
       // small groups in dense areas
@@ -121,8 +156,8 @@ export class ZombieManager {
         const n = 1 + Math.floor(Math.random() * 3);
         for (let i = 0; i < n; i++) {
           const gx = ix + Math.floor((Math.random() - 0.5) * 6), gz = iz + Math.floor((Math.random() - 0.5) * 6);
-          const gy = groundAt(w, gx, y, gz);
-          if (gy >= 0) this.spawn(gx + 0.5, gy, gz + 0.5);
+          const gy = this.spawnGroundY(gx, gz);
+          if (gy >= 0 && Math.abs(gy - y) <= 2) this.spawn(gx + 0.5, gy, gz + 0.5);
         }
       }
       return true;
@@ -130,27 +165,49 @@ export class ZombieManager {
     return false;
   }
 
+  /** Every few seconds: queue the static groups (indoor hordes, crowds at POIs) that came into range. */
   updateStaticSpawns() {
     const g = this.game, p = g.player, w = g.world;
     w.zombieSpawns.forEach((s, i) => {
       let rem = this.staticState.get(i);
       if (rem === undefined) { rem = s.count; this.staticState.set(i, rem); }
-      if (rem <= 0) return;
+      if (rem <= 0 || this.staticQueue.has(i)) return;
       const d = Math.hypot(s.x - p.x, s.z - p.z);
-      if (d > 75 || d < 12) return;
+      if (d > 75) return;
+      // right next to the player only when out of sight (e.g. the next room, the floor above)
+      if (d < 12 && (Math.abs(s.y - p.y) < 3 && this.visibleToPlayer(s.x, s.y, s.z))) return;
+      this.staticQueue.add(i);
+    });
+  }
+
+  /** Place queued static zombies, a couple per frame (building a zombie visual costs ~2-3 ms). */
+  pumpStaticSpawns(budget = 2) {
+    if (!this.staticQueue.size) return;
+    const g = this.game, p = g.player, w = g.world;
+    const alive = this.zombies.length - this.corpses.length;
+    if (alive > this.maxActive * 1.6) return;
+    for (const i of this.staticQueue) {
+      const s = w.zombieSpawns[i];
+      let rem = this.staticState.get(i) || 0;
+      if (!s || rem <= 0 || Math.hypot(s.x - p.x, s.z - p.z) > 85) { this.staticQueue.delete(i); continue; }
       const r = s.radius || 3;
-      let placed = 0;
-      for (let k = 0; k < rem * 4 && placed < rem; k++) {
+      let tries = 0;
+      while (rem > 0 && budget > 0 && tries < 8) {
+        tries++;
         const x = Math.floor(s.x + (Math.random() - 0.5) * 2 * r), z = Math.floor(s.z + (Math.random() - 0.5) * 2 * r);
         const y = groundAt(w, x, Math.floor(s.y), z);
         if (y < 0 || Math.abs(y - s.y) > 3) continue;
+        // don't pop into view right in front of the player
+        if (Math.hypot(x + 0.5 - p.x, z + 0.5 - p.z) < 25 && this.visibleToPlayer(x + 0.5, y, z + 0.5)) continue;
         const types = s.types && s.types.length ? s.types : null;
         const zb = this.spawn(x + 0.5, y, z + 0.5, { variant: types ? types[Math.floor(Math.random() * types.length)] : undefined, outfit: s.outfit, staticIdx: i, state: s.state });
         if (!s.state && Math.random() < 0.5) zb.setState('idle', Math.random() * 3);
-        placed++;
+        rem--; budget--; tries = 0;
       }
-      this.staticState.set(i, rem - placed);
-    });
+      this.staticState.set(i, rem);
+      if (rem <= 0 || tries >= 8) this.staticQueue.delete(i);
+      if (budget <= 0) break;
+    }
   }
 
   remove(zb) {
@@ -169,23 +226,31 @@ export class ZombieManager {
     this.game.audio.play(name, { pos: { x: zb.x, y: zb.y + 1.5, z: zb.z }, volume: vol, pitch: zb.variant === 'brute' ? 0.75 : zb.variant === 'runner' ? 1.12 : 0.9 + Math.random() * 0.2, maxDist });
   }
 
+  /** A zombie spotted the player: the ones next to it shamble over (they follow the commotion). */
   alertNear(src, r) {
+    const clock = this.game.clock;
     for (const z of this.zombies) {
       if (z === src || z.dead) continue;
-      if ((z.x - src.x) ** 2 + (z.z - src.z) ** 2 < r * r && z.state !== 'chase' && z.state !== 'attack') {
+      if ((z.x - src.x) ** 2 + (z.z - src.z) ** 2 < r * r && Math.abs(z.y - src.y) < 4 && z.state !== 'chase' && z.state !== 'attack' && z.state !== 'bash') {
         z.target = { x: src.x, y: src.y, z: src.z };
-        z.setState('investigate');
+        z.targetPlayer = true; z.huntT = Math.max(z.huntT, clock);
+        z.path = null;
+        if (!BUSY.has(z.state)) z.setState('investigate');
       }
     }
   }
 
   noise(n) {
+    const r2 = n.radius * n.radius;
     for (const z of this.zombies) {
       if (z.dead) continue;
-      if (n.target && (z.x - n.x) ** 2 + (z.z - n.z) ** 2 < n.radius * n.radius) {
+      if (n.target && (z.x - n.x) ** 2 + (z.z - n.z) ** 2 < r2) {
         // screams direct zombies to where the player was seen
+        if (z.state === 'chase' || z.state === 'attack' || z.state === 'bash') continue;
         z.target = { ...n.target };
-        if (z.state !== 'chase' && z.state !== 'attack') z.setState('investigate');
+        z.targetPlayer = true; z.huntT = Math.max(z.huntT, n.huntT ?? this.game.clock);
+        z.path = null;
+        if (!BUSY.has(z.state)) z.setState('investigate');
         continue;
       }
       z.hear(n);
@@ -193,7 +258,8 @@ export class ZombieManager {
   }
 
   requestPath() {
-    if (this.pathBudget <= 0) return false;
+    // at most 3 A* searches and ~1.5 ms of path planning per frame
+    if (this.pathBudget <= 0 || this.pathMs > 1.5) return false;
     this.pathBudget--;
     return true;
   }
@@ -208,15 +274,44 @@ export class ZombieManager {
         if (o === zb || o.dead) continue;
         const dx = zb.x - o.x, dz = zb.z - o.z;
         const d2 = dx * dx + dz * dz;
-        const min = zb.hw + o.hw + 0.15;
+        const min = zb.hw + o.hw + 0.3;
         if (d2 < min * min && d2 > 1e-6 && Math.abs(zb.y - o.y) < 1.5) {
           const d = Math.sqrt(d2);
-          const f = (min - d) / min * 2.5;
+          const f = (min - d) / min * 3.5;
           out.x += (dx / d) * f; out.z += (dz / d) * f;
         }
       }
     }
     return out;
+  }
+
+  /** Positional pass after movement: bodies never interpenetrate (a crowd queues up instead of stacking). */
+  resolveOverlaps() {
+    const w = this.game.world;
+    for (const zb of this.zombies) {
+      if (zb.dead) continue;
+      const cx = Math.floor(zb.x / 3), cz = Math.floor(zb.z / 3);
+      for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) {
+        const list = this.grid.get(((cx + i) << 12) ^ (cz + j));
+        if (!list) continue;
+        for (const o of list) {
+          if (o.id <= zb.id || o.dead || Math.abs(zb.y - o.y) > 1.4) continue;
+          let dx = o.x - zb.x, dz = o.z - zb.z;
+          const min = zb.hw + o.hw + 0.04;
+          let d2 = dx * dx + dz * dz;
+          if (d2 >= min * min) continue;
+          if (d2 < 1e-8) { dx = Math.random() - 0.5; dz = Math.random() - 0.5; d2 = dx * dx + dz * dz; }
+          const d = Math.sqrt(d2), push = (min - d) * 0.5;
+          const ux = dx / d, uz = dz / d;
+          // heavier bodies (brutes) give way less
+          const wa = o.hw / (zb.hw + o.hw), wb = 1 - wa;
+          const ax = zb.x - ux * push * 2 * wa, az = zb.z - uz * push * 2 * wa;
+          const bx = o.x + ux * push * 2 * wb, bz = o.z + uz * push * 2 * wb;
+          if (boxFree(w, ax, zb.y + 0.05, az, zb.hw, zb.h - 0.1)) { zb.x = ax; zb.z = az; }
+          if (boxFree(w, bx, o.y + 0.05, bz, o.hw, o.h - 0.1)) { o.x = bx; o.z = bz; }
+        }
+      }
+    }
   }
 
   directClear(zb, goal) {
@@ -225,9 +320,12 @@ export class ZombieManager {
     const d = Math.hypot(dx, dz);
     const steps = Math.ceil(d / 0.7);
     let y = Math.floor(zb.y + 0.2);
+    const cars = zb.cars && zb.cars.length ? zb.cars : null;
     for (let i = 1; i <= steps; i++) {
       const t = i / steps;
-      const x = Math.floor(zb.x + dx * t), z = Math.floor(zb.z + dz * t);
+      const fx = zb.x + dx * t, fz = zb.z + dz * t;
+      if (cars && vehicleBlocks(cars, fx, y, fz, 0.25)) return false;
+      const x = Math.floor(fx), z = Math.floor(fz);
       if (standable(w, x, y, z) === 1) continue;
       if (zb.cfg.canJump && standable(w, x, y + 1, z) === 1) { y += 1; continue; }
       if (standable(w, x, y - 1, z) === 1) { y -= 1; continue; }
@@ -251,7 +349,7 @@ export class ZombieManager {
     if (IS_DOOR[id]) {
       const door = w.getDoor(t.x, t.y, t.z);
       if (door.barricade > 0) {
-        door.barricade -= dmg;
+        door.barricade -= dmg * 0.5; // nailed planks hold well against fists
         g.audio.play('zombie_bash', { pos, volume: 1 });
         if (door.barricade <= 0) { door.barricade = 0; w.syncDoor(door); g.audio.play('door_break', { pos }); g.fx?.blockBreak(new THREE.Vector3(pos.x, pos.y, pos.z), [120, 90, 60]); }
       } else {
@@ -261,15 +359,15 @@ export class ZombieManager {
           g.audio.play('door_break', { pos, volume: 1.2 });
           g.fx?.blockBreak(new THREE.Vector3(pos.x, pos.y + 0.5, pos.z), [110, 80, 55]);
           w.removeDoor(door);
-          g.noise(pos.x, pos.y, pos.z, 18, 'door_break');
+          g.noise(pos.x, pos.y, pos.z, 18, 'door_break', false, { hunt: true, huntT: zb.huntT });
         }
       }
-      g.noise(pos.x, pos.y, pos.z, 14, 'bash');
+      g.noise(pos.x, pos.y, pos.z, 14, 'bash', false, { hunt: true, huntT: zb.huntT });
       g.camShakeAt(pos, 0.25);
     } else {
-      g.damageBlock(t.x, t.y, t.z, dmg, { tool: 'blunt', byZombie: true });
+      g.damageBlock(t.x, t.y, t.z, id === B.barricade ? dmg * 0.5 : dmg, { tool: 'blunt', byZombie: true });
       g.audio.play(id === B.barricade ? 'zombie_bash' : 'hit_glass', { pos });
-      g.noise(pos.x, pos.y, pos.z, 12, 'bash');
+      g.noise(pos.x, pos.y, pos.z, 12, 'bash', false, { hunt: true, huntT: zb.huntT });
     }
   }
 
@@ -284,19 +382,14 @@ export class ZombieManager {
     }
     if (zb.staticIdx !== null && zb.staticIdx !== undefined) { /* killed: stays removed */ }
     g.onZombieKilled?.(zb, o);
-    // corpse limit
-    while (this.corpses.length > 45) {
-      const old = this.corpses.shift();
-      const i = this.zombies.indexOf(old);
-      if (i >= 0) this.zombies.splice(i, 1);
-      old.dispose();
-    }
+    // corpse limit (evicted after the update loop: this can run while zombies are being iterated)
+    while (this.corpses.length > 45) this.evict.push(this.corpses.shift());
   }
 
   corpseLoot(zb) {
     if (!zb.loot) {
       const table = OUTFIT_LOOT[zb.outfit] || 'zombie_civilian';
-      const stacks = generateLoot(table, makeRng((zb.id * 2654435761) >>> 0), { scavenging: this.game.player.skillLevel('scavenging'), day: this.game.time.day, size: 6 });
+      const stacks = generateLoot(table, makeRng(((zb.seed || 0) ^ (zb.id * 2654435761)) >>> 0), { scavenging: this.game.player.skillLevel('scavenging'), day: this.game.time.day, size: 6 });
       zb.loot = new Array(6).fill(null);
       stacks.slice(0, 6).forEach((s, i) => { zb.loot[i] = s; });
     }
@@ -329,7 +422,7 @@ export class ZombieManager {
   // ------------------------------------------------------------------ main update
   update(dt) {
     const g = this.game, p = g.player;
-    this.pathBudget = 3;
+    this.pathBudget = 3; this.pathMs = 0;
     this.voiceT -= dt;
     // spatial grid
     this.grid.clear();
@@ -352,6 +445,7 @@ export class ZombieManager {
       this.localDensity = sum / 24;
       this.updateStaticSpawns();
     }
+    this.pumpStaticSpawns(2);
     const alive = this.zombies.length - this.corpses.length;
     const target = clamp(Math.round(this.localDensity * this.maxActive * 1.4), 4, this.maxActive);
     this.spawnT -= dt;
@@ -374,6 +468,15 @@ export class ZombieManager {
         z.dispose();
       }
     }
+    if (this.evict.length) {
+      for (const old of this.evict) {
+        const i = this.zombies.indexOf(old);
+        if (i >= 0) this.zombies.splice(i, 1);
+        old.dispose();
+      }
+      this.evict.length = 0;
+    }
+    this.resolveOverlaps();
   }
 
   /** Living zombies within r of a point */
@@ -403,6 +506,8 @@ export class ZombieManager {
     for (const z of this.zombies) z.dispose();
     this.zombies = [];
     this.corpses = [];
+    this.evict = [];
+    this.staticQueue.clear();
   }
 
   toJSON() {

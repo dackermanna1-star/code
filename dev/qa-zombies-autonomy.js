@@ -1,0 +1,30 @@
+// ---- vis-cost
+const g = window.game;
+const { createZombieVisual } = await import('/src/entities/zombie/ZombieModel.js');
+const t0 = performance.now();
+const vs = [];
+for (let i = 0; i < 20; i++) vs.push(createZombieVisual({ variant: 'walker', outfit: 'civilian', seed: i * 77 + 5 }));
+const t1 = performance.now();
+for (const v of vs) v.dispose();
+return { perVisualMs: ((t1 - t0) / 20).toFixed(2) };
+// ---- noise-log downtown day
+const g = window.game, mgr = g.zombies;
+window.qa.god(true);
+const y = window.qa.ground(496.5, 512.5, 30);
+window.qa.tp(496.5, y, 512.5, 0, 0); window.qa.setTime(12);
+mgr.clearAll(); mgr.staticState.clear(); mgr.densityT = 0;
+const log = {};
+const on = g.noise.bind(g);
+g.noise = (x, y, z, r, type, byPlayer, extra) => { const k = type + (byPlayer ? '(P)' : ''); log[k] = (log[k] || 0) + 1; return on(x, y, z, r, type, byPlayer, extra); };
+const trans = {};
+const proto = Object.getPrototypeOf(mgr.zombies[0] || { setState() {} });
+window.qa.sim(5, 1 / 20);
+const Z = mgr.zombies[0].constructor.prototype;
+const os = Z.setState;
+Z.setState = function (s, t) { if (s !== this.state) { const k = this.state + '>' + s; trans[k] = (trans[k] || 0) + 1; } return os.call(this, s, t); };
+window.qa.sim(40, 1 / 20);
+Z.setState = os;
+g.noise = on;
+const st = {};
+for (const z of mgr.zombies) st[z.dead ? 'dead' : z.state] = (st[z.dead ? 'dead' : z.state] || 0) + 1;
+return { log, trans, st };
