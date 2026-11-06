@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SPLEEN audio test bench</title>
+<style>
+  :root { --bg: #0b0710; --panel: #160d1c; --fg: #e8dcef; --dim: #9a88a8; --cy: #3ff3e6; --mg: #ff3fa4; --gr: #7dff6a; }
+  body { margin: 0; padding: 16px; background: var(--bg); color: var(--fg); font: 13px/1.4 ui-monospace, Menlo, Consolas, monospace; }
+  h1 { font-size: 16px; margin: 0 0 12px; color: var(--cy); }
+  h2 { font-size: 13px; margin: 16px 0 6px; color: var(--mg); text-transform: uppercase; letter-spacing: .08em; }
+  .row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  button { background: var(--panel); color: var(--fg); border: 1px solid #3a2646; border-radius: 4px; padding: 4px 8px; font: inherit; cursor: pointer; }
+  button:hover { border-color: var(--cy); }
+  button.on { border-color: var(--gr); color: var(--gr); }
+  #clock { color: var(--gr); min-width: 22ch; }
+  #log { white-space: pre-wrap; color: var(--dim); margin-top: 12px; max-height: 30vh; overflow: auto; }
+  label { color: var(--dim); }
+</style>
+</head>
+<body>
+<h1>SPLEEN: SEPSIS — audio test bench</h1>
+<div class="row">
+  <button id="init">init()</button>
+  <button id="mute">mute</button>
+  <button id="lp">lowpass</button>
+  <button id="duck">duck(0.7, 0.8)</button>
+  <button id="stop">music.stop()</button>
+  <label>intensity <input id="int" type="range" min="0" max="1" step="0.01" value="0"></label>
+  <span id="clock">clock: -</span>
+</div>
+<h2>Music</h2>
+<div class="row" id="tracks"></div>
+<div class="row" id="bosses"></div>
+<h2>SFX</h2>
+<div class="row" id="sfx"></div>
+<div id="log"></div>
+
+<script src="../src/audio.js"></script>
+<script>
+"use strict";
+// ---------------------------------------------------------------------------
+// Analysis helpers used by tools/audio-test.js (and handy in the console).
+// ---------------------------------------------------------------------------
+window.TEST = {
+  stats(buf) {
+    const nch = buf.numberOfChannels, n = buf.length, sr = buf.sampleRate;
+    let peak = 0, sum = 0;
+    const hop = Math.floor(sr * 0.01), nb = Math.ceil(n / hop), blocks = new Float64Array(nb);
+    for (let c = 0; c < nch; c++) {
+      const x = buf.getChannelData(c);
+      for (let i = 0; i < n; i++) {
+        const v = x[i], a = Math.abs(v);
+        if (a > peak) peak = a;
+        if (!isFinite(v)) peak = Infinity;
+        sum += v * v; blocks[(i / hop) | 0] += v * v;
+      }
+    }
+    let maxMs = 0, onsets = 0, prev = 0;
+    for (let b = 0; b < nb; b++) {
+      const ms = blocks[b] / (hop * nch);
+      if (ms > maxMs) maxMs = ms;
+      if (ms > 1e-6 && ms > prev * 2.5) onsets++;
+      prev = ms * 0.6 + prev * 0.4;
+    }
+    const db = (x) => (x > 0 ? 20 * Math.log10(x) : -Infinity);
+    const rms = Math.sqrt(sum / (n * nch));
+    return { dur: n / sr, ch: nch, peak, rms, peakDb: db(peak), rmsDb: db(rms), stRmsDb: db(Math.sqrt(maxMs)), onsets };
+  },
+  // count audio nodes created while running fn (wraps BaseAudioContext factories)
+  async countNodes(fn) {
+    const proto = (window.BaseAudioContext || window.AudioContext).prototype;
+    const names = Object.getOwnPropertyNames(proto).filter((k) => /^create/.test(k) && typeof proto[k] === 'function');
+    const orig = {};
+    let count = 0;
+    names.forEach((k) => { orig[k] = proto[k]; proto[k] = function () { if (k !== 'createBuffer' && k !== 'createPeriodicWave') count++; return orig[k].apply(this, arguments); }; });
+    try { await fn(); } finally { names.forEach((k) => { proto[k] = orig[k]; }); }
+    return count;
+  },
+  async sfxStats(name, variant) {
+    const buf = await AUDIO._renderSfx(name, variant || 0, 44100);
+    return TEST.stats(buf);
+  },
+  async musicStats(id, secs, intensity, opts) {
+    let buf;
+    const nodes = await TEST.countNodes(async () => { buf = await AUDIO._renderMusic(id, secs, intensity, opts); });
+    const s = TEST.stats(buf);
+    s.nodesPerSec = nodes / secs;
+    return s;
+  },
+  // raw float data for WAV export (interleaved), as a plain array
+  async renderData(kind, id, secs, intensity, opts) {
+    const buf = kind === 'sfx' ? await AUDIO._renderSfx(id, 0, 44100) : await AUDIO._renderMusic(id, secs, intensity, opts);
+    const nch = buf.numberOfChannels, n = buf.length, out = new Float32Array(n * nch);
+    for (let c = 0; c < nch; c++) { const x = buf.getChannelData(c); for (let i = 0; i < n; i++) out[i * nch + c] = x[i]; }
+    return { sr: buf.sampleRate, nch, data: Array.from(out) };
+  },
+  // call every public entry point; collect any exceptions
+  smoke() {
+    const errs = [];
+    const tryIt = (label, f) => { try { f(); } catch (e) { errs.push(label + ': ' + e.message); } };
+    tryIt('ready', () => AUDIO.ready);
+    tryIt('setVolume', () => { AUDIO.setVolume('master', 0.9); AUDIO.setVolume('music', 0.7); AUDIO.setVolume('sfx', 1); AUDIO.setVolume('bogus', 1); AUDIO.setVolume('sfx', NaN); });
+    tryIt('getVolume', () => { AUDIO.getVolume('master'); AUDIO.getVolume('nope'); });
+    tryIt('setMuted', () => { AUDIO.setMuted(true); AUDIO.setMuted(false); AUDIO.muted = false; });
+    tryIt('sfx', () => { AUDIO.sfx('hit'); AUDIO.sfx('hit', { vol: 2, rate: 1.1, pan: -1, pitch: 2, force: true }); AUDIO.sfx('nope_not_real'); AUDIO.sfx(); AUDIO.sfx('hurt', { rate: -5, vol: 'x' }); });
+    tryIt('stopSfx', () => AUDIO.stopSfx('hit'));
+    tryIt('music.play', () => { AUDIO.music.play('veins'); AUDIO.music.play('veins'); AUDIO.music.play('boss', { region: 'heart' }); AUDIO.music.play('boss'); AUDIO.music.play('not_a_track'); });
+    tryIt('setIntensity', () => { AUDIO.music.setIntensity(0.5); AUDIO.music.setIntensity(-3); AUDIO.music.setIntensity(9); AUDIO.music.setIntensity(NaN); AUDIO.music.setIntensity(0.3); });
+    tryIt('current', () => AUDIO.music.current);
+    tryIt('clock', () => { const c = AUDIO.music.clock(); if (typeof c.beat !== 'number' || typeof c.bpm !== 'number' || typeof c.bar !== 'number') throw new Error('bad clock ' + JSON.stringify(c)); });
+    tryIt('duck', () => { AUDIO.duck(0.6, 0.5); AUDIO.duck(); AUDIO.duck(5, -1); });
+    tryIt('setLowpass', () => { AUDIO.setLowpass(true); AUDIO.setLowpass(false); });
+    tryIt('music.stop', () => { AUDIO.music.stop(0.5); AUDIO.music.stop(); });
+    tryIt('music.play again', () => AUDIO.music.play('title'));
+    return errs;
+  },
+};
+
+// ---------------------------------------------------------------------------
+// Manual soundboard UI
+// ---------------------------------------------------------------------------
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const log = (m) => { $('log').textContent = m + '\n' + $('log').textContent.slice(0, 4000); };
+  const btn = (parent, label, fn) => { const b = document.createElement('button'); b.textContent = label; b.onclick = fn; parent.appendChild(b); return b; };
+  $('init').onclick = () => { AUDIO.init(); log('init -> ready=' + AUDIO.ready); };
+  $('mute').onclick = (e) => { AUDIO.setMuted(!AUDIO.muted); e.target.classList.toggle('on', AUDIO.muted); };
+  let lp = false;
+  $('lp').onclick = (e) => { lp = !lp; AUDIO.setLowpass(lp); e.target.classList.toggle('on', lp); };
+  $('duck').onclick = () => AUDIO.duck(0.7, 0.8);
+  $('stop').onclick = () => AUDIO.music.stop();
+  $('int').oninput = (e) => AUDIO.music.setIntensity(+e.target.value);
+  AUDIO._trackIds.filter((t) => t !== 'boss').forEach((t) => btn($('tracks'), t, () => { AUDIO.init(); AUDIO.music.play(t); log('play ' + t); }));
+  AUDIO._regions.forEach((r) => btn($('bosses'), 'boss:' + r, () => { AUDIO.init(); AUDIO.music.play('boss', { region: r }); log('play boss ' + r); }));
+  AUDIO._sfxNames.forEach((n) => btn($('sfx'), n, () => { AUDIO.init(); AUDIO.sfx(n, { force: true }); }));
+  setInterval(() => { const c = AUDIO.music.clock(); $('clock').textContent = 'beat ' + c.beat.toFixed(2) + ' bar ' + c.bar + ' @' + c.bpm + ' [' + (AUDIO.music.current || '-') + ']'; }, 100);
+})();
+</script>
+</body>
+</html>
