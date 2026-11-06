@@ -29,6 +29,10 @@ export const globalUniforms = {
   uWind: { value: 0.3 },
   uWetness: { value: 0 },
   uLightning: { value: 0 },
+  uShadowMap: { value: null },
+  uShadowMatrix: { value: new THREE.Matrix4() },
+  uShadowOn: { value: 0 },
+  uShadowTexel: { value: 1 / 2048 },
 };
 
 export const LIGHTING_GLSL = /* glsl */ `
@@ -52,12 +56,33 @@ uniform vec3 uPLC[${MAX_POINT_LIGHTS}];
 uniform int uPLCount;
 uniform float uWetness;
 uniform float uLightning;
+uniform sampler2D uShadowMap;
+uniform mat4 uShadowMatrix;
+uniform float uShadowOn;
+uniform float uShadowTexel;
+
+float sampleShadow(vec3 wp, vec3 n) {
+  if (uShadowOn < 0.5) return 1.0;
+  vec4 sc = uShadowMatrix * vec4(wp + n * 0.08, 1.0);
+  vec3 p = sc.xyz / sc.w * 0.5 + 0.5;
+  if (p.x <= 0.0 || p.x >= 1.0 || p.y <= 0.0 || p.y >= 1.0 || p.z >= 1.0) return 1.0;
+  float bias = 0.0009;
+  float s = 0.0;
+  for (int x = -1; x <= 1; x++) for (int y = -1; y <= 1; y++) {
+    float d = texture(uShadowMap, p.xy + vec2(float(x), float(y)) * uShadowTexel).r;
+    s += p.z - bias > d ? 0.0 : 1.0;
+  }
+  s /= 9.0;
+  vec2 e = smoothstep(0.0, 0.06, p.xy) * smoothstep(1.0, 0.94, p.xy);
+  return mix(1.0, s, e.x * e.y);
+}
 
 vec3 computeLighting(vec3 wp, vec3 n, float sky, float blk, float ao) {
   float skyF = sky * sky * (0.35 + 0.65 * sky);
   float ndl = max(dot(n, uSunDir), 0.0);
   float outdoors = smoothstep(0.55, 0.95, sky);
-  vec3 direct = uSunColor * ndl * outdoors;
+  float shadow = ndl > 0.0 && outdoors > 0.0 ? sampleShadow(wp, n) : 1.0;
+  vec3 direct = uSunColor * ndl * outdoors * shadow;
   float hemi = 0.55 + 0.45 * n.y;
   vec3 amb = uAmbientColor * hemi * skyF;
   amb += vec3(0.75, 0.8, 1.0) * uLightning * skyF * 2.5;

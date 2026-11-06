@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dead County – Audio Test</title>
+    <style>
+      :root { color-scheme: dark; }
+      body { font: 13px/1.4 system-ui, sans-serif; background: #111416; color: #d8dcd6; margin: 0; padding: 16px; }
+      h1 { font-size: 18px; margin: 0 0 8px; }
+      h2 { font-size: 14px; margin: 18px 0 6px; color: #9fb59a; border-bottom: 1px solid #2a3130; padding-bottom: 3px; }
+      button { background: #232a2b; color: #d8dcd6; border: 1px solid #3a4443; border-radius: 4px; padding: 4px 8px; margin: 2px; cursor: pointer; font-size: 12px; }
+      button:hover { background: #2f3a3b; }
+      button.on { background: #49612f; border-color: #6f8f45; }
+      button.pending { opacity: 0.45; }
+      .row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; }
+      label { display: inline-flex; align-items: center; gap: 6px; min-width: 210px; }
+      label span.v { width: 32px; text-align: right; color: #9aa; }
+      input[type=range] { width: 120px; }
+      #status { color: #9aa; margin-left: 8px; }
+      table { border-collapse: collapse; font: 11px ui-monospace, monospace; margin-top: 8px; }
+      td, th { padding: 2px 8px; border-bottom: 1px solid #222; text-align: right; }
+      td:first-child, th:first-child { text-align: left; }
+      tr.bad td { color: #ff8a7a; }
+      #spec { display: block; margin-top: 8px; image-rendering: pixelated; border: 1px solid #333; }
+      .hint { color: #788; }
+    </style>
+  </head>
+  <body>
+    <h1>Dead County – procedural audio test bench</h1>
+    <div class="row">
+      <button id="init">Init audio (user gesture)</button>
+      <span id="status">not initialised</span>
+    </div>
+    <p class="hint">Click a sound to play it. Shift-click: play positionally at a random spot 3–40 m away. Alt-click: show its spectrogram.</p>
+
+    <h2>Volumes</h2>
+    <div class="row" id="volumes"></div>
+
+    <h2>Music</h2>
+    <div class="row" id="music"></div>
+
+    <h2>Ambience</h2>
+    <div class="row" id="ambience"></div>
+    <div class="row">
+      <button data-thunder="0">thunder(0) overhead</button>
+      <button data-thunder="0.5">thunder(0.5)</button>
+      <button data-thunder="1">thunder(1) far</button>
+      <button id="orbit">orbit listener</button>
+    </div>
+
+    <h2>Loops</h2>
+    <div class="row" id="loops"></div>
+
+    <h2>Sounds</h2>
+    <div id="sounds"></div>
+
+    <h2>Offline analysis</h2>
+    <div class="row">
+      <button id="renderAll">Render every sound offline + stats</button>
+      <span class="hint" id="renderStatus"></span>
+    </div>
+    <canvas id="spec" width="800" height="256"></canvas>
+    <div id="table"></div>
+
+    <script type="module" src="./audio-test.js"></script>
+  </body>
+</html>

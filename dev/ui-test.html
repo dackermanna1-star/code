@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dead County - UI test</title>
+    <style>
+      html, body { margin: 0; padding: 0; overflow: hidden; background: #000; width: 100%; height: 100%; }
+      #game { position: fixed; inset: 0; }
+      #game canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; }
+      #ui { position: fixed; inset: 0; pointer-events: none; }
+      #icons { position: fixed; inset: 0; overflow: auto; background: #3a3530; padding: 16px; display: none;
+        font: 14px monospace; color: #ddd; z-index: 1000; }
+      #icons .cell { display: inline-flex; flex-direction: column; align-items: center; width: 92px; margin: 4px; }
+      #icons img { width: 56px; height: 56px; image-rendering: pixelated; background: #6a6258; }
+    </style>
+  </head>
+  <body>
+    <div id="game"></div>
+    <div id="ui"></div>
+    <div id="icons"></div>
+    <script type="module" src="./ui-test.js"></script>
+  </body>
+</html>
