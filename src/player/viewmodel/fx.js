@@ -201,7 +201,7 @@ export class ViewmodelFX {
     if (this.flash.visible) {
       this.flashFrames++;
       this.flashT += dt;
-      if (this.flashFrames > 1 && this.flashT > 0.03) this.flash.visible = false;
+      if (this.flashFrames > 2 && this.flashT > 0.03) this.flash.visible = false;
       else {
         // face the camera: front quad billboard
         this.flash.parent.getWorldQuaternion(_q).invert();

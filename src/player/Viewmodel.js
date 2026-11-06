@@ -576,7 +576,7 @@ export class Viewmodel {
     const isGun = meta.kind === 'gun';
     const fov = lerp(this.fov, isGun ? (meta.adsFov ?? this.adsFov) : this.fov, aim01);
     // while fully aimed, push the near plane out so the stock / hands right under the eye are clipped away
-    const near = lerp(0.01, isGun ? (meta.adsNear ?? 0.085) : 0.01, aim01 * aim01 * aim01);
+    const near = lerp(0.01, isGun ? (meta.adsNear ?? 0.03) : 0.01, aim01 * aim01 * aim01);
     if (Math.abs(fov - this.camera.fov) > 1e-3 || Math.abs(near - this.camera.near) > 1e-4) {
       this.camera.fov = fov;
       this.camera.near = near;
@@ -691,8 +691,8 @@ export class Viewmodel {
     const opacity = meta.scope ? 1 - clamp01((aim01 - 0.8) / 0.16) : 1;
     this.material.uniforms.uOpacity.value = opacity;
     const hiddenAll = opacity <= 0.001;
-    this.arms.R.root.visible = !hiddenAll;
-    this.arms.L.root.visible = !hiddenAll;
+    this.arms.R.root.visible = !hiddenAll && !this._armRNear;
+    this.arms.L.root.visible = !hiddenAll && !this._armLNear;
     this.model.group.visible = this.model.group.visible && !hiddenAll;
     res.w *= Math.exp(-dt * 14);
     this._updateLighting(dt, s);
@@ -754,6 +754,10 @@ export class Viewmodel {
         mp.position.z += ax[2] * out.mag.d;
         mp.visible = out.mag.vis;
       }
+    }
+    if (meta.adsHide) {
+      const vis = this._aim.x < 0.8;
+      for (const n of meta.adsHide) if (parts[n]) parts[n].visible = vis;
     }
     if (meta.chamberShells) {
       const vis = out.chambers != null ? out.chambers : this.state.chambers;
@@ -873,6 +877,10 @@ export class Viewmodel {
     if (meta.kind === 'fists' || meta.hold === 'bow') _upR.copy(_rigUp).lerp(_up, 0.5).normalize();
     this.arms.place(this.arms.R, hR, _sR, _upR);
     this.arms.place(this.arms.L, hL, _sL, upL);
+    // a hand right in front of the eye (bow at full draw) reads as a giant block: hide it
+    const minD = meta.hold === 'bow' ? 0.16 : 0.07;
+    this._armRNear = hR.length() < minD;
+    this._armLNear = hL.length() < 0.07;
     this.arms.R.finger.visible = meta.kind === 'gun' && meta.hold !== 'bow' && out.finger !== false && !out.handR.length;
     this.arms.setProp(this.arms.L, out.propL);
     this.arms.setProp(this.arms.R, out.propR);

@@ -28,7 +28,7 @@ import { Events } from './Events.js';
 import { Interactor } from './Interact.js';
 import { ItemActions } from './ItemActions.js';
 import { SaveManager, u8ToB64, b64ToU8 } from '../save/SaveManager.js';
-import { getItemDef, createItem } from '../items/items.js';
+import { getItemDef, createItem, setItemClock } from '../items/items.js';
 import { getRecipeStatus, craft as craftRecipe, RECIPES } from '../items/crafting.js';
 import { generateLoot } from '../items/loot.js';
 import { EQUIP_SLOTS } from '../inventory/Inventory.js';
@@ -58,6 +58,7 @@ export class Game {
     this.PROFESSIONS = PROFESSIONS;
     this.SKILLS = SKILLS;
     this.state = 'menu';
+    setItemClock(() => this.time.totalHours);
     this.hud = { interaction: null, progress: null, ammo: null, heldName: null, durability: null };
     this.time = { day: 1, hour: 8, minute: 0, totalHours: 8, isNight: false, phase: 'day' };
     this.weatherInfo = { type: 'clear', label: 'Clear', temperature: 14, wind: 0.2 };
@@ -631,9 +632,11 @@ export class Game {
       globalUniforms.uFlashDir.value.copy(fwd);
       globalUniforms.uFlashRange.value = def.range || 26;
       const cone = def.cone || 0.42;
-      globalUniforms.uFlashCone.value.set(Math.cos(cone), Math.cos(cone * 0.35));
+      if (def.omni) globalUniforms.uFlashCone.value.set(-1.01, -1.0);
+      else globalUniforms.uFlashCone.value.set(Math.cos(cone), Math.cos(cone * 0.35));
       const batt = (light.uses ?? 100) / 100;
-      globalUniforms.uFlashIntensity.value = 2.3 * (batt < 0.15 ? 0.5 + Math.random() * 0.3 : 1);
+      const flick = def.fire ? 0.85 + Math.random() * 0.15 : batt < 0.15 ? 0.5 + Math.random() * 0.3 : 1;
+      globalUniforms.uFlashIntensity.value = (def.omni ? 1.3 : 2.3) * flick;
     }
     // dynamic point lights
     const cam = r.camera.position;
@@ -1064,7 +1067,7 @@ export class Game {
     let nearWorkbench = false;
     const x0 = Math.floor(p.x), y0 = Math.floor(p.y), z0 = Math.floor(p.z);
     for (let dx = -3; dx <= 3 && !nearWorkbench; dx++) for (let dz = -3; dz <= 3 && !nearWorkbench; dz++) for (let dy = -1; dy <= 2; dy++) if (w.get(x0 + dx, y0 + dy, z0 + dz) === B.workbench) { nearWorkbench = true; break; }
-    return { nearFire: this.nearFire(), nearWorkbench, skills };
+    return { nearFire: this.nearFire(), nearWorkbench, skills, nowHours: this.time.totalHours };
   }
   getRecipes() {
     try { return getRecipeStatus(this.player.inv, this.craftCtx()); } catch (e) { console.error(e); return []; }

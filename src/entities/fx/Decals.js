@@ -10,6 +10,7 @@ in vec2 aCorner;  // -1..1
 in vec4 aColor;
 in vec3 aLight;   // sky, block, kind (1 = blood)
 in vec3 aTime;    // birth, grow duration, slot
+uniform float uTime;
 uniform float uHead;
 uniform float uCount;
 out vec2 vCorner;

@@ -154,23 +154,26 @@ export class Combat {
     if (def.durability) {
       stack.dur = Math.max(0, stack.dur - (fa.durabilityLoss ?? 0.35) * (1 - p.skillLevel('maintenance') * 0.05));
       const cond = stack.dur / def.durability;
-      if (cond < 0.45 && Math.random() < (0.45 - cond) * 0.12) stack.jammed = true;
+      const jam = (fa.jam || 0.002) * (1 + (1 - cond) * 6) + (cond < 0.4 ? (0.4 - cond) * 0.1 : 0);
+      if (Math.random() < jam) stack.jammed = true;
     }
-    const slug = stack.ammoType === 'ammo_12g_slug';
-    const pellets = slug ? 1 : fa.pellets || 1;
-    const dmg = slug ? Math.max(fa.damage * (fa.pellets || 1) * 0.65, 80) : fa.damage;
+    const round = stack.ammoType ? getItemDef(stack.ammoType).round : null;
+    const pellets = round?.pellets ?? fa.pellets ?? 1;
+    const dmg = round?.damage ?? fa.damage;
     const cam = g.renderer.camera;
     const origin = v1.copy(cam.position);
     const fwd = p.forward(v2);
-    const spread = this.spreadFor(def);
-    const suppressed = fa.suppressed || stack.data?.suppressor;
+    const spread = this.spreadFor(def) * (round?.spreadMult ?? 1);
+    const supDef = stack.data?.suppressor ? getItemDef(stack.data.suppressor) : null;
+    const noiseMult = fa.suppressed ? 0.25 : supDef ? supDef.attachment?.noiseMult ?? 0.3 : 1;
+    const suppressed = noiseMult < 0.6;
     for (let i = 0; i < pellets; i++) {
       const dir = v3.copy(fwd);
       const a = Math.random() * Math.PI * 2, r = Math.sqrt(Math.random()) * spread * (pellets > 1 && !p.aiming ? 1.25 : 1) + (pellets > 1 ? 0.035 : 0);
       const right = new THREE.Vector3(Math.cos(p.yaw), 0, -Math.sin(p.yaw));
       const up = new THREE.Vector3().crossVectors(right, dir).normalize();
       dir.addScaledVector(right, Math.cos(a) * r).addScaledVector(up, Math.sin(a) * r).normalize();
-      this.shootRay(origin.clone(), dir.clone(), (fa.range || 60) * 1.8, dmg, def, { pellet: pellets > 1, pierce: (fa.penetration || (fa.damage > 60 ? 1 : 0)) });
+      this.shootRay(origin.clone(), dir.clone(), (round?.range || fa.range || 60) * 1.8, dmg, def, { pellet: pellets > 1, pierce: (fa.penetration || (dmg > 60 && pellets === 1 ? 1 : 0)), recover: fa.recover ? stack.ammoType : null, recoverChance: fa.recover });
     }
     // recoil
     const rec = (fa.recoil || 2) * (Math.PI / 180) * (1 - p.skillLevel('aiming') * 0.04) * (p.crouching ? 0.8 : 1) * (p.aiming ? 0.8 : 1);
@@ -193,14 +196,14 @@ export class Combat {
         setTimeout(() => g.fx?.shell(muzzle.clone().addScaledVector(fwd, -0.3), right.clone().add(new THREE.Vector3(0, 0.6, 0)), def.id.includes('shotgun') ? 'shotgun' : fa.damage > 45 ? 'rifle' : 'pistol'), delay * 1000);
       }
     }
-    const noise = suppressed ? Math.min(fa.noise || 50, 14) : fa.noise || 50;
+    const noise = (fa.noise || 50) * noiseMult;
     g.noise(p.x, p.y + 1.5, p.z, noise, 'gunshot', true);
     if (noise > 40) g.audio.setAmbience?.({ tinnitus: 0 });
     if (mode === 'pump') { setTimeout(() => { g.viewmodel?.pump(); g.audio.play('pump', { volume: 0.8 }); }, 180); }
     if (mode === 'bolt') { setTimeout(() => { g.viewmodel?.bolt(); g.audio.play('bolt', { volume: 0.8 }); }, 200); }
-    if (stack.data?.suppressor === 'suppressor_bottle') {
-      stack.data.suppressorUses = (stack.data.suppressorUses ?? 8) - 1;
-      if (stack.data.suppressorUses <= 0) { delete stack.data.suppressor; g.ui?.toast('The bottle suppressor fell apart.', 'warn'); }
+    if (supDef && supDef.attachment?.uses) {
+      stack.data.suppressorUses = (stack.data.suppressorUses ?? supDef.attachment.uses) - 1;
+      if (stack.data.suppressorUses <= 0) { delete stack.data.suppressor; delete stack.data.suppressorUses; g.ui?.toast(`The ${supDef.name} fell apart.`, 'warn'); }
     }
     p.addXP('aiming', 1.2);
     this.lastShotT = g.clock;
@@ -235,6 +238,7 @@ export class Combat {
         const dist = travelled + h.distance;
         const fall = dist > (def.firearm?.range || 60) ? clamp(1 - (dist - def.firearm.range) / (def.firearm.range * 1.5), 0.25, 1) : 1;
         this.damageZombie(z, dmg * fall, h.part, h.point, dir, def, { bullet: true, pellet: o.pellet });
+        if (o.recover && Math.random() < (o.recoverChance || 0.5)) g.groundItems.add(createItem(o.recover), z.x, z.y + 0.5, z.z);
         if (pierce-- > 0) { origin = h.point.clone().addScaledVector(dir, 0.3); travelled = dist; continue; }
         return;
       }
@@ -255,6 +259,7 @@ export class Combat {
         continue;
       }
       g.fx?.impact(pos, n, d.mat);
+      if (o.recover && Math.random() < (o.recoverChance || 0.5)) g.groundItems.add(createItem(o.recover), pos.x + n.x * 0.2, pos.y + n.y * 0.2, pos.z + n.z * 0.2);
       if (Math.random() < 0.35) g.audio.play(d.mat === 'metal' ? 'bullet_impact_metal' : 'bullet_impact', { pos, volume: 0.6 });
       if (d.hp || d.door) g.damageBlock(bh.x, bh.y, bh.z, dmg * 0.35, { tool: 'bullet' });
       return;
@@ -546,7 +551,7 @@ export class Combat {
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.22, 0.12), createEntityMaterial({ color }));
     mesh.position.copy(pos);
     g.renderer.scene.add(mesh);
-    this.projectiles.push({ mesh, pos, vel, def, kind: th.kind, fuse: th.fuse ?? (th.kind === 'pipebomb' ? 3.5 : th.kind === 'grenade' ? 3.2 : -1), t: 0, landed: false, stack: one, spin: new THREE.Vector3(Math.random() * 10, Math.random() * 10, 0) });
+    this.projectiles.push({ mesh, pos, vel, def, kind: th.kind, fuse: th.kind === 'pipebomb' || th.kind === 'grenade' ? (th.fuse || 3.5) : -1, t: 0, landed: false, stack: one, spin: new THREE.Vector3(Math.random() * 10, Math.random() * 10, 0) });
     this.syncHeld();
   }
 
@@ -587,14 +592,14 @@ export class Combat {
       setEntityLight(pr.mesh.material, sky, pr.kind === 'flare' && pr.landed ? 1 : 0);
       if (pr.fuse > 0 && pr.t >= pr.fuse) { this.detonate(pr, pr.pos.clone()); this.removeProjectile(i); continue; }
       if (pr.landed && pr.kind === 'flare') {
-        pr.life = (pr.life ?? 60) - dt;
+        pr.life = (pr.life ?? (pr.def.throwable.duration || 60)) - dt;
         pr.noiseT = (pr.noiseT ?? 0) - dt;
         g.addFlashLight(pr.pos.clone().add(new THREE.Vector3(0, 0.4, 0)), 0xff3020, 3.5 + Math.random() * 0.6, 18, 0);
         if (pr.noiseT <= 0) { pr.noiseT = 3; g.noise(pr.pos.x, pr.pos.y, pr.pos.z, 45, 'flare'); }
         if (pr.life <= 0) { pr.sound?.stop(); pr.smoke?.stop(); this.removeProjectile(i); }
       }
       if (pr.landed && pr.kind === 'noise') {
-        pr.life = (pr.life ?? (pr.def.id === 'noise_maker' ? 25 : 0.1)) - dt;
+        pr.life = (pr.life ?? (pr.def.id === 'noise_maker' ? (pr.def.throwable.duration || 20) : 0.1)) - dt;
         pr.noiseT = (pr.noiseT ?? 0) - dt;
         if (pr.noiseT <= 0) {
           pr.noiseT = 1.5;
@@ -603,7 +608,7 @@ export class Combat {
         }
         if (pr.life <= 0) {
           if (pr.def.id !== 'noise_maker') { this.removeProjectile(i); continue; }
-          if (pr.life < -0.5) { this.detonate(pr, pr.pos.clone()); this.removeProjectile(i); }
+          if (pr.life < -0.5) { this.removeProjectile(i); }
         }
       }
       if (pr.landed && pr.kind === 'smoke' && !pr.smoke) {
@@ -643,7 +648,7 @@ export class Combat {
     const th = pr.def.throwable;
     if (pr.kind === 'molotov') {
       g.audio.play('molotov_break', { pos: at, volume: 1.2 });
-      g.startFire(at, th.radius || 2.6, 20);
+      g.startFire(at, Math.min(th.radius || 2.6, 3.2), th.duration || 15);
       g.noise(at.x, at.y, at.z, 30, 'fire');
       return;
     }

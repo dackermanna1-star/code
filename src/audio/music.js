@@ -174,6 +174,28 @@ export class MusicSystem {
     this.current = null; // active piece / tense player
     this.fading = [];
     this.nextStart = Infinity;
+    this.req = 'none';
+    this.reqSince = 0;
+  }
+
+  /** debounced mood request (called every frame by the game) */
+  request(m) {
+    if (m !== this.req) {
+      this.req = m;
+      this.reqSince = this.ctx.currentTime;
+    }
+    this._applyRequest();
+  }
+
+  _applyRequest() {
+    const m = this.req;
+    if (m === this.mood) return;
+    const held = this.ctx.currentTime - this.reqSince;
+    let need = 2;
+    if (m === 'menu' || m === 'none' || this.mood === 'menu' || this.mood === 'none') need = 0;
+    else if (m === 'tense') need = 0.5;
+    else if (this.mood === 'tense') need = 8;
+    if (held >= need) this.setMood(m);
   }
 
   setMood(m) {
@@ -431,6 +453,7 @@ export class MusicSystem {
       tl.connect(tlg);
       tlg.connect(trem.gain);
       const base = Math.random() < 0.5 ? 659.26 : 587.33;
+      let alive = 2;
       for (const f of [base, base * 1.0595]) {
         const o = ctx.createOscillator();
         o.frequency.value = f;
@@ -438,7 +461,14 @@ export class MusicSystem {
         o.start(t);
         o.stop(t + 6.1);
         p.nodes.add(o);
-        o.onended = () => p.nodes.delete(o);
+        o.onended = () => {
+          p.nodes.delete(o);
+          if (--alive === 0) {
+            g.disconnect();
+            trem.disconnect();
+            tlg.disconnect();
+          }
+        };
       }
       tl.start(t);
       tl.stop(t + 6.1);
@@ -458,6 +488,7 @@ export class MusicSystem {
 
   update() {
     const now = this.ctx.currentTime;
+    this._applyRequest();
     // fades
     for (let i = this.fading.length - 1; i >= 0; i--) {
       if (now > this.fading[i].killAt) {

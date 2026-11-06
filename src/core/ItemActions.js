@@ -1,10 +1,12 @@
 // Item context menus, using items (eat/drink/medicine/read/equip), tooltips, wound treatments.
-import { getItemDef, createItem, itemWeight, itemFreshness } from '../items/items.js';
+import { getItemDef, createItem, itemWeight, itemFreshness, getFoodEffect, getDrinkEffect, freshnessState } from '../items/items.js';
 import { EQUIP_SLOTS, EQUIP_LABELS, moveStack } from '../inventory/Inventory.js';
 import { PART_LABELS, WOUND_INFO } from '../player/Survival.js';
 import { SKILLS } from '../player/professions.js';
 import { NOTES } from '../world/gen/lore.js';
 import { clamp } from './rng.js';
+import { B } from '../world/blocks.js';
+const blockId = (n) => B[n] ?? 0;
 
 const hasTag = (s, t) => (getItemDef(s.id).tags || []).includes(t);
 const CALIBER = {
@@ -60,6 +62,7 @@ export class ItemActions {
       add(this.p.flashlightOn ? 'Turn Off Light' : 'Turn On Light', () => g.toggleFlashlight());
       if ((s.uses ?? 100) < 100 && this.inv.has('batteries')) add('Replace Batteries', () => { this.inv.remove('batteries', 1); s.uses = 100; g.audio.play('flashlight_click'); });
     }
+    if (def.place && !inWorld) add('Place ' + def.name.replace(' Kit', ''), () => this.place(desc, index));
     if (def.book || s.id === 'note' || (def.tags || []).includes('map') || s.data?.noteId) add('Read', () => this.read(desc, index));
     if (def.id === 'gas_can' && s.uses > 0 && g.interact?.lookingAtCampfire()) add('Use as Fuel', () => {});
     if ((s.count || 1) > 1) add('Split Stack', () => this.split(desc, index));
@@ -121,29 +124,35 @@ export class ItemActions {
     const g = this.game, p = this.p;
     const s = desc.slots[index];
     const def = getItemDef(s.id), f = def.food;
+    const smoke = def.useLabel === 'Smoke';
     if (f.needsOpener && !this.inv.has((x) => hasTag(x, 'can_opener') || hasTag(x, 'blade'))) {
       g.ui?.toast('You need a can opener or a knife to open this.', 'warn');
       return;
     }
-    if (p.hunger > 97 && !f.thirst) { g.ui?.toast("You're too full to eat.", 'info'); return; }
+    if (smoke && !this.inv.has((x) => hasTag(x, 'fire_starter'))) { g.ui?.toast('You need a lighter or matches.', 'warn'); return; }
+    if (p.hunger > 97 && f.hunger > 0 && !smoke) { g.ui?.toast("You're too full to eat.", 'info'); return; }
     g.startAction({
-      label: 'Eating ' + def.name, time: f.eatTime || 2.5, anim: 'eat', sound: 'eat',
+      label: (smoke ? 'Smoking ' : 'Eating ') + def.name, time: Math.min(f.eatTime || 3, 6), anim: smoke ? 'pills' : 'eat', sound: smoke ? 'lighter' : 'eat',
       onDone: () => {
         if (desc.slots[index] !== s) return;
-        const fresh = itemFreshness(s, g.time.totalHours);
-        let sick = f.sickness || 0;
-        if (f.raw) sick += 22;
-        if (fresh <= 0) { sick += 40; g.ui?.toast('That was rotten... you feel sick.', 'danger'); }
-        else if (fresh < 0.3) { sick += 10; g.ui?.toast('It tasted stale.', 'warn'); }
-        p.hunger = clamp(p.hunger + (f.hunger || 0) * (fresh <= 0 ? 0.5 : 1), 0, 100);
-        p.thirst = clamp(p.thirst + (f.thirst || 0), 0, 100);
-        p.health = clamp(p.health + (f.health || 0), 0, p.maxHealth);
-        p.sickness = clamp(p.sickness + sick, 0, 100);
-        p.panic = clamp(p.panic - (f.panic || 0), 0, 100);
-        p.energy = clamp(p.energy + (f.energy || 0), 0, 100);
-        if (f.energy > 0) p.caffeine = Math.max(p.caffeine, 3);
-        this.consume(desc, index);
-        if (f.leaves) this.giveOrDrop(createItem(f.leaves));
+        const e = getFoodEffect(s, g.time.totalHours) || {};
+        const st = freshnessState(s, g.time.totalHours);
+        if (st === 'rotten') g.ui?.toast('That was rotten... you feel sick.', 'danger');
+        else if (st === 'stale') g.ui?.toast('It tasted stale.', 'warn');
+        else if (f.raw) g.ui?.toast('Eating that raw was a bad idea.', 'warn');
+        p.hunger = clamp(p.hunger + (e.hunger || 0), 0, 100);
+        p.thirst = clamp(p.thirst + (e.thirst || 0), 0, 100);
+        p.health = clamp(p.health + (e.health || 0), 0, p.maxHealth);
+        p.sickness = clamp(p.sickness + (e.sickness || 0), 0, 100);
+        p.panic = clamp(p.panic + (e.panic || 0), 0, 100);
+        p.energy = clamp(p.energy + (e.energy || 0), 0, 100);
+        if (e.energy > 0) p.caffeine = Math.max(p.caffeine, 3);
+        if (smoke) { const fs = this.inv.find((x) => hasTag(x, 'fire_starter'))[0]; if (fs && getItemDef(fs.stack.id).uses) { fs.stack.uses = (fs.stack.uses ?? 1) - 1; if (fs.stack.uses <= 0) this.inv.removeStack(fs.stack); } }
+        if (def.uses && (s.uses ?? def.uses) > 1) { s.uses = (s.uses ?? def.uses) - 1; this.inv.changed(); }
+        else {
+          this.consume(desc, index);
+          if (f.leaves) this.giveOrDrop(createItem(f.leaves));
+        }
       },
     });
   }
@@ -167,28 +176,29 @@ export class ItemActions {
     const g = this.game, p = this.p;
     const s = desc.slots[index];
     const def = getItemDef(s.id);
-    if (p.thirst > 98) { g.ui?.toast("You're not thirsty.", 'info'); return; }
+    const e0 = getDrinkEffect(s, g.time.totalHours);
+    if (!e0) { g.ui?.toast("It's empty.", 'info'); return; }
+    if (!e0.drinkable) { g.ui?.toast("You can't drink that.", 'warn'); return; }
+    if (p.thirst > 98 && !e0.alcohol) { g.ui?.toast("You're not thirsty.", 'info'); return; }
     g.startAction({
       label: 'Drinking', time: 1.8, anim: 'drink', sound: 'drink',
       onDone: () => {
         if (desc.slots[index] !== s) return;
+        const e = getDrinkEffect(s, g.time.totalHours);
+        if (!e) return;
+        p.thirst = clamp(p.thirst + (e.thirst || 0), 0, 100);
+        p.hunger = clamp(p.hunger + (e.hunger || 0), 0, 100);
+        if (e.sickness > 0 && Math.random() < (def.liquidContainer ? 0.75 : 1)) p.sickness = clamp(p.sickness + e.sickness, 0, 100);
+        p.panic = clamp(p.panic + (e.panic || 0), 0, 100);
+        if (e.alcohol) { p.drunk = clamp(p.drunk + e.alcohol, 0, 100); p.panic = Math.max(0, p.panic - e.alcohol * 0.5); }
+        if (e.energy) { p.energy = clamp(p.energy + e.energy, 0, 100); p.caffeine = Math.max(p.caffeine, 4); }
         if (def.liquidContainer) {
-          if (!(s.uses > 0)) return;
-          const dirty = s.data?.liquid === 'dirty_water';
-          p.thirst = clamp(p.thirst + (def.drink?.thirst || 18), 0, 100);
-          if (dirty && Math.random() < 0.7) p.sickness = clamp(p.sickness + 22, 0, 100);
-          s.uses--;
-          if (s.uses <= 0) { s.uses = 0; s.data.liquid = null; }
+          s.uses = Math.max(0, (s.uses || 0) - 1);
+          if (s.uses <= 0) s.data.liquid = null;
           this.inv.changed();
           return;
         }
-        const d = def.drink;
-        p.thirst = clamp(p.thirst + (d.thirst || 0), 0, 100);
-        p.hunger = clamp(p.hunger + (def.food?.hunger || d.hunger || 0), 0, 100);
-        p.sickness = clamp(p.sickness + (d.sickness || 0), 0, 100);
-        if (d.alcohol) { p.drunk = clamp(p.drunk + d.alcohol, 0, 100); p.panic = Math.max(0, p.panic - d.alcohol); }
-        if (d.energy) { p.energy = clamp(p.energy + d.energy, 0, 100); p.caffeine = Math.max(p.caffeine, 4); }
-        if (def.uses && s.uses > 1) { s.uses--; this.inv.changed(); }
+        if (def.uses && (s.uses ?? def.uses) > 1) { s.uses = (s.uses ?? def.uses) - 1; this.inv.changed(); }
         else {
           this.consume(desc, index);
           if (def.drink.leaves) this.giveOrDrop(createItem(def.drink.leaves));
@@ -277,14 +287,21 @@ export class ItemActions {
     g.startAction({
       label: 'Taking ' + def.name, time: m.time || 1.5, anim: def.id.includes('morphine') || def.id.includes('adrenaline') ? 'inject' : 'pills', sound: 'pills',
       onDone: () => {
-        if (m.painkiller) { p.painkiller = Math.max(p.painkiller, def.id.includes('morphine') ? 12 : 6); if (def.id.includes('morphine')) p.pain = 0; }
+        if (m.painkiller) { p.painkiller = Math.max(p.painkiller, m.duration || 4); p.pain = Math.max(0, p.pain - m.painkiller); }
+        if (m.panic) p.panic = clamp(p.panic + m.panic, 0, 100);
+        if (m.sickness) p.sickness = clamp(p.sickness + m.sickness, 0, 100);
+        if (m.energy) p.energy = clamp(p.energy + m.energy, 0, 100);
+        if (m.stamina) p.stamina = clamp(p.stamina + m.stamina, 0, p.maxStamina);
         if (m.antibiotic) { for (const w of wounds) w.antibiotic = 18; p.antibioticSlow = 24; g.ui?.toast('Antibiotics will fight off wound infections.', 'good'); }
         if (m.antiviral) {
           if (p.infected) {
-            p.infected = false; p.infection = 0; p.infectionKnown = false;
-            g.ui?.toast('The fever breaks. The infection is receding...', 'good');
+            p.infection = Math.max(0, p.infection - (m.antiviral || 40) * 1.5);
+            if (p.infection < 25) {
+              p.infected = false; p.infection = 0; p.infectionKnown = false;
+              g.ui?.toast('The fever breaks. The infection is gone. You got lucky.', 'good');
+            } else g.ui?.toast('The fever eases a little... you will need another dose.', 'warn');
           } else g.ui?.toast('You feel nothing. Hopefully it protects you.', 'info');
-          p.antiviralProtect = 24;
+          p.antiviralProtect = m.duration || 24;
         }
         if (m.heal) p.health = clamp(p.health + m.heal, 0, p.maxHealth);
         if (def.id === 'vitamins') { p.energy = clamp(p.energy + 8, 0, 100); p.sickness = Math.max(0, p.sickness - 10); }
@@ -486,14 +503,14 @@ export class ItemActions {
     const b = def.book;
     if (!b) return;
     g.startAction({
-      label: 'Reading ' + def.name, time: 8, anim: 'read', sound: 'ui_click',
+      label: 'Reading ' + def.name, time: clamp((b.hours || 2) * 4, 5, 14), anim: 'read', sound: 'ui_click',
       onDone: () => {
         if (b.skill) {
-          g.survival.bookBoost[b.skill] = (b.hours || 24);
-          g.ui?.toast(`${SKILLS[b.skill]?.name || b.skill} XP gain x${b.mult || 2} for ${b.hours || 24} hours.`, 'good');
-          p.addXP(b.skill, 20);
+          g.survival.bookBoost[b.skill] = 24;
+          g.ui?.toast(`${SKILLS[b.skill]?.name || b.skill} XP gain x${b.mult || 2} for 24 hours.`, 'good');
+          p.addXP(b.skill, b.xp || 20);
         } else {
-          p.panic = Math.max(0, p.panic - (b.panic || 20));
+          p.panic = clamp(p.panic - Math.abs(b.panic || 20), 0, 100);
           g.ui?.toast('You feel a little calmer.', 'good');
         }
         if (def.category === 'book' && !b.keep) {
@@ -501,6 +518,22 @@ export class ItemActions {
         }
       },
     });
+  }
+
+  place(desc, index) {
+    const g = this.game, p = this.p, w = g.world;
+    const s = desc.slots[index];
+    const def = getItemDef(s.id);
+    const fx = Math.floor(p.x - Math.sin(p.yaw) * 1.4), fz = Math.floor(p.z - Math.cos(p.yaw) * 1.4);
+    let y = Math.floor(p.y + 0.5);
+    for (let k = 0; k < 3 && w.get(fx, y, fz) !== 0; k++) y++;
+    while (y > 1 && w.get(fx, y - 1, fz) === 0) y--;
+    if (w.get(fx, y, fz) !== 0 || !getItemDef && false) { g.ui?.toast('No room to place that here.', 'warn'); return; }
+    const block = def.place === 'campfire' ? 'campfire_out' : def.place;
+    w.setBlock(fx, y, fz, blockId(block));
+    this.consume(desc, index);
+    g.ui?.toast(def.place === 'campfire' ? 'Campfire placed. Light it with a lighter or matches (E).' : 'Placed.', 'good');
+    g.afterInventoryChange();
   }
 
   split(desc, index) {

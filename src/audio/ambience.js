@@ -162,7 +162,7 @@ export class AmbienceSystem {
     // rain
     const rainOut = C.rain * 0.5 * (1 - uw);
     const heavy = clamp(C.rain * C.storm * 0.9 + Math.max(0, C.rain - 0.6) * 0.6, 0, 1) * 0.5 * (1 - uw);
-    const roof = indoor * clamp(C.rain * 0.8 + C.storm * 0.2, 0, 1) * 0.3 * (1 - uw);
+    const roof = indoor * clamp(C.rain * 0.8 + C.storm * 0.2, 0, 1) * 0.45 * (1 - uw);
     this._rampTo(this.rainG.gain, rainOut);
     this._rampTo(this.heavyG.gain, heavy);
     this._rampTo(this.roofG.gain, roof);

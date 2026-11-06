@@ -280,15 +280,18 @@ function longGunMeta(extra) {
     recoil: { pitch: 0.1, back: 0.04, yaw: 0.02, roll: 0.04, up: 0.006 },
     flash: 1.0, shell: 'brass', ejectOnFire: true, fireAnim: 'none',
     reload: { style: 'rifle', charge: 'catch' },
+    adsHide: ['stock'], adsNear: 0.03,
   }, extra);
 }
 
 function shotgunStock(b, wood, z0 = 3, butt = true) {
+  b.part('stock');
   b.box(0, 3.3, z0 + 4.2, 3.0, 4.2, 8.5, wood, M.WOOD, { r: [-0.2, 0, 0] });
-  if (!butt) return;
+  if (!butt) { b.part('body'); return; }
   b.box(0, 0.9, z0 + 18.5, 3.4, 7.4, 22, wood, M.WOOD, { r: [-0.13, 0, 0] });
   b.box(0, 4.0, z0 + 17.5, 2.8, 1.2, 18, wood, M.WOOD, { r: [-0.13, 0, 0] });
   b.box(0, -0.4, z0 + 29.7, 3.6, 8.4, 1.4, C.rubber, M.RUBBER, { r: [-0.13, 0, 0] });
+  b.part('body');
 }
 
 export function shotgunPump() {
@@ -457,10 +460,12 @@ export function rifleHunting() {
   b.box(0, 3.9, -43.6, 3.4, 3.2, 1.2, 0x1e1410, M.WOOD);
   b.box(0, 3.6, -4.0, 3.6, 4.4, 18, W, M.WOOD);
   b.box(0, 2.9, 9.2, 3.2, 4.8, 8.4, W, M.WOOD, { r: [-0.16, 0, 0] });
+  b.part('stock');
   b.box(0, 2.3, 24.6, 3.6, 8.8, 22, W, M.WOOD, { r: [-0.06, 0, 0] });
   b.box(0, 6.1, 22.0, 3.0, 1.4, 14, W, M.WOOD, { r: [-0.04, 0, 0] });
   b.box(0, 1.9, 36.2, 3.8, 9.4, 1.5, C.rubber, M.RUBBER, { r: [-0.06, 0, 0] });
   b.box(0, -1.8, 26, 0.6, 0.5, 1.2, C.steelDark, M.METAL); // swivel
+  b.part('body');
   b.box(0, 1.8, -38, 0.6, 0.5, 1.2, C.steelDark, M.METAL);
   // checkering
   for (const s of [-1, 1]) for (let i = 0; i < 4; i++) b.box(s * 1.62, 2.8 + (i % 2) * 0.8, 8 + i * 1.2, 0.04, 0.6, 0.6, C.woodDark, M.WOOD, { r: [-0.16, 0, 0] });
@@ -521,11 +526,13 @@ export function rifleAR() {
   b.point('handR', [0, -2.8, 0.2]);
   b.pop();
   // buffer tube + stock
+  b.part('stock');
   b.tubeZ(0, 6.0, 11.5, 2.4, 10, D, M.METAL);
   b.box(0, 5.6, 19.4, 3.0, 3.8, 9.5, P, M.POLY);
   b.box(0, 2.9, 21.5, 2.8, 3.6, 4.6, P, M.POLY, { r: [-0.55, 0, 0] });
   b.box(0, 4.4, 24.4, 3.2, 7.8, 1.1, C.rubber, M.RUBBER);
   b.box(0, 3.9, 16.0, 1.6, 0.8, 2.0, P, M.POLY); // adjustment lever
+  b.part('body');
   // handguard (quad rail)
   b.box(0, 6.0, -11.5, 3.9, 3.9, 1.0, D, M.METAL);
   b.box(0, 6.0, -23.5, 3.5, 3.5, 24, G, M.METAL);
@@ -626,9 +633,11 @@ export function rifleAK() {
   b.point('sight', [0, 8.7, -13.4]);
   b.point('eject', [1.7, 6.5, -4.0]);
   // stock
+  b.part('stock');
   b.box(0, 3.7, 12.2, 3.2, 4.2, 6.0, W, M.WOOD, { r: [-0.18, 0, 0] });
   b.box(0, 1.9, 24, 3.4, 7.4, 20, W, M.WOOD, { r: [-0.13, 0, 0] });
   b.box(0, 0.55, 34.0, 3.5, 8.2, 0.8, G, M.METAL, { r: [-0.13, 0, 0] });
+  b.part('body');
   // grip + guard
   b.box(0, 2.6, -1.0, 1.0, 0.5, 6.0, G, M.METAL);
   b.box(0, 3.4, -3.8, 1.0, 1.6, 0.5, G, M.METAL);
@@ -696,9 +705,11 @@ export function rifle22() {
   b.box(0, 3.6, -18, 3.1, 3.0, 22, W, M.WOOD);
   b.box(0, 5.0, -25, 3.3, 3.5, 0.8, G, M.METAL);
   b.box(0, 3.2, -2.0, 3.1, 3.4, 12, W, M.WOOD);
+  b.part('stock');
   b.box(0, 2.7, 7.0, 2.9, 4.2, 7.0, W, M.WOOD, { r: [-0.2, 0, 0] });
   b.box(0, 1.6, 18.5, 3.2, 7.0, 17, W, M.WOOD, { r: [-0.1, 0, 0] });
   b.box(0, 1.0, 27.2, 3.3, 7.4, 0.9, C.rubber, M.RUBBER, { r: [-0.1, 0, 0] });
+  b.part('body');
   b.box(0, 0.4, -1.0, 0.9, 0.45, 4.0, G, M.METAL);
   b.box(0, 1.2, -2.8, 0.9, 1.6, 0.45, G, M.METAL);
   triggerPart(b, [0, 1.6, -1.0]);
@@ -770,9 +781,11 @@ export function smg() {
   b.point('handR', [0, -2.9, 0.2]);
   b.pop();
   // fixed stock
+  b.part('stock');
   b.box(0, 5.4, 12.0, 2.8, 2.6, 12, P, M.POLY, { r: [-0.08, 0, 0] });
   b.box(0, 2.9, 13.4, 2.8, 2.2, 10.0, P, M.POLY, { r: [0.35, 0, 0] });
   b.box(0, 3.6, 18.6, 3.2, 7.6, 1.6, C.rubber, M.RUBBER);
+  b.part('body');
   b.point('eject', [1.6, 6.6, -6.0]);
   b.point('handL', [0, 1.4, -19.5]);
   b.part('charge', { origin: [-0.9, 7.9, -21.5] });
@@ -813,10 +826,12 @@ export function crossbow() {
   b.box(0, 5.0, -20, 2.2, 1.4, 40, P, M.POLY);
   b.box(0, 5.75, -20, 0.9, 0.12, 40, C.steelDark, M.METAL);
   b.box(0, 3.4, -12, 3.0, 2.4, 26, P, M.POLY);
+  b.part('stock');
   b.box(0, 3.6, 4.0, 3.2, 4.0, 10, P, M.POLY);
   b.box(0, 3.2, 14.0, 3.0, 3.0, 10, P, M.POLY);
   b.box(0, 2.6, 20.5, 3.4, 7.4, 5, P, M.POLY, { r: [-0.1, 0, 0] });
   b.box(0, 2.6, 23.2, 3.6, 7.8, 1.0, C.rubber, M.RUBBER, { r: [-0.1, 0, 0] });
+  b.part('body');
   b.box(0, 1.8, -20, 2.6, 2.2, 9.0, W, M.WOOD); // foregrip
   b.box(0, 6.0, -8.0, 1.6, 0.8, 2.0, C.gunDark, M.METAL); // latch
   b.box(0, 1.2, -1.0, 1.0, 0.5, 5.0, P, M.POLY);
@@ -926,7 +941,7 @@ export function bow() {
       recoil: { pitch: 0.04, back: -0.02, yaw: 0.01, roll: 0.02, up: 0.004 },
       flash: 0, shell: null, ejectOnFire: false, fireAnim: 'bow',
       reload: { style: 'bow' },
-      string: { parts: ['stringL', 'stringR'], tips: ['tipU', 'tipD'], nock: 'nock', restZ: 2.4, drawZ: 32, bow: true },
+      string: { parts: ['stringL', 'stringR'], tips: ['tipU', 'tipD'], nock: 'nock', restZ: 2.4, drawZ: 52, bow: true },
       ammoProp: 'arrow',
     },
   };

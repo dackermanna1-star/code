@@ -38,8 +38,8 @@ const PRESETS = {
   aim: () => [{ name: 'aim', grid: items(GUNS, { aim: true }) }],
   sprint: () => [{ name: 'sprint', grid: items([...ALL, ...GENERIC], { sprint: true, moving: true, t: 0.37 }) }],
   fire: () => [
-    { name: 'fire-hip', grid: GUNS.map((g) => m(g, { seq: [[0, 'fire', 1]], t: 0.034 })) },
-    { name: 'fire-ads', grid: GUNS.map((g) => m(g, { aim: true, seq: [[0, 'fire', 1]], t: 0.034 })) },
+    { name: 'fire-hip', grid: GUNS.map((g) => m(g, { seq: [[0, 'fire', 1]], t: 0.017 })) },
+    { name: 'fire-ads', grid: GUNS.map((g) => m(g, { aim: true, seq: [[0, 'fire', 1]], t: 0.017 })) },
   ],
   swing: () => [
     { name: 'swing-wind', grid: [...MELEE, 'fists', 'pistol', 'rifle_ak'].map((g) => m(g, { seq: [[0, 'swing', false]], tFrac: 0.27 })) },

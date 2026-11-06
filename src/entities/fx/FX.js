@@ -292,13 +292,13 @@ export class FX {
   muzzleFlash(pos, dir, scale = 1) {
     const dx = dir ? dir.x : 0, dy = dir ? dir.y : 0, dz = dir ? dir.z : 1;
     this._light(pos.x, pos.y, pos.z);
-    this.add.spawn(pos.x + dx * 0.06, pos.y + dy * 0.06, pos.z + dz * 0.06, { s0: 0.42 * scale, s1: 0.55 * scale, life: 0.05, color: [7, 5, 2.4], frame: SPRITE.STAR, fadeIn: 0, fadeOut: 0.6 });
-    this.add.spawn(pos.x + dx * 0.18, pos.y + dy * 0.18, pos.z + dz * 0.18, { vx: dx * 4, vy: dy * 4, vz: dz * 4, s0: 0.14 * scale, stretch: 0.45 * scale, mode: MODE.STRETCH, life: 0.045, color: [6, 4, 1.6], frame: SPRITE.FLAME_A, fadeIn: 0, fadeOut: 0.6 });
-    this.add.spawn(pos.x, pos.y, pos.z, { s0: 1.0 * scale, life: 0.06, color: [1.6, 1.0, 0.45], alpha: 0.6, frame: SPRITE.GLOW, fadeIn: 0 });
+    this.add.spawn(pos.x + dx * 0.06, pos.y + dy * 0.06, pos.z + dz * 0.06, { s0: 0.42 * scale, s1: 0.55 * scale, life: 0.05, color: [4.5, 3, 1.3], frame: SPRITE.STAR, fadeIn: 0, fadeOut: 0.6 });
+    this.add.spawn(pos.x + dx * 0.18, pos.y + dy * 0.18, pos.z + dz * 0.18, { vx: dx * 4, vy: dy * 4, vz: dz * 4, s0: 0.14 * scale, stretch: 0.45 * scale, mode: MODE.STRETCH, life: 0.045, color: [4, 2.4, 0.8], frame: SPRITE.FLAME_A, fadeIn: 0, fadeOut: 0.6 });
+    this.add.spawn(pos.x, pos.y, pos.z, { s0: 0.75 * scale, life: 0.06, color: [1.8, 1.0, 0.35], alpha: 0.7, frame: SPRITE.GLOW, fadeIn: 0 });
     for (let k = 0; k < 3; k++) {
       this.lit.spawn(pos.x + dx * 0.1, pos.y + dy * 0.1, pos.z + dz * 0.1, {
         vx: dx * rr(0.8, 2) + rr(-0.2, 0.2), vy: dy * rr(0.8, 2) + rr(0.1, 0.4), vz: dz * rr(0.8, 2) + rr(-0.2, 0.2), drag: 2.5, grav: 0.3,
-        s0: 0.08, s1: rr(0.4, 0.7) * scale, life: rr(0.6, 1.1), color: [0.75, 0.75, 0.75], alpha: 0.3, frame: SPRITE.SMOKE_B, spin: rr(-1, 1), sky: this._sky, block: this._blk,
+        s0: 0.08, s1: rr(0.4, 0.7) * scale, life: rr(0.6, 1.1), color: [0.5, 0.5, 0.5], alpha: 0.3, frame: SPRITE.SMOKE_B, spin: rr(-1, 1), sky: this._sky, block: this._blk,
       });
     }
     this._addLight(pos.x + dx * 0.3, pos.y + dy * 0.3, pos.z + dz * 0.3, 3.2, 2.2, 1.0, 9 * scale, 0.07);
@@ -339,7 +339,7 @@ export class FX {
       const sp = rr(2, 8);
       this.add.spawn(pos.x + dx * 0.03, pos.y + dy * 0.03, pos.z + dz * 0.03, {
         vx: dx * sp + rr(-2.5, 2.5), vy: dy * sp + rr(-0.5, 3), vz: dz * sp + rr(-2.5, 2.5), grav: -12, drag: 0.6,
-        s0: 0.025, stretch: 0.16, mode: MODE.STRETCH, life: rr(0.2, 0.55), color: [6, 3.4, 1.2], color1: [2.5, 0.6, 0.1],
+        s0: 0.025, stretch: 0.16, mode: MODE.STRETCH, life: rr(0.2, 0.55), color: [4, 2.2, 0.7], color1: [1.5, 0.35, 0.05],
         frame: SPRITE.STREAK, fadeIn: 0, fadeOut: 0.4, collide: true, bounce: 0.4,
       });
     }
@@ -422,14 +422,14 @@ export class FX {
     const R = radius;
     this._light(pos.x, pos.y + 0.5, pos.z);
     const sky = this._sky, blk = this._blk;
-    this.add.spawn(pos.x, pos.y + 0.3, pos.z, { s0: R * 2.6, s1: R * 3.4, life: 0.14, color: [9, 6.5, 3.5], frame: SPRITE.GLOW, fadeIn: 0 });
-    this.add.spawn(pos.x, pos.y + 0.3, pos.z, { s0: R * 1.4, s1: R * 2.0, life: 0.09, color: [10, 8, 5], frame: SPRITE.STAR, fadeIn: 0 });
+    this.add.spawn(pos.x, pos.y + 0.3, pos.z, { s0: R * 2.6, s1: R * 3.4, life: 0.14, color: [5, 3.2, 1.5], frame: SPRITE.GLOW, fadeIn: 0 });
+    this.add.spawn(pos.x, pos.y + 0.3, pos.z, { s0: R * 1.4, s1: R * 2.0, life: 0.09, color: [6, 4.5, 2.5], frame: SPRITE.STAR, fadeIn: 0 });
     for (let k = 0; k < 16; k++) {
       const a = rnd() * 6.283, e = rr(-0.2, 1), sp = rr(0.8, 2.2) * R;
       const c = Math.sqrt(1 - e * e);
       this.add.spawn(pos.x, pos.y + 0.4, pos.z, {
         vx: Math.cos(a) * c * sp, vy: e * sp * 0.7 + 1, vz: Math.sin(a) * c * sp, drag: 5, grav: 2,
-        s0: R * rr(0.35, 0.5), s1: R * rr(0.7, 1.0), life: rr(0.4, 0.75), color: [6, 3.4, 1.1], color1: [1.4, 0.3, 0.05],
+        s0: R * rr(0.35, 0.5), s1: R * rr(0.7, 1.0), life: rr(0.4, 0.75), color: [2.6, 1.15, 0.3], color1: [0.7, 0.12, 0.02], alpha: 0.8,
         frame: SPRITE.FLAME_A + ((rnd() * 3) | 0), spin: rr(-3, 3), fadeIn: 0, fadeOut: 0.6,
       });
     }
@@ -437,7 +437,7 @@ export class FX {
       const a = rnd() * 6.283, e = rr(0, 1), sp = rr(0.4, 1.4) * R;
       this.lit.spawn(pos.x + rr(-0.3, 0.3), pos.y + 0.5 + rr(0, 0.5), pos.z + rr(-0.3, 0.3), {
         vx: Math.cos(a) * sp * (1 - e * 0.5), vy: e * sp * 0.6 + rr(0.8, 2), vz: Math.sin(a) * sp * (1 - e * 0.5), drag: 1.6, grav: 0.5,
-        s0: R * 0.45, s1: R * rr(1.1, 1.7), life: rr(3, 6.5), color: [0.2, 0.19, 0.18], color1: [0.42, 0.41, 0.4], alpha: 0.85,
+        s0: R * 0.45, s1: R * rr(1.1, 1.7), life: rr(3, 6.5), color: [0.07, 0.065, 0.06], color1: [0.24, 0.235, 0.23], alpha: 0.88,
         frame: SPRITE.SMOKE_A + ((rnd() * 3) | 0), spin: rr(-0.6, 0.6), sky, block: blk, fadeIn: 0.04, fadeOut: 0.5, grow: 0.4,
       });
     }
@@ -459,7 +459,7 @@ export class FX {
       const a = rnd() * 6.283, e = rr(0, 1), sp = rr(6, 15);
       this.add.spawn(pos.x, pos.y + 0.4, pos.z, {
         vx: Math.cos(a) * sp * (1 - e * 0.6), vy: e * sp, vz: Math.sin(a) * sp * (1 - e * 0.6), grav: -10, drag: 0.5,
-        s0: 0.04, stretch: 0.3, mode: MODE.STRETCH, life: rr(0.4, 1.1), color: [6, 3.2, 1], color1: [2, 0.5, 0.05], frame: SPRITE.STREAK, fadeIn: 0, collide: true, bounce: 0.3,
+        s0: 0.04, stretch: 0.3, mode: MODE.STRETCH, life: rr(0.4, 1.1), color: [3.5, 1.6, 0.4], color1: [1.2, 0.25, 0.03], frame: SPRITE.STREAK, fadeIn: 0, collide: true, bounce: 0.3,
       });
     }
     // scorch mark on the ground
@@ -476,7 +476,7 @@ export class FX {
    * @returns {stop(), setPos(p), setRate(r)}
    */
   smoke(pos, opts = {}) {
-    const col = parseColor(opts.color, [0.28, 0.28, 0.28]);
+    const col = parseColor(opts.color, [0.16, 0.16, 0.16]);
     const e = {
       type: 'smoke', x: pos.x, y: pos.y, z: pos.z, acc: 0, alive: true,
       rate: opts.rate ?? 10, size: opts.size ?? 1, rise: opts.rise ?? 1.6, life: opts.life ?? 6, spread: opts.spread ?? 0.35,
@@ -532,7 +532,7 @@ export class FX {
           const s = e.size;
           this.lit.spawn(e.x + rr(-0.2, 0.2) * s, e.y + rr(0, 0.3), e.z + rr(-0.2, 0.2) * s, {
             vx: rr(-e.spread, e.spread), vy: e.rise * rr(0.8, 1.25), vz: rr(-e.spread, e.spread), grav: 0.12, drag: 0.35,
-            s0: 0.5 * s, s1: rr(2.4, 3.6) * s, life: e.life * rr(0.8, 1.2), color: e.color, color1: [Math.min(1, e.color[0] * 1.5 + 0.1), Math.min(1, e.color[1] * 1.5 + 0.1), Math.min(1, e.color[2] * 1.5 + 0.1)],
+            s0: 0.5 * s, s1: rr(2.4, 3.6) * s, life: e.life * rr(0.8, 1.2), color: e.color, color1: [Math.min(1, e.color[0] * 1.4 + 0.06), Math.min(1, e.color[1] * 1.4 + 0.06), Math.min(1, e.color[2] * 1.4 + 0.06)],
             alpha: e.alpha, frame: SPRITE.SMOKE_A + ((rnd() * 3) | 0), spin: rr(-0.4, 0.4), sky: this._sky, block: this._blk, fadeIn: 0.08, fadeOut: 0.55, grow: 0.6,
           });
         }
@@ -546,7 +546,7 @@ export class FX {
           const a = rnd() * 6.283, d = Math.sqrt(rnd()) * R;
           this.add.spawn(e.x + Math.cos(a) * d, e.y + rr(0, 0.1), e.z + Math.sin(a) * d, {
             vx: rr(-0.2, 0.2), vy: rr(1.0, 2.2) * Math.sqrt(I), vz: rr(-0.2, 0.2), drag: 1.2,
-            s0: rr(0.32, 0.5) * Math.sqrt(I) * (0.7 + R * 0.6), s1: 0.1, life: rr(0.35, 0.8), color: [4.2, 2.3, 0.75], color1: [1.6, 0.3, 0.05], alpha: 0.9,
+            s0: rr(0.32, 0.5) * Math.sqrt(I) * (0.7 + R * 0.6), s1: 0.1, life: rr(0.35, 0.8), color: [2.1, 0.9, 0.22], color1: [0.8, 0.14, 0.02], alpha: 0.75,
             frame: SPRITE.FLAME_A + ((rnd() * 3) | 0), rot: rr(-0.3, 0.3), spin: rr(-1, 1), fadeIn: 0.12, fadeOut: 0.5, grow: 1,
           });
         }
@@ -554,7 +554,7 @@ export class FX {
           e.acc2 -= 1;
           this.add.spawn(e.x + rr(-R, R), e.y + rr(0.2, 0.6), e.z + rr(-R, R), {
             vx: rr(-0.5, 0.5), vy: rr(1.2, 3), vz: rr(-0.5, 0.5), drag: 0.8, grav: -0.3,
-            s0: 0.06, life: rr(0.8, 2), color: [4, 1.6, 0.4], color1: [2, 0.3, 0.05], frame: SPRITE.EMBER, fadeIn: 0, fadeOut: 0.4,
+            s0: 0.06, life: rr(0.8, 2), color: [3, 1.1, 0.25], color1: [1.4, 0.2, 0.03], frame: SPRITE.EMBER, fadeIn: 0, fadeOut: 0.4,
           });
         }
         if (e.acc3 >= 1) this._light(e.x, e.y + 1.5, e.z);
@@ -562,7 +562,7 @@ export class FX {
           e.acc3 -= 1;
           this.lit.spawn(e.x + rr(-R, R) * 0.6, e.y + 0.9 + rr(0, 0.4), e.z + rr(-R, R) * 0.6, {
             vx: rr(-0.2, 0.2), vy: rr(1.2, 2), vz: rr(-0.2, 0.2), grav: 0.15, drag: 0.4,
-            s0: 0.4 * (0.6 + R), s1: rr(1.8, 2.8) * (0.6 + R), life: rr(2.5, 4), color: [0.12, 0.11, 0.1], color1: [0.3, 0.3, 0.3], alpha: 0.7,
+            s0: 0.4 * (0.6 + R), s1: rr(1.8, 2.8) * (0.6 + R), life: rr(2.5, 4), color: [0.05, 0.045, 0.04], color1: [0.14, 0.135, 0.13], alpha: 0.75,
             frame: SPRITE.SMOKE_A + ((rnd() * 3) | 0), spin: rr(-0.4, 0.4), sky: this._sky, block: this._blk, fadeIn: 0.15, fadeOut: 0.5,
           });
         }

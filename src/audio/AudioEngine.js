@@ -46,7 +46,6 @@ export class AudioEngine {
     this._queue = [];
     this._workers = 0;
     this._lastVariant = new Map();
-    this._indoor = 0;
     this._debug = false;
   }
 
@@ -92,6 +91,7 @@ export class AudioEngine {
     this.amb.set(this.ambience);
     this.setListener(this.listener, { x: this.listener.fx, y: this.listener.fy, z: this.listener.fz });
     this.music.setMood(this.mood);
+    this.music.request(this.mood);
     this._startRendering();
     if (ctx.state === 'suspended') ctx.resume().catch(() => {});
   }
@@ -332,20 +332,22 @@ export class AudioEngine {
     if (this.amb) this.amb.set(vals);
   }
 
+  /** Safe to call every frame: changes are debounced (entering 'tense' after ~0.5 s, leaving it only
+   *  after ~8 s without tension, calm↔night after ~2 s; 'menu' / 'none' apply immediately). */
   setMusic(mood) {
     this.mood = ['menu', 'calm', 'night', 'tense', 'none'].includes(mood) ? mood : 'none';
-    if (this.music) this.music.setMood(this.mood);
+    if (this.music) this.music.request(this.mood);
   }
 
   // ===========================================================================================
   // thunder
   // ===========================================================================================
-  /** 0 = right overhead (sharp crack + rumble) .. 1 = far (low, long rumble). Arrives after a
-   *  light-travel style delay of 0.1 + d·2.4 s. */
+  /** 0 = right overhead (sharp crack + rumble) .. 1 = far (low, long rumble). Plays immediately (the
+   *  caller handles the flash→thunder travel delay); far rumbles have a slow built-in swell. */
   thunder(distance01 = 0.5) {
     if (!this.ctx) return;
     const d = clamp(Number.isFinite(+distance01) ? +distance01 : 0.5, 0, 1);
-    const delay = 0.1 + d * 2.4;
+    const delay = 0.02;
     const pan = (Math.random() * 2 - 1) * 0.6;
     if (d < 0.8) {
       const v = Math.pow(1 - d / 0.8, 1.1);
@@ -521,7 +523,7 @@ export class AudioEngine {
     tail.connect(this._busFor(def, opts));
     // reverb send (wet attenuates more slowly with distance than dry → distant sounds are washier)
     const sendBase = opts.send ?? def.send;
-    const send = sendBase * (positional ? Math.sqrt(dg) : 1) * (opts.outdoor ? 1 : 1);
+    const send = sendBase * (positional ? Math.sqrt(dg) : 1);
     if (send > 0.004 && def.cat !== 'ui') {
       const sg = ctx.createGain();
       sg.gain.value = send;

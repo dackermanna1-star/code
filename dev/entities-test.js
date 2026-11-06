@@ -9,7 +9,7 @@ import { createZombieVisual, createCorpseVisual, ZOMBIE_OUTFITS, ZOMBIE_VARIANTS
 const params = new URLSearchParams(location.search);
 const SCENE = params.get('scene') || 'lineup';
 const T_END = parseFloat(params.get('t') || '1.5');
-const NIGHT = params.get('night') === '1' || SCENE === 'night';
+const NIGHT = params.get('night') === '1' || SCENE === 'night' || SCENE === 'fxnight';
 const info = document.getElementById('info');
 const log = (s) => { info.textContent += s + '\n'; console.log(s); };
 
@@ -363,6 +363,7 @@ async function setup() {
   window.__ready = true;
   window.__simTime = t;
   log(`scene=${SCENE} t=${t.toFixed(2)} setup+sim ${(performance.now() - T0).toFixed(0)}ms draw calls=${window.__calls}`);
+  if (window.__fxReport) log(window.__fxReport());
   if (window.__perfReport) { const r = window.__perfReport(); log(`perf: 80 zombies update avg ${r.avgMs.toFixed(3)}ms max ${r.maxMs.toFixed(3)}ms over ${r.frames} frames`); }
   if (params.get('live')) {
     let last = performance.now();
