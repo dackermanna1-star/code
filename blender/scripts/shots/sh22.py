@@ -17,6 +17,11 @@ def build():
     c.add_face(ch.blinks(seed=22, mean_gap=4.0))
     c.pivot_fn = lambda f: (Vector((0, 0.15, -0.09)), compose(R('X', -74), R('Z', 120)))   # chest fully above the surface (no shirt 'islands')
     probe = finish(c, o, N, inertia=(0.25, 0.55), radius=1.0)
+    # soft overcast fill from above: shadow rays pass the water surface, so the shallow submerged shoulders and arms get
+    # enough light to keep their skin/shirt colour instead of reading as a charcoal wetsuit
+    fl = bpy.data.lights.new('OvercastFill', 'AREA'); fl.shape = 'DISK'; fl.size = 4.0; fl.energy = 260.0; fl.color = (0.92, 0.95, 1.0)
+    fo = bpy.data.objects.new('OvercastFill', fl); sc.collection.objects.link(fo); fo.location = (0.0, 0.3, 3.0)
+    fo.visible_glossy = False          # light the body only; no milky reflection of the fill in the water
     o['mat'].node_tree.nodes['collar_foam'].outputs[0].default_value = 0.15
     cam = env.add_camera('Cam', lens=35, dof={'fstop': 4.0})
     # overhead, face upright in frame (head direction = 90 + 120 deg yaw): never looks up the throat

@@ -19,21 +19,22 @@ def build():
     # gasp: head thrown back on the inhale, then two coughs jerk it forward
     c.add(KeyPoses([(1, {'neck01': [('X', -20)], 'head': [('X', -18)], 'spine02': [('X', -8)]}),
                     (16, {'neck01': [('X', -14)], 'head': [('X', -22)], 'spine02': [('X', -10)]}, ease_out),
-                    (30, {'neck01': [('X', -4)], 'head': [('X', -6)], 'spine02': [('X', 0)]}),
-                    (38, {'neck01': [('X', 10)], 'head': [('X', 14)], 'spine02': [('X', 10)]}, ease_out),   # cough 1
-                    (46, {'neck01': [('X', -2)], 'head': [('X', -4)], 'spine02': [('X', 2)]}),
-                    (54, {'neck01': [('X', 9)], 'head': [('X', 12)], 'spine02': [('X', 8)]}, ease_out),     # cough 2
-                    (66, {'neck01': [('X', -3)], 'head': [('X', -5)], 'spine02': [('X', 0)]}),
+                    (34, {'neck01': [('X', -4)], 'head': [('X', -6)], 'spine02': [('X', 0)]}),               # slow release (no snap)
+                    (42, {'neck01': [('X', 6)], 'head': [('X', 8)], 'spine02': [('X', 4)]}, ease_out),      # cough 1 (face stays up)
+                    (50, {'neck01': [('X', -2)], 'head': [('X', -4)], 'spine02': [('X', 1)]}),
+                    (58, {'neck01': [('X', 5)], 'head': [('X', 7)], 'spine02': [('X', 3)]}, ease_out),      # cough 2
+                    (70, {'neck01': [('X', -3)], 'head': [('X', -5)], 'spine02': [('X', 0)]}),
                     (120, {'neck01': [('X', -2)], 'head': [('X', -4)]})]))
-    c.add(ch.breathing(rate_bpm=48, depth=1.8, gasp_frames=((12, 26, 3.5), (68, 80, 1.5), (90, 100, 1.5))))
+    c.add(ch.breathing(rate_bpm=48, depth=1.8, gasp_frames=((12, 34, 3.0), (72, 84, 1.5), (92, 102, 1.5))))
     c.add(ch.look(ch.saccades(seed=3, spread=10, hold=(8, 20))))
     c.add_face(expression([(1, {'eyeBlinkLeft': 1, 'eyeBlinkRight': 1, 'mouthPressLeft': 0.6, 'mouthPressRight': 0.6, 'cheekPuff': 0.4}),
                            (12, face('gasp')), (24, face('gasp', 1.0)),
-                           (34, face('cough')), (42, face('gasp', 0.6)), (50, face('cough')), (60, face('fear', 0.9)),
+                           (38, face('cough')), (48, face('gasp', 0.6)), (54, face('cough')), (66, face('fear', 0.9)),
                            (120, face('fear', 0.8))]))
     c.add_face(ch.blinks(seed=5, stressed=True, mean_gap=1.6))
     c.add_face(lambda f: {'jawOpen': 0.15 * max(0, math.sin(f * 0.75)) if f > 66 else 0.0})
-    c.pivot_fn = lambda f: (Vector((0, 0, depth(f) + (ch.tread_bob(f, 1.3, 0.04) if f > 20 else 0))), compose(R('X', 6), R('Z', 22)))
+    # treading bob fades in after the burst (a hard switch-on at f21 made him lurch) and stays small
+    c.pivot_fn = lambda f: (Vector((0, 0, depth(f) + ch.tread_bob(f, 1.3, 0.016) * ease((f - 14) / 30.0))), compose(R('X', 6), R('Z', 22)))
     probe = finish(c, o, N, inertia=(0.3, 0.55))
     # splash of droplets as the head breaks through + strong ring ripples
     # (from the neck/shoulder line at the waterline, low and wide, so it arcs out and falls back - not a fountain off the crown)

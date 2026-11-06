@@ -87,22 +87,29 @@ for i, ch in enumerate(chunks):
     start = ch[0]['s'] - 0.04
     nxt = chunks[i + 1][0]['s'] - 0.04 if i + 1 < len(chunks) else ch[-1]['e'] + 0.6
     end = min(nxt, ch[-1]['e'] + 0.45)
+    # long phrases (> 16 chars, e.g. 'EXCEPT FOR PLANKTON'): slightly smaller and no pop, so the line never wraps for a
+    # frame when a word scales up, and stays left of the Shorts right-hand button rail
+    long_ = len(' '.join(x['txt'] for x in ch)) > 16
     for j, w in enumerate(ch):
         ws = start if j == 0 else w['s'] - 0.02
         we = (ch[j + 1]['s'] - 0.02) if j + 1 < len(ch) else end
-        for n, (a, b) in enumerate(pieces(ws, we)):
-            # a word that already ended before the cut: drop a tiny (< 0.2 s) carry-over so the caption just ends at
-            # the cut instead of flashing for 1-2 frames at the incoming shot's position (e.g. 'NOT WEEKS' at 94.10)
-            if n > 0 and b - a < 0.2 and w['e'] <= a: continue
+        ps = pieces(ws, we)
+        for n, (a, b) in enumerate(ps):
+            # a word that already ended before the cut: drop a short (< 0.4 s) carry-over so the caption just ends at
+            # the cut instead of reappearing at the incoming shot's position (e.g. 'NOT WEEKS' at 94.10, 'JACKET' at 104.3)
+            if n > 0 and b - a < 0.4 and w['e'] <= a: continue
+            # a phrase that starts just before a cut (< 0.2 s) uses the incoming shot's position from its first frame
+            at = ps[n + 1][0] + 0.01 if (n + 1 < len(ps) and b - a < 0.2) else a + 0.01
             parts = []
             for k, x in enumerate(ch):
                 if k == j:
-                    pop = r'{\t(0,80,\fscx112\fscy112)\t(80,160,\fscx104\fscy104)}' if n == 0 else ''
+                    pop = r'{\t(0,80,\fscx112\fscy112)\t(80,160,\fscx104\fscy104)}' if (n == 0 and not long_) else ''
                     parts.append(r'{\c%s}%s%s{\c&H00FFFFFF&\fscx100\fscy100}' % (YEL, pop, x['txt']))
                 else:
                     parts.append(x['txt'])
             intro = r'{\fad(60,0)}' if (j == 0 and n == 0) else ''
-            ev.append('Dialogue: 2,%s,%s,Cap,,0,0,0,,%s%s%s' % (ts(a), ts(b), place_for(shot_at(a + 0.01)), intro, ' '.join(parts)))
+            size = r'{\fs76}' if long_ else ''
+            ev.append('Dialogue: 2,%s,%s,Cap,,0,0,0,,%s%s%s%s' % (ts(a), ts(b), place_for(shot_at(at)), size, intro, ' '.join(parts)))
 
 # ---------------------------------------------------------------- labels for the verdict (SH27/SH28) and the real case (SH25/SH26)
 def word_time(seg_id, word, nth=0):

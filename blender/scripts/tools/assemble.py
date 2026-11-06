@@ -20,9 +20,10 @@ GRADE = {
     # SH24 (golden-evening overhead float): lift out of the 'night' look and warm toward SH25
     'SH24': 'eq=gamma=1.25:brightness=0.02:saturation=0.92,colorbalance=rs=0.07:gs=0.02:bs=-0.06:rm=-0.02:rh=0.04:bh=-0.04',
     'SH25': 'eq=saturation=0.95',
-    # SH27 (looking away from the sun) and SH28 (side-lit) read cool between the golden SH26 and SH29: warm them to match
-    'SH27': 'colorbalance=rs=0.03:gs=0.005:bs=-0.03:rm=0.02:bm=-0.02:rh=0.015:bh=-0.015,eq=gamma=1.06:saturation=1.03',
-    'SH28': 'colorbalance=rs=0.06:gs=0.01:bs=-0.06:rm=0.04:bm=-0.04:rh=0.03:bh=-0.03,eq=gamma=1.12:saturation=1.05',
+    # SH27 (looking away from the sun) and SH28 (side-lit) read cool between the golden SH26 and SH29: warm them (with a
+    # negative green term, so the sea does not turn teal) and lift SH28 toward SH29's brightness
+    'SH27': 'colorbalance=rs=0.025:gs=-0.01:bs=-0.03:rm=0.03:gm=-0.01:bm=-0.02:rh=0.02:gh=-0.005:bh=-0.015,eq=gamma=1.08:saturation=1.03',
+    'SH28': 'colorbalance=rs=0.05:gs=-0.02:bs=-0.06:rm=0.06:gm=-0.02:bm=-0.04:rh=0.04:gh=-0.01:bh=-0.03,eq=gamma=1.28:saturation=1.05',
 }
 # shots whose source is retimed in the edit: {shot: source_frames_used}
 # SH02: his head breaks the surface from ~frame 90, and SH03 shows the burst again -> play frames 1-88 in gentle slow motion

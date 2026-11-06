@@ -31,13 +31,14 @@ Music by Kevin MacLeod (incompetech.com), licensed under Creative Commons: By At
 - "Long Note Three"
 - "Eternal Hope"
 
-3D models from Sketchfab (via the Objaverse dataset), CC-BY 4.0:
-- "Oceanic White Tip Shark" by Dreamwasabducted
-- "Bigeye Trevally, Caranx sexfasciatus (juvenile)" by ffishAsia-and-floraZia
-- "MH-65 Dolphin" by Sengchor
-- "Cargo ship" by hungry_drifter
+3D models from Sketchfab (via the Objaverse dataset), licensed CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/):
+- "Oceanic White Tip Shark" by Dreamwasabducted, https://sketchfab.com/3d-models/oceanic-white-tip-shark-9027e777c97a40e5854df3e6352140cd (swim animation added)
+- "Bigeye Trevally, Caranx sexfasciatus (juvenile)" by ffishAsia-and-floraZia, https://sketchfab.com/3d-models/cad0abfc668e4e3486e930491ac0d840 (decimated, swim animation added)
+- "MH-65 Dolphin" by Sengchor, https://sketchfab.com/3d-models/7e35835b0f434755993232e615d4f768 (main rotor separated and animated)
+- "Cargo ship" by hungry_drifter, https://sketchfab.com/3d-models/b7c97df584824ca682d26daabf401f87
 
-Character built with MPFB 2 / MakeHuman community assets (CC0). Swim shorts "elvs_male_swim_shorts1" by Elvaerwyn (CC-BY 4.0).
+Character built with MPFB 2 / MakeHuman community assets (CC0), https://static.makehumancommunity.org/assets/assetpacks/index.html.
+Swim shorts "elvs_male_swim_shorts1" by Elvaerwyn (Pants 03 pack), CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/), recoloured.
 Skies: Poly Haven HDRIs (CC0).
 Sounds: "Bathtub water splashes" by gradha (Wikimedia Commons, public domain); other sounds synthesised for this video.
 Narration voice: Kokoro-82M text-to-speech (Apache-2.0).
