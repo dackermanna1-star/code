@@ -220,12 +220,12 @@ def clear_ice():
     lw = node("ShaderNodeLayerWeight", Blend=0.35)
     rim = N.new("ShaderNodeMapRange"); rim.clamp = True
     rim.inputs["From Min"].default_value = 0.35; rim.inputs["From Max"].default_value = 0.95
-    rim.inputs["To Min"].default_value = 0.0; rim.inputs["To Max"].default_value = 0.5
+    rim.inputs["To Min"].default_value = 0.3; rim.inputs["To Max"].default_value = 0.8   # frosty rime: reads as ice, not jelly
     L.new(lw.outputs["Facing"], rim.inputs["Value"])
     nz2 = node("ShaderNodeTexNoise", Scale=12.0, Detail=4.0, Roughness=0.55); L.new(tc.outputs["Object"], nz2.inputs["Vector"])
     pt = N.new("ShaderNodeMapRange"); pt.clamp = True
     pt.inputs["From Min"].default_value = 0.45; pt.inputs["From Max"].default_value = 0.68
-    pt.inputs["To Min"].default_value = 0.04; pt.inputs["To Max"].default_value = 0.3
+    pt.inputs["To Min"].default_value = 0.3; pt.inputs["To Max"].default_value = 0.62
     L.new(nz2.outputs["Fac"], pt.inputs["Value"])
     vl = N.new("ShaderNodeMath"); vl.operation = "MAXIMUM"; L.new(rim.outputs["Result"], vl.inputs[0]); L.new(pt.outputs["Result"], vl.inputs[1])
     veil = node("ShaderNodeBsdfDiffuse", Color=(0.84, 0.92, 1.0, 1.0))
