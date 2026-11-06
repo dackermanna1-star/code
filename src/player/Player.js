@@ -58,7 +58,7 @@ export class Player {
     // camera feel
     this.bobT = 0; this.bobAmt = 0;
     this.shake = 0; this.punch = new THREE.Vector2(); this.punchVel = new THREE.Vector2();
-    this.landDip = 0; this.fov = 75; this.fovKick = 0;
+    this.landDip = 0; this.landVel = 0; this.fov = 75; this.fovKick = 0;
     this.stepSmooth = 0; // camera offset that eases out instant step-ups / step-downs
     this.speedMult = 1;
   }
@@ -190,7 +190,8 @@ export class Player {
     if (this.onGround) {
       if (!wasGround && this.fallStartY !== null) {
         const fall = this.fallStartY - this.y;
-        if (fall > 0.6) { ev.landed = fall; this.landDip = Math.min(0.25, fall * 0.04); }
+        // landing kicks a damped spring (smooth dip + recovery instead of an instant camera drop)
+        if (fall > 0.6) { ev.landed = fall; this.landVel = Math.min(this.landVel, -Math.min(5, 0.6 + fall * 0.9)); }
       }
       this.fallStartY = null;
     } else if (this.fallStartY !== null && this.y > this.fallStartY) this.fallStartY = this.y;
@@ -249,7 +250,9 @@ export class Player {
     this.punch.x += this.punchVel.x * dt;
     this.punch.y += this.punchVel.y * dt;
     this.shake = Math.max(0, this.shake - dt * 2.5);
-    this.landDip = Math.max(0, this.landDip - dt * 0.9);
+    const sdt = Math.min(dt, 1 / 30);
+    this.landVel += (this.landDip * -170 - this.landVel * 19) * sdt;
+    this.landDip = Math.max(-0.3, Math.min(0.05, this.landDip + this.landVel * sdt));
     this.stepSmooth *= Math.exp(-dt * 16);
     const bob = settings.headBob === false ? 0 : this.bobAmt;
     const bx = Math.cos(this.bobT) * 0.045 * bob;
@@ -259,7 +262,7 @@ export class Player {
     const shx = (Math.sin(t * 37) + Math.sin(t * 23.3)) * 0.02 * s;
     const shy = (Math.cos(t * 31) + Math.sin(t * 19.7)) * 0.02 * s;
     const sx = Math.cos(this.yaw), sz = -Math.sin(this.yaw);
-    camera.position.set(this.x + sx * bx, this.y + this.eye + by - this.landDip + this.stepSmooth, this.z + sz * bx);
+    camera.position.set(this.x + sx * bx, this.y + this.eye + by + this.landDip + this.stepSmooth, this.z + sz * bx);
     camera.rotation.set(this.pitch + this.punch.x + shy, this.yaw + this.punch.y + shx, Math.sin(this.bobT * 0.5) * 0.004 * bob + shx * 0.5);
     // fov
     const targetFov = (settings.fov || 75) + (this.sprinting ? 6 : 0) + this.fovKick;

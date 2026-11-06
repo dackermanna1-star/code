@@ -142,6 +142,22 @@ export class Renderer {
     this.scene = new THREE.Scene();
     this.camera = new THREE.PerspectiveCamera(75, 1, 0.05, 600);
     this.camera.rotation.order = 'YXZ';
+    // translucent chunk sections (water, glass) are positioned at their corner; sort them back-to-front by
+    // their centre instead, otherwise neighbouring sections flip order and water / glass pop through each other
+    const cp = this.camera.position;
+    const centreDist = (o) => {
+      const c = o.userData.sortCenter;
+      return (c.x - cp.x) ** 2 + (c.y - cp.y) ** 2 + (c.z - cp.z) ** 2;
+    };
+    this.renderer.setTransparentSort((a, b) => {
+      if (a.groupOrder !== b.groupOrder) return a.groupOrder - b.groupOrder;
+      if (a.renderOrder !== b.renderOrder) return a.renderOrder - b.renderOrder;
+      if (a.object.userData.sortCenter && b.object.userData.sortCenter) {
+        const d = centreDist(b.object) - centreDist(a.object);
+        if (d !== 0) return d;
+      } else if (a.z !== b.z) return b.z - a.z;
+      return a.id - b.id;
+    });
     this.scale = 1;
 
     this.rt = new THREE.WebGLRenderTarget(1, 1, {

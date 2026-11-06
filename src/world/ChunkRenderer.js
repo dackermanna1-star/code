@@ -216,6 +216,7 @@ export class ChunkRenderer {
         m.matrixAutoUpdate = false;
         m.updateMatrix();
         m.renderOrder = pass === 'translucent' ? 2 : pass === 'cutout' ? 1 : 0;
+        if (pass === 'translucent') m.userData.sortCenter = new THREE.Vector3(cx * CHUNK + 8, cy * CHUNK + 8, cz * CHUNK + 8);
         this.group.add(m);
         s.meshes[pass] = m;
       }

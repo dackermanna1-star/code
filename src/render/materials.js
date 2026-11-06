@@ -6,6 +6,16 @@ import * as THREE from 'three';
 
 export const MAX_POINT_LIGHTS = 8;
 
+// Point-light colour slot: a vec3 uniform that also accepts THREE.Color in copy(). The game copies its
+// dynamic-light colours (THREE.Color) into these with .copy(); a plain Vector3 reads .x/.y/.z from the
+// Color -> NaN -> every lit surface rendered black while a muzzle flash / fire / flare was active.
+class LightColor extends THREE.Vector3 {
+  copy(v) {
+    if (v && v.isColor) return this.set(v.r, v.g, v.b);
+    return super.copy(v);
+  }
+}
+
 /** Global uniforms – mutated every frame by the renderer / sky system. */
 export const globalUniforms = {
   uTime: { value: 0 },
@@ -24,7 +34,7 @@ export const globalUniforms = {
   uFlashCone: { value: new THREE.Vector2(Math.cos(0.42), Math.cos(0.16)) },
   uFlashIntensity: { value: 2.2 },
   uPL: { value: Array.from({ length: MAX_POINT_LIGHTS }, () => new THREE.Vector4(0, -999, 0, 1)) },
-  uPLC: { value: Array.from({ length: MAX_POINT_LIGHTS }, () => new THREE.Vector3()) },
+  uPLC: { value: Array.from({ length: MAX_POINT_LIGHTS }, () => new LightColor()) },
   uPLCount: { value: 0 },
   uWind: { value: 0.3 },
   uWetness: { value: 0 },
