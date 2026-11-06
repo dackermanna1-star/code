@@ -329,7 +329,7 @@ export class Viewmodel {
     this._swingAlt = alt;
     let style;
     if (meta.kind === 'gun') style = 'gunbash';
-    else if (meta.kind === 'fists') style = this.oneHanded ? 'mcpunch' : heavy ? 'hook' : alt ? 'jabL' : 'jabR';
+    else if (meta.kind === 'fists') style = heavy ? 'hook' : alt && !this.oneHanded ? 'jabL' : 'jabR';
     else {
       const two = !!meta.twoHanded;
       let type = (mel && mel.type) || meta.swing || 'blunt';
@@ -931,8 +931,7 @@ export class Viewmodel {
       _sR.lerp(_t, out.shR.w);
     }
     _upR.copy(_up);
-    if (meta.kind === 'fists') _upR.copy(_rigUp);
-    else if (meta.hold === 'bow') _upR.copy(_rigUp).lerp(_up, 0.5).normalize();
+    if (meta.kind === 'fists' || meta.hold === 'bow') _upR.copy(_rigUp).lerp(_up, 0.5).normalize();
     this.arms.place(this.arms.R, hR, _sR, _upR, meta.armScale || 1);
     this.arms.place(this.arms.L, hL, _sL, upL);
     // a hand right in front of the eye (bow at full draw) reads as a giant block: hide it
