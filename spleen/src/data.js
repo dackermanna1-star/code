@@ -124,7 +124,7 @@ const ENEMIES = {
   hypha: { name: 'HYPHA', hp: 24, speed: 0, r: 0.45, cost: 3, ai: 'rooter', color: '#d8c8ff', core: '#6a4aaa',
     lore: 'A rooted fungal thread. Sends spikes through the tissue toward you.' },
   waxback: { name: 'WAXBACK', hp: 34, speed: 1.15, r: 0.55, cost: 3, ai: 'shielded', color: '#e8e0b0', core: '#7a6a30',
-    lore: 'Mycobacterium in a waxy coat. Its front is armored. Flank it.' },
+    lore: 'Mycobacterium in a waxy coat. Its front is armored: flank it, or hammer the shell until it cracks.' },
   amoeba: { name: 'AMOEBA', hp: 30, speed: 1.1, r: 0.70, cost: 3, ai: 'splitter', color: '#9aff6a', core: '#2a7a10',
     lore: 'Divide and conquer, literally. Splits twice before it dies.' },
   fluke: { name: 'FLUKE', hp: 20, speed: 1.0, r: 0.42, cost: 3, ai: 'burrower', color: '#ffb87a', core: '#8a4a1a',
@@ -287,9 +287,9 @@ const MUTATIONS = [
   { id: 'angiogenesis', name: 'ANGIOGENESIS', rarity: 'malignant', icon: 'bloodtype', cost: 1,
     desc: 'Kills have a 6% chance to drop a platelet (heal). Pathogens move 15% faster.', apply: (s) => { s.plateletDrop += 0.06; s.enemySpeedMult *= 1.15; } },
   { id: 'oncogene', name: 'ONCOGENE', rarity: 'malignant', icon: 'stacked_line_chart', cost: 1,
-    desc: 'Permanently gain +4% damage for every room you clear. Pathogens have +12% HP.', apply: (s) => { s.oncogene = true; s.enemyHpMult *= 1.12; } },
+    desc: 'From now on, gain +4% damage for every room you clear (max +100%). Pathogens have +12% HP.', apply: (s) => { s.oncogene = true; s.enemyHpMult *= 1.12; } },
   { id: 'necrosis', name: 'NECROSIS', rarity: 'malignant', icon: 'dangerous', cost: 1,
-    desc: 'Pathogens touching you take 600% of your damage per second. Platelets no longer heal you.', apply: (s) => { s.contactAura = 6; s.noHeal = true; } },
+    desc: 'Pathogens touching you take 600% of your damage per second. You can no longer heal (full heals and revives still work).', apply: (s) => { s.contactAura = 6; s.noHeal = true; } },
 ];
 const MUT = {}; for (const m of MUTATIONS) MUT[m.id] = m;
 

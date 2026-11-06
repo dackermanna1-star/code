@@ -9,10 +9,10 @@
 const META_KEY = 'spleen_sepsis_v1';
 function defaultMeta() {
   return {
-    v: 1, memory: 0, totalMemory: 0, perks: {}, unlocks: {}, codex: {}, seenMut: {},
+    v: 1, memory: 0, totalMemory: 0, perks: {}, unlocks: {}, codex: {}, seenMut: {}, seenBoss: {},
     stats: { runs: 0, wins: 0, kills: 0, bestFloor: 0, deaths: 0, bestTime: null, playTime: 0 },
     feverMax: 0, lastStrain: 'neutrophil', lastFever: 0, tutorialSeen: false,
-    opts: { master: 0.8, music: 0.65, sfx: 0.85, shake: 1, dmgNumbers: true, quality: 'auto', flashes: true, touch: 'auto' },
+    opts: { master: 0.8, music: 0.75, sfx: 0.85, shake: 1, dmgNumbers: true, quality: 'auto', flashes: true, touch: 'auto' },
   };
 }
 let META = (function () {
@@ -201,7 +201,7 @@ function roomCleared() {
   sfx('room_clear'); sfx('door_open');
   run.stats.roomsCleared++;
   for (const h of P.hooks.onRoomClear) h();
-  if (P.st.healOnClear && Math.random() < P.st.healOnClear && P.hp < P.st.maxHp) { P.heal(1); Gfx.floatText(P.x, P.y, 'INTERFERON +1', '#ffc0d0', 13, { h: 1.8 }); }
+  if (P.st.healOnClear && Math.random() < P.st.healOnClear && P.hp < P.st.maxHp && P.heal(1) !== false) { Gfx.floatText(P.x, P.y, 'INTERFERON +1', '#ffc0d0', 13, { h: 1.8 }); }
   P.abilityT = Math.max(0, P.abilityT - 1.5);
   // rewards
   const cx = room.W / 2, cy = room.H / 2;
@@ -454,6 +454,8 @@ function openTumor(offers, onDone) {
    ========================================================================== */
 function startBossIntro(room) {
   const floor = SIM.floor, id = floor.region.boss, def = BOSSES[id];
+  if (!META.seenBoss) META.seenBoss = {};
+  if (!META.seenBoss[id]) { META.seenBoss[id] = true; saveMeta(); }
   Game.sub = 'intro'; Game.introT = 2.4;
   SIM.combatAllowed = false;
   try { AUDIO.music.play(id === 'sepsis' ? 'final' : 'boss', { region: floor.region.id }); } catch (e) { }
@@ -536,7 +538,7 @@ function endRun(won) {
 function victory() {
   endRun(true);
   Game.state = 'over'; Game.sub = 'room';
-  try { AUDIO.music.play('victory'); } catch (e) { }
+  try { AUDIO.music.play('victory'); AUDIO.setLowpass(false); } catch (e) { }
   fadeTo(1, 1.0, () => { UI.showHUD(false); UI.summary(SIM.run, true); fadeTo(0, 0.6); });
 }
 Bus.on('playerDied', () => {
@@ -591,6 +593,10 @@ function throttledMenuRender(rdt, scale) {
 
 function playFrame(rdt) {
   const P = SIM.player;
+  // auto-pause when the window loses focus
+  if (Input.focusLost) { Input.focusLost = false; if (!Game.paused && !P.dead && !Game.autopilot && (Game.sub === 'room' || Game.sub === 'intro')) { togglePause(); renderFrame(0); return; } }
+  // Esc inside a pause submenu (options) returns to the pause menu
+  if (Input.pause && Game.paused && UI.inPauseSubmenu && UI.inPauseSubmenu()) { sfx('ui_back'); UI.pause(true); renderFrame(0); return; }
   // pause
   if (Input.pause && !P.dead && (Game.paused || Game.sub === 'room' || Game.sub === 'intro')) { togglePause(); renderFrame(0); return; }
   if (Game.paused) { UI.menuFrame(rdt); if (!Game.pauseDrawn || Game.gfxDirty) { renderFrame(0); Game.pauseDrawn = true; Game.gfxDirty = false; } return; }
@@ -670,7 +676,7 @@ function toTitle() {
   clearWorld(true); SIM.run = null; SIM.floor = null; SIM.room = null;
   Game.state = 'title'; Game.sub = 'room'; Game.paused = false;
   UI.showHUD(false); UI.title();
-  try { AUDIO.music.play('title'); } catch (e) { }
+  try { AUDIO.music.play('title'); AUDIO.setLowpass(false); } catch (e) { }
 }
 
 /* ==========================================================================

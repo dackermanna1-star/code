@@ -220,10 +220,13 @@ const AI = {
     e.facing = toPlayer(e).a;
   },
   shielded(e, dt, k) {
-    e.shieldArc = 0.95;
-    chase(e, e.def.speed * k);
+    e.shieldArc = 0.9;
+    if (e.shieldHp == null) e.shieldHp = e.maxHp * 0.4;
+    if (e.shieldBroken) { e.shieldT -= dt; if (e.shieldT <= 0) { e.shieldBroken = false; e.shieldHp = e.maxHp * 0.4; } }
+    chase(e, e.def.speed * k * (e.shieldBroken ? 0.6 : 1));
     const tp = toPlayer(e);
-    e.facing = e.facing + clamp(angDiff(e.facing, tp.a), -1.7 * dt, 1.7 * dt);
+    const turn = e.shieldBroken ? 0.4 : 1.05; // slow enough that circling the player can flank it
+    e.facing = e.facing + clamp(angDiff(e.facing, tp.a), -turn * dt, turn * dt);
     e.cd -= dt * e.rate;
     if (e.data.brace > 0) { // braced wind-up before the fan (readable tell)
       e.data.brace -= dt; e.vx *= 0.4; e.vy *= 0.4;
@@ -422,7 +425,7 @@ const ON_DEATH = {
   moldpuff: (e) => { spawnZone(e.x, e.y, 1.3, 2.2, 'spore'); sfx('spore', { vol: 0.6 }); },
   rotcarrier: (e) => {
     const x = e.x, y = e.y;
-    telegraph({ kind: 'disc', x, y, r: 1.7, dur: 0.45, warm: true, then: () => {
+    telegraph({ kind: 'disc', x, y, r: 1.7, dur: 0.5, warm: true, then: () => {
       enemyRing(x, y, 10, 4, { style: 'acid' }); spawnZone(x, y, 1.5, 3, 'rot');
       sfx('explosion', { vol: 0.6 }); burst(x, y, '#a8ff5a', 20, 5, { life: 0.5 });
     } });
@@ -539,6 +542,7 @@ const ENEMY_VIS = {
     shield.scaling.set(r * 0.5, r * 1.2, r * 1.05);
     return { root, body: m, anim(e, t) {
       b.rotation.y = e.facing;
+      shield.setEnabled(!e.shieldBroken);
       const br = e.data.brace > 0;
       b.position.z = br ? Math.sin(t * 60) * 0.05 : 0;
       shield.scaling.set(r * 0.5 * (br ? 1.25 : 1), r * 1.2, r * 1.05);

@@ -73,8 +73,8 @@ body.letterbox::before{top:0}body.letterbox::after{bottom:0}
 #region span{font-size:10px;letter-spacing:.2em;color:var(--dim)}
 #mmwrap{position:absolute;top:max(12px,env(safe-area-inset-top));right:max(12px,env(safe-area-inset-right));padding:6px;background:rgba(8,4,10,.55);border:1px solid var(--line);border-radius:12px;backdrop-filter:blur(4px)}
 #minimap{width:150px;height:110px;display:block}
-#mutlist{position:absolute;left:max(16px,env(safe-area-inset-left));bottom:max(14px,env(safe-area-inset-bottom));display:flex;flex-wrap:wrap-reverse;gap:5px;max-width:min(46vw,420px);pointer-events:auto}
-.mchip{width:30px;height:30px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:17px;color:var(--r);background:rgba(10,6,14,.75);border:1px solid color-mix(in srgb,var(--r) 55%,transparent);box-shadow:0 0 8px color-mix(in srgb,var(--r) 30%,transparent);position:relative}
+#mutlist{position:absolute;left:max(16px,env(safe-area-inset-left));bottom:max(14px,env(safe-area-inset-bottom));display:flex;flex-wrap:wrap-reverse;gap:5px;max-width:min(46vw,420px);pointer-events:none}
+.mchip{pointer-events:auto;width:30px;height:30px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:17px;color:var(--r);background:rgba(10,6,14,.75);border:1px solid color-mix(in srgb,var(--r) 55%,transparent);box-shadow:0 0 8px color-mix(in srgb,var(--r) 30%,transparent);position:relative}
 .mchip i{position:absolute;right:-3px;bottom:-3px;font-style:normal;font-size:9px;font-weight:800;background:#000;color:#fff;border-radius:4px;padding:0 3px}
 #tip{position:fixed;z-index:30;transform:translateY(-100%);max-width:260px;background:var(--panel2);border:1px solid var(--line2);border-radius:10px;padding:8px 10px;font-size:11px;line-height:1.45;opacity:0;pointer-events:none;transition:opacity .12s}
 #tip.on{opacity:1}#tip b{font-family:var(--display);font-size:11px;letter-spacing:.08em}#tip p{color:#ddd;margin-top:3px}
@@ -116,18 +116,18 @@ body.letterbox::before{top:0}body.letterbox::after{bottom:0}
 .tbtn.down{background:rgba(127,243,255,.35)}
 .tbtn[data-t=dash]{right:calc(20px + env(safe-area-inset-right));top:44%}
 .tbtn[data-t=ability]{right:calc(96px + env(safe-area-inset-right));top:30%}
-.tbtn[data-t=interact]{right:calc(20px + env(safe-area-inset-right));top:24%;opacity:0;transform:scale(.6);transition:all .15s}
-.tbtn[data-t=interact].avail{opacity:1;transform:none;border-color:var(--gold);color:var(--gold)}
+.tbtn[data-t=interact]{right:calc(20px + env(safe-area-inset-right));top:24%;opacity:0;transform:scale(.6);transition:all .15s;pointer-events:none}
+.tbtn[data-t=interact].avail{opacity:1;transform:none;border-color:var(--gold);color:var(--gold);pointer-events:auto}
 .tbtn[data-t=pause]{width:42px;height:42px;font-size:20px;top:calc(12px + env(safe-area-inset-top));right:calc(186px + env(safe-area-inset-right))}
-body.touch #mutlist{pointer-events:none}
+body.touch #mutlist,body.touch #mutlist .mchip{pointer-events:none}
 
 /* ---------- screens & modals ---------- */
 .screen,.modal{position:fixed;inset:0;z-index:30;display:none;overflow-y:auto;overflow-x:hidden}
 .screen.on,.modal.on{display:flex}
 .screen{flex-direction:column;padding:max(28px,env(safe-area-inset-top)) max(24px,env(safe-area-inset-right)) max(24px,env(safe-area-inset-bottom)) max(24px,env(safe-area-inset-left))}
 .screen:not(.s-title){background:linear-gradient(90deg,rgba(7,4,10,.94),rgba(7,4,10,.82));backdrop-filter:blur(3px);align-items:center}
-.modal{background:rgba(5,2,8,.66);backdrop-filter:blur(5px);align-items:center;justify-content:center;padding:20px}
-.mbox{width:min(1040px,100%);display:flex;flex-direction:column;align-items:center;animation:pop .3s cubic-bezier(.2,1.3,.4,1)}
+.modal{background:rgba(5,2,8,.66);backdrop-filter:blur(5px);align-items:flex-start;justify-content:flex-start;padding:20px}
+.mbox{width:min(1040px,100%);margin:auto;display:flex;flex-direction:column;align-items:center;animation:pop .3s cubic-bezier(.2,1.3,.4,1)}
 @keyframes pop{from{opacity:0;transform:scale(.94)}}
 .hdr{text-align:center;margin-bottom:22px;max-width:720px}
 .hdr h2{font-family:var(--display);font-weight:900;font-size:clamp(24px,4vw,40px);letter-spacing:.06em;text-shadow:0 0 24px rgba(255,77,138,.4)}
@@ -207,7 +207,7 @@ body.touch #mutlist{pointer-events:none}
 .brief{max-width:620px;margin:auto 0 0;text-align:left;font-size:15px;line-height:1.75;color:#e6dce4;animation:pop .6s ease}
 .brief h2{font-family:var(--display);font-weight:900;font-size:clamp(26px,4.4vw,44px);margin:10px 0 16px;text-shadow:0 0 24px rgba(255,77,138,.45)}
 .brief p{margin-bottom:14px}.brief .b-num{text-align:left}.hot{color:var(--hot)}.accent{color:var(--accent)}
-.s-briefing{justify-content:center}
+.s-briefing{justify-content:flex-start}
 .howto{display:flex;gap:30px;flex-wrap:wrap;max-width:980px;font-size:13px;line-height:1.65}
 .hcol{flex:1 1 380px;background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:20px 24px}
 .hcol h3{font-family:var(--display);font-size:14px;letter-spacing:.1em;margin:14px 0 6px;color:var(--accent)}.hcol h3:first-child{margin-top:0}
@@ -278,7 +278,7 @@ body.touch #mutlist{pointer-events:none}
   </div>
   <div id="region"></div>
   <div id="mmwrap"><canvas id="minimap" width="300" height="220"></canvas></div>
-  <div id="mutlist" class="ui-interactive"></div>
+  <div id="mutlist"></div>
   <div id="bossbar"><div id="boss-name"></div><div class="btrack"><div id="boss-lag"></div><div id="boss-fill"></div><div id="boss-marks"></div></div></div>
   <div id="toasts"></div>
   <div id="charge"></div>
@@ -544,7 +544,7 @@ const ENEMIES = {
   hypha: { name: 'HYPHA', hp: 24, speed: 0, r: 0.45, cost: 3, ai: 'rooter', color: '#d8c8ff', core: '#6a4aaa',
     lore: 'A rooted fungal thread. Sends spikes through the tissue toward you.' },
   waxback: { name: 'WAXBACK', hp: 34, speed: 1.15, r: 0.55, cost: 3, ai: 'shielded', color: '#e8e0b0', core: '#7a6a30',
-    lore: 'Mycobacterium in a waxy coat. Its front is armored. Flank it.' },
+    lore: 'Mycobacterium in a waxy coat. Its front is armored: flank it, or hammer the shell until it cracks.' },
   amoeba: { name: 'AMOEBA', hp: 30, speed: 1.1, r: 0.70, cost: 3, ai: 'splitter', color: '#9aff6a', core: '#2a7a10',
     lore: 'Divide and conquer, literally. Splits twice before it dies.' },
   fluke: { name: 'FLUKE', hp: 20, speed: 1.0, r: 0.42, cost: 3, ai: 'burrower', color: '#ffb87a', core: '#8a4a1a',
@@ -635,7 +635,7 @@ const MUTATIONS = [
   { id: 'mitosis', name: 'MITOSIS', rarity: 'uncommon', icon: 'control_point_duplicate', stack: 3,
     desc: 'Fire +1 parallel shot. (Each shot deals a little less.)', apply: (s) => { s.parallel += 1; } },
   { id: 'chemotaxis', name: 'CHEMOTAXIS', rarity: 'uncommon', icon: 'my_location',
-    desc: 'Your shots follow the chemical trail to the nearest pathogen.', apply: (s) => { s.homing = Math.max(s.homing, 0.55) + 0.15; } },
+    desc: 'Your shots follow the chemical trail to the nearest pathogen. (Already homing: much stronger tracking.)', apply: (s) => { s.homing = s.homing > 0 ? s.homing + 0.5 : 0.7; } },
   { id: 'lysozyme', name: 'LYSOZYME', rarity: 'uncommon', icon: 'east', stack: 3,
     desc: 'Shots pierce +1 pathogen.', apply: (s) => { s.pierce += 1; } },
   { id: 'elastin', name: 'ELASTIN', rarity: 'uncommon', icon: 'sync_alt', stack: 3,
@@ -707,9 +707,9 @@ const MUTATIONS = [
   { id: 'angiogenesis', name: 'ANGIOGENESIS', rarity: 'malignant', icon: 'bloodtype', cost: 1,
     desc: 'Kills have a 6% chance to drop a platelet (heal). Pathogens move 15% faster.', apply: (s) => { s.plateletDrop += 0.06; s.enemySpeedMult *= 1.15; } },
   { id: 'oncogene', name: 'ONCOGENE', rarity: 'malignant', icon: 'stacked_line_chart', cost: 1,
-    desc: 'Permanently gain +4% damage for every room you clear. Pathogens have +12% HP.', apply: (s) => { s.oncogene = true; s.enemyHpMult *= 1.12; } },
+    desc: 'From now on, gain +4% damage for every room you clear (max +100%). Pathogens have +12% HP.', apply: (s) => { s.oncogene = true; s.enemyHpMult *= 1.12; } },
   { id: 'necrosis', name: 'NECROSIS', rarity: 'malignant', icon: 'dangerous', cost: 1,
-    desc: 'Pathogens touching you take 600% of your damage per second. Platelets no longer heal you.', apply: (s) => { s.contactAura = 6; s.noHeal = true; } },
+    desc: 'Pathogens touching you take 600% of your damage per second. You can no longer heal (full heals and revives still work).', apply: (s) => { s.contactAura = 6; s.noHeal = true; } },
 ];
 const MUT = {}; for (const m of MUTATIONS) MUT[m.id] = m;
 
@@ -3236,7 +3236,7 @@ const Input = (function () {
   const pressedEdge = Object.create(null);   // key code -> true for one frame
   const mouse = { x: 0, y: 0, down: false, rdown: false, moved: false, inside: true };
   const touch = { active: false, move: null, aim: null, moveVec: { x: 0, y: 0 }, aimVec: { x: 0, y: 0 }, buttons: {} };
-  let padIndex = -1, padPrev = [], padAxesPrevNav = { x: 0, y: 0 }, navRepeat = 0;
+  let padIndex = -1, padPrev = [], padAxesPrevNav = { x: 0, y: 0 }, navRepeat = 0, navLatch = false, confirmGrace = 0;
 
   const S = {
     device: 'kbm',             // 'kbm' | 'pad' | 'touch' (last used)
@@ -3247,13 +3247,14 @@ const Input = (function () {
     fireHeld: false,
     dash: false, ability: false, interact: false, pause: false, mute: false, tab: false,
     nav: { up: false, down: false, left: false, right: false, confirm: false, back: false, any: false },
+    focusLost: false,          // set when the window loses focus / is hidden (game consumes it)
     mouseWorld: null,          // {x,y} sim coords under mouse (set by game each frame)
     mouse,
     touch,
   };
 
   /* ---------------- keyboard ---------------- */
-  const GAME_KEYS = new Set(['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab']);
+  const GAME_KEYS = new Set(['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab', 'Enter', 'NumpadEnter']);
   window.addEventListener('keydown', (e) => {
     if (e.repeat) { if (GAME_KEYS.has(e.code)) e.preventDefault(); return; }
     keys[e.code] = true; pressedEdge[e.code] = true; S.device = 'kbm';
@@ -3261,7 +3262,13 @@ const Input = (function () {
     if (window.AUDIO) try { AUDIO.init(); } catch (err) { }
   });
   window.addEventListener('keyup', (e) => { keys[e.code] = false; });
-  window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; mouse.down = mouse.rdown = false; });
+  function releaseAll() { for (const k in keys) keys[k] = false; mouse.down = mouse.rdown = false; touch.move = touch.aim = null; S.focusLost = true; }
+  window.addEventListener('blur', releaseAll);
+  document.addEventListener('visibilitychange', () => { if (document.hidden) releaseAll(); });
+
+  /* ---------------- audio unlock (any user gesture, before UI early-returns) ---------------- */
+  const unlockAudio = () => { if (window.AUDIO) try { AUDIO.init(); } catch (err) { } };
+  ['pointerdown', 'mousedown', 'touchend'].forEach((ev) => window.addEventListener(ev, unlockAudio, { capture: true, passive: true }));
 
   /* ---------------- mouse ---------------- */
   window.addEventListener('mousemove', (e) => { mouse.x = e.clientX; mouse.y = e.clientY; mouse.moved = true; if (S.device !== 'kbm' && (Math.abs(e.movementX) + Math.abs(e.movementY)) > 2) S.device = 'kbm'; });
@@ -3278,7 +3285,8 @@ const Input = (function () {
   /* ---------------- touch (virtual twin sticks) ---------------- */
   const STICK_R = 60;
   function touchStart(e) {
-    if (e.target && e.target.closest && e.target.closest('.ui-interactive')) return;
+    // never capture touches on UI or on any visible menu (lets screens/modals scroll natively)
+    if (e.target && e.target.closest && e.target.closest('.ui-interactive, .screen.on, .modal.on')) return;
     if (!S.touchEnabled) return;
     S.device = 'touch';
     if (window.AUDIO) try { AUDIO.init(); } catch (err) { }
@@ -3291,10 +3299,12 @@ const Input = (function () {
     e.preventDefault();
   }
   function touchMove(e) {
+    let mine = false;
     for (const t of e.changedTouches) {
       for (const k of ['move', 'aim']) {
         const st = touch[k];
         if (st && st.id === t.identifier) {
+          mine = true;
           st.x = t.clientX; st.y = t.clientY;
           // floating stick: drag origin along if pulled past radius
           const dx = st.x - st.ox, dy = st.y - st.oy, d = Math.hypot(dx, dy);
@@ -3302,7 +3312,7 @@ const Input = (function () {
         }
       }
     }
-    if (touch.move || touch.aim) e.preventDefault();
+    if (mine) e.preventDefault();
   }
   function touchEnd(e) {
     for (const t of e.changedTouches) {
@@ -3348,15 +3358,17 @@ const Input = (function () {
     if (mouse.down) firing = true;
     let dash = edge('Space') || edge('ShiftLeft') || edge('ShiftRight') || edge('Mouse2');
     let ability = edge('KeyQ') || edge('KeyF');
-    let interact = edge('KeyE') || edge('Enter');
+    let interact = edge('KeyE') || edge('Enter') || edge('NumpadEnter');
     let pause = edge('Escape') || edge('KeyP');
     const nav = S.nav;
     nav.up = edge('ArrowUp') || edge('KeyW'); nav.down = edge('ArrowDown') || edge('KeyS');
     nav.left = edge('ArrowLeft') || edge('KeyA'); nav.right = edge('ArrowRight') || edge('KeyD');
-    nav.confirm = edge('Enter') || edge('Space') || edge('KeyE'); nav.back = edge('Escape') || edge('Backspace');
+    nav.confirm = edge('Enter') || edge('NumpadEnter') || edge('Space') || edge('KeyE'); nav.back = edge('Escape') || edge('Backspace');
 
     // --- gamepad
     const pad = getPad();
+    // menu-nav latch releases once the stick is back near centre (or no pad at all)
+    if (!pad || (Math.abs(pad.axes[0] || 0) < 0.3 && Math.abs(pad.axes[1] || 0) < 0.3)) navLatch = false;
     if (pad) {
       const b = (i) => pad.buttons[i] && (pad.buttons[i].pressed || pad.buttons[i].value > 0.5);
       const be = (i) => b(i) && !padPrev[i];
@@ -3376,11 +3388,12 @@ const Input = (function () {
         if (be(5) || be(2)) ability = true;
         if (be(3)) interact = true;
         if (be(9)) pause = true;
+        if (be(0) || be(9)) unlockAudio();
         // menu nav (stick with repeat + dpad)
         const sx = pad.axes[0] || 0, sy = pad.axes[1] || 0;
         navRepeat -= dt;
         const stickDir = Math.abs(sx) > 0.55 || Math.abs(sy) > 0.55;
-        if (stickDir && (navRepeat <= 0 || (Math.abs(padAxesPrevNav.x) < 0.55 && Math.abs(padAxesPrevNav.y) < 0.55))) {
+        if (!navLatch && stickDir && (navRepeat <= 0 || (Math.abs(padAxesPrevNav.x) < 0.55 && Math.abs(padAxesPrevNav.y) < 0.55))) {
           if (Math.abs(sx) > Math.abs(sy)) { if (sx > 0) nav.right = true; else nav.left = true; }
           else { if (sy > 0) nav.down = true; else nav.up = true; }
           navRepeat = 0.22;
@@ -3392,6 +3405,9 @@ const Input = (function () {
       }
       padPrev = pad.buttons.map((x, i) => b(i));
     }
+
+    // short confirm grace after a screen/modal opens (stops E/A double-tap instantly picking)
+    if (confirmGrace > 0) { confirmGrace -= dt; nav.confirm = false; }
 
     // --- touch
     if (touch.move) {
@@ -3423,6 +3439,8 @@ const Input = (function () {
   };
   /** clear one-frame edges (call at end of frame) */
   S.endFrame = function () { for (const k in pressedEdge) delete pressedEdge[k]; mouse.moved = false; };
+  /** call when a screen/modal opens: latch held-stick nav until re-centred, briefly block confirm */
+  S.resetNav = function (grace = 0.2) { navLatch = true; confirmGrace = grace; };
   S.isDown = (code) => !!keys[code];
   /** gamepad rumble (silently ignored where unsupported) */
   S.rumble = function (strength = 0.5, ms = 120) {
@@ -3474,12 +3492,15 @@ const Gfx = (function () {
     engine = new BABYLON.Engine(canvas, G.quality !== 'low', { preserveDrawingBuffer: !!window.__TEST__, stencil: true, powerPreference: 'high-performance', antialias: G.quality !== 'low' }, true);
     engine.enableOfflineSupport = false;
     scene = new BABYLON.Scene(engine);
+    // Babylon's attachControl preventDefaults pointerdown, which suppresses the compat mousedown/mouseup
+    // events Input listens for. The game uses no Babylon picking/pointer input, so detach it.
+    scene.detachControl();
     scene.clearColor = new BABYLON.Color4(0.03, 0.01, 0.02, 1);
     scene.ambientColor = new BABYLON.Color3(0.12, 0.08, 0.1);
     scene.skipPointerMovePicking = true;
     scene.autoClear = true;
     camera = new BABYLON.FreeCamera('cam', new BABYLON.Vector3(8, 14, -14), scene);
-    camera.fov = G.view.fov; camera.minZ = 0.5; camera.maxZ = 120;
+    camera.fov = G.view.fov; camera.minZ = 0.5; camera.maxZ = 200;
     camera.inputs.clear();
     hemi = new BABYLON.HemisphericLight('hemi', new BABYLON.Vector3(0.2, 1, -0.3), scene);
     hemi.intensity = 0.95;
@@ -3571,7 +3592,7 @@ const Gfx = (function () {
     const test = (d) => {
       const pose = camPose(0, 0, d);
       const view = BABYLON.Matrix.LookAtLH(pose.pos, pose.tgt, BABYLON.Vector3.Up());
-      const proj = BABYLON.Matrix.PerspectiveFovLH(G.view.fov, aspect, 0.5, 200, engine.isNDCHalfZRange);
+      const proj = BABYLON.Matrix.PerspectiveFovLH(G.view.fov, aspect, 0.5, 300, engine.isNDCHalfZRange);
       const vp = view.multiply(proj);
       const pts = [[-fw / 2, -fh / 2, 1.0], [fw / 2, -fh / 2, 1.0], [-fw / 2, fh / 2, 0], [fw / 2, fh / 2, 0], [-fw / 2, fh / 2, 0.6], [fw / 2, -fh / 2, 0]];
       for (const p of pts) {
@@ -3580,24 +3601,19 @@ const Gfx = (function () {
       }
       return true;
     };
-    let lo = 4, hi = 80;
+    let lo = 4, hi = 160;
     for (let i = 0; i < 30; i++) { const mid = (lo + hi) / 2; if (test(mid)) hi = mid; else lo = mid; }
     return hi;
   }
   function fitCamera() {
-    const aspect = window.innerWidth / window.innerHeight;
     let fw = 17.4, fh = 11.6;
-    if (aspect < 1.2) fw = Math.max(9.5, fh * aspect * 0.95);
     G.view.baseFitW = fw; G.view.baseFitH = fh; G.view.baseDist = computeDist(fw, fh);
     applyBounds();
   }
   function applyBounds() {
     const v = G.view;
     if (v.whole && v.roomW) {
-      const aspect = window.innerWidth / window.innerHeight;
-      let fw = v.roomW + 0.4, fh = v.roomH + 0.6;
-      if (aspect < 1.2) fw = Math.max(v.baseFitW * 1.3, fh * aspect * 0.95);
-      v.fitW = Math.min(fw, v.roomW + 0.4); v.fitH = fh; v.dist = computeDist(v.fitW, v.fitH);
+      v.fitW = v.roomW + 0.4; v.fitH = v.roomH + 0.6; v.dist = computeDist(v.fitW, v.fitH);
     } else { v.fitW = v.baseFitW; v.fitH = v.baseFitH; v.dist = v.baseDist; }
   }
   /** Set which room-space rectangle the camera should keep in view; whole = zoom out to fit it all */
@@ -3735,8 +3751,10 @@ const Gfx = (function () {
   /** Clone a cached geometry into a mesh part. pos in Babylon local space. */
   G.part = function (shape, mat, parent, x = 0, y = 0, z = 0, sx = 1, sy, sz) {
     const base = geoCache.get(shape);
-    const m = base.clone(shape + '_p', null, true);
-    m.setEnabled(true); m.isVisible = true; m.isPickable = false;
+    // fresh mesh sharing the cached geometry's vertex buffers (Mesh.clone is ~0.5ms/part)
+    const m = new BABYLON.Mesh(shape + '_p', scene);
+    base.geometry.applyToMesh(m);
+    m.isPickable = false;
     m.material = mat;
     if (parent) m.parent = parent;
     m.position.set(x, y, z);
@@ -3881,9 +3899,10 @@ const Gfx = (function () {
   };
   G.beginPools = function () { for (const k in G.pools) G.pools[k].begin(); };
   G.endPools = function () {
-    const a = 0.45 + 0.25 * Math.sin(G.time * 14);
-    G.pools.teleDisc.mesh.material.alpha = a; G.pools.teleLine.mesh.material.alpha = a * 0.8;
-    G.pools.teleWarm.mesh.material.alpha = 0.35 + 0.2 * Math.sin(G.time * 9);
+    // keep the pulse floor high so telegraphs stay readable on red floors (0.48..0.72)
+    const a = G.reduceFlash ? 0.62 : 0.6 + 0.12 * Math.sin(G.time * 10);
+    G.pools.teleDisc.mesh.material.alpha = a; G.pools.teleLine.mesh.material.alpha = a * 0.85;
+    G.pools.teleWarm.mesh.material.alpha = G.reduceFlash ? 0.5 : 0.5 + 0.1 * Math.sin(G.time * 9);
     for (const k in G.pools) G.pools[k].end();
   };
 
@@ -4109,10 +4128,14 @@ const Gfx = (function () {
     if (holes.length) {
       const hm = G.plainMat('#000000', { spec: 0 });
       const rimMat = G.cellMat(p.wall, { rim: 1.6, core: 0.3, glow: 0, dark: 0.9 });
+      const discs = [], rims = [];
       for (const [tx, ty] of holes) {
-        const d = G.part('disc', hm, roomRoot, tx + 0.5, 0.012, -(ty + 0.5), 0.56);
-        d.scaling.set(0.58, 1, 0.58);
-        const ring = G.part('torusThick', rimMat, roomRoot, tx + 0.5, 0.02, -(ty + 0.5), 0.55, 0.5, 0.55);
+        discs.push(G.part('disc', hm, null, tx + 0.5, 0.012, -(ty + 0.5), 0.58, 1, 0.58));
+        rims.push(G.part('torusThick', rimMat, null, tx + 0.5, 0.02, -(ty + 0.5), 0.55, 0.5, 0.55));
+      }
+      for (const [list, mat] of [[discs, hm], [rims, rimMat]]) {
+        const mm = BABYLON.Mesh.MergeMeshes(list, true, true);
+        mm.material = mat; mm.parent = roomRoot; mm.isPickable = false;
       }
     }
     if (acids.length) {
@@ -4134,14 +4157,17 @@ const Gfx = (function () {
     return roomVis;
   };
   G.makeClot = function (tx, ty, rng) {
-    const root = new BABYLON.TransformNode('clot', scene);
-    root.position.set(tx + 0.5, 0, -(ty + 0.5));
+    // merged into one mesh in clot-local space (pivot at clot centre for damageClot scaling)
     const mat = G.cellMat('#a81a2a', { rim: 1.3, core: 0.25, glow: 0.05, dark: 0.7 });
+    const parts = [];
     for (let i = 0; i < 4; i++) {
       const s = rng.range(0.28, 0.42);
-      G.part('sphereLo', mat, root, rng.range(-0.22, 0.22), s * 0.75, rng.range(-0.22, 0.22), s, s * 0.85, s);
+      parts.push(G.part('sphereLo', mat, null, rng.range(-0.22, 0.22), s * 0.75, rng.range(-0.22, 0.22), s, s * 0.85, s));
     }
-    return root;
+    const m = BABYLON.Mesh.MergeMeshes(parts, true, true);
+    m.name = 'clot'; m.material = mat; m.isPickable = false;
+    m.position.set(tx + 0.5, 0, -(ty + 0.5));
+    return m;
   };
   G.removeClot = function (tx, ty) {
     if (!roomVis) return;
@@ -4354,7 +4380,7 @@ const World = (function () {
   };
 
   /* ---------------- flow field toward the player ---------------- */
-  W.flow = { dist: null, w: 0, h: 0, ptx: -1, pty: -1, roomId: -1 };
+  W.flow = { dist: null, q: null, inQ: null, w: 0, h: 0, ptx: -1, pty: -1, roomId: -1 };
   W.updateFlow = function (room, px, py) {
     const tx = Math.floor(px), ty = Math.floor(py), F = W.flow;
     if (F.roomId === room.id && F.ptx === tx && F.pty === ty && !room.flowDirty) return;
@@ -4363,19 +4389,23 @@ const World = (function () {
     const n = room.W * room.H;
     if (!F.dist || F.dist.length !== n) F.dist = new Float32Array(n);
     const dist = F.dist; dist.fill(1e9);
-    const q = new Int32Array(n); let qh = 0, qt = 0;
+    // SPFA ring buffer: a tile is queued at most once at a time, so capacity n never overflows
+    if (!F.q || F.q.length !== n) { F.q = new Int32Array(n); F.inQ = new Uint8Array(n); }
+    const q = F.q, inQ = F.inQ; inQ.fill(0);
+    let qh = 0, qt = 0, cnt = 0;
     const startIdx = clamp(ty, 0, room.H - 1) * room.W + clamp(tx, 0, room.W - 1);
-    dist[startIdx] = 0; q[qt++] = startIdx;
+    dist[startIdx] = 0; q[qt] = startIdx; qt = (qt + 1) % n; cnt = 1; inQ[startIdx] = 1;
     const mask = MASK_WALKER & ~bit(T_DOOR);
-    while (qh < qt) {
-      const i = q[qh++], x = i % room.W, y = (i / room.W) | 0, d = dist[i];
+    while (cnt > 0) {
+      const i = q[qh]; qh = (qh + 1) % n; cnt--; inQ[i] = 0;
+      const x = i % room.W, y = (i / room.W) | 0, d = dist[i];
       for (let k = 0; k < 8; k++) {
         const dx = DX8[k], dy = DY8[k], nx = x + dx, ny = y + dy;
         if (nx < 0 || ny < 0 || nx >= room.W || ny >= room.H) continue;
         if (W.blocked(room, nx, ny, mask)) continue;
         if (dx && dy && (W.blocked(room, x + dx, y, mask) || W.blocked(room, x, y + dy, mask))) continue;
         const ni = ny * room.W + nx, nd = d + (dx && dy ? 1.414 : 1) + (room.grid[ni] === T_ACID ? 3 : 0);
-        if (nd < dist[ni]) { dist[ni] = nd; q[qt++] = ni; }
+        if (nd < dist[ni]) { dist[ni] = nd; if (!inQ[ni]) { inQ[ni] = 1; q[qt] = ni; qt = (qt + 1) % n; cnt++; } }
       }
     }
   };
@@ -4386,13 +4416,16 @@ const World = (function () {
     const tx = Math.floor(x), ty = Math.floor(y);
     let best = Infinity, bx = 0, by = 0;
     const here = (tx >= 0 && ty >= 0 && tx < room.W && ty < room.H) ? F.dist[ty * room.W + tx] : 1e9;
+    const m = MASK_WALKER & ~bit(T_DOOR);
     for (let k = 0; k < 8; k++) {
-      const nx = tx + DX8[k], ny = ty + DY8[k];
+      const dx = DX8[k], dy = DY8[k], nx = tx + dx, ny = ty + dy;
       if (nx < 0 || ny < 0 || nx >= room.W || ny >= room.H) continue;
+      // same corner rule as updateFlow: never cut diagonally past a blocked orthogonal tile
+      if (dx && dy && (W.blocked(room, tx + dx, ty, m) || W.blocked(room, tx, ty + dy, m))) continue;
       const d = F.dist[ny * room.W + nx];
       if (d < best) { best = d; bx = nx + 0.5 - x; by = ny + 0.5 - y; }
     }
-    if (best >= 1e8 || best >= here + 0.01 && here < 1e8 && here === 0) return null;
+    if (best >= 1e8 || here === 0) return null;
     const l = Math.hypot(bx, by); if (l < 1e-6) return null;
     return { x: bx / l, y: by / l, d: here };
   };
@@ -4460,6 +4493,18 @@ const World = (function () {
     const target = 9 + floorIdx + rng.int(0, 2);
     cells.set(key(C, C), { x: C, y: C });
     let frontier = [[C, C]];
+    const blocks = [], inBlock = new Set();
+    // (x,y) has exactly 2 neighbours (one horizontal, one vertical) whose shared diagonal exists -> adding it completes a 2x2
+    const closeBlock = (x, y) => {
+      if (nbCount(x, y) !== 2) return null;
+      for (const sx of [-1, 1]) for (const sy of [-1, 1]) {
+        if (!cells.has(key(x + sx, y)) || !cells.has(key(x, y + sy)) || !cells.has(key(x + sx, y + sy))) continue;
+        const bc = [[x, y], [x + sx, y], [x, y + sy], [x + sx, y + sy]];
+        if (bc.some(([bx, by]) => (bx === C && by === C) || inBlock.has(key(bx, by)))) return null;
+        return { x0: Math.min(x, x + sx), y0: Math.min(y, y + sy), cells: bc };
+      }
+      return null;
+    };
     let guard = 0;
     while (cells.size < target && guard++ < 400) {
       if (!frontier.length) frontier = [...cells.values()].map(c => [c.x, c.y]);
@@ -4470,8 +4515,11 @@ const World = (function () {
           const nx = x + DIRS[d][0], ny = y + DIRS[d][1];
           if (nx < 1 || ny < 1 || nx >= SZ - 1 || ny >= SZ - 1) continue;
           if (cells.has(key(nx, ny))) continue;
-          if (nbCount(nx, ny) > 1) continue;
-          if (rng.chance(0.45)) continue;
+          if (nbCount(nx, ny) > 1) {
+            const blk = closeBlock(nx, ny);
+            if (!blk || !rng.chance(0.15)) continue;
+            blocks.push(blk); for (const [bx, by] of blk.cells) inBlock.add(key(bx, by));
+          } else if (rng.chance(0.45)) continue;
           cells.set(key(nx, ny), { x: nx, y: ny }); next.push([nx, ny]);
         }
       }
@@ -4509,12 +4557,9 @@ const World = (function () {
     };
     mkRoom('start', C, C, 1, 1);
     for (const k in specials) { const [x, y] = k.split(',').map(Number); mkRoom(specials[k], x, y, 1, 1); }
-    // try 2x2 merges
+    // 2x2 blocks closed during growth are always merged into one room (keeps the room graph a tree)
+    for (const b of blocks) if (isNormal(b.x0, b.y0) && isNormal(b.x0 + 1, b.y0) && isNormal(b.x0, b.y0 + 1) && isNormal(b.x0 + 1, b.y0 + 1)) mkRoom('normal', b.x0, b.y0, 2, 2);
     const cellList = rng.shuffle([...cells.values()]);
-    for (const c of cellList) {
-      if (rng.chance(0.82)) continue;
-      if (isNormal(c.x, c.y) && isNormal(c.x + 1, c.y) && isNormal(c.x, c.y + 1) && isNormal(c.x + 1, c.y + 1)) mkRoom('normal', c.x, c.y, 2, 2);
-    }
     for (const c of cellList) {
       if (!isNormal(c.x, c.y)) continue;
       const r = rng.next();
@@ -4807,7 +4852,11 @@ function updatePShots(dt) {
         if (Math.abs(angDiff(e.facing, incoming)) < e.shieldArc) {
           sfx('hit_armor', { rate: rnd(0.9, 1.1) });
           burst(s.x, s.y, '#ffffff', 4, 3, { life: 0.18, size: 0.05 });
-          // deflect
+          // armour absorbs the hit; enough damage cracks it open for a few seconds
+          if (e.shieldHp != null) {
+            e.shieldHp -= s.dmg;
+            if (e.shieldHp <= 0) { e.shieldBroken = true; e.shieldT = 3.5; sfx('shield_break'); burst(e.x, e.y, '#fff6c8', 18, 5, { life: 0.5, size: 0.09 }); Gfx.floatText(e.x, e.y, 'CRACKED', '#fff6c8', 13, { h: 1.6 }); }
+          }
           s.dead = true; break;
         }
       }
@@ -4832,9 +4881,10 @@ function splitShot(s, baseAng, n, dmgK, spread) {
     c.split = true;
   }
 }
-function shotBlast(s) {
+function shotBlast(s, hitE) {
+  // hitE: the enemy the shot struck (already took the full hit) — excluded so the blast is 60% to everything *around* it
   const P = SIM.player, rad = s.flags.blast * (P.st.blastRadiusMult || 1);
-  explode(s.x, s.y, rad, s.dmg * 0.6, { byPlayer: true, hex: SHOT_STYLES[s.style].hex, small: true, noSelf: true });
+  explode(s.x, s.y, rad, s.dmg * 0.6, { byPlayer: true, hex: SHOT_STYLES[s.style].hex, small: true, exclude: hitE });
 }
 
 function shotHitEnemy(s, e) {
@@ -4860,7 +4910,7 @@ function shotHitEnemy(s, e) {
       c.split = true; c.hit = new Set([e.id]);
     }
   }
-  if (f.blast) shotBlast(s);
+  if (f.blast) shotBlast(s, e);
 }
 
 /* ==========================================================================
@@ -4872,8 +4922,9 @@ function enemyDamageMult(e) {
   if (e.markT > 0) m *= 1.5;
   const P = SIM.player;
   if (P) {
-    m *= 1 + P.memoryBonus(e.type);
-    if (P.st.execute && e.isBoss && e.hp < e.maxHp * P.st.execute) m *= 1.15;
+    const ref = e.forward || e; // worm segments: measure memory/execute against the head they forward to
+    m *= 1 + P.memoryBonus(ref.type);
+    if (P.st.execute && ref.isBoss && ref.hp < ref.maxHp * P.st.execute) m *= 1.15;
   }
   return m;
 }
@@ -4927,7 +4978,14 @@ function killEnemy(e, o = {}) {
   }
   if (e.onDeath) e.onDeath(e);
   // elite volatile
-  if (e.elite === 'volatile') enemyRing(e.x, e.y, 10, 4.2, { style: 'acid', delay: 0.05 });
+  // (telegraphed like the Rot Carrier pop; no owner, or updateTeles would cancel it because e is dead)
+  if (e.elite === 'volatile') {
+    const vx = e.x, vy = e.y;
+    telegraph({ kind: 'disc', x: vx, y: vy, r: 1.6, dur: 0.5, warm: true, then: () => {
+      enemyRing(vx, vy, 10, 4.2, { style: 'acid' });
+      sfx('explosion', { vol: 0.5 }); burst(vx, vy, ELITES.volatile.color, 16, 4.5, { life: 0.45 });
+    } });
+  }
   // marked targets burst
   if (e.markT > 0 && P) explode(e.x, e.y, 1.8, P.baseDmg() * 2.2, { byPlayer: true, hex: '#9dff7a' });
   if (P && !e.isBoss && !e.summoned) {
@@ -4950,12 +5008,18 @@ function killEnemy(e, o = {}) {
 function applyBurn(e, dps) {
   if (e.dead) return;
   const k = SIM.player ? SIM.player.st.dotMult : 1;
-  e.burnT = 3; e.burnDps = Math.max(e.burnDps || 0, dps * k);
+  // refresh keeps the *decayed* old rate at most, so one huge proc does not lock in forever
+  const old = e.burnT > 0 ? (e.burnDps || 0) * e.burnT / 3 : 0;
+  e.burnDps = Math.max(dps * k, old); e.burnT = 3;
 }
 function applyPoison(e, dps) {
   if (e.dead) return;
   const k = SIM.player ? SIM.player.st.dotMult : 1;
-  e.poisonT = 4; e.poisonStacks = Math.min(5, (e.poisonStacks || 0) + 1); e.poisonDps = Math.max(e.poisonDps || 0, dps * k);
+  // each stack is one application: per-stack rate is the running average of applications
+  const active = e.poisonT > 0 && e.poisonStacks > 0;
+  const n = Math.min(5, (active ? e.poisonStacks : 0) + 1);
+  e.poisonDps = active ? ((e.poisonDps || 0) * (n - 1) + dps * k) / n : dps * k;
+  e.poisonStacks = n; e.poisonT = 4;
 }
 function applyLatch(e, dps) {
   if (e.dead) return;
@@ -4964,7 +5028,12 @@ function applyLatch(e, dps) {
   e.latches.push({ t: 2.5, dps, a: rnd(0, TAU) });
 }
 function applySlow(e, t, k) { e.slowT = Math.max(e.slowT || 0, t * (e.isBoss ? 0.5 : 1)); e.slowK = k; }
-function applyStun(e, t) { if (e.isBoss || e.stunImmune) return; e.stunT = Math.max(e.stunT || 0, t); sfx('stun', { vol: 0.5 }); }
+function applyStun(e, t) {
+  if (e.isBoss || e.stunImmune || e.stunCd > 0) return;
+  e.stunT = Math.max(e.stunT || 0, t);
+  e.stunCd = t + 1.0; // re-stun lockout: caps uptime (~37%) regardless of pellet count / fire rate
+  sfx('stun', { vol: 0.5 });
+}
 
 function updateStatus(e, dt) {
   e.hurtT = Math.max(0, (e.hurtT || 0) - dt);
@@ -4972,10 +5041,12 @@ function updateStatus(e, dt) {
   if (e.markT > 0) e.markT -= dt;
   if (e.slowT > 0) e.slowT -= dt;
   if (e.stunT > 0) e.stunT -= dt;
+  if (e.stunCd > 0) e.stunCd -= dt;
   let dot = 0, hex = '#ffa060';
   if (e.burnT > 0) { e.burnT -= dt; dot += e.burnDps; if (Math.random() < dt * 8) burst(e.x, e.y, '#ff8a2a', 1, 1.2, { life: 0.4, size: 0.06, up: 2.5 }); }
+  else e.burnDps = 0;
   if (e.poisonT > 0) { e.poisonT -= dt; dot += e.poisonDps * e.poisonStacks; hex = '#9aff5a'; if (Math.random() < dt * 6) burst(e.x, e.y, '#9aff5a', 1, 1, { life: 0.4, size: 0.05, up: 1.5 }); }
-  else e.poisonStacks = 0;
+  else { e.poisonStacks = 0; e.poisonDps = 0; }
   if (e.latches && e.latches.length) {
     for (let i = e.latches.length - 1; i >= 0; i--) { const L = e.latches[i]; L.t -= dt; dot += L.dps; if (L.t <= 0) e.latches.splice(i, 1); }
     hex = '#c9bcff';
@@ -5031,11 +5102,17 @@ function enemyFan(x, y, ang, n, spread, speed, o = {}) {
 }
 function updateEShots(dt) {
   const room = SIM.room, P = SIM.player;
+  // NOTE: hurtPlayer / onExpire can mutate SIM.eshots mid-loop (revive -> clearEShots, Platelet Plug ->
+  // clearNearbyShots, boss killed by the plug -> onBossKilled). Remove by identity and clamp i afterwards.
   for (let i = SIM.eshots.length - 1; i >= 0; i--) {
+    if (i >= SIM.eshots.length) i = SIM.eshots.length - 1;
+    if (i < 0) break;
     const s = SIM.eshots[i];
+    if (!s) continue;
+    if (s.dead) { SIM.eshots.splice(i, 1); continue; }
     if (s.delay > 0) { s.delay -= dt; continue; }
     s.t += dt;
-    if (s.t >= s.life || s.dead) { if (s.onExpire && !s.dead) s.onExpire(s); SIM.eshots.splice(i, 1); continue; }
+    if (s.t >= s.life) { s.dead = true; if (s.onExpire) s.onExpire(s); removeEShot(s); continue; }
     if (s.accel) { const sp = Math.hypot(s.vx, s.vy), ns = clamp(sp + s.accel * dt, 0.3, s.maxSpeed), k = ns / Math.max(0.001, sp); s.vx *= k; s.vy *= k; }
     if (s.curve) { const a = Math.atan2(s.vy, s.vx) + s.curve * dt, sp = Math.hypot(s.vx, s.vy); s.vx = Math.cos(a) * sp; s.vy = Math.sin(a) * sp; }
     if (s.homing && P) { const a = Math.atan2(s.vy, s.vx), w = angleTo(s.x, s.y, P.x, P.y), sp = Math.hypot(s.vx, s.vy); const na = a + clamp(angDiff(a, w), -1, 1) * s.homing * dt; s.vx = Math.cos(na) * sp; s.vy = Math.sin(na) * sp; }
@@ -5043,8 +5120,8 @@ function updateEShots(dt) {
     s.x += s.vx * dt; s.y += s.vy * dt;
     if (!s.spectral && World.blockedAt(room, s.x, s.y, MASK_SHOT)) {
       burst(s.x, s.y, ESHOT_STYLES[s.style] || '#ff3d7f', 3, 1.6, { life: 0.2, size: 0.05 });
-      if (s.onExpire) s.onExpire(s);
-      SIM.eshots.splice(i, 1); continue;
+      s.dead = true; if (s.onExpire) s.onExpire(s);
+      removeEShot(s); continue;
     }
     if (s.spectral && (s.x < -2 || s.y < -2 || s.x > room.W + 2 || s.y > room.H + 2)) { SIM.eshots.splice(i, 1); continue; }
     // companions / satellites block
@@ -5061,14 +5138,15 @@ function updateEShots(dt) {
     if (P && !P.dead) {
       const rr = P.hitR + s.r * 0.85;
       if (dist2(s.x, s.y, P.x, P.y) < rr * rr) {
-        if (hurtPlayer(s.dmg, { x: s.x, y: s.y, kind: 'shot' })) { SIM.eshots.splice(i, 1); continue; }
+        if (hurtPlayer(s.dmg, { x: s.x, y: s.y, kind: 'shot' })) { s.dead = true; removeEShot(s); continue; }
       }
     }
   }
 }
+function removeEShot(s) { const j = SIM.eshots.indexOf(s); if (j >= 0) SIM.eshots.splice(j, 1); }
 function clearEShots(fx) {
-  if (fx) for (const s of SIM.eshots) burst(s.x, s.y, ESHOT_STYLES[s.style] || '#ff3d7f', 2, 1.5, { life: 0.3, size: 0.05 });
-  SIM.eshots.length = 0;
+  for (const s of SIM.eshots) { if (fx && !s.dead) burst(s.x, s.y, ESHOT_STYLES[s.style] || '#ff3d7f', 2, 1.5, { life: 0.3, size: 0.05 }); s.dead = true; }
+  SIM.eshots.length = 0; // safe mid-updateEShots: that loop clamps its index and skips holes
 }
 
 /* ==========================================================================
@@ -5084,6 +5162,7 @@ function updateZones(dt) {
   const P = SIM.player;
   for (let i = SIM.zones.length - 1; i >= 0; i--) {
     const z = SIM.zones[i];
+    if (!z) continue; // array may be emptied/replaced mid-loop (boss killed by a zone tick)
     if (z.delay > 0) { z.delay -= dt; continue; }
     z.t += dt;
     if (z.t >= z.life) { SIM.zones.splice(i, 1); continue; }
@@ -5113,10 +5192,11 @@ function telegraph(o) {
 function updateTeles(dt) {
   for (let i = SIM.teles.length - 1; i >= 0; i--) {
     const t = SIM.teles[i];
+    if (!t) continue; // array may be emptied mid-loop (a tele's then() killing the boss)
     if (t.owner && t.owner.dead && !t.persist) { SIM.teles.splice(i, 1); continue; }
     if (t.follow) t.follow(t);
     t.t += dt;
-    if (t.t >= t.dur) { SIM.teles.splice(i, 1); if (t.then) t.then(t); }
+    if (t.t >= t.dur) { const j = SIM.teles.indexOf(t); if (j >= 0) SIM.teles.splice(j, 1); if (t.then) t.then(t); }
   }
 }
 /** damaging beam (line segment) active for dur */
@@ -5129,6 +5209,7 @@ function updateBeams(dt) {
   const P = SIM.player;
   for (let i = SIM.beams.length - 1; i >= 0; i--) {
     const b = SIM.beams[i];
+    if (!b) continue; // array may be emptied mid-loop (beam hit -> Platelet Plug -> boss kill)
     b.t += dt;
     if (b.t >= b.dur || (b.owner && b.owner.dead)) { SIM.beams.splice(i, 1); continue; }
     if (b.follow) b.follow(b, dt);
@@ -5366,7 +5447,7 @@ function makePlayer(strainId, run) {
   const P = {
     strain: def, x: 8.5, y: 5.5, vx: 0, vy: 0, color: def.color,
     hp: 0, shield: 0, iron: 0, mutations: [], counts: {}, st: null, hooks: null,
-    fireT: 0, charge: 0, chargeHeld: false, lastFire: 0, dashT: 0, dashCd: 0, dashDX: 1, dashDY: 0,
+    fireT: 0, charge: 0, chargeHeld: false, pendingLance: 0, lastFire: 0, dashT: 0, dashCd: 0, dashDX: 1, dashDY: 0,
     invulnT: 0, hurtFlash: 0, abilityT: 0, abilityMax: def.abilityCd, abilityReadyPlayed: true,
     aimAng: 0, node: null, vis: null, dead: false, revives: 0, reviveHp: [],
     volley: 0, adrenalShots: 0, cytokineStacks: 0, species: new Set(), synergies: {}, run,
@@ -5398,30 +5479,37 @@ function makePlayer(strainId, run) {
     if (st.phage) P.hooks.onKill.push((e) => {
       for (let k = 0; k < st.phage; k++) {
         const a = rnd(0, TAU);
-        spawnPShot(e.x, e.y, a, { speed: 7, r: 0.12, dmg: P.baseDmg() * 0.7, life: 1.6, style: 'phage', homing: 1.4, knock: 0.3, owner: 'phage' });
+        spawnPShot(e.x, e.y, a, { speed: 7, r: 0.12, dmg: P.effDmg() * 0.7, life: 1.6, style: 'phage', homing: 1.4, knock: 0.3, owner: 'phage' });
       }
     });
     if (st.deathBlast) P.hooks.onKill.push((e, o) => {
-      if (o && o.src === 'stormblast') return;
+      // pathogens killed by a storm blast explode too; hop counter caps the chain length
+      const depth = (o && o.src === 'stormblast') ? (o.stormDepth || 0) + 1 : 0;
+      if (depth > 6) return;
       const r = (1.3 + e.r) * st.blastRadiusMult;
       // defer so chain reactions resolve over a few frames (looks great, avoids recursion)
-      after(0.06, () => { if (SIM.player === P && !P.dead) explodeStorm(e.x, e.y, r, P.baseDmg() * 1.6, st.blastChain); });
+      after(0.06, () => { if (SIM.player === P && !P.dead) explodeStorm(e.x, e.y, r, P.effDmg() * 1.6, st.blastChain, depth); });
     });
     if (st.cytokine) P.hooks.onKill.push(() => { P.cytokineStacks = Math.min(10, P.cytokineStacks + 1); });
     if (st.plateletPlug) P.hooks.onHurt.push(() => {
       addRing(P.x, P.y, 3, '#ffc0d0', 0.4);
-      for (const e of SIM.enemies) if (!e.dead && dist2(e.x, e.y, P.x, P.y) < 9) dealDamage(e, P.baseDmg() * 2, { x: P.x, y: P.y, vx: e.x - P.x, vy: e.y - P.y, knock: 3, src: 'plug' });
+      for (const e of SIM.enemies) if (!e.dead && dist2(e.x, e.y, P.x, P.y) < 9) dealDamage(e, P.effDmg() * 2, { x: P.x, y: P.y, vx: e.x - P.x, vy: e.y - P.y, knock: 3, src: 'plug' });
       clearNearbyShots(P.x, P.y, 2.2);
     });
     syncCompanions();
   };
-  function explodeStorm(x, y, r, dmg, chain) {
+  function explodeStorm(x, y, r, dmg, chain, depth = 0) {
     burst(x, y, '#ffd36b', 16, r * 4, { life: 0.35, size: 0.09 });
     addRing(x, y, r, '#ffd36b', 0.3);
     sfx('explosion', { vol: 0.5, rate: rnd(1.1, 1.4) });
     Gfx.addShake(0.2);
-    for (const e of SIM.enemies) if (!e.dead && e.spawning <= 0 && dist2(e.x, e.y, x, y) < (r + e.r) ** 2) dealDamage(e, dmg, { x, y, vx: e.x - x, vy: e.y - y, knock: 1.2, src: 'stormblast', silent: true });
-    if (chain) { const t = nearestEnemy(x, y, 4); if (t) chainLightning(t, dmg * 0.5, 2, new Set()); }
+    for (const e of SIM.enemies) if (!e.dead && e.spawning <= 0 && dist2(e.x, e.y, x, y) < (r + e.r) ** 2) dealDamage(e, dmg, { x, y, vx: e.x - x, vy: e.y - y, knock: 1.2, src: 'stormblast', stormDepth: depth, silent: true });
+    if (chain) { const t = nearestEnemy(x, y, 4); if (t) {
+      // arc from the blast point to t, then two real hops onward from t
+      SIM.arcs.push({ x0: x, y0: y, x1: t.x, y1: t.y, t: 0, life: 0.16, hex: '#bfe8ff' });
+      dealDamage(t, dmg * 0.5, { src: 'chain', knock: 0.2 });
+      chainLightning(t, dmg * 0.5, 2);
+    } }
   }
   function clearNearbyShots(x, y, r) {
     for (let i = SIM.eshots.length - 1; i >= 0; i--) { const s = SIM.eshots[i]; if (dist2(s.x, s.y, x, y) < r * r) { burst(s.x, s.y, '#ffc0d0', 2, 2, { life: 0.2 }); SIM.eshots.splice(i, 1); } }
@@ -5429,11 +5517,16 @@ function makePlayer(strainId, run) {
 
   P.baseDmg = function () {
     let d = def.dmg * P.st.dmgMult;
-    if (P.st.oncogene) d *= 1 + 0.04 * (run.stats.roomsCleared || 0);
+    // only rooms cleared since ONCOGENE was taken count; capped at +100%
+    if (P.st.oncogene) d *= 1 + Math.min(1, 0.04 * Math.max(0, (run.stats.roomsCleared || 0) - (P.oncoBase || 0)));
     if (P.st.cytokine) d *= 1 + 0.04 * P.cytokineStacks;
     if (P.st.speciesBonus) d *= 1 + Math.min(0.4, 0.04 * P.species.size);
     return d;
   };
+  // strain-agnostic base for companions/auras/on-kill/on-hurt effects: per-shot damage
+  // normalised to the Neutrophil's weapon DPS (3.0 x 3.6/s), so these don't swing 5-7x by strain
+  const EFF_K = (def.fireRate * (def.pellets || 1) * (def.weapon === 'antibody' ? 1.875 : 1)) / 3.6;
+  P.effDmg = () => P.baseDmg() * EFF_K;
   P.memoryBonus = function (type) {
     const kills = (META.codex && META.codex[type]) || 0;
     const cap = META.perks && META.perks.memtcell ? 0.2 : 0.1;
@@ -5445,10 +5538,12 @@ function makePlayer(strainId, run) {
   P.range = () => def.range * P.st.rangeMult;
   P.speed = () => def.speed * P.st.speedMult;
 
+  // returns true only if HP actually went up
   P.heal = function (n) {
-    if (P.st && P.st.noHeal && n < 50) return;
+    if (P.st && P.st.noHeal && n < 50) return false;
     const before = P.hp; P.hp = Math.min(P.st ? P.st.maxHp : def.hp, P.hp + n);
-    if (P.hp > before) { sfx('heal'); Bus.emit('heal'); }
+    if (P.hp > before) { sfx('heal'); Bus.emit('heal'); return true; }
+    return false;
   };
   P.addShield = function (n) { P.shield = Math.min(6, P.shield + n); Bus.emit('shield'); };
   P.addIron = function (n, raw) { const v = raw ? n : Math.round(n * (P.st ? P.st.ironMult : 1) * 10) / 10; P.iron += v; run.stats.ironGained += v; Bus.emit('iron'); };
@@ -5458,6 +5553,8 @@ function makePlayer(strainId, run) {
     const m = MUT[id]; if (!m) return;
     P.mutations.push(id); P.counts[id] = (P.counts[id] || 0) + 1;
     if (m.cost) { P.maxHpPaid = (P.maxHpPaid || 0) + m.cost; }
+    // ONCOGENE counts rooms from the moment it is taken
+    if (id === 'oncogene' && P.counts[id] === 1) P.oncoBase = (run.stats && run.stats.roomsCleared) || 0;
     P.recompute();
     if (m.cost) { /* malignant: pay max HP via a permanent negative */ }
     if (m.onGain) m.onGain(P);
@@ -5493,7 +5590,7 @@ function makePlayer(strainId, run) {
     else if (P.dashT > 0) {
       P.dashT -= dt;
       P.vx = P.dashDX * DASH_SPEED; P.vy = P.dashDY * DASH_SPEED;
-      if (st.biofilm) { P.bioT -= dt; if (P.bioT <= 0) { P.bioT = 0.045; spawnZone(P.x, P.y, 0.6, 2.4, 'bio', { owner: 'player', dps: P.baseDmg() * 1.1 }); } }
+      if (st.biofilm) { P.bioT -= dt; if (P.bioT <= 0) { P.bioT = 0.045; spawnZone(P.x, P.y, 0.6, 2.4, 'bio', { owner: 'player', dps: P.effDmg() * 1.1 }); } }
       if (Math.random() < 0.7) burst(P.x, P.y, P.color, 1, 0.5, { life: 0.3, size: 0.1, grav: 0, h: 0.5 });
     } else {
       const sp = P.speed() * (P.chargeHeld && def.weapon === 'lance' ? 0.78 : 1);
@@ -5501,7 +5598,7 @@ function makePlayer(strainId, run) {
       const k = damp(inp.move.x || inp.move.y ? 14 : 10, dt);
       P.vx = lerp(P.vx, tx, k); P.vy = lerp(P.vy, ty, k);
       // dash
-      if (inp.dash && P.dashCd <= 0) startDash();
+      if (inp.dash && P.dashCd <= 0) { inp.dash = false; startDash(); } // consume edge (2 substeps below 50fps)
     }
     // move + collide
     applyFlow(P, dt, 0.55);
@@ -5513,6 +5610,7 @@ function makePlayer(strainId, run) {
     updateWeapon(dt);
     // --- ability
     if (inp.ability && SIM.combatAllowed) {
+      inp.ability = false; // one-frame edge; playFrame may run 2 substeps per frame below 50fps
       if (P.abilityT <= 0) useAbility();
       else { sfx('ui_error', { vol: 0.4 }); }
     }
@@ -5528,7 +5626,7 @@ function makePlayer(strainId, run) {
       P.auraTick += dt;
       if (P.auraTick >= 0.25) {
         P.auraTick = 0;
-        for (const e of SIM.enemies) if (!e.dead && e.spawning <= 0 && dist2(e.x, e.y, P.x, P.y) < (e.r + P.hitR + 0.5) ** 2) dealDamage(e, P.baseDmg() * st.contactAura * 0.25, { dot: true, dotHex: '#c06bff', src: 'aura' });
+        for (const e of SIM.enemies) if (!e.dead && e.spawning <= 0 && dist2(e.x, e.y, P.x, P.y) < (e.r + P.hitR + 0.5) ** 2) dealDamage(e, P.effDmg() * st.contactAura * 0.25, { dot: true, dotHex: '#c06bff', src: 'aura' });
       }
     }
     updateCompanions(dt);
@@ -5559,11 +5657,14 @@ function makePlayer(strainId, run) {
   function muzzle(ang) { return { x: P.x + Math.cos(ang) * (P.hitR + 0.12), y: P.y + Math.sin(ang) * (P.hitR + 0.12) }; }
 
   function updateWeapon(dt) {
-    P.fireT = Math.max(0, P.fireT - dt);
+    P.fireT -= dt;
     const canFire = SIM.combatAllowed && !P.engulf;
     const firing = Input.firing && canFire;
     if (def.weapon === 'lance') {
+      P.fireT = Math.max(0, P.fireT);
       const rate = P.fireRate();
+      // a release buffered during the post-shot cooldown fires as soon as it ends
+      if (P.pendingLance > 0 && P.fireT <= 0) { if (canFire) fireLance(P.pendingLance); P.pendingLance = 0; }
       if (firing) {
         P.chargeHeld = true;
         const before = P.charge;
@@ -5572,15 +5673,18 @@ function makePlayer(strainId, run) {
         if (P.charge >= 1 && P.fireT <= 0) { fireLance(1); P.charge = 0; }
       } else if (P.chargeHeld) {
         P.chargeHeld = false;
-        if (P.fireT <= 0) fireLance(P.charge);
+        if (P.fireT <= 0) fireLance(P.charge); else P.pendingLance = P.charge;
         P.charge = 0;
       }
       return;
     }
-    if (firing && P.fireT <= 0) {
-      P.fireT = 1 / P.fireRate();
-      if (def.weapon === 'spray') fireSpray(); else fireStream();
-    }
+    if (firing) {
+      if (P.fireT <= 0) {
+        // carry the leftover (capped at one step) so the real rate matches the stat at any refresh rate
+        P.fireT = Math.max(P.fireT, -dt) + 1 / P.fireRate();
+        if (def.weapon === 'spray') fireSpray(); else fireStream();
+      }
+    } else P.fireT = Math.max(0, P.fireT);
   }
   function fireStream() {
     const st = P.st, isAnti = def.weapon === 'antibody';
@@ -5622,7 +5726,7 @@ function makePlayer(strainId, run) {
         pierce: st.pierce, bounce: st.bounce, homing: st.homing, crit, flags, knock: 0.8, decel: 1.2,
       });
     }
-    complementShot(dmg * 2);
+    complementShot(dmg / multishotK(n / def.pellets) * def.pellets); // big shot = 3 base volleys, like stream/lance
     sfx('shoot_macrophage', { vol: 0.7, rate: rnd(0.94, 1.06) });
     Gfx.addShake(0.08);
     P.vx -= Math.cos(P.aimAng) * 1.5; P.vy -= Math.sin(P.aimAng) * 1.5;
@@ -5718,7 +5822,7 @@ function makePlayer(strainId, run) {
       }
     }
     if (E.t >= E.dur) {
-      if (E.kills >= 3) { P.heal(1); Gfx.floatText(P.x, P.y, 'DIGESTED +1', '#ffc27a', 14, { h: 1.8 }); }
+      if (E.kills >= 3 && P.heal(1)) { Gfx.floatText(P.x, P.y, 'DIGESTED +1', '#ffc27a', 14, { h: 1.8 }); }
       P.engulf = null; P.vx *= 0.3; P.vy *= 0.3;
     }
   }
@@ -5781,7 +5885,7 @@ function makePlayer(strainId, run) {
         c.tick += dt;
         if (c.tick >= 0.25) {
           c.tick = 0;
-          for (const e of SIM.enemies) if (!e.dead && e.spawning <= 0 && dist2(e.x, e.y, c.x, c.y) < (e.r + c.r + 0.1) ** 2) dealDamage(e, P.baseDmg() * 1.0 * st.companionMult, { x: c.x, y: c.y, knock: 0.6, src: 'satellite', silent: true });
+          for (const e of SIM.enemies) if (!e.dead && e.spawning <= 0 && dist2(e.x, e.y, c.x, c.y) < (e.r + c.r + 0.1) ** 2) dealDamage(e, P.effDmg() * 1.0 * st.companionMult, { x: c.x, y: c.y, knock: 0.6, src: 'satellite', silent: true });
         }
       } else {
         const i = others.indexOf(c), n = others.length;
@@ -5794,7 +5898,7 @@ function makePlayer(strainId, run) {
           if (tgt && c.fireT <= 0) {
             c.fireT = 0.5;
             const a = angleTo(c.x, c.y, tgt.x, tgt.y);
-            spawnPShot(c.x, c.y, a, { speed: 11, r: 0.11, dmg: P.baseDmg() * 0.45 * st.companionMult, life: 0.8, style: 'helper', homing: 0.3, knock: 0.4, owner: 'helper' });
+            spawnPShot(c.x, c.y, a, { speed: 11, r: 0.11, dmg: P.effDmg() * 0.45 * st.companionMult, life: 0.8, style: 'helper', homing: 0.3, knock: 0.4, owner: 'helper' });
             sfx('shoot_helper', { vol: 0.35, rate: rnd(0.95, 1.1) });
           }
         } else if (c.kind === 'mast' && SIM.combatAllowed) {
@@ -5804,7 +5908,7 @@ function makePlayer(strainId, run) {
             const R = 2.7;
             addRing(c.x, c.y, R, '#ffd36b', 0.4);
             let any = false;
-            for (const e of SIM.enemies) if (!e.dead && e.spawning <= 0 && dist2(e.x, e.y, c.x, c.y) < (R + e.r) ** 2) { any = true; dealDamage(e, P.baseDmg() * 2.6 * st.companionMult, { x: c.x, y: c.y, vx: e.x - c.x, vy: e.y - c.y, knock: 2.2, src: 'mast' }); }
+            for (const e of SIM.enemies) if (!e.dead && e.spawning <= 0 && dist2(e.x, e.y, c.x, c.y) < (R + e.r) ** 2) { any = true; dealDamage(e, P.effDmg() * 2.6 * st.companionMult, { x: c.x, y: c.y, vx: e.x - c.x, vy: e.y - c.y, knock: 2.2, src: 'mast' }); }
             if (any) sfx('stun', { vol: 0.4, rate: 1.5 });
           }
         }
@@ -5863,6 +5967,9 @@ function animatePlayerVis(P, dt) {
   const v = P.vis; if (!v) return;
   const t = SIM.time;
   v.root.position.set(P.x, 0, -P.y);
+  // UNCONTROLLED GROWTH: the cell visibly swells with its hitbox (root origin is at floor level)
+  const hs = (P.st && P.st.hitboxMult) || 1;
+  if (v.hs !== hs) { v.hs = hs; v.root.scaling.setAll(hs); }
   v.body.rotation.y = P.aimAng;
   const sp = Math.hypot(P.vx, P.vy);
   P.recoil = Math.max(0, (P.recoil || 0) - dt * 8);
@@ -5989,6 +6096,7 @@ const AI_INIT = {
   bouncer: (e) => { const a = rndPick([0.785, 2.356, 3.927, 5.498]) + rnd(-0.2, 0.2); e.data.dx = Math.cos(a); e.data.dy = Math.sin(a); },
   worm: (e) => { e.data.hist = []; e.data.ph = rnd(0, TAU); },
   turncoat: (e) => { e.data.dashCd = rnd(2, 3.5); },
+  burrower: (e) => { e.t = rnd(2.2, 2.6); e.data.shot = false; e.data.wind = false; }, // start surfaced (shot gets its wind-up)
 };
 
 const AI = {
@@ -6010,25 +6118,27 @@ const AI = {
     if (e.state === 0) {
       chase(e, e.def.speed * k);
       e.facing = Math.atan2(e.vy, e.vx);
-      if (e.cd <= 0 && tp.d < 9 && canSee(e)) { e.state = 1; e.t = 0.7 / e.rate; e.data.ang = tp.a; sfx('windup', { vol: 0.6 }); }
+      if (e.cd <= 0 && tp.d < 9 && canSee(e)) { e.state = 1; e.t = Math.max(0.55, 0.7 / e.rate); e.data.ang = tp.a; sfx('windup', { vol: 0.6 }); }
     } else if (e.state === 1) {
       e.vx = e.vy = 0;
       e.data.ang = lerpAngle(e.data.ang, tp.a, damp(6, dt)); e.facing = e.data.ang;
-      if (!e.data.tele) e.data.tele = telegraph({ kind: 'line', x: e.x, y: e.y, ang: e.data.ang, len: 5.5, w: e.r * 2, dur: e.t, owner: e, follow: (t) => { t.x = e.x; t.y = e.y; t.ang = e.data.ang; } });
-      if (e.t <= 0) { e.state = 2; e.t = 0.55; e.data.tele = null; sfx('charge', { rate: rnd(0.9, 1.1) }); }
+      if (!e.data.tele) e.data.tele = telegraph({ kind: 'line', x: e.x, y: e.y, ang: e.data.ang, len: 5.5 + e.r, w: e.r * 2, dur: e.t, owner: e, follow: (t) => { t.x = e.x; t.y = e.y; t.ang = e.data.ang; } });
+      if (e.t <= 0) { e.state = 2; e.t = 0.9; e.data.left = 5.5; e.data.tele = null; sfx('charge', { rate: rnd(0.9, 1.1) }); }
     } else if (e.state === 2) {
-      setVel(e, e.data.ang, 10 * k);
+      // fixed reach (matches the drawn line); speed bonuses make it faster, not longer
+      const sp = Math.min(10 * k, e.data.left / Math.max(dt, 1e-4));
+      setVel(e, e.data.ang, sp); e.data.left -= sp * dt;
       if (Math.random() < 0.6) burst(e.x, e.y, e.color, 1, 1, { life: 0.3, size: 0.08 });
-      if (e.t <= 0 || e.data.bonk) { e.state = 3; e.t = 0.6; e.data.bonk = false; }
+      if (e.data.left <= 1e-3 || e.t <= 0 || e.data.bonk) { e.state = 3; e.t = 0.6; e.data.bonk = false; }
     } else {
-      e.vx *= 0.8; e.vy *= 0.8;
+      e.vx = e.vy = 0;
       if (e.t <= 0) { e.state = 0; e.cd = rnd(1.8, 2.6); }
     }
   },
   turret(e, dt, k) {
     keepRange(e, e.def.speed * k, 4, 7.5, dt);
     e.cd -= dt * e.rate;
-    if (e.state === 0 && e.cd <= 0 && canSee(e)) { e.state = 1; e.t = 0.42; sfx('windup', { vol: 0.35, rate: 1.4 }); }
+    if (e.state === 0 && e.cd <= 0 && canSee(e)) { e.state = 1; e.t = 0.55; sfx('windup', { vol: 0.35, rate: 1.4 }); }
     if (e.state === 1) {
       e.t -= dt; e.vx *= 0.3; e.vy *= 0.3;
       if (e.t <= 0) {
@@ -6046,16 +6156,19 @@ const AI = {
     const onBeats = SIM.floor.region.mechanic === 'beat';
     if (onBeats) {
       const bi = Math.floor(B.beat);
-      if (bi !== e.data.lastBeat) {
+      if (e.data.lastBeat === undefined) e.data.lastBeat = bi;          // first active frame: just sync, never fire
+      else if (bi !== e.data.lastBeat) {
         e.data.lastBeat = bi;
-        if ((bi + e.id) % 2 === 0 && e.spawnedBeat !== bi) {
-          e.data.pulse = 1;
-          if (canSee(e)) { enemyFan(e.x, e.y, toPlayer(e).a, 3, 0.5, 4.6, { style: 'pink' }); sfx('enemy_shoot', { vol: 0.6 }); }
-        } else if ((bi + e.id) % 2 === 1) { e.data.pre = 1; }
+        if ((bi + e.id) % 2 === 0) {
+          if (e.data.preBeat === bi - 1) {                               // only fire right after a visible pre-tell beat
+            e.data.pulse = 1;
+            if (canSee(e)) { enemyFan(e.x, e.y, toPlayer(e).a, 3, 0.5, 4.6, { style: 'pink' }); sfx('enemy_shoot', { vol: 0.6 }); }
+          }
+        } else { e.data.pre = 1; e.data.preBeat = bi; }
       }
     } else {
       e.cd -= dt * e.rate;
-      if (e.cd <= 0.35 && !e.data.pre) e.data.pre = 1;
+      if (e.cd <= 0.5 * e.rate && !e.data.pre) e.data.pre = 1;
       if (e.cd <= 0) { e.cd = rnd(1.6, 2.1); e.data.pulse = 1; e.data.pre = 0; if (canSee(e)) { enemyFan(e.x, e.y, toPlayer(e).a, 3, 0.5, 4.6, { style: 'pink' }); sfx('enemy_shoot', { vol: 0.6 }); } }
     }
     e.data.pulse = Math.max(0, (e.data.pulse || 0) - dt * 3);
@@ -6073,10 +6186,11 @@ const AI = {
     e.anchored = true; e.vx = e.vy = 0;
     const onBeats = SIM.floor.region.mechanic === 'beat';
     let fire = false;
-    if (onBeats) { const bi = Math.floor(beatNow().beat); if (bi !== e.data.lb) { e.data.lb = bi; if (bi % 4 === (e.id % 4)) fire = true; } }
-    else { e.cd -= dt * e.rate; if (e.cd <= 0) { e.cd = 3.2; fire = true; } }
+    if (onBeats) { const bi = Math.floor(beatNow().beat); if (bi !== e.data.lb) { e.data.lb = bi; if (bi % 4 === (e.id % 4)) fire = true; else if (bi % 4 === (e.id + 3) % 4) e.data.pre = 1; } }
+    else { e.cd -= dt * e.rate; if (e.cd <= 0.5 * e.rate) e.data.pre = 1; if (e.cd <= 0) { e.cd = 3.2; fire = true; } }
     e.data.swell = Math.max(0, (e.data.swell || 0) - dt * 2);
     if (fire) {
+      e.data.pre = 0;
       const mine = SIM.enemies.filter(o => !o.dead && o.data.parent === e.id).length;
       e.data.swell = 1;
       if (mine < 3) {
@@ -6119,24 +6233,33 @@ const AI = {
     e.facing = toPlayer(e).a;
   },
   shielded(e, dt, k) {
-    e.shieldArc = 0.95;
-    chase(e, e.def.speed * k);
+    e.shieldArc = 0.9;
+    if (e.shieldHp == null) e.shieldHp = e.maxHp * 0.4;
+    if (e.shieldBroken) { e.shieldT -= dt; if (e.shieldT <= 0) { e.shieldBroken = false; e.shieldHp = e.maxHp * 0.4; } }
+    chase(e, e.def.speed * k * (e.shieldBroken ? 0.6 : 1));
     const tp = toPlayer(e);
-    e.facing = e.facing + clamp(angDiff(e.facing, tp.a), -1.7 * dt, 1.7 * dt);
+    const turn = e.shieldBroken ? 0.4 : 1.05; // slow enough that circling the player can flank it
+    e.facing = e.facing + clamp(angDiff(e.facing, tp.a), -turn * dt, turn * dt);
     e.cd -= dt * e.rate;
-    if (e.cd <= 0 && Math.abs(angDiff(e.facing, tp.a)) < 0.35 && canSee(e)) { e.cd = rnd(3, 3.8); enemyFan(e.x, e.y, e.facing, 3, 0.45, 4.2, { style: 'orange' }); sfx('enemy_shoot', { vol: 0.5 }); }
+    if (e.data.brace > 0) { // braced wind-up before the fan (readable tell)
+      e.data.brace -= dt; e.vx *= 0.4; e.vy *= 0.4;
+      if (e.data.brace <= 0) { e.cd = rnd(3, 3.8); enemyFan(e.x, e.y, e.facing, 3, 0.45, 4.2, { style: 'orange' }); sfx('enemy_shoot', { vol: 0.5 }); }
+    } else if (e.cd <= 0 && Math.abs(angDiff(e.facing, tp.a)) < 0.35 && canSee(e)) {
+      e.data.brace = 0.5; sfx('windup', { vol: 0.35, rate: 1.2 });
+    }
   },
   splitter(e, dt, k) {
     const s = e.data.size;
-    const sp = [2.3, 1.6, 1.1][2 - s] || 1.1;
+    const sp = e.def.speed * ([2.1, 1.45, 1][s] ?? 1); // size 2 (whole) = data speed; fragments are faster
     chase(e, sp * k);
   },
   burrower(e, dt, k) {
     e.t -= dt;
     if (e.state === 0) { // surfaced
       chase(e, e.def.speed * k);
-      if (!e.data.shot && e.t < 1.2) { e.data.shot = true; if (canSee(e)) { spawnEShot(e.x, e.y, toPlayer(e).a, 4.6, { style: 'orange' }); sfx('enemy_shoot', { vol: 0.5 }); } }
-      if (e.t <= 0) { e.state = 1; e.t = 0.4; sfx('burrow', { vol: 0.7 }); }
+      if (!e.data.shot && e.t < 1.8 && !e.data.wind) { e.data.wind = true; sfx('windup', { vol: 0.35, rate: 1.5 }); }
+      if (!e.data.shot && e.t < 1.2) { e.data.shot = true; e.data.wind = false; if (canSee(e)) { spawnEShot(e.x, e.y, toPlayer(e).a, 4.6, { style: 'orange' }); sfx('enemy_shoot', { vol: 0.5 }); } }
+      if (e.t <= 0) { e.state = 1; e.t = 0.4; e.data.wind = false; sfx('burrow', { vol: 0.7 }); }
     } else if (e.state === 1) { // digging
       e.vx = e.vy = 0;
       if (e.t <= 0) { e.state = 2; e.t = 1.7; e.burrowed = true; e.untargetable = true; e.harmless = true; }
@@ -6150,7 +6273,7 @@ const AI = {
     } else if (e.state === 3) { // about to emerge
       e.vx = e.vy = 0;
       if (e.t <= 0) {
-        e.state = 0; e.t = 2.4; e.data.shot = false; e.burrowed = false; e.untargetable = false; e.harmless = false;
+        e.state = 0; e.t = 2.4; e.data.shot = false; e.data.wind = false; e.burrowed = false; e.untargetable = false; e.harmless = false;
         enemyRing(e.x, e.y, 8, 3.8, { style: 'orange' });
         sfx('emerge'); burst(e.x, e.y, '#8a5a2a', 14, 4, { life: 0.5, size: 0.1, up: 4 });
         Gfx.splat(SIM.room, e.x, e.y, 0.6, '#5a3a1a', 0.4);
@@ -6186,7 +6309,7 @@ const AI = {
       if (e.t <= 0) { e.state = 1; e.data.n = 3; e.t = 0; }
     } else if (e.state === 1) { // aim
       if (!e.data.tele) {
-        e.data.ang = toPlayer(e).a; e.t = 0.48 / e.rate;
+        e.data.ang = toPlayer(e).a; e.t = 0.55; // fixed real-time tell (rate only shortens the rest)
         e.data.tele = telegraph({ kind: 'line', x: e.x, y: e.y, ang: e.data.ang, len: 6.5, w: 0.6, dur: e.t, owner: e, follow: (t) => { t.x = e.x; t.y = e.y; } });
         sfx('windup', { vol: 0.35, rate: 1.6 });
       }
@@ -6209,7 +6332,7 @@ const AI = {
         const spots = World.spawnSpots(SIM.room, P.x, P.y, 3.8, true).filter(s => dist(s[0], s[1], P.x, P.y) < 7.5);
         const s = spots.length ? rndPick(spots) : [e.x, e.y];
         e.data.dest = s; e.state = 1; e.t = 0.55;
-        telegraph({ kind: 'disc', x: s[0], y: s[1], r: 0.8, dur: 0.55, warm: true });
+        telegraph({ kind: 'disc', x: s[0], y: s[1], r: 0.8, dur: 0.55, warm: true, owner: e });
       }
     } else if (e.state === 1) {
       e.data.fade = 1 - e.t / 0.55;
@@ -6249,14 +6372,16 @@ const AI = {
       }
       if (e.data.phase === 2 && e.data.pt <= 0) { e.data.phase = 0; e.data.pt = rnd(1.4, 2.0); }
     } else {
+      if (!e.data.lone) { e.data.lone = true; e.cd = Math.max(e.cd, 1.0); }
       e.cd -= dt * e.rate;
-      if (e.cd <= 0) { e.cd = 1.8; spawnEShot(e.x, e.y, toPlayer(e).a, 5, { style: 'volt' }); sfx('enemy_shoot', { vol: 0.4 }); }
+      if (e.cd <= 0.5 * e.rate && !e.data.wind) { e.data.wind = true; sfx('windup', { vol: 0.3, rate: 1.6 }); }
+      if (e.cd <= 0) { e.cd = 1.8; e.data.wind = false; spawnEShot(e.x, e.y, toPlayer(e).a, 5, { style: 'volt' }); sfx('enemy_shoot', { vol: 0.4 }); }
     }
   },
   mortar(e, dt, k) {
     chase(e, e.def.speed * k);
     e.cd -= dt * e.rate;
-    if (e.cd <= 0.45 && !e.data.wind) { e.data.wind = true; sfx('windup', { vol: 0.4, rate: 0.7 }); }
+    if (e.cd <= 0.5 * e.rate && !e.data.wind) { e.data.wind = true; sfx('windup', { vol: 0.4, rate: 0.7 }); }
     if (e.cd <= 0 && canSee(e)) {
       e.cd = rnd(3.0, 3.6); e.data.wind = false;
       spawnEShot(e.x, e.y, toPlayer(e).a, 2.6, { r: 0.34, style: 'violet', life: 1.1, onExpire: (s) => { enemyRing(s.x, s.y, 6, 3.8, { style: 'violet' }); sfx('enemy_shoot', { vol: 0.4, rate: 1.2 }); } });
@@ -6265,17 +6390,32 @@ const AI = {
   },
   bloater(e, dt, k) { chase(e, e.def.speed * k); e.data.swell = 0.5 + Math.sin(SIM.time * 5 + e.id) * 0.5; },
   turncoat(e, dt, k) {
+    const tp = toPlayer(e);
+    e.facing = tp.a;
+    e.cd -= dt * e.rate;
+    if (e.data.windT > 0) {                 // committed wind-up: fixed 0.55s, not scaled by rate
+      e.data.windT -= dt;
+      e.vx *= 0.3; e.vy *= 0.3;             // plants while aiming (readable)
+      e.data.wind = 1 - Math.max(0, e.data.windT) / 0.55;
+      if (e.data.windT <= 0) {
+        e.data.wind = 0; e.data.tele = null; e.cd = rnd(1.9, 2.4);
+        if (canSee(e)) {
+          const a = e.data.aim;
+          for (let i = 0; i < 3; i++) spawnEShot(e.x, e.y, a + rnd(-0.05, 0.05), 6.5, { delay: i * 0.11, style: 'pink', streak: true, r: 0.14 });
+          sfx('shoot_neutrophil', { rate: 0.75, vol: 0.6 });
+        }
+      }
+      return;
+    }
     keepRange(e, e.def.speed * k, 4, 6.5, dt);
     e.data.dashCd -= dt;
-    if (e.data.dashT > 0) { e.data.dashT -= dt; setVel(e, e.data.dashA, 11); }
-    else if (e.data.dashCd <= 0) { e.data.dashCd = rnd(2.6, 3.6); e.data.dashT = 0.2; e.data.dashA = toPlayer(e).a + rndSign() * Math.PI / 2; sfx('dash', { vol: 0.4, rate: 1.2 }); }
-    e.cd -= dt * e.rate;
-    e.facing = toPlayer(e).a;
-    if (e.cd <= 0.3 && !e.data.wind) { e.data.wind = true; }
+    if (e.data.dashT > 0) { e.data.dashT -= dt; setVel(e, e.data.dashA, 11); return; }
+    if (e.data.dashCd <= 0) { e.data.dashCd = rnd(2.6, 3.6); e.data.dashT = 0.2; e.data.dashA = tp.a + rndSign() * Math.PI / 2; sfx('dash', { vol: 0.4, rate: 1.2 }); return; }
     if (e.cd <= 0 && canSee(e)) {
-      e.cd = rnd(1.9, 2.4); e.data.wind = false;
-      for (let i = 0; i < 3; i++) spawnEShot(e.x, e.y, toPlayer(e).a + rnd(-0.05, 0.05), 6.5, { delay: i * 0.11, style: 'pink', streak: true, r: 0.14 });
-      sfx('shoot_neutrophil', { rate: 0.75, vol: 0.6 });
+      e.data.windT = 0.55; e.data.aim = tp.a;
+      e.data.tele = telegraph({ kind: 'line', x: e.x, y: e.y, ang: tp.a, len: 6, w: 0.3, dur: 0.55, owner: e,
+        follow: (t) => { e.data.aim = lerpAngle(e.data.aim, toPlayer(e).a, 0.08); t.x = e.x; t.y = e.y; t.ang = e.data.aim; } });
+      sfx('windup', { vol: 0.35, rate: 1.5 });
     }
   },
 };
@@ -6290,6 +6430,7 @@ const ON_DEATH = {
     for (let i = 0; i < 2; i++) {
       const a = rnd(0, TAU), ns = s - 1;
       const c = spawnEnemy('amoeba', e.x + Math.cos(a) * 0.3, e.y + Math.sin(a) * 0.3, { hp: [6, 13][ns], r: [0.33, 0.5][ns], size: ns, instant: true, elite: null });
+      c.cost = ns === 1 ? 1 : 0.5; // split pieces drop less; whole tree ~2.3x a cost-3 kill
       c.kx = Math.cos(a) * 6; c.ky = Math.sin(a) * 6; c.spawning = 0.2;
     }
     sfx('split');
@@ -6297,7 +6438,7 @@ const ON_DEATH = {
   moldpuff: (e) => { spawnZone(e.x, e.y, 1.3, 2.2, 'spore'); sfx('spore', { vol: 0.6 }); },
   rotcarrier: (e) => {
     const x = e.x, y = e.y;
-    telegraph({ kind: 'disc', x, y, r: 1.7, dur: 0.45, warm: true, then: () => {
+    telegraph({ kind: 'disc', x, y, r: 1.7, dur: 0.5, warm: true, then: () => {
       enemyRing(x, y, 10, 4, { style: 'acid' }); spawnZone(x, y, 1.5, 3, 'rot');
       sfx('explosion', { vol: 0.6 }); burst(x, y, '#a8ff5a', 20, 5, { life: 0.5 });
     } });
@@ -6382,7 +6523,7 @@ const ENEMY_VIS = {
     const inner = Gfx.cellMat('#ff5ad1', { rim: 1.4, core: 0.5, glow: 0.45 });
     const vs = [];
     for (let i = 0; i < 6; i++) vs.push(Gfx.part('icoFlat', inner, b, rnd(-0.5, 0.5) * r, r + rnd(-0.4, 0.4) * r, rnd(-0.5, 0.5) * r, r * 0.17));
-    return { root, body: m, anim(e, t) { const s = r * (1 + (e.data.swell || 0) * 0.25 + Math.sin(t * 2.5) * 0.04); m.scaling.setAll(s); vs.forEach((v, i) => { v.rotation.y += 0.03; v.position.y = r + Math.sin(t * 2 + i) * 0.12 * r; }); } };
+    return { root, body: m, anim(e, t) { const s = r * (1 + (e.data.swell || 0) * 0.25 + Math.sin(t * 2.5) * 0.04 + (e.data.pre || 0) * (0.15 + Math.sin(t * 40) * 0.05)); m.scaling.setAll(s); vs.forEach((v, i) => { v.rotation.y += 0.03; v.position.y = r + Math.sin(t * 2 + i) * 0.12 * r; }); } };
   },
   moldpuff(e) {
     const { root, b } = V(e), r = e.r;
@@ -6412,7 +6553,13 @@ const ENEMY_VIS = {
     shield.rotation.z = Math.PI / 2;
     // only front half visible: squash so it reads as a shell
     shield.scaling.set(r * 0.5, r * 1.2, r * 1.05);
-    return { root, body: m, anim(e, t) { b.rotation.y = e.facing; } };
+    return { root, body: m, anim(e, t) {
+      b.rotation.y = e.facing;
+      shield.setEnabled(!e.shieldBroken);
+      const br = e.data.brace > 0;
+      b.position.z = br ? Math.sin(t * 60) * 0.05 : 0;
+      shield.scaling.set(r * 0.5 * (br ? 1.25 : 1), r * 1.2, r * 1.05);
+    } };
   },
   amoeba(e) {
     const { root, b } = V(e), r = e.r;
@@ -6431,7 +6578,9 @@ const ENEMY_VIS = {
       b.rotation.y = Math.atan2(e.vy, e.vx) || b.rotation.y;
       const under = e.state === 2 ? 1 : e.state === 1 ? 1 - e.t / 0.4 : e.state === 3 ? 1 : 0;
       b.position.y = -under * r * 1.5; b.setEnabled(under < 0.98);
-      m.scaling.set(r * 1.4 * (1 + Math.sin(t * 8) * 0.08), r * 0.4, r * 0.85);
+      const w = e.data.wind ? 1 + Math.sin(t * 40) * 0.12 : 1; // shot wind-up wobble
+      m.scaling.set(r * 1.4 * (1 + Math.sin(t * 8) * 0.08) * w, r * 0.4, r * 0.85 * w);
+      b.position.z = e.data.wind ? Math.sin(t * 60) * 0.05 : 0;
     } };
   },
   bilespitter(e) {
@@ -6449,8 +6598,10 @@ const ENEMY_VIS = {
     for (let i = 0; i < 4; i++) { const s = Gfx.part('sphere', mat, null, 0, r * 0.9, 0, r * (0.85 - i * 0.12)); s.parent = root.parent || null; segs.push(s); }
     return { root, body: head, segs, anim(e, t) {
       b.rotation.y = e.facing;
-      const h = e.data.hist; h.unshift([e.x, e.y]); if (h.length > 40) h.pop();
-      segs.forEach((s, i) => { const p = h[Math.min(h.length - 1, (i + 1) * 7)]; s.position.set(p[0], r * 0.85, -p[1]); s.setEnabled(!e.dead); });
+      // sample by distance moved (not per call) so body length is frame-rate / hitstop independent
+      const h = e.data.hist, STEP = r * 0.25;
+      if (!h.length || dist(e.x, e.y, h[0][0], h[0][1]) >= STEP) { h.unshift([e.x, e.y]); if (h.length > 20) h.pop(); }
+      segs.forEach((s, i) => { const p = h[Math.min(h.length - 1, (i + 1) * 4)]; s.position.set(p[0], r * 0.85, -p[1]); s.setEnabled(!e.dead); });
     }, dispose() { segs.forEach(s => s.dispose()); } };
   },
   spark(e) {
@@ -6471,7 +6622,7 @@ const ENEMY_VIS = {
     const m = Gfx.part('sphere', Gfx.cellMat(e.color, { rim: 1.6, core: 0.4, glow: 0.45 }), b, 0, 0.9, 0, r * 0.8);
     const dm = Gfx.glowMat('#cfe0ff', { glow: 0.5 });
     for (let i = 0; i < 6; i++) { const a = i / 6 * TAU; const c = Gfx.part('cyl', dm, b, Math.cos(a) * r * 0.9, 0.9, Math.sin(a) * r * 0.9, 0.03, r * 0.4, 0.03); c.rotation.z = Math.PI / 2; c.rotation.y = -a; }
-    return { root, body: m, anim(e, t) { b.rotation.y += 0.01; b.position.y = Math.sin(t * 2 + e.id) * 0.08; } };
+    return { root, body: m, anim(e, t) { b.rotation.y += 0.01; b.position.y = Math.sin(t * 2 + e.id) * 0.08; const w = e.data.wind ? 1 + Math.sin(t * 50) * 0.12 : 1; m.scaling.setAll(r * 0.8 * w); } };
   },
   plaque(e) {
     const { root, b } = V(e), r = e.r;
@@ -6493,7 +6644,7 @@ const ENEMY_VIS = {
     const n = Gfx.cellMat('#2a0a20', { rim: 1.4, core: 0.6, glow: 0.2 });
     Gfx.part('sphere', n, b, -0.05, r, 0.08, r * 0.3); Gfx.part('sphere', n, b, 0.07, r, -0.08, r * 0.28);
     const pod = Gfx.part('sphere', Gfx.cellMat(e.color, { rim: 1.6, core: 0.3, glow: 0.4, alpha: 0.65 }), b, r * 0.7, r * 0.9, 0, r * 0.42);
-    return { root, body: m, anim(e, t) { b.rotation.y = e.facing; pod.position.x = r * (0.7 + (e.data.wind ? 0.2 : 0)); } };
+    return { root, body: m, anim(e, t) { b.rotation.y = e.facing; const w = e.data.wind || 0; pod.position.x = r * (0.7 + w * 0.45); pod.scaling.setAll(r * 0.42 * (1 + w * 0.6)); } };
   },
 };
 
@@ -6510,26 +6661,36 @@ function updateEnemies(dt) {
     if (e.dead) continue;
     let k = e.speedK * (P ? P.st.enemySpeedMult : 1) * (e.slowT > 0 ? e.slowK : 1) * e.zoneSlow;
     e.zoneSlow = 1;
-    if (e.stunT > 0) { e.vx *= 0.8; e.vy *= 0.8; }
+    if (e.stunT > 0) {
+      e.vx *= 0.8; e.vy *= 0.8;
+      // AI timers are frozen while stunned, so freeze its own telegraphs too (updateTeles runs after us and adds dt back)
+      for (const t of SIM.teles) if (t.owner === e) t.t = Math.max(0, t.t - dt);
+    }
     else if (e.isBoss) e.update(e, dt, k);
     else (AI[e.def.ai] || AI.chase)(e, dt, k);
     e.data.bonk = false; // set below by collision; read by the AI on the next step
-    // integrate
+    // integrate (knockback capped + sub-stepped so it can't tunnel through walls)
     const kk = damp(7, dt);
-    e.x += (e.vx + e.kx) * dt; e.y += (e.vy + e.ky) * dt;
-    e.kx = lerp(e.kx, 0, kk); e.ky = lerp(e.ky, 0, kk);
-    if (!e.noCollide) {
-      const hit = World.collideCircle(room, e, e.r * 0.9, e.fly ? MASK_FLYER : MASK_WALKER);
-      if (hit) e.data.bonk = true;
+    if (!e.isBoss) { const km = Math.hypot(e.kx, e.ky); if (km > 16) { e.kx *= 16 / km; e.ky *= 16 / km; } }
+    // soft bodies: non-boss walkers squeeze through 1-tile gaps (visual/shot radius stays e.r)
+    const cr = (e.fly || e.isBoss) ? e.r * 0.9 : Math.min(e.r * 0.9, 0.44);
+    const mvx = (e.vx + e.kx) * dt, mvy = (e.vy + e.ky) * dt;
+    const ns = e.noCollide ? 1 : Math.min(12, Math.ceil(Math.hypot(mvx, mvy) / 0.2) || 1);
+    for (let s = 0; s < ns; s++) {
+      e.x += mvx / ns; e.y += mvy / ns;
+      if (!e.noCollide && World.collideCircle(room, e, cr, e.fly ? MASK_FLYER : MASK_WALKER)) e.data.bonk = true;
     }
-    // separation
-    if (!e.isBoss && !e.burrowed) {
+    e.kx = lerp(e.kx, 0, kk); e.ky = lerp(e.ky, 0, kk);
+    // separation (skipped while pressed against a tile so two walkers can't deadlock in a gap)
+    if (!e.isBoss && !e.burrowed && !e.data.bonk) {
       for (const o of SIM.enemies) {
         if (o === e || o.dead || o.burrowed || o.isBoss || o.fly !== e.fly) continue;
         const dx = e.x - o.x, dy = e.y - o.y, rr = (e.r + o.r) * 0.85, d2 = dx * dx + dy * dy;
         if (d2 < rr * rr && d2 > 1e-6) { const d = Math.sqrt(d2), push = (rr - d) * 0.5; e.x += dx / d * push; e.y += dy / d * push; }
       }
     }
+    // hard safety net: a non-boss can never leave the room interior (border tiles are always solid)
+    if (!e.isBoss) { e.x = clamp(e.x, 1 + cr, room.W - 1 - cr); e.y = clamp(e.y, 1 + cr, room.H - 1 - cr); }
     animateEnemy(e, dt);
   }
 }
@@ -6752,6 +6913,8 @@ function bossPhaseCheck(e, onPhase) {
   if (e.hp / e.maxHp > marks[e.phase - 1]) return false;
   e.phase++;
   e.atk = null; e.cd = 0.6; e.pause = 1.2;
+  // reset visual tells that only the interrupted attack would have decayed
+  const Dd = e.data; Dd.inhale = 0; Dd.sink = 0; Dd.rolling = false; Dd.wind = 0; Dd.swell = 0; Dd.spasm = 0; Dd.rear = 0;
   sfx('boss_phase'); Gfx.addShake(0.7); Gfx.caPulse = 0.9;
   addRing(e.x, e.y, e.r * 3.2, e.color, 0.6);
   burst(e.x, e.y, e.color, 30, 6, { life: 0.7, size: 0.12, up: 4 });
@@ -6789,6 +6952,12 @@ function bossBeat(e, dt, bpmFallback) {
   const ext = SIM.beat && isFinite(SIM.beat.beat) ? SIM.beat.beat : 0;
   const bpm = (SIM.beat && SIM.beat.bpm > 30 && SIM.beat.bpm < 300) ? SIM.beat.bpm : bpmFallback;
   const bps = bpm / 60;
+  // gap in calls (game pause; music clock kept running): skip the missed beats and the rate window
+  if (D.lastExt != null && (ext - D.lastExt > 1.5 || ext < D.lastExt)) {
+    D.extStart = ext; D.bw = 0;
+    if (D.useExt) { D.lastB = Math.floor(ext); D.lastHB = Math.floor(ext * 2); }
+  }
+  D.lastExt = ext;
   D.ib = (D.ib || 0) + dt * bps;
   if (D.extStart == null) { D.extStart = ext; D.bw = 0; D.extRate = 0; }
   D.bw += dt;
@@ -6850,7 +7019,10 @@ function swayTentacle(T, t, amp, speed) { T.nodes.forEach((n, i) => { n.rotation
       const head = e.forward;
       if (e.dead || head.dead || e.burrowed || e.spawning > 0 || head.invuln) return 0;
       e.hurtT = 0.09;
-      const amt = amount * enemyDamageMult(e) * 0.5;
+      let amt = amount * enemyDamageMult(e) * 0.5;
+      // execute bonus checks the head's HP (segments sit at hp = maxHp = 1e9)
+      const P = SIM.player;
+      if (P && P.st && P.st.execute && head.hp < head.maxHp * P.st.execute) amt *= 1.15;
       const d = base(head, amt, Object.assign({}, o, { pure: true, silent: true, x: o.x != null ? o.x : e.x, y: o.y != null ? o.y : e.y }));
       if (d > 0 && SIM.opts.dmgNumbers && !o.silent) {
         Gfx.floatText(e.x + rnd(-0.2, 0.2), e.y, Math.max(1, Math.round(d)).toString(), o.crit ? '#ffe066' : o.dot ? (o.dotHex || '#ffa060') : '#ffffff', o.crit ? 19 : 13, { crit: o.crit, h: 1.0 + e.r });
@@ -7056,7 +7228,7 @@ function visEndocardia(e) {
     const n = Gfx.node('leaf'); n.parent = b; n.rotation.y = a;
     const m = Gfx.part('sphere', dark, n, R * 0.45, R * 1.25, 0, R * 0.55, R * 0.18, R * 0.38);
     m.rotation.z = 0.5;
-    leaflets.push(n);
+    leaflets.push({ n, m });
   }
   // ring of ventricle bumps
   for (let i = 0; i < 8; i++) { const a = i / 8 * TAU; Gfx.part('sphereLo', dark, b, Math.cos(a) * R * 0.9, R * 0.35, Math.sin(a) * R * 0.9, R * 0.3); }
@@ -7071,7 +7243,7 @@ function visEndocardia(e) {
       const s = 1 + D.pulse * 0.13 + (e.hurtT > 0 ? 0.03 : 0) + Math.sin(t * 1.8) * 0.01;
       body.scaling.set(R * s, R * 0.8 * (1 + D.pulse * 0.2), R * s);
       coreM.scaling.setAll(R * (0.3 + D.pulse * 0.12 + D.pre * 0.1 + (D.phaseFlash || 0) * 0.2));
-      leaflets.forEach((n, i) => { n.rotation.y = i / 3 * TAU + 0.3 + Math.sin(t * 1.3 + i) * 0.1; n.getChildMeshes()[0].rotation.z = 0.5 + D.pulse * 0.5; });
+      leaflets.forEach((L, i) => { L.n.rotation.y = i / 3 * TAU + 0.3 + Math.sin(t * 1.3 + i) * 0.1; L.m.rotation.z = 0.5 + D.pulse * 0.5; });
       tents.forEach((T, i) => swayTentacle(T, t, 0.16 + D.pulse * 0.12 + (D.sweep ? 0.1 : 0), 2.2 + (e.phase || 1) * 0.5));
     },
   };
@@ -7107,6 +7279,9 @@ function endoSpecial(e, kind, bps) {
     if (n > 0) sfx('split'); else endoRing(e);
   } else if (kind === 'volley') {
     D.volley = 3;
+    D.pre = 1; // core flare
+    sfx('windup', { rate: 1.2, vol: 0.6 });
+    telegraph({ kind: 'line', x: e.x, y: e.y, ang: toPlayer(e).a, len: 8, w: 0.5, dur: Math.min(0.7, beatSec * 0.9), owner: e, follow: (t) => { t.x = e.x; t.y = e.y; t.ang = toPlayer(e).a; } });
   }
 }
 function updEndocardia(e, dt, k) {
@@ -7118,7 +7293,7 @@ function updEndocardia(e, dt, k) {
     if (ph === 3) { e.anchored = false; sfx('roar', { rate: 0.9, vol: 0.8 }); }
   });
   e.vx = e.vy = 0;
-  const B = bossBeat(e, dt * BOSS_FEV(), 76);
+  const B = bossBeat(e, dt, 76);
   if (e.pause > 0) { e.pause -= dt; return; }
   if (e.phase >= 3) {
     // drifts toward the player, never too close to the walls
@@ -7134,6 +7309,7 @@ function updEndocardia(e, dt, k) {
     const every = e.phase >= 2 ? 1 : 2;
     if (D.volley > 0) {
       D.volley--;
+      if (D.volley > 0) D.pre = 1; // flare before each remaining fan
       enemyFan(e.x, e.y, toPlayer(e).a, 5, 0.75, 4.6, { style: 'red' });
       sfx('enemy_shoot', { vol: 0.8 });
     } else if (D.special <= 0) {
@@ -7141,7 +7317,7 @@ function updEndocardia(e, dt, k) {
       let opts = pool.filter(p => p !== D.lastSpecial); const kind = rndPick(opts);
       D.lastSpecial = kind;
       endoSpecial(e, kind, B.bps);
-      D.special = e.phase >= 3 ? 5 : e.phase >= 2 ? 6 : 7;
+      D.special = Math.max(3, Math.round((e.phase >= 3 ? 5 : e.phase >= 2 ? 6 : 7) / BOSS_FEV()));
     } else if (bc % every === 0 && !(D.quietUntil && SIM.time < D.quietUntil)) {
       endoRing(e);
     } else if (every === 2) {
@@ -7286,7 +7462,7 @@ function updAspergill(e, dt, k) {
   bossPhaseCheck(e, () => { enemyRing(e.x, e.y, 18, 3, { style: 'spore', a0: rnd(0, TAU) }); sfx('roar', { rate: 1.1, vol: 0.7 }); });
   e.vx = e.vy = 0;
   // force a move after a few attacks so it never camps
-  if (!e.atk && (D.sinceMove || 0) >= 3 && e.cd <= 0 && e.pause <= 0) { e.atk = { name: 'relocate', t: 0, f: {}, d: {} }; e.lastAtk = 'relocate'; }
+  if (!e.atk && (D.sinceMove || 0) >= 3 && e.pause <= 0 && e.cd <= dt) { e.atk = { name: 'relocate', t: 0, f: {}, d: {} }; e.lastAtk = 'relocate'; }
   const before = e.atk;
   runAttacks(e, dt, [['roots', 'spores', 'inhale', 'roots', 'spores'], ['roots', 'spores', 'inhale', 'puffs', 'spores', 'roots']], [1.3, 0.95], ASP_ATK);
   if (!before && e.atk && e.atk.name !== 'relocate') D.sinceMove = (D.sinceMove || 0) + 1;
@@ -7402,7 +7578,9 @@ const HUNGER_ATK = {
     const D = e.data;
     if (at(A, 0)) {
       A.ang = toPlayer(e).a; sfx('windup', { rate: 0.75 });
-      telegraph({ kind: 'line', x: e.x, y: e.y, ang: A.ang, len: 8, w: 1.5, dur: 0.6, owner: e, follow: (t) => { t.x = e.x; t.y = e.y; t.ang = A.ang; } });
+      const L = (D.speedBase || 3.4) * (e.phase >= 2 ? 2.9 : 2.6) * 0.75 + e.r * 0.85; // real dash reach
+      telegraph({ kind: 'line', x: e.x, y: e.y, ang: A.ang, len: arenaLen(e.x, e.y, A.ang, L), w: e.r * 2, dur: 0.6, owner: e,
+        follow: (t) => { t.x = e.x; t.y = e.y; t.ang = A.ang; t.len = arenaLen(t.x, t.y, t.ang, L); } });
     }
     if (A.t < 0.6) { D.rear = Math.min(1, A.t / 0.4); D.steer = false; D.speedMul = 0.25; A.ang = lerpAngle(A.ang, toPlayer(e).a, damp(3, dt)); D.heading = lerpAngle(D.heading, A.ang, damp(8, dt)); return false; }
     if (at(A, 0.6)) { sfx('charge', { rate: 0.7 }); D.heading = A.ang; D.rear = 0; }
@@ -7676,7 +7854,7 @@ function updMisfold(e, dt, k) {
   const D = e.data;
   D.phaseFlash = Math.max(0, (D.phaseFlash || 0) - dt);
   D.fade = Math.max(0, (D.fade || 0) - dt * 3);
-  bossPhaseCheck(e, () => { enemyRing(e.x, e.y, 20, 3.0, { style: 'volt', curve: 0.4 }); sfx('roar', { rate: 1.4, vol: 0.6 }); D.sinceBlink = 99; });
+  bossPhaseCheck(e, () => { clearBossHazards(e); enemyRing(e.x, e.y, 20, 3.0, { style: 'volt', curve: 0.4 }); sfx('roar', { rate: 1.4, vol: 0.6 }); D.sinceBlink = 99; });
   e.vx = e.vy = 0;
   if (e.pause > 0) { e.pause -= dt; return; }
   // blink before attacks (every other attack in phase 1, every attack in phase 2)
@@ -7770,7 +7948,7 @@ const SEP_ATK = {
   },
   beatRings(e, A, dt) {
     const D = e.data;
-    const B = bossBeat(e, dt * BOSS_FEV(), 90);
+    const B = D.B || {};
     if (at(A, 0)) { A.beats = 0; sfx('heartbeat', { vol: 0.8 }); }
     if (B.beat) {
       A.beats++; D.pulse = 1;
@@ -7780,7 +7958,7 @@ const SEP_ATK = {
         sfx('enemy_shoot_big', { vol: 0.7 });
       } else { sfx('heartbeat', { vol: 0.6 }); D.wind = 1; later(e, 0.25, () => { D.wind = 0; }); }
     }
-    return A.beats >= 7;
+    return A.beats >= Math.round(7 / BOSS_FEV());
   },
   roots(e, A) {
     if (at(A, 0)) { e.data.wind = 1; A.dur = rootEruption(e, e.phase >= 3 ? 9 : 7, '#ff8a2a', 0.9); }
@@ -7878,6 +8056,7 @@ function updSepsis(e, dt, k) {
     if (ph === 3) { e.headMult = 1.15; e.anchored = true; e.fly = true; }
   });
   e.vx = e.vy = 0;
+  D.B = bossBeat(e, dt, 90); // tick every frame so the clock stays locked between beatRings
   if (e.phase >= 3 && e.pause <= 0) {
     const tp = toPlayer(e);
     if (tp.d > e.r + 2.2) setVel(e, tp.a, 1.05 * k);
@@ -7927,6 +8106,7 @@ const UI = (function () {
   let current = null;       // current screen name
   let backAction = null;    // function for back/escape
   let focusIdx = 0;
+  let openedAt = 0, lockFor = 0; // brief confirm lock on freshly opened menus (anti double-tap)
   let hudCache = {};
 
   U.init = function () {
@@ -7935,14 +8115,24 @@ const UI = (function () {
     mmCanvas = $('#minimap'); mmCtx = mmCanvas.getContext('2d'); touchEl = $('#touch');
     // global UI sounds
     document.addEventListener('mouseover', (e) => { const b = e.target.closest && e.target.closest('.btn,.card,.chip'); if (b && !b._hov) { b._hov = true; sfx('ui_hover', { vol: 0.5 }); setFocusEl(b); } });
-    document.addEventListener('mouseout', (e) => { const b = e.target.closest && e.target.closest('.btn,.card,.chip'); if (b) b._hov = false; });
+    document.addEventListener('mouseout', (e) => { const b = e.target.closest && e.target.closest('.btn,.card,.chip'); if (b && !(e.relatedTarget && b.contains(e.relatedTarget))) b._hov = false; });
     // touch buttons
     for (const b of touchEl.querySelectorAll('[data-t]')) {
       b.addEventListener('touchstart', (e) => { e.preventDefault(); e.stopPropagation(); Input.touchButton(b.dataset.t); b.classList.add('down'); }, { passive: false });
       b.addEventListener('touchend', () => b.classList.remove('down'));
+      b.addEventListener('touchcancel', () => b.classList.remove('down'));
     }
     // fonts fallback for icons
-    if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { setTimeout(() => { try { if (!document.fonts.check('24px "Material Symbols Rounded"')) document.body.classList.add('no-icons'); } catch (e) { } }, 1500); });
+    // no face (stylesheet failed) or a failed face (woff2 failed) -> dot fallback
+    if (document.fonts && document.fonts.load) {
+      const noIcons = () => document.body.classList.add('no-icons');
+      try {
+        document.fonts.load('24px "Material Symbols Rounded"', 'home')
+          .then((faces) => { if (!faces.length || faces.some(f => f.status !== 'loaded')) noIcons(); }, noIcons);
+        // safeguard for a request that hangs forever
+        setTimeout(() => { try { if (![...document.fonts].some(f => f.family.replace(/["']/g, '') === 'Material Symbols Rounded' && f.status === 'loaded')) noIcons(); } catch (e) { } }, 8000);
+      } catch (e) { noIcons(); }
+    }
     $('#mutlist').addEventListener('mouseover', (e) => { const t = e.target.closest('.mchip'); if (t) showTip(t); });
     $('#mutlist').addEventListener('mouseout', () => hideTip());
   };
@@ -7978,23 +8168,32 @@ const UI = (function () {
     const N = Input.nav;
     if (!screenEl || (!current && !modalEl.classList.contains('on'))) return;
     if (N.up) moveFocus(0, -1); if (N.down) moveFocus(0, 1); if (N.left) moveFocus(-1, 0); if (N.right) moveFocus(1, 0);
-    if (N.confirm) { const f = focusables()[focusIdx]; if (f && f.type !== 'range') f.click(); }
+    const locked = performance.now() - openedAt < lockFor;
+    if (N.confirm && !locked) { const f = focusables()[focusIdx]; if (f && f.type !== 'range') f.click(); }
     if (N.back && backAction) { sfx('ui_back'); backAction(); }
-    if (U.keyHandler) U.keyHandler();
+    if (U.keyHandler && !locked) U.keyHandler();
   };
   function btn(label, onClick, cls = '', ic = null) {
     const b = el('button', 'btn ui-interactive ' + cls, (ic ? icon(ic) : '') + '<span>' + label + '</span>');
-    b.addEventListener('click', (e) => { e.stopPropagation(); if (b.classList.contains('disabled')) { sfx('ui_error'); return; } sfx('ui_click'); onClick && onClick(); });
+    b.addEventListener('click', (e) => { e.stopPropagation(); if (b.classList.contains('disabled')) { sfx('ui_error'); return; } sfx('ui_click'); onClick && onClick(); b.blur(); });
     return b;
   }
   function show(name, build, back) {
-    current = name; backAction = back || null; focusIdx = 0;
+    current = name; backAction = back || null; focusIdx = 0; Input.resetNav && Input.resetNav(name === 'summary' ? 0.9 : 0.2);
+    openedAt = performance.now(); lockFor = name === 'summary' ? 700 : 150;
     screenEl.innerHTML = ''; screenEl.className = 'screen on s-' + name;
     build(screenEl);
     requestAnimationFrame(applyFocus);
   }
   U.showScreen = function (name) { if (!name) { current = null; screenEl.className = 'screen'; screenEl.innerHTML = ''; backAction = null; } };
-  U.showHUD = function (on) { hudEl.classList.toggle('on', on); touchEl.classList.toggle('on', on && Input.touchEnabled); hudCache = {}; };
+  U.showHUD = function (on) {
+    hudEl.classList.toggle('on', on); touchEl.classList.toggle('on', on && Input.touchEnabled); hudCache = {};
+    if (!on) { // overlays that live outside #hud: clear so they don't linger over summary/title
+      $('#lowhp').classList.remove('on'); $('#hurt').style.opacity = 0;
+      promptEl.classList.remove('on'); hideTip();
+      bannerEl.className = 'banner'; document.body.classList.remove('letterbox');
+    }
+  };
   U.setFade = function (v) { fadeEl.style.opacity = v; };
 
   /* ======================================================================
@@ -8002,7 +8201,7 @@ const UI = (function () {
      ====================================================================== */
   U.title = function () {
     U.closeModal();
-    if (window.setupTitleScene) setupTitleScene();
+    if (window.setupTitleScene && (!TitleScene.room || SIM.room !== TitleScene.room)) setupTitleScene();
     show('title', (s) => {
       const wrap = el('div', 'title-wrap');
       wrap.appendChild(el('div', 'logo', '<div class="logo-main">SPLEEN</div><div class="logo-sub">: SEPSIS</div><div class="logo-tag">an immune-system roguelite</div>'));
@@ -8042,7 +8241,7 @@ const UI = (function () {
       s.appendChild(row);
       if (isUnlocked('fever') && META.feverMax > 0) {
         const fv = el('div', 'fever');
-        const render = () => { fv.innerHTML = ''; fv.appendChild(btn('', () => { selFever = Math.max(0, selFever - 1); render(); }, 'chip arrow', 'chevron_left')); fv.appendChild(el('div', 'fever-lbl', `<b>${FEVER[selFever].name}</b><span>${FEVER[selFever].desc}</span><span class="dim">memory x${(1 + 0.25 * selFever).toFixed(2)}</span>`)); fv.appendChild(btn('', () => { selFever = Math.min(META.feverMax, selFever + 1); render(); }, 'chip arrow', 'chevron_right')); };
+        const render = () => { fv.innerHTML = ''; fv.appendChild(btn('', () => { selFever = Math.max(0, selFever - 1); render(); }, 'chip arrow', 'chevron_left')); fv.appendChild(el('div', 'fever-lbl', `<b>${FEVER[selFever].name}</b><span>${FEVER[selFever].desc}</span><span class="dim">memory x${(1 + 0.25 * selFever).toFixed(2)}</span>`)); fv.appendChild(btn('', () => { selFever = Math.min(META.feverMax, selFever + 1); render(); }, 'chip arrow', 'chevron_right')); if (fv.isConnected) applyFocus(); };
         render(); s.appendChild(fv);
       }
       s.appendChild(el('div', 'foot')).appendChild(btn('Back', () => U.title(), 'ghost', 'arrow_back'));
@@ -8094,10 +8293,10 @@ const UI = (function () {
   let codexTab = 'pathogens';
   U.codex = function () {
     show('codex', (s) => {
-      s.appendChild(el('div', 'hdr', '<h2>Immune Memory</h2><p>The body learns. Every pathogen you kill makes all future cells deal a little more damage to its kind (up to +10%).</p>'));
+      s.appendChild(el('div', 'hdr', `<h2>Immune Memory</h2><p>The body learns. Every pathogen you kill makes all future cells deal a little more damage to its kind (up to +${META.perks.memtcell ? 20 : 10}%).</p>`));
       const tabs = el('div', 'tabs');
-      tabs.appendChild(btn('Pathogens', () => { codexTab = 'pathogens'; U.codex(); }, 'chip' + (codexTab === 'pathogens' ? ' sel' : '')));
-      tabs.appendChild(btn('Mutations', () => { codexTab = 'mutations'; U.codex(); }, 'chip' + (codexTab === 'mutations' ? ' sel' : '')));
+      tabs.appendChild(btn('Pathogens', () => { codexTab = 'pathogens'; const fi = focusIdx; U.codex(); focusIdx = fi; applyFocus(); }, 'chip' + (codexTab === 'pathogens' ? ' sel' : '')));
+      tabs.appendChild(btn('Mutations', () => { codexTab = 'mutations'; const fi = focusIdx; U.codex(); focusIdx = fi; applyFocus(); }, 'chip' + (codexTab === 'mutations' ? ' sel' : '')));
       s.appendChild(tabs);
       const grid = el('div', 'codex-grid');
       if (codexTab === 'pathogens') {
@@ -8110,7 +8309,7 @@ const UI = (function () {
             : `<div class="cdot"></div><div><b>???</b><span class="dim">not yet encountered</span></div>`));
         }
         for (const id in BOSSES) {
-          const b = BOSSES[id], known = (META.stats.bestFloor || 0) > Object.keys(BOSSES).indexOf(id);
+          const b = BOSSES[id], known = !!(META.seenBoss && META.seenBoss[id]) || (META.stats.bestFloor || 0) > Object.keys(BOSSES).indexOf(id) + 1;
           grid.appendChild(el('div', 'centry boss' + (known ? '' : ' unknown'), known ? `<div class="cdot" style="--c:${b.color}"></div><div><b>${b.name}</b><span class="dim">boss</span><p>${b.title}.</p></div>` : `<div class="cdot"></div><div><b>???</b><span class="dim">boss</span></div>`));
         }
       } else {
@@ -8154,7 +8353,25 @@ const UI = (function () {
   /* ======================================================================
      OPTIONS
      ====================================================================== */
-  U.options = function (back, inModal) {
+  // option resolution shared with boot (game.js may define resolveQuality/applyOptions; fall back to boot-identical rules)
+  function resolveQ(q) {
+    if (typeof resolveQuality === 'function') return resolveQuality(q);
+    if (q === 'auto') q = (/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) || (navigator.hardwareConcurrency || 8) <= 4) ? 'medium' : 'high';
+    return q;
+  }
+  function applyOpts(o, opt = {}) {
+    if (typeof applyOptions === 'function') { applyOptions(o, opt); }
+    else {
+      SIM.opts.dmgNumbers = o.dmgNumbers; Gfx.shakeScale = o.shake; Gfx.reduceFlash = !o.flashes;
+      const touchy = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+      Input.touchEnabled = o.touch === 'on' || (o.touch === 'auto' && touchy && matchMedia('(pointer: coarse)').matches);
+      document.body.classList.toggle('touch', Input.touchEnabled);
+      if (opt.quality) { try { Gfx.setQuality(resolveQ(o.quality)); } catch (e) { } }
+      try { if (window.AUDIO) { AUDIO.setVolume('master', o.master); AUDIO.setVolume('music', o.music); AUDIO.setVolume('sfx', o.sfx); } } catch (e) { }
+    }
+    touchEl.classList.toggle('on', Input.touchEnabled && hudEl.classList.contains('on'));
+  }
+  U.options = function (back, inModal, refresh) {
     const o = META.opts;
     const build = (s) => {
       s.appendChild(el('div', 'hdr', '<h2>Options</h2>'));
@@ -8169,7 +8386,7 @@ const UI = (function () {
       };
       const choice = (label, key, values, names, apply) => {
         const row = el('div', 'orow', `<label>${label}</label>`); const g = el('div', 'ochoices');
-        values.forEach((v, i) => g.appendChild(btn(names[i], () => { o[key] = v; apply && apply(v); saveMeta(); U.options(back, inModal); }, 'chip' + (o[key] === v ? ' sel' : ''))));
+        values.forEach((v, i) => g.appendChild(btn(names[i], () => { o[key] = v; apply && apply(v); saveMeta(); const fi = focusIdx; U.options(back, inModal, true); focusIdx = fi; applyFocus(); }, 'chip' + (o[key] === v ? ' sel' : ''))));
         row.appendChild(g); list.appendChild(row);
       };
       slider('Master volume', 'master', (v) => { try { AUDIO.setVolume('master', v); } catch (e) { } });
@@ -8178,35 +8395,39 @@ const UI = (function () {
       slider('Screen shake', 'shake', (v) => { Gfx.shakeScale = v; });
       choice('Damage numbers', 'dmgNumbers', [true, false], ['On', 'Off'], (v) => { SIM.opts.dmgNumbers = v; });
       choice('Screen flashes', 'flashes', [true, false], ['On', 'Reduced'], (v) => { Gfx.reduceFlash = !v; });
-      choice('Graphics', 'quality', ['auto', 'low', 'medium', 'high'], ['Auto', 'Low', 'Medium', 'High'], (v) => { let q = v; if (q === 'auto') q = 'high'; Gfx.setQuality(q); });
-      choice('Touch controls', 'touch', ['auto', 'on', 'off'], ['Auto', 'On', 'Off'], (v) => { Input.touchEnabled = v === 'on' || (v === 'auto' && ('ontouchstart' in window)); document.body.classList.toggle('touch', Input.touchEnabled); });
+      choice('Graphics', 'quality', ['auto', 'low', 'medium', 'high'], ['Auto', 'Low', 'Medium', 'High'], (v) => { try { Gfx.setQuality(resolveQ(v)); } catch (e) { } });
+      choice('Touch controls', 'touch', ['auto', 'on', 'off'], ['Auto', 'On', 'Off'], () => applyOpts(o));
       const row = el('div', 'orow', '<label>Display</label>'); const g = el('div', 'ochoices');
       g.appendChild(btn('Fullscreen', () => { try { if (!document.fullscreenElement) document.documentElement.requestFullscreen(); else document.exitFullscreen(); } catch (e) { } }, 'chip'));
       row.appendChild(g); list.appendChild(row);
       if (!inModal) {
         const r2 = el('div', 'orow', '<label>Save data</label>'); const g2 = el('div', 'ochoices');
         let armed = false;
-        const rb = btn('Erase all progress', () => { if (!armed) { armed = true; rb.querySelector('span').textContent = 'Press again to confirm'; return; } META = defaultMeta(); window.META = META; saveMeta(); U.options(back); }, 'chip danger');
+        const rb = btn('Erase all progress', () => { if (!armed) { armed = true; rb.querySelector('span').textContent = 'Press again to confirm'; return; } META = defaultMeta(); window.META = META; if (window.__SPLEEN) window.__SPLEEN.META = META; saveMeta(); applyOpts(META.opts, { quality: true }); U.options(back); }, 'chip danger');
         g2.appendChild(rb); r2.appendChild(g2); list.appendChild(r2);
       }
       s.appendChild(list);
       s.appendChild(el('div', 'foot')).appendChild(btn('Back', back, 'ghost', 'arrow_back'));
     };
-    if (inModal) openModal('options', build, back); else show('options', build, back);
+    if (inModal) openModal('options', build, back, refresh); else show('options', build, back);
   };
 
   /* ======================================================================
      MODALS (pause, choice, shop, tumor)
      ====================================================================== */
-  function openModal(name, build, back) {
-    modalEl.innerHTML = ''; modalEl.className = 'modal on m-' + name;
-    const box = el('div', 'mbox'); build(box); modalEl.appendChild(box);
-    backAction = back || null; focusIdx = 0; current = current || null;
+  // refresh: re-render of an already open modal (no pop animation / open sound / confirm lock reset)
+  function openModal(name, build, back, refresh) {
+    modalEl.innerHTML = ''; modalEl.className = 'modal on m-' + name + (refresh ? ' refresh' : '');
+    const box = el('div', 'mbox'); if (refresh) box.style.animation = 'none';
+    build(box); modalEl.appendChild(box);
+    backAction = back || null; focusIdx = 0; current = current || null; Input.resetNav && Input.resetNav();
+    if (!refresh) { openedAt = performance.now(); lockFor = (name === 'pause' || name === 'options') ? 0 : 350; }
     requestAnimationFrame(applyFocus);
-    sfx('ui_open', { vol: 0.6 });
+    if (!refresh) sfx('ui_open', { vol: 0.6 });
   }
   U.closeModal = function () { if (!modalEl) return; modalEl.className = 'modal'; modalEl.innerHTML = ''; backAction = null; U.keyHandler = null; U.autoPick = null; hideTip(); };
 
+  U.inPauseSubmenu = function () { return !!modalEl && modalEl.classList.contains('on') && !modalEl.classList.contains('m-pause'); };
   U.pause = function (on) {
     if (!on) { U.closeModal(); return; }
     const P = SIM.player, run = SIM.run;
@@ -8217,7 +8438,7 @@ const UI = (function () {
       menu.appendChild(btn('Resume', () => togglePause(), 'big', 'play_arrow'));
       menu.appendChild(btn('Options', () => U.options(() => U.pause(true), true), '', 'settings'));
       let armed = false;
-      const ab = btn('Abandon run', () => { if (!armed) { armed = true; ab.querySelector('span').textContent = 'Confirm abandon'; return; } abandonRun(); }, 'danger', 'close');
+      const ab = btn('Abandon run', () => { if (!armed) { armed = true; ab.querySelector('span:not(.ms)').textContent = 'Confirm abandon'; return; } abandonRun(); }, 'danger', 'close');
       menu.appendChild(ab);
       cols.appendChild(menu);
       cols.appendChild(buildPanel(P));
@@ -8273,7 +8494,8 @@ const UI = (function () {
     U.autoPick = () => o.onPick(o.options[0].id);
   };
   U.shop = function (o) {
-    const keep = focusIdx;
+    const refresh = modalEl.classList.contains('on') && modalEl.classList.contains('m-shop');
+    const keep = refresh ? focusIdx : 0;
     openModal('shop', (b) => {
       b.appendChild(el('div', 'hdr', `<h2>Lymph Node</h2><p>A friendly dendritic cell. It wants iron. <b class="iron">${icon('diamond')} ${Math.floor(o.iron)}</b></p>`));
       const row = el('div', 'cards shop');
@@ -8282,14 +8504,14 @@ const UI = (function () {
         if (it.kind === 'mutation') { const m = MUT[it.id]; html = mutCard(m); }
         else if (it.kind === 'heal') { dis = dis || o.hp >= o.maxHp || o.noHeal; html = `<div class="rar" style="color:#ffc0d0">SUPPLY</div><div class="mbig" style="--r:#ffc0d0">${icon('healing')}</div><div class="mname">PLATELET PACK</div><div class="mdesc">Restore 1 HP.${o.noHeal ? ' (Necrosis blocks healing.)' : ''}</div>`; }
         else { html = `<div class="rar" style="color:#9ad8ff">SUPPLY</div><div class="mbig" style="--r:#9ad8ff">${icon('water_drop')}</div><div class="mname">MUCUS GLAND</div><div class="mdesc">+1 Mucus. Absorbs one hit.</div>`; }
-        const c = el('div', 'card mcard ui-interactive' + (it.sold ? ' sold disabled' : '') + (dis && !it.sold ? ' poor' : ''), html + `<div class="price">${it.sold ? 'SOLD' : icon('diamond') + ' ' + it.price}</div>`);
+        const c = el('div', 'card mcard ui-interactive' + (it.sold ? ' sold' : '') + (dis && !it.sold ? ' poor' : ''), html + `<div class="price">${it.sold ? 'SOLD' : icon('diamond') + ' ' + it.price}</div>`);
         if (it.kind === 'mutation') c.style.setProperty('--r', RARITY[MUT[it.id].rarity].color);
         c.addEventListener('click', () => o.onBuy(it));
         row.appendChild(c);
       }
       b.appendChild(row);
       b.appendChild(el('div', 'foot')).appendChild(btn('Leave', () => o.onClose(), 'ghost', 'arrow_back'));
-    }, () => o.onClose());
+    }, () => o.onClose(), refresh);
     focusIdx = keep; requestAnimationFrame(applyFocus);
     U.autoPick = () => o.onClose();
   };
@@ -8368,7 +8590,8 @@ const UI = (function () {
     const abEl = $('#abil');
     abEl.style.setProperty('--f', (frac * 360).toFixed(1) + 'deg');
     abEl.classList.toggle('ready', frac >= 1);
-    $('#abil-key').textContent = Input.device === 'pad' ? 'RB' : Input.device === 'touch' ? '' : 'Q';
+    const akey = Input.device === 'pad' ? 'RB' : Input.device === 'touch' ? '' : 'Q';
+    if (hudCache.akey !== akey) { hudCache.akey = akey; $('#abil-key').textContent = akey; }
     // dash pip
     $('#dash').style.setProperty('--d', (1 - P.dashCd / (DASH_CD * P.st.dashCdMult)).toFixed(3));
     // charge bar for lance
@@ -8398,12 +8621,17 @@ const UI = (function () {
     } else bossEl.classList.remove('on');
     // interact prompt
     const near = SIM.nearInteract;
+    let pr = '';
     if (near && Game.sub === 'room') {
       const key = Input.device === 'pad' ? 'Y' : Input.device === 'touch' ? 'TAP' : 'E';
-      promptEl.innerHTML = `<b>${key}</b> ${near.kind === 'portal' ? 'enter' : near.kind === 'shop' ? 'trade' : 'open'}`;
-      promptEl.classList.add('on');
-      touchEl.querySelector('[data-t=interact]').classList.add('avail');
-    } else { promptEl.classList.remove('on'); touchEl.querySelector('[data-t=interact]').classList.remove('avail'); }
+      pr = `<b>${key}</b> ${near.kind === 'portal' ? 'enter' : near.kind === 'shop' ? 'trade' : 'open'}`;
+    }
+    if (hudCache.prompt !== pr) {
+      hudCache.prompt = pr;
+      if (pr) promptEl.innerHTML = pr; // keep old text while fading out
+      promptEl.classList.toggle('on', !!pr);
+      touchEl.querySelector('[data-t=interact]').classList.toggle('avail', !!pr);
+    }
     // low hp vignette
     $('#lowhp').classList.toggle('on', P.hp <= 1 && !P.dead);
     $('#hurt').style.opacity = clamp(P.hurtFlash / 0.3, 0, 1) * (META.opts.flashes ? 0.8 : 0.35);
@@ -8553,10 +8781,10 @@ function clearTitleScene() {
 const META_KEY = 'spleen_sepsis_v1';
 function defaultMeta() {
   return {
-    v: 1, memory: 0, totalMemory: 0, perks: {}, unlocks: {}, codex: {}, seenMut: {},
+    v: 1, memory: 0, totalMemory: 0, perks: {}, unlocks: {}, codex: {}, seenMut: {}, seenBoss: {},
     stats: { runs: 0, wins: 0, kills: 0, bestFloor: 0, deaths: 0, bestTime: null, playTime: 0 },
     feverMax: 0, lastStrain: 'neutrophil', lastFever: 0, tutorialSeen: false,
-    opts: { master: 0.8, music: 0.65, sfx: 0.85, shake: 1, dmgNumbers: true, quality: 'auto', flashes: true, touch: 'auto' },
+    opts: { master: 0.8, music: 0.75, sfx: 0.85, shake: 1, dmgNumbers: true, quality: 'auto', flashes: true, touch: 'auto' },
   };
 }
 let META = (function () {
@@ -8609,6 +8837,8 @@ function startRun(strainId, fever, seed) {
   if (window.__SPLEEN && __SPLEEN.presetMuts) for (const id of __SPLEEN.presetMuts) if (MUT[id]) P.addMutation(id, true);
   P.hp = P.st.maxHp;
   Game.state = 'play'; Game.paused = false;
+  Game.sub = 'room'; Game.introT = 0; Game.dyingT = 0;
+  SIM.slowmo = 0; SIM.hitstop = 0; SIM.combatAllowed = true;
   UI.showScreen(null); UI.showHUD(true);
   enterFloor(window.__SPLEEN && __SPLEEN.startFloor ? __SPLEEN.startFloor : 0, true);
 }
@@ -8689,7 +8919,7 @@ function enterRoom(roomId, viaDoor) {
   // leftover pickups
   if (room.leftover) { for (const l of room.leftover) { const p = spawnPickup(l.kind, l.x, l.y, l.value); p.vx = p.vy = 0; p.vh = 0; p.t = 1; } room.leftover = null; }
   // content
-  SIM.roomLocked = false; SIM.pendingWaves = null;
+  SIM.roomLocked = false; SIM.combatAllowed = true; SIM.pendingWaves = null;
   if (!room.cleared) {
     if (room.type === 'normal' || room.type === 'elite') {
       if (!room.plan) room.plan = planEncounter(room, floor.idx, makeRng(room.seed ^ 0x1234));
@@ -8743,12 +8973,13 @@ function roomCleared() {
   sfx('room_clear'); sfx('door_open');
   run.stats.roomsCleared++;
   for (const h of P.hooks.onRoomClear) h();
-  if (P.st.healOnClear && Math.random() < P.st.healOnClear && P.hp < P.st.maxHp) { P.heal(1); Gfx.floatText(P.x, P.y, 'INTERFERON +1', '#ffc0d0', 13, { h: 1.8 }); }
+  if (P.st.healOnClear && Math.random() < P.st.healOnClear && P.hp < P.st.maxHp && P.heal(1) !== false) { Gfx.floatText(P.x, P.y, 'INTERFERON +1', '#ffc0d0', 13, { h: 1.8 }); }
   P.abilityT = Math.max(0, P.abilityT - 1.5);
   // rewards
   const cx = room.W / 2, cy = room.H / 2;
   const spot = World.nearestOpen(room, cx, cy);
   if (room.type === 'elite') {
+    room.rewardSpot = { x: spot.x, y: spot.y };
     spawnCyst(spot.x, spot.y, 'elite');
   } else {
     const r = Math.random();
@@ -8790,7 +9021,7 @@ function setupInteractables(room) {
   if (room.type === 'mutation' && !room.taken) spawnCyst(cx, cy - 0.5, 'mutation');
   if (room.type === 'shop') spawnShopkeeper(cx, cy - 1.2);
   if (room.type === 'tumor' && !room.taken) spawnTumor(cx, cy - 0.5);
-  if (room.type === 'elite' && room.cleared && !room.taken) spawnCyst(cx, cy, 'elite');
+  if (room.type === 'elite' && room.cleared && !room.taken) { const s = room.rewardSpot || World.nearestOpen(room, cx, cy); spawnCyst(s.x, s.y, 'elite'); }
   if (room.type === 'boss' && room.cleared) {
     if (!room.taken) spawnCyst(cx, cy + 1.6, 'boss');
     spawnPortal(cx, cy - 2.2);
@@ -8805,16 +9036,17 @@ function spawnCyst(x, y, source) {
   const ring = Gfx.part('torus', Gfx.glowMat(gold, { glow: 0.9 }), root, 0, 0.4, 0, 0.75);
   root.position.set(x, 0, -y);
   return addInteract({
-    kind: 'cyst', x, y, r: 0.7, node: root, label: 'MUTATION CYST', sub: source === 'boss' ? 'choose a rare adaptation' : 'choose 1 of ' + choiceCount(),
+    kind: 'cyst', x, y, r: 0.7, node: root, label: 'MUTATION CYST', sub: source === 'boss' ? 'choose an empowered adaptation' : 'choose 1 of ' + choiceCount(),
     hex: gold, solid: true,
     anim(t) { orb.position.y = 1.0 + Math.sin(t * 2) * 0.12; orb.rotation.y = t * 0.8; orb.rotation.z = Math.sin(t) * 0.3; ring.rotation.y = t; ring.scaling.setAll(0.75 + Math.sin(t * 3) * 0.05); inner.position.y = orb.position.y; },
     use(it) {
-      const opts = rollMutations(choiceCount(), { minRarity: source === 'boss' ? 'uncommon' : null, rareBoost: source === 'boss' ? 2 : source === 'elite' ? 1.4 : 1 });
+      const opts = rollMutations(choiceCount(), cystRollOpts(source));
       openMutationChoice(opts, source, () => { SIM.room.taken = true; removeInteract(it); burst(x, y, gold, 30, 5, { life: 0.6, up: 4 }); });
     },
   });
 }
 function choiceCount() { return META.perks.library ? 4 : 3; }
+function cystRollOpts(source) { return { minRarity: source === 'boss' ? 'uncommon' : null, rareBoost: source === 'boss' ? 2 : source === 'elite' ? 1.4 : 1 }; }
 function spawnShopkeeper(x, y) {
   const root = Gfx.node('shop');
   const mat = Gfx.cellMat('#7dffb0', { rim: 1.6, core: 0.35, glow: 0.45, dark: 0.55, alpha: 0.8 });
@@ -8926,12 +9158,13 @@ function openMutationChoice(ids, source, onDone) {
   Game.sub = 'modal';
   const free = META.perks.reroll ? 1 : 0;
   let rerolls = free;
+  const skipIron = () => Math.round((8 + SIM.floor.idx * 2) * ((SIM.player.st && SIM.player.st.ironMult) || 1));
   const show = (opts) => UI.choice({
     title: source === 'boss' ? 'ADAPT' : 'MUTATE', sub: 'Choose one. The others dissolve.', options: opts.map(id => MUT[id]), rerolls,
-    skipIron: 8 + SIM.floor.idx * 2,
+    skipIron: skipIron(),
     onPick(id) { SIM.player.addMutation(id); SIM.run.stats.mutations++; META.seenMut[id] = true; saveMeta(); sfx('pickup_mutation'); closeModal(); onDone && onDone(); },
-    onSkip() { SIM.player.addIron(8 + SIM.floor.idx * 2, true); sfx('pickup_iron'); closeModal(); onDone && onDone(); },
-    onReroll() { if (rerolls <= 0) return; rerolls--; sfx('reroll'); show(rollMutations(ids.length, { exclude: opts, minRarity: source === 'boss' ? 'uncommon' : null })); },
+    onSkip() { SIM.player.addIron(skipIron(), true); sfx('pickup_iron'); closeModal(); onDone && onDone(); },
+    onReroll() { if (rerolls <= 0) return; rerolls--; SIM.run.rerollsUsed = (SIM.run.rerollsUsed || 0) + 1; sfx('reroll'); show(rollMutations(ids.length, Object.assign(cystRollOpts(source), { exclude: opts }))); },
   });
   show(ids);
 }
@@ -8950,11 +9183,19 @@ function makeShopStock() {
 function openShop(stock) {
   Game.sub = 'modal';
   const P = SIM.player;
+  // replace stale mutation slots the player can no longer take (taken elsewhere since the stock was rolled)
+  for (const it of stock) if (it.kind === 'mutation' && !it.sold && !P.canTake(it.id)) {
+    const nid = rollMutations(1, { exclude: stock.filter(x => x.kind === 'mutation').map(x => x.id) })[0];
+    if (nid) { it.id = nid; it.price = shopPrice(MUT[nid]); } else it.sold = true;
+  }
   const show = () => UI.shop({
-    stock, iron: P.iron, hp: P.hp, maxHp: P.st.maxHp, noHeal: P.st.noHeal,
+    stock, iron: P.iron, hp: P.hp, maxHp: P.st.maxHp, noHeal: P.st.noHeal, shield: P.shield,
+    canTake: (id) => P.canTake(id),
     onBuy(item) {
       if (item.sold || P.iron < item.price) { sfx('ui_error'); return; }
+      if (item.kind === 'mutation' && !P.canTake(item.id)) { sfx('ui_error'); return; }
       if (item.kind === 'heal' && (P.hp >= P.st.maxHp || P.st.noHeal)) { sfx('ui_error'); return; }
+      if (item.kind === 'mucus' && P.shield >= 6) { sfx('ui_error'); return; }
       P.iron -= item.price; sfx('buy');
       if (item.kind === 'mutation') { P.addMutation(item.id); SIM.run.stats.mutations++; item.sold = true; META.seenMut[item.id] = true; saveMeta(); }
       else if (item.kind === 'heal') { P.heal(1); item.price = Math.round(item.price * 1.25); }
@@ -8985,6 +9226,8 @@ function openTumor(offers, onDone) {
    ========================================================================== */
 function startBossIntro(room) {
   const floor = SIM.floor, id = floor.region.boss, def = BOSSES[id];
+  if (!META.seenBoss) META.seenBoss = {};
+  if (!META.seenBoss[id]) { META.seenBoss[id] = true; saveMeta(); }
   Game.sub = 'intro'; Game.introT = 2.4;
   SIM.combatAllowed = false;
   try { AUDIO.music.play(id === 'sepsis' ? 'final' : 'boss', { region: floor.region.id }); } catch (e) { }
@@ -8994,11 +9237,25 @@ function startBossIntro(room) {
   sfx('roar'); Gfx.addShake(0.6);
   UI.bossIntro(def);
 }
+/** Expire enemy hazards IN PLACE (never resize/reassign the arrays: this can run from inside
+    their update loops). Each update loop drops the expired entries on its next visit. */
+function expireEnemyHazards() {
+  for (const s of SIM.eshots) {
+    if (!s.dead && !(s.delay > 0)) burst(s.x, s.y, ESHOT_STYLES[s.style] || '#ff3d7f', 2, 1.5, { life: 0.3, size: 0.05 });
+    s.dead = true; s.delay = 0;
+  }
+  for (const b of SIM.beams) { b.t = b.dur; b.follow = null; }
+  for (const t of SIM.teles) { t.then = null; t.follow = null; t.t = t.dur; }
+  for (const z of SIM.zones) if (z.owner !== 'player') { z.t = z.life; z.delay = 0; }
+  for (const l of SIM.lobs) { l.onLand = null; l.t = l.dur; }
+}
 function onBossKilled(e) {
   const run = SIM.run, room = SIM.room, P = SIM.player;
   run.stats.bossesKilled++;
-  clearEShots(true); SIM.beams.length = 0; SIM.teles.length = 0; SIM.zones = SIM.zones.filter(z => z.owner === 'player');
+  // kill summons first (their death effects may create hazards), then expire every enemy hazard
   for (const o of SIM.enemies) if (!o.dead && o !== e) killEnemy(o, { src: 'boss' });
+  expireEnemyHazards();
+  if (P) P.invulnT = Math.max(P.invulnT || 0, 2);
   SIM.slowmo = 1.4;
   sfx('boss_death'); Gfx.addShake(1); Gfx.caPulse = 1; Input.rumble(1, 600);
   for (let i = 0; i < 6; i++) after(i * 0.16 * 0.3, () => explode(e.x + rnd(-1.5, 1.5), e.y + rnd(-1.5, 1.5), 1.6, 0, { hex: e.color, fxOnly: true }));
@@ -9008,7 +9265,7 @@ function onBossKilled(e) {
   if (bossId === 'colony') unlock('macrophage');
   if (bossId === 'endocardia') unlock('tcell');
   after(1.6 * 0.3 + 0.4, () => {
-    if (SIM.room !== room || !SIM.player) return;
+    if (SIM.room !== room || !SIM.player || SIM.player.dead) return;
     room.cleared = true; lockRoom(false); SIM.boss = null;
     P.heal(2);
     sfx('door_open');
@@ -9030,7 +9287,7 @@ function unlock(key) {
   sfx('unlock');
 }
 function memoryEarned(run, won) {
-  const base = Math.floor(run.stats.kills / 5) + run.floorIdx * 6 + run.stats.bossesKilled * 12 + (won ? 40 : 0);
+  const base = 5 + run.stats.roomsCleared * 2 + Math.floor(run.stats.kills / 4) + run.floorIdx * 6 + run.stats.bossesKilled * 12 + (won ? 40 : 0);
   return Math.round(base * (1 + 0.25 * run.fever));
 }
 function endRun(won) {
@@ -9053,7 +9310,7 @@ function endRun(won) {
 function victory() {
   endRun(true);
   Game.state = 'over'; Game.sub = 'room';
-  try { AUDIO.music.play('victory'); } catch (e) { }
+  try { AUDIO.music.play('victory'); AUDIO.setLowpass(false); } catch (e) { }
   fadeTo(1, 1.0, () => { UI.showHUD(false); UI.summary(SIM.run, true); fadeTo(0, 0.6); });
 }
 Bus.on('playerDied', () => {
@@ -9067,7 +9324,21 @@ Bus.on('enemyKilled', (e) => { if (e.isBoss && e.isMainBoss !== false) onBossKil
    MAIN LOOP
    ========================================================================== */
 let lastT = performance.now();
+const _frameErrs = new Set();
 function frame() {
+  try { frameBody(); }
+  catch (err) {
+    const k = String(err && (err.stack || err.message) || err);
+    if (!_frameErrs.has(k)) {
+      _frameErrs.add(k);
+      console.error('[SPLEEN] frame error:', err);
+      try { UI.toast('ERROR (see console)', null, 'small'); } catch (e) { }
+    }
+  } finally {
+    try { Input.endFrame(); } catch (e) { }
+  }
+}
+function frameBody() {
   const now = performance.now();
   let rdt = Math.min(0.05, (now - lastT) / 1000); lastT = now;
   if (window.__SPLEEN && __SPLEEN.fixedDt) rdt = __SPLEEN.fixedDt;
@@ -9083,17 +9354,25 @@ function frame() {
   else {
     UI.menuFrame(rdt);
     if (Game.state === 'title') renderTitle(rdt);
-    else if (Game.state === 'over' && SIM.room && SIM.player) { updateParticles(rdt * 0.3); renderFrame(rdt * 0.3, true); }
+    else if (Game.state === 'over' && SIM.room && SIM.player) { updateParticles(rdt * 0.3); throttledMenuRender(rdt, 0.3); }
   }
-  Input.endFrame();
+}
+/** menus over a frozen-ish world: render at ~12fps (the canvas is under a blurred backdrop) */
+function throttledMenuRender(rdt, scale) {
+  Game.menuRenderAcc = (Game.menuRenderAcc || 0) + rdt;
+  if (Game.menuRenderAcc >= 1 / 12 || Game.gfxDirty) { renderFrame(Game.menuRenderAcc * scale, true); Game.menuRenderAcc = 0; Game.gfxDirty = false; }
 }
 
 function playFrame(rdt) {
   const P = SIM.player;
+  // auto-pause when the window loses focus
+  if (Input.focusLost) { Input.focusLost = false; if (!Game.paused && !P.dead && !Game.autopilot && (Game.sub === 'room' || Game.sub === 'intro')) { togglePause(); renderFrame(0); return; } }
+  // Esc inside a pause submenu (options) returns to the pause menu
+  if (Input.pause && Game.paused && UI.inPauseSubmenu && UI.inPauseSubmenu()) { sfx('ui_back'); UI.pause(true); renderFrame(0); return; }
   // pause
   if (Input.pause && !P.dead && (Game.paused || Game.sub === 'room' || Game.sub === 'intro')) { togglePause(); renderFrame(0); return; }
-  if (Game.paused) { UI.menuFrame(rdt); renderFrame(0); return; }
-  if (Game.sub === 'modal') { UI.menuFrame(rdt); renderFrame(rdt * 0.2, true); return; }
+  if (Game.paused) { UI.menuFrame(rdt); if (!Game.pauseDrawn || Game.gfxDirty) { renderFrame(0); Game.pauseDrawn = true; Game.gfxDirty = false; } return; }
+  if (Game.sub === 'modal') { UI.menuFrame(rdt); throttledMenuRender(rdt, 0.2); return; }
   // mouse world pos
   Input.mouseWorld = Gfx.screenToWorld(Input.mouse.x, Input.mouse.y, 0.6);
   Input.playerPos = P;
@@ -9142,9 +9421,23 @@ function simStep(dt) {
 
 function togglePause() {
   Game.paused = !Game.paused;
-  if (Game.paused) { Game.pauseStart = performance.now(); UI.pause(true); try { AUDIO.setLowpass(true); } catch (e) { } sfx('ui_open'); }
+  if (Game.paused) { Game.pauseStart = performance.now(); Game.pauseDrawn = false; UI.pause(true); try { AUDIO.setLowpass(true); } catch (e) { } sfx('ui_open'); }
   else { SIM.run.pausedTime = (SIM.run.pausedTime || 0) + (performance.now() - Game.pauseStart) / 1000; UI.pause(false); try { AUDIO.setLowpass(false); } catch (e) { } }
 }
+function autoPause() {
+  const P = SIM.player;
+  if (Game.state === 'play' && !Game.paused && !Game.autopilot && !window.__TEST__ && P && !P.dead && (Game.sub === 'room' || Game.sub === 'intro')) togglePause();
+}
+window.addEventListener('blur', autoPause);
+window.addEventListener('resize', () => { Game.gfxDirty = true; });
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) { autoPause(); Game.hiddenAt = performance.now(); }
+  else if (Game.hiddenAt != null) {
+    // hidden time while not paused (modal/transition/dying) is not covered by pause accounting
+    if (SIM.run && !SIM.run.ended && !Game.paused) SIM.run.pausedTime = (SIM.run.pausedTime || 0) + (performance.now() - Game.hiddenAt) / 1000;
+    Game.hiddenAt = null;
+  }
+});
 function abandonRun() {
   if (Game.paused) togglePause();
   endRun(false);
@@ -9155,13 +9448,22 @@ function toTitle() {
   clearWorld(true); SIM.run = null; SIM.floor = null; SIM.room = null;
   Game.state = 'title'; Game.sub = 'room'; Game.paused = false;
   UI.showHUD(false); UI.title();
-  try { AUDIO.music.play('title'); } catch (e) { }
+  try { AUDIO.music.play('title'); AUDIO.setLowpass(false); } catch (e) { }
 }
 
 /* ==========================================================================
    RENDER SYNC
    ========================================================================== */
 const _styleCache = {};
+const _O_PS = { glow: 1.0, k: 1.15 }, _O_ES = { glow: 1.2, k: 1.0 }, _O_CORE = { glow: 0.5, k: 1.2 },
+  _O_PT = { glow: 0.55, max: 260, k: 1.1 }, _O_LOB = { glow: 0.9 }, _O_RING = { glow: 1.0, additive: true, max: 60 },
+  _O_NET = { glow: 0.1, alpha: 0.35, k: 0.7, max: 120 }, _O_ARC = { glow: 1.2, max: 120 }, _O_LATCH = { glow: 0.8, max: 200 };
+/** per-prefix Map cache in front of Gfx.bulletPool (avoids per-object key strings / opts literals) */
+function cachedPool(prefix, id, shape, hex, opts) {
+  const m = _styleCache[prefix] || (_styleCache[prefix] = new Map());
+  let p = m.get(id); if (!p) { p = Gfx.bulletPool(prefix + id, shape, hex, opts); m.set(id, p); } return p;
+}
+let _zoneMap = null;
 function renderFrame(dt, frozen) {
   const P = SIM.player, room = SIM.room;
   if (!room) { Gfx.render(dt); return; }
@@ -9180,16 +9482,16 @@ function renderFrame(dt, frozen) {
   // player shots
   for (const s of SIM.pshots) {
     const st = SHOT_STYLES[s.style] || SHOT_STYLES.neut;
-    const pool = Gfx.bulletPool('ps_' + s.style, 'sphereLo', st.hex, { glow: 1.0, k: 1.15 });
+    const pool = cachedPool('ps_', s.style, 'sphereLo', st.hex, _O_PS);
     const a = Math.atan2(s.vy, s.vx), fade = s.t > s.life - 0.08 ? (s.life - s.t) / 0.08 : 1;
     pool.push(s.x, s.h, -s.y, s.r * st.sx * fade, s.r * st.sy, s.r * st.sy * fade, a);
   }
   // enemy shots: glowing halo + white core (streaks for 'streak')
+  const core = Gfx.bulletPool('es_core', 'sphereLo', '#fff4f8', _O_CORE);
   for (const s of SIM.eshots) {
-    if (s.delay > 0) continue;
+    if (s.delay > 0 || s.dead) continue;
     const hex = ESHOT_STYLES[s.style] || '#ff3d7f';
-    const halo = Gfx.bulletPool('es_' + s.style, 'sphereLo', hex, { glow: 1.2, k: 1.0 });
-    const core = Gfx.bulletPool('es_core', 'sphereLo', '#fff4f8', { glow: 0.5, k: 1.2 });
+    const halo = cachedPool('es_', s.style, 'sphereLo', hex, _O_ES);
     const pop = s.t < 0.08 ? 0.5 + s.t / 0.16 : 1;
     if (s.streak) { const a = Math.atan2(s.vy, s.vx); halo.push(s.x, s.h, -s.y, s.r * 2.2, s.r, s.r, a); core.push(s.x, s.h + 0.02, -s.y, s.r * 1.3, s.r * 0.5, s.r * 0.5, a); }
     else { halo.push(s.x, s.h, -s.y, s.r * pop, s.r * pop, s.r * pop); core.push(s.x, s.h + 0.03, -s.y, s.r * 0.55, s.r * 0.55, s.r * 0.55); }
@@ -9197,7 +9499,7 @@ function renderFrame(dt, frozen) {
   // particles
   for (const p of SIM.particles) {
     const k = 1 - p.t / p.life;
-    Gfx.particlePool(p.hex).push(p.x, p.h, -p.y, p.size * k, p.size * k, p.size * k);
+    cachedPool('pt_', p.hex, 'icoFlat', p.hex, _O_PT).push(p.x, p.h, -p.y, p.size * k, p.size * k, p.size * k);
   }
   // telegraphs
   for (const t of SIM.teles) {
@@ -9219,32 +9521,33 @@ function renderFrame(dt, frozen) {
     pools.beamCore.push(cx, 0.52, -cy, b.len / 2, 1, b.w / 5 * k, b.ang);
   }
   // zones
+  const zmap = _zoneMap || (_zoneMap = { spore: pools.zSpore, acid: pools.zAcid, net: pools.zNet, bio: pools.zBio, rot: pools.zRot, pull: pools.zPull });
   for (const z of SIM.zones) {
     if (z.delay > 0) continue;
     const k = z.t < 0.2 ? z.t / 0.2 : z.t > z.life - 0.4 ? Math.max(0, (z.life - z.t) / 0.4) : 1;
-    const pool = { spore: pools.zSpore, acid: pools.zAcid, net: pools.zNet, bio: pools.zBio, rot: pools.zRot, pull: pools.zPull }[z.kind] || pools.zSpore;
+    const pool = zmap[z.kind] || pools.zSpore;
     const wob = 1 + Math.sin(SIM.time * 4 + z.x) * 0.04;
     pool.push(z.x, 0.025, -z.y, z.r * k * wob, 1, z.r * k * wob);
     if (z.kind === 'net') {
       pools.netRing.push(z.x, 0.06, -z.y, z.r * k, 0.12, z.r * k);
-      const sp = Gfx.bulletPool('netStrand', 'plane', '#bff8ff', { glow: 0.1, alpha: 0.35, k: 0.7, max: 120 });
+      const sp = Gfx.bulletPool('netStrand', 'plane', '#bff8ff', _O_NET);
       for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI + z.x; sp.push(z.x, 0.05, -z.y, z.r * k, 1, 0.025, a); }
     }
   }
   // lobs
   for (const l of SIM.lobs) {
     const k = l.t / l.dur, x = lerp(l.x0, l.x1, k), y = lerp(l.y0, l.y1, k), h = 0.5 + l.peak * 4 * k * (1 - k);
-    Gfx.bulletPool('lob_' + l.hex, 'sphere', l.hex, { glow: 0.9 }).push(x, h, -y, l.size, l.size, l.size);
+    cachedPool('lob_', l.hex, 'sphere', l.hex, _O_LOB).push(x, h, -y, l.size, l.size, l.size);
     pools.shadow.push(x, 0.01, -y, l.size * 1.3, 1, l.size * 1.3);
   }
   // rings
   for (const r of SIM.rings) {
     const k = r.t / r.life, rr = r.r * (0.25 + 0.75 * easeOut(k));
-    Gfx.bulletPool('ring_' + r.hex, 'torus', r.hex, { glow: 1.0, additive: true, max: 60 }).push(r.x, 0.15, -r.y, rr, 1 - k, rr);
+    cachedPool('ring_', r.hex, 'torus', r.hex, _O_RING).push(r.x, 0.15, -r.y, rr, 1 - k, rr);
   }
   // chain arcs
   for (const a of SIM.arcs) {
-    const pool = Gfx.bulletPool('arc', 'plane', '#cfeaff', { glow: 1.2, max: 120 });
+    const pool = Gfx.bulletPool('arc', 'plane', '#cfeaff', _O_ARC);
     let px = a.x0, py = a.y0;
     for (let i = 1; i <= 4; i++) {
       const k = i / 4, jx = i < 4 ? rnd(-0.3, 0.3) : 0, jy = i < 4 ? rnd(-0.3, 0.3) : 0;
@@ -9257,8 +9560,8 @@ function renderFrame(dt, frozen) {
   // enemy latched antibodies (b-cell) drawn as little dots orbiting
   for (const e of SIM.enemies) {
     if (e.latches && e.latches.length && !e.dead) {
-      const pool = Gfx.bulletPool('latch', 'sphereLo', '#c9bcff', { glow: 0.8, max: 200 });
-      e.latches.forEach((L) => { const a = L.a + SIM.time * 2; pool.push(e.x + Math.cos(a) * e.r * 0.95, 0.6 + Math.sin(a * 2) * 0.1, -(e.y + Math.sin(a) * e.r * 0.95), 0.07, 0.07, 0.07); });
+      const pool = Gfx.bulletPool('latch', 'sphereLo', '#c9bcff', _O_LATCH);
+      for (let i = 0; i < e.latches.length; i++) { const a = e.latches[i].a + SIM.time * 2; pool.push(e.x + Math.cos(a) * e.r * 0.95, 0.6 + Math.sin(a * 2) * 0.1, -(e.y + Math.sin(a) * e.r * 0.95), 0.07, 0.07, 0.07); }
     }
   }
   Gfx.endPools();

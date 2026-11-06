@@ -113,7 +113,11 @@ function updatePShots(dt) {
         if (Math.abs(angDiff(e.facing, incoming)) < e.shieldArc) {
           sfx('hit_armor', { rate: rnd(0.9, 1.1) });
           burst(s.x, s.y, '#ffffff', 4, 3, { life: 0.18, size: 0.05 });
-          // deflect
+          // armour absorbs the hit; enough damage cracks it open for a few seconds
+          if (e.shieldHp != null) {
+            e.shieldHp -= s.dmg;
+            if (e.shieldHp <= 0) { e.shieldBroken = true; e.shieldT = 3.5; sfx('shield_break'); burst(e.x, e.y, '#fff6c8', 18, 5, { life: 0.5, size: 0.09 }); Gfx.floatText(e.x, e.y, 'CRACKED', '#fff6c8', 13, { h: 1.6 }); }
+          }
           s.dead = true; break;
         }
       }

@@ -27,6 +27,7 @@ const UI = (function () {
     for (const b of touchEl.querySelectorAll('[data-t]')) {
       b.addEventListener('touchstart', (e) => { e.preventDefault(); e.stopPropagation(); Input.touchButton(b.dataset.t); b.classList.add('down'); }, { passive: false });
       b.addEventListener('touchend', () => b.classList.remove('down'));
+      b.addEventListener('touchcancel', () => b.classList.remove('down'));
     }
     // fonts fallback for icons
     // no face (stylesheet failed) or a failed face (woff2 failed) -> dot fallback
@@ -85,7 +86,7 @@ const UI = (function () {
     return b;
   }
   function show(name, build, back) {
-    current = name; backAction = back || null; focusIdx = 0;
+    current = name; backAction = back || null; focusIdx = 0; Input.resetNav && Input.resetNav(name === 'summary' ? 0.9 : 0.2);
     openedAt = performance.now(); lockFor = name === 'summary' ? 700 : 150;
     screenEl.innerHTML = ''; screenEl.className = 'screen on s-' + name;
     build(screenEl);
@@ -326,7 +327,7 @@ const UI = (function () {
     modalEl.innerHTML = ''; modalEl.className = 'modal on m-' + name + (refresh ? ' refresh' : '');
     const box = el('div', 'mbox'); if (refresh) box.style.animation = 'none';
     build(box); modalEl.appendChild(box);
-    backAction = back || null; focusIdx = 0; current = current || null;
+    backAction = back || null; focusIdx = 0; current = current || null; Input.resetNav && Input.resetNav();
     if (!refresh) { openedAt = performance.now(); lockFor = (name === 'pause' || name === 'options') ? 0 : 350; }
     requestAnimationFrame(applyFocus);
     if (!refresh) sfx('ui_open', { vol: 0.6 });
@@ -344,7 +345,7 @@ const UI = (function () {
       menu.appendChild(btn('Resume', () => togglePause(), 'big', 'play_arrow'));
       menu.appendChild(btn('Options', () => U.options(() => U.pause(true), true), '', 'settings'));
       let armed = false;
-      const ab = btn('Abandon run', () => { if (!armed) { armed = true; ab.querySelector('span').textContent = 'Confirm abandon'; return; } abandonRun(); }, 'danger', 'close');
+      const ab = btn('Abandon run', () => { if (!armed) { armed = true; ab.querySelector('span:not(.ms)').textContent = 'Confirm abandon'; return; } abandonRun(); }, 'danger', 'close');
       menu.appendChild(ab);
       cols.appendChild(menu);
       cols.appendChild(buildPanel(P));
