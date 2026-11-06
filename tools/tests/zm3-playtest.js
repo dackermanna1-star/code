@@ -114,7 +114,7 @@
         await until(() => F.title.active && F.title.shot, 8000);
         await sleep(2000);
         const news = q('.fe-news h3')?.textContent || '';
-        check('title: backdrop, main menu and the Milestone 3 What\'s new', F.title.active && !!q('.mm-front') && /Every run is different/.test(news) && qa('.fe-news li').length === 6, news);
+        check('title: backdrop, main menu and the Milestone 3 What\'s new', F.title.active && !!q('.mm-front') && /Every run is different/.test(news) && qa('.fe-news li').length >= 6, news); // (6 Milestone 3 items, + the new maps)
         return { log: out(), shot: true };
       }
       if (step === 2) {
