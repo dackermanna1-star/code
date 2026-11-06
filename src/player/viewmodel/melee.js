@@ -210,7 +210,8 @@ export function pan() {
   }
   b.box(0, cy, 0.5, 18, 18, 0.15, 0x1d1e20, M.METAL, { skip: 'nz' });
   b.point('handR', [0, 0, 0]);
-  return { b, meta: meleeMeta({ swing: 'blunt', weight: 0.4, hip: { pos: [0.19, -0.22, -0.38], rot: [-0.45, 0.6, 0.4] }, sprint: { pos: [0.2, -0.27, -0.34], rot: [-0.9, 0.7, 0.4] } }) };
+  // held out flat and low so the pan never covers the crosshair
+  return { b, meta: meleeMeta({ swing: 'blunt', weight: 0.4, hip: { pos: [0.21, -0.25, -0.38], rot: [-1.3, 0.1, 0.5] }, sprint: { pos: [0.2, -0.28, -0.34], rot: [-1.5, 0.4, 0.4] } }) };
 }
 
 export function pipe() {
@@ -366,7 +367,8 @@ export function club() {
   for (const [y, x, z] of [[20, 2.4, 0.5], [32, -2.9, -1], [41, 1, 3.2], [28, 0.5, -2.8]]) b.box(x, y, z, 1.4, 1.6, 1.4, shade(W, 0.8), M.WOOD);
   b.box(0, -2, 0, 3.5, 7, 3.4, 0x3d3226, M.TAPE);
   b.point('handR', [0, 0, 0]);
-  return { b, meta: meleeMeta({ swing: 'blunt', weight: 0.5 }) };
+  // leaned forward: the big club head would otherwise fill the top of the screen
+  return { b, meta: meleeMeta({ swing: 'blunt', weight: 0.5, hip: { pos: [0.2, -0.22, -0.38], rot: [-0.55, 0.3, 0.45] } }) };
 }
 
 export function screwdriver() {

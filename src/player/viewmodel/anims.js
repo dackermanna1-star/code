@@ -335,8 +335,15 @@ function reloadCrossbow(a, o, vm) {
 
 function reloadBow(a, o, vm) {
   const u = clamp01(a.t / a.dur);
-  o.rot.set(0.0, 0.08, 0.15).multiplyScalar(env(u, 0, 0.2, 0.8, 1));
-  o.handR.push({ w: env(u, 0.05, 0.32, 0.4, 0.66), rig: R_QUIVER });
+  const e = env(u, 0, 0.2, 0.8, 1);
+  if (vm.oneHanded) {
+    // the right hand keeps the bow: dip it while the new arrow slides onto the rest
+    o.rot.set(-0.25, 0.1, 0.3).multiplyScalar(e);
+    o.pos.set(-0.02, -0.05, 0.03).multiplyScalar(e);
+  } else {
+    o.rot.set(0.0, 0.08, 0.15).multiplyScalar(e);
+    o.handR.push({ w: env(u, 0.05, 0.32, 0.4, 0.66), rig: R_QUIVER });
+  }
   const nock = ramp(u, 0.55, 0.85);
   o.arrowVis = u > 0.5;
   o.arrowOff = [4 * (1 - nock), 9 * (1 - nock), 14 * (1 - nock)];
@@ -438,7 +445,16 @@ function swingAnim(a, o, vm) {
 function shoveAnim(a, o, vm) {
   const u = clamp01(a.t / a.dur);
   const m = vm.meta;
-  if (m.kind === 'gun' || m.twoHanded) {
+  if (vm.oneHanded && m.kind === 'fists') {
+    // one-handed: open right-hand push in toward the middle of the screen
+    const b = env(u, 0.0, 0.22, 0.5, 1.0);
+    const p = bump(u, 0.12, 0.62);
+    o.pos.set(-0.1 * b, 0.055 * b, 0.03 * b - 0.21 * p);
+    o.rot.set(0.35 * b, 0.3 * b, -0.3 * b);
+    return;
+  }
+  if (m.kind === 'gun' || m.twoHanded || vm.oneHanded) {
+    // weapon / held item turned flat and rammed forward (the only hand drawn is holding it)
     const b = env(u, 0.0, 0.3, 0.45, 1.0);
     const p = bump(u, 0.15, 0.6);
     o.pos.set(-0.05 * b, 0.025 * b, 0.05 * b - 0.17 * p);
@@ -530,7 +546,8 @@ function throwAnim(a, o, vm) {
   const below = [_b6[0], _b6[1] - 0.3, _b6[2] + 0.05, _b6[3] - 0.6, _b6[4], _b6[5]];
   const K = [
     [0, _b6],
-    [0.38, [0.28, 0.0, -0.22, 0.5, -0.3, -0.4], 'h'],
+    // wind-up: hand back beside the head (mostly off screen, not a giant item in front of the eye)
+    [0.38, [0.34, 0.03, -0.15, 0.5, -0.3, -0.4], 'h'],
     [0.5, [0.06, -0.06, -0.52, -0.5, 0.1, 0.1]],
     [0.62, [-0.05, -0.32, -0.45, -1.2, 0.15, 0.2]],
     [0.8, below, 'h'],

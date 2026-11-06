@@ -17,13 +17,15 @@ import { Arms } from './viewmodel/arms.js';
 import { ViewmodelFX } from './viewmodel/fx.js';
 import { AnimOut, SAMPLERS, SWINGS, clamp01, easeOutBack, bump } from './viewmodel/anims.js';
 import { disposeObject } from './viewmodel/builder.js';
+import { suppressorModel } from './viewmodel/guns.js';
 
 export { MODEL_IDS } from './viewmodel/models.js';
 
 const RIG_PIVOT = new THREE.Vector3(0.08, -0.12, -0.32);
-const SHOULDER_R = [0.43, -0.47, 0.06];
-// Minecraft-style single arm: held items sit further right and reach further into view (hip only, not ADS)
-const HIP_OFFSET = [0.03, 0.014, -0.012];
+const SHOULDER_R = [0.45, -0.47, 0.06];
+// Minecraft-style single arm: held items sit further right and the arm reaches further out into view
+// (hip / sprint only, faded out while aiming down sights)
+const HIP_OFFSET = [0.042, 0.02, -0.03];
 const SHOULDER_L = [-0.16, -0.5, -0.48];
 const FREE_L = [-0.2, -0.38, -0.36];
 const EQUIP_DUR = 0.4;
@@ -199,16 +201,61 @@ export class Viewmodel {
     return m;
   }
 
+  /** meta to use for a model: models may carry a `oneHand` override block (e.g. the bow is then held by the right hand) */
+  _metaFor(model) {
+    const m = model.meta;
+    if (!this.oneHanded || !m.oneHand) return m;
+    if (!model.metaOH) model.metaOH = { ...m, ...m.oneHand };
+    return model.metaOH;
+  }
+
   _display(model) {
     if (this.model === model) return;
     if (this.model) this.pivot.remove(this.model.group);
     this.model = model;
-    this.meta = model.meta;
+    this.meta = this._metaFor(model);
     this.pivot.add(model.group);
     model.group.visible = true;
-    this.fx.attachMuzzle(model.points.muzzle || null);
+    this._syncSuppressor();
     this.fx.attachFlame(model.meta.flame ? model.points[model.meta.flame] : null, model.meta.flameKind || 'fire');
     this.freeLPos = (this.meta.freeL && this.meta.freeL.pos) ? this.meta.freeL.pos.slice() : FREE_L.slice();
+  }
+
+  /** Show / hide the muzzle suppressor of the displayed gun (stack.data.suppressor = attachment id). Cheap when unchanged. */
+  _syncSuppressor() {
+    const model = this.model;
+    if (!model) return;
+    const mp = model.points.muzzle || null;
+    const want = model === this.item && model.meta.kind === 'gun' && mp && this._stack?.data?.suppressor ? this._stack.data.suppressor : null;
+    if (model._supKey !== want) {
+      if (model._sup) {
+        model._sup.group.parent?.remove(model._sup.group);
+        disposeObject(model._sup.group);
+        model._sup = null;
+      }
+      if (want) {
+        const { b, tip } = suppressorModel(want);
+        const built = b.build(this.material, 1);
+        built.group.scale.setScalar(1); // already in the gun's model units (cm), it hangs off the muzzle point
+        const tipObj = new THREE.Object3D();
+        tipObj.position.fromArray(tip);
+        built.group.add(tipObj);
+        mp.add(built.group);
+        model._sup = { group: built.group, tip: tipObj };
+      }
+      model._supKey = want;
+    }
+    const mz = model._sup ? model._sup.tip : mp;
+    if (this._muzzleAttached !== mz) {
+      this.fx.attachMuzzle(mz);
+      this._muzzleAttached = mz;
+    }
+  }
+
+  /** current muzzle point (end of the suppressor when one is fitted) */
+  _muzzlePoint() {
+    const m = this.model;
+    return m ? (m._sup ? m._sup.tip : m.points.muzzle) || null : null;
   }
 
   /** Equip a stack (or null = bare hands). Calling again with the same stack object is a no-op. */
@@ -321,8 +368,12 @@ export class Viewmodel {
     if (meta.chamberShells) this._fireHideT = 0;
   }
 
-  /** Melee swing. Returns seconds until the impact moment. */
-  swing(heavy = false) {
+  /**
+   * Melee swing. Returns seconds until the impact moment.
+   * rate (optional): swings per second the game is using (skill / fatigue / heavy included) — the animation then
+   * lasts exactly 1 / rate so the impact frame lines up with the damage and the next swing.
+   */
+  swing(heavy = false, rate = null) {
     const meta = this.meta;
     const mel = this._def && this._def.melee;
     const alt = this.time - this._lastSwingEnd < 0.6 ? !this._swingAlt : false;
@@ -339,7 +390,7 @@ export class Viewmodel {
       else style = two ? (heavy ? 'heavy2' : alt ? 'blunt2b' : 'blunt2') : heavy ? 'heavy1' : alt ? 'blunt1b' : 'blunt1';
     }
     const speed = (mel && mel.speed) || (meta.kind === 'fists' ? 2.2 : 1.4 - (meta.weight || 0.3) * 0.6);
-    let D = clamp(1 / speed, 0.32, 1.6) * (heavy ? 1.45 : 1);
+    let D = rate > 0 ? clamp(1 / rate, 0.3, 2.2) : clamp(1 / speed, 0.32, 1.6) * (heavy ? 1.45 : 1);
     if (style === 'gunbash') D = 0.62;
     this._start('swing', D, { style, heavy });
     return SWINGS[style].hit * D;
@@ -349,6 +400,15 @@ export class Viewmodel {
   shove() {
     this._start('shove', 0.48, {});
     return 0.48 * 0.4;
+  }
+
+  /** Stomp on something on the ground: no legs in first person, so the whole view drops into it. */
+  stomp() {
+    if (this.action && this.action.type !== 'swing') this._endAction(true);
+    this.offPos.v.y -= 0.85;
+    this.offPos.v.z += 0.12;
+    this.offRot.v.x -= 2.4;
+    this.offRot.v.z += (Math.random() - 0.5) * 0.6;
   }
 
   /**
@@ -448,9 +508,19 @@ export class Viewmodel {
     this._start('use', Math.max(0.3, duration), { kind, temp });
   }
 
-  /** Overarm throw. Returns seconds until release (spawn the projectile then). */
-  throwItem(duration = 0.8) {
-    this._start('throw', duration, { reshow: true });
+  /**
+   * Overarm throw. Returns seconds until release (spawn the projectile then).
+   * Optional stack: the thing thrown when it is not the held item (G key quick-throw): it is shown in the hand
+   * for the wind-up instead of throwing the held gun / weapon.
+   */
+  throwItem(duration = 0.8, stack = null) {
+    let temp = null;
+    if (stack && stack !== this._stack) {
+      const m = this._getModel(stack, this._modelIdFor(stack));
+      if (m !== this.item) temp = m;
+    }
+    this._start('throw', duration, { reshow: true, temp });
+    if (temp) this._display(temp);
     return 0.47 * duration;
   }
 
@@ -517,6 +587,11 @@ export class Viewmodel {
       } else if (a.t > 60) this._endAction(true);
       return;
     }
+    if (a.type === 'throw' && a.data.temp) {
+      // thrown item in the hand until it is released (hidden 0.47..0.8), then the held item comes back up
+      const want = a.t / a.dur < 0.62 ? a.data.temp : this.item;
+      if (this.model !== want) this._display(want);
+    }
     if (a.type === 'use' && a.data.temp) {
       const sw = Math.min(0.15, 0.12 / a.dur);
       const u = a.t / a.dur;
@@ -535,6 +610,7 @@ export class Viewmodel {
     this.fireT += dt;
     this._fireHideT += dt;
     this._advanceAction(dt);
+    this._syncSuppressor();
     const meta = this.meta;
     const act = this.action;
     const out = this.out;
@@ -936,7 +1012,10 @@ export class Viewmodel {
     this.arms.place(this.arms.L, hL, _sL, upL);
     // a hand right in front of the eye (bow at full draw) reads as a giant block: hide it
     const minD = meta.hold === 'bow' ? 0.16 : 0.07;
-    this._armRNear = hR.length() < minD;
+    // aiming a long gun with a short reach (shotguns, .22): the trigger hand sits ~15 cm under the eye and reads as
+    // a huge skin block over the sight picture — drop it together with the stock (same threshold as adsHide)
+    const longAds = (meta.hold === 'rifle' || meta.hold === 'shotgun') && this._aim.x > 0.8 && hR.length() < 0.185;
+    this._armRNear = hR.length() < minD || longAds;
     this._armLNear = hL.length() < 0.07;
     this.arms.R.finger.visible = meta.kind === 'gun' && meta.hold !== 'bow' && out.finger !== false && !out.handR.length;
     this.arms.setProp(this.arms.L, out.propL);
@@ -967,7 +1046,7 @@ export class Viewmodel {
     }
     // muzzle flash light (~2 frames)
     if (this._muzzleLight > 0) {
-      const mp = this.model.points.muzzle;
+      const mp = this._muzzlePoint();
       if (mp) mp.getWorldPosition(_v);
       u.uMuzzle.value.set(_v.x, _v.y, _v.z, this._muzzleLight * Math.min(1.5, this.meta.flash || 1));
       this._muzzleLight = Math.max(0, this._muzzleLight - dt / 0.05);
@@ -978,7 +1057,7 @@ export class Viewmodel {
   /** Muzzle tip in the main camera's world space (matches the on-screen position of the viewmodel muzzle). */
   getMuzzleWorldPosition(mainCamera, out = new THREE.Vector3()) {
     if (mainCamera) this.mainCamera = mainCamera;
-    const mp = this.model && this.model.points.muzzle;
+    const mp = this._muzzlePoint();
     this.scene.updateMatrixWorld(true);
     if (mp) mp.getWorldPosition(_v);
     else {
