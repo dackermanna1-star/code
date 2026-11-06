@@ -186,11 +186,11 @@ const Gfx = (function () {
     camera.position.copyFrom(pose.pos); camera.setTarget(pose.tgt);
     if (pipeline && pipeline.chromaticAberrationEnabled) {
       G.caPulse = Math.max(0, G.caPulse - dt * 2.5);
-      pipeline.chromaticAberration.aberrationAmount = (G.quality === 'high' ? 10 : 6) + G.caPulse * 60;
+      pipeline.chromaticAberration.aberrationAmount = (G.quality === 'high' ? 10 : 6) + G.caPulse * (G.reduceFlash ? 12 : 60);
     }
   };
   G.addShake = function (amt) { G.shake = Math.min(1, Math.max(G.shake, amt)); };
-  G.punch = function (amt) { G.flash = Math.max(G.flash, amt); };
+  G.punch = function (amt) { G.flash = Math.max(G.flash, amt * (G.reduceFlash ? 0.3 : 1)); };
 
   /* screen <-> world (sim coords) */
   G.screenToWorld = function (px, py, h = 0.5) {

@@ -122,7 +122,7 @@ const UI = (function () {
         c.innerHTML = `<div class="cell-ico" style="--c:${d.color};--n:${d.nucleus}"><div class="nuc"></div></div>
           <div class="sname">${d.name}</div><div class="stitle">${d.title}</div>
           ${locked ? `<div class="lockmsg">${icon('lock')}<span>${UNLOCKS[d.unlock].how}</span></div>` : `<div class="sdesc">${d.desc}</div>${bars}<div class="sabil"><b>${icon('bolt')} ${d.abilityName}</b><span>${d.abilityDesc}</span></div>`}`;
-        c.addEventListener('click', () => { if (locked) { sfx('ui_error'); return; } sfx('select'); startRun(id, selFever); });
+        c.addEventListener('click', () => { if (locked) { sfx('ui_error'); return; } sfx('select'); if (!META.tutorialSeen) U.briefing(() => startRun(id, selFever)); else startRun(id, selFever); });
         row.appendChild(c);
       }
       s.appendChild(row);
@@ -135,6 +135,19 @@ const UI = (function () {
     }, () => U.title());
     // default focus to last strain
     requestAnimationFrame(() => { const f = focusables(); const i = f.findIndex(x => x.classList.contains('last')); if (i >= 0) { focusIdx = i; applyFocus(); } });
+  };
+
+  U.briefing = function (go) {
+    show('briefing', (s) => {
+      const box = el('div', 'brief');
+      box.innerHTML = `<div class="b-num">PATIENT FILE · DAY 3</div>
+        <h2>The Host is dying.</h2>
+        <p>A rot has entered the blood. Fever, failing organs, the infection spreading toward the brain. The doctors call it <b class="hot">sepsis</b>.</p>
+        <p>The body has one armory left: <b class="accent">the Spleen</b>. It builds you — a single white cell — and sends you in.</p>
+        <p>Clear the infection region by region. Choose your mutations well. When you die, and you will, the Spleen <b class="gold">remembers</b> what you learned and builds the next cell stronger.</p>`;
+      s.appendChild(box);
+      s.appendChild(el('div', 'foot')).appendChild(btn('Begin', () => { META.tutorialSeen = true; saveMeta(); go(); }, 'big', 'play_arrow'));
+    }, () => U.strainSelect());
   };
 
   /* ======================================================================
@@ -250,8 +263,9 @@ const UI = (function () {
       slider('Sound effects', 'sfx', (v) => { try { AUDIO.setVolume('sfx', v); sfx('hit'); } catch (e) { } });
       slider('Screen shake', 'shake', (v) => { Gfx.shakeScale = v; });
       choice('Damage numbers', 'dmgNumbers', [true, false], ['On', 'Off'], (v) => { SIM.opts.dmgNumbers = v; });
+      choice('Screen flashes', 'flashes', [true, false], ['On', 'Reduced'], (v) => { Gfx.reduceFlash = !v; });
       choice('Graphics', 'quality', ['auto', 'low', 'medium', 'high'], ['Auto', 'Low', 'Medium', 'High'], (v) => { let q = v; if (q === 'auto') q = 'high'; Gfx.setQuality(q); });
-      choice('Touch controls', 'touch', ['auto', 'on', 'off'], ['Auto', 'On', 'Off'], (v) => { Input.touchEnabled = v === 'on' || (v === 'auto' && ('ontouchstart' in window)); });
+      choice('Touch controls', 'touch', ['auto', 'on', 'off'], ['Auto', 'On', 'Off'], (v) => { Input.touchEnabled = v === 'on' || (v === 'auto' && ('ontouchstart' in window)); document.body.classList.toggle('touch', Input.touchEnabled); });
       const row = el('div', 'orow', '<label>Display</label>'); const g = el('div', 'ochoices');
       g.appendChild(btn('Fullscreen', () => { try { if (!document.fullscreenElement) document.documentElement.requestFullscreen(); else document.exitFullscreen(); } catch (e) { } }, 'chip'));
       row.appendChild(g); list.appendChild(row);
@@ -551,6 +565,7 @@ const UI = (function () {
    ========================================================================== */
 const TitleScene = { room: null, decor: [], t: 0 };
 function setupTitleScene() {
+  clearTitleScene();
   clearWorld(true);
   const ridx = clamp((META.stats.bestFloor || 1) - 1, 0, 5);
   const region = REGIONS[ridx];

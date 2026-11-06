@@ -456,7 +456,7 @@ function onBossKilled(e) {
   clearEShots(true); SIM.beams.length = 0; SIM.teles.length = 0; SIM.zones = SIM.zones.filter(z => z.owner === 'player');
   for (const o of SIM.enemies) if (!o.dead && o !== e) killEnemy(o, { src: 'boss' });
   SIM.slowmo = 1.4;
-  sfx('boss_death'); Gfx.addShake(1); Gfx.caPulse = 1;
+  sfx('boss_death'); Gfx.addShake(1); Gfx.caPulse = 1; Input.rumble(1, 600);
   for (let i = 0; i < 6; i++) after(i * 0.16 * 0.3, () => explode(e.x + rnd(-1.5, 1.5), e.y + rnd(-1.5, 1.5), 1.6, 0, { hex: e.color }));
   Gfx.splat(room, e.x, e.y, e.r * 2.4, e.color, 0.7);
   UI.hideBoss();
@@ -547,8 +547,7 @@ function frame() {
 function playFrame(rdt) {
   const P = SIM.player;
   // pause
-  if (Input.pause && (Game.sub === 'room' || Game.sub === 'intro') && !P.dead) { togglePause(); }
-  else if (Input.pause && Game.paused) togglePause();
+  if (Input.pause && !P.dead && (Game.paused || Game.sub === 'room' || Game.sub === 'intro')) { togglePause(); renderFrame(0); return; }
   if (Game.paused) { UI.menuFrame(rdt); renderFrame(0); return; }
   if (Game.sub === 'modal') { UI.menuFrame(rdt); renderFrame(rdt * 0.2, true); return; }
   // mouse world pos
@@ -834,9 +833,10 @@ function boot() {
   if (params.get('q')) q = params.get('q');
   try { Gfx.init(canvas, overlay, q); }
   catch (err) { UI.fatal('Your browser could not start WebGL. Try another browser or enable hardware acceleration.<br><small>' + err.message + '</small>'); return; }
-  SIM.opts.dmgNumbers = META.opts.dmgNumbers; Gfx.shakeScale = META.opts.shake;
+  SIM.opts.dmgNumbers = META.opts.dmgNumbers; Gfx.shakeScale = META.opts.shake; Gfx.reduceFlash = !META.opts.flashes;
   const touchy = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
   Input.touchEnabled = META.opts.touch === 'on' || (META.opts.touch === 'auto' && touchy && matchMedia('(pointer: coarse)').matches);
+  document.body.classList.toggle('touch', Input.touchEnabled);
   try { if (window.AUDIO) { AUDIO.setVolume('master', META.opts.master); AUDIO.setVolume('music', META.opts.music); AUDIO.setVolume('sfx', META.opts.sfx); } } catch (e) { }
   UI.init();
   Gfx.engine().runRenderLoop(frame);

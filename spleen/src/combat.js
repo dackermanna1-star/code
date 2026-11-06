@@ -228,6 +228,7 @@ function killEnemy(e, o = {}) {
     Gfx.splat(SIM.room, e.x, e.y, e.r * (big ? 1.5 : 1.25), e.color, 0.55);
     sfx(e.elite ? 'kill_elite' : big ? 'kill_big' : 'kill_small', { rate: rnd(0.9, 1.1) });
     Gfx.addShake(e.elite ? 0.35 : big ? 0.25 : 0.12);
+    if (e.elite || big) Input.rumble(0.35, 90);
     if (e.elite || big) SIM.hitstop = Math.max(SIM.hitstop, e.elite ? 0.06 : 0.03);
   }
   if (e.onDeath) e.onDeath(e);
@@ -609,7 +610,7 @@ function hurtPlayer(amount, src = {}) {
   P.invulnT = 1.0 + (P.st.plateletPlug ? 0.5 : 0);
   P.hurtFlash = 0.3;
   SIM.hitstop = Math.max(SIM.hitstop, 0.08);
-  Gfx.addShake(0.55); Gfx.caPulse = 1; Gfx.punch(1);
+  Gfx.addShake(0.55); Gfx.caPulse = 1; Gfx.punch(1); Input.rumble(0.7, 180);
   burst(P.x, P.y, P.color, 16, 4.5, { life: 0.45, size: 0.08 });
   try { if (window.AUDIO) AUDIO.duck(0.5, 0.4); } catch (e) { }
   Bus.emit('playerHurt', amount);

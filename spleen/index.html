@@ -114,11 +114,12 @@ body.letterbox::before{top:0}body.letterbox::after{bottom:0}
 #stick-r div{background:rgba(255,77,138,.3);border-color:rgba(255,77,138,.6)}
 .tbtn{position:fixed;pointer-events:auto;width:64px;height:64px;border-radius:50%;background:rgba(16,9,20,.55);border:2px solid var(--line2);display:flex;align-items:center;justify-content:center;font-size:26px;color:#fff;backdrop-filter:blur(3px)}
 .tbtn.down{background:rgba(127,243,255,.35)}
-.tbtn[data-t=dash]{right:calc(24px + env(safe-area-inset-right));bottom:calc(150px + env(safe-area-inset-bottom))}
-.tbtn[data-t=ability]{right:calc(100px + env(safe-area-inset-right));bottom:calc(180px + env(safe-area-inset-bottom))}
-.tbtn[data-t=interact]{right:calc(24px + env(safe-area-inset-right));bottom:calc(230px + env(safe-area-inset-bottom));opacity:0;transform:scale(.6);transition:all .15s}
+.tbtn[data-t=dash]{right:calc(20px + env(safe-area-inset-right));top:44%}
+.tbtn[data-t=ability]{right:calc(96px + env(safe-area-inset-right));top:30%}
+.tbtn[data-t=interact]{right:calc(20px + env(safe-area-inset-right));top:24%;opacity:0;transform:scale(.6);transition:all .15s}
 .tbtn[data-t=interact].avail{opacity:1;transform:none;border-color:var(--gold);color:var(--gold)}
-.tbtn[data-t=pause]{width:44px;height:44px;font-size:20px;top:calc(140px + env(safe-area-inset-top));right:calc(14px + env(safe-area-inset-right))}
+.tbtn[data-t=pause]{width:42px;height:42px;font-size:20px;top:calc(12px + env(safe-area-inset-top));right:calc(186px + env(safe-area-inset-right))}
+body.touch #mutlist{pointer-events:none}
 
 /* ---------- screens & modals ---------- */
 .screen,.modal{position:fixed;inset:0;z-index:30;display:none;overflow-y:auto;overflow-x:hidden}
@@ -203,6 +204,10 @@ body.letterbox::before{top:0}body.letterbox::after{bottom:0}
 .centry.unknown{opacity:.45}
 .cdot{flex:0 0 34px;height:34px;border-radius:50%;background:radial-gradient(circle at 40% 40%,#fff4,var(--c,#444) 55%,#0000 75%);box-shadow:0 0 14px var(--c,transparent)}
 .mico{flex:0 0 34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;color:var(--r,#888);border:1px solid color-mix(in srgb,var(--r,#888) 40%,transparent)}
+.brief{max-width:620px;margin:auto 0 0;text-align:left;font-size:15px;line-height:1.75;color:#e6dce4;animation:pop .6s ease}
+.brief h2{font-family:var(--display);font-weight:900;font-size:clamp(26px,4.4vw,44px);margin:10px 0 16px;text-shadow:0 0 24px rgba(255,77,138,.45)}
+.brief p{margin-bottom:14px}.brief .b-num{text-align:left}.hot{color:var(--hot)}.accent{color:var(--accent)}
+.s-briefing{justify-content:center}
 .howto{display:flex;gap:30px;flex-wrap:wrap;max-width:980px;font-size:13px;line-height:1.65}
 .hcol{flex:1 1 380px;background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:20px 24px}
 .hcol h3{font-family:var(--display);font-size:14px;letter-spacing:.1em;margin:14px 0 6px;color:var(--accent)}.hcol h3:first-child{margin-top:0}
@@ -228,6 +233,21 @@ body.letterbox::before{top:0}body.letterbox::after{bottom:0}
 .memgain{margin-top:20px;font-size:18px;color:var(--gold)}.memgain b{font-family:var(--display);font-size:26px}
 .unlocks{margin-top:14px;display:flex;flex-direction:column;gap:6px;align-items:center;color:var(--accent);font-size:14px}
 .sum-muts{display:flex;flex-wrap:wrap;gap:5px;justify-content:center;margin-top:16px;max-width:700px}
+@media (max-height:520px){
+  .s-title{justify-content:flex-start}
+  .title-wrap{gap:12px}
+  .logo-main{font-size:clamp(40px,8vw,64px)}
+  .logo-sub{font-size:18px}.logo-tag{margin-top:4px;font-size:10px}
+  .menu{gap:6px}.btn{padding:8px 14px;font-size:12px}.btn.big{padding:10px 18px;font-size:14px}
+  .hdr{margin-bottom:10px}.hdr h2{font-size:22px}.hdr p{font-size:11px}
+  .pip{width:16px;height:16px}#hp{gap:3px}
+  #abil{width:44px;height:44px}#abil-in{font-size:20px}
+  #minimap{width:110px;height:80px}
+  #region b{font-size:11px}
+  .mcard,.strain{padding:12px}.mdesc,.sdesc{min-height:0}
+  .tbtn{width:54px;height:54px;font-size:22px}
+  .tbtn[data-t=pause]{right:calc(146px + env(safe-area-inset-right))}
+}
 @media (max-width:760px){
   .sumgrid{grid-template-columns:repeat(2,1fr)}
   .strain{width:min(100%,340px)}.mcard{width:min(100%,320px)}

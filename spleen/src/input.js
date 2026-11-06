@@ -198,5 +198,10 @@ const Input = (function () {
   /** clear one-frame edges (call at end of frame) */
   S.endFrame = function () { for (const k in pressedEdge) delete pressedEdge[k]; mouse.moved = false; };
   S.isDown = (code) => !!keys[code];
+  /** gamepad rumble (silently ignored where unsupported) */
+  S.rumble = function (strength = 0.5, ms = 120) {
+    if (S.device !== 'pad') return;
+    try { const p = getPad(); const a = p && p.vibrationActuator; if (a && a.playEffect) a.playEffect('dual-rumble', { duration: ms, strongMagnitude: strength, weakMagnitude: strength * 0.6 }); } catch (e) { }
+  };
   return S;
 })();

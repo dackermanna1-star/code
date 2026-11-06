@@ -473,7 +473,7 @@
       } },
     death: { d: 1.9, lvl: -11, max: 1, thr: 0.5, rev: 0.35, pri: 3, st: true,
       gen(S, t, r) {
-        S.tone({ t, d: 1.3, f: 120, f2: 28, g: 0.8 });
+        S.tone({ t, d: 1.3, f: 120, f2: 28, g: 0.5 });
         S.noise({ t, d: 1.7, col: 'b', lp: { f: 1000, f2: 90, t: 1.6 }, a: 0.01, g: 0.9 });
         const dr = S.drive(0.5, null, 0.35);
         S.tone({ t, d: 1.4, f: 210, f2: 48, w: 'sawtooth', lp: { f: 1200, f2: 180 }, vib: { r: 5, d: 40 },
@@ -517,7 +517,7 @@
         S.tone({ t, d: 0.14, f: 300, f2: 1100, w: 'triangle', a: 0.03, g: 0.15 });
         const ts = t + 0.15;
         S.noise({ t: ts, d: 0.16, col: 'p', bp: { f: 1600, f2: 280, q: 2 }, g: 0.9 });
-        S.tone({ t: ts, d: 0.12, f: 170, f2: 50, g: 0.7 });
+        S.tone({ t: ts, d: 0.12, f: 190, f2: 70, w: 'triangle', g: 0.45 });
         for (let i = 0; i < 5; i++) {
           const f = r.range(900, 2200);
           S.noise({ t: ts + 0.04 + i * 0.045 + r.range(0, 0.02), d: 0.05, col: 'p', bp: { f, f2: f * 1.6, q: 6 },
@@ -554,23 +554,25 @@
         [45, 52, 57, 61, 64].forEach((m, i) => S.tone({ t, d: 1.15, f: mtof(m), w: 'sawtooth', det: (i % 2 ? 7 : -7),
           lp: { f: 300, f2: 4000 }, a: 1.0, g: 0.12, pan: -0.6 + i * 0.3 }));
         const th = t + 1.1;
-        S.tone({ t: th, d: 0.6, f: 110, f2: 38, g: 0.9 });
+        S.tone({ t: th, d: 0.6, f: 110, f2: 38, g: 0.5 });
         S.noise({ t: th, d: 0.3, col: 'p', lp: { f: 5000, f2: 400 }, g: 0.5 });
         [69, 73, 76, 81].forEach((m, i) => S.tone({ t: th + i * 0.02, d: 0.85, f: mtof(m),
           fm: { r: 2, i: 1.5, i2: 0.1 }, g: 0.2, pan: -0.45 + i * 0.3 }));
       } },
     low_hp: { d: 0.3, lvl: -16, max: 2, thr: 0.2, rev: 0.1, pri: 2,
       gen(S, t) {
-        S.tone({ t, d: 0.22, f: 72, f2: 40, a: 0.004, g: 1 });
-        S.noise({ t, d: 0.09, col: 'b', lp: 260, g: 0.6 });
+        const dr = S.drive(0.35, null, 0.8);
+        S.tone({ t, d: 0.22, f: 72, f2: 40, a: 0.004, g: 0.85, dest: dr });
+        S.tone({ t, d: 0.12, f: 150, f2: 75, w: 'triangle', a: 0.004, g: 0.3 });
+        S.noise({ t, d: 0.09, col: 'p', bp: { f: 330, f2: 170, q: 1.2 }, g: 0.55 });
       } },
 
     // ------------------------------------------------------------- combat ---
     hit: { d: 0.12, lvl: -24, vars: 5, max: 6, thr: 0.03, jit: 1.5, rev: 0.08, pri: 0,
       gen(S, t, r) {
         const f = r.range(700, 1500);
-        S.noise({ t, d: r.range(0.06, 0.09), col: 'p', bp: { f, f2: f * 0.3, q: r.range(1.5, 3) }, a: 0.001, g: 0.7 });
-        S.tone({ t, d: 0.08, f: r.range(160, 230), f2: 60, g: 0.6 });
+        S.noise({ t, d: r.range(0.06, 0.09), col: 'p', bp: { f, f2: f * 0.3, q: r.range(1.1, 2) }, a: 0.001, g: 0.9 });
+        S.tone({ t, d: 0.07, f: r.range(200, 260), f2: 90, w: 'triangle', g: 0.3 });
         if (r.chance(0.5)) S.tone({ t: t + 0.005, d: 0.03, f: r.range(900, 1400), f2: 400, w: 'triangle', g: 0.15 });
       } },
     hit_armor: { d: 0.25, lvl: -22, vars: 3, max: 4, thr: 0.03, jit: 1, rev: 0.12, pri: 0,
@@ -584,23 +586,24 @@
     crit: { d: 0.2, lvl: -18, vars: 3, max: 3, thr: 0.04, jit: 1, rev: 0.12, pri: 1,
       gen(S, t, r) {
         const f = r.range(900, 1400);
-        S.noise({ t, d: 0.1, col: 'p', bp: { f, f2: f * 0.25, q: 2.5 }, g: 0.8 });
-        S.tone({ t, d: 0.05, f: 900, f2: 200, w: 'square', lp: 2500, g: 0.25 });
-        S.noise({ t, d: 0.03, bp: { f: 3500, q: 1 }, g: 0.5 });
-        S.tone({ t, d: 0.14, f: 130, f2: 45, g: 0.8 });
+        S.noise({ t, d: 0.12, col: 'p', bp: { f, f2: f * 0.3, q: 1.4 }, g: 1 });
+        const dr = S.drive(0.6, null, 0.5);
+        S.tone({ t, d: 0.06, f: 900, f2: 200, w: 'square', lp: 3000, g: 0.35, dest: dr });
+        S.noise({ t, d: 0.035, bp: { f: 3500, q: 1 }, g: 0.6 });
+        S.tone({ t, d: 0.13, f: 180, f2: 60, w: 'triangle', g: 0.45 });
       } },
     kill_small: { d: 0.16, lvl: -20, vars: 4, max: 4, thr: 0.03, jit: 1.5, rev: 0.12, pri: 1,
       gen(S, t, r) {
         const f = r.range(220, 320);
         S.tone({ t, d: 0.06, f, f2: f * 4, ft: 0.03, g: 0.5 });
         S.noise({ t, d: 0.11, col: 'p', bp: { f: r.range(1700, 2400), f2: 450, q: 2 }, g: 0.6 });
-        S.tone({ t, d: 0.08, f: 150, f2: 55, g: 0.45 });
+        S.tone({ t, d: 0.08, f: 190, f2: 80, w: 'triangle', g: 0.25 });
       } },
     kill_big: { d: 0.5, lvl: -15, vars: 2, max: 3, thr: 0.05, jit: 1, rev: 0.2, pri: 2,
       gen(S, t, r) {
-        S.noise({ t, d: 0.38, col: 'p', lp: { f: 3200, f2: 250 }, g: 0.85 });
-        S.noise({ t, d: 0.25, bp: { f: 1600, f2: 400, q: 1.5 }, g: 0.5 });
-        S.tone({ t, d: 0.35, f: 115, f2: 33, g: 1 });
+        S.noise({ t, d: 0.38, col: 'p', lp: { f: 3500, f2: 300 }, g: 1 });
+        S.noise({ t, d: 0.25, bp: { f: 1600, f2: 400, q: 1.2 }, g: 0.7 });
+        S.tone({ t, d: 0.3, f: 140, f2: 40, w: 'triangle', g: 0.55 });
         const f = r.range(1200, 1800);
         S.noise({ t: t + 0.05, d: 0.18, col: 'p', bp: { f, f2: f * 0.25, q: 3 }, g: 0.5 });
         S.tone({ t, d: 0.05, f: 260, f2: 900, g: 0.3 });
@@ -620,10 +623,10 @@
     explosion: { d: 1.2, lvl: -11, vars: 2, max: 3, thr: 0.05, rev: 0.35, pri: 2, st: true,
       gen(S, t, r) {
         const dr = S.drive(0.5, null, 0.6);
-        S.tone({ t, d: 0.9, f: 95, f2: 28, ft: 0.6, g: 1, dest: dr });
-        S.noise({ t, d: 1.0, col: 'b', lp: { f: 1400, f2: 90, t: 0.9 }, g: 1 });
-        S.noise({ t, d: 0.4, col: 'p', bp: { f: 900, f2: 200, q: 1.2 }, g: 0.7 });
-        S.noise({ t, d: 0.05, hp: 1500, g: 0.6 });
+        S.tone({ t, d: 0.9, f: 95, f2: 28, ft: 0.6, g: 0.75, dest: dr });
+        S.noise({ t, d: 1.0, col: 'b', lp: { f: 1600, f2: 120, t: 0.9 }, g: 0.8 });
+        S.noise({ t, d: 0.5, col: 'p', bp: { f: 1000, f2: 220, q: 0.9 }, g: 1 });
+        S.noise({ t, d: 0.06, hp: 1500, g: 0.8 });
         for (let i = 0; i < 4; i++) {
           const f = r.range(800, 2200);
           S.noise({ t: t + r.range(0.08, 0.5), d: 0.12, col: 'p', bp: { f, f2: f * 0.3, q: 3 }, g: 0.3, pan: r.range(-0.8, 0.8) });
@@ -700,7 +703,7 @@
         S.noise({ t, d: 0.16, col: 'p', bp: { f: 200, f2: 2200, q: 2 }, a: 0.12, g: 0.6 });
         const tb = t + 0.14;
         S.noise({ t: tb, d: 0.25, col: 'p', lp: { f: 2600, f2: 350 }, g: 0.85 });
-        S.tone({ t: tb, d: 0.25, f: 140, f2: 45, g: 0.9 });
+        S.tone({ t: tb, d: 0.25, f: 160, f2: 55, w: 'triangle', g: 0.5 });
         for (let i = 0; i < 3; i++) {
           const f = r.range(1200, 2500);
           S.noise({ t: tb + r.range(0.02, 0.15), d: 0.08, col: 'p', bp: { f, f2: f * 0.4, q: 3 }, g: 0.3 });
@@ -745,11 +748,11 @@
       } },
     lightning: { d: 1.0, lvl: -12, vars: 2, max: 2, thr: 0.06, rev: 0.35, pri: 2, st: true,
       gen(S, t, r) {
-        S.noise({ t, d: 0.06, hp: 900, g: 1 });
-        S.noise({ t, d: 0.45, bp: { f: 2500, f2: 1200, q: 0.8 }, g: 0.6, crk: 0.55, pan: [r.range(-0.5, 0.5), r.range(-0.5, 0.5)] });
+        S.noise({ t, d: 0.07, hp: 900, g: 1 });
+        S.noise({ t, d: 0.45, bp: { f: 2500, f2: 1200, q: 0.8 }, g: 0.85, crk: 0.55, pan: [r.range(-0.5, 0.5), r.range(-0.5, 0.5)] });
         S.tone({ t, d: 0.25, f: 900, f2: 150, fm: { r: 11, i: 15, i2: 0 }, g: 0.25 });
-        S.tone({ t: t + 0.03, d: 0.8, f: 62, f2: 30, g: 0.8 });
-        S.noise({ t: t + 0.04, d: 0.85, col: 'b', lp: { f: 500, f2: 80 }, g: 0.8 });
+        S.tone({ t: t + 0.03, d: 0.8, f: 62, f2: 30, g: 0.45 });
+        S.noise({ t: t + 0.04, d: 0.85, col: 'b', lp: { f: 700, f2: 100 }, g: 0.7 });
       } },
     acid: { d: 0.7, lvl: -20, vars: 2, max: 3, thr: 0.05, rev: 0.15, pri: 1,
       gen(S, t, r) {
@@ -772,13 +775,13 @@
         [55, 82.4, 110, 56].forEach((f, i) => S.tone({ t, d: 1.6, f, fp: contour.map((q) => [q[0], f * q[1]]),
           w: 'sawtooth', a: 0.15, h: 0.9, g: 0.3, vib: { r: 5 + i * 1.3, d: 30 + i * 10 }, dest: src }));
         S.noise({ t, d: 1.6, col: 'b', a: 0.12, h: 0.9, g: 0.6, am: { r: 11, d: 0.5 }, dest: src });
-        S.tone({ t, d: 1.5, f: 46, f2: 34, a: 0.1, h: 0.8, g: 0.6 });
+        S.tone({ t, d: 1.5, f: 46, f2: 34, a: 0.1, h: 0.8, g: 0.4 });
       } },
     boss_phase: { d: 1.6, lvl: -12, max: 1, thr: 0.5, rev: 0.45, pri: 3, st: true,
       gen(S, t) {
         S.noise({ t, d: 0.3, col: 'p', bp: { f: 300, f2: 4000, q: 1 }, a: 0.28, g: 0.5 });
         const th = t + 0.28;
-        S.tone({ t: th, d: 0.8, f: 100, f2: 30, g: 1 });
+        S.tone({ t: th, d: 0.8, f: 100, f2: 30, g: 0.65 });
         const dr = S.drive(0.8, null, 0.35);
         [110, 116.5, 164.8, 233].forEach((f, i) => S.tone({ t: th, d: 1.1, f, w: 'sawtooth', det: (i - 1.5) * 8,
           lp: { f: 3500, f2: 300 }, g: 0.25, dest: dr }));
@@ -794,7 +797,7 @@
           vib: { r: 4 + i, d: 50 }, dest: fb }));
         [0, 0.55, 1.15].forEach((dt, i) => {
           const tt = t + dt;
-          S.tone({ t: tt, d: 0.8, f: 100 - i * 10, f2: 28, g: 0.9 - i * 0.15 });
+          S.tone({ t: tt, d: 0.8, f: 100 - i * 10, f2: 28, g: 0.6 - i * 0.1 });
           S.noise({ t: tt, d: 0.7, col: 'b', lp: { f: 1800, f2: 100 }, g: 0.8 });
           S.noise({ t: tt, d: 0.3, col: 'p', bp: { f: 1500, f2: 300, q: 2 }, g: 0.5, pan: r.range(-0.7, 0.7) });
         });
@@ -831,7 +834,7 @@
       } },
     pickup_malignant: { d: 1.3, lvl: -16, max: 2, thr: 0.1, rev: 0.5, pri: 2, st: true,
       gen(S, t) {
-        S.tone({ t, d: 0.4, f: 70, f2: 35, g: 0.9 });
+        S.tone({ t, d: 0.4, f: 70, f2: 35, g: 0.5 });
         [60, 66, 71, 73].forEach((m, i) => S.tone({ t: t + i * 0.06, d: 1.1, f: mtof(m),
           fm: { r: 1.41, i: 2.5, i2: 0.3 }, g: 0.16, pan: -0.5 + i * 0.33 }));
         const dr = S.drive(0.5, null, 0.4);
@@ -857,8 +860,9 @@
       gen(S, t) {
         S.noise({ t, d: 0.2, col: 'p', bp: { f: 1500, f2: 280, q: 3 }, g: 0.7 });
         const th = t + 0.12;
-        S.tone({ t: th, d: 0.45, f: 95, f2: 34, g: 1 });
-        S.noise({ t: th, d: 0.3, col: 'b', lp: 450, g: 0.7 });
+        S.tone({ t: th, d: 0.45, f: 95, f2: 34, g: 0.6 });
+        S.tone({ t: th, d: 0.2, f: 190, f2: 90, w: 'triangle', g: 0.35 });
+        S.noise({ t: th, d: 0.3, col: 'p', lp: { f: 900, f2: 250 }, g: 0.8 });
         S.tone({ t: th, d: 0.5, f: mtof(38), w: 'sawtooth', lp: { f: 900, f2: 120 }, g: 0.15 });
       } },
     room_clear: { d: 1.1, lvl: -15, max: 1, thr: 0.3, rev: 0.4, pri: 2, st: true,
@@ -874,7 +878,7 @@
         S.noise({ t, d: 1.5, col: 'p', bp: { f: 3200, f2: 180, q: 1.3, t: 1.4 }, a: 0.3, g: 0.6, pan: [-0.6, 0.6] });
         S.tone({ t, d: 1.6, f: 220, f2: 52, w: 'sawtooth', det: -8, lp: { f: 1600, f2: 180 }, a: 0.2, g: 0.18 });
         S.tone({ t, d: 1.6, f: 221, f2: 53, w: 'sawtooth', det: 8, lp: { f: 1600, f2: 180 }, a: 0.2, g: 0.18 });
-        S.tone({ t: t + 1.1, d: 0.6, f: 70, f2: 30, g: 0.8 });
+        S.tone({ t: t + 1.1, d: 0.6, f: 70, f2: 30, g: 0.45 });
       } },
     portal: { d: 1.4, lvl: -18, max: 2, thr: 0.3, rev: 0.5, pri: 1, st: true,
       gen(S, t) {
@@ -885,10 +889,13 @@
       } },
     heartbeat: { d: 0.6, lvl: -12, max: 2, thr: 0.15, rev: 0.12, pri: 2,
       gen(S, t) {
-        S.tone({ t, d: 0.22, f: 68, f2: 38, a: 0.004, g: 1 });
-        S.noise({ t, d: 0.09, col: 'b', lp: 220, g: 0.7 });
-        S.tone({ t: t + 0.27, d: 0.18, f: 86, f2: 48, a: 0.004, g: 0.75 });
-        S.noise({ t: t + 0.27, d: 0.07, col: 'b', lp: 300, g: 0.5 });
+        const dr = S.drive(0.35, null, 0.8);
+        S.tone({ t, d: 0.22, f: 68, f2: 38, a: 0.004, g: 0.8, dest: dr });
+        S.tone({ t, d: 0.12, f: 140, f2: 70, w: 'triangle', a: 0.004, g: 0.3 });
+        S.noise({ t, d: 0.09, col: 'p', bp: { f: 320, f2: 160, q: 1.2 }, g: 0.6 });
+        S.tone({ t: t + 0.27, d: 0.18, f: 86, f2: 48, a: 0.004, g: 0.6, dest: dr });
+        S.tone({ t: t + 0.27, d: 0.1, f: 175, f2: 90, w: 'triangle', a: 0.004, g: 0.22 });
+        S.noise({ t: t + 0.27, d: 0.07, col: 'p', bp: { f: 420, f2: 200, q: 1.2 }, g: 0.45 });
       } },
     breath_in: { d: 1.6, lvl: -22, max: 1, thr: 0.5, rev: 0.25, pri: 1,
       gen(S, t) {
@@ -916,7 +923,7 @@
         brass(t + 0.12, 72, 0.16, 0.08, 0.3);
         const tc = t + 0.26;
         [60, 64, 67, 72, 76].forEach((m, i) => brass(tc, m, 1.4, 0.06, -0.6 + i * 0.3));
-        S.tone({ t: tc, d: 0.9, f: 90, f2: 40, g: 0.8 });
+        S.tone({ t: tc, d: 0.9, f: 90, f2: 40, g: 0.5 });
         S.noise({ t: tc, d: 1.4, hp: 5000, a: 0.01, g: 0.15 });
         [84, 88, 91, 96].forEach((m, i) => S.tone({ t: tc + 0.1 + i * 0.07, d: 0.9, f: mtof(m),
           fm: { r: 3.01, i: 1, i2: 0 }, g: 0.08, pan: 0.5 - i * 0.3 }));
@@ -956,20 +963,48 @@
     });
   }
 
-  // loudness-normalise to def.lvl (max 20ms RMS), cap peak at -1 dBFS, trim tail
+  // Perceptual loudness weighting (K-weighting-like): 2nd-order high-pass at
+  // 100 Hz (sub energy barely registers - nor do small speakers play it) plus a
+  // +3 dB high shelf above ~2 kHz (ear sensitivity). Returns a stateful filter.
+  function biquadCoefs(type, f, q, gainDb, sr) {
+    const w = 2 * Math.PI * f / sr, cs = Math.cos(w), sn = Math.sin(w), al = sn / (2 * q);
+    let b0, b1, b2, a0, a1, a2;
+    if (type === 'hp') { b0 = (1 + cs) / 2; b1 = -(1 + cs); b2 = b0; a0 = 1 + al; a1 = -2 * cs; a2 = 1 - al; }
+    else {
+      const A = Math.pow(10, gainDb / 40), sq = 2 * Math.sqrt(A) * al;
+      b0 = A * ((A + 1) + (A - 1) * cs + sq); b1 = -2 * A * ((A - 1) + (A + 1) * cs); b2 = A * ((A + 1) + (A - 1) * cs - sq);
+      a0 = (A + 1) - (A - 1) * cs + sq; a1 = 2 * ((A - 1) - (A + 1) * cs); a2 = (A + 1) - (A - 1) * cs - sq;
+    }
+    return [b0 / a0, b1 / a0, b2 / a0, a1 / a0, a2 / a0];
+  }
+  function weighting(sr) {
+    const h = biquadCoefs('hp', 100, 0.7071, 0, sr), k = biquadCoefs('hs', 2000, 0.7071, 3, sr);
+    return function (x, s) {
+      const y = h[0] * x + h[1] * s[0] + h[2] * s[1] - h[3] * s[2] - h[4] * s[3];
+      s[1] = s[0]; s[0] = x; s[3] = s[2]; s[2] = y;
+      const z = k[0] * y + k[1] * s[4] + k[2] * s[5] - k[3] * s[6] - k[4] * s[7];
+      s[5] = s[4]; s[4] = y; s[7] = s[6]; s[6] = z;
+      return z;
+    };
+  }
+
+  // loudness-normalise to def.lvl (max 20ms weighted RMS), cap peak at -1 dBFS, trim tail
   function finishSfx(oc, buf, def) {
     const nch = buf.numberOfChannels, n = buf.length, sr = buf.sampleRate;
     const ch = [];
     for (let i = 0; i < nch; i++) ch.push(buf.getChannelData(i));
     const hop = Math.max(1, Math.floor(sr * 0.01));
     const nb = Math.ceil(n / hop), blocks = new Float64Array(nb);
+    const wf = weighting(sr);
     let peak = 0;
     for (let c = 0; c < nch; c++) {
       const x = ch[c];
+      const st = [0, 0, 0, 0, 0, 0, 0, 0];
       for (let i = 0; i < n; i++) {
         const v = x[i], a = v < 0 ? -v : v;
         if (a > peak) peak = a;
-        blocks[(i / hop) | 0] += v * v;
+        const w = wf(v, st);
+        blocks[(i / hop) | 0] += w * w;
       }
     }
     let maxMs = 0;
@@ -1189,14 +1224,16 @@
       o = o || {};
       const S = syn(c, dest), f = o.f || 64;
       S.tone({ t, d: o.d || 0.3, f: f * 1.15, f2: f * 0.58, ft: 0.12, a: 0.003, g: v });
-      S.noise({ t, d: 0.11, col: 'b', lp: { f: 320, f2: 120 }, a: 0.004, g: v * 0.8 });
+      S.tone({ t, d: 0.12, f: f * 2.3, f2: f * 1.2, w: 'triangle', a: 0.003, g: v * 0.22 });
+      S.noise({ t, d: 0.11, col: 'b', lp: { f: 420, f2: 140 }, a: 0.004, g: v * 0.8 });
       if (o.click !== 0) S.noise({ t, d: 0.02, col: 'p', bp: { f: 900, q: 1 }, g: v * 0.12 });
     },
     dub(c, dest, t, v, o) {
       o = o || {};
       const S = syn(c, dest), f = o.f || 80;
       S.tone({ t, d: 0.2, f: f * 1.15, f2: f * 0.6, ft: 0.08, a: 0.003, g: v });
-      S.noise({ t, d: 0.07, col: 'b', lp: { f: 450, f2: 160 }, a: 0.003, g: v * 0.6 });
+      S.tone({ t, d: 0.09, f: f * 2.3, f2: f * 1.2, w: 'triangle', a: 0.003, g: v * 0.2 });
+      S.noise({ t, d: 0.07, col: 'b', lp: { f: 520, f2: 180 }, a: 0.003, g: v * 0.6 });
     },
     snare(c, dest, t, v, o) {
       o = o || {};
@@ -1344,7 +1381,12 @@
           const worn = P.r.range(-9, 9);
           INS.bell(c, Ld, t, m, 0.2, { ratio: 4, i: 1.1, dec: 1.4 + l * 0.6, det: worn, pan: -0.15 });
           INS.bell(c, Ld, t + P.bd * 0.75, m, 0.05, { ratio: 4, i: 0.8, dec: 1.2, det: worn, pan: 0.4 });
-          if (lb >= 8 && k === 0) INS.bell(c, Ld, t, m - 12 + (P.chord.n[1] % 12 === m % 12 ? 0 : -3), 0.08, { ratio: 3, i: 0.7, dec: 2 });
+          if (lb >= 8 && k === 0) {
+            // second pass: a soft counter-voice on the nearest chord tone below
+            let cm = 0;
+            for (const x of P.chord.n) for (const o of [0, 12, 24]) if (x + o < m - 2 && x + o > cm) cm = x + o;
+            if (cm) INS.bell(c, Ld, t, cm, 0.08, { ratio: 3, i: 0.7, dec: 2 });
+          }
         }
       },
     },
@@ -1371,7 +1413,7 @@
         if (p === 12) INS.snare(c, D, t, 0.12, { bp: 2600, d: 0.05, f: 330 });
         if (P.st.mel) {
           const note = P.st.mel[mod(P.lbar, 2) * 16 + p];
-          if (note) INS.bell(c, Ld, t, P.ct(note.i, 2), 0.12, { ratio: 4, i: 0.6, dec: 1.0 + note.l * 0.1 });
+          if (note) INS.bell(c, Ld, t, P.ct(note.i, 1), 0.12, { ratio: 4, i: 0.6, dec: 1.0 + note.l * 0.1 });
         }
         if (r.chance(0.02)) INS.bubble(c, A, t, r.range(500, 900), 0.05, r.range(-0.6, 0.6));
       },
@@ -1407,7 +1449,7 @@
         if (D) {
           if (p === 0 || p === 8 || ((P.v4 & 1) && p === 10)) INS.kick(c, D, t, 0.55);
           if (p === 4 || p === 12) INS.clap(c, D, t, 0.38);
-          if ((p & 1) === 0) INS.hat(c, D, t, p % 4 === 2 ? 0.16 : 0.08);
+          if ((p & 1) === 0) INS.hat(c, D, t, p % 4 === 2 ? 0.22 : 0.11);
           else if (P.I > 0.75 && r.chance(0.4)) INS.hat(c, D, t, 0.05);
           if (p === 14 && mod(P.lbar, 4) === 3) INS.snare(c, D, t, 0.25);
         }
@@ -1498,7 +1540,7 @@
         }
         if (Ld && P.st.mel) {
           const note = P.st.mel[mod(P.lbar, 2) * 16 + p];
-          if (note) INS.lead(c, Ld, t, P.ct(note.i, 2), note.l * P.sd, 0.15, { w: 'sine', det: 3, lp: 3000, a: 0.06, vd: 18, breath: 0.35 });
+          if (note) INS.lead(c, Ld, t, P.ct(note.i, 1), note.l * P.sd, 0.15, { w: 'sine', det: 3, lp: 3000, a: 0.06, vd: 18, breath: 0.35 });
         }
       },
     },
@@ -1532,8 +1574,8 @@
             INS.snare(c, D, t, 0.28, { bp: 900, d: 0.15, f: 160 });
             INS.bubble(c, D, t + 0.01, 300, 0.15);
           }
-          if ((p & 1) === 0) INS.hat(c, D, t, 0.08);
-          else if (r.chance(0.5)) INS.hat(c, D, t, 0.045);
+          if ((p & 1) === 0) INS.hat(c, D, t, 0.12);
+          else if (r.chance(0.5)) INS.hat(c, D, t, 0.065);
           if (P.n % 7 === 3) INS.tom(c, D, t, r.range(140, 200), 0.17);
         }
         if (Ld && P.st.mel) {
@@ -1606,13 +1648,13 @@
       step(P) {
         const c = P.c, t = P.t, p = P.pos, r = P.r, B = P.L('bass'), D = P.L('drums'), Ld = P.L('lead');
         if (B && (p === 0 || p === 10 || ((P.v4 & 1) && p === 14))) {
-          INS.bass(c, B, t, P.chord.r - 24, P.sd * (p === 0 ? 8 : 4), 0.4, { lp: 220, env: 700, q: 2, sub: 0.7, bend: p === 10 ? -0.6 : 0 });
+          INS.bass(c, B, t, P.chord.r - 12, P.sd * (p === 0 ? 8 : 4), 0.4, { lp: 220, env: 700, q: 2, sub: 0.7, bend: p === 10 ? -0.6 : 0 });
         }
         if (D) {
           if (p === 0 || p === 10) INS.kick(c, D, t, 0.8, { f0: 120, f1: 36, d: 0.55 });
           if (p === 8) INS.snare(c, D, t, 0.4, { bp: 1300, d: 0.35, f: 150 });
           if ((p & 1) && r.chance(0.12)) INS.metal(c, D, t, r.range(250, 600), 0.12);
-          if ((p & 3) === 2) INS.hat(c, D, t, 0.06, { d: 0.05, hp: 5000 });
+          if ((p & 3) === 2) INS.hat(c, D, t, 0.1, { d: 0.05, hp: 5000 });
         }
         if (Ld && P.st.mel) {
           const note = P.st.mel[mod(P.lbar, 2) * 16 + p];
@@ -1665,7 +1707,7 @@
             INS.lead(c, Ld, t, m, d, 0.16, { lp: 2800, det: 10, a: 0.015 });
             INS.lead(c, Ld, t, m - 12, d, 0.1, { lp: 1600, det: 6, a: 0.015 });
           }
-          if (P.I > 0.9 && P.st.arp) INS.bell(c, Ld, t, P.ct(P.st.arp[p], 2), 0.05, { ratio: 2, i: 2.5, dec: 0.12, pan: ((p % 4) - 1.5) * 0.4 });
+          if (P.I > 0.9 && P.st.arp) INS.bell(c, Ld, t, P.ct(P.st.arp[p], 1), 0.05, { ratio: 2, i: 2.5, dec: 0.12, pan: ((p % 4) - 1.5) * 0.4 });
         }
       },
     },
@@ -1703,7 +1745,7 @@
         if ((p & 1) === 0) INS.shaker(c, D, t, 0.03);
         if (P.st.mel) {
           const note = P.st.mel[mod(P.lbar, 2) * 16 + p];
-          if (note) INS.bell(c, Ld, t, P.ct(note.i, 2), 0.13, { ratio: 4, i: 1, dec: 1.6 });
+          if (note) INS.bell(c, Ld, t, P.ct(note.i, 1), 0.13, { ratio: 4, i: 1, dec: 1.6 });
         }
       },
     },
@@ -1803,10 +1845,10 @@
         }
         if (St && (p === 0 || p === 6 || ((P.v4 & 2) && p === 10))) INS.pad(c, St, t, P.chord.n.map((m) => m + 12), P.sd * 1.2, 0.28, 'brass');
         if (Ld) {
-          if (s.lead === 'arp') INS.bell(c, Ld, t, P.ct(P.st.arp[p], 2), 0.11, { ratio: 2, i: 2.8, dec: 0.14, pan: ((p % 4) - 1.5) * 0.3 });
+          if (s.lead === 'arp') INS.bell(c, Ld, t, P.ct(P.st.arp[p], 1), 0.11, { ratio: 2, i: 2.8, dec: 0.14, pan: ((p % 4) - 1.5) * 0.3 });
           else if (P.st.mel) {
             const note = P.st.mel[mod(P.lbar, 2) * 16 + p];
-            if (note) bossLead(P, Ld, s, note, P.ct(note.i, 2), note.l * P.sd);
+            if (note) bossLead(P, Ld, s, note, P.ct(note.i, 1), note.l * P.sd);
           }
         }
       },
@@ -1960,7 +2002,7 @@
   // ===========================================================================
   // 8. Engine core: context, graph, volumes, clock, scheduler, lifecycle
   // ===========================================================================
-  const LOOKAHEAD = 0.16;      // seconds scheduled ahead of currentTime
+  const LOOKAHEAD = 0.2;       // seconds scheduled ahead of currentTime
   const TICK_MS = 25;
   const VOICE_CAP = 32;
   // DynamicsCompressorNode applies automatic make-up gain; these trims (measured
@@ -1974,7 +2016,7 @@
     ctx: null, g: null, ready: false, failed: !AC,
     vol: { master: 1, music: 0.8, sfx: 1 }, muted: false, lowpass: false,
     tracks: [], cur: null, curId: null, curRegion: null, lastRegion: 'veins', pending: null,
-    intensity: 0, timer: null, lastTick: 0,
+    intensity: 0, timer: null, lastTick: 0, tickMs: 0, ticks: 0,
     voices: [], lastPlay: Object.create(null), cache: Object.create(null), queue: [], rendering: false,
   };
 
@@ -1984,7 +2026,10 @@
     const ir = irsFor(c);
     const g = { c };
     g.master = G(1);
-    if (o.raw) g.master.connect(c.destination);
+    const dcb = c.createBiquadFilter();   // DC / sub-rumble blocker
+    dcb.type = 'highpass'; dcb.frequency.value = 25; dcb.Q.value = 0.6;
+    g.master.connect(dcb);
+    if (o.raw) dcb.connect(c.destination);
     else {
       const comp = c.createDynamicsCompressor();
       comp.threshold.value = -14; comp.knee.value = 12; comp.ratio.value = 2.5;
@@ -1996,7 +2041,7 @@
       const clip = c.createWaveShaper();
       clip.curve = clipCurve();
       const ltrim = G(LIM_TRIM);
-      g.master.connect(comp); comp.connect(trim); trim.connect(lim); lim.connect(ltrim); ltrim.connect(clip); clip.connect(c.destination);
+      dcb.connect(comp); comp.connect(trim); trim.connect(lim); lim.connect(ltrim); ltrim.connect(clip); clip.connect(c.destination);
     }
     // music: dry + reverb sum -> volume -> duck -> lowpass -> master
     g.musicDry = G(1); g.musicWet = G(1); g.musicSum = G(1);
@@ -2092,6 +2137,7 @@
     const now = c.currentTime;
     const dt = E.lastTick ? now - E.lastTick : 0;
     E.lastTick = now;
+    const p0 = perfNow();
     try {
       if (E.cur && !CLK.audio) anchorAudio();
       for (let i = 0; i < E.tracks.length; i++) {
@@ -2109,6 +2155,7 @@
     } catch (e) {
       warnOnce('tick', 'scheduler error: ' + (e && e.message));
     }
+    E.tickMs += perfNow() - p0; E.ticks++;
   }
 
   function startTrack(id, region, keepClock) {
@@ -2348,6 +2395,7 @@
     _sfxNames: SFX_NAMES.slice(),
     _trackIds: TRACK_IDS.slice(),
     _regions: REGIONS.slice(),
+    _sfxLevel: (name) => (SFX[name] ? SFX[name].lvl : null),
     _renderSfx(name, variant, sampleRate) {
       if (!OAC) return Promise.reject(new Error('OfflineAudioContext unavailable'));
       if (!SFX[name]) return Promise.reject(new Error('unknown sfx ' + name));
@@ -2375,7 +2423,8 @@
         ctx: E.ctx ? E.ctx.state : null, sampleRate: E.ctx ? E.ctx.sampleRate : null,
         voices: E.voices.filter((v) => !v.dead).length, tracks: E.tracks.length, current: E.curId,
         cached: Object.keys(E.cache).length, total: SFX_NAMES.length, queue: E.queue.length,
-        intensity: E.intensity, clockAudio: CLK.audio,
+        intensity: E.intensity, clockAudio: CLK.audio, clockT0: CLK.t0, trackT0: E.cur ? E.cur.t0 : null,
+        avgTickMs: E.ticks ? E.tickMs / E.ticks : 0, ticks: E.ticks,
       };
     },
     _ctx: () => E.ctx,

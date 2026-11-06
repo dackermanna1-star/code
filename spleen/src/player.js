@@ -544,7 +544,8 @@ function animatePlayerVis(P, dt) {
   // invulnerability blink + hurt flash
   const blink = P.invulnT > 0 && !P.engulf && P.dashT <= 0 && Math.floor(t * 18) % 2 === 0;
   v.root.setEnabled(!P.dead);
-  v.body.getChildMeshes().forEach(m => { m.visibility = blink ? 0.25 : 1; });
+  if (!v.meshes) v.meshes = v.body.getChildMeshes();
+  if (v.blink !== blink) { v.blink = blink; for (const m of v.meshes) m.visibility = blink ? 0.25 : 1; }
   if (P.hurtFlash > 0) { if (!v.flashing) { Gfx.setOverlay(v.body, true, '#ff2040', 0.7); v.flashing = true; } }
   else if (v.flashing) { Gfx.setOverlay(v.body, false); v.flashing = false; }
 }

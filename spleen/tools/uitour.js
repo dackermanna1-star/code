@@ -1,0 +1,42 @@
+// Screenshot every menu / modal: node tools/uitour.js /tmp/claude-0/ui [w] [h]
+const { chromium } = require('playwright'); const path = require('path');
+const BAB = process.env.BAB || '/tmp/claude-0/bab/babylon.js';
+(async () => {
+  const [out = '/tmp/claude-0/ui', w = '1280', h = '720'] = process.argv.slice(2);
+  const b = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
+  const p = await b.newPage({ viewport: { width: +w, height: +h } });
+  const errors = [];
+  p.on('pageerror', e => errors.push('pageerror: ' + e.message + ' ' + (e.stack || '').split('\n').slice(1, 3).join('|')));
+  await p.route('**/babylonjs@*/babylon.js', r => r.fulfill({ path: BAB, contentType: 'application/javascript' }));
+  await p.addInitScript(() => { window.__TEST__ = true; try { localStorage.setItem('spleen_sepsis_v1', JSON.stringify({ v: 1, memory: 140, totalMemory: 300, perks: { iron: 1 }, unlocks: { macrophage: true }, codex: { coccus: 44, bacillus: 12, spirochete: 30, seeder: 9 }, seenMut: { enzyme: 1, mitosis: 1, fever: 1, storm: 1, growth: 1 }, stats: { runs: 5, wins: 0, kills: 300, bestFloor: 2, deaths: 5, bestTime: null, playTime: 900 }, feverMax: 0, lastStrain: 'neutrophil', lastFever: 0, opts: { master: 0.8, music: 0.65, sfx: 0.85, shake: 1, dmgNumbers: true, quality: 'high', flashes: true, touch: 'auto' } })); } catch (e) { } });
+  await p.goto('file://' + path.resolve(__dirname, '..', 'index.html'));
+  await p.waitForFunction(() => window.__SPLEEN && __SPLEEN.Game.state === 'title', null, { timeout: 30000 });
+  await p.waitForTimeout(1500);
+  const snap = async (name) => { await p.waitForTimeout(450); await p.screenshot({ path: `${out}_${name}.png` }); };
+  const click = async (text) => { await p.locator('.btn, .card', { hasText: text }).first().click(); };
+  await snap('title');
+  await click('Play'); await snap('strains');
+  await p.keyboard.press('Escape'); await click('The Spleen'); await snap('spleen');
+  await p.keyboard.press('Escape'); await click('Immune Memory'); await snap('codex');
+  await p.keyboard.press('Escape'); await click('How to Play'); await snap('howto');
+  await p.keyboard.press('Escape'); await click('Options'); await snap('options');
+  await p.keyboard.press('Escape');
+  // into a run, open choice, shop, tumor, pause, summary
+  await p.evaluate(() => { __SPLEEN.presetMuts = ['enzyme', 'mitosis', 'fever']; __SPLEEN.startRun('neutrophil', 0, 77); });
+  await p.waitForTimeout(800);
+  await p.evaluate(() => { openMutationChoice(rollMutations(3, {}), 'mutation', null); });
+  await snap('choice');
+  await p.evaluate(() => { closeModal(); SIM.player.iron = 60; openShop(makeShopStock()); });
+  await snap('shop');
+  await p.evaluate(() => { closeModal(); openTumor(rollMalignant(2), null); });
+  await snap('tumor');
+  await p.evaluate(() => { closeModal(); });
+  await p.waitForTimeout(1200);
+  await snap('hud');
+  await p.keyboard.press('Escape'); await snap('pause');
+  await p.keyboard.press('Escape');
+  await p.evaluate(() => { SIM.player.hp = 1; hurtPlayer(1, {}); });
+  await p.waitForTimeout(4500); await snap('summary');
+  console.log(errors.length ? errors.join('\n') : 'no errors');
+  await b.close();
+})();

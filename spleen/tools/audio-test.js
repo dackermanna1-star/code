@@ -130,11 +130,14 @@ function writeWav(file, sr, nch, data) {
       const good = s.peak > 0.02 && s.peak <= 1.0 && s.rms > 1e-4 && isFinite(s.peak);
       if (!good) fail(`${n}: peak=${f2(s.peak)} rms=${s.rms}`);
     }
-    console.log('  ' + 'name'.padEnd(20) + 'dur(s)  peak   peakdB  stRMSdB  RMSdB');
+    console.log('  ' + 'name'.padEnd(20) + 'dur(s)  peak   peakdB  stRMSdB  RMSdB | target  weighted(dB)');
+    const limited = [];
     for (const [n, s] of rows) {
       console.log('  ' + n.padEnd(20) + f2(s.dur).padStart(6) + '  ' + s.peak.toFixed(3) + '  ' + f2(s.peakDb).padStart(6) + '  ' +
-        f2(s.stRmsDb).padStart(7) + '  ' + f2(s.rmsDb).padStart(6));
+        f2(s.stRmsDb).padStart(7) + '  ' + f2(s.rmsDb).padStart(6) + ' | ' + String(s.lvl).padStart(6) + '  ' + f2(s.wDb).padStart(7));
+      if (s.lvl != null && s.wDb < s.lvl - 3) limited.push(`${n} (${f2(s.wDb)} vs ${s.lvl})`);
     }
+    check(limited.length === 0, 'every SFX reaches its perceptual loudness target within 3 dB ' + (limited.length ? '- peak-limited: ' + limited.join(', ') : ''));
     const allOk = rows.every(([, s]) => s.peak > 0.02 && s.peak <= 1.0 && s.rms > 1e-4);
     check(allOk, `all ${rows.length} SFX non-silent and peak <= 1.0`);
     // variants of frequent sounds differ and are all valid
@@ -191,6 +194,7 @@ function writeWav(file, sr, nch, data) {
     const r = await page.evaluate(async () => {
       const wait = (ms) => new Promise((res) => setTimeout(res, ms));
       const out = {};
+      const tInit = performance.now();
       out.init = AUDIO.init();
       out.init2 = AUDIO.init();
       for (let i = 0; i < 40 && AUDIO._debug().ctx !== 'running'; i++) await wait(50);
@@ -210,6 +214,16 @@ function writeWav(file, sr, nch, data) {
       // spam SFX: voice caps
       for (let i = 0; i < 200; i++) { AUDIO.sfx('hit', { force: true }); AUDIO.sfx('shoot_neutrophil', { force: true }); AUDIO.sfx('pickup_iron', { force: true }); }
       out.voicesAfterSpam = AUDIO._debug().voices;
+      for (const n of AUDIO._sfxNames) AUDIO.sfx(n, { force: true });
+      out.voicesAll = AUDIO._debug().voices;
+      // setIntensity is called every frame: must be cheap
+      const tq = performance.now();
+      for (let i = 0; i < 100000; i++) AUDIO.music.setIntensity((i % 100) / 100);
+      out.setIntUs = (performance.now() - tq) * 1000 / 100000;
+      const tc = performance.now();
+      for (let i = 0; i < 10000; i++) AUDIO.music.clock();
+      out.clockUs = (performance.now() - tc) * 1000 / 10000;
+      AUDIO.music.setIntensity(1);
       let throttled = 0;
       for (let i = 0; i < 50; i++) if (AUDIO.sfx('kill_small') === null) throttled++;
       out.throttled = throttled;
@@ -239,6 +253,7 @@ function writeWav(file, sr, nch, data) {
       out.tracksAfterFade = AUDIO._debug().tracks;
       for (let i = 0; i < 60 && AUDIO._debug().queue > 0; i++) await wait(100);
       out.cache = AUDIO._debug();
+      out.cacheMs = performance.now() - tInit;
       out.errs = TEST.smoke();
       return out;
     });
@@ -247,6 +262,8 @@ function writeWav(file, sr, nch, data) {
     check(Math.abs(r.rate - 76) < 4 && r.bpm === 76, `clock rate matches heart tempo: measured ${f2(r.rate)} bpm`);
     check(r.clockAudio === true, 'clock is driven by audible AudioContext time while running');
     check(r.voicesAfterSpam <= 32, `voice limiting: ${r.voicesAfterSpam} live voices after 600 rapid calls (cap 32)`);
+    check(r.voicesAll <= 32, `global voice cap: ${r.voicesAll} live voices after triggering all ${SPEC_SFX.length} SFX at once (cap 32)`);
+    check(r.setIntUs < 2, `setIntensity cost ${f2(r.setIntUs)} us/call; clock() cost ${f2(r.clockUs)} us/call`);
     check(r.throttled >= 45, `per-name throttle: ${r.throttled}/50 same-frame repeats ignored`);
     check(r.handle, 'sfx() returns a stoppable handle');
     const expS = 0.6 * 76 / 60;
@@ -255,7 +272,8 @@ function writeWav(file, sr, nch, data) {
     check(r.mono, 'clock monotonic across a crossfade');
     check(r.curAfter === 'cortex' && r.bossCur === 'boss:gut', `music.current tracks play() (${r.curAfter}, ${r.bossCur})`);
     check(r.tracksAfterFade === 1, `old tracks disposed after crossfade (${r.tracksAfterFade} active)`);
-    check(r.cache.cached === r.cache.total, `SFX cache pre-rendered in background: ${r.cache.cached}/${r.cache.total}`);
+    check(r.cache.cached === r.cache.total, `SFX cache pre-rendered in background: ${r.cache.cached}/${r.cache.total} (all done within ${(r.cacheMs / 1000).toFixed(1)}s of init, incl. test waits)`);
+    check(r.cache.avgTickMs < 2, `scheduler main-thread cost: ${r.cache.avgTickMs.toFixed(3)} ms avg per 25ms tick over ${r.cache.ticks} ticks`);
     check(r.errs.length === 0, 'smoke test while running: no exceptions ' + (r.errs.length ? JSON.stringify(r.errs) : ''));
   }
 
@@ -275,8 +293,14 @@ function writeWav(file, sr, nch, data) {
       }
       // slope of beat vs currentTime should equal bpm/60
       const a = samples[0], b = samples[samples.length - 1];
-      return { slope: (b.beat - a.beat) / (b.ct - a.ct) * 60, lagBeats: (a.ct - (samples[0].out || a.ct)) * 96 / 60 };
+      const d = AUDIO._debug();
+      // after a suspend/resume re-anchor the clock and the scheduler must share one origin
+      await ctx.suspend(); await wait(250); await ctx.resume(); await wait(150);
+      const d2 = AUDIO._debug();
+      return { slope: (b.beat - a.beat) / (b.ct - a.ct) * 60, lagBeats: (a.ct - (samples[0].out || a.ct)) * 96 / 60,
+        t0diff: Math.abs(d.clockT0 - d.trackT0), t0diff2: Math.abs(d2.clockT0 - d2.trackT0) };
     });
+    check(r.t0diff < 1e-9 && r.t0diff2 < 1e-9, 'beat clock and step scheduler share the same time origin (beat n == step time t0 + n*60/bpm), also after re-anchoring');
     check(Math.abs(r.slope - 96) < 3, `clock locked to AudioContext time: ${f2(r.slope)} bpm vs 96 (output-latency lag ${f2(r.lagBeats)} beats compensated)`);
   }
 
