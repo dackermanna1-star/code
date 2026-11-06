@@ -11,9 +11,10 @@ const ASPHALT = pal(0x2a2b2d, 0x303133, 0x363739, 0x3c3d3f, 0x434446, 0x4a4b4d);
 const ASPHALT_OLD = pal(0x323335, 0x38393b, 0x3f4042, 0x464749, 0x4d4e50, 0x555658);
 function asphalt(img, seed, P = ASPHALT) {
   paint(img, P, eq(combine(fbm(seed, 4, 4, 2), 0.35, white(seed + 1), 0.65)), 0.6);
-  speckle(img, seed + 2, 0.09, pal(0x58585a, 0x5e5c58, 0x535250));
-  speckle(img, seed + 3, 0.025, pal(0x74726e, 0x6a6864));
-  speckle(img, seed + 4, 0.05, pal(0x222224, 0x262628));
+  // aggregate speckles half-mixed: full-strength they read as TV static at street level and in motion
+  speckle(img, seed + 2, 0.09, pal(0x58585a, 0x5e5c58, 0x535250), 0.6);
+  speckle(img, seed + 3, 0.025, pal(0x74726e, 0x6a6864), 0.55);
+  speckle(img, seed + 4, 0.05, pal(0x222224, 0x262628), 0.7);
   grime(img, seed + 5, 0.3, [26, 26, 28], 2, 0.62);
   return img;
 }
@@ -539,7 +540,7 @@ export const BUILDING = {
   roof_brown(img, { seed }) { shingles(img, seed, pal(0x3c2f25, 0x46372b, 0x504031, 0x5b4938, 0x65523f, 0x705c47)); },
   roof_tar(img, { seed }) {
     paint(img, pal(0x262627, 0x2c2c2d, 0x323233, 0x38383a, 0x3f3f41), eq(combine(fbm(seed, 3, 3, 2), 0.4, white(seed + 1), 0.6)), 0.6);
-    speckle(img, seed + 2, 0.2, pal(0x5e5a54, 0x6e6860, 0x4e4a44, 0x7c766c));
+    speckle(img, seed + 2, 0.2, pal(0x5e5a54, 0x6e6860, 0x4e4a44, 0x7c766c), 0.5);
     grime(img, seed + 3, 0.35, [22, 22, 24], 2, 0.6);
     const r = makeRng(seed + 4);
     const sy = r.int(2, 13);

@@ -2,6 +2,7 @@
 import * as THREE from 'three';
 import { Mesher } from './Mesher.js';
 import { CHUNK } from './World.js';
+import { BLOCKS } from './blocks.js';
 import { globalUniforms, LIGHTING_GLSL } from '../render/materials.js';
 
 const VERT = /* glsl */ `
@@ -27,7 +28,7 @@ void main() {
     wp.x += sin(t + wp.x * 0.7 + wp.z * 0.31 + wp.y * 0.2) * amt * k;
     wp.z += cos(t * 0.83 + wp.x * 0.43 + wp.z * 0.61) * amt * k;
   }
-  if ((vFlags & 8) != 0 && vFace == 2) {
+  if ((vFlags & 8) != 0 && (vFace == 2 || (vFlags & 16) != 0)) {
     wp.y += sin(uTime * 1.4 + wp.x * 0.9 + wp.z * 0.6) * 0.025 - 0.02;
   }
   vWorldPos = wp.xyz;
@@ -66,12 +67,36 @@ void main() {
   vec3 lit = computeLighting(vWorldPos, n, sky, blk, ao) * faceShade;
   vec3 albedo = tex.rgb;
   // rain-soaked surfaces outdoors get darker and a little more saturated
-  float wet = uWetness * smoothstep(0.6, 1.0, sky) * (vFace == 2 ? 1.0 : 0.5);
+  float wet = uWetness * smoothstep(0.8, 1.0, sky) * (vFace == 2 ? 1.0 : 0.5);
   albedo = mix(albedo, albedo * albedo * 1.2, wet * 0.5);
   vec3 col = albedo * lit;
+  // wet sheen: flat outdoor surfaces mirror the sky at grazing angles; puddles (pixel-snapped value
+  // noise, 1/16 block like the textures) mirror it strongly
+  if (vFace == 2 && wet > 0.01 && !water && uPass != 2) {
+    vec2 q = floor(vWorldPos.xz * 16.0) / 16.0;
+    vec2 i0 = floor(q * 0.35), f0 = fract(q * 0.35);
+    f0 = f0 * f0 * (3.0 - 2.0 * f0);
+    float n00 = fract(sin(dot(i0, vec2(127.1, 311.7))) * 43758.5);
+    float n10 = fract(sin(dot(i0 + vec2(1, 0), vec2(127.1, 311.7))) * 43758.5);
+    float n01 = fract(sin(dot(i0 + vec2(0, 1), vec2(127.1, 311.7))) * 43758.5);
+    float n11 = fract(sin(dot(i0 + vec2(1, 1), vec2(127.1, 311.7))) * 43758.5);
+    float pn = mix(mix(n00, n10, f0.x), mix(n01, n11, f0.x), f0.y);
+    float puddle = step(0.62, pn) * wet;
+    vec3 V = normalize(vWorldPos - uCamPos);
+    float fres = pow(1.0 - abs(V.y), 4.0);
+    vec3 skyRefl = uFogColor * (0.3 + 0.3 * sky) + vec3(0.75, 0.8, 1.0) * uLightning * 0.4;
+    float refl = wet * (0.04 + 0.22 * fres) + puddle * (0.18 + 0.32 * fres);
+    col = mix(col, skyRefl, clamp(refl, 0.0, 0.6));
+  }
   if ((vFlags & 4) != 0) col = max(col, albedo * 1.6);
   float alpha = tex.a;
-  if (water) {
+  if (water && (vFlags & 16) != 0) {
+    // surface seen from below: bright, sky-tinted, total internal reflection at grazing angles
+    vec3 V = normalize(vWorldPos - uCamPos);
+    float tir = smoothstep(0.35, 0.15, abs(V.y));
+    col = mix(uFogColor * (0.35 + 0.65 * sky) * 0.9 + albedo * 0.15, uWaterFog * 1.4, tir);
+    alpha = mix(0.55, 0.95, tir);
+  } else if (water) {
     vec3 V = normalize(vWorldPos - uCamPos);
     float fres = pow(1.0 - abs(V.y), 3.0);
     col = mix(col, uFogColor * (0.4 + 0.6 * sky), fres * 0.55);
@@ -119,7 +144,8 @@ export class ChunkRenderer {
     this.dirtyUrgent = new Set();
     this.lastCenter = null;
     this.queue = [];
-    this.budgetMs = 6;
+    this.budgetMs = 5;
+    this._needQueue = true;
     this.stats = { sections: 0, meshed: 0, triangles: 0 };
     world.listeners.push((x0, y0, z0, x1, y1, z1) => this.markRegionDirty(x0, y0, z0, x1, y1, z1));
     this._sphere = new THREE.Sphere(new THREE.Vector3(8, 8, 8), 14);
@@ -134,7 +160,7 @@ export class ChunkRenderer {
     for (let cx = c0x; cx <= c1x; cx++) for (let cy = c0y; cy <= c1y; cy++) for (let cz = c0z; cz <= c1z; cz++) {
       const k = this.key(cx, cy, cz);
       const s = this.sections.get(k);
-      if (s) { s.dirty = true; this.dirtyUrgent.add(k); }
+      if (s) { s.dirty = true; this.dirtyUrgent.add(k); this._needQueue = true; }
     }
   }
 
@@ -190,6 +216,7 @@ export class ChunkRenderer {
         m.matrixAutoUpdate = false;
         m.updateMatrix();
         m.renderOrder = pass === 'translucent' ? 2 : pass === 'cutout' ? 1 : 0;
+        if (pass === 'translucent') m.userData.sortCenter = new THREE.Vector3(cx * CHUNK + 8, cy * CHUNK + 8, cz * CHUNK + 8);
         this.group.add(m);
         s.meshes[pass] = m;
       }
@@ -197,6 +224,8 @@ export class ChunkRenderer {
     s.dirty = false;
     s.built = true;
     this.stats.meshed++;
+    // lets the renderer know its cached shadow map is stale
+    this.group.userData.meshVersion = (this.group.userData.meshVersion || 0) + 1;
   }
 
   unloadSection(k) {
@@ -207,9 +236,11 @@ export class ChunkRenderer {
       if (m) { this.group.remove(m); m.geometry.dispose(); }
     }
     this.sections.delete(k);
+    this.group.userData.meshVersion = (this.group.userData.meshVersion || 0) + 1;
   }
 
   update(camPos) {
+    this.updateUnderwater(camPos);
     const ccx = Math.floor(camPos.x / CHUNK), ccz = Math.floor(camPos.z / CHUNK);
     const r = this.radius;
     const t0 = performance.now();
@@ -222,9 +253,12 @@ export class ChunkRenderer {
         if (performance.now() - t0 > this.budgetMs * 2) break;
       }
     }
-    const centerKey = ccx * 100000 + ccz;
-    if (centerKey !== this.lastCenter || this.queue.length === 0) {
+    // the missing-section queue is rebuilt only when the centre chunk / radius changes or sections were
+    // marked dirty (it used to be rebuilt every frame once empty: ~1.7k map lookups + sort per frame)
+    const centerKey = (ccx * 100000 + ccz) * 32 + r;
+    if (centerKey !== this.lastCenter || this._needQueue) {
       this.lastCenter = centerKey;
+      this._needQueue = false;
       // rebuild queue of missing sections sorted by distance
       const q = [];
       for (let cx = ccx - r; cx <= ccx + r; cx++) for (let cz = ccz - r; cz <= ccz + r; cz++) {
@@ -244,13 +278,34 @@ export class ChunkRenderer {
         if ((s.cx - ccx) ** 2 + (s.cz - ccz) ** 2 > ur) this.unloadSection(k);
       }
     }
-    while (this.queue.length && performance.now() - t0 < this.budgetMs) {
+    // holes right around the player (teleport, fast travel) get a bigger budget than the distant fill-in
+    const near = this.queue.length && this.queue[this.queue.length - 1][0] <= 2;
+    const budget = this.budgetMs * (near ? 2 : 1);
+    while (this.queue.length && performance.now() - t0 < budget) {
       const [, cx, cy, cz] = this.queue.pop();
       const s = this.sections.get(this.key(cx, cy, cz));
       if (s && !s.dirty) continue;
       this.buildSection(cx, cy, cz);
     }
     this.stats.sections = this.sections.size;
+  }
+
+  /** Camera inside water -> murky underwater fog (all lit materials) + tinted sky / post. */
+  updateUnderwater(camPos) {
+    const w = this.world;
+    const x = Math.floor(camPos.x), y = Math.floor(camPos.y), z = Math.floor(camPos.z);
+    const id = w.get(x, y, z);
+    let uw = BLOCKS[id] && BLOCKS[id].render === 'liquid';
+    // the rendered surface sits at 0.875 of the top water block
+    if (uw && camPos.y - y > 0.86 && BLOCKS[w.get(x, y + 1, z)].render !== 'liquid') uw = false;
+    const G = globalUniforms;
+    G.uUnderwater.value = uw ? 1 : 0;
+    if (uw) {
+      const a = G.uAmbientColor.value, sun = G.uSunColor.value;
+      const sky = w.skyAt(x, y, z) / 15;
+      const b = (a.r + a.g + a.b) / 3 * (0.25 + 0.75 * sky) + (sun.r + sun.g + sun.b) / 3 * 0.15 * sky;
+      G.uWaterFog.value.setRGB(0.07 * b + 0.004, 0.24 * b + 0.01, 0.3 * b + 0.014);
+    }
   }
 
   dispose() {

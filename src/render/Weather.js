@@ -43,12 +43,12 @@ void main() {
   if (p.y < roof + 1.0) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); vAlpha = 0.0; return; }
   // vertical billboard streak
   vec3 toCam = uCamPos - p;
-  vec3 side = normalize(cross(vec3(0.0, 1.0, 0.0), toCam)) * 0.018;
+  vec3 side = normalize(cross(vec3(0.0, 1.0, 0.0), toCam)) * 0.024;
   vec3 down = normalize(vec3(uWind * 0.25, -1.0, 0.0)) * 0.7;
   vec3 wp = p + side * (position.x * 2.0 - 1.0) + down * position.y;
   vWorldPos = wp;
   float d = length(toCam);
-  vAlpha = (1.0 - smoothstep(16.0, 24.0, d)) * 0.38;
+  vAlpha = (1.0 - smoothstep(16.0, 24.0, d)) * smoothstep(0.6, 1.6, d) * 0.5;
   gl_Position = projectionMatrix * viewMatrix * vec4(wp, 1.0);
 }
 `;
@@ -60,7 +60,7 @@ in vec3 vWorldPos;
 out vec4 fragColor;
 void main() {
   vec3 lit = computeLighting(vWorldPos, vec3(0.0, 0.0, 1.0), 1.0, 0.0, 1.0);
-  fragColor = vec4(vec3(0.55, 0.6, 0.7) * (lit + 0.04), vAlpha);
+  fragColor = vec4(vec3(0.62, 0.67, 0.76) * (lit + 0.04), vAlpha);
 }
 `;
 

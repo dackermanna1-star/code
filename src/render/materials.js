@@ -6,6 +6,16 @@ import * as THREE from 'three';
 
 export const MAX_POINT_LIGHTS = 8;
 
+// Point-light colour slot: a vec3 uniform that also accepts THREE.Color in copy(). The game copies its
+// dynamic-light colours (THREE.Color) into these with .copy(); a plain Vector3 reads .x/.y/.z from the
+// Color -> NaN -> every lit surface rendered black while a muzzle flash / fire / flare was active.
+class LightColor extends THREE.Vector3 {
+  copy(v) {
+    if (v && v.isColor) return this.set(v.r, v.g, v.b);
+    return super.copy(v);
+  }
+}
+
 /** Global uniforms – mutated every frame by the renderer / sky system. */
 export const globalUniforms = {
   uTime: { value: 0 },
@@ -24,7 +34,7 @@ export const globalUniforms = {
   uFlashCone: { value: new THREE.Vector2(Math.cos(0.42), Math.cos(0.16)) },
   uFlashIntensity: { value: 2.2 },
   uPL: { value: Array.from({ length: MAX_POINT_LIGHTS }, () => new THREE.Vector4(0, -999, 0, 1)) },
-  uPLC: { value: Array.from({ length: MAX_POINT_LIGHTS }, () => new THREE.Vector3()) },
+  uPLC: { value: Array.from({ length: MAX_POINT_LIGHTS }, () => new LightColor()) },
   uPLCount: { value: 0 },
   uWind: { value: 0.3 },
   uWetness: { value: 0 },
@@ -33,6 +43,11 @@ export const globalUniforms = {
   uShadowMatrix: { value: new THREE.Matrix4() },
   uShadowOn: { value: 0 },
   uShadowTexel: { value: 1 / 2048 },
+  uHaze: { value: 0.002 },     // exponential aerial-perspective haze density (weather / fog)
+  uHazeMax: { value: 0.65 },   // how far the haze may wash a surface out (fog weather: ~1)
+  uNight: { value: 0 },        // 0 day .. 1 night (post-process night vision, set by Sky)
+  uUnderwater: { value: 0 },   // camera (eye) inside water: murky fog (set by ChunkRenderer.update)
+  uWaterFog: { value: new THREE.Color(0.03, 0.09, 0.11) },
 };
 
 export const LIGHTING_GLSL = /* glsl */ `
@@ -56,36 +71,43 @@ uniform vec3 uPLC[${MAX_POINT_LIGHTS}];
 uniform int uPLCount;
 uniform float uWetness;
 uniform float uLightning;
-uniform sampler2D uShadowMap;
+uniform sampler2DShadow uShadowMap;
 uniform mat4 uShadowMatrix;
 uniform float uShadowOn;
 uniform float uShadowTexel;
+uniform float uHaze;
+uniform float uHazeMax;
+uniform float uUnderwater;
+uniform vec3 uWaterFog;
 
-float sampleShadow(vec3 wp, vec3 n) {
-  if (uShadowOn < 0.5) return 1.0;
-  vec4 sc = uShadowMatrix * vec4(wp + n * 0.08, 1.0);
+// Hardware-PCF (bilinear compare) shadow lookup, 3x3 taps, normal-offset + small slope-scaled depth bias.
+float sampleShadow(vec3 wp, vec3 n, float ndl) {
+  if (uShadowOn < 0.01) return 1.0;
+  vec4 sc = uShadowMatrix * vec4(wp + n * 0.06, 1.0);
   vec3 p = sc.xyz / sc.w * 0.5 + 0.5;
   if (p.x <= 0.0 || p.x >= 1.0 || p.y <= 0.0 || p.y >= 1.0 || p.z >= 1.0) return 1.0;
-  float bias = 0.0009;
+  float bias = 0.00012 + 0.00035 * (1.0 - ndl);
+  float z = p.z - bias;
   float s = 0.0;
   for (int x = -1; x <= 1; x++) for (int y = -1; y <= 1; y++) {
-    float d = texture(uShadowMap, p.xy + vec2(float(x), float(y)) * uShadowTexel).r;
-    s += p.z - bias > d ? 0.0 : 1.0;
+    s += texture(uShadowMap, vec3(p.xy + vec2(float(x), float(y)) * uShadowTexel, z));
   }
   s /= 9.0;
   vec2 e = smoothstep(0.0, 0.06, p.xy) * smoothstep(1.0, 0.94, p.xy);
-  return mix(1.0, s, e.x * e.y);
+  return mix(1.0, s, e.x * e.y * uShadowOn);
 }
 
 vec3 computeLighting(vec3 wp, vec3 n, float sky, float blk, float ao) {
-  float skyF = sky * sky * (0.35 + 0.65 * sky);
+  // Minecraft-like light curve (level 15 = 1, 10 ~ 0.33, 5 ~ 0.11, 0 = 0)
+  float skyF = sky / (4.0 - 3.0 * sky);
   float ndl = max(dot(n, uSunDir), 0.0);
   float outdoors = smoothstep(0.55, 0.95, sky);
-  float shadow = ndl > 0.0 && outdoors > 0.0 ? sampleShadow(wp, n) : 1.0;
+  float shadow = ndl > 0.0 && outdoors > 0.0 ? sampleShadow(wp, n, ndl) : 1.0;
   vec3 direct = uSunColor * ndl * outdoors * shadow;
-  float hemi = 0.55 + 0.45 * n.y;
+  // sky fill: vertical faces still see half the sky dome
+  float hemi = 0.62 + 0.38 * n.y;
   vec3 amb = uAmbientColor * hemi * skyF;
-  amb += vec3(0.75, 0.8, 1.0) * uLightning * skyF * 2.5;
+  amb += vec3(0.75, 0.8, 1.0) * uLightning * skyF * 1.3;
   float flick = 1.0 + 0.06 * sin(uTime * 13.0 + wp.x * 1.7) * sin(uTime * 7.3 + wp.z * 2.1);
   vec3 bl = uBlockLightColor * pow(blk, 2.0) * 1.35 * flick;
   vec3 lit = (amb + direct) * ao + bl * mix(1.0, ao, 0.6) + vec3(uMinLight) * ao;
@@ -117,8 +139,12 @@ vec3 computeLighting(vec3 wp, vec3 n, float sky, float blk, float ao) {
 
 vec3 applyFog(vec3 col, vec3 wp) {
   float d = length(wp - uCamPos);
-  float f = 1.0 - exp(-pow(d * uFogDensity, 4.0));
-  return mix(col, uFogColor, clamp(f, 0.0, 1.0));
+  // steep 'edge' fog hides the end of the render distance; exponential haze gives aerial perspective
+  // (stronger in rain / fog) without washing out the mid range on a clear day
+  float edge = 1.0 - exp(-pow(d * uFogDensity, 4.0));
+  float haze = (1.0 - exp(-d * uHaze)) * uHazeMax;
+  if (uUnderwater > 0.5) return mix(col, uWaterFog, clamp(1.0 - exp(-d * 0.14), 0.0, 1.0));
+  return mix(col, uFogColor, clamp(max(edge, haze), 0.0, 1.0));
 }
 `;
 
