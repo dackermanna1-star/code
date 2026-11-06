@@ -59,9 +59,10 @@ async function boot() {
   const soundReady = sound.init(44100).catch((e) => console.warn('sound init failed', e));
   sound.setMasterVolume(settings.get('volume'));
 
-  // which map: ?map=, else the one picked before a map-switch reload, else de_dust2
   let mapLoadError = null;
-  const wantMap = (params.get('map') || sessionGet('cs16-map') || 'de_dust2').toLowerCase();
+  // which map: ?map=, else the one just picked (a map-switch reload), else the last one picked
+  // (the title shows it again next time), else de_dust2
+  const wantMap = (params.get('map') || sessionGet('cs16-map') || localGet('cs16-lastmap') || 'de_dust2').toLowerCase();
   const loadOpts = { forceBake: params.has('bake'), mapsrc: params.get('mapsrc') };
   let W;
   try {
@@ -70,6 +71,7 @@ async function boot() {
     console.error(e);
     mapLoadError = `Couldn't load ${wantMap}: ${e.message}`;
     sessionSet('cs16-map', null);
+    localSet('cs16-lastmap', null);
     W = await loadWorld(texLib, (msg, p) => progress(msg, 0.3 + p * 0.5), loadOpts);
   }
   for (const m of W.meshes) renderer.world.add(m);
@@ -133,7 +135,8 @@ async function boot() {
     const squad = allies ? `${allies} bot${allies === 1 ? '' : 's'}` : 'solo';
     const setup = `${d.label}${d.hardcore ? ' hardcore' : ''} \u00b7 ${squad}`;
     // (records are per map, difficulty and squad size: zrecords.js; the quick setup's own)
-    return { best: readRecord(recordKey(map, d, 1 + allies)), bestDiff: setup, map, quick: `${setup} \u00b7 ${map}` };
+    const name = mapLabel(lookupMap(map)); // (Fort Ember, not zm_fort_ember)
+    return { best: readRecord(recordKey(map, d, 1 + allies)), bestDiff: setup, map: name, quick: `${setup} \u00b7 ${name}` };
   }
 
   /** The last zombie setup (settings.newgame is shared with classic: fill in the zombie defaults). */
@@ -169,6 +172,16 @@ async function boot() {
     return { ok: a.ok, html: lines.filter(Boolean).join('<br>') };
   }
   async function addFiles(fileList) { await storeUserFiles(fileList); }
+  /** The zombie setup's map card: { title, tagline, blurb, thumb, builtin } (a player's .bsp: just its id). */
+  function mapMeta(id) {
+    const def = lookupMap(id);
+    return def.builtin ? { title: def.title, tagline: def.tagline, blurb: def.blurb, thumb: assetUrl(def.thumb), builtin: true } : { title: id, builtin: false };
+  }
+  /** Your best on a map at a setup (zrecords.js keys: map, difficulty (+hardcore, +fixed), squad size). */
+  function mapBest(id, zdiff, allies, hardcore, squadScaling) {
+    const d = resolveDiff(zombieOptions({ zdiff, hardcore, squadScaling }));
+    return readRecord(recordKey(id, d, 1 + allies));
+  }
   /** A built-in map's card: thumbnail (tools/thumb.mjs), tagline, blurb, squad size. */
   function builtinInfo(def) {
     const esc = (s) => String(s || '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
@@ -252,7 +265,7 @@ async function boot() {
     switch (cmd) {
       case 'zsetup':
         mapIds().then((ids) => {
-          const d = { ...zombieDefaults(), map: W.mapDef?.id || 'de_dust2', maps: mapList(ids, 'zombies'), mapInfo, addFiles };
+          const d = { ...zombieDefaults(), map: W.mapDef?.id || 'de_dust2', maps: mapList(ids, 'zombies'), mapInfo, addFiles, mapMeta, mapBest };
           menus.showZombieSetup?.(d, (opts) => {
             if ((opts.map || 'de_dust2') !== (W.mapDef?.id || 'de_dust2')) switchMap(opts.map, opts);
             else newGame(opts);
@@ -417,7 +430,7 @@ async function boot() {
       const h = Z.hudInfo();
       return { zombie: {
         wave: h.wave, state: h.state, left: h.left, next: Math.ceil(h.next ?? 0), time: Math.floor((Z.state === 'over' ? Z.runStats.endT || game.time : game.time) - Z.runStats.startT),
-        diff: h.diff, hardcore: h.hardcore, squadKills: h.squadKills, kills: h.kills, best: h.best, map: W.mapDef?.id || 'de_dust2',
+        diff: h.diff, hardcore: h.hardcore, squadKills: h.squadKills, kills: h.kills, best: h.best, map: mapLabel(W.mapDef || lookupMap('de_dust2')),
         players: game.players.filter((p) => p.team === TEAM_CT && !p.isZombie).map((p) => ({
           name: p.name, kills: p.kills, deaths: p.deaths, downs: tally.downs(p), revives: tally.revives(p), money: p.money | 0,
           status: !p.alive ? 'dead' : p.downed ? 'down' : 'alive', isLocal: p.isLocal, isBot: !!p.isBot,
@@ -469,11 +482,14 @@ async function boot() {
 function frame() { return new Promise((r) => requestAnimationFrame(() => r())); }
 
 function sessionGet(k) { try { return sessionStorage.getItem(k); } catch { return null; } }
+function localGet(k) { try { return localStorage.getItem(k); } catch { return null; } }
+function localSet(k, v) { try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch { /* private mode */ } }
 function sessionSet(k, v) { try { if (v == null) sessionStorage.removeItem(k); else sessionStorage.setItem(k, v); } catch { /* private mode */ } }
 
 /** Load another map: the world is built once per page, so reload with it selected. */
 function switchMap(id, opts) {
   sessionSet('cs16-map', id);
+  localSet('cs16-lastmap', id === 'de_dust2' ? null : id);
   sessionSet('cs16-autostart', JSON.stringify(opts));
   const u = new URL(location.href);
   u.searchParams.delete('autostart');

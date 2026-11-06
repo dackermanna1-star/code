@@ -8,12 +8,13 @@
 //   info: { best, bestDiff, quick (text: the last setup) | null, map } (all optional)
 import { titleSVG } from './titleart.js';
 
-export const UPDATE_ID = 'zm3'; // bump to show the What's new panel again
+export const UPDATE_ID = 'zm3-maps'; // bump to show the What's new panel again
 const NEWS_KEY = 'cs16-whatsnew-seen';
 
 export const WHATS_NEW = {
   title: 'Every run is different',
   items: [
+    ['Three new maps', 'Fort Ember, a desert fort at blood-red sunset; Hollow Creek, a mountain town at night; Sector 9, a research lab under the hill. Pick one in New run.'],
     ['Draft your build', 'After every wave pick 1 of 3 perk cards. Pair the right tags for a synergy, gamble on a boon-and-curse, reroll a bad hand.'],
     ['The Weapon Forge', 'Forge any gun up to Tier V at the break, then load Incendiary, Shock, Cryo, Explosive or Vampiric rounds.'],
     ['A squad you lead', 'Your bots are a Gunner, Medic, Demo and Marksman. Order them to Hold here, Follow or Focus your target (middle mouse).'],

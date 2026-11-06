@@ -1,11 +1,13 @@
 // Zombie Survival setup: difficulty cards (zdiff.js presets: label, blurb, start money, break),
-// squad size (0-10 bots), bot skill, the bots' roles (zsquad.js: Auto, or a pick per bot),
-// your look, map, break length, squad scaling, hardcore and first-run tips. Start hands onStart the New Game options (zdiff.js zombieOptions keys
+// the map (a card each: thumbnail, name, tagline, your best there at this setup), squad size
+// (0-10 bots), bot skill, the bots' roles (zsquad.js: Auto, or a pick per bot), your look,
+// break length, squad scaling, hardcore and first-run tips. Start hands onStart the New Game options (zdiff.js zombieOptions keys
 // plus mode / map / allies / difficulty / skin / tips) on top of the previous ones.
 // Keys: Enter starts, left / right pick the difficulty, Esc goes back (Menus._key).
 //
 //   const s = buildZombieSetup(d, { onStart, onBack, sound });  root.appendChild(s.el)
-//   d: the previous options + maps [[id, label]], mapInfo(id), addFiles(FileList) (see Menus.showNewGame)
+//   d: the previous options + maps [[id, label]], mapInfo(id), addFiles(FileList) (see Menus.showNewGame),
+//      mapMeta(id) -> { title, tagline, blurb, thumb (url), builtin }, mapBest(id, zdiff, allies, hardcore, squadScaling) -> waves
 import { ZDIFF, ZDIFF_ORDER, DEFAULT_ZDIFF } from '../../game/zdiff.js';
 import { CLASSES } from '../menu/text.js';
 import { ROLES, ROLE_IDS, ROLE_ORDER } from '../../game/zsquad.js';
@@ -21,6 +23,7 @@ function el(tag, cls, html) {
   if (html != null) e.innerHTML = html;
   return e;
 }
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 const money = (v) => '$' + String(v).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 
 /** A small standing figure (squad row): you (amber), a bot (bone), an empty slot. */
@@ -76,6 +79,36 @@ export function buildZombieSetup(d = {}, { onStart, onBack, sound } = {}) {
   }
   frame.appendChild(cards);
 
+  // map: one card per map (a player-supplied .bsp shows its id, and the files it still needs under Rules)
+  frame.appendChild(el('div', 'fe-label', 'Map'));
+  const maps = d.maps || [['de_dust2', 'de_dust2']];
+  const meta = (id) => d.mapMeta?.(id) || { title: id };
+  let mapId = maps.some(([id]) => id === d.map) ? d.map : maps[0][0];
+  const mapRow = el('div', 'fe-maps');
+  const mapEls = {};
+  for (const [id, label] of maps) {
+    const M = meta(id);
+    const c = el('div', 'fe-mapcard' + (M.builtin ? '' : ' bsp'));
+    c.dataset.id = id;
+    const pic = el('div', 'pic');
+    if (M.thumb) {
+      const img = el('img');
+      img.alt = '';
+      img.onerror = () => { img.remove(); pic.textContent = 'MAP'; };
+      img.src = M.thumb;
+      pic.appendChild(img);
+    } else pic.textContent = 'BSP';
+    const tx = el('div', 'tx');
+    tx.append(el('div', 'name', esc(M.title || label)), el('div', 'tag', esc(M.tagline || (M.builtin ? '' : 'Your own .bsp map'))), el('div', 'best'));
+    c.append(pic, tx);
+    if (M.blurb) c.title = M.blurb;
+    c.addEventListener('click', () => { if (mapId === id) return; click(); mapId = id; refreshMap(); });
+    mapRow.appendChild(c);
+    mapEls[id] = c;
+  }
+  frame.appendChild(mapRow);
+  const mapLabel = () => meta(mapId).title || mapId;
+
   // squad / rules
   const cols = el('div', 'fe-cols');
   const sq = el('div', 'fe-box');
@@ -121,15 +154,7 @@ export function buildZombieSetup(d = {}, { onStart, onBack, sound } = {}) {
   const tips = toggle('First-run tips', 'Short hints during your first runs (buying, ready-up, revives, C4).', 'tips');
   sq.appendChild(tips);
 
-  // map
-  const maps = d.maps || [['de_dust2', 'de_dust2']];
-  const map = el('select', 'fe-select');
-  for (const [id, label] of maps) { const o = el('option', null); o.textContent = label; o.value = id; map.appendChild(o); }
-  map.value = maps.some(([id]) => id === d.map) ? d.map : maps[0][0];
-  map.addEventListener('keydown', (e) => e.stopPropagation());
-  const mapV = el('div', 'v');
-  mapV.appendChild(map);
-  row(ru, 'Map', mapV);
+  // a player-supplied map's files (hidden for the built-in maps)
   const mapInfo = el('div', 'fe-mapinfo');
   mapInfo.hidden = true;
   const info = el('div');
@@ -183,7 +208,12 @@ export function buildZombieSetup(d = {}, { onStart, onBack, sound } = {}) {
     for (const t of [tips, scaling, hard]) t.classList.toggle('on', !!st[t.dataset.key]);
     brkVal.innerHTML = st.breakLen ? `${st.breakLen} s` : `Preset <small>(${P.breakLen} s)</small>`;
     const squad = st.allies ? `you + ${st.allies} bot${st.allies === 1 ? '' : 's'}` : 'solo';
-    summary.innerHTML = `<b>${P.label}</b>${st.hardcore ? ' &middot; <b>Hardcore</b>' : ''} &middot; ${squad}${st.allies && st.roleMode === 'pick' ? ' (roles picked)' : ''} &middot; ${st.breakLen || P.breakLen} s breaks &middot; ${map.value}`;
+    summary.innerHTML = `<b>${P.label}</b>${st.hardcore ? ' &middot; <b>Hardcore</b>' : ''} &middot; ${squad}${st.allies && st.roleMode === 'pick' ? ' (roles picked)' : ''} &middot; ${st.breakLen || P.breakLen} s breaks &middot; <b>${esc(mapLabel())}</b>`;
+    for (const [id, c] of Object.entries(mapEls)) {
+      c.classList.toggle('on', id === mapId);
+      const b = d.mapBest?.(id, st.zdiff, st.allies, st.hardcore, st.squadScaling) || 0;
+      c.querySelector('.best').innerHTML = b ? `Best <b>wave ${b}</b>` : '';
+    }
   }
 
   /** The role each bot slot ends up with: its pick, else the next of ROLE_ORDER nobody picked, else Rifleman (as zsquad.js assign). */
@@ -215,18 +245,17 @@ export function buildZombieSetup(d = {}, { onStart, onBack, sound } = {}) {
 
   let mapOk = true;
   async function refreshMap() {
-    const id = map.value;
+    const id = mapId;
     refresh();
-    if (!d.mapInfo || id === 'de_dust2') { mapInfo.hidden = true; mapOk = true; go.disabled = false; return; }
+    if (!d.mapInfo || id === 'de_dust2' || meta(id).builtin) { mapInfo.hidden = true; mapOk = true; go.disabled = false; return; }
     mapInfo.hidden = false;
     const r = await d.mapInfo(id);
-    if (map.value !== id) return;
+    if (mapId !== id) return;
     info.innerHTML = r.html;
     pick.hidden = !!r.bundled;
     mapOk = r.ok;
     go.disabled = !mapOk;
   }
-  map.addEventListener('change', refreshMap);
   pick.addEventListener('change', async () => {
     if (!pick.files?.length || !d.addFiles) return;
     info.textContent = 'Storing files...';
@@ -241,7 +270,7 @@ export function buildZombieSetup(d = {}, { onStart, onBack, sound } = {}) {
     const prev = { ...d };
     delete prev.maps; delete prev.mapInfo; delete prev.addFiles;
     onStart?.({
-      ...prev, mode: 'zombies', map: map.value, allies: st.allies, difficulty: st.difficulty, skin: st.skin,
+      ...prev, mode: 'zombies', map: mapId, allies: st.allies, difficulty: st.difficulty, skin: st.skin,
       zdiff: st.zdiff, squadScaling: st.squadScaling, breakLen: st.breakLen, hardcore: st.hardcore, tips: st.tips,
       roles: st.roleMode === 'pick' && st.allies ? st.roles.slice(0, st.allies) : null,
     });
