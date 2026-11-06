@@ -131,7 +131,7 @@ export class World {
     this.set(x, y + 1, z, id); this.setMeta(x, y + 1, z, m | 8);
     const hp = opts.hp || d.door.hp;
     this.doors.set(this.idx(x, y, z), {
-      x, y, z, kind, facing: facing & 3, open, locked: !!opts.locked, hp, maxHp: hp, barricade: 0,
+      x, y, z, kind, facing: facing & 3, open, locked: typeof opts.locked === 'string' ? opts.locked : !!opts.locked, hp, maxHp: hp, barricade: 0,
     });
   }
 

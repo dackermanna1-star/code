@@ -2,7 +2,7 @@
 import { B } from '../blocks.js';
 import { SURFACE } from '../World.js';
 import { shell, carvePlan, connect, connectAny, exteriorDoor, roomWindows, paintRoomWalls, flatRoof, stairwell, id } from './building.js';
-import { furnish, Room } from './furnish.js';
+import { furnish } from './furnish.js';
 
 const Y0 = SURFACE;
 

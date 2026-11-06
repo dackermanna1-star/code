@@ -4,13 +4,12 @@
 import { B, BLOCKS } from '../blocks.js';
 import { SURFACE, ZONES } from '../World.js';
 import { Frame } from './frame.js';
-import { shell, carvePlan, connect, exteriorDoor, roomWindows, paintRoomWalls, flatRoof, gableRoof, id } from './building.js';
+import { shell, carvePlan, connect, exteriorDoor, roomWindows, paintRoomWalls, flatRoof, id } from './building.js';
 import { Room, furnish } from './furnish.js';
 import { aisles, checkouts, storefront } from './commercial.js';
-import { SHOPS, buildShop } from './shops.js';
+import { SHOPS } from './shops.js';
 import { apartmentBuilding } from './apartments.js';
-import { gasStation, layoutFloor } from './civic.js';
-import { tent } from './military.js';
+import { gasStation } from './civic.js';
 import { CAR_COLORS } from './util.js';
 import { RAIL_Z } from './plan.js';
 

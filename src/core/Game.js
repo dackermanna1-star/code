@@ -37,7 +37,7 @@ import { groundAt } from '../entities/pathfind.js';
 import { boxFree } from './physics.js';
 
 const DEFAULT_SETTINGS = {
-  sensitivity: 1, fov: 75, renderDistance: 8, quality: 'high', masterVolume: 0.8, sfxVolume: 1, musicVolume: 0.55,
+  sensitivity: 1, fov: 75, renderDistance: 10, quality: 'high', masterVolume: 0.8, sfxVolume: 1, musicVolume: 0.55,
   invertY: false, showFps: false, headBob: true, zombieDensity: 1,
 };
 const POI_SUBTITLES = {

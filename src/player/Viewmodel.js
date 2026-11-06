@@ -21,7 +21,9 @@ import { disposeObject } from './viewmodel/builder.js';
 export { MODEL_IDS } from './viewmodel/models.js';
 
 const RIG_PIVOT = new THREE.Vector3(0.08, -0.12, -0.32);
-const SHOULDER_R = [0.36, -0.4, 0.04];
+const SHOULDER_R = [0.43, -0.47, 0.06];
+// Minecraft-style single arm: held items sit further right and reach further into view (hip only, not ADS)
+const HIP_OFFSET = [0.03, 0.014, -0.012];
 const SHOULDER_L = [-0.16, -0.5, -0.48];
 const FREE_L = [-0.2, -0.38, -0.36];
 const EQUIP_DUR = 0.4;
@@ -82,6 +84,7 @@ export class Viewmodel {
     this.camera = new THREE.PerspectiveCamera(70, 16 / 9, 0.01, 20);
     this.scene.add(this.camera);
     this.material = createViewmodelMaterial();
+    this.oneHanded = true; // classic Minecraft look: only the right arm is drawn
 
     this.rig = new THREE.Group();
     this.rig.rotation.order = 'YXZ';
@@ -326,7 +329,7 @@ export class Viewmodel {
     this._swingAlt = alt;
     let style;
     if (meta.kind === 'gun') style = 'gunbash';
-    else if (meta.kind === 'fists') style = heavy ? 'hook' : alt ? 'jabL' : 'jabR';
+    else if (meta.kind === 'fists') style = heavy ? 'hook' : alt && !this.oneHanded ? 'jabL' : 'jabR';
     else {
       const two = !!meta.twoHanded;
       let type = (mel && mel.type) || meta.swing || 'blunt';
@@ -653,6 +656,12 @@ export class Viewmodel {
     B.rot.x = lerp(B.rot.x, spr.rot[0], sprW);
     B.rot.y = lerp(B.rot.y, spr.rot[1], sprW);
     B.rot.z = lerp(B.rot.z, spr.rot[2], sprW);
+    if (this.oneHanded && meta.kind !== 'fists') {
+      const hw = 1 - aim01;
+      B.pos.x += HIP_OFFSET[0] * hw;
+      B.pos.y += HIP_OFFSET[1] * hw;
+      B.pos.z += HIP_OFFSET[2] * hw;
+    }
     const crW = cr01 * (1 - aim01);
     B.pos.x -= 0.01 * crW;
     B.pos.y -= 0.01 * crW;
@@ -729,7 +738,7 @@ export class Viewmodel {
     this.material.uniforms.uOpacity.value = opacity;
     const hiddenAll = opacity <= 0.001;
     this.arms.R.root.visible = !hiddenAll && !this._armRNear;
-    this.arms.L.root.visible = !hiddenAll && !this._armLNear;
+    this.arms.L.root.visible = !this.oneHanded && !hiddenAll && !this._armLNear;
     this.model.group.visible = this.model.group.visible && !hiddenAll;
     res.w *= Math.exp(-dt * 14);
     this._updateLighting(dt, s);

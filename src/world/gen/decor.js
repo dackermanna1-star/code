@@ -23,6 +23,36 @@ export function buildDecor(ctx) {
   const { world, roads, SX } = ctx;
   const rng = makeRng(ctx.seed ^ 0xdec0);
   let parked = 0, crashes = 0;
+  // ---------------------------------------------------------------- litter, flyers, loot, weeds, street trees
+  const flyers = ['flyer_quarantine', 'newspaper', 'evac_flyer', 'flyer_quarantine'];
+  let nFly = 0;
+  for (let z = 2; z < ctx.SZ - 2; z++) for (let x = 2; x < SX - 2; x++) {
+    const k = z * SX + x;
+    const m = ctx.roadMask[k];
+    const h = hash01(ctx.seed, x, z, 911);
+    if (m === RM.WALK) {
+      if (world.get(x, Y, z) !== 0 || nearDoor(ctx, x, z)) continue;
+      if (h < 0.004) world.set(x, Y, z, B.trash_bags);
+      else if (h < 0.0055) world.set(x, Y, z, B.rubble);
+      else if (h < 0.0065) { world.addNote(x + 0.5, Y, z + 0.5, flyers[nFly++ % flyers.length]); }
+      else if (h < 0.009) world.addFloorLoot(x + 0.5, Y, z + 0.5, 'floor_street', 0.6);
+      else if (h < 0.02) world.set(x, Y, z, B.tall_grass);
+    } else if (m === RM.ROAD || m === RM.JUNCTION) {
+      if (world.get(x, Y, z) !== 0 || nearDoor(ctx, x, z)) continue;
+      if (h < 0.0012) world.addFloorLoot(x + 0.5, Y, z + 0.5, 'floor_street', 0.5);
+      else if (h < 0.0016) world.set(x, Y, z, B.trash_bags);
+    } else if (ctx.occ[k] === OCC.LOT && world.get(x, Y0, z) === B.grass && world.get(x, Y, z) === 0) {
+      // overgrown lawns after two weeks without mowing
+      if (h < 0.12) world.set(x, Y, z, B.tall_grass);
+      else if (h < 0.125) world.set(x, Y, z, B.flower_yellow);
+      else if (h < 0.128) world.set(x, Y, z, B.dead_bush);
+    } else if (m === 0 && ctx.occ[k] === OCC.ROAD && world.get(x, Y0, z) === B.grass && world.get(x, Y, z) === 0) {
+      // grass strips between sidewalk and lots: occasional street trees
+      const nearWalk = ctx.roadMask[k - 1] === RM.WALK || ctx.roadMask[k + 1] === RM.WALK || ctx.roadMask[k - SX] === RM.WALK || ctx.roadMask[k + SX] === RM.WALK;
+      if (nearWalk && h < 0.03 && clearAround(world, x, z)) tree(world, x, Y, z, h < 0.02 ? 'oak' : 'birch', h * 30, ctx.seed);
+      else if (h > 0.85) world.set(x, Y, z, B.tall_grass);
+    }
+  }
   // ---------------------------------------------------------------- parked / abandoned cars
   for (const r of roads) {
     if (r.kind === 'dirt' || r.industrial) continue;
@@ -67,38 +97,16 @@ export function buildDecor(ctx) {
   // ---------------------------------------------------------------- survivor barricade on Lincoln Ave (north of Church St)
   survivorBarricade(ctx, rng, 512, 440);
   survivorBarricade(ctx, rng, 330, 520);
-  // ---------------------------------------------------------------- litter, flyers, loot, weeds, street trees
-  const flyers = ['flyer_quarantine', 'newspaper', 'evac_flyer', 'flyer_quarantine'];
-  let nFly = 0;
-  for (let z = 2; z < ctx.SZ - 2; z++) for (let x = 2; x < SX - 2; x++) {
-    const k = z * SX + x;
-    const m = ctx.roadMask[k];
-    const h = hash01(ctx.seed, x, z, 911);
-    if (m === RM.WALK) {
-      if (world.get(x, Y, z) !== 0) continue;
-      if (h < 0.004) world.set(x, Y, z, B.trash_bags);
-      else if (h < 0.0055) world.set(x, Y, z, B.rubble);
-      else if (h < 0.0065) { world.addNote(x + 0.5, Y, z + 0.5, flyers[nFly++ % flyers.length]); }
-      else if (h < 0.009) world.addFloorLoot(x + 0.5, Y, z + 0.5, 'floor_street', 0.6);
-      else if (h < 0.02) world.set(x, Y, z, B.tall_grass);
-    } else if (m === RM.ROAD || m === RM.JUNCTION) {
-      if (world.get(x, Y, z) !== 0) continue;
-      if (h < 0.0012) world.addFloorLoot(x + 0.5, Y, z + 0.5, 'floor_street', 0.5);
-      else if (h < 0.0016) world.set(x, Y, z, B.trash_bags);
-    } else if (ctx.occ[k] === OCC.LOT && world.get(x, Y0, z) === B.grass && world.get(x, Y, z) === 0) {
-      // overgrown lawns after two weeks without mowing
-      if (h < 0.12) world.set(x, Y, z, B.tall_grass);
-      else if (h < 0.125) world.set(x, Y, z, B.flower_yellow);
-      else if (h < 0.128) world.set(x, Y, z, B.dead_bush);
-    } else if (m === 0 && ctx.occ[k] === OCC.ROAD && world.get(x, Y0, z) === B.grass && world.get(x, Y, z) === 0) {
-      // grass strips between sidewalk and lots: occasional street trees
-      const nearWalk = ctx.roadMask[k - 1] === RM.WALK || ctx.roadMask[k + 1] === RM.WALK || ctx.roadMask[k - SX] === RM.WALK || ctx.roadMask[k + SX] === RM.WALK;
-      if (nearWalk && h < 0.03 && clearAround(world, x, z)) tree(world, x, Y, z, h < 0.02 ? 'oak' : 'birch', h * 30, ctx.seed);
-      else if (h > 0.85) world.set(x, Y, z, B.tall_grass);
-    }
-  }
   for (const id of flyers) ctx.usedNotes.add(id);
   ctx.stats.flyers = nFly;
+}
+
+function nearDoor(ctx, x, z) {
+  const { world } = ctx;
+  for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+    if (BLOCKS[world.get(x + dx, Y, z + dz)].door || ctx.openings.has(world.idx(x + dx, Y, z + dz))) return true;
+  }
+  return false;
 }
 
 function clearAround(world, x, z) {

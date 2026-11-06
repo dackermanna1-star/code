@@ -1,8 +1,7 @@
 // Downtown commercial buildings: brick storefronts (1-4 storeys) with shop interiors, back rooms, alleys,
 // stairwells to apartments / offices upstairs, flat roofs with roof access.
-import { B, BLOCKS } from '../blocks.js';
 import { SURFACE } from '../World.js';
-import { shell, carvePlan, connect, connectAny, exteriorDoor, roomWindows, paintRoomWalls, flatRoof, stairwell, id } from './building.js';
+import { shell, carvePlan, connect, exteriorDoor, roomWindows, flatRoof, stairwell, id } from './building.js';
 import { Room, furnish } from './furnish.js';
 
 const Y0 = SURFACE;

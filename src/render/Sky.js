@@ -203,12 +203,12 @@ export class Sky {
       G.uSunDir.value.copy(sun);
       const warm = smoothstep(0.0, 0.45, sh);
       const sc = new THREE.Color(1.0, 0.5, 0.26).lerp(new THREE.Color(1.0, 0.93, 0.82), warm);
-      G.uSunColor.value.copy(sc).multiplyScalar(1.55 * smoothstep(-0.05, 0.15, sh) * (1 - oc * 0.8));
+      G.uSunColor.value.copy(sc).multiplyScalar(1.25 * smoothstep(-0.05, 0.15, sh) * (1 - oc * 0.8));
     } else {
       G.uSunDir.value.copy(moon);
       G.uSunColor.value.setRGB(0.32, 0.38, 0.55).multiplyScalar(0.22 * moonLight * (1 - oc * 0.9) * smoothstep(-0.05, 0.2, moon.y));
     }
-    const ambDay = new THREE.Color(0.5, 0.57, 0.7).lerp(new THREE.Color(0.62, 0.62, 0.64), oc);
+    const ambDay = new THREE.Color(0.42, 0.48, 0.6).lerp(new THREE.Color(0.56, 0.56, 0.58), oc);
     const ambNight = new THREE.Color(0.05, 0.062, 0.1).multiplyScalar(0.55 + 0.6 * moonLight * (1 - oc * 0.7));
     const amb = ambNight.clone().lerp(ambDay, day01);
     amb.lerp(new THREE.Color(0.75, 0.45, 0.35).multiplyScalar(0.55), dusk * 0.35);
@@ -219,7 +219,7 @@ export class Sky {
     const fogCol = hor.clone().lerp(top, 0.15);
     G.uFogColor.value.copy(fogCol);
     // fog reaches ~92% at the render distance on a clear day; night, rain and fog pull it in
-    const clearD = 1.3 / Math.max(48, viewDist);
+    const clearD = 1.25 / Math.max(48, viewDist);
     const baseFog = clearD * lerp(1.9, 1.0, day01);
     G.uFogDensity.value = baseFog * (1 + oc * 0.2) * (1 + w.rain * 0.5) * (1 + w.fog * 3.2);
     U.uFogAmount.value = clamp(0.2 + oc * 0.45 + w.fog * 0.8 + w.rain * 0.3, 0, 1);

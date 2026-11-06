@@ -1,6 +1,6 @@
 // Civic / special downtown buildings: police station, fire station, town hall, Foodland supermarket,
 // Veterans Park, gas stations.
-import { B, BLOCKS } from '../blocks.js';
+import { B } from '../blocks.js';
 import { SURFACE, ZONES } from '../World.js';
 import { Frame } from './frame.js';
 import { shell, carvePlan, connect, exteriorDoor, roomWindows, paintRoomWalls, flatRoof, stairwell, id } from './building.js';
