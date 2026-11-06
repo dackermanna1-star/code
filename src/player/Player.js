@@ -1,6 +1,6 @@
 // Player: movement controller, camera feel (bob, shake, FOV), and the survival stat fields the UI reads.
 import * as THREE from 'three';
-import { moveBody } from '../core/physics.js';
+import { moveBody, boxFree } from '../core/physics.js';
 import { BLOCKS } from '../world/blocks.js';
 import { PlayerInventory } from '../inventory/Inventory.js';
 import { clamp, lerp } from '../core/rng.js';
@@ -59,6 +59,7 @@ export class Player {
     this.bobT = 0; this.bobAmt = 0;
     this.shake = 0; this.punch = new THREE.Vector2(); this.punchVel = new THREE.Vector2();
     this.landDip = 0; this.fov = 75; this.fovKick = 0;
+    this.stepSmooth = 0; // camera offset that eases out instant step-ups / step-downs
     this.speedMult = 1;
   }
 
@@ -146,6 +147,12 @@ export class Player {
       this.fallStartY = null;
     } else if (this.inWater) {
       this.vy = lerp(this.vy, input.jump ? 2.8 : -1.0, 1 - Math.exp(-dt * 4));
+      // swimming into a wall: climb it underwater, and with the head above the surface hop out onto
+      // the bank (Minecraft-like; without this a 1-block bank could never be left)
+      if (this._wallHit && input.fwd > 0) {
+        const headId = world.get(Math.floor(this.x), Math.floor(this.y + this.eye), Math.floor(this.z));
+        this.vy = Math.max(this.vy, BLOCKS[headId].render === 'liquid' ? 3.0 : 8.4);
+      }
       this.fallStartY = null;
     } else {
       if (input.jump && this.onGround && this.stamina > 3) {
@@ -159,8 +166,27 @@ export class Player {
     }
 
     const wasGround = this.onGround;
+    // sneaking never walks you off an edge (Minecraft): drop the horizontal component that would leave
+    // the body without anything to stand on within a step below
+    if (this.crouching && wasGround && !this.onLadder && !this.inWater) this.sneakClamp(world, dt, ctx.vehicles);
     if (!this.onGround && this.fallStartY === null) this.fallStartY = this.y;
-    moveBody(world, this, dt, ctx.vehicles);
+    const y0 = this.y;
+    const mres = moveBody(world, this, dt, ctx.vehicles);
+    this._wallHit = mres.hitX || mres.hitZ;
+    // step down: walking off a stair / slab edge snaps onto the step below instead of a tiny fall
+    // (no landing dip / landing sound for every stair going down)
+    if (wasGround && !this.onGround && !ev.jumped && this.vy <= 0 && !this.inWater && !this.onLadder) {
+      const sy = this.y, svx = this.vx, svz = this.vz, sx = this.x, sz = this.z;
+      this.vx = 0; this.vz = 0; this.vy = -(this.stepHeight + 0.02) / dt;
+      moveBody(world, this, dt, ctx.vehicles);
+      if (!this.onGround) this.y = sy;
+      this.x = sx; this.z = sz; this.vx = svx; this.vz = svz; this.vy = 0;
+    }
+    // stepping up / down a ledge moves the body instantly; the camera follows smoothly
+    if (wasGround && this.onGround) {
+      const dy = this.y - y0;
+      if (Math.abs(dy) > 0.04 && Math.abs(dy) < 1.1) this.stepSmooth = clamp(this.stepSmooth - dy, -0.6, 0.6);
+    }
     if (this.onGround) {
       if (!wasGround && this.fallStartY !== null) {
         const fall = this.fallStartY - this.y;
@@ -173,20 +199,46 @@ export class Player {
     const hs = Math.hypot(this.vx, this.vz);
     this.moving01 = clamp(hs / 4.3, 0, 1.5);
     if (this.onGround && hs > 0.5) {
-      this.stepDist += hs * dt;
+      // one footstep per half bob cycle, so the sound lands exactly when the camera bottoms out
       const stride = this.sprinting ? 1.9 : this.crouching ? 1.1 : 1.55;
-      if (this.stepDist > stride) {
+      const phase = Math.floor(this.bobT / Math.PI);
+      this.bobT += dt * hs * Math.PI / stride;
+      this.stepDist += hs * dt;
+      if (Math.floor(this.bobT / Math.PI) !== phase) {
         this.stepDist = 0;
-        const below = world.get(fx, Math.floor(this.y - 0.05), fz);
+        let below = world.get(Math.floor(this.x), Math.floor(this.y - 0.05), Math.floor(this.z));
+        if (!BLOCKS[below].solid) below = world.get(fx, Math.floor(this.y - 0.05), fz);
         const bdef = BLOCKS[below];
         ev.footstep = this.inWater ? 'water' : (bdef.stepSound || bdef.mat);
       }
-      this.bobT += dt * hs * (this.sprinting ? 1.55 : 1.8);
     }
     this.bobAmt = lerp(this.bobAmt, this.onGround ? clamp(hs / 6, 0, 1) : 0, 1 - Math.exp(-dt * 8));
     // movement noise radius for zombie hearing
     this.noiseLevel = !this.onGround || hs < 0.5 ? 0 : this.sprinting ? 14 : this.crouching ? 1.5 : 6;
     return ev;
+  }
+
+  /** Is there something to stand on (block within a step below, or a car roof) for the body at (x, z)? */
+  hasSupport(world, x, z, vehicles) {
+    if (!boxFree(world, x, this.y - 0.6, z, this.hw, 0.6)) return true;
+    if (vehicles) {
+      for (const v of vehicles) {
+        if (Math.abs(this.y - v.top) > 0.6) continue;
+        const rx = x - v.x, rz = z - v.z;
+        const lx = rx * v.cos - rz * v.sin, lz = rx * v.sin + rz * v.cos;
+        if (Math.abs(lx) < v.hx + this.hw && Math.abs(lz) < v.hz + this.hw) return true;
+      }
+    }
+    return false;
+  }
+
+  /** Sneak edge protection: zero velocity components that would carry the body over a drop. */
+  sneakClamp(world, dt, vehicles) {
+    if (!this.hasSupport(world, this.x, this.z, vehicles)) return; // already hanging off: don't trap
+    const dx = this.vx * dt, dz = this.vz * dt;
+    if (dx && !this.hasSupport(world, this.x + dx, this.z, vehicles)) this.vx = 0;
+    if (dz && !this.hasSupport(world, this.x, this.z + dz, vehicles)) this.vz = 0;
+    if (this.vx && this.vz && !this.hasSupport(world, this.x + this.vx * dt, this.z + this.vz * dt, vehicles)) { this.vx = 0; this.vz = 0; }
   }
 
   /** Camera transform incl. bob / shake / recoil punch / landing dip. */
@@ -198,6 +250,7 @@ export class Player {
     this.punch.y += this.punchVel.y * dt;
     this.shake = Math.max(0, this.shake - dt * 2.5);
     this.landDip = Math.max(0, this.landDip - dt * 0.9);
+    this.stepSmooth *= Math.exp(-dt * 16);
     const bob = settings.headBob === false ? 0 : this.bobAmt;
     const bx = Math.cos(this.bobT) * 0.045 * bob;
     const by = Math.abs(Math.sin(this.bobT)) * 0.06 * bob;
@@ -206,7 +259,7 @@ export class Player {
     const shx = (Math.sin(t * 37) + Math.sin(t * 23.3)) * 0.02 * s;
     const shy = (Math.cos(t * 31) + Math.sin(t * 19.7)) * 0.02 * s;
     const sx = Math.cos(this.yaw), sz = -Math.sin(this.yaw);
-    camera.position.set(this.x + sx * bx, this.y + this.eye + by - this.landDip, this.z + sz * bx);
+    camera.position.set(this.x + sx * bx, this.y + this.eye + by - this.landDip + this.stepSmooth, this.z + sz * bx);
     camera.rotation.set(this.pitch + this.punch.x + shy, this.yaw + this.punch.y + shx, Math.sin(this.bobT * 0.5) * 0.004 * bob + shx * 0.5);
     // fov
     const targetFov = (settings.fov || 75) + (this.sprinting ? 6 : 0) + this.fovKick;

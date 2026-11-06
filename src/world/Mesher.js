@@ -4,7 +4,7 @@
 //   position Uint16 x3  : local coords * 32 (1/32 block precision), section origin applied by mesh position
 //   uv       Uint8  x2  : texture coords * 32 (0..32 covers one tile; >32 repeats)
 //   data     Uint8  x4  : [face (0..5, 6 = plant/up), flags, layer & 255, layer >> 8]
-//                         flags: 1 sway, 2 top vertex (plants), 4 emissive, 8 water
+//                         flags: 1 sway, 2 top vertex (plants), 4 emissive, 8 water, 16 water surface underside
 //   light    Uint8  x4  : [sky*17, block*17, ao 0..255, 0]   (normalized)
 // Faces: 0 +X, 1 -X, 2 +Y, 3 -Y, 4 +Z, 5 -Z
 
@@ -323,6 +323,17 @@ export class Mesher {
           f, 8, layer, (l >> 4) * 17, (l & 15) * 17, 255);
       }
       buf.quad(false);
+      if (f === 2) {
+        // the surface seen from below (swimming / diving): same quad, reversed winding, flag 16
+        buf.ensure(4);
+        for (let k = 3; k >= 0; k--) {
+          const c = F.c[k];
+          const uvp = faceUV(2, c[0], topH, c[2]);
+          buf.vert((lx + c[0]) * S, Math.round((ly + topH) * S), (lz + c[2]) * S, Math.round(uvp[0] * S), Math.round(uvp[1] * S),
+            3, 8 | 16, layer, (l >> 4) * 17, (l & 15) * 17, 255);
+        }
+        buf.quad(false);
+      }
     }
   }
 }

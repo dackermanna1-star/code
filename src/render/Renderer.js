@@ -28,6 +28,10 @@ uniform float uSick;
 uniform float uBlackout;
 uniform float uDesat;
 uniform vec2 uRes;
+uniform sampler2D tExposure;
+uniform float uAutoExposure;
+uniform float uNight;
+uniform float uUnderwater;
 in vec2 vUv;
 out vec4 fragColor;
 
@@ -41,21 +45,24 @@ vec3 toSRGB(vec3 c) {
 }
 void main() {
   vec2 uv = vUv;
-  if (uWobble > 0.0) {
-    uv += vec2(sin(uv.y * 9.0 + uTime * 1.7), cos(uv.x * 7.0 + uTime * 1.3)) * 0.004 * uWobble;
+  float wob = uWobble + uUnderwater * 0.6;
+  if (wob > 0.0) {
+    uv += vec2(sin(uv.y * 9.0 + uTime * 1.7), cos(uv.x * 7.0 + uTime * 1.3)) * 0.004 * wob;
   }
   vec2 dc = uv - 0.5;
   float r2 = dot(dc, dc);
   vec3 col;
   float ca = uChroma * 0.006 + uDamage * 0.004;
   if (ca > 0.0001) {
-    col.r = texture(tScene, uv + dc * ca).r;
-    col.g = texture(tScene, uv).g;
-    col.b = texture(tScene, uv - dc * ca).b;
+    col.r = textureLod(tScene, uv + dc * ca, 0.0).r;
+    col.g = textureLod(tScene, uv, 0.0).g;
+    col.b = textureLod(tScene, uv - dc * ca, 0.0).b;
   } else {
-    col = texture(tScene, uv).rgb;
+    col = textureLod(tScene, uv, 0.0).rgb;
   }
-  col *= uExposure;
+  // eye adaptation (measured from the frame, see Renderer.updateExposure) x game exposure
+  float autoExp = mix(1.0, texture(tExposure, vec2(0.5)).r, uAutoExposure);
+  col *= uExposure * autoExp;
   col += vec3(uFlash);
   col = aces(col);
   // grading: split toning + saturation + contrast
@@ -64,6 +71,9 @@ void main() {
   float sat = uSaturation * (1.0 - uLowHealth * 0.7) * (1.0 - uDesat);
   col = mix(vec3(l), col, sat);
   col = (col - 0.5) * uContrast + 0.5;
+  // night vision (Purkinje shift): dim scenes lose colour and turn moonlight-blue
+  float scot = uNight * (1.0 - smoothstep(0.02, 0.3, l));
+  col = mix(col, vec3(l) * vec3(0.78, 0.92, 1.22), scot * 0.55);
   // sickness: queasy green tint
   col = mix(col, col * vec3(0.85, 1.05, 0.8), uSick * 0.6);
   col = clamp(col, 0.0, 1.0);
@@ -74,11 +84,49 @@ void main() {
   float pulse = 0.65 + 0.35 * sin(uTime * 6.0);
   float edge = smoothstep(0.08, 0.45, r2);
   col = mix(col, vec3(0.45, 0.0, 0.0), edge * (uDamage * 0.85 + uLowHealth * 0.4 * pulse));
-  // film grain
-  float g = hash(uv * uRes + fract(uTime * 13.7) * 100.0) - 0.5;
-  col += g * uGrain * (1.0 - l * 0.5);
   col *= 1.0 - uBlackout;
-  fragColor = vec4(toSRGB(clamp(col, 0.0, 1.0)), 1.0);
+  vec3 outc = toSRGB(clamp(col, 0.0, 1.0));
+  // film grain in display space (in linear space it turned dark scenes into TV static)
+  float g = hash(uv * uRes + fract(uTime * 13.7) * 100.0) - 0.5;
+  outc += g * uGrain * 0.75 * (1.0 - 0.5 * outc.g) * (1.0 - uBlackout);
+  fragColor = vec4(clamp(outc, 0.0, 1.0), 1.0);
+}
+`;
+
+// Eye adaptation: log-average luminance of a coarse mip of the HDR frame (centre weighted) -> exposure,
+// smoothed over time (ping-pong 1x1 targets). Partial adaptation (uStrength < 1) keeps night and
+// interiors darker than day while lifting them out of the ACES toe.
+const EXPO_FRAG = /* glsl */ `
+precision highp float;
+uniform sampler2D tScene;
+uniform sampler2D tPrev;
+uniform float uLod;
+uniform float uDt;
+uniform float uKey;
+uniform float uStrength;
+uniform vec2 uRange;
+uniform float uReset;
+in vec2 vUv;
+out vec4 fragColor;
+void main() {
+  float sw = 0.0, sl = 0.0;
+  for (int y = 0; y < 6; y++) for (int x = 0; x < 8; x++) {
+    vec2 uv = (vec2(float(x), float(y)) + 0.5) / vec2(8.0, 6.0);
+    vec3 c = textureLod(tScene, uv, uLod).rgb;
+    float l = dot(c, vec3(0.2126, 0.7152, 0.0722));
+    vec2 d = (uv - 0.5) * vec2(1.3, 1.0);
+    float w = 1.0 - 0.7 * clamp(length(d) * 1.7, 0.0, 1.0);
+    sl += w * log(max(l, 0.0005));
+    sw += w;
+  }
+  float avg = exp(sl / sw);
+  float target = clamp(pow(uKey / avg, uStrength), uRange.x, uRange.y);
+  float prev = texture(tPrev, vec2(0.5)).r;
+  if (uReset > 0.5 || !(prev > 0.0) || prev > 100.0) prev = target;
+  // dark adaptation (exposure rising) is slower than light adaptation
+  float speed = target > prev ? 0.9 : 2.6;
+  float e = mix(prev, target, 1.0 - exp(-uDt * speed));
+  fragColor = vec4(e, avg, target, 1.0);
 }
 `;
 
@@ -99,8 +147,33 @@ export class Renderer {
     this.rt = new THREE.WebGLRenderTarget(1, 1, {
       type: THREE.HalfFloatType,
       depthBuffer: true,
-      minFilter: THREE.LinearFilter,
+      minFilter: THREE.LinearMipmapLinearFilter,
       magFilter: THREE.LinearFilter,
+      generateMipmaps: true,
+    });
+    // mipmaps (for the exposure meter) are built once per frame, after the last render into the target
+    this.rt.texture.mipmapsAutoUpdate = false;
+    const expOpts = { type: THREE.HalfFloatType, depthBuffer: false, minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter, generateMipmaps: false };
+    this.expRT = [new THREE.WebGLRenderTarget(1, 1, expOpts), new THREE.WebGLRenderTarget(1, 1, expOpts)];
+    this.expIndex = 0;
+    this.autoExposure = true;
+    this.maxExposureDay = 4.0;
+    this.maxExposureNight = 1.5;
+    this._expReset = true;
+    this._lastT = performance.now();
+    this.expo = {
+      tScene: { value: this.rt.texture },
+      tPrev: { value: this.expRT[0].texture },
+      uLod: { value: 6 },
+      uDt: { value: 0.016 },
+      uKey: { value: 0.13 },
+      uStrength: { value: 0.72 },
+      uRange: { value: new THREE.Vector2(0.75, 4.2) },
+      uReset: { value: 1 },
+    };
+    this.expoMat = new THREE.ShaderMaterial({
+      glslVersion: THREE.GLSL3, vertexShader: POST_VERT, fragmentShader: EXPO_FRAG, uniforms: this.expo,
+      depthTest: false, depthWrite: false,
     });
     this.post = {
       tScene: { value: this.rt.texture },
@@ -121,6 +194,10 @@ export class Renderer {
       uBlackout: { value: 0 },
       uDesat: { value: 0 },
       uRes: { value: new THREE.Vector2(1, 1) },
+      tExposure: { value: this.expRT[1].texture },
+      uAutoExposure: { value: 1 },
+      uNight: globalUniforms.uNight,
+      uUnderwater: globalUniforms.uUnderwater,
     };
     this.postMat = new THREE.ShaderMaterial({
       glslVersion: THREE.GLSL3,
@@ -138,6 +215,10 @@ export class Renderer {
     this.postScene = new THREE.Scene();
     this.postScene.add(this.postQuad);
     this.postCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+    this.expoQuad = new THREE.Mesh(tri, this.expoMat);
+    this.expoQuad.frustumCulled = false;
+    this.expoScene = new THREE.Scene();
+    this.expoScene.add(this.expoQuad);
 
     this.resize();
     window.addEventListener('resize', () => this.resize());
@@ -149,6 +230,10 @@ export class Renderer {
     this.shadowRT = new THREE.WebGLRenderTarget(size, size, { depthBuffer: true });
     this.shadowRT.depthTexture = new THREE.DepthTexture(size, size);
     this.shadowRT.depthTexture.type = THREE.UnsignedIntType;
+    // hardware PCF: compare + bilinear filtering (sampler2DShadow in LIGHTING_GLSL)
+    this.shadowRT.depthTexture.compareFunction = THREE.LessEqualCompare;
+    this.shadowRT.depthTexture.minFilter = THREE.LinearFilter;
+    this.shadowRT.depthTexture.magFilter = THREE.LinearFilter;
     this.shadowCam = new THREE.OrthographicCamera(-70, 70, 70, -70, 1, 320);
     this.shadowScene = new THREE.Scene();
     this.shadowScene.overrideMaterial = new THREE.ShaderMaterial({
@@ -159,15 +244,27 @@ export class Renderer {
       side: THREE.DoubleSide,
     });
     this.shadowGroup = group;
+    this._shadowKey = null; // cached shadow map: re-rendered only when sun / centre / chunk meshes change
     globalUniforms.uShadowMap.value = this.shadowRT.depthTexture;
     globalUniforms.uShadowTexel.value = 1 / size;
     this.shadowsEnabled = true;
   }
 
   renderShadows(center) {
-    if (!this.shadowsEnabled || !this.shadowGroup) { globalUniforms.uShadowOn.value = 0; return; }
+    if (!this.shadowsEnabled || !this.shadowGroup) { globalUniforms.uShadowOn.value = 0; this._shadowKey = null; return; }
     const sun = globalUniforms.uSunDir.value;
-    if (sun.y < 0.08) { globalUniforms.uShadowOn.value = 0; return; }
+    // fade shadows in/out with the sun (moon) height instead of popping at a threshold
+    const strength = THREE.MathUtils.smoothstep(sun.y, 0.03, 0.12);
+    if (strength <= 0) { globalUniforms.uShadowOn.value = 0; this._shadowKey = null; return; }
+    globalUniforms.uShadowOn.value = strength;
+    // The shadow map only contains static voxel terrain, so it is cached: re-render when the light moved
+    // (~0.15 deg), the view centre moved > 4 blocks or a chunk mesh was rebuilt.
+    const ver = this.shadowGroup.userData.meshVersion || 0;
+    const K = this._shadowKey;
+    if (K && K.ver === ver && K.sun.dot(sun) > 0.9999966 && K.center.distanceToSquared(center) < 16) return;
+    if (!K) this._shadowKey = { ver, sun: sun.clone(), center: center.clone() };
+    else { K.ver = ver; K.sun.copy(sun); K.center.copy(center); }
+    this.shadowRenders = (this.shadowRenders || 0) + 1;
     const cam = this.shadowCam;
     // snap the centre to shadow texels to avoid shimmering
     const texel = 140 / this.shadowRT.width;
@@ -188,15 +285,57 @@ export class Renderer {
     // translucent sections (water, glass) don't cast
     const hidden = [];
     for (const m of group.children) if (m.renderOrder === 2 && m.visible) { m.visible = false; hidden.push(m); }
+    const idx = parent ? parent.children.indexOf(group) : -1;
     this.shadowScene.add(group);
     const rr = this.renderer;
     rr.setRenderTarget(this.shadowRT);
     rr.clear(true, true, false);
     rr.render(this.shadowScene, cam);
-    if (parent) parent.add(group);
+    if (parent) {
+      // put the group back at the same place in the scene graph (keeps the scene's draw order stable)
+      parent.add(group);
+      const ch = parent.children;
+      if (idx >= 0 && ch[ch.length - 1] === group && idx < ch.length - 1) { ch.pop(); ch.splice(idx, 0, group); }
+    }
     for (const m of hidden) m.visible = true;
-    globalUniforms.uShadowOn.value = 1;
   }
+
+  /** Force the next frame to re-render the shadow map (e.g. after teleporting). */
+  invalidateShadows() { this._shadowKey = null; }
+
+  /** Measure the frame and update the adapted exposure (1x1 ping-pong). */
+  updateExposure() {
+    const now = performance.now();
+    const dt = Math.min(0.25, Math.max(0, (now - this._lastT) / 1000));
+    this._lastT = now;
+    if (!this.autoExposure) { this.post.uAutoExposure.value = 0; return; }
+    this.post.uAutoExposure.value = 1;
+    const src = this.expRT[this.expIndex], dst = this.expRT[1 - this.expIndex];
+    const E = this.expo;
+    E.tPrev.value = src.texture;
+    E.uDt.value = dt;
+    E.uReset.value = this._expReset ? 1 : 0;
+    this._expReset = false;
+    E.uLod.value = Math.max(0, Math.log2(Math.max(this.rt.width, this.rt.height) / 16));
+    // eyes adapt a lot to a dim house at noon, but nights must stay dark (flashlight matters)
+    E.uRange.value.y = THREE.MathUtils.lerp(this.maxExposureDay, this.maxExposureNight, globalUniforms.uNight.value);
+    const r = this.renderer;
+    r.setRenderTarget(dst);
+    r.render(this.expoScene, this.postCam);
+    this.post.tExposure.value = dst.texture;
+    this.expIndex = 1 - this.expIndex;
+  }
+
+  /** Debug: read back {exposure, avgLum, target} of the last measurement (slow, GPU sync). */
+  readExposure() {
+    const buf = new Uint16Array(4);
+    this.renderer.readRenderTargetPixels(this.expRT[this.expIndex], 0, 0, 1, 1, buf);
+    const f = THREE.DataUtils.fromHalfFloat;
+    return { exposure: f(buf[0]), avgLum: f(buf[1]), target: f(buf[2]) };
+  }
+
+  /** Snap the adapted exposure to the current frame next time (teleports, loading). */
+  resetExposure() { this._expReset = true; }
 
   setQuality(q) {
     this.scale = q === 'low' ? 0.6 : q === 'medium' ? 0.85 : 1;
@@ -222,10 +361,18 @@ export class Renderer {
   render(overlay, shadowCenter) {
     const r = this.renderer;
     if (shadowCenter) this.renderShadows(shadowCenter);
+    else globalUniforms.uShadowOn.value = 0;
     r.setRenderTarget(this.rt);
     r.clear(true, true, false);
+    const tex = this.rt.texture;
+    tex.mipmapsAutoUpdate = this.autoExposure && !overlay;
     r.render(this.scene, this.camera);
-    if (overlay) overlay(r);
+    if (overlay) {
+      tex.mipmapsAutoUpdate = this.autoExposure;
+      overlay(r);
+    }
+    tex.mipmapsAutoUpdate = false;
+    this.updateExposure();
     r.setRenderTarget(null);
     r.clear(true, true, false);
     r.render(this.postScene, this.postCam);
