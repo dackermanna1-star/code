@@ -11,6 +11,11 @@ const DIMS = {
   van: [1.05, 1.15, 2.6], police: [0.95, 0.8, 2.3], ambulance: [1.15, 1.35, 3.0], military_truck: [1.25, 1.55, 3.6],
   humvee: [1.15, 0.95, 2.4], bus: [1.3, 1.6, 5.6], semi: [1.3, 1.9, 7.8], firetruck: [1.3, 1.6, 4.4], tractor: [1.0, 1.3, 1.8],
 };
+const VEHICLE_NAMES = {
+  sedan: 'Sedan', hatchback: 'Hatchback', suv: 'SUV', pickup: 'Pickup Truck', van: 'Van', police: 'Police Cruiser', ambulance: 'Ambulance',
+  military_truck: 'Military Truck', humvee: 'Humvee', bus: 'School Bus', semi: 'Semi Truck', firetruck: 'Fire Truck', tractor: 'Tractor',
+};
+export const vehicleName = (type) => VEHICLE_NAMES[type] || String(type).replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 const TRUNK_LOOT = { police: 'police_car_trunk', ambulance: 'ambulance', military_truck: 'military_truck', humvee: 'military_truck', pickup: 'pickup_bed', semi: 'truck_cargo' };
 
 export class Vehicles {
@@ -121,8 +126,9 @@ export class Vehicles {
       v.glove = new Array(3).fill(null);
       if (!v.burned && v.type !== 'semi' && v.type !== 'tractor') generateLoot(v.gloveLoot || 'car_glovebox', rng, { ...opts, size: 3 }).forEach((s, i) => { if (i < 3) v.glove[i] = s; });
     }
-    const name = v.type.replace('_', ' ');
-    const out = [{ key: 'veh:' + v.idx + ':t', name: (v.type === 'pickup' ? 'Truck Bed' : v.type === 'semi' ? 'Cargo Trailer' : 'Trunk') + ` (${name})`, kind: 'vehicle', slots: v.trunk }];
+    const name = vehicleName(v.type);
+    const bay = v.type === 'pickup' ? 'Truck Bed' : v.type === 'semi' ? 'Cargo Trailer' : v.type === 'ambulance' || v.type === 'van' || v.type === 'bus' || v.type === 'military_truck' ? 'Rear Compartment' : 'Trunk';
+    const out = [{ key: 'veh:' + v.idx + ':t', name: `${bay} (${name}${v.burned ? ', burned out' : ''})`, kind: 'vehicle', slots: v.trunk }];
     if (v.type !== 'semi' && v.type !== 'tractor') out.push({ key: 'veh:' + v.idx + ':g', name: 'Glovebox', kind: 'vehicle', slots: v.glove });
     return out;
   }

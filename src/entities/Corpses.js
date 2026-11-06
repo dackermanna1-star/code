@@ -19,12 +19,13 @@ export class Corpses {
       const d = Math.hypot(c.x - p.x, c.z - p.z);
       if (d < 70 && !c.visual) {
         c.visual = createCorpseVisual({ outfit: c.outfit || 'civilian', seed: hash32(c.idx, 31) });
-        c.visual.root.position.set(c.x + 0.5, c.y, c.z + 0.5);
+        // generator positions are continuous world coordinates (cell centres), not cell corners
+        c.visual.root.position.set(c.x, c.y, c.z);
         c.visual.root.rotation.y = c.yaw || 0;
         g.renderer.scene.add(c.visual.root);
         const x = Math.floor(c.x), y = Math.floor(c.y + 0.5), z = Math.floor(c.z);
         c.visual.setLight(w.skyAt(x, y, z) / 15, w.blockLightAt(x, y, z) / 15);
-        if (!c.blooded) { c.blooded = true; g.fx?.bloodPool?.({ x: c.x + 0.5, y: c.y + 0.02, z: c.z + 0.5 }, 1.1); }
+        if (!c.blooded) { c.blooded = true; g.fx?.bloodPool?.({ x: c.x, y: c.y + 0.02, z: c.z }, 1.1); }
       } else if (d > 95 && c.visual) {
         g.renderer.scene.remove(c.visual.root);
         c.visual.dispose();
@@ -34,7 +35,7 @@ export class Corpses {
   }
 
   near(x, y, z, r) {
-    return this.list.filter((c) => Math.hypot(c.x + 0.5 - x, c.z + 0.5 - z) < r && Math.abs(c.y - y) < 2);
+    return this.list.filter((c) => Math.hypot(c.x - x, c.z - z) < r && Math.abs(c.y - y) < 2);
   }
 
   desc(c) {

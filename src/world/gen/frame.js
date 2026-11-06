@@ -113,10 +113,12 @@ export class Frame {
     // World.placeDoor stores !!locked; keep key ids (docs: locked may be a key id string)
     if (typeof opts.locked === 'string') this.world.doors.get(this.world.idx(x, y, z)).locked = opts.locked;
     if (opts.barricade) {
+      // opts.barricade = number of planks nailed across (same 150 hp per plank as a player barricade)
       const d = this.world.doors.get(this.world.idx(x, y, z));
-      d.barricade = opts.barricade;
-      this.world.setMeta(x, y, z, this.world.getMeta(x, y, z) | 16);
-      this.world.setMeta(x, y + 1, z, this.world.getMeta(x, y + 1, z) | 16);
+      d.barricade = opts.barricade * 150;
+      d.open = false;
+      this.world.setMeta(x, y, z, (this.world.getMeta(x, y, z) & ~4) | 16);
+      this.world.setMeta(x, y + 1, z, (this.world.getMeta(x, y + 1, z) & ~4) | 16);
     }
     this.ctx.openings.add(this.world.idx(x, y, z));
     this.ctx.stats.doors = (this.ctx.stats.doors || 0) + 1;

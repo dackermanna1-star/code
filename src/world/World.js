@@ -278,7 +278,10 @@ export class World {
   }
 
   getContainer(x, y, z) {
+    if (!this.inBounds(x, y, z)) return null;
     const i = this.idx(x, y, z);
+    // NB: a registered entry is returned even if its block was just broken (Game.breakBlock reads the
+    // items after replacing the block to drop them on the floor)
     let c = this.containers.get(i);
     if (!c) {
       const d = BLOCKS[this.get(x, y, z)];

@@ -18,8 +18,9 @@ async function tx(mode, fn) {
     const t = db.transaction(STORE, mode);
     const store = t.objectStore(STORE);
     const r = fn(store);
-    t.oncomplete = () => resolve(r && 'result' in r ? r.result : undefined);
-    t.onerror = () => reject(t.error);
+    t.oncomplete = () => { db.close(); resolve(r && 'result' in r ? r.result : undefined); };
+    t.onerror = () => { db.close(); reject(t.error); };
+    t.onabort = () => { db.close(); reject(t.error || new Error('save transaction aborted')); };
   });
 }
 
@@ -34,7 +35,15 @@ export const SaveManager = {
     }
   },
   async load() {
-    try { return (await tx('readonly', (s) => s.get(KEY))) || null; } catch (e) { return null; }
+    try {
+      const d = (await tx('readonly', (s) => s.get(KEY))) || null;
+      // a save we cannot resume from (corrupt / foreign) would hang the loading screen: treat it as no save
+      if (d && (typeof d.seed !== 'number' || !d.player || !d.player.inv || !d.time || typeof d.time.totalHours !== 'number')) {
+        console.warn('Ignoring an unreadable save game.');
+        return null;
+      }
+      return d;
+    } catch (e) { return null; }
   },
   async info() {
     const d = await this.load();

@@ -5,7 +5,35 @@ import { getItemIcon } from '../items/icons.js';
 import { generateLoot } from '../items/loot.js';
 import { createEntityMaterial, setEntityLight } from '../render/materials.js';
 import { makeRng, hash32 } from '../core/rng.js';
-import { SOLID } from '../world/blocks.js';
+import { SOLID, BLOCKS, getCollisionBoxes } from '../world/blocks.js';
+
+/** Top of the collision box (if any) above/around the point inside its cell (under a table top counts as on it). */
+function boxTopAt(w, x, y, z) {
+  const bx = Math.floor(x), by = Math.floor(y), bz = Math.floor(z);
+  const id = w.get(bx, by, bz);
+  if (!SOLID[id]) return null;
+  const boxes = getCollisionBoxes(id, BLOCKS[id].render === 'cube' ? 0 : w.getMeta(bx, by, bz));
+  if (!boxes) return null;
+  const fx = x - bx, fy = y - by, fz = z - bz;
+  let top = null;
+  for (const b of boxes) if (fx >= b[0] - 0.02 && fx <= b[3] + 0.02 && fz >= b[2] - 0.02 && fz <= b[5] + 0.02 && fy < b[4]) top = Math.max(top ?? -1, by + b[4]);
+  return top;
+}
+/** Highest supporting surface at (x, z) between y and yMin (box accurate: tables, counters, beds). */
+function supportBelow(w, x, y, z, yMin) {
+  const bx = Math.floor(x), bz = Math.floor(z);
+  const fx = x - bx, fz = z - bz;
+  for (let cy = Math.floor(y); cy >= Math.floor(yMin); cy--) {
+    const id = w.get(bx, cy, bz);
+    if (!SOLID[id]) continue;
+    const boxes = getCollisionBoxes(id, BLOCKS[id].render === 'cube' ? 0 : w.getMeta(bx, cy, bz));
+    if (!boxes) continue;
+    let top = -Infinity;
+    for (const b of boxes) if (fx >= b[0] && fx <= b[3] && fz >= b[2] && fz <= b[5] && cy + b[4] <= y + 0.05) top = Math.max(top, cy + b[4]);
+    if (top > -Infinity) return top;
+  }
+  return null;
+}
 
 const texCache = new Map();
 function iconTexture(id) {
@@ -31,6 +59,14 @@ export class GroundItems {
   }
 
   add(stack, x, y, z, o = {}) {
+    const w = this.game.world, p = this.game.player;
+    if (w && !o.raw) {
+      // never spawn inside a wall (dropping while facing one): fall back to the player's column
+      const id = w.get(Math.floor(x), Math.floor(y), Math.floor(z));
+      if ((o.vy || 0) > 0 && SOLID[id] && BLOCKS[id].render === 'cube' && p && Math.hypot(p.x - x, p.z - z) < 2.5) { x = p.x; z = p.z; y = Math.max(y, p.y + 0.3); }
+      // resting inside furniture (notes on desks, loot on tables): lift onto its top surface
+      for (let k = 0; k < 2; k++) { const top = boxTopAt(w, x, y, z); if (top === null) break; y = top + 0.02; }
+    }
     const it = { stack, x, y, z, vy: o.vy ?? 0, rot: Math.random() * Math.PI * 2, mesh: null, settled: !!o.settled };
     this.items.push(it);
     return it;
@@ -65,7 +101,8 @@ export class GroundItems {
       w.notes.forEach((n, i) => {
         if (this.rolled.has('n' + i)) return;
         this.rolled.add('n' + i);
-        this.add(createItem('note', { data: { noteId: n.noteId } }), n.x + 0.5, n.y + 0.05, n.z + 0.5, { settled: true });
+        // generator positions are continuous world coordinates (cell centres), not cell corners
+        this.add(createItem('note', { data: { noteId: n.noteId } }), n.x, n.y + 0.05, n.z, { settled: false });
       });
     }
     w.floorLoot.forEach((f, i) => {
@@ -75,7 +112,10 @@ export class GroundItems {
       const rng = makeRng(hash32(w.seed, i, 777));
       if (rng.next() > (f.chance ?? 1)) return;
       const stacks = generateLoot(f.loot, rng, { scavenging: p.skillLevel('scavenging'), day: g.time.day, size: 3 });
-      stacks.slice(0, 3).forEach((s) => this.add(s, f.x + 0.5 + rng.range(-0.3, 0.3), f.y + 0.02, f.z + 0.5 + rng.range(-0.3, 0.3), { settled: false }));
+      // f.x / f.z are continuous coordinates (normally a cell centre): scatter inside that cell only
+      const cx = Math.floor(f.x), cz = Math.floor(f.z);
+      const jit = (v, c) => Math.min(c + 0.82, Math.max(c + 0.18, v + rng.range(-0.28, 0.28)));
+      stacks.slice(0, 3).forEach((s) => this.add(s, jit(f.x, cx), f.y + 0.02, jit(f.z, cz), { settled: false }));
     });
   }
 
@@ -104,17 +144,22 @@ export class GroundItems {
     if (this.checkT <= 0) { this.checkT = 1.5; this.rollNearby(); }
     const p = g.player;
     const t = g.clock;
+    this.supportT = (this.supportT || 0) - dt;
+    const checkSupport = this.supportT <= 0;
+    if (checkSupport) this.supportT = 1;
     for (const it of this.items) {
       const dx = it.x - p.x, dz = it.z - p.z;
       const near = dx * dx + dz * dz < 45 * 45;
+      // the table / crate under a resting item was broken: let it fall again
+      if (checkSupport && it.settled && near && it.y > 0.1 && supportBelow(w, it.x, it.y, it.z, it.y - 0.1) === null) { it.settled = false; it.vy = 0; }
       if (!it.settled) {
         it.vy -= 18 * dt;
         let ny = it.y + it.vy * dt;
-        if (SOLID[w.get(Math.floor(it.x), Math.floor(ny), Math.floor(it.z))]) {
-          ny = Math.floor(ny) + 1.02;
-          // partial blocks (tables): rest on top of their box roughly
-          it.vy = 0; it.settled = true;
-        }
+        if (it.vy <= 0) {
+          // land on the real top of whatever is below (floor, table, counter, bed)
+          const top = supportBelow(w, it.x, it.y, it.z, ny - 1);
+          if (top !== null && ny <= top + 0.02) { ny = top + 0.02; it.vy = 0; it.settled = true; }
+        } else if (SOLID[w.get(Math.floor(it.x), Math.floor(ny + 0.3), Math.floor(it.z))]) { it.vy = 0; ny = it.y; }
         if (ny < 0) { ny = 0; it.settled = true; }
         it.y = ny;
       }
