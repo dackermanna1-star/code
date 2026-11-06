@@ -503,7 +503,7 @@ def follow_object(obj, f0, f1, step=3, off=(0, 0, 0)):
 
 
 def key_focus_on(cam, obj, f0, f1, step=2):
-    sc = bpy.context.scene; cd = cam.data; loc = cam.matrix_world.to_translation()
+    sc = bpy.context.scene; cd = cam.data; loc = cam.location.copy()   # (matrix_world is stale right after camera())
     for ff in range(f0, f1 + 1, step):
         sc.frame_set(ff); cd.dof.focus_distance = (obj.matrix_world.to_translation() - loc).length
         cd.keyframe_insert("dof.focus_distance", frame=ff)
