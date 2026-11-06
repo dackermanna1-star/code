@@ -34,7 +34,7 @@ Large downloaded source assets (`blender/assets_src/`) and rendered frames (`ren
 
 ## Review passes
 
-Three adversarial reviews were run on the cut: `research/prerender_review.json`, `research/final_review.json` and `research/final_review_2.json`.
+Three full adversarial reviews and a final targeted check were run on the cut: `research/prerender_review.json`, `research/final_review.json`, `research/final_review_2.json`, `research/final_review_3.json` and `research/final_check_4.json`.
 Fixes made in response:
 
 - **Helicopter rotor:** the main rotor is split off the model by mesh island (4 blades + hub) and spins on the mast. Nothing is left frozen or orbiting the fuselage.
