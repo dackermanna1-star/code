@@ -204,4 +204,13 @@ function sanitize(ctx) {
     const d = BLOCKS[world.blocks[i]];
     if (!d.oriented && !d.door && d.name !== 'sign_letter') world.meta.delete(i);
   }
+  // A new character must not wake up next to a pack: street scenes (crashes, roadblocks) are decorated after
+  // the spawn houses were chosen, so drop start points with a static zombie group right outside the door
+  // (or inside the same house). Keep a healthy pool of starts either way.
+  const crowded = (sp) => world.zombieSpawns.some((s) => {
+    const d = Math.hypot(s.x - sp.x, s.z - sp.z);
+    return Math.abs(s.y - sp.y) < 4 && (s.indoor ? d < 8 : d < 18);
+  });
+  const safe = world.spawnPoints.filter((sp) => !crowded(sp));
+  if (safe.length >= Math.min(8, world.spawnPoints.length)) world.spawnPoints = safe;
 }

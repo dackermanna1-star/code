@@ -10,6 +10,15 @@ function box(w, h, d, color, x = 0, y = 0, z = 0) {
   return m;
 }
 
+/** Feet y of an open-sky, natural-ground cell at (x, z) (not a roof top, not a tree crown), or -1. */
+const GROUND = new Set([B.grass, B.dry_grass, B.asphalt, B.asphalt_cracked, B.dirt, B.forest_floor, B.sidewalk, B.concrete, B.dirt_path, B.gravel, B.sand, B.mud, B.farmland].filter((v) => v !== undefined));
+function streetLevel(w, x, z) {
+  const top = w.roofY(x, z);
+  if (!GROUND.has(w.get(x, top, z))) return -1;
+  if (!w.isSolid(x, top - 1, z)) return -1; // flat roof / platform with a room under it
+  return top + 1;
+}
+
 function compassDir(dx, dz) {
   const a = (Math.atan2(dx, -dz) * 180) / Math.PI;
   const dirs = ['north', 'north-east', 'east', 'south-east', 'south', 'south-west', 'west', 'north-west'];
@@ -114,6 +123,8 @@ export class Events {
       const id = w.get(x, top, z);
       if (![B.grass, B.dry_grass, B.asphalt, B.dirt, B.forest_floor, B.sidewalk, B.concrete, B.dirt_path, B.gravel].includes(id)) continue;
       if (w.get(x, top + 1, z) !== 0 && w.get(x, top + 1, z) !== B.tall_grass) continue;
+      // real ground only (a flat concrete roof has a room under it): the crate must be reachable
+      if (!w.isSolid(x, top - 1, z) || !w.isSolid(x, top - 2, z)) continue;
       const root = new THREE.Group();
       const crate = box(1, 1, 1, 0x4a5a32);
       root.add(crate);
@@ -144,8 +155,7 @@ export class Events {
         if (d.root.position.y <= d.ground + 0.5) {
           d.landed = true;
           g.renderer.scene.remove(d.root);
-          w.setBlock(d.x, d.ground, d.z, B.crate_military, 0);
-          w.addContainer(d.x, d.ground, d.z, 'airdrop', { name: 'Supply Drop', size: 12 });
+          this.placeCrate(d);
           d.smoke = g.fx?.smoke?.(new THREE.Vector3(d.x + 0.5, d.ground + 1, d.z + 0.5), { color: 0xc03028, duration: 300, radius: 1.2 });
           g.audio.play('land_hard', { pos: { x: d.x, y: d.ground, z: d.z }, volume: 1.5 });
           d.noiseLeft = 60;
@@ -156,6 +166,30 @@ export class Events {
         if (d.noiseT <= 0) { d.noiseT = 5; g.noise(d.x, d.ground, d.z, 70, 'airdrop'); }
       }
     }
+    // drop the map marker once the crate has been emptied (or destroyed)
+    this.markerT = (this.markerT || 0) - dt;
+    if (this.markerT <= 0) {
+      this.markerT = 2;
+      for (let i = this.markers.length - 1; i >= 0; i--) {
+        const m = this.markers[i], d = m.drop;
+        if (!d || !d.landed) continue;
+        const c = w.get(d.x, d.ground, d.z) === B.crate_military ? w.getContainer(d.x, d.ground, d.z) : null;
+        if (!c || (c.items && c.items.every((s) => !s))) {
+          this.markers.splice(i, 1);
+          const di = this.drops.indexOf(d);
+          if (di >= 0) this.drops.splice(di, 1);
+        }
+      }
+    }
+  }
+
+  /** Put the landed crate in the world and register its loot (keeps loot already rolled / taken). */
+  placeCrate(d) {
+    const w = this.game.world;
+    if (w.get(d.x, d.ground, d.z) !== B.crate_military) w.setBlock(d.x, d.ground, d.z, B.crate_military, 0);
+    const c = w.containers.get(w.idx(d.x, d.ground, d.z));
+    if (!c || !c.items) w.addContainer(d.x, d.ground, d.z, 'airdrop', { name: 'Supply Drop', size: 12 });
+    else c.name = 'Supply Drop';
   }
 
   // ---------------------------------------------------------------- horde
@@ -170,7 +204,10 @@ export class Events {
     for (let i = 0; i < n * 4 && placed < n; i++) {
       const x = Math.floor(cx + (Math.random() - 0.5) * 16), z = Math.floor(cz + (Math.random() - 0.5) * 16);
       if (x < 2 || z < 2 || x > w.SX - 3 || z > w.SZ - 3) continue;
-      const y = groundAt(w, x, w.roofY(x, z) + 1, z);
+      // the horde walks the streets and fields: never spawn on roofs or in tree crowns
+      const sy = streetLevel(w, x, z);
+      if (sy < 0) continue;
+      const y = groundAt(w, x, sy, z);
       if (y < 0) continue;
       const zb = g.zombies.spawn(x + 0.5, y, z + 0.5);
       zb.target = { x: tx + (Math.random() - 0.5) * 10, y: p.y, z: tz + (Math.random() - 0.5) * 10 };
@@ -180,6 +217,19 @@ export class Events {
     if (placed) g.ui?.subtitle('A chorus of groans rises in the distance...', 4);
   }
 
-  toJSON() { return { nextHeli: this.nextHeli, nextDrop: this.nextDrop, nextHorde: this.nextHorde }; }
-  load(d) { if (d) Object.assign(this, { nextHeli: d.nextHeli, nextDrop: d.nextDrop, nextHorde: d.nextHorde }); }
+  toJSON() {
+    // a crate still falling is saved as landed (it would have landed by the time you come back)
+    const drops = this.drops.map((d) => ({ x: d.x, z: d.z, ground: d.ground }));
+    return { nextHeli: this.nextHeli, nextDrop: this.nextDrop, nextHorde: this.nextHorde, drops };
+  }
+  load(d) {
+    if (!d) return;
+    Object.assign(this, { nextHeli: d.nextHeli ?? this.nextHeli, nextDrop: d.nextDrop ?? this.nextDrop, nextHorde: d.nextHorde ?? this.nextHorde });
+    for (const s of d.drops || []) {
+      const drop = { root: null, chute: null, x: s.x, z: s.z, ground: s.ground, landed: true, t: 0, noiseT: 0, noiseLeft: 0 };
+      this.placeCrate(drop);
+      this.drops.push(drop);
+      this.markers.push({ x: s.x, z: s.z, label: 'Supply Drop', type: 'airdrop', drop });
+    }
+  }
 }
