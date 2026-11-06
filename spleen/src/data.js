@@ -164,7 +164,7 @@ const BOSSES = {
   aspergill: { name: 'ASPERGILL', title: 'The bloom that breathes for you', hp: 800, r: 1.5, color: '#b8ffe0', core: '#2a6a5a' },
   hunger: { name: 'THE LONG HUNGER', title: 'Forty feet of appetite', hp: 1000, r: 0.85, color: '#ffd8a8', core: '#8a5a2a' },
   misfold: { name: 'MISFOLD', title: 'The thought that should not be', hp: 1150, r: 1.3, color: '#7cf7ff', core: '#1a3a9a' },
-  sepsis: { name: 'SEPSIS', title: 'Patient Zero', hp: 2600, r: 2.1, color: '#ff8a2a', core: '#3a0a02' },
+  sepsis: { name: 'SEPSIS', title: 'Patient Zero', hp: 3800, r: 2.1, color: '#ff8a2a', core: '#3a0a02' },
 };
 
 /* --------------------------------------------------------------------------

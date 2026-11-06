@@ -87,6 +87,13 @@
   }
   const RND = makeRng((Date.now() ^ 0x5bd1e995) >>> 0);
   function safeDisconnect(n) { try { n.disconnect(); } catch (_) { /* already */ } }
+  // freeze an AudioParam at its current automated value before a new ramp
+  function holdParam(p, now) {
+    if (p.cancelAndHoldAtTime) { try { p.cancelAndHoldAtTime(now); return; } catch (_) { /* fall back */ } }
+    const v = p.value;
+    p.cancelScheduledValues(now);
+    p.setValueAtTime(v, now);
+  }
 
   // ===========================================================================
   // 1. Shared buffers: noise, impulse responses, shaper curves
@@ -1322,8 +1329,10 @@
 
   // ===========================================================================
   // 6. Track definitions
-  //    layers: name -> {rev, drive, post, curve}; curves map intensity -> gain
-  //    bar(P) runs on each bar start, step(P) on every step, vary(P) every 4 bars
+  //    layers: name -> {rev (reverb send), drive + post (saturation), lvl (mix
+  //    trim), curve ([[intensity, gain], ...] - how the layer follows setIntensity)}
+  //    bar(P) runs on each bar start, step(P) on every step, vary(P) every 4 bars.
+  //    All notes land exactly on the 16th grid (swing only delays odd 16ths).
   // ===========================================================================
   const LAYER_CURVES = {
     amb: [[0, 1], [1, 0.8]],
@@ -1351,12 +1360,6 @@
     [[0, 14, 6], [6, 11, 2], [8, 12, 4], [12, 11, 2], [14, 10, 2], [16, 9, 4], [20, 10, 2], [22, 8, 2], [24, 7, 8]],
     [[0, 14, 4], [4, 15, 4], [8, 16, 6], [14, 15, 2], [16, 14, 4], [20, 12, 2], [22, 11, 2], [24, 11, 8]],
   ];
-
-  // shared lead helper: plays a motif (P.st[key]) with a given voice function
-  function playMotif(P, dest, motif, voice) {
-    const note = motif[P.pos % motif.length];
-    if (note) voice(note, P.ct(note.i, 2), note.l * P.sd);
-  }
 
   const TRACKS = {
     // ------------------------------------------------------------- TITLE ----
@@ -1894,7 +1897,9 @@
       let input = lg;
       if (L.drive) {
         const ws = c.createWaveShaper();
-        ws.curve = driveCurve(L.drive); ws.oversample = '2x';
+        // no oversampling: its resampler adds ~3 ms latency and would push
+        // driven drums (e.g. boss heartbeats) off the beat clock
+        ws.curve = driveCurve(L.drive); ws.oversample = 'none';
         const pg = c.createGain(); pg.gain.value = L.post || 0.6;
         ws.connect(pg); pg.connect(lg);
         input = ws;
@@ -1931,8 +1936,7 @@
   };
   TP.fadeTo = function (target, now, sec) {
     for (const p of [this.xd.gain, this.xw.gain]) {
-      p.cancelScheduledValues(now);
-      p.setValueAtTime(p.value, now);
+      holdParam(p, now);
       if (sec <= 0.03) p.setValueAtTime(target, now);
       else p.linearRampToValueAtTime(target, now + sec);
     }
@@ -2011,9 +2015,13 @@
   const LIM_TRIM = 0.82;       // master limiter: +1.71 dB make-up
   const MUS_TRIM = 0.82;       // music bus compressor: +1.72 dB make-up
   const LP_ON = 620;
+  // Each DynamicsCompressorNode delays its signal by a fixed 6 ms look-ahead.
+  // Music passes three (bus comp, master glue, master limiter), so a note
+  // scheduled at ctx time T is heard at T + 18 ms; the beat clock compensates.
+  const GRAPH_LATENCY = 0.018;
 
   const E = {
-    ctx: null, g: null, ready: false, failed: !AC,
+    ctx: null, g: null, ready: false, failed: false,
     vol: { master: 1, music: 0.8, sfx: 1 }, muted: false, lowpass: false,
     tracks: [], cur: null, curId: null, curRegion: null, lastRegion: 'veins', pending: null,
     intensity: 0, timer: null, lastTick: 0, tickMs: 0, ticks: 0,
@@ -2099,10 +2107,12 @@
     }
     return Math.max(0, c.currentTime - (c.outputLatency || c.baseLatency || 0));
   }
+  // context time whose scheduled music is reaching the listener's ears right now
+  function heardTime() { return audibleTime() - GRAPH_LATENCY; }
   function clockBeat() {
     let b;
     if (CLK.audio && ctxRunning()) {
-      b = (audibleTime() - CLK.t0) * CLK.bpm / 60;
+      b = (heardTime() - CLK.t0) * CLK.bpm / 60;
       if (b < CLK.last) b = CLK.last;
       CLK.beat0 = b; CLK.perf0 = perfNow();
     } else {
@@ -2121,8 +2131,7 @@
   function anchorAudio() {
     const tr = E.cur, c = E.ctx;
     const b = clockBeat();
-    const at = audibleTime();
-    const t0 = at - b * 60 / CLK.bpm;
+    const t0 = heardTime() - b * 60 / CLK.bpm;
     CLK.t0 = t0; CLK.audio = true;
     if (tr) {
       tr.t0 = t0;
@@ -2145,11 +2154,9 @@
         tr.update(dt, now, E.intensity);
         tr.scheduleUntil(now + LOOKAHEAD, now + 0.004);
       }
-      if (E.tracks.length) {
-        E.tracks = E.tracks.filter((tr) => {
-          if (tr.fadeEnd && now > tr.fadeEnd) { tr.dispose(); return false; }
-          return true;
-        });
+      for (let i = E.tracks.length - 1; i >= 0; i--) {
+        const tr = E.tracks[i];
+        if (tr.fadeEnd && now > tr.fadeEnd) { tr.dispose(); E.tracks.splice(i, 1); }
       }
       if (CLK.audio) clockBeat();
     } catch (e) {
@@ -2183,8 +2190,7 @@
     const c = E.ctx, now = c.currentTime;
     fade = Math.max(0.005, fade || 0.015);
     try {
-      v.g.gain.cancelScheduledValues(now);
-      v.g.gain.setValueAtTime(v.g.gain.value, now);
+      holdParam(v.g.gain, now);
       v.g.gain.linearRampToValueAtTime(0, now + fade);
       if (v.src) v.src.stop(now + fade + 0.01);
     } catch (_) { /* ignore */ }
@@ -2202,7 +2208,7 @@
     // per-name cap: steal that name's oldest voice
     let same = 0, oldest = null;
     for (const v of E.voices) if (v.name === name) { same++; if (!oldest || v.start < oldest.start) oldest = v; }
-    if (same >= def.max && oldest) killVoice(oldest, 0.02);
+    if (same >= def.max && oldest) { killVoice(oldest, 0.02); pruneVoices(now); }
     // global cap: steal the oldest voice of equal-or-lower priority
     if (E.voices.length >= VOICE_CAP) {
       let victim = null;
@@ -2296,8 +2302,16 @@
     try {
       if (!AC) { warnOnce('noac', 'Web Audio unavailable; audio disabled'); return false; }
       if (!E.ctx) {
-        try { E.ctx = new AC({ latencyHint: 'interactive' }); } catch (_) { E.ctx = new AC(); }
-        E.g = buildGraph(E.ctx);
+        if (E.failed) return false;
+        let ctx = null;
+        try { ctx = new AC({ latencyHint: 'interactive' }); } catch (_) { ctx = new AC(); }
+        try { E.g = buildGraph(ctx); } catch (e) {
+          // never leave a half-built engine behind: give up on audio for this session
+          E.failed = true;
+          try { ctx.close(); } catch (_) { /* ignore */ }
+          throw e;
+        }
+        E.ctx = ctx;
         applyVolumes(true);
         applyLowpass(true);
         E.ctx.onstatechange = onState;
@@ -2367,11 +2381,13 @@
     init: guard(init, false),
     setVolume: guard((kind, v) => {
       if (!KINDS[kind]) return;
-      E.vol[kind] = clamp(num(+v, E.vol[kind]), 0, 1);
+      const nv = clamp(num(+v, E.vol[kind]), 0, 1);
+      if (nv === E.vol[kind]) return;
+      E.vol[kind] = nv;
       applyVolumes(false);
     }),
     getVolume: (kind) => (KINDS[kind] ? E.vol[kind] : 0),
-    setMuted: guard((m) => { E.muted = !!m; applyVolumes(false); }),
+    setMuted: guard((m) => { if (E.muted === !!m) return; E.muted = !!m; applyVolumes(false); }),
     sfx: guard(playSfx, null),
     stopSfx: guard((name, fadeSec) => {
       if (!E.ctx) return;
@@ -2383,13 +2399,13 @@
       const a = clamp(num(amount, 0.5), 0, 1), s = clamp(num(sec, 0.6), 0.05, 10);
       const p = E.g.duck.gain, now = E.ctx.currentTime;
       const target = Math.min(1 - a, p.value);
-      p.cancelScheduledValues(now);
-      p.setValueAtTime(p.value, now);
+      holdParam(p, now);
       p.linearRampToValueAtTime(target, now + 0.03);
       p.setValueAtTime(target, now + 0.03 + s * 0.3);
       p.linearRampToValueAtTime(1, now + 0.03 + s);
     }),
-    setLowpass: guard((on) => { E.lowpass = !!on; applyLowpass(false); }),
+    // cheap when unchanged: games often call this every frame
+    setLowpass: guard((on) => { if (E.lowpass === !!on) return; E.lowpass = !!on; applyLowpass(false); }),
 
     // ---- test hooks ----
     _sfxNames: SFX_NAMES.slice(),
@@ -2420,6 +2436,7 @@
     },
     _debug() {
       return {
+        cachedNames: Object.keys(E.cache),
         ctx: E.ctx ? E.ctx.state : null, sampleRate: E.ctx ? E.ctx.sampleRate : null,
         voices: E.voices.filter((v) => !v.dead).length, tracks: E.tracks.length, current: E.curId,
         cached: Object.keys(E.cache).length, total: SFX_NAMES.length, queue: E.queue.length,
@@ -2428,6 +2445,7 @@
       };
     },
     _ctx: () => E.ctx,
+    _graphLatency: GRAPH_LATENCY,
   };
   Object.defineProperty(AUDIO, 'ready', { enumerable: true, get: () => E.ready });
   Object.defineProperty(AUDIO, 'muted', { enumerable: true, get: () => E.muted, set: (m) => AUDIO.setMuted(m) });

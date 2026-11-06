@@ -649,7 +649,7 @@ const Gfx = (function () {
     for (let ty = 0; ty < H; ty++) for (let tx = 0; tx < W; tx++) {
       const t = room.grid[ty * W + tx];
       if (t === T_ROCK) {
-        const m = BABYLON.MeshBuilder.CreateIcoSphere('r', { radius: 0.5, subdivisions: 1 }, scene);
+        const m = BABYLON.MeshBuilder.CreateIcoSphere('r', { radius: 0.5, subdivisions: 3 }, scene);
         const pos = m.getVerticesData(BABYLON.VertexBuffer.PositionKind);
         for (let i = 0; i < pos.length; i += 3) { const k = 1 + rng.range(-0.18, 0.22); pos[i] *= k; pos[i + 1] *= k; pos[i + 2] *= k; }
         m.updateVerticesData(BABYLON.VertexBuffer.PositionKind, pos);

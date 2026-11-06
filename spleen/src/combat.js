@@ -474,6 +474,7 @@ function explode(x, y, r, dmg, o = {}) {
   addRing(x, y, r, hex, 0.3);
   if (!o.small) { Gfx.scorch(SIM.room, x, y, r * 0.9); Gfx.addShake(0.4); sfx('explosion', { rate: rnd(0.9, 1.1) }); }
   else if (Math.random() < 0.5) sfx('explosion', { vol: 0.35, rate: rnd(1.3, 1.6) });
+  if (o.fxOnly) return;
   if (o.byPlayer) {
     for (const e of SIM.enemies) {
       if (e.dead || e.spawning > 0 || (o.exclude && o.exclude === e)) continue;

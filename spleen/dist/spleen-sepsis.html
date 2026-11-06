@@ -584,7 +584,7 @@ const BOSSES = {
   aspergill: { name: 'ASPERGILL', title: 'The bloom that breathes for you', hp: 800, r: 1.5, color: '#b8ffe0', core: '#2a6a5a' },
   hunger: { name: 'THE LONG HUNGER', title: 'Forty feet of appetite', hp: 1000, r: 0.85, color: '#ffd8a8', core: '#8a5a2a' },
   misfold: { name: 'MISFOLD', title: 'The thought that should not be', hp: 1150, r: 1.3, color: '#7cf7ff', core: '#1a3a9a' },
-  sepsis: { name: 'SEPSIS', title: 'Patient Zero', hp: 2600, r: 2.1, color: '#ff8a2a', core: '#3a0a02' },
+  sepsis: { name: 'SEPSIS', title: 'Patient Zero', hp: 3800, r: 2.1, color: '#ff8a2a', core: '#3a0a02' },
 };
 
 /* --------------------------------------------------------------------------
@@ -853,6 +853,13 @@ const TUTORIAL = {
   }
   const RND = makeRng((Date.now() ^ 0x5bd1e995) >>> 0);
   function safeDisconnect(n) { try { n.disconnect(); } catch (_) { /* already */ } }
+  // freeze an AudioParam at its current automated value before a new ramp
+  function holdParam(p, now) {
+    if (p.cancelAndHoldAtTime) { try { p.cancelAndHoldAtTime(now); return; } catch (_) { /* fall back */ } }
+    const v = p.value;
+    p.cancelScheduledValues(now);
+    p.setValueAtTime(v, now);
+  }
 
   // ===========================================================================
   // 1. Shared buffers: noise, impulse responses, shaper curves
@@ -2088,8 +2095,10 @@ const TUTORIAL = {
 
   // ===========================================================================
   // 6. Track definitions
-  //    layers: name -> {rev, drive, post, curve}; curves map intensity -> gain
-  //    bar(P) runs on each bar start, step(P) on every step, vary(P) every 4 bars
+  //    layers: name -> {rev (reverb send), drive + post (saturation), lvl (mix
+  //    trim), curve ([[intensity, gain], ...] - how the layer follows setIntensity)}
+  //    bar(P) runs on each bar start, step(P) on every step, vary(P) every 4 bars.
+  //    All notes land exactly on the 16th grid (swing only delays odd 16ths).
   // ===========================================================================
   const LAYER_CURVES = {
     amb: [[0, 1], [1, 0.8]],
@@ -2117,12 +2126,6 @@ const TUTORIAL = {
     [[0, 14, 6], [6, 11, 2], [8, 12, 4], [12, 11, 2], [14, 10, 2], [16, 9, 4], [20, 10, 2], [22, 8, 2], [24, 7, 8]],
     [[0, 14, 4], [4, 15, 4], [8, 16, 6], [14, 15, 2], [16, 14, 4], [20, 12, 2], [22, 11, 2], [24, 11, 8]],
   ];
-
-  // shared lead helper: plays a motif (P.st[key]) with a given voice function
-  function playMotif(P, dest, motif, voice) {
-    const note = motif[P.pos % motif.length];
-    if (note) voice(note, P.ct(note.i, 2), note.l * P.sd);
-  }
 
   const TRACKS = {
     // ------------------------------------------------------------- TITLE ----
@@ -2660,7 +2663,9 @@ const TUTORIAL = {
       let input = lg;
       if (L.drive) {
         const ws = c.createWaveShaper();
-        ws.curve = driveCurve(L.drive); ws.oversample = '2x';
+        // no oversampling: its resampler adds ~3 ms latency and would push
+        // driven drums (e.g. boss heartbeats) off the beat clock
+        ws.curve = driveCurve(L.drive); ws.oversample = 'none';
         const pg = c.createGain(); pg.gain.value = L.post || 0.6;
         ws.connect(pg); pg.connect(lg);
         input = ws;
@@ -2697,8 +2702,7 @@ const TUTORIAL = {
   };
   TP.fadeTo = function (target, now, sec) {
     for (const p of [this.xd.gain, this.xw.gain]) {
-      p.cancelScheduledValues(now);
-      p.setValueAtTime(p.value, now);
+      holdParam(p, now);
       if (sec <= 0.03) p.setValueAtTime(target, now);
       else p.linearRampToValueAtTime(target, now + sec);
     }
@@ -2777,9 +2781,13 @@ const TUTORIAL = {
   const LIM_TRIM = 0.82;       // master limiter: +1.71 dB make-up
   const MUS_TRIM = 0.82;       // music bus compressor: +1.72 dB make-up
   const LP_ON = 620;
+  // Each DynamicsCompressorNode delays its signal by a fixed 6 ms look-ahead.
+  // Music passes three (bus comp, master glue, master limiter), so a note
+  // scheduled at ctx time T is heard at T + 18 ms; the beat clock compensates.
+  const GRAPH_LATENCY = 0.018;
 
   const E = {
-    ctx: null, g: null, ready: false, failed: !AC,
+    ctx: null, g: null, ready: false, failed: false,
     vol: { master: 1, music: 0.8, sfx: 1 }, muted: false, lowpass: false,
     tracks: [], cur: null, curId: null, curRegion: null, lastRegion: 'veins', pending: null,
     intensity: 0, timer: null, lastTick: 0, tickMs: 0, ticks: 0,
@@ -2865,10 +2873,12 @@ const TUTORIAL = {
     }
     return Math.max(0, c.currentTime - (c.outputLatency || c.baseLatency || 0));
   }
+  // context time whose scheduled music is reaching the listener's ears right now
+  function heardTime() { return audibleTime() - GRAPH_LATENCY; }
   function clockBeat() {
     let b;
     if (CLK.audio && ctxRunning()) {
-      b = (audibleTime() - CLK.t0) * CLK.bpm / 60;
+      b = (heardTime() - CLK.t0) * CLK.bpm / 60;
       if (b < CLK.last) b = CLK.last;
       CLK.beat0 = b; CLK.perf0 = perfNow();
     } else {
@@ -2887,8 +2897,7 @@ const TUTORIAL = {
   function anchorAudio() {
     const tr = E.cur, c = E.ctx;
     const b = clockBeat();
-    const at = audibleTime();
-    const t0 = at - b * 60 / CLK.bpm;
+    const t0 = heardTime() - b * 60 / CLK.bpm;
     CLK.t0 = t0; CLK.audio = true;
     if (tr) {
       tr.t0 = t0;
@@ -2911,11 +2920,9 @@ const TUTORIAL = {
         tr.update(dt, now, E.intensity);
         tr.scheduleUntil(now + LOOKAHEAD, now + 0.004);
       }
-      if (E.tracks.length) {
-        E.tracks = E.tracks.filter((tr) => {
-          if (tr.fadeEnd && now > tr.fadeEnd) { tr.dispose(); return false; }
-          return true;
-        });
+      for (let i = E.tracks.length - 1; i >= 0; i--) {
+        const tr = E.tracks[i];
+        if (tr.fadeEnd && now > tr.fadeEnd) { tr.dispose(); E.tracks.splice(i, 1); }
       }
       if (CLK.audio) clockBeat();
     } catch (e) {
@@ -2949,8 +2956,7 @@ const TUTORIAL = {
     const c = E.ctx, now = c.currentTime;
     fade = Math.max(0.005, fade || 0.015);
     try {
-      v.g.gain.cancelScheduledValues(now);
-      v.g.gain.setValueAtTime(v.g.gain.value, now);
+      holdParam(v.g.gain, now);
       v.g.gain.linearRampToValueAtTime(0, now + fade);
       if (v.src) v.src.stop(now + fade + 0.01);
     } catch (_) { /* ignore */ }
@@ -2968,7 +2974,7 @@ const TUTORIAL = {
     // per-name cap: steal that name's oldest voice
     let same = 0, oldest = null;
     for (const v of E.voices) if (v.name === name) { same++; if (!oldest || v.start < oldest.start) oldest = v; }
-    if (same >= def.max && oldest) killVoice(oldest, 0.02);
+    if (same >= def.max && oldest) { killVoice(oldest, 0.02); pruneVoices(now); }
     // global cap: steal the oldest voice of equal-or-lower priority
     if (E.voices.length >= VOICE_CAP) {
       let victim = null;
@@ -3062,8 +3068,16 @@ const TUTORIAL = {
     try {
       if (!AC) { warnOnce('noac', 'Web Audio unavailable; audio disabled'); return false; }
       if (!E.ctx) {
-        try { E.ctx = new AC({ latencyHint: 'interactive' }); } catch (_) { E.ctx = new AC(); }
-        E.g = buildGraph(E.ctx);
+        if (E.failed) return false;
+        let ctx = null;
+        try { ctx = new AC({ latencyHint: 'interactive' }); } catch (_) { ctx = new AC(); }
+        try { E.g = buildGraph(ctx); } catch (e) {
+          // never leave a half-built engine behind: give up on audio for this session
+          E.failed = true;
+          try { ctx.close(); } catch (_) { /* ignore */ }
+          throw e;
+        }
+        E.ctx = ctx;
         applyVolumes(true);
         applyLowpass(true);
         E.ctx.onstatechange = onState;
@@ -3133,11 +3147,13 @@ const TUTORIAL = {
     init: guard(init, false),
     setVolume: guard((kind, v) => {
       if (!KINDS[kind]) return;
-      E.vol[kind] = clamp(num(+v, E.vol[kind]), 0, 1);
+      const nv = clamp(num(+v, E.vol[kind]), 0, 1);
+      if (nv === E.vol[kind]) return;
+      E.vol[kind] = nv;
       applyVolumes(false);
     }),
     getVolume: (kind) => (KINDS[kind] ? E.vol[kind] : 0),
-    setMuted: guard((m) => { E.muted = !!m; applyVolumes(false); }),
+    setMuted: guard((m) => { if (E.muted === !!m) return; E.muted = !!m; applyVolumes(false); }),
     sfx: guard(playSfx, null),
     stopSfx: guard((name, fadeSec) => {
       if (!E.ctx) return;
@@ -3149,13 +3165,13 @@ const TUTORIAL = {
       const a = clamp(num(amount, 0.5), 0, 1), s = clamp(num(sec, 0.6), 0.05, 10);
       const p = E.g.duck.gain, now = E.ctx.currentTime;
       const target = Math.min(1 - a, p.value);
-      p.cancelScheduledValues(now);
-      p.setValueAtTime(p.value, now);
+      holdParam(p, now);
       p.linearRampToValueAtTime(target, now + 0.03);
       p.setValueAtTime(target, now + 0.03 + s * 0.3);
       p.linearRampToValueAtTime(1, now + 0.03 + s);
     }),
-    setLowpass: guard((on) => { E.lowpass = !!on; applyLowpass(false); }),
+    // cheap when unchanged: games often call this every frame
+    setLowpass: guard((on) => { if (E.lowpass === !!on) return; E.lowpass = !!on; applyLowpass(false); }),
 
     // ---- test hooks ----
     _sfxNames: SFX_NAMES.slice(),
@@ -3186,6 +3202,7 @@ const TUTORIAL = {
     },
     _debug() {
       return {
+        cachedNames: Object.keys(E.cache),
         ctx: E.ctx ? E.ctx.state : null, sampleRate: E.ctx ? E.ctx.sampleRate : null,
         voices: E.voices.filter((v) => !v.dead).length, tracks: E.tracks.length, current: E.curId,
         cached: Object.keys(E.cache).length, total: SFX_NAMES.length, queue: E.queue.length,
@@ -3194,6 +3211,7 @@ const TUTORIAL = {
       };
     },
     _ctx: () => E.ctx,
+    _graphLatency: GRAPH_LATENCY,
   };
   Object.defineProperty(AUDIO, 'ready', { enumerable: true, get: () => E.ready });
   Object.defineProperty(AUDIO, 'muted', { enumerable: true, get: () => E.muted, set: (m) => AUDIO.setMuted(m) });
@@ -4064,7 +4082,7 @@ const Gfx = (function () {
     for (let ty = 0; ty < H; ty++) for (let tx = 0; tx < W; tx++) {
       const t = room.grid[ty * W + tx];
       if (t === T_ROCK) {
-        const m = BABYLON.MeshBuilder.CreateIcoSphere('r', { radius: 0.5, subdivisions: 1 }, scene);
+        const m = BABYLON.MeshBuilder.CreateIcoSphere('r', { radius: 0.5, subdivisions: 3 }, scene);
         const pos = m.getVerticesData(BABYLON.VertexBuffer.PositionKind);
         for (let i = 0; i < pos.length; i += 3) { const k = 1 + rng.range(-0.18, 0.22); pos[i] *= k; pos[i + 1] *= k; pos[i + 2] *= k; }
         m.updateVerticesData(BABYLON.VertexBuffer.PositionKind, pos);
@@ -5147,6 +5165,7 @@ function explode(x, y, r, dmg, o = {}) {
   addRing(x, y, r, hex, 0.3);
   if (!o.small) { Gfx.scorch(SIM.room, x, y, r * 0.9); Gfx.addShake(0.4); sfx('explosion', { rate: rnd(0.9, 1.1) }); }
   else if (Math.random() < 0.5) sfx('explosion', { vol: 0.35, rate: rnd(1.3, 1.6) });
+  if (o.fxOnly) return;
   if (o.byPlayer) {
     for (const e of SIM.enemies) {
       if (e.dead || e.spawning > 0 || (o.exclude && o.exclude === e)) continue;
@@ -6488,10 +6507,10 @@ function updateEnemies(dt) {
     if (e.dead) continue;
     let k = e.speedK * (P ? P.st.enemySpeedMult : 1) * (e.slowT > 0 ? e.slowK : 1) * e.zoneSlow;
     e.zoneSlow = 1;
-    e.data.bonk = false;
     if (e.stunT > 0) { e.vx *= 0.8; e.vy *= 0.8; }
     else if (e.isBoss) e.update(e, dt, k);
     else (AI[e.def.ai] || AI.chase)(e, dt, k);
+    e.data.bonk = false; // set below by collision; read by the AI on the next step
     // integrate
     const kk = damp(7, dt);
     e.x += (e.vx + e.kx) * dt; e.y += (e.vy + e.ky) * dt;
@@ -6704,6 +6723,14 @@ function at(A, time) {
   if (A.t >= time && !A.f[time]) { A.f[time] = true; return true; }
   return false;
 }
+/** distance from (x,y) along angle a to the arena's inner wall (capped at max) */
+function arenaLen(x, y, a, max) {
+  const room = SIM.room, c = Math.cos(a), s = Math.sin(a);
+  let t = max;
+  if (c > 1e-6) t = Math.min(t, (room.W - 1 - x) / c); else if (c < -1e-6) t = Math.min(t, (1 - x) / c);
+  if (s > 1e-6) t = Math.min(t, (room.H - 1 - y) / s); else if (s < -1e-6) t = Math.min(t, (1 - y) / s);
+  return Math.max(0.5, t);
+}
 function clampArena(x, y, m = 1.6) {
   const room = SIM.room;
   return { x: clamp(x, m, room.W - m), y: clamp(y, m, room.H - m) };
@@ -6820,7 +6847,7 @@ function swayTentacle(T, t, amp, speed) { T.nodes.forEach((n, i) => { n.rotation
       const head = e.forward;
       if (e.dead || head.dead || e.burrowed || e.spawning > 0 || head.invuln) return 0;
       e.hurtT = 0.09;
-      const amt = amount * enemyDamageMult(e) * 0.7;
+      const amt = amount * enemyDamageMult(e) * 0.5;
       const d = base(head, amt, Object.assign({}, o, { pure: true, silent: true, x: o.x != null ? o.x : e.x, y: o.y != null ? o.y : e.y }));
       if (d > 0 && SIM.opts.dmgNumbers && !o.silent) {
         Gfx.floatText(e.x + rnd(-0.2, 0.2), e.y, Math.max(1, Math.round(d)).toString(), o.crit ? '#ffe066' : o.dot ? (o.dotHex || '#ffa060') : '#ffffff', o.crit ? 19 : 13, { crit: o.crit, h: 1.0 + e.r });
@@ -6899,7 +6926,7 @@ const COLONY_ATK = {
       return false;
     }
     if (A.step === 1) {
-      const sp = (e.phase >= 2 ? 8.4 : 7.2) * D.spd * (e._k || 1);
+      const sp = (e.phase >= 2 ? 7.4 : 6.6) * D.spd * (e._k || 1);
       let bounced = false;
       const m = e.r + 0.15;
       if (e.x - e.r < 1.1 && A.dx < 0) { A.dx = -A.dx; bounced = true; }
@@ -6917,7 +6944,7 @@ const COLONY_ATK = {
         burst(e.x + A.dx * -e.r, e.y + A.dy * -e.r, e.color, 12, 4, { life: 0.4, size: 0.1 });
         if (e.phase >= 2) { enemyRing(e.x, e.y, 10, 3.8, { style: 'pink', a0: rnd(0, TAU) }); sfx('enemy_shoot_big', { vol: 0.6 }); }
         // nudge toward the player so rolls keep pressure but stay readable
-        const a = Math.atan2(A.dy, A.dx), na = a + clamp(angDiff(a, toPlayer(e).a), -0.45, 0.45);
+        const a = Math.atan2(A.dy, A.dx), na = a + clamp(angDiff(a, toPlayer(e).a), -0.3, 0.3);
         A.dx = Math.cos(na); A.dy = Math.sin(na);
       }
       setVel(e, Math.atan2(A.dy, A.dx), sp);
@@ -6936,7 +6963,7 @@ const COLONY_ATK = {
     for (let i = 0; i < 3; i++) {
       if (at(A, 0.55 + i * 0.42)) {
         const a = toPlayer(e).a + (i === 1 ? spread / (n - 1) / 2 : 0);
-        enemyFan(e.x + Math.cos(a) * e.r * 0.7, e.y + Math.sin(a) * e.r * 0.7, a, n, spread, 4.4, { style: 'pink' });
+        enemyFan(e.x + Math.cos(a) * e.r * 0.7, e.y + Math.sin(a) * e.r * 0.7, a, n, spread, e.phase >= 2 ? 4.4 : 4.0, { style: 'pink' });
         sfx('enemy_shoot_big', { vol: 0.8 }); D.swell = 0.7;
       }
     }
@@ -6975,7 +7002,7 @@ function updColony(e, dt, k) {
   const frac = clamp(e.hp / e.maxHp, 0, 1);
   D.sc = 0.6 + 0.4 * frac;
   e.r = BOSSES.colony.r * D.sc;
-  D.spd = 1 + (1 - frac) * 0.85;
+  D.spd = 1 + (1 - frac) * 0.45;
   D.phaseFlash = Math.max(0, (D.phaseFlash || 0) - dt);
   // shedding: cocci break off as HP drops
   const N = e.vis.cocci.length;
@@ -6996,7 +7023,7 @@ function updColony(e, dt, k) {
   e.vx = e.vy = 0;
   if (!e.atk && e.pause <= 0) {
     // idle: lumber toward the player
-    chase(e, 0.95 * D.spd * k);
+    chase(e, 0.85 * D.spd * k);
   }
   D.wind = e.atk && e.atk.name === 'roll' ? D.wind : 0;
   if (!e.atk) D.swell = Math.max(0, (D.swell || 0) - dt * 2);
@@ -7063,9 +7090,9 @@ function endoSpecial(e, kind, bps) {
     sfx('beam_charge', { vol: 0.8 });
     for (let i = 0; i < n; i++) {
       const a = a0 + i / n * TAU;
-      telegraph({ kind: 'line', x: e.x, y: e.y, ang: a, len: 17, w: 0.85, dur: beatSec * 1.4, owner: e, follow: (t) => { t.x = e.x; t.y = e.y; } });
+      telegraph({ kind: 'line', x: e.x, y: e.y, ang: a, len: 17, w: 0.85, dur: beatSec * 1.4, owner: e, follow: (t) => { t.x = e.x; t.y = e.y; t.len = arenaLen(t.x, t.y, t.ang, 17); } });
       later(e, beatSec * 1.4, () => {
-        spawnBeam(e.x, e.y, a, 17, 0.85, beatSec * 4.2, { owner: e, spin: dir * (e.phase >= 3 ? 0.5 : 0.42), hex: '#ff6aa8', follow: (b) => { b.x = e.x; b.y = e.y; } });
+        spawnBeam(e.x, e.y, a, 17, 0.85, beatSec * 4.2, { owner: e, spin: dir * (e.phase >= 3 ? 0.5 : 0.42), hex: '#ff6aa8', follow: (b) => { b.x = e.x; b.y = e.y; b.len = arenaLen(b.x, b.y, b.ang, 17); } });
         if (i === 0) { sfx('beam_fire'); D.sweep = true; later(e, beatSec * 4.2, () => { D.sweep = false; }); }
       });
     }
@@ -7204,7 +7231,7 @@ const ASP_ATK = {
       }
       A.sp = (A.sp || 0) - dt;
       if (A.sp <= 0) {
-        A.sp = e.phase >= 2 ? 0.1 : 0.13;
+        A.sp = e.phase >= 2 ? 0.11 : 0.16;
         A.ang = (A.ang == null ? rnd(0, TAU) : A.ang) + 0.41;
         const arms = e.phase >= 2 ? 3 : 2;
         for (let k = 0; k < arms; k++) { const a = A.ang + k / arms * TAU; spawnEShot(e.x + Math.cos(a) * e.r, e.y + Math.sin(a) * e.r, a, 3.0, { style: 'spore', r: 0.15 }); }
@@ -7517,7 +7544,7 @@ function visMisfold(e, real) {
   const dk = Gfx.cellMat('#3a5ad8', { rim: 1.7, core: 0.45, glow: 0.4 });
   const core = Gfx.part('dodeca', crys, b, 0, H, 0, R * 0.78);
   const inner = Gfx.part('octa', Gfx.glowMat('#e8ffff', { glow: 1.0 }), b, 0, H, 0, R * 0.35);
-  const halo = Gfx.part('torus', Gfx.glowMat('#a8f8ff', { glow: 0.8 }), b, 0, H, 0, R * 1.25);
+  const halo = Gfx.part('torus', Gfx.glowMat('#a8f8ff', { glow: 0.35, k: 0.75 }), b, 0, H, 0, R * 1.15);
   const shards = [];
   for (let i = 0; i < 4; i++) shards.push(Gfx.part('tetra', dk, b, 0, H, 0, R * 0.22));
   let tell = null;
@@ -7609,11 +7636,11 @@ const MIS_ATK = {
       D.wind = 1; A.a0 = toPlayer(e).a + Math.PI / 2; A.dir = rndSign();
       const n = e.phase >= 2 ? 3 : 2;
       A.n = n;
-      for (let i = 0; i < n; i++) telegraph({ kind: 'line', x: e.x, y: e.y, ang: A.a0 + i / n * TAU, len: 13, w: 0.7, dur: 0.95, owner: e });
+      for (let i = 0; i < n; i++) { const a = A.a0 + i / n * TAU; telegraph({ kind: 'line', x: e.x, y: e.y, ang: a, len: arenaLen(e.x, e.y, a, 13), w: 0.7, dur: 0.95, owner: e }); }
       sfx('beam_charge');
     }
     if (at(A, 0.95)) {
-      for (let i = 0; i < A.n; i++) spawnBeam(e.x, e.y, A.a0 + i / A.n * TAU, 13, 0.7, 3.2, { owner: e, spin: A.dir * (e.phase >= 2 ? 0.62 : 0.55), hex: '#7cf7ff', follow: (b) => { b.x = e.x; b.y = e.y; } });
+      for (let i = 0; i < A.n; i++) spawnBeam(e.x, e.y, A.a0 + i / A.n * TAU, 13, 0.7, 3.2, { owner: e, spin: A.dir * (e.phase >= 2 ? 0.62 : 0.55), hex: '#7cf7ff', follow: (b) => { b.x = e.x; b.y = e.y; b.len = arenaLen(b.x, b.y, b.ang, 13); } });
       sfx('beam_fire'); D.wind = 0.4;
     }
     if (A.t > 3.6) D.wind = 0;
@@ -7691,11 +7718,14 @@ function visSepsis(e) {
     pustules.push({ m: Gfx.part('sphereLo', pusM, shell, Math.cos(a) * rad * R * 0.98, R * 0.85 + yv * R * 0.8, Math.sin(a) * rad * R * 0.98, R * 0.13), ph: rnd(0, TAU) });
   }
   const coreM = Gfx.part('sphere', Gfx.glowMat('#ff5a1a', { glow: 1.1 }), b, 0, R * 0.95, 0, R * 0.55);
-  const eyeN = Gfx.node('eye'); eyeN.parent = b; eyeN.position.y = R * 1.25;
-  const eyeBall = Gfx.part('sphere', Gfx.cellMat('#fff0d8', { rim: 1.3, core: 0.7, glow: 0.35, dark: 0.95 }), eyeN, R * 0.62, 0, 0, R * 0.42);
-  const iris = Gfx.part('torusThick', Gfx.glowMat('#ff8a2a', { glow: 1.0 }), eyeN, R * 0.98, 0, 0, R * 0.22);
-  iris.rotation.z = Math.PI / 2;
-  const pupil = Gfx.part('sphere', Gfx.plainMat('#080200'), eyeN, R * 1.0, 0, 0, R * 0.12, R * 0.17, R * 0.12);
+  // the eye sits on top and looks at the player; iris tilted toward the camera so it reads from above
+  const eyeN = Gfx.node('eye'); eyeN.parent = b; eyeN.position.y = R * 1.3;
+  const rE = R * 0.46, tilt = 0.8, ex = R * 0.28;
+  const eyeBall = Gfx.part('sphere', Gfx.cellMat('#fff0d8', { rim: 1.2, core: 0.75, glow: 0.3, dark: 0.95 }), eyeN, ex, 0, 0, rE);
+  const iris = Gfx.part('torusThick', Gfx.glowMat('#ff7a1a', { glow: 1.0 }), eyeN, ex + Math.sin(tilt) * rE * 0.9, Math.cos(tilt) * rE * 0.9, 0, R * 0.2, R * 0.2, R * 0.2);
+  iris.rotation.z = -tilt;
+  const pupil = Gfx.part('sphere', Gfx.plainMat('#0a0200'), eyeN, ex + Math.sin(tilt) * rE * 0.97, Math.cos(tilt) * rE * 0.97, 0, R * 0.13, R * 0.05, R * 0.13);
+  pupil.rotation.z = -tilt;
   const tents = [];
   for (let i = 0; i < 6; i++) tents.push(tentacle(b, i / 6 * TAU + 0.26, R * 0.85, 5, 0.6, 0.4, 0.18, flesh, tipM));
   return {
@@ -7711,9 +7741,12 @@ function visSepsis(e) {
       coreM.scaling.setAll(R * (0.55 + open * 0.35 + Math.sin(t * 6) * 0.03 * (1 + open * 2) + (D.wind || 0) * 0.1 + (D.phaseFlash || 0) * 0.25));
       const tp = SIM.player ? angleTo(e.x, e.y, SIM.player.x, SIM.player.y) : 0;
       eyeN.rotation.y = lerpAngle(eyeN.rotation.y, tp, damp(4, dt));
-      eyeN.position.y = R * (1.25 - open * 0.25);
-      const blink = (Math.sin(t * 0.7) > 0.985) ? 0.15 : 1;
-      eyeBall.scaling.set(R * 0.42, R * 0.42 * blink, R * 0.42);
+      eyeN.position.y = R * (1.3 - open * 0.3);
+      const blink = (Math.sin(t * 0.7) > 0.985) ? 0.2 : 1;
+      eyeBall.scaling.set(rE, rE * blink, rE);
+      iris.setEnabled(blink > 0.5); pupil.setEnabled(blink > 0.5);
+      const dil = 1 + (D.wind || 0) * 0.5 + open * 0.3;
+      pupil.scaling.set(R * 0.13 * dil, R * 0.05, R * 0.13 * dil);
       tents.forEach((T) => swayTentacle(T, t, 0.18 + ph * 0.05 + (D.wind || 0) * 0.15, 1.8 + ph * 0.4));
     },
   };
@@ -7756,11 +7789,11 @@ const SEP_ATK = {
     const D = e.data;
     if (at(A, 0)) {
       D.wind = 1; A.a0 = toPlayer(e).a + Math.PI / 3; A.dir = (D.tdir = -(D.tdir || 1));
-      for (let i = 0; i < 3; i++) telegraph({ kind: 'line', x: e.x, y: e.y, ang: A.a0 + i / 3 * TAU, len: 15, w: 0.85, dur: 0.95, owner: e, follow: (t) => { t.x = e.x; t.y = e.y; } });
+      for (let i = 0; i < 3; i++) telegraph({ kind: 'line', x: e.x, y: e.y, ang: A.a0 + i / 3 * TAU, len: 15, w: 0.85, dur: 0.95, owner: e, follow: (t) => { t.x = e.x; t.y = e.y; t.len = arenaLen(t.x, t.y, t.ang, 15); } });
       sfx('beam_charge');
     }
     if (at(A, 0.95)) {
-      for (let i = 0; i < 3; i++) spawnBeam(e.x, e.y, A.a0 + i / 3 * TAU, 15, 0.85, 3.4, { owner: e, spin: A.dir * (e.phase >= 3 ? 0.46 : 0.4), hex: '#ff8a2a', follow: (b) => { b.x = e.x; b.y = e.y; } });
+      for (let i = 0; i < 3; i++) spawnBeam(e.x, e.y, A.a0 + i / 3 * TAU, 15, 0.85, 3.4, { owner: e, spin: A.dir * (e.phase >= 3 ? 0.46 : 0.4), hex: '#ff8a2a', follow: (b) => { b.x = e.x; b.y = e.y; b.len = arenaLen(b.x, b.y, b.ang, 15); } });
       sfx('beam_fire'); D.wind = 0.5;
     }
     if (A.t > 4.0) D.wind = 0;
@@ -8965,7 +8998,7 @@ function onBossKilled(e) {
   for (const o of SIM.enemies) if (!o.dead && o !== e) killEnemy(o, { src: 'boss' });
   SIM.slowmo = 1.4;
   sfx('boss_death'); Gfx.addShake(1); Gfx.caPulse = 1; Input.rumble(1, 600);
-  for (let i = 0; i < 6; i++) after(i * 0.16 * 0.3, () => explode(e.x + rnd(-1.5, 1.5), e.y + rnd(-1.5, 1.5), 1.6, 0, { hex: e.color }));
+  for (let i = 0; i < 6; i++) after(i * 0.16 * 0.3, () => explode(e.x + rnd(-1.5, 1.5), e.y + rnd(-1.5, 1.5), 1.6, 0, { hex: e.color, fxOnly: true }));
   Gfx.splat(room, e.x, e.y, e.r * 2.4, e.color, 0.7);
   UI.hideBoss();
   const bossId = e.bossId;

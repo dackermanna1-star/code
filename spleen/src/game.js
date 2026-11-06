@@ -457,7 +457,7 @@ function onBossKilled(e) {
   for (const o of SIM.enemies) if (!o.dead && o !== e) killEnemy(o, { src: 'boss' });
   SIM.slowmo = 1.4;
   sfx('boss_death'); Gfx.addShake(1); Gfx.caPulse = 1; Input.rumble(1, 600);
-  for (let i = 0; i < 6; i++) after(i * 0.16 * 0.3, () => explode(e.x + rnd(-1.5, 1.5), e.y + rnd(-1.5, 1.5), 1.6, 0, { hex: e.color }));
+  for (let i = 0; i < 6; i++) after(i * 0.16 * 0.3, () => explode(e.x + rnd(-1.5, 1.5), e.y + rnd(-1.5, 1.5), 1.6, 0, { hex: e.color, fxOnly: true }));
   Gfx.splat(room, e.x, e.y, e.r * 2.4, e.color, 0.7);
   UI.hideBoss();
   const bossId = e.bossId;

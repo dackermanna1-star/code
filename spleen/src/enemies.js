@@ -604,10 +604,10 @@ function updateEnemies(dt) {
     if (e.dead) continue;
     let k = e.speedK * (P ? P.st.enemySpeedMult : 1) * (e.slowT > 0 ? e.slowK : 1) * e.zoneSlow;
     e.zoneSlow = 1;
-    e.data.bonk = false;
     if (e.stunT > 0) { e.vx *= 0.8; e.vy *= 0.8; }
     else if (e.isBoss) e.update(e, dt, k);
     else (AI[e.def.ai] || AI.chase)(e, dt, k);
+    e.data.bonk = false; // set below by collision; read by the AI on the next step
     // integrate
     const kk = damp(7, dt);
     e.x += (e.vx + e.kx) * dt; e.y += (e.vy + e.ky) * dt;

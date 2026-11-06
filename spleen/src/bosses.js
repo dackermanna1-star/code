@@ -39,6 +39,14 @@ function at(A, time) {
   if (A.t >= time && !A.f[time]) { A.f[time] = true; return true; }
   return false;
 }
+/** distance from (x,y) along angle a to the arena's inner wall (capped at max) */
+function arenaLen(x, y, a, max) {
+  const room = SIM.room, c = Math.cos(a), s = Math.sin(a);
+  let t = max;
+  if (c > 1e-6) t = Math.min(t, (room.W - 1 - x) / c); else if (c < -1e-6) t = Math.min(t, (1 - x) / c);
+  if (s > 1e-6) t = Math.min(t, (room.H - 1 - y) / s); else if (s < -1e-6) t = Math.min(t, (1 - y) / s);
+  return Math.max(0.5, t);
+}
 function clampArena(x, y, m = 1.6) {
   const room = SIM.room;
   return { x: clamp(x, m, room.W - m), y: clamp(y, m, room.H - m) };
@@ -155,7 +163,7 @@ function swayTentacle(T, t, amp, speed) { T.nodes.forEach((n, i) => { n.rotation
       const head = e.forward;
       if (e.dead || head.dead || e.burrowed || e.spawning > 0 || head.invuln) return 0;
       e.hurtT = 0.09;
-      const amt = amount * enemyDamageMult(e) * 0.7;
+      const amt = amount * enemyDamageMult(e) * 0.5;
       const d = base(head, amt, Object.assign({}, o, { pure: true, silent: true, x: o.x != null ? o.x : e.x, y: o.y != null ? o.y : e.y }));
       if (d > 0 && SIM.opts.dmgNumbers && !o.silent) {
         Gfx.floatText(e.x + rnd(-0.2, 0.2), e.y, Math.max(1, Math.round(d)).toString(), o.crit ? '#ffe066' : o.dot ? (o.dotHex || '#ffa060') : '#ffffff', o.crit ? 19 : 13, { crit: o.crit, h: 1.0 + e.r });
@@ -234,7 +242,7 @@ const COLONY_ATK = {
       return false;
     }
     if (A.step === 1) {
-      const sp = (e.phase >= 2 ? 8.4 : 7.2) * D.spd * (e._k || 1);
+      const sp = (e.phase >= 2 ? 7.4 : 6.6) * D.spd * (e._k || 1);
       let bounced = false;
       const m = e.r + 0.15;
       if (e.x - e.r < 1.1 && A.dx < 0) { A.dx = -A.dx; bounced = true; }
@@ -252,7 +260,7 @@ const COLONY_ATK = {
         burst(e.x + A.dx * -e.r, e.y + A.dy * -e.r, e.color, 12, 4, { life: 0.4, size: 0.1 });
         if (e.phase >= 2) { enemyRing(e.x, e.y, 10, 3.8, { style: 'pink', a0: rnd(0, TAU) }); sfx('enemy_shoot_big', { vol: 0.6 }); }
         // nudge toward the player so rolls keep pressure but stay readable
-        const a = Math.atan2(A.dy, A.dx), na = a + clamp(angDiff(a, toPlayer(e).a), -0.45, 0.45);
+        const a = Math.atan2(A.dy, A.dx), na = a + clamp(angDiff(a, toPlayer(e).a), -0.3, 0.3);
         A.dx = Math.cos(na); A.dy = Math.sin(na);
       }
       setVel(e, Math.atan2(A.dy, A.dx), sp);
@@ -271,7 +279,7 @@ const COLONY_ATK = {
     for (let i = 0; i < 3; i++) {
       if (at(A, 0.55 + i * 0.42)) {
         const a = toPlayer(e).a + (i === 1 ? spread / (n - 1) / 2 : 0);
-        enemyFan(e.x + Math.cos(a) * e.r * 0.7, e.y + Math.sin(a) * e.r * 0.7, a, n, spread, 4.4, { style: 'pink' });
+        enemyFan(e.x + Math.cos(a) * e.r * 0.7, e.y + Math.sin(a) * e.r * 0.7, a, n, spread, e.phase >= 2 ? 4.4 : 4.0, { style: 'pink' });
         sfx('enemy_shoot_big', { vol: 0.8 }); D.swell = 0.7;
       }
     }
@@ -310,7 +318,7 @@ function updColony(e, dt, k) {
   const frac = clamp(e.hp / e.maxHp, 0, 1);
   D.sc = 0.6 + 0.4 * frac;
   e.r = BOSSES.colony.r * D.sc;
-  D.spd = 1 + (1 - frac) * 0.85;
+  D.spd = 1 + (1 - frac) * 0.45;
   D.phaseFlash = Math.max(0, (D.phaseFlash || 0) - dt);
   // shedding: cocci break off as HP drops
   const N = e.vis.cocci.length;
@@ -331,7 +339,7 @@ function updColony(e, dt, k) {
   e.vx = e.vy = 0;
   if (!e.atk && e.pause <= 0) {
     // idle: lumber toward the player
-    chase(e, 0.95 * D.spd * k);
+    chase(e, 0.85 * D.spd * k);
   }
   D.wind = e.atk && e.atk.name === 'roll' ? D.wind : 0;
   if (!e.atk) D.swell = Math.max(0, (D.swell || 0) - dt * 2);
@@ -398,9 +406,9 @@ function endoSpecial(e, kind, bps) {
     sfx('beam_charge', { vol: 0.8 });
     for (let i = 0; i < n; i++) {
       const a = a0 + i / n * TAU;
-      telegraph({ kind: 'line', x: e.x, y: e.y, ang: a, len: 17, w: 0.85, dur: beatSec * 1.4, owner: e, follow: (t) => { t.x = e.x; t.y = e.y; } });
+      telegraph({ kind: 'line', x: e.x, y: e.y, ang: a, len: 17, w: 0.85, dur: beatSec * 1.4, owner: e, follow: (t) => { t.x = e.x; t.y = e.y; t.len = arenaLen(t.x, t.y, t.ang, 17); } });
       later(e, beatSec * 1.4, () => {
-        spawnBeam(e.x, e.y, a, 17, 0.85, beatSec * 4.2, { owner: e, spin: dir * (e.phase >= 3 ? 0.5 : 0.42), hex: '#ff6aa8', follow: (b) => { b.x = e.x; b.y = e.y; } });
+        spawnBeam(e.x, e.y, a, 17, 0.85, beatSec * 4.2, { owner: e, spin: dir * (e.phase >= 3 ? 0.5 : 0.42), hex: '#ff6aa8', follow: (b) => { b.x = e.x; b.y = e.y; b.len = arenaLen(b.x, b.y, b.ang, 17); } });
         if (i === 0) { sfx('beam_fire'); D.sweep = true; later(e, beatSec * 4.2, () => { D.sweep = false; }); }
       });
     }
@@ -539,7 +547,7 @@ const ASP_ATK = {
       }
       A.sp = (A.sp || 0) - dt;
       if (A.sp <= 0) {
-        A.sp = e.phase >= 2 ? 0.1 : 0.13;
+        A.sp = e.phase >= 2 ? 0.11 : 0.16;
         A.ang = (A.ang == null ? rnd(0, TAU) : A.ang) + 0.41;
         const arms = e.phase >= 2 ? 3 : 2;
         for (let k = 0; k < arms; k++) { const a = A.ang + k / arms * TAU; spawnEShot(e.x + Math.cos(a) * e.r, e.y + Math.sin(a) * e.r, a, 3.0, { style: 'spore', r: 0.15 }); }
@@ -852,7 +860,7 @@ function visMisfold(e, real) {
   const dk = Gfx.cellMat('#3a5ad8', { rim: 1.7, core: 0.45, glow: 0.4 });
   const core = Gfx.part('dodeca', crys, b, 0, H, 0, R * 0.78);
   const inner = Gfx.part('octa', Gfx.glowMat('#e8ffff', { glow: 1.0 }), b, 0, H, 0, R * 0.35);
-  const halo = Gfx.part('torus', Gfx.glowMat('#a8f8ff', { glow: 0.8 }), b, 0, H, 0, R * 1.25);
+  const halo = Gfx.part('torus', Gfx.glowMat('#a8f8ff', { glow: 0.35, k: 0.75 }), b, 0, H, 0, R * 1.15);
   const shards = [];
   for (let i = 0; i < 4; i++) shards.push(Gfx.part('tetra', dk, b, 0, H, 0, R * 0.22));
   let tell = null;
@@ -944,11 +952,11 @@ const MIS_ATK = {
       D.wind = 1; A.a0 = toPlayer(e).a + Math.PI / 2; A.dir = rndSign();
       const n = e.phase >= 2 ? 3 : 2;
       A.n = n;
-      for (let i = 0; i < n; i++) telegraph({ kind: 'line', x: e.x, y: e.y, ang: A.a0 + i / n * TAU, len: 13, w: 0.7, dur: 0.95, owner: e });
+      for (let i = 0; i < n; i++) { const a = A.a0 + i / n * TAU; telegraph({ kind: 'line', x: e.x, y: e.y, ang: a, len: arenaLen(e.x, e.y, a, 13), w: 0.7, dur: 0.95, owner: e }); }
       sfx('beam_charge');
     }
     if (at(A, 0.95)) {
-      for (let i = 0; i < A.n; i++) spawnBeam(e.x, e.y, A.a0 + i / A.n * TAU, 13, 0.7, 3.2, { owner: e, spin: A.dir * (e.phase >= 2 ? 0.62 : 0.55), hex: '#7cf7ff', follow: (b) => { b.x = e.x; b.y = e.y; } });
+      for (let i = 0; i < A.n; i++) spawnBeam(e.x, e.y, A.a0 + i / A.n * TAU, 13, 0.7, 3.2, { owner: e, spin: A.dir * (e.phase >= 2 ? 0.62 : 0.55), hex: '#7cf7ff', follow: (b) => { b.x = e.x; b.y = e.y; b.len = arenaLen(b.x, b.y, b.ang, 13); } });
       sfx('beam_fire'); D.wind = 0.4;
     }
     if (A.t > 3.6) D.wind = 0;
@@ -1026,11 +1034,14 @@ function visSepsis(e) {
     pustules.push({ m: Gfx.part('sphereLo', pusM, shell, Math.cos(a) * rad * R * 0.98, R * 0.85 + yv * R * 0.8, Math.sin(a) * rad * R * 0.98, R * 0.13), ph: rnd(0, TAU) });
   }
   const coreM = Gfx.part('sphere', Gfx.glowMat('#ff5a1a', { glow: 1.1 }), b, 0, R * 0.95, 0, R * 0.55);
-  const eyeN = Gfx.node('eye'); eyeN.parent = b; eyeN.position.y = R * 1.25;
-  const eyeBall = Gfx.part('sphere', Gfx.cellMat('#fff0d8', { rim: 1.3, core: 0.7, glow: 0.35, dark: 0.95 }), eyeN, R * 0.62, 0, 0, R * 0.42);
-  const iris = Gfx.part('torusThick', Gfx.glowMat('#ff8a2a', { glow: 1.0 }), eyeN, R * 0.98, 0, 0, R * 0.22);
-  iris.rotation.z = Math.PI / 2;
-  const pupil = Gfx.part('sphere', Gfx.plainMat('#080200'), eyeN, R * 1.0, 0, 0, R * 0.12, R * 0.17, R * 0.12);
+  // the eye sits on top and looks at the player; iris tilted toward the camera so it reads from above
+  const eyeN = Gfx.node('eye'); eyeN.parent = b; eyeN.position.y = R * 1.3;
+  const rE = R * 0.46, tilt = 0.8, ex = R * 0.28;
+  const eyeBall = Gfx.part('sphere', Gfx.cellMat('#fff0d8', { rim: 1.2, core: 0.75, glow: 0.3, dark: 0.95 }), eyeN, ex, 0, 0, rE);
+  const iris = Gfx.part('torusThick', Gfx.glowMat('#ff7a1a', { glow: 1.0 }), eyeN, ex + Math.sin(tilt) * rE * 0.9, Math.cos(tilt) * rE * 0.9, 0, R * 0.2, R * 0.2, R * 0.2);
+  iris.rotation.z = -tilt;
+  const pupil = Gfx.part('sphere', Gfx.plainMat('#0a0200'), eyeN, ex + Math.sin(tilt) * rE * 0.97, Math.cos(tilt) * rE * 0.97, 0, R * 0.13, R * 0.05, R * 0.13);
+  pupil.rotation.z = -tilt;
   const tents = [];
   for (let i = 0; i < 6; i++) tents.push(tentacle(b, i / 6 * TAU + 0.26, R * 0.85, 5, 0.6, 0.4, 0.18, flesh, tipM));
   return {
@@ -1046,9 +1057,12 @@ function visSepsis(e) {
       coreM.scaling.setAll(R * (0.55 + open * 0.35 + Math.sin(t * 6) * 0.03 * (1 + open * 2) + (D.wind || 0) * 0.1 + (D.phaseFlash || 0) * 0.25));
       const tp = SIM.player ? angleTo(e.x, e.y, SIM.player.x, SIM.player.y) : 0;
       eyeN.rotation.y = lerpAngle(eyeN.rotation.y, tp, damp(4, dt));
-      eyeN.position.y = R * (1.25 - open * 0.25);
-      const blink = (Math.sin(t * 0.7) > 0.985) ? 0.15 : 1;
-      eyeBall.scaling.set(R * 0.42, R * 0.42 * blink, R * 0.42);
+      eyeN.position.y = R * (1.3 - open * 0.3);
+      const blink = (Math.sin(t * 0.7) > 0.985) ? 0.2 : 1;
+      eyeBall.scaling.set(rE, rE * blink, rE);
+      iris.setEnabled(blink > 0.5); pupil.setEnabled(blink > 0.5);
+      const dil = 1 + (D.wind || 0) * 0.5 + open * 0.3;
+      pupil.scaling.set(R * 0.13 * dil, R * 0.05, R * 0.13 * dil);
       tents.forEach((T) => swayTentacle(T, t, 0.18 + ph * 0.05 + (D.wind || 0) * 0.15, 1.8 + ph * 0.4));
     },
   };
@@ -1091,11 +1105,11 @@ const SEP_ATK = {
     const D = e.data;
     if (at(A, 0)) {
       D.wind = 1; A.a0 = toPlayer(e).a + Math.PI / 3; A.dir = (D.tdir = -(D.tdir || 1));
-      for (let i = 0; i < 3; i++) telegraph({ kind: 'line', x: e.x, y: e.y, ang: A.a0 + i / 3 * TAU, len: 15, w: 0.85, dur: 0.95, owner: e, follow: (t) => { t.x = e.x; t.y = e.y; } });
+      for (let i = 0; i < 3; i++) telegraph({ kind: 'line', x: e.x, y: e.y, ang: A.a0 + i / 3 * TAU, len: 15, w: 0.85, dur: 0.95, owner: e, follow: (t) => { t.x = e.x; t.y = e.y; t.len = arenaLen(t.x, t.y, t.ang, 15); } });
       sfx('beam_charge');
     }
     if (at(A, 0.95)) {
-      for (let i = 0; i < 3; i++) spawnBeam(e.x, e.y, A.a0 + i / 3 * TAU, 15, 0.85, 3.4, { owner: e, spin: A.dir * (e.phase >= 3 ? 0.46 : 0.4), hex: '#ff8a2a', follow: (b) => { b.x = e.x; b.y = e.y; } });
+      for (let i = 0; i < 3; i++) spawnBeam(e.x, e.y, A.a0 + i / 3 * TAU, 15, 0.85, 3.4, { owner: e, spin: A.dir * (e.phase >= 3 ? 0.46 : 0.4), hex: '#ff8a2a', follow: (b) => { b.x = e.x; b.y = e.y; b.len = arenaLen(b.x, b.y, b.ang, 15); } });
       sfx('beam_fire'); D.wind = 0.5;
     }
     if (A.t > 4.0) D.wind = 0;

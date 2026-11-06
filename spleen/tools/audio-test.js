@@ -199,6 +199,10 @@ function writeWav(file, sr, nch, data) {
       out.init2 = AUDIO.init();
       for (let i = 0; i < 40 && AUDIO._debug().ctx !== 'running'; i++) await wait(50);
       out.state = AUDIO._debug().ctx;
+      // synth fallback: SFX triggered before its pre-rendered buffer exists
+      const notCached = AUDIO._sfxNames.filter((n) => !AUDIO._debug().cachedNames.includes(n));
+      out.fallbackTried = notCached.length;
+      out.fallbackOk = notCached.slice(-5).every((n) => AUDIO.sfx(n, { force: true }) !== null);
       out.pendingStarted = AUDIO._debug().tracks;   // 'title' queued by smoke() before init
       AUDIO.music.play('heart');
       AUDIO.music.setIntensity(1);
@@ -258,6 +262,7 @@ function writeWav(file, sr, nch, data) {
       return out;
     });
     check(r.init === true && r.init2 === true && r.state === 'running', `init() idempotent, context running (${r.state})`);
+    check(r.fallbackTried > 0 && r.fallbackOk, `live-synth fallback plays SFX before the cache is ready (${r.fallbackTried} not yet cached at init)`);
     check(r.pendingStarted >= 1, 'track requested before init started after init');
     check(Math.abs(r.rate - 76) < 4 && r.bpm === 76, `clock rate matches heart tempo: measured ${f2(r.rate)} bpm`);
     check(r.clockAudio === true, 'clock is driven by audible AudioContext time while running');
@@ -302,6 +307,31 @@ function writeWav(file, sr, nch, data) {
     });
     check(r.t0diff < 1e-9 && r.t0diff2 < 1e-9, 'beat clock and step scheduler share the same time origin (beat n == step time t0 + n*60/bpm), also after re-anchoring');
     check(Math.abs(r.slope - 96) < 3, `clock locked to AudioContext time: ${f2(r.slope)} bpm vs 96 (output-latency lag ${f2(r.lagBeats)} beats compensated)`);
+  }
+
+  // the beat clock's latency compensation must match what the graph really does:
+  // render heartbeats through the full chain and find each attack vs the grid
+  {
+    const r = await page.evaluate(async () => {
+      const out = {};
+      for (const [id, region, solo, bpm] of [['heart', null, 'beat', 76], ['boss', 'heart', 'drums', 92]]) {
+        const b = await AUDIO._renderMusic(id, 8, 1, { solo, region });
+        const x = b.getChannelData(0), sr = b.sampleRate, bd = 60 / bpm, errs = [];
+        for (let n = 0; 0.05 + n * bd + 0.08 < 8; n++) {
+          const t = 0.05 + n * bd, a = Math.floor((t - 0.01) * sr), z = Math.floor((t + 0.05) * sr);
+          let base = 0; for (let i = a - Math.floor(0.02 * sr); i < a; i++) base = Math.max(base, Math.abs(x[i]));
+          for (let i = a; i < z; i++) if (Math.abs(x[i]) > base + 0.02) { errs.push((i / sr - t) * 1000); break; }
+        }
+        out[id + (region ? ':' + region : '')] = errs;
+      }
+      out.lat = AUDIO._graphLatency * 1000;
+      return out;
+    });
+    for (const k of ['heart', 'boss:heart']) {
+      const e = r[k], mn = Math.min(...e), mx = Math.max(...e);
+      check(e.length >= 9 && mn > r.lat - 0.5 && mx < r.lat + 1.5,
+        `${k}: ${e.length} heartbeat attacks land ${f2(mn)}..${f2(mx)} ms after the grid = graph latency ${f2(r.lat)} ms the clock compensates`);
+    }
   }
 
   const warnings = consoleMsgs.filter((m) => /^(warning|error)/.test(m) && !/unknown (sfx|music track)/.test(m) && !/Web Audio unavailable/.test(m));

@@ -21,6 +21,9 @@ const BAB = process.env.BAB || '/tmp/claude-0/bab/babylon.js';
       const D = __SPLEEN, S = D.SIM; D.Game.autopilot = true;
       const boss = S.boss; const id = boss && boss.bossId;
       let t = 0, maxPhase = 1, killT = null, err = null, maxEnemies = 0, maxShots = 0;
+      const hurtLog = {};
+      const H0 = hurtPlayer;
+      hurtPlayer = function (amount, src) { const P = S.player; const ok = !(P.dead || P.invulnT > 0 || P.dashT > 0 || S.godMode); const r = H0(amount, src); if (r) { const k = (src && src.kind || '?') + (src && src.enemy ? ':' + src.enemy.type : '') + '@' + (boss && boss.atk ? boss.atk.name : 'idle'); hurtLog[k] = (hurtLog[k] || 0) + 1; } return r; };
       const phaseT = {};
       try {
         while (t < maxS) {
@@ -34,7 +37,7 @@ const BAB = process.env.BAB || '/tmp/claude-0/bab/babylon.js';
       } catch (e) { err = e.message + ' ' + (e.stack || '').split('\n').slice(1, 4).join(' | '); }
       const P = S.player;
       return { id, hp0: boss && Math.round(boss.maxHp), bossHp: boss && Math.round(boss.hp), killT: killT && +killT.toFixed(1), maxPhase, phaseT, hits: S.run.stats.hitsTaken, dead: P.dead, playerHp: P.hp + '/' + P.st.maxHp,
-        cleared: S.room.cleared, interact: S.interact.map(i => i.kind), maxEnemies, maxShots, err, dmg: +P.baseDmg().toFixed(2) };
+        hurt: hurtLog, cleared: S.room.cleared, interact: S.interact.map(i => i.kind), maxEnemies, maxShots, err, dmg: +P.baseDmg().toFixed(2) };
     }, +maxS);
     console.log(`floor ${f}:`, JSON.stringify(res));
     if (errors.length) console.log('  ERRORS:\n  ' + [...new Set(errors)].slice(0, 12).join('\n  '));
