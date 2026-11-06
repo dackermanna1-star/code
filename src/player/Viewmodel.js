@@ -22,8 +22,8 @@ export { MODEL_IDS } from './viewmodel/models.js';
 
 const RIG_PIVOT = new THREE.Vector3(0.08, -0.12, -0.32);
 const SHOULDER_R = [0.36, -0.4, 0.04];
-const SHOULDER_L = [-0.2, -0.44, 0.0];
-const FREE_L = [-0.2, -0.27, -0.38];
+const SHOULDER_L = [-0.16, -0.5, -0.48];
+const FREE_L = [-0.2, -0.38, -0.36];
 const EQUIP_DUR = 0.4;
 const HOLD_RELOADS = new Set(['reloadShell', 'reloadRevolver', 'reloadBolt']);
 
@@ -150,6 +150,9 @@ export class Viewmodel {
     this.mainCamera = null;
     /** set false if the game spawns world-space casings itself (FX.shell) */
     this.ejectShells = true;
+    /** viewmodel camera FOV (hip) and while fully aimed (narrower => sights bigger, stock/hands out of view) */
+    this.fov = 70;
+    this.adsFov = 56;
     /** optional (def) => 16x16 canvas override for extruded 'generic' items (defaults to getItemIcon) */
     this.iconProvider = null;
     this.setItem(null);
@@ -228,6 +231,11 @@ export class Viewmodel {
     if ('sleeve' in ap) o.sleeve = conv(ap.sleeve);
     if ('glove' in ap) o.glove = conv(ap.glove);
     this.arms.setAppearance(o);
+  }
+
+  /** Override the elbow/shoulder anchors (rig space, metres) the forearms point to. null = default. */
+  setShoulders(R, L) {
+    this._shDefault = { R: R || SHOULDER_R, L: L || SHOULDER_L };
   }
 
   /** Optional: main camera (used to light the hands with the world sun direction / flashlight / point lights). */
@@ -565,6 +573,15 @@ export class Viewmodel {
     }
     const aim01 = clamp01(this._aim.x);
     const spr01 = clamp01(this._spr.x);
+    const isGun = meta.kind === 'gun';
+    const fov = lerp(this.fov, isGun ? (meta.adsFov ?? this.adsFov) : this.fov, aim01);
+    // while fully aimed, push the near plane out so the stock / hands right under the eye are clipped away
+    const near = lerp(0.01, isGun ? (meta.adsNear ?? 0.085) : 0.01, aim01 * aim01 * aim01);
+    if (Math.abs(fov - this.camera.fov) > 1e-3 || Math.abs(near - this.camera.near) > 1e-4) {
+      this.camera.fov = fov;
+      this.camera.near = near;
+      this.camera.updateProjectionMatrix();
+    }
     const cr01 = clamp01(this._cr.x);
 
     // ---- movement bob (figure-8)
@@ -654,6 +671,11 @@ export class Viewmodel {
       this.swayRot.x.z + bobRz + out.rigRot.z,
       'YXZ',
     );
+    const shd = this._shDefault || {};
+    const shR = (meta.shoulders && meta.shoulders.R) || shd.R || SHOULDER_R;
+    const shL = (meta.shoulders && meta.shoulders.L) || shd.L || SHOULDER_L;
+    this.shoulderR.position.fromArray(shR);
+    this.shoulderL.position.fromArray(shL);
     const fl = this.freeLPos;
     this.freeL.position.set(fl[0] - 0.01 * crW, fl[1] - fistPump - 0.1 * sprW * (meta.kind === 'fists' ? 0 : 1), fl[2] + fistPump * 0.6);
 

@@ -129,6 +129,7 @@ function resolveColorRef(v, ramps) {
 
 /** Render an item def (or {icon}) to RGBA pixels (16*16*4). Pure function. */
 export function renderIconPixels(def) {
+  if (typeof def === 'string') def = getItemDef(def);
   const icon = (def && def.icon) || { shape: 'unknown' };
   const tpl = TEMPLATES[icon.shape] || TEMPLATES.unknown;
   const pal = buildPalette(icon, tpl);

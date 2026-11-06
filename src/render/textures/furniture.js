@@ -1,8 +1,8 @@
 // Furniture, appliances and containers. Many of these sit on 'boxes' shapes whose faces only show a sub-rectangle
 // of the texture (Minecraft-style UVs) — the visible regions are noted next to each generator.
 import {
-  Img, pal, hex, mix, shade, ramp, desat, fbm, white, vnoise, eq, combine, pick, paint, grain, grime, streaks,
-  speckle, crack, rnd, makeRng, clamp01, seedFromString,
+  Img, pal, hex, mix, shade, ramp, fbm, white, vnoise, pick, paint, grime, streaks, speckle, crack, rnd,
+  makeRng, clamp01, seedFromString,
 } from './core.js';
 import { planks, PLANKS_OAK } from './building.js';
 
@@ -608,22 +608,23 @@ function clothingRack(img, seed) {
   for (let y = 1; y < 16; y++) { img.set(0, y, CHROME[2], 255); img.set(15, y, CHROME[1], 255); }
   for (let x = 0; x < 16; x++) { img.set(x, 1, CHROME[3], 255); img.set(x, 2, CHROME[0], 255); }
   for (let x = 0; x < 4; x++) { img.set(x, 15, CHROME[1], 255); img.set(15 - x, 15, CHROME[1], 255); }
-  const garments = [0x8a2a24, 0x3a5a8a, 0x5a6a3a, 0x7a7a76, 0x2a2a2e, 0xa08a4a];
-  let x = 1;
-  while (x < 14) {
-    const w = r.int(2, 4);
+  const garments = [0x8a2a24, 0x3a5a8a, 0x5a6a3a, 0x8a8a84, 0x2a2a2e, 0xa08a4a, 0x6a3a5a, 0xc0b8a0];
+  // shirts / jackets on hangers: shoulders at row 4, sleeves on the outer columns, hems at different lengths
+  const slots = [[1, 4], [4, 4], [7, 4], [10, 4], [12, 3]];
+  slots.forEach(([x0, w], k) => {
+    if (k === 4 && r.chance(0.5)) return;
     const c = hex(r.pick(garments));
-    const len = r.int(7, 11);
-    const plaid = r.chance(0.3);
-    for (let s = 0; s < w && x + s < 15; s++) for (let y = 3; y < 3 + len; y++) {
-      let cc = shade(c, s === 0 ? 0.06 : s === w - 1 ? -0.1 : 0);
-      if (plaid && ((x + s) % 3 === 0 || y % 3 === 0)) cc = shade(cc, -0.15);
-      if (y === 3) cc = shade(cc, 0.1);
-      img.set(x + s, y, cc, 255);
+    const len = r.int(7, 10), plaid = r.chance(0.3);
+    img.set(x0 + (w >> 1), 3, hex(0x5a5e60), 255);
+    for (let s = 0; s < w; s++) for (let y = 4; y < 4 + len; y++) {
+      if ((s === 0 || s === w - 1) && y > 4 + len - 3) continue; // sleeves end above the hem
+      let cc = shade(c, s === 0 ? 0.05 : s === w - 1 ? -0.12 : 0);
+      if (plaid && ((x0 + s) % 3 === 0 || y % 3 === 0)) cc = shade(cc, -0.14);
+      if (y === 4) cc = shade(cc, 0.1);
+      if (s === (w >> 1) && y > 5 && (y & 1)) cc = shade(cc, 0.08); // buttons / placket
+      img.set(x0 + s, y, cc, 255);
     }
-    img.set(x + (w >> 1), 2, hex(0x5a5e60), 255);
-    x += w;
-  }
+  });
 }
 function crateWood(img, seed) {
   const src = planks(new Img(), seed, pal(0x7a6040, 0x866a47, 0x92744e, 0x9e7e56, 0xa8885e), hex(0x4a3a26), { weather: 0.15 });

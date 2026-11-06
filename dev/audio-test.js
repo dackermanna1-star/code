@@ -1,6 +1,6 @@
 // Dead County – audio test bench + offline verification API (used by dev/audio-verify.cjs).
 import { AudioEngine, SOUND_NAMES, EXTRA_SOUND_NAMES } from '../src/audio/AudioEngine.js';
-import { SOUND_DEFS, ALL_RENDER_NAMES, renderVariant } from '../src/audio/sounds.js';
+import { SOUND_DEFS, ALL_RENDER_NAMES, renderVariant, renderSound } from '../src/audio/sounds.js';
 import { generatePiece } from '../src/audio/music.js';
 
 const engine = new AudioEngine();
@@ -295,11 +295,13 @@ function wavBase64(buf) {
   return btoa(s);
 }
 
+// renders every variant of a sound in one context (exactly like the engine does) and caches it
 const cache = new Map();
 async function getVariant(name, v, baseRate) {
-  const k = name + '#' + v + '@' + baseRate;
-  if (!cache.has(k)) cache.set(k, renderVariant(name, v, baseRate));
-  return cache.get(k);
+  const k = name + '@' + baseRate;
+  if (!cache.has(k)) cache.set(k, renderSound(name, baseRate));
+  const r = await cache.get(k);
+  return { ...r.info[v], ms: r.ms / r.info.length };
 }
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -378,6 +380,79 @@ window.audioTest = {
       }
     }
     return { issues, info };
+  },
+
+  /** measure live master output (RMS / peak, dBFS) in typical scenarios */
+  async mixCheck() {
+    const eng = new AudioEngine();
+    eng.init();
+    eng.setListener({ x: 0, y: 1.6, z: 0 }, { x: 0, y: 0, z: -1 });
+    await eng.whenAllReady();
+    const an = eng.ctx.createAnalyser();
+    an.fftSize = 2048;
+    eng.clipper.connect(an);
+    const buf = new Float32Array(2048);
+    let run = true;
+    let acc = 0, cnt = 0, pk = 0, w50 = 0;
+    const tick = () => {
+      if (!run) return;
+      eng.update(1 / 60);
+      an.getFloatTimeDomainData(buf);
+      let ss = 0;
+      for (let i = 0; i < buf.length; i++) {
+        ss += buf[i] * buf[i];
+        pk = Math.max(pk, Math.abs(buf[i]));
+      }
+      acc += ss / buf.length;
+      cnt++;
+      w50 = Math.max(w50, ss / buf.length);
+      setTimeout(tick, 16);
+    };
+    tick();
+    const base = { rain: 0, wind: 0, storm: 0, night: 0, indoor: 0, underwater: 0, heartbeat: 0, tinnitus: 0, breathing: 0, tension: 0, events: 0 };
+    const out = [];
+    const measure = async (label, setup, ms = 2500, settle = 1500) => {
+      eng.setMusic('none');
+      eng.setAmbience(base);
+      await sleep(400);
+      setup();
+      await sleep(settle);
+      acc = 0;
+      cnt = 0;
+      pk = 0;
+      w50 = 0;
+      await sleep(ms);
+      const db = (x) => +(10 * Math.log10(x + 1e-12)).toFixed(1);
+      out.push({ label, rms: db(acc / Math.max(1, cnt)), loudest46ms: db(w50), peak: +(20 * Math.log10(pk + 1e-9)).toFixed(1) });
+    };
+    await measure('silence', () => {});
+    await measure('day breeze (wind .3)', () => eng.setAmbience({ wind: 0.3 }));
+    await measure('rain 1 + wind .5', () => eng.setAmbience({ rain: 1, wind: 0.5 }));
+    await measure('storm (rain/wind/storm 1)', () => eng.setAmbience({ rain: 1, wind: 1, storm: 1 }));
+    await measure('indoor in rain', () => eng.setAmbience({ rain: 1, wind: 0.5, indoor: 1 }));
+    await measure('night crickets', () => eng.setAmbience({ night: 1, wind: 0.1 }));
+    await measure('underwater', () => eng.setAmbience({ underwater: 1 }));
+    await measure('tension 1', () => eng.setAmbience({ tension: 1 }));
+    await measure('heartbeat 1', () => eng.setAmbience({ heartbeat: 1 }));
+    await measure('breathing 1', () => eng.setAmbience({ breathing: 1 }));
+    await measure('tinnitus 1', () => eng.setAmbience({ tinnitus: 1 }));
+    await measure('music menu', () => eng.setMusic('menu'), 6000, 1500);
+    await measure('music tense', () => eng.setMusic('tense'), 4000, 3500);
+    await measure('pistol (own)', () => eng.play('gun_pistol'), 1200, 10);
+    await measure('shotgun (own)', () => eng.play('gun_shotgun'), 1500, 10);
+    await measure('AR burst x6', () => {
+      for (let i = 0; i < 6; i++) setTimeout(() => eng.play('gun_ar'), i * 90);
+    }, 1500, 10);
+    await measure('pistol @ 150 m', () => eng.play('gun_pistol', { pos: { x: 150, y: 1.6, z: 0 } }), 2000, 10);
+    await measure('zombie_groan @ 3 m', () => eng.play('zombie_groan', { pos: { x: 3, y: 1.6, z: 0 } }), 1800, 10);
+    await measure('zombie_scream @ 10 m', () => eng.play('zombie_scream', { pos: { x: 0, y: 1.6, z: -10 } }), 2000, 10);
+    await measure('footstep_grass (own)', () => eng.play('footstep_grass'), 400, 10);
+    await measure('ui_click', () => eng.play('ui_click'), 300, 10);
+    await measure('explosion @ 20 m', () => eng.play('explosion', { pos: { x: 20, y: 1.6, z: 0 } }), 3000, 10);
+    await measure('thunder(0)', () => eng.thunder(0), 4000, 10);
+    run = false;
+    eng.dispose();
+    return out;
   },
 
   /** exercise every public API method; returns {errors, log, outPeak, outNan} */
@@ -499,6 +574,9 @@ window.audioTest = {
     // --- ambience
     T('ambience all', () => eng.setAmbience({ rain: 1, wind: 1, storm: 1, night: 1, indoor: true, underwater: 0.5, heartbeat: 1, tinnitus: 1, breathing: 1, tension: 1 }));
     await sleep(1500);
+    const beds = [...eng.amb.beds.values()].filter((b) => b.src).length;
+    log.push('ambience beds running with everything at 1: ' + beds + '/' + eng.amb.beds.size);
+    if (beds < 8) errors.push('ambience beds did not start: ' + beds);
     T('ambience partial', () => eng.setAmbience({ indoor: false, underwater: 0 }));
     T('ambience junk', () => eng.setAmbience({ rain: 'x', wind: NaN, foo: 3 }));
     T('ambience null', () => eng.setAmbience(null));

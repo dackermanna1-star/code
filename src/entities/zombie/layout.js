@@ -3,7 +3,7 @@
 //
 // Skin layout follows the classic Minecraft 64×64 skin (base layer + overlay layer). Unused areas hold
 // gore / mouth / accessory swatches:
-//   gore  (0,0)  8×8   stump caps         mouth (24,0) 8×8  palate (rows 0-3) + tongue (rows 4-7)
+//   gore  (0,0)  8×8   stump caps, goreSide (32,0) 8×8 torn skin around stumps,        mouth (24,0) 8×8  palate (rows 0-3) + tongue (rows 4-7)
 //   accA (56,0) 8×8   hat brims / visors  accB (56,16) 8×16 backpack     accC (56,32) 8×16 pustules
 // Base-layer pixels with alpha ≈ 230 are rendered as faint glow (zombie eyes).
 
@@ -22,6 +22,7 @@ export const REGIONS = {
 
 export const FREE = {
   gore: [0, 0, 8, 8],
+  goreSide: [32, 0, 8, 8],
   mouth: [24, 0, 8, 8],
   accA: [56, 0, 8, 8],
   accB: [56, 16, 8, 16],

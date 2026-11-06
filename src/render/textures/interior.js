@@ -1,7 +1,7 @@
 // Interior surfaces (drywall, wallpaper, tiles, floors, carpet) and doors / bars / barricades / ladders.
 import {
-  Img, pal, hex, mix, shade, ramp, desat, fbm, white, vnoise, worley, eq, combine, pick, paint, grain, grime, streaks,
-  speckle, crack, rnd, makeRng, smooth, clamp01, seedFromString,
+  Img, pal, hex, mix, shade, ramp, desat, fbm, white, vnoise, eq, combine, pick, paint, grain, grime, streaks,
+  speckle, crack, rnd, makeRng, clamp01, seedFromString,
 } from './core.js';
 import { planks, PLANKS_OAK } from './building.js';
 

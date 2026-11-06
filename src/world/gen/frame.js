@@ -5,7 +5,7 @@
 //   world.x = ax + ux*lx + vx*lz,   world.z = az + uz*lx + vz*lz     (u, v are unit axis vectors, possibly mirrored)
 // Local facings (0 = +lz, 1 = -lx, 2 = -lz, 3 = +lx) are converted to world facings automatically, so every
 // oriented block (furniture, stairs, doors, ladders, signs) can be authored in local space.
-import { B, BLOCKS, FACING_DIR, facingFromDir } from '../blocks.js';
+import { B, BLOCKS, SOLID, IS_DOOR, FACING_DIR, facingFromDir } from '../blocks.js';
 import { clearCell } from './util.js';
 
 export class Frame {
@@ -125,6 +125,14 @@ export class Frame {
     this.ctx.openings.add(this.world.idx(this.wx(lx, lz), y, this.wz(lx, lz)));
   }
   markOpening(lx, y, lz) { this.ctx.openings.add(this.world.idx(this.wx(lx, lz), y, this.wz(lx, lz))); }
+  /** air cell whose 4 neighbours are not doors / openings (safe for free-standing furniture) */
+  canPlace(lx, y, lz) {
+    if (this.get(lx, y, lz) !== 0) return false;
+    for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      if (IS_DOOR[this.get(lx + dx, y, lz + dz)] || this.isOpening(lx + dx, y, lz + dz)) return false;
+    }
+    return true;
+  }
   isOpening(lx, y, lz) { return this.ctx.openings.has(this.world.idx(this.wx(lx, lz), y, this.wz(lx, lz))); }
 
   // ------------------------------------------------------------------ containers & signs
@@ -157,20 +165,38 @@ export class Frame {
   }
 
   // ------------------------------------------------------------------ gameplay registries (local coords)
+  /** standable cell (air at y and y+1, solid floor below) nearest to (lx, lz), searching outward. */
+  findFree(lx, y, lz, maxR = 4) {
+    const ok = (x, z) => {
+      const a = this.get(x, y, z), b = this.get(x, y + 1, z), f = this.get(x, y - 1, z);
+      return !SOLID[a] && !SOLID[b] && SOLID[f] && !BLOCKS[a].damage;
+    };
+    if (ok(lx, lz)) return [lx, lz];
+    for (let r = 1; r <= maxR; r++) {
+      for (let dx = -r; dx <= r; dx++) for (const dz of [-r, r]) if (ok(lx + dx, lz + dz)) return [lx + dx, lz + dz];
+      for (let dz = -r + 1; dz <= r - 1; dz++) for (const dx of [-r, r]) if (ok(lx + dx, lz + dz)) return [lx + dx, lz + dz];
+    }
+    return null;
+  }
   loot(lx, y, lz, table, chance = 1, h = 0) {
+    if (h === 0) { const c = this.findFree(lx, y, lz, 3); if (!c) return; [lx, lz] = c; }
     this.world.addFloorLoot(this.px(lx + 0.5, lz + 0.5), y + h, this.pz(lx + 0.5, lz + 0.5), table, chance);
   }
   note(lx, y, lz, id, h = 0) {
+    if (h === 0) { const c = this.findFree(lx, y, lz, 4); if (c) [lx, lz] = c; }
     this.world.addNote(this.px(lx + 0.5, lz + 0.5), y + h, this.pz(lx + 0.5, lz + 0.5), id);
     this.ctx.usedNotes.add(id);
   }
   zombies(lx, y, lz, count, radius = 2, opts = {}) {
+    const c = this.findFree(lx, y, lz, 5); if (!c) return; [lx, lz] = c;
     this.world.addZombieSpawn({ x: this.px(lx + 0.5, lz + 0.5), y, z: this.pz(lx + 0.5, lz + 0.5), count, radius, ...opts });
   }
   corpse(lx, y, lz, localYaw, outfit = 'civilian', loot = 'corpse_civilian') {
+    const c = this.findFree(lx, y, lz, 4); if (!c) return; [lx, lz] = c;
     this.world.addCorpse({ x: this.px(lx + 0.5, lz + 0.5), y, z: this.pz(lx + 0.5, lz + 0.5), yaw: this.yaw(localYaw), outfit, loot });
   }
   spawnPoint(lx, y, lz, localYaw = 0) {
+    const c = this.findFree(lx, y, lz, 5); if (!c) return; [lx, lz] = c;
     this.world.addSpawnPoint({ x: this.px(lx + 0.5, lz + 0.5), y, z: this.pz(lx + 0.5, lz + 0.5), yaw: this.yaw(localYaw) });
   }
   /** vehicle centred at continuous local point (cx, cz) */

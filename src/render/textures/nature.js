@@ -1,7 +1,7 @@
 // Natural textures: terrain, logs, leaves, plants (cross sprites), crops.
 import {
-  Img, pal, hex, mix, shade, fbm, white, worley, eq, combine, pick, paint, grain, grime, speckle, crack, walk,
-  leafBit, rnd, makeRng, smooth, clamp01, seedFromString, vnoise,
+  Img, memoImg, pal, hex, mix, shade, fbm, white, worley, eq, combine, pick, paint, grain, grime, speckle,
+  crack, leafBit, rnd, makeRng, clamp01, seedFromString, vnoise,
 } from './core.js';
 
 // ---------------------------------------------------------------------------
@@ -52,8 +52,8 @@ function grassTop(img, seed, P = GRASS, straw = GRASS_STRAW, dark = 0x2f381b) {
 }
 
 function grassSide(img, seed, P, straw, dark) {
-  dirtBase(img, DIRT_SEED);
-  const top = grassTop(new Img(), seed, P, straw, dark);
+  img.copy(memoImg('dirt_base', () => dirtBase(new Img(), DIRT_SEED)));
+  const top = memoImg('grass_top_' + seed, () => grassTop(new Img(), seed, P, straw, dark));
   for (let x = 0; x < 16; x++) {
     const h = rnd(seed, x, 0, 5);
     let depth = 3 + (h < 0.4 ? 1 : 0) + (h < 0.12 ? 1 : 0) - (h > 0.9 ? 1 : 0);
@@ -166,18 +166,32 @@ function birchBark(img, seed) {
   return img;
 }
 function pineBark(img, seed) {
-  const P = pal(0x4e2c1c, 0x5c3420, 0x6a3d26, 0x77462c, 0x845034, 0x8f5a3c);
-  const w = worley(seed, 4, 2, 0.8, 16, 16, 0.45);
+  // vertical strips of scaly plates with irregular breaks; furrows between strips meander by a pixel
+  const P = pal(0x45291c, 0x523220, 0x5e3a26, 0x6a432c, 0x764c33, 0x80553a);
+  const G = pal(0x4a3a30, 0x56463a, 0x625244, 0x6e5e4e);
+  const r = makeRng(seed);
   const wn = white(seed + 1);
+  const edges = [0, 4, 9, 12].map((b) => b + r.int(0, 1));
+  const breaks = edges.map(() => { const n = r.int(2, 3), off = r.int(0, 15), out = []; for (let k = 0; k < n; k++) out.push((off + Math.floor((k * 16) / n) + r.int(-1, 1)) & 15); return out; });
   img.each((x, y) => {
     const i = y * 16 + x;
-    const e = w.d2[i] - w.d1[i];
-    if (e < 0.32) { img.set(x, y, hex(rnd(seed, x, y, 3) < 0.5 ? 0x221510 : 0x2c1c14)); return; }
-    const base = rnd(seed, w.id[i], 0, 4);
-    const v = 0.25 + base * 0.45 + (-w.oy[i]) * 0.03 + (-w.ox[i]) * 0.08 + (wn[i] - 0.5) * 0.35 + (e < 0.7 ? -0.18 : 0);
-    img.set(x, y, pick(P, clamp01(v), x, y, 0.6));
+    const wob = rnd(seed, Math.floor(y / 3), 0, 3) < 0.45 ? 1 : 0;
+    let band = 3;
+    for (let k = 0; k < 4; k++) { const e0 = edges[k] + wob, e1 = (k < 3 ? edges[k + 1] : edges[0] + 16) + wob; if ((x >= e0 && x < e1) || (x + 16 >= e0 && x + 16 < e1)) { band = k; break; } }
+    const e0 = edges[band] + wob;
+    const lx = (x - e0 + 16) & 15;
+    if (lx === 0) { img.set(x, y, hex(rnd(seed, x, y, 4) < 0.5 ? 0x221510 : 0x2c1c14)); return; }
+    const br = breaks[band];
+    let plate = 0, ly = 99;
+    for (let k = 0; k < br.length; k++) { const d = (y - br[k] + 16) & 15; if (d < ly) { ly = d; plate = k; } }
+    if (ly === 0) { img.set(x, y, hex(0x2a1a12)); return; }
+    let v = 0.3 + rnd(seed, band, plate, 5) * 0.4 + (wn[i] - 0.5) * 0.3;
+    if (ly === 1) v += 0.22; // lit top edge of the plate
+    if (lx === 1) v += 0.12; else if (lx >= 3) v -= 0.12;
+    const grey = rnd(seed, band, plate, 6) < 0.3;
+    img.set(x, y, pick(grey ? G : P, clamp01(v), x, y, 0.6));
   });
-  speckle(img, seed + 5, 0.03, pal(0x8f6a48, 0x9a7650));
+  speckle(img, seed + 5, 0.03, pal(0x9a7650, 0x2a1a12));
   return img;
 }
 
@@ -266,10 +280,10 @@ function fern(img, seed) {
   const r = makeRng(seed);
   const G = pal(0x2c3a1a, 0x364820, 0x425827, 0x4f672e, 0x5d7535, 0x6b823e);
   const B = pal(0x5a3418, 0x6e421e, 0x845226, 0x96622e, 0xa47238, 0xb2823e);
-  const fronds = [[-2.25, 12], [-0.9, 12], [-1.9, 14], [-1.25, 14], [-1.6, 13]];
+  const fronds = [[-2.05, 12], [-1.1, 12], [-1.82, 14], [-1.32, 14], [-1.57, 15]];
   fronds.forEach(([a0, len], k) => {
-    const P = k === 0 || k === 3 ? B : G;
-    const bend = (Math.cos(a0) < -0.05 ? -1 : Math.cos(a0) > 0.05 ? 1 : 0) * 0.11;
+    const P = k === 0 ? B : G;
+    const bend = (Math.cos(a0) < -0.05 ? -1 : Math.cos(a0) > 0.05 ? 1 : 0) * 0.06;
     let x = 7.5 + (k - 2) * 0.4, y = 15.5, ang = a0;
     for (let s = 0; s < len; s++) {
       const ix = Math.floor(x), iy = Math.floor(y);
@@ -420,44 +434,49 @@ function wheat(img, seed) {
 }
 const CORN_STALK = pal(0x5e5e30, 0x6e6e38, 0x807e40, 0x908c48);
 const CORN_LEAF = pal(0x6a6436, 0x7f7a42, 0x948e4e, 0xa6a05a, 0x8a7444, 0x9c8450);
-function cornLeaf(img, x, y, dir, len, r, droop = 0.18) {
-  let fx = x, fy = y, ang = dir > 0 ? -0.75 : Math.PI + 0.75;
+function cornLeaf(img, x, y, dir, len, r, droop = 0.32) {
+  // broad strap leaf: rises from the stalk node, arches over and droops; 2px wide for most of its length
+  let fx = x + 0.5, fy = y + 0.5, ang = -Math.PI / 2 + dir * 0.45;
   for (let s = 0; s < len; s++) {
-    const ix = Math.round(fx), iy = Math.round(fy);
-    const c = pick(CORN_LEAF, clamp01(0.3 + s / len * 0.6 + (r.next() - 0.5) * 0.2), ix, iy, 0.3);
+    const ix = Math.floor(fx), iy = Math.floor(fy);
+    const t = s / len;
+    const c = pick(CORN_LEAF, clamp01(0.35 + t * 0.5 + (r.next() - 0.5) * 0.15), ix, iy, 0.3);
     img.set(ix, iy, c);
-    if (s < len * 0.6) img.set(ix, iy + 1, shade(c, -0.07));
+    if (t < 0.7) img.set(ix, iy + 1, shade(c, -0.08));
+    if (t > 0.2 && t < 0.55) img.set(ix + dir, iy + 1, shade(c, -0.12));
     ang += dir * droop;
     fx += Math.cos(ang); fy += Math.sin(ang);
   }
 }
+function cornStalks(img, r, top, leafRows) {
+  // two main stalks + a thinner one behind; leaves alternate sides at the nodes and arch over
+  const stalks = [[4, 2], [11, 2], [8, 1]];
+  stalks.forEach(([x0, w], si) => {
+    for (let y = top + si; y < 16; y++) for (let s = 0; s < w; s++) img.set(x0 + s, y, CORN_STALK[s ? 0 : si === 2 ? 1 : 2]);
+    leafRows.forEach((ly, k) => {
+      if (si === 2 && k % 2) return;
+      const dir = (k + si) & 1 ? 1 : -1;
+      cornLeaf(img, x0 + (dir > 0 ? w - 1 : 0), ly + si, dir, r.int(6, 8), r);
+    });
+  });
+}
 function cornBottom(img, seed) {
   const r = makeRng(seed);
-  const xs = [3, 8, 12];
-  xs.forEach((x0) => {
-    for (let y = 0; y < 16; y++) { img.set(x0, y, CORN_STALK[2]); img.set(x0 + 1, y, CORN_STALK[0]); }
-    for (let k = 0; k < 3; k++) cornLeaf(img, x0 + (k & 1), r.int(2, 13), k & 1 ? 1 : -1, r.int(4, 7), r);
-  });
-  // an ear in husk on the middle stalk
-  for (let j = 0; j < 4; j++) { img.set(10, 6 + j, hex(j === 0 ? 0xb4a466 : 0xa09252)); img.set(11, 7 + j, hex(0x8c7e44)); }
-  img.set(10, 5, hex(0x7a4a2a)); img.set(11, 5, hex(0x6a3e22));
+  cornStalks(img, r, 0, [2, 7, 12]);
+  for (let j = 0; j < 4; j++) { img.set(6, 6 + j, hex(j === 0 ? 0xb4a466 : 0xa09252)); img.set(7, 7 + j, hex(0x8c7e44)); }
+  img.set(6, 5, hex(0x7a4a2a)); img.set(7, 6, hex(0x6a3e22));
   return img;
 }
 function cornTop(img, seed) {
   const r = makeRng(seed);
-  const xs = [3, 8, 12];
-  xs.forEach((x0) => {
-    const top = r.int(3, 5);
-    for (let y = top; y < 16; y++) { img.set(x0, y, CORN_STALK[3]); img.set(x0 + 1, y, CORN_STALK[1]); }
-    // tassel
-    const T = pal(0x9a8448, 0xb09a5a, 0xc4ae6a);
-    for (let y = top - 3; y < top; y++) img.set(x0, y, T[1]);
-    img.set(x0 - 1, top - 2, T[2]); img.set(x0 - 2, top - 1, T[0]); img.set(x0 + 1, top - 2, T[2]); img.set(x0 + 2, top - 1, T[0]);
-    img.set(x0 - 1, top - 4, T[2]); img.set(x0 + 1, top - 4, T[1]);
-    for (let k = 0; k < 2; k++) cornLeaf(img, x0 + (k & 1), r.int(top + 3, 14), k & 1 ? 1 : -1, r.int(4, 7), r);
-  });
-  for (let j = 0; j < 4; j++) { img.set(4, 9 + j, hex(j === 0 ? 0xb4a466 : 0xa09252)); img.set(5, 10 + j, hex(0x8c7e44)); }
-  img.set(4, 8, hex(0x7a4a2a));
+  cornStalks(img, r, 4, [7, 12]);
+  const T = pal(0x9a8448, 0xb09a5a, 0xc4ae6a);
+  for (const x0 of [4, 11]) {
+    for (let y = 0; y < 4; y++) img.set(x0, y, T[1]);
+    img.set(x0 - 1, 2, T[2]); img.set(x0 - 2, 3, T[0]); img.set(x0 + 1, 1, T[2]); img.set(x0 + 2, 2, T[0]); img.set(x0 + 2, 3, T[0]);
+  }
+  for (let j = 0; j < 4; j++) { img.set(6, 9 + j, hex(j === 0 ? 0xb4a466 : 0xa09252)); img.set(7, 10 + j, hex(0x8c7e44)); }
+  img.set(6, 8, hex(0x7a4a2a));
   return img;
 }
 function bushTex(img, seed, berries) {
@@ -639,8 +658,8 @@ export const NATURE = {
   dry_grass_side(img) { grassSide(img, seedFromString('dry_grass_top'), DRY, pal(0xb8a468, 0x6f6a3a), 0x5a4a28); },
   forest_floor_top(img, { seed }) { forestTop(img, seed); },
   forest_floor_side(img, { seed }) {
-    dirtBase(img, DIRT_SEED);
-    const top = forestTop(new Img(), seedFromString('forest_floor_top'));
+    img.copy(memoImg('dirt_base', () => dirtBase(new Img(), DIRT_SEED)));
+    const top = memoImg('forest_top', () => forestTop(new Img(), seedFromString('forest_floor_top')));
     for (let x = 0; x < 16; x++) {
       const depth = 3 + (rnd(seed, x, 0, 1) < 0.5 ? 1 : 0) + (rnd(seed, x, 0, 2) < 0.2 ? 1 : 0);
       for (let y = 0; y < depth; y++) img.set(x, y, top.rgb(x, y + 5));
@@ -678,7 +697,7 @@ export const NATURE = {
   },
   log_birch(img, { seed }) { birchBark(img, seed); },
   log_birch_top(img, { seed }) {
-    ringsTop(img, seed, pal(0xb09a72, 0xbca67d, 0xc8b38a, 0xd2be96, 0xdac8a2), pal(0x2a2622, 0xb8b2a3, 0xd0cbbd, 0xdad5c8));
+    ringsTop(img, seed, pal(0xb09a72, 0xbca67d, 0xc8b38a, 0xd2be96, 0xdac8a2), pal(0x2a2622, 0xb8b2a3, 0xd0cbbd, 0xdad5c8, 0xc6c0b2, 0xd6d1c4, 0x5a554c, 0xdad5c8));
   },
   log_pine(img, { seed }) { pineBark(img, seed); },
   log_pine_top(img, { seed }) {

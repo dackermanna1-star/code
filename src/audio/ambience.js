@@ -162,7 +162,7 @@ export class AmbienceSystem {
     // rain
     const rainOut = C.rain * 0.5 * (1 - uw);
     const heavy = clamp(C.rain * C.storm * 0.9 + Math.max(0, C.rain - 0.6) * 0.6, 0, 1) * 0.5 * (1 - uw);
-    const roof = indoor * clamp(C.rain * 0.8 + C.storm * 0.2, 0, 1) * 0.38 * (1 - uw);
+    const roof = indoor * clamp(C.rain * 0.8 + C.storm * 0.2, 0, 1) * 0.3 * (1 - uw);
     this._rampTo(this.rainG.gain, rainOut);
     this._rampTo(this.heavyG.gain, heavy);
     this._rampTo(this.roofG.gain, roof);
@@ -186,14 +186,14 @@ export class AmbienceSystem {
     this._bed('tension', ten > 0.001);
 
     // tinnitus
-    this._rampTo(this.tinG.gain, Math.pow(C.tinnitus, 1.5) * 0.05, 0.05);
+    this._rampTo(this.tinG.gain, Math.pow(C.tinnitus, 1.5) * 0.03, 0.05);
 
     // heartbeat
     if (C.heartbeat > 0.04) {
       if (now >= this.nextBeat - 0.05) {
         const t = Math.max(now, this.nextBeat);
         const bpm = 55 + 85 * C.heartbeat;
-        this.e._playInternal('heartbeat', { volume: 0.25 + 0.75 * C.heartbeat, at: t, pitch: 1 + C.heartbeat * 0.08 });
+        this.e._playInternal('heartbeat', { volume: 0.2 + 0.6 * C.heartbeat, at: t, pitch: 1 + C.heartbeat * 0.08 });
         this.nextBeat = t + 60 / bpm;
       }
     } else this.nextBeat = now + 0.3;

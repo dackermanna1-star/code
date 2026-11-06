@@ -2,7 +2,7 @@
 // Every sound is a recipe (see sfx-*.js) that builds a Web Audio graph inside an OfflineAudioContext.
 // Variants are rendered once (in the background) into AudioBuffers and then played back cheaply.
 
-import { Synth, mulberry32, hashString, finalizeBuffer, makeLoopBuffer, bufferStats } from './dsp.js';
+import { Synth, mulberry32, hashString, finalizeBuffer, makeLoopBuffer, dataStats } from './dsp.js';
 import { WEAPON_SOUNDS } from './sfx-weapons.js';
 import { CREATURE_SOUNDS } from './sfx-creatures.js';
 import { WORLD_SOUNDS } from './sfx-world.js';
@@ -45,6 +45,14 @@ for (const [name, d] of Object.entries(SOUND_DEFS)) {
   d.prio ??= PRIO_BY_CAT[d.cat] ?? 3;
   d.groupCap ??= 12;
 }
+// per-play timbre variation for sounds that repeat a lot
+for (const d of Object.values(SOUND_DEFS)) {
+  if (d.tv !== undefined) continue;
+  if (d.group === 'step' || d.group === 'hit' || d.group === 'impact') d.tv = 0.35;
+  else if (d.group === 'zvoice') d.tv = 0.25;
+  else if (d.name.startsWith('swing_') || d.name === 'shell_drop') d.tv = 0.3;
+  else d.tv = 0;
+}
 // ambience beds are needed early for the atmosphere
 for (const n of ['amb_wind', 'amb_rain', 'amb_crickets']) SOUND_DEFS[n].prio = 1;
 
@@ -67,39 +75,62 @@ function offlineCtx(ch, len, sr) {
 }
 
 /**
- * Render one variant of a sound. Returns {buffer, rawPeak, rawRms, nan, ms}.
+ * Render a set of variants of a sound in ONE OfflineAudioContext: each variant is built into its own
+ * output channel (ChannelMerger → N-channel destination), so per-context costs (oscillator wavetables,
+ * context setup) are paid once per sound instead of once per variant.
+ * Returns {items: [{buffer, rawPeak, rawRms, nan}], ms}.
  */
-export async function renderVariant(name, variant = 0, baseRate = 48000) {
+export async function renderVariants(name, variants, baseRate = 48000) {
   const def = SOUND_DEFS[name];
   if (!def) throw new Error('unknown sound ' + name);
   const sr = rateFor(def, baseRate);
   const len = Math.max(64, Math.ceil(def.dur * sr));
+  const N = variants.length;
   const t0 = performance.now();
-  const ctx = offlineCtx(1, len, sr);
-  const out = ctx.createGain();
-  const hp = ctx.createBiquadFilter();
-  hp.type = 'highpass';
-  hp.frequency.value = 25;
-  hp.Q.value = 0.6;
-  out.connect(hp);
-  hp.connect(ctx.destination);
-  const seed = (hashString(name) ^ Math.imul(variant + 1, 0x9e3779b1)) >>> 0;
-  const s = new Synth(ctx, out, mulberry32(seed));
-  s.variant = variant;
-  def.render(s, variant);
+  const ctx = offlineCtx(N, len, sr);
+  let merger = null;
+  if (N > 1) {
+    merger = ctx.createChannelMerger(N);
+    ctx.destination.channelInterpretation = 'discrete';
+    merger.connect(ctx.destination);
+  }
+  variants.forEach((v, ch) => {
+    const out = ctx.createGain();
+    const hp = ctx.createBiquadFilter();
+    hp.type = 'highpass';
+    hp.frequency.value = 25;
+    hp.Q.value = 0.6;
+    out.connect(hp);
+    if (merger) hp.connect(merger, 0, ch);
+    else hp.connect(ctx.destination);
+    const seed = (hashString(name) ^ Math.imul(v + 1, 0x9e3779b1)) >>> 0;
+    const s = new Synth(ctx, out, mulberry32(seed));
+    s.variant = v;
+    def.render(s, v);
+  });
   const raw = await ctx.startRendering();
-  const st = bufferStats(raw);
-  let buffer;
-  if (def.loop) buffer = makeLoopBuffer(raw, def.loop.len, def.loop.xfade, def.loop.mode);
-  else buffer = finalizeBuffer(raw).buffer;
-  return { buffer, rawPeak: st.peak, rawRms: st.rms, nan: st.nan, ms: performance.now() - t0 };
+  const items = variants.map((v, ch) => {
+    const data = raw.getChannelData(ch);
+    if (def.loop) {
+      const st = dataStats(data);
+      return { buffer: makeLoopBuffer(data, sr, def.loop.len, def.loop.xfade, def.loop.mode), rawPeak: st.peak, rawRms: st.rms, nan: st.nan };
+    }
+    return finalizeBuffer(data, sr);
+  });
+  return { items, ms: performance.now() - t0 };
 }
 
-/** Render all variants of a sound (in parallel). Returns {buffers, info[]} */
+/** Render one variant (tests / tools). Returns {buffer, rawPeak, rawRms, nan, ms}. */
+export async function renderVariant(name, variant = 0, baseRate = 48000) {
+  const r = await renderVariants(name, [variant], baseRate);
+  return { ...r.items[0], ms: r.ms };
+}
+
+/** Render all variants of a sound. Returns {buffers, info[], ms} */
 export async function renderSound(name, baseRate = 48000) {
   const def = SOUND_DEFS[name];
-  const jobs = [];
-  for (let v = 0; v < def.variants; v++) jobs.push(renderVariant(name, v, baseRate));
-  const res = await Promise.all(jobs);
-  return { buffers: res.map((r) => r.buffer), info: res };
+  const vs = [];
+  for (let v = 0; v < def.variants; v++) vs.push(v);
+  const r = await renderVariants(name, vs, baseRate);
+  return { buffers: r.items.map((x) => x.buffer), info: r.items, ms: r.ms };
 }

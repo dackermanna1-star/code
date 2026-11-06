@@ -74,6 +74,8 @@ export const ITEM_TAGS = {
   wood: 'Wooden weapon (repairable with glue)',
   electronics_source: 'Can be salvaged for electronics',
   ammo: 'Ammunition',
+  cookware: 'Pan or pot (cooking)',
+  wrench: 'Wrench (vehicle work)',
 };
 
 export const ITEM_CATEGORIES = {
@@ -337,7 +339,7 @@ add({ id: 'cookies', name: 'Cookies', category: 'food', weight: 0.3, stack: 2, u
 add({ id: 'coffee', name: 'Instant Coffee', category: 'food', weight: 0.2, stack: 2, uses: 6, useLabel: 'Drink', icon: { shape: 'coffee' }, food: FOOD(0, { thirst: -2, energy: 12, eatTime: 3 }), desc: 'Freeze-dried crystals. Eaten dry, it still keeps your eyes open.' });
 add({ id: 'apple', name: 'Apple', category: 'food', weight: 0.2, stack: 8, icon: { shape: 'apple' }, food: FOOD(10, { thirst: 3, spoils: 336, eatTime: 2 }), desc: 'A crisp orchard apple. October\'s finest.' });
 add({ id: 'orange', name: 'Orange', category: 'food', weight: 0.2, stack: 8, icon: { shape: 'orange' }, food: FOOD(9, { thirst: 5, spoils: 336, eatTime: 2 }), desc: 'Juicy navel orange, shipped from somewhere that isn\'t here.' });
-add({ id: 'bread', name: 'Bread', category: 'food', weight: 0.5, stack: 2, uses: 4, icon: { shape: 'bread' }, food: FOOD(10, { thirst: -2, spoils: 120, eatTime: 3 }), desc: 'A loaf of sliced white. Goes green in a few days.' });
+add({ id: 'bread', name: 'Bread', category: 'food', weight: 0.5, stack: 2, uses: 4, icon: { shape: 'bread' }, food: FOOD(10, { thirst: -2, spoils: 72, eatTime: 3 }), desc: 'A loaf of sliced white. Goes green in a few days.' });
 add({ id: 'cheese', name: 'Cheese', category: 'food', weight: 0.4, stack: 2, uses: 3, icon: { shape: 'cheese' }, food: FOOD(11, { thirst: -3, spoils: 240, eatTime: 3 }), desc: 'A block of sharp cheddar. Keeps for a while without a fridge.' });
 add({ id: 'raw_meat', name: 'Raw Meat', category: 'food', weight: 0.5, stack: 4, icon: { shape: 'steak', color: '#c83a3a', color2: '#f0d0c0' }, food: FOOD(12, { sickness: 30, raw: true, cookTo: 'cooked_meat', spoils: 24, eatTime: 6 }), desc: 'Raw steak or venison. Cook it — seriously.' });
 add({ id: 'cooked_meat', name: 'Cooked Meat', category: 'food', weight: 0.45, stack: 4, icon: { shape: 'steak', color: '#8a4a22', color2: '#e8c08a' }, food: FOOD(35, { thirst: -3, health: 4, spoils: 48, eatTime: 6 }), desc: 'Seared over open flame. Smells like before.' });
@@ -475,7 +477,7 @@ C('work_shirt', 'Mechanic Shirt', 0.3, CLOTH('torso', 0.14, 0.05, 0.05, 0.14), {
 // --- jacket
 C('hoodie', 'Hoodie', 0.6, CLOTH('jacket', 0.35, 0.1, 0.06, 0.15), { shape: 'hoodie', color: '#7a7c82' }, 'A heather grey pullover hoodie with a kangaroo pocket.', { capacity: 2 });
 C('hoodie_black', 'Black Hoodie', 0.6, CLOTH('jacket', 0.35, 0.1, 0.06, 0.15), { shape: 'hoodie', color: '#2b2b30' }, 'Black zip hoodie. Blend into the night.', { capacity: 2 });
-C('hoodie_red', 'Wildcats Hoodie', 0.6, CLOTH('jacket', 0.35, 0.1, 0.06, 0.15), { shape: 'hoodie', color: '#2a4a9a', decal: 'letter' }, 'Royal blue Millbrook High hoodie with a big white M. Go Wildcats.', { capacity: 2 });
+C('hoodie_red', 'Wildcats Hoodie', 0.6, CLOTH('jacket', 0.35, 0.1, 0.06, 0.15), { shape: 'hoodie', color: '#a82a2a', decal: 'letter' }, 'Red Millbrook High hoodie with a big white M. Go Wildcats.', { capacity: 2 });
 C('denim_jacket', 'Denim Jacket', 1.0, CLOTH('jacket', 0.25, 0.15, 0.15, 0.35), { shape: 'jacket', color: '#4a6a9a' }, 'Stiff blue denim trucker jacket. Decent scratch protection.', { capacity: 2 });
 C('leather_jacket', 'Leather Jacket', 1.6, CLOTH('jacket', 0.35, 0.4, 0.3, 0.5, { noise: 0.05 }), { shape: 'jacket', color: '#2b2422', decal: 'zipper' }, 'Heavy cowhide biker jacket. Teeth slide off it.', { capacity: 3, rarity: 'uncommon', tags: [], durability: 180 });
 C('winter_coat', 'Winter Coat', 1.8, CLOTH('jacket', 0.75, 0.5, 0.15, 0.3, { speed: 0.97, noise: 0.05 }), { shape: 'puffer', color: '#3a4a6a' }, 'Down-filled parka with a fur-trimmed hood. Toasty.', { capacity: 4 });
@@ -577,10 +579,16 @@ export function itemsWithTag(tag) {
 
 const spoilHours = (def) => def.food?.spoils || def.drink?.spoils || 0;
 
+// Game clock used to stamp `age` on new perishable stacks when createItem gets no explicit age.
+// Core calls setItemClock(() => game.time.totalHours) once at startup.
+let itemClock = () => 0;
+export function setItemClock(fn) { itemClock = typeof fn === 'function' ? fn : () => 0; }
+export function itemClockHours() { return itemClock(); }
+
 /**
  * Create a new stack.
  * opts: {count, dur (0..1 condition fraction), ammo (rounds loaded), ammoType, uses, age (game hour created),
- *        data, contents, mode}
+ *        data, contents, mode}. Perishables without `age` are stamped with the item clock (setItemClock).
  * Liquid containers default to full of their def.data.liquid (empty when the def has no default liquid);
  * pass {uses: 0} for an empty one or {data: {liquid: 'dirty_water'}, uses: 2} etc.
  */
@@ -605,7 +613,7 @@ export function createItem(id, opts = {}) {
   } else if (def.uses) {
     s.uses = Math.max(0, Math.min(def.uses, Math.round(opts.uses ?? def.uses)));
   }
-  if (spoilHours(def)) s.age = opts.age ?? 0;
+  if (spoilHours(def)) s.age = opts.age ?? itemClock();
   if (def.capacity) {
     s.contents = new Array(def.capacity).fill(null);
     if (opts.contents) for (let i = 0; i < Math.min(def.capacity, opts.contents.length); i++) s.contents[i] = opts.contents[i] || null;

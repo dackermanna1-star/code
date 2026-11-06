@@ -6,7 +6,7 @@ import { ModelBuilder, shade, disposeObject } from './builder.js';
 import { M } from './material.js';
 import { buildProp } from './misc.js';
 
-export const ARM_PX = 1.7; // cm per arm pixel
+export const ARM_PX = 1.55; // cm per arm pixel
 
 const _x = new THREE.Vector3();
 const _y = new THREE.Vector3();
@@ -25,8 +25,8 @@ function buildArmGeometry(side, ap, material) {
   // hand: slightly different tone + finger line at the end
   b.box(0, 0, -0.35 * P, 4.08 * P, 4.08 * P, 3.3 * P, hand, handMat);
   b.box(0, 0.6 * P, -2.0 * P, 3.7 * P, 2.4 * P, 0.08 * P, shade(hand, 0.82), handMat);
-  // thumb
-  b.box(inner * 2.25 * P, 0.65 * P, -0.9 * P, 0.9 * P, 1.1 * P, 2.3 * P, shade(hand, 0.95), handMat);
+  // thumb (slightly raised strip on the inner side)
+  b.box(inner * 1.9 * P, 0.9 * P, -0.7 * P, 0.5 * P, 1.0 * P, 2.4 * P, shade(hand, 0.93), handMat);
   if (ap.glove != null) {
     b.box(0, 2.08 * P, -1.25 * P, 4.0 * P, 0.25 * P, 1.1 * P, shade(hand, 1.15), M.CLOTH); // knuckle pad
     b.box(0, 0, 1.45 * P, 4.3 * P, 4.3 * P, 0.7 * P, shade(hand, 0.8), M.CLOTH); // cuff

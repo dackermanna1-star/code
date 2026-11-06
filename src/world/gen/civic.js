@@ -348,10 +348,10 @@ export function foodland(ctx, site, rng) {
   // aisles
   aisles(fr, 4, 11, W - 6, D - 9, Y, ['store_shelf', 'store_shelf', 'store_shelf_misc', 'store_shelf_empty', 'store_shelf'], null, { gap: true, step: 4 });
   // coolers / freezers along the back wall of the store and the sides
-  for (let x = S.x0; x <= S.x1; x++) if (fr.get(x, Y, S.z0) === 0 && fr.get(x, Y, S.z0 - 1) !== 0 && !BLOCKS[fr.get(x, Y, S.z0 - 1)].door) fr.place(x, Y, S.z0, x % 3 === 0 ? 'freezer' : 'cooler', 0);
+  for (let x = S.x0; x <= S.x1; x++) if (fr.canPlace(x, Y, S.z0)) fr.place(x, Y, S.z0, x % 3 === 0 ? 'freezer' : 'cooler', 0);
   for (let z = S.z0 + 2; z <= D - 9; z++) {
-    if (fr.get(S.x0, Y, z) === 0) fr.container(S.x0, Y, z, 'crate_wood', 3, 'store_food');
-    if (fr.get(S.x1, Y, z) === 0) fr.place(S.x1, Y, z, z % 2 ? 'cooler' : 'store_shelf', 1);
+    if (fr.canPlace(S.x0, Y, z)) fr.container(S.x0, Y, z, 'crate_wood', 3, 'store_food');
+    if (fr.canPlace(S.x1, Y, z)) fr.place(S.x1, Y, z, z % 2 ? 'cooler' : 'store_shelf', 1);
   }
   // deli counter
   for (let x = S.x1 - 7; x <= S.x1 - 2; x++) fr.container(x, Y, S.z0 + 2, 'bar_counter', 0, 'diner_kitchen');
@@ -455,7 +455,7 @@ export function gasStation(ctx, site, front, name, rng, o = {}) {
   sf.door(dx, Y, sd - 1, 0, 'door_glass', { open: rng.chance(0.4) }); sf.markOpening(dx, Y, sd - 2);
   const S = byId.shop;
   aisles(sf, 4, S.z0 + 1, sw - 6, S.z1 - 2, Y, ['store_shelf', 'store_shelf_misc', 'store_shelf_empty'], (x) => (x % 2 ? 'gas_station' : null), { step: 4 });
-  for (let x = S.x0; x <= S.x1; x++) if (sf.get(x, Y, S.z0) === 0) sf.place(x, Y, S.z0, 'cooler', 0);
+  for (let x = S.x0; x <= S.x1; x++) if (sf.canPlace(x, Y, S.z0)) sf.place(x, Y, S.z0, 'cooler', 0);
   checkouts(sf, [S.x1 - 1], S.z1 - 1, Y, rng, 'gas_station');
   sf.place(S.x0, Y, S.z1 - 1, 'vending_machine', 3);
   const back = new Room(sf, { ...byId.back, y: Y0 }, rng, { height: 4 });

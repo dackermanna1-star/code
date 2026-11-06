@@ -170,6 +170,13 @@ async function main() {
       console.log(`  WAV files written to ${OUT}`);
     }
 
+    // ---------------------------------------------------------------- live mix levels
+    if (flag('--mix')) {
+      console.log('\n== live mix levels (master output, dBFS)');
+      const mix = await page.evaluate(() => window.audioTest.mixCheck());
+      for (const m of mix) console.log(`  ${m.label.padEnd(28)} rms ${String(m.rms).padStart(6)}   loudest ${String(m.loudest46ms).padStart(6)}   peak ${String(m.peak).padStart(6)}`);
+    }
+
     // ---------------------------------------------------------------- live API smoke test
     if (!flag('--skip-api')) {
       console.log('\n== live AudioEngine API smoke test');

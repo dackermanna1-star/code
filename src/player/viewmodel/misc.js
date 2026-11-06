@@ -8,8 +8,8 @@ const PI = Math.PI;
 
 function itemMeta(extra) {
   return Object.assign({
-    kind: 'tool', weight: 0.15,
-    hip: { pos: [0.17, -0.2, -0.36], rot: [-0.25, 0.2, 0.15] },
+    kind: 'tool', weight: 0.15, scale: 1.3,
+    hip: { pos: [0.16, -0.17, -0.35], rot: [-0.1, 0.25, 0.2] },
     sprint: { pos: [0.16, -0.28, -0.3], rot: [-0.9, 0.2, 0.3] },
     hands: { R: 'handR', L: null },
   }, extra);
@@ -22,10 +22,11 @@ export function fists() {
     b,
     meta: {
       kind: 'fists', weight: 0.05,
-      hip: { pos: [0.16, -0.175, -0.33], rot: [0.12, 0.25, -0.1] },
-      sprint: { pos: [0.17, -0.24, -0.3], rot: [-0.2, 0.3, -0.1] },
+      hip: { pos: [0.15, -0.165, -0.34], rot: [0.15, 0.2, -0.15] },
+      sprint: { pos: [0.16, -0.22, -0.3], rot: [-0.2, 0.3, -0.1] },
       hands: { R: 'handR', L: null },
-      freeL: { pos: [-0.16, -0.18, -0.34] },
+      freeL: { pos: [-0.15, -0.17, -0.35] },
+      shoulders: { R: [0.3, -0.45, 0.0], L: [-0.3, -0.45, 0.0] },
       swing: 'punch',
     },
   };
@@ -47,10 +48,9 @@ export function flashlight() {
   return {
     b,
     meta: itemMeta({
-      kind: 'tool', weight: 0.15,
-      hip: { pos: [0.16, -0.17, -0.38], rot: [0.04, 0.08, 0.0] },
+      kind: 'tool', weight: 0.15, scale: 1.35,
+      hip: { pos: [0.15, -0.15, -0.36], rot: [0.04, 0.12, -0.05] },
       sprint: { pos: [0.14, -0.26, -0.32], rot: [-0.75, 0.3, 0.2] },
-      freeL: { pos: [-0.2, -0.22, -0.4] },
     }),
   };
 }
@@ -199,8 +199,8 @@ export function generic(iconCanvas) {
   return {
     b,
     meta: itemMeta({
-      kind: 'generic', weight: 0.1,
-      hip: { pos: [0.165, -0.185, -0.36], rot: genericHoldRot() },
+      kind: 'generic', weight: 0.1, scale: 1.35,
+      hip: { pos: [0.165, -0.175, -0.35], rot: genericHoldRot() },
       sprint: { pos: [0.16, -0.27, -0.3], rot: [-0.9, 0.25, 0.3] },
     }),
   };

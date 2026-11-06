@@ -340,7 +340,7 @@ export class MusicSystem {
     const p = this._newPlayer('tense', 0);
     const t0 = ctx.currentTime + 0.05;
     p.gain.gain.setValueAtTime(0, t0);
-    p.gain.gain.linearRampToValueAtTime(0.9, t0 + 3);
+    p.gain.gain.linearRampToValueAtTime(0.6, t0 + 3);
     p.start = t0;
     // drone: sub sine + two detuned saws through a slowly opening resonant lowpass
     const lp = ctx.createBiquadFilter();

@@ -44,7 +44,7 @@ export const SHOPS = {
     }
     const back = ['kitchen_cabinet', 'cooler', 'kitchen_cabinet', 'fridge', 'kitchen_cabinet'];
     for (let x = S.x0 + 1, k = 0; x <= S.x1 - 1 && k < back.length; x += 2, k++) {
-      if (fr.get(x, Y, S.z0 - 1) !== B.wall_white && fr.get(x, Y, S.z0 - 1) === 0) continue;
+      if (!fr.canPlace(x, Y, S.z0)) continue;
       fr.container(x, Y, S.z0, back[k], 0, back[k] === 'cooler' ? 'store_drinks' : 'diner_kitchen');
     }
     // tables in the middle
@@ -99,6 +99,7 @@ export const SHOPS = {
     r.center('cardboard_box', 0, { loot: 'pharmacy_storage' });
     r.floorLoot('floor_hospital', 1, 0.6);
     fr.zombies(Math.floor(info.W / 2), Y, S.z0 + 4, rng.int(2, 3), 2, { indoor: true, outfit: rng.pick(['civilian_f', 'medic', 'civilian']) });
+    fr.note(S.x0 + 2, Y, S.z0 + 2, 'pharmacy_counter');
   },
   bank(ctx, fr, info, rng) {
     const { S, y } = info;
@@ -132,7 +133,7 @@ export const SHOPS = {
       if (x % 3 === 1) { fr.place(x, Y, cz, 'checkout', 0); fr.place(x, Y + 1, cz, 'cash_register', 0); } else fr.place(x, Y, cz, 'bar_counter', 0);
     }
     // PO boxes along a side wall
-    for (let z = cz + 2; z <= S.z1 - 2; z++) { fr.container(S.x0, Y, z, 'metal_shelf', 3, 'mailbox'); fr.container(S.x0, Y + 1, z, 'metal_shelf', 3, 'mailbox'); }
+    for (let z = cz + 2; z <= S.z1 - 2; z++) if (fr.canPlace(S.x0, Y, z)) { fr.container(S.x0, Y, z, 'metal_shelf', 3, 'mailbox'); fr.container(S.x0, Y + 1, z, 'metal_shelf', 3, 'mailbox'); }
     const lobby = new Room(fr, { ...S, z0: cz + 1, x0: S.x0 + 1 }, rng, { height: H - 1 });
     lobby.center('table'); lobby.wall('bench');
     backStorage(fr, info, rng, 'mailbox', { blocks: ['cardboard_box', 'cardboard_box', 'metal_shelf', 'table'], n: 8, center: 4 });
@@ -156,13 +157,14 @@ export const SHOPS = {
     for (let x = 2; x <= W - 3; x++) if (fr.get(x, Y, D - 2) === 0 && Math.abs(x - Math.floor(W / 2)) > 0) for (let yy = Y; yy <= Y + 2; yy++) fr.set(x, yy, D - 2, B.iron_bars);
     fr.markOpening(Math.floor(W / 2), Y, D - 2);
     for (let z = S.z0; z <= S.z1 - 2; z++) {
-      if (fr.get(S.x0, Y, z) === 0) fr.container(S.x0, Y, z, 'gun_cabinet', 3, 'gun_store');
-      if (fr.get(S.x1, Y, z) === 0 && z % 2 === 0) fr.container(S.x1, Y, z, 'gun_cabinet', 1, 'gun_store');
+      if (fr.canPlace(S.x0, Y, z)) fr.container(S.x0, Y, z, 'gun_cabinet', 3, 'gun_store');
+      if (fr.canPlace(S.x1, Y, z) && z % 2 === 0) fr.container(S.x1, Y, z, 'gun_cabinet', 1, 'gun_store');
     }
     // U shaped display counter
     const cz = S.z0 + 3;
     for (let x = S.x0 + 3; x <= S.x1 - 3; x++) fr.container(x, Y, cz, 'checkout', 0, 'gun_store');
     fr.place(S.x0 + 4, Y + 1, cz, 'cash_register', 0);
+    fr.note(S.x0 + 5, Y + 1, cz, 'gunstore_counter', 0.01);
     const r = new Room(fr, { ...S, z0: cz + 2 }, rng, { height: H - 1 });
     r.center('store_shelf_misc', 1, { loot: 'gun_store' });
     r.center('store_shelf_misc', 3, { loot: 'sporting_goods' });
@@ -190,14 +192,14 @@ export const SHOPS = {
   liquor(ctx, fr, info, rng) {
     const { S, y } = info;
     aisles(fr, S.x0 + 2, S.z0 + 2, S.x1 - 2, S.z1 - 4, y + 1, 'store_shelf_misc', 'liquor_store', { gap: true });
-    for (let x = S.x0; x <= S.x1; x++) if (fr.get(x, y + 1, S.z0) === 0) fr.container(x, y + 1, S.z0, 'cooler', 0, 'store_drinks');
+    for (let x = S.x0; x <= S.x1; x++) if (fr.canPlace(x, y + 1, S.z0)) fr.container(x, y + 1, S.z0, 'cooler', 0, 'store_drinks');
     frontCounter(fr, info, rng, 'liquor_store');
     backStorage(fr, info, rng, 'liquor_store', { blocks: ['crate_wood', 'cardboard_box', 'barrel_rust'] });
   },
   sporting(ctx, fr, info, rng) {
     const { S, y } = info;
     aisles(fr, S.x0 + 2, S.z0 + 1, S.x1 - 3, S.z1 - 4, y + 1, ['store_shelf_misc', 'clothing_rack'], 'sporting_goods', { gap: true });
-    for (let z = S.z0; z <= S.z1 - 3; z += 2) if (fr.get(S.x1, y + 1, z) === 0) fr.container(S.x1, y + 1, z, 'gun_cabinet', 1, 'sporting_goods');
+    for (let z = S.z0; z <= S.z1 - 3; z += 2) if (fr.canPlace(S.x1, y + 1, z)) fr.container(S.x1, y + 1, z, 'gun_cabinet', 1, 'sporting_goods');
     frontCounter(fr, info, rng, 'sporting_goods');
     // display tent
     const r = new Room(fr, S, rng, { height: H - 1 });
@@ -216,11 +218,11 @@ export const SHOPS = {
   laundromat(ctx, fr, info, rng) {
     const { S, y } = info;
     for (let x = S.x0; x <= S.x1; x++) {
-      if (fr.get(x, y + 1, S.z0) === 0) fr.place(x, y + 1, S.z0, 'washing_machine', 0);
+      if (fr.canPlace(x, y + 1, S.z0)) fr.place(x, y + 1, S.z0, 'washing_machine', 0);
     }
     for (let z = S.z0 + 2; z <= S.z1 - 3; z++) {
-      if (fr.get(S.x0, y + 1, z) === 0) fr.place(S.x0, y + 1, z, 'washing_machine', 3);
-      if (fr.get(S.x1, y + 1, z) === 0) fr.place(S.x1, y + 1, z, 'washing_machine', 1);
+      if (fr.canPlace(S.x0, y + 1, z)) fr.place(S.x0, y + 1, z, 'washing_machine', 3);
+      if (fr.canPlace(S.x1, y + 1, z)) fr.place(S.x1, y + 1, z, 'washing_machine', 1);
     }
     const r = new Room(fr, { ...S, x0: S.x0 + 2, x1: S.x1 - 2, z0: S.z0 + 2 }, rng, { height: H - 1 });
     r.tableSet(2, 1, 0); r.wall('bench'); r.wall('vending_machine');
@@ -240,7 +242,7 @@ export const SHOPS = {
   general(ctx, fr, info, rng) {
     const { S, y } = info;
     aisles(fr, S.x0 + 2, S.z0 + 1, S.x1 - 2, S.z1 - 4, y + 1, ['store_shelf', 'store_shelf_misc', 'store_shelf_empty'], null, { gap: true });
-    for (let x = S.x0; x <= S.x1; x++) if (fr.get(x, y + 1, S.z0) === 0 && x % 2 === 0) fr.place(x, y + 1, S.z0, 'cooler', 0);
+    for (let x = S.x0; x <= S.x1; x++) if (fr.canPlace(x, y + 1, S.z0) && x % 2 === 0) fr.place(x, y + 1, S.z0, 'cooler', 0);
     frontCounter(fr, info, rng, null);
     backStorage(fr, info, rng, 'store_general');
   },

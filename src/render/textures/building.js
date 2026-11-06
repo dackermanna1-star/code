@@ -1,7 +1,7 @@
 // Roads, ground surfaces, exterior building materials, roofs, metal, glass, awnings.
 import {
-  Img, pal, hex, mix, shade, ramp, desat, fbm, white, vnoise, worley, eq, combine, pick, paint, grain, grime, streaks,
-  speckle, crack, walk, leafBit, rnd, makeRng, smooth, clamp01, seedFromString, mulc,
+  Img, memoImg, pal, hex, mix, shade, desat, fbm, white, vnoise, eq, combine, pick, paint, grain, grime,
+  streaks, speckle, crack, walk, leafBit, rnd, makeRng, smooth, clamp01, seedFromString,
 } from './core.js';
 import { LEAF_LITTER } from './nature.js';
 
@@ -33,7 +33,7 @@ function marking(img, seed, mask, col, wear = 0.14) {
   });
   return img;
 }
-function roadBase(img) { return asphalt(img, ROAD_SEED); }
+function roadBase(img) { return img.copy(memoImg('road_base', () => asphalt(new Img(), ROAD_SEED))); }
 function tireMarks(img, seed, horizontal) {
   const r = makeRng(seed + 9);
   const k = r.int(2, 13);
@@ -91,7 +91,7 @@ function sidewalk(img, seed) {
   for (let y = 0; y < 16; y += 2) for (let x = 0; x < 16; x++) img.mul(x, y, 0.975);
   const r = makeRng(seed + 4);
   // crack from a joint
-  crack(img, r, r.int(3, 12), 1, r.int(6, 10), r.range(-0.4, 0.4), 1, { dark: 0.6, lip: 1.08, branch: 0.12 });
+  crack(img, r, r.int(3, 12), 1, r.int(4, 6), r.range(-0.4, 0.4), 1, { dark: 0.78, lip: 1.04, branch: 0.1 });
   // gum / stains
   for (let k = 0; k < 3; k++) {
     const x = r.int(2, 14), y = r.int(2, 14);
@@ -100,7 +100,7 @@ function sidewalk(img, seed) {
   grime(img, seed + 5, 0.22, [70, 62, 50], 2, 0.6);
   // rust stain
   const sx = r.int(2, 12), sy = r.int(3, 12);
-  img.disc(sx + 0.5, sy + 0.5, 1.8, (x, y, d) => img.mix(x, y, [104, 84, 64], 0.25 * (1 - d / 1.8)));
+  img.disc(sx + 0.5, sy + 0.5, 1.8, (x, y, d) => img.mix(x, y, [104, 90, 74], 0.15 * (1 - d / 1.8)));
   // expansion joints along the north and west edges
   for (let t = 0; t < 16; t++) {
     img.set(t, 0, hex(rnd(seed, t, 0, 7) < 0.5 ? 0x55534e : 0x5e5c57));
@@ -177,25 +177,26 @@ function siding(img, seed, base, opts = {}) {
   const peel = fbm(seed + 2, 3, 3, 3);
   const r = makeRng(seed + 3);
   const joints = [0, 1, 2, 3].map(() => r.int(0, 15));
-  const WOOD = pal(0x6e675c, 0x7c7569, 0x8a8377, 0x968f83);
-  const peelT = opts.peel ?? 0.87;
+  const WOOD = pal(0x857e72, 0x938c80, 0xa09a8e, 0xaca69a);
+  const peelT = opts.peel ?? 0.9;
   img.each((x, y) => {
     const ry = y & 3, board = y >> 2, i = y * 16 + x;
     let c;
     const bare = peel[i] > peelT;
-    if (bare) c = pick(WOOD, clamp01(grainF[i] * 0.8 + (wn[i] - 0.5) * 0.4), x, y, 0.5);
+    if (bare) c = mix(pick(WOOD, clamp01(grainF[i] * 0.8 + (wn[i] - 0.5) * 0.4), x, y, 0.5), base, 0.35);
     else c = shade(base, (grainF[i] - 0.5) * 0.06 + (wn[i] - 0.5) * 0.035);
     if (ry === 0) c = shade(c, -0.2);
     else if (ry === 1) c = shade(c, -0.06);
     else if (ry === 3) c = shade(c, 0.035);
     if (!bare && peel[i] > peelT - 0.05) c = shade(c, 0.06); // paint lip
     img.set(x, y, c);
-    if (x === joints[board] && ry > 0) { img.set(x, y, shade(c, -0.14)); }
+    if (x === joints[board] && ry > 0) { img.set(x, y, shade(c, -0.1)); }
     if (x === ((joints[board] + 1) & 15) && ry > 0) img.mul(x, y, 1.04);
   });
-  streaks(img, seed + 4, 5, [78, 72, 58], 7, 0.22);
+  const lum = (base[0] + base[1] + base[2]) / 765;
+  streaks(img, seed + 4, 4, [78, 72, 58], 7, 0.2 * (1.2 - lum));
   grime(img, seed + 5, 0.2, opts.grimeCol || [96, 100, 80], 3, 0.6);
-  speckle(img, seed + 6, 0.02, [shade(base, -0.12)]);
+  speckle(img, seed + 6, 0.015, [shade(base, -0.08)]);
   return img;
 }
 
@@ -305,8 +306,8 @@ function glass(img, seed) {
     if (d === 4 || d === 5 || d === 11) { c = hex(0xd6e2e5); a = 118; }
     if (d === 6 && x > 6) { c = hex(0xc4d2d6); a = 100; }
     // dirt along the bottom of the pane and in the corners
-    const dirt = smooth(9, 14, y) * 0.6 + (f[y * 16 + x] > 0.7 ? 0.25 : 0);
-    if (dirt > 0.05) { c = mix(c, hex(0x8a8474), dirt); a = Math.min(165, a + dirt * 90); }
+    const dirt = smooth(11, 15, y) * 0.45 + (f[y * 16 + x] > 0.72 ? 0.2 : 0);
+    if (dirt > 0.05) { c = mix(c, hex(0x8a8474), dirt); a = Math.min(140, a + dirt * 80); }
     img.set(x, y, c, a);
   });
   // frame (painted wood) with inner shadow
@@ -330,7 +331,7 @@ function glassShop(img, seed) {
     img.set(x, y, c, a);
   });
   // slim dark-bronze aluminium mullion on the west edge
-  for (let t = 0; t < 16; t++) { img.set(0, t, hex(0x4a443c)); img.set(1, t, hex(0x5e574c), 200); }
+  for (let t = 0; t < 16; t++) img.set(0, t, hex(0x5a544a));
   return img;
 }
 function glassBroken(img, seed) {
@@ -352,10 +353,10 @@ function glassBroken(img, seed) {
       }
     }
   };
-  shard(0, 1, 5, 6, 0.8); shard(0, 9, 4, 3, 0.2);
-  shard(1, 2, 6, 4, 0.3); shard(1, 10, 4, 7, 0.6);
-  shard(2, 4, 4, 4, 0.5); shard(2, 10, 3, 2, 0.5);
-  shard(3, 1, 4, 3, 0.4); shard(3, 7, 5, 5, 0.7);
+  shard(0, 1, 4, 5, 0.8); shard(0, 9, 3, 2, 0.2);
+  shard(1, 2, 5, 3, 0.3); shard(1, 10, 3, 5, 0.6);
+  shard(2, 5, 3, 3, 0.5); shard(2, 11, 2, 2, 0.5);
+  shard(3, 2, 3, 2, 0.4); shard(3, 8, 4, 4, 0.7);
   frameEdges(img, hex(0xcfcbc1), hex(0x8e8a80), hex(0xaaa69c));
   for (let t = 0; t < 16; t++) if (rnd(seed, t, 0, 5) < 0.2) img.set(t, 15, hex(0x7a6a56));
   return img;
@@ -488,7 +489,7 @@ export const BUILDING = {
     // peeling paint showing red brick beneath
     const peel = fbm(seed + 3, 3, 3, 3);
     const red = bricks(new Img(), seed, BRICK_RED, MORTAR);
-    img.each((x, y) => { const v = peel[y * 16 + x]; if (v > 0.88) img.set(x, y, shade(desat(red.rgb(x, y), 0.35), -0.03)); else if (v > 0.85) img.mul(x, y, 1.04); });
+    img.each((x, y) => { const v = peel[y * 16 + x]; if (v > 0.9) img.set(x, y, shade(desat(red.rgb(x, y), 0.55), 0.02)); else if (v > 0.85) img.mul(x, y, 1.04); });
     grime(img, seed + 7, 0.22, [80, 74, 64], 3, 0.55);
     streaks(img, seed + 8, 3, [90, 84, 72], 7, 0.2);
   },
@@ -552,13 +553,14 @@ export const BUILDING = {
     img.each((x, y) => {
       const i = y * 16 + x, cx = x & 7;
       let v = 0.45 + (st[i] - 0.5) * 0.35 + (wn[i] - 0.5) * 0.2;
-      let c = rust[i] > 0.8 || (rust[i] > 0.72 && wn[i] < 0.3) ? pick(R, clamp01(v), x, y, 0.5) : pick(G, clamp01(v), x, y, 0.5);
+      let c = rust[i] > 0.84 || (rust[i] > 0.76 && wn[i] < 0.3) ? pick(R, clamp01(v), x, y, 0.5) : pick(G, clamp01(v), x, y, 0.5);
       if (cx === 0) c = shade(c, 0.12);
       else if (cx === 1) c = shade(c, -0.14);
       else if (cx === 7) c = shade(c, -0.04);
       img.set(x, y, c);
     });
-    streaks(img, seed + 3, 3, [120, 70, 38], 7, 0.2);
+    // rust bleeding along the seams instead of big drip streaks
+    for (let y = 0; y < 16; y++) for (const sx of [1, 9]) if (rnd(seed, sx, y, 21) < 0.35) img.mix(sx, y, [120, 66, 36], 0.5);
   },
   metal_wall(img, { seed }) {
     const P = pal(0x515b62, 0x5a646b, 0x636d74, 0x6c767d, 0x758086, 0x7e898f);

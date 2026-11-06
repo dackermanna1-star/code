@@ -12,8 +12,8 @@
 //   outdoorBus → outdoorLP → ambBus           └─┴→ master → limiter → destination
 //   sends: sfxSend / ambSend → revSend → outdoor IR (+) indoor IR → reverb return → worldIn
 
-import { SOUND_DEFS, SOUND_NAMES, EXTRA_SOUND_NAMES, ALL_RENDER_NAMES, renderSound, PIANO_SAMPLES } from './sounds.js';
-import { makeImpulseResponse, clamp, lerp, makeBuffer } from './dsp.js';
+import { SOUND_DEFS, SOUND_NAMES, EXTRA_SOUND_NAMES, ALL_RENDER_NAMES, renderSound, rateFor, PIANO_SAMPLES } from './sounds.js';
+import { makeImpulseResponse, clamp, lerp, makeBuffer, noiseBuffer } from './dsp.js';
 import { MusicSystem } from './music.js';
 import { AmbienceSystem } from './ambience.js';
 
@@ -144,20 +144,23 @@ export class AudioEngine {
     this.innerBus = this._gain(1, this.master);
     this.uiBus = this._gain(1, this.master);
     this.musicBus = this._gain(1, this.master);
-    this.musicIn = this._gain(0.55, this.musicBus);
+    this.musicIn = this._gain(0.7, this.musicBus);
 
     // shared world reverb: outdoor (long, dark, scattered reflections) <-> indoor (short, bright)
-    const sr = Math.min(ctx.sampleRate, 48000);
+    const sr = ctx.sampleRate; // ConvolverNode requires the IR at the context rate
     this.revReturn = this._gain(1, this.worldIn);
+    // impulse responses are generated just after init (one per task) so the first gesture doesn't stall
     this.convOut = ctx.createConvolver();
     this.convOut.normalize = false;
-    this.convOut.buffer = makeImpulseResponse(sr, {
-      dur: 3.2, rt60: 2.6, predelay: 0.025, lp0: 5200, lp1: 700, hp: 160, seed: 11, gain: 0.55,
+    let irDelay = 20;
+    const later = (conv, opts) => setTimeout(() => this.ctx && (conv.buffer = makeImpulseResponse(sr, opts)), (irDelay += 90));
+    later(this.convOut, {
+      dur: 2.8, rt60: 2.4, predelay: 0.025, lp0: 5200, lp1: 700, hp: 160, seed: 11, gain: 0.55,
       early: [[0.07, 0.35], [0.12, 0.28], [0.19, 0.24], [0.31, 0.16], [0.46, 0.1], [0.62, 0.06]],
     });
     this.convIn = ctx.createConvolver();
     this.convIn.normalize = false;
-    this.convIn.buffer = makeImpulseResponse(sr, {
+    later(this.convIn, {
       dur: 1.1, rt60: 0.65, predelay: 0.004, lp0: 9000, lp1: 2600, hp: 120, seed: 23, gain: 0.5,
       early: [[0.006, 0.6], [0.0105, 0.5], [0.016, 0.42], [0.023, 0.35], [0.031, 0.3], [0.041, 0.24], [0.055, 0.16]],
     });
@@ -174,8 +177,8 @@ export class AudioEngine {
     // music reverb (lush hall)
     this.musicConv = ctx.createConvolver();
     this.musicConv.normalize = false;
-    this.musicConv.buffer = makeImpulseResponse(sr, {
-      dur: 4.6, rt60: 3.8, predelay: 0.03, lp0: 7000, lp1: 1400, hp: 90, seed: 37, gain: 0.6,
+    later(this.musicConv, {
+      dur: 3.8, rt60: 3.3, predelay: 0.03, lp0: 7000, lp1: 1400, hp: 90, seed: 37, gain: 0.6,
       early: [[0.021, 0.3], [0.033, 0.25], [0.047, 0.2], [0.069, 0.15]],
     });
     this.musicConv.connect(this.musicBus);
@@ -192,8 +195,19 @@ export class AudioEngine {
     names.sort((a, b) => SOUND_DEFS[a].prio - SOUND_DEFS[b].prio);
     this._queue = names;
     this.stats.total = names.length;
-    const workers = 3;
-    for (let i = 0; i < workers; i++) this._worker();
+    // shared noise buffers first, one per task (each costs a few ms), then staggered render workers
+    const rates = [...new Set(names.map((n) => rateFor(SOUND_DEFS[n], this.baseRate)))];
+    const jobs = [];
+    for (const r of rates) for (const k of ['white', 'pink', 'brown']) jobs.push(() => noiseBuffer(k, r));
+    const step = () => {
+      if (!this.ctx) return;
+      const j = jobs.shift();
+      if (j) {
+        j();
+        setTimeout(step, 0);
+      } else for (let i = 0; i < 3; i++) setTimeout(() => this._worker(), i * 8);
+    };
+    setTimeout(step, 0);
   }
 
   async _worker() {
@@ -469,8 +483,10 @@ export class AudioEngine {
     src.connect(g);
     let tail = g, lp = null, panner = null, spanner = null;
     const nodes = [src, g];
-    const cutoff = opts.lp ?? (positional ? this._airCutoff(def, d) : 0);
-    if (cutoff && cutoff < 19000) {
+    // air absorption for positional sounds; plus a random tone tilt (def.tv) so repeated sounds differ in timbre
+    let cutoff = opts.lp ?? (positional ? this._airCutoff(def, d) : 20000);
+    if (def.tv) cutoff *= Math.pow(2, -Math.random() * def.tv * 3);
+    if (cutoff < 19000) {
       lp = ctx.createBiquadFilter();
       lp.type = 'lowpass';
       lp.frequency.value = cutoff;
@@ -732,7 +748,7 @@ export class AudioEngine {
       // indoor: muffled outdoor ambience + reverb swap
       const ind = clamp(C.indoor, 0, 1);
       this.outdoorLP.frequency.setTargetAtTime(20000 * Math.pow(900 / 20000, ind), now, 0.08);
-      this.outdoorBus.gain.setTargetAtTime(lerp(1, 0.55, ind), now, 0.08);
+      this.outdoorBus.gain.setTargetAtTime(lerp(1, 0.4, ind), now, 0.08);
       this.revOutG.gain.setTargetAtTime(Math.cos((ind * Math.PI) / 2), now, 0.08);
       this.revInG.gain.setTargetAtTime(Math.sin((ind * Math.PI) / 2) * 1.1, now, 0.08);
       this.music.update(dt);

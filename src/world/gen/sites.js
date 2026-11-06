@@ -1,8 +1,14 @@
 // Dispatch special sites to their generators.
 import { ZONES } from '../World.js';
 import { buildDowntown, buildDowntownSpecial } from './downtown.js';
+import { buildHospital } from './hospital.js';
+import { buildSchool, buildChurch } from './school.js';
 
-const GENERATORS = {};
+const GENERATORS = {
+  hospital: buildHospital,
+  school: buildSchool,
+  church: buildChurch,
+};
 export function registerSite(key, fn) { GENERATORS[key] = fn; }
 
 export async function buildSites(ctx, progress) {

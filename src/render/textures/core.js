@@ -64,7 +64,18 @@ const hueToward = (h, target, t) => {
  * Lighten (dl > 0) or darken (dl < 0) a colour pixel-art style: shadows drift toward blue/purple and get a bit
  * more saturated, highlights drift toward warm yellow and desaturate.
  */
+const SHADE = new Map();
 export function shade(c, dl, hueAmt = 0.35) {
+  const key = ((((c[0] + 0.5) | 0) * 65536 + ((c[1] + 0.5) | 0) * 256 + ((c[2] + 0.5) | 0)) * 4096) + ((dl * 1000 + 2048) | 0) + hueAmt * 1e-3;
+  let out = SHADE.get(key);
+  if (out === undefined) {
+    out = shadeRaw(c, dl, hueAmt);
+    if (SHADE.size > 60000) SHADE.clear();
+    SHADE.set(key, out);
+  }
+  return out;
+}
+function shadeRaw(c, dl, hueAmt) {
   const [h, s, l] = rgb2hsl(c);
   const k = Math.min(1, Math.abs(dl) * hueAmt * 2);
   const nh = s < 0.04 ? h : dl < 0 ? hueToward(h, 235, k * 0.35) : hueToward(h, 50, k * 0.3);
@@ -92,6 +103,7 @@ export class Img {
   }
   i(x, y) {
     const w = this.w, h = this.h;
+    if (x >= 0 && y >= 0 && x < w && y < h && (x | 0) === x && (y | 0) === y) return (y * w + x) * 4;
     x = Math.floor(x); y = Math.floor(y);
     x = ((x % w) + w) % w;
     y = ((y % h) + h) % h;
@@ -190,26 +202,44 @@ export class Img {
   sub(x0, y0, w = S, h = S) { const o = new Img(w, h); return o.copy(this, x0, y0, 0, 0, w, h); }
 }
 
+/** cache an expensive shared base image (e.g. the asphalt under every road marking); returns a copy */
+const MEMO = new Map();
+export function memoImg(key, make) {
+  let m = MEMO.get(key);
+  if (!m) { m = make(); MEMO.set(key, m); }
+  return m.clone();
+}
+
 // ---------------------------------------------------------------------------
 // tileable noise fields (Float32Array w*h, values 0..1)
 const smoothT = (t) => t * t * (3 - 2 * t);
 
 /** periodic value noise: px cells across the width, py cells down the height */
-export function vnoise(seed, px, py = px, w = S, h = S) {
-  const lat = new Float32Array(px * py);
-  for (let j = 0; j < py; j++) for (let i = 0; i < px; i++) lat[j * px + i] = hash32(seed, i, j, 7) / 4294967296;
-  const out = new Float32Array(w * h);
+const LAT = new Float32Array(64 * 64);
+const SX0 = new Int32Array(64), SX1 = new Int32Array(64), STX = new Float32Array(64);
+/** add amp * periodic value noise (px cells across the width, py down the height) into out */
+function vnoiseInto(out, amp, seed, px, py, w, h) {
+  for (let j = 0; j < py; j++) for (let i = 0; i < px; i++) LAT[j * px + i] = hash32(seed, i, j, 7) / 4294967296;
+  if (px === w && py === h) { for (let i = 0; i < w * h; i++) out[i] += LAT[i] * amp; return out; }
+  for (let x = 0; x < w; x++) {
+    const fx = (x * px) / w, x0 = Math.floor(fx);
+    SX0[x] = x0 % px; SX1[x] = (x0 + 1) % px; STX[x] = smoothT(fx - x0);
+  }
   for (let y = 0; y < h; y++) {
     const fy = (y * py) / h, y0 = Math.floor(fy), ty = smoothT(fy - y0);
     const j0 = (y0 % py) * px, j1 = ((y0 + 1) % py) * px;
     for (let x = 0; x < w; x++) {
-      const fx = (x * px) / w, x0 = Math.floor(fx), tx = smoothT(fx - x0);
-      const i0 = x0 % px, i1 = (x0 + 1) % px;
-      const a = lat[j0 + i0], b = lat[j0 + i1], c = lat[j1 + i0], d = lat[j1 + i1];
-      out[y * w + x] = (a + (b - a) * tx) + ((c + (d - c) * tx) - (a + (b - a) * tx)) * ty;
+      const i0 = SX0[x], i1 = SX1[x], tx = STX[x];
+      const a = LAT[j0 + i0], b = LAT[j0 + i1], c = LAT[j1 + i0], d = LAT[j1 + i1];
+      const top = a + (b - a) * tx;
+      out[y * w + x] += (top + (c + (d - c) * tx - top) * ty) * amp;
     }
   }
   return out;
+}
+/** periodic value noise: px cells across the width, py cells down the height (values 0..1) */
+export function vnoise(seed, px, py = px, w = S, h = S) {
+  return vnoiseInto(new Float32Array(w * h), 1, seed, px, py, w, h);
 }
 
 /** fractal value noise, normalised to 0..1. px/py = base cell counts (doubling each octave, capped at w/h). */
@@ -217,8 +247,7 @@ export function fbm(seed, px = 2, py = px, oct = 3, gain = 0.5, w = S, h = S) {
   const out = new Float32Array(w * h);
   let amp = 1;
   for (let o = 0; o < oct; o++) {
-    const n = vnoise(seed + o * 1013, Math.min(w, px << o), Math.min(h, py << o), w, h);
-    for (let i = 0; i < out.length; i++) out[i] += n[i] * amp;
+    vnoiseInto(out, amp, seed + o * 1013, Math.min(w, px << o), Math.min(h, py << o), w, h);
     amp *= gain;
   }
   return norm(out);
@@ -268,10 +297,16 @@ export function norm(f) {
 }
 /** rank-equalise a field so values are uniformly distributed in 0..1 */
 export function eq(f) {
-  const idx = Array.from(f.keys()).sort((a, b) => f[a] - f[b]);
-  const out = new Float32Array(f.length);
-  const n = f.length - 1;
-  for (let r = 0; r < idx.length; r++) out[idx[r]] = r / n;
+  // pack (quantised value, index) into one number and use the native typed-array sort
+  const n = f.length;
+  const keys = new Float64Array(n);
+  let mn = Infinity, mx = -Infinity;
+  for (let i = 0; i < n; i++) { if (f[i] < mn) mn = f[i]; if (f[i] > mx) mx = f[i]; }
+  const k = mx > mn ? 1048575 / (mx - mn) : 0;
+  for (let i = 0; i < n; i++) keys[i] = Math.floor((f[i] - mn) * k) * 65536 + i;
+  keys.sort();
+  const out = new Float32Array(n);
+  for (let r = 0; r < n; r++) out[keys[r] % 65536] = r / (n - 1);
   return out;
 }
 /** weighted sum of fields */
@@ -314,7 +349,7 @@ export function grain(img, seed, amt = 0.06, onlyOpaque = true) {
 }
 /** blotchy dirt overlay (fbm thresholded) */
 export function grime(img, seed, amt = 0.35, col = [62, 52, 40], px = 3, lo = 0.45) {
-  const f = fbm(seed, px, px, 3, 0.55, img.w, img.h);
+  const f = fbm(seed, px, px, 2, 0.55, img.w, img.h);
   for (let y = 0; y < img.h; y++) for (let x = 0; x < img.w; x++) {
     const t = smooth(lo, 1, f[y * img.w + x]) * amt;
     img.mix(x, y, col, t);

@@ -11,6 +11,7 @@ const P = {
   hipR: 10, hipL: 11, knR: 12, knL: 13, ftR: 14, ftL: 15,
 };
 const NP = 16;
+const TORSO_IDS = [P.neck, P.chest, P.back, P.shR, P.shL, P.hipR, P.hipL];
 const GRAV = -9.81 * 1.25;
 const SUB = 1 / 120;
 
@@ -164,7 +165,14 @@ export class Ragdoll {
       if (m > maxMove) maxMove = m;
     }
     if (maxMove < 0.0009) this.quiet += SUB; else this.quiet = 0;
-    if ((this.quiet > 0.35 && this.time > 0.5) || this.time > 4.0) {
+    // settling phase: once motion is small, bleed velocity so it comes to rest without jitter
+    if (this.time > 0.8 && maxMove < 0.006) this.calm = Math.min(1, (this.calm || 0) + SUB * 1.5);
+    else if (maxMove > 0.02) this.calm = Math.max(0, (this.calm || 0) - SUB * 4);
+    if (this.calm > 0) {
+      const k = 0.35 * this.calm;
+      for (let i = 0; i < NP * 3; i++) q[i] += (p[i] - q[i]) * k;
+    }
+    if ((this.quiet > 0.3 && this.time > 0.6) || this.time > 4.0) {
       this.settled = true;
       // remove residual velocity
       q.set(p);
@@ -207,11 +215,10 @@ export class Ragdoll {
     const p = this.pos;
     const T = this._torsoFrame();
     const X = [T[3], T[4], T[5]], Y = [T[6], T[7], T[8]], Z = [T[9], T[10], T[11]];
-    // hinges: knee bends backwards, elbow forwards (soft)
+    // hinge: knees bend backwards only
     this._hinge(P.hipR, P.knR, P.ftR, X, -1);
     this._hinge(P.hipL, P.knL, P.ftL, X, -1);
-    this._hinge(P.shR, P.elR, P.haR, X, 1, 0.5);
-    this._hinge(P.shL, P.elL, P.haL, X, 1, 0.5);
+    // (no elbow hinge: arms rotate freely at the shoulder; the min-distance constraint stops full folding)
     // head cone (max ~65° from the spine)
     this._cone(P.neck, P.head, Y, 0.42, null);
     // thighs: not far behind the body, limited spreading
@@ -221,27 +228,25 @@ export class Ragdoll {
     for (const i of [P.elR, P.elL, P.haR, P.haL, P.knR, P.knL, P.ftR, P.ftL, P.head]) this._outOfTorso(i, T);
   }
 
-  _hinge(a, b, c, X, sign, k = 0.8) {
+  // All limit corrections are applied equal-and-opposite (equal masses) so they never add net momentum.
+  _hinge(a, b, c, X, sign, k = 0.5) {
     if (!this.active[b] || !this.active[c]) return;
     const p = this.pos;
     const ao = a * 3, bo = b * 3, co = c * 3;
     let tx = p[bo] - p[ao], ty = p[bo + 1] - p[ao + 1], tz = p[bo + 2] - p[ao + 2];
     const tl = Math.hypot(tx, ty, tz) || 1; tx /= tl; ty /= tl; tz /= tl;
-    // bending "forward" direction for this hinge: cross(t, X) (elbow) or cross(t, X) negated (knee)
-    let fx = ty * X[2] - tz * X[1], fy = tz * X[0] - tx * X[2], fz = tx * X[1] - ty * X[0];
-    // knee: natural bend goes to -cross(t,X)... we use sign so that positive = allowed side
-    fx *= sign; fy *= sign; fz *= sign;
+    // allowed bending direction: sign * cross(t, X)
+    let fx = (ty * X[2] - tz * X[1]) * sign, fy = (tz * X[0] - tx * X[2]) * sign, fz = (tx * X[1] - ty * X[0]) * sign;
+    const fl = Math.hypot(fx, fy, fz);
+    if (fl < 0.3) return; // limb roughly along the hinge axis: undefined, skip
+    fx /= fl; fy /= fl; fz /= fl;
     const sx = p[co] - p[bo], sy = p[co + 1] - p[bo + 1], sz = p[co + 2] - p[bo + 2];
     const along = sx * fx + sy * fy + sz * fz;
     if (along < 0) {
-      const m = -along * k;
-      p[co] += fx * m * 0.7; p[co + 1] += fy * m * 0.7; p[co + 2] += fz * m * 0.7;
-      p[bo] -= fx * m * 0.3; p[bo + 1] -= fy * m * 0.3; p[bo + 2] -= fz * m * 0.3;
+      const m = -along * k * 0.5;
+      p[co] += fx * m; p[co + 1] += fy * m; p[co + 2] += fz * m;
+      p[bo] -= fx * m; p[bo + 1] -= fy * m; p[bo + 2] -= fz * m;
     }
-    // limit sideways bend (along the hinge axis)
-    const side = sx * X[0] + sy * X[1] + sz * X[2];
-    const m2 = side * 0.25;
-    p[co] -= X[0] * m2; p[co + 1] -= X[1] * m2; p[co + 2] -= X[2] * m2;
   }
 
   _cone(a, b, axis, cosLim) {
@@ -257,8 +262,10 @@ export class Ragdoll {
     const pl = Math.hypot(px, py, pz) || 1e-6; px /= pl; py /= pl; pz /= pl;
     const sinLim = Math.sqrt(1 - cosLim * cosLim);
     const nx = axis[0] * cosLim + px * sinLim, ny = axis[1] * cosLim + py * sinLim, nz = axis[2] * cosLim + pz * sinLim;
-    const k = 0.6;
-    p[bo] += (p[ao] + nx * l - p[bo]) * k; p[bo + 1] += (p[ao + 1] + ny * l - p[bo + 1]) * k; p[bo + 2] += (p[ao + 2] + nz * l - p[bo + 2]) * k;
+    const k = 0.25;
+    const dx = (p[ao] + nx * l - p[bo]) * k, dy = (p[ao + 1] + ny * l - p[bo + 1]) * k, dz = (p[ao + 2] + nz * l - p[bo + 2]) * k;
+    p[bo] += dx; p[bo + 1] += dy; p[bo + 2] += dz;
+    p[ao] -= dx; p[ao + 1] -= dy; p[ao + 2] -= dz;
   }
 
   _thigh(hip, knee, X, Y, Z) {
@@ -271,69 +278,81 @@ export class Ragdoll {
     const back = -(tx * Z[0] + ty * Z[1] + tz * Z[2]); // > 0 = behind the body
     const up = tx * Y[0] + ty * Y[1] + tz * Y[2]; // > 0 = raised towards the chest
     let cx = 0, cy = 0, cz = 0;
-    if (back > 0.45) { const e = back - 0.45; cx += Z[0] * e; cy += Z[1] * e; cz += Z[2] * e; }
-    if (up > 0.55) { const e = up - 0.55; cx -= Y[0] * e; cy -= Y[1] * e; cz -= Y[2] * e; }
+    if (back > 0.5) { const e = back - 0.5; cx += Z[0] * e; cy += Z[1] * e; cz += Z[2] * e; }
+    if (up > 0.6) { const e = up - 0.6; cx -= Y[0] * e; cy -= Y[1] * e; cz -= Y[2] * e; }
     const sd = tx * X[0] + ty * X[1] + tz * X[2];
-    if (Math.abs(sd) > 0.6) { const e = sd - Math.sign(sd) * 0.6; cx -= X[0] * e; cy -= X[1] * e; cz -= X[2] * e; }
+    if (Math.abs(sd) > 0.65) { const e = sd - Math.sign(sd) * 0.65; cx -= X[0] * e; cy -= X[1] * e; cz -= X[2] * e; }
     if (cx || cy || cz) {
-      p[ko] += cx * l * 0.5; p[ko + 1] += cy * l * 0.5; p[ko + 2] += cz * l * 0.5;
+      const k = l * 0.2;
+      p[ko] += cx * k; p[ko + 1] += cy * k; p[ko + 2] += cz * k;
+      p[ho] -= cx * k; p[ho + 1] -= cy * k; p[ho + 2] -= cz * k;
     }
   }
 
   _outOfTorso(i, T) {
-    if (!this.active[i]) return;
+    if (!this.active[i] || this.grounded[i]) return; // limbs trapped under the body stay there (no fighting the floor)
     const p = this.pos, o = i * 3;
     const dx = p[o] - T[0], dy = p[o + 1] - T[1], dz = p[o + 2] - T[2];
     const lx = dx * T[3] + dy * T[4] + dz * T[5];
     const ly = dx * T[6] + dy * T[7] + dz * T[8];
     const lz = dx * T[9] + dy * T[10] + dz * T[11];
-    const r = this.rad[i] * 0.8;
+    const r = this.rad[i] * 0.7;
     const hx = this.tw / 2 + r, hz = this.td / 2 + r;
-    if (ly < 0.02 || ly > this.th - 0.02 || Math.abs(lx) > hx || Math.abs(lz) > hz) return;
-    // push out along the smallest penetration (x or z)
+    if (ly < 0.03 || ly > this.th - 0.03 || Math.abs(lx) > hx || Math.abs(lz) > hz) return;
+    // push out along the smallest penetration (x or z); the torso (7 rigid particles) takes the reaction
     const px = hx - Math.abs(lx), pz = hz - Math.abs(lz);
-    if (px < pz) {
-      const m = Math.sign(lx || 1) * px * 0.8;
-      p[o] += T[3] * m; p[o + 1] += T[4] * m; p[o + 2] += T[5] * m;
-    } else {
-      const m = Math.sign(lz || 1) * pz * 0.8;
-      p[o] += T[9] * m; p[o + 1] += T[10] * m; p[o + 2] += T[11] * m;
+    let mx, my, mz;
+    if (px < pz) { const m = Math.sign(lx || 1) * px * 0.5; mx = T[3] * m; my = T[4] * m; mz = T[5] * m; }
+    else { const m = Math.sign(lz || 1) * pz * 0.5; mx = T[9] * m; my = T[10] * m; mz = T[11] * m; }
+    p[o] += mx * 0.875; p[o + 1] += my * 0.875; p[o + 2] += mz * 0.875;
+    const tor = TORSO_IDS;
+    for (let k = 0; k < 7; k++) {
+      const t = tor[k] * 3;
+      p[t] -= mx * 0.125; p[t + 1] -= my * 0.125; p[t + 2] -= mz * 0.125;
     }
   }
 
   _collide(final) {
     const p = this.pos, q = this.prev, solid = this.isSolid;
     const fl = Math.floor;
+    const E = 0.12; // restitution
     for (let i = 0; i < NP; i++) {
       if (!this.active[i]) continue;
       const o = i * 3, r = this.rad[i];
       let x = p[o], y = p[o + 1], z = p[o + 2];
       let g = 0;
-      const cx = fl(x), cz = fl(z);
-      // floor / ceiling
-      if (solid(cx, fl(y - r), cz) && !solid(cx, fl(y - r) + 1, cz)) {
-        const top = fl(y - r) + 1 + r;
-        if (y < top) {
-          y = top; g = 1;
-          // restitution: reflect a little of the downward velocity
-          const vy = y - q[o + 1];
-          if (vy < 0) q[o + 1] = y + vy * 0.15;
-        }
-      } else if (solid(cx, fl(y), cz)) {
-        // deep inside a block: push up out of it
-        y = fl(y) + 1 + r; g = 1; q[o + 1] = y;
+      // centre inside a solid block (tunnelled): go back to the previous position
+      if (solid(fl(x), fl(y), fl(z)) && !solid(fl(q[o]), fl(q[o + 1]), fl(q[o + 2]))) {
+        x = q[o]; y = q[o + 1]; z = q[o + 2];
       }
-      if (solid(cx, fl(y + r), cz) && !solid(cx, fl(y), cz)) {
-        const bot = fl(y + r) - r;
-        if (y > bot) { y = bot; if (q[o + 1] < y) q[o + 1] = y; }
+      const cx = fl(x), cz = fl(z);
+      // floor
+      const fy = fl(y - r);
+      if (solid(cx, fy, cz) && !solid(cx, fy + 1, cz)) {
+        const top = fy + 1 + r;
+        if (y < top) {
+          const vin = y - q[o + 1];
+          y = top; g = 1;
+          q[o + 1] = vin < 0 ? y + vin * E : y - vin;
+        }
+      }
+      // ceiling
+      const cyy = fl(y + r);
+      if (solid(cx, cyy, cz) && !solid(cx, cyy - 1, cz)) {
+        const bot = cyy - r;
+        if (y > bot) { const vin = y - q[o + 1]; y = bot; q[o + 1] = vin > 0 ? y + vin * E : y - vin; }
       }
       const cy = fl(y);
-      // walls (x)
-      if (solid(fl(x - r), cy, cz) && !solid(fl(x - r) + 1, cy, cz)) { const w = fl(x - r) + 1 + r; if (x < w) { x = w; q[o] = x + (x - q[o]) * 0.1; } }
-      if (solid(fl(x + r), cy, cz) && !solid(fl(x + r) - 1, cy, cz)) { const w = fl(x + r) - r; if (x > w) { x = w; q[o] = x + (x - q[o]) * 0.1; } }
+      // walls
+      let w = fl(x - r);
+      if (solid(w, cy, cz) && !solid(w + 1, cy, cz) && x < w + 1 + r) { const vin = x - q[o]; x = w + 1 + r; q[o] = vin < 0 ? x + vin * E : x - vin; g = g || 2; }
+      w = fl(x + r);
+      if (solid(w, cy, cz) && !solid(w - 1, cy, cz) && x > w - r) { const vin = x - q[o]; x = w - r; q[o] = vin > 0 ? x + vin * E : x - vin; g = g || 2; }
       const cx2 = fl(x);
-      if (solid(cx2, cy, fl(z - r)) && !solid(cx2, cy, fl(z - r) + 1)) { const w = fl(z - r) + 1 + r; if (z < w) { z = w; q[o + 2] = z + (z - q[o + 2]) * 0.1; } }
-      if (solid(cx2, cy, fl(z + r)) && !solid(cx2, cy, fl(z + r) - 1)) { const w = fl(z + r) - r; if (z > w) { z = w; q[o + 2] = z + (z - q[o + 2]) * 0.1; } }
+      w = fl(z - r);
+      if (solid(cx2, cy, w) && !solid(cx2, cy, w + 1) && z < w + 1 + r) { const vin = z - q[o + 2]; z = w + 1 + r; q[o + 2] = vin < 0 ? z + vin * E : z - vin; g = g || 2; }
+      w = fl(z + r);
+      if (solid(cx2, cy, w) && !solid(cx2, cy, w - 1) && z > w - r) { const vin = z - q[o + 2]; z = w - r; q[o + 2] = vin > 0 ? z + vin * E : z - vin; g = g || 2; }
       p[o] = x; p[o + 1] = y; p[o + 2] = z;
       if (final) this.grounded[i] = g;
     }

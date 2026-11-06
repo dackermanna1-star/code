@@ -145,9 +145,8 @@ export function getZombieGeometry(variant) {
   legBoxes(BONE.legUL, BONE.legLL, GROUP.legUL, GROUP.legLL, R.legL);
 
   // ---- stumps (hidden until dismember)
-  const gore = FREE.gore;
-  const goreCap = sub(gore, 2, 2, 4, 4);
-  const goreRing = sub(gore, 0, 0, 8, 2);
+  const goreCap = FREE.gore;
+  const goreRing = sub(FREE.goreSide, 0, 0, 8, 3);
   B.box(BONE.torso, GROUP.stumpNeck, -2.2, th, -1.6, 2.2, th + 1.4, 1.6, { ...allFaces(goreRing), top: goreCap });
   const stumpArm = (bone, gSh, gEl, reg) => {
     const dm = reg.dims;

@@ -459,11 +459,11 @@ function getPoolTextures() {
       const i = (y * S + x) * 4;
       if (f <= 0) { img.data[i + 3] = 0; continue; }
       const rim = f < 0.12;
-      const n = rng.next() * 14;
-      const r = rim ? 70 : 96 + n, g = rim ? 8 : 10 + n * 0.3, b = rim ? 8 : 9;
+      const n = rng.next() * 10;
+      const r = rim ? 44 : 62 + n + f * 14, g = rim ? 7 : 8 + n * 0.25, b = rim ? 6 : 7;
       img.data[i] = r; img.data[i + 1] = g; img.data[i + 2] = b;
-      img.data[i + 3] = rim ? 200 : 240;
-      if (f > 0.5 && rng.next() < 0.03) { img.data[i] = 150; img.data[i + 1] = 40; img.data[i + 2] = 40; }
+      img.data[i + 3] = rim ? 190 : 235;
+      if (f > 0.45 && rng.next() < 0.025) { img.data[i] = 120; img.data[i + 1] = 36; img.data[i + 2] = 32; }
     }
     ctx.putImageData(img, 0, 0);
     const t = new THREE.CanvasTexture(c);

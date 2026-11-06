@@ -1,8 +1,8 @@
 // Outdoor props: fences, military defences, street furniture, barrels, camp & fire, vending / gas pumps.
 // Many sit on 'boxes' shapes that only show part of the texture (noted per generator).
 import {
-  Img, pal, hex, mix, shade, ramp, desat, fbm, white, vnoise, worley, eq, combine, pick, paint, grain, grime, streaks,
-  speckle, crack, walk, leafBit, rnd, makeRng, smooth, clamp01, seedFromString,
+  pal, hex, mix, shade, ramp, fbm, white, vnoise, worley, eq, combine, pick, paint, grain, grime, streaks,
+  speckle, crack, leafBit, rnd, makeRng, clamp01,
 } from './core.js';
 import { CONCRETE, concreteBase, planks } from './building.js';
 import { material, woodGrain, bev, inset, hbar, vbar, knob, CHROME } from './furniture.js';
@@ -15,18 +15,18 @@ const RUST = pal(0x4e2a16, 0x643620, 0x7a4428, 0x8e5230, 0xa0623a);
 // ---------------------------------------------------------------------------
 // fences & defences
 function picketFence(img, seed) {
+  // 2px pickets with 2px see-through gaps, two rails behind (rows 3-4 / 11-12; rows 7-9 stay picket-only so the
+  // fence's top face shows a dotted row of picket tops)
   img.fill([0, 0, 0], 0);
   const P = pal(0x9e9a90, 0xaeaaa0, 0xbcb8ae, 0xc8c4ba, 0xd2cec4);
-  const rail = pal(0x6e6a62, 0x7c786e);
-  for (const ry of [3, 4, 11, 12]) for (let x = 0; x < 16; x++) img.set(x, ry, rail[ry & 1], 255);
+  for (const ry of [3, 4, 11, 12]) for (let x = 0; x < 16; x++) img.set(x, ry, hex(ry === 3 || ry === 11 ? 0x8a867c : 0x6e6a62), 255);
   for (let k = 0; k < 4; k++) {
-    const x0 = k * 4;
-    for (let y = 0; y < 16; y++) for (let c = 0; c < 3; c++) {
-      if (y === 0 && c !== 1) continue;
-      let v = c === 0 ? 0.85 : c === 1 ? 0.6 : 0.25;
-      v += (rnd(seed, x0 + c, y, 1) - 0.5) * 0.12;
+    const x0 = k * 4 + 1;
+    const top = rnd(seed, k, 0, 7) < 0.25 ? 2 : 1; // one picket a little shorter / broken
+    for (let y = top; y < 16; y++) for (let c = 0; c < 2; c++) {
+      let v = (c === 0 ? 0.8 : 0.35) + (rnd(seed, x0 + c, y, 1) - 0.5) * 0.12 + (y === top ? 0.15 : 0);
       let col = pick(P, clamp01(v), x0 + c, y, 0.3);
-      if (rnd(seed, x0 + c, y, 2) < 0.035) col = hex(0x7a7266);
+      if (rnd(seed, x0 + c, y, 2) < 0.04) col = hex(0x7a7266);
       img.set(x0 + c, y, col, 255);
     }
   }
@@ -215,22 +215,31 @@ function trafficLight(img, seed) {
   grime(img, seed + 2, 0.15, [70, 66, 50], 2, 0.6);
 }
 function stopSign(img, seed) {
-  // visible: octagon area cols 2.4-13.6 rows 0-8, post cols 7-8 rows 8-16. Back of the sign is grey metal.
+  // visible: octagon area cols 2.4-13.6 rows 0-11, post cols 7-8 rows 11-16. Back of the sign is grey metal.
   material(img, seed, GALV, 0.1, 0.15);
-  for (let y = 8; y < 16; y++) { img.tone(7, y, 0.08); img.tone(8, y, -0.08); }
-  const rows = [[5, 10], [4, 11], [3, 12], [3, 12], [3, 12], [3, 12], [4, 11], [5, 10]];
+  for (let y = 11; y < 16; y++) { img.tone(7, y, 0.08); img.tone(8, y, -0.08); }
+  const rows = [[5, 10], [4, 11], [3, 12], [3, 12], [3, 12], [3, 12], [3, 12], [3, 12], [3, 12], [4, 11], [5, 10]];
   rows.forEach(([a, b], y) => {
     for (let x = a; x <= b; x++) {
-      const edge = x === a || x === b || y === 0 || y === 7;
+      const edge = x === a || x === b || y === 0 || y === rows.length - 1;
       img.set(x, y, edge ? shade(hex(0xd8d4c8), (rnd(seed, x, y, 1) - 0.5) * 0.06) : shade(hex(0xa82a22), (rnd(seed, x, y, 2) - 0.5) * 0.1));
     }
   });
-  // "STOP": at this size only a broken white word band reads (letters are 1-2px)
-  for (let x = 5; x <= 10; x++) for (const y of [3, 4]) dot(img, x, y, 0xe8e4d8);
-  for (const [x, y] of [[6, 4], [7, 3], [9, 4], [9, 3]]) dot(img, x, y, 0xb83a30);
+  // "STOP" in tiny 2x5 glyphs, rows 3-7
+  const W = 0xe8e4d8;
+  const glyphs = {
+    S: ['11', '10', '11', '01', '11'], T: ['11', '01', '01', '01', '01'],
+    O: ['11', '11', '11', '11', '11'], P: ['11', '11', '11', '10', '10'],
+  };
+  let gx = 4;
+  for (const ch of 'STOP') {
+    glyphs[ch].forEach((row, ry) => { for (let rx = 0; rx < 2; rx++) if (row[rx] === '1') dot(img, gx + rx, 3 + ry, W); });
+    gx += 2;
+  }
+  dot(img, 8, 4, 0xa82a22); dot(img, 8, 5, 0xa82a22); dot(img, 8, 6, 0xa82a22); // hollow O
   // fade, bullet holes, rust
   grime(img, seed + 3, 0.15, [120, 110, 96], 2, 0.6);
-  dot(img, 10, 5, 0x1a1412); dot(img, 11, 5, 0x6a3a20);
+  dot(img, 10, 8, 0x1a1412); dot(img, 11, 8, 0x6a3a20);
   streaks(img, seed + 4, 2, [110, 64, 34], 4, 0.3);
 }
 function mailbox(img, seed) {
@@ -460,7 +469,6 @@ function embers(img, seed, x0, y0, w, h, heat = 1) {
 }
 function stoneRing(img, seed) {
   const S = pal(0x4a4a48, 0x5a5a58, 0x6a6a68, 0x7a7a78, 0x8a8a88);
-  const r = makeRng(seed + 7);
   img.each((x, y) => {
     const e = Math.min(x, y, 15 - x, 15 - y);
     if (e >= 2 && e <= 4) {
@@ -471,7 +479,6 @@ function stoneRing(img, seed) {
       img.set(x, y, pick(S, clamp01(0.3 + rnd(seed, sid, 0, 4) * 0.4 + (e === 4 ? -0.15 : e === 2 ? 0.1 : 0.05) + (rnd(seed, x, y, 5) - 0.5) * 0.25), x, y, 0.4));
     }
   });
-  void r;
 }
 function campfireTop(img, seed, lit) {
   // ground
@@ -585,7 +592,7 @@ function camoNet(img, seed) {
   img.each((x, y) => {
     const i = y * 16 + x;
     const net = ((x + y) & 3) === 0 || ((x - y) & 3) === 0;
-    const garnish = w.d1[i] < 2.2 + rnd(seed, w.id[i], 0, 3) * 0.8 && rnd(seed, x, y, 4) > 0.18;
+    const garnish = w.d1[i] < 1.9 + rnd(seed, w.id[i], 0, 3) * 0.8 && rnd(seed, x, y, 4) > 0.2;
     if (garnish) img.set(x, y, C[Math.floor(rnd(seed, w.id[i], 1, 5) * C.length)], 255);
     else if (net) img.set(x, y, hex(0x2a2a22), 255);
   });
@@ -614,13 +621,14 @@ function rubble(img, seed) {
 function trashBags(img, seed) {
   const w = worley(seed, 3, 3, 0.9);
   const wn = white(seed + 1);
-  const P = pal(0x121314, 0x18191b, 0x1f2023, 0x27282b, 0x313236, 0x45474c);
+  const P = pal(0x15161a, 0x1c1d21, 0x24252a, 0x2d2e33, 0x393a40, 0x4e5056, 0x6e7178);
   img.each((x, y) => {
     const i = y * 16 + x;
     const e = w.d2[i] - w.d1[i];
     if (e < 0.6) { dot(img, x, y, 0x0a0a0a); return; }
-    const hl = clamp01(1 - Math.hypot(w.ox[i] + 1.2, w.oy[i] + 1.4) / 2.2);
-    let v = 0.25 + hl * 0.7 + (wn[i] - 0.5) * 0.15 - (e < 1.2 ? 0.15 : 0);
+    const hl = clamp01(1 - Math.hypot(w.ox[i] + 1.3, w.oy[i] + 1.5) / 2.0);
+    const crease = Math.sin((w.ox[i] * 1.7 + w.oy[i]) * 1.3 + rnd(seed, w.id[i], 3, 2) * 6) > 0.85 ? 0.25 : 0;
+    let v = 0.2 + hl * 0.85 + crease + (wn[i] - 0.5) * 0.15 - (e < 1.2 ? 0.15 : 0);
     if (rnd(seed, w.id[i], 0, 2) < 0.2) { img.set(x, y, pick(pal(0x2a3a2a, 0x334433, 0x3e503e, 0x56685a), clamp01(v), x, y, 0.4)); return; }
     img.set(x, y, pick(P, clamp01(v), x, y, 0.4));
   });

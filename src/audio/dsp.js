@@ -126,18 +126,28 @@ export function crackleBuffer(sr, dur, opts, rnd) {
     const amp = Math.pow(rnd(), pow) * (rnd() < 0.5 ? -1 : 1);
     const gl = Math.max(3, Math.floor((gmin + (gmax - gmin) * rnd()) * sr));
     const i0 = Math.floor(t * sr);
-    const k = decay / gl;
+    const dm = Math.exp(-decay / gl); // per-sample decay multiplier
+    let e = amp;
     if (ping > 0) {
       // sine "ping" grain (glass shards, droplets): ~0.4 ms raised-cosine attack so it rings rather than clicks
       const f = ping + (ping2 - ping) * rnd();
       const w = (2 * Math.PI * f) / sr;
+      const cw = Math.cos(w), sw = Math.sin(w);
+      let c = 1, sn = 0;
       const att = Math.max(2, Math.floor(0.0004 * sr));
       for (let j = 0; j < gl && i0 + j < n; j++) {
         const a = j < att ? 0.5 - 0.5 * Math.cos((Math.PI * j) / att) : 1;
-        d[i0 + j] += amp * a * Math.sin(w * j) * Math.exp(-j * k);
+        d[i0 + j] += e * a * sn;
+        const c2 = c * cw - sn * sw;
+        sn = sn * cw + c * sw;
+        c = c2;
+        e *= dm;
       }
     } else {
-      for (let j = 0; j < gl && i0 + j < n; j++) d[i0 + j] += amp * (rnd() * 2 - 1) * Math.exp(-j * k);
+      for (let j = 0; j < gl && i0 + j < n; j++) {
+        d[i0 + j] += e * (rnd() * 2 - 1);
+        e *= dm;
+      }
     }
   }
   return buf;
@@ -336,6 +346,21 @@ export class Synth {
 // ---------------------------------------------------------------------------------------------
 // Post-processing
 // ---------------------------------------------------------------------------------------------
+export function dataStats(d) {
+  let peak = 0, ss = 0, nan = false;
+  for (let i = 0; i < d.length; i++) {
+    const v = d[i];
+    if (v !== v || v === Infinity || v === -Infinity) {
+      nan = true;
+      continue;
+    }
+    const a = v < 0 ? -v : v;
+    if (a > peak) peak = a;
+    ss += v * v;
+  }
+  return { peak, rms: Math.sqrt(ss / Math.max(1, d.length)), nan };
+}
+
 export function bufferStats(buf) {
   let peak = 0, ss = 0, nan = false, n = 0;
   for (let c = 0; c < buf.numberOfChannels; c++) {
@@ -359,9 +384,17 @@ export function bufferStats(buf) {
  * Trim trailing silence, fade the tail, remove NaNs and peak-normalise.
  * Returns {buffer, rawPeak, rawRms, nan}.
  */
-export function finalizeBuffer(buf, { normalize = 0.89, trimDb = -60, fadeOut = 0.008, keepLength = false } = {}) {
-  const sr = buf.sampleRate;
-  const d = buf.getChannelData(0);
+export function finalizeBuffer(bufOrData, srOrOpts, opts) {
+  let d, sr;
+  if (bufOrData.getChannelData) {
+    d = bufOrData.getChannelData(0);
+    sr = bufOrData.sampleRate;
+    opts = srOrOpts;
+  } else {
+    d = bufOrData;
+    sr = srOrOpts;
+  }
+  const { normalize = 0.89, trimDb = -60, fadeOut = 0.008, keepLength = false } = opts || {};
   let nan = false;
   let peak = 0, ss = 0;
   for (let i = 0; i < d.length; i++) {
@@ -375,7 +408,11 @@ export function finalizeBuffer(buf, { normalize = 0.89, trimDb = -60, fadeOut = 
     ss += v * v;
   }
   const rawRms = Math.sqrt(ss / d.length);
-  if (peak < 1e-7) return { buffer: buf, rawPeak: peak, rawRms, nan };
+  if (peak < 1e-7) {
+    const b = makeBuffer(d.length, sr, 1);
+    b.getChannelData(0).set(d);
+    return { buffer: b, rawPeak: peak, rawRms, nan };
+  }
   let end = d.length;
   let truncated = false;
   if (!keepLength) {
@@ -404,9 +441,9 @@ export function finalizeBuffer(buf, { normalize = 0.89, trimDb = -60, fadeOut = 
  * Turn a buffer rendered as (loopLen + xfade) seconds into a seamless loop of loopLen seconds by
  * crossfading the overhang into the start. mode 'power' (uncorrelated noise) or 'linear'.
  */
-export function makeLoopBuffer(buf, loopLen, xfade, mode = 'power', normalize = 0.89) {
-  const sr = buf.sampleRate;
-  const d = buf.getChannelData(0);
+export function makeLoopBuffer(bufOrData, sr, loopLen, xfade, mode = 'power', normalize = 0.89) {
+  const d = bufOrData.getChannelData ? bufOrData.getChannelData(0) : bufOrData;
+  if (bufOrData.getChannelData) sr = bufOrData.sampleRate;
   const L = Math.min(d.length, Math.floor(loopLen * sr));
   const X = Math.min(Math.floor(xfade * sr), d.length - L);
   const out = makeBuffer(L, sr, 1);
@@ -459,21 +496,26 @@ export function makeImpulseResponse(sr, opts) {
     const d = chans[c];
     let lpState = 0, hpState = 0, hpPrev = 0;
     const hpA = Math.exp((-2 * Math.PI * hp) / sr);
+    const envMul = Math.exp(-decayK / sr);
+    let env = 1, a = 0;
     for (let i = p0; i < n; i++) {
-      const t = (i - p0) / sr;
-      const x = t / (dur - predelay);
-      const fc = lp0 * Math.pow(lp1 / lp0, Math.min(1, x));
-      const a = 1 - Math.exp((-2 * Math.PI * fc) / sr);
+      if (((i - p0) & 63) === 0) {
+        // darkening lowpass: coefficient updated every 64 samples
+        const x = (i - p0) / sr / (dur - predelay);
+        const fc = lp0 * Math.pow(lp1 / lp0, Math.min(1, x));
+        a = 1 - Math.exp((-2 * Math.PI * fc) / sr);
+      }
       const w = r() * 2 - 1;
       lpState += a * (w - lpState);
       // one-pole highpass
       const y = hpA * (hpState + lpState - hpPrev);
       hpPrev = lpState;
       hpState = y;
-      let env = Math.exp(-decayK * t);
-      if (i - p0 < fade) env *= (i - p0) / fade;
-      if (n - i < fade * 8) env *= (n - i) / (fade * 8);
-      d[i] = y * env;
+      let g = env;
+      if (i - p0 < fade) g *= (i - p0) / fade;
+      if (n - i < fade * 8) g *= (n - i) / (fade * 8);
+      d[i] = y * g;
+      env *= envMul;
     }
     // early reflections: small filtered clusters
     for (const [et, eg] of early) {

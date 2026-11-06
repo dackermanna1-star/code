@@ -1,6 +1,6 @@
 // Block-breaking crack overlays destroy_1..4 (black cracks on transparent, alpha 0/255, increasing coverage).
 // All stages share one crack network that grows outward, so each stage contains the previous one.
-import { Img, makeRng, seedFromString } from './core.js';
+import { makeRng, seedFromString } from './core.js';
 
 let network = null;
 function buildNetwork() {
@@ -17,11 +17,12 @@ function buildNetwork() {
       fx += Math.cos(ang); fy += Math.sin(ang);
     }
   };
-  const arms = 6;
+  const arms = 5;
   for (let k = 0; k < arms; k++) {
     const ang = (k / arms) * Math.PI * 2 + r.range(-0.3, 0.3);
-    grow(7.5 + r.range(-1, 1), 7.5 + r.range(-1, 1), ang, r.int(7, 10), k < 3 ? 0 : 0.2, k < 3 ? 0.65 : 0.9, 0);
+    grow(7.5 + Math.cos(ang) * 1.2, 7.5 + Math.sin(ang) * 1.2, ang, r.int(7, 10), k < 3 ? 0 : 0.2, k < 3 ? 0.7 : 0.95, 0);
   }
+  pts.push([7, 7, 0], [8, 8, 0.1]);
   // late secondary fractures from the edges
   for (let k = 0; k < 4; k++) {
     const side = k;

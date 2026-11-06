@@ -82,7 +82,7 @@ void main() {
   vec2 sz = max(vFace.xy, vec2(1.0));
   vec2 t = floor(vTex);
   t = min(t, ceil(sz) - 1.0);
-  bool edge = t.x < 0.5 || t.y < 0.5 || t.x > sz.x - 1.5 || t.y > sz.y - 1.5;
+  bool edge = (t.x < 0.5 || t.y < 0.5 || t.x > sz.x - 1.5 || t.y > sz.y - 1.5) && min(vFace.x, vFace.y) >= 2.5;
   bool longX = vFace.x >= vFace.y;
   float along = longX ? t.x : t.y;
   float across = longX ? t.y : t.x;
@@ -93,16 +93,17 @@ void main() {
   float lum = 1.0;
   float spec = 0.0;
   if (m == 0) {
-    lum += n * 0.07;
+    lum += n * 0.05;
   } else if (m == 1) {
-    lum += n * 0.07 + (h21(vec2(across, seed)) - 0.5) * 0.07;
-    if (edge && n2 > 0.35) col = mix(col, vec3(0.30, 0.32, 0.36), 0.45);
-    spec = 0.35;
+    lum += n * 0.035 + (h21(vec2(across, seed)) - 0.5) * 0.035;
+    if (edge) lum += 0.10;
+    if (edge && n2 > 0.78) col = mix(col, vec3(0.26, 0.27, 0.30), 0.35);
+    spec = 0.15;
   } else if (m == 2) {
     float grain = h21(vec2(across * 1.3, seed)) - 0.5;
     float ring = h21(vec2(floor(along / 3.0), across + seed));
-    lum += grain * 0.16 + (ring > 0.86 ? -0.14 : 0.0) + n * 0.05;
-    if (edge) lum -= 0.10;
+    lum += grain * 0.12 + (ring > 0.88 ? -0.10 : 0.0) + n * 0.035;
+    if (edge) lum -= 0.07;
   } else if (m == 3) {
     lum += n * 0.05;
   } else if (m == 4) {
@@ -113,17 +114,18 @@ void main() {
     if (edge) lum += 0.07;
     spec = 0.12;
   } else if (m == 6) {
-    lum += n * 0.07;
-    if (edge && n2 > 0.45) col = vec3(0.42, 0.43, 0.45);
+    lum += n * 0.05;
+    if (edge && n2 > 0.8) col = mix(col, vec3(0.40, 0.41, 0.43), 0.6);
+    else if (edge) lum += 0.06;
     spec = 0.15;
   } else if (m == 7) {
-    lum += (h21(vec2(across, seed)) - 0.5) * 0.10 + n * 0.04;
-    if (edge) lum += 0.22;
-    spec = 0.7;
+    lum += (h21(vec2(across, seed)) - 0.5) * 0.07 + n * 0.03;
+    if (edge) lum += 0.15;
+    spec = 0.45;
   } else if (m == 8) {
     // exact colours
   } else if (m == 10) {
-    lum += n * 0.16;
+    lum += n * 0.10;
     if (edge) lum += 0.05;
   } else if (m == 11) {
     lum += n * 0.04;
@@ -160,7 +162,7 @@ void main() {
     vec3 K = normalize(vec3(0.3, 0.85, 0.45));
     float s = pow(max(dot(reflect(-V, nV), K), 0.0), 24.0);
     float amb = dot(lit, vec3(0.299, 0.587, 0.114));
-    outc += vec3(s * spec * 0.35 * min(amb, 1.5));
+    outc += vec3(s * spec * 0.25 * min(amb, 1.5));
   }
   if (m == 9) outc = col * 1.8;
   if (m == 13) outc = mix(outc, col * 2.4, clamp(uFlashOn, 0.0, 1.0));

@@ -11,8 +11,8 @@ import zlib from 'node:zlib';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { allTextureNames } from '../src/world/blocks.js';
-import { generateTextures, hasTexture, alphaMode } from '../src/render/textures.js';
+import { allTextureNames, BLOCKS, getBoxes, faceTexture } from '../src/world/blocks.js';
+import { generateTextures, hasTexture, alphaMode, renderTexture } from '../src/render/textures.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const outDir = path.join(here, 'out');
@@ -67,7 +67,7 @@ class Canvas {
   }
   rect(x, y, w, h, c) { for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) this.px(x + i, y + j, c); }
   checker(x, y, w, h, s = 4) {
-    for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) this.px(x + i, y + j, ((i / s | 0) + (j / s | 0)) & 1 ? [150, 150, 156] : [104, 104, 110]);
+    for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) this.px(x + i, y + j, ((i / s | 0) + (j / s | 0)) & 1 ? [58, 92, 140] : [40, 66, 104]);
   }
   /** draw texture layer `li` at (x, y) scaled by `sc`, repeated rep x rep times */
   tex(T, li, x, y, sc, rep = 1, checker = true) {
@@ -135,6 +135,15 @@ for (const [name, li] of T.layers) {
   if (mode === 'blend' && mid === 0) console.log('note: translucent texture without partial alpha:', name);
 }
 
+// opaque textures must not leave pixels undrawn (they would be forced to alpha 255 and show as black)
+for (const name of names) {
+  if (alphaMode(name) !== 'opaque') continue;
+  const img = renderTexture(name);
+  let holes = 0;
+  for (let i = 3; i < img.d.length; i += 4) if (img.d[i] === 0) holes++;
+  if (holes) console.log(`note: opaque texture ${name} has ${holes} undrawn pixels`);
+}
+
 function label(c, x, y, name, maxChars) {
   if (name.length <= maxChars) { c.text(x, y, name); return; }
   c.text(x, y, name.slice(0, maxChars));
@@ -155,6 +164,51 @@ if (extra.length) {
   });
   c.save('textures-focus.png');
 } else {
+  // box-shaped blocks seen front / side / top with Minecraft-style sub-region UVs (what the mesher draws)
+  {
+    const list = BLOCKS.filter((d) => d.render === 'boxes');
+    const sc = 4, t = 16 * sc, cw = 3 * (t + 6) + 10, ch = t + 2 * t + 20;
+    const cols = 6;
+    const c = new Canvas(cols * cw + 8, Math.ceil(list.length / cols) * (t * 2 + 30) + 8, [70, 74, 80]);
+    const texel = (name, u, v) => {
+      const li = T.layers.get(name); if (li === undefined) return null;
+      const x = Math.min(15, Math.max(0, Math.floor(u * 16))), y = Math.min(15, Math.max(0, Math.floor(((v % 1) + 1) % 1 * 16)));
+      const o = (li * 256 + y * 16 + x) * 4;
+      return [T.data[o], T.data[o + 1], T.data[o + 2], T.data[o + 3]];
+    };
+    list.forEach((d, k) => {
+      const ox = 8 + (k % cols) * cw, oy = 8 + Math.floor(k / cols) * (t * 2 + 30);
+      const metas = d.door ? [8, 0] : [0];
+      metas.forEach((meta, mi) => {
+        const boxes = getBoxes(d.id, meta);
+        const views = [
+          { f: 4, sort: (b) => b[5], map: (b) => [b[0], 1 - b[4], b[3], 1 - b[1]], uv: (sx, sy) => [sx, sy], depth: (b) => b[5] },
+          { f: 0, sort: (b) => b[3], map: (b) => [1 - b[5], 1 - b[4], 1 - b[2], 1 - b[1]], uv: (sx, sy) => [sx, sy], depth: (b) => b[3] },
+          { f: 2, sort: (b) => b[4], map: (b) => [b[0], b[2], b[3], b[5]], uv: (sx, sy) => [sx, sy], depth: (b) => b[4] },
+        ];
+        views.forEach((V, vi) => {
+          if (d.door && vi > 0) return;
+          const name0 = faceTexture(d, V.f, meta);
+          const vx = ox + vi * (t + 6), vy = oy + mi * t;
+          const sorted = [...boxes].sort((a, b) => V.sort(a) - V.sort(b));
+          for (const b of sorted) {
+            let name = name0;
+            if (d.door) { const ex = b[3] - b[0], ey = b[4] - b[1]; name = ex > 0.5 && ey > 0.5 ? (meta & 8 ? d.tex.topTex : d.tex.front) : d.tex.side; }
+            const [a0, b0, a1, b1] = V.map(b);
+            const k2 = 0.6 + 0.4 * V.depth(b);
+            for (let py = Math.round(b0 * t); py < Math.round(b1 * t); py++) for (let px = Math.round(a0 * t); px < Math.round(a1 * t); px++) {
+              const [u, v] = V.uv(px / t, py / t);
+              const p = texel(name, u, v);
+              if (!p || p[3] < 128) continue;
+              c.px(vx + px, vy + py, [p[0] * k2, p[1] * k2, p[2] * k2]);
+            }
+          }
+        });
+      });
+      c.text(ox, oy + (d.door ? 2 * t : t) + 4, d.name);
+    });
+    c.save('textures-boxes.png');
+  }
   // full contact sheet
   {
     const cols = 16, cw = 72, ch = 80;

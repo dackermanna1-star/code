@@ -73,8 +73,8 @@ function cricketsBuffer(sr, L, rnd, count, wrap) {
     const pl = 0.011 + rnd() * 0.009;
     const pg = 0.01 + rnd() * 0.008;
     const w = (2 * Math.PI * fc) / sr;
+    const cw = Math.cos(w), sw = Math.sin(w);
     let t = rnd() * period;
-    let ph = rnd() * 6.28;
     while (t < L) {
       if (rnd() < 0.07) {
         t += period * (2 + rnd() * 4);
@@ -84,15 +84,22 @@ function cricketsBuffer(sr, L, rnd, count, wrap) {
         const st = Math.floor((t + p * (pl + pg)) * sr);
         const len = Math.floor(pl * sr);
         const a = amp * (p === pulses - 1 ? 0.75 : 1);
+        // phasor recursion: carrier (c, s) and Hann window (hc, hs)
+        let c = 1, s = 0, hc = 1, hs = 0;
+        const hw = (2 * Math.PI) / len, hcw = Math.cos(hw), hsw = Math.sin(hw);
         for (let j = 0; j < len; j++) {
           let idx = st + j;
           if (idx >= n) {
             if (!wrap) break;
             idx -= n;
           }
-          const env = 0.5 - 0.5 * Math.cos((2 * Math.PI * j) / len);
-          ph += w;
-          d[idx] += a * env * (Math.sin(ph) + 0.15 * Math.sin(2 * ph));
+          d[idx] += a * (0.5 - 0.5 * hc) * (s + 0.3 * s * c); // sin + 0.15·sin(2φ)
+          const c2 = c * cw - s * sw;
+          s = s * cw + c * sw;
+          c = c2;
+          const h2 = hc * hcw - hs * hsw;
+          hs = hs * hcw + hc * hsw;
+          hc = h2;
         }
       }
       t += period * (0.96 + rnd() * 0.08);
@@ -103,11 +110,14 @@ function cricketsBuffer(sr, L, rnd, count, wrap) {
     const fk = 6100 + rnd() * 400;
     const am = Math.round(42 * L) / L;
     const slow = Math.round(0.4 * L) / L;
-    for (let i = 0; i < n; i++) {
-      const tt = i / sr;
+    for (let i0 = 0; i0 < n; i0 += 32) {
+      // envelope at block rate, carrier per sample
+      const tt = i0 / sr;
       const e = 0.5 + 0.5 * Math.sin(2 * Math.PI * am * tt);
       const sl = 0.5 + 0.5 * Math.sin(2 * Math.PI * slow * tt + 1);
-      d[i] += 0.05 * e * e * sl * Math.sin(2 * Math.PI * fk * tt);
+      const g = 0.05 * e * e * sl;
+      const w0 = (2 * Math.PI * fk) / sr;
+      for (let i = i0; i < Math.min(n, i0 + 32); i++) d[i] += g * Math.sin(w0 * i);
     }
   }
   return buf;
@@ -291,7 +301,7 @@ export const AMBIENT_SOUNDS = {
     ...LOOP, sr: 'vlo', dur: 13.5, loop: { len: 12, xfade: 1.5, mode: 'linear' }, variants: 1,
     render: (s) => {
       const T = s.T;
-      const tones = [[55, 0.5], [55.4, 0.4], [82.5, 0.18], [116.5, 0.12], [233, 0.04]];
+      const tones = [[55, 0.5], [55.4, 0.26], [82.5, 0.18], [116.5, 0.12], [233, 0.04]];
       for (const [f, a] of tones) {
         const o = s.osc(f > 100 ? 'triangle' : 'sine', f, 0, T);
         const g = s.g(a * 0.5);

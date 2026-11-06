@@ -5,6 +5,7 @@ const { chromium } = require('playwright');
 const fs = require('fs');
 const path = require('path');
 
+const COLS = +(process.env.VM_COLS || 4);
 const URL = process.env.VM_URL || 'http://localhost:5206/dev/viewmodel-test.html?auto=1';
 const OUT = path.join(__dirname, 'out');
 fs.mkdirSync(OUT, { recursive: true });
@@ -82,7 +83,7 @@ const PRESETS = {
 
 async function main() {
   const which = process.argv[2] || 'rest';
-  const filter = which !== 'single' && process.argv[3] ? new RegExp(process.argv[3]) : null;
+  const filter = which !== 'single' && which !== 'gridfile' && process.argv[3] ? new RegExp(process.argv[3]) : null;
   const browser = await chromium.launch({ args: ['--enable-unsafe-swiftshader', '--use-gl=angle', '--use-angle=swiftshader'] });
   const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
   const errs = [];
@@ -90,6 +91,19 @@ async function main() {
   page.on('pageerror', (e) => errs.push('pageerror: ' + e.message));
   await page.goto(URL);
   await page.waitForFunction(() => window.vmTest && window.vmTest.ready, null, { timeout: 60000 });
+  if (which === 'gridfile') {
+    // node viewmodel-shots.cjs gridfile <file.json> <name> [cols]
+    const list = JSON.parse(fs.readFileSync(process.argv[3], 'utf8'));
+    const name = process.argv[4] || 'gridfile';
+    const cols = +(process.argv[5] || 2);
+    await page.evaluate(([l, c]) => window.vmTest.grid(l, c), [list, cols]);
+    const file = path.join(OUT, `viewmodel-${name}.png`);
+    await page.screenshot({ path: file });
+    console.log('wrote', file);
+    if (errs.length) console.log('CONSOLE:\n' + [...new Set(errs)].join('\n'));
+    await browser.close();
+    return;
+  }
   if (which === 'single') {
     // node viewmodel-shots.cjs single '<json array of shot params>' [outName]
     const list = JSON.parse(process.argv[3]);
@@ -112,10 +126,12 @@ async function main() {
       if (filter) grid = grid.filter((p) => filter.test(p.label || ''));
       if (!grid.length) continue;
       // resolve tFrac (fraction of swing duration) inside the page
-      for (let i = 0; i < grid.length; i += 16) {
-        const page16 = grid.slice(i, i + 16);
-        await page.evaluate((list) => window.vmTest.grid(list, 4), page16);
-        const file = path.join(OUT, `viewmodel-${s.name}${grid.length > 16 ? '-' + (i / 16 + 1) : ''}.png`);
+      const cols = COLS;
+      const per = cols * cols;
+      for (let i = 0; i < grid.length; i += per) {
+        const pageN = grid.slice(i, i + per);
+        await page.evaluate(([list, c]) => window.vmTest.grid(list, c), [pageN, cols]);
+        const file = path.join(OUT, `viewmodel-${s.name}${grid.length > per ? '-' + (i / per + 1) : ''}.png`);
         await page.screenshot({ path: file });
         console.log('wrote', file);
       }

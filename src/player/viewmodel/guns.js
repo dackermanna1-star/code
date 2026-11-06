@@ -51,9 +51,10 @@ function pistolCommonMeta(extra) {
   clean(extra);
   return Object.assign({
     kind: 'gun', hold: 'pistol', weight: 0.15, scale: 1.3,
-    hip: { pos: [0.1, -0.135, -0.32], rot: [0.03, 0.06, 0.0] },
-    sprint: { pos: [0.09, -0.24, -0.3], rot: [-0.95, 0.35, 0.25] },
-    adsDist: 0.3,
+    hip: { pos: [0.14, -0.15, -0.3], rot: [0.06, 0.28, -0.1] },
+    sprint: { pos: [0.1, -0.24, -0.28], rot: [-0.95, 0.4, 0.25] },
+    shoulders: { R: [0.3, -0.42, 0.04], L: [0.0, -0.5, -0.12] },
+    adsDist: 0.3, adsNear: 0.12,
     hands: { R: 'handR', L: 'handL' },
     recoil: { pitch: 0.16, back: 0.045, yaw: 0.03, roll: 0.06, up: 0.012 },
     flash: 0.8, shell: 'brass', ejectOnFire: true, fireAnim: 'slide',
@@ -84,8 +85,8 @@ export function pistol() {
     b.box(s * 1.56, -5.9, 0.1, 0.08, 0.5, 0.5, C.steelDark, M.STEEL);
   }
   b.box(0, -2.6, 2.35, 2.2, 9.4, 0.25, G, M.METAL);
-  b.point('handR', [0, -2.5, 0.35]);
-  b.point('handL', [-4.3, -3.4, -1.0]);
+  b.point('handR', [0, -1.4, 0.5]);
+  b.point('handL', [-4.4, -2.2, -1.4]);
   b.part('mag', { origin: b.local([0, -7.6, 0]).toArray() });
   b.box(0, -2.6, -0.2, 2.1, 9.8, 3.4, C.steelDark, M.METAL);
   b.box(0, -7.95, -0.2, 2.8, 0.7, 4.5, C.poly, M.POLY);
@@ -94,7 +95,7 @@ export function pistol() {
   b.part('body');
   b.pop();
   // barrel (fixed)
-  b.tubeZ(0, 4.15, -8.2, 1.5, 11.6, C.steel, M.STEEL);
+  b.tubeZ(0, 4.15, -8.2, 1.5, 11.6, C.steelDark, M.STEEL);
   b.box(0, 4.15, -14.03, 0.8, 0.8, 0.06, 0x060606, M.FLAT);
   b.point('muzzle', [0, 4.15, -14.4]);
   b.point('sight', [0, 6.3, 3.7]);
@@ -152,8 +153,8 @@ export function pistol1911() {
   }
   b.box(0, -2.4, 2.3, 2.1, 8.8, 0.3, G, M.METAL);
   b.box(0, 2.6, 2.6, 2.2, 0.6, 2.4, G, M.METAL, { r: [0.5, 0, 0] }); // beavertail
-  b.point('handR', [0, -2.5, 0.35]);
-  b.point('handL', [-4.2, -3.4, -1.0]);
+  b.point('handR', [0, -1.4, 0.5]);
+  b.point('handL', [-4.4, -2.2, -1.4]);
   b.part('mag', { origin: b.local([0, -7.7, 0]).toArray() });
   b.box(0, -2.6, -0.2, 1.9, 9.8, 3.2, C.steel, M.STEEL);
   b.box(0, -7.95, -0.2, 2.3, 0.55, 3.8, C.steelDark, M.METAL);
@@ -225,8 +226,8 @@ export function revolver() {
   b.box(0, -3.0, 0.0, 3.0, 7.0, 3.8, C.rubber, M.RUBBER);
   for (let i = 0; i < 3; i++) b.box(0, -1.4 - i * 1.6, -1.95, 2.6, 0.7, 0.3, C.rubber, M.RUBBER);
   b.box(0, -6.8, 0.3, 3.0, 0.9, 3.4, C.rubber, M.RUBBER);
-  b.point('handR', [0, -2.8, 0.2]);
-  b.point('handL', [-4.2, -3.8, -0.8]);
+  b.point('handR', [0, -1.8, 0.3]);
+  b.point('handL', [-4.4, -2.6, -1.3]);
   b.pop();
   // crane + cylinder (swings out to the left)
   b.part('crane', { origin: [-0.9, 2.6, -4.4] });
@@ -271,8 +272,8 @@ export function revolver() {
 function longGunMeta(extra) {
   clean(extra);
   return Object.assign({
-    kind: 'gun', hold: 'rifle', weight: 0.6, scale: 1.15,
-    hip: { pos: [0.105, -0.13, -0.24], rot: [0.02, 0.05, 0.0] },
+    kind: 'gun', hold: 'rifle', weight: 0.6, scale: 1.0,
+    hip: { pos: [0.14, -0.14, -0.34], rot: [0.02, 0.13, -0.06] },
     sprint: { pos: [0.05, -0.17, -0.25], rot: [-0.45, 0.85, 0.5] },
     adsDist: 0.17,
     hands: { R: 'handR', L: 'handL' },
@@ -283,11 +284,11 @@ function longGunMeta(extra) {
 }
 
 function shotgunStock(b, wood, z0 = 3, butt = true) {
-  b.box(0, 3.5, z0 + 4.2, 3.0, 4.2, 8.5, wood, M.WOOD, { r: [-0.14, 0, 0] });
+  b.box(0, 3.3, z0 + 4.2, 3.0, 4.2, 8.5, wood, M.WOOD, { r: [-0.2, 0, 0] });
   if (!butt) return;
-  b.box(0, 2.05, z0 + 18.5, 3.4, 7.4, 22, wood, M.WOOD, { r: [-0.08, 0, 0] });
-  b.box(0, 5.2, z0 + 17.5, 2.8, 1.2, 18, wood, M.WOOD, { r: [-0.08, 0, 0] });
-  b.box(0, 1.05, z0 + 29.7, 3.6, 8.4, 1.4, C.rubber, M.RUBBER, { r: [-0.08, 0, 0] });
+  b.box(0, 0.9, z0 + 18.5, 3.4, 7.4, 22, wood, M.WOOD, { r: [-0.13, 0, 0] });
+  b.box(0, 4.0, z0 + 17.5, 2.8, 1.2, 18, wood, M.WOOD, { r: [-0.13, 0, 0] });
+  b.box(0, -0.4, z0 + 29.7, 3.6, 8.4, 1.4, C.rubber, M.RUBBER, { r: [-0.13, 0, 0] });
 }
 
 export function shotgunPump() {
@@ -310,13 +311,19 @@ export function shotgunPump() {
   // barrel, rib, bead, mag tube
   b.tubeZ(0, 6.6, -45, 2.2, 60, G, M.METAL);
   b.box(0, 7.95, -45, 0.8, 0.45, 60, G, M.METAL);
-  b.box(0, 8.42, -74.4, 0.5, 0.5, 0.5, C.brass, M.BRASS);
+  b.box(0, 8.6, -73.6, 1.0, 0.8, 1.4, G, M.METAL);
+  b.box(0, 9.35, -73.6, 0.4, 0.9, 1.0, G, M.METAL);
+  b.box(0, 9.72, -73.25, 0.42, 0.16, 0.12, C.emitOrange, M.EMIT);
+  // ghost ring rear sight
+  b.box(0, 8.25, 1.4, 2.4, 0.5, 1.6, G, M.METAL);
+  for (const s of [-1, 1]) b.box(s * 0.9, 9.2, 1.4, 0.45, 1.6, 0.6, G, M.METAL);
+  b.box(0, 10.25, 1.4, 2.25, 0.5, 0.6, G, M.METAL);
   b.box(0, 6.6, -75.03, 1.2, 1.2, 0.06, 0x050505, M.FLAT);
   b.tubeZ(0, 3.5, -38, 2.0, 46, G, M.METAL);
   b.box(0, 3.5, -61.6, 2.3, 2.3, 1.3, G, M.METAL);
   b.box(0, 5.0, -59.5, 1.4, 3.2, 1.2, G, M.METAL);
   b.point('muzzle', [0, 6.6, -75.4]);
-  b.point('sight', [0, 8.68, 2.0]);
+  b.point('sight', [0, 9.8, 1.6]);
   b.point('eject', [1.8, 6.4, -6.6]);
   b.point('port', [0, 1.4, -7.4]);
   // stock
@@ -332,7 +339,7 @@ export function shotgunPump() {
   return {
     b,
     meta: longGunMeta({
-      hold: 'shotgun', weight: 0.75,
+      hold: 'shotgun', weight: 0.75, adsDist: 0.2,
       channels: {
         pump: [{ part: 'pump', t: [0, 0, 8.5] }],
         trigger: [{ part: 'trigger', r: [0.3, 0, 0] }],
@@ -350,7 +357,7 @@ function doubleBarrel(sawed) {
   const len = sawed ? 27 : 66;
   // action (case hardened)
   b.box(0, 4.9, -2.9, 4.4, 4.4, 8.2, R, M.METAL);
-  b.box(0, 7.25, -2.4, 3.4, 0.4, 7.0, R, M.METAL);
+  b.box(0, 7.15, -2.4, 3.0, 0.2, 7.0, R, M.METAL);
   for (const s of [-1, 1]) {
     for (let i = 0; i < 3; i++) b.box(s * 2.22, 4.0 + i * 1.1, -2.9 + (i % 2) * 1.2, 0.04, 0.5, 2.5, 0x6d7278, M.METAL); // engraving
   }
@@ -367,7 +374,7 @@ function doubleBarrel(sawed) {
     b.box(0, -2.4, 8.4, 3.1, 1.6, 3.2, C.woodLight, M.WOOD, { r: [-0.55, 0, 0] }); // rough cut end
   }
   b.point('handR', sawed ? [0, 1.4, 6.0] : [0, 2.2, 6.0]);
-  b.point('sight', [0, 7.42, 0.6]);
+  b.point('sight', [0, 7.45, 0.6]);
   b.point('eject', [0, 6.8, -6.0]);
   // lever
   b.part('lever', { origin: [0, 7.4, -1.0] });
@@ -381,7 +388,7 @@ function doubleBarrel(sawed) {
   }
   b.box(0, 6.65, zc, 0.9, 0.5, len, G, M.METAL);
   b.box(0, 4.2, zc, 1.4, 1.0, len, G, M.METAL);
-  if (!sawed) b.box(0, 7.1, -7 - len + 0.6, 0.45, 0.45, 0.45, C.brass, M.BRASS);
+  b.box(0, 7.15, -7 - len + 0.6, 0.45, 0.6, 0.45, C.brass, M.BRASS);
   b.box(0, 3.65, sawed ? -16 : -22, 3.8, 2.4, sawed ? 13 : 22, W, M.WOOD);
   b.box(0, 3.65, sawed ? -9.8 : -11.2, 3.9, 2.5, 0.6, C.woodDark, M.WOOD);
   b.point('handL', [0, 0.8, sawed ? -16 : -22]);
@@ -398,7 +405,7 @@ function doubleBarrel(sawed) {
     meta: longGunMeta({
       hold: 'shotgun', weight: sawed ? 0.45 : 0.75,
       hip: sawed ? { pos: [0.1, -0.13, -0.28], rot: [0.02, 0.06, 0] } : undefined,
-      adsDist: sawed ? 0.24 : 0.17,
+      adsDist: sawed ? 0.2 : 0.2,
       channels: {
         breakOpen: [{ part: 'barrels', r: [-0.62, 0, 0] }],
         lever: [{ part: 'lever', r: [0, -0.7, 0] }],
@@ -489,7 +496,7 @@ export function rifleHunting() {
 
 export function rifleAR() {
   const b = new ModelBuilder({ texel: 0.8 });
-  const G = 0x2c2e32, D = 0x1f2023, P = C.poly;
+  const G = 0x34363b, D = 0x26282b, P = C.poly;
   // upper
   b.box(0, 6.2, -2.0, 2.8, 2.4, 18, G, M.METAL);
   picatinny(b, 0, 7.6, -11, 7, 2.2, D, 'up');
@@ -572,7 +579,7 @@ export function rifleAR() {
   return {
     b,
     meta: longGunMeta({
-      weight: 0.6, adsDist: 0.2,
+      weight: 0.6, adsDist: 0.18,
       channels: {
         charge: [{ part: 'charge', t: [0, 0, 6.5] }],
         trigger: [{ part: 'trigger', r: [0.3, 0, 0] }],
@@ -587,7 +594,7 @@ export function rifleAR() {
 
 export function rifleAK() {
   const b = new ModelBuilder({ texel: 0.8 });
-  const G = 0x2e3135, W = C.akWood, D = 0x222427;
+  const G = 0x35383d, W = C.akWood, D = 0x282a2e;
   // receiver + dust cover
   b.box(0, 4.9, -2.0, 3.0, 4.0, 22, G, M.METAL);
   b.box(0, 7.15, -1.0, 2.6, 0.7, 20, G, M.METAL);
@@ -652,7 +659,7 @@ export function rifleAK() {
   return {
     b,
     meta: longGunMeta({
-      weight: 0.7, adsDist: 0.24,
+      weight: 0.7, adsDist: 0.36,
       channels: {
         charge: [{ part: 'charge', t: [0, 0, 7.5] }],
         trigger: [{ part: 'trigger', r: [0.3, 0, 0] }],
@@ -677,12 +684,13 @@ export function rifle22() {
   b.box(1.27, 5.6, -0.6, 0.05, 1.0, 2.6, 0x0a0a0a, M.FLAT);
   b.tubeZ(0, 5.4, -26, 1.55, 36, G, M.METAL);
   b.box(0, 5.4, -44.03, 0.5, 0.5, 0.06, 0x050505, M.FLAT);
-  b.box(0, 6.5, -43.0, 0.35, 0.9, 0.6, G, M.METAL);
-  b.box(0, 7.0, -43.0, 0.42, 0.42, 0.42, C.brass, M.BRASS);
-  for (const s of [-1, 1]) b.box(s * 0.42, 6.65, -20, 0.42, 0.8, 0.5, G, M.METAL);
-  b.box(0, 6.35, -20, 1.3, 0.3, 0.8, G, M.METAL);
+  b.box(0, 6.85, -43.0, 0.35, 1.5, 0.6, G, M.METAL);
+  b.box(0, 7.55, -43.0, 0.42, 0.42, 0.42, C.brass, M.BRASS);
+  for (const s of [-1, 1]) b.box(s * 0.42, 7.3, -20, 0.42, 0.8, 0.5, G, M.METAL);
+  b.box(0, 6.75, -20, 1.3, 0.4, 0.8, G, M.METAL);
+  b.box(0, 6.4, -20, 0.8, 0.6, 0.8, G, M.METAL);
   b.point('muzzle', [0, 5.4, -44.3]);
-  b.point('sight', [0, 7.05, -20]);
+  b.point('sight', [0, 7.72, -20]);
   b.point('eject', [1.4, 5.8, -0.6]);
   // stock
   b.box(0, 3.6, -18, 3.1, 3.0, 22, W, M.WOOD);
@@ -708,7 +716,7 @@ export function rifle22() {
   return {
     b,
     meta: longGunMeta({
-      weight: 0.35, adsDist: 0.27, scale: 1.1,
+      weight: 0.35, adsDist: 0.44, scale: 1.1,
       channels: {
         charge: [{ part: 'bolt', t: [0, 0, 2.6] }],
         trigger: [{ part: 'trigger', r: [0.3, 0, 0] }],
@@ -723,7 +731,7 @@ export function rifle22() {
 
 export function smg() {
   const b = new ModelBuilder({ texel: 0.6 });
-  const G = 0x26282b, P = C.poly;
+  const G = 0x2e3033, P = C.poly;
   b.box(0, 6.1, -5.0, 2.8, 3.2, 22, G, M.METAL);
   for (let i = 0; i < 6; i++) b.box(0, 6.1, -12 + i * 2.6, 2.9, 2.0, 0.3, 0x1c1d20, M.METAL);
   b.tubeZ(0, 7.9, -20.0, 1.7, 14, G, M.METAL);
@@ -735,8 +743,10 @@ export function smg() {
   b.box(0, 8.6, -27.0, 0.3, 0.75, 0.3, G, M.METAL);
   // rear drum
   b.box(0, 7.9, 4.5, 1.6, 0.8, 1.6, G, M.METAL);
-  b.box(0, 9.0, 4.5, 2.4, 1.9, 1.8, G, M.METAL);
-  b.box(0, 9.0, 3.58, 0.5, 0.5, 0.05, 0x050505, M.FLAT);
+  // drum with a peep aperture (ring of boxes)
+  b.box(0, 9.85, 4.5, 2.4, 0.5, 1.8, G, M.METAL);
+  b.box(0, 8.25, 4.5, 2.4, 0.9, 1.8, G, M.METAL);
+  for (const s of [-1, 1]) b.box(s * 0.85, 9.05, 4.5, 0.7, 1.1, 1.8, G, M.METAL);
   b.point('sight', [0, 9.0, 4.0]);
   // handguard
   b.box(0, 4.5, -20.0, 3.7, 3.6, 11.5, P, M.POLY);
@@ -760,9 +770,9 @@ export function smg() {
   b.point('handR', [0, -2.9, 0.2]);
   b.pop();
   // fixed stock
-  b.box(0, 6.0, 12.0, 2.8, 3.0, 12, P, M.POLY);
-  b.box(0, 3.4, 13.4, 2.8, 2.2, 10.0, P, M.POLY, { r: [0.4, 0, 0] });
-  b.box(0, 4.6, 18.6, 3.2, 7.6, 1.6, C.rubber, M.RUBBER);
+  b.box(0, 5.4, 12.0, 2.8, 2.6, 12, P, M.POLY, { r: [-0.08, 0, 0] });
+  b.box(0, 2.9, 13.4, 2.8, 2.2, 10.0, P, M.POLY, { r: [0.35, 0, 0] });
+  b.box(0, 3.6, 18.6, 3.2, 7.6, 1.6, C.rubber, M.RUBBER);
   b.point('eject', [1.6, 6.6, -6.0]);
   b.point('handL', [0, 1.4, -19.5]);
   b.part('charge', { origin: [-0.9, 7.9, -21.5] });
@@ -782,7 +792,7 @@ export function smg() {
   return {
     b,
     meta: longGunMeta({
-      weight: 0.45, adsDist: 0.2,
+      weight: 0.45, adsDist: 0.17,
       hip: { pos: [0.105, -0.13, -0.26], rot: [0.02, 0.05, 0.0] },
       channels: {
         charge: [{ part: 'charge', t: [0, 0, 6.0] }],
@@ -906,17 +916,17 @@ export function bow() {
   return {
     b,
     meta: {
-      kind: 'gun', hold: 'bow', weight: 0.3,
-      hip: { pos: [-0.04, -0.12, -0.42], rot: [0.0, -0.05, 0.42] },
-      sprint: { pos: [-0.12, -0.24, -0.36], rot: [-0.7, -0.3, 0.9] },
-      ads: { pos: [-0.015, -0.055, -0.52], rot: [0.0, 0.0, 0.12] },
+      kind: 'gun', hold: 'bow', weight: 0.3, scale: 0.8,
+      hip: { pos: [-0.06, -0.15, -0.44], rot: [0.05, -0.08, 0.95] },
+      sprint: { pos: [-0.1, -0.26, -0.38], rot: [-0.6, -0.2, 1.2] },
+      ads: { pos: [0.076, -0.088, -0.5], rot: [0.0, 0.0, 0.35] }, adsNear: 0.01,
       adsDist: 0.5,
       hands: { R: 'nock', L: 'handL', anchorRtoNock: true },
       channels: {},
       recoil: { pitch: 0.04, back: -0.02, yaw: 0.01, roll: 0.02, up: 0.004 },
       flash: 0, shell: null, ejectOnFire: false, fireAnim: 'bow',
       reload: { style: 'bow' },
-      string: { parts: ['stringL', 'stringR'], tips: ['tipU', 'tipD'], nock: 'nock', restZ: 2.4, drawZ: 52, bow: true },
+      string: { parts: ['stringL', 'stringR'], tips: ['tipU', 'tipD'], nock: 'nock', restZ: 2.4, drawZ: 32, bow: true },
       ammoProp: 'arrow',
     },
   };

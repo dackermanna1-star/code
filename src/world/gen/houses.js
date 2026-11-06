@@ -454,7 +454,8 @@ function buildHouseLot(ctx, lot) {
   const hz = d - setback - D;
   const hf = fr.sub(hx, hz, W, D);
   // style
-  const outer = story?.outer || (rng.chance(0.2) ? rng.pick(BRICKS) : rng.pick(SIDINGS));
+  let outer = story?.outer || (rng.chance(0.2) ? rng.pick(BRICKS) : rng.pick(SIDINGS));
+  if (!story && lot.area === 'Maple Avenue' && outer === 'siding_blue') outer = 'siding_grey';
   const style = { outer, roof: story?.roof || rng.pick(ROOFS), chimney: rng.chance(0.3) };
   let cond = story?.cond || rng.weighted([['normal', 40], ['broken', 20], ['ransacked', 22], ['boarded', 10], ['burned', 5]]);
   if (lot.spawn && (cond === 'burned' || cond === 'boarded')) cond = 'normal';

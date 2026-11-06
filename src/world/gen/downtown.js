@@ -16,7 +16,7 @@ const BLOCKS_DT = {
     [435, 480, 448, 503, 0, { kind: 'bar', sign: 'RUSTY NAIL', awning: 'green', floors: 2, upper: 'apartment', floorMat: 'floor_wood', outer: 'brick_brown', poi: 'Rusty Nail Bar' }],
     [449, 482, 458, 503, 0, { kind: 'clothing', sign: 'THREADS', awning: 'blue', outer: 'brick_white', poi: 'Threads Clothing' }],
     [447, 458, 458, 476, 2, { kind: 'laundromat', sign: 'WASH', awning: 'blue', outer: 'brick_red' }],
-    ['apts', 422, 458, 445, 479, 2, { floors: 4, outer: 'brick_red', name: 'OAK APTS', poi: 'Oak Street Apartments' }],
+    ['apts', 422, 458, 445, 477, 2, { floors: 4, outer: 'brick_red', name: 'OAK APTS', poi: 'Oak Street Apartments' }],
   ],
   dt_a2: [
     [470, 480, 489, 503, 0, { kind: 'pharmacy', sign: 'PHARMACY', awning: 'green', floors: 2, upper: 'office', backDoor: 'door_metal', backLocked: 'key_pharmacy', floorMat: 'floor_tile', outer: 'brick_white', poi: 'Rite Care Pharmacy' }],
@@ -31,10 +31,10 @@ const BLOCKS_DT = {
     [490, 546, 504, 566, 0, { kind: 'liquor', sign: 'LIQUOR', awning: 'red', outer: 'brick_red' }],
   ],
   dt_b4: [
-    [566, 521, 583, 544, 2, { kind: 'office', sign: 'SAVINGS & LOAN', floors: 4, upper: 'office', outer: 'brick_white', floorMat: 'carpet_grey', poi: 'Millbrook Savings Building' }],
+    [566, 521, 583, 543, 2, { kind: 'office', sign: 'SAVINGS & LOAN', floors: 4, upper: 'office', outer: 'brick_white', floorMat: 'carpet_grey', poi: 'Millbrook Savings Building' }],
     [584, 521, 602, 543, 2, { kind: 'sporting', sign: 'OUTDOORSMAN', awning: 'green', floors: 2, upper: 'storage', storageLoot: 'sporting_goods', outer: 'brick_brown', poi: 'Outdoorsman Sporting Goods' }],
     [566, 547, 578, 566, 0, { kind: 'electronics', sign: 'TV & RADIO', awning: 'blue', outer: 'brick_white' }],
-    ['apts', 579, 545, 602, 566, 0, { floors: 3, outer: 'brick_brown', name: 'MARKET APTS', poi: 'Market Street Apartments' }],
+    ['apts', 579, 546, 602, 566, 0, { floors: 3, outer: 'brick_brown', name: 'MARKET APTS', poi: 'Market Street Apartments' }],
   ],
 };
 

@@ -11,8 +11,8 @@ function meleeMeta(extra) {
   return Object.assign({
     kind: 'melee', weight: two ? 0.7 : 0.3,
     hip: two
-      ? { pos: [0.13, -0.24, -0.36], rot: [-0.55, 0.25, 0.55] }
-      : { pos: [0.17, -0.22, -0.36], rot: [-0.62, 0.2, 0.32] },
+      ? { pos: [0.17, -0.15, -0.42], rot: [-0.45, 0.25, 0.42] }
+      : { pos: [0.2, -0.22, -0.37], rot: [-0.12, 0.3, 0.48] },
     sprint: two
       ? { pos: [0.19, -0.2, -0.3], rot: [0.75, 0.1, 0.55] }
       : { pos: [0.19, -0.22, -0.31], rot: [0.55, 0.15, 0.3] },
@@ -92,8 +92,8 @@ export function bat(nails = false) {
     }
   }
   b.point('handR', [0, 0, 0]);
-  b.point('handL', [0, -8.4, 0]);
-  return { b, meta: meleeMeta({ twoHanded: true, swing: 'blunt', weight: 0.6, scale: 0.92 }) };
+  b.point('handL', [0, 9.0, 0]);
+  return { b, meta: meleeMeta({ twoHanded: true, swing: 'blunt', weight: 0.6, scale: 0.8 }) };
 }
 
 export function crowbar() {
@@ -157,8 +157,8 @@ export function axeFire() {
   b.box(0, -24, 0, 2.9, 10, 3.9, 0x1d1d1d, M.RUBBER);
   axeHead(b, 46, true, true);
   b.point('handR', [0, 0, 0]);
-  b.point('handL', [0, -20, 0]);
-  return { b, meta: meleeMeta({ twoHanded: true, swing: 'heavy', weight: 0.85, scale: 0.92 }) };
+  b.point('handL', [0, 15, 0]);
+  return { b, meta: meleeMeta({ twoHanded: true, swing: 'heavy', weight: 0.85, scale: 0.8 }) };
 }
 
 export function hatchet() {
@@ -189,7 +189,7 @@ export function golfClub() {
   b.box(0, 91.5, -3.6, 1.8, 2.8, 6.6, C.steelLight, M.STEEL, { r: [0.25, 0, 0] });
   for (let i = 0; i < 4; i++) b.box(-0.93, 91.2 + (i - 1.5) * 0.6, -3.6, 0.05, 0.12, 5.4, C.steelDark, M.METAL, { r: [0.25, 0, 0] });
   b.point('handR', [0, 0, 0]);
-  b.point('handL', [0, -7, 0]);
+  b.point('handL', [0, 8, 0]);
   return { b, meta: meleeMeta({ twoHanded: true, swing: 'blunt', weight: 0.35, scale: 0.9 }) };
 }
 
@@ -234,8 +234,8 @@ export function sledgehammer() {
   b.box(0, 62, 0, 7.6, 5.6, 14, C.gunLight, M.METAL);
   for (const s of [-1, 1]) b.box(0, 62, s * 8.3, 6.0, 6.0, 0.8, C.steel, M.STEEL);
   b.point('handR', [0, 0, 0]);
-  b.point('handL', [0, -22, 0]);
-  return { b, meta: meleeMeta({ twoHanded: true, swing: 'heavy', weight: 1.0, scale: 0.9 }) };
+  b.point('handL', [0, 16, 0]);
+  return { b, meta: meleeMeta({ twoHanded: true, swing: 'heavy', weight: 1.0, scale: 0.8 }) };
 }
 
 export function shovel() {
@@ -251,7 +251,7 @@ export function shovel() {
   b.box(0, 83.2, -0.6, 4.4, 1.2, 0.6, C.steelDark, M.METAL);
   b.box(0, 66.2, 0.2, 19.6, 1.0, 1.4, G, M.PAINT);
   b.point('handR', [0, 0, 0]);
-  b.point('handL', [0, -24, 0]);
+  b.point('handL', [0, 17, 0]);
   return { b, meta: meleeMeta({ twoHanded: true, swing: 'heavy', weight: 0.8, scale: 0.88 }) };
 }
 
@@ -281,8 +281,8 @@ export function katana() {
   b.box(0, 3.0, 0.7, 0.45, 2.0, 1.0, C.steelLight, M.STEEL, { r: [-0.6, 0, 0] });
   for (let i = 0; i < 11; i++) b.pop();
   b.point('handR', [0, 0, 0]);
-  b.point('handL', [0, -8.2, 0]);
-  return { b, meta: meleeMeta({ twoHanded: true, swing: 'blade', weight: 0.45, scale: 0.92 }) };
+  b.point('handL', [0, 7.6, 0]);
+  return { b, meta: meleeMeta({ twoHanded: true, swing: 'blade', weight: 0.45, scale: 0.8 }) };
 }
 
 export function spear() {

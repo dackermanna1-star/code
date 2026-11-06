@@ -230,7 +230,7 @@ const scenes = {
       updaters.push((dt) => z.update(dt, { state: st, speed: parseFloat(params.get('speed') || '0'), aggro: parseFloat(params.get('aggro') || '0.3'), attackT: parseFloat(params.get('at') || '0.4') }));
       z.setLight(1, 0);
       if (params.get('wound')) for (let k = 0; k < 4; k++) z.addWound(['torso', 'head', 'armR', 'legL'][k]);
-      if (params.get('dismember')) params.get('dismember').split('+').forEach((p) => { const [a, b] = p.split(':'); z.dismember(a, b || 'upper'); });
+      if (params.get('dismember')) params.get('dismember').split('~').forEach((p) => { const [a, b] = p.split(':'); z.dismember(a, b || 'upper'); });
     });
     const d = parseFloat(params.get('dist') || '4.2');
     camLook(0, 2.0, 4 + d, 0, 1.75, 4);

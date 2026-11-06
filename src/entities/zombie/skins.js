@@ -780,14 +780,21 @@ function paintWoundAt(P, rng, r, x, y, size) {
 // ------------------------------------------------------------------ swatches
 function paintSwatches(P, rng, o) {
   const { skin } = o;
-  // gore: ring of skin+blood (rows 0-1), dark cavity with bone in the middle
+  // gore cap: dark rim, flesh, small bone with marrow in the middle
   P.fillRect(FREE.gore, (x, y) => {
-    if (y < 2) return y === 0 ? jit(rng, mix(skin, BLOOD_DRY, 0.4), 8) : jit(rng, BLOOD, 14);
-    const cx = x - 3.5, cy = y - 4.5;
+    const cx = x - 3.5, cy = y - 3.5;
     const d = Math.sqrt(cx * cx + cy * cy);
-    if (d < 1.0) return jit(rng, BONE_C, 10);
-    if (d < 1.8) return jit(rng, [150, 30, 26], 14);
-    return jit(rng, rng.next() < 0.5 ? FLESH : BLOOD, 16);
+    if (d < 0.8) return rng.next() < 0.5 ? [196, 186, 160] : [150, 60, 50];
+    if (d < 1.3) return jit(rng, BONE_C, 12);
+    if (d > 3.6) return jit(rng, [70, 14, 12], 8);
+    return jit(rng, rng.next() < 0.55 ? FLESH : [120, 22, 18], 16);
+  });
+  // torn skin around the stump: skin at the top, ragged edge, blood running down
+  P.fillRect(FREE.goreSide, (x, y) => {
+    const edge = 1 + ((x * 7 + 3) % 3 === 0 ? 1 : 0);
+    if (y < edge) return jit(rng, skin, 10);
+    if (y === edge) return jit(rng, mix(skin, BLOOD, 0.6), 10);
+    return jit(rng, rng.next() < 0.6 ? BLOOD : FLESH, 14);
   });
   // mouth: palate (rows 0-3, row 0 = front teeth), tongue (rows 4-7, row 7 = front teeth)
   P.fillRect(FREE.mouth, (x, y) => {

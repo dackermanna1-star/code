@@ -3,7 +3,7 @@
 import { burst, tone, modal, whoosh, click, thud, crackle, bubbles, creak, scrape } from './instruments.js';
 import { voice } from './instruments.js';
 
-const STEP = { cat: 'sfx', sr: 'mid', dur: 0.4, variants: 6, level: 0.24, ref: 1.5, maxDist: 22, cap: 6, group: 'step', groupCap: 12, send: 0.04, pv: 0.07, vv: 0.18, prio: 1 };
+const STEP = { cat: 'sfx', sr: 'mid', dur: 0.4, variants: 6, level: 0.18, ref: 1.5, maxDist: 22, cap: 6, group: 'step', groupCap: 12, send: 0.04, pv: 0.07, vv: 0.18, prio: 1 };
 
 /** heel + toe pattern helper: calls fn(t, strength) twice */
 function heelToe(s, fn) {
@@ -68,7 +68,7 @@ export const WORLD_SOUNDS = {
       }),
   },
   footstep_water: {
-    ...STEP, dur: 0.5, level: 0.35,
+    ...STEP, dur: 0.5, level: 0.26,
     render: (s) => {
       burst(s, { t: 0.003, kind: 'white', a: 0.01, tau: 0.05, peak: 0.7, filters: [['bandpass', 800, 1]], fenv: [[0.003, 700], [0.06, s.rand(2000, 2800), 'e'], [0.2, 900, 'e']] });
       burst(s, { t: 0.01, kind: 'pink', a: 0.02, tau: 0.08, peak: 0.45, filters: [['lowpass', 1200]] });
@@ -95,7 +95,7 @@ export const WORLD_SOUNDS = {
       }),
   },
   footstep_cloth: {
-    ...STEP, level: 0.25,
+    ...STEP, level: 0.15,
     render: (s) =>
       heelToe(s, (t, k) => {
         thud(s, { t, f: s.rand(80, 95), f1: 60, tau: 0.03, peak: 0.6 * k, noise: 0.5 * k, noiseLp: 350 });
@@ -103,7 +103,7 @@ export const WORLD_SOUNDS = {
       }),
   },
   jump: {
-    ...STEP, variants: 4, level: 0.3,
+    ...STEP, variants: 4, level: 0.22,
     render: (s) => {
       burst(s, { t: 0, kind: 'pink', a: 0.01, tau: 0.04, peak: 0.5, filters: [['bandpass', 1800, 0.6]] });
       thud(s, { t: 0, f: 90, f1: 60, tau: 0.02, peak: 0.5 });
@@ -111,7 +111,7 @@ export const WORLD_SOUNDS = {
     },
   },
   land: {
-    ...STEP, variants: 4, level: 0.4,
+    ...STEP, variants: 4, level: 0.3,
     render: (s) => {
       thud(s, { t: 0, f: s.rand(80, 95), f1: 50, tau: 0.05, peak: 1, noise: 0.6, noiseLp: 500 });
       burst(s, { t: 0, kind: 'pink', a: 0.003, tau: 0.04, peak: 0.4, filters: [['bandpass', 1500, 0.7]] });
@@ -119,7 +119,7 @@ export const WORLD_SOUNDS = {
     },
   },
   land_hard: {
-    ...STEP, variants: 3, dur: 0.6, level: 0.6, cap: 2,
+    ...STEP, variants: 3, dur: 0.6, level: 0.45, cap: 2,
     render: (s) => {
       thud(s, { t: 0, f: 72, f1: 38, tau: 0.1, peak: 1.2, noise: 1, noiseLp: 400, noiseTau: 0.06 });
       crackle(s, { t: 0, dur: 0.08, rate: 2000, gmin: 0.0004, gmax: 0.002, filters: [['bandpass', 1500, 0.6]], peak: 0.5, ampEnv: [[0, 1], [1, 0]] });
@@ -243,7 +243,7 @@ export const WORLD_SOUNDS = {
     },
   },
   ui_click: {
-    cat: 'ui', sr: 'hi', dur: 0.08, variants: 2, level: 0.3, cap: 3, pv: 0.03, vv: 0.05,
+    cat: 'ui', sr: 'hi', dur: 0.08, variants: 2, level: 0.25, cap: 3, pv: 0.03, vv: 0.05,
     render: (s) => {
       burst(s, { t: 0, kind: 'white', a: 0.0002, tau: 0.0018, peak: 0.7, filters: [['bandpass', 2800, 2]] });
       tone(s, { t: 0, f: s.rand(1700, 1900), a: 0.0005, tau: 0.006, peak: 0.3 });

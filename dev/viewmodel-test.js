@@ -225,6 +225,10 @@ function simulate(p, viewport) {
   const vm = makeVM(p);
   const stack = itemFor(p);
   vm.setItem(stack);
+  // test-only pose overrides (meta is per-instance cache)
+  if (p.meta) Object.assign(vm.meta, JSON.parse(JSON.stringify(p.meta)));
+  if (p.meta && p.meta.hip && !p.meta.ads && vm.meta.kind !== 'gun') vm.meta.ads = vm.meta.hip;
+  if (p.shoulders) vm.setShoulders(p.shoulders.R, p.shoulders.L);
   const dt = 1 / 60;
   const warm = p.warm ?? 1.2;
   let end = p.tFrac != null ? Infinity : warm + (p.t ?? 0);

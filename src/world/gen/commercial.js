@@ -18,7 +18,7 @@ export function aisles(fr, x0, z0, x1, z1, y, blocks, loot, o = {}) {
       if (o.gap && (z === Math.floor((z0 + z1) / 2))) continue;
       const b = pick(n++);
       for (const [xx, f] of [[x, 1], [x + 1, 3]]) {
-        if (fr.get(xx, y, z) !== 0) continue;
+        if (!fr.canPlace(xx, y, z)) continue;
         const tbl = typeof loot === 'function' ? loot(xx, z) : loot;
         if (tbl) fr.container(xx, y, z, b, f, tbl); else fr.place(xx, y, z, b, f);
         if (o.tall && fr.get(xx, y + 1, z) === 0) { if (tbl) fr.container(xx, y + 1, z, b, f, tbl); else fr.place(xx, y + 1, z, b, f); }
