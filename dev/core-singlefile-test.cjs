@@ -1,0 +1,21 @@
+const { chromium } = require('playwright');
+const path = require('path');
+(async () => {
+  const b = await chromium.launch({ args: ['--enable-unsafe-swiftshader', '--use-gl=angle', '--use-angle=swiftshader'] });
+  const p = await b.newPage({ viewport: { width: 1280, height: 720 } });
+  const errors = [];
+  p.on('console', (m) => { if (m.type() === 'error') errors.push(m.text().slice(0, 300)); });
+  p.on('pageerror', (e) => errors.push('pageerror ' + e.message));
+  const url = 'file://' + path.resolve('release/DeadCounty.html');
+  await p.goto(url);
+  await p.waitForTimeout(2500);
+  await p.screenshot({ path: 'dev/out/single-menu.png' });
+  console.log('menu state:', await p.evaluate(() => window.game && window.game.state));
+  await p.goto(url + '?autostart=1&test=1&seed=demo');
+  await p.waitForFunction(() => window.game && window.game.state === 'playing', null, { timeout: 240000 });
+  await p.waitForTimeout(4000);
+  await p.screenshot({ path: 'dev/out/single-play.png' });
+  console.log('playing; location:', await p.evaluate(() => window.game.location.name));
+  console.log('errors:', errors.length ? errors.join('\n') : 'none');
+  await b.close();
+})();
