@@ -19,3 +19,18 @@ fs.mkdirSync(path.join(root, 'dist'), { recursive: true });
 const dest = path.join(root, 'dist', 'spleen-sepsis.html');
 fs.writeFileSync(dest, out);
 console.log('wrote', path.relative(process.cwd(), dest), (out.length / 1024).toFixed(0) + ' KB', files.length + ' scripts');
+// Artifact variant: page content only (the host supplies doctype/html/head/body + viewport meta).
+const art = out
+  .replace(/<!DOCTYPE html>\s*/i, '')
+  .replace(/<html[^>]*>\s*/i, '')
+  .replace(/<\/html>\s*$/i, '')
+  .replace(/<head>\s*/i, '')
+  .replace(/<\/head>\s*/i, '')
+  .replace(/<body>\s*/i, '')
+  .replace(/<\/body>\s*/i, '')
+  .replace(/<meta charset="UTF-8">\s*/i, '')
+  .replace(/<meta name="viewport"[^>]*>\s*/i, '');
+const artDest = path.join(root, 'dist', 'artifact', 'spleen-sepsis.html');
+fs.mkdirSync(path.dirname(artDest), { recursive: true });
+fs.writeFileSync(artDest, art);
+console.log('wrote', path.relative(process.cwd(), artDest), (art.length / 1024).toFixed(0) + ' KB (artifact page)');
