@@ -136,7 +136,7 @@ def overlay_timing():
         except Exception as e2:
             print("audio_mix: WARNING could not parse overlays.py either:", e2, file=sys.stderr)
     if not factors:
-        factors = [108.55, 109.05, 110.25, 110.75, 111.75, 113.2]
+        factors = [108.57, 109.49, 110.23, 110.73, 111.73, 113.23]   # = overlays.FACTORS (word-locked)
         print("audio_mix: WARNING factor-chip times not found in overlays.py, using defaults", file=sys.stderr)
     if card is None:
         card = LAST_WORD_END + 0.18
@@ -235,13 +235,13 @@ head = load(M2, 0, t_dom + xf / 2 - M2_START)
 tail = load(M2, M2_DOM - xf / 2, END - (t_dom - xf / 2))
 k = int(xf * SR)
 ref_h = np.sqrt(np.mean(head[-int(1.5 * SR):] ** 2)); ref_t = np.sqrt(np.mean(tail[:int(1.5 * SR)] ** 2))
-tail *= min(2.0, ref_h / max(ref_t, 1e-6))   # the outro is quieter than the opening: level-match the splice
+tail *= min(3.2, ref_h / max(ref_t, 1e-6))   # the outro is ~8 dB quieter than the opening: level-match the splice
 cos = np.cos(np.linspace(0, math.pi / 2, k)).astype(np.float32)[:, None]
 head[-k:] *= cos; tail[:k] *= cos[::-1]
 mus2 = np.zeros((int((END - M2_START) * SR) + 1, 2), np.float32)
 n_ = min(len(head), len(mus2)); mus2[:n_] += head[:n_]
 i0 = len(head) - k; n_ = min(len(tail), len(mus2) - i0); mus2[i0: i0 + n_] += tail[:n_]
-mus2 = env(mus2, M2_START, END, [(M2_START, -60), (102.5, -19), (114.9, -17), (STING - 0.5, -15), (min(STING + 1.0, END - 1.0), -15.5),
+mus2 = env(mus2, M2_START, END, [(M2_START, -60), (102.5, -19), (114.9, -17), (STING - 0.5, -15), (STING + 0.4, -13), (min(STING + 1.2, END - 1.0), -13.5),
                                  (END - 0.25, -45), (END, -90)])
 place(music, mus2, M2_START)
 # side-chain duck under the narration
@@ -338,9 +338,9 @@ def chatter(t0, t1, db):
 ev(538, 0.25, -21, 0.0, start=0.5, dur=3.4, lp=6000)                 # footsteps walking in
 ev(168, SLAM, -20, -0.2, hit=0.32)                                   # whoosh peaking on the slam
 # door slam: impact on the contact frame, with a dip at 1.6 kHz and its ring ducked under "slams shut"
-ev(201, SLAM, -7, 0.1, hit=0.193, eq=(1600, -5, 0.8), duck=9, duck_after=0.06)
-ev(2849, SLAM + 0.06, -13, 0.1, hit=0.172, duck=6, duck_after=0.03)  # latch catches
-ev(2300, SLAM, -16, start=2.08, dur=0.45, hit=2.12, hp=30, fo=0.15)  # sub knock (only the last pulse of the swell)
+ev(201, SLAM, -9, 0.1, start=0.155, fi=0.004, hit=0.193, eq=(1600, -6, 0.8), duck=9, duck_after=0.06)
+ev(2849, SLAM + 0.06, -15, 0.1, hit=0.172, duck=6, duck_after=0.03)  # latch catches
+ev(2300, SLAM, -19, start=2.08, dur=0.45, hit=2.12, hp=30, fo=0.15)  # sub knock (only the last pulse of the swell)
 ev(2232, 5.3, -24, start=0.0, dur=1.6)                               # startled breath
 ev(379, 11.7, -18, start=1.0, dur=2.2, duck=6, duck_after=0.0)        # straining at the door
 # SH05: the fists never strike on screen; one muffled thump where the right fist comes down on the door (after "won't")
@@ -348,26 +348,26 @@ ev(2182, FIST_SH05, -13, 0.15, hit=0.052, lp=1800, duck=8, duck_after=0.05)
 ev(2775, FIST_SH05, -22, 0.15, hit=0.0, lp=1200, duck=8, duck_after=0.05)
 ev(2232, 14.2, -26, start=1.0, dur=3.0)
 
-chatter(29.6, 34.0, -24); chatter(62.4, 65.0, -21); chatter(77.5, 81.2, -21); chatter(81.2, 81.9, -28); chatter(115.0, 117.5, -25)
+chatter(29.6, 34.0, -24); chatter(62.4, 65.0, -18); chatter(77.5, 81.2, -21); chatter(81.2, 81.9, -28); chatter(115.0, 117.5, -25)
 ev(2232, 36.9, -16, start=0.2, dur=1.6, lp=5000)                     # big exhale
 ev(2070, METAL, -17, 0.2, hit=0.004, dur=0.18, lp=1800, fo=0.06)      # palm on cold metal: soft dull tap
 ev(1898, PHONE_OUT - 0.75, -20, start=0.45, dur=0.75, fi=0.1, fo=0.2)  # phone out of the bib pocket (cloth slide, no thump)
 for t in (41.3, 41.9):
     ev(1924, t, -27, start=0.1, dur=0.08, hit=0.132, fo=0.02)        # phone screen taps: tiny clicks
 place(sfxb, phone_error_beep(), 44.70, -21, duck=6)                  # "call failed" beep, after "...your signal."
-ev(1473, 45.25, -16)                                                 # realisation whoosh
-ev(2914, 46.3, -20, start=0.0, dur=JAM - 46.3, fo=0.12)              # riser into the release
+ev(1473, 45.25, -19, duck=6, duck_after=0.1)                         # realisation whoosh
+ev(2914, 46.3, -20, start=0.0, dur=JAM - 46.3, fo=0.12, duck=4, duck_after=0.0)   # riser into the release
 # impact on the cut to the iced release: only the boom of 2917 (its first 6 s are a riser), sub only, gone before L11
-ev(2917, JAM, -19, start=5.97, dur=1.9, hit=6.0, hp=35, fi=0.003, fo=0.9, duck=4, duck_after=0.15)
+ev(2917, JAM, -17, start=5.97, dur=1.9, hit=6.0, hp=35, lp=450, fi=0.003, fo=0.9, duck=4, duck_after=0.15)   # sub only: leaves 'But' clear
 ev(2775, FIST_SH13, -15, 0.1, hit=0.0, lp=3000)                      # fist on the ice
 ev(2159, FIST_SH13, -20, 0.1, hit=0.176, dur=0.6, lp=6000)           # icy knock layer
 ev(1329, FIST_SH13 + 0.02, -27, hp=2500, dur=0.9, fo=0.4)            # ice crackle
-ev(538, 51.6, -18, start=2.0, dur=1.8, rate=1.15)                    # hurrying steps
+ev(538, 52.05, -18, start=2.0, dur=1.3, rate=1.15)                   # hurrying steps (first footfall ~f1567)
 place(sfxb, scuff(), SLIP, -20, -0.1, duck=4)                        # the slip
 # the fall: body hit + metal + sub + effort on the frame his back hits the floor (then the picture cuts to black)
-ev(2498, FALL, -6, hit=0.145, lp=2500, duck=5, duck_after=0.08)
-ev(756, FALL, -13, hit=0.105, lp=3000, duck=5, duck_after=0.06)
-ev(2300, FALL, -17, start=2.08, dur=0.45, hit=2.12, hp=30, fo=0.15)
+ev(2498, FALL, -9, hit=0.145, lp=2500, duck=5, duck_after=0.08)
+ev(756, FALL, -15, hit=0.105, lp=3000, duck=5, duck_after=0.06)
+ev(2300, FALL, -20, start=2.08, dur=0.45, hit=2.12, hp=30, fo=0.15)
 ev(379, FALL + 0.02, -17, start=7.02, dur=0.35, hit=7.05, fo=0.12, duck=6, duck_after=0.0)
 ev(167, 55.3, -18, duck=4)                                           # time-lapse
 for t in SH15_CUTS: ev(168, t, -20, hit=0.32)                        # whooshes peaking on the jump cuts
@@ -387,16 +387,16 @@ hb = fade(filt(filt(load(sfx(490)), "lowpass", 900), "highpass", 32), 0.002, 0.1
 for ts in ecg_spike_times():
     place(sfxb, hb, ts - 0.010, -10 if ts < 95.5 else -13, duck=3)
 # SH21: latch on the unlatch frame, creak through the swing, light-flood whoosh, Maya stepping in from the dock
-ev(198, UNLATCH, -12, start=0.33, dur=0.5, hit=0.388, fo=0.15, duck=4, duck_after=0.05)
+ev(198, UNLATCH, -17, start=0.33, dur=0.5, hit=0.388, lp=2500, fo=0.15, duck=8, duck_after=0.02)
 ev(200, UNLATCH + 0.02, -15, start=0.75, dur=DOOR_OPEN - UNLATCH, lp=6000, fi=0.08, fo=0.25, duck=6, duck_after=0.0)
-ev(167, DOOR_OPEN, -22, hit=0.81, duck=6, duck_after=0.0)
-ev(538, 100.30, -18, start=5.25, dur=0.85, lp=6000, fo=0.2)          # two steps in the doorway: 100.37, 100.81 s
+ev(167, DOOR_OPEN, -22, hit=0.81, dur=1.1, fo=0.3, duck=6, duck_after=0.0)
+ev(538, 100.30, -18, start=5.25, dur=0.8, lp=6000, fo=0.18)          # two steps in the doorway: 100.37, 100.81 s
 crinkle(107.85, 108.45, -26)                                         # foil blanket settling as SH23 opens
 crinkle(115.0, 117.4, -29, gap=(0.2, 0.5))                           # SH24a: shivering inside the foil
 for k, ts in enumerate(FACTOR_T):
-    place(sfxb, ui_pop(k), ts, -21, duck=3)                          # factor chips
+    place(sfxb, ui_pop(k), ts, -24, duck=8, duck_after=0.015)                          # factor chips
 # door closes on its frame; the thud lands in the gap before "dead" and its ring is ducked under the word
-ev(201, DOOR_CLOSE, -12, hit=0.193, lp=2000, duck=14, duck_after=0.06)
+ev(201, DOOR_CLOSE, -12, start=0.155, fi=0.004, hit=0.193, lp=2000, duck=14, duck_after=0.06)
 ev(2849, DOOR_CLOSE + 0.05, -19, hit=0.172, lp=3000, duck=10, duck_after=0.03)
 ev(780, STING, -16, hit=0.10, dur=END - (STING - 0.10) - 0.03, fo=1.2)  # end card (faded out before the end)
 
@@ -440,7 +440,7 @@ def tp_limiter_gain(x, ceil):
 
 
 ceil = 10 ** (-1.5 / 20)
-VO_CEIL = 10 ** (-3.0 / 20)        # narration peaks after the master gain
+VO_CEIL = 10 ** (-2.5 / 20)        # narration peak ceiling after the master gain (leaves the master limiter only rare, small peaks)
 l0 = lufs(bus_sum())
 print("LUFS before", round(l0, 1))
 g = 10 ** ((-14.0 - l0) / 20)
@@ -461,8 +461,8 @@ for it in range(3):
     if abs(l1 + 14.0) < 0.05: break
     g *= 10 ** ((-14.0 - l1) / 20)
 grd = -20 * np.log10(gain)
-print("limiter: max gain reduction %.1f dB, %.2f%% of samples limited (%.2f%% by more than 1 dB; mean on speech %.2f dB)"
-      % (grd.max(), 100 * (gain < 0.999).mean(), 100 * (grd > 1).mean(), grd[sp].mean()))
+print("limiter: max gain reduction %.1f dB at %.2f s, %.2f%% of samples limited (%.2f%% by more than 1 dB; mean on speech %.2f dB)"
+      % (grd.max(), grd.argmax() / SR, 100 * (gain < 0.999).mean(), 100 * (grd > 1).mean(), grd[sp].mean()))
 # end: fade the programme to digital silence by END (the picture fades to black over the last 10 frames)
 fe = np.ones(len(mix), np.float32); i0, i1 = int((END - 0.4) * SR), int(END * SR)
 fe[i0:i1] = np.cos(np.linspace(0, math.pi / 2, i1 - i0)) ** 2; fe[i1:] = 0.0

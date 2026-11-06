@@ -79,26 +79,40 @@ CAP_Y = {"SH03": 1470,    # below the 'FREEZER 2' label of the display plate (pl
          "SH12b": 330,    # above the 'EMERGENCY' label: the push-in grows the iced button over y 600-1650
          "SH16c": 1560}   # on the chin/neck: the slurring lips sit at ~y1180-1340 in this close-up
 CAP_OK = {"SH03": [(1440, 1540)], "SH04": [(1030, 1060)], "SH06b": [(1460, 1540)], "SH08b": [(1420, 1540)],
-          "SH10a": [(380, 450), (1150, 1540)], "SH10b": [(360, 600)], "SH12a": [(250, 400), (1150, 1540)],
+          "SH10a": [(380, 450), (1150, 1540)], "SH10b": [(360, 600)], "SH12a": [(1150, 1540)],
           "SH12b": [(280, 420)], "SH16c": [(1540, 1600)]}
 FUNC_WORDS = {"the", "a", "an", "your", "my", "his", "her", "their", "of", "to", "in", "on", "at", "and", "but", "or", "is",
               "are", "from", "with", "into", "for", "that", "can", "may", "will", "you're", "they're", "you'll", "it's",
               "there's", "by", "as", "until", "when", "which", "this", "not", "no", "so", "then", "how", "you", "it", "be",
               "could", "would", "might", "have", "has", "below", "about", "around", "across", "if", "than"}
 HARD_BREAK = (".", "?", "!", ":")
-KEEP_TOGETHER = [("warm", "and", "dead")]   # the closing maxim's punchline stays one caption (no lone 'DEAD')
+KEEP_TOGETHER = [("warm", "and", "dead"),      # the closing maxim's punchline stays one caption (no lone 'DEAD')
+                 ("minus", "20"),                # never show '20 DEGREES CELSIUS' (+20 C) on its own
+                 ("not", "because", "you're", "warm"),   # a lone 'YOU'RE WARM' would say the opposite of the line
+                 ("emergency", "release"), ("muscle", "contractions")]   # key terms
 
 
 def _base(w): return re.sub(r"[^\w']", "", w).lower()
 def _cap_word(w): return w.upper().strip(",.:;")
 
 
-def _wrap(words, fnt, maxw=920):
+def _cap_words(ws):
+    """Display words of a chunk: a comma INSIDE the chunk stays ('SO, COULD YOU SURVIVE?'), end punctuation goes."""
+    return [w.upper().rstrip(".:;") if i < len(ws) - 1 else _cap_word(w) for i, w in enumerate(ws)]
+
+
+CAP_MAXW, CAP_SHRINK = 920, 1.13   # line width at 78 px; a chunk up to 13% wider is set slightly smaller on ONE line
+
+
+def _wrap(words, fnt, maxw=CAP_MAXW):
     """One line if it fits, else two lines balanced by width (never a lone word left hanging when avoidable)."""
     full = " ".join(words)
-    if fnt.getlength(full) <= maxw or len(words) < 2:
+    if fnt.getlength(full) <= maxw * CAP_SHRINK or len(words) < 2:
         return [list(enumerate(words))]
-    best = min(range(1, len(words)), key=lambda k: max(fnt.getlength(" ".join(words[:k])), fnt.getlength(" ".join(words[k:]))))
+    width = lambda k: max(fnt.getlength(" ".join(words[:k])), fnt.getlength(" ".join(words[k:])))
+    best = min(range(1, len(words)), key=width)
+    at_comma = [k for k in range(1, len(words)) if words[k - 1].endswith(",") and width(k) <= maxw * CAP_SHRINK]
+    if at_comma: best = at_comma[0]          # break the line at the comma when that still fits
     return [list(enumerate(words))[:best], list(enumerate(words))[best:]]
 
 
@@ -132,7 +146,7 @@ def display_words():
         pe = WORDS[i - 1]["e"] if i else 0.0
         if e - s < 0.03 and s - pe > 0.15:
             s = max(pe + 0.04, s - 0.65 * exp)
-        elif i and s - pe < 0.05 and w.get("p", 1.0) < 0.9 and not b.isdigit() and e - s - exp > 0.22:
+        elif i and s - pe < 0.05 and w.get("p", 1.0) < 0.9 and not b.isdigit() and e - s - exp > 0.08:
             s = e - max(0.6 * exp, 0.14)
         out.append({"w": w["w"], "s": s, "e": e})
     return out
@@ -146,23 +160,35 @@ def _cap_ok(sid, y):
     return any(lo <= y <= hi for lo, hi in CAP_OK.get(sid, CAP_OK_DEFAULT))
 
 
+_keep = []
+
+
+def _keep_groups(D):
+    if not _keep:
+        for kt in KEEP_TOGETHER:
+            for j in range(len(D) - len(kt) + 1):
+                if tuple(_base(D[j + q]["w"]) for q in range(len(kt))) == tuple(kt):
+                    _keep.append(set(range(j, j + len(kt))))
+        _keep.append(set())
+    return _keep
+
+
 def _chunk_cost(ids, D, P, last, cuts, fnt):
     n = len(ids)
     if n > 4: return 1e9
-    words = [_cap_word(D[i]["w"]) for i in ids]
+    words = _cap_words([D[i]["w"] for i in ids])
     wpx = fnt.getlength(" ".join(words))
     c = {1: 8.0, 2: 1.0, 3: 0.0, 4: 1.5}[n]
-    if wpx > 920:                                                    # wraps onto two lines
-        c += {1: 0.0, 2: 0.5, 3: 2.5, 4: 1.0}[n]
+    if wpx > CAP_MAXW: c += 0.3                                      # set a little smaller
+    if wpx > CAP_MAXW * CAP_SHRINK:                                  # wraps onto two lines
+        c += {1: 0.0, 2: 0.5, 3: 1.5, 4: 1.0}[n]
         if max(fnt.getlength(" ".join(w for _, w in ln)) for ln in _wrap(words, fnt)) > 940: c += 4.0
     if wpx > 1800: return 1e9
     if not last and _base(D[ids[-1]]["w"]) in FUNC_WORDS: c += 3.0   # don't end a chunk on 'the', 'your', ...
-    c += 3.0 * sum(1 for i in ids[:-1] if "," in P[i])               # run through a comma
-    for kt in KEEP_TOGETHER:                                         # never split these
-        for j in range(len(D) - len(kt) + 1):
-            if [_base(D[j + q]["w"]) for q in range(len(kt))] == list(kt):
-                inside = [j + q for q in range(len(kt))]
-                if any(i in ids for i in inside) and not all(i in ids for i in inside): c += 20.0
+    for a, b in zip(ids, ids[1:]):                                   # run through a comma (worse at a clause break)
+        if "," in P[a]: c += 3.0 + (2.0 if _base(D[b]["w"]) in FUNC_WORDS | {"out"} else 0.0)
+    for inside in _keep_groups(D):                                   # never split these
+        if any(i in ids for i in inside) and not all(i in ids for i in inside): c += 20.0
     s, e = D[ids[0]]["s"], D[ids[-1]]["e"]
     if e - s > 2.0: c += 3.0 * (e - s - 2.0)
     c += 2.0 * sum(1 for a, b in zip(ids, ids[1:]) if D[b]["s"] - D[a]["e"] > 0.3)
@@ -204,6 +230,8 @@ def build_chunks():
     for ch in out: _place_chunk(ch)
     for a, b in zip(out, out[1:]):         # a chunk start delayed to a cut: the previous one holds up to it
         if b.get("snapped") and a["e"] >= b["s"] - 0.1: a["e"] = max(a["e"], b["t0"] - 1e-4)
+    for a, b in zip(out, out[1:]):         # no 2-3 frame blink between back-to-back chunks: hold the previous one
+        if 0 < b["t0"] - a["e"] < 0.12: a["e"] = b["t0"] - 1e-4
     return out
 
 
@@ -214,7 +242,7 @@ def _place_chunk(ch):
         sid = shot_of(min(f, LAST))[0]
         if spans and spans[-1][0] == sid: spans[-1][2] = f
         else: spans.append([sid, f, f])
-    core = [sp for k, sp in enumerate(spans) if not (len(spans) > 1 and k in (0, len(spans) - 1) and sp[2] - sp[1] < 3)] or spans
+    core = [sp for k, sp in enumerate(spans) if not (len(spans) > 1 and k in (0, len(spans) - 1) and sp[2] - sp[1] < 8)] or spans
     order = sorted(core, key=lambda sp: -(sp[2] - sp[1]))
     y = None
     for sp in order:
@@ -248,10 +276,12 @@ def draw_captions(img, t, y0=None):
     if not ch: return img
     if y0 is None: y0 = ch.get("y", CAP_DEFAULT)
     pop = ease((t - ch["s"]) / 0.12)
-    size = int(78 * (0.88 + 0.12 * pop))
-    fnt = font(size); fnt_full = font(78)
-    words = [_cap_word(w["w"]) for w in ch["words"]]
-    lines = _wrap(words, fnt_full)       # wrapped at the FINAL size, so the pop-in never re-flows the lines
+    words = _cap_words([w["w"] for w in ch["words"]])
+    lines = _wrap(words, font(78))       # wrapped at the FINAL size, so the pop-in never re-flows the lines
+    full = max(font(78).getlength(" ".join(w for _, w in ln)) for ln in lines)
+    base = 78 * min(1.0, CAP_MAXW / full)   # a line slightly wider than CAP_MAXW is set a little smaller
+    size = int(base * (0.88 + 0.12 * pop))
+    fnt = font(size)
     lay = Image.new("RGBA", (W, H), (0, 0, 0, 0)); d = ImageDraw.Draw(lay)
     y = y0 - (len(lines) - 1) * size * 0.6
     for ln in lines:
@@ -260,8 +290,8 @@ def draw_captions(img, t, y0=None):
         for i, w in ln:
             wd = ch["words"][i]
             active = wd["s"] - 0.02 <= t <= wd["e"] + 0.05
-            base = wd["w"].strip(",.:;?!").lower()
-            col = (255, 214, 10) if active else ((120, 220, 255) if base in KEY else (255, 255, 255))
+            kw = wd["w"].strip(",.:;?!").lower()
+            col = (255, 214, 10) if active else ((120, 220, 255) if kw in KEY else (255, 255, 255))
             stroke_text(d, (x, y), w, fnt, col + (255,), stroke=9)
             x += fnt.getlength(w + " ")
         y += size * 1.2
@@ -365,8 +395,8 @@ def draw_hud(img, f):
     d.ellipse((tx - 15, bot - 3, tx + 15, bot + 27), fill=col + (int(255 * a),))
     for tk in (37, 35, 32, 28):
         yy = bot - span * clamp((tk - 26.0) / 12.0)
-        d.line((tx + 14, yy, tx + 24, yy), fill=(230, 240, 255, int(200 * a)), width=2)
-        d.text((tx + 27, yy - 10), f"{tk}°", font=font(17, "Bold"), fill=(200, 215, 235, int(220 * a)))
+        d.line((tx + 5, yy, tx + 11, yy), fill=(230, 240, 255, int(200 * a)), width=2)   # notch on the tube wall
+        d.text((tx + 19, yy - 11), f"{tk}°", font=font(19, "Bold"), fill=(200, 215, 235, int(220 * a)))
     cx0 = x0 + 104
     d.text((cx0, y0 + 12), "CORE", font=font(22, "ExtraBold"), fill=(200, 220, 255, int(255 * a)))
     d.text((cx0 - 1, y0 + 26), f"{tc:.1f}°C", font=font(54, "Black"), fill=col + (int(255 * a),), stroke_width=3, stroke_fill=(0, 0, 0, int(200 * a)))
@@ -398,8 +428,9 @@ def draw_thermal_ui(img, f, sid):
                 k = (u - p0) / (p1 - p0); col = tuple(int(c0[i] + (c1[i] - c0[i]) * k) for i in range(3)); break
         d.line((bx, y, bx + 26, y), fill=col + (255,))
     d.rectangle((bx, by0, bx + 26, by1), outline=c, width=2)
-    d.text((bx - 70, by0 - 44), "WARM", font=font(24, "Bold", mono=True), fill=c)
-    d.text((bx - 64, by1 + 10), "COLD", font=font(24, "Bold", mono=True), fill=c)
+    lf = font(24, "Bold", mono=True)       # labels centred on the bar (they used to stick out to its left)
+    d.text((bx + 13 - lf.getlength("WARM") / 2, by0 - 36), "WARM", font=lf, fill=c)
+    d.text((bx + 13 - lf.getlength("COLD") / 2, by1 + 10), "COLD", font=lf, fill=c)
     return Image.alpha_composite(img, lay)
 
 
@@ -442,8 +473,8 @@ def nerve_pulses(img, f, sid):
     if a <= 0: return img
     lay = Image.new("RGBA", (W, H), (0, 0, 0, 0)); d = ImageDraw.Draw(lay)
     for side in "lr":
-        # skin -> arm -> shoulder -> neck -> head: the signal visibly reaches the brain
-        chain = [an[f"hand_{side}"], an[f"lowerarm_{side}"], an[f"upperarm_{side}"], an[f"clavicle_{side}"], an["neck_01"], an["head"]]
+        # skin -> arm -> shoulder -> neck (then the alarm ring at the head); not drawn across his face
+        chain = [an[f"hand_{side}"], an[f"lowerarm_{side}"], an[f"upperarm_{side}"], an[f"clavicle_{side}"], an["neck_01"]]
         pts = _clip_chain([project(c, p) for p in chain])
         if len(pts) < 2: continue
         d.line(pts, fill=(20, 60, 120, int(150 * a)), width=9, joint="curve")    # dark under-stroke for contrast on white
@@ -461,8 +492,10 @@ def nerve_pulses(img, f, sid):
             d.ellipse((q[0] - r - 4, q[1] - r - 4, q[0] + r + 4, q[1] + r + 4), fill=(20, 60, 120, int(160 * a * (1 - 0.5 * u))))
             d.ellipse((q[0] - r, q[1] - r, q[0] + r, q[1] + r), fill=(225, 250, 255, int(255 * a * (1 - 0.4 * u))))
     hp = project(c, an["head"])            # head bone (in frame); head_tail projects above the top edge in SH06b
+    ht = project(c, an["head_tail"])
+    if hp and ht: hp = (hp[0] + 0.35 * (ht[0] - hp[0]), hp[1] + 0.35 * (ht[1] - hp[1]))   # up towards the brain
     if hp and t > 17.8:
-        hp = (min(max(hp[0], 140), W - 140), min(max(hp[1], 150), H - 150))
+        hp = (min(max(hp[0], 140), W - 140), min(max(hp[1], 110), H - 150))   # clamped into the frame
         ring = ((t - 17.9) * 1.6) % 1.0
         rr = 40 + ring * 120
         d.ellipse((hp[0] - rr - 2, hp[1] - rr - 2, hp[0] + rr + 2, hp[1] + rr + 2), outline=(20, 60, 120, int(150 * a * (1 - ring))), width=10)
@@ -476,7 +509,7 @@ def vessel_inset(img, f):
     a = ease((t - 23.6) / 0.35) * ease((25.75 - t) / 0.25)
     if a <= 0: return img
     lay = Image.new("RGBA", (W, H), (0, 0, 0, 0)); d = ImageDraw.Draw(lay)
-    cx, cy, R = 800, 385, 160              # top-right, clear of the colour scale (x>=986) and higher than his head
+    cx, cy, R = 830, 345, 122              # top-right, clear of the colour scale; his head sweeps in from the left
     k_ = R / 190.0
     d.ellipse((cx - R, cy - R, cx + R, cy + R), fill=(10, 14, 24, int(215 * a)), outline=(230, 240, 255, int(255 * a)), width=5)
     sq = ease((t - 24.25) / 0.9)
@@ -487,15 +520,15 @@ def vessel_inset(img, f):
     for k in range(int(26 - 16 * sq)):
         ang = rng.uniform(0, 6.28) + t * rng.uniform(0.3, 0.9); rr = rng.uniform(0, max(1.0, lumen - 12))
         x, y = cx + rr * math.cos(ang), cy + rr * math.sin(ang)
-        d.ellipse((x - 9, y - 6, x + 9, y + 6), fill=(235, 40, 50, int(255 * a)))
+        d.ellipse((x - 8, y - 5, x + 8, y + 5), fill=(235, 40, 50, int(255 * a)))
     for k in range(10):
         ang = k / 10 * 6.28
         x0, y0 = cx + (outer + 24) * math.cos(ang), cy + (outer + 24) * math.sin(ang)
         x1, y1 = cx + (outer + 4) * math.cos(ang), cy + (outer + 4) * math.sin(ang)
         d.line((x0, y0, x1, y1), fill=(255, 255, 255, int(200 * a * sq)), width=5)
     txt = "VESSEL NARROWS" if sq > 0.3 else "BLOOD VESSEL"
-    fnt = font(32, "Black")
-    d.text((cx - fnt.getlength(txt) / 2, cy + R + 14), txt, font=fnt, fill=(255, 255, 255, int(255 * a)), stroke_width=5, stroke_fill=(0, 0, 0, int(255 * a)))
+    fnt = font(28, "Black")
+    d.text((cx - fnt.getlength(txt) / 2, cy + R + 12), txt, font=fnt, fill=(255, 255, 255, int(255 * a)), stroke_width=5, stroke_fill=(0, 0, 0, int(255 * a)))
     return Image.alpha_composite(img, lay)
 
 
@@ -545,9 +578,9 @@ def label_chip(img, txt, xy, a, col=(255, 255, 255), size=38, pointer=None):
 _contact = {}
 
 
-def hand_contact(sid):
-    """(world point, first frame, last frame) of the hand-on-metal contact: the longest run of frames in which the
-    hand_r anchor holds still (IK contact). None if the anchors have no such hold."""
+def hand_contact(sid, t_touch=38.8):
+    """(world point, first frame, last frame) of the hand-on-metal contact: the run of frames (>=5) in which the
+    hand_r anchor holds still (IK contact) that starts closest to 'into anything you touch'. None if there is none."""
     if sid in _contact: return _contact[sid]
     A = ANCH.get(sid, {}); fr = sorted(int(k) for k in A); res = None
     try:
@@ -556,9 +589,10 @@ def hand_contact(sid):
             if f - 1 in fr and np.linalg.norm(np.array(A[str(f)]["hand_r"]) - np.array(A[str(f - 1)]["hand_r"])) * FPS < 0.15:
                 if runs and runs[-1][1] == f - 1: runs[-1][1] = f
                 else: runs.append([f, f])
+        runs = [r for r in runs if r[1] - r[0] >= 4]
         if runs:
-            a, b = max(runs, key=lambda r: r[1] - r[0])
-            if b - a >= 4:
+            a, b = min(runs, key=lambda r: abs(T(r[0]) - t_touch))
+            if True:
                 pts = [(np.array(A[str(f)]["hand_r"]) + np.array(A[str(f)]["middle_01_r"])) / 2 for f in range(a, b + 1)]
                 res = (np.mean(pts, axis=0), a, b)
     except (KeyError, ValueError):
@@ -576,10 +610,10 @@ def metal_chip(img, f, sid):
     if p is None:
         return label_chip(img, txt, (W - 110 - w / 2, 960), ease((T(f) - 38.9) / 0.3))
     a = ease((f - hc[1]) / 8)
-    x = min(max(p[0] + 190, w / 2 + 40), W - 110 - w / 2)    # left of the thermal colour scale
+    x = min(max(p[0] + 190, w / 2 + 40), W - 175 - w / 2)    # clear of the thermal colour scale and its WARM/COLD labels
     y = min(max(p[1] + 210, 300), 1150)
     dx, dy = p[0] - x, p[1] - y; L = math.hypot(dx, dy) or 1
-    tip = (p[0] - dx / L * 95, p[1] - dy / L * 95) if L > 150 else None     # stops short of the hand
+    tip = (p[0] - dx / L * 125, p[1] - dy / L * 125) if L > 180 else None   # stops short of the hand
     return label_chip(img, txt, (x, y), a, size=size, pointer=tip)
 
 
@@ -654,7 +688,7 @@ def icon(d, kind, cx, cy, s, a):
         d.ellipse((cx + s * 0.02, cy - s * 0.12, cx + s * 0.02 + s * 0.24, cy + s * 0.12), fill=c)
 
 
-FACT_CW, FACT_CH, FACT_X, FACT_Y0, FACT_DY = 460, 104, (290, 790), 200, 118   # compact 2x3 grid in the upper band (y 148-488)
+FACT_CW, FACT_CH, FACT_X, FACT_Y0, FACT_DY = 480, 112, (280, 800), 205, 124   # compact 2x3 grid in the upper band (y 149-509)
 
 
 def factors(img, f):
@@ -662,7 +696,7 @@ def factors(img, f):
     if not (107.7 <= t <= 114.95): return img
     lay = Image.new("RGBA", (W, H), (0, 0, 0, 0)); d = ImageDraw.Draw(lay)
     out = ease((114.9 - t) / 0.3)
-    fnt_full = font(30, "Black")
+    fnt_full = font(34, "Black")
     for i, (ts, lab, ic) in enumerate(FACTORS):
         a = ease((t - ts) / 0.22) * out
         if a <= 0: continue
@@ -672,13 +706,13 @@ def factors(img, f):
         bw, bh = FACT_CW * pop, FACT_CH * pop
         d.rounded_rectangle((cx - bw / 2, cy - bh / 2, cx + bw / 2, cy + bh / 2), radius=int(30 * pop), fill=(10, 18, 30, int(200 * a)),
                             outline=(120, 220, 255, int(230 * a)), width=4)
-        icon(d, ic, cx - bw / 2 + 58 * pop, cy - 4 * pop, 28 * pop, a)
+        icon(d, ic, cx - bw / 2 + 60 * pop, cy - 4 * pop, 31 * pop, a)
         # line split decided once at full size, so the text never re-flows during the pop-in
         words = lab.split(" ")
-        lines = [lab] if fnt_full.getlength(lab) <= FACT_CW - 128 else [" ".join(words[:2]), " ".join(words[2:])]
-        fnt = font(max(8, int(round(30 * pop))), "Black")
+        lines = [lab] if fnt_full.getlength(lab) <= FACT_CW - 132 else [" ".join(words[:2]), " ".join(words[2:])]
+        fnt = font(max(8, int(round(34 * pop))), "Black")
         for k, ln in enumerate(lines):
-            d.text((cx - bw / 2 + 108 * pop, cy + (-19 * len(lines) + k * 36 - 2) * pop), ln, font=fnt, fill=(255, 255, 255, int(255 * a)))
+            d.text((cx - bw / 2 + 114 * pop, cy + (-21 * len(lines) + k * 40 - 4) * pop), ln, font=fnt, fill=(255, 255, 255, int(255 * a)))
     return Image.alpha_composite(img, lay)
 
 
@@ -779,7 +813,7 @@ def process(f, comp_root, final_dir):
     if sid == "SH08a": img = vessel_inset(img, f)
     if sid == "SH10a": img = heat_arrows(img, f, sid)
     if sid == "SH10c": img = metal_chip(img, f, sid)
-    if sid == "SH10b": img = label_chip(img, "WARM, MOIST BREATH", (300, 1110), ease((t - 37.1) / 0.3))  # beside the mouth, in the vapour
+    if sid == "SH10b": img = label_chip(img, "WARM, MOIST BREATH", (290, 1320), ease((t - 37.1) / 0.3))  # left of the mouth (~x620,y1390), in the vapour, above the hands
     if sid == "SH17a": img = label_chip(img, "HEAT  →  FLOOR", floor_label_xy(f, sid), ease((t - 70.9) / 0.3))  # held to the cut
     if sid == "SH15": img = label_chip(img, "HOURS PASS...", (745, 226), ease((t - 55.6) / 0.3) * ease((57.3 - t) / 0.3))  # right of the HUD
     img = draw_hud(img, f)
