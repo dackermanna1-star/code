@@ -155,13 +155,13 @@ shot_loop('SH27', heli, -9, offset=3.0)    # low orbit, ~16 m away
 shot_loop('SH28', heli, -9, offset=5.0)    # (offsets keep each segment inside the 14 s loop: no wrap step)
 shot_loop('SH26', wind, -12)               # downwash roar
 # SH29: it hovers while he is reeled in (to ~121.9 s, local frame 92), then departs and shrinks to a dot by ~123.9 s.
-# Full band at the cut; -4 dB eased in over the hover as the camera climbs, then from 122 s a dB-linear fade
+# Full band at the cut; -8 dB eased in over the hover as the camera climbs, then from 122 s a dB-linear fade
 # (-18 dB at 125 s, same slope on to the end) with a low-pass swept 8 kHz -> 1 kHz over 121-125 s. The music carries the end.
 t0, t1 = span('SH29')
 dep = np.roll(heli, -ns(2.0), axis=0)[:ns(t1 - t0 + XF)]
 tt = t0 - XF + np.arange(len(dep)) / SR                       # timeline time of each sample
 # the camera starts climbing away at the cut, so ease the level down a little through the hover (-4 dB by 122 s)
-g_db = -4.0 * np.clip((tt - 119.8) / 2.2, 0, 1) + np.clip(tt - 122.0, 0, None) * (-14.0 / 3.0)
+g_db = -8.0 * np.clip((tt - 119.3) / 2.7, 0, 1) + np.clip(tt - 122.0, 0, None) * (-10.0 / 3.0)
 dep = lp_sweep(dep * 10 ** (g_db / 20)[:, None], t0 - XF, 121.0, 125.0, 8000, 1000)
 place('sfx', dep, t0 - XF, -9, fade_in=2 * XF, eqp=True)
 

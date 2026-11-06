@@ -1,0 +1,247 @@
+[
+ {
+  "key": "picture",
+  "status": [
+   {
+    "finding": "#0 SH03 10.2-14.2: 3-frame lurch after surfacing at 10.8-11.1 s",
+    "fixed": true,
+    "note": "The settle is now smooth. In the native frames the head top moves 471 (f20) > 477 (f24) > 494 (f30) > 508 (f34) > 544 (f40), steadily and with no single big step; it peaks at about 10 px per frame at f34-36, during cough 1. The gasp-pose release runs over f24-f29 (10.97-11.13 s), not as a snap. The shoulders and shirt yoke stay visible until about 11.17 s, and the chin reaches the water at about 11.3 s. All 120 SH03 frames were re-rendered in one pass (02:49-03:26), so there are no seams at frame boundaries. Sheets: /tmp/claude-0/-home-user-code/73c477af-b034-5106-8934-46dafc95cd58/scratchpad/check4/pic/c03_sheet2.jpg and n03_pitch.jpg."
+   },
+   {
+    "finding": "#0 SH03: coughs dunk the face under to the eyebrows (11.30-11.53 and 11.83-12.07 s)",
+    "fixed": true,
+    "note": "The eyes and brows now stay above the water in both coughs, so the face no longer goes under to the eyebrows. The mouth does still go under for a few frames (see problems). Crop sheet: /tmp/claude-0/-home-user-code/73c477af-b034-5106-8934-46dafc95cd58/scratchpad/check4/pic/c03_sheet.jpg."
+   },
+   {
+    "finding": "#0 SH03: 2 Hz pogo bob with neck-length amplitude",
+    "fixed": false,
+    "note": "Only partly fixed. The bob amplitude was cut from 0.04 to 0.016 m, so it is no longer neck-length. The frequency is unchanged at about 2.1 Hz, and the orange shirt yoke still appears and disappears at the shoulders on that cycle (see problems)."
+   },
+   {
+    "finding": "#1/#3 SH22 83.6-87.2: submerged shoulders/arms charcoal, reading as a wetsuit",
+    "fixed": true,
+    "note": "Measured at 84.5 s at full resolution (old = previous video, LFS 9df0297, vs new). Left upper arm went from (74,73,70) to (131,121,110). Right upper arm went from (54,53,51) to (117,101,81). Right forearm went from (62,55,53) to (140,110,95). Submerged sleeves went from (40,35,29)/(57,60,61) to (86,61,35)/(127,114,97). The submerged yoke went from (52,45,45) to (117,88,70), and the hem below the shirt from (46,38,30) to (88,63,37). Every one of these is now R>G>B with a hue of 20-34 deg, so they read as warm skin and sleeves rather than a charcoal wetsuit. Open water is unchanged at (7,63,90), hue 199, and still reads as the ocean."
+   },
+   {
+    "finding": "#2 SH07 22.5-25.7: detached foot about a body-length behind the swimmer",
+    "fixed": true,
+    "note": "No foot or shin is visible anywhere in full-resolution crops (x 380-700, y 860-1320) taken every frame from 22.5 to 23.3 s and every 0.1 s from 22.5 to 24.5 s, including the old trouble spots at 22.6, 22.8, 23.0, 23.8 and 24.0 s. The legs stay under the surface. Sheets: c07_sheet.jpg and c07_zoom.jpg in the scratch dir."
+   },
+   {
+    "finding": "Cuts at 10.2, 14.2, 22.5, 25.7, 83.6, 87.2",
+    "fixed": true,
+    "note": "I checked 6 frames on each side of every cut and found no new continuity problems. 10.2: SH02 ends underwater and SH03 opens on 4 frames of empty surface before the head breaks through, the same as before. 14.2: SH03 ends with the shoulders just out and SH04 opens neck-deep, a small depth mismatch that was already in the previous video. 22.5 and 25.7: clean. 83.6: night to overcast day, as intended. 87.2: the cut to SH23 is clean. The 'OUT HERE' caption carry-over at 25.7 is legitimate, because 'here' ends at 25.821 s."
+   },
+   {
+    "finding": "#6 SH27/SH28 green-teal grade",
+    "fixed": false,
+    "note": "SH28 is fixed: its sea is now near-neutral (96,98,97) where it was (79,87,83) with hue 146, and its sky is slightly warm (194,192,179). SH27 is essentially unchanged from the reviewed video (see problems)."
+   },
+   {
+    "finding": "#6 brightness step SH28->SH29 at 118.9",
+    "fixed": false,
+    "note": "Reduced but not yet moderate in the sea. Whole-frame luma now steps 144 -> 184 (+28%; it was 132 -> 184, +39%). The lower water band still steps 89 -> 144 (+62%; it was 76 -> 144). See problems."
+   }
+  ],
+  "confirmed": [
+   {
+    "where": "SH27 104.3-112.6 s (assemble.py GRADE['SH27'])",
+    "title": "SH27 still has the green-teal/minty cast; the 'without green cast' grade change made almost no difference to SH27",
+    "severity": "medium",
+    "evidence": "Measured on 270x480 downscales: lower frame = rows 300-480 (full-res y 1200-1920), upper frame = rows 170-240 (y 680-960). Native render vs final MP4:\n- f30 (105.27 s), lower: native (91,96,101), hue 209 -> final (95,102,97), hue 135.\n- f100 (107.60 s), lower: native (84,89,96) -> final (87,95,91), hue 153. The previous, reviewed video had (85,94,89), hue 149, so this is a change of 1-2 levels.\n- f200 (110.93 s), lower: native (60,66,74) -> final (62,69,68), hue 170.\n- f240 (112.27 s), lower: final (96,101,94), G highest.\n- Upper band at 107.60 s: final (210,212,197), G >= R > B.\nIn every case green is the strongest channel. The grade edit was too small to matter: green shadows +0.005 -> -0.01, green midtones 0 -> -0.01, gamma 1.06 -> 1.08. Side by side, native SH27/0100.png vs the final at 107.60 s (/tmp/claude-0/-home-user-code/73c477af-b034-5106-8934-46dafc95cd58/scratchpad/check4/pic/grade_cmp.jpg), the graded sky turns from blue-lavender to mint and the sea near the horizon reads olive-teal. The neighbouring SH26 and SH29 are R>G>B, and SH28 is now neutral, so SH27 is the one green shot left in the rescue sequence."
+   },
+   {
+    "where": "SH28 -> SH29 cut, 118.867 -> 118.900 s",
+    "title": "The sea still brightens by about 60% and turns from grey to golden across the hoist cut",
+    "severity": "low",
+    "evidence": "Exact-frame luma on 270x480, whole frame / lower water band (rows 330-480):\n- New video, 118.867 s: 144 / 89. At 118.900 s: 184 / 144.\n- Previous video, same frames: 132 / 76 -> 184 / 144.\nThe whole-frame step is now +28%, but the water band still jumps +62%. The sea's colour also flips from neutral grey (96,99,98) in SH28 to warm (162,151,137) in SH29, during one continuous helicopter action. SH28 also ramps from 137 to 144 over its last 9 frames, which does not close the gap."
+   },
+   {
+    "where": "SH03 11.40-11.60 s (native f37-43) and 11.97-12.17 s (native f54-60)",
+    "title": "The cough nods still put the mouth under the waterline, so the coughs read as head-bows into the water",
+    "severity": "low",
+    "evidence": "I cropped full-resolution frames of the face every 2 frames (c03_sheet.jpg in the scratch dir). From 11.40 to 11.60 s the waterline sits at the base of the nose with the mouth submerged, and the eyes are shut and looking down. From 12.00 to 12.17 s the water is at the upper lip and the mouth is again under. The eyebrows and eyes stay clear, so the earlier eyebrow-deep dunk is fixed. But the mouth is not visible during either cough, so the cough itself still does not read."
+   }
+  ],
+  "refuted": [
+   {
+    "where": "SH03 12.4-14.2 s (native f66-120)",
+    "title": "A residual 2.1 Hz treading bob still makes the orange shirt yoke blink in and out at the shoulders",
+    "severity": "low",
+    "evidence": "Native head-top y (of 1152) runs f67 527, f76 484, f84 515, f89 495, f98 522, f111 537, f119 504. That is a period of about 14 frames, roughly 2.1 Hz, which matches tread_bob(speed=1.3) = 2.08 Hz; the amplitude was only cut, from 0.04 to 0.016 m.\nThe shirt yoke is visible at f74-80 (12.63-12.83 s), f86-90 (13.03-13.17 s) and f100-104 (13.50-13.63 s), and hidden at f82-84 and f92-98 (n03_bob.jpg).\nThis is much gentler than the old neck-length pogo, but the regular orange flicker at the shoulders is still noticeable."
+   },
+   {
+    "where": "SH22 83.6-87.2 s (new OvercastFill area light in sh22.py)",
+    "title": "The overhead fill also washes out the face and the dry shirt: the sunburnt face reads pale and the shirt reads pale peach",
+    "severity": "low",
+    "evidence": "Full-resolution patches at 84.5 s, previous vs new:\n- Forehead (520,950): (174,125,106), saturation 0.39 -> (218,175,156), saturation 0.28.\n- Dry shirt (330,1480): (153,107,61), saturation 0.60, luma 115 -> (209,161,116), saturation 0.44, luma 170.\nNext to the dark overcast sea, the figure looks studio-lit, and the redness that sold 'wrecked and sunburnt' is mostly gone (face22.jpg: old, new and SH24 side by side). The foam around the body is also lit: the 90th-percentile luma beside his left shoulder went from 90 to 132."
+   },
+   {
+    "where": "SH07 22.733-22.767 s (native f8-f9) and 22.867 s (f12)",
+    "title": "A brief detached hand during the crawl stroke (it predates this round)",
+    "severity": "low",
+    "evidence": "In native SH07 frames 8-9, the left hand and wrist stick out of the water about 40 px above-left of the head (full-res final), with no visible arm joining them to the body. In f12 a forearm segment floats to the right of the shoulders for one frame before the whole arm surfaces at f13 (n07.jpg, c07_arm.jpg). The previous video (LFS 9df0297) shows the same thing at 22.733 s (o07_arm.jpg), so the leg fix did not cause it. It lasts only 1-2 frames each time and is small, but it is the same detached-limb read that finding #2 was about."
+   }
+  ]
+ },
+ {
+  "key": "captions",
+  "status": [
+   {
+    "finding": "#4 'EXCEPT FOR PLANKTON' jumps between one and two lines (SH21, 80.4-81.7 s)",
+    "fixed": true,
+    "note": "I decoded all 60 frames from 80.000 to 81.967 at full resolution and measured the text pixels. Every frame from 80.633 to 81.467 shows one line, with text at y 315-360 and x 156-922. Two frames, 80.567 and 80.600, are the 60 ms fade-in. The next phrase, 'THAT GLOW EVERY', is also one line, with x at most 908 at the peak of its pop. captions.ass lines 224-226 now use \\fs76 with no pop. Sheet: scratchpad/check4/captions/sh21_sheet.png."
+   },
+   {
+    "finding": "#4 long phrases stay left of x~960",
+    "fixed": true,
+    "note": "I rendered the Cap events alone over grey (cap_only.ass, 3825 frames). No caption text pixel goes right of x=960 in any frame. To check that this render stands for the video, I compared it with the burned-in captions frame by frame: median text/outline contrast is 224, and 99.3% of the text pixels are bright in the MP4. The only differences are single fade-in frames."
+   },
+   {
+    "finding": "#7 'JACKET' carry-over jumps to the top band after the 104.30 cut",
+    "fixed": true,
+    "note": "JACKET's last frame is 104.267. Frames 104.300-104.800 have no caption (cut1043.png). The next phrase, 'SO WHAT KILLS', starts at 104.84 at the top."
+   },
+   {
+    "finding": "#9 already-spoken phrases reappear at a new position at cuts 6.00, 37.40, 56.00, 66.80, 94.10, 104.30",
+    "fixed": true,
+    "note": "Each phrase now ends on the last frame before its cut: YOU? at 5.967, TIME at 37.367, YOU MORE DEHYDRATED at 55.967 (now one line), STILL at 66.767, NOT WEEKS at 94.067 and JACKET at 104.267. Nothing carries over (sheets cut006, cut374, cut560, cut668, cut941, cut1043)."
+   },
+   {
+    "finding": "#9 'DRAWS ATTENTION' at ~64.3 s flashes in a different position for a few frames",
+    "fixed": false,
+    "note": "Partly fixed. The phrase no longer flashes at the top: it stays in the lower band without a break from 64.300 to 65.333. Those first 3 frames (64.300-64.367) are still in SH17, though, and the lower band there lies across his forehead and brows. See problems."
+   },
+   {
+    "finding": "Global: word captions out of the Shorts bottom UI band (y > ~1570)",
+    "fixed": true,
+    "note": "Across all 3825 frames, the lowest caption pixel, outline and shadow included, is at y=1546 (55.97 s, SH14 \\an2 at 1550). No frame has a caption pixel below y 1560."
+   },
+   {
+    "finding": "Global: no wrap flicker / line-count changes",
+    "fixed": true,
+    "note": "No caption chunk changes its line count between frames. No caption renders as two lines anywhere."
+   },
+   {
+    "finding": "Global: caption timing tracks vo_timing.json",
+    "fixed": true,
+    "note": "I checked all 282 captioned words. Each yellow highlight starts 0.02-0.045 s before the word's start in vo_timing, and no word is missing. 'to' at 124.737 gets only 1 frame because the word lasts 87 ms. The burned captions match captions.ass frame for frame. The VO stem cross-correlates with the final AAC at 0 ms lag in three windows (0-30, 60-90 and 95-125 s)."
+   },
+   {
+    "finding": "Global: labels in SH14/SH27/SH28 readable",
+    "fixed": true,
+    "note": "The SH27 two-column stack at 111.8 s and the SH28 'YOUR ODDS DEPEND ON' stack at 118.3 s are fully legible, and the rotor and cable show through the boxes. The SH14 top labels and BODY WATER are legible. The SH14 'OUT' cup label is weak late in the shot (see problems)."
+   },
+   {
+    "finding": "Global: captions off faces/subjects",
+    "fixed": false,
+    "note": "I checked 145 frames, one or two for each caption group. Captions are clear of faces everywhere except the pre-cut frames at 64.30 and 70.33 and the late SH16 frames listed in problems. The SH19 caption sits on the waterline reflection below the shoulders, not on the face."
+   }
+  ],
+  "confirmed": [
+   {
+    "where": "SH17 64.300-64.367 s (3 frames before the 64.40 cut); captions.ass line 181 (0:01:04.28-0:01:04.40, no \\pos)",
+    "title": "'DRAWS ATTENTION' drops to the lower band 3 frames early and lies across his forehead in the SH17 close-up",
+    "severity": "medium",
+    "evidence": "Problem: the 'phrase starting <0.2 s before a cut uses the incoming position' rule in make_subs.py moved the phrase out of the top band. It now covers the face for 3 frames: x6434.png shows the text across his forehead and brows at y about 1300 of 1920. SH17 is in TOP_Y because the lower band is his face. 'BUT SPLASHING' stays at the top (y 300) until 64.267, then the new phrase appears in the lower band at 64.300 while the close-up is still on screen (sheet cut644.png).\nFix: keep 'BUT SPLASHING' up until 64.40 and start 'DRAWS ATTENTION' at the cut. 'draws' starts at 64.321, so the highlight would be about 80 ms late. Alternatively, hold the pre-cut frames at SH17's top position."
+   },
+   {
+    "where": "SH18->SH19 cut, 70.167-70.400 s; captions.ass lines 195-196",
+    "title": "'IS COLDER THAN' jumps from the top band to the lower band mid-phrase, 2 frames before the cut, and covers the swimmer's head in SH18",
+    "severity": "medium",
+    "evidence": "Problem: the phrase starts at the top (y 330) from 70.167 to 70.300, which is 5 frames. At 70.333-70.367 it drops to the default lower band while the SH18 sunset wide is still on screen, and it sits right on his head, the only subject in the frame (sh18_7034.png). It then continues in the lower band in SH19 (cut704.png). This is the same few-frame position flash as the old 'DRAWS ATTENTION' issue.\nCause: make_subs.py applies the incoming-position rule per word piece. The 'COLDER' piece from 70.32 to 70.40 is under 0.2 s, but the chunk itself started 0.26 s before the cut.\nFix: decide placement per chunk, not per word piece. Keep a chunk's pre-cut part at the outgoing shot's position unless the chunk starts within about 0.2 s of the cut, in which case delay its start to the cut."
+   },
+   {
+    "where": "SH05->SH06 cut, 20.400-20.767 s (12 frames); captions.ass line 66 (0:00:20.40-0:00:20.80)",
+    "title": "Already-spoken 'IN EVERY DIRECTION' reappears in the lower band for 12 frames after the 20.40 cut",
+    "severity": "medium",
+    "evidence": "Problem: 'direction' ends at 20.352 in vo_timing.json, before the cut. Even so, the phrase that sat at the top (y 300) over SH05 reappears in the lower band (y about 1300) over the SH06 crawl from 20.400 to 20.767 (cut204.png). This is the same issue as #9 at a cut the fix missed.\nCause: the carry-over runs 20.40-20.80, which is 0.402 s. The drop rule needs 'b - a < 0.4', so this one is kept.\nFix: drop the post-cut piece whenever the word ended before the cut, whatever its length."
+   },
+   {
+    "where": "SH22->SH23 cut, 87.200-87.600 s (13 frames); captions.ass line 242",
+    "title": "'CLOUD YOUR MIND' jumps from the top band to the lower band for 13 frames after the 87.20 cut, though the word ends 10 ms after the cut",
+    "severity": "low",
+    "evidence": "Problem: 'mind' ends at 87.21, one frame into SH23. The finished phrase still moves from y 300 over SH22 to the lower band over the SH23 ship shot from 87.200 to 87.600. 'SOME SURVIVORS' then starts at 87.633 (cut872.png).\nFix: add a tolerance to the drop rule, e.g. w['e'] <= a + 0.05."
+   }
+  ],
+  "refuted": [
+   {
+    "where": "SH16, about 62.0-62.40 s; captions.ass lines 174-175 ('COMES TO LOOK', default band)",
+    "title": "'COMES TO LOOK' clips the underside and pectoral fins of the approaching shark in the last ~0.4 s of SH16",
+    "severity": "low",
+    "evidence": "Problem: the shark grows toward camera. From about 62.0 s its lower body and fin line reach y about 1280-1300, which is the top of the caption band (sh16.png and sh16_6235.png at 62.35 s). The text is not on its head, but it touches the shot's subject.\nFix: raise the caption for SH16's last second, or use the top band for SH16."
+   },
+   {
+    "where": "SH14, about 54.0-56.0 s; 3D 'OUT' label on the right cup (about x 660-800, y 890-960 of 1080x1920)",
+    "title": "SH14 'OUT' cup label nearly washes out once the yellow fill rises behind it",
+    "severity": "low",
+    "evidence": "Problem: at 55.5 s the cream-white 'OUT' letters (RGB about 235,231,202) sit over the yellow fill and glass (about 164,151,81 on average, and brighter on the fill itself). The contrast ratio is at most about 2.3:1, so at phone size it reads as a faint smudge (l14cups.png). 'IN', 'BODY WATER' and the top labels are fine. This is a label rendered in the 3D scene, not an ASS caption.\nFix: give 'OUT' a dark outline or plate, or darken the fill behind it."
+   }
+  ]
+ },
+ {
+  "key": "audio",
+  "status": [
+   {
+    "finding": "#10 SH29 rotor eases down from the cut and fades with the departure, with no 2-3 s plateau",
+    "fixed": false,
+    "note": "Partly fixed. mix_audio.py line 164 now applies g_db = -4*clip((tt-119.8)/2.2) + clip(tt-122,0)*(-14/3), and the low-pass sweep starts at 121.0 s instead of 122.0 s. The ramp starts 0.9 s after the cut and is only -4 dB by 122.0 s. The rotor's effective level (SFX stem, K-weighted 0.4 s windows, with bus and loudnorm gain), relative to its level at the cut, is -0.7 dB at 119.9 s, -1.6 at 120.4, -2.1 at 121.15, -1.7 at 121.4, -4.2 at 121.9, -6.1 at 122.4, -9.7 at 123.15, -14.9 at 124.15 and -20.5 at 125.15. That leaves about 2.5 s near a plateau (within 1.7 dB) while the helicopter shrinks 5x. See problems."
+   },
+   {
+    "finding": "#11 heartbeat under SH16-SH17B (59.9-66.8 s): SFX stem correlation >= 0.9 and mono fold-down loss < ~2 dB",
+    "fixed": true,
+    "note": "The heartbeat is now mono: hb = np.repeat(hb[:, :1], 2, 1) at mix_audio.py line 83. SFX stem over 59.9-66.8 s: correlation 0.944, mono loss 0.12 dB (ebur128-style: -24.51 LUFS stereo vs -24.65 LUFS folded to mono). By shot: SH17 1.000 / 0.00 dB, SH17B 0.999 / 0.00 dB, SH16 0.836 / 0.37 dB. The lower SH16 value comes from the 60.1 s sub-hit, which still uses the 12 ms Haas stereo(): correlation -0.10 and 3.5 dB mono loss over 60.4-60.9 s in the stem. That is only 0.78 correlation and 0.5 dB loss in the final AAC over 60.1-61.0 s, so it is negligible. Final AAC over 59.9-66.8 s: correlation 0.84, mono loss 0.37 dB, and below 120 Hz 0.80 / 0.46 dB (previously -0.39 / 5.1 dB)."
+   },
+   {
+    "finding": "Deliverable loudness and true peak (decoded AAC)",
+    "fixed": true,
+    "note": "ebur128 on the AAC decoded from the MP4: I -15.1 LUFS, LRA 2.7 LU, true peak -1.8 dBTP. An independent 8x-oversampled check gives -1.80 dBTP (L channel, 119.693 s). Sample peak is -1.81 dBFS, with 0 clipped samples. The decoded AAC matches audio/mix/stranded_mix.wav at lag 0 with a residual of -36.8 dB, so the MP4 carries the current mix."
+   },
+   {
+    "finding": "Frame count and duration",
+    "fixed": true,
+    "note": "ffprobe -count_frames reads 3825 video frames: h264, 1080x1920, 30/1. Video duration_ts is 1958400/15360 = 127.500 s. Audio is AAC 48 kHz stereo at about 262 kb/s, with duration_ts 6120000/48000 = 127.500 s. Both streams start at 0."
+   },
+   {
+    "finding": "No clicks at cuts 99.0, 104.3, 112.6, 118.9 s",
+    "fixed": true,
+    "note": "In the decoded AAC, the largest >6 kHz 0.5 ms energy within +-10 ms of each cut is 11.5 / 5.1 / 3.7 / 2.4 dB above the local median. Elsewhere in the surrounding +-0.5 s it reaches 33.6 / 22.9 / 49.0 / 42.1 dB. The 20 ms RMS of the AAC, amb and sfx stems over +-0.2 s shows no dip or drop-out at any of the four cuts. A scan of all 29 cuts (>3 kHz, +-25 ms against the 95th percentile of +-1 s) flagged only designed content: whooshes/splashes at 22.5 and 66.8 s and the music downbeat at 99.0 s, all masked in the AAC."
+   },
+   {
+    "finding": "Music under the voice at 15.4-18.7 s",
+    "fixed": true,
+    "note": "The music code is unchanged since review 3. In speaking frames between 15.4 and 18.7 s, VO minus music (music at +4 dB bus gain) is median 9.2 LU, with 'boat' at 14.2 and 'horizon' at 12.9 LU. 3 s short-term at 15-18 s: VO -24.3, music -29.6. The music rises only in the phrase pauses (15.8-16.3 and 17.6-18.0 s) and drops back under each phrase. Same state that review 3 accepted."
+   },
+   {
+    "finding": "Hope downbeat at ~99.0 s",
+    "fixed": true,
+    "note": "The largest 5 ms rise in the music stem between 98 and 100 s is at 98.995 s (+12.5 dB, from -44.5 to -28.5 dB). This matches the source Eternal_Hope.mp3 onset at 83.795 s, so it lands on the SH25->SH26 cut."
+   },
+   {
+    "finding": "#12 youtube_description.md credits each CC-BY model with source URL, licence link and modification note",
+    "fixed": false,
+    "note": "Mostly fixed. All four Sketchfab models now have URLs, and the block header links https://creativecommons.org/licenses/by/4.0/. Every URL resolves: the shark returns 200, and the trevally, MH-65 and cargo ship URLs return 301 to their model pages. The shark, trevally and MH-65 carry modification notes. Two gaps remain: the cargo ship has no modification note, and the swim-shorts line has no URL of its own. See problems."
+   },
+   {
+    "finding": "git lfs ls-files lists the final MP4",
+    "fixed": true,
+    "note": "git lfs ls-files lists 3d15f36293 * output/Stranded_What_Happens_If_You_Are_Stranded_In_The_Ocean_1080x1920.mp4. The HEAD pointer oid sha256:3d15f36293a65d9821c74092df3872aaa2479c4d57cf4a1ba2083acff5c505a3 and size 301890855 match the file's sha256. .gitattributes routes output/*.mp4 to LFS, and output/, audio/ and docs/ are clean in git status."
+   }
+  ],
+  "confirmed": [
+   {
+    "where": "SH29 118.9-121.9 s (rotor). blender/scripts/tools/mix_audio.py line 164: g_db = -4.0*np.clip((tt-119.8)/2.2,0,1) + np.clip(tt-122.0,0,None)*(-14.0/3.0)",
+    "title": "SH29 rotor fix only partly landed: the level stays within ~1.7 dB of the cut level for about 2.5 s while the helicopter shrinks 5x",
+    "severity": "low",
+    "evidence": "Helicopter width in 540x960 frames (red-pixel mask): 156 px at 118.9 s, 135 at 119.9 (-1.3 dB), 98 at 120.5 (-4.0), 64 at 121.1 (-7.7), 45 at 121.5 (-10.8), 31 at 121.9 (-14.0), 13 at 123.1, gone by 123.9. A 4 fps contact sheet confirms it: large to 119.9 s, small by 120.4 s, a dot by 121.4 s.\n\nRotor level relative to the cut (SFX stem, K-weighted 0.4 s, with -4 dB bus gain and loudnorm gain): -1.1 dB at 119.4 s, -0.7 at 119.9, -1.6 at 120.4, -2.1 at 121.15, -1.7 at 121.4, -3.2 at 121.65, -4.2 at 121.9. After that: -6.1 at 122.4, -9.7 at 123.15, -14.9 at 124.15, -20.5 at 125.15. The -3 to -6 dB readings at 120.65-120.9 s are loudnorm limiter gain reduction on a VO peak (applied gain falls from 9.7 to 5.6 dB), not the rotor fade.\n\nIn the code, the ease starts at 119.8 s, 0.9 s after the cut, and reaches only -4 dB at 122.0 s. The review asked for about -12 dB at 121.9 s. The slope after 122 s was reduced from -6 to -4.67 dB/s, so the rotor still only reaches -18 dB at 125.0 s, as before. The only other change is the low-pass sweep, which now starts at 121.0 s.\n\nAudibility: the rotor is heard mainly in the VO gaps. At 120.32-120.46 s it is at -1.6 dB while the helicopter is about -4.5 dB smaller. At 123.05-123.31 s it is at about -10 dB while the helicopter is a 13 px speck. Suggested fix: start the ramp at the cut, for example g_db = -6*clip(tt-119.0,0) up to about -12 dB by 121.9 s, then continue the slope. Then re-mux the audio only."
+   },
+   {
+    "where": "docs/youtube_description.md, Credits: the 'Cargo ship' line and the 'Swim shorts' line",
+    "title": "#12 credits: cargo ship has no modification note, and the swim-shorts line has no source URL of its own",
+    "severity": "low",
+    "evidence": "The shark ('swim animation added'), trevally ('decimated, swim animation added') and MH-65 ('main rotor separated and animated') carry modification notes. The cargo ship line ends at its URL with no note. However, blender/scripts/shots/sh23.py lines 16-31 rewire every ship material into a fading, shimmering mirage ('mirage: every ship material fades in/out and shimmers'), which is a modification under CC BY 4.0 \u00a73(a)(1)(B).\n\nThe swim-shorts line reads 'Swim shorts \"elvs_male_swim_shorts1\" by Elvaerwyn (Pants 03 pack), CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/), recoloured.' It has the licence link and the modification note but no URL. The only asset URL (https://static.makehumancommunity.org/assets/assetpacks/index.html) sits on the preceding CC0 'Character built with MPFB 2' line.\n\nFix: append '(materials made transparent/shimmering for the mirage)' to the cargo ship line, and add the asset-pack URL to the shorts line."
+   }
+  ],
+  "refuted": []
+ }
+]

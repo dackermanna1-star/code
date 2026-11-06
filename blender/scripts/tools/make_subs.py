@@ -95,11 +95,13 @@ for i, ch in enumerate(chunks):
         we = (ch[j + 1]['s'] - 0.02) if j + 1 < len(ch) else end
         ps = pieces(ws, we)
         for n, (a, b) in enumerate(ps):
-            # a word that already ended before the cut: drop a short (< 0.4 s) carry-over so the caption just ends at
-            # the cut instead of reappearing at the incoming shot's position (e.g. 'NOT WEEKS' at 94.10, 'JACKET' at 104.3)
-            if n > 0 and b - a < 0.4 and w['e'] <= a: continue
-            # a phrase that starts just before a cut (< 0.2 s) uses the incoming shot's position from its first frame
-            at = ps[n + 1][0] + 0.01 if (n + 1 < len(ps) and b - a < 0.2) else a + 0.01
+            # a word that has (all but) finished by the cut: the caption ends at the cut instead of reappearing at the
+            # incoming shot's position (e.g. 'NOT WEEKS' at 94.10, 'JACKET' at 104.3, 'IN EVERY DIRECTION' at 20.4)
+            if n > 0 and w['e'] <= a + 0.12: continue
+            # a sliver (< 0.2 s) just before a cut: skip it - the phrase starts (or the word highlight moves) at the cut,
+            # in the incoming shot's position, rather than flashing in the outgoing shot's band for a few frames
+            if n + 1 < len(ps) and b - a < 0.2: continue
+            at = a + 0.01
             parts = []
             for k, x in enumerate(ch):
                 if k == j:
@@ -107,7 +109,7 @@ for i, ch in enumerate(chunks):
                     parts.append(r'{\c%s}%s%s{\c&H00FFFFFF&\fscx100\fscy100}' % (YEL, pop, x['txt']))
                 else:
                     parts.append(x['txt'])
-            intro = r'{\fad(60,0)}' if (j == 0 and n == 0) else ''
+            intro = r'{\fad(60,0)}' if (j == 0 and (n == 0 or (n == 1 and ps[0][1] - ps[0][0] < 0.2))) else ''
             size = r'{\fs76}' if long_ else ''
             ev.append('Dialogue: 2,%s,%s,Cap,,0,0,0,,%s%s%s%s' % (ts(a), ts(b), place_for(shot_at(at)), size, intro, ' '.join(parts)))
 
