@@ -165,10 +165,7 @@ export class InventoryPanel {
     setClass(this.weightBar, 'warn', ratio > 0.85 && ratio <= 1);
     setClass(this.weightBar, 'over', ratio > 1);
     setClass(this.weightText, 'over', ratio > 1);
-    const arm = p.armor || {};
-    setText(this.armor.bite, pct(arm.bite));
-    setText(this.armor.scratch, pct(arm.scratch));
-    setText(this.armor.warmth, pct(p.insulation));
+    this.renderArmor();
 
     // player containers
     const st1 = this.playerScroll.scrollTop;
@@ -196,6 +193,16 @@ export class InventoryPanel {
 
     // restore hover tooltip
     if (this.hover && !this.drag) this.refreshHover();
+  }
+
+  /** Bite / scratch / warmth summary. Computed from what is worn right now (p.armor only updates next frame). */
+  renderArmor() {
+    const p = this.game.player;
+    let arm = p.armor || {}, ins = p.insulation;
+    try { const c = this.game.survival?.clothing?.(); if (c) { arm = c; ins = c.insulation; } } catch { /* fall back to cached values */ }
+    setText(this.armor.bite, pct(arm.bite));
+    setText(this.armor.scratch, pct(arm.scratch));
+    setText(this.armor.warmth, pct(ins));
   }
 
   /** Tint the paper-doll with the colours of what is worn (outermost layer; gloves / shoes at the ends). */

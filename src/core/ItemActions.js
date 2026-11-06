@@ -192,8 +192,8 @@ export class ItemActions {
         p.panic = clamp(p.panic + (e.panic || 0), 0, 100);
         p.energy = clamp(p.energy + (e.energy || 0), 0, 100);
         if (e.energy > 0) p.caffeine = Math.max(p.caffeine, 3);
-        if (smoke) { const fs = this.inv.find((x) => hasTag(x, 'fire_starter'))[0]; if (fs && getItemDef(fs.stack.id).uses) { fs.stack.uses = (fs.stack.uses ?? 1) - 1; if (fs.stack.uses <= 0) this.inv.removeStack(fs.stack); } }
-        if (def.uses && (s.uses ?? def.uses) > 1) { s.uses = (s.uses ?? def.uses) - 1; this.inv.changed(); }
+        if (smoke) { const fs = this.inv.find((x) => hasTag(x, 'fire_starter'))[0]; if (fs && getItemDef(fs.stack.id).uses) this.spendUse(fs.stack, 1, fs.slots === desc.slots ? desc : null, fs.index); }
+        if (def.uses) { if (this.spendUse(s, 1, desc, index) === 'gone' && f.leaves) this.giveOrDrop(createItem(f.leaves)); }
         else {
           this.consume(desc, index);
           if (f.leaves) this.giveOrDrop(createItem(f.leaves));
@@ -247,7 +247,7 @@ export class ItemActions {
           this.inv.changed();
           return;
         }
-        if (def.uses && (s.uses ?? def.uses) > 1) { s.uses = (s.uses ?? def.uses) - 1; this.inv.changed(); }
+        if (def.uses) { if (this.spendUse(s, 1, desc, index) === 'gone' && def.drink.leaves) this.giveOrDrop(createItem(def.drink.leaves)); }
         else {
           this.consume(desc, index);
           if (def.drink.leaves) this.giveOrDrop(createItem(def.drink.leaves));
@@ -429,10 +429,30 @@ export class ItemActions {
 
   useOne(desc, index, s) {
     const def = getItemDef(s.id);
-    if (def.uses && (s.uses ?? def.uses) > 1) { s.uses = (s.uses ?? def.uses) - 1; this.inv.changed(); return; }
     const i = desc.slots.indexOf(s);
+    if (def.uses) { this.spendUse(s, 1, i >= 0 ? desc : null, i); return; }
     if (i >= 0) this.consume(desc, i);
     else this.inv.removeStack(s);
+  }
+
+  /**
+   * Spend `n` uses (portions, sips, charges) of a stack. A stack of several unopened items (2 boxes of cereal,
+   * 4 boxes of matches) splits off the opened one instead of draining the whole stack. Returns 'left' | 'gone'.
+   */
+  spendUse(stack, n = 1, desc = null, index = -1) {
+    const def = getItemDef(stack.id);
+    const cur = stack.uses ?? def.uses ?? 1;
+    if ((stack.count || 1) > 1) {
+      stack.count--;
+      const opened = { ...JSON.parse(JSON.stringify(stack)), count: 1, uses: cur - n };
+      if (opened.uses > 0) this.giveOrDrop(opened, true);
+      this.inv.changed();
+      return opened.uses > 0 ? 'left' : 'gone';
+    }
+    if (cur - n > 0) { stack.uses = cur - n; this.inv.changed(); return 'left'; }
+    if (desc && desc.slots[index] === stack) this.consume(desc, index);
+    else this.inv.removeStack(stack);
+    return 'gone';
   }
 
   /** Wound treatment options (health panel). */
@@ -515,7 +535,7 @@ export class ItemActions {
           stack.dur = (stack.dur ?? def.durability) - 10;
           if (stack.dur <= 0) { this.inv.removeStack(stack); g.ui?.toast('Your ' + def.name + ' broke.', 'warn'); }
           this.inv.changed();
-        } else if (def.uses && (stack.uses ?? def.uses) > 1) { stack.uses = (stack.uses ?? def.uses) - 1; this.inv.changed(); }
+        } else if (def.uses) this.spendUse(stack, 1, desc && desc.slots[index] === stack ? desc : null, index);
         else if (desc && desc.slots[index] === stack) this.consume(desc, index);
         else { stack.count = (stack.count || 1) - 1; if (stack.count <= 0) this.inv.removeStack(stack); this.inv.changed(); }
         g.ui?.refresh();
