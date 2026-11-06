@@ -79,14 +79,16 @@ export class Survival {
     const sprint = p.sprinting ? 1 : 0;
 
     // ---- needs
+    // 1 game hour = 1 real minute: from full, "Peckish" after ~15 min, "Slightly Thirsty" after ~12 min
     const hungerRate = 2.6 * (bonus.hunger || 1) * (1 + sprint * 0.9) * (p.bodyTemp < 36 ? 1.25 : 1) * (ctx.sleeping ? 0.5 : 1);
-    const thirstRate = 4.0 * (1 + sprint * 0.9) * (p.bodyTemp > 37.6 ? 1.4 : 1) * (p.drunk > 10 ? 1.3 : 1) * (ctx.sleeping ? 0.5 : 1);
+    const thirstRate = 3.4 * (1 + sprint * 0.9) * (p.bodyTemp > 37.6 ? 1.4 : 1) * (p.drunk > 10 ? 1.3 : 1) * (ctx.sleeping ? 0.5 : 1);
     p.hunger = clamp(p.hunger - hungerRate * dtH, 0, 100);
     p.thirst = clamp(p.thirst - thirstRate * dtH, 0, 100);
     if (ctx.sleeping) p.energy = clamp(p.energy + 13 * dtH, 0, 100);
     else p.energy = clamp(p.energy - (3.2 + sprint * 2) * dtH * (p.caffeine > 0 ? 0.4 : 1), 0, 100);
     p.caffeine = Math.max(0, p.caffeine - dtH);
     p.painkiller = Math.max(0, p.painkiller - dtH);
+    p.antiviralProtect = Math.max(0, (p.antiviralProtect || 0) - dtH);
     p.adrenaline = Math.max(0, p.adrenaline - dt);
     p.drunk = Math.max(0, p.drunk - 6 * dtH);
 
@@ -108,9 +110,10 @@ export class Survival {
     const exert = p.sprinting ? 7 : p.moving01 > 0.3 ? 2 : 0;
     let env = ctx.ambient + (ctx.indoor ? 4 : 0) + (ctx.nearFire ? 16 : 0);
     const effective = env + p.insulation * 18 + exert - p.wetness * 0.13 * (1 - p.insulation * 0.4) + (p.drunk > 20 ? 2 : 0);
+    // comfort band 15..34: a winter coat on a mild 16 °C October day makes you warm, not heatstroke
     let tRate = 0;
     if (effective < 15) tRate = -(15 - effective) * 0.035 * (bonus.cold || 1);
-    else if (effective > 30) tRate = (effective - 30) * 0.06;
+    else if (effective > 34) tRate = (effective - 34) * 0.05;
     else tRate = (37 - p.bodyTemp) * 0.6;
     const fever = p.infectionKnown ? 0.012 * p.infection : 0;
     const woundFever = p.wounds.some((w) => w.infected) ? 0.6 : 0;
@@ -135,21 +138,31 @@ export class Survival {
       }
       if (w.bandaged) {
         w.bandageAge = (w.bandageAge || 0) + dtH;
-        if (w.bandageAge > 3 && !w.bandageDirty) w.bandageDirty = true;
+        // a dressing soaks through after a few game hours (sooner on heavy wounds) and should be changed
+        const dirtyAfter = (w.bandageSterile ? 10 : 6) * (w.type === 'deep' || w.type === 'bullet' || w.type === 'bite' ? 0.6 : 1);
+        if (w.bandageAge > dirtyAfter && !w.bandageDirty) w.bandageDirty = true;
       }
+      if (w.antibiotic > 0) w.antibiotic -= dtH;
       // bacterial infection
       if (!w.infected && w.type !== 'fracture' && !w.disinfected) {
-        const risk = (w.bandaged ? (w.bandageDirty ? 0.05 : 0.004) : 0.03) * dtH;
+        let risk = (w.bandaged ? (w.bandageDirty ? 0.05 : 0.004) : 0.03) * dtH;
+        if (w.embedded) risk *= 2;
+        if (w.burnTreated) risk *= 0.3;
+        if (w.antibiotic > 0) risk *= 0.15;
         if (Math.random() < risk) w.infected = true;
       }
-      if (w.infected && w.antibiotic > 0) {
-        w.antibiotic -= dtH;
-        if (Math.random() < 0.4 * dtH) w.infected = false;
+      if (w.infected && w.antibiotic > 0 && Math.random() < 0.4 * dtH) w.infected = false;
+      // healing (glass / bullet fragments left inside, unstitched deep wounds and unsplinted bones heal slowly)
+      const canHeal = !w.bleeding && !w.infected;
+      if (canHeal) {
+        let rate = healMult;
+        if (w.type === 'fracture' && !w.splinted) rate *= 0.3;
+        if (w.type === 'deep' && !w.sutured) rate *= 0.2;
+        if (w.embedded) rate *= 0.25;
+        if (w.type === 'burn' && w.burnTreated) rate *= 2;
+        w.heal = clamp((w.heal || 0) + (dtH / info.heal) * rate, 0, 1);
       }
-      // healing
-      const canHeal = !w.bleeding && !w.infected && (w.type !== 'fracture' || w.splinted || Math.random() < 0.3) && (w.type !== 'deep' || w.sutured);
-      if (canHeal) w.heal = clamp((w.heal || 0) + (dtH / info.heal) * healMult, 0, 1);
-      painSum += (w.type === 'fracture' ? (w.splinted ? 15 : 35) : w.type === 'bite' ? 18 : w.type === 'deep' || w.type === 'bullet' ? 22 : w.type === 'burn' ? 18 : 8) * (1 - (w.heal || 0)) + (w.infected ? 12 : 0);
+      painSum += ((w.type === 'fracture' ? (w.splinted ? 15 : 35) : w.type === 'bite' ? 18 : w.type === 'deep' || w.type === 'bullet' ? 22 : w.type === 'burn' ? (w.burnTreated ? 9 : 18) : 8) + (w.embedded ? 6 : 0)) * (1 - (w.heal || 0)) + (w.infected ? 12 : 0);
     }
     p.wounds = p.wounds.filter((w) => (w.heal || 0) < 1);
     p.pain = clamp(lerp(p.pain, painSum * (p.painkiller > 0 ? 0.25 : 1), 1 - Math.exp(-dt * 0.5)), 0, 100);
@@ -157,7 +170,7 @@ export class Survival {
 
     // ---- zombie infection
     if (p.infected) {
-      const slow = p.antibioticSlow > 0 ? 0.5 : 1;
+      const slow = (p.antibioticSlow > 0 ? 0.5 : 1) * (p.antiviralProtect > 0 ? 0.35 : 1);
       p.antibioticSlow = Math.max(0, (p.antibioticSlow || 0) - dtH);
       p.infection = clamp(p.infection + 1.35 * dtH * slow, 0, 100);
       if (p.infection > 22 && !p.infectionKnown) {
@@ -180,9 +193,9 @@ export class Survival {
         this.onVomit?.();
       }
     }
-    if (p.wounds.some((w) => w.infected)) {
-      p.sickness = clamp(p.sickness + 1.5 * dtH, 0, 70);
-    }
+    // an untreated infected wound slowly makes you sick (net +2/h per wound, on top of the natural recovery)
+    const infectedWounds = p.wounds.filter((w) => w.infected).length;
+    if (infectedWounds && p.sickness < 60) p.sickness = clamp(p.sickness + (5 + 2 * infectedWounds) * dtH, 0, 60);
 
     // ---- starvation / dehydration / hypothermia / exhaustion damage
     if (p.hunger <= 0) this.hurt(5 * dtH, 'Starved to death');
@@ -261,9 +274,11 @@ export class Survival {
     const w = {
       part, type, severity, bleeding: WOUND_INFO[type].bleed > 0, bandaged: false, bandageDirty: false,
       disinfected: false, infected: false, splinted: false, sutured: false, heal: 0, age: 0,
+      // glass shards / bullet fragments stay inside until pulled out (tweezers): slow healing, infection risk
+      embedded: type === 'glass' || type === 'bullet',
     };
     this.p.wounds.push(w);
-    const zi = WOUND_INFO[type].zInfect;
+    const zi = WOUND_INFO[type].zInfect * ((this.p.antiviralProtect || 0) > 0 ? 0.25 : 1);
     if (zi && !this.p.infected && Math.random() < zi) {
       this.p.infected = true;
       this.p.infection = Math.max(this.p.infection, 1);

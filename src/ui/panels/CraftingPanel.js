@@ -158,6 +158,8 @@ export class CraftingPanel {
     this.craftBtn = h('button.btn.btn-primary.craft-btn' + (r.canCraft ? '' : '.disabled'), { type: 'button' },
       r.canCraft ? 'Craft' : 'Missing requirements');
     this.craftBtn.disabled = !r.canCraft;
+    this._canCraft = r.canCraft;
+    this._busy = null;
     this.craftBtn.addEventListener('click', () => this.craft(r));
     this.craftBtn.addEventListener('pointerenter', () => this.ui.sound('ui_hover', 0.3));
 
@@ -196,7 +198,7 @@ export class CraftingPanel {
   }
 
   craft(r) {
-    if (!r.canCraft) return;
+    if (!r.canCraft || this.game.action) return; // don't restart a craft that is already running
     this.ui.sound('ui_click');
     try { this.game.craft?.(r.recipe.id); } catch (e) { console.error('craft failed', e); }
     this.fetch();
@@ -205,6 +207,14 @@ export class CraftingPanel {
 
   updateProgress() {
     if (!this.prog) return;
+    const busy = !!this.game.action;
+    if (this.craftBtn && busy !== this._busy) {
+      this._busy = busy;
+      const can = this._canCraft && !busy;
+      this.craftBtn.disabled = !can;
+      setClass(this.craftBtn, 'disabled', !can);
+      this.craftBtn.textContent = busy ? 'Working…' : this._canCraft ? 'Craft' : 'Missing requirements';
+    }
     const pr = this.game.hud?.progress;
     setClass(this.prog, 'hidden', !pr);
     if (pr) {
