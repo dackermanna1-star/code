@@ -98,7 +98,7 @@ export class Arms {
   }
 
   /** Place an arm: hand centre at `hand`, forearm toward `shoulder`, rolled by `up` (all scene space). */
-  place(arm, hand, shoulder, up) {
+  place(arm, hand, shoulder, up, scale = 1) {
     _z.subVectors(shoulder, hand);
     if (_z.lengthSq() < 1e-8) _z.set(0, 0, 1);
     _z.normalize();
@@ -109,7 +109,7 @@ export class Arms {
     }
     _y.normalize();
     _x.crossVectors(_y, _z).normalize();
-    _m.makeBasis(_x, _y, _z);
+    _m.makeBasis(_x.multiplyScalar(scale), _y.multiplyScalar(scale), _z.multiplyScalar(scale));
     _m.setPosition(hand);
     arm.root.matrix.copy(_m);
     arm.root.matrixWorldNeedsUpdate = true;
