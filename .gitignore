@@ -1,2 +1,3 @@
 spleen/dist/artifact/
 node_modules/
+spleen/tools/_*
