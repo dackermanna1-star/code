@@ -25,7 +25,7 @@ Every claim in the narration, what it is based on, and how it was kept careful.
 | "Somewhere below thirty-two… the shivering fades, then stops. Not because you're warm" (L15) | Shivering typically fades around 30–32 °C as the body's heat-producing defence fails (moderate hypothermia 32–28 °C). | "Somewhere below" and "can": no exact threshold. |
 | "Confusion and drowsiness creep in. You might not even realize you're in danger" (L16) | Impaired consciousness, apathy and confusion are hallmarks of moderate hypothermia. | — |
 | "Below about twenty-eight, people usually lose consciousness, and the heart's rhythm can turn dangerously unstable" (L17) | Severe hypothermia (< 28 °C): unconsciousness, bradycardia, risk of ventricular fibrillation. | "About" and "usually"; cut-offs differ slightly between staging systems. |
-| "In cold air, serious hypothermia usually takes hours, not minutes. But there's no fixed countdown" (L19) | Air conducts heat far more slowly than water (water ~25× faster), so cooling in air is much slower than in cold water. | **No survival time is stated.** The video never shows a clock or elapsed time. |
+| "In cold air, serious hypothermia usually takes hours, not minutes. But there's no fixed countdown" (L19) | Air conducts heat far more slowly than water (water ~25× faster), so cooling in air is much slower than in cold water. | **No survival time is stated.** No timer or elapsed time is shown (the phone's lock screen in SH11b shows only a time of day). |
 | "It depends on the temperature, moving air, your clothing, staying dry, your body and health… and how fast you're found" (L20) | Cold-stress guidance (CDC/NIOSH-style toolbox material): wind, wetness, clothing, age, health, alcohol and exhaustion all change risk. | Presented as factors, not a formula. |
 | "Feeling cold is your body's alarm. The danger deepens when that alarm goes quiet" (L21) | Loss of shivering and of the sensation of cold accompany worsening hypothermia (see L15–L16). | Framed as a deepening danger, not a definition of hypothermia. |
 | "In rare cases, doctors have revived people from astonishingly low body temperatures… nobody's dead until they're warm and dead" (L22) | Documented recoveries from severe accidental hypothermia with extracorporeal rewarming (e.g. the 1999 Bågenholm case); the maxim is widely used in emergency medicine. | "In rare cases"; framed as a saying, not a promise. |
@@ -35,6 +35,14 @@ The CORE thermometer shows illustrative values that move through the stage thres
 (37 → 35 → 32 → 28 °C) with labels NORMAL / HYPOTHERMIA / MILD / MODERATE / SEVERE. No elapsed time
 appears anywhere, so no specific survival timeline is implied. The time-lapse is labelled "HOURS PASS…",
 which matches the narration ("Hours can pass").
+
+## Rescue staging
+Once the HUD has passed 28 °C and the ECG shows an unstable rhythm (SH20), the rescue shots do not show him sitting up
+or being walked out. He stays where he collapsed while the rescuer checks on him, and is kept still and insulated in a
+foil blanket (SH22–SH23). Guidance for moderate to severe hypothermia is to handle the person gently, avoid
+making them walk or exert themselves, insulate them and get emergency care; it also advises keeping them
+horizontal, which the shots do not show (he stays slumped on the boxes where he fell). The later shots (shivering
+outside, the thermal "warming up" shot) illustrate the narration's general points rather than a single timeline.
 
 ## Artistic licence (visual, not claims)
 - The thermal-camera shots are stylised illustrations of where heat is lost, not measured data.
@@ -49,5 +57,6 @@ which matches the narration ("Hours can pass").
 - KaTom / KPS Global walk-in safety guidance (interior release mechanisms, alarms).
 - Operandio / ChefsDeal walk-in freezer temperature guides (−18 to −23 °C).
 - CDC MMWR cold-stress editorial notes; USDA-ARS / Princeton EHS cold-stress fact sheets (risk factors).
+- Wilderness Medical Society clinical practice guidelines for out-of-hospital accidental hypothermia (gentle handling, insulation).
 - Gilbert et al. / Norwegian ECLS hypothermia series ("Nobody is dead until warm and dead", PubMed 24882104).
 - Rothschild & Schneider 1995, Swedish registry (paradoxical undressing; consulted, not used in the script).
