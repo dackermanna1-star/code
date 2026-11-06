@@ -105,25 +105,27 @@ const AI = {
     if (e.state === 0) {
       chase(e, e.def.speed * k);
       e.facing = Math.atan2(e.vy, e.vx);
-      if (e.cd <= 0 && tp.d < 9 && canSee(e)) { e.state = 1; e.t = 0.7 / e.rate; e.data.ang = tp.a; sfx('windup', { vol: 0.6 }); }
+      if (e.cd <= 0 && tp.d < 9 && canSee(e)) { e.state = 1; e.t = Math.max(0.55, 0.7 / e.rate); e.data.ang = tp.a; sfx('windup', { vol: 0.6 }); }
     } else if (e.state === 1) {
       e.vx = e.vy = 0;
       e.data.ang = lerpAngle(e.data.ang, tp.a, damp(6, dt)); e.facing = e.data.ang;
-      if (!e.data.tele) e.data.tele = telegraph({ kind: 'line', x: e.x, y: e.y, ang: e.data.ang, len: 5.5, w: e.r * 2, dur: e.t, owner: e, follow: (t) => { t.x = e.x; t.y = e.y; t.ang = e.data.ang; } });
-      if (e.t <= 0) { e.state = 2; e.t = 0.55; e.data.tele = null; sfx('charge', { rate: rnd(0.9, 1.1) }); }
+      if (!e.data.tele) e.data.tele = telegraph({ kind: 'line', x: e.x, y: e.y, ang: e.data.ang, len: 5.5 + e.r, w: e.r * 2, dur: e.t, owner: e, follow: (t) => { t.x = e.x; t.y = e.y; t.ang = e.data.ang; } });
+      if (e.t <= 0) { e.state = 2; e.t = 0.9; e.data.left = 5.5; e.data.tele = null; sfx('charge', { rate: rnd(0.9, 1.1) }); }
     } else if (e.state === 2) {
-      setVel(e, e.data.ang, 10 * k);
+      // fixed reach (matches the drawn line); speed bonuses make it faster, not longer
+      const sp = Math.min(10 * k, e.data.left / Math.max(dt, 1e-4));
+      setVel(e, e.data.ang, sp); e.data.left -= sp * dt;
       if (Math.random() < 0.6) burst(e.x, e.y, e.color, 1, 1, { life: 0.3, size: 0.08 });
-      if (e.t <= 0 || e.data.bonk) { e.state = 3; e.t = 0.6; e.data.bonk = false; }
+      if (e.data.left <= 1e-3 || e.t <= 0 || e.data.bonk) { e.state = 3; e.t = 0.6; e.data.bonk = false; }
     } else {
-      e.vx *= 0.8; e.vy *= 0.8;
+      e.vx = e.vy = 0;
       if (e.t <= 0) { e.state = 0; e.cd = rnd(1.8, 2.6); }
     }
   },
   turret(e, dt, k) {
     keepRange(e, e.def.speed * k, 4, 7.5, dt);
     e.cd -= dt * e.rate;
-    if (e.state === 0 && e.cd <= 0 && canSee(e)) { e.state = 1; e.t = 0.42; sfx('windup', { vol: 0.35, rate: 1.4 }); }
+    if (e.state === 0 && e.cd <= 0 && canSee(e)) { e.state = 1; e.t = 0.55; sfx('windup', { vol: 0.35, rate: 1.4 }); }
     if (e.state === 1) {
       e.t -= dt; e.vx *= 0.3; e.vy *= 0.3;
       if (e.t <= 0) {
@@ -141,16 +143,19 @@ const AI = {
     const onBeats = SIM.floor.region.mechanic === 'beat';
     if (onBeats) {
       const bi = Math.floor(B.beat);
-      if (bi !== e.data.lastBeat) {
+      if (e.data.lastBeat === undefined) e.data.lastBeat = bi;          // first active frame: just sync, never fire
+      else if (bi !== e.data.lastBeat) {
         e.data.lastBeat = bi;
-        if ((bi + e.id) % 2 === 0 && e.spawnedBeat !== bi) {
-          e.data.pulse = 1;
-          if (canSee(e)) { enemyFan(e.x, e.y, toPlayer(e).a, 3, 0.5, 4.6, { style: 'pink' }); sfx('enemy_shoot', { vol: 0.6 }); }
-        } else if ((bi + e.id) % 2 === 1) { e.data.pre = 1; }
+        if ((bi + e.id) % 2 === 0) {
+          if (e.data.preBeat === bi - 1) {                               // only fire right after a visible pre-tell beat
+            e.data.pulse = 1;
+            if (canSee(e)) { enemyFan(e.x, e.y, toPlayer(e).a, 3, 0.5, 4.6, { style: 'pink' }); sfx('enemy_shoot', { vol: 0.6 }); }
+          }
+        } else { e.data.pre = 1; e.data.preBeat = bi; }
       }
     } else {
       e.cd -= dt * e.rate;
-      if (e.cd <= 0.35 && !e.data.pre) e.data.pre = 1;
+      if (e.cd <= 0.5 * e.rate && !e.data.pre) e.data.pre = 1;
       if (e.cd <= 0) { e.cd = rnd(1.6, 2.1); e.data.pulse = 1; e.data.pre = 0; if (canSee(e)) { enemyFan(e.x, e.y, toPlayer(e).a, 3, 0.5, 4.6, { style: 'pink' }); sfx('enemy_shoot', { vol: 0.6 }); } }
     }
     e.data.pulse = Math.max(0, (e.data.pulse || 0) - dt * 3);
@@ -168,10 +173,11 @@ const AI = {
     e.anchored = true; e.vx = e.vy = 0;
     const onBeats = SIM.floor.region.mechanic === 'beat';
     let fire = false;
-    if (onBeats) { const bi = Math.floor(beatNow().beat); if (bi !== e.data.lb) { e.data.lb = bi; if (bi % 4 === (e.id % 4)) fire = true; } }
-    else { e.cd -= dt * e.rate; if (e.cd <= 0) { e.cd = 3.2; fire = true; } }
+    if (onBeats) { const bi = Math.floor(beatNow().beat); if (bi !== e.data.lb) { e.data.lb = bi; if (bi % 4 === (e.id % 4)) fire = true; else if (bi % 4 === (e.id + 3) % 4) e.data.pre = 1; } }
+    else { e.cd -= dt * e.rate; if (e.cd <= 0.5 * e.rate) e.data.pre = 1; if (e.cd <= 0) { e.cd = 3.2; fire = true; } }
     e.data.swell = Math.max(0, (e.data.swell || 0) - dt * 2);
     if (fire) {
+      e.data.pre = 0;
       const mine = SIM.enemies.filter(o => !o.dead && o.data.parent === e.id).length;
       e.data.swell = 1;
       if (mine < 3) {
@@ -219,19 +225,25 @@ const AI = {
     const tp = toPlayer(e);
     e.facing = e.facing + clamp(angDiff(e.facing, tp.a), -1.7 * dt, 1.7 * dt);
     e.cd -= dt * e.rate;
-    if (e.cd <= 0 && Math.abs(angDiff(e.facing, tp.a)) < 0.35 && canSee(e)) { e.cd = rnd(3, 3.8); enemyFan(e.x, e.y, e.facing, 3, 0.45, 4.2, { style: 'orange' }); sfx('enemy_shoot', { vol: 0.5 }); }
+    if (e.data.brace > 0) { // braced wind-up before the fan (readable tell)
+      e.data.brace -= dt; e.vx *= 0.4; e.vy *= 0.4;
+      if (e.data.brace <= 0) { e.cd = rnd(3, 3.8); enemyFan(e.x, e.y, e.facing, 3, 0.45, 4.2, { style: 'orange' }); sfx('enemy_shoot', { vol: 0.5 }); }
+    } else if (e.cd <= 0 && Math.abs(angDiff(e.facing, tp.a)) < 0.35 && canSee(e)) {
+      e.data.brace = 0.5; sfx('windup', { vol: 0.35, rate: 1.2 });
+    }
   },
   splitter(e, dt, k) {
     const s = e.data.size;
-    const sp = [2.3, 1.6, 1.1][2 - s] || 1.1;
+    const sp = e.def.speed * ([2.1, 1.45, 1][s] ?? 1); // size 2 (whole) = data speed; fragments are faster
     chase(e, sp * k);
   },
   burrower(e, dt, k) {
     e.t -= dt;
     if (e.state === 0) { // surfaced
       chase(e, e.def.speed * k);
-      if (!e.data.shot && e.t < 1.2) { e.data.shot = true; if (canSee(e)) { spawnEShot(e.x, e.y, toPlayer(e).a, 4.6, { style: 'orange' }); sfx('enemy_shoot', { vol: 0.5 }); } }
-      if (e.t <= 0) { e.state = 1; e.t = 0.4; sfx('burrow', { vol: 0.7 }); }
+      if (!e.data.shot && e.t < 1.8 && !e.data.wind) { e.data.wind = true; sfx('windup', { vol: 0.35, rate: 1.5 }); }
+      if (!e.data.shot && e.t < 1.2) { e.data.shot = true; e.data.wind = false; if (canSee(e)) { spawnEShot(e.x, e.y, toPlayer(e).a, 4.6, { style: 'orange' }); sfx('enemy_shoot', { vol: 0.5 }); } }
+      if (e.t <= 0) { e.state = 1; e.t = 0.4; e.data.wind = false; sfx('burrow', { vol: 0.7 }); }
     } else if (e.state === 1) { // digging
       e.vx = e.vy = 0;
       if (e.t <= 0) { e.state = 2; e.t = 1.7; e.burrowed = true; e.untargetable = true; e.harmless = true; }
@@ -245,7 +257,7 @@ const AI = {
     } else if (e.state === 3) { // about to emerge
       e.vx = e.vy = 0;
       if (e.t <= 0) {
-        e.state = 0; e.t = 2.4; e.data.shot = false; e.burrowed = false; e.untargetable = false; e.harmless = false;
+        e.state = 0; e.t = 2.4; e.data.shot = false; e.data.wind = false; e.burrowed = false; e.untargetable = false; e.harmless = false;
         enemyRing(e.x, e.y, 8, 3.8, { style: 'orange' });
         sfx('emerge'); burst(e.x, e.y, '#8a5a2a', 14, 4, { life: 0.5, size: 0.1, up: 4 });
         Gfx.splat(SIM.room, e.x, e.y, 0.6, '#5a3a1a', 0.4);
@@ -281,7 +293,7 @@ const AI = {
       if (e.t <= 0) { e.state = 1; e.data.n = 3; e.t = 0; }
     } else if (e.state === 1) { // aim
       if (!e.data.tele) {
-        e.data.ang = toPlayer(e).a; e.t = 0.48 / e.rate;
+        e.data.ang = toPlayer(e).a; e.t = 0.55; // fixed real-time tell (rate only shortens the rest)
         e.data.tele = telegraph({ kind: 'line', x: e.x, y: e.y, ang: e.data.ang, len: 6.5, w: 0.6, dur: e.t, owner: e, follow: (t) => { t.x = e.x; t.y = e.y; } });
         sfx('windup', { vol: 0.35, rate: 1.6 });
       }
@@ -304,7 +316,7 @@ const AI = {
         const spots = World.spawnSpots(SIM.room, P.x, P.y, 3.8, true).filter(s => dist(s[0], s[1], P.x, P.y) < 7.5);
         const s = spots.length ? rndPick(spots) : [e.x, e.y];
         e.data.dest = s; e.state = 1; e.t = 0.55;
-        telegraph({ kind: 'disc', x: s[0], y: s[1], r: 0.8, dur: 0.55, warm: true });
+        telegraph({ kind: 'disc', x: s[0], y: s[1], r: 0.8, dur: 0.55, warm: true, owner: e });
       }
     } else if (e.state === 1) {
       e.data.fade = 1 - e.t / 0.55;
@@ -344,14 +356,16 @@ const AI = {
       }
       if (e.data.phase === 2 && e.data.pt <= 0) { e.data.phase = 0; e.data.pt = rnd(1.4, 2.0); }
     } else {
+      if (!e.data.lone) { e.data.lone = true; e.cd = Math.max(e.cd, 1.0); }
       e.cd -= dt * e.rate;
-      if (e.cd <= 0) { e.cd = 1.8; spawnEShot(e.x, e.y, toPlayer(e).a, 5, { style: 'volt' }); sfx('enemy_shoot', { vol: 0.4 }); }
+      if (e.cd <= 0.5 * e.rate && !e.data.wind) { e.data.wind = true; sfx('windup', { vol: 0.3, rate: 1.6 }); }
+      if (e.cd <= 0) { e.cd = 1.8; e.data.wind = false; spawnEShot(e.x, e.y, toPlayer(e).a, 5, { style: 'volt' }); sfx('enemy_shoot', { vol: 0.4 }); }
     }
   },
   mortar(e, dt, k) {
     chase(e, e.def.speed * k);
     e.cd -= dt * e.rate;
-    if (e.cd <= 0.45 && !e.data.wind) { e.data.wind = true; sfx('windup', { vol: 0.4, rate: 0.7 }); }
+    if (e.cd <= 0.5 * e.rate && !e.data.wind) { e.data.wind = true; sfx('windup', { vol: 0.4, rate: 0.7 }); }
     if (e.cd <= 0 && canSee(e)) {
       e.cd = rnd(3.0, 3.6); e.data.wind = false;
       spawnEShot(e.x, e.y, toPlayer(e).a, 2.6, { r: 0.34, style: 'violet', life: 1.1, onExpire: (s) => { enemyRing(s.x, s.y, 6, 3.8, { style: 'violet' }); sfx('enemy_shoot', { vol: 0.4, rate: 1.2 }); } });
@@ -360,17 +374,32 @@ const AI = {
   },
   bloater(e, dt, k) { chase(e, e.def.speed * k); e.data.swell = 0.5 + Math.sin(SIM.time * 5 + e.id) * 0.5; },
   turncoat(e, dt, k) {
+    const tp = toPlayer(e);
+    e.facing = tp.a;
+    e.cd -= dt * e.rate;
+    if (e.data.windT > 0) {                 // committed wind-up: fixed 0.55s, not scaled by rate
+      e.data.windT -= dt;
+      e.vx *= 0.3; e.vy *= 0.3;             // plants while aiming (readable)
+      e.data.wind = 1 - Math.max(0, e.data.windT) / 0.55;
+      if (e.data.windT <= 0) {
+        e.data.wind = 0; e.data.tele = null; e.cd = rnd(1.9, 2.4);
+        if (canSee(e)) {
+          const a = e.data.aim;
+          for (let i = 0; i < 3; i++) spawnEShot(e.x, e.y, a + rnd(-0.05, 0.05), 6.5, { delay: i * 0.11, style: 'pink', streak: true, r: 0.14 });
+          sfx('shoot_neutrophil', { rate: 0.75, vol: 0.6 });
+        }
+      }
+      return;
+    }
     keepRange(e, e.def.speed * k, 4, 6.5, dt);
     e.data.dashCd -= dt;
-    if (e.data.dashT > 0) { e.data.dashT -= dt; setVel(e, e.data.dashA, 11); }
-    else if (e.data.dashCd <= 0) { e.data.dashCd = rnd(2.6, 3.6); e.data.dashT = 0.2; e.data.dashA = toPlayer(e).a + rndSign() * Math.PI / 2; sfx('dash', { vol: 0.4, rate: 1.2 }); }
-    e.cd -= dt * e.rate;
-    e.facing = toPlayer(e).a;
-    if (e.cd <= 0.3 && !e.data.wind) { e.data.wind = true; }
+    if (e.data.dashT > 0) { e.data.dashT -= dt; setVel(e, e.data.dashA, 11); return; }
+    if (e.data.dashCd <= 0) { e.data.dashCd = rnd(2.6, 3.6); e.data.dashT = 0.2; e.data.dashA = tp.a + rndSign() * Math.PI / 2; sfx('dash', { vol: 0.4, rate: 1.2 }); return; }
     if (e.cd <= 0 && canSee(e)) {
-      e.cd = rnd(1.9, 2.4); e.data.wind = false;
-      for (let i = 0; i < 3; i++) spawnEShot(e.x, e.y, toPlayer(e).a + rnd(-0.05, 0.05), 6.5, { delay: i * 0.11, style: 'pink', streak: true, r: 0.14 });
-      sfx('shoot_neutrophil', { rate: 0.75, vol: 0.6 });
+      e.data.windT = 0.55; e.data.aim = tp.a;
+      e.data.tele = telegraph({ kind: 'line', x: e.x, y: e.y, ang: tp.a, len: 6, w: 0.3, dur: 0.55, owner: e,
+        follow: (t) => { e.data.aim = lerpAngle(e.data.aim, toPlayer(e).a, 0.08); t.x = e.x; t.y = e.y; t.ang = e.data.aim; } });
+      sfx('windup', { vol: 0.35, rate: 1.5 });
     }
   },
 };
@@ -385,6 +414,7 @@ const ON_DEATH = {
     for (let i = 0; i < 2; i++) {
       const a = rnd(0, TAU), ns = s - 1;
       const c = spawnEnemy('amoeba', e.x + Math.cos(a) * 0.3, e.y + Math.sin(a) * 0.3, { hp: [6, 13][ns], r: [0.33, 0.5][ns], size: ns, instant: true, elite: null });
+      c.cost = ns === 1 ? 1 : 0.5; // split pieces drop less; whole tree ~2.3x a cost-3 kill
       c.kx = Math.cos(a) * 6; c.ky = Math.sin(a) * 6; c.spawning = 0.2;
     }
     sfx('split');
@@ -507,7 +537,12 @@ const ENEMY_VIS = {
     shield.rotation.z = Math.PI / 2;
     // only front half visible: squash so it reads as a shell
     shield.scaling.set(r * 0.5, r * 1.2, r * 1.05);
-    return { root, body: m, anim(e, t) { b.rotation.y = e.facing; } };
+    return { root, body: m, anim(e, t) {
+      b.rotation.y = e.facing;
+      const br = e.data.brace > 0;
+      b.position.z = br ? Math.sin(t * 60) * 0.05 : 0;
+      shield.scaling.set(r * 0.5 * (br ? 1.25 : 1), r * 1.2, r * 1.05);
+    } };
   },
   amoeba(e) {
     const { root, b } = V(e), r = e.r;
@@ -526,7 +561,9 @@ const ENEMY_VIS = {
       b.rotation.y = Math.atan2(e.vy, e.vx) || b.rotation.y;
       const under = e.state === 2 ? 1 : e.state === 1 ? 1 - e.t / 0.4 : e.state === 3 ? 1 : 0;
       b.position.y = -under * r * 1.5; b.setEnabled(under < 0.98);
-      m.scaling.set(r * 1.4 * (1 + Math.sin(t * 8) * 0.08), r * 0.4, r * 0.85);
+      const w = e.data.wind ? 1 + Math.sin(t * 40) * 0.12 : 1; // shot wind-up wobble
+      m.scaling.set(r * 1.4 * (1 + Math.sin(t * 8) * 0.08) * w, r * 0.4, r * 0.85 * w);
+      b.position.z = e.data.wind ? Math.sin(t * 60) * 0.05 : 0;
     } };
   },
   bilespitter(e) {
@@ -544,8 +581,10 @@ const ENEMY_VIS = {
     for (let i = 0; i < 4; i++) { const s = Gfx.part('sphere', mat, null, 0, r * 0.9, 0, r * (0.85 - i * 0.12)); s.parent = root.parent || null; segs.push(s); }
     return { root, body: head, segs, anim(e, t) {
       b.rotation.y = e.facing;
-      const h = e.data.hist; h.unshift([e.x, e.y]); if (h.length > 40) h.pop();
-      segs.forEach((s, i) => { const p = h[Math.min(h.length - 1, (i + 1) * 7)]; s.position.set(p[0], r * 0.85, -p[1]); s.setEnabled(!e.dead); });
+      // sample by distance moved (not per call) so body length is frame-rate / hitstop independent
+      const h = e.data.hist, STEP = r * 0.25;
+      if (!h.length || dist(e.x, e.y, h[0][0], h[0][1]) >= STEP) { h.unshift([e.x, e.y]); if (h.length > 20) h.pop(); }
+      segs.forEach((s, i) => { const p = h[Math.min(h.length - 1, (i + 1) * 4)]; s.position.set(p[0], r * 0.85, -p[1]); s.setEnabled(!e.dead); });
     }, dispose() { segs.forEach(s => s.dispose()); } };
   },
   spark(e) {
