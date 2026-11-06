@@ -328,7 +328,8 @@ export class Zombie {
       if (!this.fireFx && g.fx?.fire) this.fireFx = g.fx.fire(new THREE.Vector3(this.x, this.y + 1, this.z), { radius: 0.35, duration: 30, follow: true });
       this.fireFx?.setPos?.(new THREE.Vector3(this.x, this.y + 0.9, this.z));
       if (Math.random() < dt * 2) g.addFlashLight(new THREE.Vector3(this.x, this.y + 1.2, this.z), 0xff8030, 1.6, 7, 0.2);
-      this.takeDamage(9 * dt, { part: 'torso', wound: false, stagger: 0, notice: false });
+      this.burnAcc = (this.burnAcc || 0) + (this.burnDps || 9) * dt;
+      if (this.burnAcc >= 3) { this.takeDamage(this.burnAcc, { part: 'torso', wound: false, stagger: 0, notice: false }); this.burnAcc = 0; }
       if (this.dead || this.burning <= 0) { this.fireFx?.stop?.(); this.fireFx = null; }
       if (this.dead) return;
     }

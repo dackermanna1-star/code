@@ -9,6 +9,7 @@
 // street props / vehicles / decay -> zones & POIs -> sanitize registries -> heightmap.
 // Everything is deterministic from the seed (makeRng / hash / noise from core/rng.js only).
 import { makeRng, seedFromString } from '../../core/rng.js';
+import { WATER_LEVEL } from '../World.js';
 import { B, BLOCKS, SOLID } from '../blocks.js';
 import { OCC, makeRoads, makeSites } from './plan.js';
 import { buildWater, distanceField } from './water.js';
@@ -181,6 +182,7 @@ export async function generateWorld(world, seed, onProgress = async () => {}, op
   ctx.addPOI({ name: 'Mill Creek', type: 'water', x0: 150, z0: 260, x1: 200, z1: 640 });
   await phase(0.96, 'Counting the dead');
   sanitize(ctx);
+  ctx.stats.shoreSteps = shoreSteps(world);
   world.computeHeightmap();
   world.genStats = ctx.stats;
   world.genStats.timings = ctx.timings;
@@ -213,4 +215,32 @@ function sanitize(ctx) {
   });
   const safe = world.spawnPoints.filter((sp) => !crowded(sp));
   if (safe.length >= Math.min(8, world.spawnPoints.length)) world.spawnPoints = safe;
+}
+
+// Lower natural ground by one block right at the water's edge where the bank is 2 blocks high, so a swimmer can
+// always step out (water surface y=WATER_LEVEL, town ground top y=SURFACE=WATER_LEVEL+2).
+function shoreSteps(world) {
+  const { SX, SZ } = world;
+  const WL = WATER_LEVEL;
+  const NATURAL = new Set([B.grass, B.dirt, B.dry_grass, B.forest_floor, B.sand, B.gravel, B.mud]);
+  const PLANTS = new Set([B.tall_grass, B.fern, B.flower_red, B.flower_yellow, B.flower_white, B.dead_bush, B.reeds, B.bush]);
+  let n = 0;
+  for (let z = 1; z < SZ - 1; z++) {
+    for (let x = 1; x < SX - 1; x++) {
+      if (world.get(x, WL, z) !== B.water || world.get(x, WL + 1, z) !== 0) continue;
+      for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const nx = x + dx, nz = z + dz;
+        const top = world.get(nx, WL + 2, nz);
+        if (!NATURAL.has(top)) continue;
+        if (world.get(nx, WL + 1, nz) === 0 || world.get(nx, WL + 1, nz) === B.water) continue;
+        const above = world.get(nx, WL + 3, nz);
+        if (above !== 0 && !PLANTS.has(above)) continue;
+        if (above) world.set(nx, WL + 3, nz, 0);
+        world.set(nx, WL + 2, nz, 0);
+        world.set(nx, WL + 1, nz, top === B.grass || top === B.forest_floor || top === B.dry_grass ? top : B.sand);
+        n++;
+      }
+    }
+  }
+  return n;
 }

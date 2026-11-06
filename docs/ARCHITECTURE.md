@@ -298,3 +298,14 @@ See `docs/UI_API.md`.
 `export async function generateWorld(world, seed, onProgress)` in `src/world/gen/index.js`;
 `await onProgress(fraction01, label)` periodically (it yields to the browser). `src/world/gen/lore.js` exports
 `NOTES` (`{[noteId]: {title, text}}`) and `RADIO_BROADCASTS` (`[{day, text}]`).
+
+## API additions after the QA pass (backward compatible)
+* Viewmodel: `oneHanded` (true: Minecraft-style, only the right arm is drawn), `swing(heavy=false, rate?)` (rate = swings/s, the
+  animation lasts 1/rate so the impact frame matches damage), `stomp()`, `throwItem(duration=0.8, stack?)` (show a thrown item that
+  isn't held), per-model `oneHand` meta override block merged when one-handed, `ejectShells` (false: Combat spawns world casings).
+* FX: `light(pos, {color, radius, flicker}) -> {setPos, setIntensity, stop}` persistent light; `impact(pos, normal, mat, {decal:false})`.
+* Combat: `dispose()` (stops flare loops / lights / projectiles on quit).
+* Inventory: `fitsPocket(stack)` (pockets and vest pouches only take small items; bags take anything), `PlayerInventory.spillContents(stack)`,
+  storage descriptors carry `pocket: bool`. ItemActions: `spendUse()`, `purify()`.
+* Vehicles: `buildNear(budgetMs, maxBuilds)` builds car visuals nearest-first within a time budget (also used during loading).
+* Renderer: `resetExposure()`, `invalidateShadows()` (call after teleports / loading).

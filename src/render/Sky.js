@@ -243,7 +243,7 @@ export class Sky {
     const amb = ambNight.lerp(ambDay, day01);
     amb.lerp(_c3.setRGB(0.75, 0.45, 0.35).multiplyScalar(0.55), dusk * 0.3);
     G.uAmbientColor.value.copy(amb);
-    G.uMinLight.value = 0.012 + 0.015 * day01;
+    G.uMinLight.value = 0.012 + 0.035 * day01;
     G.uNight.value = night;
 
     // fog: edge fog reaches ~92% at the render distance on a clear day; night, rain and fog pull it in

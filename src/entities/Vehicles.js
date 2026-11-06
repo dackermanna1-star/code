@@ -41,29 +41,48 @@ export class Vehicles {
     return out;
   }
 
+  /** Create visuals for nearby cars, nearest first, within a time budget (car textures are costly to paint). */
+  buildNear(budgetMs = 6, maxBuilds = 3) {
+    const g = this.game, p = g.player;
+    const want = [];
+    for (const v of this.list) {
+      const d = Math.hypot(v.x - p.x, v.z - p.z);
+      if (d < 115 && !v.visual) want.push([d, v]);
+      else if (d > 150 && v.visual) {
+        g.renderer.scene.remove(v.visual.root);
+        v.visual.dispose();
+        v.visual = null;
+      }
+    }
+    want.sort((a, b) => a[0] - b[0]);
+    const t0 = performance.now();
+    let built = 0;
+    for (const [, v] of want) {
+      if (built >= maxBuilds || (built > 0 && performance.now() - t0 > budgetMs)) break;
+      built++;
+      v.visual = createCarVisual({ type: v.type, color: v.color, wrecked: v.wrecked, burned: v.burned, seed: hash32(v.idx, 99) });
+      v.visual.root.position.set(v.x, v.y, v.z);
+      v.visual.root.rotation.y = v.yaw || 0;
+      g.renderer.scene.add(v.visual.root);
+      if (v.visual.halfExtents) {
+        const he = v.visual.halfExtents;
+        Object.assign(v.collider, { hx: he.x, hz: he.z, top: v.y + he.y * 2, r: Math.hypot(he.x, he.z) });
+      }
+      v.lightSet = false;
+    }
+    return want.length - built; // remaining
+  }
+
   update(dt) {
     const g = this.game, p = g.player;
     this.updateT -= dt;
     if (this.updateT <= 0) {
-      this.updateT = 0.5;
+      const remaining = this.buildNear(6, 2);
+      this.updateT = remaining > 0 ? 0.05 : 0.5;
       for (const v of this.list) {
+        if (!v.visual) continue;
         const d = Math.hypot(v.x - p.x, v.z - p.z);
-        if (d < 115 && !v.visual) {
-          v.visual = createCarVisual({ type: v.type, color: v.color, wrecked: v.wrecked, burned: v.burned, seed: hash32(v.idx, 99) });
-          v.visual.root.position.set(v.x, v.y, v.z);
-          v.visual.root.rotation.y = v.yaw || 0;
-          g.renderer.scene.add(v.visual.root);
-          if (v.visual.halfExtents) {
-            const he = v.visual.halfExtents;
-            Object.assign(v.collider, { hx: he.x, hz: he.z, top: v.y + he.y * 2, r: Math.hypot(he.x, he.z) });
-          }
-          v.lightSet = false;
-        } else if (d > 150 && v.visual) {
-          g.renderer.scene.remove(v.visual.root);
-          v.visual.dispose();
-          v.visual = null;
-        }
-        if (v.visual && (!v.lightSet || d < 60)) {
+        if (!v.lightSet || d < 60) {
           const w = g.world;
           const x = Math.floor(v.x), y = Math.floor(v.y + 1.2), z = Math.floor(v.z);
           v.visual.setLight(w.skyAt(x, y, z) / 15, w.blockLightAt(x, y, z) / 15);

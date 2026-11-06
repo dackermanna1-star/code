@@ -146,7 +146,7 @@ export class Player {
       if (this.onLadder && !input.fwd && !input.jump && !input.crouch) this.vy = 0;
       this.fallStartY = null;
     } else if (this.inWater) {
-      this.vy = lerp(this.vy, input.jump ? 2.8 : -1.0, 1 - Math.exp(-dt * 4));
+      this.vy = lerp(this.vy, input.jump ? 2.8 : (Math.abs(input.fwd) + Math.abs(input.strafe) > 0 ? 0.15 : -0.6), 1 - Math.exp(-dt * 4));
       // swimming into a wall: climb it underwater, and with the head above the surface hop out onto
       // the bank (Minecraft-like; without this a 1-block bank could never be left)
       if (this._wallHit && input.fwd > 0) {

@@ -82,11 +82,12 @@ export class Combat {
 
     // aim (RMB) for firearms; shove for melee
     const fa = def.firearm;
-    p.aiming = !!(fa && input.aim && !p.sprinting && !this.reload && !busy);
+    const zoom = def.zoomFov;
+    p.aiming = !!((fa || zoom) && input.aim && !p.sprinting && !this.reload && !busy);
     this.aimT = clamp(this.aimT + (p.aiming ? dt : -dt) * 5, 0, 1);
     p.scopeActive = !!(fa && fa.scope && this.aimT > 0.85);
     // zoom relative to the player's FOV setting so a scope magnifies the same at any FOV
-    p.fovKick = p.aiming ? -Math.max(0, (g.settings?.fov || 75) - (fa.aimFov || 55)) * this.aimT : 0;
+    p.fovKick = p.aiming ? -Math.max(0, (g.settings?.fov || 75) - ((fa && fa.aimFov) || zoom || 55)) * this.aimT : 0;
 
     // pending melee impacts
     for (let i = this.pendingHits.length - 1; i >= 0; i--) {

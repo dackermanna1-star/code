@@ -99,7 +99,7 @@ float sampleShadow(vec3 wp, vec3 n, float ndl) {
 
 vec3 computeLighting(vec3 wp, vec3 n, float sky, float blk, float ao) {
   // Minecraft-like light curve (level 15 = 1, 10 ~ 0.33, 5 ~ 0.11, 0 = 0)
-  float skyF = sky / (4.0 - 3.0 * sky);
+  float skyF = sky * (0.22 + 0.78 * sky);
   float ndl = max(dot(n, uSunDir), 0.0);
   float outdoors = smoothstep(0.55, 0.95, sky);
   float shadow = ndl > 0.0 && outdoors > 0.0 ? sampleShadow(wp, n, ndl) : 1.0;

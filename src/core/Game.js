@@ -11,7 +11,7 @@ import { World, ZONES, ZONE_NAMES } from '../world/World.js';
 import { BLOCKS, B, IS_DOOR, LIGHT_EMIT, faceTexture } from '../world/blocks.js';
 import { ChunkRenderer } from '../world/ChunkRenderer.js';
 import { generateWorld } from '../world/gen/index.js';
-import { lineOfSight } from '../world/raycast.js';
+import { lineOfSight, raycast } from '../world/raycast.js';
 import { Player } from '../player/Player.js';
 import { Survival } from '../player/Survival.js';
 import { Combat } from '../player/Combat.js';
@@ -44,6 +44,10 @@ const POI_SUBTITLES = {
   hospital: 'Medical supplies. Many infected.', police: 'Weapons and ammunition. Locked armory.', military: 'Restricted area. Extreme danger.',
   farm: 'Fields, a well pump and a barn.', camp: 'Someone was living here.', gas: 'Fuel and snacks.', school: 'Lockers and classrooms.',
   store: 'Shelves may still have food.', residential: 'Houses to search.', forest: 'Quiet woods.', highway: 'Abandoned traffic.',
+  civic: 'Offices and records.', fire: 'Axes, gear and a truck bay.', church: 'Pews, candles - and whoever hid here.', cemetery: 'Quiet. Too quiet.',
+  motel: 'Rooms to search, one by one.', cabin: 'Hunting gear, maybe.', ranger: 'Maps, radios, rifles.', roadblock: 'Someone tried to hold this line.',
+  industrial: 'Tools and scrap.', park: 'Open ground. Nowhere to hide.', landmark: 'A good vantage point.', town: 'The heart of Millbrook.',
+  water: 'Fresh water - boil it first.', trailer: 'Thin walls. Lots of neighbours.', street: 'Houses to search.',
 };
 const TIP_PHASES = [[5, 'Before dawn'], [7, 'Dawn'], [10, 'Morning'], [13, 'Midday'], [17, 'Afternoon'], [19.5, 'Dusk'], [22, 'Evening'], [24, 'Night']];
 
@@ -235,7 +239,10 @@ export class Game {
 
     await progress(0.82, 'Building terrain...');
     await this.chunks.prebuild(this.player.x, this.player.z, Math.min(6, this.chunks.radius), (f) => progress(0.82 + f * 0.16, 'Building terrain...'));
+    // pre-build nearby car models during loading (painting their textures mid-game causes hitches)
+    for (let i = 0; i < 40 && this.vehicles.buildNear(60, 8) > 0; i++) await progress(0.98, 'Parking cars...');
     await progress(1, 'Ready');
+    this.renderer.resetExposure?.(); this.renderer.invalidateShadows?.();
     this.ui.hideLoading?.();
     this.state = 'playing';
     this.clock = 0;
@@ -260,7 +267,9 @@ export class Game {
     for (const [s, l] of Object.entries(prof.skills || {})) p.skills[s].level = l;
     // spawn
     const rng = makeRng(w.seed ^ 0x1234);
-    const sp = w.spawnPoints.length ? rng.pick(w.spawnPoints) : { x: w.SX / 2, y: w.surfaceY(w.SX / 2, w.SZ / 2), z: w.SZ / 2, yaw: 0 };
+    const homes = w.spawnPoints.filter((s) => { const zn = w.getZone(Math.floor(s.x), Math.floor(s.z)); return zn !== ZONES.CAMP && zn !== ZONES.WATER && zn !== ZONES.WILD; });
+    const pool = homes.length ? homes : w.spawnPoints;
+    const sp = pool.length ? rng.pick(pool) : { x: w.SX / 2, y: w.surfaceY(w.SX / 2, w.SZ / 2), z: w.SZ / 2, yaw: 0 };
     p.x = sp.x + 0.5; p.y = sp.y; p.z = sp.z + 0.5; p.yaw = sp.yaw || 0;
     if (!boxFree(w, p.x, p.y, p.z, p.hw, p.h)) {
       const gy = groundAt(w, Math.floor(p.x), Math.floor(p.y) + 3, Math.floor(p.z));
@@ -291,7 +300,10 @@ export class Game {
     this.corpses?.clear();
     this.fx?.clear?.();
     this.chunks?.dispose();
-    for (const pr of this.combat?.projectiles || []) this.renderer.scene.remove(pr.mesh);
+    this.combat?.dispose?.();
+    for (const f of this.fires || []) f.snd?.stop?.();
+    this.fires = [];
+    for (const v of this.vehicles?.list || []) v.alarmSound?.stop?.();
     // remove everything else from the scene
     const sc = this.renderer.scene;
     while (sc.children.length) sc.remove(sc.children[0]);
@@ -327,7 +339,7 @@ export class Game {
     for (const [idx, d] of w.doors) doors.push([idx, d.open ? 1 : 0, d.locked, Math.round(d.hp), Math.round(d.barricade || 0)]);
     const pl = {};
     for (const k of ['x', 'y', 'z', 'yaw', 'pitch', 'name', 'profession', 'professionName', 'bonus', 'xpMult', 'health', 'hunger', 'thirst', 'stamina', 'energy', 'bodyTemp', 'wetness',
-      'sickness', 'panic', 'pain', 'infection', 'infected', 'infectionKnown', 'drunk', 'wounds', 'skills', 'kills', 'headshots', 'daysSurvived', 'flashlightOn']) pl[k] = p[k];
+      'sickness', 'panic', 'pain', 'infection', 'infected', 'infectionKnown', 'drunk', 'painkiller', 'caffeine', 'adrenaline', 'antibioticSlow', 'antiviralProtect', 'wounds', 'skills', 'kills', 'headshots', 'daysSurvived', 'flashlightOn']) pl[k] = p[k];
     pl.inv = p.inv.toJSON();
     return {
       version: 1, seed: w.seed, savedAt: Date.now(),
@@ -337,6 +349,7 @@ export class Game {
       zombies: this.zombies.toJSON(), events: this.events.toJSON(), interact: this.interact.toJSON(),
       explored: u8ToB64(this.mapExplored), mapRevealed: this.mapRevealed, discovered: [...this.discovered], readNotes: [...this.readNotes],
       bookBoost: this.survival.bookBoost, rainCollected: this.rainCollected,
+      blockDamage: [...this.blockDamage].filter(([, v]) => v < 0),
       campfires: [...this.campfires.values()],
     };
   }
@@ -379,6 +392,7 @@ export class Game {
     this.readNotes = new Set(s.readNotes || []);
     Object.assign(this.survival.bookBoost, s.bookBoost || {});
     this.rainCollected = s.rainCollected || 0;
+    for (const [i, v] of s.blockDamage || []) this.blockDamage.set(i, v);
     for (const c of s.campfires || []) this.campfires.set(w.idx(c.x, c.y, c.z), c);
     this.lastDayBanner = this.time.day;
   }
@@ -647,7 +661,7 @@ export class Game {
     }
     // dynamic point lights
     const cam = r.camera.position;
-    this.dynLights = this.dynLights.filter((l) => (l.t -= dt) > -0.001 || l.persist);
+    this.dynLights = this.dynLights.filter((l) => (l.t -= dt) > -dt - 0.001 || l.persist);
     const all = this.dynLights.slice();
     for (const L of this.fx?.getLights?.() || []) {
       all.push({ pos: new THREE.Vector3(L.x, L.y, L.z), color: new THREE.Color(L.r, L.g, L.b), intensity: L.intensity, radius: L.radius, t: 1, dur: 0 });
@@ -656,9 +670,9 @@ export class Game {
     globalUniforms.uPLCount.value = lights.length;
     lights.forEach((l, i) => {
       globalUniforms.uPL.value[i].set(l.pos.x, l.pos.y, l.pos.z, l.radius);
-      globalUniforms.uPLC.value[i].copy(l.color).multiplyScalar(l.intensity * (l.dur > 0 ? clamp(l.t / l.dur, 0, 1) : 1));
+      globalUniforms.uPLC.value[i].set(l.color.r, l.color.g, l.color.b).multiplyScalar(l.intensity * (l.dur > 0 ? clamp(l.t / l.dur, 0, 1) : 1));
     });
-    this.dynLights = this.dynLights.filter((l) => l.t > 0);
+    this.dynLights = this.dynLights.filter((l) => l.t > 0 || l.persist);
     // viewmodel
     const vmLight = { sky: this.world.skyAt(Math.floor(p.x), Math.floor(p.y + 1.5), Math.floor(p.z)) / 15, block: this.world.blockLightAt(Math.floor(p.x), Math.floor(p.y + 1.5), Math.floor(p.z)) / 15 };
     this.viewmodel.update(dt, {
@@ -691,7 +705,9 @@ export class Game {
 
   canHit(z) {
     const p = this.player;
-    return lineOfSight(this.world, z.x, z.y + Math.min(1.4, z.h * 0.8), z.z, p.x, p.y + 1.2, p.z);
+    const ax = z.x, ay = z.y + Math.min(1.4, z.h * 0.8), az = z.z, bx = p.x, by = p.y + 1.2, bz = p.z;
+    const dx = bx - ax, dy = by - ay, dz = bz - az, L = Math.hypot(dx, dy, dz) || 1;
+    return !raycast(this.world, ax, ay, az, dx / L, dy / L, dz / L, L, (id, d) => d.solid && d.render !== 'cross');
   }
 
   zombieHitsPlayer(z) {
@@ -775,9 +791,11 @@ export class Game {
       this.fx.blockBreak(pos, this.textures.avgColor(faceTexture(def, 0, 0)));
       this.noise(pos.x, pos.y, pos.z, 8, 'break', !o.byZombie);
     }
+    const cont = def.container ? w.getContainer(x, y, z) : null;
+    if (cont && !cont.items) this.containerDesc(cont);
     w.setBlock(x, y, z, def.becomesId || 0, 0);
     if (def.container) {
-      const c = w.getContainer(x, y, z);
+      const c = cont;
       if (c?.items) for (const s of c.items) if (s) this.groundItems.add(s, x + 0.5, y + 0.3, z + 0.5);
       w.containers.delete(w.idx(x, y, z));
     }
@@ -836,11 +854,13 @@ export class Game {
     this.addFlashLight(pos, 0xffa050, 8, radius * 4, 0.35);
     this.renderer.post.uFlash.value = Math.max(this.renderer.post.uFlash.value, 0.6 * clamp(1 - pos.distanceTo(new THREE.Vector3(p.x, p.y, p.z)) / 40, 0, 1));
     this.noise(pos.x, pos.y, pos.z, 110, 'explosion', true);
+    const W = this.world;
     for (const z of this.zombies.zombies) {
       if (z.dead) continue;
       const d = Math.hypot(z.x - pos.x, z.y + 1 - pos.y, z.z - pos.z);
       if (d > radius * 1.5) continue;
-      const f = clamp(1 - d / (radius * 1.5), 0, 1);
+      let f = clamp(1 - d / (radius * 1.5), 0, 1);
+      if (!lineOfSight(W, pos.x, pos.y + 0.3, pos.z, z.x, z.y + 1, z.z)) f *= 0.3;
       const dir = new THREE.Vector3(z.x - pos.x, 0.5, z.z - pos.z).normalize();
       if (f > 0.6 && Math.random() < 0.6) z.visual.dismember?.(Math.random() < 0.5 ? 'armL' : 'legR');
       z.takeDamage(damage * f, { part: 'torso', dir, knockback: 3 * f, knockdown: 1, force: 6 * f, gib: f > 0.75 });
@@ -848,7 +868,8 @@ export class Game {
     }
     const dp = Math.hypot(p.x - pos.x, p.y + 1 - pos.y, p.z - pos.z);
     if (dp < radius * 1.6) {
-      const f = clamp(1 - dp / (radius * 1.6), 0, 1);
+      let f = clamp(1 - dp / (radius * 1.6), 0, 1);
+      if (!lineOfSight(W, pos.x, pos.y + 0.3, pos.z, p.x, p.y + 1.2, p.z)) f *= 0.3;
       this.survival.hurt(damage * 0.6 * f, 'Blown up');
       if (f > 0.4) this.survival.addWound(Math.random() < 0.5 ? 'burn' : 'deep', 'torso');
       p.vx += (p.x - pos.x) / (dp + 0.1) * 10 * f; p.vz += (p.z - pos.z) / (dp + 0.1) * 10 * f; p.vy += 5 * f;
@@ -863,7 +884,7 @@ export class Game {
       const id = w.get(x, y, z);
       if (!id) continue;
       const d = BLOCKS[id];
-      if (d.mat === 'glass' || IS_DOOR[id] || id === B.barricade || (d.hp && d.hp < 80)) this.damageBlock(x, y, z, 300, { tool: 'heavy', byZombie: true });
+      if (d.mat === 'glass' || IS_DOOR[id] || id === B.barricade || (d.hp && d.hp < 80 && !(d.breakWith && d.breakWith.length === 1 && d.breakWith[0] === 'dig'))) this.damageBlock(x, y, z, 300, { tool: 'heavy', byZombie: true });
     }
     this.fx.bloodSplat?.(pos, new THREE.Vector3(0, 1, 0), 0); // scorch is handled by FX.explosion
   }
@@ -963,7 +984,7 @@ export class Game {
           const a = Math.random() * Math.PI * 2;
           const x = Math.floor(p.x + Math.cos(a) * 9), z = Math.floor(p.z + Math.sin(a) * 9);
           const y = groundAt(this.world, x, Math.floor(p.y) + 1, z);
-          if (y > 0) { const zb = this.zombies.spawn(x + 0.5, y, z + 0.5); zb.target = { x: p.x, y: p.y, z: p.z }; zb.setState('investigate'); }
+          if (y > 0) { const zb = this.zombies.spawn(x + 0.5, y, z + 0.5); if (zb.investigate) zb.investigate({ x: p.x, y: p.y, z: p.z }, true); else { zb.target = { x: p.x, y: p.y, z: p.z }; zb.setState('investigate'); } }
         }
         break;
       }
