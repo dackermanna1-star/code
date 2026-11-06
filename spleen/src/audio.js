@@ -2025,7 +2025,7 @@
     vol: { master: 1, music: 0.8, sfx: 1 }, muted: false, lowpass: false,
     tracks: [], cur: null, curId: null, curRegion: null, lastRegion: 'veins', pending: null,
     intensity: 0, timer: null, lastTick: 0, tickMs: 0, ticks: 0,
-    voices: [], lastPlay: Object.create(null), cache: Object.create(null), queue: [], rendering: false,
+    voices: [], lastPlay: Object.create(null), cache: Object.create(null), queue: [], inflight: 0,
   };
 
   function buildGraph(c, o) {
@@ -2252,7 +2252,8 @@
     return { stop(fadeSec) { if (E.ctx) killVoice(voice, num(fadeSec, 0.05)); } };
   }
 
-  // ---- background SFX pre-render (OfflineAudioContext, one name at a time) --
+  // ---- background SFX pre-render (OfflineAudioContexts render off the main
+  //      thread; two names in flight, most frequently used sounds first) ----
   function startCache() {
     if (!OAC || !E.ctx) return;
     const order = SFX_NAMES.slice().sort((a, b) => SFX[a].pri - SFX[b].pri);
@@ -2264,15 +2265,17 @@
     if (i > 0) { E.queue.splice(i, 1); E.queue.unshift(name); }
   }
   function pumpCache() {
-    if (E.rendering || !E.queue.length || !E.ctx) return;
+    while (E.inflight < 2 && E.queue.length && E.ctx) renderNext();
+  }
+  function renderNext() {
     const name = E.queue.shift(), def = SFX[name], sr = E.ctx.sampleRate;
-    E.rendering = true;
+    E.inflight++;
     const jobs = [];
     for (let v = 0; v < def.vars; v++) jobs.push(renderSfxVariant(name, v, sr));
     Promise.all(jobs).then((bufs) => { E.cache[name] = bufs; }, (err) => {
       warnOnce('cache:' + name, 'pre-render failed for ' + name + ' (' + (err && err.message) + '); using live synth');
     }).then(() => {
-      E.rendering = false;
+      E.inflight--;
       setTimeout(pumpCache, 4);
     });
   }
