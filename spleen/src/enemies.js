@@ -507,7 +507,7 @@ const ENEMY_VIS = {
     const inner = Gfx.cellMat('#ff5ad1', { rim: 1.4, core: 0.5, glow: 0.45 });
     const vs = [];
     for (let i = 0; i < 6; i++) vs.push(Gfx.part('icoFlat', inner, b, rnd(-0.5, 0.5) * r, r + rnd(-0.4, 0.4) * r, rnd(-0.5, 0.5) * r, r * 0.17));
-    return { root, body: m, anim(e, t) { const s = r * (1 + (e.data.swell || 0) * 0.25 + Math.sin(t * 2.5) * 0.04); m.scaling.setAll(s); vs.forEach((v, i) => { v.rotation.y += 0.03; v.position.y = r + Math.sin(t * 2 + i) * 0.12 * r; }); } };
+    return { root, body: m, anim(e, t) { const s = r * (1 + (e.data.swell || 0) * 0.25 + Math.sin(t * 2.5) * 0.04 + (e.data.pre || 0) * (0.15 + Math.sin(t * 40) * 0.05)); m.scaling.setAll(s); vs.forEach((v, i) => { v.rotation.y += 0.03; v.position.y = r + Math.sin(t * 2 + i) * 0.12 * r; }); } };
   },
   moldpuff(e) {
     const { root, b } = V(e), r = e.r;
@@ -605,7 +605,7 @@ const ENEMY_VIS = {
     const m = Gfx.part('sphere', Gfx.cellMat(e.color, { rim: 1.6, core: 0.4, glow: 0.45 }), b, 0, 0.9, 0, r * 0.8);
     const dm = Gfx.glowMat('#cfe0ff', { glow: 0.5 });
     for (let i = 0; i < 6; i++) { const a = i / 6 * TAU; const c = Gfx.part('cyl', dm, b, Math.cos(a) * r * 0.9, 0.9, Math.sin(a) * r * 0.9, 0.03, r * 0.4, 0.03); c.rotation.z = Math.PI / 2; c.rotation.y = -a; }
-    return { root, body: m, anim(e, t) { b.rotation.y += 0.01; b.position.y = Math.sin(t * 2 + e.id) * 0.08; } };
+    return { root, body: m, anim(e, t) { b.rotation.y += 0.01; b.position.y = Math.sin(t * 2 + e.id) * 0.08; const w = e.data.wind ? 1 + Math.sin(t * 50) * 0.12 : 1; m.scaling.setAll(r * 0.8 * w); } };
   },
   plaque(e) {
     const { root, b } = V(e), r = e.r;
@@ -627,7 +627,7 @@ const ENEMY_VIS = {
     const n = Gfx.cellMat('#2a0a20', { rim: 1.4, core: 0.6, glow: 0.2 });
     Gfx.part('sphere', n, b, -0.05, r, 0.08, r * 0.3); Gfx.part('sphere', n, b, 0.07, r, -0.08, r * 0.28);
     const pod = Gfx.part('sphere', Gfx.cellMat(e.color, { rim: 1.6, core: 0.3, glow: 0.4, alpha: 0.65 }), b, r * 0.7, r * 0.9, 0, r * 0.42);
-    return { root, body: m, anim(e, t) { b.rotation.y = e.facing; pod.position.x = r * (0.7 + (e.data.wind ? 0.2 : 0)); } };
+    return { root, body: m, anim(e, t) { b.rotation.y = e.facing; const w = e.data.wind || 0; pod.position.x = r * (0.7 + w * 0.45); pod.scaling.setAll(r * 0.42 * (1 + w * 0.6)); } };
   },
 };
 
