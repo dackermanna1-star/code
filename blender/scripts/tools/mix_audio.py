@@ -203,6 +203,6 @@ peak = np.abs(final).max()
 sf.write(A + 'mix/stranded_premaster.wav', (final / max(peak, 1.0) * 0.98).astype(np.float32), SR)
 print('premaster', TOTAL, 's peak', peak)
 # loudness normalise for YouTube (~ -14 LUFS, -1 dBTP)
-subprocess.run(['ffmpeg', '-v', 'error', '-y', '-i', A + 'mix/stranded_premaster.wav', '-af', 'loudnorm=I=-14:TP=-1.5:LRA=11',
+subprocess.run(['ffmpeg', '-v', 'error', '-y', '-i', A + 'mix/stranded_premaster.wav', '-af', 'loudnorm=I=-14:TP=-2.2:LRA=11',
                 '-ar', str(SR), A + 'mix/stranded_mix.wav'], check=True)
 print('wrote', A + 'mix/stranded_mix.wav')
