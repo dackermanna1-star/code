@@ -1,0 +1,20 @@
+{
+  "name": "dead-county",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Dead County - a voxel zombie survival sandbox set in Millbrook County",
+  "scripts": {
+    "dev": "vite --host",
+    "build": "vite build",
+    "preview": "vite preview --host"
+  },
+  "dependencies": {
+    "@fontsource/vt323": "^5.3.0",
+    "@fontsource/silkscreen": "^5.3.0",
+    "three": "^0.187.0"
+  },
+  "devDependencies": {
+    "vite": "^8.3.6"
+  }
+}
