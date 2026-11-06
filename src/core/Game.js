@@ -1164,11 +1164,18 @@ export class Game {
     const zone = ZONE_NAMES[w.getZone(p.x, p.z)] || 'WILD';
     this.location = { name: best ? best.name : zoneLabel(zone), zone: zone.toLowerCase() };
     if (best && best !== this.lastPOI) {
-      if (!this.discovered.has(best.name)) {
+      const first = !this.discovered.has(best.name);
+      if (first) {
         this.discovered.add(best.name);
         p.addXP('scavenging', 2);
       }
-      this.ui.locationBanner?.(best.name, POI_SUBTITLES[best.type] || '');
+      // don't spam banners when walking along POI borders
+      this.bannerT = this.bannerT || new Map();
+      const last = this.bannerT.get(best.name) ?? -1e9;
+      if (first || this.clock - last > 90) {
+        this.bannerT.set(best.name, this.clock);
+        this.ui.locationBanner?.(best.name, POI_SUBTITLES[best.type] || '');
+      }
     }
     this.lastPOI = best;
   }
