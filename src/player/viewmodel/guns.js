@@ -943,6 +943,46 @@ export function bow() {
       reload: { style: 'bow' },
       string: { parts: ['stringL', 'stringR'], tips: ['tipU', 'tipD'], nock: 'nock', restZ: 2.4, drawZ: 52, bow: true },
       ammoProp: 'arrow',
+      // Minecraft-style one-handed view: the right hand holds the riser on the right side, the string draws itself
+      oneHand: {
+        hip: { pos: [0.165, -0.12, -0.42], rot: [0.06, 0.1, 0.38] },
+        sprint: { pos: [0.18, -0.24, -0.36], rot: [-0.7, 0.25, 0.7] },
+        hands: { R: 'handL', L: null },
+        string: { parts: ['stringL', 'stringR'], tips: ['tipU', 'tipD'], nock: 'nock', restZ: 2.4, drawZ: 30, bow: true },
+      },
     },
   };
+}
+
+// ----------------------------------------------------------------------------------- attachments
+/**
+ * Muzzle suppressor, built in the gun's model space (cm) starting at the muzzle and extending along -Z.
+ * kind: attachment item id ('suppressor' | 'suppressor_rifle' | 'suppressor_bottle'). Returns {b, tip:[x,y,z]}.
+ */
+export function suppressorModel(kind) {
+  const b = new ModelBuilder({ texel: 0.5 });
+  if (kind === 'suppressor_bottle') {
+    // plastic soda bottle duct-taped over the barrel
+    const CL = 0x9fc4c8, TAPE = C.tape;
+    b.box(0, 0, -0.9, 2.2, 2.2, 1.8, TAPE, M.TAPE);                 // tape collar round the barrel
+    b.box(0, 0, -2.6, 2.0, 2.0, 1.6, 0xd8dcd8, M.POLY);             // neck + cap
+    b.tubeZ(0, 0, -4.6, 3.6, 2.4, CL, M.GLASS);                      // shoulder
+    b.tubeZ(0, 0, -11.6, 5.4, 11.6, CL, M.GLASS);                    // body
+    b.box(0, 0, -10.5, 5.62, 5.62, 3.0, 0xc8302a, M.POLY, { skip: 'pz,nz' }); // label
+    b.box(0, 0, -17.6, 4.2, 4.2, 0.4, CL, M.GLASS);                  // base (shot-out hole in it)
+    b.box(0, 0, -17.85, 1.4, 1.4, 0.1, 0x101010, M.FLAT);
+    return { b, tip: [0, 0, -18.1] };
+  }
+  const rifle = kind === 'suppressor_rifle';
+  const d = rifle ? 3.6 : 2.7, len = rifle ? 17 : 13.5;
+  const col = rifle ? 0x3a3c34 : 0x1d1e21;
+  b.tubeZ(0, 0, -0.6, d * 0.72, 1.2, C.gunDark, M.METAL);            // thread collar
+  b.tubeZ(0, 0, -1.2 - len / 2, d, len, col, M.PAINT);
+  for (const z of [-2.2, -1.2 - len + 1.0]) b.tubeZ(0, 0, z, d + 0.12, 0.5, shadeHex(col, 1.35), M.METAL, { core: false });
+  b.box(0, 0, -1.2 - len - 0.06, d * 0.36, d * 0.36, 0.1, 0x050505, M.FLAT); // bore
+  return { b, tip: [0, 0, -1.4 - len] };
+}
+function shadeHex(hex, f) {
+  const r = Math.min(255, Math.round(((hex >> 16) & 255) * f)), g = Math.min(255, Math.round(((hex >> 8) & 255) * f)), bl = Math.min(255, Math.round((hex & 255) * f));
+  return (r << 16) | (g << 8) | bl;
 }

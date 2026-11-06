@@ -8,6 +8,21 @@ import { SpriteParticles, MODE } from './SpriteParticles.js';
 import { Decals } from './Decals.js';
 import { getSpriteAtlas, getDecalAtlas, SPRITE, DECAL } from './textures.js';
 
+// Compatibility shim: the game copies dynamic-light colours (THREE.Color) into the vec3 point-light uniforms with
+// Vector3.copy(color), which reads .x/.y/.z -> NaN -> every lit surface renders BLACK while any point light is
+// active (each muzzle flash, explosion, fire, flare, burning zombie). Aliasing x/y/z to r/g/b makes that copy
+// correct; three's own vec3 uniform setter treats {x,y,z} and {r,g,b} identically, so nothing else changes.
+// (Proper fix in Game.render: uPLC[i].set(l.color.r, l.color.g, l.color.b) — see the QA report.)
+if (!('x' in THREE.Color.prototype)) {
+  for (const [a, c] of [['x', 'r'], ['y', 'g'], ['z', 'b']]) {
+    Object.defineProperty(THREE.Color.prototype, a, {
+      get() { return this[c]; },
+      set(v) { this[c] = v; },
+      configurable: true, enumerable: false,
+    });
+  }
+}
+
 // authoring colours are sRGB 0..255; particle shaders want linear albedo
 const lin = (v) => { v /= 255; return v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
 const L3 = (r, g, b) => [lin(r), lin(g), lin(b)];
@@ -88,7 +103,7 @@ export class FX {
     let L = this._lightPool.pop();
     if (!L) L = { x: 0, y: 0, z: 0, r: 0, g: 0, b: 0, radius: 0, intensity: 0, life: 0, age: 0, flicker: 0, base: [0, 0, 0], emitter: null };
     L.x = x; L.y = y; L.z = z; L.base[0] = r; L.base[1] = g; L.base[2] = b; L.r = r; L.g = g; L.b = b;
-    L.radius = radius; L.life = life; L.age = 0; L.flicker = flicker; L.intensity = 1; L.emitter = null;
+    L.radius = radius; L.life = life; L.age = 0; L.flicker = flicker; L.intensity = 1; L.emitter = null; L.decay = 0; // pooled: reset
     this.lights.push(L);
     return L;
   }
@@ -440,12 +455,15 @@ export class FX {
         frame: SPRITE.FLAME_A + ((rnd() * 3) | 0), spin: rr(-3, 3), fadeIn: 0, fadeOut: 0.6,
       });
     }
-    for (let k = 0; k < 24; k++) {
-      const a = rnd() * 6.283, e = rr(0, 1), sp = rr(0.4, 1.4) * R;
+    // smoke: a dense dark core that rises and thins out (scaled for the blast, capped so a grenade a few metres
+    // away doesn't black out the whole screen for seconds)
+    const Rc = Math.min(R, 4);
+    for (let k = 0; k < 20; k++) {
+      const a = rnd() * 6.283, e = rr(0, 1), sp = rr(0.3, 1.1) * Rc;
       this.lit.spawn(pos.x + rr(-0.3, 0.3), pos.y + 0.5 + rr(0, 0.5), pos.z + rr(-0.3, 0.3), {
-        vx: Math.cos(a) * sp * (1 - e * 0.5), vy: e * sp * 0.6 + rr(0.8, 2), vz: Math.sin(a) * sp * (1 - e * 0.5), drag: 1.6, grav: 0.5,
-        s0: R * 0.45, s1: R * rr(1.1, 1.7), life: rr(3, 6.5), color: [0.07, 0.065, 0.06], color1: [0.24, 0.235, 0.23], alpha: 0.88,
-        frame: SPRITE.SMOKE_A + ((rnd() * 3) | 0), spin: rr(-0.6, 0.6), sky, block: blk, fadeIn: 0.04, fadeOut: 0.5, grow: 0.4,
+        vx: Math.cos(a) * sp * (1 - e * 0.5), vy: e * sp * 0.6 + rr(1.2, 2.6), vz: Math.sin(a) * sp * (1 - e * 0.5), drag: 1.8, grav: 0.6,
+        s0: Rc * 0.4, s1: Rc * rr(0.8, 1.25), life: rr(2.2, 4.5), color: [0.09, 0.08, 0.07], color1: [0.3, 0.29, 0.27], alpha: 0.8,
+        frame: SPRITE.SMOKE_A + ((rnd() * 3) | 0), spin: rr(-0.6, 0.6), sky, block: blk, fadeIn: 0.04, fadeOut: 0.6, grow: 0.4,
       });
     }
     for (let k = 0; k < 14; k++) {
@@ -545,15 +563,19 @@ export class FX {
         }
       } else {
         const I = e.intensity, R = e.radius;
-        e.acc += dt * 40 * I * (0.6 + R);
-        e.acc2 += dt * 5 * I;
-        e.acc3 += dt * (e.smoke ? 6 * I : 0);
+        // big areas (molotov puddles) get MORE flames / smoke puffs spread over the area, not bigger ones:
+        // a 3 m fire must not turn into a wall of 10 m black billboards in front of the camera
+        const Rs = Math.min(R, 1.0);
+        const area = 1 + Math.max(0, R - 1) * 1.6;
+        e.acc += dt * 40 * I * (0.6 + Rs) * area;
+        e.acc2 += dt * 5 * I * Math.sqrt(area);
+        e.acc3 += dt * (e.smoke ? 6 * I * Math.sqrt(area) : 0);
         while (e.acc >= 1) {
           e.acc -= 1;
           const a = rnd() * 6.283, d = Math.sqrt(rnd()) * R;
           this.add.spawn(e.x + Math.cos(a) * d, e.y + rr(0, 0.1), e.z + Math.sin(a) * d, {
             vx: rr(-0.2, 0.2), vy: rr(1.0, 2.2) * Math.sqrt(I), vz: rr(-0.2, 0.2), drag: 1.2,
-            s0: rr(0.45, 0.75) * Math.sqrt(I) * (0.7 + R * 0.6), s1: 0.12, life: rr(0.4, 0.85), color: [1.15, 0.36, 0.06], color1: [0.55, 0.05, 0.005], alpha: 0.75,
+            s0: rr(0.45, 0.75) * Math.sqrt(I) * (0.7 + Rs * 0.6), s1: 0.12, life: rr(0.4, 0.85), color: [1.15, 0.36, 0.06], color1: [0.55, 0.05, 0.005], alpha: 0.75,
             frame: SPRITE.FLAME_A + ((rnd() * 3) | 0), rot: rr(-0.3, 0.3), spin: rr(-1, 1), fadeIn: 0.12, fadeOut: 0.5, grow: 1,
           });
         }
@@ -568,12 +590,12 @@ export class FX {
         while (e.acc3 >= 1) {
           e.acc3 -= 1;
           this.lit.spawn(e.x + rr(-R, R) * 0.6, e.y + 0.9 + rr(0, 0.4), e.z + rr(-R, R) * 0.6, {
-            vx: rr(-0.2, 0.2), vy: rr(1.2, 2), vz: rr(-0.2, 0.2), grav: 0.15, drag: 0.4,
-            s0: 0.4 * (0.6 + R), s1: rr(1.8, 2.8) * (0.6 + R), life: rr(2.5, 4), color: [0.05, 0.045, 0.04], color1: [0.14, 0.135, 0.13], alpha: 0.75,
+            vx: rr(-0.2, 0.2), vy: rr(1.4, 2.2), vz: rr(-0.2, 0.2), grav: 0.15, drag: 0.4,
+            s0: 0.4 * (0.6 + Rs), s1: rr(1.8, 2.8) * (0.6 + Rs), life: rr(2.5, 4), color: [0.05, 0.045, 0.04], color1: [0.14, 0.135, 0.13], alpha: R > 1 ? 0.6 : 0.75,
             frame: SPRITE.SMOKE_A + ((rnd() * 3) | 0), spin: rr(-0.4, 0.4), sky: this._sky, block: this._blk, fadeIn: 0.15, fadeOut: 0.5,
           });
         }
-        if (e.light) { e.light.x = e.x; e.light.y = e.y + 0.8; e.light.z = e.z; e.light.radius = 7 + 4 * I * (0.5 + R); }
+        if (e.light) { e.light.x = e.x; e.light.y = e.y + 0.8; e.light.z = e.z; e.light.radius = 7 + 4 * I * (0.5 + Math.min(R, 2.5)); }
       }
     }
   }
@@ -635,6 +657,22 @@ export class FX {
       used++;
     }
     return used;
+  }
+
+  /**
+   * Persistent dynamic light (burning flare, lantern...). opts: {color:[r,g,b] (HDR ok), radius, flicker (bool)}.
+   * @returns {setPos(p), setIntensity(v), stop()}
+   */
+  light(pos, opts = {}) {
+    const c = opts.color || [3, 1.5, 0.5];
+    const L = this._addLight(pos.x, pos.y, pos.z, c[0], c[1], c[2], opts.radius ?? 10, Infinity, opts.flicker ? 1 : 0);
+    const e = { intensity: 1 };
+    if (opts.flicker) L.emitter = e;
+    return {
+      setPos: (p) => { L.x = p.x; L.y = p.y; L.z = p.z; },
+      setIntensity: (v) => { e.intensity = v; if (!opts.flicker) { L.base[0] = c[0] * v; L.base[1] = c[1] * v; L.base[2] = c[2] * v; } },
+      stop: () => { L.life = 0; L.emitter = null; },
+    };
   }
 
   // ------------------------------------------------------------------ frame
