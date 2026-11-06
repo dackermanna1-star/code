@@ -78,9 +78,9 @@ const HAIR = [[40, 30, 22], [70, 48, 30], [110, 80, 50], [150, 120, 80], [196, 1
 const SHIRTS = [0x8a2a2a, 0x2f4f7f, 0x3c6e3c, 0x6b6b6b, 0xc8c8c0, 0x2a2a2a, 0x7a5a2a, 0x5a3a6a, 0x9a8a3a, 0x3a7a7a, 0xb06030, 0x4a5a2a, 0x202848];
 const PANTS = [0x34466a, 0x2a3550, 0x5a5040, 0x8a7a5a, 0x2a2a2a, 0x555555, 0x3a3a48, 0x6a5a40];
 const SHOES = [0x3a2a1e, 0x1e1e1e, 0xd0d0c8, 0x5a3a22, 0x6a6a6a];
-const BLOOD_DRY = [92, 18, 14];
-const BLOOD = [128, 14, 10];
-const FLESH = [168, 62, 58];
+const BLOOD_DRY = [74, 22, 16];
+const BLOOD = [104, 16, 12];
+const FLESH = [150, 62, 56];
 const BONE_C = [214, 204, 178];
 
 // ------------------------------------------------------------------ the painter
@@ -142,7 +142,7 @@ function paintHead(P, rng, o) {
   const { skin, hair, hairStyle, rot, eyes, variant } = o;
   const socket = shade(mix(skin, [60, 20, 24], 0.35), 0.38);
   const socketDeep = shade(socket, 0.55);
-  const glowCol = variant === 'runner' ? [255, 120, 70] : variant === 'screamer' ? [230, 235, 255] : [236, 226, 150];
+  const glowCol = variant === 'runner' ? [150, 60, 34] : variant === 'screamer' ? [120, 130, 140] : [128, 118, 62];
   const hairPx = () => jit(rng, hair, 12);
   const isHair = (face, x, y) => {
     if (hairStyle === 'bald') return face === 'top' && rng.next() < 0.15;
@@ -185,14 +185,15 @@ function paintHead(P, rng, o) {
   // nose
   P.set(fx + 3, fy + 5, shade(skin, 0.72)); P.set(fx + 4, fy + 5, shade(skin, 0.68));
   if (rot > 0.6 && rng.next() < 0.3) { P.set(fx + 3, fy + 5, [40, 16, 16]); P.set(fx + 4, fy + 5, [52, 20, 18]); }
-  // mouth (row 6 is the top row of the jaw): grimace with teeth
-  const lip = [62, 18, 18];
+  // mouth (row 6 is the top row of the jaw): dark slit, a tooth or two
+  const lip = [40, 16, 15];
   const wide = variant === 'screamer';
-  for (let x = wide ? 1 : 2; x <= (wide ? 6 : 5); x++) P.set(fx + x, fy + 6, lip);
+  const m0 = wide ? 1 : 2 + (rng.next() < 0.3 ? 1 : 0), m1 = wide ? 6 : 5 - (rng.next() < 0.3 ? 1 : 0);
+  for (let x = m0; x <= m1; x++) P.set(fx + x, fy + 6, lip);
   if (rot > 0.4) {
-    P.set(fx + 3, fy + 6, BONE_C);
-    if (rng.next() < 0.6) P.set(fx + 5, fy + 6, shade(BONE_C, 0.9));
-    if (wide) { P.set(fx + 2, fy + 6, BONE_C); P.set(fx + 6, fy + 6, shade(BONE_C, 0.85)); }
+    const tooth = [168, 156, 120];
+    if (rng.next() < 0.7) P.set(fx + 3 + (rng.next() < 0.5 ? 0 : 1), fy + 6, tooth);
+    if (wide) { P.set(fx + 2, fy + 6, tooth); P.set(fx + 5, fy + 6, shade(tooth, 0.85)); }
     // blood around the mouth / chin
     for (let k = 0; k < 4; k++) {
       const x = 2 + Math.floor(rng.next() * 4), y = 6 + Math.floor(rng.next() * 2);
@@ -593,7 +594,7 @@ const OUTFITS = {
   },
 
   prisoner(P, rng, o) {
-    const orange = rng.chance(0.85) ? [216, 104, 32] : [190, 190, 190];
+    const orange = rng.chance(0.9) ? [210, 100, 30] : [196, 120, 50];
     shirt(P, rng, orange, {
       sleeves: 4, neck: 'v', pattern: (face, x, y) => {
         if (face === 'back' && y >= 3 && y <= 4 && x >= 1 && x <= 6 && (x + y) % 2 === 0) return [30, 30, 30]; // "DOC" print
@@ -739,7 +740,7 @@ function weather(P, rng, o) {
   for (const arm of ['armR', 'armL']) {
     paintPart(P, arm, 'base', (face, x, y) => {
       if (face === 'top') return null;
-      if ((face === 'bottom' || y >= 10) && rng.next() < 0.55 * rot) return jit(rng, rng.next() < 0.5 ? BLOOD_DRY : BLOOD, 10);
+      if ((face === 'bottom' || y >= 10) && rng.next() < 0.3 * rot) return jit(rng, rng.next() < 0.7 ? BLOOD_DRY : BLOOD, 10);
       return null;
     });
   }
@@ -790,7 +791,7 @@ function paintSwatches(P, rng, o) {
   });
   // mouth: palate (rows 0-3, row 0 = front teeth), tongue (rows 4-7, row 7 = front teeth)
   P.fillRect(FREE.mouth, (x, y) => {
-    if (y === 0 || y === 7) return (x > 0 && x < 7 && rng.next() < 0.75) ? jit(rng, BONE_C, 14) : [50, 14, 14];
+    if (y === 0 || y === 7) return (x > 0 && x < 7 && rng.next() < 0.5) ? jit(rng, [160, 148, 110], 14) : [40, 12, 12];
     if (y >= 4 && y <= 6 && x >= 2 && x <= 5) return jit(rng, [120, 40, 46], 10);
     return jit(rng, [44, 10, 10], 8);
   });

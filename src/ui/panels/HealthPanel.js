@@ -223,12 +223,20 @@ export class HealthPanel {
     this.vrows.temp.row.classList.toggle('cold', bt < 36.2);
     const wet = p.wetness ?? 0;
     set('wetness', wet / 100, word(wet, ['Dry', 'Damp', 'Wet', 'Soaked', 'Drenched']), lvl(wet, 25, 55, 85));
-    const fat = 100 - (p.energy ?? 100);
-    set('fatigue', fat / 100, word(fat, ['Rested', 'Tired', 'Weary', 'Exhausted', 'Collapsing']), lvl(fat, 40, 65, 85));
-    const hun = 100 - (p.hunger ?? 100);
-    set('hunger', (p.hunger ?? 100) / 100, word(hun, ['Satiated', 'Peckish', 'Hungry', 'Starving', 'Starving']), lvl(hun, 50, 70, 88));
-    const thi = 100 - (p.thirst ?? 100);
-    set('thirst', (p.thirst ?? 100) / 100, word(thi, ['Hydrated', 'Dry mouth', 'Thirsty', 'Parched', 'Dehydrated']), lvl(thi, 50, 70, 88));
+    // satiety-style stats: high = good
+    const sat = (v, words, warn, bad, crit) => {
+      const w = v > 70 ? words[0] : v > 45 ? words[1] : v > 25 ? words[2] : v > 10 ? words[3] : words[4];
+      return [w, v <= crit ? 'crit' : v <= bad ? 'bad' : v <= warn ? 'warn' : 'ok'];
+    };
+    const en = p.energy ?? 100;
+    const [fw, ft] = sat(en, ['Rested', 'Drowsy', 'Tired', 'Exhausted', 'Collapsing'], 45, 25, 10);
+    set('fatigue', (100 - en) / 100, fw, ft);
+    const hu = p.hunger ?? 100;
+    const [hw, ht] = sat(hu, ['Well fed', 'Peckish', 'Hungry', 'Very hungry', 'Starving'], 45, 25, 10);
+    set('hunger', hu / 100, hw, ht === 'ok' ? 'good' : ht);
+    const th = p.thirst ?? 100;
+    const [tw2, tt] = sat(th, ['Hydrated', 'Dry mouth', 'Thirsty', 'Parched', 'Dehydrated'], 45, 25, 10);
+    set('thirst', th / 100, tw2, tt === 'ok' ? 'good' : tt);
     const pan = p.panic ?? 0;
     set('panic', pan / 100, word(pan, ['Calm', 'Uneasy', 'Scared', 'Panicked', 'Terrified']), lvl(pan, 20, 50, 80));
     const a = p.armor || {};

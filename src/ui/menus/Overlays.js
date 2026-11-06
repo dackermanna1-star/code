@@ -1,5 +1,5 @@
 // Full-screen overlays: loading screen, pause menu, death screen, note reader, dialogs.
-import { h, clear, setText, setStyle, setClass, clamp, fmtDays, phaseText } from '../dom.js';
+import { h, add, clear, setText, setStyle, setClass, clamp, fmtDays, phaseText } from '../dom.js';
 import { Backdrop } from './backdrop.js';
 import { SettingsView, ControlsView } from './SettingsView.js';
 
@@ -158,7 +158,7 @@ export class DeathScreen {
     const btns = h('div.death-buttons',
       this.ui.button('New Game', () => this.newGame(), 'btn-menu'),
       this.ui.button('Main Menu', () => this.mainMenu(), 'btn-menu'));
-    this.content.append(
+    add(this.content,
       h('div.death-title', 'This is how you died.'),
       h('div.death-cause', info.cause || 'You died.'),
       h('div.death-card',

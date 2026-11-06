@@ -130,9 +130,10 @@ async function main() {
       const raw = Math.max(...rs.map((r) => r.rawPeak || 0));
       const kb = rs.reduce((a, r) => a + (r.samples || 0) * 4, 0) / 1024;
       memRows.push([n, kb]);
-      rows.push([n, rs.length, dur.toFixed(2), pk.toFixed(2), db(rms), db(lw), raw.toFixed(2), ms.toFixed(0), rs[0].sr, kb.toFixed(0)]);
+      const l50 = Math.max(...rs.map((r) => r.rms50 || 0));
+      rows.push([n, rs.length, dur.toFixed(2), pk.toFixed(2), db(rms), db(lw), db(lw * d.level), db(l50 * d.level), raw.toFixed(2), ms.toFixed(0), rs[0].sr, kb.toFixed(0)]);
     }
-    const head = ['sound', 'var', 'dur', 'peak', 'rmsdB', 'loud', 'rawPk', 'ms', 'sr', 'KiB'];
+    const head = ['sound', 'var', 'dur', 'peak', 'rmsdB', 'loud', 'mixdB', 'mix50', 'rawPk', 'ms', 'sr', 'KiB'];
     const w = head.map((h, i) => Math.max(h.length, ...rows.map((r) => String(r[i]).length)));
     const fmt = (r) => r.map((c, i) => (i === 0 ? String(c).padEnd(w[i]) : String(c).padStart(w[i]))).join('  ');
     console.log('  ' + fmt(head));

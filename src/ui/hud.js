@@ -406,6 +406,8 @@ export class Hud {
       const row = h('div.moodle', h('div.moodle-label', h('span', m.label || m.id), m.desc ? h('small', m.desc) : null), tile);
       if (prev[m.id] == null) row.classList.add('enter');
       else if (prev[m.id] !== lvl) row.classList.add(lvl > prev[m.id] ? 'up' : 'down');
+      // one-shot: otherwise the animation replays whenever the HUD is re-shown after a panel closes
+      row.addEventListener('animationend', () => row.classList.remove('enter', 'up', 'down'), { once: true });
       this.moodles.appendChild(row);
     }
     this.moodlePrev = now;
@@ -473,8 +475,6 @@ export class Hud {
   }
 
   toast(text, type = 'info') {
-    const icons = { info: null, good: null, warn: null, danger: null };
-    void icons;
     const t = h(`div.toast.t-${type}`, h('i.toast-bar'), h('span', String(text)));
     this.toastBox.appendChild(t);
     this.toasts.push(t);

@@ -42,10 +42,16 @@ export function buildRound(b, kind) {
 }
 
 // ----------------------------------------------------------------------------------- pistols
+function clean(o) {
+  for (const k in o) if (o[k] === undefined) delete o[k];
+  return o;
+}
+
 function pistolCommonMeta(extra) {
+  clean(extra);
   return Object.assign({
-    kind: 'gun', hold: 'pistol', weight: 0.15,
-    hip: { pos: [0.105, -0.155, -0.36], rot: [0.03, 0.07, 0.0] },
+    kind: 'gun', hold: 'pistol', weight: 0.15, scale: 1.3,
+    hip: { pos: [0.1, -0.135, -0.32], rot: [0.03, 0.06, 0.0] },
     sprint: { pos: [0.09, -0.24, -0.3], rot: [-0.95, 0.35, 0.25] },
     adsDist: 0.3,
     hands: { R: 'handR', L: 'handL' },
@@ -263,9 +269,10 @@ export function revolver() {
 
 // ----------------------------------------------------------------------------------- shotguns
 function longGunMeta(extra) {
+  clean(extra);
   return Object.assign({
-    kind: 'gun', hold: 'rifle', weight: 0.6,
-    hip: { pos: [0.115, -0.15, -0.27], rot: [0.02, 0.055, 0.0] },
+    kind: 'gun', hold: 'rifle', weight: 0.6, scale: 1.15,
+    hip: { pos: [0.105, -0.13, -0.24], rot: [0.02, 0.05, 0.0] },
     sprint: { pos: [0.05, -0.17, -0.25], rot: [-0.45, 0.85, 0.5] },
     adsDist: 0.17,
     hands: { R: 'handR', L: 'handL' },
@@ -390,7 +397,7 @@ function doubleBarrel(sawed) {
     b,
     meta: longGunMeta({
       hold: 'shotgun', weight: sawed ? 0.45 : 0.75,
-      hip: sawed ? { pos: [0.11, -0.15, -0.3], rot: [0.02, 0.06, 0] } : undefined,
+      hip: sawed ? { pos: [0.1, -0.13, -0.28], rot: [0.02, 0.06, 0] } : undefined,
       adsDist: sawed ? 0.24 : 0.17,
       channels: {
         breakOpen: [{ part: 'barrels', r: [-0.62, 0, 0] }],
@@ -701,7 +708,7 @@ export function rifle22() {
   return {
     b,
     meta: longGunMeta({
-      weight: 0.35, adsDist: 0.27, scale: 0.95,
+      weight: 0.35, adsDist: 0.27, scale: 1.1,
       channels: {
         charge: [{ part: 'bolt', t: [0, 0, 2.6] }],
         trigger: [{ part: 'trigger', r: [0.3, 0, 0] }],
@@ -776,7 +783,7 @@ export function smg() {
     b,
     meta: longGunMeta({
       weight: 0.45, adsDist: 0.2,
-      hip: { pos: [0.115, -0.15, -0.3], rot: [0.02, 0.055, 0.0] },
+      hip: { pos: [0.105, -0.13, -0.26], rot: [0.02, 0.05, 0.0] },
       channels: {
         charge: [{ part: 'charge', t: [0, 0, 6.0] }],
         trigger: [{ part: 'trigger', r: [0.3, 0, 0] }],
@@ -837,6 +844,7 @@ export function crossbow() {
   }
   // bolt
   b.part('arrow', { origin: [0, 6.0, -8.5] });
+  b.point('arrowGrab', [0, 6.0, -20]);
   b.box(0, 6.0, -22.5, 0.5, 0.5, 28, 0x2b2b2b, M.POLY);
   b.box(0, 6.0, -37.4, 0.8, 0.8, 2.2, C.steel, M.STEEL);
   b.box(0, 6.0, -38.8, 0.4, 0.4, 0.8, C.steel, M.STEEL);

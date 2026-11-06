@@ -50,7 +50,7 @@ export class ZombieAnimator {
     // personality
     this.limpSide = rng.chance(0.5) ? 1 : -1;
     this.limp = variant === 'runner' ? rng.range(0, 0.15) : rng.range(0.1, 0.65);
-    this.headTilt = rng.range(-0.32, 0.32);
+    this.headTilt = rng.range(-0.24, 0.24);
     this.armAsym = rng.range(-0.18, 0.18);
     this.po = rng.range(0, 6.283);
     this.lean = rng.range(0.02, 0.2);
@@ -253,7 +253,7 @@ export class ZombieAnimator {
     T[CX] = this.lean * 0.7 + V.lean + 0.03 * s1;
     T[CZ] = 0.04 * s2; T[CY] = 0.06 * s3;
     T[HX] = 0.12 + 0.1 * s3 + V.headX; T[HY] = 0.28 * s3; T[HZ] = this.headTilt + 0.1 * s2;
-    T[JAW] = 0.05 + 0.12 * Math.max(0, Math.sin(t * 0.8 + po));
+    T[JAW] = 0.02 + 0.1 * Math.max(0, Math.sin(t * 0.8 + po)) ** 2;
     const raise = -1.25;
     this.arms(T,
       lerp(-0.1 + 0.05 * s1, raise + 0.08 * s1 + this.armAsym, a), 0.07 + 0.08 * a + V.armOut, lerp(-0.12, -0.3, a),
@@ -277,7 +277,7 @@ export class ZombieAnimator {
     T[HX] = 0.1 + 0.06 * Math.cos(2 * ph) + V.headX;
     T[HY] = 0.18 * Math.sin(ph * 0.5 + this.po);
     T[HZ] = this.headTilt + 0.13 * Math.sin(ph * 0.5 + 1.3);
-    T[JAW] = 0.07 + 0.1 * Math.max(0, Math.sin(this.t * 1.3 + this.po));
+    T[JAW] = 0.03 + 0.1 * Math.max(0, Math.sin(this.t * 1.3 + this.po)) ** 2;
     const hangR = -0.75 * A * sp - 0.08, hangL = 0.75 * A * sp - 0.08;
     const raR = -1.3 + 0.1 * Math.sin(ph + 0.6) + this.armAsym, raL = -1.25 + 0.1 * Math.sin(ph + 0.6 + PI) - this.armAsym;
     this.arms(T,
@@ -436,9 +436,9 @@ export class ZombieAnimator {
     const po = this.po;
     const tear = Math.max(0, Math.sin(t * 4.2 + po));
     T[RY] = -5.0; T[RZ] = -1.5;
-    T[CX] = 0.78 + 0.12 * Math.sin(t * 2.1 + po);
+    T[CX] = 0.95 + 0.12 * Math.sin(t * 2.1 + po);
     T[CZ] = 0.05 * Math.sin(t * 1.3);
-    T[HX] = 0.45 + 0.3 * tear; T[HY] = 0.2 * Math.sin(t * 1.3 + po); T[HZ] = this.headTilt * 0.5 + 0.1 * Math.sin(t * 3.1);
+    T[HX] = 0.55 + 0.35 * tear; T[HY] = 0.2 * Math.sin(t * 1.3 + po); T[HZ] = this.headTilt * 0.5 + 0.1 * Math.sin(t * 3.1);
     T[JAW] = 0.18 + 0.28 * Math.abs(Math.sin(t * 6.5));
     this.arms(T,
       -0.95 - 0.35 * Math.sin(t * 2.1 + po), 0.22, -0.55 - 0.35 * tear,

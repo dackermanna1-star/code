@@ -196,6 +196,7 @@ export class MapPanel {
     if (W < 2 || H < 2) return;
     const v = this.view;
     const t = performance.now() / 1000;
+    const k = this.ui.u || 1; // ui scale for labels / symbols
     g.setTransform(dpr, 0, 0, dpr, 0, 0);
     g.fillStyle = '#0b0a09';
     g.fillRect(0, 0, W, H);
@@ -244,18 +245,18 @@ export class MapPanel {
     g.strokeRect(o.x - 4.5, o.y - 4.5, mw + 9, mh + 9);
 
     // grid labels
-    g.font = '13px Silkscreen, monospace';
+    g.font = `${Math.round(11 * k)}px Silkscreen, monospace`;
     g.textAlign = 'center';
     g.textBaseline = 'middle';
     g.fillStyle = 'rgba(230,215,185,0.55)';
     for (let i = 0; i < this.SX / GRID; i++) {
       const s = this.w2s((i + 0.5) * GRID, 0);
-      const y = clamp(o.y - 14, 10, H - 10);
+      const y = clamp(o.y - 14 * k, 10 * k, H - 10 * k);
       g.fillText(String.fromCharCode(65 + i), s.x, y);
     }
     for (let i = 0; i < this.SZ / GRID; i++) {
       const s = this.w2s(0, (i + 0.5) * GRID);
-      const x = clamp(o.x - 16, 12, W - 12);
+      const x = clamp(o.x - 16 * k, 12 * k, W - 12 * k);
       g.fillText(String(i + 1), x, s.y);
     }
 
@@ -270,24 +271,25 @@ export class MapPanel {
       const s = this.w2s(p.x, p.z);
       if (s.x < -100 || s.y < -40 || s.x > W + 100 || s.y > H + 40) continue;
       const big = p.big;
-      const size = big ? Math.round(clamp(14 + v.zoom * 3, 15, 22)) : Math.round(clamp(9 + v.zoom * 2.5, 11, 17));
+      const size = Math.round((big ? clamp(14 + v.zoom * 3, 15, 22) : clamp(9 + v.zoom * 2.5, 11, 17)) * k);
       if (!big && v.zoom < 0.75) continue;
       g.font = big ? `${size}px Silkscreen, monospace` : `${Math.round(size * 1.25)}px VT323, monospace`;
       const label = big ? p.name.toUpperCase() : p.name;
       const tw = g.measureText(label).width;
-      const ly = big ? s.y : s.y - 12;
+      const ly = big ? s.y : s.y - 12 * k;
       const rect = { x0: s.x - tw / 2 - 4, x1: s.x + tw / 2 + 4, y0: ly - size / 2 - 2, y1: ly + size / 2 + 2 };
       const overlap = placed.some((q) => rect.x0 < q.x1 && rect.x1 > q.x0 && rect.y0 < q.y1 && rect.y1 > q.y0);
       if (!big) {
+        const q = Math.round(4 * k);
         g.fillStyle = '#1a1612';
-        g.fillRect(Math.round(s.x) - 4, Math.round(s.y) - 4, 8, 8);
+        g.fillRect(Math.round(s.x) - q, Math.round(s.y) - q, q * 2, q * 2);
         g.fillStyle = poiColor(p.type);
-        g.fillRect(Math.round(s.x) - 3, Math.round(s.y) - 3, 6, 6);
+        g.fillRect(Math.round(s.x) - q + 1, Math.round(s.y) - q + 1, q * 2 - 2, q * 2 - 2);
       }
       if (overlap) continue;
       placed.push(rect);
       g.lineJoin = 'round';
-      g.lineWidth = big ? 4 : 3.5;
+      g.lineWidth = (big ? 4 : 3.5) * k;
       g.strokeStyle = 'rgba(8,7,6,0.92)';
       g.strokeText(label, s.x, ly);
       g.fillStyle = big ? 'rgba(236,226,204,0.92)' : '#e8dcc0';
@@ -301,19 +303,20 @@ export class MapPanel {
       g.strokeStyle = `rgba(220,60,40,${(1 - pulse) * 0.9})`;
       g.lineWidth = 2;
       g.beginPath();
-      g.arc(s.x, s.y, 6 + pulse * 16, 0, Math.PI * 2);
+      g.arc(s.x, s.y, (6 + pulse * 16) * k, 0, Math.PI * 2);
       g.stroke();
+      const a = 8 * k, b = 5.5 * k;
       g.fillStyle = '#120e0b';
-      g.beginPath(); g.moveTo(s.x, s.y - 8); g.lineTo(s.x + 8, s.y); g.lineTo(s.x, s.y + 8); g.lineTo(s.x - 8, s.y); g.closePath(); g.fill();
+      g.beginPath(); g.moveTo(s.x, s.y - a); g.lineTo(s.x + a, s.y); g.lineTo(s.x, s.y + a); g.lineTo(s.x - a, s.y); g.closePath(); g.fill();
       g.fillStyle = m.type === 'airdrop' ? '#e2492f' : '#e0a83a';
-      g.beginPath(); g.moveTo(s.x, s.y - 5.5); g.lineTo(s.x + 5.5, s.y); g.lineTo(s.x, s.y + 5.5); g.lineTo(s.x - 5.5, s.y); g.closePath(); g.fill();
+      g.beginPath(); g.moveTo(s.x, s.y - b); g.lineTo(s.x + b, s.y); g.lineTo(s.x, s.y + b); g.lineTo(s.x - b, s.y); g.closePath(); g.fill();
       if (m.label) {
-        g.font = '17px VT323, monospace';
-        g.lineWidth = 3.5;
+        g.font = `${Math.round(17 * k)}px VT323, monospace`;
+        g.lineWidth = 3.5 * k;
         g.strokeStyle = 'rgba(8,7,6,0.92)';
-        g.strokeText(m.label, s.x, s.y + 18);
+        g.strokeText(m.label, s.x, s.y + 18 * k);
         g.fillStyle = '#f0b090';
-        g.fillText(m.label, s.x, s.y + 18);
+        g.fillText(m.label, s.x, s.y + 18 * k);
       }
     }
 
@@ -325,11 +328,12 @@ export class MapPanel {
       const pulse = (t * 0.8) % 1;
       g.strokeStyle = `rgba(255,240,200,${(1 - pulse) * 0.5})`;
       g.lineWidth = 1.5;
-      g.beginPath(); g.arc(s.x, s.y, 8 + pulse * 18, 0, Math.PI * 2); g.stroke();
+      g.beginPath(); g.arc(s.x, s.y, (8 + pulse * 18) * k, 0, Math.PI * 2); g.stroke();
       // view cone
       g.save();
       g.translate(s.x, s.y);
       g.rotate(b);
+      g.scale(k, k);
       const grad = g.createRadialGradient(0, 0, 2, 0, 0, 46);
       grad.addColorStop(0, 'rgba(255,236,180,0.32)');
       grad.addColorStop(1, 'rgba(255,236,180,0)');

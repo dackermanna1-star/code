@@ -258,8 +258,17 @@ function stats(buf) {
     if (i >= win) acc -= d[i - win] * d[i - win];
     if (i >= Math.min(win, d.length) - 1) best = Math.max(best, acc / Math.min(win, d.length));
   }
+  // short-window (50 ms) loudness for impulsive sounds
+  const w2 = Math.max(1, Math.floor(0.05 * buf.sampleRate));
+  let best2 = 0;
+  acc = 0;
+  for (let i = 0; i < d.length; i++) {
+    acc += d[i] * d[i];
+    if (i >= w2) acc -= d[i - w2] * d[i - w2];
+    if (i >= Math.min(w2, d.length) - 1) best2 = Math.max(best2, acc / Math.min(w2, d.length));
+  }
   const seam = Math.abs(d[0] - d[d.length - 1]);
-  return { peak, rms: Math.sqrt(ss / d.length), rmsWin: Math.sqrt(best), nan, duration: buf.duration, seam };
+  return { peak, rms: Math.sqrt(ss / d.length), rmsWin: Math.sqrt(best), rms50: Math.sqrt(best2), nan, duration: buf.duration, seam };
 }
 
 function wavBase64(buf) {
@@ -397,6 +406,14 @@ window.audioTest = {
     T('pre setVolumes', () => eng.setVolumes({ master: 0.9 }));
     T('pre setListener', () => eng.setListener({ x: 0, y: 1.6, z: 0 }, { x: 0, y: 0, z: -1 }));
     T('pre update', () => eng.update(0.016));
+    const longTasks = [];
+    let po = null;
+    try {
+      po = new PerformanceObserver((l) => l.getEntries().forEach((e) => longTasks.push(e.duration)));
+      po.observe({ entryTypes: ['longtask'] });
+    } catch (e) {
+      /* unsupported */
+    }
     T('init', () => eng.init());
     T('init twice', () => eng.init());
     if (!eng.ctx) {
@@ -407,7 +424,7 @@ window.audioTest = {
     // meter the master output
     const an = eng.ctx.createAnalyser();
     an.fftSize = 2048;
-    eng.limiter.connect(an);
+    eng.clipper.connect(an);
     const tbuf = new Float32Array(2048);
     let outPeak = 0, outNan = false;
     let running = true;
@@ -430,6 +447,9 @@ window.audioTest = {
     log.push(`render: ${st.rendered}/${st.total} sounds in ${((performance.now() - t0) / 1000).toFixed(1)}s wall, ${st.renderMs} ms summed, ${st.megabytes} MB, failed: ${st.failed.join(',') || 'none'}`);
     if (st.failed.length) errors.push('render failures: ' + st.failed.join(','));
     if (st.rendered < st.total) errors.push('not all sounds rendered in time');
+    po?.disconnect();
+    longTasks.sort((a, b) => b - a);
+    log.push(`main-thread long tasks during background render: ${longTasks.length}, worst ${longTasks.slice(0, 5).map((x) => x.toFixed(0) + 'ms').join(' ') || '-'}`);
     // --- play every sound
     for (const n of [...SOUND_NAMES, ...EXTRA_SOUND_NAMES]) {
       T('play ' + n, () => {
@@ -494,7 +514,7 @@ window.audioTest = {
       await sleep(700);
     }
     T('music menu', () => eng.setMusic('menu'));
-    await sleep(2500);
+    await sleep(4000);
     const mnodes = eng.music.current ? eng.music.current.nodes.size : 0;
     log.push('menu music active nodes: ' + mnodes);
     if (!mnodes) errors.push('menu music did not start');

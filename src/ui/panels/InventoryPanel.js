@@ -48,7 +48,7 @@ export class InventoryPanel {
       this.eqSlots[s] = el;
       return el;
     }));
-    this.figure = makeFigure(6, 'doll-fig');
+    this.figure = makeFigure(8, 'doll-fig');
     this.charName = h('span.col-sub');
     this.weightText = h('span.wt-val');
     this.weightFill = h('i');

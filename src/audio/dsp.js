@@ -128,10 +128,14 @@ export function crackleBuffer(sr, dur, opts, rnd) {
     const i0 = Math.floor(t * sr);
     const k = decay / gl;
     if (ping > 0) {
+      // sine "ping" grain (glass shards, droplets): ~0.4 ms raised-cosine attack so it rings rather than clicks
       const f = ping + (ping2 - ping) * rnd();
       const w = (2 * Math.PI * f) / sr;
-      const ph = rnd() * 6.283;
-      for (let j = 0; j < gl && i0 + j < n; j++) d[i0 + j] += amp * Math.sin(ph + w * j) * Math.exp(-j * k);
+      const att = Math.max(2, Math.floor(0.0004 * sr));
+      for (let j = 0; j < gl && i0 + j < n; j++) {
+        const a = j < att ? 0.5 - 0.5 * Math.cos((Math.PI * j) / att) : 1;
+        d[i0 + j] += amp * a * Math.sin(w * j) * Math.exp(-j * k);
+      }
     } else {
       for (let j = 0; j < gl && i0 + j < n; j++) d[i0 + j] += amp * (rnd() * 2 - 1) * Math.exp(-j * k);
     }
@@ -373,10 +377,12 @@ export function finalizeBuffer(buf, { normalize = 0.89, trimDb = -60, fadeOut = 
   const rawRms = Math.sqrt(ss / d.length);
   if (peak < 1e-7) return { buffer: buf, rawPeak: peak, rawRms, nan };
   let end = d.length;
+  let truncated = false;
   if (!keepLength) {
     const thr = peak * dbToGain(trimDb);
     end = d.length - 1;
     while (end > 0 && Math.abs(d[end]) < thr) end--;
+    truncated = end > d.length - Math.floor(0.03 * sr);
     end = Math.min(d.length, end + Math.floor(0.01 * sr));
   }
   const out = makeBuffer(end, sr, 1);
@@ -384,8 +390,9 @@ export function finalizeBuffer(buf, { normalize = 0.89, trimDb = -60, fadeOut = 
   const k = normalize ? normalize / peak : 1;
   for (let i = 0; i < end; i++) o[i] = d[i] * k;
   if (!keepLength) {
-    const fl = Math.min(end, Math.floor(fadeOut * sr));
-    for (let i = 0; i < fl; i++) o[end - 1 - i] *= i / fl;
+    // a tail that is still audible at the render limit gets a long, smooth (cosine) fade instead of a cut
+    const fl = Math.min(end, Math.floor((truncated ? Math.min(0.3, end / sr * 0.18) : fadeOut) * sr));
+    for (let i = 0; i < fl; i++) o[end - 1 - i] *= 0.5 - 0.5 * Math.cos((Math.PI * i) / fl);
   }
   // tiny fade-in to kill any DC step at sample 0
   const fi = Math.min(end, 16);

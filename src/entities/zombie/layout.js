@@ -71,7 +71,7 @@ export const VARIANT_DIMS = {
   crawler: { torso: [8, 12, 4], arm: [4, 4], leg: [4, 4], scale: 1.0 },
   brute: { torso: [10.5, 12, 6], arm: [5.2, 5.2], leg: [5, 5], scale: 1.3 },
   screamer: { torso: [7, 12, 3.2], arm: [3, 3], leg: [3.2, 3.2], scale: 1.02 },
-  bloater: { torso: [11, 12, 8.5], arm: [4.6, 4.6], leg: [4.8, 4.8], scale: 1.05 },
+  bloater: { torso: [10, 12, 6], arm: [4.6, 4.6], leg: [4.8, 4.8], scale: 1.05, belly: [9.6, 1, 2.6, 9.6, 4.2] },
 };
 
 /** Joint layout (pixels, unscaled) derived from the variant dims. */

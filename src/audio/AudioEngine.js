@@ -111,7 +111,18 @@ export class AudioEngine {
     this.limiter.ratio.value = 16;
     this.limiter.attack.value = 0.002;
     this.limiter.release.value = 0.2;
-    this.limiter.connect(ctx.destination);
+    // final safety: soft clipper (linear to 0.75, smoothly saturating to ±1) – the compressor alone overshoots
+    this.clipper = ctx.createWaveShaper();
+    const N = 4096, curve = new Float32Array(N);
+    for (let i = 0; i < N; i++) {
+      const x = ((i / (N - 1)) * 2 - 1) * 2; // curve spans inputs ±2 (0.5 pre-gain below)
+      const ax = Math.abs(x);
+      curve[i] = Math.sign(x) * (ax <= 0.75 ? ax : 0.75 + 0.25 * Math.tanh((ax - 0.75) / 0.25));
+    }
+    this.clipper.curve = curve;
+    const clipPre = this._gain(0.5, this.clipper);
+    this.limiter.connect(clipPre);
+    this.clipper.connect(ctx.destination);
     this.master = this._gain(1, this.limiter);
 
     this.worldDuck = this._gain(1, this.master);

@@ -167,13 +167,15 @@ export function pianoNote(s, midi) {
     const amp = Math.pow(n, -1.0) / (1 + Math.pow(n / 5, 2));
     const tau1 = 0.4 / Math.sqrt(n);
     const tau2 = T60 / 6.9 / (1 + 0.45 * (n - 1));
-    const cents = 0.3 + s.r() * 1.1;
-    for (const sign of [-1, 1]) {
-      const o = s.osc('sine', fn * Math.pow(2, (sign * cents) / 1200), 0, s.T);
+    // unison strings: unequal amplitudes + small detune → gentle shimmer instead of full beating nulls
+    const cents = 0.08 + s.r() * (0.25 + 0.04 * n);
+    const strings = midi >= 50 ? [[0, 0.55], [cents, 0.3], [-cents * 0.7, 0.15]] : [[cents * 0.5, 0.65], [-cents * 0.5, 0.35]];
+    for (const [c, sa] of strings) {
+      const o = s.osc('sine', fn * Math.pow(2, c / 1200), 0, s.T);
       const g = s.g(0);
       g.gain.setValueAtTime(0, 0);
-      g.gain.linearRampToValueAtTime(amp * 0.5, att);
-      g.gain.setTargetAtTime(amp * 0.5 * 0.4, att, tau1);
+      g.gain.linearRampToValueAtTime(amp * sa, att);
+      g.gain.setTargetAtTime(amp * sa * 0.4, att, tau1);
       g.gain.setTargetAtTime(0, att + tau1 * 2.5, tau2);
       s.chain(o, g, bus);
     }
@@ -182,7 +184,7 @@ export function pianoNote(s, midi) {
 }
 
 export const PIANO_SAMPLES = [];
-for (let m = 36; m <= 88; m += 4) PIANO_SAMPLES.push(m);
+for (let m = 36; m <= 88; m += 5) PIANO_SAMPLES.push(m);
 
 // ---------------------------------------------------------------------------------------------
 const AMB = { cat: 'amb', pv: 0.05, vv: 0.15, send: 0.3 };
@@ -190,11 +192,11 @@ const LOOP = { cat: 'amb', internal: true, variants: 1, level: 1, pv: 0, vv: 0, 
 
 export const AMBIENT_SOUNDS = {
   birds: {
-    ...AMB, sr: 'mid', dur: 2.4, variants: 8, level: 0.35, ref: 10, maxDist: 250, cap: 4,
+    ...AMB, sr: 'lo', dur: 2.4, variants: 8, level: 0.35, ref: 10, maxDist: 250, cap: 4,
     render: (s, v) => birdSong(s, v),
   },
   crickets: {
-    ...AMB, sr: 'mid', dur: 2.6, variants: 3, level: 0.3, ref: 4, maxDist: 60, cap: 4,
+    ...AMB, sr: 'lo', dur: 2.6, variants: 2, level: 0.3, ref: 4, maxDist: 60, cap: 4,
     render: (s) => {
       const buf = cricketsBuffer(s.sr, 2.5, s.r, 1, false);
       s.chain(s.src(buf, 0.01), s.hp(2500), s.out);
@@ -205,7 +207,7 @@ export const AMBIENT_SOUNDS = {
     render: (s) => thunderRender(s, s.rand(0.35, 0.55)),
   },
   thunder_near: {
-    ...AMB, internal: true, sr: 'lo', dur: 6.0, variants: 3, level: 1, ref: 100, maxDist: 1e5, cap: 3, send: 0.35,
+    ...AMB, internal: true, sr: 'lo', dur: 6.0, variants: 2, level: 1, ref: 100, maxDist: 1e5, cap: 3, send: 0.35,
     render: (s) => thunderRender(s, s.rand(0, 0.12)),
   },
   thunder_far: {
@@ -235,7 +237,7 @@ export const AMBIENT_SOUNDS = {
     },
   },
   amb_rain: {
-    ...LOOP, sr: 'mid', dur: 6.6, loop: { len: 6, xfade: 0.6, mode: 'power' }, variants: 2,
+    ...LOOP, sr: 'mid', dur: 6.6, loop: { len: 6, xfade: 0.6, mode: 'power' }, variants: 1,
     render: (s) => {
       const T = s.T;
       s.chain(s.noise('pink', 0, T), s.hp(600), s.lp(9000), s.g(0.5), s.out);
@@ -246,7 +248,7 @@ export const AMBIENT_SOUNDS = {
     },
   },
   amb_rain_heavy: {
-    ...LOOP, sr: 'mid', dur: 6.6, loop: { len: 6, xfade: 0.6, mode: 'power' }, variants: 2,
+    ...LOOP, sr: 'mid', dur: 6.6, loop: { len: 6, xfade: 0.6, mode: 'power' }, variants: 1,
     render: (s) => {
       const T = s.T;
       s.chain(s.noise('brown', 0, T), s.lp(700), s.g(0.6), s.out);
@@ -269,7 +271,7 @@ export const AMBIENT_SOUNDS = {
     },
   },
   amb_crickets: {
-    ...LOOP, sr: 'mid', dur: 10, loop: { len: 10, xfade: 0, mode: 'linear' }, variants: 1,
+    ...LOOP, sr: 'lo', dur: 10, loop: { len: 10, xfade: 0, mode: 'linear' }, variants: 1,
     render: (s) => {
       const buf = cricketsBuffer(s.sr, 10, s.r, 7, true);
       s.chain(s.src(buf, 0), s.hp(2500), s.out);

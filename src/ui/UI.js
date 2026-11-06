@@ -95,7 +95,14 @@ export class UI {
       this.hud.update(dt);
     } else this.hud.hide();
     this.panels.update(dt);
+    this.syncRootClasses();
+  }
+
+  syncRootClasses() {
     setClass(this.root, 'panel-open', this.panels.isOpen);
+    setClass(this.root, 'panel-crafting', this.panels.current === 'crafting');
+    setClass(this.root, 'reading', this.note.isOpen);
+    setClass(this.root, 'paused', this.pause.isOpen);
   }
 
   // ------------------------------------------------------------------ keys
@@ -183,6 +190,7 @@ export class UI {
     const wasOpen = this.panels.current === 'inventory';
     if (!wasOpen) this.sound('zipper', 0.7);
     this.panels.open('inventory', lootSources);
+    this.syncRootClasses();
   }
 
   openPanel(name) {
@@ -190,6 +198,7 @@ export class UI {
     if (!this.panels.panels[name]) return;
     if (this.panels.current !== name) this.sound(this.panels.isOpen ? 'ui_click' : 'ui_open', 0.7);
     this.panels.open(name);
+    this.syncRootClasses();
   }
 
   closeAll() {
@@ -198,7 +207,7 @@ export class UI {
     this.tooltip.hide();
     this.panels.close();
     if (any) this.sound('ui_close', 0.6);
-    setClass(this.root, 'panel-open', false);
+    this.syncRootClasses();
   }
 
   refresh() {
@@ -228,8 +237,9 @@ export class UI {
     this.ctx.hide();
     this.tooltip.hide();
     this.pause.show();
+    this.syncRootClasses();
   }
-  hidePause() { this.pause.hide(); }
+  hidePause() { this.pause.hide(); this.syncRootClasses(); }
 
   showDeath(info) {
     this.closeAll();
@@ -244,11 +254,13 @@ export class UI {
     this.ctx.hide();
     this.tooltip.hide();
     this.note.show(note || {});
+    this.syncRootClasses();
     this.sound('ui_open', 0.5);
   }
   closeNote() {
     if (!this.note.isOpen) return;
     this.note.hide();
+    this.syncRootClasses();
     this.sound('ui_close', 0.5);
   }
 

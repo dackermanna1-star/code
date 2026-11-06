@@ -413,6 +413,7 @@ export class Game {
     this.ui.update?.(dt);
     // re-capture the mouse when a panel closes
     const blocking = !!this.ui.isBlocking?.();
+    if (blocking && !this.wasBlocking && this.input.locked && this.state === 'playing') this.input.unlock();
     if (this.wasBlocking && !blocking && this.state === 'playing') this.input.lock();
     this.wasBlocking = blocking;
     this.input.endFrame();

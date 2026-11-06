@@ -55,6 +55,12 @@ function appendChildren(el, children) {
   }
 }
 
+/** el.append() that skips null / false children (native append prints "null"). */
+export function add(el, ...children) {
+  appendChildren(el, children);
+  return el;
+}
+
 export function clear(el) {
   while (el.firstChild) el.removeChild(el.firstChild);
   return el;

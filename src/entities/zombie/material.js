@@ -85,7 +85,7 @@ export function createSkinnedMaterial(map, opts = {}) {
       uAlphaTest: { value: 0.5 },
       uNoFog: { value: 0 },
       uEmissive: { value: 0 },
-      uGlow: { value: opts.glow ?? 0.9 },
+      uGlow: { value: opts.glow ?? 1.6 },
       uBones: { value: bones },
       uHidden: { value: 0 },
     },

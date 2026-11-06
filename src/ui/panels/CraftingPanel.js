@@ -1,7 +1,7 @@
 // Crafting panel: categories | recipe list (craftable highlighted) | details + craft button.
-import { getItemDef } from '../../items/items.js';
+import { getItemDef, createItem } from '../../items/items.js';
 import { getItemIconURL } from '../../items/icons.js';
-import { h, clear, setText, setStyle, setClass, clamp } from '../dom.js';
+import { h, add, clear, setText, setStyle, setClass, clamp } from '../dom.js';
 import { pixelImg } from '../pixel.js';
 
 const CAT_ICON = {
@@ -161,7 +161,7 @@ export class CraftingPanel {
     this.craftBtn.addEventListener('click', () => this.craft(r));
     this.craftBtn.addEventListener('pointerenter', () => this.ui.sound('ui_hover', 0.3));
 
-    this.detail.append(
+    add(this.detail,
       h('div.cd-head',
         h('div.cd-icon', h('img.px', { src: getItemIconURL(def), draggable: false, alt: '' }),
           (res.count || 1) > 1 ? h('span.slot-count', String(res.count)) : null),
@@ -174,11 +174,25 @@ export class CraftingPanel {
           : h('div.req.none', 'None')),
       tools.length ? h('div.cd-sec', h('div.cd-sec-title', 'Tools'), tools.map((t) => row(t.ok, t.label, t.ok ? 'have' : 'need'))) : null,
       r.station ? h('div.cd-sec', h('div.cd-sec-title', 'Station'), row(r.station.ok, r.station.label, r.station.ok ? 'nearby' : 'not near')) : null,
+      this.resultSection(res, def),
       h('div.cd-spacer'),
       this.prog,
       this.craftBtn,
     );
     this.updateProgress();
+  }
+
+  resultSection(res, def) {
+    if (!res.id || def.id === 'unknown') return null;
+    let d = null;
+    try { d = this.game.describeItem?.(createItem(res.id, { count: res.count || 1 })); } catch { d = null; }
+    const lines = (d?.lines || []).filter((l) => /^[^:.]{1,22}:\s*.+$/.test(String(l))).slice(0, 5);
+    if (!lines.length) return null;
+    return h('div.cd-sec', h('div.cd-sec-title', 'Result'),
+      h('div.cd-result', lines.map((l) => {
+        const m = String(l).match(/^([^:.]{1,22}):\s*(.+)$/);
+        return h('div.tt-line', h('span.tt-k', m[1]), h('span.tt-v', m[2]));
+      })));
   }
 
   craft(r) {

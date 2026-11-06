@@ -95,6 +95,7 @@ function drawFlame(g, n, frame, kind) {
 }
 
 const _q = new THREE.Quaternion();
+const CASE_KIND = { brass: 'round_case', big: 'big_case', shell: 'shell_case' };
 const _v = new THREE.Vector3();
 
 export class ViewmodelFX {
@@ -177,7 +178,7 @@ export class ViewmodelFX {
         this.scene.remove(s.obj);
         this.shells.splice(this.shells.indexOf(s), 1);
       }
-      const g = buildProp(kind === 'brass' ? 'round_case' : kind === 'big' ? 'big_case' : 'shell_case').build(this.material, 1).group;
+      const g = buildProp(CASE_KIND[kind] || kind).build(this.material, 1).group;
       // casings: use prop geometry without bullet
       s = { kind, obj: g, alive: false, v: new THREE.Vector3(), w: new THREE.Vector3(), t: 0 };
       this.shells.push(s);

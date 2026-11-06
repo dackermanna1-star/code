@@ -1,6 +1,6 @@
 // Main menu: title over an animated backdrop; Continue / New Game / Settings / Controls / Credits.
 import { getItemDef } from '../../items/items.js';
-import { h, clear, setClass, timeAgo } from '../dom.js';
+import { h, add, clear, setClass, timeAgo } from '../dom.js';
 import { pixelImg, PIXEL_ICONS } from '../pixel.js';
 import { Backdrop } from './backdrop.js';
 import { SettingsView, ControlsView } from './SettingsView.js';
@@ -121,7 +121,7 @@ export class MainMenu {
       const name = d.id === 'unknown' ? id.replace(/_/g, ' ') : d.name;
       return `${name}${n > 1 ? ' ×' + n : ''}`;
     });
-    this.profDetail.append(
+    add(this.profDetail,
       h('div.pd-head', h('div.pd-ico', pixelImg(PIXEL_ICONS['p_' + p.id] ? 'p_' + p.id : 'p_unemployed', 'pi')),
         h('div', h('div.pd-name', p.name), h('div.pd-desc', p.desc || ''))),
       h('div.cd-sec-title', 'Traits'),

@@ -189,7 +189,7 @@ export class MusicSystem {
     if (m === 'tense') this.current = this._startTense();
     else if (m === 'none') this.nextStart = Infinity;
     else {
-      const delay = m === 'menu' ? (prev === 'none' ? 0.5 : 2.5) : prev === 'tense' ? 6 + Math.random() * 10 : 4 + Math.random() * 16;
+      const delay = m === 'menu' ? (prev === 'none' ? 0.5 : 1.5) : prev === 'tense' ? 6 + Math.random() * 10 : 4 + Math.random() * 16;
       this.nextStart = now + delay;
     }
   }

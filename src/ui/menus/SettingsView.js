@@ -114,7 +114,7 @@ export const CONTROLS = [
     [['W', 'A', 'S', 'D'], 'Move'], [['Shift'], 'Sprint'], [['C'], 'Crouch / sneak'], [['Space'], 'Jump / climb'],
   ] },
   { group: 'Combat', rows: [
-    [['LMB'], 'Attack / fire'], [['RMB'], 'Aim (firearm) / shove (melee)'], [['R'], 'Reload / clear jam'], [['B'], 'Toggle fire mode'],
+    [['LMB'], 'Attack / fire'], [['RMB'], 'Aim gun / shove'], [['R'], 'Reload / clear jam'], [['B'], 'Toggle fire mode'],
     [['V'], 'Shove'], [['G'], 'Throw'],
   ] },
   { group: 'Interaction', rows: [
@@ -136,9 +136,9 @@ export class ControlsView {
     const cols = h('div.ctl-grid');
     for (const grp of CONTROLS) {
       cols.appendChild(h('div.ctl-group', h('div.set-group-title', grp.group),
-        grp.rows.map(([keys, label]) => h('div.ctl-row',
+        h('div.ctl-rows', grp.rows.map(([keys, label]) => [
           h('span.ctl-keys', keys.map((k) => (k === '–' ? h('span.ctl-dash', '–') : h('span.key', k)))),
-          h('span.ctl-label', label)))));
+          h('span.ctl-label', label)]))));
     }
     this.el = h('div.panel-box.controls-box',
       h('div.pb-title', 'Controls'), cols,

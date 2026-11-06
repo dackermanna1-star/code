@@ -6,7 +6,7 @@ import { ModelBuilder, shade, disposeObject } from './builder.js';
 import { M } from './material.js';
 import { buildProp } from './misc.js';
 
-export const ARM_PX = 2.05; // cm per arm pixel
+export const ARM_PX = 1.7; // cm per arm pixel
 
 const _x = new THREE.Vector3();
 const _y = new THREE.Vector3();
@@ -61,7 +61,7 @@ export class Arms {
     const holder = new THREE.Group();
     root.add(holder);
     const prop = new THREE.Group(); // props held at the fingertips
-    prop.position.set(0, 0.012, -0.055);
+    prop.position.set(0, 0.01, -0.045);
     root.add(prop);
     return { side, root, holder, prop, mesh: null, finger: null, props: {}, visible: true };
   }

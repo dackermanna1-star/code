@@ -12,6 +12,7 @@
   </head>
   <body>
     <div id="info"></div>
+    <script>window.addEventListener("error", (e) => { document.getElementById("info").textContent += "ERROR " + e.message + "\n"; window.__ready = true; });</script>
     <script type="module" src="./entities-test.js"></script>
   </body>
 </html>

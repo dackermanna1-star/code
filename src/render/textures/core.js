@@ -8,7 +8,13 @@ export { makeRng, seedFromString };
 
 // ---------------------------------------------------------------------------
 // colour
-export const hex = (h) => [(h >> 16) & 255, (h >> 8) & 255, h & 255];
+// colours are plain [r, g, b] arrays and are never mutated in place, so hex() results can be shared
+const HEX = new Map();
+export const hex = (h) => {
+  let c = HEX.get(h);
+  if (!c) { c = [(h >> 16) & 255, (h >> 8) & 255, h & 255]; HEX.set(h, c); }
+  return c;
+};
 export const pal = (...hs) => hs.map(hex);
 export const mix = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
 export const mulc = (c, k) => [c[0] * k, c[1] * k, c[2] * k];
@@ -239,7 +245,7 @@ export function worley(seed, nx, ny = nx, jitter = 0.85, w = S, h = S, sy = 1) {
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
     const ci = Math.floor((x + 0.5) / cw), cj = Math.floor((y + 0.5) / ch);
     let b1 = 1e9, b2 = 1e9, bid = 0, bx = 0, by = 0;
-    for (let dj = -2; dj <= 2; dj++) for (let di = -2; di <= 2; di++) {
+    for (let dj = -1; dj <= 1; dj++) for (let di = -1; di <= 1; di++) {
       const ii = (((ci + di) % nx) + nx) % nx, jj = (((cj + dj) % ny) + ny) % ny;
       const k = jj * nx + ii;
       let dx = x + 0.5 - fx[k], dy = y + 0.5 - fy[k];

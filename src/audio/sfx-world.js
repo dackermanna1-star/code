@@ -3,7 +3,7 @@
 import { burst, tone, modal, whoosh, click, thud, crackle, bubbles, creak, scrape } from './instruments.js';
 import { voice } from './instruments.js';
 
-const STEP = { cat: 'sfx', sr: 'mid', dur: 0.4, variants: 6, level: 0.3, ref: 1.5, maxDist: 22, cap: 6, group: 'step', groupCap: 12, send: 0.04, pv: 0.07, vv: 0.18, prio: 1 };
+const STEP = { cat: 'sfx', sr: 'mid', dur: 0.4, variants: 6, level: 0.24, ref: 1.5, maxDist: 22, cap: 6, group: 'step', groupCap: 12, send: 0.04, pv: 0.07, vv: 0.18, prio: 1 };
 
 /** heel + toe pattern helper: calls fn(t, strength) twice */
 function heelToe(s, fn) {
@@ -47,7 +47,7 @@ export const WORLD_SOUNDS = {
         burst(s, { t, kind: 'white', a: 0.0006, tau: 0.01, peak: 0.45 * k, filters: [['bandpass', s.rand(800, 1100), 1.2]] });
         thud(s, { t, f: 100, f1: 70, tau: 0.03, peak: 0.6 * k });
       });
-      if (v % 3 === 0) creak(s, { t: 0.04, dur: s.rand(0.12, 0.2), rate0: 50, rate1: 80, res: [[s.rand(800, 1000), 12, 1], [1700, 10, 0.5]], peak: 0.12, jitter: 40 });
+      if (v % 3 === 0) creak(s, { t: 0.04, dur: s.rand(0.12, 0.2), rate0: 70, rate1: 120, res: [[s.rand(800, 1000), 12, 1], [1700, 10, 0.5]], peak: 0.12, jitter: 40 });
     },
   },
   footstep_metal: {
@@ -136,7 +136,7 @@ export const WORLD_SOUNDS = {
       if (v !== 3) {
         const base = s.rand(600, 850);
         creak(s, {
-          t: 0.06, dur: s.rand(0.5, 0.9), rate0: s.rand(22, 35), rateMid: s.rand(40, 70), rate1: s.rand(55, 90),
+          t: 0.06, dur: s.rand(0.5, 0.9), rate0: s.rand(32, 48), rateMid: s.rand(85, 150), rate1: s.rand(60, 110), midAt: s.rand(0.35, 0.65),
           res: [[base, 10, 1], [base * 1.85, 9, 0.6], [base * 3.2, 8, 0.3]], peak: 0.6, jitter: 30, flutter: 0.4,
           env: [[0, 0], [0.1, 0.8], [0.4, 1], [0.7, 0.6], [0.85, 0.9], [1, 0]],
         });
@@ -188,7 +188,7 @@ export const WORLD_SOUNDS = {
       thud(s, { t: 0, f: s.rand(85, 100), f1: 50, tau: 0.08, peak: 1, noise: 0.7, noiseLp: 700 });
       modal(s, { t: 0, f: s.rand(100, 140), modes: 'wood', tau: 0.1, peak: 0.6 });
       for (let i = 0; i < s.irand(2, 3); i++) click(s, { t: 0.03 + i * s.rand(0.03, 0.05), f: s.rand(1900, 2500), q: 1.5, tau: 0.003, peak: 0.3, ring: 0.02, body: 0.3, bodyF: 180 });
-      if (v === 2) creak(s, { t: 0.02, dur: 0.25, rate0: 40, rate1: 25, res: [[700, 10, 1], [1300, 8, 0.5]], peak: 0.25, jitter: 40 });
+      if (v === 2) creak(s, { t: 0.02, dur: 0.25, rate0: 75, rate1: 45, res: [[700, 10, 1], [1300, 8, 0.5]], peak: 0.25, jitter: 40 });
     },
   },
   container_open: {
@@ -204,7 +204,7 @@ export const WORLD_SOUNDS = {
       } else {
         // cupboard door: catch click + short creak + rattle
         click(s, { t: 0, f: 1800, q: 1.5, tau: 0.004, peak: 0.6, body: 0.4, bodyF: 250 });
-        creak(s, { t: 0.03, dur: s.rand(0.25, 0.4), rate0: 45, rate1: 70, res: [[s.rand(900, 1200), 10, 1], [2000, 8, 0.4]], peak: 0.25, jitter: 40 });
+        creak(s, { t: 0.03, dur: s.rand(0.25, 0.4), rate0: 60, rate1: 130, res: [[s.rand(900, 1200), 10, 1], [2000, 8, 0.4]], peak: 0.25, jitter: 40 });
         modal(s, { t: 0.01, f: s.rand(180, 230), modes: 'wood', tau: 0.05, peak: 0.4 });
       }
     },
@@ -243,21 +243,21 @@ export const WORLD_SOUNDS = {
     },
   },
   ui_click: {
-    cat: 'ui', sr: 'mid', dur: 0.08, variants: 2, level: 0.3, cap: 3, pv: 0.03, vv: 0.05,
+    cat: 'ui', sr: 'hi', dur: 0.08, variants: 2, level: 0.3, cap: 3, pv: 0.03, vv: 0.05,
     render: (s) => {
       burst(s, { t: 0, kind: 'white', a: 0.0002, tau: 0.0018, peak: 0.7, filters: [['bandpass', 2800, 2]] });
       tone(s, { t: 0, f: s.rand(1700, 1900), a: 0.0005, tau: 0.006, peak: 0.3 });
     },
   },
   ui_hover: {
-    cat: 'ui', sr: 'mid', dur: 0.06, variants: 2, level: 0.1, cap: 2, pv: 0.03, vv: 0.05,
+    cat: 'ui', sr: 'hi', dur: 0.06, variants: 2, level: 0.1, cap: 2, pv: 0.03, vv: 0.05,
     render: (s) => {
       tone(s, { t: 0, f: s.rand(2500, 2700), a: 0.001, tau: 0.006, peak: 0.5 });
       burst(s, { t: 0, kind: 'white', a: 0.0005, tau: 0.002, peak: 0.2, filters: [['bandpass', 4000, 2]] });
     },
   },
   ui_open: {
-    cat: 'ui', sr: 'mid', dur: 0.25, variants: 2, level: 0.3, cap: 2, pv: 0.04, vv: 0.05,
+    cat: 'ui', sr: 'hi', dur: 0.25, variants: 2, level: 0.3, cap: 2, pv: 0.04, vv: 0.05,
     render: (s) => {
       whoosh(s, { t: 0, dur: 0.13, f0: 600, fmid: 1800, f1: 2500, q: 1.5, peak: 0.6, peakAt: 0.7 });
       tone(s, { t: 0.01, f: 200, f1: 130, glide: 0.05, tau: 0.03, peak: 0.25 });
@@ -265,7 +265,7 @@ export const WORLD_SOUNDS = {
     },
   },
   ui_close: {
-    cat: 'ui', sr: 'mid', dur: 0.25, variants: 2, level: 0.3, cap: 2, pv: 0.04, vv: 0.05,
+    cat: 'ui', sr: 'hi', dur: 0.25, variants: 2, level: 0.3, cap: 2, pv: 0.04, vv: 0.05,
     render: (s) => {
       whoosh(s, { t: 0, dur: 0.12, f0: 2200, fmid: 1400, f1: 500, q: 1.5, peak: 0.6, peakAt: 0.3 });
       thud(s, { t: 0.09, f: 150, f1: 100, tau: 0.02, peak: 0.4 });
@@ -307,7 +307,7 @@ export const WORLD_SOUNDS = {
 
   // ------------------------------------------------------------------ world objects
   car_alarm: {
-    cat: 'sfx', sr: 'mid', dur: 8.0, loop: { len: 8.0, xfade: 0, mode: 'linear' }, variants: 1, level: 0.75, ref: 8, maxDist: 260, cap: 3, send: 0.25, pv: 0, vv: 0, prio: 4,
+    cat: 'sfx', sr: 'lo', dur: 8.0, loop: { len: 8.0, xfade: 0, mode: 'linear' }, variants: 1, level: 0.42, ref: 8, maxDist: 260, cap: 3, send: 0.25, pv: 0, vv: 0, prio: 4,
     render: (s) => {
       const bus = s.g(1);
       const sat = s.sat(2.5);
@@ -387,7 +387,7 @@ export const WORLD_SOUNDS = {
     },
   },
   explosion: {
-    cat: 'sfx', sr: 'mid', dur: 4.8, variants: 3, level: 1.0, ref: 20, maxDist: 1200, cap: 4, send: 0.4, pv: 0.06, vv: 0.05, prio: 5,
+    cat: 'sfx', sr: 'lo', dur: 4.8, variants: 2, level: 1.0, ref: 20, maxDist: 1200, cap: 4, send: 0.4, pv: 0.06, vv: 0.05, prio: 5,
     render: (s) => {
       const mix = s.g(0.5);
       const sat = s.sat(4);
@@ -412,7 +412,7 @@ export const WORLD_SOUNDS = {
     },
   },
   fire_loop: {
-    cat: 'sfx', sr: 'mid', dur: 6.5, loop: { len: 6.0, xfade: 0.5, mode: 'power' }, variants: 2, level: 0.55, ref: 2.5, maxDist: 40, cap: 6, send: 0.1, pv: 0, vv: 0, prio: 4,
+    cat: 'sfx', sr: 'mid', dur: 6.5, loop: { len: 6.0, xfade: 0.5, mode: 'power' }, variants: 1, level: 0.55, ref: 2.5, maxDist: 40, cap: 6, send: 0.1, pv: 0, vv: 0, prio: 4,
     render: (s) => {
       const roar = s.noise('brown', 0, 6.6);
       const ram = s.g(0.6);
@@ -493,7 +493,7 @@ export const WORLD_SOUNDS = {
   pry: {
     cat: 'sfx', sr: 'mid', dur: 1.1, variants: 3, level: 0.6, ref: 3, maxDist: 30, cap: 2, send: 0.12, pv: 0.05, vv: 0.1,
     render: (s) => {
-      creak(s, { t: 0, dur: 0.55, rate0: 20, rate1: 50, res: [[s.rand(450, 600), 8, 1], [1100, 6, 0.5]], peak: 0.7, flutter: 0.5, jitter: 50 });
+      creak(s, { t: 0, dur: 0.55, rate0: 30, rate1: 95, res: [[s.rand(450, 600), 8, 1], [1100, 6, 0.5]], peak: 0.7, flutter: 0.5, jitter: 50 });
       creak(s, { t: 0.25, dur: 0.3, rate0: 400, rate1: 700, res: [[s.rand(2300, 2800), 25, 1], [4100, 20, 0.4]], peak: 0.3, jitter: 20 });
       const t = s.rand(0.55, 0.65);
       burst(s, { t, kind: 'white', a: 0.0005, tau: 0.01, peak: 1, filters: [['bandpass', 1500, 0.8]] });
@@ -511,7 +511,7 @@ export const WORLD_SOUNDS = {
     },
   },
   radio_static: {
-    cat: 'sfx', sr: 'mid', dur: 1.4, variants: 4, level: 0.4, ref: 2, maxDist: 15, cap: 2, send: 0.05, pv: 0.03, vv: 0.08, loopAlias: 'radio_static_loop',
+    cat: 'sfx', sr: 'mid', dur: 1.4, variants: 3, level: 0.4, ref: 2, maxDist: 15, cap: 2, send: 0.05, pv: 0.03, vv: 0.08, loopAlias: 'radio_static_loop',
     render: (s, v) => radioStatic(s, 1.3, v < 2),
   },
   radio_static_loop: {
@@ -519,7 +519,7 @@ export const WORLD_SOUNDS = {
     render: (s) => radioStatic(s, 4.4, true),
   },
   flashlight_click: {
-    cat: 'sfx', sr: 'mid', dur: 0.12, variants: 2, level: 0.35, ref: 1, maxDist: 6, cap: 2, send: 0, pv: 0.04, vv: 0.05,
+    cat: 'sfx', sr: 'hi', dur: 0.12, variants: 2, level: 0.35, ref: 1, maxDist: 6, cap: 2, send: 0, pv: 0.04, vv: 0.05,
     render: (s) => {
       click(s, { t: 0, f: 3000, q: 1.5, tau: 0.0015, peak: 1, body: 0.3, bodyF: 800 });
       click(s, { t: 0.025, f: 2200, q: 1.5, tau: 0.0015, peak: 0.6 });

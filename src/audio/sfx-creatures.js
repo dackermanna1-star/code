@@ -34,20 +34,21 @@ function throatGunk(s, t, dur, peak) {
 export const CREATURE_SOUNDS = {
   // ------------------------------------------------------------------ zombies
   zombie_groan: {
-    ...ZV, dur: 2.6, variants: 6, level: 0.7,
-    render: (s) => {
+    ...ZV, dur: 2.6, variants: 6, level: 0.58,
+    render: (s, v) => {
       const dur = s.rand(1.2, 2.3);
+      const fry = v % 3 === 2; // glottal-fry (creaky) variants
       voice(s, {
-        t: 0.02, dur, f0: s.rand(68, 105), contour: contourPath(s, { start: -1, peak: s.rand(1, 4), end: s.rand(-9, -5) }),
-        beat: s.rand(10, 25), beatGain: 0.6, sub: s.rand(0.25, 0.55),
+        t: 0.02, dur, f0: s.rand(66, 100), contour: contourPath(s, { start: -1, peak: s.rand(1, 4), end: s.rand(-9, -5) }),
+        beat: s.rand(10, 25), beatGain: 0.6, sub: s.rand(0.25, 0.5),
         jitter: s.rand(0.4, 0.9), jitterRate: 10,
-        rough: s.rand(0.3, 0.6), roughRate: s.rand(24, 42), roughJit: 8,
-        vowels: vowelPath(s, ZVOW, s.irand(2, 4)), fshift: s.rand(0.78, 0.9), bw: s.rand(1.6, 2.4),
-        breath: s.rand(0.15, 0.3), breathF: 1200, raw: 0.15,
-        drive: s.rand(1.5, 2.5), preDrive: 3,
+        rough: fry ? 0.42 : s.rand(0.22, 0.4), roughRate: fry ? s.rand(16, 22) : s.rand(24, 38), roughWave: fry ? 'square' : 'sine', roughJit: 6,
+        vowels: vowelPath(s, ZVOW, s.irand(2, 4)), fshift: s.rand(0.78, 0.9), bw: s.rand(1.6, 2.2),
+        breath: s.rand(0.1, 0.2), breathF: 1100, raw: 0.14,
+        drive: 1.6, preDrive: 2, lp: s.rand(3000, 4200),
         env: [[0, 0], [s.rand(0.1, 0.25), 1], [0.55, s.rand(0.7, 1)], [0.85, 0.6], [1, 0]],
       });
-      if (s.chance(0.5)) throatGunk(s, 0.1, dur * 0.8, 0.15);
+      if (s.chance(0.5)) throatGunk(s, 0.1, dur * 0.8, 0.12);
     },
   },
   zombie_idle: {
@@ -59,12 +60,12 @@ export const CREATURE_SOUNDS = {
       for (let i = 0; i < n; i++) {
         const dur = n === 2 ? s.rand(0.45, 0.7) : s.rand(0.8, 1.5);
         voice(s, {
-          t, dur, f0: s.rand(60, 90), contour: [[0, s.rand(0, 2)], [0.4, s.rand(0, 2)], [1, s.rand(-6, -3)]],
-          beat: s.rand(8, 20), sub: s.rand(0.3, 0.6), jitter: 0.6,
-          rough: s.rand(0.4, 0.7), roughRate: s.rand(18, 30), roughJit: 6,
-          vowels: vowelPath(s, ['u', 'o', 'er', 'uh'], 2), fshift: s.rand(0.75, 0.85), bw: 2.2,
-          breath: s.rand(0.45, 0.8), breathF: 900, breathQ: 0.6, raw: 0.2, hiss: 0.05,
-          drive: 1.4, preDrive: 2,
+          t, dur, f0: s.rand(58, 86), contour: [[0, s.rand(0, 2)], [0.4, s.rand(0, 2)], [1, s.rand(-6, -3)]],
+          beat: s.rand(8, 20), sub: s.rand(0.3, 0.5), jitter: 0.6,
+          rough: s.rand(0.28, 0.42), roughRate: s.rand(16, 28), roughWave: v % 2 ? 'square' : 'sine', roughJit: 5,
+          vowels: vowelPath(s, ['u', 'o', 'er', 'uh'], 2), fshift: s.rand(0.75, 0.85), bw: 2.0,
+          breath: s.rand(0.35, 0.6), breathF: 900, breathQ: 0.6, raw: 0.2,
+          drive: 1.3, preDrive: 2, lp: 2600,
           env: [[0, 0], [0.25, 0.8], [0.6, 1], [1, 0]],
         });
         t += dur + s.rand(0.08, 0.25);
@@ -72,118 +73,118 @@ export const CREATURE_SOUNDS = {
     },
   },
   zombie_alert: {
-    ...ZV, dur: 1.2, variants: 5, level: 0.85, maxDist: 55, cap: 3,
+    ...ZV, dur: 1.2, variants: 5, level: 0.58, maxDist: 55, cap: 3,
     render: (s) => {
       const dur = s.rand(0.6, 0.95);
       voice(s, {
-        t: 0.01, dur, f0: s.rand(140, 210), contour: [[0, -3], [0.15, s.rand(2, 5)], [0.5, s.rand(0, 3)], [1, s.rand(-8, -4)]],
-        beat: s.rand(20, 40), beatGain: 0.7, sub: s.rand(0.3, 0.5),
-        jitter: 1.2, jitterRate: 18, rough: s.rand(0.45, 0.7), roughRate: s.rand(45, 70), roughJit: 15,
-        vowels: vowelPath(s, ['a', 'ae', 'aw', 'uh'], 3), fshift: s.rand(0.85, 0.95), bw: 1.8,
-        breath: 0.3, breathF: 2200, hiss: 0.12, hissF: 3000,
-        drive: s.rand(5, 7), preDrive: 4, fuzz: true,
+        t: 0.01, dur, f0: s.rand(140, 200), contour: [[0, -3], [0.15, s.rand(2, 5)], [0.5, s.rand(0, 3)], [1, s.rand(-8, -4)]],
+        beat: s.rand(20, 40), beatGain: 0.7, sub: s.rand(0.3, 0.45),
+        jitter: 1.1, jitterRate: 18, rough: s.rand(0.32, 0.45), roughRate: s.rand(45, 65), roughJit: 12,
+        vowels: vowelPath(s, ['a', 'ae', 'aw', 'uh'], 3), fshift: s.rand(0.85, 0.95), bw: 1.7,
+        breath: 0.2, breathF: 2000, hiss: 0.05, hissF: 3000,
+        drive: 3, preDrive: 3, fuzz: true, lp: 5200,
         env: [[0, 0], [0.06, 1], [0.5, 0.9], [0.8, 0.5], [1, 0]],
       });
     },
   },
   zombie_attack: {
-    ...ZV, dur: 0.9, variants: 5, level: 0.85, maxDist: 40, cap: 4,
+    ...ZV, dur: 0.9, variants: 5, level: 0.56, maxDist: 40, cap: 4,
     render: (s) => {
       const dur = s.rand(0.38, 0.6);
       voice(s, {
-        t: 0.005, dur, f0: s.rand(170, 260), contour: [[0, 2], [0.2, 4], [1, s.rand(-7, -4)]],
-        beat: 30, sub: 0.35, jitter: 1.5, jitterRate: 20, rough: 0.6, roughRate: s.rand(50, 80), roughJit: 15,
-        vowels: vowelPath(s, ['a', 'ae', 'aw'], 2), fshift: 0.9, bw: 1.8,
-        breath: 0.35, breathF: 2000, hiss: 0.18,
-        drive: s.rand(6, 9), preDrive: 4, fuzz: true,
+        t: 0.005, dur, f0: s.rand(165, 240), contour: [[0, 2], [0.2, 4], [1, s.rand(-7, -4)]],
+        beat: 30, sub: 0.35, jitter: 1.4, jitterRate: 20, rough: 0.4, roughRate: s.rand(50, 75), roughJit: 12,
+        vowels: vowelPath(s, ['a', 'ae', 'aw'], 2), fshift: 0.9, bw: 1.7,
+        breath: 0.25, breathF: 2000, hiss: 0.07,
+        drive: 3.5, preDrive: 3.5, fuzz: true, lp: 5500,
         env: [[0, 0], [0.05, 1], [0.6, 0.85], [1, 0]],
       });
-      burst(s, { t: 0, kind: 'pink', a: 0.02, tau: 0.08, peak: 0.25, filters: [['bandpass', 1200, 0.7]] });
+      burst(s, { t: 0, kind: 'pink', a: 0.02, tau: 0.08, peak: 0.2, filters: [['bandpass', 1200, 0.7]] });
     },
   },
   zombie_hurt: {
-    ...ZV, dur: 0.7, variants: 5, level: 0.75, cap: 4,
+    ...ZV, dur: 0.7, variants: 5, level: 0.5, cap: 4,
     render: (s) => {
       const dur = s.rand(0.25, 0.42);
       voice(s, {
-        t: 0.005, dur, f0: s.rand(110, 170), contour: [[0, s.rand(3, 7)], [0.25, s.rand(4, 8)], [1, s.rand(-6, -2)]],
-        beat: 25, sub: 0.4, jitter: 1, rough: 0.5, roughRate: 40, roughJit: 10,
-        vowels: vowelPath(s, ['uh', 'a', 'aw', 'er'], 2), fshift: 0.85, bw: 1.8,
-        breath: 0.3, breathF: 1500, drive: 4, preDrive: 3,
+        t: 0.005, dur, f0: s.rand(110, 165), contour: [[0, s.rand(3, 7)], [0.25, s.rand(4, 8)], [1, s.rand(-6, -2)]],
+        beat: 25, sub: 0.35, jitter: 1, rough: 0.28, roughRate: 40, roughJit: 10,
+        vowels: vowelPath(s, ['uh', 'a', 'aw', 'er'], 2), fshift: 0.85, bw: 1.7,
+        breath: 0.25, breathF: 1500, drive: 2.2, preDrive: 2.5, lp: 4200,
         env: [[0, 0], [0.08, 1], [0.5, 0.7], [1, 0]],
       });
     },
   },
   zombie_death: {
-    ...ZV, dur: 2.4, variants: 4, level: 0.75, cap: 3,
+    ...ZV, dur: 2.4, variants: 4, level: 0.64, cap: 3,
     render: (s) => {
       const dur = s.rand(1.2, 1.9);
       voice(s, {
         t: 0.01, dur, f0: s.rand(95, 130), contour: [[0, 2], [0.15, 3], [0.6, -4], [1, -13]],
-        beat: 18, sub: 0.5, jitter: 1.2, rough: 0.6, roughRate: s.rand(20, 30), roughJit: 10,
-        wet: s.rand(0.35, 0.5), wetRate: 35,
-        vowels: [[0, s.pick(['a', 'aw'])], [0.4, 'o'], [1, 'u']], fshift: 0.82, bw: 2,
-        breath: 0.35, breathF: 1000, raw: 0.2, drive: 2.5, preDrive: 3,
+        beat: 18, sub: 0.45, jitter: 1.2, rough: 0.4, roughRate: s.rand(18, 28), roughWave: 'square', roughJit: 8,
+        wet: s.rand(0.3, 0.45), wetRate: 35,
+        vowels: [[0, s.pick(['a', 'aw'])], [0.4, 'o'], [1, 'u']], fshift: 0.82, bw: 1.9,
+        breath: 0.3, breathF: 1000, raw: 0.2, drive: 2, preDrive: 2.5, lp: 3500,
         env: [[0, 0], [0.08, 1], [0.4, 0.8], [0.75, 0.35], [1, 0]],
       });
-      throatGunk(s, 0.1, dur, 0.35);
-      bubbles(s, { t: dur * 0.4, dur: dur * 0.6, count: 10, fmin: 150, fmax: 500, peak: 0.18, len: 0.06 });
+      throatGunk(s, 0.1, dur, 0.3);
+      bubbles(s, { t: dur * 0.4, dur: dur * 0.6, count: 10, fmin: 150, fmax: 500, peak: 0.16, len: 0.06 });
       // final rattling exhale
-      burst(s, { t: dur * 0.85, kind: 'pink', a: 0.05, tau: 0.18, peak: 0.25, filters: [['bandpass', 700, 0.8]] });
+      burst(s, { t: dur * 0.85, kind: 'pink', a: 0.05, tau: 0.18, peak: 0.22, filters: [['bandpass', 700, 0.8]] });
     },
   },
   zombie_scream: {
-    ...ZV, dur: 2.8, variants: 3, level: 1.0, ref: 6, maxDist: 120, cap: 2, send: 0.25,
+    ...ZV, dur: 2.8, variants: 3, level: 0.6, ref: 6, maxDist: 120, cap: 2, send: 0.25,
     render: (s) => {
       const dur = s.rand(1.5, 2.3);
       const f0 = s.rand(560, 820);
       const common = {
         t: 0.01, dur, contour: [[0, -4], [0.12, 1], [0.6, s.rand(1, 3)], [1, s.rand(-8, -4)]],
         jitter: 0.8, jitterRate: 16, vib: { rate: s.rand(7, 10), depth: s.rand(0.5, 1), delay: 0.1, wobble: 2 },
-        rough: 0.3, roughRate: s.rand(60, 90), roughJit: 20,
+        rough: 0.22, roughRate: s.rand(60, 90), roughJit: 20,
         vowels: vowelPath(s, ['a', 'ae', 'i', 'e'], 3), bw: 1.4,
-        breath: 0.4, breathF: 3000, hiss: 0.15, hissF: 4500, drive: 5, preDrive: 3, fuzz: true,
+        breath: 0.3, breathF: 3000, hiss: 0.08, hissF: 4500, drive: 3, preDrive: 3, fuzz: true, lp: 9000,
         env: [[0, 0], [0.06, 0.9], [0.2, 1], [0.75, 0.9], [1, 0]],
       };
       voice(s, { ...common, f0, beat: 35, fshift: s.rand(1.0, 1.15) });
-      // inhuman second voice a tritone + octave apart, quieter
+      // inhuman second voice a tritone above, quieter
       voice(s, { ...common, f0: f0 * 1.414, beat: 20, fshift: 1.2, gain: 0.35 });
     },
   },
   zombie_brute_roar: {
-    ...ZV, dur: 2.8, variants: 3, level: 1.0, ref: 6, maxDist: 90, cap: 2, send: 0.2, sr: 'lo',
+    ...ZV, dur: 2.8, variants: 3, level: 0.88, ref: 6, maxDist: 90, cap: 2, send: 0.2, sr: 'lo',
     render: (s) => {
       const dur = s.rand(1.5, 2.2);
       voice(s, {
         t: 0.01, dur, f0: s.rand(52, 72), contour: [[0, -2], [0.2, 3], [0.55, 2], [1, -6]],
-        beat: 12, beatGain: 0.8, sub: 0.8, subWave: 'sawtooth', jitter: 0.8,
-        rough: 0.65, roughRate: s.rand(28, 40), roughJit: 8,
-        vowels: vowelPath(s, ['aw', 'a', 'o'], 3), fshift: s.rand(0.62, 0.72), bw: 2,
-        breath: 0.3, breathF: 800, raw: 0.4, rawLp: 700, hiss: 0.08,
-        drive: 6, preDrive: 4, fuzz: true,
+        beat: 12, beatGain: 0.8, sub: 0.7, subWave: 'sawtooth', jitter: 0.8,
+        rough: 0.45, roughRate: s.rand(26, 36), roughJit: 6,
+        vowels: vowelPath(s, ['aw', 'a', 'o'], 3), fshift: s.rand(0.62, 0.72), bw: 1.9,
+        breath: 0.22, breathF: 800, raw: 0.35, rawLp: 700, hiss: 0.04,
+        drive: 3.5, preDrive: 3, fuzz: true, lp: 2600,
         env: [[0, 0], [0.12, 1], [0.7, 0.9], [1, 0]],
       });
       // chest rumble
-      burst(s, { t: 0.05, kind: 'brown', a: 0.2, hold: dur * 0.5, tau: 0.3, peak: 0.5, filters: [['lowpass', 180]] });
+      burst(s, { t: 0.05, kind: 'brown', a: 0.2, hold: dur * 0.5, tau: 0.3, peak: 0.45, filters: [['lowpass', 180]] });
     },
   },
   zombie_runner_shriek: {
-    ...ZV, dur: 1.3, variants: 4, level: 0.95, ref: 5, maxDist: 80, cap: 2, send: 0.2,
+    ...ZV, dur: 1.3, variants: 4, level: 0.5, ref: 5, maxDist: 80, cap: 2, send: 0.2,
     render: (s) => {
       const dur = s.rand(0.5, 0.9);
       voice(s, {
         t: 0.01, dur, f0: s.rand(380, 600), contour: [[0, -5], [0.25, s.rand(3, 6)], [0.6, 2], [1, -7]],
         beat: 40, jitter: 1.2, jitterRate: 20, vib: { rate: 13, depth: 0.6, delay: 0.2 },
-        rough: 0.45, roughRate: s.rand(70, 110), roughJit: 25,
+        rough: 0.3, roughRate: s.rand(70, 100), roughJit: 20,
         vowels: vowelPath(s, ['i', 'ae', 'e', 'a'], 3), fshift: s.rand(0.95, 1.1), bw: 1.5,
-        breath: 0.5, breathF: 3000, hiss: 0.22, hissF: 4000,
-        drive: 6, preDrive: 3, fuzz: true,
+        breath: 0.35, breathF: 3000, hiss: 0.12, hissF: 4000,
+        drive: 3.5, preDrive: 3, fuzz: true, lp: 7000,
         env: [[0, 0], [0.08, 1], [0.6, 0.85], [1, 0]],
       });
     },
   },
   zombie_bloater_pop: {
-    cat: 'sfx', sr: 'mid', dur: 1.6, variants: 3, level: 0.9, ref: 5, maxDist: 60, cap: 2, send: 0.18, pv: 0.06, vv: 0.1,
+    cat: 'sfx', sr: 'mid', dur: 1.6, variants: 3, level: 0.74, ref: 5, maxDist: 60, cap: 2, send: 0.18, pv: 0.06, vv: 0.1,
     render: (s) => {
       thud(s, { t: 0, f: 85, f1: 35, tau: 0.12, peak: 1.2, noise: 1, noiseLp: 600, noiseTau: 0.06 });
       burst(s, { t: 0, kind: 'white', a: 0.0005, tau: 0.03, peak: 0.9, filters: [['bandpass', 900, 0.6]] });
@@ -195,7 +196,7 @@ export const CREATURE_SOUNDS = {
     },
   },
   zombie_bash: {
-    cat: 'sfx', sr: 'mid', dur: 0.8, variants: 4, level: 0.85, ref: 5, maxDist: 50, cap: 4, send: 0.15, pv: 0.07, vv: 0.12,
+    cat: 'sfx', sr: 'mid', dur: 0.8, variants: 4, level: 0.63, ref: 5, maxDist: 50, cap: 4, send: 0.15, pv: 0.07, vv: 0.12,
     render: (s) => {
       thud(s, { t: 0, f: s.rand(70, 90), f1: 38, tau: 0.09, peak: 1.2, noise: 0.9, noiseLp: 700, noiseTau: 0.05 });
       tone(s, { t: 0, f: s.rand(110, 150), tau: 0.08, peak: 0.5 });
@@ -223,7 +224,7 @@ export const CREATURE_SOUNDS = {
     },
   },
   player_hurt_heavy: {
-    cat: 'inner', sr: 'lo', dur: 1.0, variants: 4, level: 0.75, cap: 2, pv: 0.04, vv: 0.08, send: 0.04,
+    cat: 'inner', sr: 'lo', dur: 1.0, variants: 4, level: 0.63, cap: 2, pv: 0.04, vv: 0.08, send: 0.04,
     render: (s) => {
       const dur = s.rand(0.5, 0.7);
       voice(s, {
@@ -283,7 +284,7 @@ export const CREATURE_SOUNDS = {
     },
   },
   heartbeat: {
-    cat: 'inner', sr: 'lo', dur: 0.55, variants: 3, level: 0.7, cap: 2, pv: 0.02, vv: 0.05, send: 0,
+    cat: 'inner', sr: 'lo', dur: 0.55, variants: 3, level: 0.42, cap: 2, pv: 0.02, vv: 0.05, send: 0,
     render: (s) => {
       const lp = s.lp(220, 0.7);
       lp.connect(s.out);
@@ -357,7 +358,7 @@ export const CREATURE_SOUNDS = {
 
   // ------------------------------------------------------------------ animals / distant life
   wolf_howl: {
-    cat: 'amb', sr: 'lo', dur: 4.6, variants: 3, level: 0.5, ref: 30, maxDist: 3000, cap: 2, send: 0.5, pv: 0.05, vv: 0.1,
+    cat: 'amb', sr: 'vlo', dur: 4.6, variants: 3, level: 0.5, ref: 60, maxDist: 3000, cap: 2, send: 0.5, pv: 0.05, vv: 0.1,
     render: (s) => {
       const lp = s.lp(2200, 0.7);
       lp.connect(s.out);
@@ -374,7 +375,7 @@ export const CREATURE_SOUNDS = {
     },
   },
   dog_bark: {
-    cat: 'amb', sr: 'lo', dur: 2.4, variants: 3, level: 0.45, ref: 20, maxDist: 2000, cap: 2, send: 0.4, pv: 0.06, vv: 0.1,
+    cat: 'amb', sr: 'vlo', dur: 2.4, variants: 3, level: 0.45, ref: 50, maxDist: 2000, cap: 2, send: 0.4, pv: 0.06, vv: 0.1,
     render: (s) => {
       const lp = s.lp(2500, 0.7);
       lp.connect(s.out);
@@ -395,7 +396,7 @@ export const CREATURE_SOUNDS = {
     },
   },
   distant_scream: {
-    cat: 'amb', sr: 'lo', dur: 3.4, variants: 4, level: 0.45, ref: 30, maxDist: 3000, cap: 2, send: 0.5, pv: 0.05, vv: 0.1,
+    cat: 'amb', sr: 'vlo', dur: 3.4, variants: 4, level: 0.45, ref: 40, maxDist: 3000, cap: 2, send: 0.5, pv: 0.05, vv: 0.1,
     render: (s, v) => {
       const lp = s.lp(s.rand(1300, 1900), 0.7);
       lp.connect(s.out);
@@ -415,7 +416,7 @@ export const CREATURE_SOUNDS = {
     },
   },
   owl: {
-    cat: 'amb', sr: 'lo', dur: 3.2, variants: 3, level: 0.4, ref: 15, maxDist: 1500, cap: 1, send: 0.35, pv: 0.03, vv: 0.1,
+    cat: 'amb', sr: 'vlo', dur: 3.2, variants: 3, level: 0.4, ref: 15, maxDist: 1500, cap: 1, send: 0.35, pv: 0.03, vv: 0.1,
     render: (s) => {
       // great-horned rhythm: hoo, hoo-hoo, hoooo, hoo
       const f = s.rand(330, 400);

@@ -475,7 +475,7 @@ C('work_shirt', 'Mechanic Shirt', 0.3, CLOTH('torso', 0.14, 0.05, 0.05, 0.14), {
 // --- jacket
 C('hoodie', 'Hoodie', 0.6, CLOTH('jacket', 0.35, 0.1, 0.06, 0.15), { shape: 'hoodie', color: '#7a7c82' }, 'A heather grey pullover hoodie with a kangaroo pocket.', { capacity: 2 });
 C('hoodie_black', 'Black Hoodie', 0.6, CLOTH('jacket', 0.35, 0.1, 0.06, 0.15), { shape: 'hoodie', color: '#2b2b30' }, 'Black zip hoodie. Blend into the night.', { capacity: 2 });
-C('hoodie_red', 'UK Hoodie', 0.6, CLOTH('jacket', 0.35, 0.1, 0.06, 0.15), { shape: 'hoodie', color: '#2a4a9a', decal: 'letter' }, 'Royal blue college hoodie. Go Cats.', { capacity: 2 });
+C('hoodie_red', 'Wildcats Hoodie', 0.6, CLOTH('jacket', 0.35, 0.1, 0.06, 0.15), { shape: 'hoodie', color: '#2a4a9a', decal: 'letter' }, 'Royal blue Millbrook High hoodie with a big white M. Go Wildcats.', { capacity: 2 });
 C('denim_jacket', 'Denim Jacket', 1.0, CLOTH('jacket', 0.25, 0.15, 0.15, 0.35), { shape: 'jacket', color: '#4a6a9a' }, 'Stiff blue denim trucker jacket. Decent scratch protection.', { capacity: 2 });
 C('leather_jacket', 'Leather Jacket', 1.6, CLOTH('jacket', 0.35, 0.4, 0.3, 0.5, { noise: 0.05 }), { shape: 'jacket', color: '#2b2422', decal: 'zipper' }, 'Heavy cowhide biker jacket. Teeth slide off it.', { capacity: 3, rarity: 'uncommon', tags: [], durability: 180 });
 C('winter_coat', 'Winter Coat', 1.8, CLOTH('jacket', 0.75, 0.5, 0.15, 0.3, { speed: 0.97, noise: 0.05 }), { shape: 'puffer', color: '#3a4a6a' }, 'Down-filled parka with a fur-trimmed hood. Toasty.', { capacity: 4 });

@@ -40,7 +40,7 @@ export const WEAPON_SOUNDS = {
       }),
   },
   gun_revolver: {
-    ...GUN, dur: 2.0, level: 1.0, ref: 9, maxDist: 420, send: 0.36,
+    ...GUN, dur: 2.0, level: 1.0, ref: 9, maxDist: 420, send: 0.36, variants: 3,
     render: (s) =>
       gunshot(s, {
         snap: 0.8, snapTau: 0.0012,
@@ -54,7 +54,7 @@ export const WEAPON_SOUNDS = {
       }),
   },
   gun_shotgun: {
-    ...GUN, dur: 2.5, level: 1.0, ref: 10, maxDist: 450, send: 0.38,
+    ...GUN, dur: 2.5, level: 1.0, ref: 10, maxDist: 450, send: 0.38, variants: 3,
     render: (s) =>
       gunshot(s, {
         snap: 0.5, snapTau: 0.0015,
@@ -68,7 +68,7 @@ export const WEAPON_SOUNDS = {
       }),
   },
   gun_rifle: {
-    ...GUN, dur: 2.8, level: 1.0, ref: 10, maxDist: 550, send: 0.4,
+    ...GUN, dur: 2.8, level: 1.0, ref: 10, maxDist: 550, send: 0.4, variants: 3,
     render: (s) =>
       gunshot(s, {
         snap: 1.2, snapTau: 0.0012,
@@ -82,7 +82,7 @@ export const WEAPON_SOUNDS = {
       }),
   },
   gun_sniper: {
-    ...GUN, dur: 3.4, level: 1.0, ref: 12, maxDist: 700, send: 0.45, variants: 3,
+    ...GUN, dur: 3.4, level: 1.0, ref: 12, maxDist: 700, send: 0.45, variants: 2,
     render: (s) =>
       gunshot(s, {
         snap: 1.4, snapTau: 0.0015,
@@ -172,7 +172,7 @@ export const WEAPON_SOUNDS = {
       }),
   },
   distant_gunshot: {
-    ...GUN, cat: 'amb', sr: 'lo', dur: 3.6, variants: 4, level: 0.55, ref: 50, maxDist: 5000, send: 0.25, cap: 4, group: null,
+    ...GUN, cat: 'amb', sr: 'vlo', dur: 3.6, variants: 3, level: 0.55, ref: 90, maxDist: 5000, send: 0.25, cap: 4, group: null,
     render: (s, v) => {
       const lp = s.lp(s.rand(700, 1100), 0.6);
       const kind = v % 3; // 0 pistol-ish, 1 rifle-ish, 2 shotgun-ish
@@ -204,9 +204,9 @@ export const WEAPON_SOUNDS = {
   bow: {
     cat: 'sfx', sr: 'mid', variants: 3, dur: 0.5, level: 0.5, ref: 3, maxDist: 40, cap: 4, send: 0.15, pv: 0.05, vv: 0.1,
     render: (s) => {
-      pluck(s, { t: 0, f: s.rand(170, 200), tau: 0.07, bright: 3500, dark: 300, peak: 1, q: 2 });
+      pluck(s, { t: 0, f: s.rand(170, 200), tau: 0.045, bright: 3500, dark: 300, peak: 1, q: 2 });
       thud(s, { t: 0, f: 210, f1: 90, tau: 0.03, peak: 0.45, noise: 0.25, noiseLp: 1500 });
-      pluck(s, { t: 0.002, f: s.rand(340, 380), tau: 0.04, bright: 4000, dark: 500, peak: 0.2 });
+      pluck(s, { t: 0.002, f: s.rand(340, 380), tau: 0.025, bright: 4000, dark: 500, peak: 0.2 });
       whoosh(s, { t: 0.005, dur: 0.18, f0: 2000, fmid: 3600, f1: 1500, q: 1.5, peak: 0.25 });
     },
   },
@@ -412,9 +412,9 @@ export const WEAPON_SOUNDS = {
     },
   },
   hit_metal: {
-    cat: 'sfx', sr: 'mid', variants: 5, dur: 1.4, level: 0.55, ref: 3, maxDist: 40, cap: 5, group: 'impact', groupCap: 10, send: 0.14, pv: 0.06, vv: 0.12,
+    cat: 'sfx', sr: 'mid', variants: 4, dur: 1.1, level: 0.55, ref: 3, maxDist: 40, cap: 5, group: 'impact', groupCap: 10, send: 0.14, pv: 0.06, vv: 0.12,
     render: (s) => {
-      modal(s, { t: 0, f: s.rand(380, 720), modes: 'metal', tau: s.rand(0.25, 0.4), peak: 0.8 });
+      modal(s, { t: 0, f: s.rand(380, 720), modes: 'metal', tau: s.rand(0.18, 0.28), peak: 0.8 });
       click(s, { t: 0, f: 3500, q: 1, tau: 0.002, peak: 0.7 });
       thud(s, { t: 0, f: 160, f1: 100, tau: 0.02, peak: 0.3 });
     },

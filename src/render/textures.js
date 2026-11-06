@@ -63,6 +63,7 @@ export function hasTexture(name) {
 export function generateTextures(names, size = 16) {
   const layers = new Map();
   const data = new Uint8Array(size * size * 4 * names.length);
+  const clamped = new Uint8ClampedArray(data.buffer); // same memory; assignments clamp + round
   const scale = S / size;
   names.forEach((name, li) => {
     layers.set(name, li);
@@ -78,6 +79,15 @@ export function generateTextures(names, size = 16) {
     const mode = alphaMode(name);
     const d = img.d;
     const base = li * size * size * 4;
+    if (size === S) {
+      for (let i = 0; i < S * S * 4; i += 4) {
+        const o = base + i;
+        clamped[o] = d[i]; clamped[o + 1] = d[i + 1]; clamped[o + 2] = d[i + 2];
+        const a = d[i + 3];
+        clamped[o + 3] = mode === 'opaque' ? 255 : mode === 'cutout' ? (a >= 128 ? 255 : 0) : a;
+      }
+      return;
+    }
     for (let y = 0; y < size; y++) {
       const sy = Math.floor(y * scale);
       for (let x = 0; x < size; x++) {

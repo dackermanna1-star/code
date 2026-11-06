@@ -65,10 +65,11 @@ export class AmbienceSystem {
 
     this.addBed('wind0', 'amb_wind', 0, this.windG, -0.55);
     this.addBed('wind1', 'amb_wind', 1, this.windG, 0.55);
-    this.addBed('rain0', 'amb_rain', 0, this.rainG, -0.6);
-    this.addBed('rain1', 'amb_rain', 1, this.rainG, 0.6);
-    this.addBed('heavy0', 'amb_rain_heavy', 0, this.heavyG, -0.5);
-    this.addBed('heavy1', 'amb_rain_heavy', 1, this.heavyG, 0.5);
+    // two copies of the same loop, 3 s apart, panned apart = decorrelated stereo bed
+    this.addBed('rain0', 'amb_rain', 0, this.rainG, -0.6, 0);
+    this.addBed('rain1', 'amb_rain', 0, this.rainG, 0.6, 3.1);
+    this.addBed('heavy0', 'amb_rain_heavy', 0, this.heavyG, -0.5, 0);
+    this.addBed('heavy1', 'amb_rain_heavy', 0, this.heavyG, 0.5, 2.9);
     this.addBed('roof', 'amb_rain_roof', 0, this.roofG, 0);
     this.addBed('crick0', 'amb_crickets', 0, this.cricketG, -0.6, 0);
     this.addBed('crick1', 'amb_crickets', 0, this.cricketG, 0.6, 4.7);
@@ -152,16 +153,16 @@ export class AmbienceSystem {
     }
     this.gust += (this.gustTarget - this.gust) * (1 - Math.exp(-dt / 1.2));
     const windEff = clamp(C.wind + C.storm * 0.6, 0, 1.3);
-    const wg = (0.07 + 0.75 * windEff) * lerp(1, this.gust, clamp(windEff * 1.4, 0, 1)) * (1 - uw);
+    const wg = (0.035 + 0.3 * windEff) * lerp(1, this.gust, clamp(windEff * 1.4, 0, 1)) * (1 - uw);
     this._rampTo(this.windG.gain, wg);
     this._rampTo(this.windLP.frequency, 300 + 2600 * clamp(windEff * this.gust, 0, 1.5), 0.15);
     this._bed('wind0', wg > 0.001);
     this._bed('wind1', wg > 0.001);
 
     // rain
-    const rainOut = C.rain * 0.55 * (1 - uw);
-    const heavy = clamp(C.rain * C.storm * 0.9 + Math.max(0, C.rain - 0.6) * 0.6, 0, 1) * 0.7 * (1 - uw);
-    const roof = indoor * clamp(C.rain * 0.8 + C.storm * 0.2, 0, 1) * 0.6 * (1 - uw);
+    const rainOut = C.rain * 0.5 * (1 - uw);
+    const heavy = clamp(C.rain * C.storm * 0.9 + Math.max(0, C.rain - 0.6) * 0.6, 0, 1) * 0.5 * (1 - uw);
+    const roof = indoor * clamp(C.rain * 0.8 + C.storm * 0.2, 0, 1) * 0.38 * (1 - uw);
     this._rampTo(this.rainG.gain, rainOut);
     this._rampTo(this.heavyG.gain, heavy);
     this._rampTo(this.roofG.gain, roof);
@@ -172,20 +173,20 @@ export class AmbienceSystem {
     this._bed('roof', roof > 0.001);
 
     // crickets
-    const crick = clamp(C.night * 1.4 - 0.4, 0, 1) * (1 - C.rain * 0.85) * (1 - C.storm) * (1 - C.wind * 0.5) * 0.4 * (1 - uw);
+    const crick = clamp(C.night * 1.4 - 0.4, 0, 1) * (1 - C.rain * 0.85) * (1 - C.storm) * (1 - C.wind * 0.5) * 0.25 * (1 - uw);
     this._rampTo(this.cricketG.gain, crick, 0.3);
     this._bed('crick0', crick > 0.001);
     this._bed('crick1', crick > 0.001);
 
     // underwater / tension
-    this._rampTo(this.uwG.gain, uw * 0.8);
+    this._rampTo(this.uwG.gain, uw * 0.45);
     this._bed('uw', uw > 0.001);
-    const ten = C.tension * 0.45;
+    const ten = C.tension * 0.15;
     this._rampTo(this.tensionG.gain, ten, 0.3);
     this._bed('tension', ten > 0.001);
 
     // tinnitus
-    this._rampTo(this.tinG.gain, Math.pow(C.tinnitus, 1.5) * 0.07, 0.05);
+    this._rampTo(this.tinG.gain, Math.pow(C.tinnitus, 1.5) * 0.05, 0.05);
 
     // heartbeat
     if (C.heartbeat > 0.04) {

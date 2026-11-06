@@ -175,14 +175,27 @@ export function getZombieGeometry(variant) {
     left: sub(accB, 0, 10, 3, 6), right: sub(accB, 5, 10, 3, 6),
   });
   // cap visor (front of the forehead)
-  B.box(BONE.head, GROUP.visor, -4.2, 6.2, 3.8, 4.2, 6.9, 7.6, allFaces(sub(accA, 0, 0, 8, 4)));
+  B.box(BONE.head, GROUP.visor, -4.0, 6.3, 3.9, 4.0, 6.85, 6.6, allFaces(sub(accA, 0, 0, 8, 4)));
   // round brim (helmets / hard hats / hats)
   B.box(BONE.head, GROUP.brim, -5.6, 6.4, -6.2, 5.6, 7.1, 6.2, allFaces(sub(accA, 0, 4, 8, 4)));
+  // swollen belly (bloater): a second box bulging out of the torso front, textured with the shirt front
+  if (dims.belly) {
+    const [bw, by0, bz0, by1, bdepth] = dims.belly;
+    const TF = faceRect(R.torso.base[0], R.torso.base[1], 8, 12, 4, 'front');
+    const TR = faceRect(R.torso.base[0], R.torso.base[1], 8, 12, 4, 'right');
+    const TL = faceRect(R.torso.base[0], R.torso.base[1], 8, 12, 4, 'left');
+    const r0 = 2, r1 = 11;
+    B.box(BONE.torso, GROUP.torso, -bw / 2, by0, bz0, bw / 2, by1, bz0 + bdepth, {
+      front: [TF[0], TF[1] + r0, 8, r1 - r0], right: [TR[0], TR[1] + r0, 4, r1 - r0], left: [TL[0], TL[1] + r0, 4, r1 - r0],
+      top: [TF[0], TF[1] + r0, 8, 1], bottom: [TF[0], TF[1] + r1 - 1, 8, 1],
+    });
+  }
   // pustules (bloater)
   if (key === 'bloater') {
+    const bz = dims.belly ? dims.belly[2] + dims.belly[4] : td / 2;
     const pust = [
-      [2.5, 7.5, td / 2, 2.2], [-3.2, 4.5, td / 2, 1.8], [tw / 2, 8, 1.0, 2.0], [-tw / 2, 6, -1.5, 2.4],
-      [1.0, 3.0, -td / 2, 2.0], [-2.0, 9.5, td / 2, 1.5], [tw / 2, 3.5, -2.0, 1.6],
+      [2.5, 7.0, bz, 2.2], [-3.0, 4.0, bz, 1.8], [tw / 2, 8, 0.5, 2.0], [-tw / 2, 6, -1.0, 2.4], [4.8, 4.5, bz - 1.5, 1.8],
+      [1.0, 3.0, -td / 2, 2.0], [-2.0, 9.6, bz - 1.2, 1.5], [-4.8, 7.5, bz - 2.0, 1.6],
     ];
     pust.forEach(([x, y, z, s], i) => {
       const r = sub(accC, (i % 2) * 4, Math.floor(i / 2) * 4 % 16, 4, 4);

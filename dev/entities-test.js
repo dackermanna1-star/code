@@ -76,6 +76,7 @@ world.fill(-48, 0, -2, 47, 0, 2, B.asphalt);
 const isSolid = (x, y, z) => world.isSolid(x, y, z);
 
 const updaters = [];
+const cells = [];
 const T0 = performance.now();
 
 function camLook(px, py, pz, tx, ty, tz) {
@@ -111,32 +112,37 @@ const scenes = {
     camLook(0, 2.6, -4.5, 0, 1.6, 6);
   },
   variants() {
+    const moving = params.get('moving') === '1';
     ZOMBIE_VARIANTS.forEach((v, i) => {
-      for (let k = 0; k < 2; k++) {
-        const z = createZombieVisual({ variant: v, outfit: ZOMBIE_OUTFITS[(i * 3 + k * 5) % 13], seed: 300 + i * 11 + k * 101 });
-        z.root.position.set((i - 2.5) * 1.9, 1, 4 + k * 3.2);
-        scene.add(z.root);
-        const st = k === 0 ? 'idle' : (v === 'runner' ? 'run' : v === 'crawler' ? 'crawl' : v === 'screamer' ? 'scream' : 'walk');
-        const sp = st === 'run' ? 4.5 : st === 'walk' ? 1.0 : st === 'crawl' ? 0.5 : 0;
-        updaters.push((dt) => z.update(dt, { state: st, speed: sp, aggro: 0.6 }));
-        z.setLight(1, 0);
-      }
+      const z = createZombieVisual({ variant: v, outfit: ZOMBIE_OUTFITS[(i * 3 + (moving ? 5 : 0)) % 13], seed: 300 + i * 11 + (moving ? 101 : 0) });
+      z.root.position.set((i - 2.5) * 1.8, 1, 4);
+      z.root.rotation.y = moving ? 0.9 : 0.25;
+      scene.add(z.root);
+      const st = !moving ? (params.get('state') || 'idle') : (v === 'runner' ? 'run' : v === 'crawler' ? 'crawl' : v === 'screamer' ? 'scream' : 'walk');
+      const sp = st === 'run' ? 4.5 : st === 'walk' ? 1.0 : st === 'crawl' ? 0.5 : 0;
+      updaters.push((dt) => z.update(dt, { state: st, speed: sp, aggro: parseFloat(params.get('aggro') || '0.6') }));
+      z.setLight(1, 0);
+      const lbl = makeLabel(v + (moving ? ' ' + st : ''));
+      lbl.position.set(z.root.position.x, 3.25, z.root.position.z);
+      scene.add(lbl);
     });
-    camLook(-1.5, 2.4, 13.5, 0, 1.2, 5.5);
+    camLook(0, 2.6, 12.5, 0, 1.4, 4);
   },
   states() {
-    const states = ['idle', 'walk', 'run', 'crawl', 'attack', 'bash', 'stagger', 'knockdown', 'down', 'getup', 'feed', 'scream'];
-    world.fill(3, 1, 9, 6, 3, 9, B.planks_oak); // door / wall for bashing
+    const all = ['idle', 'walk', 'run', 'crawl', 'attack', 'bash', 'stagger', 'knockdown', 'down', 'getup', 'feed', 'scream'];
+    const set = parseInt(params.get('set') || '0');
+    const states = set === 2 ? all : all.slice(set * 6, set * 6 + 6);
+    const variant = params.get('variant') || 'walker';
     states.forEach((st, i) => {
-      const z = createZombieVisual({ variant: 'walker', outfit: ZOMBIE_OUTFITS[i % 13], seed: 500 + i * 7 });
+      const z = createZombieVisual({ variant, outfit: ZOMBIE_OUTFITS[(i + set * 6) % 13], seed: 500 + (i + set * 6) * 7 });
       const col = i % 6, row = Math.floor(i / 6);
-      z.root.position.set((col - 2.5) * 2.0, 1, 4 + row * 3.5);
-      z.root.rotation.y = 0.5;
+      z.root.position.set((col - 2.5) * 2.2, 1, 3 - row * 4);
+      z.root.rotation.y = st === 'bash' ? Math.PI / 2 : st === 'down' || st === 'knockdown' || st === 'getup' ? 1.2 : 0.6;
+      if (st === 'bash') world.fill(Math.floor(z.root.position.x) + 1, 1, Math.floor(z.root.position.z) - 1, Math.floor(z.root.position.x) + 1, 2, Math.floor(z.root.position.z) - 1, B.planks_oak);
       scene.add(z.root);
       const sp = { walk: 1, run: 4.5, crawl: 0.5 }[st] || 0;
       const at = parseFloat(params.get('at') || '0.45');
       const stT = parseFloat(params.get('st') || '0.25');
-      // knockdown/getup: show a mid-transition frame
       let tState = 0;
       updaters.push((dt, t) => {
         tState += dt;
@@ -146,10 +152,71 @@ const scenes = {
       });
       z.setLight(1, 0);
       const lbl = makeLabel(st);
-      lbl.position.set(z.root.position.x, 3.3, z.root.position.z);
+      lbl.position.set(z.root.position.x, 3.0, z.root.position.z);
       scene.add(lbl);
     });
-    camLook(1.2, 3.6, 14.5, 0, 1.2, 5.5);
+    camLook(0, 2.8, 11.5, 0, 1.1, 3);
+  },
+  grid() {
+    // one subject per viewport cell: states=a,b,c & variant= & outfits=
+    const states = (params.get('states') || 'idle,walk,run,attack,bash,stagger,knockdown,down,getup,feed,scream,crawl').split(',');
+    const outs = (params.get('outfits') || ZOMBIE_OUTFITS.join(',')).split(',');
+    const variants = (params.get('variants') || params.get('variant') || 'walker').split(',');
+    const n = Math.max(states.length, params.get('outfits') ? outs.length : 0, variants.length);
+    const at = (params.get('at') || '0.45').split(',').map(Number);
+    const stT = parseFloat(params.get('st') || '0.3');
+    for (let i = 0; i < n; i++) {
+      const st = states[i % states.length], o = outs[i % outs.length], v = variants[i % variants.length];
+      const z = createZombieVisual({ variant: v, outfit: o, seed: parseInt(params.get('seed') || '500') + i * 7 });
+      const X = (i % 6) * 14 - 35, Zc = Math.floor(i / 6) * 14 - 35;
+      z.root.position.set(X, 1, Zc);
+      z.root.rotation.y = st === 'bash' ? 0 : parseFloat(params.get('yaw') || '0.5');
+      scene.add(z.root);
+      if (st === 'bash') world.fill(X - 1, 1, Zc + 1, X + 1, 3, Zc + 1, B.planks_oak);
+      const bashCam = st === 'bash';
+      const sp = { walk: 1, run: 4.5, crawl: 0.5 }[st] || 0;
+      let tState = 0;
+      const atI = at[i % at.length];
+      updaters.push((dt) => {
+        tState += dt;
+        let s2 = st;
+        if ((st === 'knockdown' || st === 'getup' || st === 'stagger' || st === 'scream') && tState < T_END - stT) s2 = st === 'getup' ? 'down' : 'idle';
+        z.update(dt, { state: s2, speed: sp, aggro: parseFloat(params.get('aggro') || '0.8'), attackT: atI });
+      });
+      z.setLight(1, 0);
+      const low = ['down', 'knockdown', 'getup', 'crawl', 'feed'].includes(st) || v === 'crawler';
+      const d = parseFloat(params.get('dist') || '1');
+      const sc = v === 'brute' ? 1.3 : 1;
+      const yaw = z.root.rotation.y;
+      if (bashCam) cells.push({ cam: [X + 3.6 * d, 2.4, Zc - 1.2 * d, X, 1.95, Zc], label: `${st} ${v} ${o}` });
+      else cells.push({ cam: [X + 2.3 * d * sc, 1 + (low ? 1.1 : 1.35) * sc, Zc + 3.0 * d * sc, X, 1 + (low ? 0.3 : 0.95 * sc), Zc], label: `${st} ${v} ${o}` });
+    }
+  },
+  ragseq() {
+    const times = (params.get('times') || '0,0.15,0.3,0.45,0.6,0.9,1.4,2.2,4').split(',').map(Number);
+    const imp = (params.get('imp') || '0,0.5,-3').split(',').map(Number);
+    const part = params.get('part') || 'torso';
+    const v = params.get('variant') || 'walker';
+    const st0 = params.get('pre') || 'walk';
+    if (params.get('wall')) times.forEach((_, i) => { const X = (i % 6) * 14 - 35, Zc = Math.floor(i / 6) * 14 - 35; world.fill(X - 2, 1, Zc - 2, X + 2, 3, Zc - 2, B.brick_red); });
+    times.forEach((tt, i) => {
+      const X = (i % 6) * 14 - 35, Zc = Math.floor(i / 6) * 14 - 35;
+      const z = createZombieVisual({ variant: v, outfit: params.get('outfit') || 'police', seed: 77 });
+      z.root.position.set(X, 1, Zc);
+      z.root.rotation.y = 0;
+      scene.add(z.root);
+      z.setLight(1, 0);
+      let t = 0, started = false, done = false;
+      const startAt = T_END - tt;
+      updaters.push((dt) => {
+        t += dt;
+        if (!started) {
+          z.update(dt, { state: st0, speed: st0 === 'walk' ? 1 : st0 === 'run' ? 4 : 0, aggro: 1 });
+          if (t >= startAt - 1e-6) { started = true; z.startRagdoll(new THREE.Vector3(...imp), part, isSolid); }
+        } else if (!done && !z.updateRagdoll(dt)) { done = true; log(`cell ${i}: settled after ${(t - startAt).toFixed(2)}s (sim time ${z.ragdoll.time.toFixed(2)})`); }
+      });
+      cells.push({ cam: [X + 3.6, 2.4, Zc + 0.6, X, 1.2, Zc - 0.6], label: `t=${tt}` });
+    });
   },
   closeup() {
     const outs = (params.get('outfits') || 'police,military,firefighter').split(',');
@@ -200,7 +267,7 @@ const scenes = {
         } else if (!z.updateRagdoll(dt) && settledAt < 0) { settledAt = t; log(`ragdoll ${i} settled at ${t.toFixed(2)}s`); }
       });
     });
-    camLook(1, 4.5, 14, 0, 1, 5);
+    camLook(1.5, 4.8, -4.5, 0.5, 1, 6);
   },
   corpses() {
     ['civilian', 'survivor', 'police', 'military', 'civilian_f', 'medic', 'hunter', 'worker'].forEach((o, i) => {
@@ -275,6 +342,8 @@ async function setup() {
   else if (SCENE === 'cars' || SCENE.startsWith('car')) (await import('./entities-cars.js')).setupCars({ scene, world, camLook, updaters, params, log });
   else if (SCENE.startsWith('fx')) (await import('./entities-fx.js')).setupFX({ scene, world, camLook, updaters, params, log, camera, setLighting });
   buildWorldMeshes(world, scene);
+  if (params.get('cam')) { const c = params.get('cam').split(',').map(Number); camLook(c[0], c[1], c[2], c[3], c[4], c[5]); }
+  if (params.get('fov')) { camera.fov = +params.get('fov'); camera.updateProjectionMatrix(); }
   if (NIGHT) {
     const G = globalUniforms;
     G.uFlashPos.value.copy(camera.position);
@@ -293,7 +362,7 @@ async function setup() {
   render();
   window.__ready = true;
   window.__simTime = t;
-  log(`scene=${SCENE} t=${t.toFixed(2)} setup+sim ${(performance.now() - T0).toFixed(0)}ms draw calls=${renderer.info.render.calls}`);
+  log(`scene=${SCENE} t=${t.toFixed(2)} setup+sim ${(performance.now() - T0).toFixed(0)}ms draw calls=${window.__calls}`);
   if (window.__perfReport) { const r = window.__perfReport(); log(`perf: 80 zombies update avg ${r.avgMs.toFixed(3)}ms max ${r.maxMs.toFixed(3)}ms over ${r.frames} frames`); }
   if (params.get('live')) {
     let last = performance.now();
@@ -312,7 +381,34 @@ function render() {
   G_cam();
   renderer.setRenderTarget(rt);
   renderer.clear(true, true, false);
-  renderer.render(scene, camera);
+  if (cells.length) {
+    const cols = parseInt(params.get('cols') || String(Math.ceil(Math.sqrt(cells.length * W / H))));
+    camera.fov = parseFloat(params.get('fov') || '38'); 
+    const rows = Math.ceil(cells.length / cols);
+    const cw = Math.floor(W / cols), ch = Math.floor(H / rows);
+    rt.scissorTest = true;
+    let calls = 0;
+    cells.forEach((c, i) => {
+      const x = (i % cols) * cw, y = H - (Math.floor(i / cols) + 1) * ch;
+      rt.viewport.set(x, y, cw, ch); rt.scissor.set(x, y, cw, ch);
+      renderer.setRenderTarget(rt);
+      camera.aspect = cw / ch; camera.updateProjectionMatrix();
+      camLook(...c.cam);
+      G_cam();
+      renderer.render(scene, camera);
+      calls += renderer.info.render.calls;
+      if (!c.el) {
+        c.el = document.createElement('div');
+        c.el.style.cssText = `position:fixed;left:${x + 4}px;top:${H - y - ch + 4}px;color:#fff;font:11px monospace;text-shadow:0 0 2px #000`;
+        c.el.textContent = c.label; document.body.appendChild(c.el);
+      }
+    });
+    rt.scissorTest = false; rt.viewport.set(0, 0, W, H); rt.scissor.set(0, 0, W, H);
+    window.__calls = calls;
+  } else {
+    renderer.render(scene, camera);
+    window.__calls = renderer.info.render.calls;
+  }
   renderer.setRenderTarget(null);
   renderer.clear(true, true, false);
   renderer.render(postScene, postCam);

@@ -41,7 +41,7 @@ export class SkillsPanel {
       prof?.desc ? h('div.char-desc', prof.desc) : null,
       prof?.perks?.length ? h('div.char-perks', h('div.cd-sec-title', 'Traits'), prof.perks.map((t) => h('div.perk', h('i'), t))) : null,
       h('div.char-stats',
-        stat('Days survived', fmtDays(p.daysSurvived ?? (g.time?.day ? g.time.day - 1 : 0))),
+        stat('Days survived', fmtDays(p.daysSurvived ?? (g.time?.day ? g.time.day - 1 : 0)), 'wide'),
         stat('Zombies killed', String(p.kills ?? 0)),
         stat('Day', String(g.time?.day ?? 1)),
         stat('Carry limit', `${Math.round(p.maxWeight || p.inv?.maxWeight || 0)} kg`)));
@@ -59,7 +59,7 @@ export class SkillsPanel {
         h('div.sk-top', h('span.sk-name', defs[id]?.name || id), h('span.sk-lvl', lvl >= MAX_LEVEL ? 'MAX' : `Lv ${lvl}`)),
         pips,
         h('div.sk-xp', h('div.sk-xp-bar', h('i', { style: { width: (frac * 100).toFixed(1) + '%' } })),
-          h('span', lvl >= MAX_LEVEL ? 'Mastered' : `${Math.floor(s.xp || 0)} / ${Math.ceil(s.next || 0)} xp`)),
+          h('span.sk-xp-txt', lvl >= MAX_LEVEL ? 'Mastered' : `${Math.floor(s.xp || 0)} / ${Math.ceil(s.next || 0)} xp`)),
         defs[id]?.desc ? h('div.sk-desc', defs[id].desc) : null));
     }
     const skillsCol = h('div.skills-col.sk-list', h('div.col-head', h('span.col-title', 'Skills'),
@@ -68,6 +68,6 @@ export class SkillsPanel {
   }
 }
 
-function stat(label, value) {
-  return h('div.cstat', h('span', label), h('b', value));
+function stat(label, value, cls) {
+  return h('div.cstat' + (cls ? '.' + cls : ''), h('span', label), h('b', value));
 }

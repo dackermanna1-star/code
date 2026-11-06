@@ -22,7 +22,7 @@ const PORT = process.env.PORT || 5205;
     const t0 = Date.now();
     await page.goto(`http://localhost:${PORT}/dev/entities-test.html?${q}`);
     try {
-      await page.waitForFunction(() => window.__ready === true, null, { timeout: 180000 });
+      await page.waitForFunction(() => window.__ready === true, null, { timeout: 120000 });
     } catch (e) { msgs.push('[timeout] ' + e.message); }
     await page.waitForTimeout(200);
     const file = path.join(outDir, `entities-${name}.png`);

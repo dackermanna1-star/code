@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Viewmodel test</title>
+    <style>
+      html, body { margin: 0; padding: 0; overflow: hidden; background: #000; width: 100%; height: 100%; font: 12px monospace; color: #ddd; }
+      canvas { display: block; }
+      #panel { position: fixed; top: 6px; left: 6px; background: rgba(0,0,0,0.6); padding: 6px 8px; max-width: 330px; border: 1px solid #444; }
+      #panel button { font: 11px monospace; margin: 1px; padding: 2px 5px; background: #333; color: #eee; border: 1px solid #555; cursor: pointer; }
+      #panel button:hover { background: #555; }
+      #panel label { margin-right: 6px; white-space: nowrap; }
+      #panel select { font: 11px monospace; }
+      .row { margin: 3px 0; }
+      #help { color: #999; font-size: 10px; margin-top: 4px; }
+      .tile-label { position: fixed; color: #fff; background: rgba(0,0,0,0.55); font: 11px monospace; padding: 1px 4px; pointer-events: none; }
+      #cross { position: fixed; left: 50%; top: 50%; width: 6px; height: 6px; margin: -3px 0 0 -3px; border: 1px solid rgba(255,255,255,0.7); border-radius: 50%; pointer-events: none; }
+      body.auto #panel { display: none; }
+    </style>
+  </head>
+  <body>
+    <div id="panel">
+      <div class="row"><select id="model"></select> <button id="prev">&lt;</button><button id="next">&gt;</button></div>
+      <div class="row">
+        <button data-a="fire">fire F</button><button data-a="swing">swing V</button><button data-a="swingHeavy">heavy B</button><button data-a="shove">shove G</button>
+        <button data-a="reload">reload R</button><button data-a="insert">insert T</button><button data-a="reloadEnd">end Y</button>
+        <button data-a="pump">pump P</button><button data-a="bolt">bolt O</button><button data-a="throw">throw X</button><button data-a="cancel">cancel C</button>
+      </div>
+      <div class="row">
+        <button data-a="use:eat">eat</button><button data-a="use:drink">drink</button><button data-a="use:bandage">bandage</button><button data-a="use:pills">pills</button>
+        <button data-a="use:read">read</button><button data-a="use:inject">inject</button><button data-a="use:craft">craft</button><button data-a="use2:bandage">bandage(temp)</button>
+      </div>
+      <div class="row">
+        <label><input type="checkbox" id="aim" />aim (RMB)</label><label><input type="checkbox" id="sprint" />sprint (Shift)</label>
+        <label><input type="checkbox" id="crouch" />crouch</label><label><input type="checkbox" id="moving" />moving (W)</label>
+        <label><input type="checkbox" id="night" />night (N)</label><label><input type="checkbox" id="flash" />flashlight (L)</label>
+        <label><input type="checkbox" id="empty" />empty mag</label><label><input type="checkbox" id="slow" />slow-mo</label>
+      </div>
+      <div class="row">arms: <select id="arms"><option value="0">jacket</option><option value="1">bare</option><option value="2">gloves+hoodie</option><option value="3">tactical</option></select>
+        <button id="jump">jump/land</button></div>
+      <div id="help">drag mouse = look (sway). keys in brackets.</div>
+    </div>
+    <div id="cross"></div>
+    <script type="module" src="./viewmodel-test.js"></script>
+  </body>
+</html>

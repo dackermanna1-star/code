@@ -41,7 +41,7 @@ class ZombieBody {
     this.pix = skin.pix;
     this.info = skin.info;
     this.texture = createSkinTexture(skin.data);
-    this.material = createSkinnedMaterial(this.texture, { glow: eyes === 'glow' ? 0.85 : 0 });
+    this.material = createSkinnedMaterial(this.texture, { glow: eyes === 'glow' ? 1.6 : 0 });
     this.bones = this.material.uniforms.uBones.value;
     this.mesh = new THREE.Mesh(g.geometry, this.material);
     this.mesh.name = 'zombie';
