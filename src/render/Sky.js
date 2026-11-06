@@ -174,7 +174,7 @@ export class Sky {
     const dusk = clamp(1 - Math.abs(sh) * 3.2, 0, 1) * smoothstep(-0.25, 0.0, sh);
     const oc = clamp(w.overcast, 0, 1);
     const night = 1 - day01;
-    const moonPhase = ((day - 1) % 8) / 8; // 0 new .. 0.5 full
+    const moonPhase = ((day + 3) % 8) / 8; // 0 new .. 0.5 full (the first night is a full moon)
     const moonLight = 0.35 + 0.65 * (1 - Math.abs(moonPhase - 0.5) * 2);
 
     // sky gradient
@@ -209,11 +209,11 @@ export class Sky {
       G.uSunColor.value.setRGB(0.32, 0.38, 0.55).multiplyScalar(0.22 * moonLight * (1 - oc * 0.9) * smoothstep(-0.05, 0.2, moon.y));
     }
     const ambDay = new THREE.Color(0.42, 0.48, 0.6).lerp(new THREE.Color(0.56, 0.56, 0.58), oc);
-    const ambNight = new THREE.Color(0.05, 0.062, 0.1).multiplyScalar(0.55 + 0.6 * moonLight * (1 - oc * 0.7));
+    const ambNight = new THREE.Color(0.075, 0.09, 0.14).multiplyScalar(0.5 + 0.65 * moonLight * (1 - oc * 0.7));
     const amb = ambNight.clone().lerp(ambDay, day01);
     amb.lerp(new THREE.Color(0.75, 0.45, 0.35).multiplyScalar(0.55), dusk * 0.35);
     G.uAmbientColor.value.copy(amb).multiplyScalar(1 + oc * 0.15 * day01);
-    G.uMinLight.value = 0.006 + 0.02 * day01;
+    G.uMinLight.value = 0.012 + 0.015 * day01;
 
     // fog
     const fogCol = hor.clone().lerp(top, 0.15);
