@@ -67,13 +67,13 @@ const _upR = new THREE.Vector3();
 const _rigUp = new THREE.Vector3();
 const _e = new THREE.Euler();
 const _q = new THREE.Quaternion();
-const _q2 = new THREE.Quaternion();
 const _X = new THREE.Vector3(1, 0, 0);
 const _size = new THREE.Vector2();
 const _ndc = new THREE.Vector3();
 const _cp = new THREE.Vector3();
 const _dir = new THREE.Vector3();
 const _fw = new THREE.Vector3();
+const _m4 = new THREE.Matrix4();
 
 export class Viewmodel {
   constructor() {
@@ -155,6 +155,16 @@ export class Viewmodel {
     this.adsFov = 56;
     /** optional (def) => 16x16 canvas override for extruded 'generic' items (defaults to getItemIcon) */
     this.iconProvider = null;
+    /**
+     * Units of s.lookDX / s.lookDY: 'rad' (camera yaw/pitch change this frame, +x = turned right, +y = looked up),
+     * 'px' (raw pointer-lock movementX/Y: +y = mouse down, scaled by lookPxScale) or 'auto' (default: starts as
+     * 'rad' and switches to 'px' for good as soon as a per-frame value > 0.35 is seen, which radians never reach).
+     */
+    this.lookInput = 'auto';
+    this.lookPxScale = 0.0022;
+    this._camBlend = 0;
+    this._camQ = new THREE.Quaternion();
+    this._idQ = new THREE.Quaternion();
     this.setItem(null);
   }
 
@@ -202,6 +212,13 @@ export class Viewmodel {
   setItem(stack) {
     const id = this._modelIdFor(stack);
     const key = id === 'generic' ? 'generic:' + stack.id : id;
+    // a throw in progress keeps playing; the new item is equipped when it ends (stack consumed at release)
+    const a = this.action;
+    if (a && a.type === 'throw' && !(stack === this._stack && this.item && this.item.key === key)) {
+      a.data.pending = { stack: stack || null };
+      a.data.reshow = false;
+      return;
+    }
     const same = this.item && stack === this._stack && this.item.key === key;
     this._stack = stack || null;
     this._def = stack ? getItemDef(stack.id) : getItemDef('fists');
@@ -265,6 +282,10 @@ export class Viewmodel {
     this.action = null;
     if (a && a.type === 'swing') this._lastSwingEnd = this.time;
     if (this.item && this.model !== this.item) this._display(this.item);
+    if (a && a.data && a.data.pending) {
+      this._stack = undefined; // force re-equip
+      this.setItem(a.data.pending.stack);
+    }
   }
 
   /** Stop any action animation (blends back to rest). */
@@ -321,17 +342,24 @@ export class Viewmodel {
     return SWINGS[style].hit * D;
   }
 
+  /** Quick shove. Returns seconds until the push connects. */
   shove() {
     this._start('shove', 0.48, {});
+    return 0.48 * 0.4;
   }
 
-  /** kind: 'mag' | 'shell' | 'single' | 'break'. duration in seconds (whole reload for mag/break; see report). */
+  /**
+   * kind: 'mag' | 'shell' | 'single' | 'break' | 'unjam'. duration in seconds: the whole animation for
+   * mag / break / unjam (and crossbow / bow); for shell / single it is the expected total and only sets the
+   * entry speed - the gun then holds in the loading pose, each reloadInsert() plays one round, reloadEnd() closes.
+   */
   reloadStart(kind = 'mag', duration = 2) {
     const meta = this.meta;
     const st = meta.reload && meta.reload.style;
     if (this.action) this._endAction(true);
     let type;
-    if (meta.kind !== 'gun') type = 'reloadGeneric';
+    if (kind === 'unjam') type = meta.kind === 'gun' ? 'unjam' : 'reloadGeneric';
+    else if (meta.kind !== 'gun') type = 'reloadGeneric';
     else if (st === 'crossbow') type = 'reloadCrossbow';
     else if (st === 'bow') type = 'reloadBow';
     else if (st === 'break') type = 'reloadBreak';
@@ -376,7 +404,7 @@ export class Viewmodel {
 
   reloadEnd() {
     const a = this.action;
-    if (!a || !a.type.startsWith('reload')) return;
+    if (!a || !(a.type.startsWith('reload') || a.type === 'unjam')) return;
     if (a.hold) {
       if (a.phase !== 'exit') {
         a.phase = 'exit';
@@ -410,6 +438,9 @@ export class Viewmodel {
       const id = this._modelIdFor(stack);
       const m = this._getModel(stack, id);
       if (m !== this.item) temp = m;
+    } else if (!stack && kind !== 'craft' && this.item && (this.item.meta.kind === 'gun' || this.item.meta.kind === 'melee')) {
+      // using something from the inventory while holding a weapon: lower it and mime with the bare hands
+      temp = this._getModel(null, 'fists');
     }
     this._start('use', Math.max(0.3, duration), { kind, temp });
   }
@@ -509,7 +540,7 @@ export class Viewmodel {
     // ---- live state from the stack
     const stack = this._stack;
     const ammo = stack && typeof stack.ammo === 'number' ? stack.ammo : null;
-    const reloading = act && act.type.startsWith('reload');
+    const reloading = act && (act.type.startsWith('reload') || act.type === 'unjam');
     if (meta.slideLockEmpty) this.state.slideLocked = ammo === 0 && !reloading && this.fireT > 0.06;
     else this.state.slideLocked = false;
     if (ammo != null && !reloading && this._fireHideT > 0.3) {
@@ -529,10 +560,16 @@ export class Viewmodel {
     const weight = meta.weight ?? 0.3;
     const wAim = 15 - 6 * weight;
 
-    // ---- look sway targets (lookDX/lookDY = camera yaw / pitch change this frame, radians; +x right, +y up)
+    // ---- look sway targets (see lookInput for the units of lookDX / lookDY)
+    let ldx = s.lookDX || 0, ldy = s.lookDY || 0;
+    if (this.lookInput === 'auto' && (Math.abs(ldx) > 0.35 || Math.abs(ldy) > 0.35)) this.lookInput = 'px';
+    if (this.lookInput === 'px') {
+      ldx *= this.lookPxScale;
+      ldy *= -this.lookPxScale;
+    }
     const inv = dt > 1e-4 ? 1 / dt : 0;
-    const wx = clamp((s.lookDX || 0) * inv, -12, 12);
-    const wy = clamp((s.lookDY || 0) * inv, -12, 12);
+    const wx = clamp(ldx * inv, -12, 12);
+    const wy = clamp(ldy * inv, -12, 12);
     const aim0 = this._aim.x;
     const g = (0.011 + 0.012 * weight) * (1 - 0.7 * aim0);
     const tRotX = clamp(-wy * g, -0.14, 0.14);
@@ -697,8 +734,19 @@ export class Viewmodel {
     res.w *= Math.exp(-dt * 14);
     this._updateLighting(dt, s);
     const lit = !!(stack && stack.data && stack.data.lit);
-    this.fx.setFlameVisible(out.flame || lit);
+    const flameOn = !!(meta.flame && (out.flame || lit) && this.model.group.visible);
+    this.fx.setFlameVisible(flameOn);
     this.fx.update(dt);
+    // small light from a burning flare / molotov rag / fuse
+    const il = this.material.uniforms.uItemLight.value;
+    if (flameOn) {
+      const fp = this.model.points[meta.flame];
+      fp.getWorldPosition(_v);
+      const fk = meta.flameKind || 'fire';
+      const flick = 0.85 + 0.15 * Math.sin(this.time * 31) * Math.sin(this.time * 17.3);
+      il.set(_v.x, _v.y, _v.z, (fk === 'flare' ? 2.6 : fk === 'spark' ? 0.8 : 1.6) * flick);
+      this.material.uniforms.uItemLightColor.value.setRGB(fk === 'flare' ? 1.0 : 1.0, fk === 'flare' ? 0.18 : 0.55, fk === 'flare' ? 0.12 : 0.2);
+    } else il.w = 0;
   }
 
   _applyParts(out, dt) {
@@ -900,8 +948,13 @@ export class Viewmodel {
     u.uSelfLight.value = (globalUniforms.uFlashOn.value || 0) * 0.32;
     const cam = this.mainCamera;
     if (cam) {
+      // world lighting needs the main camera orientation; blend in smoothly the first time it becomes known
       cam.updateMatrixWorld();
-      u.uVMRot.value.setFromMatrix4(cam.matrixWorld);
+      this._camBlend = Math.min(1, this._camBlend + dt * 3);
+      cam.getWorldQuaternion(this._camQ);
+      if (this._camBlend < 1) this._camQ.slerpQuaternions(this._idQ, this._camQ, this._camBlend);
+      _m4.makeRotationFromQuaternion(this._camQ);
+      u.uVMRot.value.setFromMatrix4(_m4);
     }
     // muzzle flash light (~2 frames)
     if (this._muzzleLight > 0) {
@@ -955,6 +1008,8 @@ export class Viewmodel {
   dispose() {
     for (const m of this._cache.values()) disposeObject(m.group);
     this._cache.clear();
+    disposeObject(this.scene);
+    this.fx.dispose();
     this.material.dispose();
   }
 }

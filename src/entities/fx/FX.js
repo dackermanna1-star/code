@@ -61,6 +61,7 @@ export class FX {
     this.onShellLand = null; // optional callback (x, y, z, kind) for audio
     this.cubes.onHit = (i, x, y, z, nx, ny, nz) => this._cubeHit(i, x, y, z, nx, ny, nz);
     this.wind = new THREE.Vector3();
+    this._noDecal = false;
   }
 
   // ------------------------------------------------------------------ helpers
@@ -116,6 +117,7 @@ export class FX {
   }
 
   _decal(x, y, z, nx, ny, nz, size, frame, col, alpha, grow = 0, kind = 0, rot = null, stretchY = 1) {
+    if (this._noDecal && kind === 0) return -1;
     const s = this._fit(x, y, z, nx, ny, nz, size);
     if (s <= 0.02) return -1;
     this._light(x + nx * 0.5, y + ny * 0.5, z + nz * 0.5);
@@ -126,11 +128,11 @@ export class FX {
   _bloodDecal(x, y, z, nx, ny, nz, size) {
     const k = 0.85 + rnd() * 0.3;
     const wall = Math.abs(ny) < 0.5;
-    const id = this._decal(x, y, z, nx, ny, nz, size, pick(DECAL.blood), [k, k, k], 0.95, 0.12, 1);
+    const id = this._decal(x, y, z, nx, ny, nz, size, pick(DECAL.blood), [k, k, k], 1, 0.12, 1);
     if (id >= 0 && wall && size > 0.22 && rnd() < 0.6) {
       // drip running down from the splat
       const len = size * (1.2 + rnd());
-      this._decal(x, y - len * 0.45, z, nx, ny, nz, size * 0.8, pick(DECAL.drip), [k, k, k], 0.9, 0, 1, 0, len / (size * 0.8));
+      this._decal(x, y - len * 0.45, z, nx, ny, nz, size * 0.8, pick(DECAL.drip), [k, k, k], 1, 0, 1, 0, len / (size * 0.8));
     }
     return id;
   }
@@ -209,9 +211,13 @@ export class FX {
   }
 
   // ------------------------------------------------------------------ impacts
-  /** Bullet / melee impact on a surface. mat: stone wood metal dirt grass sand gravel glass cloth leaves water flesh */
-  impact(pos, normal, mat = 'stone') {
+  /**
+   * Bullet / melee impact on a surface. mat: stone wood metal dirt grass sand gravel glass cloth leaves water flesh.
+   * opts.decal = false skips the bullet-hole decal (use for non-voxel surfaces such as vehicles).
+   */
+  impact(pos, normal, mat = 'stone', opts = null) {
     if (this._far(pos)) return;
+    this._noDecal = !!(opts && opts.decal === false);
     const nx = normal ? normal.x : 0, ny = normal ? normal.y : 1, nz = normal ? normal.z : 0;
     const x = pos.x + nx * 0.02, y = pos.y + ny * 0.02, z = pos.z + nz * 0.02;
     this._light(x + nx * 0.3, y + ny * 0.3, z + nz * 0.3);
@@ -239,12 +245,12 @@ export class FX {
       case 'wood':
         chips(7, COL.wood, 0.05, 0.1, 4, CK.SPLINTER, [0.25, 0.25, 1.0]);
         puff(2, DUSTC.wood, 0.4, 0.8, 0.8, 0.45);
-        this._decal(pos.x, pos.y, pos.z, nx, ny, nz, 0.13, DECAL.hole_wood[0], [1, 1, 1], 1);
+        this._decal(pos.x, pos.y, pos.z, nx, ny, nz, 0.17, DECAL.hole_wood[0], [1, 1, 1], 1);
         break;
       case 'metal':
         this.sparks(pos, normal, 12);
         puff(1, DUSTC.metal, 0.3, 0.6, 0.6, 0.35);
-        this._decal(pos.x, pos.y, pos.z, nx, ny, nz, 0.1, DECAL.hole_metal[0], [1, 1, 1], 1);
+        this._decal(pos.x, pos.y, pos.z, nx, ny, nz, 0.14, DECAL.hole_metal[0], [1, 1, 1], 1);
         break;
       case 'dirt': case 'grass': case 'mud':
         chips(6, mat === 'grass' ? [...COL.dirt, ...COL.grass] : COL.dirt, 0.04, 0.09, 4);
@@ -283,8 +289,9 @@ export class FX {
         chips(6, COL.stone, 0.025, 0.055, 4.5);
         puff(3, DUSTC.stone, 0.5, 1, 1.0, 0.55);
         if (rnd() < 0.35) this.sparks(pos, normal, 3);
-        this._decal(pos.x, pos.y, pos.z, nx, ny, nz, 0.13, DECAL.hole_stone[0], [1, 1, 1], 1);
+        this._decal(pos.x, pos.y, pos.z, nx, ny, nz, 0.18, DECAL.hole_stone[0], [1, 1, 1], 1);
     }
+    this._noDecal = false;
   }
 
   // ------------------------------------------------------------------ guns
@@ -294,7 +301,7 @@ export class FX {
     this._light(pos.x, pos.y, pos.z);
     this.add.spawn(pos.x + dx * 0.06, pos.y + dy * 0.06, pos.z + dz * 0.06, { s0: 0.42 * scale, s1: 0.55 * scale, life: 0.05, color: [4.5, 3, 1.3], frame: SPRITE.STAR, fadeIn: 0, fadeOut: 0.6 });
     this.add.spawn(pos.x + dx * 0.18, pos.y + dy * 0.18, pos.z + dz * 0.18, { vx: dx * 4, vy: dy * 4, vz: dz * 4, s0: 0.14 * scale, stretch: 0.45 * scale, mode: MODE.STRETCH, life: 0.045, color: [4, 2.4, 0.8], frame: SPRITE.FLAME_A, fadeIn: 0, fadeOut: 0.6 });
-    this.add.spawn(pos.x, pos.y, pos.z, { s0: 0.75 * scale, life: 0.06, color: [1.8, 1.0, 0.35], alpha: 0.7, frame: SPRITE.GLOW, fadeIn: 0 });
+    this.add.spawn(pos.x, pos.y, pos.z, { s0: 0.6 * scale, life: 0.05, color: [1.8, 1.0, 0.35], alpha: 0.4, frame: SPRITE.GLOW, fadeIn: 0 });
     for (let k = 0; k < 3; k++) {
       this.lit.spawn(pos.x + dx * 0.1, pos.y + dy * 0.1, pos.z + dz * 0.1, {
         vx: dx * rr(0.8, 2) + rr(-0.2, 0.2), vy: dy * rr(0.8, 2) + rr(0.1, 0.4), vz: dz * rr(0.8, 2) + rr(-0.2, 0.2), drag: 2.5, grav: 0.3,
@@ -429,7 +436,7 @@ export class FX {
       const c = Math.sqrt(1 - e * e);
       this.add.spawn(pos.x, pos.y + 0.4, pos.z, {
         vx: Math.cos(a) * c * sp, vy: e * sp * 0.7 + 1, vz: Math.sin(a) * c * sp, drag: 5, grav: 2,
-        s0: R * rr(0.35, 0.5), s1: R * rr(0.7, 1.0), life: rr(0.4, 0.75), color: [2.6, 1.15, 0.3], color1: [0.7, 0.12, 0.02], alpha: 0.8,
+        s0: R * rr(0.35, 0.5), s1: R * rr(0.7, 1.0), life: rr(0.4, 0.75), color: [1.5, 0.5, 0.1], color1: [0.5, 0.06, 0.005], alpha: 0.7,
         frame: SPRITE.FLAME_A + ((rnd() * 3) | 0), spin: rr(-3, 3), fadeIn: 0, fadeOut: 0.6,
       });
     }
@@ -538,7 +545,7 @@ export class FX {
         }
       } else {
         const I = e.intensity, R = e.radius;
-        e.acc += dt * 34 * I * (0.6 + R);
+        e.acc += dt * 40 * I * (0.6 + R);
         e.acc2 += dt * 5 * I;
         e.acc3 += dt * (e.smoke ? 6 * I : 0);
         while (e.acc >= 1) {
@@ -546,7 +553,7 @@ export class FX {
           const a = rnd() * 6.283, d = Math.sqrt(rnd()) * R;
           this.add.spawn(e.x + Math.cos(a) * d, e.y + rr(0, 0.1), e.z + Math.sin(a) * d, {
             vx: rr(-0.2, 0.2), vy: rr(1.0, 2.2) * Math.sqrt(I), vz: rr(-0.2, 0.2), drag: 1.2,
-            s0: rr(0.32, 0.5) * Math.sqrt(I) * (0.7 + R * 0.6), s1: 0.1, life: rr(0.35, 0.8), color: [2.1, 0.9, 0.22], color1: [0.8, 0.14, 0.02], alpha: 0.75,
+            s0: rr(0.45, 0.75) * Math.sqrt(I) * (0.7 + R * 0.6), s1: 0.12, life: rr(0.4, 0.85), color: [1.15, 0.36, 0.06], color1: [0.55, 0.05, 0.005], alpha: 0.75,
             frame: SPRITE.FLAME_A + ((rnd() * 3) | 0), rot: rr(-0.3, 0.3), spin: rr(-1, 1), fadeIn: 0.12, fadeOut: 0.5, grow: 1,
           });
         }

@@ -113,6 +113,14 @@ export function apartmentBuilding(ctx, fr, opts, rng) {
     const dd = well.doors[L];
     swf.door(dd.x, dd.y + 1, dd.z, 3, L === floors ? 'door_metal' : 'door_white', { open: L < floors && rng.chance(0.4) });
   }
+  if (ctx.debugLabels) {
+    const targets = [];
+    for (let f = 0; f < floors; f++) targets.push([fr.wx(Math.floor(W / 2), zc), Y0 + f * H + 1, fr.wz(Math.floor(W / 2), zc), 'corridor f' + f]);
+    targets.push([fr.wx(W - 4, 4), Y0 + floors * H + 1, fr.wz(W - 4, 4), 'roof']);
+    for (const un of units.slice(0, 6)) targets.push([fr.wx(un.rs[0].x0 + 1, un.rs[0].z0 + 1), un.y + 1, fr.wz(un.rs[0].x0 + 1, un.rs[0].z0 + 1), 'unit living f' + un.f]);
+    const lob = { x: 2 + Math.floor((W - 4 - 4) / 2) + 1 };
+    ctx.reachChecks.push({ name: 'apartments @' + fr.wx(0, 0) + ',' + fr.wz(0, 0), start: [fr.wx(lob.x, D), Y0 + 1, fr.wz(lob.x, D)], targets, fuzzy: true });
+  }
   // furnish units
   for (const un of units) {
     const [liv, bed, kit, bath] = un.rs;

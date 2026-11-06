@@ -97,11 +97,14 @@ export function buildHospital(ctx, site) {
     });
     if (f === 3) tasks.push(() => {
       // quarantine floor: barricaded corridor ends, military presence
-      for (let z = zc; z <= zc + 2; z++) { fr.set(14, y + 1, z, B.barricade); fr.set(14, y + 2, z, B.barricade); fr.set(49, y + 1, z, B.barricade); fr.set(49, y + 2, z, B.barricade); }
-      fr.set(14, y + 1, zc + 1, 0); fr.set(14, y + 2, zc + 1, 0);
+      for (const bxc of [14, 49]) {
+        let bx = bxc;
+        while ([zc, zc + 2].some((z) => !fr.canPlace(bx, y + 1, z))) bx++;
+        for (let z = zc; z <= zc + 2; z++) if (z !== zc + 1 || bxc === 49) { fr.set(bx, y + 1, z, B.barricade); fr.set(bx, y + 2, z, B.barricade); }
+      }
       fr.corpse(16, y + 1, zc + 1, 1.2, 'military', 'corpse_military');
       fr.corpse(45, y + 1, zc, 2.5, 'medic', 'corpse_civilian');
-      fr.container(20, y + 1, zc, 'crate_military', 0, 'military_medical');
+      for (let cx2 = 20; cx2 < 28; cx2++) if (fr.canPlace(cx2, y + 1, zc + 1)) { fr.container(cx2, y + 1, zc + 1, 'crate_military', 0, 'military_medical'); break; }
       fr.note(18, y + 1, zc + 2, 'hosp_quarantine');
       ctx.usedNotes.add('hosp_quarantine');
       fr.zombies(30, y + 1, zc + 1, 4, 4, { indoor: true, outfit: 'patient', types: ['walker', 'walker', 'runner', 'screamer'] });
@@ -117,6 +120,12 @@ export function buildHospital(ctx, site) {
     }
   }
   for (const t of tasks) t();
+  if (ctx.debugLabels) {
+    const targets = [];
+    for (let f = 0; f < floors; f++) targets.push([fr.wx(26, zc + 1), Y0 + f * H + 1, fr.wz(26, zc + 1), 'corridor f' + f], [fr.wx(40, zc + 1), Y0 + f * H + 1, fr.wz(40, zc + 1), 'corridor-east f' + f]);
+    targets.push([fr.wx(30, 15), Y0 + floors * H + 1, fr.wz(30, 15), 'roof']);
+    ctx.reachChecks.push({ name: 'hospital', start: [fr.wx(31, D), Y0 + 1, fr.wz(31, D)], targets, fuzzy: true });
+  }
   // roof: helipad
   const hy = topY;
   for (let x = 22; x <= 40; x++) for (let z = 12; z <= 28; z++) fr.set(x, hy, z, B.concrete_white);
@@ -150,7 +159,7 @@ export function buildHospital(ctx, site) {
   for (let x = 3; x < lot.w - 3; x += 3) {
     for (const z of [lot.d - 9, 5, 19, 22, 33, 36]) {
       if (z <= 1 || z >= lot.d - 1) continue;
-      if (rng.chance(0.42)) lot.vehicle(x + 1.5, z + (z % 2 ? -0.5 : 0.5), rng.chance(0.5) ? 0 : Math.PI, rng.weighted([['sedan', 5], ['suv', 4], ['hatchback', 3], ['pickup', 2], ['van', 1]]), { color: rng.pick(CAR_COLORS), loot: 'car_trunk', gloveLoot: 'car_glovebox', alarm: rng.chance(0.1), wrecked: rng.chance(0.08) });
+      if (rng.chance(0.11)) lot.vehicle(x + 1.5, z + (z % 2 ? -0.5 : 0.5), rng.chance(0.5) ? 0 : Math.PI, rng.weighted([['sedan', 5], ['suv', 4], ['hatchback', 3], ['pickup', 2], ['van', 1]]), { color: rng.pick(CAR_COLORS), loot: 'car_trunk', gloveLoot: 'car_glovebox', alarm: rng.chance(0.1), wrecked: rng.chance(0.08) });
     }
   }
   lot.vehicle(10, lot.d - 4, Math.PI / 2, 'humvee', { color: 0x4a5a3a, loot: 'military_truck' });
@@ -255,9 +264,13 @@ function hospitalRoom(ctx, fr, r, rng, zombie, f) {
       fr.place(cx, Y, cz + 1, 'hospital_bed', 0);
       fr.place(cx + 1, Y, cz, 'table');
       fr.set(cx, Y + 3, cz, B.lantern);
+      for (const [dx, dz] of [[-1, 0], [-1, 1], [2, 1]]) if (fr.canPlace(cx + dx, Y, cz + dz)) fr.set(cx + dx, Y, cz + dz, B.street_pole);
       const rm = new Room(fr, r, rng, o);
-      for (let k = 0; k < 5; k++) rm.wall('medical_cabinet', { loot: 'hospital_storage' });
-      rm.wall('kitchen_sink');
+      for (let k = 0; k < 7; k++) rm.wall('medical_cabinet', { loot: 'hospital_storage' });
+      rm.run(['kitchen_sink', 'kitchen_sink']) || rm.wall('kitchen_sink');
+      rm.wall('table', { top: 'tv', access: false });
+      rm.wall('metal_shelf', { loot: 'hospital_storage' });
+      rm.tableSet(1, 1, 0);
       fr.loot(cx + 1, Y + 1, cz, 'floor_hospital', 0.8, 0);
       if (rng.chance(0.5)) zombie(cx - 2, r.y, cz, 1, 'medic', 1);
       if (rng.chance(0.5)) fr.corpse(cx + 2, Y, cz + 2, rng.range(0, 6), 'patient', 'corpse_civilian');
@@ -265,8 +278,8 @@ function hospitalRoom(ctx, fr, r, rng, zombie, f) {
     }
     case 'recovery': {
       for (let x = r.x0 + 1; x <= r.x1 - 1; x += 3) {
-        if (fr.canPlace(x, Y, r.z0)) { fr.place(x, Y, r.z0, 'hospital_bed', 0); fr.place(x, Y, r.z0 + 1, 'hospital_bed', 0); fr.container(x + 1, Y, r.z0, 'medical_cabinet', 0, 'hospital_ward'); }
-        if (fr.canPlace(x, Y, r.z1)) { fr.place(x, Y, r.z1, 'hospital_bed', 2); fr.place(x, Y, r.z1 - 1, 'hospital_bed', 2); }
+        if (fr.canPlace(x, Y, r.z0) && fr.canPlace(x, Y, r.z0 + 1)) { fr.place(x, Y, r.z0, 'hospital_bed', 0); fr.place(x, Y, r.z0 + 1, 'hospital_bed', 0); if (fr.canPlace(x + 1, Y, r.z0)) fr.container(x + 1, Y, r.z0, 'medical_cabinet', 0, 'hospital_ward'); }
+        if (fr.canPlace(x, Y, r.z1) && fr.canPlace(x, Y, r.z1 - 1)) { fr.place(x, Y, r.z1, 'hospital_bed', 2); fr.place(x, Y, r.z1 - 1, 'hospital_bed', 2); }
       }
       zombie(Math.floor((r.x0 + r.x1) / 2), r.y, cz, rng.int(3, 5), 'patient', 5);
       new Room(fr, r, rng, o).floorLoot('floor_hospital', 3, 0.5);
@@ -275,9 +288,16 @@ function hospitalRoom(ctx, fr, r, rng, zombie, f) {
     case 'doctor': furnish(fr, r, 'office', rng, o); if (rng.chance(0.3)) zombie(cx, r.y, cz, 1, 'medic', 1); break;
     case 'ward': {
       const rm = new Room(fr, r, rng, o);
-      rm.bed(false, 'hospital_bed'); rm.bed(false, 'hospital_bed');
+      const nb = (r.z1 - r.z0) > 8 ? 4 : 2;
+      for (let b = 0; b < nb; b++) {
+        const s = rm.bed(false, 'hospital_bed');
+        // IV pole beside the bed
+        if (s) { const [lx, lz] = s.side <= 1 ? [1, 0] : [0, 1]; rm.tryPlace([{ x: s.x + lx, z: s.z + lz, block: 'street_pole' }]) || rm.tryPlace([{ x: s.x - lx, z: s.z - lz, block: 'street_pole' }]); }
+      }
       rm.wall('medical_cabinet', { loot: 'hospital_ward' });
-      rm.wall('chair');
+      if (nb > 2) rm.wall('medical_cabinet', { loot: 'hospital_ward' });
+      rm.wall('chair'); rm.wall('chair');
+      if (nb > 2) { rm.wall('wardrobe', { loot: 'hospital_ward' }); rm.wall('kitchen_sink'); }
       if (rng.chance(0.4)) rm.wall('table', { top: 'tv', access: false });
       rm.floorLoot('floor_hospital', 1, 0.45);
       const p = f === 3 ? 0.8 : 0.45;

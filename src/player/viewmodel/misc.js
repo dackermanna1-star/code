@@ -48,8 +48,8 @@ export function flashlight() {
   return {
     b,
     meta: itemMeta({
-      kind: 'tool', weight: 0.15, scale: 1.35,
-      hip: { pos: [0.15, -0.15, -0.36], rot: [0.04, 0.12, -0.05] },
+      kind: 'tool', weight: 0.15, scale: 1.6,
+      hip: { pos: [0.15, -0.14, -0.35], rot: [0.04, 0.16, -0.05] },
       sprint: { pos: [0.14, -0.26, -0.32], rot: [-0.75, 0.3, 0.2] },
     }),
   };
@@ -141,66 +141,78 @@ export function generic(iconCanvas) {
   const w = iconCanvas?.width || 16, h = iconCanvas?.height || 16;
   let data = null;
   try {
-    data = iconCanvas.getContext('2d').getImageData(0, 0, w, h).data;
+    // copy into a private canvas (avoids repeated readbacks on the shared icon canvas)
+    const c = document.createElement('canvas');
+    c.width = w;
+    c.height = h;
+    const g = c.getContext('2d', { willReadFrequently: true });
+    g.drawImage(iconCanvas, 0, 0);
+    data = g.getImageData(0, 0, w, h).data;
   } catch (e) {
     data = null;
   }
   const alpha = (x, y) => (x < 0 || y < 0 || x >= w || y >= h || !data ? 0 : data[(y * w + x) * 4 + 3]);
-  const p = b.cur;
-  const quad = (corners, n, col) => {
-    const base = p.pos.length / 3;
-    for (const c of corners) {
-      p.pos.push(c[0], c[1], c[2]);
-      p.nrm.push(n[0], n[1], n[2]);
-      p.col.push(col[0], col[1], col[2]);
-      p.face.push(1, 1, M.FLAT, 0);
-      p.tex.push(0, 0);
-    }
-    p.idx.push(base, base + 1, base + 2, base, base + 2, base + 3);
-  };
-  const lc = new THREE.Color();
+  // hand anchor: a couple of pixels from the bottom-left-most opaque pixel toward the centroid
   let sx = 0, sy = 0, cnt = 0, best = null;
-  const hd = S * 0.5;
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       if (alpha(x, y) < 128) continue;
-      const i = (y * w + x) * 4;
-      lc.setRGB(data[i] / 255, data[i + 1] / 255, data[i + 2] / 255, THREE.SRGBColorSpace);
-      const col = [lc.r, lc.g, lc.b];
-      const side = [col[0] * 0.82, col[1] * 0.82, col[2] * 0.82];
-      const x0 = (x - w / 2) * S, x1 = x0 + S;
-      const y1 = (h / 2 - y) * S, y0 = y1 - S;
-      quad([[x0, y0, hd], [x1, y0, hd], [x1, y1, hd], [x0, y1, hd]], [0, 0, 1], col);
-      quad([[x1, y0, -hd], [x0, y0, -hd], [x0, y1, -hd], [x1, y1, -hd]], [0, 0, -1], col);
-      if (alpha(x + 1, y) < 128) quad([[x1, y0, hd], [x1, y0, -hd], [x1, y1, -hd], [x1, y1, hd]], [1, 0, 0], side);
-      if (alpha(x - 1, y) < 128) quad([[x0, y0, -hd], [x0, y0, hd], [x0, y1, hd], [x0, y1, -hd]], [-1, 0, 0], side);
-      if (alpha(x, y - 1) < 128) quad([[x0, y1, hd], [x1, y1, hd], [x1, y1, -hd], [x0, y1, -hd]], [0, 1, 0], side);
-      if (alpha(x, y + 1) < 128) quad([[x0, y0, -hd], [x1, y0, -hd], [x1, y0, hd], [x0, y0, hd]], [0, -1, 0], side);
       sx += x; sy += y; cnt++;
-      const score = x - y; // bottom-left-most along the diagonal
+      const score = x - y;
       if (!best || score < best.score) best = { x, y, score };
     }
   }
   if (!cnt) {
-    // empty icon: small grey cube so something is visible
     b.box(0, 0, 0, 6, 6, 6, 0x888888, M.PLAIN);
-    best = { x: w / 2, y: h / 2 };
-    sx = w / 2; sy = h / 2; cnt = 1;
+    b.point('handR', [0, -2, 0]);
+    b.point('center', [0, 0, 0]);
+  } else {
+    const cx = sx / cnt, cy = sy / cnt;
+    const dx = cx - best.x, dy = cy - best.y;
+    const dl = Math.hypot(dx, dy) || 1;
+    const k = Math.min(2.5, dl * 0.5);
+    const ax = best.x + 0.5 + (dx / dl) * k, ay = best.y + 0.5 + (dy / dl) * k;
+    // model origin = hand anchor
+    const ox = (ax - w / 2) * S, oy = (h / 2 - ay) * S;
+    const p = b.cur;
+    const quad = (corners, n, col) => {
+      const base = p.pos.length / 3;
+      for (const c of corners) {
+        p.pos.push(c[0] - ox, c[1] - oy, c[2]);
+        p.nrm.push(n[0], n[1], n[2]);
+        p.col.push(col[0], col[1], col[2]);
+        p.face.push(1, 1, M.FLAT, 0);
+        p.tex.push(0, 0);
+      }
+      p.idx.push(base, base + 1, base + 2, base, base + 2, base + 3);
+    };
+    const lc = new THREE.Color();
+    const hd = S * 0.5;
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        if (alpha(x, y) < 128) continue;
+        const i = (y * w + x) * 4;
+        lc.setRGB(data[i] / 255, data[i + 1] / 255, data[i + 2] / 255, THREE.SRGBColorSpace);
+        const col = [lc.r, lc.g, lc.b];
+        const side = [col[0] * 0.82, col[1] * 0.82, col[2] * 0.82];
+        const x0 = (x - w / 2) * S, x1 = x0 + S;
+        const y1 = (h / 2 - y) * S, y0 = y1 - S;
+        quad([[x0, y0, hd], [x1, y0, hd], [x1, y1, hd], [x0, y1, hd]], [0, 0, 1], col);
+        quad([[x1, y0, -hd], [x0, y0, -hd], [x0, y1, -hd], [x1, y1, -hd]], [0, 0, -1], col);
+        if (alpha(x + 1, y) < 128) quad([[x1, y0, hd], [x1, y0, -hd], [x1, y1, -hd], [x1, y1, hd]], [1, 0, 0], side);
+        if (alpha(x - 1, y) < 128) quad([[x0, y0, -hd], [x0, y0, hd], [x0, y1, hd], [x0, y1, -hd]], [-1, 0, 0], side);
+        if (alpha(x, y - 1) < 128) quad([[x0, y1, hd], [x1, y1, hd], [x1, y1, -hd], [x0, y1, -hd]], [0, 1, 0], side);
+        if (alpha(x, y + 1) < 128) quad([[x0, y0, -hd], [x1, y0, -hd], [x1, y0, hd], [x0, y0, hd]], [0, -1, 0], side);
+      }
+    }
+    b.point('handR', [0, 0, 0]);
+    b.point('center', [(cx + 0.5 - w / 2) * S - ox, (h / 2 - cy - 0.5) * S - oy, 0]);
   }
-  // hand anchor: a couple of pixels from the bottom-left extreme toward the centroid
-  const cx = sx / cnt, cy = sy / cnt;
-  const dx = cx - best.x, dy = cy - best.y;
-  const dl = Math.hypot(dx, dy) || 1;
-  const k = Math.min(2.5, dl * 0.5);
-  const ax = best.x + 0.5 + (dx / dl) * k, ay = best.y + 0.5 + (dy / dl) * k;
-  const anchor = [(ax - w / 2) * S, (h / 2 - ay) * S, 0];
-  b.point('handR', anchor);
-  b.point('center', [(cx + 0.5 - w / 2) * S, (h / 2 - cy - 0.5) * S, 0]);
   return {
     b,
     meta: itemMeta({
-      kind: 'generic', weight: 0.1, scale: 1.35,
-      hip: { pos: [0.165, -0.175, -0.35], rot: genericHoldRot() },
+      kind: 'generic', weight: 0.1, scale: 1.25,
+      hip: { pos: [0.15, -0.16, -0.34], rot: genericHoldRot() },
       sprint: { pos: [0.16, -0.27, -0.3], rot: [-0.9, 0.25, 0.3] },
     }),
   };

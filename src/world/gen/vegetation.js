@@ -92,7 +92,8 @@ export function buildVegetation(ctx) {
       const k = z * SX + x;
       if (occ[k] || water[k]) continue;
       // keep 2 cells away from reserved stuff
-      if (occ[k - 2] || occ[k + 2] || occ[k - 2 * SX] || occ[k + 2 * SX] || occ[k - 2 * SX - 2] || occ[k + 2 * SX + 2]) continue;
+      if (x < 3 || z < 3 || x >= SX - 3 || z >= SZ - 3) continue;
+      if (occ[k - 3] || occ[k + 3] || occ[k - 3 * SX] || occ[k + 3 * SX] || occ[k - 2 * SX - 2] || occ[k + 2 * SX + 2] || occ[k - 2 * SX + 2] || occ[k + 2 * SX - 2]) continue;
       const f = forest[k] / 255;
       const e = Math.min(x, z, SX - 1 - x, SZ - 1 - z);
       let p = f * 0.85 + (e < 40 ? 0.6 : 0);

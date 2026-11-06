@@ -73,7 +73,8 @@ export class Vehicles {
         v.alarmNoiseT = (v.alarmNoiseT || 0) - dt;
         if (v.alarmNoiseT <= 0) { v.alarmNoiseT = 2; g.noise(v.x, v.y + 1, v.z, 55, 'alarm'); }
         if (Math.sin(g.clock * 12) > 0) g.addFlashLight(this.tmp.set(v.x, v.y + 1, v.z).clone(), 0xffa040, 1.5, 8, 0);
-        if (v.alarmOn <= 0) { v.alarmSound?.stop(); v.alarmSound = null; }
+        if (v.visual) { v.visual.lights?.setHazards?.(true); v.visual.update?.(dt); }
+        if (v.alarmOn <= 0) { v.alarmSound?.stop(); v.alarmSound = null; v.visual?.lights?.setHazards?.(false); }
       }
     }
   }

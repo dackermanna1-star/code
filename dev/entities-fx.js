@@ -19,7 +19,7 @@ export function setupFX({ scene, world, camLook, updaters, params, log, camera }
   world.fill(4, 0, -1, 7, 0, 2, B.water); // pond (top at y=1)
   world.fill(4, -1, -1, 7, -1, 2, B.sand);
   world.fill(-7, 0, -2, -4, 0, 1, B.sand);
-  world.roofs.push([-3, 0, 2, 0, 4, 6]); // a dim "indoor" corner
+  world.fill(-12, 4, 3, -9, 4, 7, B.concrete); // a roofed corner (dim sky light under it)
   const fx = new FX(scene, world);
   window.__fx = fx;
   const V = (x, y, z) => new THREE.Vector3(x, y, z);

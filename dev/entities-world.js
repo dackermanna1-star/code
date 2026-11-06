@@ -26,14 +26,15 @@ export class FakeWorld {
   }
   getMeta() { return 0; }
   skyAt(x, y, z) {
-    for (const r of this.roofs) if (x >= r[0] && x <= r[3] && z >= r[2] && z <= r[5] && y < r[4]) return 6;
+    // crude sky light: 15 in the open, dimmer under any solid block above
+    for (let yy = y + 1; yy < this.SY; yy++) if (this.isSolid(x, yy, z)) return 5;
     return 15;
   }
   blockLightAt() { return 0; }
 }
 
 const MAT_COLORS = {
-  [B.grass]: [0x5d8a3a, 0x6a5038], [B.stone]: [0x8a8a8a], [B.concrete]: [0xa8a8a2], [B.asphalt]: [0x3a3a3c],
+  [B.grass]: [0x6a9a48, 0x7a5c40], [B.stone]: [0x8a8a8a], [B.concrete]: [0xa8a8a2], [B.asphalt]: [0x3a3a3c],
   [B.planks_oak]: [0xa07a48], [B.brick_red]: [0x9a4a3a], [B.metal_wall]: [0x7a8288], [B.glass]: [0xa8d0e0],
   [B.dirt]: [0x6a5038], [B.sand]: [0xd8c890], [B.water]: [0x2a5a8a], [B.siding_white]: [0xd8d8d0],
 };
@@ -41,7 +42,7 @@ const MAT_COLORS = {
 function makeTex(hex, seed) {
   const c = document.createElement('canvas'); c.width = c.height = 16;
   const ctx = c.getContext('2d');
-  const col = new THREE.Color(hex);
+  const col = { r: ((hex >> 16) & 255) / 255, g: ((hex >> 8) & 255) / 255, b: (hex & 255) / 255 }; // sRGB bytes
   let s = seed * 9301 + 49297;
   const rnd = () => ((s = (s * 9301 + 49297) % 233280) / 233280);
   for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {

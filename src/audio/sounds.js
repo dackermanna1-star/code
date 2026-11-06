@@ -24,7 +24,7 @@ distant_scream distant_gunshot radio_static flashlight_click block_break shove s
   .filter(Boolean);
 
 /** Extra public names beyond the contract. */
-export const EXTRA_SOUND_NAMES = ['dog_bark'];
+export const EXTRA_SOUND_NAMES = ['dog_bark', 'alarm_beep'];
 
 export const SOUND_DEFS = { ...WEAPON_SOUNDS, ...CREATURE_SOUNDS, ...WORLD_SOUNDS, ...AMBIENT_SOUNDS };
 

@@ -187,7 +187,8 @@ export class Combat {
     g.audio.play(sound, { volume: 1 });
     const muzzle = g.viewmodel?.getMuzzleWorldPosition ? g.viewmodel.getMuzzleWorldPosition(cam, new THREE.Vector3()) : origin.clone().addScaledVector(fwd, 0.8);
     if (!suppressed) g.addFlashLight(muzzle, 0xffc070, 3.2, 14, 0.06);
-    g.fx?.muzzleFlash(muzzle, fwd.clone());
+    // the view model draws its own flash; only a faint wisp of world smoke well in front of the barrel
+    g.fx?.dust?.(muzzle.clone().addScaledVector(fwd, 1.4), [0.6, 0.6, 0.6], 0.35);
     if (fa.reload !== 'break' && fa.reload !== 'shell' || def.id.includes('shotgun_pump')) {
       // casings
       if (!def.id.includes('revolver') && !def.id.includes('double') && !def.id.includes('sawed') && !def.id.includes('bow')) {
@@ -243,7 +244,7 @@ export class Combat {
         return;
       }
       if (vh) {
-        g.fx?.impact(vh.point, dir.clone().negate(), 'metal');
+        g.fx?.impact(vh.point, dir.clone().negate(), 'metal', { decal: false });
         g.audio.play('bullet_impact_metal', { pos: vh.point });
         g.vehicles?.onShot(vh.v);
         return;
@@ -307,7 +308,7 @@ export class Combat {
     if (this.reload) return;
     if (stack.jammed) {
       this.reload = { kind: 'unjam', t: 0, dur: 0.9, stack, def };
-      g.viewmodel?.reloadStart('mag', 0.9);
+      g.viewmodel?.reloadStart('unjam', 0.9);
       g.audio.play('gun_jam', { volume: 0.7 });
       return;
     }
@@ -604,7 +605,7 @@ export class Combat {
         if (pr.noiseT <= 0) {
           pr.noiseT = 1.5;
           g.noise(pr.pos.x, pr.pos.y, pr.pos.z, pr.def.throwable.noise || 30, 'lure');
-          if (pr.def.id === 'noise_maker') g.audio.play('ui_click', { pos: pr.pos, volume: 1.5, pitch: 2 });
+          if (pr.def.id === 'noise_maker') g.audio.play('alarm_beep', { pos: pr.pos, volume: 1.2 });
         }
         if (pr.life <= 0) {
           if (pr.def.id !== 'noise_maker') { this.removeProjectile(i); continue; }

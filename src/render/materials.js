@@ -117,7 +117,7 @@ vec3 computeLighting(vec3 wp, vec3 n, float sky, float blk, float ao) {
 
 vec3 applyFog(vec3 col, vec3 wp) {
   float d = length(wp - uCamPos);
-  float f = 1.0 - exp(-pow(d * uFogDensity, 1.7));
+  float f = 1.0 - exp(-pow(d * uFogDensity, 3.2));
   return mix(col, uFogColor, clamp(f, 0.0, 1.0));
 }
 `;

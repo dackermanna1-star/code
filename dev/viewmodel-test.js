@@ -229,6 +229,14 @@ function simulate(p, viewport) {
   if (p.meta) Object.assign(vm.meta, JSON.parse(JSON.stringify(p.meta)));
   if (p.meta && p.meta.hip && !p.meta.ads && vm.meta.kind !== 'gun') vm.meta.ads = vm.meta.hip;
   if (p.shoulders) vm.setShoulders(p.shoulders.R, p.shoulders.L);
+  if (p.inspect) {
+    // profile view of the model alone: [dist, yaw, pitch, x, y]
+    const [d, yw, pt, x = 0, y = 0] = p.inspect;
+    vm.meta.hip = { pos: [x, y, -d], rot: [pt, yw, 0] };
+    vm.meta.ads = vm.meta.hip;
+    vm.meta.sprint = vm.meta.hip;
+    vm.arms.R.mesh.visible = vm.arms.L.mesh.visible = false;
+  }
   const dt = 1 / 60;
   const warm = p.warm ?? 1.2;
   let end = p.tFrac != null ? Infinity : warm + (p.t ?? 0);
@@ -247,15 +255,50 @@ function simulate(p, viewport) {
         }
       }
     }
-    const look = (p.lookDX ?? 0) * dt;
+    const look = p.lookPx != null ? p.lookPx : (p.lookDX ?? 0) * dt;
     vm.update(i === 0 ? 0 : dt, {
-      moving01: p.moving ? 1 : 0, sprinting: !!p.sprint, aiming: !!p.aim, crouching: !!p.crouch, grounded: p.grounded ?? true,
-      lookDX: look, lookDY: (p.lookDY ?? 0) * dt, light: { sky: p.night ? 0.25 : 1, block: p.block ?? 0 }, time, camera,
+      moving01: p.moving ? 1 : 0, sprinting: !!p.sprint, aiming: !!p.aim, crouching: !!p.crouch,
+      grounded: p.land ? time >= warm - 1e-6 || time < warm - 0.6 : p.grounded ?? true,
+      lookDX: look, lookDY: p.lookPyPx != null ? p.lookPyPx : (p.lookDY ?? 0) * dt, light: { sky: p.night ? 0.25 : 1, block: p.block ?? 0 }, time, camera,
     });
     time += dt;
   }
+  if (p.muzzleMarker) {
+    // world-space marker at getMuzzleWorldPosition(): must coincide with the viewmodel muzzle on screen
+    const v = vm.getMuzzleWorldPosition(camera, new THREE.Vector3());
+    marker.position.copy(v);
+    marker.visible = true;
+    p.muzzleOut = v.toArray();
+  } else marker.visible = false;
   renderFrame(vm, viewport);
   return vm;
+}
+const marker = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.012, 0.012), createEntityMaterial({ color: 0xff00ff, emissive: 4, noFog: true }));
+marker.visible = false;
+scene.add(marker);
+
+/** URL freeze mode: ?auto=1&model=pistol&action=fire&t=0.02&aim=1 (action: fire|swing|swingHeavy|shove|reload|insert|pump|bolt|throw|use:<kind>) */
+function urlShot() {
+  const q = (k, d) => (params.has(k) ? params.get(k) : d);
+  const model = q('model', null);
+  const item = q('item', null);
+  if (!model && !item) return;
+  const p = { model, item, t: +q('t', 0), aim: q('aim') === '1', sprint: q('sprint') === '1', moving: q('moving') === '1',
+    crouch: q('crouch') === '1', night: q('night') === '1', flash: q('flash') === '1', ammo: params.has('ammo') ? +q('ammo') : undefined, label: q('label', null) };
+  const a = q('action', 'none');
+  const def = ITEMS[item || 'vmt_' + model];
+  const kind = (def && def.firearm && def.firearm.reload) || 'mag';
+  const dur = +q('dur', kind === 'shell' || kind === 'single' ? 0.4 : 2.2);
+  if (a === 'fire') p.seq = [[0, 'fire', 1]];
+  else if (a === 'swing' || a === 'swingHeavy') p.seq = [[0, 'swing', a === 'swingHeavy']];
+  else if (a === 'shove') p.seq = [[0, 'shove']];
+  else if (a === 'reload') p.seq = [[0, 'reloadStart', kind, dur]];
+  else if (a === 'insert') p.seq = [[0, 'reloadStart', kind, dur], [0.45, 'reloadInsert', 0.5]];
+  else if (a === 'pump') p.seq = [[0, 'pump']];
+  else if (a === 'bolt') p.seq = [[0, 'bolt']];
+  else if (a === 'throw') p.seq = [[0, 'throwItem']];
+  else if (a.startsWith('use:')) p.seq = [[0, 'use', a.slice(4), dur]];
+  window.vmTest.shot(p);
 }
 
 const labels = [];
@@ -285,6 +328,18 @@ window.vmTest = {
     if (p.label) label(p.label, 4, 4);
     return true;
   },
+  /** returns NDC of the VM muzzle (VM camera) and of getMuzzleWorldPosition() (main camera) */
+  muzzleCheck(p) {
+    const vm = simulate(p, [0, 0, W, H]);
+    const w = vm.getMuzzleWorldPosition(camera, new THREE.Vector3());
+    const a = new THREE.Vector3();
+    vm.model.points.muzzle.getWorldPosition(a);
+    const depthVM = -a.z;
+    a.project(vm.camera);
+    const b = w.clone().project(camera);
+    const depthW = w.clone().applyMatrix4(camera.matrixWorldInverse).z;
+    return { vmNdc: [a.x, a.y], worldNdc: [b.x, b.y], depthVM, depthWorld: -depthW, vmFov: vm.camera.fov };
+  },
   /** grid of tiles: list of params, cols */
   grid(list, cols = 4) {
     clearLabels();
@@ -303,6 +358,8 @@ window.vmTest = {
     return rows;
   },
 };
+
+if (AUTO) urlShot();
 
 // ------------------------------------------------------------------------------------ interactive
 if (!AUTO) {

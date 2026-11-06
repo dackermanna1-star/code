@@ -55,6 +55,8 @@ uniform float uOpacity;      // < 1 => ordered-dither fade (scope ADS)
 uniform float uSelfLight;    // extra light while the flashlight is on
 uniform vec4 uMuzzle;        // xyz muzzle position (view space), w intensity
 uniform vec4 uTint;          // rgb, amount
+uniform vec4 uItemLight;     // xyz position (view space), w intensity (lit flare / molotov)
+uniform vec3 uItemLightColor;
 in vec3 vCol;
 in vec4 vFace;
 in vec2 vTex;
@@ -157,6 +159,12 @@ void main() {
     float att = clamp(1.0 - d / 0.75, 0.0, 1.0);
     lit += vec3(1.0, 0.62, 0.28) * uMuzzle.w * att * att * (0.35 + 0.65 * max(dot(nV, L / max(d, 1e-4)), 0.0)) * 4.0;
   }
+  if (uItemLight.w > 0.0) {
+    vec3 L = uItemLight.xyz - vViewPos;
+    float d = length(L);
+    float att = clamp(1.0 - d / 0.6, 0.0, 1.0);
+    lit += uItemLightColor * uItemLight.w * att * att * (0.35 + 0.65 * max(dot(nV, L / max(d, 1e-4)), 0.0));
+  }
   vec3 outc = col * lit;
   if (spec > 0.0) {
     vec3 K = normalize(vec3(0.3, 0.85, 0.45));
@@ -184,6 +192,8 @@ export function createViewmodelMaterial() {
       uSelfLight: { value: 0 },
       uMuzzle: { value: new THREE.Vector4(0, 0, 0, 0) },
       uTint: { value: new THREE.Vector4(1, 1, 1, 0) },
+      uItemLight: { value: new THREE.Vector4(0, 0, 0, 0) },
+      uItemLightColor: { value: new THREE.Color(1.0, 0.55, 0.2) },
     },
     side: THREE.FrontSide,
   });

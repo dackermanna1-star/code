@@ -51,12 +51,12 @@ export function makeRoads() {
 
 /** Residential streets the lot packer fills (name, road filter, sides). */
 export const RESIDENTIAL = [
-  { name: 'Elm Street', axis: 'x', c: 330, a0: 336, a1: 716, sides: [-1, 1], area: 'Elm Street' },
-  { name: 'Maple Avenue', axis: 'x', c: 265, a0: 336, a1: 696, sides: [-1, 1], area: 'Maple Avenue' },
-  { name: 'Cedar Street', axis: 'z', c: 330, a0: 336, a1: 756, sides: [-1, 1], area: 'Cedar Street' },
-  { name: 'Willow Lane', axis: 'z', c: 266, a0: 404, a1: 756, sides: [-1, 1], area: 'Willow Lane' },
-  { name: 'Sycamore Street', axis: 'x', c: 636, a0: 336, a1: 604, sides: [-1, 1], area: 'Sycamore Street' },
-  { name: 'Poplar Avenue', axis: 'x', c: 700, a0: 336, a1: 604, sides: [-1, 1], area: 'Poplar Avenue' },
+  { name: 'Elm Street', axis: 'x', c: 330, a0: 336, a1: 716, sides: [-1, 1], area: 'Elm Street', maxD: 25 },
+  { name: 'Maple Avenue', axis: 'x', c: 265, a0: 336, a1: 696, sides: [-1, 1], area: 'Maple Avenue', maxD: 25 },
+  { name: 'Cedar Street', axis: 'z', c: 330, a0: 336, a1: 756, sides: [-1, 1], area: 'Cedar Street', maxD: 30 },
+  { name: 'Willow Lane', axis: 'z', c: 266, a0: 404, a1: 756, sides: [-1, 1], area: 'Willow Lane', maxD: 30 },
+  { name: 'Sycamore Street', axis: 'x', c: 636, a0: 336, a1: 604, sides: [-1, 1], area: 'Sycamore Street', maxD: 25 },
+  { name: 'Poplar Avenue', axis: 'x', c: 700, a0: 336, a1: 604, sides: [-1, 1], area: 'Poplar Avenue', maxD: 25 },
   { name: 'Lincoln Avenue', axis: 'z', c: 512, a0: 268, a1: 446, sides: [-1, 1], area: 'North Lincoln' },
   { name: 'Lincoln Avenue', axis: 'z', c: 512, a0: 600, a1: 756, sides: [-1, 1], area: 'South Lincoln' },
   { name: 'Oak Street', axis: 'z', c: 416, a0: 336, a1: 446, sides: [-1, 1], area: 'Oak Street' },
@@ -65,6 +65,13 @@ export const RESIDENTIAL = [
   { name: 'Depot Street', axis: 'z', c: 608, a0: 580, a1: 756, sides: [-1], area: 'Depot Street' },
   { name: 'Hickory Lane', axis: 'z', c: 700, a0: 270, a1: 326, sides: [1], area: 'Hickory Lane' },
   { name: 'Aspen Court', axis: 'x', c: 400, a0: 272, a1: 324, sides: [-1, 1], area: 'Aspen Court' },
+  // rural homes along county roads (spaced out)
+  { name: 'Route 9', axis: 'z', c: 512, a0: 130, a1: 250, sides: [-1, 1], area: 'Route 9 North', rural: true },
+  { name: 'Lake Road', axis: 'x', c: 200, a0: 372, a1: 500, sides: [-1, 1], area: 'Lake Road', rural: true },
+  { name: 'Old Mill Road', axis: 'x', c: 920, a0: 300, a1: 505, sides: [-1, 1], area: 'Old Mill Road', rural: true },
+  { name: 'Route 9', axis: 'z', c: 512, a0: 800, a1: 980, sides: [-1], area: 'Route 9 South', rural: true },
+  { name: 'Quarry Road', axis: 'x', c: 330, a0: 726, a1: 876, sides: [-1, 1], area: 'Quarry Road', rural: true },
+  { name: 'River Road', axis: 'x', c: 760, a0: 640, a1: 880, sides: [1], area: 'River Road', rural: true, maxD: 14 },
 ];
 
 /** Special sites (generator key + rect). Reserved before lots. */
@@ -90,7 +97,7 @@ export function makeSites() {
   add('carlot', 'Kentucky Motors', 622, 519, 700, 566);
   add('autoparts', 'Dollar Barn', 712, 519, 776, 562);
   add('gas_exit', 'Exit 81 Gas & Go', 794, 519, 878, 586);
-  add('apartments', 'Riverside Apartments', 420, 580, 500, 628);
+  add('apartments', 'Riverside Apartments', 424, 580, 504, 628);
   add('construction', 'Construction Site', 522, 580, 600, 628);
   add('trailer', 'Pine Grove Mobile Home Park', 392, 706, 500, 754);
   add('industrial', 'Millbrook Industrial Park', 616, 594, 878, 754);

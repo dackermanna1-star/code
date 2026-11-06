@@ -518,6 +518,21 @@ export const WORLD_SOUNDS = {
     cat: 'sfx', sr: 'mid', dur: 4.4, loop: { len: 4.0, xfade: 0.4, mode: 'power' }, variants: 1, level: 0.35, ref: 2, maxDist: 15, cap: 2, send: 0.05, pv: 0, vv: 0, internal: true,
     render: (s) => radioStatic(s, 4.4, true),
   },
+  alarm_beep: {
+    // alarm-clock / noise-maker: 4 quick square beeps through a tiny speaker
+    cat: 'sfx', sr: 'mid', dur: 0.6, variants: 1, level: 0.45, ref: 4, maxDist: 70, cap: 3, send: 0.12, pv: 0.01, vv: 0.03,
+    render: (s) => {
+      const bus = s.g(1);
+      s.chain(bus, s.bp(2900, 1.2), s.sat(1.5), s.out);
+      for (let i = 0; i < 4; i++) {
+        const t = 0.005 + i * 0.12;
+        const o = s.osc('square', 2900, t, t + 0.065);
+        const g = s.g(0);
+        s.env(g.gain, [[t, 0], [t + 0.004, 0.6], [t + 0.058, 0.6], [t + 0.064, 0]]);
+        s.chain(o, g, bus);
+      }
+    },
+  },
   flashlight_click: {
     cat: 'sfx', sr: 'hi', dur: 0.12, variants: 2, level: 0.35, ref: 1, maxDist: 6, cap: 2, send: 0, pv: 0.04, vv: 0.05,
     render: (s) => {

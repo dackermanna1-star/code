@@ -1,22 +1,27 @@
 // World generator entry point: Millbrook, Kentucky and its county, ~10 days after the outbreak.
 //
-//   export async function generateWorld(world, seed, onProgress)
+//   export async function generateWorld(world, seed, onProgress, opts?) -> ctx
+//     seed: number (or string -> seedFromString). onProgress(fraction01, label) is awaited between phases.
+//     opts.debug: record floor-plan labels / reachability checks for dev/worldgen-run.mjs (never changes the world).
+//     Returns the generation context (stats in ctx.stats, also stored on world.genStats); safe to discard.
 //
 // Phases: plan (roads, sites, lots: pure 2D) -> water -> terrain -> roads -> sites & houses -> vegetation ->
 // street props / vehicles / decay -> zones & POIs -> sanitize registries -> heightmap.
-import { makeRng } from '../../core/rng.js';
-import { SURFACE, ZONES } from '../World.js';
+// Everything is deterministic from the seed (makeRng / hash / noise from core/rng.js only).
+import { makeRng, seedFromString } from '../../core/rng.js';
 import { B, BLOCKS, SOLID } from '../blocks.js';
 import { OCC, makeRoads, makeSites } from './plan.js';
 import { buildWater, distanceField } from './water.js';
 import { buildTerrain } from './terrain.js';
-import { reserveRoads, paintRoads, streetProps, roadZones, markRect } from './roads.js';
+import { reserveRoads, paintRoads, streetProps, roadZones } from './roads.js';
 import { packLots, fillOcc } from './lots.js';
 import { CAR_HALF, CAR_TYPES } from './util.js';
 import { buildSites } from './sites.js';
 import { buildLots } from './houses.js';
 import { buildVegetation } from './vegetation.js';
 import { buildDecor } from './decor.js';
+import { buildHighwayJam } from './military.js';
+import { roofClutter } from './building.js';
 import { planTrails, paintTrails } from './trails.js';
 
 export { NOTES, RADIO_BROADCASTS } from './lore.js';
@@ -34,13 +39,27 @@ export function createContext(world, seed) {
     roads: [], sites: [], lots: [],
     vehicleIndex: [],
     timings: {},
-    planViews: [], sectionViews: [], planLabels: [],
+    planViews: [], sectionViews: [], planLabels: [], reachChecks: [],
   };
   ctx.addPOI = (p) => {
     if (!world.pois.some((q) => q.name === p.name && q.x0 === p.x0 && q.z0 === p.z0)) world.addPOI(p);
   };
   ctx.building = (type) => { ctx.stats.buildings[type] = (ctx.stats.buildings[type] || 0) + 1; };
   ctx.addVehicle = (v) => addVehicleChecked(ctx, v);
+  // world-coordinate helpers that snap to the nearest standable cell
+  ctx.freeAt = (x, y, z, r = 4) => {
+    const ok = (bx, bz) => !SOLID[world.get(bx, y, bz)] && !SOLID[world.get(bx, y + 1, bz)] && SOLID[world.get(bx, y - 1, bz)] && !BLOCKS[world.get(bx, y, bz)].damage;
+    const x0 = Math.floor(x), z0 = Math.floor(z);
+    if (ok(x0, z0)) return [x, z];
+    for (let rr = 1; rr <= r; rr++) for (let dx = -rr; dx <= rr; dx++) for (let dz = -rr; dz <= rr; dz++) {
+      if (Math.max(Math.abs(dx), Math.abs(dz)) !== rr) continue;
+      if (ok(x0 + dx, z0 + dz)) return [x0 + dx + 0.5, z0 + dz + 0.5];
+    }
+    return null;
+  };
+  ctx.addZombies = (zs) => { const p = ctx.freeAt(zs.x, zs.y, zs.z, 6); if (p) world.addZombieSpawn({ ...zs, x: p[0], z: p[1] }); };
+  ctx.addCorpse = (c) => { const p = ctx.freeAt(c.x, c.y, c.z, 4); if (p) world.addCorpse({ ...c, x: p[0], z: p[1] }); };
+  ctx.addLoot = (x, y, z, t, ch) => { const p = ctx.freeAt(x, y, z, 3); if (p) world.addFloorLoot(p[0], y, p[1], t, ch); };
   ctx.label = (fr, r, text) => {
     if (!ctx.debugLabels) return;
     const wr = fr.worldRect(r.x0, r.z0, r.x1, r.z1);
@@ -103,6 +122,8 @@ function obbOverlap(a, b) {
 }
 
 export async function generateWorld(world, seed, onProgress = async () => {}, opts = {}) {
+  if (typeof seed === 'string') seed = /^\d+$/.test(seed) ? Number(seed) : seedFromString(seed);
+  seed = (Number(seed) || 0) >>> 0;
   const T0 = (typeof performance !== 'undefined' ? performance : Date).now();
   const now = () => (typeof performance !== 'undefined' ? performance : Date).now();
   world.seed = seed >>> 0;
@@ -127,16 +148,13 @@ export async function generateWorld(world, seed, onProgress = async () => {}, op
     if (ctx.water[k]) ctx.occ[k] = OCC.WATER;
     else if (dW[k] <= 5) ctx.occ[k] = OCC.MARGIN;
   }
-  for (const s of ctx.sites) {
-    if (s.island) continue;
-    fillOcc(ctx, s.x0, s.z0, s.x1, s.z1, OCC.SITE, true);
-  }
+  for (const s of ctx.sites) fillOcc(ctx, s.x0, s.z0, s.x1, s.z1, OCC.SITE, !s.island);
   reserveRoads(ctx);
   planTrails(ctx);
   packLots(ctx);
 
   await phase(0.08, 'Raising the hills');
-  buildTerrain(ctx);
+  await buildTerrain(ctx, (f) => onProgress(0.08 + f * 0.1, 'Raising the hills'));
 
   await phase(0.2, 'Paving the roads');
   paintRoads(ctx);
@@ -148,14 +166,19 @@ export async function generateWorld(world, seed, onProgress = async () => {}, op
   await phase(0.6, 'Building the suburbs');
   buildLots(ctx);
 
+  roofClutter(ctx);
   await phase(0.75, 'Growing the forests');
   buildVegetation(ctx);
 
   await phase(0.88, 'Abandoning the streets');
   streetProps(ctx);
+  buildHighwayJam(ctx);
   buildDecor(ctx);
   roadZones(ctx);
 
+  ctx.addPOI({ name: 'Downtown Millbrook', type: 'town', x0: 380, z0: 447, x1: 613, z1: 577 });
+  ctx.addPOI({ name: 'Lake Millbrook', type: 'water', x0: 113, z0: 126, x1: 297, z1: 250 });
+  ctx.addPOI({ name: 'Mill Creek', type: 'water', x0: 150, z0: 260, x1: 200, z1: 640 });
   await phase(0.96, 'Counting the dead');
   sanitize(ctx);
   world.computeHeightmap();
@@ -176,13 +199,9 @@ function sanitize(ctx) {
   for (const [i, d] of world.doors) {
     if (!BLOCKS[world.blocks[i]].door) world.doors.delete(i);
   }
-  for (const [i, m] of world.meta) {
+  // meta is only meaningful for oriented blocks, doors and sign letters
+  for (const i of world.meta.keys()) {
     const d = BLOCKS[world.blocks[i]];
-    if (!d.oriented && !d.door && d.name !== 'sign_letter') {
-      // keep extra bits only for oriented blocks
-      world.meta.delete(i);
-    }
-    void m;
+    if (!d.oriented && !d.door && d.name !== 'sign_letter') world.meta.delete(i);
   }
-  void SURFACE; void ZONES; void markRect;
 }

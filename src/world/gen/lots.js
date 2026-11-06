@@ -35,11 +35,11 @@ export function packLots(ctx) {
       let a = st.a0;
       const p0 = st.c + side * (e + 3);
       while (a + 20 <= st.a1) {
-        let W = rng.int(23, 31);
+        let W = st.rural ? rng.int(28, 34) : rng.int(23, 31);
         if (a + W - 1 > st.a1) W = st.a1 - a + 1;
         if (W < 20) break;
         let placed = null;
-        for (let D = rng.int(29, 34); D >= 22; D -= 2) {
+        for (let D = Math.min(st.maxD || 34, rng.int(29, 34)); D >= 22; D -= 1) {
           let r;
           if (st.axis === 'x') {
             r = side < 0 ? { x0: a, x1: a + W - 1, z0: p0 - D + 1, z1: p0 } : { x0: a, x1: a + W - 1, z0: p0, z1: p0 + D - 1 };
@@ -51,10 +51,10 @@ export function packLots(ctx) {
         if (placed) {
           // front facing toward the street
           const front = st.axis === 'x' ? (side < 0 ? 0 : 2) : (side < 0 ? 3 : 1);
-          const lot = { ...placed, front, street: st.name, area: st.area, w: W, d: (st.axis === 'x' ? placed.z1 - placed.z0 : placed.x1 - placed.x0) + 1 };
+          const lot = { ...placed, front, street: st.name, area: st.area, rural: !!st.rural, w: W, d: (st.axis === 'x' ? placed.z1 - placed.z0 : placed.x1 - placed.x0) + 1 };
           lots.push(lot);
           fillOcc(ctx, placed.x0, placed.z0, placed.x1, placed.z1, OCC.LOT);
-          a += W + rng.int(0, 2);
+          a += W + (st.rural ? rng.int(10, 45) : rng.int(0, 2));
         } else a += 2;
       }
     }

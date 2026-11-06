@@ -2,7 +2,7 @@
 import { deflateSync } from 'node:zlib';
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
-import { BLOCKS, B } from '../src/world/blocks.js';
+import { BLOCKS, B, SIGN_CHARS } from '../src/world/blocks.js';
 
 const CRC_TABLE = (() => {
   const t = new Uint32Array(256);
@@ -151,8 +151,38 @@ const GLYPH = {
   stairs_wood: '/', stairs_concrete: '/', ladder: 'H', slab_wood: '-', door_wood: 'D', door_white: 'D', door_metal: 'D', door_glass: 'D', door_cell: 'D',
   lantern: '*', campfire: '*', barrel_burning: '*', fire: '*', vending_machine: 'V', dumpster: 'Y', mailbox: 'M', gas_pump: 'P',
 };
-/** Top-down map. scale = blocks per pixel (1 = full res). */
-export function renderMap(world, { scale = 1, pois = true } = {}) {
+/** Top-down map. scale = blocks per pixel (1 = full res). Optional crop rect + zoom (pixels per block). */
+export function renderMap(world, { scale = 1, pois = true, crop = null, zoom = 1 } = {}) {
+  if (crop) {
+    const { x0, z0, x1, z1 } = crop;
+    const full = renderMap(world, { scale: 1, pois: false });
+    const out = makeImage((x1 - x0 + 1) * zoom, (z1 - z0 + 1) * zoom);
+    for (let y = 0; y < out.h; y++) for (let x = 0; x < out.w; x++) {
+      const sx = x0 + Math.floor(x / zoom), sz = z0 + Math.floor(y / zoom);
+      const o = (sz * full.w + sx) * 3;
+      px(out, x, y, [full.data[o], full.data[o + 1], full.data[o + 2]]);
+    }
+    // entities overlay
+    for (const v of world.vehicles) {
+      const hw = v.type === 'bus' ? 1.4 : v.type === 'semi' ? 1.3 : 1.0, hl = { bus: 6, semi: 8, firetruck: 4.6, military_truck: 4, ambulance: 3.2, pickup: 2.8, van: 2.7, suv: 2.5, humvee: 2.5 }[v.type] || 2.2;
+      const sn = Math.sin(v.yaw), cs = Math.cos(v.yaw);
+      const col = v.burned ? [40, 30, 30] : v.type === 'police' ? [40, 60, 255] : v.type.startsWith('mil') || v.type === 'humvee' ? [110, 130, 70] : [230, 120, 230];
+      for (let a = -hl; a <= hl; a += 0.5 / zoom) for (let b = -hw; b <= hw; b += 0.5 / zoom) {
+        const wx = v.x + sn * a + cs * b, wz = v.z + cs * a - sn * b;
+        px(out, Math.floor((wx - x0) * zoom), Math.floor((wz - z0) * zoom), a > hl - 0.6 ? [255, 255, 255] : col);
+      }
+    }
+    for (const c of world.corpses) rect(out, Math.floor((c.x - x0) * zoom) - 1, Math.floor((c.z - z0) * zoom) - 1, 2, 2, [120, 0, 0]);
+    for (const zs of world.zombieSpawns) rect(out, Math.floor((zs.x - x0) * zoom) - 1, Math.floor((zs.z - z0) * zoom) - 1, 3, 3, [255, 0, 0]);
+    for (const sp of world.spawnPoints) rect(out, Math.floor((sp.x - x0) * zoom) - 2, Math.floor((sp.z - z0) * zoom) - 2, 4, 4, [0, 255, 255]);
+    if (pois) for (const p of world.pois) {
+      const cx = ((p.x0 + p.x1) / 2 - x0) * zoom, cz = ((p.z0 + p.z1) / 2 - z0) * zoom;
+      if (cx < 0 || cz < 0 || cx >= out.w || cz >= out.h) continue;
+      const label = p.name.replace(/[^A-Za-z0-9 .'&#-]/g, '');
+      text(out, Math.floor(cx - label.length * 2), Math.floor(cz) - 2, label, [255, 255, 160]);
+    }
+    return out;
+  }
   const W = Math.floor(world.SX / scale), H = Math.floor(world.SZ / scale);
   const img = makeImage(W, H);
   const { SX, SY, blocks } = world;
@@ -250,4 +280,35 @@ export function scaleImage(img, k) {
     px(out, x, y, [img.data[o], img.data[o + 1], img.data[o + 2]]);
   }
   return out;
+}
+
+/**
+ * Facade elevation: viewer stands at depth `from` looking along `dir` (+1/-1) on the perpendicular axis.
+ * axis 'x': columns are x (a0..a1), viewer looks along z. Shows the first visible block, shaded by depth.
+ */
+export function renderElevation(world, axis, from, dir, a0, a1, y0, y1, s = 5, maxDepth = 40) {
+  const W = (a1 - a0 + 1) * s, H = (y1 - y0 + 1) * s;
+  const img = makeImage(W, H, [140, 180, 230]);
+  for (let a = a0; a <= a1; a++) {
+    const col = dir * (axis === 'x' ? 1 : 1) > 0 ? a : a;
+    for (let y = y0; y <= y1; y++) {
+      for (let d = 0; d < maxDepth; d++) {
+        const p = from + dir * d;
+        const [x, z] = axis === 'x' ? [col, p] : [p, col];
+        const id = world.get(x, y, z);
+        if (id === 0 || BLOCKS[id].render === 'cross' && BLOCKS[id].name !== 'fire') continue;
+        const c = COL[id];
+        const f = Math.max(0.45, 1 - d * 0.04);
+        // mirror columns when looking toward -dir so left/right matches the viewer
+        const ia = dir > 0 ? (axis === 'x' ? a1 - a : a - a0) : (axis === 'x' ? a - a0 : a1 - a);
+        rect(img, ia * s, (y1 - y) * s, s, s, [c[0] * f, c[1] * f, c[2] * f]);
+        if (BLOCKS[id].name === 'sign_letter' && s >= 5) {
+          const ch = SIGN_CHARS[world.getMeta(x, y, z) >> 2] || ' ';
+          text(img, ia * s + Math.floor((s - 3) / 2), (y1 - y) * s + Math.floor((s - 5) / 2), ch, [20, 20, 20], 1, false);
+        }
+        break;
+      }
+    }
+  }
+  return img;
 }

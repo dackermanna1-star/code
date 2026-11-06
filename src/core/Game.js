@@ -55,6 +55,7 @@ export class Game {
     this.input = new Input(this.renderer.canvas);
     this.audio = new AudioEngine();
     this.viewmodel = new Viewmodel();
+    this.viewmodel.ejectShells = false; // world-space casings are spawned by Combat
     this.PROFESSIONS = PROFESSIONS;
     this.SKILLS = SKILLS;
     this.state = 'menu';
@@ -402,15 +403,21 @@ export class Game {
     if (dt > 0.1) dt = 0.1;
     this.fps = lerp(this.fps, 1 / Math.max(dt, 1e-3), 0.05);
     globalUniforms.uTime.value += dt;
+    const tu = performance.now();
     if (this.state === 'playing' && this.world) {
       try { this.update(dt); } catch (e) { console.error(e); }
     }
+    const tr = performance.now();
     if (this.world && (this.state === 'playing' || this.state === 'paused' || this.state === 'dead')) {
       this.renderWorld(dt);
     } else {
       this.renderer.renderer.setRenderTarget(null);
       this.renderer.renderer.clear();
     }
+    const te = performance.now();
+    this.perf = this.perf || { update: 0, render: 0 };
+    this.perf.update = lerp(this.perf.update, tr - tu, 0.1);
+    this.perf.render = lerp(this.perf.render, te - tr, 0.1);
     this.ui.update?.(dt);
     // re-capture the mouse when a panel closes
     const blocking = !!this.ui.isBlocking?.();
@@ -535,7 +542,7 @@ export class Game {
     this.weatherSys.update(dt, dtH, this.time.hourF, this.time.day);
     this.rainCollected = clamp(this.rainCollected + (raining > 0.3 ? dtH * 3 : -dtH * 0.2), 0, 18);
     this.weatherInfo = { type: this.weatherSys.type, label: this.weatherSys.label, temperature: this.weatherSys.temperature, wind: this.weatherSys.params.wind };
-    this.sky.update(this.time.hourF, this.weatherSys.params, this.time.day);
+    this.sky.update(this.time.hourF, this.weatherSys.params, this.time.day, this.chunks.radius * 16);
     const nearFire = this.nearFire();
     const threat = this.zombies.threatLevel();
     this.threat = threat;
@@ -588,7 +595,7 @@ export class Game {
     const fwd = p.forward(new THREE.Vector3());
     this.audio.setListener({ x: cam.position.x, y: cam.position.y, z: cam.position.z }, { x: fwd.x, y: fwd.y, z: fwd.z });
     this.audio.setAmbience({
-      rain: raining * (indoor ? 0.45 : 1), wind: this.weatherSys.params.wind * (indoor ? 0.3 : 1), storm: this.weatherSys.target.rain >= 1 ? raining : 0,
+      rain: raining, wind: this.weatherSys.params.wind, storm: this.weatherSys.target.rain >= 1 ? raining : 0,
       night: this.time.isNight ? 1 : 0, indoor, underwater: p.inWater && w.get(ex, ey, ez) === B.water ? 1 : 0,
       heartbeat: clamp(Math.max((35 - p.health) / 35, (p.panic - 50) / 50), 0, 1), breathing: clamp((30 - p.stamina) / 30, 0, 1), tension: threat,
     });
@@ -641,7 +648,11 @@ export class Game {
     // dynamic point lights
     const cam = r.camera.position;
     this.dynLights = this.dynLights.filter((l) => (l.t -= dt) > -0.001 || l.persist);
-    const lights = this.dynLights.slice().sort((a, b) => a.pos.distanceToSquared(cam) - b.pos.distanceToSquared(cam)).slice(0, MAX_POINT_LIGHTS);
+    const all = this.dynLights.slice();
+    for (const L of this.fx?.getLights?.() || []) {
+      all.push({ pos: new THREE.Vector3(L.x, L.y, L.z), color: new THREE.Color(L.r, L.g, L.b), intensity: L.intensity, radius: L.radius, t: 1, dur: 0 });
+    }
+    const lights = all.sort((a, b) => a.pos.distanceToSquared(cam) - b.pos.distanceToSquared(cam)).slice(0, MAX_POINT_LIGHTS);
     globalUniforms.uPLCount.value = lights.length;
     lights.forEach((l, i) => {
       globalUniforms.uPL.value[i].set(l.pos.x, l.pos.y, l.pos.z, l.radius);
@@ -652,7 +663,7 @@ export class Game {
     const vmLight = { sky: this.world.skyAt(Math.floor(p.x), Math.floor(p.y + 1.5), Math.floor(p.z)) / 15, block: this.world.blockLightAt(Math.floor(p.x), Math.floor(p.y + 1.5), Math.floor(p.z)) / 15 };
     this.viewmodel.update(dt, {
       moving01: p.moving01, sprinting: p.sprinting, aiming: p.aiming, crouching: p.crouching, grounded: p.onGround,
-      lookDX: this.input.mouse.dx, lookDY: this.input.mouse.dy, light: vmLight, time: this.clock,
+      lookDX: this.input.mouse.dx, lookDY: this.input.mouse.dy, light: vmLight, time: this.clock, camera: this.renderer.camera,
     });
     const showVM = this.state === 'playing' && !p.dead && !p.scopeActive;
     r.render(showVM ? (rr) => this.viewmodel.render(rr) : null, this.renderer.shadowsEnabled ? r.camera.position : null);
@@ -741,7 +752,7 @@ export class Game {
     if (total < def.hp) {
       this.blockDamage.set(idx, total);
       if (!o.byZombie) this.cracks?.show(x, y, z, total / def.hp);
-      this.fx.dust?.(pos, this.textures.avgColor(faceTexture(def, 0, 0)));
+      this.fx.dust?.(pos, this.textures.avgColor(faceTexture(def, 0, 0)).map((c) => c / 255));
       return false;
     }
     this.blockDamage.delete(idx);
@@ -883,11 +894,11 @@ export class Game {
   }
 
   // ------------------------------------------------------------------ timed actions
-  startAction({ label, time, anim, sound, onDone, onCancel }) {
+  startAction({ label, time, anim, sound, onDone, onCancel, stack }) {
     if (this.action) this.cancelAction();
     this.action = { label, time, t: 0, onDone, onCancel, stack: this.player.inv.selectedStack };
     this.actionBusy = true;
-    if (anim) this.viewmodel.use?.(anim, time);
+    if (anim) this.viewmodel.use?.(anim, time, stack || null);
     if (sound) this.actionSound = this.audio.play(sound, { volume: 0.7 });
   }
   updateAction(dt) {

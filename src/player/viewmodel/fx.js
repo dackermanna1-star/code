@@ -238,6 +238,13 @@ export class ViewmodelFX {
     this.flame.visible = v && !!this.flame.parent;
   }
 
+  dispose() {
+    for (const t of [...this.starTex, ...this.coneTex, ...Object.values(this.flameTex).flat()]) t.dispose();
+    this.flashMat.dispose();
+    this.coneMat.dispose();
+    this.flameMat.dispose();
+  }
+
   clearShells() {
     for (const s of this.shells) { s.alive = false; s.obj.visible = false; }
   }

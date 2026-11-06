@@ -197,6 +197,12 @@ export function gableRoof(fr, W, D, y, roof, gable, alongX = true, o = {}) {
     const a = -ov + k, bb = L - 1 + ov - k, yy = y + k;
     if (a > bb) break;
     const along0 = -ov, along1 = (alongX ? W : D) - 1 + ov;
+    if (o.maxRise && k >= o.maxRise && a + 1 < bb) {
+      // flat top: slab cap over the remaining span, gable walls closed
+      for (let t = along0; t <= along1; t++) for (let c = a; c <= bb; c++) put(t, yy, c, sl, 0);
+      for (let c = a; c <= bb; c++) { if (alongX) { set(0, yy - 1, c, g); set(W - 1, yy - 1, c, g); } else { set(c, yy - 1, 0, g); set(c, yy - 1, D - 1, g); } }
+      break;
+    }
     for (let t = along0; t <= along1; t++) {
       if (a === bb) {
         // single ridge row
@@ -232,6 +238,22 @@ export function flatRoof(fr, W, D, y, parapet, o = {}) {
   fr.fill(0, y, 0, W - 1, y, D - 1, id(parapet));
   fr.fill(1, y, 1, W - 2, y, D - 2, id(o.roof || 'roof_tar'));
   if (o.parapetH !== 0) fr.walls(0, y + 1, 0, W - 1, y + (o.parapetH || 1), D - 1, id(parapet));
+  if (W >= 10 && D >= 10 && o.clutter !== false) (fr.ctx.flatRoofs ||= []).push({ fr, W, D, y });
+}
+
+/** Rooftop clutter (AC units, vents) placed after all doors exist so nothing blocks roof access. */
+export function roofClutter(ctx) {
+  for (const { fr, W, D, y } of ctx.flatRoofs || []) {
+    const n = Math.floor((W * D) / 160) + 1;
+    for (let k = 0; k < n; k++) {
+      const h = ((fr.ax * 73856093) ^ (fr.az * 19349663) ^ (k * 83492791)) >>> 0;
+      const x = 2 + (h % (W - 5)), z = 2 + ((h >>> 8) % (D - 5));
+      const freeAround = (cx, cz) => fr.canPlace(cx, y + 1, cz) && [[1, 0], [-1, 0], [0, 1], [0, -1]].every(([dx, dz]) => !fr.isOpening(cx + 2 * dx, y + 1, cz + 2 * dz) && !IS_DOOR[fr.get(cx + 2 * dx, y + 1, cz + 2 * dz)]);
+      if (!freeAround(x, z) || !freeAround(x + 1, z) || fr.get(x, y, z) !== B.roof_tar || fr.get(x + 1, y, z) !== B.roof_tar) continue;
+      if ((h >>> 20) & 1) { fr.set(x, y + 1, z, B.metal_wall); fr.set(x + 1, y + 1, z, B.metal_wall); }
+      else fr.set(x, y + 1, z, B.street_pole);
+    }
+  }
 }
 
 /**
@@ -267,7 +289,7 @@ export function stairwell(fr, x0, z0, baseY, storeyH, levels, o = {}) {
       // under-stair fill
       for (let yy = y + 1; yy < y + s; yy++) fr.set(col, yy, z, wallM);
       // headroom: carve the next floor plate above stairs whose height >= y + H - 2
-      if (s >= H - 2 && s < H) { fr.clear(col, y + H, z, 0); }
+      if (s >= H - 3 && s < H) { fr.clear(col, y + H, z, 0); }
     }
   }
   for (let L = 0; L < levels; L++) {

@@ -100,6 +100,12 @@ export function storefront(ctx, fr, spec, rng) {
       roomWindows(fr, yy, { x0: 10, z0: 2, x1: W - 3, z1: 2 }, front, W, D, 'glass', rng, null, { spacing: 4, pairs: false });
     }
   }
+  if (ctx.debugLabels) {
+    const targets = [];
+    for (let f = 1; f <= floors; f++) targets.push([fr.wx(Math.floor(W / 2), 6), y + f * H + 1, fr.wz(Math.floor(W / 2), 6), 'floor ' + f]);
+    targets.push([fr.wx(W - 5, 3), y + 1, fr.wz(W - 5, 3), 'back']);
+    ctx.reachChecks.push({ name: `shop ${spec.kind} @${fr.wx(0, 0)},${fr.wz(0, 0)}`, start: [fr.wx(doorX, D), y + 1, fr.wz(doorX, D)], targets: floors > 1 ? targets : targets.slice(-1) });
+  }
   // signage + back alley props
   if (fr.get(rx + 2, y + 1, -1) === 0 && fr.get(rx + 2, y, -1) !== 0 && rng.chance(0.75)) fr.place(rx + 2, y + 1, -1, 'dumpster');
   if (rng.chance(0.5) && fr.get(rx - 2, y + 1, -1) === 0) fr.place(rx - 2, y + 1, -1, 'trash_can');

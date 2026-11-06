@@ -38,7 +38,7 @@ function planRanch(rng, maxW, maxD, withGarage) {
   if (gw) { rooms.push(R('garage', 'garage', X0, Z0, X0 + gw - 1, Z1)); hx0 = X0 + gw + 2; }
   const IW = X1 - hx0 + 1;
   const pw = hallPlan ? Math.max(5, Math.min(8, Math.round(IW * 0.42))) : Math.max(5, Math.min(7, IW - 8));
-  const kd = ID >= 11 ? 5 : 4;
+  const kd = hallPlan ? Math.floor((ID - 3) / 2) : (ID >= 11 ? 5 : 4); // hall row then opens into the living room
   const kit = R('kitchen', 'kitchen', hx0, Z0, hx0 + pw - 1, Z0 + kd - 1);
   const liv = R('living', 'living', hx0, Z0 + kd + 1, hx0 + pw - 1, Z1);
   rooms.push(kit, liv);
@@ -191,7 +191,7 @@ export function buildHouse(ctx, hf, plan, style, rng, cond, opts = {}) {
       hf.place(x, yy, zz, 'stairs_wood', 0);
       for (let k = Y0 + 1; k < yy; k++) hf.set(x, k, zz, B.wall_white);
     }
-    hf.clear(x, Y0 + 4, z - 1, 0); hf.clear(x, Y0 + 4, z - 2, 0);
+    hf.clear(x, Y0 + 4, z, 0); hf.clear(x, Y0 + 4, z - 1, 0); hf.clear(x, Y0 + 4, z - 2, 0);
   }
   // connections
   plan.floors.forEach((fl, f) => {
@@ -258,7 +258,7 @@ export function buildHouse(ctx, hf, plan, style, rng, cond, opts = {}) {
   // roof
   const topY = Y0 + nF * 4;
   const alongX = W >= D;
-  gableRoof(hf, W, D, topY, style.roof, style.outer, alongX);
+  gableRoof(hf, W, D, topY, style.roof, style.outer, alongX, { maxRise: plan.kind === 'ranch' ? 4 : 0 });
   if (style.chimney) {
     const cz = Math.floor(D / 2), cx = -1;
     const peak = topY + Math.ceil((alongX ? D : W) / 2) + 2;
@@ -338,7 +338,8 @@ function applyCondition(ctx, hf, info, cond, rng) {
       for (let x = r.x0; x <= r.x1; x++) for (let z = r.z0; z <= r.z1; z++) {
         if (hf.get(x, r.y, z) !== 0 && !BLOCKS[hf.get(x, r.y, z)].name.startsWith('stairs')) hf.set(x, r.y, z, B.planks_dark);
         const nearDoor = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dz]) => IS_DOOR[hf.get(x + dx, r.y + 1, z + dz)] || hf.isOpening(x + dx, r.y + 1, z + dz));
-        if (!nearDoor && hf.get(x, r.y + 1, z) === 0 && SOLIDISH(hf.get(x, r.y, z)) && rng.chance(0.18)) hf.set(x, r.y + 1, z, B.rubble);
+        const fl = hf.get(x, r.y, z);
+        if (!nearDoor && hf.get(x, r.y + 1, z) === 0 && SOLIDISH(fl) && !BLOCKS[fl].name.startsWith('stairs') && rng.chance(0.18)) hf.set(x, r.y + 1, z, B.rubble);
       }
     }
     if (rng.chance(0.5)) {
@@ -498,13 +499,13 @@ function buildHouseLot(ctx, lot) {
     pave(fr, drive[0], drive[1], hz + 2, d - 1, dmat);
   }
   // car(s)
-  if (driveX && rng.chance(cond === 'burned' ? 0.3 : 0.62)) {
+  if (driveX && rng.chance(cond === 'burned' ? 0.25 : 0.48)) {
     const type = rng.weighted(CARS);
     const cx = (driveX[0] + driveX[1] + 1) / 2;
     const cz = d - 4 + rng.range(-0.6, 0.6);
     ctx.addVehicle({ type, x: fr.px(cx, cz), y: Y0 + 1, z: fr.pz(cx, cz), yaw: fr.yaw(rng.chance(0.7) ? Math.PI : 0) + rng.range(-0.08, 0.08), color: rng.pick(CAR_COLORS), burned: cond === 'burned', wrecked: cond === 'burned' || rng.chance(0.05), alarm: rng.chance(0.12), loot: type === 'pickup' ? 'pickup_bed' : 'car_trunk', gloveLoot: 'car_glovebox' });
   }
-  if (plan.garage && rng.chance(0.35) && cond !== 'burned') {
+  if (plan.garage && rng.chance(0.25) && cond !== 'burned') {
     const g = info.rooms.find((r) => r.type === 'garage');
     if (g) {
       const cx = hx + (g.x0 + g.x1 + 1) / 2, cz = hz + (g.z0 + g.z1 + 1) / 2;
@@ -533,7 +534,7 @@ function buildHouseLot(ctx, lot) {
     // vegetable garden
     const gx0 = rng.int(2, Math.max(2, w - 8)), gz0 = rng.int(1, Math.max(1, hz - 4));
     for (let x = gx0; x < gx0 + 5; x++) for (let z = gz0; z < gz0 + 3; z++) {
-      if (fr.get(x, Y0, z) !== B.grass || fr.get(x, Y0 + 1, z) !== 0) continue;
+      if (fr.get(x, Y0, z) !== B.grass || !fr.canPlace(x, Y0 + 1, z)) continue;
       fr.set(x, Y0, z, B.dirt);
       if (z !== gz0 + 1) fr.set(x, Y0 + 1, z, rng.chance(0.5) ? B.pumpkin : rng.chance(0.5) ? B.wheat : B.dead_bush);
     }
@@ -571,9 +572,26 @@ function buildHouseLot(ctx, lot) {
   if (cond === 'boarded' && !story) holdout(ctx, rec, rng);
   if (story) story.apply(ctx, rec, rng);
   ctx.houses.push(rec);
+  if (ctx.debugLabels && cond !== 'burned') {
+    const fd = info.frontDoor;
+    const start = [hf.wx(fd.x, fd.z + 1), Y0 + 1, hf.wz(fd.x, fd.z + 1)];
+    const targets = [];
+    for (const r of info.rooms) {
+      const c = r.furn ? (r.furn.keepCells()[0] || r.furn.freeCells()[0]) : [r.x0, r.z0]; // no rng use: debug must not change the world
+      if (c) targets.push([hf.wx(c[0], c[1]), r.y + 1, hf.wz(c[0], c[1]), r.type + ' f' + r.f]);
+    }
+    ctx.reachChecks.push({ name: `house ${plan.kind} @${lot.x0},${lot.z0}`, start, targets });
+  }
   const kinds = ctx.planViews.filter((v) => v.kind === plan.kind).length;
   if (kinds < 3) {
     const wr = fr.worldRect(-1, -1, w, d + 3);
+    const sr = hf.worldRect(0, 0, W - 1, D - 1);
+    const along = (sr.x1 - sr.x0) > (sr.z1 - sr.z0) ? 'x' : 'z';
+    if (plan.stairs) {
+      const sx = hf.wx(plan.stairs.x, 0), sz = hf.wz(plan.stairs.x, 0);
+      const ax = hf.wx(0, 0) === hf.wx(0, 5) ? 'z' : 'x';
+      ctx.sectionViews.push({ name: `house-${plan.kind}-${kinds}-stairs`, axis: ax, c: ax === 'z' ? sx : sz, a0: (ax === 'z' ? sr.z0 : sr.x0) - 3, a1: (ax === 'z' ? sr.z1 : sr.x1) + 3, y0: 18, y1: 38, s: 10 });
+    } else ctx.sectionViews.push({ name: `house-${plan.kind}-${kinds}`, axis: along === 'x' ? 'z' : 'x', c: along === 'x' ? Math.floor((sr.x0 + sr.x1) / 2) : Math.floor((sr.z0 + sr.z1) / 2), a0: (along === 'x' ? sr.z0 : sr.x0) - 3, a1: (along === 'x' ? sr.z1 : sr.x1) + 3, y0: 18, y1: 34, s: 10 });
     for (let f = 0; f < plan.floors.length; f++) ctx.planViews.push({ name: `house-${plan.kind}-${kinds}-f${f}`, kind: plan.kind, ...wr, y: Y0 + 1 + f * 4, s: 14 });
   }
   return rec;
@@ -644,7 +662,7 @@ function assignStories(ctx) {
 }
 
 function pickSpawnLots(ctx) {
-  const quiet = ['Maple Avenue', 'Willow Lane', 'Poplar Avenue', 'Aspen Court', 'Hickory Lane', 'Cedar Street', 'Elm Street', 'Sycamore Street', 'West Main', 'South Lincoln'];
+  const quiet = ['Maple Avenue', 'Willow Lane', 'Poplar Avenue', 'Hickory Lane', 'Cedar Street', 'Elm Street', 'Sycamore Street', 'West Main', 'Old Mill Road', 'Lake Road', 'Route 9 North'];
   const rng = ctx.rng.fork(55);
   let n = 0;
   for (const area of quiet) {

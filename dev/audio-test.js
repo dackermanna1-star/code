@@ -591,6 +591,24 @@ window.audioTest = {
       T('music ' + m, () => eng.setMusic(m));
       await sleep(700);
     }
+    // debouncing: per-frame calls with flickering tension must not thrash the music
+    T('music none→calm', () => (eng.setMusic('none'), eng.setMusic('calm')));
+    await sleep(300);
+    if (eng.music.mood !== 'calm') errors.push('music: none→calm not immediate (' + eng.music.mood + ')');
+    const flick = async (mood, ms) => {
+      const t0 = performance.now();
+      while (performance.now() - t0 < ms) {
+        eng.setMusic(mood);
+        await sleep(16);
+      }
+    };
+    await flick('tense', 250);
+    if (eng.music.mood !== 'calm') errors.push('music: tense applied too early (' + eng.music.mood + ')');
+    await flick('tense', 600);
+    if (eng.music.mood !== 'tense') errors.push('music: tense not applied after 0.85 s (' + eng.music.mood + ')');
+    await flick('calm', 2000);
+    if (eng.music.mood !== 'tense') errors.push('music: left tense too early (' + eng.music.mood + ')');
+    log.push('music debounce: calm→tense after ~0.5 s, tense held while calm requested for 2 s');
     T('music menu', () => eng.setMusic('menu'));
     await sleep(4000);
     const mnodes = eng.music.current ? eng.music.current.nodes.size : 0;

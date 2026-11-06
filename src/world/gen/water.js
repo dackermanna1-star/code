@@ -27,7 +27,7 @@ export function buildWater(ctx) {
         const ddx = x - px - off * (dz / Math.sqrt(L2)), ddz = z - pz + off * (dx / Math.sqrt(L2));
         const d = Math.sqrt(ddx * ddx + ddz * ddz);
         const hw = 5.5 + 1.8 * n1(px * 0.05 + 100, pz * 0.05);
-        if (d <= hw) {
+        if (d <= hw && (x - ISLAND.cx) ** 2 + (z - ISLAND.cz) ** 2 >= ISLAND.r * ISLAND.r) {
           const k = z * SX + x;
           water[k] = 1;
           const dep = 1 + Math.round(3.2 * (1 - (d / hw) * (d / hw)));

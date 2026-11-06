@@ -23,8 +23,6 @@ export const easeOutBack = (x, k = 1.6) => {
 };
 export const easeOutCubic = (x) => 1 - Math.pow(1 - clamp01(x), 3);
 
-const ZERO6 = [0, 0, 0, 0, 0, 0];
-
 /**
  * Hermite / Catmull-Rom track. K = [[u, values[], 'h'?], ...] ('h' = hold: zero tangent at this key).
  * Endpoints always have zero tangents. Writes into `out` (array) and returns it.
@@ -108,7 +106,7 @@ export class AnimOut {
 const L_OFF = [-0.1, -0.52, -0.26];   // below the screen (mag pouch)
 const L_POUCH = [-0.16, -0.48, -0.2];
 const R_OFF = [0.2, -0.52, -0.22];
-const R_QUIVER = [0.24, 0.32, 0.16];
+const R_QUIVER = [0.32, -0.5, -0.12];
 
 // ------------------------------------------------------------------------------------------ reloads
 function reloadMag(a, o, vm) {
@@ -122,8 +120,8 @@ function reloadMag(a, o, vm) {
     : { rel: 0.12, gone: 0.34, back: 0.48, seat: 0.72, ins: 0.8, cg: 0.8, pull: 0.8, snap: 0.8, ret: 0.97 };
   const tilt = ramp(u, 0, 0.13) * (1 - ramp(u, T.ret - 0.15, T.ret));
   if (pistol) {
-    o.rot.set(0.22, 0.28, -0.32).multiplyScalar(tilt);
-    o.pos.set(-0.05, 0.04, 0.035).multiplyScalar(tilt);
+    o.rot.set(0.12, 0.35, -0.5).multiplyScalar(tilt);
+    o.pos.set(-0.065, 0.09, 0.02).multiplyScalar(tilt);
   } else {
     o.rot.set(0.16, 0.24, -0.6).multiplyScalar(tilt);
     o.pos.set(-0.07, 0.045, 0.03).multiplyScalar(tilt);
@@ -174,6 +172,30 @@ function reloadMag(a, o, vm) {
     const cgPt = vm.model.points.chargeGrab ? 'chargeGrab' : grab;
     L.push({ w: env(u, T.ins + 0.004, T.cg, T.snap + 0.01, T.ret - 0.03), point: cgPt });
   }
+}
+
+/** Clear a jam: tilt, rack the slide / pull the charging handle / cycle the action. */
+function unjamAnim(a, o, vm) {
+  const m = vm.meta;
+  const u = clamp01(a.t / a.dur);
+  const tilt = ramp(u, 0, 0.2) * (1 - ramp(u, 0.75, 1));
+  o.rot.set(0.1, 0.25, m.hold === 'pistol' ? -0.35 : 0.35).multiplyScalar(tilt);
+  o.pos.set(-0.04, 0.04, 0.02).multiplyScalar(tilt);
+  const pull = ramp(u, 0.3, 0.5) * (1 - ramp(u, 0.6, 0.66));
+  const ch = m.channels;
+  if (ch.slide) o.ch.slide = pull;
+  else if (ch.charge) o.ch.charge = pull;
+  else if (ch.pump) o.ch.pump = pull;
+  else if (ch.boltBack) { o.ch.boltLift = ramp(u, 0.2, 0.32) * (1 - ramp(u, 0.68, 0.78)); o.ch.boltBack = pull; }
+  else if (ch.breakOpen) o.ch.breakOpen = bump(u, 0.2, 0.75) * 0.8;
+  const pts = vm.model.points;
+  if (ch.boltBack && pts.boltGrab) o.handR.push({ w: env(u, 0.1, 0.25, 0.75, 0.9), point: 'boltGrab' });
+  else {
+    const grab = pts.chargeGrab ? 'chargeGrab' : null;
+    if (grab) o.handL.push({ w: env(u, 0.12, 0.3, 0.66, 0.85), point: grab });
+  }
+  if (once(a, 'eject', u > 0.5) && vm.ejectShells && m.shell) vm.ejectAt('eject', m.shell, [1, 0.6, 0.2]);
+  if (once(a, 'snap', u > 0.64)) vm.kick(0.35);
 }
 
 /** Generic fallback reload (any kind on a model without the needed parts) */
@@ -349,22 +371,26 @@ function boltAnim(a, o, vm) {
 // keys: [u, [x,y,z, pitch,yaw,roll], 'h'?]  absolute pivot poses in camera space; 'B' = live base pose.
 // hit = normalised impact time (swing() returns hit * duration)
 export const SWINGS = {
-  blunt1: { hit: 0.38, keys: [[0.28, [0.30, -0.02, -0.27, 0.35, -0.45, -0.85], 'h'], [0.38, [0.06, -0.13, -0.47, -0.85, 0.3, 0.55]], [0.5, [-0.2, -0.3, -0.4, -1.45, 0.75, 1.05]]] },
-  blunt1b: { hit: 0.38, keys: [[0.28, [-0.08, -0.03, -0.3, 0.25, 0.75, 1.05], 'h'], [0.38, [0.1, -0.12, -0.48, -0.85, -0.25, -0.35]], [0.5, [0.32, -0.28, -0.38, -1.3, -0.7, -0.75]]] },
-  heavy1: { hit: 0.46, keys: [[0.34, [0.22, 0.05, -0.2, 0.85, -0.1, -0.2], 'h'], [0.46, [0.06, -0.14, -0.5, -1.05, 0.12, 0.15]], [0.58, [0.02, -0.32, -0.42, -1.6, 0.1, 0.1]]] },
-  blade1: { hit: 0.36, keys: [[0.26, [0.3, 0.0, -0.26, 0.3, -0.5, -1.1], 'h'], [0.36, [0.05, -0.12, -0.46, -0.9, 0.35, 0.3]], [0.48, [-0.22, -0.28, -0.38, -1.5, 0.8, 0.8]]] },
-  blade1b: { hit: 0.36, keys: [[0.26, [-0.1, -0.08, -0.32, -1.2, 1.15, 1.45], 'h'], [0.36, [0.08, -0.12, -0.48, -1.35, 0.0, 1.5]], [0.48, [0.32, -0.15, -0.38, -1.25, -1.0, 1.4]]] },
-  stab1: { hit: 0.36, keys: [[0.25, [0.19, -0.19, -0.26, -1.3, 0.2, 0.2], 'h'], [0.36, [0.06, -0.1, -0.56, -1.5, 0.05, 0.1]], [0.48, [0.07, -0.11, -0.52, -1.45, 0.05, 0.1], 'h']] },
-  blunt2: { hit: 0.42, keys: [[0.3, [0.24, -0.08, -0.22, -0.55, -1.75, 0.0], 'h'], [0.42, [0.05, -0.13, -0.42, -1.35, -0.1, 0.0]], [0.56, [-0.24, -0.18, -0.32, -1.2, 1.5, 0.0]]] },
-  blunt2b: { hit: 0.42, keys: [[0.3, [-0.18, -0.06, -0.24, -0.7, 1.5, 0.0], 'h'], [0.42, [0.02, -0.12, -0.44, -1.35, 0.1, 0.0]], [0.56, [0.28, -0.2, -0.3, -1.1, -1.5, 0.0]]] },
-  heavy2: { hit: 0.48, keys: [[0.36, [0.1, 0.1, -0.16, 1.0, 0.1, 0.15], 'h'], [0.48, [0.03, -0.18, -0.48, -1.15, 0.05, 0.05]], [0.6, [0.01, -0.36, -0.42, -1.65, 0.0, 0.0]]] },
-  blade2: { hit: 0.41, keys: [[0.3, [0.22, 0.02, -0.22, 0.45, -0.35, -0.7], 'h'], [0.41, [0.03, -0.14, -0.46, -0.95, 0.3, 0.45]], [0.54, [-0.22, -0.3, -0.38, -1.5, 0.7, 0.85]]] },
-  blade2b: { hit: 0.41, keys: [[0.3, [-0.16, -0.04, -0.24, -0.75, 1.4, 0.25], 'h'], [0.41, [0.03, -0.13, -0.45, -1.35, 0.05, 0.2]], [0.54, [0.28, -0.22, -0.32, -1.15, -1.4, 0.2]]] },
+  // one-handed: forehand diagonal (upper right -> lower left) / backhand (left -> right)
+  blunt1: { hit: 0.38, keys: [[0.28, [0.26, 0.0, -0.3, 0.51, 0.0, -0.41], 'h'], [0.38, [0.1, -0.12, -0.42, -0.82, 0.0, 0.85]], [0.5, [-0.08, -0.26, -0.38, -1.85, 0.0, 0.78]], [0.66, [0.0, -0.32, -0.36, -1.5, 0.1, 0.6]]] },
+  blunt1b: { hit: 0.38, keys: [[0.28, [-0.06, -0.02, -0.32, 0.52, 0.0, 0.52], 'h'], [0.38, [0.12, -0.1, -0.44, -0.88, 0.0, -0.78]], [0.5, [0.28, -0.24, -0.36, -1.96, 0.0, -0.85]], [0.66, [0.26, -0.3, -0.34, -1.4, 0.1, -0.4]]] },
+  heavy1: { hit: 0.46, keys: [[0.34, [0.2, 0.06, -0.28, 0.93, 0.0, -0.1], 'h'], [0.46, [0.08, -0.08, -0.46, -1.32, 0.0, 0.1]], [0.58, [0.05, -0.28, -0.4, -2.1, 0.0, 0.05]], [0.72, [0.1, -0.32, -0.38, -1.4, 0.1, 0.2]]] },
+  blade1: { hit: 0.36, keys: [[0.26, [0.28, 0.02, -0.3, 0.64, 0.0, -0.58], 'h'], [0.36, [0.08, -0.1, -0.44, -0.96, 0.0, 1.02]], [0.48, [-0.12, -0.2, -0.38, -1.82, 0.0, 0.93]], [0.64, [-0.02, -0.3, -0.36, -1.4, 0.1, 0.7]]] },
+  blade1b: { hit: 0.36, keys: [[0.26, [-0.06, -0.04, -0.32, 0.69, 0.0, 0.64], 'h'], [0.36, [0.12, -0.1, -0.44, -0.96, 0.0, -1.02]], [0.48, [0.3, -0.18, -0.36, -1.82, 0.0, -0.93]], [0.64, [0.26, -0.28, -0.34, -1.3, 0.1, -0.5]]] },
+  stab1: { hit: 0.36, keys: [[0.25, [0.2, -0.18, -0.25, -1.27, 0.1, 0.1], 'h'], [0.36, [0.07, -0.09, -0.55, -1.42, 0.05, 0.05]], [0.48, [0.08, -0.1, -0.52, -1.4, 0.05, 0.05], 'h']] },
+  // two-handed: horizontal sweep / backhand / overhead / diagonal blade
+  blunt2: { hit: 0.42, keys: [[0.3, [0.27, -0.1, -0.38, 0.35, 0.0, -0.55], 'h'], [0.42, [0.08, -0.12, -0.44, -1.28, 0.0, 1.02]], [0.56, [-0.16, -0.18, -0.36, -1.74, 0.0, 0.93]], [0.72, [-0.04, -0.28, -0.38, -1.3, 0.1, 0.8]]] },
+  blunt2b: { hit: 0.42, keys: [[0.3, [-0.12, -0.1, -0.4, 0.4, 0.0, 0.6], 'h'], [0.42, [0.1, -0.12, -0.44, -1.28, 0.0, -1.02]], [0.56, [0.3, -0.18, -0.36, -1.74, 0.0, -0.93]], [0.72, [0.26, -0.26, -0.38, -1.2, 0.1, -0.3]]] },
+  heavy2: { hit: 0.48, keys: [[0.36, [0.13, -0.03, -0.38, 0.75, 0.0, -0.15], 'h'], [0.48, [0.05, -0.12, -0.46, -1.26, 0.0, 0.05]], [0.6, [0.03, -0.3, -0.42, -2.04, 0.0, 0.03]], [0.76, [0.1, -0.3, -0.42, -1.3, 0.1, 0.25]]] },
+  blade2: { hit: 0.41, keys: [[0.3, [0.25, -0.06, -0.38, 0.35, 0.0, -0.5], 'h'], [0.41, [0.06, -0.12, -0.44, -1.06, 0.0, 0.78]], [0.54, [-0.14, -0.26, -0.38, -2.05, 0.0, 0.71]], [0.7, [-0.02, -0.3, -0.38, -1.4, 0.1, 0.6]]] },
+  blade2b: { hit: 0.41, keys: [[0.3, [-0.1, -0.08, -0.4, 0.38, 0.0, 0.55], 'h'], [0.41, [0.1, -0.12, -0.44, -1.06, 0.0, -0.78]], [0.54, [0.3, -0.24, -0.36, -2.05, 0.0, -0.71]], [0.7, [0.26, -0.3, -0.38, -1.3, 0.1, -0.3]]] },
   stab2: { hit: 0.4, keys: [[0.28, [0.13, -0.15, -0.16, -1.4, 0.12, 0.12], 'h'], [0.4, [0.07, -0.12, -0.42, -1.5, 0.03, 0.05]], [0.52, [0.08, -0.13, -0.38, -1.48, 0.04, 0.06], 'h']] },
+  // fists
   jabR: { hit: 0.36, keys: [[0.2, [0.18, -0.17, -0.27, 0.15, 0.3, -0.1], 'h'], [0.36, [0.05, -0.1, -0.56, 0.05, 0.05, -0.45]], [0.5, [0.06, -0.11, -0.52, 0.05, 0.05, -0.4], 'h']] },
   jabL: { hit: 0.36, keys: [[0.2, [0.19, -0.19, -0.3, 0.12, 0.25, -0.1]], [0.5, [0.19, -0.19, -0.3, 0.12, 0.25, -0.1]]],
     L: [[0.2, [-0.17, -0.17, -0.27], 'h'], [0.36, [-0.04, -0.1, -0.56]], [0.5, [-0.05, -0.11, -0.52], 'h']] },
   hook: { hit: 0.46, keys: [[0.32, [0.25, -0.13, -0.22, 0.2, -0.4, -0.3], 'h'], [0.46, [0.01, -0.09, -0.5, 0.1, 0.5, -1.2]], [0.6, [-0.12, -0.12, -0.44, 0.1, 0.8, -1.3]]] },
+  // gun butt / side strike (relative to the base pose)
   gunbash: { hit: 0.4, rel: true, keys: [[0.25, [0.03, -0.02, 0.06, 0.1, -0.35, -0.4], 'h'], [0.4, [-0.07, 0.03, -0.15, -0.05, 0.7, 0.7]], [0.55, [-0.06, 0.02, -0.13, -0.05, 0.65, 0.65], 'h']] },
 };
 
@@ -393,6 +419,12 @@ function swingAnim(a, o, vm) {
     const LK = [[0, fl], ...S.L, [1, fl]];
     track(u, LK, _l3);
     o.handL.push({ w: 1, rig: _l3.slice() });
+  }
+  // two-handed: during the windup the left elbow swings under the weapon so the forearm hangs down
+  // instead of crossing the whole view
+  if (vm.meta.hands.L && vm.meta.kind === 'melee' && S.keys.length > 1) {
+    const wU = S.keys[0][0], hU = S.hit;
+    o.shL = { w: env(u, 0.02, wU, hU + 0.02, Math.min(0.95, hU + 0.25)), rig: [0.14, -0.58, -0.22] };
   }
   // the off hand braces during big one-handed swings
   if (!vm.meta.hands.L && vm.meta.kind === 'melee') {
@@ -442,18 +474,18 @@ function useAnim(a, o, vm) {
   switch (kind) {
     case 'eat': {
       const bite = Math.pow(Math.abs(Math.sin(tt * Math.PI / 0.6)), 3) * ramp(u, u0 + rin, u0 + rin + 0.05);
-      pose.splice(0, 6, 0.035, -0.125 + bite * 0.012, -0.19 + bite * 0.035, 0.15 + bite * 0.2, 0.35, 0.25);
+      pose.splice(0, 6, -0.035, -0.17 + bite * 0.015, -0.27 + bite * 0.04, 0.25 + bite * 0.25, 0.25, 0.12);
       o.rigPos.y += Math.sin(tt * Math.PI / 0.3) * 0.002 * raise;
       break;
     }
     case 'drink': {
       const gulp = Math.sin(tt * Math.PI / 0.45) * 0.004 * raise;
-      pose.splice(0, 6, 0.03, -0.075 + gulp, -0.16, 1.15, 0.25, 0.25);
+      pose.splice(0, 6, 0.035, -0.03 + gulp, -0.27, 2.05, 0.15, 0.1);
       break;
     }
     case 'pills': {
       const shake = bump(u, 0.35, 0.62);
-      pose.splice(0, 6, 0.03, -0.09 + Math.sin(tt * 30) * 0.004 * shake, -0.17, 0.95 + shake * 0.25, 0.2, 0.25);
+      pose.splice(0, 6, -0.02, -0.15 + Math.sin(tt * 30) * 0.004 * shake, -0.26, 0.35 + shake * 0.35, 0.2, 0.15);
       break;
     }
     case 'bandage':
@@ -473,8 +505,8 @@ function useAnim(a, o, vm) {
     }
     case 'read': {
       const flip = bump((tt % 1.6) / 1.6, 0.75, 1.0);
-      pose.splice(0, 6, 0.01, -0.12, -0.29, -0.35, -0.05 + flip * 0.15, 0.04);
-      o.handL.push({ w: raise, rig: [-0.085, -0.15, -0.3] });
+      pose.splice(0, 6, -0.075, -0.145, -0.28, -0.3, -0.05 + flip * 0.15, 0.04);
+      o.handL.push({ w: raise, rig: [-0.12, -0.2, -0.31] });
       break;
     }
     case 'craft':
@@ -496,7 +528,7 @@ function throwAnim(a, o, vm) {
   const below = [_b6[0], _b6[1] - 0.3, _b6[2] + 0.05, _b6[3] - 0.6, _b6[4], _b6[5]];
   const K = [
     [0, _b6],
-    [0.38, [0.24, 0.07, -0.08, 1.3, -0.2, -0.3], 'h'],
+    [0.38, [0.28, 0.0, -0.22, 0.5, -0.3, -0.4], 'h'],
     [0.5, [0.06, -0.06, -0.52, -0.5, 0.1, 0.1]],
     [0.62, [-0.05, -0.32, -0.45, -1.2, 0.15, 0.2]],
     [0.8, below, 'h'],
@@ -511,7 +543,6 @@ function throwAnim(a, o, vm) {
 }
 
 export const SAMPLERS = {
-  reloadMag, reloadGeneric, reloadShell, reloadRevolver, reloadBolt, reloadBreak, reloadCrossbow, reloadBow,
+  reloadMag, reloadGeneric, unjam: unjamAnim, reloadShell, reloadRevolver, reloadBolt, reloadBreak, reloadCrossbow, reloadBow,
   pump: pumpAnim, bolt: boltAnim, swing: swingAnim, shove: shoveAnim, use: useAnim, throw: throwAnim,
 };
-export { ZERO6 };

@@ -173,6 +173,7 @@ export function policeStation(ctx, site, rng) {
   }
   lot.vehicle(lot.w - 6, lot.d - 3.5, Math.PI, 'van', { color: 0xf0f0f0, loot: 'police_car_trunk' });
   lot.vehicle(10, lot.d - 3.5, Math.PI + 0.1, 'police', { color: 0x1a1a2a, loot: 'police_car_trunk', burned: true, wrecked: true });
+  if (ctx.debugLabels) ctx.reachChecks.push({ name: 'police', start: [fr.wx(16, D), Y, fr.wz(16, D)], targets: [[fr.wx(4, 4), Y, fr.wz(4, 4), 'armory'], [fr.wx(30, 10), Y, fr.wz(30, 10), 'cell block'], [fr.wx(5, 22), Y, fr.wz(5, 22), 'chief'], [fr.wx(12, 4), Y, fr.wz(12, 4), 'evidence'], [fr.wx(20, 12), Y, fr.wz(20, 12), 'lockers']], fuzzy: true });
   fr.zone(-1, -18, W, D, ZONES.POLICE);
   ctx.addPOI({ name: 'Millbrook Police Department', type: 'police', x0: site.x0, z0: site.z0, x1: site.x1, z1: site.z1 });
   ctx.building('police_station');
@@ -202,7 +203,7 @@ export function fireStation(ctx, site, rng) {
     for (let x = x0; x < x0 + 4; x++) for (let yy = Y; yy <= Y + 3; yy++) { fr.clear(x, yy, D - 1, B.garage_door); fr.clear(x, yy, D - 2, 0); }
     for (let x = x0; x < x0 + 4; x++) fr.markOpening(x, Y, D - 2);
   }
-  fr.vehicle(6, D / 2, 0, 'firetruck', { color: 0xb01010, loot: 'fire_station' === 'x' ? null : 'car_trunk' });
+  fr.vehicle(6, D / 2, 0, 'firetruck', { color: 0xb01010, loot: 'fire_station' });
   fr.vehicle(13, D / 2 + 2, 0, 'ambulance', { color: 0xf0f0f0, loot: 'ambulance' });
   const bay = new Room(fr, { ...byId.bay, y }, rng, { height: H - 1 });
   for (let k = 0; k < 7; k++) bay.wall('locker', { loot: 'fire_station' });
@@ -259,16 +260,13 @@ export function townHall(ctx, site, rng) {
     R('storage', cx + 4, 2, W - 3, 10, 'concrete', 'wall_white'),
   ];
   const byU = layoutFloor(fr, y + H, H, u, [['mayor', 'hall', 'door', { door: 'door_wood' }], ['office2', 'hall', 'door'], ['office3', 'hall', 'door'], ['storage', 'hall', 'door', { locked: true }]], rng);
-  // stairwell in the hall (rotated so the door side faces the front)
-  const swf = fr.child(cx - 2, 3, [0, 1], [1, 0], 4, H + 3);
-  void swf;
-  // simple straight staircase along the hall's left column instead (wide hall): from z=D-4 going back
+  // straight staircase along the hall's left column (wide hall): from z=D-4 going back
   const sx = cx - 2;
   for (let s = 1; s <= H; s++) {
     const z = D - 4 - s;
     fr.clear(sx, y + s, z, 0); fr.place(sx, y + s, z, 'stairs_wood', 0);
     for (let yy = y + 1; yy < y + s; yy++) fr.set(sx, yy, z, B.wall_beige);
-    if (s >= H - 2 && s < H) fr.clear(sx, y + H, z, 0);
+    if (s >= H - 3 && s < H) fr.clear(sx, y + H, z, 0);
   }
   // second flight to the roof hatch: ladder at the back of the upper hall
   for (let yy = y + H + 1; yy <= y + 2 * H; yy++) fr.clear(cx + 2, yy, 2, 0);
@@ -305,6 +303,7 @@ export function townHall(ctx, site, rng) {
   fr.signCentered(cx - 7, cx + 7, Y + 6, D + 3, 'TOWN HALL', 0);
   // flagpole + lawn
   for (let yy = Y; yy <= Y + 9; yy++) fr.set(cx + 8, yy, D + 4, B.street_pole);
+  if (ctx.debugLabels) ctx.reachChecks.push({ name: 'town hall', start: [fr.wx(cx, D + 1), Y, fr.wz(cx, D + 1)], targets: [[fr.wx(cx, 8), y + H + 1, fr.wz(cx, 8), 'upper hall'], [fr.wx(cx + 1, 3), y + 2 * H + 1, fr.wz(cx + 1, 3), 'roof']], fuzzy: true });
   fr.zone(-2, -2, W + 1, D + 5, ZONES.DOWNTOWN);
   const sx0 = site.x0, sz0 = site.z0;
   for (let x = sx0; x <= site.x1; x++) for (let z = sz0; z < z0 - 1; z++) if (ctx.world.get(x, Y0, z) === B.grass && ((x + z) % 9 === 0)) ctx.world.set(x, Y0 + 1, z, B.tall_grass);
@@ -384,7 +383,7 @@ export function foodland(ctx, site, rng) {
   }
   for (let x = 2; x < lot.w - 2; x += 3) {
     for (const z of [2.2, 12.8]) {
-      if (rng.chance(0.45)) lot.vehicle(x + 1.5, z, z < 5 ? 0 : Math.PI, rng.weighted([['sedan', 4], ['suv', 3], ['pickup', 2], ['hatchback', 2], ['van', 1]]), { color: rng.pick(CAR_COLORS), loot: 'car_trunk', gloveLoot: 'car_glovebox', alarm: rng.chance(0.15), wrecked: rng.chance(0.1) });
+      if (rng.chance(0.25)) lot.vehicle(x + 1.5, z, z < 5 ? 0 : Math.PI, rng.weighted([['sedan', 4], ['suv', 3], ['pickup', 2], ['hatchback', 2], ['van', 1]]), { color: rng.pick(CAR_COLORS), loot: 'car_trunk', gloveLoot: 'car_glovebox', alarm: rng.chance(0.15), wrecked: rng.chance(0.1) });
     }
   }
   lot.place(2, Y0 + 1, lot.d - 1, 'trash_can');
@@ -484,7 +483,7 @@ export function gasStation(ctx, site, front, name, rng, o = {}) {
   // dumpster + propane cage
   fr.place(1, Y, 2, 'dumpster'); fr.place(W - 2, Y, 2, 'barrel_rust'); fr.place(W - 2, Y, 3, 'barrel_rust');
   fr.zone(0, 0, W - 1, D - 1, ZONES.GAS);
-  ctx.addPOI({ name, type: 'gas', x0: site.x0, z0: site.z0, x1: site.x1, z1: site.z1 });
+  if (o.poi !== false) ctx.addPOI({ name: o.poiName || name, type: 'gas', x0: site.x0, z0: site.z0, x1: site.x1, z1: site.z1 });
   ctx.building('gas_station');
   return fr;
 }

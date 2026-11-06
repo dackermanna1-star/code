@@ -7,7 +7,7 @@ import { distanceField } from './water.js';
 
 export const TOWN_RECT = { x0: 300, z0: 236, x1: 890, z1: 770 };
 
-export function buildTerrain(ctx) {
+export async function buildTerrain(ctx, onRows = null) {
   const { world, SX, SZ, flat, water, waterDepth } = ctx;
   const SY = world.SY;
   const seed = ctx.seed;
@@ -25,6 +25,7 @@ export function buildTerrain(ctx) {
   const forest = new Uint8Array(SX * SZ);
   const T = TOWN_RECT;
   for (let z = 0; z < SZ; z++) {
+    if (onRows && (z & 255) === 255) await onRows(z / SZ);
     for (let x = 0; x < SX; x++) {
       const k = z * SX + x;
       if (water[k]) { ground[k] = WATER_LEVEL - waterDepth[k]; continue; }
@@ -41,6 +42,7 @@ export function buildTerrain(ctx) {
       }
       const e = Math.min(x, z, SX - 1 - x, SZ - 1 - z);
       if (e < 40) hill += Math.pow((40 - e) / 40, 1.5) * 30;
+      if (e < 10) hill += (10 - e) * 2.2; // impassable rim
       hill = Math.min(hill, Math.max(0, dFlat[k] - 2) * 0.62);
       hill = Math.min(hill, Math.max(0, dWater[k] - 2.5) * 0.55);
       let h = SURFACE + Math.floor(Math.max(0, hill));

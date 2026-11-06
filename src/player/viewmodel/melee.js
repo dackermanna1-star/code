@@ -14,8 +14,8 @@ function meleeMeta(extra) {
       ? { pos: [0.17, -0.15, -0.42], rot: [-0.45, 0.25, 0.42] }
       : { pos: [0.2, -0.22, -0.37], rot: [-0.12, 0.3, 0.48] },
     sprint: two
-      ? { pos: [0.19, -0.2, -0.3], rot: [0.75, 0.1, 0.55] }
-      : { pos: [0.19, -0.22, -0.31], rot: [0.55, 0.15, 0.3] },
+      ? { pos: [0.22, -0.2, -0.36], rot: [0.63, 0.0, -0.3] }
+      : { pos: [0.21, -0.22, -0.35], rot: [0.3, 0.1, -0.2] },
     hands: { R: 'handR', L: two ? 'handL' : null },
     swing: 'blunt',
   }, extra);
@@ -176,7 +176,8 @@ export function machete() {
   b.box(0, -6.0, 0.6, 2.2, 1.4, 3.6, 0x1b1b1b, M.RUBBER);
   for (const y of [-2, 3]) for (const s of [-1, 1]) b.box(s * 1.02, y, 0, 0.06, 0.55, 0.55, C.brass, M.BRASS);
   b.box(0, 6.4, -0.3, 2.2, 0.8, 3.8, 0x1b1b1b, M.RUBBER);
-  blade(b, [[6.6, 4.2], [20, 4.4], [34, 4.7], [46, 5.0], [52, 4.4], [55, 2.6], [56.5, 0]], 1.6, 0.36, 0x3a3d40, M.METAL, 0xc8cdd3);
+  blade(b, [[6.6, 4.2], [20, 4.4], [34, 4.7], [46, 5.0], [52, 4.4], [55, 2.6], [56.5, 0]], 1.6, 0.36, 0x7b828a, M.STEEL, 0xd0d5db);
+  b.box(0, 30, 1.45, 0.42, 46, 0.35, 0x4a4f55, M.METAL); // darker spine
   b.point('handR', [0, 0, 0]);
   return { b, meta: meleeMeta({ swing: 'blade', weight: 0.35 }) };
 }
@@ -209,7 +210,7 @@ export function pan() {
   }
   b.box(0, cy, 0.5, 18, 18, 0.15, 0x1d1e20, M.METAL, { skip: 'nz' });
   b.point('handR', [0, 0, 0]);
-  return { b, meta: meleeMeta({ swing: 'blunt', weight: 0.4, hip: { pos: [0.17, -0.22, -0.38], rot: [-0.6, 0.55, 0.35] } }) };
+  return { b, meta: meleeMeta({ swing: 'blunt', weight: 0.4, hip: { pos: [0.19, -0.22, -0.38], rot: [-0.45, 0.6, 0.4] }, sprint: { pos: [0.2, -0.27, -0.34], rot: [-0.9, 0.7, 0.4] } }) };
 }
 
 export function pipe() {
@@ -298,7 +299,7 @@ export function spear() {
     meta: meleeMeta({
       twoHanded: true, swing: 'stab', weight: 0.5, scale: 0.9,
       hip: { pos: [0.11, -0.17, -0.26], rot: [-1.42, 0.13, 0.12] },
-      sprint: { pos: [0.18, -0.2, -0.24], rot: [-0.6, 0.6, 0.4] },
+      sprint: { pos: [0.16, -0.25, -0.32], rot: [-1.0, 0.0, 0.58] },
     }),
   };
 }
@@ -347,7 +348,7 @@ export function pitchfork() {
     meta: meleeMeta({
       twoHanded: true, swing: 'stab', weight: 0.6, scale: 0.88,
       hip: { pos: [0.11, -0.17, -0.26], rot: [-1.42, 0.13, 0.12] },
-      sprint: { pos: [0.18, -0.2, -0.24], rot: [-0.6, 0.6, 0.4] },
+      sprint: { pos: [0.16, -0.25, -0.32], rot: [-1.0, 0.0, 0.58] },
     }),
   };
 }

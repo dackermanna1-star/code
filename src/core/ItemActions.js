@@ -132,7 +132,7 @@ export class ItemActions {
     if (smoke && !this.inv.has((x) => hasTag(x, 'fire_starter'))) { g.ui?.toast('You need a lighter or matches.', 'warn'); return; }
     if (p.hunger > 97 && f.hunger > 0 && !smoke) { g.ui?.toast("You're too full to eat.", 'info'); return; }
     g.startAction({
-      label: (smoke ? 'Smoking ' : 'Eating ') + def.name, time: Math.min(f.eatTime || 3, 6), anim: smoke ? 'pills' : 'eat', sound: smoke ? 'lighter' : 'eat',
+      stack: s, label: (smoke ? 'Smoking ' : 'Eating ') + def.name, time: Math.min(f.eatTime || 3, 6), anim: smoke ? 'pills' : 'eat', sound: smoke ? 'lighter' : 'eat',
       onDone: () => {
         if (desc.slots[index] !== s) return;
         const e = getFoodEffect(s, g.time.totalHours) || {};
@@ -181,7 +181,7 @@ export class ItemActions {
     if (!e0.drinkable) { g.ui?.toast("You can't drink that.", 'warn'); return; }
     if (p.thirst > 98 && !e0.alcohol) { g.ui?.toast("You're not thirsty.", 'info'); return; }
     g.startAction({
-      label: 'Drinking', time: 1.8, anim: 'drink', sound: 'drink',
+      stack: s, label: 'Drinking', time: 1.8, anim: 'drink', sound: 'drink',
       onDone: () => {
         if (desc.slots[index] !== s) return;
         const e = getDrinkEffect(s, g.time.totalHours);
@@ -247,7 +247,7 @@ export class ItemActions {
     };
     if (def.id === 'first_aid_kit') {
       return g.startAction({
-        label: 'Using first aid kit', time: 6 / (1 + p.skillLevel('firstAid') * 0.1), anim: 'bandage', sound: 'bandage',
+        stack: s, label: 'Using first aid kit', time: 6 / (1 + p.skillLevel('firstAid') * 0.1), anim: 'bandage', sound: 'bandage',
         onDone: () => {
           for (const w of wounds) { w.bleeding = false; w.bandaged = true; w.bandageDirty = false; w.bandageAge = 0; w.disinfected = true; if (w.type === 'deep') w.sutured = true; }
           p.health = clamp(p.health + 25, 0, p.maxHealth);
@@ -285,7 +285,7 @@ export class ItemActions {
     }
     // pills / injections
     g.startAction({
-      label: 'Taking ' + def.name, time: m.time || 1.5, anim: def.id.includes('morphine') || def.id.includes('adrenaline') ? 'inject' : 'pills', sound: 'pills',
+      stack: s, label: 'Taking ' + def.name, time: m.time || 1.5, anim: def.id.includes('morphine') || def.id.includes('adrenaline') ? 'inject' : 'pills', sound: 'pills',
       onDone: () => {
         if (m.painkiller) { p.painkiller = Math.max(p.painkiller, m.duration || 4); p.pain = Math.max(0, p.pain - m.painkiller); }
         if (m.panic) p.panic = clamp(p.panic + m.panic, 0, 100);
@@ -503,7 +503,7 @@ export class ItemActions {
     const b = def.book;
     if (!b) return;
     g.startAction({
-      label: 'Reading ' + def.name, time: clamp((b.hours || 2) * 4, 5, 14), anim: 'read', sound: 'ui_click',
+      stack: s, label: 'Reading ' + def.name, time: clamp((b.hours || 2) * 4, 5, 14), anim: 'read', sound: 'ui_click',
       onDone: () => {
         if (b.skill) {
           g.survival.bookBoost[b.skill] = 24;

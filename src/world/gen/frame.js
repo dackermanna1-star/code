@@ -110,6 +110,8 @@ export class Frame {
     const x = this.wx(lx, lz), z = this.wz(lx, lz);
     clearCell(this.world, x, y, z); clearCell(this.world, x, y + 1, z);
     this.world.placeDoor(x, y, z, this.fw(f), kind, opts);
+    // World.placeDoor stores !!locked; keep key ids (docs: locked may be a key id string)
+    if (typeof opts.locked === 'string') this.world.doors.get(this.world.idx(x, y, z)).locked = opts.locked;
     if (opts.barricade) {
       const d = this.world.doors.get(this.world.idx(x, y, z));
       d.barricade = opts.barricade;

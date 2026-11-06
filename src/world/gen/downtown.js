@@ -73,7 +73,7 @@ export function buildDowntownSpecial(ctx, site) {
     case 'dt_b1': foodland(ctx, site, rng); break;
     case 'dt_b3': veteransPark(ctx, site, rng); break;
     case 'dt_w1': fireStation(ctx, site, rng); break;
-    case 'dt_w2': gasStation(ctx, site, 2, 'MILLBROOK FUEL', rng); break;
+    case 'dt_w2': gasStation(ctx, site, 2, 'MILLBROOK FUEL', rng, { poiName: 'Millbrook Fuel' }); break;
     default: return false;
   }
   return true;

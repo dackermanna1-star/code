@@ -534,8 +534,18 @@ export class AudioEngine {
     let start = opts.at ?? now;
     if (opts.delayS) start += opts.delayS;
     else if (positional && d > 25 && !opts.noDelay) start += Math.min(1.5, d / SPEED_OF_SOUND);
-    src.start(Math.max(now, start));
-    const voice = { name, def, src, g, nodes, start, dur: buf.duration / rate, loud, ended: false };
+    start = Math.max(now, start);
+    src.start(start);
+    const dur = buf.duration / rate;
+    if (def.loop) {
+      // a loop buffer played as a one-shot: fade in/out so it doesn't start/stop with a click
+      const fo = Math.min(0.4, dur * 0.2);
+      g.gain.setValueAtTime(0, start);
+      g.gain.linearRampToValueAtTime(vol, start + 0.05);
+      g.gain.setValueAtTime(vol, start + dur - fo);
+      g.gain.linearRampToValueAtTime(0, start + dur);
+    }
+    const voice = { name, def, src, g, nodes, start, dur, loud, ended: false };
     src.onended = () => this._release(voice);
     this.voices.push(voice);
     return {

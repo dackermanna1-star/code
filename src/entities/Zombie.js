@@ -323,7 +323,7 @@ export class Zombie {
         else if (this.stateT > 1.2 && this.crippled) this.setState('chase');
         break;
       case 'getup':
-        if (this.stateT > 1.1) this.setState('chase');
+        if (this.stateT > 1.5) this.setState(this.lastSeen ? 'chase' : 'idle');
         break;
     }
 
@@ -389,7 +389,7 @@ export class Zombie {
       case 'attack': return 'attack';
       case 'bash': return 'bash';
       case 'stagger': return 'stagger';
-      case 'down': return this.crippled ? 'crawl' : this.stateT < 0.5 ? 'knockdown' : 'down';
+      case 'down': return this.crippled ? 'crawl' : this.stateT < 0.65 ? 'knockdown' : 'down';
       case 'getup': return 'getup';
       case 'feed': return 'feed';
       case 'scream': return 'scream';

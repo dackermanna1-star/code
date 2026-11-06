@@ -26,6 +26,7 @@ export function buildSchool(ctx, site) {
   let x = 27;
   let ci = 0;
   while (x + 7 <= W - 3) { rooms.push({ id: 'cn' + ci, x0: x, z0: 2, x1: x + 7, z1: 14, floor: 'floor_linoleum', wall: rng.pick(['wall_green', 'wall_beige', 'wall_blue']), t: 'class' }); x += 9; ci++; }
+  if (x + 2 <= W - 3) rooms.push({ id: 'janitor', x0: x, z0: 2, x1: W - 3, z1: 14, floor: 'concrete', wall: 'wall_white', t: 'storage' });
   // south row: classrooms, office suite, restrooms
   const southSpecs = [['cs0', 8, 'class'], ['cs1', 8, 'class'], ['wc_b', 4, 'wc'], ['wc_g', 4, 'wc'], ['lobby', 6, 'lobby'], ['office', 7, 'office'], ['principal', 5, 'principal'], ['cs2', 8, 'class'], ['cs3', 8, 'class']];
   x = 2;
@@ -76,6 +77,7 @@ export function buildSchool(ctx, site) {
       k.run(['stove', 'stove', 'kitchen_cabinet', 'kitchen_sink', 'kitchen_cabinet']); k.run(['fridge', 'freezer', 'fridge']);
       k.wall('metal_shelf', { loot: 'diner_kitchen' }); k.wall('metal_shelf', { loot: 'store_food' }); k.center('table');
     } else if (r.t === 'wc') furnish(fr, r, 'halfbath', rng, o);
+    else if (r.t === 'storage') { const k = new Room(fr, r, rng, o); for (let q = 0; q < 5; q++) k.wall(rng.pick(['metal_shelf', 'cardboard_box', 'barrel_rust']), { loot: 'school_office' }); }
     else if (r.t === 'office') {
       const k = new Room(fr, r, rng, o);
       for (let xx = r.x0; xx <= r.x1 - 1; xx++) if (fr.canPlace(xx, Y, r.z0 + 4)) fr.place(xx, Y, r.z0 + 4, 'bar_counter', 2);
@@ -111,8 +113,9 @@ export function buildSchool(ctx, site) {
   roomWindows(gf, y, court, { x0: 2, z0: 2, x1: GW - 3, z1: GD - 3 }, GW, GD, 'glass', rng, null, { spacing: 4, pairs: false, tall: 2 });
   // bleachers along the north wall
   for (let xx = 3; xx <= GW - 4; xx++) for (let s = 0; s < 3; s++) {
-    gf.place(xx, Y + s, 2 + s, 'stairs_wood', 0);
-    for (let yy = Y; yy < Y + s; yy++) gf.set(xx, yy, 2 + s, B.planks_oak);
+    const h = 2 - s; // z=2 (against the wall) is the top row
+    gf.place(xx, Y + h, 2 + s, 'stairs_wood', 0);
+    for (let yy = Y; yy < Y + h; yy++) gf.set(xx, yy, 2 + s, B.planks_oak);
   }
   // shelter cots + supplies
   for (let xx = 3; xx <= GW - 4; xx += 2) for (let z = 8; z <= GD - 5; z += 3) {
@@ -146,7 +149,7 @@ export function buildSchool(ctx, site) {
   }
   for (const gx of [4, FW - 5]) { const cz = Math.floor(FD / 2); for (const dz of [-2, 2]) for (let yy = Y; yy <= Y + 3; yy++) ff.set(gx, yy, cz + dz, B.street_pole); for (let dz = -2; dz <= 2; dz++) ff.set(gx, Y + 3, cz + dz, B.street_pole); }
   for (let xx = 6; xx < FW - 6; xx++) for (let s = 0; s < 2; s++) {
-    const z = -1 - s; // bleachers north of the field, rising north
+    const z = 1 - s; // bleachers on the north edge of the track, rising north
     ff.place(xx, Y + s, z, 'stairs_concrete', 0);
     if (s === 1) ff.set(xx, Y, z, B.concrete);
   }

@@ -42,6 +42,7 @@ const pq = new THREE.Mesh(tri, postMat); pq.frustumCulled = false; postScene.add
 const postCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
 
 const scene = new THREE.Scene();
+window.__scene = scene;
 const camera = new THREE.PerspectiveCamera(60, W / H, 0.05, 400);
 camera.rotation.order = 'YXZ';
 
@@ -215,7 +216,7 @@ const scenes = {
           if (t >= startAt - 1e-6) { started = true; z.startRagdoll(new THREE.Vector3(...imp), part, isSolid); }
         } else if (!done && !z.updateRagdoll(dt)) { done = true; log(`cell ${i}: settled after ${(t - startAt).toFixed(2)}s (sim time ${z.ragdoll.time.toFixed(2)})`); }
       });
-      cells.push({ cam: [X + 3.6, 2.4, Zc + 0.6, X, 1.2, Zc - 0.6], label: `t=${tt}` });
+      cells.push({ cam: [X + 3.4, 2.6, Zc + 2.2, X, 1.1, Zc - 0.8], label: `t=${tt}` });
     });
   },
   closeup() {
@@ -229,7 +230,18 @@ const scenes = {
       const st = params.get('state') || 'idle';
       updaters.push((dt) => z.update(dt, { state: st, speed: parseFloat(params.get('speed') || '0'), aggro: parseFloat(params.get('aggro') || '0.3'), attackT: parseFloat(params.get('at') || '0.4') }));
       z.setLight(1, 0);
-      if (params.get('wound')) for (let k = 0; k < 4; k++) z.addWound(['torso', 'head', 'armR', 'legL'][k]);
+      if (params.get('wound')) {
+        // shoot rays from the camera side at several parts and paint wounds at the precise hit points
+        z.update(0.016, { state: st, speed: 0, aggro: 0.3 });
+        const o = new THREE.Vector3(), d = new THREE.Vector3(), t = new THREE.Vector3();
+        for (const part of ['torso', 'torso', 'head', 'armR', 'armL', 'legL', 'legR']) {
+          z.getPartPosition(part, t); t.x += (Math.random() - 0.5) * 0.15; t.y += (Math.random() - 0.5) * 0.15;
+          o.set(t.x + 1.2, t.y + 0.3, t.z + 4); d.subVectors(t, o).normalize();
+          const h = z.raycast(o, d, 10);
+          if (h) z.addWound(h.part, h.point, part === 'torso' ? 2 : 1);
+        }
+        if (params.get('flash')) z.flash(0xff3030, 0.6);
+      }
       if (params.get('dismember')) params.get('dismember').split('~').forEach((p) => { const [a, b] = p.split(':'); z.dismember(a, b || 'upper'); });
     });
     const d = parseFloat(params.get('dist') || '4.2');
@@ -281,6 +293,10 @@ const scenes = {
   },
   perf() {
     const zs = [];
+    const tc = performance.now();
+    for (let i = 0; i < 20; i++) createCorpseVisual({ outfit: ZOMBIE_OUTFITS[i % 13], seed: i }).dispose();
+    log(`create corpse avg ${((performance.now() - tc) / 20).toFixed(2)}ms`);
+    const tz = performance.now();
     for (let i = 0; i < 80; i++) {
       const z = createZombieVisual({ variant: ZOMBIE_VARIANTS[i % 6], outfit: ZOMBIE_OUTFITS[i % 13], seed: 1000 + i });
       z.root.position.set((i % 10 - 4.5) * 1.6, 1, 3 + Math.floor(i / 10) * 2.2);
@@ -288,6 +304,7 @@ const scenes = {
       z.setLight(1, 0);
       zs.push(z);
     }
+    log(`create zombie avg ${((performance.now() - tz) / 80).toFixed(2)}ms`);
     const states = ['walk', 'idle', 'run', 'attack', 'bash', 'feed', 'stagger', 'walk'];
     let frames = 0, total = 0, maxT = 0;
     updaters.push((dt, t) => {
@@ -301,6 +318,29 @@ const scenes = {
       if (t > 0.5) { frames++; total += e; maxT = Math.max(maxT, e); }
     });
     window.__perfReport = () => ({ frames, avgMs: total / Math.max(1, frames), maxMs: maxT });
+    // raycast correctness + cost: aim at the head / torso / legs of every zombie from the camera side
+    window.__rayTest = () => {
+      const o = new THREE.Vector3(), d = new THREE.Vector3(), tgt = new THREE.Vector3();
+      let ok = 0, n = 0, rt = 0; window.__rayFails = [];
+      for (const z of zs) {
+        for (const part of ['head', 'torso', 'legL']) {
+          if (!z.hasPart(part)) continue;
+          z.getPartPosition(part, tgt);
+          o.set(tgt.x + 3, tgt.y + 0.4, tgt.z + 5);
+          d.subVectors(tgt, o).normalize();
+          const t1 = performance.now();
+          const h = z.raycast(o, d, 20);
+          rt += performance.now() - t1;
+          n++;
+          if (h && h.part === part) ok++;
+          else if (window.__rayFails) window.__rayFails.push(`${z.variant}/${states[zs.indexOf(z) % states.length]} aim ${part} got ${h ? h.part + '@' + h.distance.toFixed(2) : 'null'} (target at ${o.distanceTo(tgt).toFixed(2)})`);
+        }
+      }
+      // misses
+      let miss = 0;
+      for (const z of zs) { const h = z.raycast(new THREE.Vector3(z.root.position.x + 3, 5, z.root.position.z), new THREE.Vector3(0, 0, 1), 20); if (!h) miss++; }
+      return `raycast: ${ok}/${n} hit the aimed part, ${miss}/${zs.length} clean misses, avg ${(rt / n * 1000).toFixed(1)}us/ray`;
+    };
     camLook(0, 9, 26, 0, 0, 10);
   },
   skins() {
@@ -339,7 +379,7 @@ function makeLabel(text) {
 // extra scene modules (cars / fx) are loaded lazily so this page works while they are being built
 async function setup() {
   if (scenes[SCENE]) scenes[SCENE]();
-  else if (SCENE === 'cars' || SCENE.startsWith('car')) (await import('./entities-cars.js')).setupCars({ scene, world, camLook, updaters, params, log });
+  else if (SCENE === 'cars' || SCENE.startsWith('car')) (await import('./entities-cars.js')).setupCars({ scene, world, camLook, updaters, params, log, cells });
   else if (SCENE.startsWith('fx')) (await import('./entities-fx.js')).setupFX({ scene, world, camLook, updaters, params, log, camera, setLighting });
   buildWorldMeshes(world, scene);
   if (params.get('cam')) { const c = params.get('cam').split(',').map(Number); camLook(c[0], c[1], c[2], c[3], c[4], c[5]); }
@@ -352,7 +392,7 @@ async function setup() {
   G_cam();
   // deterministic fixed-step simulation up to T_END, then render
   const dt = 1 / 60;
-  const steps = Math.round(T_END / dt);
+  const steps = Math.round((SCENE === 'perf' ? Math.max(T_END, 5) : T_END) / dt);
   let t = 0;
   for (let i = 0; i < steps; i++) {
     t += dt;
@@ -365,6 +405,11 @@ async function setup() {
   log(`scene=${SCENE} t=${t.toFixed(2)} setup+sim ${(performance.now() - T0).toFixed(0)}ms draw calls=${window.__calls}`);
   if (window.__fxReport) log(window.__fxReport());
   if (window.__perfReport) { const r = window.__perfReport(); log(`perf: 80 zombies update avg ${r.avgMs.toFixed(3)}ms max ${r.maxMs.toFixed(3)}ms over ${r.frames} frames`); }
+  if (window.__rayTest) { log(window.__rayTest()); console.log(window.__rayFails.slice(0, 40).join('\n')); }
+  if (SCENE === 'perf') {
+    // render timing (swiftshader = CPU rasteriser, so only the relative cost matters)
+    const t1 = performance.now(); for (let i = 0; i < 10; i++) render(); log(`render avg ${((performance.now() - t1) / 10).toFixed(1)}ms/frame, draw calls ${window.__calls}`);
+  }
   if (params.get('live')) {
     let last = performance.now();
     const loop = () => {

@@ -301,7 +301,7 @@ export class Room {
     const cands = [];
     for (let z = this.z0; z <= this.z1; z++) for (let x = this.x0; x <= this.x1; x++) if (this.st(x, z) === 0 || this.st(x, z) === 2) cands.push([x, z]);
     this.rng.shuffle(cands);
-    for (const [x, z] of cands.slice(0, n)) this.fr.loot(x, this.Y, z, table, chance);
+    for (const [x, z] of cands.slice(0, n)) { this.fr.loot(x, this.Y, z, table, chance); this.keep(x, z); }
   }
   /** loot on top of a table cell if one exists */
   tableLoot(table, chance = 0.7) {
@@ -318,7 +318,18 @@ export class Room {
     for (let z = this.z0; z <= this.z1; z++) for (let x = this.x0; x <= this.x1; x++) if (this.st(x, z) === 0 || this.st(x, z) === 2) out.push([x, z]);
     return out;
   }
+  keepCells() {
+    const out = [];
+    for (let z = this.z0; z <= this.z1; z++) for (let x = this.x0; x <= this.x1; x++) if (this.st(x, z) === 2) out.push([x, z]);
+    return out;
+  }
   randomFree() { const c = this.freeCells(); return c.length ? this.rng.pick(c) : null; }
+  /** free cell that may be filled with a block without blocking paths (state 0 + connectivity kept) */
+  randomFreeStrict() {
+    const c = [];
+    for (let z = this.z0; z <= this.z1; z++) for (let x = this.x0; x <= this.x1; x++) if (this.st(x, z) === 0) c.push([x, z]);
+    return c.length ? this.rng.pick(c) : null;
+  }
 }
 
 // ---------------------------------------------------------------------------- room templates
@@ -358,6 +369,11 @@ export function furnish(fr, rect, type, rng, opts = {}) {
       break;
     }
     case 'living': {
+      // area rug in the middle of wooden floors
+      if (room.W >= 4 && room.D >= 4 && fr.get(room.x0 + 1, room.y, room.z0 + 1) === B.floor_wood) {
+        const rug = rng.pick([B.carpet_red, B.carpet_beige, B.carpet_blue]);
+        for (let x = room.x0 + 1; x <= room.x1 - 1; x++) for (let z = room.z0 + 1; z <= room.z1 - 1; z++) fr.set(x, room.y, z, rug);
+      }
       room.livingSet(Math.min(3, Math.max(2, Math.floor(Math.max(room.W, room.D) / 2))), rng.pick(['couch', 'couch', 'couch_blue']));
       if (rng.chance(0.8)) room.wall('bookshelf');
       if (big > 20 && rng.chance(0.5)) room.wall('bookshelf');
@@ -369,7 +385,12 @@ export function furnish(fr, rect, type, rng, opts = {}) {
     }
     case 'bedroom': case 'master': case 'kids': {
       const dbl = type === 'master' || (type === 'bedroom' && room.W >= 4 && room.D >= 4 && rng.chance(0.6));
-      if (!room.bed(dbl)) room.bed(false);
+      const bs = room.bed(dbl) || room.bed(false);
+      // nightstand next to the head of the bed
+      if (bs && rng.chance(0.6)) {
+        const [lx, lz] = bs.side <= 1 ? [1, 0] : [0, 1];
+        for (const sg of [1, -1, 2, -2]) { if (room.tryPlace([{ x: bs.x + lx * sg, z: bs.z + lz * sg, block: 'dresser', f: bs.f, access: true }])) break; }
+      }
       if (!skip(0.4)) room.wall('wardrobe', { corner: true });
       if (!skip(0.4)) room.wall('dresser');
       if (type === 'kids' || rng.chance(0.3)) room.deskSet('desk');

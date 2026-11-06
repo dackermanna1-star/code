@@ -108,24 +108,25 @@ export function buildFema(ctx, site) {
   }
   // ---- civilian tent rows (A-D)
   let tentsBuilt = 0;
-  for (let row = 0; row < 4; row++) {
-    const tz = 14 + row * 14;
-    for (let tx = 6; tx < W - 30; tx += 8) {
+  for (let row = 0; 12 + row * 13 + 6 < D - 42; row++) {
+    const tz = 12 + row * 13;
+    for (let tx = 6; tx < W - 56; tx += 8) {
+      if (Math.abs(tx + 3 - Math.floor(W / 2)) <= 4) continue;
       const t = tent(fr, tx, tz, 6, 5, 'tent_white', rng, { floor: 'planks_light' });
       if (!t) continue;
       tentsBuilt++;
       const n = rng.int(1, 3);
       for (let k = 0; k < n; k++) { fr.place(t.x0 + k * 2 - (k > 1 ? 1 : 0), Y, t.z0, 'bed_head', 0); fr.place(t.x0 + k * 2 - (k > 1 ? 1 : 0), Y, t.z0 + 1, 'bed_foot', 0); }
-      if (rng.chance(0.5)) fr.container(t.x1, Y, t.z1, rng.chance(0.5) ? 'cardboard_box' : 'crate_wood', 0, rng.chance(0.6) ? 'fema_supply' : 'floor_camp' === 'x' ? null : 'survivor_stash');
+      if (rng.chance(0.5)) fr.container(t.x1, Y, t.z1, rng.chance(0.5) ? 'cardboard_box' : 'crate_wood', 0, rng.chance(0.6) ? 'fema_supply' : 'survivor_stash');
       if (rng.chance(0.3)) fr.loot(t.x0 + 1, Y, t.z1, 'floor_camp', 0.6);
       if (rng.chance(0.3)) fr.corpse(t.doorX, Y, t.fz + 1, rng.range(0, 6), rng.pick(['civilian', 'civilian_f']), 'corpse_civilian');
     }
-    fr.zombies(Math.floor(W / 3), Y, tz + 6, rng.int(4, 6), 12, { outfit: rng.pick(['civilian', 'civilian_f']) });
-    fr.zombies(Math.floor(W / 2) + 10, Y, tz + 6, rng.int(3, 5), 10, {});
+    fr.zombies(Math.floor(W / 4), Y, tz + 6, rng.int(3, 5), 12, { outfit: rng.pick(['civilian', 'civilian_f']) });
+    if (row % 2) fr.zombies(Math.floor(W / 2) + 10, Y, tz + 6, rng.int(2, 4), 10, {});
   }
   ctx.stats.femaTents = tentsBuilt;
   // ---- medical tent (big)
-  const med = tent(fr, W - 28, 16, 13, 9, 'tent_white', rng, { floor: 'planks_light' });
+  const med = tent(fr, W - 44, 84, 13, 9, 'tent_white', rng, { floor: 'planks_light' });
   if (med) {
     fr.place(med.x0 + 5, Y + 2, med.z1 + 1, 'sign_cross_red', 0);
     for (let x = med.x0; x <= med.x1; x += 2) { fr.place(x, Y, med.z0, 'hospital_bed', 0); fr.place(x, Y, med.z0 + 1, 'hospital_bed', 0); }
@@ -135,14 +136,14 @@ export function buildFema(ctx, site) {
     fr.zombies(med.x0 + 5, Y, med.z0 + 4, 4, 3, { indoor: true, outfit: rng.pick(['patient', 'medic']) });
   }
   // ---- military area (north-east): command, armory, barracks tents, vehicles under camo nets
-  const cmd = tent(fr, W - 28, 32, 9, 7, 'tent_green', rng, { floor: 'planks_oak' });
+  const cmd = tent(fr, W - 46, 30, 9, 7, 'tent_green', rng, { floor: 'planks_oak' });
   if (cmd) {
     fr.container(cmd.x0 + 3, Y, cmd.z0, 'desk', 0, 'military_tent', { fixed: [{ id: 'note', count: 1, data: { noteId: 'fema_orders' } }] });
     fr.place(cmd.x0 + 4, Y, cmd.z0, 'table'); fr.place(cmd.x0 + 4, Y + 1, cmd.z0, 'radio', 0);
     fr.container(cmd.x1, Y, cmd.z0, 'filing_cabinet', 1, 'office');
     fr.corpse(cmd.x0 + 2, Y, cmd.z0 + 3, 2, 'military', 'corpse_military');
   }
-  const arm = tent(fr, W - 17, 32, 9, 7, 'tent_green', rng, { floor: 'planks_oak' });
+  const arm = tent(fr, W - 34, 30, 9, 7, 'tent_green', rng, { floor: 'planks_oak' });
   if (arm) {
     for (let k = 0; k < 5; k++) fr.container(arm.x0 + k, Y, arm.z0, 'crate_military', 0, 'military_armory');
     fr.container(arm.x0, Y, arm.z0 + 2, 'gun_cabinet', 3, 'military_armory', { locked: true });
@@ -150,24 +151,25 @@ export function buildFema(ctx, site) {
     fr.zombies(arm.x0 + 3, Y, arm.z0 + 3, 2, 2, { indoor: true, outfit: 'military' });
   }
   for (let k = 0; k < 3; k++) {
-    const t = tent(fr, W - 28 + k * 9, 44, 7, 6, 'tent_green', rng, { floor: 'planks_oak' });
+    const t = tent(fr, W - 46 + k * 9, 42, 7, 6, 'tent_green', rng, { floor: 'planks_oak' });
     if (!t) continue;
     for (let b = 0; b < 3; b++) { fr.place(t.x0 + b * 2, Y, t.z0, 'bed_head', 0); fr.place(t.x0 + b * 2, Y, t.z0 + 1, 'bed_foot', 0); }
     fr.container(t.x1, Y, t.z1, 'locker', 1, 'military_tent');
     fr.container(t.x0, Y, t.z1, 'crate_military', 0, 'military_tent');
   }
   // vehicles + camo net
-  const vz = 4;
-  for (let k = 0; k < 4; k++) {
-    const vx = 20 + k * 8;
-    fr.vehicle(vx, vz + 4, 0, k % 2 ? 'humvee' : 'military_truck', { ...MILV(), wrecked: rng.chance(0.2) });
-  }
-  for (let x = 16; x <= 52; x++) for (let z = 3; z <= 12; z++) if (fr.get(x, Y + 4, z) === 0) fr.set(x, Y + 4, z, B.camo_net);
-  for (const [x, z] of [[16, 3], [52, 3], [16, 12], [52, 12]]) for (let yy = Y; yy <= Y + 3; yy++) fr.set(x, yy, z, B.fence_post);
+  const vx0 = W - 50;
+  for (let k = 0; k < 4; k++) fr.vehicle(vx0 + 4 + k * 9, 12, 0, k % 2 ? 'humvee' : 'military_truck', { ...MILV(), wrecked: rng.chance(0.2) });
+  for (let x = vx0; x <= vx0 + 38; x++) for (let z = 6; z <= 19; z++) if (fr.get(x, Y + 4, z) === 0) fr.set(x, Y + 4, z, B.camo_net);
+  for (const [x, z] of [[vx0, 6], [vx0 + 38, 6], [vx0, 19], [vx0 + 38, 19]]) for (let yy = Y; yy <= Y + 3; yy++) fr.set(x, yy, z, B.fence_post);
+  // inner fence around the military compound
+  for (let x = W - 52; x < W - 1; x++) if (x % 9 !== 4) fr.place(x, Y, 58, 'fence_chainlink', 0);
+  for (let z = 1; z <= 58; z++) if (z !== 27 && z !== 28) fr.place(W - 52, Y, z, 'fence_chainlink', 1);
+  for (let k = 0; k < 5; k++) sandbagArc(fr, W - 50 + k * 10, 56, rng);
   // supply barn (fairgrounds exhibition hall) full of FEMA supplies
-  const bx = 6, bz = 70;
+  const bx = 6, bz = D - 34;
   const bw = 20, bd = 14;
-  if (bz + bd < D - 26) {
+  if (bz > 0) {
     fr.walls(bx, Y, bz, bx + bw - 1, Y + 4, bz + bd - 1, B.barn_red);
     for (let x = bx; x < bx + bw; x++) for (let z = bz; z < bz + bd; z++) { fr.set(x, Y0, z, B.concrete); fr.set(x, Y + 5, z, B.roof_metal); }
     for (let x = bx + 8; x <= bx + 11; x++) for (let yy = Y; yy <= Y + 2; yy++) fr.set(x, yy, bz + bd - 1, 0);
@@ -182,7 +184,7 @@ export function buildFema(ctx, site) {
     fr.zombies(bx + 10, Y, bz + 8, 3, 4, { indoor: true, outfit: 'military' });
   }
   // burn pit
-  const px = 40, pz = 74;
+  const px = 36, pz = D - 32;
   for (let x = px; x < px + 8; x++) for (let z = pz; z < pz + 6; z++) { fr.set(x, Y0, z, B.mud); if (rng.chance(0.35)) fr.set(x, Y, z, B.rubble); else if (rng.chance(0.12)) fr.set(x, Y, z, B.fire); }
   for (let k = 0; k < 6; k++) fr.corpse(px + rng.int(0, 7), Y, pz + rng.int(-2, 7), rng.range(0, 6.28), rng.pick(['civilian', 'civilian_f', 'patient']), 'corpse_civilian');
   // barrels burning around the camp
@@ -191,7 +193,7 @@ export function buildFema(ctx, site) {
     if (fr.get(x, Y, z) === 0 && fr.get(x, Y0, z) !== 0) fr.set(x, Y, z, rng.chance(0.6) ? B.barrel_burning : B.barrel_rust);
   }
   // helipad
-  for (let x = W - 30; x <= W - 18; x++) for (let z = 60; z <= 72; z++) fr.set(x, Y0, z, (x === W - 24 || ((z === 63 || z === 69) && x >= W - 27 && x <= W - 21)) ? B.concrete_dark : B.concrete_white);
+  for (let x = W - 26; x <= W - 14; x++) for (let z = 64; z <= 76; z++) fr.set(x, Y0, z, (((x === W - 23 || x === W - 17) && z >= 67 && z <= 73) || (z === 70 && x >= W - 23 && x <= W - 17)) ? B.concrete_dark : B.concrete_white);
   // scattered dead soldiers + loot
   for (let k = 0; k < 6; k++) fr.corpse(rng.int(10, W - 10), Y, rng.int(10, D - 10), rng.range(0, 6.28), 'military', 'corpse_military');
   for (let k = 0; k < 10; k++) fr.loot(rng.int(5, W - 5), Y, rng.int(5, D - 5), rng.chance(0.5) ? 'floor_military' : 'floor_camp', 0.5);
@@ -304,9 +306,9 @@ export function buildHighwayJam(ctx) {
       const wrongWay = rng.chance(0.4);
       if (jamCar(ctx, rng, lx + rng.range(-0.4, 0.4), z + rng.range(-1, 1), (wrongWay ? Math.PI : 0) + rng.range(-0.3, 0.3), type)) n++;
     }
-    if (rng.chance(0.35)) ctx.world.addCorpse({ x: HWY_X + rng.range(-14, 14), y: Y, z: z + rng.range(-2, 2), yaw: rng.range(0, 6.28), outfit: rng.pick(['civilian', 'civilian_f']), loot: 'corpse_civilian' });
-    if (rng.chance(0.25)) ctx.world.addFloorLoot(HWY_X + rng.range(-14, 14), Y, z, 'floor_street', 0.6);
-    if (rng.chance(0.2) && z < 400) ctx.world.addZombieSpawn({ x: HWY_X + rng.range(-12, 12), y: Y, z, count: rng.int(2, 4), radius: 6 });
+    if (rng.chance(0.35)) ctx.addCorpse({ x: HWY_X + rng.range(-14, 14), y: Y, z: z + rng.range(-2, 2), yaw: rng.range(0, 6.28), outfit: rng.pick(['civilian', 'civilian_f']), loot: 'corpse_civilian' });
+    if (rng.chance(0.25)) ctx.addLoot(HWY_X + rng.range(-14, 14), Y, z, 'floor_street', 0.6);
+    if (rng.chance(0.2) && z < 400) ctx.addZombies({ x: HWY_X + rng.range(-12, 12), y: Y, z, count: rng.int(2, 4), radius: 6 });
   }
   // burning wreck cluster
   for (let k = 0; k < 4; k++) {
@@ -334,18 +336,18 @@ export function buildHighwayJam(ctx) {
 
 function pileup(ctx, rng, cx, cz, halfW, n, alongX = false) {
   const { world } = ctx;
-  for (let k = 0; k < n * 2; k++) {
-    const a = rng.range(-halfW, halfW), b = rng.range(-7, 7);
-    const [x, z] = alongX ? [cx + b, cz + a] : [cx + a, cz + b];
-    jamCar(ctx, rng, x, z, rng.range(0, 6.28), rng.weighted(JAM_TYPES), { wreck: 0.9, burned: rng.chance(0.35) });
-  }
   for (let k = 0; k < 8; k++) {
     const a = Math.floor(rng.range(-halfW, halfW)), b = Math.floor(rng.range(-6, 6));
     const [x, z] = alongX ? [cx + b, cz + a] : [cx + a, cz + b];
     if (world.get(x, Y, z) === 0 && world.get(x, Y0, z) !== 0) world.set(x, Y, z, rng.chance(0.4) ? B.fire : rng.chance(0.5) ? B.rubble : B.jersey_barrier);
   }
-  for (let k = 0; k < 3; k++) world.addCorpse({ x: cx + rng.range(-halfW, halfW) * (alongX ? 0.2 : 1), y: Y, z: cz + rng.range(-5, 5), yaw: rng.range(0, 6), outfit: rng.pick(['civilian', 'civilian_f', 'survivor']), loot: rng.chance(0.3) ? 'corpse_survivor' : 'corpse_civilian' });
-  world.addZombieSpawn({ x: cx, y: Y, z: cz, count: rng.int(3, 5), radius: 8 });
+  for (let k = 0; k < n * 2; k++) {
+    const a = rng.range(-halfW, halfW), b = rng.range(-7, 7);
+    const [x, z] = alongX ? [cx + b, cz + a] : [cx + a, cz + b];
+    jamCar(ctx, rng, x, z, rng.range(0, 6.28), rng.weighted(JAM_TYPES), { wreck: 0.9, burned: rng.chance(0.35) });
+  }
+  for (let k = 0; k < 3; k++) ctx.addCorpse({ x: cx + rng.range(-halfW, halfW) * (alongX ? 0.2 : 1), y: Y, z: cz + rng.range(-5, 5), yaw: rng.range(0, 6), outfit: rng.pick(['civilian', 'civilian_f', 'survivor']), loot: rng.chance(0.3) ? 'corpse_survivor' : 'corpse_civilian' });
+  ctx.addZombies({ x: cx, y: Y, z: cz, count: rng.int(3, 5), radius: 8 });
 }
 
 // ============================================================================ HELICOPTER CRASH

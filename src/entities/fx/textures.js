@@ -124,9 +124,9 @@ export function getDecalAtlas() {
   const bloodCol = (f, x, y) => {
     // f: coverage 0..1 (1 = centre). darker rim, wet highlight speckles
     const n = rng.next();
-    const base = 58 + f * 26 + n * 10;
-    if (f > 0.55 && n < 0.02) return [128, 40, 36, 245];
-    return [base, 6 + n * 4, 5 + n * 3, f < 0.12 ? 200 : 238];
+    const base = 112 + f * 38 + n * 12;
+    if (f > 0.55 && n < 0.02) return [170, 50, 44, 250];
+    return [base, 8 + n * 6, 6 + n * 4, f < 0.12 ? 215 : 250];
   };
   // blood splats (6): main blob + satellites + directional spray
   for (let k = 0; k < 6; k++) {
@@ -179,7 +179,7 @@ export function getDecalAtlas() {
       for (const [bx, by, br] of blobs) f = Math.max(f, 1 - Math.hypot(x - bx, y - by) / br);
       if (f <= 0) return null;
       const c = bloodCol(Math.min(1, f * 1.4), x, y);
-      c[0] *= 0.88;
+      c[0] *= 0.8; c[1] *= 0.8;
       return c;
     });
     frame('pool', ox, oy, 64, 64);

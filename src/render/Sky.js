@@ -162,7 +162,7 @@ export class Sky {
   /**
    * hour: 0..24, w: weather params {cloud, overcast, fog, rain}, day: day number (moon phase)
    */
-  update(hour, w, day = 1) {
+  update(hour, w, day = 1, viewDist = 128) {
     const U = this.uniforms, G = globalUniforms;
     const a = ((hour - 6) / 24) * Math.PI * 2;
     const sun = new THREE.Vector3(Math.cos(a), Math.sin(a), 0.32).normalize();
@@ -209,7 +209,7 @@ export class Sky {
       G.uSunColor.value.setRGB(0.32, 0.38, 0.55).multiplyScalar(0.22 * moonLight * (1 - oc * 0.9) * smoothstep(-0.05, 0.2, moon.y));
     }
     const ambDay = new THREE.Color(0.5, 0.57, 0.7).lerp(new THREE.Color(0.62, 0.62, 0.64), oc);
-    const ambNight = new THREE.Color(0.028, 0.036, 0.065).multiplyScalar(0.6 + 0.6 * moonLight * (1 - oc * 0.7));
+    const ambNight = new THREE.Color(0.05, 0.062, 0.1).multiplyScalar(0.55 + 0.6 * moonLight * (1 - oc * 0.7));
     const amb = ambNight.clone().lerp(ambDay, day01);
     amb.lerp(new THREE.Color(0.75, 0.45, 0.35).multiplyScalar(0.55), dusk * 0.35);
     G.uAmbientColor.value.copy(amb).multiplyScalar(1 + oc * 0.15 * day01);
@@ -218,9 +218,11 @@ export class Sky {
     // fog
     const fogCol = hor.clone().lerp(top, 0.15);
     G.uFogColor.value.copy(fogCol);
-    const baseFog = lerp(0.022, 0.0085, day01);
-    G.uFogDensity.value = baseFog * (1 + oc * 0.6) * (1 + w.rain * 0.7) * (1 + w.fog * 4.5);
-    U.uFogAmount.value = clamp(0.35 + oc * 0.4 + w.fog * 0.8 + w.rain * 0.3, 0, 1);
+    // fog reaches ~92% at the render distance on a clear day; night, rain and fog pull it in
+    const clearD = 1.3 / Math.max(48, viewDist);
+    const baseFog = clearD * lerp(1.9, 1.0, day01);
+    G.uFogDensity.value = baseFog * (1 + oc * 0.2) * (1 + w.rain * 0.5) * (1 + w.fog * 3.2);
+    U.uFogAmount.value = clamp(0.2 + oc * 0.45 + w.fog * 0.8 + w.rain * 0.3, 0, 1);
 
     this.state.sunHeight = sh;
     this.state.dayFactor = day01;

@@ -72,7 +72,7 @@ export const NOTES = {
   gunstore_counter: {
     title: 'Sign taped to the register',
     text: "CLOSED UNTIL FURTHER NOTICE.\nNo, I will not sell you ammo out the back. The back room is locked and the key went home with me.\n"
-      + "- Earl Mason, owner (Oak Street - and don't come knocking)",
+      + "- Earl Mason, owner (North Lincoln Avenue, past the church - and don't come knocking)",
   },
   pharmacy_counter: {
     title: 'Pharmacy counter note',
@@ -215,7 +215,7 @@ export const NOTES = {
   prepper: {
     title: "Prepper's checklist",
     text: "Bug-out bag: CHECK. Water purification: CHECK. 90 days canned: in the shed, behind the paint cans.\n"
-      + "Told everybody on Aspen Court this was coming. They laughed. Nobody's laughing now. Nobody's anything now.",
+      + "Told everybody out on Quarry Road this was coming. They laughed. Nobody's laughing now. Nobody's anything now.",
   },
   kids_note: {
     title: "Child's drawing",

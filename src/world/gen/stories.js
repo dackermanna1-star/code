@@ -14,11 +14,10 @@ function floorStash(rec, r, fixed, loot = 'survivor_stash') {
 }
 function putWith(rec, r, block, fixed, loot = null, extra = {}) {
   let s = r.furn.wall(block, { loot, opts: { fixed, ...extra } });
+  if (!s) s = r.furn.center(block, 0, { loot, opts: { fixed, ...extra } });
   if (!s) {
-    const c = r.furn.randomFree();
-    if (!c) return false;
-    rec.hf.clear(c[0], r.y + 1, c[1], 0);
-    rec.hf.container(c[0], r.y + 1, c[1], block, 0, loot, { fixed, ...extra });
+    // last resort: hide it under the floorboards
+    return floorStash(rec, r, fixed, loot || 'survivor_stash');
   }
   return true;
 }
@@ -35,7 +34,7 @@ export const HOUSE_STORIES = [
     },
   },
   {
-    id: 'gunstore_owner', area: 'Oak Street', pickFrac: 0.2, cond: 'normal',
+    id: 'gunstore_owner', area: 'North Lincoln', pickFrac: 0.4, cond: 'normal',
     apply(ctx, rec) {
       const r = room(rec, ['office', 'den', 'master', 'bedroom']);
       putWith(rec, r, 'desk', [{ id: 'key_gunstore', count: 1 }, note('gunstore_owner')], 'desk', { name: "Earl Mason's desk" });
@@ -107,7 +106,7 @@ export const HOUSE_STORIES = [
     },
   },
   {
-    id: 'prepper', area: 'Aspen Court', pickFrac: 0.5, cond: 'boarded',
+    id: 'prepper', area: 'Quarry Road', pickFrac: 0.5, cond: 'boarded',
     apply(ctx, rec) {
       const r = room(rec, ['garage', 'laundry', 'kitchen', 'living']) || room(rec, ['kitchen']);
       floorStash(rec, r, [{ id: 'canned_beans', count: 4 }, { id: 'canned_meat', count: 3 }, { id: 'water_jug', count: 1 }, { id: 'purification_tablets', count: 2 }, { id: 'mre', count: 2 }, note('prepper')]);
