@@ -215,7 +215,7 @@ const MUTATIONS = [
   { id: 'mitosis', name: 'MITOSIS', rarity: 'uncommon', icon: 'control_point_duplicate', stack: 3,
     desc: 'Fire +1 parallel shot. (Each shot deals a little less.)', apply: (s) => { s.parallel += 1; } },
   { id: 'chemotaxis', name: 'CHEMOTAXIS', rarity: 'uncommon', icon: 'my_location',
-    desc: 'Your shots follow the chemical trail to the nearest pathogen.', apply: (s) => { s.homing = Math.max(s.homing, 0.55) + 0.15; } },
+    desc: 'Your shots follow the chemical trail to the nearest pathogen. (Already homing: much stronger tracking.)', apply: (s) => { s.homing = s.homing > 0 ? s.homing + 0.5 : 0.7; } },
   { id: 'lysozyme', name: 'LYSOZYME', rarity: 'uncommon', icon: 'east', stack: 3,
     desc: 'Shots pierce +1 pathogen.', apply: (s) => { s.pierce += 1; } },
   { id: 'elastin', name: 'ELASTIN', rarity: 'uncommon', icon: 'sync_alt', stack: 3,

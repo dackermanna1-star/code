@@ -86,7 +86,7 @@ const World = (function () {
   };
 
   /* ---------------- flow field toward the player ---------------- */
-  W.flow = { dist: null, w: 0, h: 0, ptx: -1, pty: -1, roomId: -1 };
+  W.flow = { dist: null, q: null, inQ: null, w: 0, h: 0, ptx: -1, pty: -1, roomId: -1 };
   W.updateFlow = function (room, px, py) {
     const tx = Math.floor(px), ty = Math.floor(py), F = W.flow;
     if (F.roomId === room.id && F.ptx === tx && F.pty === ty && !room.flowDirty) return;
@@ -95,19 +95,23 @@ const World = (function () {
     const n = room.W * room.H;
     if (!F.dist || F.dist.length !== n) F.dist = new Float32Array(n);
     const dist = F.dist; dist.fill(1e9);
-    const q = new Int32Array(n); let qh = 0, qt = 0;
+    // SPFA ring buffer: a tile is queued at most once at a time, so capacity n never overflows
+    if (!F.q || F.q.length !== n) { F.q = new Int32Array(n); F.inQ = new Uint8Array(n); }
+    const q = F.q, inQ = F.inQ; inQ.fill(0);
+    let qh = 0, qt = 0, cnt = 0;
     const startIdx = clamp(ty, 0, room.H - 1) * room.W + clamp(tx, 0, room.W - 1);
-    dist[startIdx] = 0; q[qt++] = startIdx;
+    dist[startIdx] = 0; q[qt] = startIdx; qt = (qt + 1) % n; cnt = 1; inQ[startIdx] = 1;
     const mask = MASK_WALKER & ~bit(T_DOOR);
-    while (qh < qt) {
-      const i = q[qh++], x = i % room.W, y = (i / room.W) | 0, d = dist[i];
+    while (cnt > 0) {
+      const i = q[qh]; qh = (qh + 1) % n; cnt--; inQ[i] = 0;
+      const x = i % room.W, y = (i / room.W) | 0, d = dist[i];
       for (let k = 0; k < 8; k++) {
         const dx = DX8[k], dy = DY8[k], nx = x + dx, ny = y + dy;
         if (nx < 0 || ny < 0 || nx >= room.W || ny >= room.H) continue;
         if (W.blocked(room, nx, ny, mask)) continue;
         if (dx && dy && (W.blocked(room, x + dx, y, mask) || W.blocked(room, x, y + dy, mask))) continue;
         const ni = ny * room.W + nx, nd = d + (dx && dy ? 1.414 : 1) + (room.grid[ni] === T_ACID ? 3 : 0);
-        if (nd < dist[ni]) { dist[ni] = nd; q[qt++] = ni; }
+        if (nd < dist[ni]) { dist[ni] = nd; if (!inQ[ni]) { inQ[ni] = 1; q[qt] = ni; qt = (qt + 1) % n; cnt++; } }
       }
     }
   };
@@ -118,13 +122,16 @@ const World = (function () {
     const tx = Math.floor(x), ty = Math.floor(y);
     let best = Infinity, bx = 0, by = 0;
     const here = (tx >= 0 && ty >= 0 && tx < room.W && ty < room.H) ? F.dist[ty * room.W + tx] : 1e9;
+    const m = MASK_WALKER & ~bit(T_DOOR);
     for (let k = 0; k < 8; k++) {
-      const nx = tx + DX8[k], ny = ty + DY8[k];
+      const dx = DX8[k], dy = DY8[k], nx = tx + dx, ny = ty + dy;
       if (nx < 0 || ny < 0 || nx >= room.W || ny >= room.H) continue;
+      // same corner rule as updateFlow: never cut diagonally past a blocked orthogonal tile
+      if (dx && dy && (W.blocked(room, tx + dx, ty, m) || W.blocked(room, tx, ty + dy, m))) continue;
       const d = F.dist[ny * room.W + nx];
       if (d < best) { best = d; bx = nx + 0.5 - x; by = ny + 0.5 - y; }
     }
-    if (best >= 1e8 || best >= here + 0.01 && here < 1e8 && here === 0) return null;
+    if (best >= 1e8 || here === 0) return null;
     const l = Math.hypot(bx, by); if (l < 1e-6) return null;
     return { x: bx / l, y: by / l, d: here };
   };
@@ -192,6 +199,18 @@ const World = (function () {
     const target = 9 + floorIdx + rng.int(0, 2);
     cells.set(key(C, C), { x: C, y: C });
     let frontier = [[C, C]];
+    const blocks = [], inBlock = new Set();
+    // (x,y) has exactly 2 neighbours (one horizontal, one vertical) whose shared diagonal exists -> adding it completes a 2x2
+    const closeBlock = (x, y) => {
+      if (nbCount(x, y) !== 2) return null;
+      for (const sx of [-1, 1]) for (const sy of [-1, 1]) {
+        if (!cells.has(key(x + sx, y)) || !cells.has(key(x, y + sy)) || !cells.has(key(x + sx, y + sy))) continue;
+        const bc = [[x, y], [x + sx, y], [x, y + sy], [x + sx, y + sy]];
+        if (bc.some(([bx, by]) => (bx === C && by === C) || inBlock.has(key(bx, by)))) return null;
+        return { x0: Math.min(x, x + sx), y0: Math.min(y, y + sy), cells: bc };
+      }
+      return null;
+    };
     let guard = 0;
     while (cells.size < target && guard++ < 400) {
       if (!frontier.length) frontier = [...cells.values()].map(c => [c.x, c.y]);
@@ -202,8 +221,11 @@ const World = (function () {
           const nx = x + DIRS[d][0], ny = y + DIRS[d][1];
           if (nx < 1 || ny < 1 || nx >= SZ - 1 || ny >= SZ - 1) continue;
           if (cells.has(key(nx, ny))) continue;
-          if (nbCount(nx, ny) > 1) continue;
-          if (rng.chance(0.45)) continue;
+          if (nbCount(nx, ny) > 1) {
+            const blk = closeBlock(nx, ny);
+            if (!blk || !rng.chance(0.15)) continue;
+            blocks.push(blk); for (const [bx, by] of blk.cells) inBlock.add(key(bx, by));
+          } else if (rng.chance(0.45)) continue;
           cells.set(key(nx, ny), { x: nx, y: ny }); next.push([nx, ny]);
         }
       }
@@ -241,12 +263,9 @@ const World = (function () {
     };
     mkRoom('start', C, C, 1, 1);
     for (const k in specials) { const [x, y] = k.split(',').map(Number); mkRoom(specials[k], x, y, 1, 1); }
-    // try 2x2 merges
+    // 2x2 blocks closed during growth are always merged into one room (keeps the room graph a tree)
+    for (const b of blocks) if (isNormal(b.x0, b.y0) && isNormal(b.x0 + 1, b.y0) && isNormal(b.x0, b.y0 + 1) && isNormal(b.x0 + 1, b.y0 + 1)) mkRoom('normal', b.x0, b.y0, 2, 2);
     const cellList = rng.shuffle([...cells.values()]);
-    for (const c of cellList) {
-      if (rng.chance(0.82)) continue;
-      if (isNormal(c.x, c.y) && isNormal(c.x + 1, c.y) && isNormal(c.x, c.y + 1) && isNormal(c.x + 1, c.y + 1)) mkRoom('normal', c.x, c.y, 2, 2);
-    }
     for (const c of cellList) {
       if (!isNormal(c.x, c.y)) continue;
       const r = rng.next();

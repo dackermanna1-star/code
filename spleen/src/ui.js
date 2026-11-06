@@ -13,6 +13,7 @@ const UI = (function () {
   let current = null;       // current screen name
   let backAction = null;    // function for back/escape
   let focusIdx = 0;
+  let openedAt = 0, lockFor = 0; // brief confirm lock on freshly opened menus (anti double-tap)
   let hudCache = {};
 
   U.init = function () {
@@ -21,14 +22,23 @@ const UI = (function () {
     mmCanvas = $('#minimap'); mmCtx = mmCanvas.getContext('2d'); touchEl = $('#touch');
     // global UI sounds
     document.addEventListener('mouseover', (e) => { const b = e.target.closest && e.target.closest('.btn,.card,.chip'); if (b && !b._hov) { b._hov = true; sfx('ui_hover', { vol: 0.5 }); setFocusEl(b); } });
-    document.addEventListener('mouseout', (e) => { const b = e.target.closest && e.target.closest('.btn,.card,.chip'); if (b) b._hov = false; });
+    document.addEventListener('mouseout', (e) => { const b = e.target.closest && e.target.closest('.btn,.card,.chip'); if (b && !(e.relatedTarget && b.contains(e.relatedTarget))) b._hov = false; });
     // touch buttons
     for (const b of touchEl.querySelectorAll('[data-t]')) {
       b.addEventListener('touchstart', (e) => { e.preventDefault(); e.stopPropagation(); Input.touchButton(b.dataset.t); b.classList.add('down'); }, { passive: false });
       b.addEventListener('touchend', () => b.classList.remove('down'));
     }
     // fonts fallback for icons
-    if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { setTimeout(() => { try { if (!document.fonts.check('24px "Material Symbols Rounded"')) document.body.classList.add('no-icons'); } catch (e) { } }, 1500); });
+    // no face (stylesheet failed) or a failed face (woff2 failed) -> dot fallback
+    if (document.fonts && document.fonts.load) {
+      const noIcons = () => document.body.classList.add('no-icons');
+      try {
+        document.fonts.load('24px "Material Symbols Rounded"', 'home')
+          .then((faces) => { if (!faces.length || faces.some(f => f.status !== 'loaded')) noIcons(); }, noIcons);
+        // safeguard for a request that hangs forever
+        setTimeout(() => { try { if (![...document.fonts].some(f => f.family.replace(/["']/g, '') === 'Material Symbols Rounded' && f.status === 'loaded')) noIcons(); } catch (e) { } }, 8000);
+      } catch (e) { noIcons(); }
+    }
     $('#mutlist').addEventListener('mouseover', (e) => { const t = e.target.closest('.mchip'); if (t) showTip(t); });
     $('#mutlist').addEventListener('mouseout', () => hideTip());
   };
@@ -64,23 +74,32 @@ const UI = (function () {
     const N = Input.nav;
     if (!screenEl || (!current && !modalEl.classList.contains('on'))) return;
     if (N.up) moveFocus(0, -1); if (N.down) moveFocus(0, 1); if (N.left) moveFocus(-1, 0); if (N.right) moveFocus(1, 0);
-    if (N.confirm) { const f = focusables()[focusIdx]; if (f && f.type !== 'range') f.click(); }
+    const locked = performance.now() - openedAt < lockFor;
+    if (N.confirm && !locked) { const f = focusables()[focusIdx]; if (f && f.type !== 'range') f.click(); }
     if (N.back && backAction) { sfx('ui_back'); backAction(); }
-    if (U.keyHandler) U.keyHandler();
+    if (U.keyHandler && !locked) U.keyHandler();
   };
   function btn(label, onClick, cls = '', ic = null) {
     const b = el('button', 'btn ui-interactive ' + cls, (ic ? icon(ic) : '') + '<span>' + label + '</span>');
-    b.addEventListener('click', (e) => { e.stopPropagation(); if (b.classList.contains('disabled')) { sfx('ui_error'); return; } sfx('ui_click'); onClick && onClick(); });
+    b.addEventListener('click', (e) => { e.stopPropagation(); if (b.classList.contains('disabled')) { sfx('ui_error'); return; } sfx('ui_click'); onClick && onClick(); b.blur(); });
     return b;
   }
   function show(name, build, back) {
     current = name; backAction = back || null; focusIdx = 0;
+    openedAt = performance.now(); lockFor = name === 'summary' ? 700 : 150;
     screenEl.innerHTML = ''; screenEl.className = 'screen on s-' + name;
     build(screenEl);
     requestAnimationFrame(applyFocus);
   }
   U.showScreen = function (name) { if (!name) { current = null; screenEl.className = 'screen'; screenEl.innerHTML = ''; backAction = null; } };
-  U.showHUD = function (on) { hudEl.classList.toggle('on', on); touchEl.classList.toggle('on', on && Input.touchEnabled); hudCache = {}; };
+  U.showHUD = function (on) {
+    hudEl.classList.toggle('on', on); touchEl.classList.toggle('on', on && Input.touchEnabled); hudCache = {};
+    if (!on) { // overlays that live outside #hud: clear so they don't linger over summary/title
+      $('#lowhp').classList.remove('on'); $('#hurt').style.opacity = 0;
+      promptEl.classList.remove('on'); hideTip();
+      bannerEl.className = 'banner'; document.body.classList.remove('letterbox');
+    }
+  };
   U.setFade = function (v) { fadeEl.style.opacity = v; };
 
   /* ======================================================================
@@ -88,7 +107,7 @@ const UI = (function () {
      ====================================================================== */
   U.title = function () {
     U.closeModal();
-    if (window.setupTitleScene) setupTitleScene();
+    if (window.setupTitleScene && (!TitleScene.room || SIM.room !== TitleScene.room)) setupTitleScene();
     show('title', (s) => {
       const wrap = el('div', 'title-wrap');
       wrap.appendChild(el('div', 'logo', '<div class="logo-main">SPLEEN</div><div class="logo-sub">: SEPSIS</div><div class="logo-tag">an immune-system roguelite</div>'));
@@ -128,7 +147,7 @@ const UI = (function () {
       s.appendChild(row);
       if (isUnlocked('fever') && META.feverMax > 0) {
         const fv = el('div', 'fever');
-        const render = () => { fv.innerHTML = ''; fv.appendChild(btn('', () => { selFever = Math.max(0, selFever - 1); render(); }, 'chip arrow', 'chevron_left')); fv.appendChild(el('div', 'fever-lbl', `<b>${FEVER[selFever].name}</b><span>${FEVER[selFever].desc}</span><span class="dim">memory x${(1 + 0.25 * selFever).toFixed(2)}</span>`)); fv.appendChild(btn('', () => { selFever = Math.min(META.feverMax, selFever + 1); render(); }, 'chip arrow', 'chevron_right')); };
+        const render = () => { fv.innerHTML = ''; fv.appendChild(btn('', () => { selFever = Math.max(0, selFever - 1); render(); }, 'chip arrow', 'chevron_left')); fv.appendChild(el('div', 'fever-lbl', `<b>${FEVER[selFever].name}</b><span>${FEVER[selFever].desc}</span><span class="dim">memory x${(1 + 0.25 * selFever).toFixed(2)}</span>`)); fv.appendChild(btn('', () => { selFever = Math.min(META.feverMax, selFever + 1); render(); }, 'chip arrow', 'chevron_right')); if (fv.isConnected) applyFocus(); };
         render(); s.appendChild(fv);
       }
       s.appendChild(el('div', 'foot')).appendChild(btn('Back', () => U.title(), 'ghost', 'arrow_back'));
@@ -180,10 +199,10 @@ const UI = (function () {
   let codexTab = 'pathogens';
   U.codex = function () {
     show('codex', (s) => {
-      s.appendChild(el('div', 'hdr', '<h2>Immune Memory</h2><p>The body learns. Every pathogen you kill makes all future cells deal a little more damage to its kind (up to +10%).</p>'));
+      s.appendChild(el('div', 'hdr', `<h2>Immune Memory</h2><p>The body learns. Every pathogen you kill makes all future cells deal a little more damage to its kind (up to +${META.perks.memtcell ? 20 : 10}%).</p>`));
       const tabs = el('div', 'tabs');
-      tabs.appendChild(btn('Pathogens', () => { codexTab = 'pathogens'; U.codex(); }, 'chip' + (codexTab === 'pathogens' ? ' sel' : '')));
-      tabs.appendChild(btn('Mutations', () => { codexTab = 'mutations'; U.codex(); }, 'chip' + (codexTab === 'mutations' ? ' sel' : '')));
+      tabs.appendChild(btn('Pathogens', () => { codexTab = 'pathogens'; const fi = focusIdx; U.codex(); focusIdx = fi; applyFocus(); }, 'chip' + (codexTab === 'pathogens' ? ' sel' : '')));
+      tabs.appendChild(btn('Mutations', () => { codexTab = 'mutations'; const fi = focusIdx; U.codex(); focusIdx = fi; applyFocus(); }, 'chip' + (codexTab === 'mutations' ? ' sel' : '')));
       s.appendChild(tabs);
       const grid = el('div', 'codex-grid');
       if (codexTab === 'pathogens') {
@@ -196,7 +215,7 @@ const UI = (function () {
             : `<div class="cdot"></div><div><b>???</b><span class="dim">not yet encountered</span></div>`));
         }
         for (const id in BOSSES) {
-          const b = BOSSES[id], known = (META.stats.bestFloor || 0) > Object.keys(BOSSES).indexOf(id);
+          const b = BOSSES[id], known = !!(META.seenBoss && META.seenBoss[id]) || (META.stats.bestFloor || 0) > Object.keys(BOSSES).indexOf(id) + 1;
           grid.appendChild(el('div', 'centry boss' + (known ? '' : ' unknown'), known ? `<div class="cdot" style="--c:${b.color}"></div><div><b>${b.name}</b><span class="dim">boss</span><p>${b.title}.</p></div>` : `<div class="cdot"></div><div><b>???</b><span class="dim">boss</span></div>`));
         }
       } else {
@@ -240,7 +259,25 @@ const UI = (function () {
   /* ======================================================================
      OPTIONS
      ====================================================================== */
-  U.options = function (back, inModal) {
+  // option resolution shared with boot (game.js may define resolveQuality/applyOptions; fall back to boot-identical rules)
+  function resolveQ(q) {
+    if (typeof resolveQuality === 'function') return resolveQuality(q);
+    if (q === 'auto') q = (/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) || (navigator.hardwareConcurrency || 8) <= 4) ? 'medium' : 'high';
+    return q;
+  }
+  function applyOpts(o, opt = {}) {
+    if (typeof applyOptions === 'function') { applyOptions(o, opt); }
+    else {
+      SIM.opts.dmgNumbers = o.dmgNumbers; Gfx.shakeScale = o.shake; Gfx.reduceFlash = !o.flashes;
+      const touchy = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+      Input.touchEnabled = o.touch === 'on' || (o.touch === 'auto' && touchy && matchMedia('(pointer: coarse)').matches);
+      document.body.classList.toggle('touch', Input.touchEnabled);
+      if (opt.quality) { try { Gfx.setQuality(resolveQ(o.quality)); } catch (e) { } }
+      try { if (window.AUDIO) { AUDIO.setVolume('master', o.master); AUDIO.setVolume('music', o.music); AUDIO.setVolume('sfx', o.sfx); } } catch (e) { }
+    }
+    touchEl.classList.toggle('on', Input.touchEnabled && hudEl.classList.contains('on'));
+  }
+  U.options = function (back, inModal, refresh) {
     const o = META.opts;
     const build = (s) => {
       s.appendChild(el('div', 'hdr', '<h2>Options</h2>'));
@@ -255,7 +292,7 @@ const UI = (function () {
       };
       const choice = (label, key, values, names, apply) => {
         const row = el('div', 'orow', `<label>${label}</label>`); const g = el('div', 'ochoices');
-        values.forEach((v, i) => g.appendChild(btn(names[i], () => { o[key] = v; apply && apply(v); saveMeta(); U.options(back, inModal); }, 'chip' + (o[key] === v ? ' sel' : ''))));
+        values.forEach((v, i) => g.appendChild(btn(names[i], () => { o[key] = v; apply && apply(v); saveMeta(); const fi = focusIdx; U.options(back, inModal, true); focusIdx = fi; applyFocus(); }, 'chip' + (o[key] === v ? ' sel' : ''))));
         row.appendChild(g); list.appendChild(row);
       };
       slider('Master volume', 'master', (v) => { try { AUDIO.setVolume('master', v); } catch (e) { } });
@@ -264,35 +301,39 @@ const UI = (function () {
       slider('Screen shake', 'shake', (v) => { Gfx.shakeScale = v; });
       choice('Damage numbers', 'dmgNumbers', [true, false], ['On', 'Off'], (v) => { SIM.opts.dmgNumbers = v; });
       choice('Screen flashes', 'flashes', [true, false], ['On', 'Reduced'], (v) => { Gfx.reduceFlash = !v; });
-      choice('Graphics', 'quality', ['auto', 'low', 'medium', 'high'], ['Auto', 'Low', 'Medium', 'High'], (v) => { let q = v; if (q === 'auto') q = 'high'; Gfx.setQuality(q); });
-      choice('Touch controls', 'touch', ['auto', 'on', 'off'], ['Auto', 'On', 'Off'], (v) => { Input.touchEnabled = v === 'on' || (v === 'auto' && ('ontouchstart' in window)); document.body.classList.toggle('touch', Input.touchEnabled); });
+      choice('Graphics', 'quality', ['auto', 'low', 'medium', 'high'], ['Auto', 'Low', 'Medium', 'High'], (v) => { try { Gfx.setQuality(resolveQ(v)); } catch (e) { } });
+      choice('Touch controls', 'touch', ['auto', 'on', 'off'], ['Auto', 'On', 'Off'], () => applyOpts(o));
       const row = el('div', 'orow', '<label>Display</label>'); const g = el('div', 'ochoices');
       g.appendChild(btn('Fullscreen', () => { try { if (!document.fullscreenElement) document.documentElement.requestFullscreen(); else document.exitFullscreen(); } catch (e) { } }, 'chip'));
       row.appendChild(g); list.appendChild(row);
       if (!inModal) {
         const r2 = el('div', 'orow', '<label>Save data</label>'); const g2 = el('div', 'ochoices');
         let armed = false;
-        const rb = btn('Erase all progress', () => { if (!armed) { armed = true; rb.querySelector('span').textContent = 'Press again to confirm'; return; } META = defaultMeta(); window.META = META; saveMeta(); U.options(back); }, 'chip danger');
+        const rb = btn('Erase all progress', () => { if (!armed) { armed = true; rb.querySelector('span').textContent = 'Press again to confirm'; return; } META = defaultMeta(); window.META = META; if (window.__SPLEEN) window.__SPLEEN.META = META; saveMeta(); applyOpts(META.opts, { quality: true }); U.options(back); }, 'chip danger');
         g2.appendChild(rb); r2.appendChild(g2); list.appendChild(r2);
       }
       s.appendChild(list);
       s.appendChild(el('div', 'foot')).appendChild(btn('Back', back, 'ghost', 'arrow_back'));
     };
-    if (inModal) openModal('options', build, back); else show('options', build, back);
+    if (inModal) openModal('options', build, back, refresh); else show('options', build, back);
   };
 
   /* ======================================================================
      MODALS (pause, choice, shop, tumor)
      ====================================================================== */
-  function openModal(name, build, back) {
-    modalEl.innerHTML = ''; modalEl.className = 'modal on m-' + name;
-    const box = el('div', 'mbox'); build(box); modalEl.appendChild(box);
+  // refresh: re-render of an already open modal (no pop animation / open sound / confirm lock reset)
+  function openModal(name, build, back, refresh) {
+    modalEl.innerHTML = ''; modalEl.className = 'modal on m-' + name + (refresh ? ' refresh' : '');
+    const box = el('div', 'mbox'); if (refresh) box.style.animation = 'none';
+    build(box); modalEl.appendChild(box);
     backAction = back || null; focusIdx = 0; current = current || null;
+    if (!refresh) { openedAt = performance.now(); lockFor = (name === 'pause' || name === 'options') ? 0 : 350; }
     requestAnimationFrame(applyFocus);
-    sfx('ui_open', { vol: 0.6 });
+    if (!refresh) sfx('ui_open', { vol: 0.6 });
   }
   U.closeModal = function () { if (!modalEl) return; modalEl.className = 'modal'; modalEl.innerHTML = ''; backAction = null; U.keyHandler = null; U.autoPick = null; hideTip(); };
 
+  U.inPauseSubmenu = function () { return !!modalEl && modalEl.classList.contains('on') && !modalEl.classList.contains('m-pause'); };
   U.pause = function (on) {
     if (!on) { U.closeModal(); return; }
     const P = SIM.player, run = SIM.run;
@@ -359,7 +400,8 @@ const UI = (function () {
     U.autoPick = () => o.onPick(o.options[0].id);
   };
   U.shop = function (o) {
-    const keep = focusIdx;
+    const refresh = modalEl.classList.contains('on') && modalEl.classList.contains('m-shop');
+    const keep = refresh ? focusIdx : 0;
     openModal('shop', (b) => {
       b.appendChild(el('div', 'hdr', `<h2>Lymph Node</h2><p>A friendly dendritic cell. It wants iron. <b class="iron">${icon('diamond')} ${Math.floor(o.iron)}</b></p>`));
       const row = el('div', 'cards shop');
@@ -368,14 +410,14 @@ const UI = (function () {
         if (it.kind === 'mutation') { const m = MUT[it.id]; html = mutCard(m); }
         else if (it.kind === 'heal') { dis = dis || o.hp >= o.maxHp || o.noHeal; html = `<div class="rar" style="color:#ffc0d0">SUPPLY</div><div class="mbig" style="--r:#ffc0d0">${icon('healing')}</div><div class="mname">PLATELET PACK</div><div class="mdesc">Restore 1 HP.${o.noHeal ? ' (Necrosis blocks healing.)' : ''}</div>`; }
         else { html = `<div class="rar" style="color:#9ad8ff">SUPPLY</div><div class="mbig" style="--r:#9ad8ff">${icon('water_drop')}</div><div class="mname">MUCUS GLAND</div><div class="mdesc">+1 Mucus. Absorbs one hit.</div>`; }
-        const c = el('div', 'card mcard ui-interactive' + (it.sold ? ' sold disabled' : '') + (dis && !it.sold ? ' poor' : ''), html + `<div class="price">${it.sold ? 'SOLD' : icon('diamond') + ' ' + it.price}</div>`);
+        const c = el('div', 'card mcard ui-interactive' + (it.sold ? ' sold' : '') + (dis && !it.sold ? ' poor' : ''), html + `<div class="price">${it.sold ? 'SOLD' : icon('diamond') + ' ' + it.price}</div>`);
         if (it.kind === 'mutation') c.style.setProperty('--r', RARITY[MUT[it.id].rarity].color);
         c.addEventListener('click', () => o.onBuy(it));
         row.appendChild(c);
       }
       b.appendChild(row);
       b.appendChild(el('div', 'foot')).appendChild(btn('Leave', () => o.onClose(), 'ghost', 'arrow_back'));
-    }, () => o.onClose());
+    }, () => o.onClose(), refresh);
     focusIdx = keep; requestAnimationFrame(applyFocus);
     U.autoPick = () => o.onClose();
   };
@@ -454,7 +496,8 @@ const UI = (function () {
     const abEl = $('#abil');
     abEl.style.setProperty('--f', (frac * 360).toFixed(1) + 'deg');
     abEl.classList.toggle('ready', frac >= 1);
-    $('#abil-key').textContent = Input.device === 'pad' ? 'RB' : Input.device === 'touch' ? '' : 'Q';
+    const akey = Input.device === 'pad' ? 'RB' : Input.device === 'touch' ? '' : 'Q';
+    if (hudCache.akey !== akey) { hudCache.akey = akey; $('#abil-key').textContent = akey; }
     // dash pip
     $('#dash').style.setProperty('--d', (1 - P.dashCd / (DASH_CD * P.st.dashCdMult)).toFixed(3));
     // charge bar for lance
@@ -484,12 +527,17 @@ const UI = (function () {
     } else bossEl.classList.remove('on');
     // interact prompt
     const near = SIM.nearInteract;
+    let pr = '';
     if (near && Game.sub === 'room') {
       const key = Input.device === 'pad' ? 'Y' : Input.device === 'touch' ? 'TAP' : 'E';
-      promptEl.innerHTML = `<b>${key}</b> ${near.kind === 'portal' ? 'enter' : near.kind === 'shop' ? 'trade' : 'open'}`;
-      promptEl.classList.add('on');
-      touchEl.querySelector('[data-t=interact]').classList.add('avail');
-    } else { promptEl.classList.remove('on'); touchEl.querySelector('[data-t=interact]').classList.remove('avail'); }
+      pr = `<b>${key}</b> ${near.kind === 'portal' ? 'enter' : near.kind === 'shop' ? 'trade' : 'open'}`;
+    }
+    if (hudCache.prompt !== pr) {
+      hudCache.prompt = pr;
+      if (pr) promptEl.innerHTML = pr; // keep old text while fading out
+      promptEl.classList.toggle('on', !!pr);
+      touchEl.querySelector('[data-t=interact]').classList.toggle('avail', !!pr);
+    }
     // low hp vignette
     $('#lowhp').classList.toggle('on', P.hp <= 1 && !P.dead);
     $('#hurt').style.opacity = clamp(P.hurtFlash / 0.3, 0, 1) * (META.opts.flashes ? 0.8 : 0.35);

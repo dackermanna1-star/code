@@ -38,12 +38,15 @@ const Gfx = (function () {
     engine = new BABYLON.Engine(canvas, G.quality !== 'low', { preserveDrawingBuffer: !!window.__TEST__, stencil: true, powerPreference: 'high-performance', antialias: G.quality !== 'low' }, true);
     engine.enableOfflineSupport = false;
     scene = new BABYLON.Scene(engine);
+    // Babylon's attachControl preventDefaults pointerdown, which suppresses the compat mousedown/mouseup
+    // events Input listens for. The game uses no Babylon picking/pointer input, so detach it.
+    scene.detachControl();
     scene.clearColor = new BABYLON.Color4(0.03, 0.01, 0.02, 1);
     scene.ambientColor = new BABYLON.Color3(0.12, 0.08, 0.1);
     scene.skipPointerMovePicking = true;
     scene.autoClear = true;
     camera = new BABYLON.FreeCamera('cam', new BABYLON.Vector3(8, 14, -14), scene);
-    camera.fov = G.view.fov; camera.minZ = 0.5; camera.maxZ = 120;
+    camera.fov = G.view.fov; camera.minZ = 0.5; camera.maxZ = 200;
     camera.inputs.clear();
     hemi = new BABYLON.HemisphericLight('hemi', new BABYLON.Vector3(0.2, 1, -0.3), scene);
     hemi.intensity = 0.95;
@@ -135,7 +138,7 @@ const Gfx = (function () {
     const test = (d) => {
       const pose = camPose(0, 0, d);
       const view = BABYLON.Matrix.LookAtLH(pose.pos, pose.tgt, BABYLON.Vector3.Up());
-      const proj = BABYLON.Matrix.PerspectiveFovLH(G.view.fov, aspect, 0.5, 200, engine.isNDCHalfZRange);
+      const proj = BABYLON.Matrix.PerspectiveFovLH(G.view.fov, aspect, 0.5, 300, engine.isNDCHalfZRange);
       const vp = view.multiply(proj);
       const pts = [[-fw / 2, -fh / 2, 1.0], [fw / 2, -fh / 2, 1.0], [-fw / 2, fh / 2, 0], [fw / 2, fh / 2, 0], [-fw / 2, fh / 2, 0.6], [fw / 2, -fh / 2, 0]];
       for (const p of pts) {
@@ -144,24 +147,19 @@ const Gfx = (function () {
       }
       return true;
     };
-    let lo = 4, hi = 80;
+    let lo = 4, hi = 160;
     for (let i = 0; i < 30; i++) { const mid = (lo + hi) / 2; if (test(mid)) hi = mid; else lo = mid; }
     return hi;
   }
   function fitCamera() {
-    const aspect = window.innerWidth / window.innerHeight;
     let fw = 17.4, fh = 11.6;
-    if (aspect < 1.2) fw = Math.max(9.5, fh * aspect * 0.95);
     G.view.baseFitW = fw; G.view.baseFitH = fh; G.view.baseDist = computeDist(fw, fh);
     applyBounds();
   }
   function applyBounds() {
     const v = G.view;
     if (v.whole && v.roomW) {
-      const aspect = window.innerWidth / window.innerHeight;
-      let fw = v.roomW + 0.4, fh = v.roomH + 0.6;
-      if (aspect < 1.2) fw = Math.max(v.baseFitW * 1.3, fh * aspect * 0.95);
-      v.fitW = Math.min(fw, v.roomW + 0.4); v.fitH = fh; v.dist = computeDist(v.fitW, v.fitH);
+      v.fitW = v.roomW + 0.4; v.fitH = v.roomH + 0.6; v.dist = computeDist(v.fitW, v.fitH);
     } else { v.fitW = v.baseFitW; v.fitH = v.baseFitH; v.dist = v.baseDist; }
   }
   /** Set which room-space rectangle the camera should keep in view; whole = zoom out to fit it all */
@@ -299,8 +297,10 @@ const Gfx = (function () {
   /** Clone a cached geometry into a mesh part. pos in Babylon local space. */
   G.part = function (shape, mat, parent, x = 0, y = 0, z = 0, sx = 1, sy, sz) {
     const base = geoCache.get(shape);
-    const m = base.clone(shape + '_p', null, true);
-    m.setEnabled(true); m.isVisible = true; m.isPickable = false;
+    // fresh mesh sharing the cached geometry's vertex buffers (Mesh.clone is ~0.5ms/part)
+    const m = new BABYLON.Mesh(shape + '_p', scene);
+    base.geometry.applyToMesh(m);
+    m.isPickable = false;
     m.material = mat;
     if (parent) m.parent = parent;
     m.position.set(x, y, z);
@@ -445,9 +445,10 @@ const Gfx = (function () {
   };
   G.beginPools = function () { for (const k in G.pools) G.pools[k].begin(); };
   G.endPools = function () {
-    const a = 0.45 + 0.25 * Math.sin(G.time * 14);
-    G.pools.teleDisc.mesh.material.alpha = a; G.pools.teleLine.mesh.material.alpha = a * 0.8;
-    G.pools.teleWarm.mesh.material.alpha = 0.35 + 0.2 * Math.sin(G.time * 9);
+    // keep the pulse floor high so telegraphs stay readable on red floors (0.48..0.72)
+    const a = G.reduceFlash ? 0.62 : 0.6 + 0.12 * Math.sin(G.time * 10);
+    G.pools.teleDisc.mesh.material.alpha = a; G.pools.teleLine.mesh.material.alpha = a * 0.85;
+    G.pools.teleWarm.mesh.material.alpha = G.reduceFlash ? 0.5 : 0.5 + 0.1 * Math.sin(G.time * 9);
     for (const k in G.pools) G.pools[k].end();
   };
 
@@ -673,10 +674,14 @@ const Gfx = (function () {
     if (holes.length) {
       const hm = G.plainMat('#000000', { spec: 0 });
       const rimMat = G.cellMat(p.wall, { rim: 1.6, core: 0.3, glow: 0, dark: 0.9 });
+      const discs = [], rims = [];
       for (const [tx, ty] of holes) {
-        const d = G.part('disc', hm, roomRoot, tx + 0.5, 0.012, -(ty + 0.5), 0.56);
-        d.scaling.set(0.58, 1, 0.58);
-        const ring = G.part('torusThick', rimMat, roomRoot, tx + 0.5, 0.02, -(ty + 0.5), 0.55, 0.5, 0.55);
+        discs.push(G.part('disc', hm, null, tx + 0.5, 0.012, -(ty + 0.5), 0.58, 1, 0.58));
+        rims.push(G.part('torusThick', rimMat, null, tx + 0.5, 0.02, -(ty + 0.5), 0.55, 0.5, 0.55));
+      }
+      for (const [list, mat] of [[discs, hm], [rims, rimMat]]) {
+        const mm = BABYLON.Mesh.MergeMeshes(list, true, true);
+        mm.material = mat; mm.parent = roomRoot; mm.isPickable = false;
       }
     }
     if (acids.length) {
@@ -698,14 +703,17 @@ const Gfx = (function () {
     return roomVis;
   };
   G.makeClot = function (tx, ty, rng) {
-    const root = new BABYLON.TransformNode('clot', scene);
-    root.position.set(tx + 0.5, 0, -(ty + 0.5));
+    // merged into one mesh in clot-local space (pivot at clot centre for damageClot scaling)
     const mat = G.cellMat('#a81a2a', { rim: 1.3, core: 0.25, glow: 0.05, dark: 0.7 });
+    const parts = [];
     for (let i = 0; i < 4; i++) {
       const s = rng.range(0.28, 0.42);
-      G.part('sphereLo', mat, root, rng.range(-0.22, 0.22), s * 0.75, rng.range(-0.22, 0.22), s, s * 0.85, s);
+      parts.push(G.part('sphereLo', mat, null, rng.range(-0.22, 0.22), s * 0.75, rng.range(-0.22, 0.22), s, s * 0.85, s));
     }
-    return root;
+    const m = BABYLON.Mesh.MergeMeshes(parts, true, true);
+    m.name = 'clot'; m.material = mat; m.isPickable = false;
+    m.position.set(tx + 0.5, 0, -(ty + 0.5));
+    return m;
   };
   G.removeClot = function (tx, ty) {
     if (!roomVis) return;

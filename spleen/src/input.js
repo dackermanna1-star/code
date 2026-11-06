@@ -10,7 +10,7 @@ const Input = (function () {
   const pressedEdge = Object.create(null);   // key code -> true for one frame
   const mouse = { x: 0, y: 0, down: false, rdown: false, moved: false, inside: true };
   const touch = { active: false, move: null, aim: null, moveVec: { x: 0, y: 0 }, aimVec: { x: 0, y: 0 }, buttons: {} };
-  let padIndex = -1, padPrev = [], padAxesPrevNav = { x: 0, y: 0 }, navRepeat = 0;
+  let padIndex = -1, padPrev = [], padAxesPrevNav = { x: 0, y: 0 }, navRepeat = 0, navLatch = false, confirmGrace = 0;
 
   const S = {
     device: 'kbm',             // 'kbm' | 'pad' | 'touch' (last used)
@@ -21,13 +21,14 @@ const Input = (function () {
     fireHeld: false,
     dash: false, ability: false, interact: false, pause: false, mute: false, tab: false,
     nav: { up: false, down: false, left: false, right: false, confirm: false, back: false, any: false },
+    focusLost: false,          // set when the window loses focus / is hidden (game consumes it)
     mouseWorld: null,          // {x,y} sim coords under mouse (set by game each frame)
     mouse,
     touch,
   };
 
   /* ---------------- keyboard ---------------- */
-  const GAME_KEYS = new Set(['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab']);
+  const GAME_KEYS = new Set(['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab', 'Enter', 'NumpadEnter']);
   window.addEventListener('keydown', (e) => {
     if (e.repeat) { if (GAME_KEYS.has(e.code)) e.preventDefault(); return; }
     keys[e.code] = true; pressedEdge[e.code] = true; S.device = 'kbm';
@@ -35,7 +36,13 @@ const Input = (function () {
     if (window.AUDIO) try { AUDIO.init(); } catch (err) { }
   });
   window.addEventListener('keyup', (e) => { keys[e.code] = false; });
-  window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; mouse.down = mouse.rdown = false; });
+  function releaseAll() { for (const k in keys) keys[k] = false; mouse.down = mouse.rdown = false; touch.move = touch.aim = null; S.focusLost = true; }
+  window.addEventListener('blur', releaseAll);
+  document.addEventListener('visibilitychange', () => { if (document.hidden) releaseAll(); });
+
+  /* ---------------- audio unlock (any user gesture, before UI early-returns) ---------------- */
+  const unlockAudio = () => { if (window.AUDIO) try { AUDIO.init(); } catch (err) { } };
+  ['pointerdown', 'mousedown', 'touchend'].forEach((ev) => window.addEventListener(ev, unlockAudio, { capture: true, passive: true }));
 
   /* ---------------- mouse ---------------- */
   window.addEventListener('mousemove', (e) => { mouse.x = e.clientX; mouse.y = e.clientY; mouse.moved = true; if (S.device !== 'kbm' && (Math.abs(e.movementX) + Math.abs(e.movementY)) > 2) S.device = 'kbm'; });
@@ -52,7 +59,8 @@ const Input = (function () {
   /* ---------------- touch (virtual twin sticks) ---------------- */
   const STICK_R = 60;
   function touchStart(e) {
-    if (e.target && e.target.closest && e.target.closest('.ui-interactive')) return;
+    // never capture touches on UI or on any visible menu (lets screens/modals scroll natively)
+    if (e.target && e.target.closest && e.target.closest('.ui-interactive, .screen.on, .modal.on')) return;
     if (!S.touchEnabled) return;
     S.device = 'touch';
     if (window.AUDIO) try { AUDIO.init(); } catch (err) { }
@@ -65,10 +73,12 @@ const Input = (function () {
     e.preventDefault();
   }
   function touchMove(e) {
+    let mine = false;
     for (const t of e.changedTouches) {
       for (const k of ['move', 'aim']) {
         const st = touch[k];
         if (st && st.id === t.identifier) {
+          mine = true;
           st.x = t.clientX; st.y = t.clientY;
           // floating stick: drag origin along if pulled past radius
           const dx = st.x - st.ox, dy = st.y - st.oy, d = Math.hypot(dx, dy);
@@ -76,7 +86,7 @@ const Input = (function () {
         }
       }
     }
-    if (touch.move || touch.aim) e.preventDefault();
+    if (mine) e.preventDefault();
   }
   function touchEnd(e) {
     for (const t of e.changedTouches) {
@@ -122,15 +132,17 @@ const Input = (function () {
     if (mouse.down) firing = true;
     let dash = edge('Space') || edge('ShiftLeft') || edge('ShiftRight') || edge('Mouse2');
     let ability = edge('KeyQ') || edge('KeyF');
-    let interact = edge('KeyE') || edge('Enter');
+    let interact = edge('KeyE') || edge('Enter') || edge('NumpadEnter');
     let pause = edge('Escape') || edge('KeyP');
     const nav = S.nav;
     nav.up = edge('ArrowUp') || edge('KeyW'); nav.down = edge('ArrowDown') || edge('KeyS');
     nav.left = edge('ArrowLeft') || edge('KeyA'); nav.right = edge('ArrowRight') || edge('KeyD');
-    nav.confirm = edge('Enter') || edge('Space') || edge('KeyE'); nav.back = edge('Escape') || edge('Backspace');
+    nav.confirm = edge('Enter') || edge('NumpadEnter') || edge('Space') || edge('KeyE'); nav.back = edge('Escape') || edge('Backspace');
 
     // --- gamepad
     const pad = getPad();
+    // menu-nav latch releases once the stick is back near centre (or no pad at all)
+    if (!pad || (Math.abs(pad.axes[0] || 0) < 0.3 && Math.abs(pad.axes[1] || 0) < 0.3)) navLatch = false;
     if (pad) {
       const b = (i) => pad.buttons[i] && (pad.buttons[i].pressed || pad.buttons[i].value > 0.5);
       const be = (i) => b(i) && !padPrev[i];
@@ -150,11 +162,12 @@ const Input = (function () {
         if (be(5) || be(2)) ability = true;
         if (be(3)) interact = true;
         if (be(9)) pause = true;
+        if (be(0) || be(9)) unlockAudio();
         // menu nav (stick with repeat + dpad)
         const sx = pad.axes[0] || 0, sy = pad.axes[1] || 0;
         navRepeat -= dt;
         const stickDir = Math.abs(sx) > 0.55 || Math.abs(sy) > 0.55;
-        if (stickDir && (navRepeat <= 0 || (Math.abs(padAxesPrevNav.x) < 0.55 && Math.abs(padAxesPrevNav.y) < 0.55))) {
+        if (!navLatch && stickDir && (navRepeat <= 0 || (Math.abs(padAxesPrevNav.x) < 0.55 && Math.abs(padAxesPrevNav.y) < 0.55))) {
           if (Math.abs(sx) > Math.abs(sy)) { if (sx > 0) nav.right = true; else nav.left = true; }
           else { if (sy > 0) nav.down = true; else nav.up = true; }
           navRepeat = 0.22;
@@ -166,6 +179,9 @@ const Input = (function () {
       }
       padPrev = pad.buttons.map((x, i) => b(i));
     }
+
+    // short confirm grace after a screen/modal opens (stops E/A double-tap instantly picking)
+    if (confirmGrace > 0) { confirmGrace -= dt; nav.confirm = false; }
 
     // --- touch
     if (touch.move) {
@@ -197,6 +213,8 @@ const Input = (function () {
   };
   /** clear one-frame edges (call at end of frame) */
   S.endFrame = function () { for (const k in pressedEdge) delete pressedEdge[k]; mouse.moved = false; };
+  /** call when a screen/modal opens: latch held-stick nav until re-centred, briefly block confirm */
+  S.resetNav = function (grace = 0.2) { navLatch = true; confirmGrace = grace; };
   S.isDown = (code) => !!keys[code];
   /** gamepad rumble (silently ignored where unsupported) */
   S.rumble = function (strength = 0.5, ms = 120) {
