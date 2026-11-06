@@ -644,26 +644,36 @@ function updateEnemies(dt) {
     if (e.dead) continue;
     let k = e.speedK * (P ? P.st.enemySpeedMult : 1) * (e.slowT > 0 ? e.slowK : 1) * e.zoneSlow;
     e.zoneSlow = 1;
-    if (e.stunT > 0) { e.vx *= 0.8; e.vy *= 0.8; }
+    if (e.stunT > 0) {
+      e.vx *= 0.8; e.vy *= 0.8;
+      // AI timers are frozen while stunned, so freeze its own telegraphs too (updateTeles runs after us and adds dt back)
+      for (const t of SIM.teles) if (t.owner === e) t.t = Math.max(0, t.t - dt);
+    }
     else if (e.isBoss) e.update(e, dt, k);
     else (AI[e.def.ai] || AI.chase)(e, dt, k);
     e.data.bonk = false; // set below by collision; read by the AI on the next step
-    // integrate
+    // integrate (knockback capped + sub-stepped so it can't tunnel through walls)
     const kk = damp(7, dt);
-    e.x += (e.vx + e.kx) * dt; e.y += (e.vy + e.ky) * dt;
-    e.kx = lerp(e.kx, 0, kk); e.ky = lerp(e.ky, 0, kk);
-    if (!e.noCollide) {
-      const hit = World.collideCircle(room, e, e.r * 0.9, e.fly ? MASK_FLYER : MASK_WALKER);
-      if (hit) e.data.bonk = true;
+    if (!e.isBoss) { const km = Math.hypot(e.kx, e.ky); if (km > 16) { e.kx *= 16 / km; e.ky *= 16 / km; } }
+    // soft bodies: non-boss walkers squeeze through 1-tile gaps (visual/shot radius stays e.r)
+    const cr = (e.fly || e.isBoss) ? e.r * 0.9 : Math.min(e.r * 0.9, 0.44);
+    const mvx = (e.vx + e.kx) * dt, mvy = (e.vy + e.ky) * dt;
+    const ns = e.noCollide ? 1 : Math.min(12, Math.ceil(Math.hypot(mvx, mvy) / 0.2) || 1);
+    for (let s = 0; s < ns; s++) {
+      e.x += mvx / ns; e.y += mvy / ns;
+      if (!e.noCollide && World.collideCircle(room, e, cr, e.fly ? MASK_FLYER : MASK_WALKER)) e.data.bonk = true;
     }
-    // separation
-    if (!e.isBoss && !e.burrowed) {
+    e.kx = lerp(e.kx, 0, kk); e.ky = lerp(e.ky, 0, kk);
+    // separation (skipped while pressed against a tile so two walkers can't deadlock in a gap)
+    if (!e.isBoss && !e.burrowed && !e.data.bonk) {
       for (const o of SIM.enemies) {
         if (o === e || o.dead || o.burrowed || o.isBoss || o.fly !== e.fly) continue;
         const dx = e.x - o.x, dy = e.y - o.y, rr = (e.r + o.r) * 0.85, d2 = dx * dx + dy * dy;
         if (d2 < rr * rr && d2 > 1e-6) { const d = Math.sqrt(d2), push = (rr - d) * 0.5; e.x += dx / d * push; e.y += dy / d * push; }
       }
     }
+    // hard safety net: a non-boss can never leave the room interior (border tiles are always solid)
+    if (!e.isBoss) { e.x = clamp(e.x, 1 + cr, room.W - 1 - cr); e.y = clamp(e.y, 1 + cr, room.H - 1 - cr); }
     animateEnemy(e, dt);
   }
 }

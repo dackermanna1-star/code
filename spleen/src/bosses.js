@@ -65,6 +65,8 @@ function bossPhaseCheck(e, onPhase) {
   if (e.hp / e.maxHp > marks[e.phase - 1]) return false;
   e.phase++;
   e.atk = null; e.cd = 0.6; e.pause = 1.2;
+  // reset visual tells that only the interrupted attack would have decayed
+  const Dd = e.data; Dd.inhale = 0; Dd.sink = 0; Dd.rolling = false; Dd.wind = 0; Dd.swell = 0; Dd.spasm = 0; Dd.rear = 0;
   sfx('boss_phase'); Gfx.addShake(0.7); Gfx.caPulse = 0.9;
   addRing(e.x, e.y, e.r * 3.2, e.color, 0.6);
   burst(e.x, e.y, e.color, 30, 6, { life: 0.7, size: 0.12, up: 4 });
@@ -102,6 +104,12 @@ function bossBeat(e, dt, bpmFallback) {
   const ext = SIM.beat && isFinite(SIM.beat.beat) ? SIM.beat.beat : 0;
   const bpm = (SIM.beat && SIM.beat.bpm > 30 && SIM.beat.bpm < 300) ? SIM.beat.bpm : bpmFallback;
   const bps = bpm / 60;
+  // gap in calls (game pause; music clock kept running): skip the missed beats and the rate window
+  if (D.lastExt != null && (ext - D.lastExt > 1.5 || ext < D.lastExt)) {
+    D.extStart = ext; D.bw = 0;
+    if (D.useExt) { D.lastB = Math.floor(ext); D.lastHB = Math.floor(ext * 2); }
+  }
+  D.lastExt = ext;
   D.ib = (D.ib || 0) + dt * bps;
   if (D.extStart == null) { D.extStart = ext; D.bw = 0; D.extRate = 0; }
   D.bw += dt;
@@ -163,7 +171,10 @@ function swayTentacle(T, t, amp, speed) { T.nodes.forEach((n, i) => { n.rotation
       const head = e.forward;
       if (e.dead || head.dead || e.burrowed || e.spawning > 0 || head.invuln) return 0;
       e.hurtT = 0.09;
-      const amt = amount * enemyDamageMult(e) * 0.5;
+      let amt = amount * enemyDamageMult(e) * 0.5;
+      // execute bonus checks the head's HP (segments sit at hp = maxHp = 1e9)
+      const P = SIM.player;
+      if (P && P.st && P.st.execute && head.hp < head.maxHp * P.st.execute) amt *= 1.15;
       const d = base(head, amt, Object.assign({}, o, { pure: true, silent: true, x: o.x != null ? o.x : e.x, y: o.y != null ? o.y : e.y }));
       if (d > 0 && SIM.opts.dmgNumbers && !o.silent) {
         Gfx.floatText(e.x + rnd(-0.2, 0.2), e.y, Math.max(1, Math.round(d)).toString(), o.crit ? '#ffe066' : o.dot ? (o.dotHex || '#ffa060') : '#ffffff', o.crit ? 19 : 13, { crit: o.crit, h: 1.0 + e.r });
@@ -369,7 +380,7 @@ function visEndocardia(e) {
     const n = Gfx.node('leaf'); n.parent = b; n.rotation.y = a;
     const m = Gfx.part('sphere', dark, n, R * 0.45, R * 1.25, 0, R * 0.55, R * 0.18, R * 0.38);
     m.rotation.z = 0.5;
-    leaflets.push(n);
+    leaflets.push({ n, m });
   }
   // ring of ventricle bumps
   for (let i = 0; i < 8; i++) { const a = i / 8 * TAU; Gfx.part('sphereLo', dark, b, Math.cos(a) * R * 0.9, R * 0.35, Math.sin(a) * R * 0.9, R * 0.3); }
@@ -384,7 +395,7 @@ function visEndocardia(e) {
       const s = 1 + D.pulse * 0.13 + (e.hurtT > 0 ? 0.03 : 0) + Math.sin(t * 1.8) * 0.01;
       body.scaling.set(R * s, R * 0.8 * (1 + D.pulse * 0.2), R * s);
       coreM.scaling.setAll(R * (0.3 + D.pulse * 0.12 + D.pre * 0.1 + (D.phaseFlash || 0) * 0.2));
-      leaflets.forEach((n, i) => { n.rotation.y = i / 3 * TAU + 0.3 + Math.sin(t * 1.3 + i) * 0.1; n.getChildMeshes()[0].rotation.z = 0.5 + D.pulse * 0.5; });
+      leaflets.forEach((L, i) => { L.n.rotation.y = i / 3 * TAU + 0.3 + Math.sin(t * 1.3 + i) * 0.1; L.m.rotation.z = 0.5 + D.pulse * 0.5; });
       tents.forEach((T, i) => swayTentacle(T, t, 0.16 + D.pulse * 0.12 + (D.sweep ? 0.1 : 0), 2.2 + (e.phase || 1) * 0.5));
     },
   };
@@ -420,6 +431,9 @@ function endoSpecial(e, kind, bps) {
     if (n > 0) sfx('split'); else endoRing(e);
   } else if (kind === 'volley') {
     D.volley = 3;
+    D.pre = 1; // core flare
+    sfx('windup', { rate: 1.2, vol: 0.6 });
+    telegraph({ kind: 'line', x: e.x, y: e.y, ang: toPlayer(e).a, len: 8, w: 0.5, dur: Math.min(0.7, beatSec * 0.9), owner: e, follow: (t) => { t.x = e.x; t.y = e.y; t.ang = toPlayer(e).a; } });
   }
 }
 function updEndocardia(e, dt, k) {
@@ -431,7 +445,7 @@ function updEndocardia(e, dt, k) {
     if (ph === 3) { e.anchored = false; sfx('roar', { rate: 0.9, vol: 0.8 }); }
   });
   e.vx = e.vy = 0;
-  const B = bossBeat(e, dt * BOSS_FEV(), 76);
+  const B = bossBeat(e, dt, 76);
   if (e.pause > 0) { e.pause -= dt; return; }
   if (e.phase >= 3) {
     // drifts toward the player, never too close to the walls
@@ -447,6 +461,7 @@ function updEndocardia(e, dt, k) {
     const every = e.phase >= 2 ? 1 : 2;
     if (D.volley > 0) {
       D.volley--;
+      if (D.volley > 0) D.pre = 1; // flare before each remaining fan
       enemyFan(e.x, e.y, toPlayer(e).a, 5, 0.75, 4.6, { style: 'red' });
       sfx('enemy_shoot', { vol: 0.8 });
     } else if (D.special <= 0) {
@@ -454,7 +469,7 @@ function updEndocardia(e, dt, k) {
       let opts = pool.filter(p => p !== D.lastSpecial); const kind = rndPick(opts);
       D.lastSpecial = kind;
       endoSpecial(e, kind, B.bps);
-      D.special = e.phase >= 3 ? 5 : e.phase >= 2 ? 6 : 7;
+      D.special = Math.max(3, Math.round((e.phase >= 3 ? 5 : e.phase >= 2 ? 6 : 7) / BOSS_FEV()));
     } else if (bc % every === 0 && !(D.quietUntil && SIM.time < D.quietUntil)) {
       endoRing(e);
     } else if (every === 2) {
@@ -599,7 +614,7 @@ function updAspergill(e, dt, k) {
   bossPhaseCheck(e, () => { enemyRing(e.x, e.y, 18, 3, { style: 'spore', a0: rnd(0, TAU) }); sfx('roar', { rate: 1.1, vol: 0.7 }); });
   e.vx = e.vy = 0;
   // force a move after a few attacks so it never camps
-  if (!e.atk && (D.sinceMove || 0) >= 3 && e.cd <= 0 && e.pause <= 0) { e.atk = { name: 'relocate', t: 0, f: {}, d: {} }; e.lastAtk = 'relocate'; }
+  if (!e.atk && (D.sinceMove || 0) >= 3 && e.pause <= 0 && e.cd <= dt) { e.atk = { name: 'relocate', t: 0, f: {}, d: {} }; e.lastAtk = 'relocate'; }
   const before = e.atk;
   runAttacks(e, dt, [['roots', 'spores', 'inhale', 'roots', 'spores'], ['roots', 'spores', 'inhale', 'puffs', 'spores', 'roots']], [1.3, 0.95], ASP_ATK);
   if (!before && e.atk && e.atk.name !== 'relocate') D.sinceMove = (D.sinceMove || 0) + 1;
@@ -715,7 +730,9 @@ const HUNGER_ATK = {
     const D = e.data;
     if (at(A, 0)) {
       A.ang = toPlayer(e).a; sfx('windup', { rate: 0.75 });
-      telegraph({ kind: 'line', x: e.x, y: e.y, ang: A.ang, len: 8, w: 1.5, dur: 0.6, owner: e, follow: (t) => { t.x = e.x; t.y = e.y; t.ang = A.ang; } });
+      const L = (D.speedBase || 3.4) * (e.phase >= 2 ? 2.9 : 2.6) * 0.75 + e.r * 0.85; // real dash reach
+      telegraph({ kind: 'line', x: e.x, y: e.y, ang: A.ang, len: arenaLen(e.x, e.y, A.ang, L), w: e.r * 2, dur: 0.6, owner: e,
+        follow: (t) => { t.x = e.x; t.y = e.y; t.ang = A.ang; t.len = arenaLen(t.x, t.y, t.ang, L); } });
     }
     if (A.t < 0.6) { D.rear = Math.min(1, A.t / 0.4); D.steer = false; D.speedMul = 0.25; A.ang = lerpAngle(A.ang, toPlayer(e).a, damp(3, dt)); D.heading = lerpAngle(D.heading, A.ang, damp(8, dt)); return false; }
     if (at(A, 0.6)) { sfx('charge', { rate: 0.7 }); D.heading = A.ang; D.rear = 0; }
@@ -989,7 +1006,7 @@ function updMisfold(e, dt, k) {
   const D = e.data;
   D.phaseFlash = Math.max(0, (D.phaseFlash || 0) - dt);
   D.fade = Math.max(0, (D.fade || 0) - dt * 3);
-  bossPhaseCheck(e, () => { enemyRing(e.x, e.y, 20, 3.0, { style: 'volt', curve: 0.4 }); sfx('roar', { rate: 1.4, vol: 0.6 }); D.sinceBlink = 99; });
+  bossPhaseCheck(e, () => { clearBossHazards(e); enemyRing(e.x, e.y, 20, 3.0, { style: 'volt', curve: 0.4 }); sfx('roar', { rate: 1.4, vol: 0.6 }); D.sinceBlink = 99; });
   e.vx = e.vy = 0;
   if (e.pause > 0) { e.pause -= dt; return; }
   // blink before attacks (every other attack in phase 1, every attack in phase 2)
@@ -1083,7 +1100,7 @@ const SEP_ATK = {
   },
   beatRings(e, A, dt) {
     const D = e.data;
-    const B = bossBeat(e, dt * BOSS_FEV(), 90);
+    const B = D.B || {};
     if (at(A, 0)) { A.beats = 0; sfx('heartbeat', { vol: 0.8 }); }
     if (B.beat) {
       A.beats++; D.pulse = 1;
@@ -1093,7 +1110,7 @@ const SEP_ATK = {
         sfx('enemy_shoot_big', { vol: 0.7 });
       } else { sfx('heartbeat', { vol: 0.6 }); D.wind = 1; later(e, 0.25, () => { D.wind = 0; }); }
     }
-    return A.beats >= 7;
+    return A.beats >= Math.round(7 / BOSS_FEV());
   },
   roots(e, A) {
     if (at(A, 0)) { e.data.wind = 1; A.dur = rootEruption(e, e.phase >= 3 ? 9 : 7, '#ff8a2a', 0.9); }
@@ -1191,6 +1208,7 @@ function updSepsis(e, dt, k) {
     if (ph === 3) { e.headMult = 1.15; e.anchored = true; e.fly = true; }
   });
   e.vx = e.vy = 0;
+  D.B = bossBeat(e, dt, 90); // tick every frame so the clock stays locked between beatRings
   if (e.phase >= 3 && e.pause <= 0) {
     const tp = toPlayer(e);
     if (tp.d > e.r + 2.2) setVel(e, tp.a, 1.05 * k);
