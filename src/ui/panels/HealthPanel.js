@@ -15,6 +15,18 @@ function normSev(s) {
 function sevLabel(v) {
   return v < 0.34 ? 'Minor' : v < 0.67 ? 'Moderate' : 'Severe';
 }
+// Survival stores `severity` as a multiplier (1 = typical wound of that type): rate by wound type first.
+const TYPE_SEV = { scratch: 0.2, glass: 0.4, burn: 0.45, laceration: 0.55, bite: 0.8, fracture: 0.8, deep: 0.85, bullet: 0.9 };
+function woundSev(w) {
+  const base = TYPE_SEV[w.type] ?? normSev(w.severity);
+  const mult = w.severity == null || isNaN(w.severity) ? 1 : clamp(w.severity, 0.5, 1.6);
+  return clamp(base * mult, 0, 1);
+}
+/** wound fields that change what the panel shows (not age / bandageAge, which tick every frame) */
+function woundSig(w) {
+  return `${w.type}${w.part}${w.bleeding ? 1 : 0}${w.bandaged ? 1 : 0}${w.bandageDirty ? 1 : 0}${w.disinfected ? 1 : 0}${w.infected ? 1 : 0}`
+    + `${w.splinted ? 1 : 0}${w.sutured ? 1 : 0}${w.embedded ? 1 : 0}${w.burnTreated ? 1 : 0}${Math.floor((w.heal || 0) * 50)}`;
+}
 
 export class HealthPanel {
   constructor(ui) {
@@ -75,7 +87,9 @@ export class HealthPanel {
     const p = this.game.player;
     if (!p) return;
     const wounds = p.wounds || [];
-    const wsig = JSON.stringify(wounds) + '|' + (p.inv?.version ?? '');
+    // buttons are rebuilt on every change, so only rebuild when something visible changed (a rebuild between
+    // pointerdown and pointerup swallows the click)
+    const wsig = wounds.map(woundSig).join(',') + '|' + (p.inv?.version ?? '');
     if (force || wsig !== this.sig) {
       this.sig = wsig;
       this.renderBody(wounds);
@@ -90,7 +104,7 @@ export class HealthPanel {
     for (const [name, el] of Object.entries(this.fig.parts)) {
       const list = byPart[name] || [];
       let dmg = 0;
-      for (const w of list) dmg = Math.max(dmg, normSev(w.severity) * (1 - clamp(w.heal || 0, 0, 1) * 0.8));
+      for (const w of list) dmg = Math.max(dmg, woundSev(w) * (1 - clamp(w.heal || 0, 0, 1) * 0.8));
       const lvl = !list.length ? 0 : dmg < 0.34 ? 1 : dmg < 0.67 ? 2 : 3;
       el.dataset.lvl = String(lvl);
       setClass(el, 'bleeding', list.some((w) => w.bleeding));
@@ -130,7 +144,7 @@ export class HealthPanel {
       return;
     }
     wounds.forEach((w, i) => {
-      const sev = normSev(w.severity);
+      const sev = woundSev(w);
       const tags = [];
       if (w.bleeding) tags.push(['Bleeding', 'bad']);
       if (w.type === 'fracture' && !w.splinted) tags.push(['Unsplinted', 'bad']);
@@ -139,7 +153,11 @@ export class HealthPanel {
       else if (w.bandaged) tags.push(['Bandaged', 'good']);
       if (w.disinfected) tags.push(['Disinfected', 'good']);
       if (w.splinted) tags.push(['Splinted', 'good']);
-      if (!w.bandaged && !w.splinted && w.type !== 'fracture' && !w.bleeding) tags.push(['Untreated', 'warn']);
+      if (w.sutured) tags.push(['Stitched', 'good']);
+      if (w.embedded) tags.push([w.type === 'bullet' ? 'Bullet inside' : 'Glass inside', 'bad']);
+      if (w.burnTreated) tags.push(['Treated', 'good']);
+      if (w.type === 'deep' && !w.sutured && !w.bleeding) tags.push(['Needs stitches', 'warn']);
+      if (!w.bandaged && !w.splinted && !w.disinfected && !w.burnTreated && w.type !== 'fracture' && !w.bleeding) tags.push(['Untreated', 'warn']);
       const heal = clamp(w.heal || 0, 0, 1);
       let treatments = [];
       try { treatments = this.game.getTreatments?.(i) || []; } catch (e) { console.warn('getTreatments failed', e); }
@@ -191,7 +209,7 @@ export class HealthPanel {
       const g2 = h('div.vl-group', h('div.vl-group-title', 'Body'));
       const g3 = h('div.vl-group', h('div.vl-group-title', 'Mind'));
       mk('health', 'Health', g1); mk('pain', 'Pain', g1); mk('sickness', 'Sickness', g1); mk('infection', 'Infection', g1);
-      mk('temp', 'Body temperature', g2); mk('wetness', 'Wetness', g2); mk('fatigue', 'Fatigue', g2);
+      mk('temp', 'Temperature', g2); mk('wetness', 'Wetness', g2); mk('fatigue', 'Fatigue', g2);
       mk('hunger', 'Hunger', g2); mk('thirst', 'Thirst', g2);
       mk('panic', 'Panic', g3);
       this.armorEl = h('div.vl-armor');

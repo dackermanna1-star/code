@@ -151,6 +151,7 @@ export class InventoryPanel {
     setClass(this.figure.parts.armR, 'clad', clad('jacket') || clad('torso'));
     setClass(this.figure.parts.legL, 'clad', clad('legs'));
     setClass(this.figure.parts.legR, 'clad', clad('legs'));
+    this.paintDoll(inv);
     setText(this.charName, p.name || '');
 
     // weight
@@ -164,10 +165,7 @@ export class InventoryPanel {
     setClass(this.weightBar, 'warn', ratio > 0.85 && ratio <= 1);
     setClass(this.weightBar, 'over', ratio > 1);
     setClass(this.weightText, 'over', ratio > 1);
-    const arm = p.armor || {};
-    setText(this.armor.bite, pct(arm.bite));
-    setText(this.armor.scratch, pct(arm.scratch));
-    setText(this.armor.warmth, pct(p.insulation));
+    this.renderArmor();
 
     // player containers
     const st1 = this.playerScroll.scrollTop;
@@ -195,6 +193,43 @@ export class InventoryPanel {
 
     // restore hover tooltip
     if (this.hover && !this.drag) this.refreshHover();
+  }
+
+  /** Bite / scratch / warmth summary. Computed from what is worn right now (p.armor only updates next frame). */
+  renderArmor() {
+    const p = this.game.player;
+    let arm = p.armor || {}, ins = p.insulation;
+    try { const c = this.game.survival?.clothing?.(); if (c) { arm = c; ins = c.insulation; } } catch { /* fall back to cached values */ }
+    setText(this.armor.bite, pct(arm.bite));
+    setText(this.armor.scratch, pct(arm.scratch));
+    setText(this.armor.warmth, pct(ins));
+  }
+
+  /** Tint the paper-doll with the colours of what is worn (outermost layer; gloves / shoes at the ends). */
+  paintDoll(inv) {
+    const col = (slot) => {
+      const st = inv.getEquipped(slot);
+      return st ? getItemDef(st.id).icon?.color || '#6b5841' : null;
+    };
+    const P = this.figure.parts;
+    const paint = (el, main, end, endFrac) => {
+      const sig = (main || '') + '|' + (end || '');
+      if (el._paint === sig) return;
+      el._paint = sig;
+      if (!main && !end) { el.style.background = ''; return; }
+      const m = main || '#4e483f';
+      el.style.background = end
+        ? `linear-gradient(to bottom, ${m} 0, ${m} ${100 - endFrac}%, ${end} ${100 - endFrac}%, ${end} 100%)`
+        : m;
+    };
+    paint(P.head, col('head'), null, 0);
+    const torso = col('vest') || col('jacket') || col('torso');
+    paint(P.torso, torso, null, 0);
+    const sleeve = col('jacket') || (inv.getEquipped('torso') && inv.getEquipped('torso').id !== 'tank_top' ? col('torso') : null);
+    paint(P.armL, sleeve, col('hands'), 22);
+    paint(P.armR, sleeve, col('hands'), 22);
+    paint(P.legL, col('legs'), col('feet'), 18);
+    paint(P.legR, col('legs'), col('feet'), 18);
   }
 
   section(desc, side, opt = {}) {
@@ -313,12 +348,28 @@ export class InventoryPanel {
     this._qi = i;
     const targets = this.quickTargets(desc).filter(Boolean);
     const snap = this.snapshot(targets);
+    const moving = desc.slots[i];
     const ok = quickMove(desc, i, targets);
     if (ok) {
       const d = this.diff(targets, snap);
+      if (desc.kind === 'equipment') this.spillUnequipped(moving, EQUIP_SLOTS[i]);
       this.notifyMoved(desc, i, d ? d.desc : targets[0], d ? d.i : -1);
       this.render();
     } else this.deny(slotEl);
+  }
+
+  /**
+   * A worn piece of clothing just went into your inventory: empty its pockets into what you still wear
+   * (a backpack keeps its contents). Pocket items would otherwise be stuck inside a jacket in your bag.
+   */
+  spillUnequipped(stack, slot, swapped = false) {
+    if (!stack || !stack.contents || !stack.contents.some(Boolean)) return;
+    if (!this.inv.spillContents || (slot === 'back' && !swapped)) return;
+    let carried = swapped;
+    for (const d of [this.inv.hotbarDesc(), ...this.inv.storageDescs()]) if (d.slots.includes(stack)) carried = true;
+    if (!carried) return;
+    const n = this.inv.spillContents(stack);
+    if (n) this.ui.toast(`Moved ${n} item${n > 1 ? 's' : ''} out of the ${getItemDef(stack.id).name}.`, 'info');
   }
 
   takeAll(desc) {
@@ -556,7 +607,19 @@ export class InventoryPanel {
         }
       } else return;
     }
+    if (!ok && dst && dst.kind === 'equipment' && this.equipIndexFor(d.stack) >= 0 && this.sideOf(src) === 'player' && this.game.itemActions?.equip) {
+      // e.g. a new backpack dragged out of the backpack you are wearing: swap them properly
+      try { this.game.itemActions.equip(src, si); } catch (err) { console.error('equip failed', err); }
+      if (this.inv.equipment.includes(d.stack)) { this.render(); return; }
+    }
     if (ok) {
+      if (dst && dst.kind === 'equipment' && src.kind !== 'equipment') {
+        // swapped: the piece you took off now sits where the new one was
+        const old = src.slots[si];
+        if (old && old !== d.stack) this.spillUnequipped(old, getItemDef(old.id).clothing?.slot, true);
+      } else if (src.kind === 'equipment' && dst && dst.kind !== 'equipment') {
+        this.spillUnequipped(d.stack, EQUIP_SLOTS[si]);
+      }
       this.notifyMoved(src, si, dst, di);
       this.render();
     } else {

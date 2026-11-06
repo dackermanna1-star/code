@@ -144,7 +144,7 @@ export const PART_NAMES = {
 };
 export const WOUND_NAMES = {
   scratch: 'Scratch', laceration: 'Laceration', bite: 'Bite', deep: 'Deep Wound',
-  bullet: 'Gunshot Wound', fracture: 'Fracture', burn: 'Burn',
+  bullet: 'Gunshot Wound', fracture: 'Fracture', burn: 'Burn', glass: 'Glass Cut',
 };
 export const RARITY_COLORS = {
   common: '#d9d3c5', uncommon: '#7fc25a', rare: '#5aa2e6', epic: '#b673e8', legendary: '#e8a13a',

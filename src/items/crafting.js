@@ -353,10 +353,15 @@ export function getRecipeStatus(inv, ctx = {}) {
 // ---------------------------------------------------------------------------------------------------------
 function removeAt(slots, index) { slots[index] = null; }
 
-function takeFrom(spec, t, consumed) {
+function takeFrom(spec, t, consumed, opened) {
   const s = t.stack;
   const def = getItemDef(s.id);
-  if (spec.uses != null) {
+  if (spec.uses != null && (s.count || 1) > 1 && !def.liquidContainer) {
+    // a stack of unopened rolls / bottles: open one instead of draining the whole stack
+    s.count -= 1;
+    const o = { ...JSON.parse(JSON.stringify(s)), count: 1, uses: Math.max(0, (s.uses ?? def.uses ?? 0) - t.n) };
+    if (o.uses > 0) opened.push(o);
+  } else if (spec.uses != null) {
     s.uses = Math.max(0, (s.uses || 0) - t.n);
     if (s.uses <= 0) {
       if (def.liquidContainer) s.data = { ...(s.data || {}), liquid: null };
@@ -399,7 +404,8 @@ export function craft(inv, recipeOrId, ctx = {}) {
   const notes = [];
   const consumed = [];
   const ragCount = recipe.rags ? ragYield(p.inputs[0].take[0].stack, recipe.rags) : 0;
-  for (const i of p.inputs) for (const t of i.take) takeFrom(i.spec, t, consumed);
+  const opened = [];
+  for (const i of p.inputs) for (const t of i.take) takeFrom(i.spec, t, consumed, opened);
   for (const t of p.tools) wearTool(t, notes);
 
   const results = [];
@@ -442,8 +448,10 @@ export function craft(inv, recipeOrId, ctx = {}) {
     const total = results.reduce((n, s) => n + s.count, 0);
     message = `Crafted ${def.name}${total > 1 ? ' ×' + total : ''}.`;
   }
-  // add to inventory
+  // add to inventory (partly used rolls / bottles split off a stack go back first, they are not results)
+  for (const s of opened) { const left = inv.addItem(s); if (left) { left.dropped = true; results.push(left); } }
   for (const s of results) {
+    if (s.dropped) continue;
     const left = inv.addItem(s);
     if (left) left.dropped = true;
   }

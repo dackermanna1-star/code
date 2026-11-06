@@ -9,6 +9,25 @@
 
 import { getItemDef, itemWeight, canStack } from '../items/items.js';
 
+// Bulky items that never fit a pocket / vest pouch, whatever their weight (bags take anything).
+const BULKY = new Set(['plank', 'log', 'tarp', 'sheet_metal', 'metal_pipe', 'pot', 'saw', 'pumpkin', 'water_jug', 'campfire_kit', 'gas_can', 'lantern']);
+
+/**
+ * true if a stack is small enough for a pocket / vest pouch (clothing storage that is not a bag on the back).
+ * Jackets, boots, bags, long guns, two-handed / heavy weapons and bulky material need a backpack (or your hands).
+ */
+export function fitsPocket(stack) {
+  if (!stack) return true;
+  const def = getItemDef(stack.id);
+  if (def.capacity) return false;
+  if (def.clothing) return (def.weight || 0) <= 0.25; // caps, bandanas, gloves, masks
+  if (BULKY.has(stack.id)) return false;
+  if (def.firearm) return (def.weight || 0) <= 1.3; // handguns
+  if (def.melee && (def.melee.twoHanded || (def.weight || 0) > 1.0)) return false;
+  const unit = itemWeight(stack) / Math.max(1, stack.count || 1); // includes liquid
+  return unit <= 1.5;
+}
+
 export const EQUIP_SLOTS = ['head', 'face', 'torso', 'jacket', 'vest', 'hands', 'legs', 'feet', 'back'];
 export const EQUIP_LABELS = {
   head: 'Head', face: 'Face', torso: 'Shirt', jacket: 'Jacket', vest: 'Vest',
@@ -62,9 +81,10 @@ export class PlayerInventory {
       const st = this.equipment[i];
       if (st && st.contents) {
         const def = getItemDef(st.id);
+        const bag = slot === 'back';
         out.push({
-          key: 'equip:' + slot, name: def.name, kind: 'clothing', owner: st, slots: st.contents,
-          accepts: (stack) => stack !== st && !containsDeep(stack, st),
+          key: 'equip:' + slot, name: def.name, kind: 'clothing', owner: st, slots: st.contents, pocket: !bag,
+          accepts: (stack) => stack !== st && !containsDeep(stack, st) && (bag || fitsPocket(stack)),
           onChange: () => this.changed(),
         });
       }
@@ -170,6 +190,39 @@ export class PlayerInventory {
     }
     this.changed();
     return stack.count > 0 ? stack : null;
+  }
+
+  /**
+   * Move what is inside `stack` (a clothing item / bag that just left the equipment) into the storage that is
+   * still worn, so pocket contents don't vanish into a jacket sitting in your backpack. Whatever does not fit
+   * stays inside. Returns the number of stacks moved.
+   */
+  spillContents(stack) {
+    if (!stack || !stack.contents) return 0;
+    const storage = this.storageDescs().filter((d) => d.owner !== stack && !containsDeep(stack, d.owner));
+    let moved = 0;
+    for (let i = 0; i < stack.contents.length; i++) {
+      const c = stack.contents[i];
+      if (!c) continue;
+      // merge into existing stacks first
+      for (const d of storage) {
+        for (let j = 0; j < d.slots.length && c.count > 0; j++) {
+          const s = d.slots[j];
+          if (s && canStack(s, c)) {
+            const mv = Math.min((getItemDef(c.id).stack || 1) - s.count, c.count);
+            if (mv > 0) { s.count += mv; c.count -= mv; }
+          }
+        }
+      }
+      if (c.count <= 0) { stack.contents[i] = null; moved++; continue; }
+      for (const d of storage) {
+        if (d.accepts && !d.accepts(c, 0)) continue;
+        const j = d.slots.indexOf(null);
+        if (j >= 0) { d.slots[j] = c; stack.contents[i] = null; moved++; break; }
+      }
+    }
+    if (moved) this.changed();
+    return moved;
   }
 
   toJSON() {

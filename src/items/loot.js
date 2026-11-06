@@ -57,7 +57,7 @@ export const LOOT_GROUPS = {
     ['bobby_pins', 1, 1, 3],
   ],
   tools_small: [
-    ['duct_tape', 8], ['screwdriver', 6], ['hammer', 5], ['nails', 7, 4, 20], ['can_opener', 4], ['lighter', 3],
+    ['duct_tape', 8], ['screwdriver', 6], ['hammer', 5], ['nails', 7, 4, 20], ['can_opener', 4], ['pocket_knife', 3], ['lighter', 3],
     ['matches', 4], ['flashlight', 3], ['batteries', 4], ['multitool', 1], ['glue', 4], ['wire', 4], ['rope', 3],
     ['zip_ties', 3, 2, 10], ['saw', 2], ['wrench', 2], ['work_gloves', 2], ['sewing_kit', 2], ['whetstone', 1],
   ],
@@ -114,7 +114,7 @@ export const LOOT_GROUPS = {
   pocket: [
     ['wallet', 6], ['cash', 4, 1, 3], ['smartphone', 5], ['photo', 3], ['cigarettes', 3], ['lighter', 3], ['candy', 3],
     ['chocolate', 2], ['granola_bar', 1], ['painkillers', 1], ['bandage', 1], ['rag_dirty', 3], ['watch', 1],
-    ['jewelry', 2], ['batteries', 1], ['tv_remote', 0.5], ['bobby_pins', 1], ['matches', 1],
+    ['jewelry', 2], ['batteries', 1], ['tv_remote', 0.5], ['bobby_pins', 1], ['matches', 1], ['pocket_knife', 1],
   ],
   military_ammo: [
     ['ammo_556', 10, 10, 40], ['ammo_9mm', 4, 8, 30], ['ammo_12g', 1, 4, 10], ['ammo_308', 1, 4, 10],
@@ -154,7 +154,7 @@ export const LOOT_TABLES = {
   stove: { empty: 0.6, rolls: [1, 2], fresh: [1.2, 3], entries: [['pot', 6], ['frying_pan', 6], ['matches', 2], ['cooked_meat', 1], ['lighter', 1]] },
   kitchen: {
     empty: 0.25, rolls: [1, 4], dur: [0.4, 1],
-    entries: [['@canned', 30], ['@pantry', 20], ['@snacks', 8], ['kitchen_knife', 5], ['can_opener', 4], ['pot', 3], ['frying_pan', 3], ['rolling_pin', 2], ['meat_cleaver', 1], ['matches', 3], ['lighter', 1],
+    entries: [['@canned', 30], ['@pantry', 20], ['@snacks', 8], ['kitchen_knife', 9], ['can_opener', 10], ['pot', 3], ['frying_pan', 3], ['rolling_pin', 2], ['meat_cleaver', 1], ['matches', 3], ['lighter', 1],
       ['water_bottle', 3], ['garbage_bag', 2], ['glass_bottle', 2], ['plastic_bottle', 2], ['bleach', 1], ['honey', 1], ['rag', 2, 1, 2], ['candy', 1, 1, 3], ['whiskey', 0.6]],
   },
   under_sink: {
@@ -172,13 +172,13 @@ export const LOOT_TABLES = {
   dresser: {
     empty: 0.25, rolls: [1, 3], dur: [0.4, 1],
     entries: [['tshirt', 4], ['tshirt_grey', 3], ['tshirt_black', 2], ['tank_top', 3], ['jeans', 3], ['sweatpants', 3], ['shorts', 2], ['sweater', 2], ['thermal_shirt', 1.5], ['beanie', 2], ['bandana', 1.5], ['winter_gloves', 1],
-      ['jewelry', 2], ['cash', 2, 1, 3], ['photo', 2], ['watch', 2], ['wallet', 1], ['bobby_pins', 3, 1, 3], ['sleeping_pills', 1], ['pistol_glock', 0.25, 1, 1, { ammo: [0.3, 1] }], ['ammo_9mm', 0.4, 4, 15], ['novel', 1]],
+      ['jewelry', 2], ['cash', 2, 1, 3], ['photo', 2], ['watch', 2], ['wallet', 1], ['pocket_knife', 1.5], ['bobby_pins', 3, 1, 3], ['sleeping_pills', 1], ['pistol_glock', 0.25, 1, 1, { ammo: [0.3, 1] }], ['ammo_9mm', 0.4, 4, 15], ['novel', 1]],
   },
   bookshelf: { empty: 0.3, rolls: [1, 3], entries: [['@books', 30], ['map_millbrook', 1], ['newspaper', 3], ['photo', 1]] },
   desk: {
     empty: 0.3, rolls: [1, 2],
     entries: [['newspaper', 3], ['magazine', 3], ['smartphone', 3], ['batteries', 3], ['cash', 2, 1, 2], ['duct_tape', 2], ['glue', 2], ['alarm_clock', 2], ['electronics', 1], ['candy', 2, 1, 2], ['cigarettes', 1], ['lighter', 1], ['flashlight', 1],
-      ['map_millbrook', 1], ['@books', 2], ['wallet', 1], ['photo', 1], ['screwdriver', 1], ['coffee', 1], ['painkillers', 1], ['watch', 0.6], ['compass', 0.3]],
+      ['map_millbrook', 1], ['@books', 2], ['wallet', 1], ['photo', 1], ['screwdriver', 1], ['pocket_knife', 1], ['can_opener', 0.6], ['coffee', 1], ['painkillers', 1], ['watch', 0.6], ['compass', 0.3]],
   },
   medicine_cabinet: {
     empty: 0.3, rolls: [1, 3], uses: [0.2, 1],

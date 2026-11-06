@@ -663,6 +663,20 @@ export const PIXEL_ICONS = {
     '..rr........',
     '............',
   ],
+  w_glass: [
+    '............',
+    '........c...',
+    '.......cb...',
+    '......cbb...',
+    '.....cbB....',
+    '....rcB.....',
+    '...rrB......',
+    '..rRr.r.....',
+    '.rRr...r....',
+    '.rr.....r...',
+    '............',
+    '............',
+  ],
   w_bullet: [
     '............',
     '............',
@@ -1025,7 +1039,7 @@ const MOODLE_ICON = {
   tired: 'tired', drowsy: 'tired', exhausted: 'exhausted', heavy: 'weight', encumbered: 'weight', panic: 'panic',
   scared: 'panic', stressed: 'stressed', anxious: 'stressed', drunk: 'drunk', full: 'full', stuffed: 'full',
   hydrated: 'hydrated', warm: 'hot', bored: 'bored', unhappy: 'bored', depressed: 'bored', winded: 'bolt',
-  endurance: 'bolt', fracture: 'w_fracture', burned: 'w_burn',
+  endurance: 'bolt', fracture: 'w_fracture', burned: 'w_burn', woundinf: 'infected', adrenaline: 'bolt',
 };
 export function moodleIconName(id) {
   return MOODLE_ICON[id] || (PIXEL_ICONS[id] ? id : 'unknown');
