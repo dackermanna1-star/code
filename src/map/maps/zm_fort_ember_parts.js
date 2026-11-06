@@ -8,6 +8,9 @@
 // slope (merlon caps, parapet tops, rock spires, tarps) so nobody stands there at all.
 import { Brush, planeFromPoints, resolveTex } from '../brush.js';
 import { playerClip } from '../kit.js';
+import { CONTENTS_PLAYERCLIP } from '../../engine/collision.js';
+
+const CLIP = { contents: CONTENTS_PLAYERCLIP, visible: false, castShadow: false, name: 'clip' }; // (invisible, only players and zombies hit it)
 
 export const T = {
   adobe: 'fe_adobe', stone: 'fe_stone', rock: 'fe_rock', sand: 'fe_sand', flag: 'fe_flagstone',
@@ -121,6 +124,10 @@ export function brazier(m, x, y, z, o = {}) {
   const pts = [];
   for (let i = 0; i < 8; i++) { const a = (i + 0.5) * Math.PI / 4; pts.push([x + Math.cos(a) * r, y + Math.sin(a) * r]); }
   m.prism('z', pts, z + 24, z + 36, { all: T.iron }, { ...D, surface: 'metal', name: 'brazier' });
+  // invisible fill under the bowl's rim: the brazier is a solid 36 u block (a crate's height)
+  // to bump into or hop onto, with no overhang to wedge under (bots jumping for the bowl from
+  // its foot got caught on the rim)
+  m.prism('z', pts, z, z + 24, { all: null }, CLIP);
   // the coals and a low flame: self-lit, no collision
   const c = pts.map(([px, py]) => [x + (px - x) * 0.8, y + (py - y) * 0.8]);
   const b = m.prism('z', c, z + 36, z + 40, { all: T.glow }, { ...D, contents: 0, name: 'coals' });

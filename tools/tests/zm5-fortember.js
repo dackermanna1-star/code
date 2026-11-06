@@ -356,6 +356,15 @@
     newRun({ allies: 3, zdiff: 'normal' });
     const p = me();
     put(p, D.squadStart.pos);
+    // a bot that spawned on the squad start is inside the stand-in now (two hulls inside each
+    // other can't move): step it off to a free nav node nearby
+    for (const b of g.bots.bots) {
+      const q = b.p, o = q.pm.origin;
+      if (q === p || !q.alive || Math.hypot(o[0] - p.pm.origin[0], o[1] - p.pm.origin[1]) > 40) continue;
+      const free = g.nav.around(g.nav.nearest([o[0], o[1], o[2] - 36], 200), 200, 120)
+        .find((x) => x.dist > 90 && !g.players.some((r) => r.alive && Math.hypot(r.pm.origin[0] - x.node.x, r.pm.origin[1] - x.node.y) < 48));
+      if (free) put(q, [free.node.x, free.node.y, free.node.z]);
+    }
     p.armor = 100; p.helmet = true;
     run = {
       next: 0, t0: g.time, deaths: 0, downs: 0, stuckBots: 0, zStuck: 0, zSamples: 0, rec0: Z().horde?.counts?.recycled || 0,
