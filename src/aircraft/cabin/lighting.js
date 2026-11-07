@@ -17,14 +17,19 @@ export const MODES = {
   boarding: { ceil: C(0.30, 0.50, 1.00).multiplyScalar(0.95), side: C(1.0, 0.85, 0.68).multiplyScalar(0.62), led: C(0.32, 0.55, 1.0).multiplyScalar(3.2), pts: 1.0, ptsColor: C(1.0, 0.9, 0.78), hemi: 0.32, hemiSky: C(0.75, 0.82, 1.0), hemiGround: C(0.32, 0.27, 0.22), env: 1.0, warm: true },
   bright: { ceil: C(1.0, 0.97, 0.92).multiplyScalar(1.0), side: C(1.0, 0.95, 0.88).multiplyScalar(0.72), led: C(1.0, 0.96, 0.9).multiplyScalar(3.2), pts: 1.25, ptsColor: C(1.0, 0.96, 0.9), hemi: 0.36, hemiSky: C(1.0, 0.98, 0.95), hemiGround: C(0.34, 0.31, 0.28), env: 1.0, warm: true },
   cruise: { ceil: C(0.50, 0.66, 1.0).multiplyScalar(0.82), side: C(1.0, 0.94, 0.86).multiplyScalar(0.5), led: C(0.48, 0.66, 1.0).multiplyScalar(2.6), pts: 0.85, ptsColor: C(1.0, 0.95, 0.9), hemi: 0.28, hemiSky: C(0.8, 0.86, 1.0), hemiGround: C(0.3, 0.27, 0.24), env: 0.85, warm: true },
-  dim: { ceil: C(1.0, 0.6, 0.3).multiplyScalar(0.2), side: C(1.0, 0.68, 0.42).multiplyScalar(0.16), led: C(1.0, 0.58, 0.28).multiplyScalar(0.8), pts: 0.2, ptsColor: C(1.0, 0.72, 0.48), hemi: 0.07, hemiSky: C(1.0, 0.72, 0.5), hemiGround: C(0.25, 0.18, 0.12), env: 0.3, warm: false },
-  night: { ceil: C(0.30, 0.17, 0.95).multiplyScalar(0.26), side: C(0.26, 0.14, 0.75).multiplyScalar(0.06), led: C(0.36, 0.18, 1.0).multiplyScalar(1.1), pts: 0.05, ptsColor: C(0.42, 0.32, 1.0), hemi: 0.035, hemiSky: C(0.4, 0.3, 1.0), hemiGround: C(0.08, 0.06, 0.12), env: 0.12, warm: false },
+  dim: { ceil: C(1.0, 0.6, 0.3).multiplyScalar(0.36), side: C(1.0, 0.68, 0.42).multiplyScalar(0.25), led: C(1.0, 0.58, 0.28).multiplyScalar(1.4), pts: 0.24, ptsColor: C(1.0, 0.72, 0.48), hemi: 0.14, hemiSky: C(1.0, 0.72, 0.5), hemiGround: C(0.25, 0.18, 0.12), env: 0.35, warm: false },
+  night: { ceil: C(0.30, 0.15, 0.95).multiplyScalar(0.62), side: C(0.26, 0.14, 0.75).multiplyScalar(0.035), led: C(0.36, 0.16, 1.0).multiplyScalar(2.0), pts: 0.035, ptsColor: C(0.42, 0.32, 1.0), hemi: 0.035, hemiSky: C(0.4, 0.3, 1.0), hemiGround: C(0.05, 0.04, 0.08), env: 0.1, warm: false },
 };
+
+// Overall cabin light level relative to daylight: keeps direct sun ~10x brighter than the
+// LED-lit lining (auto-exposure brings the cabin back to a natural brightness).
+export const CABIN_GAIN = 0.32;
 
 export function createLighting(app, M, root, opts = {}) {
   const q = app.quality || { maxLights: 8, detail: 1 };
-  const nSpots = clamp(Math.round((q.maxLights || 8) / 4), 1, 4);
-  const nPts = clamp((q.maxLights || 8) - nSpots + 2, 4, 12);
+  // allocate for the richest preset; lights beyond the current preset's budget are hidden
+  const counts = (qq) => { const ns = clamp(Math.round((qq?.maxLights || 8) / 4), 1, 4); return { ns, np: clamp((qq?.maxLights || 8) - ns + 2, 4, 12) }; };
+  const { ns: nSpots, np: nPts } = counts(q);
   const group = new THREE.Group();
   group.name = 'cabin-lights';
   root.add(group);
@@ -53,7 +58,7 @@ export function createLighting(app, M, root, opts = {}) {
   // --- reading-light spot pool -------------------------------------------------------------
   const spots = [];
   for (let i = 0; i < nSpots; i++) {
-    const s = new THREE.SpotLight(0xfff1dc, 0, 3.2, 0.36, 0.55, 2);
+    const s = new THREE.SpotLight(0xfff1dc, 0, 3.2, 0.42, 0.6, 2);
     s.position.set(0, -10, 0);
     s.target.position.set(0, -11, 0);
     s.castShadow = false;
@@ -96,20 +101,21 @@ export function createLighting(app, M, root, opts = {}) {
   }
 
   function apply() {
-    SHARED.uCeilWash.value.copy(cur.ceil);
-    SHARED.uSideWash.value.copy(cur.side);
-    SHARED.uGlow.value.copy(cur.led).multiplyScalar(0.22);
-    M.led.color.copy(cur.led);
-    M.ledSide.color.copy(cur.side).multiplyScalar(4.0);
-    for (const l of pts) { l.color.copy(cur.ptsColor); l.intensity = cur.pts * ptScale; }
+    const G = CABIN_GAIN;
+    SHARED.uCeilWash.value.copy(cur.ceil).multiplyScalar(G);
+    SHARED.uSideWash.value.copy(cur.side).multiplyScalar(G);
+    SHARED.uGlow.value.copy(cur.led).multiplyScalar(0.22 * G);
+    M.led.color.copy(cur.led).multiplyScalar(0.55);
+    M.ledSide.color.copy(cur.side).multiplyScalar(4.0 * G);
+    for (const l of pts) { l.color.copy(cur.ptsColor); l.intensity = cur.pts * ptScaleCur * G; }
     hemi.color.copy(cur.hemiSky);
     hemi.groundColor.copy(cur.hemiGround);
-    hemi.intensity = cur.hemi;
+    hemi.intensity = cur.hemi * G;
     // cabin reflections: scale the environment with the cabin light level (only if nobody else drives it)
     const sc = app.scenes.cabin;
     if (envBase === null) envBase = sc.environmentIntensity ?? 0.35;
     if (envLastSet !== null && Math.abs(sc.environmentIntensity - envLastSet) > 1e-6) { envBase = null; envLastSet = null; return; }
-    sc.environmentIntensity = envBase * cur.env;
+    sc.environmentIntensity = envBase * cur.env * 0.5;
     envLastSet = sc.environmentIntensity;
   }
 
@@ -155,6 +161,19 @@ export function createLighting(app, M, root, opts = {}) {
       if (!s.userData.owner && s.intensity < 0.01) { s.intensity = 0; s.position.y = -10; }
     }
   }
+
+  // quality change: never exceed the light budget chosen at start-up, hide extras when lowering
+  app.events?.on?.('quality:changed', (qq) => {
+    const c = counts(qq);
+    const useP = Math.min(c.np, nPts);
+    const step = nPts / useP;
+    let on = 0;
+    pts.forEach((l, i) => { l.visible = Math.floor(i / step) !== Math.floor((i - 1) / step) || i === 0; if (l.visible) on++; });
+    // keep the total illumination roughly constant
+    ptScaleCur = ptScale * nPts / Math.max(1, on);
+    spots.forEach((sp, i) => { sp.visible = i < c.ns; });
+  });
+  let ptScaleCur = ptScale;
 
   return {
     api, update, updateSpots, acquireSpot, releaseSpot, spots, points: pts, hemi, group,

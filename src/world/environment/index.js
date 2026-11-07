@@ -3,7 +3,7 @@ import { AtmosphereModel, ATM, createAtmosphereUniforms, SkyViewLut } from './at
 import { createSkyUniforms, createSkyDome, SkyCapture, SKY_COMMON_GLSL } from './sky.js';
 import { sunPosition, moonPosition, TIME_PRESETS, wrapHours, SOLAR } from './sun.js';
 import { Terrain, makeGroundHeight } from './terrain.js';
-import { createNoiseTexture, createWaveTexture, loadGroundTextures } from './textures.js';
+import { createNoiseTexture, createWaveTexture, createReliefTexture, loadGroundTextures } from './textures.js';
 
 // =============================================================================
 // ENVIRONMENT MODULE — sky, sun & time of day, atmosphere / aerial perspective,
@@ -23,8 +23,8 @@ import { createNoiseTexture, createWaveTexture, loadGroundTextures } from './tex
 const DEG = Math.PI / 180;
 const ENV_SHARE = 0.85;          // share of sky ambient delivered by the PMREM (outside)
 const HEMI_SHARE = 0.18;         // remaining fill through the hemisphere light (outside)
-const MOON_ILLUM = 0.05;         // boosted moonlight (scene units) so night is never pitch black
-const NIGHT_GLOW = [0.00026, 0.00036, 0.00062];
+const MOON_ILLUM = 0.075;         // boosted moonlight (scene units) so night is never pitch black
+const NIGHT_GLOW = [0.00034, 0.00046, 0.00078];
 const X_REF_FOG = 10000;         // distance (m) where the exp2 fog matches the physical extinction
 
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
@@ -45,8 +45,8 @@ class Environment {
     this.skyU.uMoonIrr = { value: new THREE.Vector3() };
 
     this.skyView = new SkyViewLut(app, this.atmU);
-    this.dome = createSkyDome(this.skyU);
-    app.skyRoot.add(this.dome);
+    this.dome = createSkyDome(this.skyU, !!app.pipeline?.reversedDepth);
+    if (!String(app.debug?.module || '').includes('env-nosky')) app.skyRoot.add(this.dome);
     app.scenes.outside.background = null;
 
     // --- state ------------------------------------------------------------------
@@ -58,7 +58,7 @@ class Environment {
     this.camWorld = new THREE.Vector3(0, 3.8, 0);
     this.altKm = 0.0038;
     this.nightFactor = 0;
-    this._lut = { sun: new THREE.Vector3(9, 9, 9), alt: -1, moon: new THREE.Vector3(9, 9, 9) };
+    this._lut = { sun: new THREE.Vector3(9, 9, 9), alt: -1 };
     this._light = { t: -1e9, sun: new THREE.Vector3(9, 9, 9), alt: -1 };
     this._env = { t: -1e9, sun: new THREE.Vector3(9, 9, 9), alt: -1, night: -1, cloud: -1, rt: null };
     this.skyIrrUp = [1, 1, 1];
@@ -69,13 +69,21 @@ class Environment {
 
     // --- terrain ----------------------------------------------------------------
     const ground = loadGroundTextures(app);
-    this.terrainTextures = { noise: createNoiseTexture(512), waves: createWaveTexture(256), ...ground };
-    try {
-      this.terrain = new Terrain(app, this, this.skyU, this.terrainTextures);
-      app.worldRoot.add(this.terrain.mesh);
-    } catch (e) {
-      console.error('[environment] terrain init failed', e);
-      this.terrain = null;
+    const aniso = Math.min(app.quality?.anisotropy || 4, app.renderer.capabilities.getMaxAnisotropy?.() || 4);
+    const lowQ = (app.quality?.detail ?? 1) === 0;
+    this.terrainTextures = { noise: createNoiseTexture(512, lowQ ? 1 : Math.min(4, aniso)), waves: createWaveTexture(256, lowQ ? 1 : aniso), relief: createReliefTexture(512, lowQ ? 1 : Math.min(4, aniso)), ...ground };
+    // debug: ?module=env-noterrain / env-nosky / env-nopmrem (combinable)
+    const dbg = String(app.debug?.module || '');
+    this._dbg = dbg;
+    this.terrain = null;
+    if (!dbg.includes('env-noterrain')) {
+      try {
+        this.terrain = new Terrain(app, this, this.skyU, this.terrainTextures);
+        app.worldRoot.add(this.terrain.mesh);
+      } catch (e) {
+        console.error('[environment] terrain init failed', e);
+        this.terrain = null;
+      }
     }
 
     // --- environment map ----------------------------------------------------------
@@ -96,7 +104,7 @@ class Environment {
       this.skyU.uGeoArr.value.set(o.x, o.z);
       this.terrain?.invalidate();
     });
-    app.events.on('quality:changed', () => { this._env.t = -1e9; });
+    app.events.on('quality:changed', () => this._onQualityChanged());
 
     app.addUpdate((dt) => this.update(dt), 30, 'environment');
     app.addUpdate(() => this._postLights(), 26, 'environment:lights');
@@ -104,6 +112,31 @@ class Environment {
     this.update(0, true);
 
     this.api = this._makeApi();
+  }
+
+  /** Rebuild quality-dependent parts (terrain grid / shader detail, env-map size). */
+  _onQualityChanged() {
+    const app = this.app;
+    try {
+      const detail = Math.max(0, Math.min(3, app.quality?.detail ?? 1));
+      if (this.terrain && this.terrain.cfg.detail !== detail) {
+        app.worldRoot.remove(this.terrain.mesh);
+        this.terrain.dispose();
+        this.terrain = new Terrain(app, this, this.skyU, this.terrainTextures);
+        app.worldRoot.add(this.terrain.mesh);
+        this.api.terrain = this.terrain;
+      }
+      const envSize = Math.max(128, app.quality?.envMapSize || 256) * 4;
+      if (this.capture.rt.width !== envSize) {
+        this.capture.dispose();
+        this.capture = new SkyCapture(app, this.skyU, envSize);
+        if (this._env.rt) { this._env.rt.dispose(); this._env.rt = null; }
+      }
+    } catch (e) {
+      console.warn('[environment] quality change failed', e);
+    }
+    this._env.t = -1e9;
+    this._maybeUpdateEnvMap(true);
   }
 
   // ------------------------------------------------------------------------- time
@@ -139,12 +172,11 @@ class Environment {
 
     // night factor (0 = day ... 1 = full night)
     this.nightFactor = smooth(-3, -11, this.sunEl);
-    const moonUp = smooth(-1, 4, this.moonEl);
     const mI = MOON_ILLUM * this.moonPhase;
     U.uAtmMoonIllum.value.set(mI * 0.92, mI * 0.97, mI * 1.05).multiplyScalar(this.nightFactor);
-    U.uAtmNightGlow.value.set(...NIGHT_GLOW).multiplyScalar(0.25 + 0.75 * this.nightFactor);
+    U.uAtmNightGlow.value.set(NIGHT_GLOW[0], NIGHT_GLOW[1], NIGHT_GLOW[2]).multiplyScalar(0.25 + 0.75 * this.nightFactor);
     U.uStars.value = smooth(-5, -13, this.sunEl) * (0.75 + 0.25 * smooth(0.5, 9, this.altKm));
-    U.uSunDisc.value = 480;
+    U.uSunDisc.value = 260;
     U.uMoonDisc.value = 2.6 + 10 * this.nightFactor;
     // sidereal rotation of the star field around the celestial pole
     const lat = SOLAR.latitude * DEG;
@@ -162,7 +194,10 @@ class Environment {
 
     // CPU lighting (throttled)
     const LI = this._light;
-    if (force || app.time - LI.t > 0.25 && (LI.sun.angleTo(this.sunDir) > 0.001 || Math.abs(this.altKm - LI.alt) > Math.max(0.01, LI.alt * 0.02)) || app.time - LI.t > 5) {
+    const sunMoved = LI.sun.angleTo(this.sunDir);
+    const altMoved = Math.abs(this.altKm - LI.alt);
+    const jump = sunMoved > 1.0 * DEG || altMoved > Math.max(0.3, LI.alt * 0.15);
+    if (force || jump || (app.time - LI.t > 0.25 && (sunMoved > 0.001 || altMoved > Math.max(0.01, LI.alt * 0.02))) || app.time - LI.t > 5) {
       this._computeLighting();
       LI.t = app.time; LI.sun.copy(this.sunDir); LI.alt = this.altKm;
     }
@@ -206,18 +241,25 @@ class Environment {
     const r = ATM.Rg + h;
     const dip = Math.acos(clamp(ATM.Rg / r, -1, 1));
     const el = -(dip + Math.atan2(h, 12) + 0.002);
-    let fr = 0, fg = 0, fb = 0;
+    // (sunward azimuths are down-weighted: their bright forward-scattering glow is not
+    // representative of the haze in front of most objects)
+    let fr = 0, fg = 0, fb = 0, wsum = 0;
     const out = this._tmp2;
-    for (let i = 0; i < 8; i++) {
-      const az = (i + 0.5) / 8 * Math.PI * 2;
+    const sh = Math.hypot(sun[0], sun[2]) || 1;
+    for (let i = 0; i < 12; i++) {
+      const az = (i + 0.5) / 12 * Math.PI * 2;
       const d = [Math.cos(el) * Math.cos(az), Math.sin(el), Math.cos(el) * Math.sin(az)];
+      const cs = (d[0] * sun[0] + d[2] * sun[2]) / (sh * Math.cos(el));
+      const w = 1 - 0.8 * smooth(0.2, 0.95, cs);
       m.skyRadiance(h, d, sun, E0, out, 20);
       const T = out.T;
-      fr += out[0] / Math.max(0.05, 1 - T[0]); fg += out[1] / Math.max(0.05, 1 - T[1]); fb += out[2] / Math.max(0.05, 1 - T[2]);
       const ns = this._nightSky(d, this._tmp3);
-      fr += ns[0]; fg += ns[1]; fb += ns[2];
+      fr += w * (out[0] / Math.max(0.05, 1 - T[0]) + ns[0]);
+      fg += w * (out[1] / Math.max(0.05, 1 - T[1]) + ns[1]);
+      fb += w * (out[2] / Math.max(0.05, 1 - T[2]) + ns[2]);
+      wsum += w;
     }
-    this.fogColor.setRGB(fr / 8, fg / 8, fb / 8);
+    this.fogColor.setRGB(fr / wsum, fg / wsum, fb / wsum);
   }
 
   /** Analytic moonlit night sky (mirror of GLSL atmNightSky). */
@@ -314,9 +356,12 @@ class Environment {
   }
 
   _updateFog() {
+    const sc = this.app.scenes.outside;
+    if (!sc.fog) sc.fog = this.fog;
+    // mean extinction along a slant path from the observer down to the ground (exponential layers)
     const h = Math.max(0.001, this.altKm);
-    const eff = (beta, H) => beta * (h > 1e-3 ? H / h * (1 - Math.exp(-h / H)) : 1);
-    const betaKm = eff(ATM.rayScat[1], ATM.rayH) + eff(ATM.mieScat + ATM.mieAbs, ATM.mieH);
+    const kR = ATM.rayH / h * (1 - Math.exp(-h / ATM.rayH)), kM = ATM.mieH / h * (1 - Math.exp(-h / ATM.mieH));
+    const betaKm = ATM.rayScat[1] * kR + (ATM.mieScat + ATM.mieAbs) * kM;
     const beta = betaKm / 1000;
     this.fog.density = Math.sqrt(beta / X_REF_FOG);
     this.fog.color.copy(this.fogColor);
@@ -329,9 +374,10 @@ class Environment {
     const changed = E.sun.angleTo(this.sunDir) > 0.5 * DEG || Math.abs(Math.log((this.altKm + 0.1) / (E.alt + 0.1))) > 0.12
       || Math.abs(this.nightFactor - E.night) > 0.05 || Math.abs(cloudBelow - E.cloud) > 0.08;
     if (!force && !(changed && app.time - E.t > 1.5)) return;
+    if (this._dbg.includes('env-nopmrem')) return;
     // brighten the lower hemisphere when a cloud deck is below us
     const gr = this.skyU.uGroundRadiance.value;
-    const saved = gr.clone();
+    const saved = _v3.copy(gr);
     if (cloudBelow > 0) {
       const up = this.skyIrrUp;
       const sunT = this.model.sunTransmittance(this.altKm, this.sunDir.y, this._tmp);
@@ -385,6 +431,8 @@ class Environment {
       get visibilityKm() { return env.visibilityKm; },
       /** Haze colour used for scene fog (linear HDR). */
       fogColor: env.fogColor,
+      /** The FogExp2 installed on scenes.outside (re-set every frame at priority 30; modules may scale it afterwards). */
+      fog: env.fog,
       /**
        * Shared uniforms + GLSL for other modules' shaders (clouds, water, glow):
        *   uniforms: spread into your ShaderMaterial uniforms (same objects, updated every frame)
@@ -404,6 +452,7 @@ class Environment {
 
 const _v1 = new THREE.Vector3();
 const _v2 = new THREE.Vector3();
+const _v3 = new THREE.Vector3();
 const _m4 = new THREE.Matrix4();
 
 export async function init(app) {

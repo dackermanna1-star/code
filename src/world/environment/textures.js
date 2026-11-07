@@ -42,7 +42,7 @@ function tileGradientNoise(S, cells, seed) {
   return out;
 }
 
-export function createNoiseTexture(S = 512) {
+export function createNoiseTexture(S = 512, anisotropy = 4) {
   const chans = [
     [tileGradientNoise(S, 8, 11), tileGradientNoise(S, 16, 12)],
     [tileGradientNoise(S, 16, 21), tileGradientNoise(S, 32, 22)],
@@ -62,20 +62,66 @@ export function createNoiseTexture(S = 512) {
   t.magFilter = THREE.LinearFilter;
   t.generateMipmaps = true;
   t.colorSpace = THREE.NoColorSpace;
-  t.anisotropy = 4;
+  t.anisotropy = anisotropy;
   t.name = 'env.noise';
   t.needsUpdate = true;
   return t;
 }
 
+/**
+ * Tileable macro-relief map (ridged gradient-noise fBm): RG = surface slope
+ * (x, z), B = height, A = ridge mask. Adds gullies / spurs finer than the
+ * geo.js height field (~30 m .. 1 km) to the terrain shading.
+ */
+export function createReliefTexture(S = 512, anisotropy = 4) {
+  const oct = [[4, 0.5, 51], [8, 0.3, 52], [16, 0.17, 53], [32, 0.09, 54], [64, 0.05, 55]];
+  const H = new Float32Array(S * S);
+  const R = new Float32Array(S * S);
+  for (const [cells, amp, seed] of oct) {
+    const n = tileGradientNoise(S, cells, seed);
+    for (let i = 0; i < S * S; i++) { const r = 1 - Math.abs(n[i] * 1.4); const rr = r * r; H[i] += rr * amp; if (cells <= 8) R[i] += rr * amp; }
+  }
+  let minH = Infinity, maxH = -Infinity, maxG = 0;
+  for (let i = 0; i < S * S; i++) { minH = Math.min(minH, H[i]); maxH = Math.max(maxH, H[i]); }
+  const gx = new Float32Array(S * S), gy = new Float32Array(S * S);
+  for (let y = 0; y < S; y++) {
+    for (let x = 0; x < S; x++) {
+      const i = y * S + x;
+      const xp = y * S + ((x + 1) % S), xm = y * S + ((x - 1 + S) % S);
+      const yp = ((y + 1) % S) * S + x, ym = ((y - 1 + S) % S) * S + x;
+      gx[i] = (H[xp] - H[xm]) * 0.5; gy[i] = (H[yp] - H[ym]) * 0.5;
+      maxG = Math.max(maxG, Math.abs(gx[i]), Math.abs(gy[i]));
+    }
+  }
+  const data = new Uint8Array(S * S * 4);
+  const k = 1 / maxG;
+  for (let i = 0; i < S * S; i++) {
+    data[i * 4] = Math.round((gx[i] * k * 0.5 + 0.5) * 255);
+    data[i * 4 + 1] = Math.round((gy[i] * k * 0.5 + 0.5) * 255);
+    data[i * 4 + 2] = Math.round((H[i] - minH) / (maxH - minH) * 255);
+    data[i * 4 + 3] = Math.round(Math.min(1, R[i] / 0.8) * 255);
+  }
+  const t = new THREE.DataTexture(data, S, S, THREE.RGBAFormat, THREE.UnsignedByteType);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.minFilter = THREE.LinearMipmapLinearFilter;
+  t.magFilter = THREE.LinearFilter;
+  t.generateMipmaps = true;
+  t.colorSpace = THREE.NoColorSpace;
+  t.anisotropy = anisotropy;
+  t.name = 'env.relief';
+  t.needsUpdate = true;
+  return t;
+}
+
 /** Tileable wind-wave normal map (directional spectrum of periodic sinusoids). */
-export function createWaveTexture(S = 256) {
+export function createWaveTexture(S = 256, anisotropy = 8) {
   const rnd = mulberry32(777);
   const waves = [];
   // integer wave numbers keep the tile periodic
-  for (let i = 0; i < 70; i++) {
-    const k = 2 + Math.floor(Math.pow(rnd(), 1.6) * 34);
-    const ang = (rnd() - 0.5) * 2.2 + (rnd() < 0.15 ? Math.PI : 0);   // mostly down-wind
+  for (let i = 0; i < 90; i++) {
+    const k = 2 + Math.floor(Math.pow(rnd(), 1.4) * 40);
+    // mostly down-wind (cos^2-like spread), some cross / counter-propagating chop
+    const ang = rnd() < 0.3 ? rnd() * Math.PI * 2 : (rnd() - 0.5) * 3.0;
     const kx = Math.round(Math.cos(ang) * k), ky = Math.round(Math.sin(ang) * k);
     if (kx === 0 && ky === 0) continue;
     const kk = Math.hypot(kx, ky);
@@ -117,7 +163,7 @@ export function createWaveTexture(S = 256) {
   t.magFilter = THREE.LinearFilter;
   t.generateMipmaps = true;
   t.colorSpace = THREE.NoColorSpace;
-  t.anisotropy = 8;
+  t.anisotropy = anisotropy;
   t.name = 'env.waves';
   t.needsUpdate = true;
   return t;

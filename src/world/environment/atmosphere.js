@@ -29,7 +29,7 @@ export const ATM = {
   mieScat: 0.0225,                          // Mie (aerosol) scattering at sea level (1/km): summer haze, ~60 km visibility
   mieAbs: 0.0025,                           // aerosol absorption (1/km)
   mieH: 1.25,                               // aerosol scale height (km): boundary-layer haze
-  mieG: 0.78,                               // Mie anisotropy
+  mieG: 0.8,                                // Mie anisotropy
   ozAbs: [0.650e-3, 1.881e-3, 0.085e-3],    // ozone absorption at the layer peak (1/km)
   ozCenter: 25.0, ozHalfWidth: 15.0,
   groundAlbedo: 0.11,
@@ -106,7 +106,7 @@ export class AtmosphereModel {
 
   _bakeTransmittance() {
     const ext = [0, 0, 0];
-    const N = 96;
+    const N = 64;
     for (let j = 0; j < TH; j++) {
       for (let i = 0; i < TW; i++) {
         const [r, mu] = transUvToRMu(i / (TW - 1), j / (TH - 1));
@@ -140,7 +140,7 @@ export class AtmosphereModel {
   }
 
   _bakeMultiScattering() {
-    const SQ = 8, NS = 20;
+    const SQ = 6, NS = 16;
     const ext = [0, 0, 0], tsun = [0, 0, 0];
     const dirs = [];
     for (let a = 0; a < SQ; a++) {

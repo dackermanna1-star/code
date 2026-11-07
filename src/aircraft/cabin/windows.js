@@ -115,7 +115,7 @@ function buildFunnel(b, ang, H, inset) {
       const up = n[0] * WIN.ux + n[1] * WIN.uy;
       const sw = (0.25 + 0.5 * clamp(up + 0.3, 0, 1)) * (k < 2 ? 1 : 0.6);
       const ao = FUNNEL_AO[Math.max(0, k - 1)] * (k === 0 ? 1.05 : 1);
-      b.vert(P[0], P[1], P[2], n[0], n[1], n[2], 0.22 + 0.06 * (i / N), 0.3 + k * 0.02, [0.07, sw, Math.min(1, ao), 0]);
+      b.vert(P[0], P[1], P[2], n[0], n[1], n[2], 0.1 + 0.6 * (i / N), 0.3 + (k === 0 ? 0 : FUNNEL[k - 1][0]) * 2.5, [0.07, sw, Math.min(1, ao), 0]);
     }
     per.push(k);
   }

@@ -1,0 +1,368 @@
+{
+ "boarding_welcome": {
+  "speaker": "purser",
+  "duration": 23.081,
+  "sentences": [
+   {
+    "t": 0.22,
+    "text": "Good afternoon, ladies and gentlemen, and welcome aboard Halcyon Airways flight four eighty-two, with service to Port Solano."
+   },
+   {
+    "t": 8.949,
+    "text": "As you find your seat, please stow your carry-on items in the overhead bins or under the seat in front of you."
+   },
+   {
+    "t": 16.682,
+    "text": "Please keep the aisle clear so that we can complete boarding as quickly as possible."
+   },
+   {
+    "t": 21.974,
+    "text": "Thank you."
+   }
+  ]
+ },
+ "captain_welcome": {
+  "speaker": "captain",
+  "duration": 29.618,
+  "sentences": [
+   {
+    "t": 0.22,
+    "text": "Good afternoon, folks, this is Captain Daniel Reyes from the flight deck."
+   },
+   {
+    "t": 5.036,
+    "text": "On behalf of First Officer Okafor and the entire crew, welcome aboard."
+   },
+   {
+    "t": 9.614,
+    "text": "We are just finishing up the paperwork and loading the last of the bags."
+   },
+   {
+    "t": 13.48,
+    "text": "Our flight time this afternoon is planned at two hours and fifty minutes, and we will be cruising at thirty-six thousand feet."
+   },
+   {
+    "t": 20.574,
+    "text": "The weather en route looks mostly smooth, with a few bumps on the climb out."
+   },
+   {
+    "t": 25.157,
+    "text": "Sit back, relax, and we will be on our way shortly."
+   }
+  ]
+ },
+ "doors_closed": {
+  "speaker": "purser",
+  "duration": 17.825,
+  "sentences": [
+   {
+    "t": 0.22,
+    "text": "Ladies and gentlemen, the forward door is now closed."
+   },
+   {
+    "t": 4.342,
+    "text": "At this time, please make sure your seatbelt is fastened, your seatback is upright, and your tray table is stowed."
+   },
+   {
+    "t": 12.51,
+    "text": "Portable electronic devices must be switched to flight mode."
+   },
+   {
+    "t": 16.675,
+    "text": "Thank you."
+   }
+  ]
+ },
+ "doors_armed": {
+  "speaker": "purser",
+  "duration": 3.655,
+  "sentences": [
+   {
+    "t": 0.22,
+    "text": "Cabin crew, arm doors and cross-check."
+   }
+  ]
+ },
+ "safety_demo": {
+  "speaker": "purser",
+  "duration": 59.251,
+  "sentences": [
+   {
+    "t": 0.22,
+    "text": "Ladies and gentlemen, please direct your attention to the safety demonstration."
+   },
+   {
+    "t": 5.488,
+    "text": "To fasten your seatbelt, insert the metal fitting into the buckle and tighten the strap."
+   },
+   {
+    "t": 10.783,
+    "text": "To release, lift the top of the buckle."
+   },
+   {
+    "t": 13.333,
+    "text": "This aircraft has eight emergency exits: two at the front, four over the wings, and two at the rear."
+   },
+   {
+    "t": 19.282,
+    "text": "Please take a moment to locate the exit nearest you, keeping in mind it may be behind you."
+   },
+   {
+    "t": 25.36,
+    "text": "In the event of an emergency, floor-path lighting will guide you to an exit."
+   },
+   {
+    "t": 30.206,
+    "text": "If cabin pressure changes suddenly, oxygen masks will drop from the panel above."
+   },
+   {
+    "t": 36.103,
+    "text": "Pull the mask towards you, place it over your nose and mouth, and breathe normally."
+   },
+   {
+    "t": 41.927,
+    "text": "Secure your own mask before helping others."
+   },
+   {
+    "t": 45.041,
+    "text": "Your life vest is located under your seat."
+   },
+   {
+    "t": 48.276,
+    "text": "Do not inflate it until you are outside the aircraft."
+   },
+   {
+    "t": 51.801,
+    "text": "Smoking, including electronic cigarettes, is prohibited on this flight."
+   },
+   {
+    "t": 57.133,
+    "text": "Thank you for your attention."
+   }
+  ]
+ },
+ "fa_takeoff": {
+  "speaker": "captain",
+  "duration": 3.548,
+  "sentences": [
+   {
+    "t": 0.22,
+    "text": "Flight attendants, please be seated for departure."
+   }
+  ]
+ },
+ "seatbelt_off": {
+  "speaker": "purser",
+  "duration": 24.266,
+  "sentences": [
+   {
+    "t": 0.22,
+    "text": "Ladies and gentlemen, the captain has turned off the fasten seatbelt sign, and you may now move about the cabin."
+   },
+   {
+    "t": 7.509,
+    "text": "However, while seated, we recommend that you keep your seatbelt fastened in case of unexpected turbulence."
+   },
+   {
+    "t": 14.635,
+    "text": "Our seatback entertainment system is now available, with movies, television, music, and the live flight map."
+   },
+   {
+    "t": 22.583,
+    "text": "Enjoy your flight."
+   }
+  ]
+ },
+ "captain_cruise": {
+  "speaker": "captain",
+  "duration": 26.72,
+  "sentences": [
+   {
+    "t": 0.22,
+    "text": "Ladies and gentlemen, this is your captain speaking."
+   },
+   {
+    "t": 3.211,
+    "text": "We have reached our cruising altitude of thirty-six thousand feet, with a ground speed of about five hundred and ten miles per hour."
+   },
+   {
+    "t": 10.979,
+    "text": "If you are seated on the left side of the aircraft, you have a nice view of the cloud tops below us."
+   },
+   {
+    "t": 16.454,
+    "text": "The weather in Port Solano is clear, with a light westerly breeze and a temperature of twenty-four degrees."
+   },
+   {
+    "t": 22.421,
+    "text": "We expect to arrive a few minutes ahead of schedule."
+   },
+   {
+    "t": 25.217,
+    "text": "Enjoy the flight."
+   }
+  ]
+ },
+ "service": {
+  "speaker": "purser",
+  "duration": 14.913,
+  "sentences": [
+   {
+    "t": 0.22,
+    "text": "Ladies and gentlemen, in a few moments we will be coming through the cabin with complimentary beverages and a light snack."
+   },
+   {
+    "t": 8.296,
+    "text": "For your comfort, our lavatories are located at the front and at the rear of the cabin."
+   },
+   {
+    "t": 13.793,
+    "text": "Thank you."
+   }
+  ]
+ },
+ "turbulence": {
+  "speaker": "captain",
+  "duration": 14.901,
+  "sentences": [
+   {
+    "t": 0.22,
+    "text": "Ladies and gentlemen, from the flight deck."
+   },
+   {
+    "t": 3.029,
+    "text": "We are expecting some light turbulence for the next few minutes, so I have turned on the fasten seatbelt sign."
+   },
+   {
+    "t": 9.03,
+    "text": "Please return to your seats and keep your seatbelts securely fastened."
+   },
+   {
+    "t": 13.597,
+    "text": "Thank you."
+   }
+  ]
+ },
+ "turbulence_over": {
+  "speaker": "captain",
+  "duration": 7.531,
+  "sentences": [
+   {
+    "t": 0.22,
+    "text": "Folks, the ride has smoothed out again, so I have switched off the seatbelt sign."
+   },
+   {
+    "t": 5.332,
+    "text": "Feel free to move about the cabin."
+   }
+  ]
+ },
+ "descent_captain": {
+  "speaker": "captain",
+  "duration": 20.425,
+  "sentences": [
+   {
+    "t": 0.22,
+    "text": "Ladies and gentlemen, this is the captain."
+   },
+   {
+    "t": 2.806,
+    "text": "We have begun our descent into Port Solano and should be on the ground in about twenty minutes."
+   },
+   {
+    "t": 7.922,
+    "text": "Skies are clear, so those of you on the left side should get a lovely view of the coastline and the city on the way in."
+   },
+   {
+    "t": 14.651,
+    "text": "The flight attendants will now prepare the cabin for landing."
+   },
+   {
+    "t": 18.238,
+    "text": "Thank you for flying with us today."
+   }
+  ]
+ },
+ "descent_purser": {
+  "speaker": "purser",
+  "duration": 23.041,
+  "sentences": [
+   {
+    "t": 0.22,
+    "text": "Ladies and gentlemen, as we prepare for landing, please return to your seats and fasten your seatbelts."
+   },
+   {
+    "t": 6.981,
+    "text": "Make sure your seatback is in the upright position, your tray table is stowed, your window shade is open, and your carry-on items are stowed under the seat in front of you or in the overhead bins."
+   },
+   {
+    "t": 19.131,
+    "text": "The lavatories will be closed shortly."
+   },
+   {
+    "t": 21.881,
+    "text": "Thank you."
+   }
+  ]
+ },
+ "fa_landing": {
+  "speaker": "captain",
+  "duration": 3.554,
+  "sentences": [
+   {
+    "t": 0.22,
+    "text": "Flight attendants, prepare for landing, please."
+   }
+  ]
+ },
+ "landing_welcome": {
+  "speaker": "purser",
+  "duration": 23.594,
+  "sentences": [
+   {
+    "t": 0.22,
+    "text": "Ladies and gentlemen, welcome to Port Solano, where the local time is a quarter to seven in the evening."
+   },
+   {
+    "t": 6.553,
+    "text": "For your safety and the safety of those around you, please remain seated with your seatbelt fastened until the captain has turned off the fasten seatbelt sign."
+   },
+   {
+    "t": 17.057,
+    "text": "Please use caution when opening the overhead bins, as items may have shifted during the flight."
+   }
+  ]
+ },
+ "doors_disarm": {
+  "speaker": "purser",
+  "duration": 3.376,
+  "sentences": [
+   {
+    "t": 0.22,
+    "text": "Cabin crew, disarm doors and cross-check."
+   }
+  ]
+ },
+ "farewell": {
+  "speaker": "captain",
+  "duration": 14.944,
+  "sentences": [
+   {
+    "t": 0.22,
+    "text": "Ladies and gentlemen, from the flight deck, welcome to Port Solano."
+   },
+   {
+    "t": 4.783,
+    "text": "On behalf of the whole crew, thank you for flying Halcyon Airways."
+   },
+   {
+    "t": 8.807,
+    "text": "We hope you enjoyed the flight, and we look forward to seeing you on board again soon."
+   },
+   {
+    "t": 13.234,
+    "text": "Have a wonderful evening."
+   }
+  ]
+ }
+}

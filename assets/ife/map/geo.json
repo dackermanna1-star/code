@@ -1,0 +1,311 @@
+{
+ "bounds": {
+  "lon0": -134.0,
+  "lon1": -84.0,
+  "lat0": 24.0,
+  "lat1": 50.0
+ },
+ "size": [
+  3072,
+  2000
+ ],
+ "cities": [
+  {
+   "name": "Cedar Bay",
+   "lat": 37.6,
+   "lon": -122.4,
+   "pop": 5,
+   "kind": "origin"
+  },
+  {
+   "name": "Port Solano",
+   "lat": 35.42,
+   "lon": -97.55,
+   "pop": 5,
+   "kind": "dest"
+  },
+  {
+   "name": "Marisol",
+   "lat": 34.3,
+   "lon": -119.0,
+   "pop": 3,
+   "kind": ""
+  },
+  {
+   "name": "Santa Lucena",
+   "lat": 33.3,
+   "lon": -117.1,
+   "pop": 4,
+   "kind": ""
+  },
+  {
+   "name": "Fairhaven",
+   "lat": 38.6,
+   "lon": -121.4,
+   "pop": 3,
+   "kind": ""
+  },
+  {
+   "name": "Redstone",
+   "lat": 36.7,
+   "lon": -119.7,
+   "pop": 2,
+   "kind": ""
+  },
+  {
+   "name": "Pinecrest",
+   "lat": 39.5,
+   "lon": -119.8,
+   "pop": 2,
+   "kind": ""
+  },
+  {
+   "name": "Mirage Flats",
+   "lat": 36.1,
+   "lon": -115.2,
+   "pop": 4,
+   "kind": ""
+  },
+  {
+   "name": "Sable Rock",
+   "lat": 40.8,
+   "lon": -111.9,
+   "pop": 4,
+   "kind": ""
+  },
+  {
+   "name": "Coyote Wells",
+   "lat": 33.4,
+   "lon": -112.0,
+   "pop": 4,
+   "kind": ""
+  },
+  {
+   "name": "Juniper",
+   "lat": 35.1,
+   "lon": -106.6,
+   "pop": 3,
+   "kind": ""
+  },
+  {
+   "name": "Ironridge",
+   "lat": 39.7,
+   "lon": -104.9,
+   "pop": 4,
+   "kind": ""
+  },
+  {
+   "name": "Twin Forks",
+   "lat": 43.6,
+   "lon": -116.2,
+   "pop": 2,
+   "kind": ""
+  },
+  {
+   "name": "Larkspur",
+   "lat": 38.8,
+   "lon": -109.5,
+   "pop": 1,
+   "kind": ""
+  },
+  {
+   "name": "Granite Falls",
+   "lat": 41.1,
+   "lon": -104.8,
+   "pop": 2,
+   "kind": ""
+  },
+  {
+   "name": "Mesa Alta",
+   "lat": 32.3,
+   "lon": -106.8,
+   "pop": 2,
+   "kind": ""
+  },
+  {
+   "name": "Silverton",
+   "lat": 37.8,
+   "lon": -107.7,
+   "pop": 1,
+   "kind": ""
+  },
+  {
+   "name": "Amberfield",
+   "lat": 38.0,
+   "lon": -97.3,
+   "pop": 3,
+   "kind": ""
+  },
+  {
+   "name": "Prairie Hill",
+   "lat": 36.2,
+   "lon": -101.8,
+   "pop": 2,
+   "kind": ""
+  },
+  {
+   "name": "Halden",
+   "lat": 39.1,
+   "lon": -94.6,
+   "pop": 4,
+   "kind": ""
+  },
+  {
+   "name": "Riverbend",
+   "lat": 36.1,
+   "lon": -95.9,
+   "pop": 3,
+   "kind": ""
+  },
+  {
+   "name": "Westmoor",
+   "lat": 45.5,
+   "lon": -122.7,
+   "pop": 4,
+   "kind": ""
+  },
+  {
+   "name": "Oakridge",
+   "lat": 42.3,
+   "lon": -122.9,
+   "pop": 2,
+   "kind": ""
+  },
+  {
+   "name": "Cobalt",
+   "lat": 46.6,
+   "lon": -112.0,
+   "pop": 1,
+   "kind": ""
+  },
+  {
+   "name": "Bluewater",
+   "lat": 33.9,
+   "lon": -98.5,
+   "pop": 2,
+   "kind": ""
+  },
+  {
+   "name": "Sunmesa",
+   "lat": 34.5,
+   "lon": -103.2,
+   "pop": 1,
+   "kind": ""
+  },
+  {
+   "name": "Ravenna",
+   "lat": 41.2,
+   "lon": -96.0,
+   "pop": 3,
+   "kind": ""
+  },
+  {
+   "name": "Copper Gulch",
+   "lat": 31.6,
+   "lon": -110.3,
+   "pop": 1,
+   "kind": ""
+  },
+  {
+   "name": "Lone Pine",
+   "lat": 36.6,
+   "lon": -118.1,
+   "pop": 1,
+   "kind": ""
+  },
+  {
+   "name": "Dunmore",
+   "lat": 44.1,
+   "lon": -103.2,
+   "pop": 1,
+   "kind": ""
+  },
+  {
+   "name": "Highcastle",
+   "lat": 47.6,
+   "lon": -117.4,
+   "pop": 2,
+   "kind": ""
+  },
+  {
+   "name": "Tidewater",
+   "lat": 33.0,
+   "lon": -99.2,
+   "pop": 2,
+   "kind": ""
+  },
+  {
+   "name": "Corsica",
+   "lat": 32.6,
+   "lon": -99.8,
+   "pop": 1,
+   "kind": ""
+  }
+ ],
+ "labels": [
+  {
+   "name": "WESTERN OCEAN",
+   "lat": 33.5,
+   "lon": -128.5,
+   "kind": "sea",
+   "size": 3,
+   "water": true
+  },
+  {
+   "name": "Gulf of Solano",
+   "lat": 31.6,
+   "lon": -94.5,
+   "kind": "sea",
+   "size": 2,
+   "water": true
+  },
+  {
+   "name": "SIERRA ALTA",
+   "lat": 37.9,
+   "lon": -119.1,
+   "kind": "range",
+   "size": 1,
+   "water": false
+  },
+  {
+   "name": "IRON MOUNTAINS",
+   "lat": 41.5,
+   "lon": -107.6,
+   "kind": "range",
+   "size": 1,
+   "water": false
+  },
+  {
+   "name": "GREAT BASIN",
+   "lat": 39.6,
+   "lon": -116.2,
+   "kind": "region",
+   "size": 1,
+   "water": false
+  },
+  {
+   "name": "HIGH PLAINS",
+   "lat": 37.9,
+   "lon": -101.5,
+   "kind": "region",
+   "size": 1,
+   "water": false
+  },
+  {
+   "name": "Lake Saline",
+   "lat": 41.1,
+   "lon": -112.6,
+   "kind": "lake",
+   "size": 0,
+   "water": true
+  },
+  {
+   "name": "Southern Sea",
+   "lat": 27.0,
+   "lon": -105.0,
+   "kind": "sea",
+   "size": 2,
+   "water": true
+  }
+ ]
+}

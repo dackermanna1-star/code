@@ -60,7 +60,7 @@ export function sunPosition(localHours, out) {
 /** Moon direction (fixed phase relative to the sun) + illuminated fraction. */
 export function moonPosition(localHours, out) {
   const solar = localHours + SOLAR.solarOffsetHours;
-  const ha = (solar - 12) * 15 - SOLAR.moonElongationDeg * (1 - 1 / 29.53 * 0);   // the moon trails the sun
+  const ha = (solar - 12) * 15 - SOLAR.moonElongationDeg;   // east of the sun: it trails the sun across the sky
   const r = bodyDirection(ha, SOLAR.moonDeclinationDeg, SOLAR.latitude, out);
   r.phase = (1 - Math.cos(SOLAR.moonElongationDeg * DEG)) / 2;
   return r;

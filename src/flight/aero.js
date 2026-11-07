@@ -12,7 +12,7 @@ export const AERO = {
   massLanding: 63200,
   clAlpha0: 0.1,                  // lift-curve slope per degree at low Mach
   // zero-AoA lift coefficient (body reference) per flap detent
-  cl0: [[0, 0.17], [1, 0.40], [5, 0.52], [15, 0.78], [25, 0.95], [30, 1.04], [40, 1.15]],
+  cl0: [[0, 0.17], [1, 0.38], [5, 0.50], [15, 0.70], [25, 0.84], [30, 0.90], [40, 0.98]],
   cd0: 0.021,
   k: 0.045,                       // induced drag factor
   cdFlaps: [[0, 0], [1, 0.003], [5, 0.010], [15, 0.022], [25, 0.040], [30, 0.055], [40, 0.075]],

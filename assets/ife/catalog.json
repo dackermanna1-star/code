@@ -1,0 +1,38 @@
+{
+  "movies": [
+    {
+      "id": "sintel", "title": "Sintel", "year": 2010, "duration": 888, "genre": "Fantasy · Adventure", "rating": "PG-13", "featured": true,
+      "synopsis": "A lonely young woman named Sintel rescues a wounded baby dragon and names him Scales. When the little dragon is snatched away, she sets out alone across frozen mountains and ancient cities to find him, and learns what the search has cost her.",
+      "director": "Colin Levy", "cast": "Halina Reijn, Thom Hoffman",
+      "tagline": "A Blender Foundation open movie",
+      "src": "assets/video/sintel.mp4", "still": "assets/ife/stills/sintel_still.jpg", "backdrop": "assets/ife/stills/sintel_backdrop.jpg", "posterFocus": 0.42, "color": "#2b1d1a",
+      "credits": "Sintel © copyright Blender Foundation | durian.blender.org.",
+      "license": "Licensed under the Creative Commons Attribution 3.0 licence (CC BY 3.0). Re-encoded for in-flight playback."
+    },
+    {
+      "id": "bbb", "title": "Big Buck Bunny", "year": 2008, "duration": 596, "genre": "Comedy · Animation", "rating": "G",
+      "synopsis": "A day in the forest turns sour when three bullying rodents pick on the wrong neighbour. Big Buck Bunny, a gentle giant with a soft spot for butterflies, has finally had enough, and plans an elaborate, slapstick revenge.",
+      "director": "Sacha Goedegebure",
+      "tagline": "A Blender Foundation open movie",
+      "src": "assets/video/big_buck_bunny.mp4", "still": "assets/ife/stills/bbb_still.jpg", "backdrop": "assets/ife/stills/bbb_backdrop.jpg", "posterFocus": 0.55, "color": "#5d8a3a",
+      "credits": "Big Buck Bunny © copyright 2008, Blender Foundation | www.bigbuckbunny.org.",
+      "license": "Licensed under the Creative Commons Attribution 3.0 licence (CC BY 3.0). Re-encoded for in-flight playback."
+    }
+  ],
+  "series": [
+    {
+      "id": "caminandes", "title": "Caminandes", "year": 2013, "genre": "Comedy · Animation · Family", "rating": "G",
+      "synopsis": "In the vast, wind-swept landscapes of Patagonia, Koro the llama keeps running into obstacles: roads, fences, rival penguins and his own stubbornness.",
+      "director": "Pablo Vazquez",
+      "tagline": "Season 1",
+      "still": "assets/ife/stills/caminandes_backdrop.jpg", "backdrop": "assets/ife/stills/caminandes_backdrop.jpg", "posterFocus": 0.42, "color": "#b06a3a",
+      "credits": "Caminandes © Blender Foundation | caminandes.com.",
+      "license": "Caminandes © Blender Foundation | caminandes.com · Licensed under Creative Commons Attribution 3.0 (CC BY 3.0). Re-encoded for in-flight playback.",
+      "episodes": [
+        { "id": "caminandes_1", "title": "Llama Drama", "year": 2013, "duration": 90, "rating": "G", "genre": "Comedy", "synopsis": "Koro wants to get to the other side of the road. The road, it turns out, has other ideas.", "src": "assets/video/caminandes_1.mp4", "still": "assets/ife/stills/cam1_still.jpg", "credits": "Caminandes: Llama Drama © 2013 Blender Foundation | caminandes.com.", "license": "CC BY 3.0." },
+        { "id": "caminandes_2", "title": "Gran Dillama", "year": 2013, "duration": 146, "rating": "G", "genre": "Comedy", "synopsis": "The grass is always greener on the other side of an electric fence, and Koro is determined to get a taste of it.", "src": "assets/video/caminandes_2.mp4", "still": "assets/ife/stills/cam2_still.jpg", "credits": "Caminandes: Gran Dillama © 2013 Blender Foundation | caminandes.com.", "license": "CC BY 3.0." },
+        { "id": "caminandes_3", "title": "Llamigos", "year": 2016, "duration": 150, "rating": "G", "genre": "Comedy", "synopsis": "Winter has come to Patagonia and food is scarce. Koro meets Oti, a pesky penguin with his eye on the very same berries.", "src": "assets/video/caminandes_3.mp4", "still": "assets/ife/stills/cam3_still.jpg", "credits": "Caminandes: Llamigos © 2016 Blender Foundation | caminandes.com.", "license": "CC BY 3.0." }
+      ]
+    }
+  ]
+}

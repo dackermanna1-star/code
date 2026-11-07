@@ -46,6 +46,9 @@ uniform float uMoonDisc;         // moon disc radiance scale
 uniform float uTime;
 uniform float uCaptureMode;      // 1 = env capture: no disc, no stars
 varying vec3 vDir;
+#ifdef SKY_DOME
+varying vec3 vNightSky;
+#endif
 
 float hash13(vec3 p) { p = fract(p * 0.1031); p += dot(p, p.zyx + 31.32); return fract((p.x + p.y) * p.z); }
 vec3 hash33(vec3 p) {
@@ -66,15 +69,15 @@ vec3 starField(vec3 d, float pix) {
   vec3 h = hash33(vec3(cell, face * 17.0 + 3.0));
   float cellAng = 1.5708 / CELLS;                    // ~ angular size of a cell
   // magnitude distribution: many faint, few bright
-  if (h.z > 0.16) return vec3(0.0);
-  float bright = pow(h.x, 7.0);
+  if (h.z > 0.075) return vec3(0.0);
+  float bright = pow(h.x, 11.0);
   vec2 pos = 0.15 + 0.7 * hash33(vec3(cell + 7.7, face)).xy;
-  float dist = length(fr - pos) * cellAng / max(pix, 1e-5);
-  float spot = exp(-dist * dist * 1.6);
-  // colour temperature
+  float dist = length(fr - pos) * cellAng / max(pix * 0.6, 1e-5);
+  float spot = exp(-dist * dist * 2.8);
+  // colour temperature (subtle: the eye sees little colour in faint stars)
   float t = hash13(vec3(cell * 1.7, face + 9.0));
-  vec3 col = mix(vec3(0.75, 0.85, 1.25), vec3(1.25, 0.95, 0.7), t * t);
-  return col * spot * (0.0012 + bright * 0.35);
+  vec3 col = mix(vec3(0.86, 0.92, 1.12), vec3(1.12, 0.98, 0.84), t * t);
+  return col * spot * (0.00035 + bright * 0.9);
 }
 
 void main() {
@@ -82,7 +85,11 @@ void main() {
   bool ground;
   vec3 L = atmSkyView(dir, ground);
   float r = uAtmCamR, h = uAtmCamH, mu = dir.y;
+#ifdef SKY_DOME
+  L += vNightSky;
+#else
   L += atmNightSky(dir);
+#endif
   if (ground) {
     float D = atmRayEnd(r, h, mu, true);
     vec3 T = exp(-atmPathOD(r, h, mu, D));
@@ -101,7 +108,8 @@ void main() {
       L += T * uAtmSunIllum * uSunDisc * limb * edge;
     }
     // --- sharp aureole (forward scattering by large aerosols / ice), visible in hazy air
-    float aure = atmMiePhase(c, 0.96) * 0.0045 + atmMiePhase(c, 0.995) * 0.00025;
+    float mieOD = ATM_MIE_EXT * ATM_MIE_H * exp(-h / ATM_MIE_H) / (max(mu, 0.0) + 0.04);
+    float aure = (atmMiePhase(c, 0.96) * 0.06 + atmMiePhase(c, 0.995) * 0.004) * (1.0 - exp(-mieOD));
     L += T * uAtmSunIllum * aure * smoothstep(-0.03, 0.01, uAtmSunDir.y);
     // --- moon
     float cm = dot(dir, uAtmMoonDir);
@@ -137,11 +145,16 @@ void main() {
   gl_FragColor = vec4(L, 1.0);
 }`;
 
-const SKY_VERT = /* glsl */`
+const skyVert = (reversed) => /* glsl */`
+${SKY_COMMON_GLSL}
 varying vec3 vDir;
+varying vec3 vNightSky;
 void main() {
   vDir = position;
+  vNightSky = atmNightSky(normalize(position));      // smooth: per vertex
   gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  // pin to the far plane: the dome is drawn after opaque geometry and only fills uncovered pixels
+  gl_Position.z = ${reversed ? '0.0' : 'gl_Position.w'};
 }`;
 
 const EQUI_VERT = /* glsl */`
@@ -172,17 +185,21 @@ export function createSkyUniforms(atmUniforms) {
   };
 }
 
-/** The visible sky dome. */
-export function createSkyDome(uniforms) {
+/**
+ * The visible sky dome. Drawn after the opaque geometry (renderOrder) at the far
+ * plane with depth test, so only pixels not covered by terrain / objects are shaded.
+ */
+export function createSkyDome(uniforms, reversedDepth) {
   const geo = new THREE.SphereGeometry(1000, 48, 32);
   const mat = new THREE.ShaderMaterial({
-    name: 'env.sky', vertexShader: SKY_VERT, fragmentShader: SKY_FRAG, uniforms,
-    side: THREE.BackSide, depthWrite: false, depthTest: false, fog: false,
+    name: 'env.sky', vertexShader: skyVert(reversedDepth), fragmentShader: SKY_FRAG, uniforms, defines: { SKY_DOME: 1 },
+    side: THREE.BackSide, depthWrite: false, depthTest: true, fog: false,
   });
   const mesh = new THREE.Mesh(geo, mat);
   mesh.name = 'env.skyDome';
   mesh.frustumCulled = false;
-  mesh.renderOrder = -10000;
+  mesh.renderOrder = 100000;
+  mesh.raycast = () => {};
   return mesh;
 }
 
@@ -209,4 +226,5 @@ export class SkyCapture {
     r.setRenderTarget(prev);
     return this.rt.texture;
   }
+  dispose() { this.rt.dispose(); this.material.dispose(); }
 }

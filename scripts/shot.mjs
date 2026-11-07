@@ -37,6 +37,7 @@ const report = [];
 try {
   for (const job of jobs) {
     const page = await browser.newPage({ viewport: { width, height } });
+    page.setDefaultTimeout(timeout);
     const errors = [], warnings = [], logs = [];
     page.on('console', (m) => {
       const t = m.type(), text = m.text();
@@ -71,7 +72,16 @@ try {
       };
     });
     fs.mkdirSync(path.dirname(path.resolve(job.out)), { recursive: true });
-    await page.screenshot({ path: job.out });
+    // grab the WebGL canvas directly (robust under heavy CPU load), then fall back to a page screenshot
+    let saved = false;
+    if (!flag('fullpage')) {
+      try {
+        const dataUrl = await page.evaluate(() => document.getElementById('gl').toDataURL('image/png'));
+        fs.writeFileSync(job.out, Buffer.from(dataUrl.split(',')[1], 'base64'));
+        saved = true;
+      } catch { /* fall through */ }
+    }
+    if (!saved) await page.screenshot({ path: job.out, timeout });
     report.push({ out: job.out, url, readyMs: tReady, ...info, errors: errors.slice(0, 30), warnings: warnings.slice(0, 15), logs: logs.slice(0, 40) });
     await page.close();
   }

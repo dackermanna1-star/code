@@ -100,9 +100,9 @@ export class MotionFeel {
     if (!Number.isFinite(I)) I = clamp(Math.abs(Number(verticalSpeed) || 1.0) / 3, 0, 1);
     I = clamp(I, 0, 1);
     const k = this.shake();
-    this.seatY.kick(-(0.12 + 0.42 * I) * k);
+    this.seatY.kick(-(0.18 + 0.6 * I) * k);
     this.bumpY.kick(-(0.08 + 0.22 * I) * k);
-    this.seatP.kick(-(0.015 + 0.05 * I) * k);
+    this.seatP.kick(-(0.03 + 0.08 * I) * k);
     this.seatR.kick((this.rand() - 0.5) * 0.04 * I * k);
     this.rattle = Math.max(this.rattle, 0.5 + 0.5 * I);
     this.awaitNose = { t: this.t, intensity: I };
@@ -186,10 +186,10 @@ export class MotionFeel {
     this.turbulence = T;
     let pushTX = 0, pushTZ = 0;
     if (T > 0.002) {
-      ty += T * (0.011 * fbm1(t * 1.15 + 3.1, 3) + 0.0045 * fbm1(t * 2.9 + 9.7, 2));
+      ty += T * (0.017 * fbm1(t * 1.15 + 3.1, 3) + 0.007 * fbm1(t * 2.9 + 9.7, 2));
       tx += T * 0.004 * fbm1(t * 0.75 + 21.3, 3) * (standing ? 2.2 : 1);
-      tr += T * 0.009 * fbm1(t * 0.55 + 41.9, 3) * (standing ? 1.6 : 1);
-      tp += T * 0.004 * fbm1(t * 0.95 + 61.7, 3);
+      tr += T * 0.014 * fbm1(t * 0.55 + 41.9, 3) * (standing ? 1.6 : 1);
+      tp += T * 0.006 * fbm1(t * 0.95 + 61.7, 3);
       tyw += T * 0.0025 * fbm1(t * 0.45 + 81.3, 2);
       if (standing) { pushTX += T * 0.32 * fbm1(t * 0.32 + 5.5, 3); pushTZ += T * 0.12 * fbm1(t * 0.27 + 15.5, 2); }
       if (this.nextJolt === 0) this.nextJolt = t + 2 + this.rand() * 4;
@@ -233,7 +233,7 @@ export class MotionFeel {
       const prev = this.rollDist;
       this.rollDist += gs * dt;
       const L = 6.1, gearGap = 17.7;
-      const amp = shake * (0.3 + 0.7 * rumble) * 0.085 * smoothstep(0.5, 6, gs) / (1 + gs / 28);
+      const amp = shake * (0.35 + 0.65 * rumble) * 0.2 * smoothstep(0.5, 6, gs) / (1 + gs / 28);
       const z = this.eyeZ;
       const noseF = 0.35 + 0.65 * clamp((2.1 - z) / 17.7, 0, 1);
       const mainF = 0.55 + 0.45 * clamp(1 - Math.abs(z - 2.1) / 15, 0, 1);
@@ -257,7 +257,7 @@ export class MotionFeel {
 
     const p = this.pos, r = this.rot;
     p.set(this.hx.x, this.hy.x + this.seatY.x * 0.6 + this.bumpY.x * 0.45, this.hz.x);
-    r.set(this.rp.x + this.seatP.x + this.bumpP.x * 0.35, this.ry.x, this.rr.x + this.seatR.x);
+    r.set(this.rp.x + this.seatP.x + this.bumpP.x, this.ry.x, this.rr.x + this.seatR.x);
     if (hfPos > 1e-6) {
       p.y += hfPos * (0.6 * noise1(t * 21.0) + 0.4 * noise1(t * 13.3 + 5.1));
       p.x += hfPos * 0.5 * noise1(t * 17.1 + 11.7);

@@ -17,7 +17,8 @@ export function bakeAt(x, y, z, nx, ny, nz) {
   // bins outer faces & lips
   if (ax > 0.5 && ax < 1.4 && y > 1.55 && y < 2.12) {
     const top = smoothstep(1.75, 2.07, y);
-    return [0.10 + 0.32 * top * clamp(-ny + 0.4, 0, 1), 0.02, 1, 0];
+    const facing = clamp(0.6 - ny * 0.4, 0.2, 1);   // faces towards the aisle catch bounce from the seats
+    return [0.34 + 0.32 * top, 0.18 * facing, 1, 0];
   }
   // generic: lit from above by the ceiling
   return [0.10 + 0.16 * clamp(ny * 0.5 + 0.5, 0, 1), 0.04, 1, 0];

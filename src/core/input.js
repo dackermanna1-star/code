@@ -91,7 +91,7 @@ export class Input {
     if (this.locked) return;
     try {
       const p = this.el.requestPointerLock({ unadjustedMovement: true });
-      if (p && p.catch) p.catch(() => { try { this.el.requestPointerLock(); } catch { /* ignore */ } });
+      if (p && p.catch) p.catch(() => { try { const p2 = this.el.requestPointerLock(); p2?.catch?.(() => {}); } catch { /* ignore */ } });
     } catch { try { this.el.requestPointerLock(); } catch { /* ignore */ } }
   }
   releaseLock({ silent = true } = {}) {

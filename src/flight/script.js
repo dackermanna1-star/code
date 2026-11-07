@@ -11,17 +11,19 @@ import { DEG, KT, FT, FPM, G } from '../core/constants.js';
 import { clamp, clamp01, smoothstep, lerp, table, approach, follow, wrapPi, projectOnPath } from './fmath.js';
 import { AERO, clFor, cdFor, engineThrust } from './aero.js';
 import { gamFor, softMin } from './air.js';
-import { planDescent, gsHeight, tasFor, GS_TAN, WHEEL_OFF } from './route.js';
+import { planDescent, gsHeight, tasFor, GS_TAN, WHEEL_OFF, H_FAF } from './route.js';
 
 export const FL360 = 36000 * FT;
 export const VR_KT = 150;
 const V2_15_KT = 165;
 // climb vertical-speed schedules: [altitude ft, fpm]
 const CLIMB_VS = {
-  compressed: [[0, 2700], [1500, 2500], [3000, 5000], [9800, 5200], [10600, 4200], [12000, 6800], [27000, 7000], [31000, 5200], [34500, 2600]],
+  compressed: [[0, 2700], [1500, 2500], [3000, 5200], [9800, 5600], [12000, 7000], [28000, 7200], [32000, 6000], [35000, 4000]],
   realistic: [[0, 2600], [1500, 2300], [3000, 3200], [10000, 2600], [12000, 2600], [20000, 2200], [26000, 1800], [31000, 1300], [34500, 900]],
 };
-const GAMMA_MAX = { compressed: 9.5 * DEG, realistic: 8 * DEG };
+const GAMMA_MAX = { compressed: 10 * DEG, realistic: 8 * DEG };
+// climb speeds (kt): below FL100 / above (compressed keeps the speed up so no slow-down is needed)
+const CLIMB_IAS = { compressed: [270, 300], realistic: [250, 290] };
 const clbN1 = (h) => 88.5 + 4.5 * clamp01(h / 9500);
 const _f = { x: 0, v: 0 };
 
@@ -33,9 +35,9 @@ function taxiControl(D, { vmaxCap, joints = 5 } = {}) {
 }
 
 // low-level / cloud turbulence helper (scripted part only; inCloud is added by the director)
-function lowLevelTurb(D, hAgl, base = 0.06) {
+function lowLevelTurb(D, hAgl, base = 0.05) {
   const hft = hAgl / FT;
-  return base * smoothstep(40, 300, hft) + 0.1 * smoothstep(60, 400, hft) * (1 - smoothstep(900, 2500, hft));
+  return base * smoothstep(40, 300, hft) + 0.07 * smoothstep(60, 400, hft) * (1 - smoothstep(900, 2500, hft));
 }
 
 export const SCRIPT = {
@@ -50,8 +52,9 @@ export const SCRIPT = {
       const t = D.st.phaseTime, pd = D.pd;
       D.gc.hold = true;
       const end = pd.end ?? Infinity;
-      if (D.once('boarding_welcome', t >= 12)) D.announce('boarding_welcome', { maxDelay: 40 });
-      if (D.once('captain_welcome', t >= 60 && end - t > 85)) D.announce('captain_welcome', { maxDelay: 30 });
+      if (D.once('boarding_welcome', t >= (end < 200 ? 6 : 12))) D.announce('boarding_welcome', { maxDelay: 40 });
+      // captain's welcome after the boarding PA (earlier when the gate time is short)
+      if (D.once('captain_welcome', t >= Math.min(60, Math.max(30, end - 90)) && end - t > 50)) D.announce('captain_welcome', { maxDelay: 40 });
       if (D.once('doors', t >= end - 75)) D.setDoors(true);
       if (D.once('doors_closed', t >= end - 71)) D.announce('doors_closed', { maxDelay: 45 });
       if (D.once('bright', t >= end - 60)) D.setLightsMode('bright');
@@ -167,7 +170,8 @@ export const SCRIPT = {
       const st = D.st, t = st.phaseTime, pd = D.pd, ad = D.ad;
       if (D.mode === 'ground') {
         const g = D.ground, c = D.gc;
-        if (t < 3.5) { c.hold = true; D.n1Cmd = 40; return; }
+        // standing takeoff: 40 % N1, let the engines stabilise, then TO/GA and release the brakes
+        if (t < 6) { c.hold = true; D.n1Cmd = t > 1 ? 40 : 0; return; }
         if (D.once('toga', true)) { D.setThrust('takeoff', 1); pd.stage = 'roll'; }
         D.n1Cmd = 95;
         const T = engineThrust(st.engines, ad.rho, ad.mach, 0);
@@ -227,13 +231,14 @@ export const SCRIPT = {
       D.n1Cmd = D.fired.has('thrRed') ? clbN1(h) : 95;
       if (D.once('taxiOff', t >= 4)) { st.lights.taxi = false; }
       // speed target: V2+15 to 1000 ft, 250 kt below FL100, 290 kt / M.78 above
-      const ias = agl < 1000 * FT ? V2_15_KT : hft < 10000 ? 250 : 290;
+      const ias = agl < 1000 * FT ? V2_15_KT : hft < 10000 ? CLIMB_IAS[pd.pace][0] : CLIMB_IAS[pd.pace][1];
       const tas = tasFor(ias, h, 0.78);
       // vertical speed schedule, traded against acceleration, altitude capture
       let vs = table(CLIMB_VS[pd.pace], hft) * FPM;
-      vs *= lerp(1, 0.5, clamp01((tas - a.V) / 15));
-      vs = Math.min(vs, (FL360 - h) * 0.055 + 0.1, a.V * Math.sin(GAMMA_MAX[pd.pace]));
-      ac.gam = gamFor(Math.max(0, vs), a.V); ac.nMax = 0.07; ac.gamGain = 0.5;
+      vs *= lerp(1, pd.pace === 'realistic' ? 0.5 : 0.65, clamp01((tas - a.V) / 15));
+      vs = Math.min(vs, captureVs(FL360 - h), a.V * Math.sin(GAMMA_MAX[pd.pace]));
+      // never more than 15° nose up (pitch = γ + α)
+      ac.gam = Math.min(gamFor(Math.max(-3, vs), a.V), 15 * DEG - D.alpha); ac.nMax = 0.07; ac.gamGain = 0.5;
       ac.V = tas; ac.accel = 0.75; ac.decel = 0.4;
       // scenic climbing turn: right 35° after 1800 ft, back to the route heading later
       if (pd.turn === 0 && agl >= 1800 * FT) pd.turn = 1;
@@ -273,7 +278,7 @@ export const SCRIPT = {
     update(D, dt) {
       const st = D.st, a = D.air, ac = D.ac, pd = D.pd, t = st.phaseTime;
       a.windK = approach(a.windK, 1, dt / 8);
-      ac.gam = gamFor(clamp((FL360 - a.y) * 0.04, -2.5, 2.5), a.V); ac.nMax = 0.04;
+      ac.gam = gamFor(clamp(captureVs(FL360 - a.y), -2.5, 2.5), a.V); ac.nMax = 0.04;
       ac.V = tasFor(300, a.y, 0.78); ac.accel = 0.3; ac.decel = 0.3;
       ac.bank = a.trackBank(90, 15 * DEG); ac.phiMax = 15 * DEG;
       D.autoThrust = true;
@@ -285,10 +290,8 @@ export const SCRIPT = {
           D.setSeatbelt(true, false);          // the PA carries the chime
           D.announce('turbulence', { maxDelay: 20, front: true });
         }
-        if (D.once('turb_ev', t >= t0 + 6)) D.emit('flight:turbulence', { level: 0.45 });
         turb = 0.45 * smoothstep(t0 + 4, t0 + 12, t) * (1 - smoothstep(t0 + 58, t0 + 68, t));
         if (D.once('turb_off', t >= t0 + 72)) {
-          D.emit('flight:turbulence', { level: 0.04 });
           D.setSeatbelt(false, false);
           D.announce('turbulence_over', { maxDelay: 30, front: true });
         }
@@ -323,9 +326,13 @@ export const SCRIPT = {
       const l1 = a.l1Bank(plan.route, pd.s, 25 * DEG);
       pd.s = l1.s; ac.bank = l1.bank; ac.phiMax = 25 * DEG;
       const ht = plan.hAt(pd.s), dh = plan.dhds(pd.s);
-      const vs = clamp(dh * a.gs + 0.05 * (ht - a.y), -40, 6);
+      let vs = dh * a.gs + 0.05 * (ht - a.y);
+      // never dive through the FAF altitude: keep enough room to level off at ≤ 0.05 g
+      const floor = H_FAF - (plan.P.cda ? 150 : 15);
+      vs = Math.max(vs, -Math.sqrt(2 * 0.5 * Math.max(0, a.y - floor)) - 0.3);
+      vs = clamp(vs, -a.V * Math.sin(9.5 * DEG), 6);
       ac.gam = gamFor(vs, a.V); ac.nMax = 0.06; ac.gamGain = 0.45;
-      ac.V = tasFor(plan.iasKt(pd.s, a.y), a.y, 0.78); ac.accel = 0.5; ac.decel = 0.55;
+      ac.V = tasFor(plan.iasKt(pd.s, a.y), a.y, 0.78); ac.accel = 0.5; ac.decel = 0.7;
       D.autoThrust = true;
       if (D.once('captain', t >= 4)) D.announce('descent_captain', { maxDelay: 60 });
       if (D.once('belt', t >= 40)) { D.setSeatbelt(true, true); D.announce('descent_purser', { maxDelay: 120 }); }
@@ -349,8 +356,11 @@ export const SCRIPT = {
       const pd = D.pd, a = D.air;
       pd.s = projectOnPath(D.plan.route, a.x, a.z, 0, 100000);
       pd.s0 = pd.s;
-      pd.hLevel = a.y;
-      pd.cap = null;
+      // already established on the glide path (continuous descent) -> track it; else level until intercept
+      const lx = a.x - D.arrOrigin.x;
+      pd.hLevel = Math.abs(a.y - gsHeight(lx)) < 80 && a.vy < -1 ? 1e7 : a.y;
+      pd.cap = pd.hLevel > 1e6 ? 0 : null;
+      D.setThrust('approach', 0.5);
     },
     update(D, dt) {
       const st = D.st, a = D.air, ac = D.ac, pd = D.pd, ad = D.ad, t = st.phaseTime;
@@ -472,7 +482,7 @@ export const SCRIPT = {
       if (D.cfg.reverser) D.setReverser(false);
       L.strobe = false; L.landing = false; L.taxi = true;
       const end = D.paths.rolloutEnd;
-      D.ground.buildProfile({ vmax: (s) => (s < end ? 16 : 10), alat: 0.11 * G, decel: 0.6 });
+      D.ground.buildProfile({ vmax: (s) => (s < end ? 16 : 10), alat: 0.1 * G, decel: 0.6 });
       D.pd.park = null; D.pd.s0 = D.ground.s;
     },
     update(D) {
@@ -514,10 +524,17 @@ export const SCRIPT = {
   },
 };
 
+/** Altitude-capture vertical speed for an altitude error (m): constant ~0.045 g level-off, linear near 0. */
+export function captureVs(err) {
+  const d = Math.abs(err);
+  const v = d > 40 ? Math.sqrt(0.9 * d) : 0.15 * d;
+  return err < 0 ? -v : v;
+}
+
 // creep to the stand: slow final turn, 1-2 m/s over the last metres (marshaller / docking guidance)
 function creepCap(dEnd) {
-  if (dEnd > 140) return Infinity;
-  return lerp(1.25, 4.2, smoothstep(8, 140, dEnd));
+  if (dEnd > 130) return Infinity;
+  return lerp(1.2, 5.0, smoothstep(6, 120, dEnd));
 }
 
 /** Which canonical anchor a jump to `phase` starts from (then fast-forwarded). */

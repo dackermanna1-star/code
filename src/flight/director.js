@@ -86,7 +86,7 @@ export class Director {
     };
     this.ad = { T: 288, rho: 1.225, a: 340, mach: 0, tas: 0, iasKt: 0, q: 0, mass: AERO.massTakeoff, W: AERO.massTakeoff * G, wx: 0, wz: 0 };
     this.n1Cmd = 0; this.autoThrust = false; this.atN1 = GROUND_IDLE_N1; this.thrustMode = 'off';
-    this.turbScript = 0; this.turbI = 0;
+    this.turbScript = 0; this.turbI = 0; this.turbEmitted = 0;
     this.hdgResid = 0;
     this.gh = 0; this.terrain = 0; this.terrainT = 0; this.gRef = 0;
     this.alpha = 0;
@@ -278,6 +278,11 @@ export class Director {
     }
     this.turbI = damp(this.turbI, clamp01(I), 1.2, dt);
     this.pert.step(dt, this.turbI);
+    // announce noticeable changes of the felt turbulence (with hysteresis)
+    if (Math.abs(this.turbI - this.turbEmitted) > 0.08) {
+      this.turbEmitted = Math.round(this.turbI * 20) / 20;
+      this.emit('flight:turbulence', { level: this.turbEmitted });
+    }
   }
 
   // ===================================================================================== pose
@@ -555,7 +560,7 @@ export class Director {
     g.rollS.x = clamp(st.roll, -0.03, 0.03); g.rollS.v = 0;
     g._pose();
     const ex = this.paths.exitStart, re = this.paths.rolloutEnd;
-    g.buildProfile({ vmax: (s) => (s < ex ? 90 : s < re ? 16 : 10), alat: 0.12 * G, decel: 2.0 });
+    g.buildProfile({ vmax: (s) => (s < ex ? 90 : s < re ? 16 : 10), alat: 0.105 * G, decel: 2.0 });
     this.hdgResid = wrap180(bodyHdg - g.heading);
     this.mode = 'ground';
     st.onGround = true;
@@ -589,7 +594,7 @@ export class Director {
   _resetCommon() {
     const g = this.ground, a = this.air;
     this.pert.reset();
-    this.turbI = 0; this.turbScript = 0; this.hdgResid = 0;
+    this.turbI = 0; this.turbScript = 0; this.turbEmitted = 0; this.hdgResid = 0;
     this.descentRequested = false; this.shortCruise = false;
     this.autoThrust = false; this.n1Cmd = 0;
     g.v = 0; g.a = 0; g.theta = 0; g.thetaV = 0; g.steer = 0;
@@ -670,9 +675,9 @@ export class Director {
     const st = this.state, A = this.arrOrigin;
     this._resetCommon();
     this.mode = 'air'; st.onGround = false; st.region = 'arrival';
-    this.plan = planApproach(A, 21000);
+    this.plan = planApproach(A, 19500);
     const a = this.air;
-    a.x = A.x + THR_X - 21000; a.z = A.z; a.y = 2800 * FT;
+    a.x = A.x + THR_X - 19500; a.z = A.z; a.y = 2800 * FT;
     this._initAir(tasFor(210, a.y), 90);
     this._snapConfig(1, false);
     this.eng.snap(52, this._ambient(a.y), this.ad.rho);

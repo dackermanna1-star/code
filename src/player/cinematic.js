@@ -54,21 +54,27 @@ function phaseGroup(phase) {
 // (runway along x, centreline z = 0, terminal to the north at z ≈ -470).
 const SPOTS = {
   departure: [
-    [34, 9, -462],                                   // terminal window, own gate B7
-    [-300, 1.7, -322], [-650, 1.7, -320],            // apron edge / taxilane
-    [-745, 1.7, -280],                               // corner onto B
-    [-1050, 1.7, -165], [-1350, 1.7, -240],          // taxiway A
-    [-1560, 1.7, -130],                              // holding point 09
-    [-1100, 1.7, 100], [-450, 1.7, 100], [250, 1.7, 100], [900, 1.7, -105], // runway side
-    [2300, 1.7, 180], [3800, 1.7, -240], [5600, 2.0, 300],                    // climb-out
+    [34, 9, -462, 'gate'],                                         // terminal window, own gate B7
+    [-300, 1.7, -322, 'taxi'], [-650, 1.7, -320, 'taxi'],          // apron edge / taxilane
+    [-745, 1.7, -280, 'taxi'],                                     // corner onto B
+    [-1050, 1.7, -165, 'taxi'], [-1350, 1.7, -240, 'taxi'],        // taxiway A
+    [-1560, 1.7, -130, 'taxi'],                                    // holding point 09
+    [-1100, 1.7, 100, 'runway'], [-450, 1.7, 100, 'runway'], [250, 1.7, 100, 'runway'], [900, 1.7, -105, 'runway'],
+    [2300, 1.7, 180, 'air'], [3800, 1.7, -240, 'air'], [5600, 2.0, 300, 'air'],                 // climb-out
   ],
   arrival: [
-    [-6200, 3, 160], [-4000, 3, -140], [-2650, 1.7, 75],                      // under the approach
-    [-1250, 1.7, 100], [-650, 1.7, -105], [250, 1.7, 100],                    // touchdown zone
-    [520, 1.7, -110],                                                          // rapid exit
-    [680, 1.7, -280], [420, 1.7, -322],                                        // taxi in
-    [284, 9, -462],                                                            // terminal window, gate C10
+    [-6200, 3, 160, 'air'], [-4000, 3, -140, 'air'], [-2650, 1.7, 75, 'air'],                   // under the approach
+    [-1250, 1.7, 100, 'runway'], [-650, 1.7, -105, 'runway'], [250, 1.7, 100, 'runway'],        // touchdown zone
+    [520, 1.7, -110, 'runway'],                                                                  // rapid exit
+    [680, 1.7, -280, 'taxi'], [420, 1.7, -322, 'taxi'],                                          // taxi in
+    [284, 9, -462, 'gate'],                                                                      // terminal window, gate C10
   ],
+};
+// which spot kinds suit each phase
+const SPOT_KINDS = {
+  gate: ['gate'], arrived: ['gate'], pushback: ['gate', 'taxi'], taxi_out: ['taxi', 'gate'], taxi_in: ['taxi', 'gate', 'runway'],
+  lineup: ['taxi', 'runway'], takeoff: ['runway', 'air'], landing: ['runway', 'taxi'],
+  climb: ['air', 'runway'], approach: ['air', 'runway'], descent: ['air'], cruise: ['air'],
 };
 
 const UP = new THREE.Vector3(0, 1, 0);
@@ -380,8 +386,10 @@ export class Cinematic {
     if (vh < minSpeed) { _v2.set(this.fwdW.x, 0, this.fwdW.z).normalize().multiplyScalar(minSpeed); }
     _v.copy(this.P).addScaledVector(_v2, look);
     let best = -1, bestD = Infinity;
+    const kinds = SPOT_KINDS[st.phase];
     for (let i = 0; i < list.length; i++) {
       const s = list[i];
+      if (kinds && !kinds.includes(s[3])) continue;
       const wx = origin.x + s[0], wz = origin.z + s[2];
       const dNow = Math.hypot(wx - this.P.x, wz - this.P.z);
       if (dNow < 40 || dNow > 7000) continue;
@@ -517,7 +525,7 @@ export class Cinematic {
     if (dist > 8 && dist < 600) {
       const c = Math.cos(-o.yaw), s = Math.sin(-o.yaw);
       const x = _w.x * c + _w.z * s, z = -_w.x * s + _w.z * c;
-      o.dist = clamp(dist, 14, 400);
+      o.dist = clamp(dist, 18, 120);
       o.el = clamp(Math.asin(clamp(_w.y / dist, -1, 1)), -8 * DEG, 80 * DEG);
       o.az = Math.atan2(x, z);
     }

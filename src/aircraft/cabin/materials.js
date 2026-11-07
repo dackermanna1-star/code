@@ -44,7 +44,8 @@ const BAKE_APPLY = /* glsl */`
  * opts.extraFragPars / extraFrag (inserted after the bake), extraVert, key.
  */
 export function bakeMaterial(mat, opts = {}) {
-  const key = 'cabinBake' + (opts.key || '');
+  // share programs between materials whose injected code is identical
+  const key = 'cabinBake' + (opts.shaderKey || '');
   const prev = mat.onBeforeCompile;
   mat.onBeforeCompile = (shader, renderer) => {
     if (prev) prev(shader, renderer);
@@ -96,7 +97,7 @@ export function createMaterials(app, tex) {
     roughnessMap: plastic.roughnessMap, roughness: 0.85, envMapIntensity: 0.75,
   }, { key: 'bin' });
   M.binInterior = std({
-    color: new THREE.Color('#7b7f86'), normalMap: fabric.normalMap, normalScale: new THREE.Vector2(0.5, 0.5), roughness: 0.95, envMapIntensity: 0.2,
+    color: new THREE.Color('#9a9ea5'), normalMap: fabric.normalMap, normalScale: new THREE.Vector2(0.5, 0.5), roughness: 0.95, envMapIntensity: 0.2,
   }, { key: 'binin' });
   M.dado = std({
     color: new THREE.Color('#9a9da2'), map: tex.dado, normalMap: plasticFine.normalMap, normalScale: new THREE.Vector2(0.4, 0.4),
@@ -126,7 +127,7 @@ export function createMaterials(app, tex) {
     roughness: 0.62, envMapIntensity: 0.45,
   }, { key: 'shade' });
   M.curtain = std({
-    color: new THREE.Color('#ffffff'), map: fabric.map, normalMap: fabric.normalMap, roughnessMap: fabric.roughnessMap,
+    color: new THREE.Color(1.7, 1.75, 1.9), map: fabric.map, normalMap: fabric.normalMap, roughnessMap: fabric.roughnessMap,
     roughness: 1.0, side: THREE.DoubleSide, envMapIntensity: 0.15,
   }, { key: 'curtain' });
   M.luggage = std({ color: new THREE.Color('#ffffff'), roughness: 0.55, envMapIntensity: 0.5 }, { key: 'lug' });
@@ -148,10 +149,10 @@ float cabinNoise(vec2 p) { vec2 i = floor(p), f = fract(p); vec2 u = f * f * (3.
 `;
   const floorUniforms = { uFloorAO: { value: tex.floorAO }, uFloorAORect: { value: tex.floorAORect } };
   M.carpet = std({
-    color: new THREE.Color('#ffffff'), map: carpet.map, normalMap: carpet.normalMap, normalScale: new THREE.Vector2(0.9, 0.9),
+    color: new THREE.Color(2.1, 2.1, 2.2), map: carpet.map, normalMap: carpet.normalMap, normalScale: new THREE.Vector2(0.9, 0.9),
     roughnessMap: carpet.roughnessMap, roughness: 1.0, aoMap: carpet.aoMap, aoMapIntensity: 0.6, envMapIntensity: 0.15,
   }, {
-    key: 'carpet', uniforms: floorUniforms, extraFragPars: floorFrag,
+    key: 'carpet', shaderKey: 'carpet', uniforms: floorUniforms, extraFragPars: floorFrag,
     // aisle wear: crushed, slightly lighter and less saturated fibres + traffic dirt
     replace: [['#include <map_fragment>', /* glsl */`#include <map_fragment>
       {
@@ -171,8 +172,9 @@ float cabinNoise(vec2 p) { vec2 i = floor(p), f = fract(p); vec2 u = f * f * (3.
   M.vinyl = std({
     color: new THREE.Color('#ffffff'), map: vinyl.map, normalMap: vinyl.normalMap, normalScale: new THREE.Vector2(0.6, 0.6),
     roughnessMap: vinyl.roughnessMap, roughness: 1.0, envMapIntensity: 0.55,
-  }, { key: 'vinyl', uniforms: floorUniforms, extraFragPars: floorFrag, preBake: floorAoSample });
-  M.glowStrip = std({ color: new THREE.Color('#d7dccb'), emissive: new THREE.Color('#5e7a52'), emissiveIntensity: 0.06, roughness: 0.4 }, { key: 'glowstrip' });
+  }, { key: 'vinyl', shaderKey: 'floor', uniforms: floorUniforms, extraFragPars: floorFrag, preBake: floorAoSample });
+  M.floorRed = std({ color: new THREE.Color('#9c1018'), emissive: new THREE.Color('#ff2020'), emissiveIntensity: 0.05, roughness: 0.4 }, { key: 'floorred' });
+  M.glowStrip = std({ color: new THREE.Color('#8f9488'), emissive: new THREE.Color('#7fae6a'), emissiveIntensity: 0.05, roughness: 0.6 }, { key: 'glowstrip' });
 
   // --- unlit / emissive -----------------------------------------------------------
   M.led = new THREE.MeshBasicMaterial({ color: new THREE.Color(2, 2, 2), toneMapped: false });

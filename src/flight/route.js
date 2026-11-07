@@ -32,19 +32,28 @@ export const RUNWAY_END_X = 1500;
 /** Glideslope height (aircraft origin, m above the runway) at arrival-local x. */
 export const gsHeight = (lx) => WHEEL_OFF + Math.max(0, AIM_X - lx) * GS_TAN;
 
+// Compressed pacing keeps the speed up (320 kt, 280 kt below FL100), slows down late and flies a
+// continuous descent that blends straight into the 3° glide path at the FAF, so the whole descent
+// fits ~7½ minutes with a ≈ 7½° speedbrake-assisted path. Realistic pacing flies the textbook ~3°
+// idle descent, 250 kt below FL100, and intercepts the glideslope from level flight.
 export const PACE = {
-  compressed: { T: 400, N: 17000, finalStraight: 3500, sLvl: 5200, s1: 5000, sTr: 9000, bank: 23, highIas: 300, sb: [0.16, 0.42] },
-  realistic: { T: 1200, N: 26000, finalStraight: 6000, sLvl: 9000, s1: 7000, sTr: 18000, bank: 23, highIas: 290, sb: [0.30, 0.42] },
+  compressed: {
+    T: 480, N: 17000, finalStraight: 3000, sLvl: 0, cda: true, s1: 12000, sTr: 8000, bank: 19, highIas: 320, lowIas: 280, sb: [0.14, 0.5],
+    distCap: [[0, 180], [3000, 180], [6000, 195], [9500, 210], [13500, 230], [18000, 260], [23000, 300], [27000, 400]],
+  },
+  realistic: {
+    T: 1200, N: 26000, finalStraight: 6000, sLvl: 9000, cda: false, s1: 7000, sTr: 18000, bank: 19, highIas: 290, lowIas: 250, sb: [0.30, 0.42],
+    distCap: [[0, 180], [7500, 180], [10500, 200], [15000, 200], [19000, 220], [26000, 220], [32000, 250], [34000, 400]],
+  },
 };
 const BASE_HDG = 165;                            // base-leg heading (deg)
-const DIST_CAP = [[0, 180], [7500, 180], [10500, 200], [15000, 200], [19000, 220], [26000, 220], [32000, 255], [34000, 400]];
 const _isa = { T: 0, rho: 0, a: 0 };
 
 /** Planned indicated airspeed (kt) for distance-to-go (m) to the FAF and altitude (m). */
 export function iasPlanKt(dtg, h, P) {
   const hft = h / FT;
-  const ias = hft > 11500 ? P.highIas : hft > 10000 ? lerp(250, P.highIas, (hft - 10000) / 1500) : 250;
-  return Math.min(ias, table(DIST_CAP, dtg));
+  const ias = hft > 11500 ? P.highIas : hft > 10000 ? lerp(P.lowIas, P.highIas, (hft - 10000) / 1500) : P.lowIas;
+  return Math.min(ias, table(P.distCap, dtg));
 }
 /** TAS (m/s) for an IAS (kt) at altitude h, limited to Mach 0.78. */
 export function tasFor(iasKt, h, mach = 0.78) {
@@ -52,16 +61,24 @@ export function tasFor(iasKt, h, mach = 0.78) {
   return Math.min(tasFromIas(iasKt * KT, _isa.rho), mach * _isa.a);
 }
 
+// tan γ(s) = k·w(s) + tan3°·u(s): w = pitch-over ramp × end transition, u = blend into the
+// glide path (continuous descent) — or a level segment of length sLvl before the FAF.
 function makeProfile(L, h0, hEnd, P) {
   const ds = 50, n = Math.ceil(L / ds) + 1;
-  const w = new Float32Array(n), W = new Float64Array(n);
+  const w = new Float32Array(n), u = new Float32Array(n), W = new Float64Array(n), U = new Float64Array(n);
   const Ld = L - P.sLvl;
   for (let i = 0; i < n; i++) {
     const s = Math.min(L, i * ds);
-    w[i] = smoothstep(0, P.s1, s) * (1 - smoothstep(Ld - P.sTr, Ld, s));
-    if (i > 0) W[i] = W[i - 1] + 0.5 * (w[i] + w[i - 1]) * (Math.min(L, i * ds) - Math.min(L, (i - 1) * ds));
+    const tr = smoothstep(Ld - P.sTr, Ld, s);
+    w[i] = smoothstep(0, P.s1, s) * (1 - tr);
+    u[i] = P.cda ? tr : 0;
+    if (i > 0) {
+      const d = Math.min(L, i * ds) - Math.min(L, (i - 1) * ds);
+      W[i] = W[i - 1] + 0.5 * (w[i] + w[i - 1]) * d;
+      U[i] = U[i - 1] + 0.5 * (u[i] + u[i - 1]) * d;
+    }
   }
-  const k = (h0 - hEnd) / Math.max(1, W[n - 1]);
+  const k = (h0 - hEnd - GS_TAN * U[n - 1]) / Math.max(1, W[n - 1]);
   const at = (arr, s) => {
     if (s <= 0) return arr[0];
     const f = s / ds, i = Math.floor(f);
@@ -70,8 +87,8 @@ function makeProfile(L, h0, hEnd, P) {
   };
   return {
     L, k, h0, hEnd,
-    hAt: (s) => (s >= L ? hEnd : h0 - k * at(W, s)),
-    dhds: (s) => (s >= L ? 0 : -k * at(w, s)),
+    hAt: (s) => (s >= L ? hEnd - (P.cda ? GS_TAN * (s - L) : 0) : h0 - k * at(W, s) - GS_TAN * at(U, s)),
+    dhds: (s) => (s >= L ? (P.cda ? -GS_TAN : 0) : -k * at(w, s) - GS_TAN * at(u, s)),
   };
 }
 

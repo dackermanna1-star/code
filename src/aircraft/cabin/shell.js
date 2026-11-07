@@ -118,7 +118,7 @@ export function createShell(app, M, tex, root) {
       o.p = [RL * Math.cos(phi), CY + RL * Math.sin(phi), zs[i]]; o.n = [-Math.cos(phi), -Math.sin(phi), 0];
       o.uv = [zs[i] / 1.016, (phi - p0) / (p1 - p0)];
       o.bake = bakeFn(o.p[1], 1);
-    }, true);
+    }, false);
   };
   plainArc(side, headZs);
   plainArc(side, tailZs);
@@ -127,7 +127,7 @@ export function createShell(app, M, tex, root) {
   const dadoProf = [PROF.dadoBottom, [1.64, 0.10], [1.655, 0.2], [arcX(PROF.arcY0), PROF.arcY0]];
   const dadoBake = (x, y) => [0.08, 0.22 + 0.25 * y, 0.62 + 0.38 * smoothstep(0, 0.3, y), 0];
   const extrudeDado = (b, zs) => {
-    const s = extrudeProfile(b, dadoProf, zs, { flip: true, normals: dadoProf.map(() => [-0.99, 0.1]), bake: (x, y) => dadoBake(x, y) });
+    const s = extrudeProfile(b, dadoProf, zs, { flip: false, normals: dadoProf.map(() => [-0.99, 0.1]), bake: (x, y) => dadoBake(x, y) });
     return s;
   };
   // the dado uses its own UV: u = z / 0.508 (one louvre panel per window bay), v = height
@@ -137,7 +137,7 @@ export function createShell(app, M, tex, root) {
   // upper sidewall + PSU channel ---------------------------------------------------------
   const up = upperProfile();
   extrudeProfile(upper, up, cabinZs, {
-    flip: true, uScale: 1 / 0.5, vScale: 1 / 0.5,
+    flip: false, uScale: 1 / 0.5, vScale: 1 / 0.5,
     bake: (x, y, z, nx, ny) => {
       if (y < 1.5) return [0.12, 1.2, 1, 0];
       if (ny < -0.7) return [0.05, 0.22, 0.8, 0];      // PSU channel, lit by bounce from the seats
@@ -145,9 +145,9 @@ export function createShell(app, M, tex, root) {
     },
   });
   // housing behind the pivot bins (visible only when a bin is open)
-  extrudeProfile(housing, housingProfile(), zList(CABIN_Z0, CABIN_Z1, 0.6), { flip: true, bake: [0.04, 0.02, 0.45, 0] });
+  extrudeProfile(housing, housingProfile(), zList(CABIN_Z0, CABIN_Z1, 0.6), { flip: false, bake: [0.04, 0.02, 0.45, 0] });
   // sidewall LED wash strip, hidden under the PSU channel lip
-  extrudeProfile(ledSide, [[1.334, 1.578], [1.326, 1.584]], zList(CABIN_Z0 + 0.05, CABIN_Z1 - 0.05, 2), { flip: true, bake: [0, 0, 1, 0] });
+  extrudeProfile(ledSide, [[1.334, 1.578], [1.326, 1.584]], zList(CABIN_Z0 + 0.05, CABIN_Z1 - 0.05, 2), { flip: false, bake: [0, 0, 1, 0] });
 
   // entry zones (forward & aft): dado + tall sidewall arc with door holes -------------------------
   const entryZones = [[Z_FWD, CABIN_Z0], [CABIN_Z1, Z_AFT]];
@@ -183,7 +183,7 @@ export function createShell(app, M, tex, root) {
           const yc = CY + RL * Math.sin((ph[j] + ph[j + 1]) / 2);
           if (hs.some((h) => zc > h.z0 && zc < h.z1 && yc < h.top)) continue;
           const a = V(i, j), bb = V(i + 1, j), c = V(i + 1, j + 1), d = V(i, j + 1);
-          if (s > 0) b.quad(a, d, c, bb); else b.quad(a, bb, c, d);
+          if (s > 0) b.quad(a, bb, c, d); else b.quad(a, d, c, bb);
         }
       }
       // dado segments between door holes
@@ -195,7 +195,7 @@ export function createShell(app, M, tex, root) {
       }
       // top ledge from the arc top to the cove lip
       const ledge = new GeoBuilder();
-      extrudeProfile(ledge, [[arcX(PROF.entryArcY1), PROF.entryArcY1], [PROF.coveLipX, 2.072]], zList(za, zb, 0.5), { flip: true, bake: [0.25, 0, 0.9, 0] });
+      extrudeProfile(ledge, [[arcX(PROF.entryArcY1), PROF.entryArcY1], [PROF.coveLipX, 2.072]], zList(za, zb, 0.5), { flip: false, bake: [0.25, 0, 0.9, 0] });
       if (s > 0) b.append(ledge); else b.appendMirroredX(ledge);
     }
     if (s > 0) dado.append(dB); else dado.appendMirroredX(dB);
@@ -212,7 +212,7 @@ export function createShell(app, M, tex, root) {
   const fullZs = zList(Z_FWD, Z_AFT, 0.5);
   const cove = new GeoBuilder('cove');
   extrudeProfile(cove, coveProfile(), fullZs, {
-    flip: true,
+    flip: false,
     bake: (x, y, z, nx, ny) => {
       // glow: inner cove surfaces are lit directly by the LED strip
       if (y >= 2.149) return [0.3, 0, 1, 1.0];
@@ -221,7 +221,7 @@ export function createShell(app, M, tex, root) {
       return [0.2, 0.02, 0.85, 0.08];
     },
   });
-  extrudeProfile(ledCove, [[0.712, 2.1005], [0.742, 2.1005]], zList(Z_FWD + 0.02, Z_AFT - 0.02, 3), { flip: true, bake: [0, 0, 1, 0] });
+  extrudeProfile(ledCove, [[0.712, 2.1005], [0.742, 2.1005]], zList(Z_FWD + 0.02, Z_AFT - 0.02, 3), { flip: false, bake: [0, 0, 1, 0] });
   const coveAll = new GeoBuilder().append(cove).appendMirroredX(cove);
   const ledCoveAll = new GeoBuilder().append(ledCove).appendMirroredX(ledCove);
   // ceiling vault
@@ -347,7 +347,7 @@ function createBulkheads(app, M, tex, group) {
   };
   const ccw = (p) => { let a = 0; for (let i = 0; i < p.length; i++) { const q = p[(i + 1) % p.length]; a += p[i][0] * q[1] - q[0] * p[i][1]; } return a > 0 ? p : p.slice().reverse(); };
   for (const s of [1, -1]) {
-    wallFromPolygon(bh, ccw(sideOutline(0.45, 1.595, s)), Zb - 0.03, Zb + 0.03, 0.9, bake);
+    wallFromPolygon(bh, ccw(sideOutline(0.45, 1.595, s)), Zb - 0.03, Zb + 0.03, 1 / 2.3, bake);
     // aluminium edge trim on the aisle edge
     addBox(trim, s > 0 ? 0.438 : -0.462, 0.0, Zb - 0.034, s > 0 ? 0.462 : -0.438, 1.56, Zb + 0.034, [0.2, 0.05, 0.9, 0]);
   }
@@ -358,7 +358,7 @@ function createBulkheads(app, M, tex, group) {
     const pts = [[0.42, 0], [PROF.dadoBottom[0], 0], [arcX(PROF.arcY0), PROF.arcY0]];
     for (let i = 1; i <= 8; i++) { const y = PROF.arcY0 + (divTop - PROF.arcY0) * i / 8; pts.push([arcX(y) - 0.003, y]); }
     pts.push([0.42, divTop]);
-    wallFromPolygon(bh, ccw(pts.map(([x, y]) => [x * s, y])), Zd - 0.025, Zd + 0.025, 0.9, bake);
+    wallFromPolygon(bh, ccw(pts.map(([x, y]) => [x * s, y])), Zd - 0.025, Zd + 0.025, 1 / 2.3, bake);
     // top rail (rounded aluminium cap)
     const len = arcX(divTop) - 0.42;
     const rail = new THREE.CylinderGeometry(0.03, 0.03, len, 12, 1).rotateZ(Math.PI / 2);
@@ -378,8 +378,8 @@ function createBulkheads(app, M, tex, group) {
     return pts;
   };
   const fwd = ccw(bulkOutline(true));
-  wallFromPolygon(bh, fwd, ZONES.flightDeckDoorZ - 0.04, ZONES.flightDeckDoorZ, 0.9, bake);
-  wallFromPolygon(bh, ccw(bulkOutline(false)), ZONES.aftBulkheadZ, ZONES.aftBulkheadZ + 0.04, 0.9, bake);
+  wallFromPolygon(bh, fwd, ZONES.flightDeckDoorZ - 0.04, ZONES.flightDeckDoorZ, 1 / 2.3, bake);
+  wallFromPolygon(bh, ccw(bulkOutline(false)), ZONES.aftBulkheadZ, ZONES.aftBulkheadZ + 0.04, 1 / 2.3, bake);
   // cockpit door surround trim + dark vestibule behind the opening (fallback if no door leaf)
   const hw = COCKPIT_DOOR.halfWidth, dh = COCKPIT_DOOR.height, zf = ZONES.flightDeckDoorZ;
   addBox(trim, -hw - 0.05, 0, zf - 0.01, -hw, dh + 0.05, zf + 0.012, [0.2, 0.05, 0.85, 0]);

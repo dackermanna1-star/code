@@ -239,8 +239,8 @@ function exitTex() {
   const rows = [['', ''], ['◀', ''], ['', '▶'], ['◀', '▶']];
   rows.forEach(([l, r], i) => {
     const y0 = i * 128;
-    x.fillStyle = '#f2efe8'; x.fillRect(4, y0 + 6, W - 8, 116);
-    x.fillStyle = '#d0141c'; x.font = `bold 84px ${FONT}`; x.textAlign = 'center'; x.textBaseline = 'middle';
+    x.fillStyle = '#9a948c'; x.fillRect(4, y0 + 6, W - 8, 116);
+    x.fillStyle = '#ff1a1a'; x.font = `bold 84px ${FONT}`; x.textAlign = 'center'; x.textBaseline = 'middle';
     x.fillText('EXIT', W / 2, y0 + 68);
     x.font = `bold 56px ${FONT}`;
     if (l) x.fillText(l, 52, y0 + 66);
@@ -425,6 +425,16 @@ function placardAtlas(maxAniso) {
   box('smoke-det', 1536, Y0 + 1240, 256, 128, (w, h) => {
     x.fillStyle = '#f2f0ea'; x.fillRect(0, 0, w, h);
     x.fillStyle = '#333'; x.font = `bold 22px ${FONT}`; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('SMOKE', w / 2, h / 2 - 12); x.fillText('DETECTOR', w / 2, h / 2 + 14);
+  });
+  box('speaker', 1536, Y0 + 1380, 256, 256, (w, h) => {
+    x.fillStyle = '#e8e7e3'; x.fillRect(0, 0, w, h);
+    x.fillStyle = '#d6d5d1'; x.beginPath(); x.arc(w / 2, h / 2, w / 2 - 4, 0, Math.PI * 2); x.fill();
+    x.strokeStyle = 'rgba(80,80,80,0.6)'; x.lineWidth = 3; x.stroke();
+    x.fillStyle = '#3c3e42';
+    for (let r = 10; r < w / 2 - 14; r += 13) {
+      const n = Math.max(1, Math.round((2 * Math.PI * r) / 13));
+      for (let k = 0; k < n; k++) { const an = (k / n) * Math.PI * 2; x.beginPath(); x.arc(w / 2 + Math.cos(an) * r, h / 2 + Math.sin(an) * r, 3, 0, Math.PI * 2); x.fill(); }
+    }
   });
   box('white', 1800, Y0 + 1240, 64, 64, (w, h) => { x.fillStyle = '#f2f1ec'; x.fillRect(0, 0, w, h); });
   box('red', 1880, Y0 + 1240, 64, 64, (w, h) => { x.fillStyle = '#c8101a'; x.fillRect(0, 0, w, h); });
