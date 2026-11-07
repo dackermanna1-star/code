@@ -66,16 +66,15 @@ vec3 starField(vec3 d, float pix) {
   vec3 h = hash33(vec3(cell, face * 17.0 + 3.0));
   float cellAng = 1.5708 / CELLS;                    // ~ angular size of a cell
   // magnitude distribution: many faint, few bright
-  float bright = pow(h.x, 9.0);
-  if (h.z > 0.42) return vec3(0.0);
-  vec2 pos = 0.15 + 0.7 * h.yz / 0.42 * vec2(1.0, 0.42 / 0.42);
-  pos = 0.15 + 0.7 * hash33(vec3(cell + 7.7, face)).xy;
+  if (h.z > 0.16) return vec3(0.0);
+  float bright = pow(h.x, 7.0);
+  vec2 pos = 0.15 + 0.7 * hash33(vec3(cell + 7.7, face)).xy;
   float dist = length(fr - pos) * cellAng / max(pix, 1e-5);
   float spot = exp(-dist * dist * 1.6);
   // colour temperature
   float t = hash13(vec3(cell * 1.7, face + 9.0));
   vec3 col = mix(vec3(0.75, 0.85, 1.25), vec3(1.25, 0.95, 0.7), t * t);
-  return col * spot * (0.004 + bright * 0.5);
+  return col * spot * (0.0012 + bright * 0.35);
 }
 
 void main() {
@@ -202,7 +201,6 @@ export class SkyCapture {
       name: 'env.skyCapture', vertexShader: EQUI_VERT, fragmentShader: EQUI_FRAG, uniforms: this.uniforms,
       depthTest: false, depthWrite: false,
     });
-    this.material.extensions = { derivatives: true };
   }
   render() {
     const r = this.app.renderer;

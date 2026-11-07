@@ -424,9 +424,9 @@ vec3 atmPathOD(float r, float h, float mu, float d) {
 // Aerial perspective for a surface point seen by the current observer.
 //   dir: unit view direction (y up), dKm: distance in km, surface: radiance
 // returns surface * T + inscatter (consistent with the sky at the horizon).
-vec3 atmAerial(vec3 surface, vec3 dir, float dKm) {
+vec3 atmAerial(vec3 surface, vec3 dir, float dKm, vec3 extraSky) {
   bool ground;
-  vec3 sky = atmSkyView(dir, ground);
+  vec3 sky = atmSkyView(dir, ground) + extraSky;
   float mu = dir.y;
   float D = atmRayEnd(uAtmCamR, uAtmCamH, mu, ground);
   vec3 odD = ground ? atmPathOD(uAtmCamR, uAtmCamH, mu, D) : atmOD(uAtmCamR, mu);
@@ -436,6 +436,7 @@ vec3 atmAerial(vec3 surface, vec3 dir, float dKm) {
   vec3 F = clamp((1.0 - Td) / max(1.0 - exp(-odD), vec3(1e-5)), 0.0, 1.0);
   return surface * Td + sky * F;
 }
+vec3 atmAerial(vec3 surface, vec3 dir, float dKm) { return atmAerial(surface, dir, dKm, vec3(0.0)); }
 #endif
 `;
 
