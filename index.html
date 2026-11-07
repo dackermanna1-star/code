@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Boeing 737 Passenger Flight</title>
+  <meta name="description" content="A first-person Boeing 737-800 passenger flight in your browser: board at the gate, push back, taxi, take off, cruise above the clouds and land." />
+  <link rel="stylesheet" href="styles/main.css" />
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "./vendor/three/build/three.module.js",
+      "three/addons/": "./vendor/three/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+<body>
+  <div id="app"></div>
+  <!-- HUD root: the ui module renders menus, prompts, captions and the progress bar in here -->
+  <div id="hud"></div>
+  <div id="loading">
+    <div class="loading-inner">
+      <div class="loading-brand">HALCYON <span>AIRWAYS</span></div>
+      <div class="loading-sub">Flight HN 482 · Cedar Bay → Port Solano · Boeing 737-800</div>
+      <div class="loading-track"><div id="loading-bar"></div></div>
+      <div id="loading-text">Starting…</div>
+    </div>
+  </div>
+  <noscript>This experience needs JavaScript and WebGL 2.</noscript>
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>
