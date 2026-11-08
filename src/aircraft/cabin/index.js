@@ -56,6 +56,27 @@ export async function init(app) {
     if (phase === 'descent' || phase === 'approach' || phase === 'gate' || phase === 'taxi_in' || phase === 'arrived') c.setOpen(true);
   });
 
+  // Shades: crew require them open for takeoff and landing; a passenger sitting
+  // at a window raises the shade(s) beside them so the view is there.
+  const openAll = (instant) => { for (const w of windows?.list || []) if (w.shade > 0) w.setShade(0, { sound: false, instant }); };
+  app.events.on('flight:phase', ({ phase }) => {
+    if (phase === 'lineup' || phase === 'approach') openAll(false);
+  });
+  app.events.on('flight:skip', ({ to } = {}) => { if (['takeoff', 'climb', 'approach', 'landing'].includes(to)) openAll(true); });
+  app.events.on('player:sit', ({ seatId } = {}) => {
+    const seat = app.seats?.byId?.(seatId);
+    if (!seat || !seat.isWindow) return;
+    for (const w of windows?.list || []) {
+      if (w.side === seat.side && Math.abs(w.z - seat.z) < 0.75 && w.shade > 0) w.setShade(0, { sound: true });
+    }
+  });
+  app.events.on('app:ready', () => {
+    const ph = app.flight?.state?.phase;
+    if (['lineup', 'takeoff', 'climb', 'approach', 'landing'].includes(ph)) openAll(true);
+    const sid = app.player?.seat;
+    if (sid) { const seat = app.seats?.byId?.(sid); if (seat?.isWindow) for (const w of windows?.list || []) if (w.side === seat.side && Math.abs(w.z - seat.z) < 0.75) w.setShade(0, { sound: false, instant: true }); }
+  });
+
   const api = {
     root, materials: M, textures: tex, errors,
     windows: windows?.list || [],
