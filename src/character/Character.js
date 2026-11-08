@@ -3,6 +3,8 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { makeSkinMaterial } from './materials.js';
 
 const loader = new GLTFLoader();
+// Standalone (single-file) builds embed their assets as blob URLs in window.__ASSETS.
+const assetUrl = (base, name) => (window.__ASSETS && window.__ASSETS[name]) || base + name;
 
 /**
  * The character: skinned body, eyes, brows, lashes and a swappable hairstyle,
@@ -13,8 +15,8 @@ const loader = new GLTFLoader();
 export class Character {
   static async load(base = './assets/') {
     const [gltf, meta] = await Promise.all([
-      loader.loadAsync(base + 'character.glb'),
-      fetch(base + 'character.json').then((r) => r.json()),
+      loader.loadAsync(assetUrl(base, 'character.glb')),
+      fetch(assetUrl(base, 'character.json')).then((r) => r.json()),
     ]);
     return new Character(gltf, meta, base);
   }
@@ -181,7 +183,7 @@ export class Character {
     if (!id || id === 'none') return;
     const entry = this.meta.hair.find((h) => h.id === id);
     if (!entry) return;
-    const gltf = await loader.loadAsync(this.base + entry.file);
+    const gltf = await loader.loadAsync(assetUrl(this.base, entry.file));
     if (this.hairId !== id) return;
     let mesh = null;
     gltf.scene.traverse((o) => { if (o.isSkinnedMesh) mesh = o; });
