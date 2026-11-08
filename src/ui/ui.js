@@ -67,6 +67,7 @@ export class UI {
       return b;
     };
     mk('Spawn', 'spawn', 'Spawn another dummy (N)');
+    mk('Scarlet', 'spawnScarlet', 'Spawn Scarlet: a dummy with a full character model (J)');
     mk('Reset', 'reset', 'Reset the simulation (R)');
     mk('Clear', 'clear', 'Remove all thrown objects (C)');
     bar.appendChild(el('span', 'sep'));

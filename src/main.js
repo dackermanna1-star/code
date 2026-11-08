@@ -14,6 +14,7 @@ import { AudioEngine } from './game/audio.js';
 import { createRenderer, Arena } from './render/arena.js';
 import { FloorDecals } from './render/floorDecals.js';
 import { HumanMesh } from './render/humanMesh.js';
+import { loadScarlet, ScarletVisual } from './render/scarletModel.js';
 import { BloodParticles, SkinBlood, buildAdjacency, buildVertexHash } from './render/blood.js';
 import { Effects } from './render/effects.js';
 import { ViewModel } from './render/viewmodel.js';
@@ -140,12 +141,24 @@ try {
 function attachRender(person) {
   if (!meshShared || renders.has(person)) return;
   const ms = person.zombie && meshLod ? meshLod : meshShared;
-  const hm = new HumanMesh(ms.data, person.rd, shape, person.look ? zombieLook(person) : {});
+  const scarlet = person.look === 'scarlet';
+  const hm = new HumanMesh(ms.data, person.rd, shape, person.look && !scarlet ? zombieLook(person) : {});
   scene.add(hm.mesh);
   const gear = person.zombie ? new ZombieGear(person, scene) : null;
   const skin = new SkinBlood(hm, ms, particles, decals, person);
-  const r = { hm, skin, gear, decals: [], decalsDirty: true, decalTimer: 0 };
+  const r = { hm, skin, gear, decals: [], decalsDirty: true, decalTimer: 0, scarlet: null };
   renders.set(person, r);
+  if (scarlet) {
+    // her own model drawn over the ragdoll (the body mesh stays, hidden, for the X-ray and wounds)
+    hm.mesh.visible = false;
+    loadScarlet().then((gltf) => {
+      if (!gltf || renders.get(person) !== r) {
+        hm.mesh.visible = true;
+        return;
+      }
+      r.scarlet = new ScarletVisual(gltf, person, scene);
+    });
+  }
   // wounds that happened before the mesh was ready
   for (const w of person.injury.wounds) addWoundDecal(person, r, w);
   for (const seg of person.rd.segList) {
@@ -163,6 +176,7 @@ function detachRender(person) {
   if (!r) return;
   scene.remove(r.hm.mesh);
   r.hm.dispose();
+  if (r.scarlet) r.scarlet.dispose();
   if (r.gear) r.gear.dispose();
   renders.delete(person);
 }
@@ -383,6 +397,13 @@ function doAction(act) {
       const person = sandbox.spawnPerson(p, facingCamera(p));
       state.selected = person;
       ui.notify(`Dummy #${person.id} spawned`);
+      break;
+    }
+    case 'spawnScarlet': {
+      const p = sandbox.freeSpot(new Vec3(controls.target.x, 0, controls.target.z));
+      const person = sandbox.spawnPerson(p, facingCamera(p), { look: 'scarlet' });
+      state.selected = person;
+      ui.notify(`Scarlet spawned (dummy #${person.id})`);
       break;
     }
     case 'reset':
@@ -743,6 +764,7 @@ window.addEventListener('keydown', (e) => {
   else if (k === '.') doAction('step');
   else if (k === 'r') doAction('reset');
   else if (k === 'n') doAction('spawn');
+  else if (k === 'j') doAction('spawnScarlet');
   else if (k === 'c') doAction('clear');
   else if (k === 'b') doAction('follow');
   else if (k === 'v') doAction('debug');
@@ -1042,10 +1064,13 @@ function updateRenders(simDt, dtReal, alpha) {
   // (X-ray debris moves smoothly in slow motion: real time scaled, not whole physics steps)
   const xdt = dtReal * killCam.worldScale() * (mode === 'sandbox' ? (state.paused ? 0 : state.timeScale) : 1);
   for (const [person, r] of renders) {
-    if (!person.frozen) r.hm.update(alpha);
-    else if (!r.frozenPosed) {
+    if (!person.frozen) {
+      r.hm.update(alpha);
+      if (r.scarlet) r.scarlet.update(alpha);
+    } else if (!r.frozenPosed) {
       r.hm.update(1);
-      r.frozenPosed = true;
+      if (r.scarlet) r.scarlet.update(1);
+      r.frozenPosed = !!r.scarlet || person.look !== 'scarlet';
     }
     const xr = xrays.get(person);
     if (xr) xr.update(Math.min(xdt, 0.05), alpha);
@@ -1127,6 +1152,11 @@ function xrayFor(person) {
 function ghostFor(person, on) {
   const r = renders.get(person);
   if (r) XRayRig.setGhost(r.hm, on);
+  // (Scarlet: her model gives way to the glass body for the X-ray)
+  if (r && person.look === 'scarlet') {
+    r.hm.mesh.visible = on || !r.scarlet;
+    if (r.scarlet) r.scarlet.setVisible(!on);
+  }
 }
 /** X-ray view of every dummy on/off (K): glass skin over the skeleton and organs. */
 function toggleXray(on = !state.xray) {

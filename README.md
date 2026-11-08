@@ -46,6 +46,19 @@ To produce a single self-contained `ragdoll-lab.html` that runs straight from di
 npm run build:single
 ```
 
+## Scarlet
+
+**Scarlet** (top bar, or J) spawns a dummy drawn as a full character model: Scarlet, with a
+leather jacket, skirt, boots and red hair. Underneath she is the same ragdoll as any dummy, with
+the same balance controller, reactions, injuries and death. Her rigged mesh is skinned to the
+ragdoll's bodies. Each of her bones follows its segment, with her A-pose limbs swung onto the
+ragdoll's rest pose. Her spine, neck, head and upper arms keep her own proportions down the chain.
+Her fingers, toes and face ride with their parents. The X-ray swaps her for the glass body.
+
+The base model is Female_Adult_07 from the Microsoft Rocketbox Avatar Library (© 2020 Microsoft,
+MIT licence, notice in `src/assets/SCARLET_LICENSE-Rocketbox.txt`), re-dressed for *SCARLET:
+BEFORE DAWN*.
+
 ## Controls
 
 | Input | Action |
