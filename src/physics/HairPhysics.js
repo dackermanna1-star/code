@@ -132,7 +132,7 @@ export class HairPhysics {
   }
 
   update(dt) {
-    if (!this.active) return;
+    if (!this.active || !(dt > 0)) return;
     const ch0 = this.c;
     ch0.root.updateMatrixWorld(true);
     const headM = this.boneMatrix('head', new THREE.Matrix4());

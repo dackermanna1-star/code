@@ -36,6 +36,7 @@ export function axisAngle(axis, angle, out = Q()) { return out.setFromAxisAngle(
 
 /** Critically damped spring (scalar), Unity SmoothDamp style. state = {v} */
 export function damp(current, target, state, smoothTime, dt, maxSpeed = Infinity) {
+  if (!(dt > 0)) return current;
   smoothTime = Math.max(0.0001, smoothTime);
   const omega = 2 / smoothTime;
   const x = omega * dt;

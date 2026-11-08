@@ -6,7 +6,7 @@ import { makeHairMaterial } from './character/hair.js';
 import { Wardrobe } from './wardrobe/Wardrobe.js';
 import { Animator } from './anim/Animator.js';
 import { WardrobeUI } from './ui/WardrobeUI.js';
-import { OUTFITS } from './wardrobe/catalog.js';
+import { OUTFITS, CATALOG } from './wardrobe/catalog.js';
 import { HAIR_COLORS } from './character/hair.js';
 import { HairPhysics } from './physics/HairPhysics.js';
 
@@ -41,8 +41,24 @@ class App {
     else {
       this.ui = new WardrobeUI(this);
       this._loop();
+      this._prewarm();
       if (ld) { ld.style.opacity = '0'; setTimeout(() => ld.remove(), 700); }
     }
+  }
+
+  /** Build garment geometry in the background while she stands still. */
+  _prewarm() {
+    const ids = Object.keys(CATALOG).filter((id) => CATALOG[id].fitted && !this.wardrobe.geomCache.has(id));
+    const tick = () => {
+      if (!ids.length) return;
+      const L = this.animator.loco;
+      if (!L.active && L.speed < 0.01 && !this.cam.dragging) {
+        const id = ids.shift();
+        try { this.wardrobe.prebuild(id); } catch (e) { console.warn('prebuild', id, e); }
+      }
+      setTimeout(tick, 350);
+    };
+    setTimeout(tick, 1500);
   }
 
   // ------------------------------------------------------------ wardrobe actions
@@ -114,6 +130,7 @@ class App {
   }
 
   step(dt) {
+    if (!(dt > 1e-5)) return;
     this.time += dt;
     this.animator.update(dt, this.input);
     if (this.hairPhys) this.hairPhys.update(dt);
@@ -159,6 +176,7 @@ class App {
 }
 
 const app = new App();
+window.__app = app;
 app.init().catch((e) => {
   console.error(e);
   window.__error = String((e && e.stack) || e);

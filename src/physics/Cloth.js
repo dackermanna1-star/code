@@ -69,6 +69,7 @@ export class Cloth {
   reset(pos) { this.x.set(pos); this.p.set(pos); }
 
   step(dt, iterations = 6) {
+    if (!(dt > 0)) return;
     const x = this.x, p = this.p, n = this.n;
     const g = this.gravity;
     const damp = 1 - this.damping;

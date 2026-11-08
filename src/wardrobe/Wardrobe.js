@@ -21,6 +21,12 @@ export class Wardrobe {
 
   get(slot) { return this.worn.get(slot); }
 
+  prebuild(id) {
+    const def = CATALOG[id];
+    if (!def || !def.fitted || this.geomCache.has(id)) return;
+    this.geomCache.set(id, buildFitted(this.atlas, def.fitted));
+  }
+
   isWorn(id) { for (const w of this.worn.values()) if (w.def.id === id) return true; return false; }
 
   wear(id, opts = {}) {

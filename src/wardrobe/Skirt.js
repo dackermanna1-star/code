@@ -269,6 +269,7 @@ export function buildSkirt(w, o, cfg) {
   let warm = 0;
   const posAttr = geom.attributes.position;
   const update = (dt) => {
+    if (!(dt > 0)) return;
     updateBoneMats();
     for (let q = 0; q < pinRows * C; q++) lbs(q, pinNow);
     // teleport / big jump detection
@@ -291,6 +292,7 @@ export function buildSkirt(w, o, cfg) {
       cloth.step(h, warm < 30 ? 6 : 7);
     }
     pinPrev.set(pinNow.subarray(0, pinRows * C * 3));
+    if (!Number.isFinite(cloth.x[cloth.x.length - 1]) || !Number.isFinite(cloth.x[0])) { initAll(); return; }
     posAttr.array.set(cloth.x);
     posAttr.needsUpdate = true;
     geom.computeVertexNormals();

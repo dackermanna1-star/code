@@ -10,7 +10,7 @@ export class FollowCamera {
   constructor(camera, dom) {
     this.camera = camera;
     this.dom = dom;
-    this.yaw = Math.PI;        // camera position angle around the target (0 = in front of +Z)
+    this.yaw = 0.55;           // camera position angle around the target (0 = in front of +Z)
     this.pitch = 0.08;
     this.dist = 3.6;
     this.targetDist = 3.6;
@@ -67,8 +67,18 @@ export class FollowCamera {
     this.targetDist = p[0]; this.targetFocus = p[1]; this.pitch = p[2];
   }
 
+  /** Shift the rendered image so the character stays centred in the free area. */
+  setSideOffset(px) { this.targetOffset = px; }
+
   update(dt, focus, heading, speed) {
     this.time += dt;
+    const to = this.targetOffset || 0;
+    this.offset = (this.offset || 0) + (to - (this.offset || 0)) * (1 - Math.exp(-dt / 0.2));
+    const cam = this.camera;
+    if (Math.abs(this.offset) > 0.5) {
+      const w = window.innerWidth, h = window.innerHeight;
+      cam.setViewOffset(w, h, this.offset, 0, w, h);
+    } else if (cam.view && cam.view.enabled) cam.clearViewOffset();
     // filtered follow target
     this.target.x = damp(this.target.x, focus.x, this.ts[0], 0.18, dt);
     this.target.z = damp(this.target.z, focus.z, this.ts[2], 0.18, dt);

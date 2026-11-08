@@ -81,6 +81,8 @@ export class WardrobeUI {
     this.open = v;
     this.panel.classList.toggle('open', v);
     this.toggleEl.classList.toggle('hidden', v);
+    const wide = window.innerWidth > 700;
+    this.app.cam && this.app.cam.setSideOffset(v && wide ? 170 : 0);
   }
 
   renderSpeed() {
