@@ -1,0 +1,9 @@
+{ "w": 640, "h": 360, "steps": [
+  {"eval": "window.__test.outfit('casual')"},
+  {"input": [0,0,0]}, {"run": 0.5},
+  {"input": [0,1,1.15]}, {"run": 2.5},
+  {"cam": [1.6, 0.35, 0.2, 0, 0.12, 0.2]},
+  {"seq": {"n": 8, "dt": 0.1, "prefix": "k"}},
+  {"eval": "window.__test.wear('stilettos'); window.__test.wear('skirt_pencil')"}, {"run": 2.0},
+  {"seq": {"n": 8, "dt": 0.1, "prefix": "s"}}
+]}

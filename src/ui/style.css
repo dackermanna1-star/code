@@ -76,3 +76,4 @@ button { font: inherit; color: inherit; }
   .help .keys { display: none; }
   .panel { top: auto; height: 62vh; width: auto; left: 10px; right: 10px; bottom: 10px; }
 }
+.credit { font-size: 10px; color: var(--muted); padding: 0 16px 10px; line-height: 1.4; }

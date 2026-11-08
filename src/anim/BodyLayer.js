@@ -126,6 +126,7 @@ export class BodyLayer {
     for (const s of SIDES) {
       _q3.setFromAxisAngle(X, this.breastV * 0.9);
       R.setQ('breast_' + s, s3.clone().multiply(_q3));
+      this.breastLocal = _q3.clone();
     }
 
     // ------------------------------------------------ head & neck: stabilised gaze
@@ -225,6 +226,7 @@ export class BodyLayer {
     e.pitch += (e.tp - e.pitch) * (1 - Math.exp(-dt / 0.03));
     const headQ = R.Qm.head;
     _q.setFromEuler(_e.set(-e.pitch, e.yaw, 0, 'YXZ'));
+    this.eyeLocal = _q.clone();
     R.setQ('eye_l', headQ.clone().multiply(_q));
     R.setQ('eye_r', headQ.clone().multiply(_q));
     // blinking: ~15/min, quick close, slower open; upper lids follow downward gaze

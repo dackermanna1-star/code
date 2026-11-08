@@ -1,0 +1,11 @@
+{ "w": 700, "h": 700, "steps": [
+  {"eval": "window.__test.outfit('summer'); window.__test.grid(true)"},
+  {"input": [0,0,0]}, {"run": 0.5},
+  {"input": [0,1,1.15]}, {"run": 2.5},
+  {"input": [1,0,1.15]},
+  {"cam": [2.4, 2.6, 2.4, 0, 0.7, 0]},
+  {"seq": {"n": 12, "dt": 0.15, "prefix": "t"}},
+  {"input": [0,-1,1.15]},
+  {"seq": {"n": 12, "dt": 0.15, "prefix": "u"}},
+  {"input": [0,0,0]}, {"run": 2.0}, {"log": true}
+]}

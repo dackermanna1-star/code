@@ -1,0 +1,17 @@
+{ "w": 520, "h": 700, "steps": [
+  {"eval": "window.__test.outfit('casual')"}, {"input": [0,0,0]}, {"run": 0.3},
+  {"cam": [3.2, 0.95, 0.0, 0, 0.88, 0.0]},
+  {"eval": "window.__test.mocapFrame(60)"}, {"shot": "m00"},
+  {"eval": "window.__test.mocapFrame(64)"}, {"shot": "m01"},
+  {"eval": "window.__test.mocapFrame(68)"}, {"shot": "m02"},
+  {"eval": "window.__test.mocapFrame(72)"}, {"shot": "m03"},
+  {"eval": "window.__test.mocapFrame(76)"}, {"shot": "m04"},
+  {"eval": "window.__test.mocapFrame(80)"}, {"shot": "m05"},
+  {"eval": "window.__test.mocapFrame(84)"}, {"shot": "m06"},
+  {"eval": "window.__test.mocapFrame(88)"}, {"shot": "m07"},
+  {"cam": [0.0, 0.95, 3.4, 0, 0.88, 0.0]},
+  {"eval": "window.__test.mocapFrame(60)"}, {"shot": "n00"},
+  {"eval": "window.__test.mocapFrame(68)"}, {"shot": "n01"},
+  {"eval": "window.__test.mocapFrame(76)"}, {"shot": "n02"},
+  {"eval": "window.__test.mocapFrame(84)"}, {"shot": "n03"}
+]}

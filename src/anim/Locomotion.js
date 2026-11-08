@@ -127,7 +127,7 @@ export class Locomotion {
     if (input.face !== undefined && input.face !== null) targetHeading = input.face;
     const err = wrapAngle(targetHeading - this.heading);
     const moving = this.speed > 0.25;
-    const maxTurn = moving ? 2.6 : 2.0;
+    const maxTurn = moving ? 2.6 : input.urgent ? 4.2 : 2.0;
     const desiredAng = clamp(err * (moving ? 3.2 : 4.0), -maxTurn, maxTurn);
     this.angVel = damp(this.angVel, desiredAng, this._angState ||= { v: 0 }, 0.14, dt);
     this.heading = wrapAngle(this.heading + this.angVel * dt);
@@ -250,7 +250,7 @@ export class Locomotion {
     // ---- decide whether the gait runs
     const need = this._stepNeed();
     if (!this.active) {
-      if (this.desiredSpeed > 0.05 || need.err > 1.6) this._startGait(need);
+      if (this.desiredSpeed > 0.05 || need.err > (input.urgent ? 0.7 : 1.6)) this._startGait(need);
     }
 
     const prevPhase = this.phase;

@@ -9,11 +9,12 @@ import { WardrobeUI } from './ui/WardrobeUI.js';
 import { OUTFITS, CATALOG } from './wardrobe/catalog.js';
 import { HAIR_COLORS } from './character/hair.js';
 import { HairPhysics } from './physics/HairPhysics.js';
+import { MocapDB } from './anim/MocapDB.js';
 
 const params = new URLSearchParams(location.search);
 const TEST = params.has('test');
 
-const SPEEDS = { stroll: 0.75, walk: 1.2, brisk: 1.6 };
+const SPEEDS = { stroll: 0.95, walk: 1.15, brisk: 1.4 };
 
 class App {
   async init() {
@@ -27,6 +28,7 @@ class App {
     this.wardrobe.wear('briefs_hipster');
     this.wardrobe.wear('bra_bralette');
     this.animator = new Animator(this.character);
+    try { this.animator.setMocap(await MocapDB.load()); } catch (e) { console.warn('mocap unavailable, using procedural gait', e); }
     this.wardrobe.onChange = () => this.animator.setGaitModifiers(this.wardrobe.gaitModifiers());
     if (!TEST && params.get('outfit') !== 'none') this.applyOutfit(params.get('outfit') || 'breton');
     this.cam = new FollowCamera(this.studio.camera, this.studio.renderer.domElement);
@@ -171,6 +173,19 @@ class App {
       remove(slot) { app.wardrobe.remove(slot); },
       outfit(id) { app.applyOutfit(id); },
       grid(v) { app.studio.grid.visible = v; },
+      async mocapFrame(i) {
+        if (!app._db) { const m = await import('./anim/MocapDB.js'); app._db = await m.MocapDB.load(); }
+        const db = app._db, R = app.animator.rig;
+        const Q = db.bones.map(() => new THREE.Quaternion()); const P = new THREE.Vector3();
+        db.sample(i, i, Q, P);
+        app._mocapHook = () => {
+          db.bones.forEach((b, k) => R.setQ(b, Q[k]));
+          R.pelvisPos.copy(P);
+        };
+        app.animator.hooks = [app._mocapHook];
+        app.animator.update(1 / 60, app.input);
+        return { contacts: [db.contact(i, 'l'), db.contact(i, 'r')], take: db.info.takes.find((t) => i >= t.start && i < t.start + t.frames).name };
+      },
     };
     app.studio.render();
     window.__ready = true;

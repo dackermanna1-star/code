@@ -39,47 +39,46 @@ The pill at the bottom left sets the default pace (stroll, walk or brisk).
 
 ## What's inside
 
-### Walking (`src/anim/`)
+### Walking: motion capture with motion matching (`src/anim/`)
 
-The gait is procedural. There are no canned clips, so it adapts continuously
-to speed, turning, stopping and footwear.
+Walking uses real motion capture. The source is 89 professionally captured
+**feminine-style** walks from the Bandai Namco Research Motion Dataset 2: 27
+straight walks, plus 31 left and 31 right walking turns.
 
-- **Momentum.** The center of mass accelerates and decelerates at human rates
-  (about 1.2 m/s² starting, 2.3 m/s² stopping) and turns at a limited angular
-  rate. She walks where she faces and slows down for sharp turns.
-- **Gait cycle.** Cadence and duty factor follow measured speed relationships
-  (roughly 105–125 steps/min at normal speeds, with longer double support at
-  slow speeds). Steps alternate from a continuous phase.
-- **Footstep planning.** Each swing foot keeps re-planning its landing spot
-  from the *predicted* body position at heel strike. That is why starting,
-  stopping (she plants two settling steps), turning and changing speed all
-  produce sensible steps, including small corrective steps when she turns on
-  the spot.
-- **Zero foot sliding.** Stance feet are locked to the floor. Each foot rolls
-  heel → flat → ball → toe (heel, ankle and forefoot rockers): the toes stay
-  on the ground while the heel lifts, then the foot pivots on the toe tip.
-  Swing feet follow smooth Hermite trajectories with toe clearance.
-- **Pelvis.** Pelvis height comes from the supporting legs (an
-  inverted-pendulum arc with loading-response knee flexion). It shifts
-  laterally over the loaded foot and rotates, tilts and drops on the swing
-  side following clinical gait curves.
-- **Upper body.** The trunk counter-rotates against the pelvis, leans with
-  acceleration and into turns, and breathes. The arms swing contralaterally
-  as damped pendulums, with elbow flexion and lagging wrists. The hands rest
-  in a relaxed, graded finger curl.
-- **Head and eyes.** The head is stabilized in space, nods slightly with each
-  step and leads into turns. The eyes saccade and blink (more often with gaze
-  shifts).
-- **Idle.** She shifts her weight between legs (contrapposto, with the free
-  knee relaxed and its heel lifting), sways slightly, glances around and
-  occasionally looks at the camera.
-- **Two-bone leg IK** with soft limits. As a final guarantee, the pelvis is
-  lowered rather than letting a planted foot lift off or a knee lock straight.
+- **Retargeting** (`tools/build_mocap.py`). The pipeline keeps the actor's
+  joint rotations and calibrates the difference in rest pose per bone. Limbs
+  are calibrated from anatomical cues (knee and elbow planes, the foot axis).
+  The torso and head are calibrated so that their average walking posture is
+  upright. Root motion and pelvis height are scaled to her leg length. Foot
+  contacts are detected per frame.
+- **Motion matching** (`MotionMatching.js`). A spring-damper controller
+  turns your input into a desired trajectory (positions and facing 1/3, 2/3
+  and 1 s ahead). About ten times a second, the database frame whose future
+  trajectory and current foot/hip motion best match is found and
+  cross-faded in. Speed, cadence, curving and turning therefore all come from
+  the real performance. Playback rate is nudged by up to ±20% to match the
+  stroll, walk and brisk speeds.
+- **Root motion.** The root is moved by the captured motion and lightly
+  corrected towards the controller, so she doesn't glide or drift.
+- **Foot locking IK.** During captured contacts, the stance foot is pinned
+  at the ball of the foot, so there is no sliding even while poses are being
+  blended. The feet are also snapped to the floor, and shoes are accounted
+  for: heels pitch the foot onto the heel and raise the pelvis.
+- **Starts, stops and standing.** She stands with procedural idle
+  behaviour: weight shifts, breathing, glances and blinking. When you set off
+  in a direction behind her, she first turns on the spot with small steps.
+  When she stops, she carries her momentum for about a step, then plants the
+  swinging foot beside the standing one and blends into her standing pose.
+- **Fallback.** The earlier fully procedural biomechanical gait
+  (`Locomotion.js`, `BodyLayer.js`) is still present. It drives standing and
+  turning on the spot, and takes over walking if the mocap data can't be
+  loaded.
 
-### Footwear changes the walk
+### Footwear
 
 Each shoe defines its heel height and sole thickness, which change the foot
-geometry used for planting and IK, and its own gait parameters:
+geometry used for planting and IK. The procedural fallback gait also has its
+own per-shoe gait parameters:
 
 | Shoes | Effect on gait |
 | --- | --- |
@@ -193,7 +192,28 @@ too), builds a skeleton with identity rest orientations (so joint angles are
 anatomical), fits the eye, brow, lash and hair proxies, and writes the GLB
 files and `character.json` (skeleton and foot landmarks).
 
+## Rebuilding the motion database
+
+```bash
+git clone --depth 1 https://github.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset
+```
+
+```bash
+python3 tools/build_mocap.py --data Bandai-Namco-Research-Motiondataset/dataset/Bandai-Namco-Research-Motiondataset-2/data
+```
+
+Pass `--style normal` or `--style youthful` to retarget other walking styles.
+
 ## Credits and licences
+
+- The walking motion capture comes from the **Bandai Namco Research Motion
+  Dataset 2**, © Bandai Namco Research Inc., licensed under
+  [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/). It is
+  retargeted by `tools/build_mocap.py` into `public/assets/mocap.bin`.
+  Because of this licence, the motion data, and therefore this app as
+  distributed, is for **non-commercial use only**. For commercial use,
+  replace the data with commercially licensed motion capture; the pipeline
+  works with other BVH walks too.
 
 - The body base mesh, targets, rig and weights come from MakeHuman / MPFB2
   data (CC0).

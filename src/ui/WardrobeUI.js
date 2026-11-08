@@ -50,7 +50,8 @@ export class WardrobeUI {
       <div class="tabs"></div>
       <div class="items"></div>
       <div class="editor"></div>
-      <div class="foot"><button class="undress">Undress</button><span class="status"></span></div>`;
+      <div class="foot"><button class="undress">Undress</button><span class="status"></span></div>
+      <div class="credit">Walk: motion capture © Bandai Namco Research Inc., CC BY-NC 4.0 · Character: MakeHuman CC0</div>`;
     panel.querySelector('.close').addEventListener('click', () => this.setOpen(false));
     panel.querySelector('.undress').addEventListener('click', (e) => { this.app.undress(); e.target.blur(); });
     root.appendChild(panel);
