@@ -233,7 +233,8 @@ export function buildSkirt(w, o, cfg) {
   }
   for (const c of caps) {
     c.bi = boneIndex[c.bone];
-    cloth.capsules.push({ a: new THREE.Vector3(), b: new THREE.Vector3(), ra: c.ra, rb: c.rb });
+    const inward = /^(lowerarm|hand)_/.test(c.bone);
+    cloth.capsules.push({ a: new THREE.Vector3(), b: new THREE.Vector3(), ra: c.ra, rb: c.rb, inward });
   }
   // leg capsules double as the radial hull (indices 0..3 are thighs/calves)
   const hullLegs = caps.slice(0, 4).map((c) => ({ a: new THREE.Vector3(), b: new THREE.Vector3(), ra: c.ra * 1.18 + 0.004, rb: c.rb * 1.18 + 0.004, src: c }));

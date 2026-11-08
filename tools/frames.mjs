@@ -22,6 +22,7 @@ let cam = null;
 for (const st of script.steps) {
   if (st.input) await page.evaluate((a) => window.__test.setInput(...a), st.input);
   if (st.cam) cam = st.cam;
+  if (st.camw) { cam = null; await page.evaluate((c) => window.__test.cameraWorld(...c), st.camw); }
   if (st.eval) await page.evaluate(st.eval);
   if (st.run) await page.evaluate((s) => window.__test.run(s), st.run);
   if (st.shot) {
@@ -36,6 +37,7 @@ for (const st of script.steps) {
       if (cam) await page.evaluate((c) => window.__test.camera(...c), cam);
       await page.evaluate(() => window.__test.render());
       await page.screenshot({ path: `${outdir}/${st.seq.prefix}${String(i).padStart(2, '0')}.png` });
+      if (st.seq.plants) console.log(JSON.stringify(await page.evaluate(() => window.__test.footPlants())));
     }
   }
   if (st.log) console.log(JSON.stringify(await page.evaluate(() => window.__test.state())));

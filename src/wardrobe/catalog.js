@@ -469,7 +469,7 @@ add({
 
 // fitted (body-derived) mini skirt & bodycon: tube built by Skirt.js without simulation
 add({
-  id: 'skirt_mini', label: 'A-line mini skirt', slot: 'bottom', layer: 3,
+  id: 'skirt_mini', gait: { armOut: 3 }, label: 'A-line mini skirt', slot: 'bottom', layer: 3,
   materials: ['denim', 'suede', 'leather', 'wool', 'tweed', 'cotton'], patterns: ['solid', 'tartan', 'houndstooth', 'gingham'],
   defaults: { material: 'suede', color: '#8a6a4a' },
   build: (w, o) => buildSkirt(w, o, { top: 'hip', length: 0.36, flare: 0.13, sim: true, stiffness: 0.9, rows: 14, gather: 1.0 }),

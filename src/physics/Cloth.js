@@ -158,8 +158,16 @@ export class Cloth {
         const r = cap.ra + (cap.rb - cap.ra) * t + th;
         if (d2 < r * r) {
           const d = Math.sqrt(d2) || 1e-6;
-          const push = (r - d) / d;
-          x[i3] += dx * push; x[i3 + 1] += dy * push; x[i3 + 2] += dz * push;
+          if (cap.inward && this.hull) {
+            // hands/forearms are always outside the garment: push fabric towards the body
+            let ix = this.hull.o.x - x[i3], iz = this.hull.o.z - x[i3 + 2];
+            const il = Math.hypot(ix, iz) || 1;
+            const depth = r - d;
+            x[i3] += (ix / il) * depth * 1.5; x[i3 + 2] += (iz / il) * depth * 1.5;
+          } else {
+            const push = (r - d) / d;
+            x[i3] += dx * push; x[i3 + 1] += dy * push; x[i3 + 2] += dz * push;
+          }
           // friction: damp tangential motion relative to previous position
           const f = 0.35;
           p[i3] += (x[i3] - p[i3]) * f * 0.5; p[i3 + 1] += (x[i3 + 1] - p[i3 + 1]) * f * 0.5; p[i3 + 2] += (x[i3 + 2] - p[i3 + 2]) * f * 0.5;

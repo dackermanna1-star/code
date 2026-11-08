@@ -164,6 +164,8 @@ class App {
         const c = app.studio.camera; const p = app.animator.loco.pos;
         c.position.set(p.x + x, y, p.z + z); c.lookAt(p.x + tx, ty, p.z + tz);
       },
+      cameraWorld(x, y, z, tx, ty, tz) { const c = app.studio.camera; c.position.set(x, y, z); c.lookAt(tx, ty, tz); },
+      footPlants() { const L = app.animator.loco; return ['l', 'r'].map((s) => ({ stance: L.feet[s].stance, p: L.feet[s].plantP.toArray(), ankle: L.feet[s].ankle.toArray(), alpha: L.feet[s].alpha })); },
       state() { const L = app.animator.loco; return { pos: L.pos.toArray(), heading: L.heading, speed: L.speed, phase: L.phase, active: L.active }; },
       wear(id, opts) { app.wardrobe.wear(id, opts || {}); },
       remove(slot) { app.wardrobe.remove(slot); },
