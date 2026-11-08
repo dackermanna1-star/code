@@ -31,7 +31,7 @@ function injectCss() {
   if (document.querySelector('link[data-hn-hud]')) return;
   const l = document.createElement('link');
   l.rel = 'stylesheet';
-  l.href = new URL('../../styles/hud.css', import.meta.url).href;
+  l.href = 'styles/hud.css';
   l.dataset.hnHud = '1';
   document.head.appendChild(l);
 }
@@ -882,7 +882,7 @@ class Hud {
       md.innerHTML = `<section>${markdown(builtin)}</section><p class="hn-muted">Loading module credits…</p>`;
       const parts = await Promise.all(CREDIT_MODULES.map(async (m) => {
         try {
-          const r = await fetch(new URL(`../../assets/credits/${m}.md`, import.meta.url).href, { cache: 'no-cache' });
+          const r = await fetch(`assets/credits/${m}.md`, { cache: 'no-cache' });
           if (!r.ok) return null;
           const t = await r.text();
           if (/^\s*</.test(t)) return null;
