@@ -1,0 +1,10 @@
+{ "w": 900, "h": 500, "steps": [
+  {"eval": "window.__test.grid(true)"},
+  {"eval": "__app.animator.loco.teleport(new __app.animator.loco.pos.constructor(0,0,0), 0)"},
+  {"input": [0,0,0]}, {"run": 0.3},
+  {"cam": [2.0, 2.2, 2.0, 0, 0.0, 0]}, {"shot": "h0"},
+  {"eval": "__app.animator.loco.teleport(new __app.animator.loco.pos.constructor(0,0,0), Math.PI/2)"},
+  {"run": 0.3}, {"shot": "h90"},
+  {"eval": "__app.animator.loco.teleport(new __app.animator.loco.pos.constructor(1.0,0,0), Math.PI/2)"},
+  {"run": 0.3}, {"shot": "h90x1"}
+]}

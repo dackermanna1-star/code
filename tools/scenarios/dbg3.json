@@ -1,0 +1,5 @@
+{ "w": 400, "h": 300, "steps": [
+  {"eval": "__app.animator.loco.teleport(new __app.animator.loco.pos.constructor(1.0,0,0), Math.PI/2)"},
+  {"input": [0,0,0]}, {"run": 0.3}, {"eval": "window.__test.render()"},
+  {"eval": "(()=>{const c=__app.studio.contact; const r=__app.studio.renderer; const N=512; const buf=new Uint16Array(N*N*4); r.readRenderTargetPixels(c.rt,0,0,N,N,buf); let sx=0,sy=0,sw=0; const f=(h)=>{const s=(h&0x8000)?-1:1,e=(h>>10)&31,m=h&1023; return e?s*Math.pow(2,e-15)*(1+m/1024):s*Math.pow(2,-14)*m/1024}; for(let y=0;y<N;y++)for(let x=0;x<N;x++){const a=f(buf[(y*N+x)*4+3]); sx+=x*a; sy+=y*a; sw+=a;} const L=__app.animator.loco; const fl=L.feet.l.ankle, fr=L.feet.r.ankle; const p1=fl.clone().project(c.cam), p2=fr.clone().project(c.cam); console.log(JSON.stringify({blob:[sx/sw/N, sy/sw/N], sw, feetNDC:[[p1.x*0.5+0.5,p1.y*0.5+0.5],[p2.x*0.5+0.5,p2.y*0.5+0.5]], cam:c.cam.position.toArray(), camMW: c.cam.matrixWorld.elements.slice(12,15), plane:c.plane.position.toArray()}))})()"}
+]}

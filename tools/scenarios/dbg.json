@@ -1,0 +1,6 @@
+{ "w": 400, "h": 300, "steps": [
+  {"input": [0,0,0]}, {"run": 0.5},
+  {"input": [1,0,1.2]}, {"run": 2.2},
+  {"input": [0,0,0]}, {"run": 2.0},
+  {"eval": "console.log(JSON.stringify({pos: __app.animator.loco.pos.toArray(), fl: __app.animator.loco.feet.l.plantP.toArray(), fr: __app.animator.loco.feet.r.plantP.toArray(), al: __app.animator.loco.feet.l.ankle.toArray(), cpos: __app.studio.contact.plane.position.toArray(), ccam: __app.studio.contact.cam.position.toArray()}))"}
+]}
