@@ -15,10 +15,10 @@ html = html.replace(/<link rel="stylesheet"[^>]*href="\.?\/?(assets\/[^"]+\.css)
 
 // embed assets as base64 -> blob URLs (decoded before the app starts)
 const assetsDir = path.join(root, 'public', 'assets');
-const files = ['character.glb', 'character.json', ...fs.readdirSync(path.join(assetsDir, 'hair')).map((f) => 'hair/' + f)];
+const files = ['character.glb', 'character.json', 'mocap.json', 'mocap.bin', ...fs.readdirSync(path.join(assetsDir, 'hair')).map((f) => 'hair/' + f)];
 const parts = files.map((f) => {
   const b64 = fs.readFileSync(path.join(assetsDir, f)).toString('base64');
-  const mime = f.endsWith('.json') ? 'application/json' : 'model/gltf-binary';
+  const mime = f.endsWith('.json') ? 'application/json' : f.endsWith('.bin') ? 'application/octet-stream' : 'model/gltf-binary';
   return `${JSON.stringify(f)}:[${JSON.stringify(mime)},"${b64}"]`;
 });
 const loader = `<script>(function(){var d={${parts.join(',')}};window.__ASSETS={};for(var k in d){var s=atob(d[k][1]),n=s.length,u=new Uint8Array(n);for(var i=0;i<n;i++)u[i]=s.charCodeAt(i);window.__ASSETS[k]=URL.createObjectURL(new Blob([u],{type:d[k][0]}));}})();</script>`;
