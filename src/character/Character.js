@@ -195,6 +195,10 @@ export class Character {
     mesh.renderOrder = 3;
     // rebind onto our skeleton (identical bone order)
     const geom = mesh.geometry;
+    // tangents for the anisotropic strand highlight
+    if (geom.index && geom.attributes.uv && geom.attributes.normal && !geom.attributes.tangent) {
+      try { geom.computeTangents(); } catch (e) { /* non-manifold uv: fall back to isotropic */ }
+    }
     const hairMesh = new THREE.SkinnedMesh(geom, mesh.material);
     hairMesh.name = 'Hair';
     hairMesh.frustumCulled = false;

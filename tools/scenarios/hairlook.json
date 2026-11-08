@@ -1,0 +1,5 @@
+{ "w": 700, "h": 600, "steps": [
+  {"eval": "window.__test.outfit('casual')"}, {"run": 0.3},
+  {"cam": [-0.9, 1.6, -1.2, 0, 1.45, 0]}, {"eval": "__app.setHair('long')"}, {"run": 0.8}, {"shot": "l1"},
+  {"cam": [0.9, 1.55, 1.1, 0, 1.45, 0]}, {"eval": "__app.setHair('braid')"}, {"run": 0.8}, {"shot": "l2"}
+]}

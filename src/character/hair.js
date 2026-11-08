@@ -27,6 +27,8 @@ export function makeHairMaterial(map, color = HAIR_COLORS.ginger.color) {
     alphaTest: 0.35,
     alphaToCoverage: true,
     transparent: false,
+    anisotropy: 0.75,
+    anisotropyRotation: Math.PI / 2,
   });
   m.onBeforeCompile = (s) => {
     // lift luminance texture so tint reads as true colour; keep strand contrast
