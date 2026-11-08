@@ -344,7 +344,9 @@ class Environment {
     s.cabinFill = 0.22;
     // cabin reflections: RoomEnvironment kept, intensity follows daylight
     const day = clamp((ir[0] * 0.2126 + ir[1] * 0.7152 + ir[2] * 0.0722) / 1.1, 0, 1);
-    app.scenes.cabin.environmentIntensity = 0.1 + 0.28 * Math.sqrt(day);
+    // daylight-driven base for the cabin's reflections; the cabin module scales it by its own light level
+    app.cabinEnvBase = 0.1 + 0.28 * Math.sqrt(day);
+    app.scenes.cabin.environmentIntensity = app.cabinEnvBase;
     app.scenes.outside.environmentIntensity = ENV_SHARE;
     this.daylight = day;
   }

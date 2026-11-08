@@ -75,7 +75,6 @@ export function createLighting(app, M, root, opts = {}) {
   const tmp = new THREE.Color();
   const api = { mode: 'boarding', level: 1, transition: 7, override: null };
   let primed = false;
-  let envBase = null, envLastSet = null;
 
   function computeTarget() {
     const st = app.flight?.state?.cabin || {};
@@ -113,10 +112,9 @@ export function createLighting(app, M, root, opts = {}) {
     hemi.intensity = cur.hemi * G;
     // cabin reflections: scale the environment with the cabin light level (only if nobody else drives it)
     const sc = app.scenes.cabin;
-    if (envBase === null) envBase = sc.environmentIntensity ?? 0.35;
-    if (envLastSet !== null && Math.abs(sc.environmentIntensity - envLastSet) > 1e-6) { envBase = null; envLastSet = null; return; }
-    sc.environmentIntensity = envBase * cur.env * 0.5;
-    envLastSet = sc.environmentIntensity;
+    // base comes from the environment module (daylight) every frame; never read back our own output
+    const base = app.cabinEnvBase ?? 0.35;
+    sc.environmentIntensity = base * cur.env * 0.5;
   }
 
   function update(dt) {
