@@ -410,7 +410,7 @@ add({
 
 // ============================================================================ bottoms
 add({
-  id: 'jeans_skinny', hides: ['briefs'], label: 'Skinny jeans', slot: 'bottom', layer: 3,
+  id: 'jeans_skinny', waist: (L) => L.pelvis.y + 0.035, hides: ['briefs'], label: 'Skinny jeans', slot: 'bottom', layer: 3,
   materials: ['denim'], patterns: ['solid'],
   defaults: { material: 'denim', color: '#2b3f63', detail: 1 }, colors: DENIM,
   fitted: {
@@ -421,7 +421,7 @@ add({
 });
 
 add({
-  id: 'jeans_straight', hides: ['briefs'], label: 'Straight-leg jeans', slot: 'bottom', layer: 3,
+  id: 'jeans_straight', waist: (L) => L.naturalWaistY - 0.02, hides: ['briefs'], label: 'Straight-leg jeans', slot: 'bottom', layer: 3,
   materials: ['denim'], patterns: ['solid'],
   defaults: { material: 'denim', color: '#3f5c86', detail: 1 }, colors: DENIM,
   fitted: {
@@ -434,7 +434,7 @@ add({
 });
 
 add({
-  id: 'trousers_wide', hides: ['briefs'], label: 'Wide-leg trousers', slot: 'bottom', layer: 3,
+  id: 'trousers_wide', waist: (L) => L.naturalWaistY + 0.005, hides: ['briefs'], label: 'Wide-leg trousers', slot: 'bottom', layer: 3,
   materials: ['wool', 'linen', 'silk', 'cotton', 'tweed'], patterns: ['solid', 'pinstripe', 'houndstooth', 'tartan'],
   defaults: { material: 'wool', color: '#2f3742' },
   fitted: {
@@ -446,7 +446,7 @@ add({
 });
 
 add({
-  id: 'leggings', hides: ['briefs'], label: 'Leggings', slot: 'bottom', layer: 3,
+  id: 'leggings', waist: (L) => L.naturalWaistY - 0.01, hides: ['briefs'], label: 'Leggings', slot: 'bottom', layer: 3,
   materials: ['jersey', 'microfiber', 'leather'], patterns: ['solid', 'leopard', 'rib'],
   defaults: { material: 'microfiber', color: '#111114' },
   fitted: {
@@ -456,7 +456,7 @@ add({
 });
 
 add({
-  id: 'shorts_denim', hides: ['briefs'], label: 'Denim shorts', slot: 'bottom', layer: 3,
+  id: 'shorts_denim', waist: (L) => L.naturalWaistY - 0.015, hides: ['briefs'], label: 'Denim shorts', slot: 'bottom', layer: 3,
   materials: ['denim', 'linen', 'cotton'], patterns: ['solid', 'gingham'],
   defaults: { material: 'denim', color: '#6f8db3', detail: 1 }, colors: DENIM,
   fitted: {
@@ -473,12 +473,14 @@ add({
   materials: ['denim', 'suede', 'leather', 'wool', 'tweed', 'cotton'], patterns: ['solid', 'tartan', 'houndstooth', 'gingham'],
   defaults: { material: 'suede', color: '#8a6a4a' },
   build: (w, o) => buildSkirt(w, o, { top: 'hip', length: 0.36, flare: 0.13, sim: true, stiffness: 0.9, rows: 14, gather: 1.0 }),
+  waist: (L) => L.pelvis.y + 0.012,
 });
 add({
   id: 'skirt_pencil', label: 'Pencil midi skirt', slot: 'bottom', layer: 3,
   materials: ['wool', 'leather', 'tweed', 'silk', 'cotton'], patterns: ['solid', 'pinstripe', 'houndstooth', 'tartan'],
   defaults: { material: 'wool', color: '#1a1a1d' },
-  build: (w, o) => buildSkirt(w, o, { top: 'waist', length: 0.68, flare: -0.03, sim: false, rows: 26 }),
+  build: (w, o) => buildSkirt(w, o, { top: 'waist', length: 0.66, flare: 0.0, sim: true, rows: 22, stiffness: 1, tight: true, ease: 0.016 }),
+  waist: (L) => L.naturalWaistY - 0.005,
   gait: { strideScale: 0.74, cadenceScale: 1.1, stepWidth: 0.03 },
 });
 add({
@@ -486,12 +488,14 @@ add({
   materials: ['silk', 'chiffon', 'cotton', 'wool'], patterns: ['solid', 'polka', 'floral', 'tartan'],
   defaults: { material: 'silk', color: '#a3263a' },
   build: (w, o) => buildSkirt(w, o, { top: 'waist', length: 0.7, flare: 0.3, sim: true, pleats: 28, rows: 22, gather: 1.25 }),
+  waist: (L) => L.naturalWaistY - 0.005,
 });
 add({
   id: 'skirt_maxi', label: 'Flowing maxi skirt', slot: 'bottom', layer: 3,
   materials: ['chiffon', 'silk', 'linen', 'cotton'], patterns: ['solid', 'floral', 'polka', 'stripes'],
   defaults: { material: 'chiffon', color: '#e9c46a', pattern: 'floral', color2: '#f4e8c1' },
   build: (w, o) => buildSkirt(w, o, { top: 'waist', length: 0.98, flare: 0.22, sim: true, rows: 26, gather: 1.25 }),
+  waist: (L) => L.naturalWaistY - 0.005,
   gait: { strideScale: 0.95 },
 });
 
@@ -522,7 +526,7 @@ add({
   id: 'dress_knit', hides: ['bra'], label: 'Ribbed bodycon dress', slot: 'dress', layer: 3, replaces: ['top', 'bottom'],
   materials: ['jersey', 'cashmere', 'wool'], patterns: ['rib', 'solid', 'stripes'],
   defaults: { material: 'jersey', color: '#7a1f2b', pattern: 'rib' },
-  build: (w, o) => buildSkirt(w, o, { top: 'waist', length: 0.5, flare: -0.02, sim: false, rows: 20,
+  build: (w, o) => buildSkirt(w, o, { top: 'waist', length: 0.5, flare: 0.0, sim: true, rows: 18, stiffness: 1, tight: true, ease: 0.014,
     bodice: bodice({ neck: { depth: 0.03, width: 0.07, back: 0.01, backWidth: 0.07 }, sleeve: 0.49, off: 0.0022, ease: 0.0, smooth: 8, noDrape: true }) }),
   gait: { strideScale: 0.86, cadenceScale: 1.05 },
 });

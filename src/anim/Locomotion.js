@@ -140,8 +140,8 @@ export class Locomotion {
 
     const dv = V3().subVectors(this.desiredVel, this.vel);
     const speeding = this.desiredVel.length() > this.vel.length();
-    const maxA = speeding ? 1.25 + 0.4 * this.speed : 1.7;
-    const k = speeding ? 2.6 : 3.4;
+    const maxA = speeding ? 1.25 + 0.4 * this.speed : 2.3;
+    const k = speeding ? 2.6 : 4.2;
     const a = dv.multiplyScalar(k);
     if (a.length() > maxA) a.setLength(maxA);
     // first steps from rest are slower (needs a weight shift)
@@ -173,7 +173,7 @@ export class Locomotion {
   _predict(t, outP) {
     const sp0 = this.speed;
     const target = this.desiredSpeed;
-    const acc = target > sp0 ? 1.25 : 1.7;
+    const acc = target > sp0 ? 1.25 : 2.3;
     const tReach = Math.abs(target - sp0) / acc;
     let dist;
     if (t <= tReach) dist = sp0 * t + 0.5 * Math.sign(target - sp0) * acc * t * t;
@@ -469,7 +469,7 @@ export class Locomotion {
         sumW += w; sumH += h * w;
         // the leading/loaded leg must be able to reach the floor
         if (!this.active || f.u < 0.5) {
-          const Lm = L.len * 0.993;
+          const Lm = L.len * 0.9975;
           cap = Math.min(cap, f.ankle.y + Math.sqrt(Math.max(0, Lm * Lm - dh2)));
         }
       }
@@ -477,8 +477,10 @@ export class Locomotion {
     let hipTarget = sumW > 0 ? sumH / sumW : hipY0;
     // soft-min with reach cap
     if (cap < Infinity) {
-      const k = 0.008;
-      hipTarget = -k * Math.log(Math.exp(-hipTarget / k) + Math.exp(-cap / k));
+      // polynomial smooth-min: only bites when the reach limit is (nearly) active
+      const k = 0.004;
+      const h = Math.max(k - Math.abs(hipTarget - cap), 0) / k;
+      hipTarget = Math.min(hipTarget, cap) - h * h * k * 0.25;
     }
     // vertical oscillation amount style factor (heels: flatter)
     const base = this._hipStand ?? hipTarget;

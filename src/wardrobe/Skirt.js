@@ -190,7 +190,7 @@ export function buildSkirt(w, o, cfg) {
   const cloth = new Cloth({
     rows: R, cols: C, wrap, wrapRows: slitRow, rest, pinRows: 1, softRows: cfg.heavy ? 2 : 2,
     gatherH: cfg.gather || 1,
-    stiffness: { struct: 1.0, shear: cfg.stiffness ? 0.8 : 0.55, bend: cfg.heavy ? 0.25 : cfg.pleats ? 0.3 : 0.08 + 0.12 * (cfg.stiffness || 0) },
+    stiffness: { struct: 1.0, shear: cfg.stiffness ? 0.8 : 0.55, bend: cfg.tight ? 0.45 : cfg.heavy ? 0.25 : cfg.pleats ? 0.3 : 0.08 + 0.12 * (cfg.stiffness || 0) },
     damping: cfg.heavy ? 0.02 : 0.012,
     thickness: 0.006 + layerOff * 0.2,
   });
@@ -235,6 +235,10 @@ export function buildSkirt(w, o, cfg) {
     c.bi = boneIndex[c.bone];
     cloth.capsules.push({ a: new THREE.Vector3(), b: new THREE.Vector3(), ra: c.ra, rb: c.rb });
   }
+  // leg capsules double as the radial hull (indices 0..3 are thighs/calves)
+  const hullLegs = caps.slice(0, 4).map((c) => ({ a: new THREE.Vector3(), b: new THREE.Vector3(), ra: c.ra * 1.18 + 0.004, rb: c.rb * 1.18 + 0.004, src: c }));
+  cloth.hull = { o: new THREE.Vector3(), legs: hullLegs };
+  const pelvisRest = ch.restModel.pelvis.clone();
 
   const m4 = new THREE.Matrix4();
   const boneMats = bones.map(() => new THREE.Matrix4());
@@ -275,6 +279,8 @@ export function buildSkirt(w, o, cfg) {
       cc.a.copy(c.a).applyMatrix4(boneMats[c.bi]);
       cc.b.copy(c.b).applyMatrix4(boneMats[c.bi]);
     }
+    cloth.hull.o.copy(pelvisRest).applyMatrix4(boneMats[pelvisI]);
+    for (const h of hullLegs) { h.a.copy(h.src.a).applyMatrix4(boneMats[h.src.bi]); h.b.copy(h.src.b).applyMatrix4(boneMats[h.src.bi]); }
     const sub = warm < 30 ? 4 : 3;
     warm++;
     const h = Math.min(dt, 1 / 30) / sub;

@@ -131,6 +131,13 @@ export class Wardrobe {
       if (h && !w.opts.sheer) for (const s of h) hiddenSlots.add(s);
     }
     for (const [slot, w] of this.worn) if (w.object) w.object.visible = !hiddenSlots.has(slot);
+    // tops are tucked into skirts / trousers: clip them just below the waistband
+    const bottom = this.worn.get('bottom');
+    const top = this.worn.get('top');
+    if (top && top.material && top.material.userData.uniforms) {
+      const wy = bottom && bottom.def.waist ? bottom.def.waist(atlas.L) - 0.015 : -1;
+      top.material.userData.uniforms.uClipY.value = wy;
+    }
     this.dynamic = [...this.worn.values()].filter((w) => w.update);
     this.onChange && this.onChange(this);
   }

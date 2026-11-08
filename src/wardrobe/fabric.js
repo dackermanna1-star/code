@@ -75,6 +75,7 @@ uniform float uDetail;   // 1 jeans, 2 shirt placket, 3 cardigan, 4 zip, 5 blaze
 uniform vec4 uLand;      // waistY, hipY, crotchY, garment top Y
 uniform vec3 uThread;
 uniform vec3 uButton;
+uniform float uClipY;
 
 float hash12(vec2 p){ vec3 p3 = fract(vec3(p.xyx) * .1031); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y) * p3.z); }
 float vnoise(vec2 p){ vec2 i = floor(p), f = fract(p); vec2 u = f*f*(3.-2.*f);
@@ -198,6 +199,7 @@ export function makeFabricMaterial(opts = {}) {
     uLand: { value: new THREE.Vector4(...(opts.land || [1.0, 0.9, 0.8, 1.4])) },
     uThread: { value: new THREE.Color(opts.thread || '#c98b3c') },
     uButton: { value: new THREE.Color(opts.button || '#e8e4dc') },
+    uClipY: { value: -1 },
   };
   m.userData.uniforms = u;
   if (opts.cut) m.defines = { ...(m.defines || {}), USE_CUT: '' };
@@ -210,6 +212,7 @@ export function makeFabricMaterial(opts = {}) {
       .replace('#include <common>', '#include <common>\n' + GLSL_FRAG)
       .replace('#include <map_fragment>', /* glsl */`
         #include <map_fragment>
+        if (vRestPos.y < uClipY) discard;
         #ifdef USE_CUT
           if (vCut < 0.0) discard;
           // inside of a shoe: darker lining

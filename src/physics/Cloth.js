@@ -165,6 +165,35 @@ export class Cloth {
         }
       }
     }
+    // radial leg hull: fabric never passes inside the convex envelope of the
+    // legs (prevents a skirt from slipping around/behind a striding thigh)
+    if (this.hull) {
+      const H = this.hull, O = H.o, legs = H.legs;
+      for (let i = 0; i < n; i++) {
+        if (this.pinW[i] >= 1) continue;
+        const i3 = i * 3;
+        const y = x[i3 + 1];
+        let dx = x[i3] - O.x, dz = x[i3 + 2] - O.z;
+        let r = Math.hypot(dx, dz);
+        if (r < 1e-5) { dx = 0; dz = 1; r = 1e-5; }
+        const ux = dx / r, uz = dz / r;
+        let sup = 0;
+        for (const L of legs) {
+          const dy = L.b.y - L.a.y;
+          let t = (y - L.a.y) / dy;
+          if (t < -0.15 || t > 1.1) continue;
+          t = t < 0 ? 0 : t > 1 ? 1 : t;
+          const cx = L.a.x + (L.b.x - L.a.x) * t - O.x, cz = L.a.z + (L.b.z - L.a.z) * t - O.z;
+          const s = cx * ux + cz * uz + L.ra + (L.rb - L.ra) * t + th;
+          if (s > sup) sup = s;
+        }
+        if (r < sup) {
+          const nx = O.x + ux * sup, nz = O.z + uz * sup;
+          p[i3] += (nx - x[i3]) * 0.6; p[i3 + 2] += (nz - x[i3 + 2]) * 0.6;
+          x[i3] = nx; x[i3 + 2] = nz;
+        }
+      }
+    }
     // floor
     for (let i = 0; i < n; i++) if (x[i * 3 + 1] < 0.004) x[i * 3 + 1] = 0.004;
   }

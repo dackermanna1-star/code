@@ -157,7 +157,7 @@ export class Rig {
     const dir = d.clone().divideScalar(dist || 1);
     // soft IK: avoid knee "pop" as the leg straightens
     const maxL = l1 + l2;
-    const soft = 0.012;
+    const soft = 0.005;
     const dsoft = maxL - soft;
     if (dist > dsoft) dist = dsoft + soft * (1 - Math.exp(-(dist - dsoft) / soft));
     dist = clamp(dist, Math.abs(l1 - l2) + 1e-3, maxL - 1e-5);

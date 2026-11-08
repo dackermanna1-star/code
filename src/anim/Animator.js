@@ -46,6 +46,22 @@ export class Animator {
     // legs: world targets -> model space
     _qi.setFromAxisAngle(Y, -L.heading);
     const pelvisQ = R.Qm.pelvis;
+    // final reach guarantee for loaded legs: lower the pelvis rather than
+    // letting a planted foot lift off or the knee lock straight
+    {
+      let drop = 0;
+      for (const s of SIDES) {
+        const f = L.feet[s];
+        if (!f.stance || (L.active && f.u > 0.6)) continue;
+        const hip = V3().copy(R.restLocal['thigh_' + s]).applyQuaternion(pelvisQ).add(R.pelvisPos);
+        const a = V3().copy(f.ankle).sub(L.pos).applyQuaternion(_qi);
+        const dh2 = (hip.x - a.x) ** 2 + (hip.z - a.z) ** 2;
+        const maxD = R.leg[s].len * 0.9975;
+        const maxY = a.y + Math.sqrt(Math.max(0, maxD * maxD - dh2));
+        drop = Math.max(drop, hip.y - maxY);
+      }
+      if (drop > 0) R.pelvisPos.y -= drop;
+    }
     for (const s of SIDES) {
       const f = L.feet[s];
       const Lg = R.leg[s];
@@ -55,8 +71,8 @@ export class Animator {
       // a planted foot never slides: if the leg can't reach, roll up onto the ball
       if (f.stance) {
         let alpha = f.alpha;
-        for (let i = 0; i < 14 && ankleM.distanceTo(_hip) > Lg.len * 0.994; i++) {
-          alpha += 3 * deg;
+        for (let i = 0; i < 60 && ankleM.distanceTo(_hip) > Lg.len * 0.998; i++) {
+          alpha += 1 * deg;
           f.toeBend = L.footPose(s, f.plantP, f.plantYaw, alpha, f.ankle, f.footQ);
           toModel(f.ankle, ankleM);
         }

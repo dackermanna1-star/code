@@ -1,0 +1,7 @@
+{ "w": 600, "h": 760, "steps": [
+  {"eval": "window.__test.wear('stilettos'); window.__test.wear('skirt_pencil'); window.__test.wear('blouse'); window.__test.wear('pantyhose')"},
+  {"input": [0,0,0]}, {"run": 1.0},
+  {"cam": [3.2, 0.95, 0.0, 0, 0.88, 0.0]}, {"shot": "h_idle"},
+  {"input": [0,1,1.2]}, {"run": 3.0},
+  {"seq": {"n": 12, "dt": 0.075, "prefix": "h"}}
+]}
