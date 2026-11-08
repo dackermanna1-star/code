@@ -1,5 +1,11 @@
+import * as GEOM from '../geo.js';
 import { GEO_GLSL, AIRPORT_FLAT, DEP_TOWN, DEP_LAKE, ARR_CITY, SEABED } from '../geo.js';
 import { SKY_COMMON_GLSL } from './sky.js';
+import { BUS_BAKE_FRAG, BUS_LAND_GLSL, BUS_MAIN_LAND, BUS_WATER_GLSL } from './terrainBus.js';
+
+// The bus geography (bus.html import map) has no airports / en-route lakes and a road corridor:
+// it gets its own bake + land cover (terrainBus.js). The flight shaders are unchanged.
+const BUS = !!(GEOM.GEO_FEATURES && GEOM.GEO_FEATURES.bus);
 
 // =============================================================================
 // Terrain shaders: height bake, clipmap vertex shader (incl. per-vertex
@@ -25,7 +31,7 @@ function makeLandHeightGLSL() {
  * En-route lakes (geo.js) are only kept in lowlands: in hills / mountains they
  * would be sea-level pits with kilometre-high walls.
  */
-export const BAKE_FRAG = /* glsl */`
+export const BAKE_FRAG = BUS ? BUS_BAKE_FRAG : /* glsl */`
 precision highp float;
 ${GEO_GLSL}
 ${makeLandHeightGLSL()}
@@ -347,14 +353,14 @@ float shoreDistance(vec2 w, out float shelf) {
   float r = length(dl) + 0.12 * geoVnoise((w - uGeoDep) / 700.0);
   float sdl = (1.024 - r) * ${f1(Math.min(DEP_LAKE.rx, DEP_LAKE.rz))};
   if (sdl > sd) { sd = sdl; shelf = 0.045; }
-  float ln = geoVnoise(w / 23000.0 + vec2(5.1, -2.7));
+${BUS ? '' : `  float ln = geoVnoise(w / 23000.0 + vec2(5.1, -2.7));
   float sde = (ln - 0.624) / 0.04 * 350.0;
   if (sde > sd) { sd = sde; shelf = 0.05; }
-  return sd;
+`}  return sd;
 }
 
 // --------------------------------------------------------------------------- land
-vec3 landAlbedo(vec2 wa, vec2 wm, float h, vec3 N, float dist, float pw, float belt, inout vec3 dn, inout float dnK) {
+${BUS ? BUS_LAND_GLSL : /* glsl */`vec3 landAlbedo(vec2 wa, vec2 wm, float h, vec3 N, float dist, float pw, float belt, inout vec3 dn, inout float dnK) {
   vec2 dD = wa - uGeoDep, dA = wa - uGeoArr;
   float lenD = length(dD), lenA = length(dA);
   float depPlain = 1.0 - sstep(9000.0, 30000.0, lenD);
@@ -523,7 +529,7 @@ vec3 landAlbedo(vec2 wa, vec2 wm, float h, vec3 N, float dist, float pw, float b
   }
   return col;
 }
-
+`}
 // --------------------------------------------------------------------------- water
 vec3 waveNormal(vec2 p, float pw, float rough, out float sig2) {
   float t = uTime;
@@ -619,7 +625,7 @@ vec3 shadeWater(vec3 dir, float dist, vec3 sky) {
   return col;
 }
 
-void main() {
+${BUS ? BUS_WATER_GLSL : ''}void main() {
   float dist = length(vView);
   vec3 dir = vView / max(dist, 1e-3);
   vec2 wa = uRefWorld + vLocal.xz;
@@ -635,7 +641,7 @@ void main() {
     col = shadeWater(dir, dist, sky);
     col = col * exp(-max(vOdD, vec3(0.0))) + sky;
   } else {
-    vec3 dn = vec3(0.0, 0.0, 1.0);
+${BUS ? BUS_MAIN_LAND : `    vec3 dn = vec3(0.0, 0.0, 1.0);
     float dnK = 0.0;
     vec3 alb = landAlbedo(wa, wm, h, N, dist, pw, vData.y, dn, dnK);
     vec3 Nd = N;
@@ -661,7 +667,7 @@ void main() {
     vec3 Td = exp(-max(vOdd, vec3(0.0)));
     vec3 F = clamp((1.0 - Td) / max(1.0 - exp(-max(vOdD, vec3(0.0))), vec3(1e-5)), 0.0, 1.0);
     col = col * Td + sky * F;
-  }
+`}  }
   gl_FragColor = vec4(col, 1.0);
 }`;
 }

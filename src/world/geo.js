@@ -129,6 +129,10 @@ export function terrainHeight(wx, wz, dep, arr) {
 
 export const GEO = { hash2, vnoise, fbm, ridged, coastX, waterMask, terrainHeight };
 
+// Extra uniforms GEO_GLSL needs (none in the flight geography; the bus geography
+// adds its road-field textures). Shaders that include GEO_GLSL merge these.
+export const GEO_UNIFORMS = {};
+
 // ----------------------------------------------------------------------------- GLSL
 // Include in any shader: uniforms uGeoDep (vec2) and uGeoArr (vec2) must be
 // provided by the caller (world x/z of the anchors). Functions:

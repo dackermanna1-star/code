@@ -112,6 +112,11 @@ export function valleyAt(wx, wz) {
   return [Math.sqrt(best), fl];
 }
 
+/** Half width (m) of the flat valley floor at (wx, wz): varies 170..350 m along the valley. */
+export function valleyFloorW(wx, wz) {
+  return VALLEY_FLOOR * (1 + 0.35 * vnoise(wx / 3100 + 1.3, wz / 3100 + 7.7));
+}
+
 /** Gulf shoreline: arrival-local x of the shore as a function of arrival-local z. */
 export function coastX(lz) {
   return -6800 + 900 * Math.sin(lz / 5200 + 1.3) + 450 * Math.sin(lz / 1900 + 0.4) + 160 * Math.sin(lz / 640 + 2.1);
@@ -143,15 +148,20 @@ export function naturalHeight(wx, wz, dep, arr) {
   let h = 60 + fbm(wx / 9000, wz / 9000, 5) * 120 + fbm(wx / 1800, wz / 1800, 3) * 16;
   // Hollow Range
   const xr = RANGE.centerX + 2500 * Math.sin(wz / 8000) + 1200 * Math.sin(wz / 2900 + 1.7);
-  const bd = Math.abs(wx - xr) / RANGE.halfWidth;
-  const band = 1 - sstep(0.45, 1.0, bd);
+  // irregular flanks: domain-warped distance (spurs and embayments) and a varying width
   const dzp = (wz - RANGE.passZ) / 4200;
+  const keep = 1 - 0.9 * Math.exp(-dzp * dzp * 1.2);      // (the pass road keeps its original approach)
+  const bw = RANGE.halfWidth * (1 + 0.22 * keep * fbm(wx / 16000 + 3.1, wz / 16000 - 1.7, 3));
+  const bd = (Math.abs(wx - xr) + 2600 * keep * fbm(wx / 5200 + 9.2, wz / 5200 + 4.4, 4)) / bw;
+  const band = 1 - sstep(0.38 + 0.07 * (1 - keep), 1.08 - 0.08 * (1 - keep), bd);
   const saddle = 1 - 0.55 * Math.exp(-dzp * dzp);
   h += band * saddle * (520 + 1500 * ridged(wx / 7000, wz / 7000, 5));
   // carve the Hollow valley (never raises terrain)
   const [vd, vf] = valleyAt(wx, wz);
-  if (vd < VALLEY_FLOOR + VALLEY_FALL) {
-    const hv = vf + 0.004 * Math.max(0, vd - 40) + (h - vf) * sstep(VALLEY_FLOOR, VALLEY_FLOOR + VALLEY_FALL * (0.75 + 0.5 * vnoise(wx / 4000, wz / 4000)), vd);
+  const vfw = valleyFloorW(wx, wz);
+  const vfall = VALLEY_FALL * (0.75 + 0.5 * vnoise(wx / 4000, wz / 4000));
+  if (vd < VALLEY_FLOOR * 1.35 + VALLEY_FALL * 1.25) {
+    const hv = vf + 0.004 * Math.max(0, vd - 40) + (h - vf) * sstep(vfw, vfw + vfall, vd);
     h = Math.min(h, hv);
   }
   // departure farmland plain
@@ -171,14 +181,21 @@ export function naturalHeight(wx, wz, dep, arr) {
   const warp = 2600 * fbm(wx / 11000 + 7.3, wz / 11000 - 2.1, 3);
   const north = sstep(-12000, -19000, adz + warp) * sstep(-92000, -84000, adz);
   if (north > 0 && dS > -400 && dS < 24000) {
-    const terrace = 85 * sstep(0, 260, dS) + 10 * vnoise(wx / 700, wz / 700);
+    // marine terrace: ~85 m along the coast road (~650 m inland of the smoothed shore), sloping
+    // seaward to a 40-75 m cliff edge; here and there a cove where a gully reaches a beach
+    const dSm = adx - coastXSmooth(adz);
+    const terr = 26 + 59 * sstep(-300, 780, dSm) + 5 * vnoise(wx / 700, wz / 700);
+    const cove = sstep(0.42, 0.62, vnoise(adz / 2600 + 5.5, 0.35));
+    const cliffW = 45 + 40 * (0.5 + 0.5 * vnoise(wx / 900 + 3.3, wz / 900 - 1.1));
+    const cliff = sstep(0, cliffW + cove * 300, dS);
+    const terrace = terr * (cove > 0 ? cliff * (1 - 0.35 * cove * (1 - sstep(60, 420, dS))) : cliff);
     const hills = sstep(1100, 5200, dS) * (230 + 380 * Math.max(0, fbm(wx / 6000, wz / 6000, 4) + 0.25));
     const zone = north * (1 - sstep(13000, 24000, dS + 1.6 * warp));
     h = h * (1 - zone) + zone * (terrace + hills);
   }
   // the river valley also cuts through the coastal hills to the sea
-  if (vd < VALLEY_FLOOR + VALLEY_FALL) {
-    const hv2 = vf + 0.004 * Math.max(0, vd - 40) + (h - vf) * sstep(VALLEY_FLOOR, VALLEY_FLOOR + VALLEY_FALL, vd);
+  if (vd < VALLEY_FLOOR * 1.35 + VALLEY_FALL * 1.25) {
+    const hv2 = vf + 0.004 * Math.max(0, vd - 40) + (h - vf) * sstep(vfw, vfw + vfall, vd);
     h = Math.min(h, hv2);
   }
   // beaches near the city (south part)
@@ -222,7 +239,7 @@ export function terrainHeight(wx, wz, dep, arr) {
   return w > 0 ? h * (1 - w) + w * SEABED : h;
 }
 
-export const GEO = { valleyAt, hash2, vnoise, fbm, ridged, coastX, coastXSmooth, waterMask, terrainHeight, naturalHeight, landHeight, roadInfluence, applyRoad };
+export const GEO = { valleyAt, valleyFloorW, hash2, vnoise, fbm, ridged, coastX, coastXSmooth, waterMask, terrainHeight, naturalHeight, landHeight, roadInfluence, applyRoad };
 
 // ----------------------------------------------------------------------------- GLSL
 // Road-field textures (RGBA float): r = road surface height ry, g = distance to the
@@ -275,6 +292,9 @@ float geoRidged(vec2 p, int oct) {
 float geoCoastX(float lz) {
   return -6800.0 + 900.0 * sin(lz / 5200.0 + 1.3) + 450.0 * sin(lz / 1900.0 + 0.4) + 160.0 * sin(lz / 640.0 + 2.1);
 }
+float geoCoastXSmooth(float lz) {
+  return -6800.0 + 900.0 * sin(lz / 5200.0 + 1.3) + 450.0 * sin(lz / 1900.0 + 0.4);
+}
 float geoWater(vec2 w) {
   float lx = w.x - uGeoArr.x, lz = w.y - uGeoArr.y;
   float m = 0.0;
@@ -304,17 +324,22 @@ vec2 geoValley(vec2 w) {
   }
   return vec2(sqrt(best), fl);
 }
+float geoValleyFloorW(vec2 w) { return ${f1(VALLEY_FLOOR)} * (1.0 + 0.35 * geoVnoise(w / 3100.0 + vec2(1.3, 7.7))); }
 float geoNatural(vec2 w) {
   float h = 60.0 + geoFbm(w / 9000.0, 5) * 120.0 + geoFbm(w / 1800.0, 3) * 16.0;
   float xr = ${f1(RANGE.centerX)} + 2500.0 * sin(w.y / 8000.0) + 1200.0 * sin(w.y / 2900.0 + 1.7);
-  float bd = abs(w.x - xr) / ${f1(RANGE.halfWidth)};
-  float band = 1.0 - geoSstep(0.45, 1.0, bd);
   float dzp = (w.y - (${f1(RANGE.passZ)})) / 4200.0;
+  float keep = 1.0 - 0.9 * exp(-dzp * dzp * 1.2);
+  float bw = ${f1(RANGE.halfWidth)} * (1.0 + 0.22 * keep * geoFbm(w / 16000.0 + vec2(3.1, -1.7), 3));
+  float bd = (abs(w.x - xr) + 2600.0 * keep * geoFbm(w / 5200.0 + vec2(9.2, 4.4), 4)) / bw;
+  float band = 1.0 - geoSstep(0.38 + 0.07 * (1.0 - keep), 1.08 - 0.08 * (1.0 - keep), bd);
   float saddle = 1.0 - 0.55 * exp(-dzp * dzp);
   h += band * saddle * (520.0 + 1500.0 * geoRidged(w / 7000.0, 5));
   vec2 vv = geoValley(w);
-  if (vv.x < ${f1(VALLEY_FLOOR + VALLEY_FALL)}) {
-    float hv = vv.y + 0.004 * max(0.0, vv.x - 40.0) + (h - vv.y) * geoSstep(${f1(VALLEY_FLOOR)}, ${f1(VALLEY_FLOOR)} + ${f1(VALLEY_FALL)} * (0.75 + 0.5 * geoVnoise(w / 4000.0)), vv.x);
+  float vfw = geoValleyFloorW(w);
+  float vfall = ${f1(VALLEY_FALL)} * (0.75 + 0.5 * geoVnoise(w / 4000.0));
+  if (vv.x < ${f1(VALLEY_FLOOR * 1.35 + VALLEY_FALL * 1.25)}) {
+    float hv = vv.y + 0.004 * max(0.0, vv.x - 40.0) + (h - vv.y) * geoSstep(vfw, vfw + vfall, vv.x);
     h = min(h, hv);
   }
   vec2 dd = w - uGeoDep;
@@ -331,13 +356,18 @@ float geoNatural(vec2 w) {
   float warp = 2600.0 * geoFbm(w / 11000.0 + vec2(7.3, -2.1), 3);
   float north = geoSstep(-12000.0, -19000.0, ad.y + warp) * geoSstep(-92000.0, -84000.0, ad.y);
   if (north > 0.0 && dS > -400.0 && dS < 24000.0) {
-    float terrace = 85.0 * geoSstep(0.0, 260.0, dS) + 10.0 * geoVnoise(w / 700.0);
+    float dSm = ad.x - geoCoastXSmooth(ad.y);
+    float terr = 26.0 + 59.0 * geoSstep(-300.0, 780.0, dSm) + 5.0 * geoVnoise(w / 700.0);
+    float cove = geoSstep(0.42, 0.62, geoVnoise(vec2(ad.y / 2600.0 + 5.5, 0.35)));
+    float cliffW = 45.0 + 40.0 * (0.5 + 0.5 * geoVnoise(w / 900.0 + vec2(3.3, -1.1)));
+    float cliff = geoSstep(0.0, cliffW + cove * 300.0, dS);
+    float terrace = terr * (cove > 0.0 ? cliff * (1.0 - 0.35 * cove * (1.0 - geoSstep(60.0, 420.0, dS))) : cliff);
     float hills = geoSstep(1100.0, 5200.0, dS) * (230.0 + 380.0 * max(0.0, geoFbm(w / 6000.0, 4) + 0.25));
     float zone = north * (1.0 - geoSstep(13000.0, 24000.0, dS + 1.6 * warp));
     h = h * (1.0 - zone) + zone * (terrace + hills);
   }
-  if (vv.x < ${f1(VALLEY_FLOOR + VALLEY_FALL)}) {
-    float hv2 = vv.y + 0.004 * max(0.0, vv.x - 40.0) + (h - vv.y) * geoSstep(${f1(VALLEY_FLOOR)}, ${f1(VALLEY_FLOOR + VALLEY_FALL)}, vv.x);
+  if (vv.x < ${f1(VALLEY_FLOOR * 1.35 + VALLEY_FALL * 1.25)}) {
+    float hv2 = vv.y + 0.004 * max(0.0, vv.x - 40.0) + (h - vv.y) * geoSstep(vfw, vfw + vfall, vv.x);
     h = min(h, hv2);
   }
   float south = 1.0 - north;

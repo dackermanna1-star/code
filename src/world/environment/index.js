@@ -4,6 +4,10 @@ import { createSkyUniforms, createSkyDome, SkyCapture, SKY_COMMON_GLSL } from '.
 import { sunPosition, moonPosition, TIME_PRESETS, wrapHours, SOLAR } from './sun.js';
 import { Terrain, makeGroundHeight } from './terrain.js';
 import { createNoiseTexture, createWaveTexture, createReliefTexture, loadGroundTextures } from './textures.js';
+import { RoadFieldTest } from './roadFieldTest.js';
+import * as GEOM from '../geo.js';
+
+const FEAT = GEOM.GEO_FEATURES || {};
 
 // =============================================================================
 // ENVIRONMENT MODULE — sky, sun & time of day, atmosphere / aerial perspective,
@@ -105,6 +109,16 @@ class Environment {
       this.terrain?.invalidate();
     });
     app.events.on('quality:changed', () => this._onQualityChanged());
+    // bus geography: stand-in road field while the road module is a stub (or ?module=env-roadtest)
+    this.roadTest = null;
+    if (FEAT.bus && GEOM.GEO_UNIFORMS?.uRoadReady) {
+      app.events.on('app:ready', () => {
+        const U = GEOM.GEO_UNIFORMS;
+        const force = this._dbg.includes('env-roadtest');
+        if (!app.route || (!force && (U.uRoadReady.value || !app.road?.stub))) return;
+        try { this.roadTest = new RoadFieldTest(app, U); } catch (e) { console.warn('[environment] road field stand-in failed', e); }
+      });
+    }
 
     app.addUpdate((dt) => this.update(dt), 30, 'environment');
     app.addUpdate(() => this._postLights(), 26, 'environment:lights');
@@ -204,6 +218,7 @@ class Environment {
     this._applySun();
 
     // terrain
+    if (this.roadTest) { try { this.roadTest.update(); } catch (e) { console.warn('[environment] road field stand-in', e); this.roadTest = null; } }
     if (this.terrain) {
       let gh = 0;
       try { gh = this.groundHeight(this.camWorld.x, this.camWorld.z); } catch { gh = 0; }

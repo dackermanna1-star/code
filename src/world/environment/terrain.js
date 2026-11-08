@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import * as GEOM from '../geo.js';
 import { GEO, SEABED, AIRPORT_FLAT, ARR_CITY } from '../geo.js';
 import { BAKE_FRAG, BAKE_VERT, terrainVertexShader, terrainFragmentShader } from './terrainShaders.js';
 
@@ -25,6 +26,9 @@ import { BAKE_FRAG, BAKE_VERT, terrainVertexShader, terrainFragmentShader } from
 // =============================================================================
 
 const MOD = 16384;
+// Geography features (the bus geography exports GEO_FEATURES / GEO_UNIFORMS; the flight one may not).
+const FEAT = GEOM.GEO_FEATURES || { enrouteLakes: true, airports: true, bus: false };
+const GEO_U = GEOM.GEO_UNIFORMS || {};
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
 const pmod = (x, m) => ((x % m) + m) % m;
 
@@ -52,7 +56,7 @@ export class Terrain {
       minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter, depthBuffer: false, stencilBuffer: false, generateMipmaps: false,
     });
     this.rt.texture.name = 'env.terrainHeights';
-    this.geoU = { uGeoDep: sharedUniforms.uGeoDep, uGeoArr: sharedUniforms.uGeoArr };
+    this.geoU = { uGeoDep: sharedUniforms.uGeoDep, uGeoArr: sharedUniforms.uGeoArr, ...GEO_U };
     this.bakeMat = new THREE.ShaderMaterial({
       name: 'env.terrainBake', vertexShader: BAKE_VERT, fragmentShader: BAKE_FRAG,
       uniforms: {
@@ -101,6 +105,7 @@ export class Terrain {
     for (let L = 0; L < this.levels; L++) base.push(new THREE.Vector2());
     this.uniforms = {
       ...sharedUniforms,
+      ...GEO_U,
       uHeights: { value: this.rt.texture },
       uLevelBase: { value: base },
       uS0: { value: this.s0 },
@@ -118,6 +123,17 @@ export class Terrain {
       tSand: { value: textures.sand },
       tMeadow: { value: textures.meadow },
     };
+    if (FEAT.bus) {
+      // bus land cover: ground wetness (weather) + the clouds' ground shadow map (copied each frame)
+      const white = new THREE.DataTexture(new Uint8Array([255, 255, 255, 255]), 1, 1);
+      white.needsUpdate = true;
+      this._white = white;
+      Object.assign(this.uniforms, {
+        uBusWet: { value: 0 },
+        tCloudShadow: { value: white }, uCloudShadowCenter: { value: new THREE.Vector2() },
+        uCloudShadowSize: { value: 30000 }, uCloudShadowAmount: { value: 0 },
+      });
+    }
     this.material = new THREE.ShaderMaterial({
       name: 'env.terrain',
       vertexShader: terrainVertexShader(this.cfg),
@@ -140,9 +156,50 @@ export class Terrain {
       return m;
     });
     this.ref = new THREE.Vector3();
+    // road corridor field (bus geography): re-bake the levels it touches when it changes
+    this._road = null;
+    if (FEAT.bus && GEO_U.uRoadReady) {
+      this._road = { ready: -1, coarse: null, cver: -1, crect: new THREE.Vector4(NaN, 0, 0, 0), fine: null, fver: -1, frect: new THREE.Vector4(NaN, 0, 0, 0), poke: false };
+      this._offRoad = app.events?.on?.('road:field', () => { if (this._road) this._road.poke = true; });
+    }
   }
 
   invalidate() { for (const o of this.origins) o.dirty = true; }
+
+  /** Dirty every level whose baked square intersects the world rect [x0,x1]x[z0,z1]. */
+  _dirtyRect(x0, z0, x1, z1) {
+    for (let L = 0; L < this.levels; L++) {
+      const o = this.origins[L];
+      if (!Number.isFinite(o.x)) { o.dirty = true; continue; }
+      const s = this.s0 * 2 ** L, e = (this.N + 2 * this.apron) * s;
+      const ox = o.x - this.apron * s, oz = o.z - this.apron * s;
+      if (ox <= x1 && ox + e >= x0 && oz <= z1 && oz + e >= z0) o.dirty = true;
+    }
+  }
+
+  /** Poll the road-field uniforms (geo.js GEO_UNIFORMS); cheap, catches in-place texture updates too. */
+  _pollRoad() {
+    const R = this._road, U = GEO_U;
+    const ready = U.uRoadReady.value ? 1 : 0;
+    const coarse = U.uRoadCoarse.value, fine = U.uRoadFine.value;
+    const cr = U.uRoadCoarseRect.value, fr = U.uRoadFineRect.value;
+    const cver = coarse?.version ?? 0, fver = fine?.version ?? 0;
+    if (ready !== R.ready || coarse !== R.coarse || cver !== R.cver || !cr.equals(R.crect)) {
+      R.ready = ready; R.coarse = coarse; R.cver = cver; R.crect.copy(cr);
+      R.fine = fine; R.fver = fver; R.frect.copy(fr); R.poke = false;
+      this.invalidate();
+      return;
+    }
+    if (R.poke || fine !== R.fine || fver !== R.fver || !fr.equals(R.frect)) {
+      // fine field moved / refreshed: re-bake the levels overlapping the old and the new window
+      const rect = (v) => (v.z > 0 && v.w > 0 && Number.isFinite(v.x) && v.z < 1e6) ? [v.x, v.y, v.x + 1 / v.z, v.y + 1 / v.w] : null;
+      const a = rect(R.frect), b = rect(fr);
+      if (a) this._dirtyRect(...a);
+      if (b) this._dirtyRect(...b);
+      if (!a && !b) this.invalidate();
+      R.fine = fine; R.fver = fver; R.frect.copy(fr); R.poke = false;
+    }
+  }
 
   _bake(L) {
     const o = this.origins[L];
@@ -173,6 +230,7 @@ export class Terrain {
     if (target > this._minLevelF + 1.15 || target < this._minLevelF - 0.15) this._minLevelF = Math.floor(target);
     this.minLevel = clamp(this._minLevelF, 0, this.levels - 2);
 
+    if (this._road) this._pollRoad();
     const r = this.app.renderer;
     const prevRT = r.getRenderTarget();
     let baked = 0;
@@ -217,10 +275,26 @@ export class Terrain {
       this.meshes[i].visible = vr.list.length > 0;
     }
     this.mesh.position.set(refx, 0, refz);
+    if (FEAT.bus) this._busUniforms();
+  }
+
+  _busUniforms() {
+    const app = this.app, u = this.uniforms;
+    const w = app.trip?.state?.weather;
+    const wet = Number.isFinite(w?.wetness) ? w.wetness : (Number.isFinite(w?.rain) ? w.rain : 0);
+    u.uBusWet.value += (Math.max(0, Math.min(1, wet)) - u.uBusWet.value) * 0.05;
+    const cs = app.clouds?.shadow?.uniforms;
+    if (cs && cs.tCloudShadow?.value && app.clouds.enabled !== false) {
+      u.tCloudShadow.value = cs.tCloudShadow.value;
+      u.uCloudShadowCenter.value.copy(cs.uCloudShadowCenter.value);
+      u.uCloudShadowSize.value = cs.uCloudShadowSize.value;
+      u.uCloudShadowAmount.value = cs.uCloudShadowAmount.value;
+    } else { u.tCloudShadow.value = this._white; u.uCloudShadowAmount.value = 0; }
   }
 
   dispose() {
-    this.rt.dispose(); this.material.dispose(); this.bakeMat.dispose();
+    this._offRoad?.();
+    this.rt.dispose(); this.material.dispose(); this.bakeMat.dispose(); this._white?.dispose();
     for (const vr of this.variants) vr.geo.dispose();
   }
 }
@@ -277,6 +351,15 @@ function landPortOK(dep, arr) {
  * land height, see the terrain bake); elsewhere this returns the rendered land.
  */
 export function makeGroundHeight(app) {
+  if (FEAT.enrouteLakes === false) {
+    // bus geography: terrain incl. the road corridor (GEO.terrainHeight), water surface at 0, no en-route lakes
+    return (x, z) => {
+      const dep = app.world.departureOrigin, arr = app.world.arrivalOrigin;
+      const h = GEO.terrainHeight(x, z, dep, arr);
+      if (h >= 0) return h;
+      return GEO.waterMask(x, z, dep, arr) > 0.5 ? 0 : h;
+    };
+  }
   return (x, z) => {
     const dep = app.world.departureOrigin, arr = app.world.arrivalOrigin;
     const h = GEO.terrainHeight(x, z, dep, arr);
