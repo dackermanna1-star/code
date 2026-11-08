@@ -401,6 +401,9 @@ export class Locomotion {
 
   _toeOff(f) {
     f.stance = false;
+    // natural stride-to-stride variability (~2% length, ~1 cm width, ~1.5° toe-out)
+    const r = () => (Math.random() + Math.random() + Math.random() - 1.5) / 1.5;
+    f.var = { len: 1 + 0.022 * r(), wid: 0.008 * r(), yaw: 0.025 * r() };
     f.swingP.copy(f.ankle);
     f.swingV.copy(f.ankleVel);
     if (f.swingV.length() > 1.5) f.swingV.setLength(1.5);
@@ -431,11 +434,12 @@ export class Locomotion {
     const walking = clamp((vEnd - 0.08) / 0.35, 0, 1);
     const width = lerp(g.standWidth, g.stepWidth, walking);
     const toeOut = lerp(g.standToeOut, g.toeOut, walking);
-    const ahead = 0.55 * L;
-    const tp = _t10.copy(_t7).addScaledVector(fw, ahead).addScaledVector(lf, f.sign * width / 2);
+    const v = f.var || { len: 1, wid: 0, yaw: 0 };
+    const ahead = 0.55 * L * v.len;
+    const tp = _t10.copy(_t7).addScaledVector(fw, ahead).addScaledVector(lf, f.sign * (width / 2 + v.wid * walking));
     // smooth target changes to avoid jitter
     if (f.s < 0.02) f.targetP.copy(tp); else f.targetP.lerp(tp, 0.35);
-    f.targetYaw = yaw + f.sign * toeOut;
+    f.targetYaw = yaw + f.sign * (toeOut + v.yaw * walking);
     // heel-strike angle only when actually stepping forward
     const sp = clamp(vEnd / 1.3, 0, 1.4);
     f.hsTarget = g.hsAngle * clamp(0.35 + 0.65 * sp, 0, 1.15) * smoothstep(0.03, 0.18, ahead);

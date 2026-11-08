@@ -1,0 +1,8 @@
+{ "w": 700, "h": 700, "steps": [
+  {"eval": "window.__test.outfit('casual'); window.__test.grid(true)"},
+  {"input": [0,0,0]}, {"run": 1.0},
+  {"cam": [1.8, 2.6, 1.8, 0, 0.4, 0]},
+  {"input": [0,-1,0.02]},
+  {"seq": {"n": 12, "dt": 0.12, "prefix": "p"}},
+  {"input": [0,0,0]}, {"run": 1.5}, {"log": true}
+]}

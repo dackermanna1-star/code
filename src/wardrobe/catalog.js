@@ -315,7 +315,7 @@ add({
     field: (s) => topField(s, { neck: { type: 'v', depth: 0.13, width: 0.075, back: 0.012, backWidth: 0.075 }, hemY: (L) => L.pelvis.y - 0.06, sleeve: 0.40 }),
     offset: (s) => 0.006 + 0.014 * smoothstep(1.2, 0.98, s.y) + 0.006 * s.arm,
     smooth: 22, hem: 0.003,
-    reshape: compose(sleeveReshape((u) => (u < 0.5 ? 0 : mix(0.06, 0.068, clamp(u - 1, 0, 1)))), drape(0.18, 0.004)),
+    reshape: compose(sleeveReshape((u) => (u < 0.5 ? 0 : mix(0.055, 0.058, clamp(u - 1, 0, 1)))), drape(0.18, 0.004)),
   },
 });
 
@@ -344,14 +344,14 @@ add({
 
 // ============================================================================ knits & jackets
 add({
-  id: 'sweater', hides: ['bra', 'top'], label: 'Chunky knit sweater', slot: 'layer', layer: 4, replaces: [],
+  id: 'sweater', hides: ['bra', 'top'], label: 'Chunky knit sweater', slot: 'layer', layer: 4, replaces: [], gait: { armOut: 2.5 },
   materials: ['wool', 'cashmere'], patterns: ['solid', 'cable', 'rib', 'stripes'],
   defaults: { material: 'wool', color: '#e9e1d3', pattern: 'cable' },
   fitted: {
     field: (s) => topField(s, { neck: { depth: 0.03, width: 0.085, back: 0.006, backWidth: 0.08 }, hemY: (L) => L.pelvis.y - 0.055, sleeve: 0.5 }),
     offset: (s) => 0.012 + 0.012 * smoothstep(1.22, 1.0, s.y) + 0.004 * s.arm,
     smooth: 26, hem: 0.008, minOffset: 0.009,
-    reshape: compose(sleeveReshape((u) => (u < 0.3 ? 0 : mix(0.065, 0.05, clamp(u - 1.5, 0, 0.5) * 2))), drape(0.15, 0.004)),
+    reshape: compose(sleeveReshape((u) => (u < 0.3 ? 0 : mix(0.066, 0.056, clamp(u - 1.5, 0, 0.5) * 2))), drape(0.15, 0.004)),
   },
   band: (L) => [L.pelvis.y - 0.06, L.pelvis.y - 0.005, 1, 1],
 });
@@ -364,13 +364,13 @@ add({
     field: (s) => topField(s, { neck: { type: 'v', depth: 0.22, width: 0.085, back: 0.008, backWidth: 0.08 }, hemY: (L) => L.pelvis.y - 0.07, sleeve: 0.49, openFront: 0.012 }),
     offset: (s) => 0.008 + 0.01 * smoothstep(1.2, 1.0, s.y) + 0.003 * s.arm,
     smooth: 20, hem: 0.005, minOffset: 0.006,
-    reshape: compose(sleeveReshape((u) => (u < 0.3 ? 0 : 0.054)), drape(0.2)),
+    reshape: compose(sleeveReshape((u) => (u < 0.3 ? 0 : 0.063)), drape(0.2)),
   },
   band: (L) => [L.pelvis.y - 0.075, L.pelvis.y - 0.035, 1, 1],
 });
 
 add({
-  id: 'blazer', label: 'Tailored blazer', slot: 'outer', layer: 5,
+  id: 'blazer', gait: { armOut: 3 }, label: 'Tailored blazer', slot: 'outer', layer: 5,
   materials: ['wool', 'tweed', 'linen', 'leather', 'suede'], patterns: ['solid', 'pinstripe', 'houndstooth', 'tartan'],
   defaults: { material: 'wool', color: '#1d2433', detail: 5, button: '#2b211c' },
   fitted: {
@@ -378,12 +378,12 @@ add({
     offset: (s) => 0.016 + 0.012 * smoothstep(1.2, 1.0, s.y) + 0.004 * s.arm,
     smooth: 30, hem: 0.008, minOffset: 0.012,
     collar: { height: 0.035, flare: 0.02, minY: 1.38, maxX: 0.09, cz: -0.02 },
-    reshape: compose(sleeveReshape((u) => (u < 0.2 ? 0 : 0.058)), drape(0.12, 0.006)),
+    reshape: compose(sleeveReshape((u) => (u < 0.2 ? 0 : 0.072)), drape(0.12, 0.006)),
   },
 });
 
 add({
-  id: 'leather_jacket', label: 'Leather biker jacket', slot: 'outer', layer: 5,
+  id: 'leather_jacket', gait: { armOut: 3 }, label: 'Leather biker jacket', slot: 'outer', layer: 5,
   materials: ['leather', 'suede', 'denim'], patterns: ['solid'],
   defaults: { material: 'leather', color: '#141214', detail: 4 },
   fitted: {
@@ -391,12 +391,12 @@ add({
     offset: (s) => 0.014 + 0.008 * smoothstep(1.2, 1.0, s.y) + 0.003 * s.arm,
     smooth: 24, hem: 0.01, minOffset: 0.01,
     collar: { height: 0.04, flare: 0.03, minY: 1.37, maxX: 0.1, cz: -0.02 },
-    reshape: sleeveReshape((u) => (u < 0.2 ? 0 : 0.056)),
+    reshape: compose(sleeveReshape((u) => (u < 0.2 ? 0 : 0.07)), drape(0.1, 0.004)),
   },
 });
 
 add({
-  id: 'denim_jacket', label: 'Denim jacket', slot: 'outer', layer: 5,
+  id: 'denim_jacket', gait: { armOut: 3 }, label: 'Denim jacket', slot: 'outer', layer: 5,
   materials: ['denim', 'suede', 'cotton'], patterns: ['solid'],
   defaults: { material: 'denim', color: '#6f8db3', detail: 2, button: '#b08a52' },
   fitted: {
@@ -404,7 +404,7 @@ add({
     offset: (s) => 0.013 + 0.01 * smoothstep(1.2, 1.0, s.y) + 0.003 * s.arm,
     smooth: 24, hem: 0.009, minOffset: 0.009,
     collar: { height: 0.04, flare: 0.028, minY: 1.37, maxX: 0.1, cz: -0.02 },
-    reshape: sleeveReshape((u) => (u < 0.2 ? 0 : 0.058)),
+    reshape: compose(sleeveReshape((u) => (u < 0.2 ? 0 : 0.072)), drape(0.1, 0.004)),
   },
 });
 
@@ -484,7 +484,7 @@ add({
   gait: { strideScale: 0.74, cadenceScale: 1.1, stepWidth: 0.03 },
 });
 add({
-  id: 'skirt_pleated', label: 'Pleated midi skirt', slot: 'bottom', layer: 3,
+  id: 'skirt_pleated', gait: { armOut: 3 }, label: 'Pleated midi skirt', slot: 'bottom', layer: 3,
   materials: ['silk', 'chiffon', 'cotton', 'wool'], patterns: ['solid', 'polka', 'floral', 'tartan'],
   defaults: { material: 'silk', color: '#a3263a' },
   build: (w, o) => buildSkirt(w, o, { top: 'waist', length: 0.7, flare: 0.3, sim: true, pleats: 28, rows: 22, gather: 1.25 }),
@@ -516,7 +516,7 @@ add({
     bodice: bodice({ neck: { type: 'v', depth: 0.15, width: 0.12, back: 0.15, backWidth: 0.14 }, straps: { x: 0.092, w: 0.0035, cut: 0.045, backCut: -0.05 }, ease: 0.008, smooth: 20 }) }),
 });
 add({
-  id: 'dress_sun', hides: ['bra'], label: 'Summer tea dress', slot: 'dress', layer: 3, replaces: ['top', 'bottom'],
+  id: 'dress_sun', gait: { armOut: 3 }, hides: ['bra'], label: 'Summer tea dress', slot: 'dress', layer: 3, replaces: ['top', 'bottom'],
   materials: ['cotton', 'linen', 'chiffon', 'silk'], patterns: ['floral', 'gingham', 'polka', 'solid', 'stripes'],
   defaults: { material: 'cotton', color: '#f4e8c1', pattern: 'floral', color2: '#d1495b' },
   build: (w, o) => buildSkirt(w, o, { top: 'waist', length: 0.56, flare: 0.3, sim: true, rows: 20, gather: 1.35,
@@ -540,7 +540,7 @@ add({
 
 // ============================================================================ coats (fitted upper + simulated tails)
 add({
-  id: 'coat_trench', label: 'Trench coat', slot: 'outer', layer: 6, replaces: [],
+  id: 'coat_trench', label: 'Trench coat', slot: 'outer', layer: 6, replaces: [], gait: { armOut: 4, armSwing: 0.85 },
   materials: ['cotton', 'leather', 'suede', 'wool'], patterns: ['solid', 'houndstooth', 'tartan'],
   defaults: { material: 'cotton', color: '#c2a878', detail: 5, button: '#3a2c20' },
   build: (w, o) => buildSkirt(w, o, { top: 'hipcoat', length: 0.5, flare: 0.22, sim: true, rows: 18, gather: 1.05, openFront: 0.03, layerOff: 0.03,
@@ -549,11 +549,11 @@ add({
       offset: (s) => 0.022 + 0.012 * smoothstep(1.2, 1.0, s.y) + 0.004 * s.arm,
       smooth: 30, hem: 0.0, minOffset: 0.016,
       collar: { height: 0.05, flare: 0.04, minY: 1.37, maxX: 0.1, cz: -0.02 },
-      reshape: sleeveReshape((u) => (u < 0.2 ? 0 : 0.064)),
+      reshape: compose(sleeveReshape((u) => (u < 0.2 ? 0 : 0.078)), drape(0.06, 0.012)),
     } }),
 });
 add({
-  id: 'coat_wool', label: 'Long wool coat', slot: 'outer', layer: 6, replaces: [],
+  id: 'coat_wool', label: 'Long wool coat', slot: 'outer', layer: 6, replaces: [], gait: { armOut: 4.5, armSwing: 0.8 },
   materials: ['wool', 'tweed', 'cashmere'], patterns: ['solid', 'houndstooth', 'tartan'],
   defaults: { material: 'wool', color: '#8a6a4a', detail: 5, button: '#2b211c' },
   build: (w, o) => buildSkirt(w, o, { top: 'hipcoat', length: 0.58, flare: 0.16, sim: true, rows: 18, gather: 1.0, openFront: 0.025, layerOff: 0.034, heavy: true,
@@ -562,7 +562,7 @@ add({
       offset: (s) => 0.026 + 0.012 * smoothstep(1.2, 1.0, s.y) + 0.005 * s.arm,
       smooth: 30, hem: 0.0, minOffset: 0.02,
       collar: { height: 0.055, flare: 0.045, minY: 1.37, maxX: 0.1, cz: -0.02 },
-      reshape: sleeveReshape((u) => (u < 0.2 ? 0 : 0.068)),
+      reshape: compose(sleeveReshape((u) => (u < 0.2 ? 0 : 0.082)), drape(0.06, 0.014)),
     } }),
 });
 

@@ -107,6 +107,7 @@ export class Wardrobe {
       for (const [k, v] of Object.entries(g)) {
         if (k.endsWith('Scale') && mods[k] !== undefined) mods[k] *= v;
         else if (k === 'stepWidth' && mods[k] !== undefined) mods[k] = Math.min(mods[k], v);
+        else if (k === 'armOut' && mods[k] !== undefined) mods[k] = Math.max(mods[k], v);
         else mods[k] = v;
       }
     }
@@ -139,10 +140,13 @@ export class Wardrobe {
     for (const [slot, w] of this.worn) if (w.object) w.object.visible = !hiddenSlots.has(slot);
     // tops are tucked into skirts / trousers: clip them just below the waistband
     const bottom = this.worn.get('bottom');
+    const wy = bottom && bottom.def.waist ? bottom.def.waist(atlas.L) - 0.015 : -1;
     const top = this.worn.get('top');
-    if (top && top.material && top.material.userData.uniforms) {
-      const wy = bottom && bottom.def.waist ? bottom.def.waist(atlas.L) - 0.015 : -1;
-      top.material.userData.uniforms.uClipY.value = wy;
+    if (top && top.material && top.material.userData.uniforms) top.material.userData.uniforms.uClipY.value = wy;
+    // knits are tucked into flared skirts (otherwise the skirt would cut through them)
+    const layer = this.worn.get('layer');
+    if (layer && layer.material && layer.material.userData.uniforms) {
+      layer.material.userData.uniforms.uClipY.value = bottom && bottom.def.build ? wy : -1;
     }
     this.dynamic = [...this.worn.values()].filter((w) => w.update);
     this.onChange && this.onChange(this);
