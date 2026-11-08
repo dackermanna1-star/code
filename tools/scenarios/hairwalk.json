@@ -1,0 +1,12 @@
+{ "w": 520, "h": 700, "steps": [
+  {"eval": "window.__test.outfit('casual')"},
+  {"input": [0,0,0]}, {"run": 0.5},
+  {"input": [0,1,1.4]}, {"run": 2.5},
+  {"cam": [2.6, 1.3, -1.6, 0, 1.2, 0]},
+  {"seq": {"n": 8, "dt": 0.09, "prefix": "a"}},
+  {"input": [1,0,1.4]},
+  {"seq": {"n": 8, "dt": 0.12, "prefix": "b"}},
+  {"eval": "__app.setHair('ponytail')"}, {"input": [0,0,0]}, {"run": 2.0},
+  {"input": [0,1,1.6]}, {"run": 1.5},
+  {"seq": {"n": 8, "dt": 0.09, "prefix": "c"}}
+]}

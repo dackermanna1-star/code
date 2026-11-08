@@ -5,6 +5,10 @@ import { Character } from './character/Character.js';
 import { makeHairMaterial } from './character/hair.js';
 import { Wardrobe } from './wardrobe/Wardrobe.js';
 import { Animator } from './anim/Animator.js';
+import { WardrobeUI } from './ui/WardrobeUI.js';
+import { OUTFITS } from './wardrobe/catalog.js';
+import { HAIR_COLORS } from './character/hair.js';
+import { HairPhysics } from './physics/HairPhysics.js';
 
 const params = new URLSearchParams(location.search);
 const TEST = params.has('test');
@@ -17,11 +21,14 @@ class App {
     this.studio.contact.hidden = [this.studio.floor, this.studio.grid];
     this.character = await Character.load();
     this.studio.scene.add(this.character.root);
-    await this.character.setHair(params.get('hair') || 'long', (map) => makeHairMaterial(map));
+    this.hairColor = HAIR_COLORS.ginger.color;
+    await this.setHair(params.get('hair') || 'long');
     this.wardrobe = new Wardrobe(this.character);
     this.wardrobe.wear('briefs_hipster');
     this.wardrobe.wear('bra_bralette');
     this.animator = new Animator(this.character);
+    this.wardrobe.onChange = () => this.animator.setGaitModifiers(this.wardrobe.gaitModifiers());
+    if (!TEST && params.get('outfit') !== 'none') this.applyOutfit(params.get('outfit') || 'breton');
     this.cam = new FollowCamera(this.studio.camera, this.studio.renderer.domElement);
     this.keys = new Set();
     this.speedMode = 'walk';
@@ -29,8 +36,43 @@ class App {
     this._bindKeys();
     this.clock = new THREE.Clock();
     this.time = 0;
-    if (TEST) this._testApi();
-    else this._loop();
+    const ld = document.querySelector('.loading');
+    if (TEST) { ld && ld.remove(); this._testApi(); }
+    else {
+      this.ui = new WardrobeUI(this);
+      this._loop();
+      if (ld) { ld.style.opacity = '0'; setTimeout(() => ld.remove(), 700); }
+    }
+  }
+
+  // ------------------------------------------------------------ wardrobe actions
+  wearItem(id, opts) {
+    try { this.wardrobe.wear(id, opts || {}); } catch (e) { console.error(e); }
+  }
+  removeSlot(slot) { this.wardrobe.remove(slot); }
+  restyle(slot, opts) { this.wardrobe.restyle(slot, opts); }
+  undress() {
+    for (const slot of [...this.wardrobe.worn.keys()]) this.wardrobe.remove(slot);
+    this.ui && this.ui.render();
+  }
+  applyOutfit(id) {
+    const o = OUTFITS[id];
+    if (!o) return;
+    for (const slot of [...this.wardrobe.worn.keys()]) this.wardrobe.remove(slot, true);
+    for (const [, [item, opts]] of Object.entries(o.items)) this.wearItem(item, opts);
+    this.wardrobe._refresh();
+    this.ui && this.ui.render();
+  }
+  async setHair(id) {
+    await this.character.setHair(id, (map) => makeHairMaterial(map, this.hairColor));
+    if (this.hairPhys) for (const ch of this.hairPhys.chains) for (const b of ch.bones) b.parent && b.parent.remove(b);
+    this.hairPhys = this.character.hair ? new HairPhysics(this.character, this.character.hair) : null;
+  }
+  setHairColor(c) {
+    this.hairColor = c;
+    const h = this.character.hair;
+    if (h) { h.material.color.set(c); h.material.sheenColor.set(c).lerp(new THREE.Color(0xffe0c0), 0.5); }
+    this.character.setBrowColor && this.character.setBrowColor(c);
   }
 
   _bindKeys() {
@@ -38,6 +80,7 @@ class App {
       if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT')) return;
       this.keys.add(e.code);
       if (e.code === 'KeyG') this.studio.grid.visible = !this.studio.grid.visible;
+      if (e.code === 'Tab') { e.preventDefault(); this.ui && this.ui.setOpen(!this.ui.open); }
       if (e.code === 'Digit1') this.cam.setPreset('full');
       if (e.code === 'Digit2') this.cam.setPreset('close');
       if (e.code === 'Digit3') this.cam.setPreset('face');
@@ -64,7 +107,7 @@ class App {
     if (mag > 0) this.input.dir.divideScalar(mag);
     let mode = this.speedMode;
     if (k.has('ShiftLeft') || k.has('ShiftRight')) mode = 'brisk';
-    if (k.has('ControlLeft') || k.has('AltLeft') || k.has('KeyC')) mode = 'stroll';
+    if (k.has('KeyC')) mode = 'stroll';
     this.input.speed = mag > 0 ? SPEEDS[mode] : 0;
     this.input.cameraYaw = Math.atan2(this.studio.camera.position.x - this.animator.loco.pos.x,
       this.studio.camera.position.z - this.animator.loco.pos.z);
@@ -73,6 +116,7 @@ class App {
   step(dt) {
     this.time += dt;
     this.animator.update(dt, this.input);
+    if (this.hairPhys) this.hairPhys.update(dt);
     this.wardrobe.update(dt, { animator: this.animator });
     const L = this.animator.loco;
     this.cam.update(dt, L.pos, L.heading, L.speed);
@@ -104,8 +148,9 @@ class App {
         c.position.set(p.x + x, y, p.z + z); c.lookAt(p.x + tx, ty, p.z + tz);
       },
       state() { const L = app.animator.loco; return { pos: L.pos.toArray(), heading: L.heading, speed: L.speed, phase: L.phase, active: L.active }; },
-      wear(id, opts) { app.wardrobe.wear(id, opts || {}); app.animator.setGaitModifiers(app.wardrobe.gaitModifiers()); },
-      remove(slot) { app.wardrobe.remove(slot); app.animator.setGaitModifiers(app.wardrobe.gaitModifiers()); },
+      wear(id, opts) { app.wardrobe.wear(id, opts || {}); },
+      remove(slot) { app.wardrobe.remove(slot); },
+      outfit(id) { app.applyOutfit(id); },
       grid(v) { app.studio.grid.visible = v; },
     };
     app.studio.render();

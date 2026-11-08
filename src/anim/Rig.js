@@ -18,7 +18,7 @@ export class Rig {
     this.c = character;
     this.bones = character.bones;
     this.order = [];
-    character.model.traverse((o) => { if (o.isBone) this.order.push(o.name); });
+    character.model.traverse((o) => { if (o.isBone && character.bones[o.name] === o) this.order.push(o.name); });
     this.restLocal = character.restLocal;
     this.restModel = character.restModel;
     this.parent = {};

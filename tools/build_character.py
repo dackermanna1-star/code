@@ -604,7 +604,9 @@ def main():
         tex_idx = None
         if tex_path and os.path.exists(tex_path):
             img = Image.open(tex_path).convert("RGBA")
-            img = hair_luminance_texture(img)
+            if max(img.size) > 1024:
+                img = img.resize((1024, 1024 * img.size[1] // img.size[0]), Image.LANCZOS)
+            img = hair_luminance_texture(img).convert("LA")
             tex_idx = hg.image(*encode_image(img, "PNG"))
         mat = hg.material("Hair_" + hid, texture=tex_idx, roughness=0.5, alpha_mode="BLEND",
                           double_sided=True, extras={"kind": "hair"})
@@ -651,10 +653,12 @@ EXPRESSION_MORPHS = {
 
 HAIR_STYLES = {
     # id: (pack dir, mhclo path relative to pack, label)
-    "long": ("makehuman_system_assets_cc0", "hair/long01/long01.mhclo", "Long & loose"),
+    "wavy": ("hair01_cc0", "hair/faydaen_hair_1/faydaen_hair_1.mhclo", "Loose waves"),
+    "long": ("makehuman_system_assets_cc0", "hair/long01/long01.mhclo", "Long & straight"),
     "ponytail": ("makehuman_system_assets_cc0", "hair/ponytail01/ponytail01.mhclo", "Ponytail"),
-    "bob": ("makehuman_system_assets_cc0", "hair/bob02/bob02.mhclo", "Bob"),
-    "braid": ("makehuman_system_assets_cc0", "hair/braid01/braid01.mhclo", "Braid"),
+    "bob": ("hair01_cc0", "hair/toigo_blunt_bob/toigo_blunt_bob.mhclo", "Blunt bob"),
+    "bun": ("hair01_cc0", "hair/rehmanpolanski_hair_bun_brown/rehmanpolanski_hair_bun_brown.mhclo", "Low bun"),
+    "braid": ("hair01_cc0", "hair/elvs_french_braid_variation/elvs_french_braid_variation.mhclo", "French braid"),
 }
 
 

@@ -1,0 +1,12 @@
+{ "w": 520, "h": 700, "steps": [
+  {"eval": "window.__test.outfit('evening')"},
+  {"input": [0,0,0]}, {"run": 0.5},
+  {"input": [0,1,1.2]}, {"run": 3.0},
+  {"cam": [3.4, 1.0, 0.4, 0, 0.9, 0]},
+  {"seq": {"n": 8, "dt": 0.1, "prefix": "e"}},
+  {"cam": [0.3, 1.0, 3.6, 0, 0.9, 0]},
+  {"seq": {"n": 8, "dt": 0.1, "prefix": "f"}},
+  {"eval": "window.__test.outfit('summer')"}, {"run": 1.5},
+  {"cam": [2.6, 1.0, 2.4, 0, 0.9, 0]},
+  {"seq": {"n": 8, "dt": 0.1, "prefix": "g"}}
+]}

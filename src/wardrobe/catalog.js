@@ -74,7 +74,7 @@ function sleeveField(s, len) {
 
 function topField(s, o) {
   if (s.head > 0.25 || s.hand > 0.2) return 1;
-  if (s.leg > 0.45) return 1;
+  if (s.leg > 0.9) return 1;
   let f = Math.max(neckField(s, o.neck), (o.hemY(s.L) - s.y) + (o.hemCurve || 0) * Math.abs(s.x) * Math.abs(s.x) * 4);
   f = Math.max(f, sleeveField(s, o.sleeve));
   if (o.straps) {
@@ -264,7 +264,7 @@ const TOP_MATERIALS = ['cotton', 'jersey', 'linen', 'silk', 'chiffon', 'cashmere
 const TOP_PATTERNS = ['solid', 'stripes', 'pinstripe', 'gingham', 'polka', 'floral', 'leopard'];
 
 add({
-  id: 'tshirt', label: 'Crew-neck T-shirt', slot: 'top', layer: 3,
+  id: 'tshirt', hides: ['bra'], label: 'Crew-neck T-shirt', slot: 'top', layer: 3,
   materials: TOP_MATERIALS, patterns: TOP_PATTERNS,
   defaults: { material: 'jersey', color: '#f7f5f0', pattern: 'solid', color2: '#1d2433' },
   fitted: {
@@ -276,7 +276,7 @@ add({
 });
 
 add({
-  id: 'breton', label: 'Breton long-sleeve', slot: 'top', layer: 3,
+  id: 'breton', hides: ['bra'], label: 'Breton long-sleeve', slot: 'top', layer: 3,
   materials: ['cotton', 'jersey'], patterns: TOP_PATTERNS,
   defaults: { material: 'jersey', color: '#f4f1ea', pattern: 'stripes', color2: '#1d2433' },
   fitted: {
@@ -287,7 +287,7 @@ add({
 });
 
 add({
-  id: 'fitted_top', label: 'Fitted scoop top', slot: 'top', layer: 3,
+  id: 'fitted_top', hides: ['bra'], label: 'Fitted scoop top', slot: 'top', layer: 3,
   materials: ['jersey', 'cotton', 'silk', 'cashmere'], patterns: ['solid', 'stripes', 'rib', 'leopard'],
   defaults: { material: 'jersey', color: '#111114', pattern: 'rib' },
   fitted: {
@@ -308,7 +308,7 @@ add({
 });
 
 add({
-  id: 'blouse', label: 'V-neck blouse', slot: 'top', layer: 3,
+  id: 'blouse', hides: ['bra'], label: 'V-neck blouse', slot: 'top', layer: 3,
   materials: ['silk', 'chiffon', 'cotton', 'linen'], patterns: ['solid', 'polka', 'floral', 'pinstripe', 'gingham'],
   defaults: { material: 'silk', color: '#f2e9dc' },
   fitted: {
@@ -320,7 +320,7 @@ add({
 });
 
 add({
-  id: 'shirt', label: 'Button-up shirt', slot: 'top', layer: 3,
+  id: 'shirt', hides: ['bra'], label: 'Button-up shirt', slot: 'top', layer: 3,
   materials: ['cotton', 'linen', 'silk', 'denim'], patterns: ['solid', 'pinstripe', 'gingham', 'tartan', 'stripes'],
   defaults: { material: 'cotton', color: '#f7f7f4', pattern: 'solid', color2: '#3d6a9e', detail: 2 },
   fitted: {
@@ -333,7 +333,7 @@ add({
 });
 
 add({
-  id: 'crop_top', label: 'Cropped tee', slot: 'top', layer: 3,
+  id: 'crop_top', hides: ['bra'], label: 'Cropped tee', slot: 'top', layer: 3,
   materials: ['jersey', 'cotton'], patterns: ['solid', 'stripes', 'rib'],
   defaults: { material: 'jersey', color: '#e8a0a8' },
   fitted: {
@@ -344,7 +344,7 @@ add({
 
 // ============================================================================ knits & jackets
 add({
-  id: 'sweater', label: 'Chunky knit sweater', slot: 'layer', layer: 4, replaces: [],
+  id: 'sweater', hides: ['bra', 'top'], label: 'Chunky knit sweater', slot: 'layer', layer: 4, replaces: [],
   materials: ['wool', 'cashmere'], patterns: ['solid', 'cable', 'rib', 'stripes'],
   defaults: { material: 'wool', color: '#e9e1d3', pattern: 'cable' },
   fitted: {
@@ -410,7 +410,7 @@ add({
 
 // ============================================================================ bottoms
 add({
-  id: 'jeans_skinny', label: 'Skinny jeans', slot: 'bottom', layer: 3,
+  id: 'jeans_skinny', hides: ['briefs'], label: 'Skinny jeans', slot: 'bottom', layer: 3,
   materials: ['denim'], patterns: ['solid'],
   defaults: { material: 'denim', color: '#2b3f63', detail: 1 }, colors: DENIM,
   fitted: {
@@ -421,7 +421,7 @@ add({
 });
 
 add({
-  id: 'jeans_straight', label: 'Straight-leg jeans', slot: 'bottom', layer: 3,
+  id: 'jeans_straight', hides: ['briefs'], label: 'Straight-leg jeans', slot: 'bottom', layer: 3,
   materials: ['denim'], patterns: ['solid'],
   defaults: { material: 'denim', color: '#3f5c86', detail: 1 }, colors: DENIM,
   fitted: {
@@ -434,7 +434,7 @@ add({
 });
 
 add({
-  id: 'trousers_wide', label: 'Wide-leg trousers', slot: 'bottom', layer: 3,
+  id: 'trousers_wide', hides: ['briefs'], label: 'Wide-leg trousers', slot: 'bottom', layer: 3,
   materials: ['wool', 'linen', 'silk', 'cotton', 'tweed'], patterns: ['solid', 'pinstripe', 'houndstooth', 'tartan'],
   defaults: { material: 'wool', color: '#2f3742' },
   fitted: {
@@ -446,7 +446,7 @@ add({
 });
 
 add({
-  id: 'leggings', label: 'Leggings', slot: 'bottom', layer: 3,
+  id: 'leggings', hides: ['briefs'], label: 'Leggings', slot: 'bottom', layer: 3,
   materials: ['jersey', 'microfiber', 'leather'], patterns: ['solid', 'leopard', 'rib'],
   defaults: { material: 'microfiber', color: '#111114' },
   fitted: {
@@ -456,7 +456,7 @@ add({
 });
 
 add({
-  id: 'shorts_denim', label: 'Denim shorts', slot: 'bottom', layer: 3,
+  id: 'shorts_denim', hides: ['briefs'], label: 'Denim shorts', slot: 'bottom', layer: 3,
   materials: ['denim', 'linen', 'cotton'], patterns: ['solid', 'gingham'],
   defaults: { material: 'denim', color: '#6f8db3', detail: 1 }, colors: DENIM,
   fitted: {
@@ -491,7 +491,7 @@ add({
   id: 'skirt_maxi', label: 'Flowing maxi skirt', slot: 'bottom', layer: 3,
   materials: ['chiffon', 'silk', 'linen', 'cotton'], patterns: ['solid', 'floral', 'polka', 'stripes'],
   defaults: { material: 'chiffon', color: '#e9c46a', pattern: 'floral', color2: '#f4e8c1' },
-  build: (w, o) => buildSkirt(w, o, { top: 'waist', length: 0.98, flare: 0.36, sim: true, rows: 26, gather: 1.4 }),
+  build: (w, o) => buildSkirt(w, o, { top: 'waist', length: 0.98, flare: 0.22, sim: true, rows: 26, gather: 1.25 }),
   gait: { strideScale: 0.95 },
 });
 
@@ -512,14 +512,14 @@ add({
     bodice: bodice({ neck: { type: 'v', depth: 0.15, width: 0.12, back: 0.15, backWidth: 0.14 }, straps: { x: 0.092, w: 0.0035, cut: 0.045, backCut: -0.05 }, ease: 0.008, smooth: 20 }) }),
 });
 add({
-  id: 'dress_sun', label: 'Summer tea dress', slot: 'dress', layer: 3, replaces: ['top', 'bottom'],
+  id: 'dress_sun', hides: ['bra'], label: 'Summer tea dress', slot: 'dress', layer: 3, replaces: ['top', 'bottom'],
   materials: ['cotton', 'linen', 'chiffon', 'silk'], patterns: ['floral', 'gingham', 'polka', 'solid', 'stripes'],
   defaults: { material: 'cotton', color: '#f4e8c1', pattern: 'floral', color2: '#d1495b' },
   build: (w, o) => buildSkirt(w, o, { top: 'waist', length: 0.56, flare: 0.3, sim: true, rows: 20, gather: 1.35,
     bodice: bodice({ neck: { type: 'square', depth: 0.1, width: 0.1, back: 0.04, backWidth: 0.1 }, sleeve: 0.11, sleeveR: (u) => (u < 0.4 ? 0 : 0.062), ease: 0.006 }) }),
 });
 add({
-  id: 'dress_knit', label: 'Ribbed bodycon dress', slot: 'dress', layer: 3, replaces: ['top', 'bottom'],
+  id: 'dress_knit', hides: ['bra'], label: 'Ribbed bodycon dress', slot: 'dress', layer: 3, replaces: ['top', 'bottom'],
   materials: ['jersey', 'cashmere', 'wool'], patterns: ['rib', 'solid', 'stripes'],
   defaults: { material: 'jersey', color: '#7a1f2b', pattern: 'rib' },
   build: (w, o) => buildSkirt(w, o, { top: 'waist', length: 0.5, flare: -0.02, sim: false, rows: 20,
@@ -530,7 +530,7 @@ add({
   id: 'dress_evening', label: 'Evening gown', slot: 'dress', layer: 3, replaces: ['top', 'bottom'],
   materials: ['silk', 'chiffon', 'jersey'], patterns: ['solid'],
   defaults: { material: 'silk', color: '#111114' },
-  build: (w, o) => buildSkirt(w, o, { top: 'waist', length: 1.0, flare: 0.26, sim: true, rows: 28, gather: 1.25, slit: 0.45,
+  build: (w, o) => buildSkirt(w, o, { top: 'waist', length: 1.0, flare: 0.1, sim: true, rows: 28, gather: 1.08, slit: 0.32,
     bodice: bodice({ neck: { type: 'v', depth: 0.17, width: 0.1, back: 0.22, backWidth: 0.12 }, sleeve: null, ease: 0.004, smooth: 14 }) }),
 });
 
@@ -570,7 +570,7 @@ function hoseField(topY) {
   };
 }
 add({
-  id: 'tights_opaque', label: 'Opaque tights', slot: 'legwear', layer: 2,
+  id: 'tights_opaque', hides: ['briefs'], label: 'Opaque tights', slot: 'legwear', layer: 2,
   materials: ['nylon', 'microfiber'], patterns: ['solid', 'rib', 'polka'], colors: HOSIERY,
   defaults: { material: 'nylon', color: '#1a1717', sheer: 1, density: 0.86 },
   fitted: { field: hoseField((L) => L.pelvis.y + 0.04), offset: (s) => 0.0016 + 0.0004 * s.foot, smooth: 2, hem: 0 },

@@ -5,6 +5,7 @@ import { Cloth } from '../physics/Cloth.js';
 
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
 const smoothstep = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+const mix = (a, b, t) => a + (b - a) * t;
 
 /**
  * Skirts, dress skirts and coat tails.  A tube is fitted around the body's
@@ -57,19 +58,26 @@ export function buildSkirt(w, o, cfg) {
     const t = wrap ? c / C : c / (C - 1);
     angles.push(open ? open / 2 + t * (Math.PI * 2 - open) : t * Math.PI * 2 + (cfg.slit ? 0.5 : 0));
   }
+  // legs are spread in the bind pose; measure the envelope as if standing
+  const hipX = Math.abs(L.hipL.x), ankX = Math.abs(L.ankleL.x);
+  const standAnkX = 0.075;
+  const adduct = (y) => { const t = clamp((L.hipL.y - y) / (L.hipL.y - L.ankleL.y), 0, 1); return t * (ankX - standAnkX); };
   const support = (y, th) => {
     const ux = Math.sin(th), uz = Math.cos(th);
     let best = 0.05;
     const k0 = Math.round(y * 100);
+    const ad = adduct(y);
     for (let k = k0 - 2; k <= k0 + 2; k++) {
       const arr = slices.get(k); if (!arr) continue;
       for (const i of arr) {
-        const d = P[i * 3] * ux + (P[i * 3 + 2] - cz) * uz;
+        const lx = P[i * 3] - Math.sign(P[i * 3]) * ad * atlas.leg[i];
+        const d = lx * ux + (P[i * 3 + 2] - cz) * uz;
         if (d > best) best = d;
       }
     }
     return best;
   };
+  void hipX;
   const ease = cfg.ease ?? (cfg.sim ? 0.012 : 0.009);
   const layerOff = cfg.layerOff || 0;
   const rest = new Float32Array(R * C * 3);
@@ -79,7 +87,8 @@ export function buildSkirt(w, o, cfg) {
   for (let r = 0; r < R; r++) {
     const y = topY + (hemY - topY) * (r / (R - 1));
     for (let c = 0; c < C; c++) {
-      let rad = support(Math.max(y, 0.06), angles[c]) + ease + layerOff;
+      const easeR = mix(cfg.topEase ?? 0.005, ease, smoothstep(0, 0.06, topY - y));
+      let rad = support(Math.max(y, 0.06), angles[c]) + easeR + layerOff;
       // a skirt hangs from the widest part of the hips; it never follows the
       // body back in (except deliberately tapered pencil styles)
       if (r > 0 && cfg.flare >= 0) rad = Math.max(rad, radii[(r - 1) * C + c]);
@@ -215,6 +224,13 @@ export function buildSkirt(w, o, cfg) {
     caps.push({ bone: 'calf_' + sd, a: knee.clone(), b: ank.clone().lerp(knee, 0.08), ra: legRad('calf_' + sd, knee.y - 0.16, knee.y - 0.08) * 0.95, rb: legRad('calf_' + sd, ank.y + 0.04, ank.y + 0.1) * 0.9 });
   }
   caps.push({ bone: 'pelvis', a: new THREE.Vector3(0.06, L.pelvis.y - 0.05, -0.03), b: new THREE.Vector3(-0.06, L.pelvis.y - 0.05, -0.03), ra: 0.11, rb: 0.11 });
+  // hands and forearms brush the fabric aside
+  for (const sd of ['l', 'r']) {
+    const el = ch.restModel['lowerarm_' + sd], wr = ch.restModel['hand_' + sd];
+    caps.push({ bone: 'lowerarm_' + sd, a: el.clone().lerp(wr, 0.35), b: wr.clone(), ra: 0.032, rb: 0.03 });
+    const mid = ch.restModel['middle_02_' + sd];
+    caps.push({ bone: 'hand_' + sd, a: wr.clone(), b: mid.clone(), ra: 0.03, rb: 0.024 });
+  }
   for (const c of caps) {
     c.bi = boneIndex[c.bone];
     cloth.capsules.push({ a: new THREE.Vector3(), b: new THREE.Vector3(), ra: c.ra, rb: c.rb });

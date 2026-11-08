@@ -810,8 +810,13 @@
  },
  "hair": [
   {
+   "id": "wavy",
+   "label": "Loose waves",
+   "file": "hair/wavy.glb"
+  },
+  {
    "id": "long",
-   "label": "Long & loose",
+   "label": "Long & straight",
    "file": "hair/long.glb"
   },
   {
@@ -821,12 +826,17 @@
   },
   {
    "id": "bob",
-   "label": "Bob",
+   "label": "Blunt bob",
    "file": "hair/bob.glb"
   },
   {
+   "id": "bun",
+   "label": "Low bun",
+   "file": "hair/bun.glb"
+  },
+  {
    "id": "braid",
-   "label": "Braid",
+   "label": "French braid",
    "file": "hair/braid.glb"
   }
  ]

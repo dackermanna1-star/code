@@ -124,6 +124,13 @@ export class Wardrobe {
     }
     const g = this.character.body.geometry;
     g.setIndex(new THREE.BufferAttribute(out.slice(0, n), 1));
+    // inner layers that are completely covered are not drawn (avoids poke-through)
+    const hiddenSlots = new Set();
+    for (const w of this.worn.values()) {
+      const h = typeof w.def.hides === 'function' ? w.def.hides(w.opts) : w.def.hides;
+      if (h && !w.opts.sheer) for (const s of h) hiddenSlots.add(s);
+    }
+    for (const [slot, w] of this.worn) if (w.object) w.object.visible = !hiddenSlots.has(slot);
     this.dynamic = [...this.worn.values()].filter((w) => w.update);
     this.onChange && this.onChange(this);
   }

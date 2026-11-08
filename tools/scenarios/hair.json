@@ -1,0 +1,11 @@
+{ "w": 700, "h": 520, "steps": [
+  {"eval": "window.__test.outfit('casual')"}, {"run": 0.3},
+  {"cam": [0.9, 1.55, 1.1, 0, 1.45, 0]},
+  {"eval": "__app.setHair('long')"}, {"run": 0.6}, {"shot": "h_1long"},
+  {"eval": "__app.setHair('wavy')"}, {"run": 0.6}, {"shot": "h_2wavy"},
+  {"eval": "__app.setHair('straight')"}, {"run": 0.6}, {"shot": "h_3straight"},
+  {"eval": "__app.setHair('ponytail')"}, {"run": 0.6}, {"shot": "h_4ponytail"},
+  {"eval": "__app.setHair('bob')"}, {"run": 0.6}, {"shot": "h_5bob"},
+  {"eval": "__app.setHair('bun')"}, {"run": 0.6}, {"shot": "h_6bun"},
+  {"eval": "__app.setHair('braid')"}, {"run": 0.6}, {"shot": "h_7braid"}
+]}
