@@ -117,7 +117,8 @@ materials packed beside the body) into `src/character/models/<name>/mesh.json`.
 * **Scarlet** is *Female_Adult_07*; `tools/models/scarlet_textures.py` re-dressed its textures as
   Scarlet's (a black leather jacket over a red top, sheer black tights, black boots, fingerless
   gloves, red hair and lips). The leather mini skirt is built by the game over the fitted body
-  (`src/character/realBody.ts`).
+  (`src/character/realBody.ts`). `tools/models/export_scarlet.mjs` writes her, dressed so, on the
+  avatar's own full rig as a glTF binary for use outside the game (the MIT notice goes with it).
 * **The enemies** wear their avatars' own clothes, varied per fighter by tints in the game:
   *Male_Adult_04, 05, 07, 09, 10, 12, 16, 17, 18, 20* (street thugs, knife and agile gangs,
   bruisers, Viper), *Gardener_Male_01* and *Delivery_Male_01* (workers), *Business_Male_01, 04,

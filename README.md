@@ -591,7 +591,8 @@ src/story/       the story mode: runner (scenes, fights, objectives, checkpoints
                  chapters (ch0 to ch8), their set dressing and non-combatants, the club's sound, saves
 tools/audio/     reproducible CC0 sound library build
 tools/models/    realistic models: Rocketbox FBX -> mesh asset, Scarlet's re-dressed textures, the
-                 enemies' avatars (avatars.json, build_avatars.py, avatar_textures.py)
+                 enemies' avatars (avatars.json, build_avatars.py, avatar_textures.py); Scarlet
+                 as a rigged glTF for use elsewhere (export_scarlet.mjs, scarlet_export_textures.py)
 tests/           headless runners (results, screenshots, film strips)
 ```
 
