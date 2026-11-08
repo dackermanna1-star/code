@@ -109,6 +109,15 @@ export function buildFitted(atlas, spec) {
     }
   }
 
+  // optional per-vertex reshaping (e.g. straight/wide trouser legs, loose sleeves)
+  if (spec.reshape) {
+    const tmp = new THREE.Vector3(), b = new THREE.Vector3(), n = new THREE.Vector3();
+    for (let i = 0; i < nv; i++) {
+      tmp.fromArray(pos, i * 3); b.fromArray(BASE, i * 3); n.fromArray(BN, i * 3);
+      if (spec.reshape(tmp, b, n, O[i], atlas.L, atlas)) { pos[i * 3] = tmp.x; pos[i * 3 + 1] = tmp.y; pos[i * 3 + 2] = tmp.z; }
+    }
+  }
+
   // adjacency + boundary detection
   const edgeCount = new Map();
   const adj = Array.from({ length: nv }, () => new Set());
@@ -149,7 +158,7 @@ export function buildFitted(atlas, spec) {
         // keep outside the body: signed distance along the base normal
         const dx = tmp[i * 3] - BASE[i * 3], dy = tmp[i * 3 + 1] - BASE[i * 3 + 1], dz = tmp[i * 3 + 2] - BASE[i * 3 + 2];
         const d = dx * BN[i * 3] + dy * BN[i * 3 + 1] + dz * BN[i * 3 + 2];
-        const need = Math.max(minOff, O[i] * 0.55);
+        const need = spec.hull ? minOff : Math.max(minOff, O[i] * 0.55);
         if (d < need) {
           tmp[i * 3] += BN[i * 3] * (need - d);
           tmp[i * 3 + 1] += BN[i * 3 + 1] * (need - d);
@@ -158,6 +167,43 @@ export function buildFitted(atlas, spec) {
       }
       pos.set(tmp);
     }
+  }
+
+  // smooth hem lines along themselves (removes clipping jaggies)
+  if (bEdges.length) {
+    const bn = new Map();
+    for (let i = 0; i < bEdges.length; i += 2) {
+      const a = bEdges[i], b = bEdges[i + 1];
+      if (!bn.has(a)) bn.set(a, []); if (!bn.has(b)) bn.set(b, []);
+      bn.get(a).push(b); bn.get(b).push(a);
+    }
+    const tmp = new Float32Array(nv * 3);
+    for (let it = 0; it < (spec.hemSmooth ?? 8); it++) {
+      tmp.set(pos);
+      for (const [v, nb] of bn) {
+        if (nb.length < 2) continue;
+        let sx = 0, sy = 0, sz = 0;
+        for (const j of nb) { sx += pos[j * 3]; sy += pos[j * 3 + 1]; sz += pos[j * 3 + 2]; }
+        const c = nb.length;
+        tmp[v * 3] = pos[v * 3] + (sx / c - pos[v * 3]) * 0.5;
+        tmp[v * 3 + 1] = pos[v * 3 + 1] + (sy / c - pos[v * 3 + 1]) * 0.5;
+        tmp[v * 3 + 2] = pos[v * 3 + 2] + (sz / c - pos[v * 3 + 2]) * 0.5;
+      }
+      pos.set(tmp);
+    }
+  }
+  // final smooth normals of the shell (used for hem folds)
+  const FN = new Float32Array(nv * 3);
+  for (let i = 0; i < tris.length; i += 3) {
+    const a = tris[i], b = tris[i + 1], c = tris[i + 2];
+    const ux = pos[b * 3] - pos[a * 3], uy = pos[b * 3 + 1] - pos[a * 3 + 1], uz = pos[b * 3 + 2] - pos[a * 3 + 2];
+    const vx = pos[c * 3] - pos[a * 3], vy = pos[c * 3 + 1] - pos[a * 3 + 1], vz = pos[c * 3 + 2] - pos[a * 3 + 2];
+    const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+    for (const k of [a, b, c]) { FN[k * 3] += nx; FN[k * 3 + 1] += ny; FN[k * 3 + 2] += nz; }
+  }
+  for (let i = 0; i < nv; i++) {
+    const l = Math.hypot(FN[i * 3], FN[i * 3 + 1], FN[i * 3 + 2]) || 1;
+    FN[i * 3] /= l; FN[i * 3 + 1] /= l; FN[i * 3 + 2] /= l;
   }
 
   // hems: turn the cut edge back towards the body so it reads as real fabric
@@ -169,7 +215,7 @@ export function buildFitted(atlas, spec) {
     const getDup = (v) => {
       if (dup.has(v)) return dup.get(v);
       const id = finalPos.length / 3;
-      finalPos.push(pos[v * 3] - BN[v * 3] * hem * 0.7, pos[v * 3 + 1] - BN[v * 3 + 1] * hem * 0.7, pos[v * 3 + 2] - BN[v * 3 + 2] * hem * 0.7);
+      finalPos.push(pos[v * 3] - FN[v * 3] * hem * 0.7, pos[v * 3 + 1] - FN[v * 3 + 1] * hem * 0.7, pos[v * 3 + 2] - FN[v * 3 + 2] * hem * 0.7);
       finalSI.push(SI[v * 4], SI[v * 4 + 1], SI[v * 4 + 2], SI[v * 4 + 3]);
       finalSW.push(SW[v * 4], SW[v * 4 + 1], SW[v * 4 + 2], SW[v * 4 + 3]);
       finalBase.push(BASE[v * 3], BASE[v * 3 + 1], BASE[v * 3 + 2]);
@@ -180,6 +226,33 @@ export function buildFitted(atlas, spec) {
       const a = bEdges[i], b = bEdges[i + 1];
       const a2 = getDup(a), b2 = getDup(b);
       // boundary edge a->b belongs to a triangle with CCW order; the strip continues it
+      finalTris.push(b, a, a2, b, a2, b2);
+    }
+  }
+  if (spec.collar && bEdges.length) {
+    // stand-up / fold-over collar extruded from the neckline boundary
+    const c = spec.collar;
+    const isNeck = (v) => pos[v * 3 + 1] > c.minY && Math.abs(pos[v * 3]) < c.maxX;
+    const up = new Map();
+    const getUp = (v) => {
+      if (up.has(v)) return up.get(v);
+      const id = finalPos.length / 3;
+      const x = pos[v * 3], y = pos[v * 3 + 1], z = pos[v * 3 + 2];
+      // outward from the neck axis + upward
+      const dx = x, dz = z - c.cz; const l = Math.hypot(dx, dz) || 1;
+      const front = Math.max(0, dz / l);
+      const h = c.height * (1 - 0.35 * front);
+      finalPos.push(x + (dx / l) * c.flare * h / c.height, y + h, z + (dz / l) * c.flare * h / c.height);
+      finalSI.push(SI[v * 4], SI[v * 4 + 1], SI[v * 4 + 2], SI[v * 4 + 3]);
+      finalSW.push(SW[v * 4], SW[v * 4 + 1], SW[v * 4 + 2], SW[v * 4 + 3]);
+      finalBase.push(BASE[v * 3], BASE[v * 3 + 1], BASE[v * 3 + 2]);
+      up.set(v, id);
+      return id;
+    };
+    for (let i = 0; i < bEdges.length; i += 2) {
+      const a = bEdges[i], b = bEdges[i + 1];
+      if (!isNeck(a) || !isNeck(b)) continue;
+      const a2 = getUp(a), b2 = getUp(b);
       finalTris.push(b, a, a2, b, a2, b2);
     }
   }

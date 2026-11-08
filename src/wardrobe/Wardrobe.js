@@ -32,9 +32,12 @@ export class Wardrobe {
       if ((w.def.replaces || []).includes(def.slot)) this.remove(slot, true);
     }
     const o = { ...def.defaults, ...opts };
+    const L = this.atlas.L;
+    const extra = { _id: id, land: [L.pelvis.y + 0.03, L.pelvis.y - 0.05, L.crotchY, L.neckBase.y] };
+    if (def.band) extra.band = def.band(L);
     const entry = { def, opts: o, object: null, covered: null, sim: null };
     if (def.build) {
-      const res = def.build(this, o);
+      const res = def.build(this, { ...o, ...extra });
       entry.object = res.object;
       entry.covered = res.covered || null;
       entry.sim = res.sim || null;
@@ -47,7 +50,7 @@ export class Wardrobe {
         cached = buildFitted(this.atlas, def.fitted);
         this.geomCache.set(id, cached);
       }
-      const mat = makeFabricMaterial(o);
+      const mat = makeFabricMaterial({ ...o, ...extra });
       const mesh = new THREE.SkinnedMesh(cached.geometry, mat);
       mesh.name = id;
       mesh.frustumCulled = false;
@@ -89,9 +92,17 @@ export class Wardrobe {
 
   /** Walking-style modifiers contributed by what she wears (shoes, narrow skirts...). */
   gaitModifiers() {
+    // garments first, shoes last (shoes define the foot geometry); scales multiply
     const mods = {};
-    for (const w of this.worn.values()) {
-      if (w.def.gait) Object.assign(mods, typeof w.def.gait === 'function' ? w.def.gait(w.opts) : w.def.gait);
+    const list = [...this.worn.values()].sort((a, b) => (a.def.slot === 'shoes') - (b.def.slot === 'shoes'));
+    for (const w of list) {
+      const g = w.def.gait;
+      if (!g) continue;
+      for (const [k, v] of Object.entries(g)) {
+        if (k.endsWith('Scale') && mods[k] !== undefined) mods[k] *= v;
+        else if (k === 'stepWidth' && mods[k] !== undefined) mods[k] = Math.min(mods[k], v);
+        else mods[k] = v;
+      }
     }
     return mods;
   }

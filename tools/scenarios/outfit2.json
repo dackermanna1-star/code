@@ -1,0 +1,10 @@
+{ "w": 1500, "h": 800, "steps": [
+  {"eval": "window.__test.wear('tshirt'); window.__test.wear('jeans_straight'); window.__test.wear('sneakers')"},
+  {"input": [0,0,0]}, {"run": 0.4},
+  {"cam": [0, 1.0, 2.6, 0, 0.88, 0]}, {"shot": "a1"},
+  {"cam": [0.5, 0.3, 0.8, 0, 0.08, 0.05]}, {"shot": "a2"},
+  {"eval": "window.__test.wear('stilettos'); window.__test.wear('dress_slip'); window.__test.wear('pantyhose')"},
+  {"run": 1.0},
+  {"cam": [0, 1.0, 2.8, 0, 0.88, 0]}, {"shot": "b1"},
+  {"cam": [0.6, 0.3, 0.7, 0, 0.1, 0.05]}, {"shot": "b2"}
+]}

@@ -255,7 +255,7 @@ export class BodyLayer {
       // idle: arms hang, tiny drift
       const idle = (1 - act) * (fbm1(this.t * 0.2, s === 'l' ? 11 : 13) * 2.5 * deg);
       const swing = this.armSpring[s].update(swingTarget + idle, dt);
-      const abd = this.armAbd[s].update((7.5 + 2.5 * act + (gaitMods.armOut || 0)) * deg + 1.2 * deg * breathIn, dt);
+      const abd = this.armAbd[s].update((9.5 + 2.0 * act + (gaitMods.armOut || 0)) * deg + 1.2 * deg * breathIn, dt);
       // clavicle: slight protraction with forward swing, elevation on inhale
       const clavQ = thoraxQ.clone().multiply(_q.setFromEuler(_e.set(0, -sign * clamp(swing, -0.3, 0.3) * 0.12, sign * (breathIn * 0.6 * deg + 0.5 * deg), 'XYZ')));
       R.setQ('clavicle_' + s, clavQ);

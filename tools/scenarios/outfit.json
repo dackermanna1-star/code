@@ -1,0 +1,5 @@
+{ "w": 1400, "h": 760, "steps": [
+  {"eval": "window.__test.wear('tshirt'); window.__test.wear('jeans_straight'); window.__test.wear('sneakers')"},
+  {"input": [0,0,0]}, {"run": 0.6},
+  {"cam": [0, 1.0, 4.6, 0, 0.88, 0]}, {"shot": "o1"}
+]}

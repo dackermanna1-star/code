@@ -15,7 +15,7 @@ export const MATERIALS = {
   denim: { label: 'Denim', roughness: 0.9, sheen: 0.2, sheenRoughness: 0.9, weave: 3, weaveScale: 700, bump: 0.7, denim: 1 },
   wool: { label: 'Wool knit', roughness: 0.96, sheen: 0.9, sheenRoughness: 0.6, weave: 4, weaveScale: 230, bump: 1.4, fuzz: 1 },
   cashmere: { label: 'Cashmere', roughness: 0.97, sheen: 1.0, sheenRoughness: 0.45, weave: 2, weaveScale: 520, bump: 0.5, fuzz: 1 },
-  silk: { label: 'Silk satin', roughness: 0.28, sheen: 0.6, sheenRoughness: 0.25, weave: 0, weaveScale: 1, bump: 0, specular: 0.9 },
+  silk: { label: 'Silk satin', roughness: 0.38, sheen: 0.8, sheenRoughness: 0.3, weave: 1, weaveScale: 2600, bump: 0.08, specular: 0.55 },
   chiffon: { label: 'Chiffon', roughness: 0.5, sheen: 0.5, sheenRoughness: 0.4, weave: 1, weaveScale: 1400, bump: 0.15 },
   leather: { label: 'Leather', roughness: 0.42, sheen: 0.1, sheenRoughness: 0.5, weave: 5, weaveScale: 160, bump: 0.5, clearcoat: 0.25 },
   suede: { label: 'Suede', roughness: 1.0, sheen: 0.8, sheenRoughness: 0.5, weave: 5, weaveScale: 400, bump: 0.15 },
@@ -47,9 +47,16 @@ attribute vec3 restPos;
 attribute vec3 restNormal;
 varying vec3 vRestPos;
 varying vec3 vRestNormal;
+#ifdef USE_CUT
+attribute float cut;
+varying float vCut;
+#endif
 `;
 
 const GLSL_FRAG = /* glsl */`
+#ifdef USE_CUT
+varying float vCut;
+#endif
 varying vec3 vRestPos;
 varying vec3 vRestNormal;
 uniform vec3 uColor2;
@@ -63,6 +70,11 @@ uniform float uFuzz;
 uniform float uSlub;
 uniform float uSheer;
 uniform float uSheerDensity;
+uniform vec4 uBand;      // yStart, yEnd, type (1 rib, 2 lace, 3 welt), strength
+uniform float uDetail;   // 1 jeans, 2 shirt placket, 3 cardigan, 4 zip, 5 blazer
+uniform vec4 uLand;      // waistY, hipY, crotchY, garment top Y
+uniform vec3 uThread;
+uniform vec3 uButton;
 
 float hash12(vec2 p){ vec3 p3 = fract(vec3(p.xyx) * .1031); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y) * p3.z); }
 float vnoise(vec2 p){ vec2 i = floor(p), f = fract(p); vec2 u = f*f*(3.-2.*f);
@@ -105,6 +117,7 @@ float weaveH(vec2 p, float type){
   return smoothstep(0.32, 0.28, r - petals*0.08) * (1.0 - smoothstep(0.08, 0.04, r));
 }
 
+float lodF(vec2 p){ vec2 w = fwidth(p); return clamp(1.0 - max(w.x, w.y) * 1.6, 0.0, 1.0); }
 float stripeF(float x, float w){ float f = fract(x); return smoothstep(0.0, 0.02, f) * (1.0 - smoothstep(w, w+0.02, f)); }
 
 float patternMask(vec2 p, float id){
@@ -180,17 +193,28 @@ export function makeFabricMaterial(opts = {}) {
     uSlub: { value: mdef.slub || 0 },
     uSheer: { value: sheer },
     uSheerDensity: { value: opts.density ?? 0.35 },
+    uBand: { value: new THREE.Vector4(...(opts.band || [0, 0, 0, 0])) },
+    uDetail: { value: opts.detail || 0 },
+    uLand: { value: new THREE.Vector4(...(opts.land || [1.0, 0.9, 0.8, 1.4])) },
+    uThread: { value: new THREE.Color(opts.thread || '#c98b3c') },
+    uButton: { value: new THREE.Color(opts.button || '#e8e4dc') },
   };
   m.userData.uniforms = u;
+  if (opts.cut) m.defines = { ...(m.defines || {}), USE_CUT: '' };
   const wrapLight = mdef.fuzz ? new THREE.Vector3(0.3, 0.3, 0.3) : new THREE.Vector3(0.12, 0.12, 0.12);
   addWrapLighting(m, wrapLight, (s) => {
     Object.assign(s.uniforms, u);
     s.vertexShader = GLSL_COMMON + s.vertexShader.replace('#include <begin_vertex>',
-      '#include <begin_vertex>\n vRestPos = restPos; vRestNormal = restNormal;');
+      '#include <begin_vertex>\n vRestPos = restPos; vRestNormal = restNormal;\n#ifdef USE_CUT\n vCut = cut;\n#endif');
     s.fragmentShader = s.fragmentShader
       .replace('#include <common>', '#include <common>\n' + GLSL_FRAG)
       .replace('#include <map_fragment>', /* glsl */`
         #include <map_fragment>
+        #ifdef USE_CUT
+          if (vCut < 0.0) discard;
+          // inside of a shoe: darker lining
+          if (!gl_FrontFacing) diffuseColor.rgb *= 0.45;
+        #endif
         vec3 tw = triW();
         vec2 pX = vRestPos.zy, pY = vRestPos.xz, pZ = vRestPos.xy;
         // pattern colour
@@ -198,14 +222,17 @@ export function makeFabricMaterial(opts = {}) {
         if (uPattern > 0.5) {
           float sc = uPatternScale;
           pm = patternMask(pX*sc, uPattern) * tw.x + patternMask(pY*sc, uPattern) * tw.y + patternMask(pZ*sc, uPattern) * tw.z;
+          float plod = lodF(pZ * sc * 2.0);
+          pm = mix(0.35, pm, plod);
           if (uPattern > 8.5) { diffuseColor.rgb *= mix(0.82, 1.08, pm); pm = 0.0; }
         }
         diffuseColor.rgb = mix(diffuseColor.rgb, uColor2, clamp(pm, 0.0, 1.0));
-        float fineN = fbm(pZ * 160.0) * tw.z + fbm(pX * 160.0) * tw.x + fbm(pY * 160.0) * tw.y;
+        float fineL = lodF(pZ * 160.0);
+        float fineN = mix(0.5, fbm(pZ * 160.0) * tw.z + fbm(pX * 160.0) * tw.x + fbm(pY * 160.0) * tw.y, fineL);
         if (uDenim > 0.5) {
           // denim: indigo warp / white weft, fading on high-wear areas and fine slub
           float tw2 = fract((pZ.x + pZ.y) * uWeaveScale) * tw.z + fract((pX.x + pX.y) * uWeaveScale) * tw.x + fract((pY.x+pY.y)*uWeaveScale)*tw.y;
-          float weft = smoothstep(0.55, 0.9, tw2);
+          float weft = mix(0.28, smoothstep(0.55, 0.9, tw2), lodF(pZ * uWeaveScale));
           float fade = fbm(vec2(vRestPos.x*6.0, vRestPos.y*3.0));
           diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * 1.55 + 0.06, weft * 0.35 + fade * 0.25);
           diffuseColor.rgb *= 0.92 + 0.16 * fineN;
@@ -217,6 +244,81 @@ export function makeFabricMaterial(opts = {}) {
           diffuseColor.rgb *= 0.9 + 0.2 * sl;
           if (uSlub > 1.5) diffuseColor.rgb = mix(diffuseColor.rgb, uColor2, step(0.82, hash12(floor(pZ*700.0)))*0.5);
         }
+        // ---- bands (rib cuffs, lace tops, welts)
+        float inBand = 0.0;
+        if (uBand.z > 0.5) {
+          inBand = step(uBand.x, vRestPos.y) * step(vRestPos.y, uBand.y);
+          float ang = atan(vRestPos.x - sign(vRestPos.x) * 0.12, vRestPos.z);
+          if (uBand.z < 1.5) { // rib
+            float rib = 0.5 + 0.5 * sin(ang * 70.0);
+            diffuseColor.rgb *= mix(1.0, 0.86 + 0.14 * rib, inBand);
+          } else if (uBand.z < 2.5) { // lace: openwork shown as darker + transparency handled in alpha
+            vec2 lp = vec2(ang * 0.06, vRestPos.y) * 160.0;
+            vec2 c = fract(lp) - 0.5; float r = length(c);
+            float petals = 0.5 + 0.5*cos(atan(c.y,c.x)*6.0);
+            float lace = smoothstep(0.34, 0.3, r - petals*0.1) * (1.0 - smoothstep(0.1, 0.06, r));
+            diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * (0.75 + 0.35 * lace), inBand);
+          } else {
+            diffuseColor.rgb *= mix(1.0, 0.9, inBand);
+          }
+        }
+        // ---- construction details in rest space
+        vec3 rp = vRestPos;
+        float stitch = 0.0;
+        if (uDetail > 0.5 && uDetail < 1.5) {
+          // jeans: waistband, fly topstitch, back pockets, yoke
+          float wb = step(uLand.x - 0.038, rp.y) * step(rp.y, uLand.x + 0.01);
+          diffuseColor.rgb *= 1.0 - 0.08 * wb;
+          stitch += (1.0 - smoothstep(0.0006, 0.0012, abs(rp.y - (uLand.x - 0.036)))) ;
+          stitch += (1.0 - smoothstep(0.0006, 0.0012, abs(rp.y - (uLand.x - 0.004)))) ;
+          float front = step(0.02, rp.z);
+          float fly = abs(abs(rp.x) - 0.022) ;
+          float flyZone = step(uLand.z + 0.06, rp.y) * step(rp.y, uLand.x - 0.04) * step(0.0, rp.x);
+          stitch += front * flyZone * (1.0 - smoothstep(0.0006, 0.0013, fly));
+          float back = step(rp.z, -0.03);
+          vec2 pk = vec2(abs(rp.x) - 0.075, rp.y - (uLand.y - 0.045));
+          vec2 d = abs(pk) - vec2(0.05, 0.06);
+          float box = abs(max(d.x, d.y));
+          float inPk = step(max(d.x,d.y), 0.0);
+          stitch += back * (1.0 - smoothstep(0.0007, 0.0014, box)) * step(pk.y, 0.06);
+          float yoke = abs(rp.y - (uLand.y + 0.01 + abs(rp.x) * 0.25));
+          stitch += back * step(abs(rp.x), 0.17) * (1.0 - smoothstep(0.0006, 0.0012, yoke));
+          diffuseColor.rgb *= 1.0 - 0.04 * back * inPk;
+          // side & in-seams
+          float side = abs(atan(rp.x - sign(rp.x)*0.13, rp.z) - sign(rp.x)*1.5708);
+          stitch += step(rp.y, uLand.z) * (1.0 - smoothstep(0.012, 0.02, side)) * 0.6;
+        } else if (uDetail > 1.5 && uDetail < 2.5) {
+          // shirt: placket + buttons
+          float pl = step(0.0, rp.z) * step(abs(rp.x), 0.016);
+          diffuseColor.rgb *= 1.0 + 0.04 * pl;
+          stitch += step(0.0, rp.z) * (1.0 - smoothstep(0.0005, 0.001, abs(abs(rp.x) - 0.014))) * 0.7;
+          float by = mod(rp.y - uLand.w + 0.06, 0.085) - 0.0425;
+          float bd = length(vec2(rp.x, by));
+          float btn = step(0.0, rp.z) * (1.0 - smoothstep(0.005, 0.0062, bd)) * step(rp.y, uLand.w - 0.03) * step(uLand.y - 0.05, rp.y);
+          diffuseColor.rgb = mix(diffuseColor.rgb, uButton * (0.85 + 0.3 * smoothstep(0.006, 0.0, bd)), btn);
+        } else if (uDetail > 2.5 && uDetail < 3.5) {
+          // cardigan: button band along the front opening edge
+          float edge = step(0.02, rp.z) * step(abs(abs(rp.x) - 0.03), 0.012);
+          diffuseColor.rgb *= 1.0 - 0.06 * edge;
+          float by = mod(rp.y + 0.03, 0.075) - 0.0375;
+          float bd = length(vec2(rp.x - 0.03, by));
+          float btn = step(0.02, rp.z) * step(0.0, rp.x) * (1.0 - smoothstep(0.0055, 0.0068, bd)) * step(rp.y, uLand.w - 0.05);
+          diffuseColor.rgb = mix(diffuseColor.rgb, uButton, btn);
+        } else if (uDetail > 3.5 && uDetail < 4.5) {
+          // zip down the front
+          float zz = step(0.02, rp.z) * (1.0 - smoothstep(0.003, 0.0045, abs(rp.x - 0.012)));
+          float teeth = step(0.5, fract(rp.y * 450.0));
+          diffuseColor.rgb = mix(diffuseColor.rgb, mix(vec3(0.55), vec3(0.75), teeth), zz);
+        } else if (uDetail > 4.5) {
+          // blazer: two buttons at the waist on the wrap
+          float bd = min(length(vec2(rp.x - 0.01, rp.y - uLand.x)), length(vec2(rp.x - 0.01, rp.y - uLand.x + 0.09)));
+          float btn = step(0.03, rp.z) * (1.0 - smoothstep(0.0075, 0.009, bd));
+          diffuseColor.rgb = mix(diffuseColor.rgb, uButton, btn);
+          // breast pocket welt
+          float w = step(0.03, rp.z) * step(abs(rp.y - (uLand.w - 0.17)), 0.004) * step(abs(rp.x - 0.085), 0.045);
+          diffuseColor.rgb *= 1.0 - 0.12 * w;
+        }
+        diffuseColor.rgb = mix(diffuseColor.rgb, uThread, clamp(stitch, 0.0, 1.0) * 0.85);
       `)
       .replace('#include <normal_fragment_maps>', /* glsl */`
         #include <normal_fragment_maps>
@@ -232,7 +334,7 @@ export function makeFabricMaterial(opts = {}) {
           vec3 dpdx = dFdx(-vViewPosition), dpdy = dFdy(-vViewPosition);
           float dhx = dFdx(h), dhy = dFdy(h);
           // fade the micro-bump with distance to avoid aliasing
-          float fade = clamp(1.0 - (length(dpdx) + length(dpdy)) * 900.0 / uWeaveScale * 2.0, 0.0, 1.0);
+          float fade = lodF(vRestPos.xy * uWeaveScale * 1.5) * lodF(vRestPos.zy * uWeaveScale * 1.5);
           vec3 r1 = cross(dpdy, normal), r2 = cross(normal, dpdx);
           float det = dot(dpdx, r1);
           vec3 grad = sign(det) * (dhx * r1 + dhy * r2);
@@ -241,12 +343,23 @@ export function makeFabricMaterial(opts = {}) {
       `)
       .replace('#include <opaque_fragment>', /* glsl */`
         if (uSheer > 0.5) {
-          // sheer hosiery: denser where the fabric is seen at grazing angles and
-          // where it is stretched less; skin shows through at normal incidence
+          // sheer hosiery: denser where the fabric is seen at grazing angles,
+          // skin shows through at normal incidence
           float ndv = abs(dot(normalize(normal), normalize(vViewPosition)));
           float dens = uSheerDensity;
           float a = mix(dens, 1.0, pow(1.0 - ndv, 2.2));
+          if (uSheer > 1.5) {
+            // fishnet: diamond mesh
+            vec2 q = vec2(atan(vRestPos.x - sign(vRestPos.x) * 0.12, vRestPos.z) * 0.07, vRestPos.y) * 110.0;
+            vec2 r1 = vec2(q.x + q.y, q.x - q.y);
+            vec2 f = abs(fract(r1) - 0.5);
+            float net = 1.0 - smoothstep(0.06, 0.12, min(f.x, f.y));
+            a = net;
+          }
+          if (uBand.z > 1.5 && uBand.z < 2.5) a = mix(a, 0.95, step(uBand.x, vRestPos.y) * step(vRestPos.y, uBand.y));
+          if (uBand.z > 0.5 && uBand.z < 1.5) a = mix(a, 1.0, step(uBand.x, vRestPos.y) * step(vRestPos.y, uBand.y));
           diffuseColor.a = clamp(a, 0.0, 1.0);
+          if (diffuseColor.a < 0.02) discard;
         }
         #include <opaque_fragment>
       `);

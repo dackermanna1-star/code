@@ -1,0 +1,14 @@
+{ "w": 800, "h": 500, "steps": [
+  {"input": [0,0,0]}, {"run": 0.2},
+  {"cam": [0.55, 0.32, 0.75, 0, 0.08, 0.05]},
+  {"eval": "window.__test.wear('sneakers')"}, {"run": 0.3}, {"shot": "s_sneakers"},
+  {"eval": "window.__test.wear('flats')"}, {"run": 0.3}, {"shot": "s_flats"},
+  {"eval": "window.__test.wear('loafers')"}, {"run": 0.3}, {"shot": "s_loafers"},
+  {"eval": "window.__test.wear('sandals')"}, {"run": 0.3}, {"shot": "s_sandals"},
+  {"eval": "window.__test.wear('pumps')"}, {"run": 0.3}, {"shot": "s_pumps"},
+  {"eval": "window.__test.wear('stilettos')"}, {"run": 0.3}, {"shot": "s_stilettos"},
+  {"cam": [0.8, 0.45, 1.0, 0, 0.2, 0.05]},
+  {"eval": "window.__test.wear('boots_ankle')"}, {"run": 0.3}, {"shot": "s_boots_ankle"},
+  {"cam": [1.1, 0.6, 1.4, 0, 0.32, 0.05]},
+  {"eval": "window.__test.wear('boots_knee')"}, {"run": 0.3}, {"shot": "s_boots_knee"}
+]}

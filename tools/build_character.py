@@ -364,6 +364,10 @@ def main():
             V[idx] += d * w
             print(f"  target {name} x{w:.3f} ({len(idx)} verts)")
 
+    # Soften the bust surface (always covered by the base layer) so fabrics drape
+    # over a rounded, bra-shaped contour rather than anatomical detail.
+    V = soften_bust(V, F, group_verts)
+
     # expression morphs (blink / subtle smile)
     morph_D = {}
     for mname, lst in EXPRESSION_MORPHS.items():
@@ -652,6 +656,41 @@ HAIR_STYLES = {
     "bob": ("makehuman_system_assets_cc0", "hair/bob02/bob02.mhclo", "Bob"),
     "braid": ("makehuman_system_assets_cc0", "hair/braid01/braid01.mhclo", "Braid"),
 }
+
+
+def soften_bust(V, F, group_verts):
+    body = set(group_verts("body").tolist())
+    adj = {}
+    for f in F:
+        if not all(v in body for v in f):
+            continue
+        k = len(f)
+        for i in range(k):
+            a, b = f[i], f[(i + 1) % k]
+            adj.setdefault(a, set()).add(b)
+            adj.setdefault(b, set()).add(a)
+    tip_l = V[8451].copy()
+    bidx = np.array(sorted(body))
+    d = np.linalg.norm(V[bidx] - np.array([-tip_l[0], tip_l[1], tip_l[2]]), axis=1)
+    tip_r = V[bidx[int(np.argmin(d))]].copy()
+    W = np.zeros(len(V))
+    for tip in (tip_l, tip_r):
+        dd = np.linalg.norm(V - tip, axis=1)
+        W = np.maximum(W, np.clip(1.0 - dd / 0.42, 0, 1) ** 1.2)  # 4.2 cm radius (dm units)
+    W[[i for i in range(len(V)) if i not in body]] = 0
+    idx = np.where(W > 0)[0]
+    V = V.copy()
+    for _ in range(70):
+        Vn = V.copy()
+        for i in idx:
+            nb = list(adj.get(i, ()))
+            if not nb:
+                continue
+            avg = V[nb].mean(axis=0)
+            Vn[i] = V[i] + (avg - V[i]) * 0.8 * W[i]
+        V = Vn
+    print(f"  softened bust ({len(idx)} verts)")
+    return V
 
 
 def recolor_alpha_texture(img, rgb):
