@@ -281,14 +281,14 @@ export function buildSkirt(w, o, cfg) {
     }
     cloth.hull.o.copy(pelvisRest).applyMatrix4(boneMats[pelvisI]);
     for (const h of hullLegs) { h.a.copy(h.src.a).applyMatrix4(boneMats[h.src.bi]); h.b.copy(h.src.b).applyMatrix4(boneMats[h.src.bi]); }
-    const sub = warm < 30 ? 4 : 3;
+    const sub = warm < 30 ? 4 : 2;
     warm++;
     const h = Math.min(dt, 1 / 30) / sub;
     for (let s = 1; s <= sub; s++) {
       const t = s / sub;
       for (let q = 0; q < pinRows * C * 3; q++) pinStep[q] = pinPrev[q] + (pinNow[q] - pinPrev[q]) * t;
       cloth.pin.set(pinStep.subarray(0, pinRows * C * 3));
-      cloth.step(h, 6);
+      cloth.step(h, warm < 30 ? 6 : 7);
     }
     pinPrev.set(pinNow.subarray(0, pinRows * C * 3));
     posAttr.array.set(cloth.x);

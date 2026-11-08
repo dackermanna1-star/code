@@ -552,12 +552,18 @@ def main():
                     mhmat=parse_mhmat(os.path.join(os.path.dirname(mhclo_path),
                                                    info["material"] or "")))
 
-    # eyes
+    # eyes: eyeballs (textured) + cornea shells (the shell maps to a transparent
+    # texel in the MakeHuman texture; we export it as its own glossy layer)
     eyes = build_proxy(os.path.join(sysa, "eyes", "high-poly", "high-poly.mhclo"), "Eyes", None)
     eye_img = Image.open(os.path.join(sysa, "eyes", "materials", "green_eye.png")).convert("RGB")
     m_eye = g.material("Eyes", texture=g.image(*encode_image(eye_img, "JPEG", 92)), roughness=0.05,
                        extras={"kind": "eye"})
-    add_skinned("Eyes", eyes["pos"], eyes["nrm"], eyes["uv"], eyes["j"], eyes["w"], eyes["idx"], m_eye)
+    tri_uv = eyes["uv"][eyes["idx"]].mean(axis=1)          # glTF uv (v down)
+    is_cornea = (tri_uv[:, 0] > 0.85) & (tri_uv[:, 1] > 0.85)
+    add_skinned("Eyes", eyes["pos"], eyes["nrm"], eyes["uv"], eyes["j"], eyes["w"], eyes["idx"][~is_cornea], m_eye)
+    m_cornea = g.material("Cornea", base_color=(1, 1, 1, 0.08), roughness=0.02, alpha_mode="BLEND",
+                          extras={"kind": "cornea"})
+    add_skinned("Cornea", eyes["pos"], eyes["nrm"], eyes["uv"], eyes["j"], eyes["w"], eyes["idx"][is_cornea], m_cornea)
 
     # eyebrows - recoloured to a natural ginger/auburn brow
     brow_dir = os.path.join(sysa, "eyebrows", "eyebrow001")

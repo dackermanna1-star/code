@@ -1,0 +1,5 @@
+{ "w": 900, "h": 700, "steps": [
+  {"eval": "window.__test.outfit('casual'); __app.setHair('bob')"}, {"input": [0,0,0]}, {"run": 1.0},
+  {"cam": [0.12, 1.6, 0.62, 0, 1.6, 0]}, {"shot": "f1"},
+  {"cam": [0.45, 1.62, 0.45, 0, 1.6, 0]}, {"shot": "f2"}
+]}

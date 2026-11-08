@@ -76,10 +76,26 @@ export class Character {
     if (eyes) {
       const map = eyes.material.map;
       map.colorSpace = THREE.SRGBColorSpace;
+      // the outer cornea shell maps to a fully transparent texel: alpha-test it away
       eyes.material = new THREE.MeshPhysicalMaterial({
-        map, roughness: 0.32, clearcoat: 1.0, clearcoatRoughness: 0.03, specularIntensity: 0.4,
+        map, roughness: 0.25, clearcoat: 1.0, clearcoatRoughness: 0.02, specularIntensity: 0.5,
+        alphaTest: 0.5, transparent: false,
       });
+      eyes.material.onBeforeCompile = (sh) => {
+        // brighten sclera slightly (eyes otherwise read too grey in a white studio)
+        sh.fragmentShader = sh.fragmentShader.replace('#include <map_fragment>', '#include <map_fragment>\n diffuseColor.rgb *= 1.12;');
+      };
       eyes.castShadow = false;
+    }
+    const cornea = this.meshes.Cornea;
+    if (cornea) {
+      // additive, black base: only the wet specular highlight shows
+      cornea.material = new THREE.MeshPhysicalMaterial({
+        color: 0x000000, roughness: 0.03, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.0,
+        specularIntensity: 1, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+      });
+      cornea.castShadow = false;
+      cornea.renderOrder = 4;
     }
     for (const name of ['Eyebrows', 'Eyelashes']) {
       const m = this.meshes[name];
@@ -135,6 +151,16 @@ export class Character {
     }
     si.needsUpdate = sw.needsUpdate = true;
     eyes.bind(sk, eyes.bindMatrix);
+    const cornea = this.meshes.Cornea;
+    if (cornea) {
+      const cp = cornea.geometry.attributes.position, csi = cornea.geometry.attributes.skinIndex, csw = cornea.geometry.attributes.skinWeight;
+      for (let i = 0; i < cp.count; i++) {
+        csi.setXYZW(i, cp.getX(i) > 0 ? iL : iR, 0, 0, 0);
+        csw.setXYZW(i, 1, 0, 0, 0);
+      }
+      csi.needsUpdate = csw.needsUpdate = true;
+      cornea.bind(sk, cornea.bindMatrix);
+    }
     this.eyeCenters = { l: cL, r: cR };
   }
 
