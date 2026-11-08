@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Coastline Express 214</title>
+  <meta name="description" content="A first-person coach road trip: Cedar Bay to Port Solano over the Hollow Pass and along the coast at sunset." />
+  <link rel="stylesheet" href="styles/main.css" />
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "./vendor/three/build/three.module.js",
+      "three/addons/": "./vendor/three/examples/jsm/",
+      "./src/world/geo.js": "./src/bus/world/geo.js"
+    }
+  }
+  </script>
+</head>
+<body>
+  <div id="app"></div>
+  <div id="hud"></div>
+  <div id="loading">
+    <div class="loading-inner">
+      <div class="loading-brand">COASTLINE <span>EXPRESS</span></div>
+      <div class="loading-sub">Service 214 · Cedar Bay → Port Solano via Hollow Pass</div>
+      <div class="loading-track"><div id="loading-bar"></div></div>
+      <div id="loading-text">Starting…</div>
+    </div>
+  </div>
+  <noscript>This experience needs JavaScript and WebGL 2.</noscript>
+  <script type="module" src="src/bus/main.js"></script>
+</body>
+</html>

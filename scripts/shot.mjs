@@ -27,6 +27,7 @@ if (opt('batch')) jobs = JSON.parse(fs.readFileSync(opt('batch'), 'utf8'));
 else jobs = [{ out: opt('out', 'shot.png'), query: opt('query', ''), eval: opt('eval'), frames: Number(opt('frames', 20)), wait: Number(opt('wait', 0)) }];
 const width = Number(opt('width', 1280)), height = Number(opt('height', 720));
 const timeout = Number(opt('timeout', 180000));
+const pageFile = opt('page', '');   // e.g. --page bus.html (default index.html)
 
 const port = 20000 + Math.floor(Math.random() * 20000);
 const server = spawn(process.execPath, [path.join(root, 'scripts/serve.mjs'), String(port)], { stdio: 'ignore' });
@@ -48,7 +49,7 @@ try {
     let q = job.query || '';
     if (!/quality=/.test(q)) q += (q ? '&' : '') + 'quality=low';
     q += `&autostart=1&shot=1&mute=1&frames=${job.frames || 20}`;
-    const url = `http://localhost:${port}/?${q}`;
+    const url = `http://localhost:${port}/${job.page || pageFile}?${q}`;
     const t0 = Date.now();
     await page.goto(url, { waitUntil: 'load', timeout });
     await page.waitForFunction(() => window.__shotReady === true, null, { timeout, polling: 250 });
