@@ -259,7 +259,7 @@ vColor.rgb = mix(vC.rgb, vec3(0.02, 0.025, 0.03), vGlass);
 `)
         .replace('#include <project_vertex>', `
 vec4 vhW = modelMatrix * vec4(transformed, 1.0);
-float vhD = length(vhW.xyz - uCamPos);
+float vhD = length((modelMatrix * vec4(vhP, 1.0)).xyz - uCamPos);     // per vehicle (consistent for all its vertices)
 vec4 mvPosition = viewMatrix * cityCurve(vhW);
 gl_Position = projectionMatrix * mvPosition;
 if (vhD > 6000.0 || vhFade < 0.01) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);

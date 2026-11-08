@@ -75,9 +75,9 @@ float fpulse(float a, float b, float x, float w) {
 }
 // window light colour for a cell (warm incandescent / LED / cool office / TV)
 vec3 winColor(float r, float cool) {
-  vec3 warm = vec3(1.0, 0.56, 0.24);
-  vec3 neutral = vec3(1.0, 0.78, 0.52);
-  vec3 coolc = vec3(0.72, 0.84, 1.0);
+  vec3 warm = vec3(1.0, 0.52, 0.2);
+  vec3 neutral = vec3(1.0, 0.72, 0.42);
+  vec3 coolc = vec3(0.78, 0.86, 1.0);
   return r < cool ? coolc : (r < cool + 0.45 ? warm : neutral);
 }
 
@@ -98,7 +98,16 @@ void cityFacade(inout vec3 alb, inout float rough, inout float metal, inout vec3
     vec2 p = vFac;
     float n = cNoise(p / 3.0 + seed);
     alb = base * (0.88 + 0.22 * n);
-    if (style == 11) { alb = base * (0.75 + 0.45 * cNoise(p / 9.0 + seed) * (0.8 + 0.2 * n)); rough = 0.95; }
+    if (style == 11) {
+      alb = base * (0.78 + 0.4 * cNoise(p / 9.0 + seed) * (0.8 + 0.2 * n));
+      // lawns: each lot watered differently (green / patchy / dry), mowing texture up close
+      if (base.g > base.r * 1.15) {
+        float lotH = cHash(floor(p / 17.0) + floor(seed));
+        float dry = lotH * lotH * 0.75 * (0.6 + 0.4 * cNoise(p / 4.0));
+        alb = mix(alb, vec3(0.115, 0.098, 0.058) * (0.85 + 0.3 * n), dry);
+      }
+      rough = 0.95;
+    }
     else if (style == 8) { rough = 0.5; metal = 0.3; }
     else rough = 0.85;
     // grime towards the ground
@@ -131,6 +140,21 @@ void cityFacade(inout vec3 alb, inout float rough, inout float metal, inout vec3
   if (style == 12) {                      // shipping container: corrugated steel
     float u = vFac.x, wu = fwidth(u);
     float rib = fpulse(0.0, 0.5, u / 0.28, wu / 0.28);
+    if (seed > 500.0) {
+      // merged stack: one colour per container cell (20 / 40 ft mix), dark gaps between boxes
+      vec2 cc = vFac / vec2(max(vBld.w, 0.5), max(vBld.z, 0.5));
+      vec2 cw = max(fwidth(cc), vec2(1e-4));
+      vec2 ci = floor(cc);
+      float pairCell = cHash(vec2(ci.y, seed)) < 0.6 ? floor(ci.x * 0.5) : ci.x;
+      float h = cHash(vec2(pairCell, ci.y) + seed * 0.37);
+      vec3 pal = h < 0.16 ? vec3(0.42, 0.06, 0.04) : h < 0.28 ? vec3(0.06, 0.16, 0.36) : h < 0.40 ? vec3(0.55, 0.55, 0.53)
+        : h < 0.50 ? vec3(0.62, 0.22, 0.03) : h < 0.60 ? vec3(0.05, 0.25, 0.18) : h < 0.68 ? vec3(0.66, 0.66, 0.62)
+        : h < 0.76 ? vec3(0.3, 0.12, 0.06) : h < 0.84 ? vec3(0.02, 0.08, 0.2) : h < 0.92 ? vec3(0.5, 0.42, 0.08) : vec3(0.18, 0.18, 0.2);
+      float gap = 1.0 - (1.0 - fpulse(0.0, 0.04, cc.x, cw.x)) * (1.0 - fpulse(0.0, 0.05, cc.y, cw.y));
+      float farC = smoothstep(0.4, 1.2, max(cw.x, cw.y));
+      pal = mix(pal, vec3(0.3, 0.2, 0.14), farC * 0.35);
+      base = mix(pal, vec3(0.03), gap * 0.7);
+    }
     alb = base * (0.82 + 0.26 * rib) * (0.85 + 0.25 * cNoise(vFac * vec2(0.6, 1.4) + seed * 13.0));
     rough = 0.6; metal = 0.25;
     return;
@@ -154,7 +178,9 @@ void cityFacade(inout vec3 alb, inout float rough, inout float metal, inout vec3
   float glassRough = 0.06 + 0.10 * cHash(cell + seed);
   vec3 wallAlb = base;
   float wallRough = 0.85, wallMetal = 0.0;
-  float pLit = uWin * (0.30 + 0.35 * rs);
+  // occupancy varies a lot between buildings (some almost dark, a few fully lit)
+  float rb = cHash(vec2(seed * 0.71, 4.4));
+  float pLit = uWin * (0.12 + 0.55 * rb * rb + 0.12 * rs);
   float cool = 0.15;
   float litCell, litMean;
   float blank = 0.0;       // cell without a window
@@ -169,10 +195,11 @@ void cityFacade(inout vec3 alb, inout float rough, inout float metal, inout vec3
     wallAlb = spanSel < 0.5 ? base * 0.42 : mix(vec3(0.20, 0.21, 0.22), vec3(0.08, 0.075, 0.07), cHash(vec2(seed, 9.1)));
     wallRough = 0.32; wallMetal = 0.7;
     glassRough = 0.03 + 0.07 * cHash(cell + seed * 1.3);
-    cool = 0.55;
-    // offices: whole floors lit
-    litCell = (rFloor < pLit * 1.25 ? step(rCell, 0.9) : step(rCell, 0.07));
-    litMean = min(pLit * 1.25, 1.0) * 0.9 + (1.0 - min(pLit * 1.25, 1.0)) * 0.07;
+    cool = 0.35;
+    // offices: whole floors lit (cleaners / late workers), most dark at night
+    float pf = pLit * 0.55;
+    litCell = (rFloor < pf ? step(rCell, 0.85) : step(rCell, 0.05));
+    litMean = pf * 0.85 + (1.0 - pf) * 0.05;
   } else if (style == 2) {
     gx = fpulse(0.24, 0.76, c.x, w.x);
     gy = fpulse(0.30, 0.82, c.y, w.y);
@@ -186,9 +213,10 @@ void cityFacade(inout vec3 alb, inout float rough, inout float metal, inout vec3
     gx = fpulse(mull, 1.0 - mull, c.x, w.x);
     gy = fpulse(0.36, 0.88, c.y, w.y);
     glassAlb = mix(vec3(0.08, 0.12, 0.13), vec3(0.14, 0.15, 0.17), rs);
-    cool = 0.5;
-    litCell = (rFloor < pLit * 1.15 ? step(rCell, 0.85) : step(rCell, 0.1));
-    litMean = pLit;
+    cool = 0.3;
+    float pf = pLit * 0.6;
+    litCell = (rFloor < pf ? step(rCell, 0.8) : step(rCell, 0.08));
+    litMean = pf * 0.8 + (1.0 - pf) * 0.08;
   } else if (style == 4) {
     // residential: irregular, some blank cells, balconies implied by a darker band
     blank = step(cHash(vec2(cell.x, seed)), 0.28);
@@ -237,8 +265,10 @@ void cityFacade(inout vec3 alb, inout float rough, inout float metal, inout vec3
   if (style == 4 && rCol > 0.95) cellCol = vec3(0.45, 0.6, 1.0) * (0.6 + 0.4 * sin(uTime * 7.0 + rInt * 40.0) * sin(uTime * 2.3 + rCell * 9.0));
   float inten = (0.35 + 0.65 * rInt) * (0.8 + 0.35 * fract(c.y));         // ceiling lights: brighter towards the top
   vec3 lit = cellCol * inten * litCell * (1.0 - blank);
-  vec3 meanCol = mix(vec3(1.0, 0.68, 0.40), vec3(0.8, 0.86, 1.0), cool * 0.8);
-  vec3 litFar = meanCol * 0.68 * litMean;
+  vec3 meanCol = mix(vec3(1.0, 0.62, 0.32), vec3(0.85, 0.85, 0.9), cool * 0.6);
+  // far field: keep the floor-to-floor variation (floors stay resolvable much longer than bays)
+  float floorVar = clamp(0.25 + 1.5 * cHash(vec2(floorId, seed * 2.9 + 1.0)), 0.0, 1.8);
+  vec3 litFar = meanCol * 0.6 * litMean * mix(floorVar, 1.0, smoothstep(0.5, 1.5, w.y));
   float shopBoost = 1.0 + shop * 1.4;
   emis += uWinE * shopBoost * g * mix(lit, litFar, far);
 }
@@ -296,7 +326,12 @@ vec4 mvPosition = vec4(transformed, 1.0);
 #ifdef USE_INSTANCING
   mvPosition = instanceMatrix * mvPosition;
 #endif
-mvPosition = viewMatrix * cityCurve(modelMatrix * mvPosition);
+vec4 cWp = modelMatrix * mvPosition;
+${instanced ? '' : `
+// ground-hugging surfaces (lawns, paving, pools) are lifted with distance like the roads
+if (abs(aBld.x - 11.0) < 0.5 || abs(aBld.x - 13.0) < 0.5) cWp.xyz += uUp * (length(cWp.xyz - uCamPos) * 0.00026);
+`}
+mvPosition = viewMatrix * cityCurve(cWp);
 gl_Position = projectionMatrix * mvPosition;
 `);
     sh.fragmentShader = sh.fragmentShader

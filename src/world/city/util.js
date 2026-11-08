@@ -10,6 +10,12 @@ export const clamp = (x, a, b) => (x < a ? a : x > b ? b : x);
 export const sstep = (a, b, v) => { const t = clamp((v - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
 export const lerp = (a, b, t) => a + (b - a) * t;
 
+/** Returns a function that is true when more than `ms` passed since it last returned true (generator yields). */
+export function ticker(ms = 4) {
+  let t = performance.now();
+  return () => { const n = performance.now(); if (n - t > ms) { t = n; return true; } return false; };
+}
+
 /** mulberry32 PRNG -> function returning [0, 1). */
 export function rng(seed) {
   let a = seed >>> 0;
@@ -111,6 +117,7 @@ export class Land {
 // 8 painted metal, 9 glass (no structure), 10 emissive sign / lamp, 11 lawn,
 // 12 shipping container, 13 swimming pool, 14 sheltered water / wet
 // -----------------------------------------------------------------------------
+export const NO_SHADOW = -100000;
 export const ST = { ROOF: 0, CURTAIN: 1, PUNCHED: 2, RIBBON: 3, RESID: 4, INDUSTRIAL: 5, PLAIN: 6, PITCHED: 7, METAL: 8, GLASS: 9, LAMP: 10, GRASS: 11, CONTAINER: 12, POOL: 13, WATER: 14 };
 
 export class GeoBuilder {
@@ -120,10 +127,11 @@ export class GeoBuilder {
     this.idx = [];
     this.style = [0, 0, 3.5, 1.5];     // current aBld
     this.color = [0.5, 0.5, 0.5];
+    this.gy = NO_SHADOW;               // ground height for the projected shadow pass (NO_SHADOW = does not cast)
   }
   _alloc(cap) {
     const grow = (old, k) => { const a = new Float32Array(cap * k); if (old) a.set(old.subarray(0, Math.min(old.length, cap * k))); return a; };
-    this.P = grow(this.P, 3); this.N = grow(this.N, 3); this.C = grow(this.C, 3); this.F = grow(this.F, 2); this.B = grow(this.B, 4);
+    this.P = grow(this.P, 3); this.N = grow(this.N, 3); this.C = grow(this.C, 3); this.F = grow(this.F, 2); this.B = grow(this.B, 4); this.G = grow(this.G, 1);
     this.cap = cap;
   }
   setStyle(style, seed = 0, floorH = 3.5, bayW = 1.5) { this.style = [style, seed, floorH, bayW]; return this; }
@@ -136,6 +144,7 @@ export class GeoBuilder {
     const c = this.color; this.C[i * 3] = c[0]; this.C[i * 3 + 1] = c[1]; this.C[i * 3 + 2] = c[2];
     this.F[i * 2] = u; this.F[i * 2 + 1] = v;
     const s = this.style; this.B[i * 4] = s[0]; this.B[i * 4 + 1] = s[1]; this.B[i * 4 + 2] = s[2]; this.B[i * 4 + 3] = s[3];
+    this.G[i] = this.gy;
     return i;
   }
   /** Quad from 4 corners (counter-clockwise seen from the front), with facade uv. */
@@ -217,6 +226,7 @@ export class GeoBuilder {
   }
   /** Vertical cylinder (open top unless capped) with n sides. */
   cylinder(x, z, y0, y1, r0, r1 = r0, n = 10, { cap = true, capStyle = null } = {}) {
+    const saveG = this.gy; this.gy = NO_SHADOW;          // smooth normals: excluded from the shadow pass
     const circ = 2 * Math.PI * Math.max(r0, r1);
     for (let i = 0; i < n; i++) {
       const a0 = i / n * Math.PI * 2, a1 = (i + 1) / n * Math.PI * 2;
@@ -246,6 +256,7 @@ export class GeoBuilder {
       }
       this.style = save;
     }
+    this.gy = saveG;
   }
   /** Thin beam (box) between two 3D points with square section of half-size r. */
   beam(a, b, r) {
@@ -274,6 +285,7 @@ export class GeoBuilder {
     g.setAttribute('color', new THREE.BufferAttribute(this.C.slice(0, n * 3), 3));
     g.setAttribute('aFac', new THREE.BufferAttribute(this.F.slice(0, n * 2), 2));
     g.setAttribute('aBld', new THREE.BufferAttribute(this.B.slice(0, n * 4), 4));
+    g.setAttribute('aGround', new THREE.BufferAttribute(this.G.slice(0, n), 1));
     g.setIndex(n > 65535 ? new THREE.Uint32BufferAttribute(this.idx, 1) : new THREE.Uint16BufferAttribute(this.idx, 1));
     g.computeBoundingSphere();
     g.computeBoundingBox();

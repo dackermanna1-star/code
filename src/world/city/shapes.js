@@ -60,7 +60,7 @@ export function unitHouse(hip = false) {
 
 /** Deterministic lumpy icosahedron crown (broadleaf), trunk below. Unit height ~1. */
 export function unitBroadleaf() {
-  const ico = new THREE.IcosahedronGeometry(0.5, 1).toNonIndexed();
+  const ico = new THREE.IcosahedronGeometry(0.5, 0);
   const pos = ico.attributes.position;
   const P = [], N = [], T = [];
   const lump = (x, y, z) => 1 + 0.16 * Math.sin(x * 9.1 + y * 3.7) * Math.cos(z * 7.3 - y * 5.1) + 0.08 * Math.sin(x * 17 + z * 13);

@@ -5,17 +5,17 @@
 // low commercial / industrial buildings and generic roof equipment.
 // All coordinates are region-local; y0 = ground level under the building.
 // =============================================================================
-import { ST, lin, scalec, mixc } from './util.js';
+import { ST, NO_SHADOW, lin, scalec, mixc } from './util.js';
 import { LAMP } from './roads.js';
 
 export const GLASS_TINTS = [
   lin('#5d7f99', 0.95), lin('#4f7a78', 0.9), lin('#7c6a55', 0.85), lin('#8a9198', 0.95), lin('#3a4249', 0.9),
   lin('#6b8fa8', 1.0), lin('#58706a', 0.9), lin('#9aa3a8', 0.9),
 ];
-export const CONCRETE = [lin('#b9b2a5'), lin('#a8a49b'), lin('#c9c0ae'), lin('#8f8a82'), lin('#d6d0c4'), lin('#b5a48d'), lin('#9a8f80')];
-export const STUCCO = [lin('#e8dfcf'), lin('#efe6d4'), lin('#e2d2b8'), lin('#d9c7a8'), lin('#f1ece2'), lin('#e6d5c3'), lin('#cfc3ae'), lin('#e9d9b9'), lin('#d8b99a'), lin('#c9d0c9'), lin('#e3cfc0')];
-export const BRICK = [lin('#8a5a44'), lin('#7a4a3a'), lin('#9b6b52'), lin('#6e4434'), lin('#a3785e')];
-export const ROOF_FLAT = [lin('#9c9a95'), lin('#b8b6b0'), lin('#7d7b77'), lin('#c9c7c0'), lin('#6a6965'), lin('#d8d6d0')];
+export const CONCRETE = [lin('#b9b2a5', 0.72), lin('#a8a49b', 0.72), lin('#c9c0ae', 0.72), lin('#8f8a82', 0.72), lin('#d6d0c4', 0.72), lin('#b5a48d', 0.72), lin('#9a8f80', 0.72)];
+export const STUCCO = [lin('#e8dfcf', 0.62), lin('#efe6d4', 0.62), lin('#e2d2b8', 0.62), lin('#d9c7a8', 0.62), lin('#f1ece2', 0.62), lin('#e6d5c3', 0.62), lin('#cfc3ae', 0.62), lin('#e9d9b9', 0.62), lin('#d8b99a', 0.62), lin('#c9d0c9', 0.62), lin('#e3cfc0', 0.62)];
+export const BRICK = [lin('#8a5a44', 0.85), lin('#7a4a3a', 0.85), lin('#9b6b52', 0.85), lin('#6e4434', 0.85), lin('#a3785e', 0.85)];
+export const ROOF_FLAT = [lin('#9c9a95', 0.62), lin('#b8b6b0', 0.62), lin('#7d7b77', 0.62), lin('#c9c7c0', 0.62), lin('#6a6965', 0.62), lin('#d8d6d0', 0.62)];
 const MECH = lin('#5f5e5b');
 const DARK = lin('#2c2d2e');
 
@@ -53,16 +53,15 @@ export function roofPlant(B, r, x, z, y, hw, hd, rot, amount = 1) {
   const c = Math.cos(rot), s = Math.sin(rot);
   const P = (lx, lz) => [x + lx * c + lz * s, z - lx * s + lz * c];
   B.setStyle(ST.PLAIN, r() * 100, 3, 3);
-  // parapet ring
+  // parapet ring (large roofs only)
   const pt = 0.35, ph = 1.1;
-  B.setColor(scalec(B.color, 1));
-  if (hw > 6 && hd > 6) {
+  if (hw > 14 && hd > 14 && amount >= 1) {
     for (const [ax, az, bw, bd] of [[0, hd - pt, hw, pt], [0, -hd + pt, hw, pt], [hw - pt, 0, pt, hd], [-hw + pt, 0, pt, hd]]) {
       const [px, pz] = P(ax, az);
       B.box(px, pz, y, y + ph, bw, bd, rot, { roofStyle: ST.PLAIN });
     }
   }
-  const n = Math.round((1 + Math.min(8, hw * hd / 120)) * amount);
+  const n = hw * hd < 120 ? (r() < 0.5 * amount ? 1 : 0) : Math.round((1 + Math.min(6, hw * hd / 200)) * amount);
   for (let i = 0; i < n; i++) {
     const w = 1.5 + r() * 3.5, d = 1.5 + r() * 3, h = 1.2 + r() * 2.2;
     const lx = (r() * 2 - 1) * Math.max(0, hw - w - 2), lz = (r() * 2 - 1) * Math.max(0, hd - d - 2);
@@ -85,6 +84,7 @@ export function roofPlant(B, r, x, z, y, hw, hd, rot, amount = 1) {
 export function tower(B, lights, r, o) {
   const { x, z, y0, rot = 0 } = o;
   let { hw, hd, H } = o;
+  B.gy = y0;
   const office = o.kind !== 'resid';
   const seed = o.seed ?? r() * 1000;
   const floorH = office ? 3.9 + r() * 0.4 : 3.1 + r() * 0.2;
@@ -179,6 +179,7 @@ export function tower(B, lights, r, o) {
       for (const [a, b] of [[-1, 0], [1, 0]]) lights.add(x + a * hw * 1.01 * c, y0 + H * 0.5, z - a * hw * 1.01 * s + b, scalec(red, 40), 0.8, 2, 0, 0);
     }
   }
+  B.gy = NO_SHADOW;
   return lightTop;
 }
 
@@ -193,6 +194,7 @@ export function midrise(B, r, o) {
   else col = r() < 0.6 ? CONCRETE[Math.floor(r() * CONCRETE.length)] : (r() < 0.6 ? STUCCO[Math.floor(r() * STUCCO.length)] : BRICK[Math.floor(r() * BRICK.length)]);
   const fh = resid ? 3.0 : 3.7;
   const H = floors * fh + (resid ? 0.5 : 1.0);
+  B.gy = y0;
   B.setColor(col).setStyle(style, seed, fh, style === ST.CURTAIN ? 1.5 : (style === ST.RIBBON ? 1.6 : 3.1 + r() * 0.6));
   const roofCol = ROOF_FLAT[Math.floor(r() * ROOF_FLAT.length)];
   B.box(x, z, y0 - 1.5, y0 + H, hw, hd, rot, { roofStyle: ST.ROOF, roofColor: roofCol, vBase: y0 });
@@ -204,6 +206,7 @@ export function midrise(B, r, o) {
   }
   B.setColor(roofCol);
   roofPlant(B, r, x, z, top, hw, hd, rot, 0.7);
+  B.gy = NO_SHADOW;
   return top;
 }
 
@@ -214,9 +217,10 @@ export function lowCommercial(B, r, o) {
   const floors = ind ? 1 : 1 + Math.floor(r() * 2.4);
   const fh = ind ? 7 + r() * 4 : 3.9;
   const H = floors * fh;
-  const col = ind ? (r() < 0.5 ? lin('#c3c4c0') : mixc(lin('#a9b0b5'), lin('#cfc7b6'), r())) : (r() < 0.6 ? STUCCO[Math.floor(r() * STUCCO.length)] : CONCRETE[Math.floor(r() * CONCRETE.length)]);
+  B.gy = y0;
+  const col = ind ? (r() < 0.5 ? lin('#c3c4c0', 0.6) : mixc(lin('#a9b0b5', 0.62), lin('#cfc7b6', 0.6), r())) : (r() < 0.6 ? STUCCO[Math.floor(r() * STUCCO.length)] : CONCRETE[Math.floor(r() * CONCRETE.length)]);
   B.setColor(col).setStyle(ind ? ST.INDUSTRIAL : (r() < 0.5 ? ST.RIBBON : ST.PUNCHED), seed, fh, ind ? 6 : 3.4);
-  const roofCol = ind ? (r() < 0.5 ? lin('#d9dad6') : lin('#9a9b98')) : ROOF_FLAT[Math.floor(r() * ROOF_FLAT.length)];
+  const roofCol = ind ? (r() < 0.5 ? lin('#d9dad6', 0.55) : lin('#9a9b98', 0.7)) : ROOF_FLAT[Math.floor(r() * ROOF_FLAT.length)];
   B.box(x, z, y0 - 1.0, y0 + H, hw, hd, rot, { roofStyle: ST.ROOF, roofColor: roofCol, vBase: y0 });
   B.setColor(roofCol);
   roofPlant(B, r, x, z, y0 + H, hw, hd, rot, ind ? 0.5 : 0.8);
@@ -230,6 +234,7 @@ export function lowCommercial(B, r, o) {
       B.box(x + lx * c, z - lx * s, y0 + H, y0 + H + 0.6, 1.2, hd * 0.8, rot, { roofStyle: ST.CURTAIN });
     }
   }
+  B.gy = NO_SHADOW;
   return y0 + H;
 }
 
