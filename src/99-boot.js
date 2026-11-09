@@ -6,6 +6,7 @@
   game.enemies = new EnemyManager(game);
   game.director = new Director(game, game.enemies);
   game.hud = new Hud(game, game.director);
+  game.minimap = new Minimap(game);
   game.screens = new Screens(game, game.director, game.hud);
   game.shop = new Shop(game, game.director);
   game.sfx = new Sfx(game);

@@ -121,7 +121,7 @@ class Shop {
   weaponStats(def) {
     const b = Lab.Ballistics[def.ballistic];
     const energy = 0.5 * b.mass * b.speed * b.speed * (b.pellets || 1);
-    return this.stat('DAMAGE', Math.log10(energy) / 4.1 - 0.35) + this.stat('RATE', def.rpm / 950) + this.stat('ACCURACY', 1 - def.adsSpread / 0.9) + this.stat('MOBILITY', (def.move - 0.8) / 0.22) + this.stat('CAPACITY', Math.log(def.mag) / Math.log(80));
+    return this.stat('DAMAGE', Math.log10(energy) / 4.1 - 0.35) + this.stat('RATE', def.rpm / 950) + this.stat('ACCURACY', def.zoom > 2 ? 1 - def.adsSpread / 0.9 : 1.15 - def.hipSpread / 1.6) + this.stat('MOBILITY', (def.move - 0.8) / 0.22) + this.stat('CAPACITY', Math.log(def.mag) / Math.log(80));
   }
 
   card({ title, tag = '', desc = '', stats = '', price, k, id, slot, label = 'Buy', owned = false, disabled = false, pips = null }) {

@@ -204,6 +204,12 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #000; font-f
 .shop .foot .tm { flex: 1; text-align: center; }
 body.shopping .br .cash, body.shopping .br .weapon, body.shopping .br .vitals, body.shopping .br .wave, body.shopping .br .xh { opacity: 0; }
 
+/* minimap */
+.br .mm { position: absolute; left: 34px; bottom: 112px; width: 176px; height: 176px; border-radius: 50%; }
+.br .mm canvas { display: block; border-radius: 50%; }
+.br .mm .n { position: absolute; left: 50%; top: 50%; width: 14px; height: 14px; margin: -7px 0 0 -7px; font: 700 9px/14px var(--mono); text-align: center; color: rgba(244, 236, 212, 0.75); font-style: normal; }
+body.shopping .br .mm { opacity: 0; }
+
 </style>
 </head>
 <body>
@@ -65246,6 +65252,7 @@ class Viewmodel {
     // attachments are positioned now, while the rig is in its identity idle pose
     this.ensureSuppressor(rig).visible = false;
     this.ensureRedDot(rig).visible = false;
+    this.ensureLaser(rig).visible = false;
     if (rig.def.drum) this.ensureDrum(rig).visible = false;
     if (rig.parts.scope) rig.scopeSight = this.measureScope(rig);
   }
@@ -65302,6 +65309,7 @@ class Viewmodel {
       if (at.has('suppressor') && !rig.parts.suppressor) rig.attach.suppressor.visible = true;
       if (at.has('reddot') && !at.has('scope')) rig.attach.reddot.visible = true;
       if (weapon.drum && rig.attach.drum) rig.attach.drum.visible = true;
+      if (at.has('laser') && rig.attach.laser) rig.attach.laser.visible = true;
       if (at.has('scope') && rig.scopeSight) this.solveAds(rig, rig.scopeSight);
       else if (at.has('reddot')) this.solveAds(rig, rig.attach.reddot.userData.sight);
       else this.solveAds(rig);
@@ -65422,7 +65430,7 @@ class Viewmodel {
 
   frameQuat(rig) {
     const F = rig.frame;
-    // object space: -Z along the barrel, +Y up
+    // object space: +Z towards the muzzle, +Y up (measured; F.f runs from muzzle to stock)
     return new T3.Quaternion().setFromRotationMatrix(new T3.Matrix4().makeBasis(F.r.clone().negate(), F.u, F.f.clone().negate()));
   }
 
@@ -65430,7 +65438,8 @@ class Viewmodel {
     if (rig.attach.suppressor) return rig.attach.suppressor;
     const nine = rig.def.caliber === '9mm';
     const rad = nine ? 0.016 : 0.019, L = nine ? 0.15 : 0.19;
-    const g = new T3.CylinderGeometry(rad, rad, L, 20, 1).rotateX(Math.PI / 2).translate(0, 0, -L / 2 + 0.01);
+    // attachment object space has +Z towards the muzzle: the can extends forward from it
+    const g = new T3.CylinderGeometry(rad, rad, L, 20, 1).rotateX(Math.PI / 2).translate(0, 0, L / 2 - 0.01);
     const m = new T3.Mesh(g, new T3.MeshStandardMaterial({ color: 0x1b1c1e, roughness: 0.45, metalness: 0.7 }));
     rig.attach.suppressor = this.attachToGun(rig, m, rig.frame.muzzle, this.frameQuat(rig));
     return rig.attach.suppressor;
@@ -65463,6 +65472,46 @@ class Viewmodel {
       dist: 0.13,
     };
     return rig.attach.reddot;
+  }
+
+  // laser module: on the left side rail of long guns (the side the camera sees), under the pistol
+  ensureLaser(rig) {
+    if (rig.attach.laser) return rig.attach.laser;
+    const F = rig.frame, S = rig.S, pistol = rig.id === 'pistol';
+    const at = F.rear.clone().lerp(F.muzzle, pistol ? 0.7 : (rig.def.laserAt || 0.64));
+    // long guns: on top of the handguard (the hands cover the side rails); pistols: under the slide
+    if (pistol) at.addScaledVector(F.u, -0.034 * S);
+    else at.addScaledVector(F.u, this.surfaceAbove(rig, at) + 0.0135 * S);
+    const body = new T3.MeshStandardMaterial({ color: 0x17181a, roughness: 0.55, metalness: 0.55 });
+    const grp = new T3.Group();
+    const box = new T3.Mesh(new T3.BoxGeometry(0.022, 0.026, 0.07), body);
+    const lens = new T3.Mesh(new T3.CylinderGeometry(0.005, 0.005, 0.004, 14).rotateX(Math.PI / 2), new T3.MeshBasicMaterial({ color: 0xff3020, toneMapped: false }));
+    lens.position.set(0, 0.004, 0.0365); // emitter faces the muzzle (+Z)
+    const lens2 = new T3.Mesh(new T3.CylinderGeometry(0.0045, 0.0045, 0.004, 14).rotateX(Math.PI / 2), new T3.MeshBasicMaterial({ color: 0x223040 }));
+    lens2.position.set(0, -0.006, 0.0365);
+    const btn = new T3.Mesh(new T3.BoxGeometry(0.01, 0.006, 0.016), new T3.MeshStandardMaterial({ color: 0x3a3c3f, roughness: 0.7 }));
+    btn.position.set(0, 0.0145, -0.02);
+    grp.add(box, lens, lens2, btn);
+    rig.attach.laser = this.attachToGun(rig, grp, at, this.frameQuat(rig));
+    rig.attach.laser.userData.lens = lens;
+    return rig.attach.laser;
+  }
+
+  // height of the gun's top surface above a point on the bore line (rig space, idle pose)
+  surfaceAbove(rig, at) {
+    const F = rig.frame, S = rig.S, v = new T3.Vector3(), d = new T3.Vector3();
+    let best = -Infinity;
+    for (const m of rig.gunMeshes) {
+      const pos = m.geometry.attributes.position, st = Math.max(1, Math.floor(pos.count / 8000));
+      for (let i = 0; i < pos.count; i += st) {
+        m.getVertexPosition(i, v);
+        v.applyMatrix4(m.matrixWorld);
+        d.subVectors(v, at);
+        if (Math.abs(d.dot(F.f)) > 0.02 * S || Math.abs(d.dot(F.r)) > 0.03 * S) continue;
+        best = Math.max(best, d.dot(F.u));
+      }
+    }
+    return Number.isFinite(best) ? best : 0.02 * S;
   }
 
   ensureDrum(rig) {
@@ -65705,63 +65754,63 @@ const WEAPONS = {
   p9: {
     name: 'P9 Service Pistol', short: 'P9', cls: 'Pistol', rig: 'pistol', ballistic: 'pistol', slot: 'sidearm',
     price: 0, mag: 15, reserve: 45, maxReserve: 120, rpm: 420, auto: false,
-    hipSpread: 2.0, adsSpread: 0.45, adsTime: 0.16, move: 1.0,
+    hipSpread: 0.95, adsSpread: 0.95, adsTime: 0.16, move: 1.0,
     recoil: { up: 0.022, side: 0.008, pattern: 'pistol' }, vm: { back: 0.035, up: 9, side: 2.2, roll: 2.4, flash: 0.8 },
-    attachments: ['suppressor', 'reddot'], desc: 'Reliable 9 mm sidearm. Accurate when aimed, forgiving to carry.',
+    attachments: ['suppressor', 'laser'], desc: 'Reliable 9 mm sidearm. Accurate and forgiving to carry.',
   },
   kv9: {
     name: 'KV-9 Submachine Gun', short: 'KV-9', cls: 'SMG', rig: 'smg', ballistic: 'smg', slot: 'primary',
     price: 1400, mag: 30, reserve: 120, maxReserve: 300, rpm: 900, auto: true,
-    hipSpread: 1.6, adsSpread: 0.55, adsTime: 0.14, move: 1.0,
+    hipSpread: 1.05, adsSpread: 1.05, adsTime: 0.14, move: 1.0,
     recoil: { up: 0.0085, side: 0.0075, pattern: 'smg' }, vm: { back: 0.018, up: 3.2, side: 1.6, roll: 1.2, flash: 0.75 },
-    attachments: ['suppressor', 'reddot', 'extmag', 'grip'], desc: 'Fast-firing 9 mm. Shreds at close range, struggles against armour.',
+    attachments: ['suppressor', 'laser', 'extmag', 'grip'], desc: 'Fast-firing 9 mm. Shreds at close range, struggles against armour.',
   },
   m870: {
     name: 'M870 Pump Shotgun', short: 'M870', cls: 'Shotgun', rig: 'remington', ballistic: 'shotgun', slot: 'primary',
     price: 1600, mag: 6, reserve: 30, maxReserve: 60, rpm: 75, auto: false, pump: 0.55, perShell: true,
-    hipSpread: 1.0, adsSpread: 0.75, adsTime: 0.2, move: 0.96,
+    hipSpread: 0.95, adsSpread: 0.95, adsTime: 0.2, move: 0.96,
     recoil: { up: 0.07, side: 0.02, pattern: 'shotgun' }, vm: { back: 0.06, up: 12, side: 2.5, roll: 3, flash: 1.3, pump: true },
-    attachments: ['grip'], desc: 'Nine pellets of 00 buckshot. Pump between shots, reloads shell by shell.',
+    attachments: ['laser', 'grip'], desc: 'Nine pellets of 00 buckshot. Pump between shots, reloads shell by shell.',
   },
   ak74: {
     name: 'AK-74M Assault Rifle', short: 'AK-74M', cls: 'Rifle', rig: 'ak74', ballistic: 'rifle', slot: 'primary',
     price: 2600, mag: 30, reserve: 120, maxReserve: 270, rpm: 650, auto: true,
-    hipSpread: 2.6, adsSpread: 0.32, adsTime: 0.22, move: 0.95,
+    hipSpread: 1.0, adsSpread: 1.0, adsTime: 0.22, move: 0.95,
     recoil: { up: 0.0125, side: 0.0085, pattern: 'rifle' }, vm: { back: 0.026, up: 4.8, side: 1.4, roll: 1.4, flash: 1 },
-    attachments: ['suppressor', 'reddot', 'extmag', 'grip'], desc: 'Hard-hitting, high-velocity rifle. Punches through drywall and light armour.',
+    attachments: ['suppressor', 'laser', 'extmag', 'grip'], desc: 'Hard-hitting, high-velocity rifle. Punches through drywall and light armour.',
   },
   saiga: {
     name: 'Saiga-12K Combat Shotgun', short: 'SAIGA-12', cls: 'Shotgun', rig: 'saiga', ballistic: 'shotgun', slot: 'primary',
     price: 3000, mag: 8, reserve: 32, maxReserve: 64, rpm: 280, auto: false,
-    hipSpread: 1.1, adsSpread: 0.8, adsTime: 0.22, move: 0.94,
+    hipSpread: 1.0, adsSpread: 1.0, adsTime: 0.22, move: 0.94,
     recoil: { up: 0.055, side: 0.022, pattern: 'shotgun' }, vm: { back: 0.05, up: 10, side: 2.8, roll: 2.6, flash: 1.3 },
-    attachments: ['extmag', 'grip'], desc: 'Semi-automatic magazine-fed shotgun. Clears rooms.',
+    attachments: ['laser', 'extmag', 'grip'], desc: 'Semi-automatic magazine-fed shotgun. Clears rooms.',
   },
   acr: {
     name: 'ACR Carbine', short: 'ACR', cls: 'Rifle', rig: 'acr', ballistic: 'rifle', slot: 'primary', fixed: ['reddot'],
     price: 3600, mag: 30, reserve: 150, maxReserve: 300, rpm: 760, auto: true,
-    hipSpread: 2.2, adsSpread: 0.26, adsTime: 0.2, move: 0.96,
+    hipSpread: 0.9, adsSpread: 0.9, adsTime: 0.2, move: 0.96,
     recoil: { up: 0.0095, side: 0.006, pattern: 'rifle' }, vm: { back: 0.022, up: 3.8, side: 1.1, roll: 1.1, flash: 0.9 },
-    attachments: ['suppressor', 'scope', 'extmag', 'grip'], desc: 'Modular flat-top carbine with a red dot and a gentle, predictable recoil. Takes a holographic sight.',
+    attachments: ['suppressor', 'laser', 'extmag', 'grip'], desc: 'Modular flat-top carbine with a red dot and a gentle, predictable recoil.',
   },
   rpk: {
     name: 'RPK-74 Light Machine Gun', short: 'RPK-74', cls: 'LMG', rig: 'ak74', drum: true, ballistic: 'rifle', slot: 'primary',
     price: 5200, mag: 75, reserve: 150, maxReserve: 450, rpm: 600, auto: true, reloadScale: 1.45,
-    hipSpread: 3.2, adsSpread: 0.42, adsTime: 0.32, move: 0.86,
+    hipSpread: 1.35, adsSpread: 1.35, adsTime: 0.32, move: 0.86,
     recoil: { up: 0.0105, side: 0.0095, pattern: 'lmg' }, vm: { back: 0.024, up: 4.2, side: 1.8, roll: 1.5, flash: 1.05 },
-    attachments: ['reddot', 'grip'], desc: '75-round drum. Suppressive fire that walls off whole corridors.',
+    attachments: ['laser', 'grip'], desc: '75-round drum. Suppressive fire that walls off whole corridors.',
   },
   sr10: {
     name: 'M24 Sniper Rifle', short: 'M24', cls: 'Sniper', rig: 'acr', mount: 'm24', ballistic: 'marksman', slot: 'primary',
     price: 4200, mag: 5, reserve: 30, maxReserve: 60, rpm: 48, auto: false, bolt: 0.95,
-    hipSpread: 6, adsSpread: 0.05, adsTime: 0.3, move: 0.9, zoom: 4,
+    hipSpread: 4, adsSpread: 0.05, adsTime: 0.3, move: 0.9, zoom: 4,
     recoil: { up: 0.06, side: 0.012, pattern: 'sniper' }, vm: { back: 0.06, up: 12, side: 1.5, roll: 2.2, flash: 1.4, bolt: true },
     attachments: ['suppressor', 'extmag'], desc: 'Bolt-action 7.62 mm with a 4x scope. One clean shot ends any argument.',
   },
   whisper: {
     name: 'Whisper .338 Sniper', short: 'WHISPER', cls: 'Sniper', rig: 'acr', mount: 'm24', ballistic: 'whisper', slot: 'primary', fixed: ['suppressor'],
     price: 7000, mag: 5, reserve: 25, maxReserve: 40, rpm: 52, auto: false, bolt: 0.85,
-    hipSpread: 8, adsSpread: 0.04, adsTime: 0.34, move: 0.88, zoom: 5,
+    hipSpread: 5, adsSpread: 0.04, adsTime: 0.34, move: 0.88, zoom: 5,
     recoil: { up: 0.08, side: 0.015, pattern: 'sniper' }, vm: { back: 0.07, up: 13, side: 2, roll: 2.4, flash: 0.5, bolt: true },
     attachments: [], desc: 'Suppressed .338 Lapua. Punches through walls, armour and whoever is behind them.',
   },
@@ -65769,8 +65818,8 @@ const WEAPONS = {
 
 const ATTACHMENTS = {
   suppressor: { name: 'Suppressor', price: 900, desc: 'Muffled report, no muzzle flash. Enemies struggle to locate you. -6% velocity.' },
-  reddot: { name: 'Red Dot Sight', price: 600, desc: 'Clean sight picture, faster target acquisition.' },
-  scope: { name: 'Holographic Sight', price: 1100, desc: '1.6x holographic optic: a wide, bright reticle for mid range.' },
+  reddot: { name: 'Red Dot Sight', price: 600, desc: 'Clean sight picture.' }, // fixed on the ACR, not sold
+  laser: { name: 'Laser Module', price: 750, desc: 'Visible laser dot shows where rounds go. -30% hip-fire spread.' },
   extmag: { name: 'Extended Magazine', price: 800, desc: '+50% magazine capacity.' },
   grip: { name: 'Vertical Grip', price: 700, desc: '-20% recoil, steadier hip fire.' },
 };
@@ -65779,7 +65828,7 @@ const UPGRADES = {
   damage: { name: 'Hot Loads', max: 3, base: 700, step: 650, desc: '+12% wounding energy per level' },
   mag: { name: 'Mag Well', max: 3, base: 500, step: 450, desc: '+20% magazine capacity per level' },
   reload: { name: 'Speed Reload', max: 3, base: 450, step: 400, desc: '+14% reload speed per level' },
-  handling: { name: 'Recoil Control', max: 3, base: 550, step: 500, desc: '-14% recoil, +12% ADS speed per level' },
+  handling: { name: 'Recoil Control', max: 3, base: 550, step: 500, desc: '-14% recoil, +12% scope speed per level' },
 };
 
 // deterministic per-shot recoil shapes (x: yaw, y: pitch) the player learns to pull against
@@ -65816,9 +65865,11 @@ class WeaponInstance {
   get maxReserve() { return Math.round(this.def.maxReserve * (1 + 0.15 * this.upgrades.mag)); }
   get reloadSpeed() { return (1 + 0.14 * this.upgrades.reload) / (this.def.reloadScale || 1); }
   get recoilScale() { return (1 - 0.14 * this.upgrades.handling) * (this.attachments.has('grip') ? 0.8 : 1); }
-  get adsTime() { return this.def.adsTime / (1 + 0.12 * this.upgrades.handling) * (this.attachments.has('reddot') ? 0.85 : 1); }
+  get adsTime() { return this.def.adsTime / (1 + 0.12 * this.upgrades.handling); }
   get suppressed() { return this.attachments.has('suppressor'); }
-  get zoom() { return this.def.zoom || (this.attachments.has('scope') ? 1.6 : this.attachments.has('reddot') ? 1.35 : this.def.cls === 'Pistol' ? 1.15 : 1.25); }
+  // there is no aiming down iron or red-dot sights: only a magnified scope is raised to the eye
+  get zoom() { return this.def.zoom || 1; }
+  get scoped() { return (this.def.zoom || 1) > 2; }
   refreshBallistics() {
     const base = Lab.Ballistics[this.def.ballistic];
     Lab.Ballistics[this.ballisticKey] = {
@@ -65905,6 +65956,7 @@ class Arsenal {
     if (!player.onGround) s *= 2.5;
     if (player.crouch > 0.5) s *= 0.75;
     if (g.attachments.has('grip')) s *= 0.85;
+    if (g.attachments.has('laser')) s *= 0.7;
     return Math.min(s, 12);
   }
   // events accumulate in this.events until the game drains them
@@ -65913,7 +65965,7 @@ class Arsenal {
     const g = this.gun;
     g.cool = Math.max(0, g.cool - dt);
     const canAds = !blocked && this.state !== 'holster' && this.state !== 'equip' && this.state !== 'throw';
-    const target = this.ads && canAds ? 1 : 0;
+    const target = this.ads && canAds && g.scoped ? 1 : 0;
     this.adsAmount = clamp(this.adsAmount + Math.sign(target - this.adsAmount) * (dt / g.adsTime), 0, 1);
     let fired = false;
     switch (this.state) {
@@ -66886,6 +66938,7 @@ class HollowWrap {
     person.ctl.loco.maxSpeed *= scale.speed;
   }
   get pos() { return this.p.rd.pelvis.pos; }
+  get headPos() { return this.p.rd.segments.head.body.pos; }
   combatEffective() { const c = this.p.ctl; return !this.downed && c.alive && c.conscious && this.tough > 0; }
   hear() {}
   releaseToken() {}
@@ -67891,7 +67944,7 @@ class Hud {
     e.wName.textContent = w.def.name;
     e.ammo.innerHTML = `${w.ammo}<small>/ ${w.reserve}</small>`;
     e.ammo.classList.toggle('empty', w.ammo === 0);
-    const att = [...w.attachments].map((x) => ({ suppressor: 'SUP', reddot: 'RDS', scope: '3X', extmag: 'EXT', grip: 'GRP' }[x])).join(' ');
+    const att = [...w.attachments].map((x) => ({ suppressor: 'SUP', reddot: 'RDS', laser: 'LAS', extmag: 'EXT', grip: 'GRP' }[x])).join(' ');
     e.meta.innerHTML = `<span>${w.def.auto ? 'AUTO' : w.def.pump ? 'PUMP' : w.def.bolt ? 'BOLT' : 'SEMI'}</span>${att ? `<span>${att}</span>` : ''}<span>FRAG <b>${a.grenades}</b></span>`;
     e.slots.innerHTML = a.slots.map((s, i) => `<span class="${i === a.index ? 'on' : ''} ${s ? '' : 'none'}">${i + 1} ${s ? s.def.short : '—'}</span>`).join('');
     const reloading = a.state === 'reload';
@@ -67914,6 +67967,9 @@ class Hud {
     const px = clamp((spread / Math.tan((g.camera.fov * Math.PI) / 360)) * (innerHeight / 2), 3, 70) + 4;
     const xhVis = a.adsAmount < 0.4 && P.alive && g.state === 'play' && !g.settings.noCrosshair;
     e.xh.style.opacity = xhVis ? (P.sprinting ? 0.25 : 0.9) : 0;
+    // the crosshair follows the gun's free-aim lag, so it always marks where rounds go
+    const k = (innerHeight / 2) / Math.tan((g.camera.fov * Math.PI) / 360);
+    e.xh.style.translate = `${(-Math.tan(g.vm.aimX * 0.6) * k).toFixed(1)}px ${(-Math.tan(g.vm.aimY * 0.6) * k).toFixed(1)}px`;
     const [t, b, l, r] = e.xh.children;
     t.style.top = -px - 7 + 'px'; b.style.top = px + 'px'; l.style.left = -px - 7 + 'px'; r.style.left = px + 'px';
     this.hmT -= dt;
@@ -68027,6 +68083,7 @@ class Screens {
     const rows = [
       ['Mouse sensitivity', 'sensitivity', 0.2, 3, 0.05],
       ['Field of view', 'fov', 65, 105, 1],
+      ['Weapon FOV (higher = smaller gun)', 'vmFov', 50, 80, 1],
       ['Master volume', 'volume', 0, 1, 0.05],
       ['Music', 'music', 0, 1, 0.05],
       ['Bodycam lens', 'bodycam', 0, 1, 0.05],
@@ -68048,7 +68105,8 @@ class Screens {
     };
     sel('Graphics', 'quality', [['high', 'High'], ['medium', 'Medium'], ['low', 'Low']]);
     sel('Gore', 'gore', [[true, 'On'], [false, 'Off']]);
-    sel('Aim down sights', 'adsHold', [[false, 'Toggle'], [true, 'Hold']]);
+    sel('Sniper scope (right mouse)', 'adsHold', [[false, 'Toggle'], [true, 'Hold']]);
+    sel('Minimap', 'minimap', [[true, 'On'], [false, 'Off']]);
     sel('Invert mouse Y', 'invertY', [[false, 'Off'], [true, 'On']]);
     sel('Show FPS', 'showFps', [[false, 'Off'], [true, 'On']]);
   }
@@ -68192,7 +68250,7 @@ class Shop {
   weaponStats(def) {
     const b = Lab.Ballistics[def.ballistic];
     const energy = 0.5 * b.mass * b.speed * b.speed * (b.pellets || 1);
-    return this.stat('DAMAGE', Math.log10(energy) / 4.1 - 0.35) + this.stat('RATE', def.rpm / 950) + this.stat('ACCURACY', 1 - def.adsSpread / 0.9) + this.stat('MOBILITY', (def.move - 0.8) / 0.22) + this.stat('CAPACITY', Math.log(def.mag) / Math.log(80));
+    return this.stat('DAMAGE', Math.log10(energy) / 4.1 - 0.35) + this.stat('RATE', def.rpm / 950) + this.stat('ACCURACY', def.zoom > 2 ? 1 - def.adsSpread / 0.9 : 1.15 - def.hipSpread / 1.6) + this.stat('MOBILITY', (def.move - 0.8) / 0.22) + this.stat('CAPACITY', Math.log(def.mag) / Math.log(80));
   }
 
   card({ title, tag = '', desc = '', stats = '', price, k, id, slot, label = 'Buy', owned = false, disabled = false, pips = null }) {
@@ -68742,6 +68800,165 @@ class Sfx {
 }
 
 
+// ===== src/54-minimap.js =====
+// Minimap: a rotating, forward-up radar of the cells the player has explored. Walls are drawn from
+// the level's colliders into an off-screen layout once per level; cells are revealed into a second
+// canvas as the player sees them. Enemies show only while in sight (fading when lost), unsuppressed
+// gunfire leaves a short-lived ping, dropped weapons are marked.
+class Minimap {
+  constructor(game) {
+    this.game = game;
+    this.size = 176;
+    this.range = 15; // metres from centre to rim
+    this.pings = [];
+    this.seen = new Map(); // ai -> { x, z, t }
+    this.t = 0;
+    game.hooks.push(this);
+  }
+
+  ensureDom() {
+    if (this.canvas) return;
+    const wrap = mkEl('div', 'mm', this.game.hud.root);
+    const c = mkEl('canvas', '', wrap);
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    c.width = c.height = Math.round(this.size * dpr);
+    c.style.width = c.style.height = this.size + 'px';
+    this.dpr = dpr;
+    mkEl('i', 'n', wrap, 'N');
+    this.north = wrap.querySelector('.n');
+    this.wrap = wrap;
+    this.canvas = c;
+    this.ctx = c.getContext('2d');
+  }
+
+  onLevel(level) {
+    const L = level, s = (this.px = 7); // pixels per metre in the layout canvases
+    const W = Math.ceil(L.size * s) + 2;
+    const layout = document.createElement('canvas');
+    layout.width = layout.height = W;
+    const g = layout.getContext('2d');
+    const X = (x) => (x + L.half) * s, Z = (z) => (z + L.half) * s;
+    // floor of every cell, then props, then walls on top
+    g.fillStyle = 'rgba(214, 196, 140, 0.16)';
+    g.fillRect(0, 0, W, W);
+    g.fillStyle = 'rgba(214, 196, 140, 0.30)';
+    for (const p of L.props) { const b = p.box; g.fillRect(X(b.min.x), Z(b.min.z), (b.max.x - b.min.x) * s, (b.max.z - b.min.z) * s); }
+    g.fillStyle = 'rgba(244, 236, 212, 0.95)';
+    for (const b of L.boxes) {
+      if (b.kind === 'ceiling' || b.kind === 'prop' || b.kind === 'lintel') continue;
+      const w = Math.max(1.6, (b.max.x - b.min.x) * s), h = Math.max(1.6, (b.max.z - b.min.z) * s);
+      g.fillRect(X(b.min.x), Z(b.min.z), w, h);
+    }
+    this.layout = layout;
+    this.revealed = document.createElement('canvas');
+    this.revealed.width = this.revealed.height = W;
+    this.rctx = this.revealed.getContext('2d');
+    this.explored = new Uint8Array(L.n * L.n);
+    this.pings.length = 0;
+    this.seen.clear();
+    this.level = L;
+  }
+
+  // reveal a cell (with a margin so the walls around it are included)
+  reveal(c) {
+    if (this.explored[c]) return;
+    this.explored[c] = 1;
+    const L = this.level, s = this.px, n = L.n;
+    const i = c % n, j = (c / n) | 0, m = L.wallT * s + 2;
+    const x0 = i * L.cell * s - m, y0 = j * L.cell * s - m, w = L.cell * s + 2 * m;
+    this.rctx.drawImage(this.layout, x0, y0, w, w, x0, y0, w, w);
+  }
+
+  onEnemyFire(ai, muzzle) {
+    if (ai.gun && ai.gun.suppressed) return;
+    this.pings.push({ x: muzzle.x, z: muzzle.z, t: 0 });
+    if (this.pings.length > 24) this.pings.shift();
+  }
+
+  frame(dt) {
+    const g = this.game;
+    this.t += dt;
+    if (!this.level || !g.hud) return;
+    this.ensureDom();
+    const on = g.settings.minimap !== false && g.state === 'play';
+    this.wrap.style.display = on ? '' : 'none';
+    if (!on) return;
+    const L = this.level, P = g.player, n = L.n;
+    // explore: the player's cell, and neighbouring cells in plain sight
+    const eye = P.eye(new I());
+    const ci = Math.floor((P.pos.x + L.half) / L.cell), cj = Math.floor((P.pos.z + L.half) / L.cell);
+    if ((this.t * 10 | 0) !== this.lastReveal) {
+      this.lastReveal = this.t * 10 | 0;
+      for (let j = cj - 3; j <= cj + 3; j++)
+        for (let i = ci - 3; i <= ci + 3; i++) {
+          if (i < 0 || j < 0 || i >= n || j >= n) continue;
+          const c = j * n + i;
+          if (this.explored[c]) continue;
+          const near = Math.abs(i - ci) <= 0 && Math.abs(j - cj) <= 0;
+          if (near || L.visible(eye, { x: L.cx(i), y: 1.2, z: L.cx(j) })) this.reveal(c);
+        }
+    }
+    for (const p of this.pings) p.t += dt;
+    this.pings = this.pings.filter((p) => p.t < 2.2);
+    // enemies in sight are tracked; lost ones fade out over two seconds
+    for (const ai of g.enemies.list) {
+      if (ai.downed) { this.seen.delete(ai); continue; }
+      const h = ai.headPos;
+      if (h && L.visible(eye, h)) this.seen.set(ai, { x: ai.pos.x, z: ai.pos.z, t: 0 });
+      else if (this.seen.has(ai)) this.seen.get(ai).t += dt;
+    }
+    for (const [ai, s] of this.seen) if (s.t > 2) this.seen.delete(ai);
+
+    // draw
+    const ctx = this.ctx, D = this.canvas.width, R = D / 2, k = (R / this.range) * 0.94;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, D, D);
+    ctx.save();
+    ctx.beginPath(); ctx.arc(R, R, R - 1, 0, TAU); ctx.clip();
+    ctx.fillStyle = 'rgba(10, 9, 6, 0.55)';
+    ctx.fillRect(0, 0, D, D);
+    // world -> minimap: centre on the player, forward up
+    ctx.translate(R, R);
+    ctx.rotate(P.yaw);
+    const sc = k / this.px;
+    ctx.scale(sc, sc);
+    ctx.translate(-(P.pos.x + L.half) * this.px, -(P.pos.z + L.half) * this.px);
+    ctx.drawImage(this.revealed, 0, 0);
+    const toMap = (x, z) => [(x + L.half) * this.px, (z + L.half) * this.px];
+    const dot = (x, z, r, col) => { const [mx, my] = toMap(x, z); ctx.beginPath(); ctx.arc(mx, my, r / sc, 0, TAU); ctx.fillStyle = col; ctx.fill(); };
+    // dropped weapons
+    for (const d of g.enemies.drops) { const b = d.obj.body.pos; const [mx, my] = toMap(b.x, b.z); ctx.fillStyle = 'rgba(232, 196, 92, 0.9)'; const r = 2.6 * this.dpr / sc; ctx.fillRect(mx - r, my - r, 2 * r, 2 * r); }
+    // gunfire pings
+    for (const p of this.pings) {
+      const a = 1 - p.t / 2.2, [mx, my] = toMap(p.x, p.z);
+      ctx.beginPath(); ctx.arc(mx, my, (4 + p.t * 9) * this.dpr / sc, 0, TAU);
+      ctx.strokeStyle = `rgba(255, 90, 60, ${0.75 * a})`; ctx.lineWidth = 1.5 * this.dpr / sc; ctx.stroke();
+    }
+    // enemies
+    for (const [ai, s] of this.seen) {
+      const a = s.t > 0 ? clamp(1 - s.t / 2, 0, 1) * 0.6 : 1;
+      dot(s.x, s.z, (ai.def && ai.def.boss ? 5 : 3.6) * this.dpr, `rgba(255, 64, 48, ${a})`);
+    }
+    ctx.restore();
+    // the player: a forward-pointing chevron at the centre, with a faint view cone
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    const fovH = Math.atan(Math.tan((g.camera.fov * Math.PI) / 360) * g.camera.aspect);
+    ctx.beginPath(); ctx.moveTo(R, R); ctx.arc(R, R, R * 0.55, -Math.PI / 2 - fovH, -Math.PI / 2 + fovH); ctx.closePath();
+    ctx.fillStyle = 'rgba(255, 246, 214, 0.07)'; ctx.fill();
+    const u = 6 * this.dpr;
+    ctx.beginPath(); ctx.moveTo(R, R - u); ctx.lineTo(R + u * 0.72, R + u * 0.8); ctx.lineTo(R, R + u * 0.35); ctx.lineTo(R - u * 0.72, R + u * 0.8); ctx.closePath();
+    ctx.fillStyle = '#f4ecd4'; ctx.fill();
+    // rim
+    ctx.beginPath(); ctx.arc(R, R, R - 1.5 * this.dpr, 0, TAU);
+    ctx.strokeStyle = 'rgba(244, 236, 212, 0.28)'; ctx.lineWidth = 1.2 * this.dpr; ctx.stroke();
+    // north marker rides the rim
+    const na = P.yaw - Math.PI / 2; // world -z (north) after the forward-up rotation
+    const nr = this.size / 2 - 9;
+    this.north.style.transform = `translate(${(Math.cos(na) * nr).toFixed(1)}px, ${(Math.sin(na) * nr).toFixed(1)}px)`;
+  }
+}
+
+
 // ===== src/60-game.js =====
 // The game: owns renderer, camera, player, arsenal, the current level and its physics world,
 // routes engine effects to visuals and audio, and runs the fixed-step simulation.
@@ -68790,7 +69007,7 @@ class BackroomsGame {
   }
 
   static loadSettings() {
-    const d = { sensitivity: 1, fov: 80, volume: 0.75, music: 0.6, quality: 'high', bodycam: 1, gore: true, adsHold: false, invertY: false, showFps: false };
+    const d = { sensitivity: 1, fov: 80, vmFov: 68, minimap: true, volume: 0.75, music: 0.6, quality: 'high', bodycam: 1, gore: true, adsHold: false, invertY: false, showFps: false };
     try { return { ...d, ...JSON.parse(localStorage.getItem('backrooms-settings') || '{}') }; } catch { return d; }
   }
   saveSettings() { try { localStorage.setItem('backrooms-settings', JSON.stringify(this.settings)); } catch {} }
@@ -68827,6 +69044,7 @@ class BackroomsGame {
     this.particles.floorAt = (x, z, y) => sb.world.surfaceAt(x, z, y);
     this.particles.setViewportHeight(innerHeight * this.renderer.getPixelRatio(), this.camera.fov);
     this.effects = new Lab.Effects(view.scene, { shardFactory: (k) => Lab.shardMesh(k) });
+    this.laserDot = null; // rebuilt in the new scene on demand
     const mid = level.cellCenter(((level.n / 2) | 0) * level.n + ((level.n / 2) | 0));
     if (!this.player) this.player = new Lab.Player({ x: mid.x, z: mid.z, yaw: 0 });
     const p = this.player;
@@ -69203,6 +69421,7 @@ class BackroomsGame {
     cam.updateMatrixWorld();
     const fwd = this.viewDir(new T3.Vector3(), false);
     this.view.update(dt, cam);
+    this.updateLaser(eye, cam);
     for (const [person, r] of this.renders) r.update(simDt, dt, clamp(this.acc / SIM_DT, 0, 1), person);
     this.particles.update(simDt);
     this.effects.update(simDt || dt * 0.2);
@@ -69215,7 +69434,8 @@ class BackroomsGame {
       wallNear: near && a.adsAmount < 0.5 ? 1 : 0, strafe: lateral,
     });
     p.landed = 0;
-    this.vm.camera.fov = lerp(52, 52 / Math.min(zoom, 1.4), a.adsAmount);
+    // weapon FOV: wider = smaller gun on screen (the settings slider); a raised scope narrows it
+    this.vm.camera.fov = lerp(this.settings.vmFov || 68, 52 / Math.min(zoom, 1.4), a.adsAmount);
     this.vm.camera.updateProjectionMatrix();
     this.audio.setListener(cam.position, fwd);
     for (const h of this.hooks) h.beforeRender && h.beforeRender(dt);
@@ -69226,6 +69446,42 @@ class BackroomsGame {
     if (this.vm.visible && !(a.gun.zoom > 2 && a.adsAmount > 0.92)) this.vm.render(this.renderer);
     if (post && post.enabled) post.end(this.renderer, dt);
     for (const h of this.hooks) h.afterRender && h.afterRender(dt);
+  }
+
+  // laser module: a red dot wherever the barrel points (walls, floor, people)
+  updateLaser(eye, cam) {
+    const a = this.arsenal, g = a.gun, p = this.player;
+    const on = g.attachments.has('laser') && p.alive && this.state === 'play' && a.state !== 'holster' && !p.sprinting;
+    if (!this.laserDot && on) {
+      const tex = Lab.cached('br:laser-tex', () => {
+        const c = document.createElement('canvas');
+        c.width = c.height = 64;
+        const x = c.getContext('2d');
+        const grd = x.createRadialGradient(32, 32, 0, 32, 32, 32);
+        grd.addColorStop(0, 'rgba(255,235,225,1)'); grd.addColorStop(0.18, 'rgba(255,60,40,0.95)');
+        grd.addColorStop(0.45, 'rgba(255,20,10,0.25)'); grd.addColorStop(1, 'rgba(255,0,0,0)');
+        x.fillStyle = grd; x.fillRect(0, 0, 64, 64);
+        const t = new T3.CanvasTexture(c); t.colorSpace = T3.SRGBColorSpace; return t;
+      });
+      // HDR red (blooms in the bodycam post) with normal blending, so it reads on bright wallpaper
+      const mat = new T3.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, toneMapped: false, fog: false });
+      mat.color.setRGB(5, 0.55, 0.4);
+      const m = new T3.Mesh(new T3.PlaneGeometry(1, 1), mat);
+      m.renderOrder = 8;
+      this.view.scene.add(m);
+      this.laserDot = m;
+    }
+    if (!this.laserDot) return;
+    this.laserDot.visible = on;
+    if (!on) return;
+    const d = this.viewDir(new T3.Vector3());
+    const hit = this.sb.world.raycast(eye, new I(d.x, d.y, d.z), 80);
+    if (!hit) { this.laserDot.visible = false; return; }
+    const dist = hit.tIn;
+    this.laserDot.position.set(hit.point.x + hit.normal.x * 0.012, hit.point.y + hit.normal.y * 0.012, hit.point.z + hit.normal.z * 0.012);
+    this.laserDot.quaternion.copy(cam.quaternion);
+    // a touch of shimmer, and the dot stays a few pixels wide at range
+    this.laserDot.scale.setScalar((0.04 + dist * 0.0042) * (0.92 + Math.random() * 0.16));
   }
 
   run() {
@@ -69459,6 +69715,7 @@ Object.assign(BackroomsGame.prototype, {
   game.enemies = new EnemyManager(game);
   game.director = new Director(game, game.enemies);
   game.hud = new Hud(game, game.director);
+  game.minimap = new Minimap(game);
   game.screens = new Screens(game, game.director, game.hud);
   game.shop = new Shop(game, game.director);
   game.sfx = new Sfx(game);

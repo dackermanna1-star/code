@@ -779,6 +779,7 @@ class HollowWrap {
     person.ctl.loco.maxSpeed *= scale.speed;
   }
   get pos() { return this.p.rd.pelvis.pos; }
+  get headPos() { return this.p.rd.segments.head.body.pos; }
   combatEffective() { const c = this.p.ctl; return !this.downed && c.alive && c.conscious && this.tough > 0; }
   hear() {}
   releaseToken() {}

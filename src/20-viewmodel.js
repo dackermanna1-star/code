@@ -232,6 +232,7 @@ class Viewmodel {
     // attachments are positioned now, while the rig is in its identity idle pose
     this.ensureSuppressor(rig).visible = false;
     this.ensureRedDot(rig).visible = false;
+    this.ensureLaser(rig).visible = false;
     if (rig.def.drum) this.ensureDrum(rig).visible = false;
     if (rig.parts.scope) rig.scopeSight = this.measureScope(rig);
   }
@@ -288,6 +289,7 @@ class Viewmodel {
       if (at.has('suppressor') && !rig.parts.suppressor) rig.attach.suppressor.visible = true;
       if (at.has('reddot') && !at.has('scope')) rig.attach.reddot.visible = true;
       if (weapon.drum && rig.attach.drum) rig.attach.drum.visible = true;
+      if (at.has('laser') && rig.attach.laser) rig.attach.laser.visible = true;
       if (at.has('scope') && rig.scopeSight) this.solveAds(rig, rig.scopeSight);
       else if (at.has('reddot')) this.solveAds(rig, rig.attach.reddot.userData.sight);
       else this.solveAds(rig);
@@ -408,7 +410,7 @@ class Viewmodel {
 
   frameQuat(rig) {
     const F = rig.frame;
-    // object space: -Z along the barrel, +Y up
+    // object space: +Z towards the muzzle, +Y up (measured; F.f runs from muzzle to stock)
     return new T3.Quaternion().setFromRotationMatrix(new T3.Matrix4().makeBasis(F.r.clone().negate(), F.u, F.f.clone().negate()));
   }
 
@@ -416,7 +418,8 @@ class Viewmodel {
     if (rig.attach.suppressor) return rig.attach.suppressor;
     const nine = rig.def.caliber === '9mm';
     const rad = nine ? 0.016 : 0.019, L = nine ? 0.15 : 0.19;
-    const g = new T3.CylinderGeometry(rad, rad, L, 20, 1).rotateX(Math.PI / 2).translate(0, 0, -L / 2 + 0.01);
+    // attachment object space has +Z towards the muzzle: the can extends forward from it
+    const g = new T3.CylinderGeometry(rad, rad, L, 20, 1).rotateX(Math.PI / 2).translate(0, 0, L / 2 - 0.01);
     const m = new T3.Mesh(g, new T3.MeshStandardMaterial({ color: 0x1b1c1e, roughness: 0.45, metalness: 0.7 }));
     rig.attach.suppressor = this.attachToGun(rig, m, rig.frame.muzzle, this.frameQuat(rig));
     return rig.attach.suppressor;
@@ -449,6 +452,46 @@ class Viewmodel {
       dist: 0.13,
     };
     return rig.attach.reddot;
+  }
+
+  // laser module: on the left side rail of long guns (the side the camera sees), under the pistol
+  ensureLaser(rig) {
+    if (rig.attach.laser) return rig.attach.laser;
+    const F = rig.frame, S = rig.S, pistol = rig.id === 'pistol';
+    const at = F.rear.clone().lerp(F.muzzle, pistol ? 0.7 : (rig.def.laserAt || 0.64));
+    // long guns: on top of the handguard (the hands cover the side rails); pistols: under the slide
+    if (pistol) at.addScaledVector(F.u, -0.034 * S);
+    else at.addScaledVector(F.u, this.surfaceAbove(rig, at) + 0.0135 * S);
+    const body = new T3.MeshStandardMaterial({ color: 0x17181a, roughness: 0.55, metalness: 0.55 });
+    const grp = new T3.Group();
+    const box = new T3.Mesh(new T3.BoxGeometry(0.022, 0.026, 0.07), body);
+    const lens = new T3.Mesh(new T3.CylinderGeometry(0.005, 0.005, 0.004, 14).rotateX(Math.PI / 2), new T3.MeshBasicMaterial({ color: 0xff3020, toneMapped: false }));
+    lens.position.set(0, 0.004, 0.0365); // emitter faces the muzzle (+Z)
+    const lens2 = new T3.Mesh(new T3.CylinderGeometry(0.0045, 0.0045, 0.004, 14).rotateX(Math.PI / 2), new T3.MeshBasicMaterial({ color: 0x223040 }));
+    lens2.position.set(0, -0.006, 0.0365);
+    const btn = new T3.Mesh(new T3.BoxGeometry(0.01, 0.006, 0.016), new T3.MeshStandardMaterial({ color: 0x3a3c3f, roughness: 0.7 }));
+    btn.position.set(0, 0.0145, -0.02);
+    grp.add(box, lens, lens2, btn);
+    rig.attach.laser = this.attachToGun(rig, grp, at, this.frameQuat(rig));
+    rig.attach.laser.userData.lens = lens;
+    return rig.attach.laser;
+  }
+
+  // height of the gun's top surface above a point on the bore line (rig space, idle pose)
+  surfaceAbove(rig, at) {
+    const F = rig.frame, S = rig.S, v = new T3.Vector3(), d = new T3.Vector3();
+    let best = -Infinity;
+    for (const m of rig.gunMeshes) {
+      const pos = m.geometry.attributes.position, st = Math.max(1, Math.floor(pos.count / 8000));
+      for (let i = 0; i < pos.count; i += st) {
+        m.getVertexPosition(i, v);
+        v.applyMatrix4(m.matrixWorld);
+        d.subVectors(v, at);
+        if (Math.abs(d.dot(F.f)) > 0.02 * S || Math.abs(d.dot(F.r)) > 0.03 * S) continue;
+        best = Math.max(best, d.dot(F.u));
+      }
+    }
+    return Number.isFinite(best) ? best : 0.02 * S;
   }
 
   ensureDrum(rig) {

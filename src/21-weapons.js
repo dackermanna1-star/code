@@ -6,63 +6,63 @@ const WEAPONS = {
   p9: {
     name: 'P9 Service Pistol', short: 'P9', cls: 'Pistol', rig: 'pistol', ballistic: 'pistol', slot: 'sidearm',
     price: 0, mag: 15, reserve: 45, maxReserve: 120, rpm: 420, auto: false,
-    hipSpread: 2.0, adsSpread: 0.45, adsTime: 0.16, move: 1.0,
+    hipSpread: 0.95, adsSpread: 0.95, adsTime: 0.16, move: 1.0,
     recoil: { up: 0.022, side: 0.008, pattern: 'pistol' }, vm: { back: 0.035, up: 9, side: 2.2, roll: 2.4, flash: 0.8 },
-    attachments: ['suppressor', 'reddot'], desc: 'Reliable 9 mm sidearm. Accurate when aimed, forgiving to carry.',
+    attachments: ['suppressor', 'laser'], desc: 'Reliable 9 mm sidearm. Accurate and forgiving to carry.',
   },
   kv9: {
     name: 'KV-9 Submachine Gun', short: 'KV-9', cls: 'SMG', rig: 'smg', ballistic: 'smg', slot: 'primary',
     price: 1400, mag: 30, reserve: 120, maxReserve: 300, rpm: 900, auto: true,
-    hipSpread: 1.6, adsSpread: 0.55, adsTime: 0.14, move: 1.0,
+    hipSpread: 1.05, adsSpread: 1.05, adsTime: 0.14, move: 1.0,
     recoil: { up: 0.0085, side: 0.0075, pattern: 'smg' }, vm: { back: 0.018, up: 3.2, side: 1.6, roll: 1.2, flash: 0.75 },
-    attachments: ['suppressor', 'reddot', 'extmag', 'grip'], desc: 'Fast-firing 9 mm. Shreds at close range, struggles against armour.',
+    attachments: ['suppressor', 'laser', 'extmag', 'grip'], desc: 'Fast-firing 9 mm. Shreds at close range, struggles against armour.',
   },
   m870: {
     name: 'M870 Pump Shotgun', short: 'M870', cls: 'Shotgun', rig: 'remington', ballistic: 'shotgun', slot: 'primary',
     price: 1600, mag: 6, reserve: 30, maxReserve: 60, rpm: 75, auto: false, pump: 0.55, perShell: true,
-    hipSpread: 1.0, adsSpread: 0.75, adsTime: 0.2, move: 0.96,
+    hipSpread: 0.95, adsSpread: 0.95, adsTime: 0.2, move: 0.96,
     recoil: { up: 0.07, side: 0.02, pattern: 'shotgun' }, vm: { back: 0.06, up: 12, side: 2.5, roll: 3, flash: 1.3, pump: true },
-    attachments: ['grip'], desc: 'Nine pellets of 00 buckshot. Pump between shots, reloads shell by shell.',
+    attachments: ['laser', 'grip'], desc: 'Nine pellets of 00 buckshot. Pump between shots, reloads shell by shell.',
   },
   ak74: {
     name: 'AK-74M Assault Rifle', short: 'AK-74M', cls: 'Rifle', rig: 'ak74', ballistic: 'rifle', slot: 'primary',
     price: 2600, mag: 30, reserve: 120, maxReserve: 270, rpm: 650, auto: true,
-    hipSpread: 2.6, adsSpread: 0.32, adsTime: 0.22, move: 0.95,
+    hipSpread: 1.0, adsSpread: 1.0, adsTime: 0.22, move: 0.95,
     recoil: { up: 0.0125, side: 0.0085, pattern: 'rifle' }, vm: { back: 0.026, up: 4.8, side: 1.4, roll: 1.4, flash: 1 },
-    attachments: ['suppressor', 'reddot', 'extmag', 'grip'], desc: 'Hard-hitting, high-velocity rifle. Punches through drywall and light armour.',
+    attachments: ['suppressor', 'laser', 'extmag', 'grip'], desc: 'Hard-hitting, high-velocity rifle. Punches through drywall and light armour.',
   },
   saiga: {
     name: 'Saiga-12K Combat Shotgun', short: 'SAIGA-12', cls: 'Shotgun', rig: 'saiga', ballistic: 'shotgun', slot: 'primary',
     price: 3000, mag: 8, reserve: 32, maxReserve: 64, rpm: 280, auto: false,
-    hipSpread: 1.1, adsSpread: 0.8, adsTime: 0.22, move: 0.94,
+    hipSpread: 1.0, adsSpread: 1.0, adsTime: 0.22, move: 0.94,
     recoil: { up: 0.055, side: 0.022, pattern: 'shotgun' }, vm: { back: 0.05, up: 10, side: 2.8, roll: 2.6, flash: 1.3 },
-    attachments: ['extmag', 'grip'], desc: 'Semi-automatic magazine-fed shotgun. Clears rooms.',
+    attachments: ['laser', 'extmag', 'grip'], desc: 'Semi-automatic magazine-fed shotgun. Clears rooms.',
   },
   acr: {
     name: 'ACR Carbine', short: 'ACR', cls: 'Rifle', rig: 'acr', ballistic: 'rifle', slot: 'primary', fixed: ['reddot'],
     price: 3600, mag: 30, reserve: 150, maxReserve: 300, rpm: 760, auto: true,
-    hipSpread: 2.2, adsSpread: 0.26, adsTime: 0.2, move: 0.96,
+    hipSpread: 0.9, adsSpread: 0.9, adsTime: 0.2, move: 0.96,
     recoil: { up: 0.0095, side: 0.006, pattern: 'rifle' }, vm: { back: 0.022, up: 3.8, side: 1.1, roll: 1.1, flash: 0.9 },
-    attachments: ['suppressor', 'scope', 'extmag', 'grip'], desc: 'Modular flat-top carbine with a red dot and a gentle, predictable recoil. Takes a holographic sight.',
+    attachments: ['suppressor', 'laser', 'extmag', 'grip'], desc: 'Modular flat-top carbine with a red dot and a gentle, predictable recoil.',
   },
   rpk: {
     name: 'RPK-74 Light Machine Gun', short: 'RPK-74', cls: 'LMG', rig: 'ak74', drum: true, ballistic: 'rifle', slot: 'primary',
     price: 5200, mag: 75, reserve: 150, maxReserve: 450, rpm: 600, auto: true, reloadScale: 1.45,
-    hipSpread: 3.2, adsSpread: 0.42, adsTime: 0.32, move: 0.86,
+    hipSpread: 1.35, adsSpread: 1.35, adsTime: 0.32, move: 0.86,
     recoil: { up: 0.0105, side: 0.0095, pattern: 'lmg' }, vm: { back: 0.024, up: 4.2, side: 1.8, roll: 1.5, flash: 1.05 },
-    attachments: ['reddot', 'grip'], desc: '75-round drum. Suppressive fire that walls off whole corridors.',
+    attachments: ['laser', 'grip'], desc: '75-round drum. Suppressive fire that walls off whole corridors.',
   },
   sr10: {
     name: 'M24 Sniper Rifle', short: 'M24', cls: 'Sniper', rig: 'acr', mount: 'm24', ballistic: 'marksman', slot: 'primary',
     price: 4200, mag: 5, reserve: 30, maxReserve: 60, rpm: 48, auto: false, bolt: 0.95,
-    hipSpread: 6, adsSpread: 0.05, adsTime: 0.3, move: 0.9, zoom: 4,
+    hipSpread: 4, adsSpread: 0.05, adsTime: 0.3, move: 0.9, zoom: 4,
     recoil: { up: 0.06, side: 0.012, pattern: 'sniper' }, vm: { back: 0.06, up: 12, side: 1.5, roll: 2.2, flash: 1.4, bolt: true },
     attachments: ['suppressor', 'extmag'], desc: 'Bolt-action 7.62 mm with a 4x scope. One clean shot ends any argument.',
   },
   whisper: {
     name: 'Whisper .338 Sniper', short: 'WHISPER', cls: 'Sniper', rig: 'acr', mount: 'm24', ballistic: 'whisper', slot: 'primary', fixed: ['suppressor'],
     price: 7000, mag: 5, reserve: 25, maxReserve: 40, rpm: 52, auto: false, bolt: 0.85,
-    hipSpread: 8, adsSpread: 0.04, adsTime: 0.34, move: 0.88, zoom: 5,
+    hipSpread: 5, adsSpread: 0.04, adsTime: 0.34, move: 0.88, zoom: 5,
     recoil: { up: 0.08, side: 0.015, pattern: 'sniper' }, vm: { back: 0.07, up: 13, side: 2, roll: 2.4, flash: 0.5, bolt: true },
     attachments: [], desc: 'Suppressed .338 Lapua. Punches through walls, armour and whoever is behind them.',
   },
@@ -70,8 +70,8 @@ const WEAPONS = {
 
 const ATTACHMENTS = {
   suppressor: { name: 'Suppressor', price: 900, desc: 'Muffled report, no muzzle flash. Enemies struggle to locate you. -6% velocity.' },
-  reddot: { name: 'Red Dot Sight', price: 600, desc: 'Clean sight picture, faster target acquisition.' },
-  scope: { name: 'Holographic Sight', price: 1100, desc: '1.6x holographic optic: a wide, bright reticle for mid range.' },
+  reddot: { name: 'Red Dot Sight', price: 600, desc: 'Clean sight picture.' }, // fixed on the ACR, not sold
+  laser: { name: 'Laser Module', price: 750, desc: 'Visible laser dot shows where rounds go. -30% hip-fire spread.' },
   extmag: { name: 'Extended Magazine', price: 800, desc: '+50% magazine capacity.' },
   grip: { name: 'Vertical Grip', price: 700, desc: '-20% recoil, steadier hip fire.' },
 };
@@ -80,7 +80,7 @@ const UPGRADES = {
   damage: { name: 'Hot Loads', max: 3, base: 700, step: 650, desc: '+12% wounding energy per level' },
   mag: { name: 'Mag Well', max: 3, base: 500, step: 450, desc: '+20% magazine capacity per level' },
   reload: { name: 'Speed Reload', max: 3, base: 450, step: 400, desc: '+14% reload speed per level' },
-  handling: { name: 'Recoil Control', max: 3, base: 550, step: 500, desc: '-14% recoil, +12% ADS speed per level' },
+  handling: { name: 'Recoil Control', max: 3, base: 550, step: 500, desc: '-14% recoil, +12% scope speed per level' },
 };
 
 // deterministic per-shot recoil shapes (x: yaw, y: pitch) the player learns to pull against
@@ -117,9 +117,11 @@ class WeaponInstance {
   get maxReserve() { return Math.round(this.def.maxReserve * (1 + 0.15 * this.upgrades.mag)); }
   get reloadSpeed() { return (1 + 0.14 * this.upgrades.reload) / (this.def.reloadScale || 1); }
   get recoilScale() { return (1 - 0.14 * this.upgrades.handling) * (this.attachments.has('grip') ? 0.8 : 1); }
-  get adsTime() { return this.def.adsTime / (1 + 0.12 * this.upgrades.handling) * (this.attachments.has('reddot') ? 0.85 : 1); }
+  get adsTime() { return this.def.adsTime / (1 + 0.12 * this.upgrades.handling); }
   get suppressed() { return this.attachments.has('suppressor'); }
-  get zoom() { return this.def.zoom || (this.attachments.has('scope') ? 1.6 : this.attachments.has('reddot') ? 1.35 : this.def.cls === 'Pistol' ? 1.15 : 1.25); }
+  // there is no aiming down iron or red-dot sights: only a magnified scope is raised to the eye
+  get zoom() { return this.def.zoom || 1; }
+  get scoped() { return (this.def.zoom || 1) > 2; }
   refreshBallistics() {
     const base = Lab.Ballistics[this.def.ballistic];
     Lab.Ballistics[this.ballisticKey] = {
@@ -206,6 +208,7 @@ class Arsenal {
     if (!player.onGround) s *= 2.5;
     if (player.crouch > 0.5) s *= 0.75;
     if (g.attachments.has('grip')) s *= 0.85;
+    if (g.attachments.has('laser')) s *= 0.7;
     return Math.min(s, 12);
   }
   // events accumulate in this.events until the game drains them
@@ -214,7 +217,7 @@ class Arsenal {
     const g = this.gun;
     g.cool = Math.max(0, g.cool - dt);
     const canAds = !blocked && this.state !== 'holster' && this.state !== 'equip' && this.state !== 'throw';
-    const target = this.ads && canAds ? 1 : 0;
+    const target = this.ads && canAds && g.scoped ? 1 : 0;
     this.adsAmount = clamp(this.adsAmount + Math.sign(target - this.adsAmount) * (dt / g.adsTime), 0, 1);
     let fired = false;
     switch (this.state) {

@@ -1,6 +1,6 @@
 import sharp from 'sharp'; import fs from 'node:fs';
 const [out, ...files] = process.argv.slice(2);
-const W = 640, H = 360, cols = 2;
+const W = +(process.env.W || 640), H = +(process.env.H || 360), cols = +(process.env.COLS || 2);
 const tiles = [];
 for (const [i, f] of files.entries()) {
   if (!fs.existsSync(f)) continue;

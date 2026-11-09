@@ -114,7 +114,7 @@ class Hud {
     e.wName.textContent = w.def.name;
     e.ammo.innerHTML = `${w.ammo}<small>/ ${w.reserve}</small>`;
     e.ammo.classList.toggle('empty', w.ammo === 0);
-    const att = [...w.attachments].map((x) => ({ suppressor: 'SUP', reddot: 'RDS', scope: '3X', extmag: 'EXT', grip: 'GRP' }[x])).join(' ');
+    const att = [...w.attachments].map((x) => ({ suppressor: 'SUP', reddot: 'RDS', laser: 'LAS', extmag: 'EXT', grip: 'GRP' }[x])).join(' ');
     e.meta.innerHTML = `<span>${w.def.auto ? 'AUTO' : w.def.pump ? 'PUMP' : w.def.bolt ? 'BOLT' : 'SEMI'}</span>${att ? `<span>${att}</span>` : ''}<span>FRAG <b>${a.grenades}</b></span>`;
     e.slots.innerHTML = a.slots.map((s, i) => `<span class="${i === a.index ? 'on' : ''} ${s ? '' : 'none'}">${i + 1} ${s ? s.def.short : '—'}</span>`).join('');
     const reloading = a.state === 'reload';
@@ -137,6 +137,9 @@ class Hud {
     const px = clamp((spread / Math.tan((g.camera.fov * Math.PI) / 360)) * (innerHeight / 2), 3, 70) + 4;
     const xhVis = a.adsAmount < 0.4 && P.alive && g.state === 'play' && !g.settings.noCrosshair;
     e.xh.style.opacity = xhVis ? (P.sprinting ? 0.25 : 0.9) : 0;
+    // the crosshair follows the gun's free-aim lag, so it always marks where rounds go
+    const k = (innerHeight / 2) / Math.tan((g.camera.fov * Math.PI) / 360);
+    e.xh.style.translate = `${(-Math.tan(g.vm.aimX * 0.6) * k).toFixed(1)}px ${(-Math.tan(g.vm.aimY * 0.6) * k).toFixed(1)}px`;
     const [t, b, l, r] = e.xh.children;
     t.style.top = -px - 7 + 'px'; b.style.top = px + 'px'; l.style.left = -px - 7 + 'px'; r.style.left = px + 'px';
     this.hmT -= dt;
@@ -250,6 +253,7 @@ class Screens {
     const rows = [
       ['Mouse sensitivity', 'sensitivity', 0.2, 3, 0.05],
       ['Field of view', 'fov', 65, 105, 1],
+      ['Weapon FOV (higher = smaller gun)', 'vmFov', 50, 80, 1],
       ['Master volume', 'volume', 0, 1, 0.05],
       ['Music', 'music', 0, 1, 0.05],
       ['Bodycam lens', 'bodycam', 0, 1, 0.05],
@@ -271,7 +275,8 @@ class Screens {
     };
     sel('Graphics', 'quality', [['high', 'High'], ['medium', 'Medium'], ['low', 'Low']]);
     sel('Gore', 'gore', [[true, 'On'], [false, 'Off']]);
-    sel('Aim down sights', 'adsHold', [[false, 'Toggle'], [true, 'Hold']]);
+    sel('Sniper scope (right mouse)', 'adsHold', [[false, 'Toggle'], [true, 'Hold']]);
+    sel('Minimap', 'minimap', [[true, 'On'], [false, 'Off']]);
     sel('Invert mouse Y', 'invertY', [[false, 'Off'], [true, 'On']]);
     sel('Show FPS', 'showFps', [[false, 'Off'], [true, 'On']]);
   }

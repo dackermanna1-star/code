@@ -45,7 +45,7 @@ class BackroomsGame {
   }
 
   static loadSettings() {
-    const d = { sensitivity: 1, fov: 80, volume: 0.75, music: 0.6, quality: 'high', bodycam: 1, gore: true, adsHold: false, invertY: false, showFps: false };
+    const d = { sensitivity: 1, fov: 80, vmFov: 68, minimap: true, volume: 0.75, music: 0.6, quality: 'high', bodycam: 1, gore: true, adsHold: false, invertY: false, showFps: false };
     try { return { ...d, ...JSON.parse(localStorage.getItem('backrooms-settings') || '{}') }; } catch { return d; }
   }
   saveSettings() { try { localStorage.setItem('backrooms-settings', JSON.stringify(this.settings)); } catch {} }
@@ -82,6 +82,7 @@ class BackroomsGame {
     this.particles.floorAt = (x, z, y) => sb.world.surfaceAt(x, z, y);
     this.particles.setViewportHeight(innerHeight * this.renderer.getPixelRatio(), this.camera.fov);
     this.effects = new Lab.Effects(view.scene, { shardFactory: (k) => Lab.shardMesh(k) });
+    this.laserDot = null; // rebuilt in the new scene on demand
     const mid = level.cellCenter(((level.n / 2) | 0) * level.n + ((level.n / 2) | 0));
     if (!this.player) this.player = new Lab.Player({ x: mid.x, z: mid.z, yaw: 0 });
     const p = this.player;
@@ -458,6 +459,7 @@ class BackroomsGame {
     cam.updateMatrixWorld();
     const fwd = this.viewDir(new T3.Vector3(), false);
     this.view.update(dt, cam);
+    this.updateLaser(eye, cam);
     for (const [person, r] of this.renders) r.update(simDt, dt, clamp(this.acc / SIM_DT, 0, 1), person);
     this.particles.update(simDt);
     this.effects.update(simDt || dt * 0.2);
@@ -470,7 +472,8 @@ class BackroomsGame {
       wallNear: near && a.adsAmount < 0.5 ? 1 : 0, strafe: lateral,
     });
     p.landed = 0;
-    this.vm.camera.fov = lerp(52, 52 / Math.min(zoom, 1.4), a.adsAmount);
+    // weapon FOV: wider = smaller gun on screen (the settings slider); a raised scope narrows it
+    this.vm.camera.fov = lerp(this.settings.vmFov || 68, 52 / Math.min(zoom, 1.4), a.adsAmount);
     this.vm.camera.updateProjectionMatrix();
     this.audio.setListener(cam.position, fwd);
     for (const h of this.hooks) h.beforeRender && h.beforeRender(dt);
@@ -481,6 +484,42 @@ class BackroomsGame {
     if (this.vm.visible && !(a.gun.zoom > 2 && a.adsAmount > 0.92)) this.vm.render(this.renderer);
     if (post && post.enabled) post.end(this.renderer, dt);
     for (const h of this.hooks) h.afterRender && h.afterRender(dt);
+  }
+
+  // laser module: a red dot wherever the barrel points (walls, floor, people)
+  updateLaser(eye, cam) {
+    const a = this.arsenal, g = a.gun, p = this.player;
+    const on = g.attachments.has('laser') && p.alive && this.state === 'play' && a.state !== 'holster' && !p.sprinting;
+    if (!this.laserDot && on) {
+      const tex = Lab.cached('br:laser-tex', () => {
+        const c = document.createElement('canvas');
+        c.width = c.height = 64;
+        const x = c.getContext('2d');
+        const grd = x.createRadialGradient(32, 32, 0, 32, 32, 32);
+        grd.addColorStop(0, 'rgba(255,235,225,1)'); grd.addColorStop(0.18, 'rgba(255,60,40,0.95)');
+        grd.addColorStop(0.45, 'rgba(255,20,10,0.25)'); grd.addColorStop(1, 'rgba(255,0,0,0)');
+        x.fillStyle = grd; x.fillRect(0, 0, 64, 64);
+        const t = new T3.CanvasTexture(c); t.colorSpace = T3.SRGBColorSpace; return t;
+      });
+      // HDR red (blooms in the bodycam post) with normal blending, so it reads on bright wallpaper
+      const mat = new T3.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, toneMapped: false, fog: false });
+      mat.color.setRGB(5, 0.55, 0.4);
+      const m = new T3.Mesh(new T3.PlaneGeometry(1, 1), mat);
+      m.renderOrder = 8;
+      this.view.scene.add(m);
+      this.laserDot = m;
+    }
+    if (!this.laserDot) return;
+    this.laserDot.visible = on;
+    if (!on) return;
+    const d = this.viewDir(new T3.Vector3());
+    const hit = this.sb.world.raycast(eye, new I(d.x, d.y, d.z), 80);
+    if (!hit) { this.laserDot.visible = false; return; }
+    const dist = hit.tIn;
+    this.laserDot.position.set(hit.point.x + hit.normal.x * 0.012, hit.point.y + hit.normal.y * 0.012, hit.point.z + hit.normal.z * 0.012);
+    this.laserDot.quaternion.copy(cam.quaternion);
+    // a touch of shimmer, and the dot stays a few pixels wide at range
+    this.laserDot.scale.setScalar((0.04 + dist * 0.0042) * (0.92 + Math.random() * 0.16));
   }
 
   run() {
