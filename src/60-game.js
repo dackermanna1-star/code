@@ -464,7 +464,19 @@ class BackroomsGame {
     const fwd = this.viewDir(new T3.Vector3(), false);
     this.view.update(dt, cam);
     this.updateLaser(eye, cam);
-    for (const [person, r] of this.renders) r.update(simDt, dt, clamp(this.acc / SIM_DT, 0, 1), person);
+    const alpha = clamp(this.acc / SIM_DT, 0, 1);
+    for (const [person, r] of this.renders) {
+      // frozen corpses do not move: a few updates a second keep their wounds ageing
+      if (r.baked) continue; // a static mesh now
+      if (person.frozen) {
+        r.frozenDt = (r.frozenDt || 0) + dt;
+        if (r.frozenDt < 0.2) continue;
+        r.update(simDt, r.frozenDt, 1, person);
+        r.frozenDt = 0;
+        continue;
+      }
+      r.update(simDt, dt, alpha, person);
+    }
     this.particles.update(simDt);
     this.effects.update(simDt || dt * 0.2);
     // viewmodel

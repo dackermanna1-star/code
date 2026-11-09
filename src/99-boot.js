@@ -43,7 +43,7 @@
   }
   if (q.has('debug')) {
     game.debugRun = true;
-    window.__lab = { Lab, T3, Assets, AnimBody, ANIM };
+    window.__lab = { Lab, T3, Assets, AnimBody, ANIM, SPRINT_POSE };
     window.__dbg = {
       start: () => game.startRun(),
       look(yaw, pitch) { game.player.yaw = yaw; game.player.pitch = pitch; },

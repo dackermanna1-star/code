@@ -29,6 +29,7 @@ class EnemyManager {
   }
 
   onLevel() {
+    if (CharacterRender._warm) CharacterRender._warm.clear(); // new scene, new lights: compile again
     this.list.length = 0;
     this.tokensUsed = 0;
     this.drops.length = 0;
@@ -121,6 +122,7 @@ class EnemyManager {
     person.enemy = ai;
     ai.spawnT = game.time;
     const render = new CharacterRender(game, person, gltf, { tint: def.hollow ? [0.72, 0.7, 0.68, 0.8] : def.boss ? [0.85, 0.85, 0.85, 0] : [1, 1, 1, 0] });
+    CharacterRender.prewarmBaked(game, render, look); // once per look and level
     if (!def.hollow) render.setGun(ENEMY_GUNS[ai.gunId].model, { drum: ENEMY_GUNS[ai.gunId].drum, light: def.light, laser: ENEMY_GUNS[ai.gunId].laser });
     game.attachRender(person, render);
     // gunmen move on motion-capture animation until something knocks them about
@@ -583,7 +585,16 @@ class EnemyManager {
         if (ai.p.injury.alive && g.time - ai.diedAt < 25) continue; // let the dying writhe a while
         g.sb.freezePerson(ai.p);
         ai.frozen = true;
+        ai.frozenAt = g.time;
       }
+    }
+    // settled corpses are baked into static meshes (one a step, to spread the cost)
+    for (const ai of this.corpses) {
+      if (!ai.frozen || ai.baked || g.time - ai.frozenAt < 5) continue;
+      const r = this.renderOf(ai);
+      ai.baked = true;
+      if (r && r.bake) r.bake();
+      break;
     }
     // grenades
     for (const gr of this.grenades) {

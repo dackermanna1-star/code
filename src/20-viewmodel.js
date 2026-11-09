@@ -45,6 +45,14 @@ const VM_RIGS = {
   },
 };
 
+// sprint carries for rigs without a run clip: [x, y, z (m, camera space), pitch, yaw, roll (rad)]
+// pistol: tucked in and canted; long guns: COD style, turned on their side and swung out with the
+// muzzle up and to the left
+const SPRINT_POSE = {
+  pistol: [-0.028, 0.006, 0.01, -0.14, 0.28, 0.4],
+  long: [0.035, -0.045, 0.02, 0.2, 0.72, 0.4],
+};
+
 const _v1 = new T3.Vector3(), _v2 = new T3.Vector3(), _q1 = new T3.Quaternion(), _m1 = new T3.Matrix4(), _m2 = new T3.Matrix4();
 const ROT_Y_180 = new T3.Matrix4().makeRotationY(Math.PI);
 // camera matrix at `eye` looking along `fwd` with `up` (three cameras look down -Z)
@@ -621,12 +629,10 @@ class Viewmodel {
     const ph = o.ph, sw = Math.sin(ph), bn = Math.abs(Math.sin(ph)) - 0.64;
     const pistol = this.cur && this.cur.def.caliber === '9mm' && !this.cur.def.clips.run;
     const kp = hasRun ? 0 : k; // the pose itself only where no run clip provides one
-    if (pistol) {
-      o.x = -0.028 * kp; o.y = 0.006 * kp; o.z = 0.01 * kp;
-      o.pitch = -0.14 * kp; o.yaw = 0.28 * kp; o.roll = 0.4 * kp;
-    } else if (!hasRun) {
-      o.x = -0.012 * kp; o.y = -0.006 * kp; o.z = 0.008 * kp;
-      o.pitch = -0.06 * kp; o.yaw = 0.27 * kp; o.roll = 0.2 * kp;
+    const pose = pistol ? SPRINT_POSE.pistol : !hasRun ? SPRINT_POSE.long : null;
+    if (pose) {
+      o.x = pose[0] * kp; o.y = pose[1] * kp; o.z = pose[2] * kp;
+      o.pitch = pose[3] * kp; o.yaw = pose[4] * kp; o.roll = pose[5] * kp;
     }
     const swing = hasRun ? 0.35 : 1;
     o.x += sw * 0.016 * k * swing;
@@ -701,15 +707,22 @@ class Viewmodel {
     const sp = this.sprintPose(dt, st, !!clips.run);
     pos.x += sp.x; pos.y += sp.y; pos.z += sp.z;
     const e = new T3.Euler(
-      this.kp.x * 0.012 + this.sy.x * 0.05 - this.lower.x * 0.9 - this.wallPush * 0.55 + this.aimY + sp.pitch,
-      this.ky.x * 0.01 + this.sx.x * 0.06 + this.aimX - this.wallPush * 0.25 + sp.yaw,
-      this.kr.x * 0.012 + this.sr.x * 0.05 + this.crouch * 0.05 * (1 - a) - this.wallPush * 0.45 + sp.roll,
+      this.kp.x * 0.012 + this.sy.x * 0.05 - this.lower.x * 0.9 - this.wallPush * 0.55 + this.aimY,
+      this.ky.x * 0.01 + this.sx.x * 0.06 + this.aimX - this.wallPush * 0.25,
+      this.kr.x * 0.012 + this.sr.x * 0.05 + this.crouch * 0.05 * (1 - a) - this.wallPush * 0.45,
       'YXZ',
     );
     const proc = new T3.Quaternion().setFromEuler(e);
     // rotate about a pivot behind the grip so recoil reads as a wrist rotation
     const pivot = new T3.Vector3(0.05, -0.12, 0.05).multiplyScalar(1 - a);
+    // the sprint carry turns the weapon about its own middle (where it sits at the hip), so the
+    // muzzle swings out while the hands stay with it rather than sweeping across the view
+    const gm = this.gunMid || (this.gunMid = new T3.Vector3(0.08, -0.12, -0.35));
+    const spq = new T3.Quaternion().setFromEuler(new T3.Euler(sp.pitch, sp.yaw, sp.roll, 'YXZ'));
     const P = new T3.Matrix4().makeTranslation(pos.x, pos.y, pos.z)
+      .multiply(new T3.Matrix4().makeTranslation(gm.x, gm.y, gm.z))
+      .multiply(new T3.Matrix4().makeRotationFromQuaternion(spq))
+      .multiply(new T3.Matrix4().makeTranslation(-gm.x, -gm.y, -gm.z))
       .multiply(new T3.Matrix4().makeTranslation(pivot.x, pivot.y, pivot.z))
       .multiply(new T3.Matrix4().makeRotationFromQuaternion(proc))
       .multiply(new T3.Matrix4().makeTranslation(-pivot.x, -pivot.y, -pivot.z));
@@ -718,6 +731,10 @@ class Viewmodel {
     const R = P.multiply(new T3.Matrix4().makeScale(Sinv, Sinv, Sinv)).multiply(C.invert());
     R.decompose(rig.root.position, rig.root.quaternion, rig.root.scale);
     rig.root.updateMatrixWorld(true);
+    if (this.sprint < 0.02 && a < 0.05 && rig.muzzleLocal && rig.rearLocal) {
+      const m0 = rig.muzzleLocal.clone().applyMatrix4(rig.gun.matrixWorld), r0 = rig.rearLocal.clone().applyMatrix4(rig.gun.matrixWorld);
+      (this.gunMid || (this.gunMid = new T3.Vector3())).copy(m0).add(r0).multiplyScalar(0.5);
+    }
     this.camera.matrixWorld.identity();
     this.camera.matrixWorldInverse.identity();
     this.camQuat = new T3.Quaternion();

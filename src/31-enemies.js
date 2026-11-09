@@ -262,12 +262,86 @@ class CharacterRender {
 
   dispose() {
     this.binder.dispose();
+    if (this.bakedMeshes) for (const m of this.bakedMeshes) { this.scene.remove(m); m.geometry.dispose(); }
+    this.bakedMeshes = null;
     for (const m of this.binder.meshes) m.material.dispose();
     if (this.gun) this.scene.remove(this.gun);
     if (this.laserDot) this.scene.remove(this.laserDot);
     if (this.glare) this.scene.remove(this.glare);
     disposeTree(null, this.owned || []);
     this.owned = [];
+  }
+
+  // a corpse that has settled for good: bake the skinned pose into plain static meshes, so it costs
+  // no bone updates, no skinning and no shadow pass, and is frustum culled like any prop. The wound
+  // shader keeps the uniforms it had (the wounds have stopped changing by then)
+  bake() {
+    if (this.baked) return false;
+    const m4 = new T3.Matrix4(), out = [];
+    for (const sm of this.binder.meshes) {
+      const g = sm.geometry, sk = sm.skeleton, nb = sk.bones.length;
+      const P = g.attributes.position, N = g.attributes.normal, SI = g.attributes.skinIndex, SW = g.attributes.skinWeight;
+      if (!P || !SI || !SW) continue;
+      // per bone: bindMatrixInverse * boneWorld * boneInverse * bindMatrix, as the skinning shader does
+      const K = new Float32Array(nb * 16);
+      for (let b = 0; b < nb; b++) {
+        m4.multiplyMatrices(sk.bones[b].matrixWorld, sk.boneInverses[b]).premultiply(sm.bindMatrixInverse).multiply(sm.bindMatrix);
+        K.set(m4.elements, b * 16);
+      }
+      const n = P.count, pos = new Float32Array(n * 3), nrm = N ? new Float32Array(n * 3) : null;
+      for (let i = 0; i < n; i++) {
+        const x = P.getX(i), y = P.getY(i), z = P.getZ(i);
+        const ax = N ? N.getX(i) : 0, ay = N ? N.getY(i) : 0, az = N ? N.getZ(i) : 0;
+        let px = 0, py = 0, pz = 0, nx = 0, ny = 0, nz = 0;
+        for (let k = 0; k < 4; k++) {
+          const w = k === 0 ? SW.getX(i) : k === 1 ? SW.getY(i) : k === 2 ? SW.getZ(i) : SW.getW(i);
+          if (!w) continue;
+          const o = (k === 0 ? SI.getX(i) : k === 1 ? SI.getY(i) : k === 2 ? SI.getZ(i) : SI.getW(i)) * 16;
+          px += w * (K[o] * x + K[o + 4] * y + K[o + 8] * z + K[o + 12]);
+          py += w * (K[o + 1] * x + K[o + 5] * y + K[o + 9] * z + K[o + 13]);
+          pz += w * (K[o + 2] * x + K[o + 6] * y + K[o + 10] * z + K[o + 14]);
+          nx += w * (K[o] * ax + K[o + 4] * ay + K[o + 8] * az);
+          ny += w * (K[o + 1] * ax + K[o + 5] * ay + K[o + 9] * az);
+          nz += w * (K[o + 2] * ax + K[o + 6] * ay + K[o + 10] * az);
+        }
+        pos[i * 3] = px; pos[i * 3 + 1] = py; pos[i * 3 + 2] = pz;
+        if (nrm) { const l = Math.hypot(nx, ny, nz) || 1; nrm[i * 3] = nx / l; nrm[i * 3 + 1] = ny / l; nrm[i * 3 + 2] = nz / l; }
+      }
+      const geo = new T3.BufferGeometry();
+      geo.setAttribute('position', new T3.BufferAttribute(pos, 3));
+      if (nrm) geo.setAttribute('normal', new T3.BufferAttribute(nrm, 3));
+      for (const [name, a] of Object.entries(g.attributes)) if (!/^(position|normal|tangent|skinIndex|skinWeight)$/.test(name)) geo.setAttribute(name, a);
+      if (g.index) geo.setIndex(g.index);
+      for (const gr of g.groups) geo.addGroup(gr.start, gr.count, gr.materialIndex);
+      geo.computeBoundingSphere();
+      const mesh = new T3.Mesh(geo, sm.material);
+      mesh.castShadow = false; mesh.receiveShadow = true;
+      mesh.matrixAutoUpdate = false; mesh.updateMatrixWorld(true);
+      mesh.visible = sm.visible;
+      this.scene.add(mesh);
+      this.scene.remove(sm);
+      out.push(mesh);
+    }
+    this.bakedMeshes = out;
+    this.baked = true;
+    return true;
+  }
+
+  // compile the static (baked) variant of this character's materials ahead of time, so the first
+  // corpse to be baked does not stall a frame on a shader compile
+  static prewarmBaked(game, render, key) {
+    const warm = CharacterRender._warm || (CharacterRender._warm = new Set());
+    if (warm.has(key) || !game.renderer || !game.camera) return;
+    warm.add(key);
+    try {
+      const tmp = new T3.Scene(), geo = new T3.BufferGeometry();
+      geo.setAttribute('position', new T3.BufferAttribute(new Float32Array(9), 3));
+      geo.setAttribute('normal', new T3.BufferAttribute(new Float32Array(9), 3));
+      geo.setAttribute('uv', new T3.BufferAttribute(new Float32Array(6), 2));
+      for (const sm of render.binder.meshes) tmp.add(new T3.Mesh(geo, sm.material));
+      game.renderer.compile(tmp, game.camera, game.view.scene);
+      geo.dispose();
+    } catch (err) { void err; }
   }
 }
 
