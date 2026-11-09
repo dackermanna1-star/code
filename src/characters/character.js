@@ -200,6 +200,26 @@ export class Character {
     return null;
   }
 
+  /** Vehicle bodies still attached to the frame plus rider parts still connected to the torso. */
+  attachedBodies() {
+    const out = [];
+    const seen = new Set([this.frame]);
+    const stack = [this.frame];
+    while (stack.length) {
+      const b = stack.pop();
+      if (b._gone) continue;
+      out.push(b);
+      for (let je = b.getJointList(); je; je = je.next) {
+        const o = je.other;
+        if (seen.has(o) || je.joint._gone) continue;
+        seen.add(o);
+        const u = o.getUserData();
+        if (u && (u.kind === 'vehicle' || u.kind === 'part') && u.character === this) stack.push(o);
+      }
+    }
+    return out;
+  }
+
   allBodies() {
     return [...this.bodies.filter((b) => !b._gone), ...this.rider.bodies()];
   }
@@ -303,8 +323,13 @@ export class Character {
     const ax = this.frame.getWorldVector(new Vec2(1, 0));
     const along = dvx * ax.x + dvy * ax.y;
     const perp = -dvx * ax.y + dvy * ax.x;
-    const k = (this.constructor.crashTolerance ?? 1) * (this.rider.braceTimer > 0 ? 1.5 : 1);
-    if (Math.abs(along) > 7 * k || Math.abs(perp) > 14 * k) {
+    const brace = this.rider.braceTimer > 0 ? 1.5 : 1;
+    const k = (this.constructor.crashTolerance ?? 1) * brace; // head-on / rear impacts
+    const kl = (this.constructor.landingTolerance ?? 1) * brace; // hard vertical landings
+    // a mostly-upward jolt is a landing (judged on its own tolerance); anything else is a collision
+    const landing = dvy > Math.abs(dvx) * 1.5;
+    const crashed = landing ? Math.hypot(dvx, dvy) > 14 * kl : Math.abs(along) > 7 * k || Math.abs(perp) > 14 * kl;
+    if (crashed) {
       this.rider.note('crash', along.toFixed(1), perp);
       this.crash();
     }
@@ -397,6 +422,44 @@ export class Character {
   drawVehicle(ctx) {}
   stopAudio() {}
   updateAudio(dt) {}
+
+  /**
+   * Spin the whole character (vehicle + attached rider) like one rigid body: every body
+   * gets the same angular velocity `w` around the shared centre of mass, plus an optional
+   * upward velocity. Joints feel no stress because the motion is perfectly rigid.
+   */
+  spinRigid(w, liftVy = null) {
+    const bodies = this.attachedBodies();
+    let m = 0;
+    let cx = 0;
+    let cy = 0;
+    let vx = 0;
+    let vy = 0;
+    for (const b of bodies) {
+      const bm = b.getMass();
+      const c = b.getWorldCenter();
+      const v = b.getLinearVelocity();
+      m += bm;
+      cx += c.x * bm;
+      cy += c.y * bm;
+      vx += v.x * bm;
+      vy += v.y * bm;
+    }
+    if (m <= 0) return;
+    cx /= m;
+    cy /= m;
+    vx /= m;
+    vy /= m;
+    if (liftVy !== null) vy = Math.max(vy, liftVy);
+    for (const b of bodies) {
+      const c = b.getWorldCenter();
+      b.setLinearVelocity(new Vec2(vx - w * (c.y - cy), vy + w * (c.x - cx)));
+      const wheel = b.getUserData() && b.getUserData().material === 'rubber';
+      b.setAngularVelocity(wheel ? b.getAngularVelocity() + w : w);
+      b.setAwake(true);
+    }
+    this.noCrash = Math.max(this.noCrash || 0, 0.35);
+  }
 
   /** Standard air/ground lean torque. */
   applyLean(dt, torque) {

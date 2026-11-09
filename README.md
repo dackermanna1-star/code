@@ -49,7 +49,7 @@ On touch devices, on-screen buttons appear automatically; you can toggle them in
 
 | Character | Vehicle | Handling | Abilities |
 | --- | --- | --- | --- |
-| **Marco Mayhem** | Dirt bike | Fast, grippy, long-travel suspension, helmet protects his head | Nitro boost |
+| **Marco Mayhem** | Dirt bike | Fast, grippy, long-travel suspension, helmet protects his head | Nitro boost; Shift = flip (stunt flips in the air refill nitro, or roll the bike back upright when it's tipped over) |
 | **Gary from Accounting** | Office chair | Slow foot-scoot on tiny casters, tips easily, fragile | Fire-extinguisher rocket (hold) |
 | **Bonbon the Clown** | Unicycle | Gyro-assisted balance, lean shifts the balance point | Spring hop, honk |
 | **Rosa Gelato** | Ice-cream cargo trike | Heavy, stable, slow; the freezer weighs 50 kg | Jettison the freezer (it becomes a physics prop), bell |

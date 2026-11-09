@@ -1,7 +1,7 @@
 // "Marco Mayhem" — a washed-up stuntman on a dirt bike. Fast, grippy, nitro boost.
 
 import { Character, Vec2, Box, Polygon, clamp } from './character.js';
-import { DEG } from '../core/math.js';
+import { DEG, wrapAngle } from '../core/math.js';
 import { headBase, nose, eye, brow, mouth, circle, fillStroke, OUTLINE, shade, roundRectPath } from './looks.js';
 import { drawWheel, polyPath, line, worldText } from '../render/draw.js';
 
@@ -78,10 +78,12 @@ export class Marco extends Character {
   static vehicleName = 'Dirt Bike';
   static blurb = 'Ex-stuntman. Banned from three circuses and one country. Still thinks he can land it.';
   static ability = 'SPACE — Nitro boost';
-  static ability2 = '';
+  static ability2 = 'SHIFT — Flip (stunt flip in the air, roll back upright when tipped over)';
   static stats = { speed: 5, accel: 5, handling: 4, toughness: 4 };
-  static toughness = 1.12;
+  static toughness = 1.3;
   static headArmor = 1.6;
+  // a stuntman knows how to stick a landing: big drops don't throw him off
+  static landingTolerance = 2.1;
   static voice = { pitch: 0.92, vowel: 'a', formantShift: 0.95 };
   static look = look;
   static portraitColor = '#d6262b';
@@ -96,11 +98,108 @@ export class Marco extends Character {
     );
     this.rear = this.makeWheel('rear', x - 0.64, y + R, R, { density: 16, friction: 1.6 });
     this.front = this.makeWheel('front', x + 0.7, y + R, R, { density: 16, friction: 1.4 });
-    this.rearJ = this.springJoint(f, this.rear, [0, 1], 26000, 2100);
-    this.frontJ = this.springJoint(f, this.front, [-0.32, 1], 22000, 1900);
+    this.rearJ = this.springJoint(f, this.rear, [0, 1], 30000, 2900);
+    this.frontJ = this.springJoint(f, this.front, [-0.32, 1], 26000, 2600);
     this.nitro = 1;
     this.boosting = false;
     this.meter = { label: 'NITRO', value: 1, color: '#33c4ff' };
+    this.flipCd = 0;
+    this.flipTarget = null;
+    this.flipQueued = 0;
+    this.flipDir = 1;
+    this.airT = 0;
+    this.airSpin = 0;
+    this.takeoffAng = 0;
+  }
+
+  grounded() {
+    return (!this.rear._gone && this.touching(this.rear)) || (!this.front._gone && this.touching(this.front)) || this.touching(this.frame);
+  }
+
+  wheelsDown() {
+    return (!this.rear._gone && this.touching(this.rear)) || (!this.front._gone && this.touching(this.front));
+  }
+
+  /** Pitch relative to the ground below (0 = sitting level on the slope). */
+  pitchToGround() {
+    const p = this.frame.getPosition();
+    const g = this.game.level && this.game.level.groundAt ? this.game.level.groundAt(p.x) : null;
+    const slope = g && p.y - g.y < 3 ? Math.atan(g.slope) : 0;
+    return wrapAngle(this.frame.getAngle() - slope);
+  }
+
+  /** SHIFT: stunt flip in the air, or kick the bike back onto its wheels on the ground. */
+  flip() {
+    if (this.flipCd > 0) return;
+    const pitch = this.pitchToGround();
+    const pos = this.frame.getPosition();
+    if (this.grounded()) {
+      // tipped over / upside down / wheelie-stuck: hop up and roll back upright
+      if (Math.abs(pitch) < 0.5 && this.wheelsDown()) return;
+      const airTime = 0.85;
+      this.spinRigid(-pitch / airTime, 6.2);
+      this.flipCd = 1.0;
+      this.game.particles.dust(pos.x, pos.y - 0.5, 0, 1, 10);
+      this.game.audio.whoosh(pos.x, pos.y, 1);
+      this.game.audio.grunt(this.rider.voice, pos.x, pos.y);
+    } else if (this.airT <= 0.1 && this.flipTarget === null) {
+      // just left the ground: remember the press and flip as soon as we're really airborne
+      this.flipQueued = 0.35;
+    } else {
+      // airborne: one full backflip (or frontflip while leaning forward); pressing again
+      // mid-flip queues another rotation for doubles and triples
+      if (this.flipTarget !== null) {
+        this.flipTarget += this.flipDir * Math.PI * 2;
+      } else {
+        this.flipDir = this.lean > 0 ? -1 : 1;
+        // finish level with the horizon, ready for a (usually downhill) landing
+        const a = this.frame.getAngle();
+        this.flipTarget = a - wrapAngle(a) + this.flipDir * Math.PI * 2;
+      }
+      this.flipCd = 0.35;
+      this.game.audio.whoosh(pos.x, pos.y, 1.2);
+    }
+  }
+
+  /** Drive an in-progress air flip: fast spin that eases out exactly on target. */
+  flipStep() {
+    if (this.flipTarget === null) return;
+    // touching anything, losing the rider, or leaning against the flip cancels it
+    if (!this.canControl || this.grounded() || (this.lean !== 0 && Math.sign(this.lean) === this.flipDir)) {
+      this.flipTarget = null;
+      return;
+    }
+    const rem = this.flipTarget - this.frame.getAngle();
+    if (Math.sign(rem) !== this.flipDir || Math.abs(rem) < 0.06) {
+      this.spinRigid(0);
+      this.flipTarget = null;
+      return;
+    }
+    const w = this.flipDir * Math.min(10, Math.max(1.5, Math.abs(rem) * 8));
+    this.spinRigid(w);
+  }
+
+  /** Count completed rotations while airborne and celebrate clean landings. */
+  trackStunts(dt) {
+    const a = this.frame.getAngle();
+    if (!this.wheelsDown() && !this.touching(this.frame)) {
+      if (this.airT === 0) this.takeoffAng = a;
+      this.airT += dt;
+      this.airSpin = a - this.takeoffAng;
+      return;
+    }
+    if (this.airT > 0.25) {
+      const turns = Math.floor((Math.abs(this.airSpin) + 1.0) / (Math.PI * 2));
+      if (turns >= 1 && this.canControl && Math.abs(this.pitchToGround()) < 0.7 && !this.game.attract) {
+        const kind = this.airSpin > 0 ? 'BACKFLIP' : 'FRONTFLIP';
+        const prefix = turns === 1 ? '' : turns === 2 ? 'DOUBLE ' : turns === 3 ? 'TRIPLE ' : `${turns}x `;
+        this.game.emit('toast', { text: `${prefix}${kind}!`, kind: 'good' });
+        this.nitro = Math.min(1, this.nitro + 0.35 * turns);
+        this.game.particles.ring(this.frame.getPosition().x, this.frame.getPosition().y, '#33c4ff', 1.6);
+      }
+    }
+    this.airT = 0;
+    this.airSpin = 0;
   }
 
   riderSetup() {
@@ -114,8 +213,8 @@ export class Marco extends Character {
       headDir: 78 * DEG,
       hands: { N: { body: f, ...xy(W(0.47, 0.6)) }, F: { body: f, ...xy(W(0.45, 0.6)) } },
       feet: { N: xy(W(-0.08, -0.16)), F: xy(W(-0.05, -0.16)) },
-      seatBreak: 22000,
-      gripBreak: 9500,
+      seatBreak: 55000,
+      gripBreak: 18000,
       seatPlay: 0.25,
     };
   }
@@ -169,6 +268,18 @@ export class Marco extends Character {
   }
 
   abilityTick(dt, input) {
+    if (this.flipCd > 0) this.flipCd -= dt;
+    if (this.canControl && input.gamePressed('secondary')) this.flip();
+    if (this.flipQueued > 0) {
+      this.flipQueued -= dt;
+      if (this.canControl && this.airT > 0.1 && !this.grounded()) {
+        this.flipQueued = 0;
+        this.flipCd = 0;
+        this.flip();
+      }
+    }
+    this.flipStep();
+    this.trackStunts(dt);
     const want = this.canControl && input.isDown('primary') && this.nitro > 0.02;
     this.boosting = want;
     if (want) {
