@@ -72057,9 +72057,9 @@ class Dismemberment {
       cr.haul = false;
       cr.t = 0.36 + Math.random() * 0.26;
       const pull = cr.arm ? 1 : 0.6;
-      ch.applyImpulse(new I(ux * 40 * pull, 12, uz * 40 * pull), ch.pos);
-      S.abdomen.body.applyImpulse(new I(ux * 21 * pull, 5, uz * 21 * pull), S.abdomen.body.pos);
-      S.pelvis.body.applyImpulse(new I(ux * 19 * pull, 4, uz * 19 * pull), S.pelvis.body.pos);
+      ch.applyImpulse(new I(ux * 38 * pull, 22, uz * 38 * pull), ch.pos);
+      S.abdomen.body.applyImpulse(new I(ux * 19 * pull, 9, uz * 19 * pull), S.abdomen.body.pos);
+      S.pelvis.body.applyImpulse(new I(ux * 16 * pull, 6, uz * 16 * pull), S.pelvis.body.pos);
       S.head.body.applyImpulse(new I(ux * 1.5, 2, uz * 1.5), head);
       if (cr.arm) { const h = S['hand' + cr.arm].body; h.applyImpulse(new I(-ux * 1.5, -1, -uz * 1.5), h.pos); } // the hand pulls back against the floor
     }
