@@ -31,8 +31,18 @@ procedural additions.
 - "The 100STYLE Dataset" by Ian Mason, Franck Multon and Taku Komura - CC BY 4.0
   (https://creativecommons.org/licenses/by/4.0/), https://www.ianxmason.com/100style/
   Style "Swat" (idle; walks and runs forward, backward and sideways) for gunmen; styles "Zombie",
-  "Drunk" and "LimpLeft" (shambles) with "Rushed" (the sprint) for the Hollowed. Retargeted from BVH
-  to the Microsoft Rocketbox skeleton and cut into in-place loops (tools/retarget.mjs).
+  "Drunk" and "LimpLeft" (shambles) with "Rushed" (the sprint) for the Hollowed; the arms of style
+  "Neutral" (natural arm swing) for pistol carriers' free arms. Retargeted from BVH to the Microsoft
+  Rocketbox skeleton and cut into in-place loops (tools/retarget.mjs).
+
+- Get-ups from the floor (on the back and on the belly; also mirrored) from the CMU Graphics Lab
+  Motion Capture Database, http://mocap.cs.cmu.edu - takes 139_16 ("Get Up From Ground"), 140_01
+  ("Get Up Face Down"), 140_08 and 140_09 ("Get Up From Ground Laying on Back"), in the BVH
+  conversion by Bruce Hahne (cgspeed.com). "The data used in this project was obtained from
+  mocap.cs.cmu.edu. The database was created with funding from NSF EIA-0196217." CMU: "This data is
+  free for use in research and commercial projects worldwide"; the BVH conversion adds no further
+  restrictions. Trimmed, time-warped (played faster), grounded and retargeted to the Rocketbox
+  skeleton with tools/retarget.mjs (--getup).
 
 - Upper-body rifle aim, rifle reload and pistol reload from the Torque 3D "Soldier" player
   animations (Lurker / Ryder sets), Copyright (c) 2012-2016 GarageGames, LLC, MIT licence,

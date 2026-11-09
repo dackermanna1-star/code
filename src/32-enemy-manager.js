@@ -41,11 +41,12 @@ class EnemyManager {
       if (sb._shooter && e.by === undefined) e.by = sb._shooter;
       // an animated enemy goes physical the instant it is hit, so this bullet's impulse (applied
       // just before the effect is emitted) and the knock that follows act on a live ragdoll
-      // light hits are ridden out on the animation instead (a flinch and a stumble)
+      // light hits are ridden out on the animation instead (a flinch and a stumble); a body getting
+      // up from the floor goes straight back to the ragdoll
       let soft = null;
       if ((e.type === 'fleshHit' || e.type === 'armorHit') && e.person && e.person.enemy && e.person.enemy.anim) {
         const ai = e.person.enemy, an = ai.anim;
-        if (an.active && this.rideOut(ai, e)) { soft = an; e.soft = true; }
+        if (an.mode === 'anim' && this.rideOut(ai, e)) { soft = an; e.soft = true; }
         else an.wake('hit');
       }
       orig(e);

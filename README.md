@@ -23,10 +23,21 @@ retargeted onto their Rocketbox skeletons by `tools/retarget.mjs`, with a should
 reloads from Torque 3D's soldier on the arms, a two-hand IK stance for pistols, a torso that turns
 until the barrel the hands hold is on target, and recoil. While undisturbed their ragdoll
 is dormant and posed from the animation, so bullets hit what you see. A hit, blast or kick hands the
-body to the active-ragdoll controller (stagger, stumble, fall, get up); once they are back on their
-feet and left alone they blend back into animation. Settings → Enemy movement switches to full physics.
+body to the active-ragdoll controller (stagger, stumble, fall); once they are back on their feet and
+left alone they blend back into animation. Pistol carriers swing their free arm as in a natural walk
+(100STYLE "Neutral", in step with the legs) and carry the gun one-handed, low at a walk and tucked
+in at a run, until the two-hand stance comes up with the aim.
+
+Getting up is motion capture too (CMU get-ups from the back and from the belly, each also mirrored):
+when a body on the floor is ready to rise, the take and the moment in it that best match how it lies
+are laid over the ragdoll (pelvis on pelvis, turned to its heading), the physics pose blends into the
+clip and the clip, played fast (about 1.5 s for a fit fighter, slower when badly hurt, quick and
+jerky for the Hollowed), flows into locomotion. A shot mid-way drops them back into the ragdoll.
+Broken or severed limbs, or no room to stand, fall back to the engine's physical get-up.
+Settings → Enemy movement switches to full physics.
 
 ## Building
 `npm run build` concatenates `engine/ragdoll-engine.js` and `src/*.js` into `dist/index.html` and
 wraps `assets/**/*.glb` as script files. Asset tools: `tools/rb2glb.mjs` (Rocketbox FBX → GLB),
-`tools/prep-viewmodel.mjs` (first-person rigs), `tools/retarget.mjs` (BVH mocap → Rocketbox clips).
+`tools/prep-viewmodel.mjs` (first-person rigs), `tools/retarget.mjs` (BVH mocap → Rocketbox clips:
+100STYLE loops, `--getup` one-shot clips from CMU takes, `ONLY=<bone regex>` for arm-only sets).
