@@ -261,7 +261,7 @@ class EnemyManager {
         if (ai && ai.agony && e.person.injury.alive) { e.person.injury.kill('gunshot wounds'); ai.agony = null; }
         if (ai && !ai.downed) {
           const mult = SEG_MULT[e.seg.name] ?? 0.8;
-          const dmg = e.energy * 0.11 * mult * (e.by === 'player' ? g.perks.damage : 0.5);
+          const dmg = e.energy * 0.11 * mult * (e.by === 'player' ? g.perks.damage : 0.5) * (e.dmScale ?? 1);
           ai.tough -= dmg;
           if (e.by === 'player' || e.by === 'player-grenade') {
             ai.lastHit = { by: 'player', seg: e.seg.name, time: g.time, weapon: g.arsenal.gun.id, grenade: e.by === 'player-grenade' };
