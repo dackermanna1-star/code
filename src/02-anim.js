@@ -7,6 +7,7 @@ class ClipPlayer {
     this.clips = new Map();
     this.layers = []; // { name, clip, time, speed, weight, target, fade, loop, onEnd, done }
     this.props = new Map(); // key -> { obj, prop, acc: Float32Array, w }
+    this.minWeight = 0; // layers lighter than this stay alive but are not sampled
     for (const clip of clips) {
       const short = clip.name.replace(/^.*\|/, '');
       const bindings = [];
@@ -78,7 +79,7 @@ class ClipPlayer {
     for (const p of this.props.values()) { p.acc.fill(0); p.w = 0; }
     for (const l of this.layers) {
       const w = l.weight / total;
-      if (w <= 0) continue;
+      if (w <= 0 || l.weight < this.minWeight) continue;
       for (const b of l.clip.bindings) {
         const v = b.interp.evaluate(l.time);
         const p = this.props.get(b.key);
