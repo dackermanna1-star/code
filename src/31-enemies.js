@@ -511,7 +511,7 @@ class Gunman {
     if (this.def.strength) c.strengthScale = this.def.strength;
     c.armDriver = (dt) => this.driveArms(dt);
     this.applyAssist();
-    quickGetUp(c, 2.6);
+    quickGetUp(c, 3.4);
   }
 
   applyAssist() {
@@ -951,11 +951,11 @@ class Gunman {
 }
 
 // fighters collect themselves faster after a fall than the engine's civilians: the rest it wants
-// before getting up runs quicker
+// before getting up runs quicker, less so the more it hurts (the engine already wants longer then)
 function quickGetUp(c, k) {
   if (!c || !c.wantsToGetUp || c._quickGetUp) return;
   const orig = c.wantsToGetUp.bind(c);
-  c.wantsToGetUp = (dt) => orig(dt * k);
+  c.wantsToGetUp = (dt) => orig(dt * k * (1 - 0.55 * clamp(c.pain || 0, 0, 1)));
   c._quickGetUp = true;
 }
 
@@ -973,7 +973,7 @@ class HollowWrap {
     this.mgr = mgr; this.game = mgr.game; this.p = person; this.type = type; this.def = ENEMY_TYPES[type];
     this.toughMax = this.def.tough * scale.tough; this.tough = this.toughMax; this.downed = false; this.hollow = true;
     this.scaleSpeed = scale.speed;
-    quickGetUp(person.ctl, 3.4);
+    quickGetUp(person.ctl, 4.4);
     this.aiming = false;
     this.aimDir = new T3.Vector3(0, 0, 1);
     this.knows = true;
