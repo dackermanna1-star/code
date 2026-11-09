@@ -178,31 +178,46 @@ export class Game {
    * Gold teeth stay collected; checkpoints, signs and the finish are left alone.
    */
   resetAhead(x0) {
+    const fixed = (d) => d.type === 'checkpoint' || d.type === 'sign' || d.type === 'finish';
+    const ahead = (d) => Math.max(d.x ?? -Infinity, d.x2 ?? -Infinity) >= x0 && !fixed(d);
     const keep = [];
     for (const e of this.entities) {
+      if (e.dead) continue;
       const d = e.levelDef;
-      if (!d) {
-        // spawned stuff (debris, harpoons, cannonballs) ahead of the checkpoint is cleared
-        const b = e.body && !e.body._gone ? e.body.getPosition() : null;
-        if (!e.dead && b && b.x >= x0) e.remove();
-        if (!e.dead) keep.push(e);
+      if (d) {
+        if (ahead(d)) e.remove(); // rebuilt below from the level data
+        else keep.push(e);
         continue;
       }
-      const ex = Math.max(d.x ?? -Infinity, d.x2 ?? -Infinity);
-      if (ex < x0 || d.type === 'checkpoint' || d.type === 'sign' || d.type === 'finish') {
-        keep.push(e);
-        continue;
-      }
-      const taken = !!e.taken;
-      e.remove();
+      // spawned stuff (debris, harpoons, cannonballs) ahead of the checkpoint is cleared
+      const b = e.body && !e.body._gone ? e.body.getPosition() : null;
+      if (b && b.x >= x0) e.remove();
+      else keep.push(e);
+    }
+    // rebuild from the level definition, so objects that already destroyed themselves
+    // (smashed crates, shattered glass, exploded mines/barrels, fallen boards) return too
+    const prevTeeth = this.store.level(this.levelDef.id).teeth || [];
+    for (const d of this.level.data.objects) {
+      if (!ahead(d)) continue;
       const ne = createObject(this, d);
       if (!ne) continue;
       ne.levelDef = d;
-      if (taken) ne.taken = true;
-      if (e.previously) ne.previously = true;
+      if (ne.isTooth) {
+        if (this.teeth[ne.index]) ne.taken = true;
+        if (prevTeeth[ne.index]) ne.previously = true;
+      }
       keep.push(ne);
     }
     this.entities = keep;
+    // bodies left ahead of the checkpoint go too (one lying on a rebuilt mine would set it off)
+    this.corpses = this.corpses.filter((c) => {
+      const f = c.focus();
+      if (f.x >= x0) {
+        c.destroy();
+        return false;
+      }
+      return true;
+    });
   }
 
   quit() {

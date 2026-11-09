@@ -461,7 +461,7 @@ export class UI {
           <div class="skulls">${'☠'.repeat(lv.difficulty)}<span>${'☠'.repeat(5 - lv.difficulty)}</span></div>
           <p>${lv.blurb}</p>
           ${unlocked ? `<div class="starts"><span>START AT</span>${['\u25B6'].concat(Array.from({ length: checkpointCount(lv) }, (_, k) => '\u2691' + (k + 1))).map((t, k) => `<button class="chip" data-act="pick-level" data-i="${i}" data-cp="${k}" title="${k ? 'Start at checkpoint ' + k + ' (practice: no best time)' : 'Start from the beginning'}">${t}</button>`).join('')}</div>` : ''}
-          <div class="lvl-foot"><span class="best">${rec.best != null ? 'BEST ' + formatTime(rec.best) : unlocked ? 'NOT FINISHED' : 'LOCKED'}</span><span class="teeth">${teeth}</span></div>
+          <div class="lvl-foot"><span class="best">${rec.best != null ? 'BEST ' + formatTime(rec.best) : rec.completed ? 'FINISHED FROM A CHECKPOINT' : unlocked ? 'NOT FINISHED' : 'LOCKED'}</span><span class="teeth">${teeth}</span></div>
         </div>`;
       grid.appendChild(card);
     });
