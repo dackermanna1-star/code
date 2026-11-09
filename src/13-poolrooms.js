@@ -32,9 +32,10 @@ Object.assign(PROP_DEFS, {
   // stepped seating against a wall, highest at the back (local -z)
   tiers: { w: 2.8, d: 1.2, h: 1.05, material: 'tile', wall: true,
     boxes: [[2.8, 1.2, 0.35, 0, 0, 0], [2.8, 0.8, 0.35, 0, -0.2, 0.35], [2.8, 0.4, 0.35, 0, -0.4, 0.7]] },
-  // pool lounger: the bed, and the raised backrest at the head end (local -z)
-  lounger: { w: 0.7, d: 1.95, h: 0.8, material: 'plastic', wall: false,
-    boxes: [[0.7, 1.95, 0.38, 0, 0, 0], [0.66, 0.5, 0.42, 0, -0.7, 0.38]] },
+  // pool lounger: the bed, and the raised backrest at the head end (local -z), hinged at the
+  // head of the slats and leaning back over the end of the frame
+  lounger: { w: 0.7, d: 1.95, h: 0.88, material: 'plastic', wall: false,
+    boxes: [[0.7, 1.95, 0.38, 0, 0, 0], [0.66, 0.46, 0.5, 0, -0.54, 0.38]] },
   // lifeguard chair: four legs, the seat and its back (the frame between them is open)
   lifeguard: { w: 0.9, d: 0.9, h: 2.05, material: 'metal', wall: false,
     boxes: [[0.07, 0.07, 1.45, -0.4, -0.4, 0], [0.07, 0.07, 1.45, 0.4, -0.4, 0], [0.07, 0.07, 1.45, -0.4, 0.4, 0], [0.07, 0.07, 1.45, 0.4, 0.4, 0],
@@ -141,25 +142,107 @@ BackroomsLevel.prototype.generatePoolrooms = function () {
   this.arches = [];
 };
 
-// colliders for an arch over an opening from u0 to u1 along a grid line (at x = c when the
-// opening runs along z): a semicircle springing at POOL.spring, stepped in three bands, and the
-// wall above its crown up to the ceiling. The dressing draws the curve from this.arches.
+// an arch over an opening from u0 to u1 along a grid line (at x = c when the opening runs along
+// z). Only recorded here: its colliders are built with the walls once every arch is known
+// (buildColliders), and the dressing draws the curve from this.arches.
 BackroomsLevel.prototype.archBoxes = function (alongX, c, u0, u1, depth, door) {
-  const H = this.ceiling, a = (u1 - u0) / 2, m = (u0 + u1) / 2, y0 = POOL.spring, crown = y0 + a;
   this.arches.push({ alongX, c, u0, u1, depth, door });
-  const box = (ua, ub, ya, yb) => {
-    if (ub - ua < 0.04 || yb - ya < 0.01) return;
-    const b = alongX ? Lab.boxDef((ua + ub) / 2, (ya + yb) / 2, c, ub - ua, yb - ya, depth, 'lintel', 'tile') : Lab.boxDef(c, (ya + yb) / 2, (ua + ub) / 2, depth, yb - ya, ub - ua, 'lintel', 'tile');
-    this.boxes.push(b);
-    this.wallBoxes.push(b);
+};
+
+// The colliders of the walls and arches. The physics world updates every static box on every
+// substep and every bullet tests them all, so their count is the level's physics cost (Level 0 has
+// about 400); a box per tile course of every arch would make it several thousand. So:
+// - a wide arch (over an open edge) is three boxes: one haunch band on each side, from 0.35 to
+//   0.8 of its rise, its inner face where the curve is at 0.6 of the rise, and the masonry above
+//   0.8 of the rise in one piece (it dips 0.2 of the rise into the very top of the opening, 3.9 m
+//   up). A row of equal arches on one line (an arcade on its pillars) shares them: neighbouring
+//   haunches are one box across the pillar or wall end between them, the crowns one box over all.
+// - a doorway's arch is the masonry above 0.8 of its rise (3.3 m), and on each line every run of
+//   wall with doorways in it is one box above that height over the whole run, with its jambs
+//   below; straight pieces of wall that touch become one box (all of them tile, the outer walls
+//   too, so rounds and dust match what they hit).
+// The haunches of a doorway (at most 0.4 m wide, 2.9 to 3.3 m up) have no collider.
+// The dressing draws the walls from this.shellWalls (full height, merged) and the arches' curves.
+BackroomsLevel.prototype.buildColliders = function () {
+  const H = this.ceiling, y0 = POOL.spring, LO = 0.35, MID = 0.6, HI = 0.8;
+  const out = [], rest = [];
+  const def = (alongX, c, depth, ua, ub, ya, yb, kind) =>
+    alongX ? Lab.boxDef((ua + ub) / 2, (ya + yb) / 2, c, ub - ua, yb - ya, depth, kind, 'tile') : Lab.boxDef(c, (ya + yb) / 2, (ua + ub) / 2, depth, yb - ya, ub - ua, kind, 'tile');
+  const box = (alongX, c, depth, ua, ub, ya, yb, kind) => {
+    if (ub - ua >= 0.04 && yb - ya >= 0.01) out.push(def(alongX, c, depth, ua, ub, ya, yb, kind));
   };
-  for (let k = 0; k < 3; k++) {
-    const ya = y0 + (a * k) / 3, yb = y0 + (a * (k + 1)) / 3, ym = (ya + yb) / 2;
-    const hw = Math.sqrt(Math.max(0, a * a - (ym - y0) * (ym - y0)));
-    box(u0, m - hw, ya, yb);
-    box(m + hw, u1, ya, yb);
+  // wide arches, chained along their lines
+  const lines = new Map();
+  for (const a of this.arches) {
+    if (a.door) continue;
+    const k = (a.alongX ? 'x' : 'z') + a.c.toFixed(3);
+    if (!lines.has(k)) lines.set(k, []);
+    lines.get(k).push(a);
   }
-  box(u0, u1, crown, H);
+  for (const list of lines.values()) {
+    list.sort((p, q) => p.u0 - q.u0);
+    for (let s = 0; s < list.length;) {
+      const A = list[s], a = (A.u1 - A.u0) / 2;
+      let e = s;
+      while (e + 1 < list.length) {
+        const B = list[e + 1];
+        if (B.u0 - list[e].u1 > 0.75 || Math.abs((B.u1 - B.u0) / 2 - a) > 1e-4 || B.depth !== A.depth) break;
+        e++;
+      }
+      const hw = a * Math.sqrt(1 - MID * MID);
+      let from = A.u0;
+      for (let m = s; m <= e; m++) {
+        const mid = (list[m].u0 + list[m].u1) / 2;
+        box(A.alongX, A.c, A.depth, from, mid - hw, y0 + a * LO, y0 + a * HI, 'lintel');
+        from = mid + hw;
+      }
+      box(A.alongX, A.c, A.depth, from, list[e].u1, y0 + a * LO, y0 + a * HI, 'lintel');
+      box(A.alongX, A.c, A.depth, A.u0, list[e].u1, y0 + a * HI, H, 'lintel');
+      s = e + 1;
+    }
+  }
+  // walls and doorways, line by line: [from, to, isDoor] intervals along each line
+  const yd = y0 + (this.doorWidth() / 2) * HI;
+  const groups = new Map();
+  const group = (alongZ, lo, hi, b) => {
+    const k = (alongZ ? 'z' : 'x') + lo.toFixed(4) + '|' + hi.toFixed(4);
+    if (!groups.has(k)) groups.set(k, { alongZ, lo, hi, list: [] });
+    groups.get(k).list.push(b);
+  };
+  for (const b of this.boxes) {
+    if (b.kind !== 'wall') { rest.push(b); continue; }
+    const alongZ = b.max.z - b.min.z > b.max.x - b.min.x, ax = alongZ ? 'z' : 'x';
+    group(alongZ, alongZ ? b.min.x : b.min.z, alongZ ? b.max.x : b.max.z, [b.min[ax], b.max[ax], false]);
+  }
+  const t = this.wallT;
+  for (const a of this.arches) if (a.door) group(!a.alongX, a.c - t / 2, a.c + t / 2, [a.u0, a.u1, true]);
+  this.shellWalls = [];
+  for (const { alongZ, lo, hi, list } of groups.values()) {
+    list.sort((p, q) => p[0] - q[0]);
+    const c = (lo + hi) / 2, depth = hi - lo, along = !alongZ;
+    // runs of touching intervals
+    for (let s = 0; s < list.length;) {
+      let e = s, end = list[s][1], door = list[s][2];
+      while (e + 1 < list.length && list[e + 1][0] <= end + 1e-6) { e++; end = Math.max(end, list[e][1]); door = door || list[e][2]; }
+      // the wall pieces of the run, merged where they touch (drawn full height)
+      const pieces = [];
+      for (let k = s; k <= e; k++) {
+        const [u0, u1, isDoor] = list[k];
+        if (isDoor) continue;
+        const last = pieces[pieces.length - 1];
+        if (last && u0 <= last[1] + 1e-6) last[1] = Math.max(last[1], u1);
+        else pieces.push([u0, u1]);
+      }
+      for (const [u0, u1] of pieces) {
+        this.shellWalls.push(def(along, c, depth, u0, u1, 0, H, 'wall'));
+        box(along, c, depth, u0, u1, 0, door ? yd : H, 'wall'); // with doorways: the jambs
+      }
+      if (door) box(along, c, depth, list[s][0], end, yd, H, 'lintel'); // over jambs and doorways
+      s = e + 1;
+    }
+  }
+  this.boxes = out.concat(rest);
+  this.wallBoxes = this.boxes.filter((b) => b.kind === 'wall' || b.kind === 'lintel');
 };
 
 // ---- water, kerbs, open arches and furniture (after the walls' colliders exist) -----------------
@@ -298,10 +381,13 @@ BackroomsLevel.prototype.placePoolProps = function () {
     return this.addProp(kind, x, z, yaw);
   };
   // free-standing cover somewhere in a cell: a few tries at different spots and headings, kept
-  // a body's width (0.65 m) from everything else so no slit too narrow to pass is left
+  // a body's width (0.65 m) from everything else so no slit too narrow to pass is left; a shower
+  // wall is too tall to climb, so it keeps a wider gap (no nook behind it in a dead end is
+  // reached only through a slit)
   const cover = (kind, cx, cz, spread) => {
+    const pad = kind === 'showers' ? 0.85 : 0.65;
     for (let k = 0; k < 5; k++) {
-      const p = this.addProp(kind, cx + (R() - 0.5) * spread, cz + (R() - 0.5) * spread, R() < 0.5 ? 0 : Q, null, 0.65);
+      const p = this.addProp(kind, cx + (R() - 0.5) * spread, cz + (R() - 0.5) * spread, R() < 0.5 ? 0 : Q, null, pad);
       if (p) return p;
     }
     return null;
@@ -333,6 +419,9 @@ BackroomsLevel.prototype.placePoolProps = function () {
     if (r < 0.1) againstWall(c % n, (c / n) | 0, 'tbench');
     else if (r < 0.2) cover(R() < 0.6 ? 'halfwall' : 'showers', this.cx(c % n), this.cx((c / n) | 0), 1.0);
   }
+  // the walls' and arches' colliders (the arches all above the spring line, clear of everything
+  // placed above; the walls only merged)
+  this.buildColliders();
 };
 
 // the deck round a pool: a lifeguard chair at the coping of a wide walkway, loungers end to end
@@ -455,6 +544,26 @@ float prCaustic(vec2 p, float t) {
   float c = 1.15 * exp(-prCell(q, t * 1.6) * 8.0) + 0.65 * exp(-prCell(q * 1.37 + 3.1, t * 2.1 + 1.7) * 8.0);
   vec2 fw = fwidth(q);
   return mix(c, 0.36, smoothstep(0.3, 0.9, max(fw.x, fw.y)));
+}
+// daylight round a point: the levels of the skylights in the 3 x 3 cells about it that light it
+// (the reach mask keeps the far side of a wall out), so light thrown back off the water and the
+// floor dies away in the dark zones instead of glowing on its own
+float prSky(vec2 xz) {
+  ivec2 c = ivec2(floor((xz - uGrid.x) / uGrid.y));
+  int nn = int(uGrid.z);
+  if (c.x < 0 || c.y < 0 || c.x >= nn || c.y >= nn) return 0.0;
+  uint mask = texelFetch(uReach, c, 0).r;
+  float s = 0.0, w = 0.0;
+  for (int dj = -1; dj <= 1; dj++)
+    for (int di = -1; di <= 1; di++) {
+      ivec2 f = c + ivec2(di, dj);
+      if (f.x < 0 || f.y < 0 || f.x >= nn || f.y >= nn) continue;
+      if ((mask & (1u << uint((dj + 2) * 5 + di + 2))) == 0u) continue;
+      float k = di == 0 && dj == 0 ? 0.36 : 0.08;
+      s += texelFetch(uFix, f, 0).r * k;
+      w += k;
+    }
+  return s / max(w, 1e-3);
 }
 vec2 prTileN = vec2(0.0); // tilt of the tile under this fragment, in the face's plane
 float prRough = 0.25;
@@ -650,6 +759,8 @@ class PoolDressing {
       }
       // light bounced up off the pale floor and the water keeps ceilings and soffits from greying
       prGlow += max(-N.y, 0.0) * 0.13 * dot(col, vec3(0.33));
+      // ...as long as daylight reaches the floor and water there
+      if (prGlow > 0.0) prGlow *= prSky((P + N * 0.2).xz);
       diffuseColor.rgb = col;
     }`;
     const tileExtra = {
@@ -730,8 +841,7 @@ class PoolDressing {
     v.ceiling.material.dispose();
     v.floor.material.dispose();
     v.floor.material = this.floorMat;
-    for (const b of L.boxes) {
-      if (b.kind !== 'wall') continue;
+    for (const b of L.shellWalls) {
       const g = whBox(b.max.x - b.min.x, b.max.y - b.min.y, b.max.z - b.min.z, (b.min.x + b.max.x) / 2, (b.min.y + b.max.y) / 2, (b.min.z + b.max.z) / 2);
       this.add('tile', g, PRC.white, PRT.wall);
     }
@@ -895,8 +1005,9 @@ class PoolDressing {
       B('plastic', 0xd9d4c8, 0.04, 0.08, 1.9, s * 0.32, 0.33, 0);
       for (const z of [-0.85, 0.85]) B('plastic', 0xd9d4c8, 0.05, 0.31, 0.06, s * 0.3, 0.155, z);
     }
-    // the backrest, raised about 50 degrees
-    const g = whBox(0.64, 0.05, 0.62, 0, 0, 0.31).rotateX(-0.85).translate(0, 0.38, -0.65);
+    // the backrest, raised about 50 degrees: hinged at the head of the slats, its top over the
+    // head end of the frame (inside the collider: z -0.77..-0.31, up to 0.88)
+    const g = whBox(0.64, 0.05, 0.62, 0, 0, -0.31).rotateX(0.85).translate(0, 0.38, -0.33);
     put('plastic', g, PRC.plastic);
     put('chrome', whCyl(0.045, 0.045, 0.04, 10, 0, 0, 0).rotateZ(Math.PI / 2).translate(0.3, 0.05, 0.85), PRC.dark);
     put('chrome', whCyl(0.045, 0.045, 0.04, 10, 0, 0, 0).rotateZ(Math.PI / 2).translate(-0.3, 0.05, 0.85), PRC.dark);
