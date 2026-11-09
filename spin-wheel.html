@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Birth Year Wheel</title>
+<style>
+  :root {
+    --bg: #f6f3ee; --fg: #1d1b18; --muted: #6b655c; --card: #ffffff;
+    --old: #b5651d; --new: #2f6fb3; --accent: #1d1b18;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #16150f; --fg: #f1ede6; --muted: #a39d92; --card: #22201a;
+            --old: #d98a3d; --new: #5b97d6; --accent: #f1ede6; }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; background: var(--bg); color: var(--fg);
+    font: 16px/1.5 system-ui, -apple-system, Segoe UI, sans-serif;
+    display: flex; flex-direction: column; align-items: center; padding: 24px 16px;
+  }
+  h1 { font-size: 1.6rem; margin: 0 0 4px; text-align: center; }
+  p.sub { margin: 0 0 20px; color: var(--muted); text-align: center; }
+  .mode { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; justify-content: center; }
+  .mode button {
+    border: 1px solid var(--muted); background: transparent; color: var(--fg);
+    padding: 6px 14px; border-radius: 999px; cursor: pointer; font: inherit;
+  }
+  .mode button[aria-pressed="true"] { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+  .wheel-wrap { position: relative; width: min(360px, 100%); aspect-ratio: 1; }
+  canvas { width: 100%; height: 100%; display: block; }
+  .pointer {
+    position: absolute; top: -6px; left: 50%; transform: translateX(-50%);
+    width: 0; height: 0; border-left: 14px solid transparent; border-right: 14px solid transparent;
+    border-top: 26px solid var(--fg); filter: drop-shadow(0 2px 2px rgba(0,0,0,.3));
+  }
+  #spin {
+    margin-top: 24px; font: 600 1.1rem system-ui, sans-serif; padding: 12px 36px;
+    border: none; border-radius: 999px; background: var(--accent); color: var(--bg); cursor: pointer;
+  }
+  #spin:disabled { opacity: .5; cursor: default; }
+  #result { min-height: 3.5em; margin-top: 18px; text-align: center; max-width: 420px; }
+  #result strong { font-size: 1.3rem; display: block; }
+  .odds { color: var(--muted); font-size: .9rem; margin-top: 8px; text-align: center; max-width: 420px; }
+</style>
+</head>
+<body>
+  <h1>Where in time are you born?</h1>
+  <p class="sub">Spin the wheel: 1000 BC or 2026 AD.</p>
+
+  <div class="mode" role="group" aria-label="Odds mode">
+    <button data-mode="equal" aria-pressed="true">50 / 50</button>
+    <button data-mode="real" aria-pressed="false">Realistic (by births)</button>
+  </div>
+
+  <div class="wheel-wrap">
+    <div class="pointer"></div>
+    <canvas id="wheel" width="720" height="720"></canvas>
+  </div>
+
+  <button id="spin">SPIN</button>
+  <div id="result" aria-live="polite"></div>
+  <div class="odds" id="odds"></div>
+
+<script>
+  // Rough estimates: ~50M people alive in 1000 BC at ~4% birth rate ≈ 2M births/year.
+  // 2026: ~132M births/year (UN estimates).
+  const BIRTHS = { old: 2e6, new: 132e6 };
+  const MODES = {
+    equal: { old: 0.5, note: "Even odds: a coin flip across 3,000 years." },
+    real:  { old: BIRTHS.old / (BIRTHS.old + BIRTHS.new),
+             note: "Weighted by estimated births that year: ~2 million in 1000 BC vs ~132 million in 2026." }
+  };
+  const FACTS = {
+    old: ["Bronze Age is giving way to the Iron Age.", "Life expectancy at birth: roughly 25–30 years.",
+          "World population: about 50 million.", "No Rome yet — it won't be founded for ~250 years."],
+    new: ["About 8.2 billion people share the planet with you.", "Life expectancy at birth: about 73 years.",
+          "You'll likely own a phone before you can ride a bike.", "Roughly 132 million others born the same year."]
+  };
+
+  const canvas = document.getElementById("wheel");
+  const ctx = canvas.getContext("2d");
+  const spinBtn = document.getElementById("spin");
+  const resultEl = document.getElementById("result");
+  const oddsEl = document.getElementById("odds");
+  let mode = "equal", rotation = 0, spinning = false;
+
+  const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+
+  function draw() {
+    const W = canvas.width, c = W / 2, r = c - 8;
+    const pOld = MODES[mode].old;
+    const slices = [
+      { key: "old", label: "1000 BC", frac: pOld, color: css("--old") },
+      { key: "new", label: "2026 AD", frac: 1 - pOld, color: css("--new") }
+    ];
+    ctx.clearRect(0, 0, W, W);
+    ctx.save(); ctx.translate(c, c); ctx.rotate(rotation);
+    let a = -Math.PI / 2;
+    for (const s of slices) {
+      const end = a + s.frac * Math.PI * 2;
+      ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, r, a, end); ctx.closePath();
+      ctx.fillStyle = s.color; ctx.fill();
+      ctx.lineWidth = 4; ctx.strokeStyle = css("--bg"); ctx.stroke();
+      // label
+      const mid = (a + end) / 2, sweep = end - a;
+      ctx.save(); ctx.rotate(mid);
+      ctx.fillStyle = "#fff"; ctx.textAlign = "right"; ctx.textBaseline = "middle";
+      ctx.font = `700 ${sweep < 0.4 ? 22 : 40}px system-ui, sans-serif`;
+      ctx.fillText(s.label, r - 24, 0);
+      ctx.restore();
+      a = end;
+    }
+    ctx.restore();
+    // hub
+    ctx.beginPath(); ctx.arc(c, c, 26, 0, Math.PI * 2);
+    ctx.fillStyle = css("--card"); ctx.fill();
+    ctx.lineWidth = 4; ctx.strokeStyle = css("--fg"); ctx.stroke();
+  }
+
+  function updateOdds() {
+    const p = MODES[mode].old;
+    oddsEl.textContent = `${MODES[mode].note} Odds: 1000 BC ${(p * 100).toFixed(1)}% · 2026 AD ${((1 - p) * 100).toFixed(1)}%`;
+  }
+
+  function spin() {
+    if (spinning) return;
+    spinning = true; spinBtn.disabled = true; resultEl.textContent = "";
+    const pOld = MODES[mode].old;
+    const outcome = Math.random() < pOld ? "old" : "new";
+    // Pick a random point inside the chosen slice (slices start at the top, clockwise).
+    const lo = outcome === "old" ? 0 : pOld, hi = outcome === "old" ? pOld : 1;
+    const pad = (hi - lo) * 0.1;
+    const target = (lo + pad + Math.random() * (hi - lo - 2 * pad)) * Math.PI * 2;
+    // Rotate so that `target` ends up under the pointer at the top.
+    const start = rotation;
+    const base = start - (start % (Math.PI * 2));
+    const end = base + Math.PI * 2 * (6 + Math.floor(Math.random() * 3)) + (Math.PI * 2 - target);
+    const dur = 4500, t0 = performance.now();
+    const ease = t => 1 - Math.pow(1 - t, 4);
+    function frame(now) {
+      const t = Math.min(1, (now - t0) / dur);
+      rotation = start + (end - start) * ease(t);
+      draw();
+      if (t < 1) requestAnimationFrame(frame);
+      else finish(outcome);
+    }
+    requestAnimationFrame(frame);
+  }
+
+  function finish(outcome) {
+    spinning = false; spinBtn.disabled = false;
+    const fact = FACTS[outcome][Math.floor(Math.random() * FACTS[outcome].length)];
+    resultEl.innerHTML = `<strong>You were born in ${outcome === "old" ? "1000 BC" : "2026 AD"}!</strong>${fact}`;
+  }
+
+  document.querySelectorAll(".mode button").forEach(b => b.addEventListener("click", () => {
+    if (spinning) return;
+    mode = b.dataset.mode;
+    document.querySelectorAll(".mode button").forEach(x => x.setAttribute("aria-pressed", x === b));
+    rotation = 0; resultEl.textContent = ""; updateOdds(); draw();
+  }));
+  spinBtn.addEventListener("click", spin);
+  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", draw);
+  updateOdds(); draw();
+</script>
+</body>
+</html>
