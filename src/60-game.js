@@ -176,9 +176,10 @@ class BackroomsGame {
     // events raised by the key handlers (manual reload, holster, cancels) before update() runs
     this.drainArsenal();
     a.ads = inp.ads && p.alive;
-    p.ads = a.adsAmount > 0.5 || a.state === 'heal'; // a medkit in hand: walk, no sprint
+    p.ads = a.adsAmount > 0.5;
     const stamina0 = p.stamina;
-    p.update(dt, { move: inp.move, look, sprint: inp.sprint && !inp.fire, crouch: inp.crouch, jump: inp.jump }, this.playerEnv());
+    // a medkit in hand: walk (at full walking pace), no sprint
+    p.update(dt, { move: inp.move, look, sprint: inp.sprint && !inp.fire && a.state !== 'heal', crouch: inp.crouch, jump: inp.jump }, this.playerEnv());
     // never let the head pass through the ceiling (mantling onto tall props in low rooms)
     const room = this.level.ceiling - 0.06 - p.pos.y, H = Lab.PLAYER.height, CH = Lab.PLAYER.crouchHeight;
     if (room < H) p.crouch = Math.max(p.crouch, clamp((H - room) / (H - CH), 0, 1));

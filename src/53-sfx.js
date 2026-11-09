@@ -385,11 +385,17 @@ class Sfx {
       return g;
     };
     if (stage === 'open') {
-      // velcro: a fast train of crackles under a tearing band
-      const g = burst(0, 0.28, 'bandpass', 2600, 0.7, 0.22);
+      // velcro: a fast train of crackles under a tearing band. The square wave chops the noise
+      // (0..1) in a stage of its own ahead of the envelope, so the envelope still shapes the tear
+      const s = ctx.createBufferSource(), fl = ctx.createBiquadFilter(), chop = ctx.createGain(), g = ctx.createGain();
+      s.buffer = this.noise; fl.type = 'bandpass'; fl.frequency.value = 2600; fl.Q.value = 0.7;
+      chop.gain.value = 0.5;
+      s.connect(fl); fl.connect(chop); chop.connect(g); g.connect(out);
+      this.env(g, t, 0.004, 0.3, 0.28);
+      s.start(t, Math.random() * 2); s.stop(t + 0.33);
       const am = ctx.createOscillator(), amg = ctx.createGain();
-      am.type = 'square'; am.frequency.value = 55 + Math.random() * 25; amg.gain.value = 0.12;
-      am.connect(amg); amg.connect(g.gain); am.start(t); am.stop(t + 0.32);
+      am.type = 'square'; am.frequency.value = 55 + Math.random() * 25; amg.gain.value = 0.5;
+      am.connect(amg); amg.connect(chop.gain); am.start(t); am.stop(t + 0.33);
       burst(0.3, 0.06, 'bandpass', 1400, 1.2, 0.12); // the pouch flap
     } else if (stage === 'cap') {
       burst(0, 0.018, 'bandpass', 3800, 3, 0.3);

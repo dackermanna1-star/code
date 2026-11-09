@@ -19,7 +19,20 @@ class Medkits {
     game.hooks.push(this);
   }
 
-  onLevel() { this.hot = null; this.stop(); }
+  // a new run brings a new Arsenal: drop whatever was left from the last one. Going down a level
+  // keeps a heal that is still working and the kit in hand (the viewmodel scene outlives the level)
+  onLevel() {
+    if (this.runArsenal === this.game.arsenal) return;
+    this.runArsenal = this.game.arsenal;
+    this.hot = null; this.queued = 0; this.stop();
+  }
+
+  // dying with the kit in hand before the jab calls it off: no injection on the death cam
+  onDied() {
+    const a = this.game.arsenal;
+    if (a.state === 'heal' && !a.injected) a.endHeal('healCancel');
+    this.hot = null; this.queued = 0;
+  }
 
   // the H key (via BackroomsGame.useMedkit)
   useMedkit() {
@@ -50,6 +63,7 @@ class Medkits {
         break;
       case 'healInject': {
         const P = g.player;
+        if (!P.alive) break;
         // a second kit while the first is still working adds to it
         const left = (this.hot ? this.hot.left : 0) + MEDKIT.heal;
         this.hot = { left, rate: Math.max(MEDKIT.heal / MEDKIT.over, left / MEDKIT.over) };
@@ -90,8 +104,13 @@ class Medkits {
     this.flash = Math.max(0, this.flash - dt * 1.6);
     if (g.hud && g.hud.healFlash) g.hud.healFlash(this.flash);
     if (!this.anim || !this.kit) return;
-    const A = this.anim, K = this.kit;
-    A.t += dt;
+    const A = this.anim, K = this.kit, a = g.arsenal;
+    // while the kit is in hand the hand runs on the Arsenal's clock (plus the part-step since the
+    // last simulation step), so it holds still behind the pause menu or the shop and the jab on
+    // screen is the jab that spends the kit; a called-off drop-out just plays out
+    const t0 = A.t;
+    A.t = a.state === 'heal' && A.cancel < 0 ? Math.max(A.t, a.t + g.acc) : A.t + dt;
+    const adt = A.t - t0;
     if (!g.player.alive || g.state !== 'play') { this.stop(); return; }
     // where the hand is: [x, y, z, pitch, yaw, roll] in camera space (camera looks down -z)
     const low = [0.17, -0.46, -0.34, -0.25, 0.2, -0.45];
@@ -129,9 +148,9 @@ class Medkits {
       A.cap.r.set(Math.random() * 18 - 9, Math.random() * 18 - 9, 14);
     }
     if (A.capOff && K.cap.visible) {
-      A.cap.v.y -= 9.8 * dt;
-      K.cap.position.addScaledVector(A.cap.v, dt);
-      K.cap.rotation.x += A.cap.r.x * dt; K.cap.rotation.y += A.cap.r.y * dt; K.cap.rotation.z += A.cap.r.z * dt;
+      A.cap.v.y -= 9.8 * adt;
+      K.cap.position.addScaledVector(A.cap.v, adt);
+      K.cap.rotation.x += A.cap.r.x * adt; K.cap.rotation.y += A.cap.r.y * adt; K.cap.rotation.z += A.cap.r.z * adt;
       if (K.cap.position.y < -0.7) K.cap.visible = false;
     }
   }

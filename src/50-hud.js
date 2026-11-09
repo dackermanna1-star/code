@@ -198,10 +198,11 @@ class Screens {
         <b>WASD</b><span>move</span><b>SHIFT</b><span>sprint</span>
         <b>MOUSE</b><span>aim · fire</span><b>RMB / E</b><span>aim down sights</span>
         <b>R</b><span>reload</span><b>1 2 3 · Q · WHEEL</b><span>weapons</span>
-        <b>G</b><span>frag grenade</span><b>F</b><span>kick / shove</span>
-        <b>C / CTRL</b><span>crouch</span><b>SPACE</b><span>jump · mantle</span>
-        <b>T</b><span>weapon light</span><b>V</b><span>inspect weapon</span>
-        <b>B</b><span>shop (intermission)</span><b>ESC</b><span>pause</span>
+        <b>G</b><span>frag grenade</span><b>H</b><span>medkit</span>
+        <b>F</b><span>kick / shove</span><b>C / CTRL</b><span>crouch</span>
+        <b>SPACE</b><span>jump · mantle</span><b>T</b><span>weapon light</span>
+        <b>V</b><span>inspect weapon</span><b>B</b><span>shop (intermission)</span>
+        <b>ESC</b><span>pause</span>
       </div>
       <div class="btns"><button data-a="play">Enter the Backrooms</button><button class="alt" data-a="settings">Settings</button><button class="alt" data-a="credits">Credits</button></div>
       <div class="loading"></div>`);

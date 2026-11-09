@@ -71065,10 +71065,11 @@ class Screens {
         <b>WASD</b><span>move</span><b>SHIFT</b><span>sprint</span>
         <b>MOUSE</b><span>aim · fire</span><b>RMB / E</b><span>aim down sights</span>
         <b>R</b><span>reload</span><b>1 2 3 · Q · WHEEL</b><span>weapons</span>
-        <b>G</b><span>frag grenade</span><b>F</b><span>kick / shove</span>
-        <b>C / CTRL</b><span>crouch</span><b>SPACE</b><span>jump · mantle</span>
-        <b>T</b><span>weapon light</span><b>V</b><span>inspect weapon</span>
-        <b>B</b><span>shop (intermission)</span><b>ESC</b><span>pause</span>
+        <b>G</b><span>frag grenade</span><b>H</b><span>medkit</span>
+        <b>F</b><span>kick / shove</span><b>C / CTRL</b><span>crouch</span>
+        <b>SPACE</b><span>jump · mantle</span><b>T</b><span>weapon light</span>
+        <b>V</b><span>inspect weapon</span><b>B</b><span>shop (intermission)</span>
+        <b>ESC</b><span>pause</span>
       </div>
       <div class="btns"><button data-a="play">Enter the Backrooms</button><button class="alt" data-a="settings">Settings</button><button class="alt" data-a="credits">Credits</button></div>
       <div class="loading"></div>`);
@@ -72005,11 +72006,17 @@ class Sfx {
       return g;
     };
     if (stage === 'open') {
-      // velcro: a fast train of crackles under a tearing band
-      const g = burst(0, 0.28, 'bandpass', 2600, 0.7, 0.22);
+      // velcro: a fast train of crackles under a tearing band. The square wave chops the noise
+      // (0..1) in a stage of its own ahead of the envelope, so the envelope still shapes the tear
+      const s = ctx.createBufferSource(), fl = ctx.createBiquadFilter(), chop = ctx.createGain(), g = ctx.createGain();
+      s.buffer = this.noise; fl.type = 'bandpass'; fl.frequency.value = 2600; fl.Q.value = 0.7;
+      chop.gain.value = 0.5;
+      s.connect(fl); fl.connect(chop); chop.connect(g); g.connect(out);
+      this.env(g, t, 0.004, 0.3, 0.28);
+      s.start(t, Math.random() * 2); s.stop(t + 0.33);
       const am = ctx.createOscillator(), amg = ctx.createGain();
-      am.type = 'square'; am.frequency.value = 55 + Math.random() * 25; amg.gain.value = 0.12;
-      am.connect(amg); amg.connect(g.gain); am.start(t); am.stop(t + 0.32);
+      am.type = 'square'; am.frequency.value = 55 + Math.random() * 25; amg.gain.value = 0.5;
+      am.connect(amg); amg.connect(chop.gain); am.start(t); am.stop(t + 0.33);
       burst(0.3, 0.06, 'bandpass', 1400, 1.2, 0.12); // the pouch flap
     } else if (stage === 'cap') {
       burst(0, 0.018, 'bandpass', 3800, 3, 0.3);
@@ -72443,7 +72450,20 @@ class Medkits {
     game.hooks.push(this);
   }
 
-  onLevel() { this.hot = null; this.stop(); }
+  // a new run brings a new Arsenal: drop whatever was left from the last one. Going down a level
+  // keeps a heal that is still working and the kit in hand (the viewmodel scene outlives the level)
+  onLevel() {
+    if (this.runArsenal === this.game.arsenal) return;
+    this.runArsenal = this.game.arsenal;
+    this.hot = null; this.queued = 0; this.stop();
+  }
+
+  // dying with the kit in hand before the jab calls it off: no injection on the death cam
+  onDied() {
+    const a = this.game.arsenal;
+    if (a.state === 'heal' && !a.injected) a.endHeal('healCancel');
+    this.hot = null; this.queued = 0;
+  }
 
   // the H key (via BackroomsGame.useMedkit)
   useMedkit() {
@@ -72474,6 +72494,7 @@ class Medkits {
         break;
       case 'healInject': {
         const P = g.player;
+        if (!P.alive) break;
         // a second kit while the first is still working adds to it
         const left = (this.hot ? this.hot.left : 0) + MEDKIT.heal;
         this.hot = { left, rate: Math.max(MEDKIT.heal / MEDKIT.over, left / MEDKIT.over) };
@@ -72514,8 +72535,13 @@ class Medkits {
     this.flash = Math.max(0, this.flash - dt * 1.6);
     if (g.hud && g.hud.healFlash) g.hud.healFlash(this.flash);
     if (!this.anim || !this.kit) return;
-    const A = this.anim, K = this.kit;
-    A.t += dt;
+    const A = this.anim, K = this.kit, a = g.arsenal;
+    // while the kit is in hand the hand runs on the Arsenal's clock (plus the part-step since the
+    // last simulation step), so it holds still behind the pause menu or the shop and the jab on
+    // screen is the jab that spends the kit; a called-off drop-out just plays out
+    const t0 = A.t;
+    A.t = a.state === 'heal' && A.cancel < 0 ? Math.max(A.t, a.t + g.acc) : A.t + dt;
+    const adt = A.t - t0;
     if (!g.player.alive || g.state !== 'play') { this.stop(); return; }
     // where the hand is: [x, y, z, pitch, yaw, roll] in camera space (camera looks down -z)
     const low = [0.17, -0.46, -0.34, -0.25, 0.2, -0.45];
@@ -72553,9 +72579,9 @@ class Medkits {
       A.cap.r.set(Math.random() * 18 - 9, Math.random() * 18 - 9, 14);
     }
     if (A.capOff && K.cap.visible) {
-      A.cap.v.y -= 9.8 * dt;
-      K.cap.position.addScaledVector(A.cap.v, dt);
-      K.cap.rotation.x += A.cap.r.x * dt; K.cap.rotation.y += A.cap.r.y * dt; K.cap.rotation.z += A.cap.r.z * dt;
+      A.cap.v.y -= 9.8 * adt;
+      K.cap.position.addScaledVector(A.cap.v, adt);
+      K.cap.rotation.x += A.cap.r.x * adt; K.cap.rotation.y += A.cap.r.y * adt; K.cap.rotation.z += A.cap.r.z * adt;
       if (K.cap.position.y < -0.7) K.cap.visible = false;
     }
   }
@@ -73415,9 +73441,10 @@ class BackroomsGame {
     // events raised by the key handlers (manual reload, holster, cancels) before update() runs
     this.drainArsenal();
     a.ads = inp.ads && p.alive;
-    p.ads = a.adsAmount > 0.5 || a.state === 'heal'; // a medkit in hand: walk, no sprint
+    p.ads = a.adsAmount > 0.5;
     const stamina0 = p.stamina;
-    p.update(dt, { move: inp.move, look, sprint: inp.sprint && !inp.fire, crouch: inp.crouch, jump: inp.jump }, this.playerEnv());
+    // a medkit in hand: walk (at full walking pace), no sprint
+    p.update(dt, { move: inp.move, look, sprint: inp.sprint && !inp.fire && a.state !== 'heal', crouch: inp.crouch, jump: inp.jump }, this.playerEnv());
     // never let the head pass through the ceiling (mantling onto tall props in low rooms)
     const room = this.level.ceiling - 0.06 - p.pos.y, H = Lab.PLAYER.height, CH = Lab.PLAYER.crouchHeight;
     if (room < H) p.crouch = Math.max(p.crouch, clamp((H - room) / (H - CH), 0, 1));
