@@ -362,6 +362,38 @@ kbd {
 .skulls span {
   color: #d8ccb8;
 }
+.starts {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 1px;
+}
+.starts span {
+  margin-right: 2px;
+  opacity: 0.7;
+}
+.chip {
+  cursor: pointer;
+  border: 2px solid var(--ink);
+  background: var(--yellow);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-weight: 900;
+  font-size: 12px;
+  border-radius: 8px;
+  padding: 1px 8px;
+  box-shadow: 0 2px 0 var(--ink);
+}
+.chip:hover {
+  background: #ffe066;
+}
+.chip:first-of-type {
+  background: var(--red);
+  color: #fff;
+}
 .lvl-foot {
   display: flex;
   justify-content: space-between;

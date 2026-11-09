@@ -50,6 +50,7 @@ export default {
     B.add('bridge', { x: k0.x, y: k0.y, x2: c.x, y2: c.y, planks: 22, strength: 8500 });
     B.tooth(k0.x + 11, k0.y + 3.2);
     c.flat(8);
+    B.checkpoint(c.x - 4);
 
     // D: boulders rolling down the climb
     const slope0 = c.x;

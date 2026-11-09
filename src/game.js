@@ -72,6 +72,7 @@ export class Game {
     this.levelDef = levelDef;
     this.CharClass = CharClass;
     this.attract = !!opts.attract;
+    this.startCheckpoint = opts.checkpoint || 0; // 0 = level start, n = n-th checkpoint
     // in the menu background keep the rider in the lower-left, clear of the buttons
     this.camera.offsetX = this.attract ? 5.5 : 0;
     this.camera.offsetY = this.attract ? 1.0 : 0;
@@ -91,7 +92,10 @@ export class Game {
     this.killY = this.level.killY;
     for (const o of this.level.data.objects) {
       const e = createObject(this, o);
-      if (e) this.entities.push(e);
+      if (e) {
+        e.levelDef = o;
+        this.entities.push(e);
+      }
     }
     this.teeth = new Array(this.level.data.teeth).fill(false);
     const prevTeeth = this.store.level(this.levelDef.id).teeth || [];
@@ -103,7 +107,17 @@ export class Game {
     this.acc = 0;
     this.state = 'playing';
     const s = this.level.data.start;
-    this.spawnPlayer(s.x, s.y);
+    const cps = this.checkpointEntities();
+    const startCp = this.startCheckpoint > 0 ? cps[Math.min(this.startCheckpoint, cps.length) - 1] : null;
+    this.practice = !!startCp; // runs started mid-level don't set best times
+    if (startCp) {
+      // starting at a checkpoint: it (and every earlier one) counts as reached
+      for (const cp of cps) if (cp.x <= startCp.x) cp.active = true;
+      this.checkpoint = { x: startCp.x, y: startCp.y };
+      this.spawnPlayer(startCp.x + 1.2, startCp.y + 0.2);
+    } else {
+      this.spawnPlayer(s.x, s.y);
+    }
     const f = this.player.focus();
     this.camera.snap(f.x, f.y);
     this.emit('levelstart', { level: this.levelDef, character: this.CharClass });
@@ -137,10 +151,58 @@ export class Game {
       }
     }
     const cp = this.checkpoint;
+    // a corpse lying on the spawn point would overlap (and kill) the new rider
+    this.corpses = this.corpses.filter((c) => {
+      const near = c.allBodies().some((b) => {
+        const p = b.getPosition();
+        return Math.abs(p.x - (cp.x + 1.2)) < 3.5 && Math.abs(p.y - cp.y) < 4;
+      });
+      if (near) c.destroy();
+      return !near;
+    });
+    this.resetAhead(cp.x - 3);
     this.spawnPlayer(cp.x + 1.2, cp.y + 0.2);
     this.state = 'playing';
     this.timeScale = 1;
     this.emit('respawn', {});
+  }
+
+  /** Level checkpoints in course order. */
+  checkpointEntities() {
+    return this.entities.filter((e) => e.levelDef && e.levelDef.type === 'checkpoint').sort((a, b) => a.x - b.x);
+  }
+
+  /**
+   * Rebuild every level object from x0 onwards (broken bridges, smashed crates, used
+   * mines, fallen rocks...) so a checkpoint respawn faces the course as designed.
+   * Gold teeth stay collected; checkpoints, signs and the finish are left alone.
+   */
+  resetAhead(x0) {
+    const keep = [];
+    for (const e of this.entities) {
+      const d = e.levelDef;
+      if (!d) {
+        // spawned stuff (debris, harpoons, cannonballs) ahead of the checkpoint is cleared
+        const b = e.body && !e.body._gone ? e.body.getPosition() : null;
+        if (!e.dead && b && b.x >= x0) e.remove();
+        if (!e.dead) keep.push(e);
+        continue;
+      }
+      const ex = Math.max(d.x ?? -Infinity, d.x2 ?? -Infinity);
+      if (ex < x0 || d.type === 'checkpoint' || d.type === 'sign' || d.type === 'finish') {
+        keep.push(e);
+        continue;
+      }
+      const taken = !!e.taken;
+      e.remove();
+      const ne = createObject(this, d);
+      if (!ne) continue;
+      ne.levelDef = d;
+      if (taken) ne.taken = true;
+      if (e.previously) ne.previously = true;
+      keep.push(ne);
+    }
+    this.entities = keep;
   }
 
   quit() {
@@ -328,9 +390,10 @@ export class Game {
       return;
     }
     const time = this.levelTime;
-    const res = this.store.recordFinish(this.levelDef.id, time, this.teeth);
+    const res = this.store.recordFinish(this.levelDef.id, this.practice ? null : time, this.teeth);
     const r = this.player.rider;
     this.emit('finish', {
+      practice: this.practice,
       time,
       best: res.best,
       newBest: res.newBest,

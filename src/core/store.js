@@ -40,7 +40,8 @@ export class Store {
 
   recordFinish(id, time, teeth) {
     const prev = this.level(id);
-    const newBest = prev.best == null || time < prev.best;
+    // time === null: practice run started from a checkpoint (completion & teeth only)
+    const newBest = time != null && (prev.best == null || time < prev.best);
     const merged = [];
     const n = Math.max(prev.teeth.length, teeth.length);
     for (let i = 0; i < n; i++) merged[i] = !!(prev.teeth[i] || teeth[i]);

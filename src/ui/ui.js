@@ -7,6 +7,18 @@ import { Autopilot } from '../core/autopilot.js';
 import { Physics } from '../physics/physics.js';
 import { Particles } from '../core/particles.js';
 import { formatTime, pick } from '../core/math.js';
+import { LevelBuilder } from '../level/builder.js';
+
+/** Number of checkpoints in a level definition (cached). */
+const cpCounts = new Map();
+function checkpointCount(lv) {
+  if (!cpCounts.has(lv.id)) {
+    const b = new LevelBuilder(lv);
+    lv.build(b);
+    cpCounts.set(lv.id, b.objects.filter((o) => o.type === 'checkpoint').length);
+  }
+  return cpCounts.get(lv.id);
+}
 
 const $ = (sel, root = document) => root.querySelector(sel);
 
@@ -321,7 +333,8 @@ export class UI {
         break;
       case 'pick-level': {
         const lv = LEVELS[parseInt(el.dataset.i, 10)];
-        if (!el.classList.contains('locked')) this.startLevel(lv);
+        const card = el.closest('.level-card');
+        if (card && !card.classList.contains('locked')) this.startLevel(lv, parseInt(el.dataset.cp || '0', 10));
         break;
       }
       case 'reset':
@@ -383,10 +396,10 @@ export class UI {
     this.renderLevels();
   }
 
-  startLevel(lv) {
+  startLevel(lv, checkpoint = 0) {
     this.stopAttract();
     this.enterGame();
-    this.game.start(lv, characterById(this.charId));
+    this.game.start(lv, characterById(this.charId), { checkpoint });
   }
 
   enterGame() {
@@ -447,6 +460,7 @@ export class UI {
           <h3>${lv.name}</h3>
           <div class="skulls">${'☠'.repeat(lv.difficulty)}<span>${'☠'.repeat(5 - lv.difficulty)}</span></div>
           <p>${lv.blurb}</p>
+          ${unlocked ? `<div class="starts"><span>START AT</span>${['\u25B6'].concat(Array.from({ length: checkpointCount(lv) }, (_, k) => '\u2691' + (k + 1))).map((t, k) => `<button class="chip" data-act="pick-level" data-i="${i}" data-cp="${k}" title="${k ? 'Start at checkpoint ' + k + ' (practice: no best time)' : 'Start from the beginning'}">${t}</button>`).join('')}</div>` : ''}
           <div class="lvl-foot"><span class="best">${rec.best != null ? 'BEST ' + formatTime(rec.best) : unlocked ? 'NOT FINISHED' : 'LOCKED'}</span><span class="teeth">${teeth}</span></div>
         </div>`;
       grid.appendChild(card);
@@ -509,7 +523,7 @@ export class UI {
     this.screen = 'results';
     this.show('results');
     $('#res-time').textContent = formatTime(r.time);
-    $('#res-best').innerHTML = formatTime(r.best) + (r.newBest ? ' <em>NEW!</em>' : '');
+    $('#res-best').innerHTML = r.best != null ? formatTime(r.best) + (r.newBest ? ' <em>NEW!</em>' : '') : '--';
     $('#res-teeth').textContent = `${r.teeth.filter(Boolean).length} / ${r.teeth.length}`;
     $('#res-limbs').textContent = r.limbsLost;
     let rating;
@@ -517,6 +531,7 @@ export class UI {
     else if (r.limbsLost === 0) rating = 'BRUISED BUT WHOLE';
     else if (r.limbsLost <= 2) rating = 'SOME ASSEMBLY REQUIRED';
     else rating = 'HELD TOGETHER BY SPITE';
+    if (r.practice) rating = 'CHECKPOINT START \u2014 NO BEST TIME';
     $('#res-rating').textContent = rating;
     const i = LEVELS.indexOf(this.game.levelDef);
     $('[data-act="next"]', $('#screen-results')).textContent = i < LEVELS.length - 1 ? 'NEXT LEVEL →' : 'ALL LEVELS';
