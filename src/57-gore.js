@@ -167,6 +167,8 @@ const _gv = new I(), _gu = new I(), _gw = new I(), _gr = new I(), _gp = new I(),
 const _gV3 = new T3.Vector3(), _gN3 = new T3.Vector3(), _gD3 = new T3.Vector3();
 const _gOpt = { dir: null, stretch: 1 }; // reused decal options
 const gOpt = (dir, stretch) => { _gOpt.dir = dir; _gOpt.stretch = stretch; return _gOpt; };
+const _gfa = new I(), _gfb = new I();
+const _gRimC = Array.from({ length: 8 }, (_, k) => Math.cos((k / 8) * TAU)), _gRimS = Array.from({ length: 8 }, (_, k) => Math.sin((k / 8) * TAU));
 
 class GoreFX {
   constructor(game) {
@@ -182,6 +184,7 @@ class GoreFX {
     this.dropBudget = 0;
     this.boxOf = new Map();
     this.near = [];
+    this.near2 = [];
     this.levelOnly = (b) => !!(b.userData && b.userData.level);
     this.lastRico = 0;
     this.flashAt = new T3.Vector3();
@@ -224,7 +227,7 @@ class GoreFX {
       l.t -= simDt;
       if (l.t <= 0) {
         l.t = -1;
-        if (g.settings.gore || !DECAL_BLOOD[l.kind]) g.view.wallDecals.add(l.kind, l.p, l.n, l.size, l.dir ? gOpt(l.d, l.stretch) : null);
+        if (g.settings.gore || !DECAL_BLOOD[l.kind]) this.place(l.kind, l.p, l.n, l.size, l.dir ? l.d : null, l.stretch);
       }
     }
     if (this.flashT > 0) {
@@ -240,11 +243,49 @@ class GoreFX {
   queueDecal(delay, kind, p, n, size, dir = null, stretch = 1) {
     const l = this.later[this.laterHead];
     this.laterHead = (this.laterHead + 1) % this.later.length;
-    if (l.t >= 0) this.game.view.wallDecals.add(l.kind, l.p, l.n, l.size, l.dir ? gOpt(l.d, l.stretch) : null); // ring full: place the oldest now
+    if (l.t >= 0) this.place(l.kind, l.p, l.n, l.size, l.dir ? l.d : null, l.stretch); // ring full: place the oldest now
     l.t = delay; l.kind = kind; l.size = size; l.stretch = stretch;
     l.p.set(p.x, p.y, p.z); l.n.set(n.x, n.y, n.z);
     l.dir = !!dir;
     if (dir) l.d.set(dir.x, dir.y, dir.z);
+  }
+
+  // put a decal down. Blood that would hang off the edge of what it landed on (a wall end, a
+  // pillar, a prop's edge) shrinks until points round its rim all have something solid behind them.
+  place(kind, p, n, size, dir = null, stretch = 1) {
+    const wd = this.game.view.wallDecals;
+    if (DECAL_BLOOD[kind] && size > 0.05 && this.solid(p.x - n.x * 0.012, p.y - n.y * 0.012, p.z - n.z * 0.012)) {
+      // in-plane axes: a along the streak (or any way), b across it
+      const a = _gfa, b = _gfb;
+      if (dir) a.set(dir.x, dir.y, dir.z); else if (Math.abs(n.y) < 0.9) a.set(0, 1, 0); else a.set(1, 0, 0);
+      a.addScaled(n, -(a.x * n.x + a.y * n.y + a.z * n.z));
+      if (a.lengthSq() < 1e-8) { if (Math.abs(n.y) < 0.9) a.set(0, 1, 0); else a.set(1, 0, 0); a.addScaled(n, -(a.x * n.x + a.y * n.y + a.z * n.z)); }
+      a.normalize();
+      b.set(n.y * a.z - n.z * a.y, n.z * a.x - n.x * a.z, n.x * a.y - n.y * a.x);
+      for (let k = 0; k < 3; k++) {
+        const ra = size * 0.42 * (dir ? stretch : 1), rb = size * 0.4;
+        let ok = true;
+        for (let q = 0; q < 8 && ok; q++) {
+          const c = _gRimC[q] * ra, s = _gRimS[q] * rb;
+          ok = this.solid(p.x + a.x * c + b.x * s - n.x * 0.012, p.y + a.y * c + b.y * s - n.y * 0.012, p.z + a.z * c + b.z * s - n.z * 0.012);
+        }
+        if (ok) break;
+        size *= 0.72;
+      }
+    }
+    wd.add(kind, p, n, size, dir ? gOpt(dir, stretch) : null);
+  }
+
+  // is there a wall, prop, floor or ceiling at this point?
+  solid(x, y, z) {
+    const L = this.game.level;
+    if (y >= L.ceiling - 0.002 || y <= 0.002) return Math.abs(x) < L.half && Math.abs(z) < L.half;
+    const near = L.boxesNear(x, z, 0, this.near2);
+    for (let i = 0; i < near.length; i++) {
+      const b = near[i];
+      if (x >= b.min.x && x <= b.max.x && y >= b.min.y && y <= b.max.y && z >= b.min.z && z <= b.max.z) return true;
+    }
+    return false;
   }
 
   // how brightly the level lights a point (for particles that do not run the lighting shader)
@@ -390,7 +431,8 @@ class GoreFX {
   // ---- blood --------------------------------------------------------------------------------------
   mist(p, d, count, speed, size, life, L, dens = 1) {
     const D = this.dust, t = this.clock;
-    _gc.setRGB(0.16, 0.026, 0.02).multiplyScalar(L);
+    // (a fine mist scatters the light: redder and lighter than blood lying on a surface)
+    _gc.setRGB(0.26, 0.03, 0.024).multiplyScalar(L);
     for (let k = 0; k < count; k++) {
       const s = speed * (0.25 + Math.random());
       D.emit(t, p.x, p.y, p.z,
@@ -519,11 +561,15 @@ class GoreFX {
       }
       if (!hit) {
         M = g.sb.world.surfaceAt(x, z, y + 0.5);
-        if (M > 0.05 && l >= 0 && y <= M + P.size[l] * 0.5) this.dropOn(l, x, M, z, 0, 1, 0);
+        // (a prop top: its drop or streak goes on the prop, not on the floor hidden under it)
+        if (M > 0.05 && l >= 0 && y <= M + P.size[l] * 0.5) { this.dropOn(l, x, M, z, 0, 1, 0); P.kind[l] = 2; }
       }
     }
     // the engine removes the droplet if it is old or has landed, then asks again for this index
     if (l >= 0 && !hit && !(P.age[l] > 6 || y <= M + P.size[l] * 0.5)) this.pIdx = l + 1;
+    // it left its mark on the wall or ceiling: as a bone chip the engine drops it without a floor
+    // splat of its own (which would land on the floor straight below)
+    if (hit && l >= 0) P.kind[l] = 2;
     return M;
   }
 
@@ -568,7 +614,7 @@ class GoreFX {
     this.dropBudget--;
     _gV3.set(x, y, z);
     _gN3.set(nx, ny, nz);
-    let size = 0.04, opts = null, tile = 'drops';
+    let size = 0.04, dir = null, stretch = 1, tile = 'drops';
     if (l >= 0) {
       const vx = P.vel[l * 3], vy = P.vel[l * 3 + 1], vz = P.vel[l * 3 + 2], sp = Math.hypot(vx, vy, vz);
       size = clamp(P.size[l] * (16 + 2.5 * sp) * (kind === 1 ? 1.4 : 1), 0.018, 0.16);
@@ -576,14 +622,14 @@ class GoreFX {
       if (sp > 1.5 && cosI < 0.85) {
         // a fast drop striking at an angle streaks out along its path
         tile = 'spatter';
-        _gD3.set(vx, vy, vz);
-        opts = gOpt(_gD3, clamp(1 / Math.max(cosI, 0.3), 1.2, 2.6));
+        dir = _gD3.set(vx, vy, vz);
+        stretch = clamp(1 / Math.max(cosI, 0.3), 1.2, 2.6);
       } else if (P.size[l] > 0.0028 && Math.abs(ny) < 0.3 && Math.random() < 0.3) {
         tile = 'drip'; // a big drop runs down the wall
         size = Math.min(0.2, size * 2.2);
       }
     }
-    g.view.wallDecals.add(tile, _gV3, _gN3, size, opts);
+    this.place(tile, _gV3, _gN3, size, dir, stretch);
   }
 
   // ---- the player ---------------------------------------------------------------------------------

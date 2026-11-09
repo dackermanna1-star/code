@@ -1272,20 +1272,36 @@ varying vec4 vDecal; varying vec2 vDecalUv; uniform float uDecalTime;`)
 
     // ---- row 5: round splats, heavy exit spray ---------------------------------------------------
     for (let k = 0; k < 4; k++) tile(5, k, (cx, cy, u) => {
-      const r = u * (0.13 + 0.05 * R());
-      const body = shape(cx, cy, r, 0.22, 26);
-      fill(c, body, blood());
-      fill(h, body, grey(160));
-      for (let q = 0; q < 10 + k * 3; q++) {
-        const a = R() * TAU, len = r * (0.4 + 0.9 * R()) * (q % 3 ? 1 : 1.5), w = u * (0.008 + 0.012 * R());
-        const p = sliver(cx, cy, a, r * 0.7, len, w);
-        fill(c, p, blood());
-        fill(h, p, grey(150));
-        disc(c, cx + Math.cos(a) * (r * 0.75 + len), cy + Math.sin(a) * (r * 0.75 + len), w * (0.8 + R()), blood());
+      // a splash striking about square on: a lumpy pool with a scalloped crown, a few short spines
+      // ending in beads, and satellite drops thrown out unevenly (heavier on one or two sides)
+      const r = u * (0.11 + 0.04 * R());
+      const lump = (x, y, rr) => { const b = shape(x, y, rr, 0.3, 18); fill(c, b, blood()); fill(h, b, grey(160)); };
+      lump(cx, cy, r * 0.75);
+      for (let q = 0; q < 5 + k; q++) { const a = R() * TAU, d = r * (0.2 + 0.45 * R()); lump(cx + Math.cos(a) * d, cy + Math.sin(a) * d, r * (0.3 + 0.35 * R())); }
+      for (let q = 0; q < 28; q++) { const a = R() * TAU, d = r * (0.72 + 0.22 * R()), s = r * (0.06 + 0.12 * R()); disc(c, cx + Math.cos(a) * d, cy + Math.sin(a) * d, s, blood()); disc(h, cx + Math.cos(a) * d, cy + Math.sin(a) * d, s, grey(162)); }
+      // the sides the spray went (satellites thrown mostly there)
+      const s0 = R() * TAU, s1 = s0 + Math.PI * (0.6 + 0.8 * R());
+      const side = () => { const b = R() < 0.75 ? (R() < 0.6 ? s0 : s1) : R() * TAU; return b + (R() - 0.5) * 1.3; };
+      for (let q = 0; q < 5 + k; q++) {
+        const a = side(), r0 = r * (0.7 + 0.2 * R()), len = r * (0.25 + 0.7 * R()), w = u * (0.006 + 0.01 * R());
+        const p = sliver(cx, cy, a, r0, len, w);
+        fill(c, p, blood()); fill(h, p, grey(150));
+        disc(c, cx + Math.cos(a) * (r0 + len * 1.05), cy + Math.sin(a) * (r0 + len * 1.05), w * (0.9 + 0.8 * R()), blood());
       }
-      for (let q = 0; q < 26; q++) { const a = R() * TAU, rr = r * (1.6 + 1.6 * R()); if (rr > u * 0.46) continue; disc(c, cx + Math.cos(a) * rr, cy + Math.sin(a) * rr, u * (0.003 + 0.01 * R()), blood(0.95)); }
-      const inner = shape(cx, cy, r * 0.55, 0.3, 14);
-      fill(c, inner, deep(0.8));
+      for (let q = 0; q < 70; q++) {
+        const a = side(), f = R(), rr = r * (1.15 + 2.6 * f ** 1.4);
+        if (rr > u * 0.46) continue;
+        const sz = u * (0.002 + 0.011 * (1 - f) * R());
+        if (sz > u * 0.005 && R() < 0.55) {
+          // elongated, its tail pointing away from the splash
+          c.save(); c.translate(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr); c.rotate(a);
+          h.save(); h.translate(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr); h.rotate(a);
+          dropTail(0, 0, sz * 2.2, sz * 1.4, sz * (0.6 + 1.8 * R()), blood(0.95), 152);
+          c.restore(); h.restore();
+        } else disc(c, cx + Math.cos(a) * rr, cy + Math.sin(a) * rr, sz, blood(0.95));
+      }
+      // thicker, darker blood where it pooled (a couple of uneven patches, not a ring)
+      for (let q = 0; q < 2 + (k & 1); q++) { const a = R() * TAU, d = r * 0.3 * R(); const b = shape(cx + Math.cos(a) * d, cy + Math.sin(a) * d, r * (0.18 + 0.2 * R()), 0.4, 12); fill(c, b, deep(0.45)); fill(h, b, grey(175)); }
     });
     for (let k = 0; k < 4; k++) tile(5, 4 + k, (cx, cy, u) => {
       // exit wound spray striking square on: a dense core, radial spatter whose drops tail outwards,
