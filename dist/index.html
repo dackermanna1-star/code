@@ -69350,6 +69350,7 @@ class AnimBody {
   wake(reason = 'hit') {
     if (this.mode === 'physics') return;
     const p = this.p, sb = this.game.sb;
+    if (this.mode === 'getup') this.settle();
     this.mode = 'physics';
     this.calm = 0;
     this.blend = null;
@@ -69367,6 +69368,56 @@ class AnimBody {
     c.heading = this.heading;
     if (c.sens) c.sens.comVel.set(this.vel.x, 0, this.vel.z);
     void reason;
+  }
+
+  // a body handed back to physics in the middle of a get-up: the clip's hands, knees and feet press
+  // a few centimetres into the floor (its joint centres are grounded, not the ragdoll's shapes),
+  // which the contact solver would answer with a launch. Lift the whole body clear and keep the
+  // clip's (and the round's) velocities within what a person getting up can have
+  settle() {
+    const gy = this.game.sb.world.groundY || 0;
+    let lo = Infinity;
+    for (const b of this.bodies) if (Number.isFinite(b.aabbMin.y)) lo = Math.min(lo, b.aabbMin.y);
+    const lift = Number.isFinite(lo) ? Math.max(0, gy + 0.005 - lo) : 0;
+    for (const b of this.bodies) {
+      if (lift > 0) {
+        b.pos.y += lift;
+        if (b.framePos) b.framePos.y += lift;
+        b.computeAABB(0, 0);
+      }
+      const v = Math.hypot(b.vel.x, b.vel.y, b.vel.z), w = Math.hypot(b.angVel.x, b.angVel.y, b.angVel.z);
+      if (v > 6) { const k = 6 / v; b.vel.set(b.vel.x * k, b.vel.y * k, b.vel.z * k); }
+      if (w > 15) { const k = 15 / w; b.angVel.set(b.angVel.x * k, b.angVel.y * k, b.angVel.z * k); }
+    }
+    // the clip's limbs pass through each other here and there (hand into thigh, shin over shin):
+    // the body's own collisions stay off until they have come apart (see unsettle)
+    if (!this.selfOff) {
+      this.selfOff = new Map();
+      for (const b of this.bodies) {
+        if (!b.ignore) b.ignore = new Set();
+        const added = this.bodies.filter((o) => o !== b && !b.ignore.has(o));
+        for (const o of added) b.ignore.add(o);
+        this.selfOff.set(b, added);
+      }
+    }
+    this.selfOffT = this.game.time + 0.3;
+  }
+
+  // the body's own collisions back on, pair by pair once the two are clear of each other
+  unsettle(force = false) {
+    if (!this.selfOff || (!force && this.game.time < this.selfOffT)) return;
+    const m = 0.01;
+    const apart = (a, b) => a.aabbMin.x > b.aabbMax.x + m || a.aabbMax.x < b.aabbMin.x - m || a.aabbMin.y > b.aabbMax.y + m || a.aabbMax.y < b.aabbMin.y - m || a.aabbMin.z > b.aabbMax.z + m || a.aabbMax.z < b.aabbMin.z - m;
+    let left = 0;
+    for (const [b, added] of this.selfOff) {
+      for (let i = added.length - 1; i >= 0; i--) {
+        const o = added[i];
+        if (!force && !apart(b, o) && this.game.time < this.selfOffT + 2) { left++; continue; }
+        if (b.ignore) b.ignore.delete(o);
+        added.splice(i, 1);
+      }
+    }
+    if (!left) this.selfOff = null;
   }
 
   // ---- per step ---------------------------------------------------------------------------------
@@ -69391,6 +69442,7 @@ class AnimBody {
       if (!gu || gu.t >= gu.dur - 0.12) this.finishGetUp();
       return;
     }
+    if (this.selfOff) this.unsettle();
     if (this.mode === 'physics') {
       // a body come to rest on the floor that the controller still counts as falling (a lolling
       // head, a slow slide) is down: the rest before getting up starts now
