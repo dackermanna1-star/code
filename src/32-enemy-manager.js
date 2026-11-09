@@ -255,6 +255,7 @@ class EnemyManager {
     switch (e.type) {
       case 'fleshHit': {
         const ai = e.person.enemy;
+        if (e.severedPart) return false; // a limb lying on the floor: blood, but no harm to its owner
         if (ai && ai.anim && !e.soft) ai.anim.wake('hit');
         // the dying take no more punishment: another round finishes them
         if (ai && ai.agony && e.person.injury.alive) { e.person.injury.kill('gunshot wounds'); ai.agony = null; }
@@ -360,10 +361,11 @@ class EnemyManager {
     a.moveT = 0.5 + Math.random() * 1.3 + (1 - life) * 1.2;
     const k = 0.35 + 0.65 * life, imp = new I();
     const pick = Math.random();
+    const on = (s) => s && !(p.severed && p.severed.has(s.name)); // a part shot off does not move with them
     if (pick < 0.35) {
       // a leg kicks or drags
       const side = Math.random() < 0.5 ? 'L' : 'R', shin = S['shin' + side], foot = S['foot' + side];
-      if (shin && foot) {
+      if (on(shin) && on(foot)) {
         const d = new I().subVectors(foot.body.pos, S.pelvis ? S.pelvis.body.pos : p.rd.pelvis.pos);
         d.y = 0; if (d.lengthSq() > 1e-6) d.normalize();
         const back = Math.random() < 0.6 ? -1 : 1; // mostly drawing the knee up
@@ -379,16 +381,16 @@ class EnemyManager {
     } else if (pick < 0.8) {
       // lifts the head, then lets it fall back
       imp.set(0, 2.2 * k, 0);
-      S.head.body.applyImpulse(imp, S.head.body.pos);
-      if (S.neck) S.neck.body.applyImpulse(new I(0, 1.4 * k, 0), S.neck.body.pos);
+      if (on(S.head)) S.head.body.applyImpulse(imp, S.head.body.pos);
+      if (on(S.neck)) S.neck.body.applyImpulse(new I(0, 1.4 * k, 0), S.neck.body.pos);
     } else {
       // an arm reaches out or claws at the floor
       const side = Math.random() < 0.5 ? 'L' : 'R', hand = S['hand' + side], fore = S['forearm' + side];
-      if (hand) {
+      if (on(hand)) {
         const a2 = Math.random() * TAU;
         imp.set(Math.cos(a2) * 1.6 * k, 1.5 * k, Math.sin(a2) * 1.6 * k);
         hand.body.applyImpulse(imp, hand.body.pos);
-        if (fore) fore.body.applyImpulse(imp.scale(0.6), fore.body.pos);
+        if (on(fore)) fore.body.applyImpulse(imp.scale(0.6), fore.body.pos);
       }
     }
   }

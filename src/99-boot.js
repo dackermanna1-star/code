@@ -11,6 +11,7 @@
   game.screens = new Screens(game, game.director, game.hud);
   game.shop = new Shop(game, game.director);
   game.sfx = new Sfx(game);
+  game.dismember = new Dismemberment(game);
   game.session = new Session(game);
   game.post = new BodycamPost(game);
   game.hooks.push({ resize: (w, h) => game.post.resize(w, h) });
