@@ -302,12 +302,18 @@ class Sfx {
     this.perc.gain.setTargetAtTime(this.musicLevel > 0.5 ? 0.6 : 0, t, 0.6);
     // heartbeat when badly hurt
     const hb = P.alive && P.health < 35 ? 70 + (35 - P.health) * 2 : 0;
-    if ((hb > 0) !== (this.hb > 0)) this.au.heartbeat(hb);
+    // the beat quickens as health keeps falling
+    if ((hb > 0) !== (this.hb > 0) || Math.abs(hb - (this.hbSet || 0)) > 4) { this.au.heartbeat(hb); this.hbSet = hb; }
     this.hb = hb;
     // distant events between fights and during them
     this.distantT -= dt;
     if (this.distantT <= 0) { this.distantT = 14 + Math.random() * 26; if (P.alive && g.state === 'play') this.distant(); }
-    // enemy footsteps (positional)
+  }
+
+  // enemy footsteps (positional). Hook steps run before the sandbox step, so each step sees the
+  // previous step's controller events exactly once (none replay while paused).
+  step() {
+    const g = this.game, P = g.player;
     if (g.sb) for (const p of g.sb.people) for (const e of p.ctl.events) if (e.type === 'land') {
       const h = p.rd.pelvis.pos;
       if (Math.hypot(h.x - P.pos.x, h.z - P.pos.z) < 16) this.au.footstep(p.enemy && p.enemy.def && p.enemy.def.boss ? 0.95 : 0.5, h);

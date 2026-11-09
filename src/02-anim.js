@@ -41,7 +41,8 @@ class ClipPlayer {
       if (restart || layer.done) { layer.time = startAt; layer.done = false; if (fade <= 0) layer.weight = weight; }
       Object.assign(layer, { speed, target: weight, fade, loop, onEnd });
     }
-    if (exclusive) for (const l of this.layers) if (l !== layer) { l.target = 0; l.fade = fade; }
+    // replaced layers fade out silently: their end callbacks belong to the action they were
+    if (exclusive) for (const l of this.layers) if (l !== layer) { l.target = 0; l.fade = fade; l.onEnd = null; }
     return layer;
   }
 
@@ -49,7 +50,7 @@ class ClipPlayer {
 
   setWeight(name, w, fade = 0.15) {
     const l = this.layer(name);
-    if (l) { l.target = w; l.fade = fade; }
+    if (l) { l.target = w; l.fade = fade; if (w <= 0) l.onEnd = null; }
   }
 
   stop(name, fade = 0.15) { this.setWeight(name, 0, fade); }
@@ -63,7 +64,7 @@ class ClipPlayer {
           else {
             l.time = l.clip.duration;
             l.done = true;
-            if (l.onEnd) { const cb = l.onEnd; l.onEnd = null; cb(l); }
+            if (l.onEnd && l.target > 0) { const cb = l.onEnd; l.onEnd = null; cb(l); }
           }
         }
       }

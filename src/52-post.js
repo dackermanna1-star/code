@@ -95,6 +95,9 @@ class BodycamPost {
   resize(w, h) {
     const r = this.game.renderer;
     r.getDrawingBufferSize(this.size);
+    // the quality setting picks the MSAA level; three rebuilds the buffers after a dispose
+    const samples = this.game.settings.quality === 'low' ? 0 : 4;
+    if (this.rt.samples !== samples) { this.rt.samples = samples; this.rt.dispose(); }
     this.rt.setSize(this.size.x, this.size.y);
     this.bA.setSize(this.size.x >> 2, this.size.y >> 2);
     this.bB.setSize(this.size.x >> 2, this.size.y >> 2);

@@ -129,6 +129,8 @@ class WeaponInstance {
       mass: base.mass * (1 + 0.12 * this.upgrades.damage),
       rpm: this.def.rpm,
       auto: this.def.auto,
+      // the engine's ragdoll knockback table is keyed by weapon class, not by this instance key
+      knockClass: { marksman: 'sniper', whisper: 'sniper' }[this.def.ballistic] || this.def.ballistic,
     };
   }
   value() {
@@ -184,10 +186,13 @@ class Arsenal {
   }
   reload() {
     const g = this.gun;
-    if (this.state !== 'idle' || g.ammo >= g.magSize || g.reserve <= 0) return false;
+    if ((this.state !== 'idle' && this.state !== 'inspect') || g.ammo >= g.magSize || g.reserve <= 0) return false;
+    if (this.state === 'inspect') this.events.push({ type: 'inspectCancel', gun: g });
     this.state = 'reload';
     this.t = 0;
     this.reloadShellT = 0;
+    this.stateDur = 2.2 / g.reloadSpeed; // replaced from the reload clip by the game
+
     this.events.push({ type: 'reloadStart', gun: g, empty: g.ammo === 0 });
     return true;
   }
@@ -203,8 +208,8 @@ class Arsenal {
     if (g.attachments.has('grip')) s *= 0.85;
     return Math.min(s, 12);
   }
+  // events accumulate in this.events until the game drains them
   update(dt, trigger, blocked) {
-    this.events.length = 0;
     this.t += dt;
     const g = this.gun;
     g.cool = Math.max(0, g.cool - dt);
@@ -239,7 +244,11 @@ class Arsenal {
             this.events.push({ type: 'shell', gun: g });
           }
           if (trigger && g.ammo > 0 && this.t > 0.2) { this.state = 'idle'; this.events.push({ type: 'reloadCancel', gun: g }); break; }
-          if (g.ammo >= g.magSize || g.reserve <= 0 || this.t > this.stateDur + 0.05) {
+          if (this.t > this.stateDur + 0.05 && g.ammo < g.magSize && g.reserve > 0) {
+            // a Mag Well tube holds more shells than one pass of the clip loads
+            this.t = 0; this.reloadShellT = 0;
+            this.events.push({ type: 'reloadLoop', gun: g });
+          } else if (g.ammo >= g.magSize || g.reserve <= 0 || this.t > this.stateDur + 0.05) {
             this.state = 'pump'; this.t = 0; this.stateDur = 0.35;
             this.events.push({ type: 'reloadEnd', gun: g });
           }
@@ -250,8 +259,12 @@ class Arsenal {
           this.events.push({ type: 'reloadEnd', gun: g });
         }
         break;
-      case 'pump':
       case 'inspect':
+        // firing, aiming or blocking (sprint, shop) puts the weapon straight back to work
+        if (trigger || this.ads || blocked) { this.state = 'idle'; this.events.push({ type: 'inspectCancel', gun: g }); break; }
+        if (this.t > this.stateDur) this.state = 'idle';
+        break;
+      case 'pump':
       case 'throw':
         if (this.t > this.stateDur) this.state = 'idle';
         break;
@@ -277,15 +290,19 @@ class Arsenal {
     this.triggerHeld = trigger;
     return fired;
   }
-  inspect() {
-    if (this.state !== 'idle') return false;
+  // dur: length of the inspect clip (no clip, no inspect)
+  inspect(dur) {
+    if (this.state !== 'idle' || !(dur > 0)) return false;
     this.state = 'inspect';
     this.t = 0;
-    this.stateDur = 2.5;
+    this.stateDur = dur;
     return true;
   }
   throwGrenade() {
-    if (this.grenades <= 0 || (this.state !== 'idle' && this.state !== 'reload')) return false;
+    if (this.grenades <= 0 || (this.state !== 'idle' && this.state !== 'reload' && this.state !== 'inspect')) return false;
+    // a throw abandons a reload (rounds already loaded stay) or an inspect: stop its animation
+    if (this.state === 'reload') this.events.push({ type: 'reloadCancel', gun: this.gun });
+    if (this.state === 'inspect') this.events.push({ type: 'inspectCancel', gun: this.gun });
     this.grenades--;
     this.state = 'throw';
     this.t = 0;

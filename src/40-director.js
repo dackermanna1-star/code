@@ -36,6 +36,12 @@ class Director {
 
   newRun() {
     const g = this.game;
+    // spawns still in flight from the previous run settle against their own run (see spawnSome)
+    this.runId = (this.runId || 0) + 1;
+    this.pending = 0;
+    this.reserved = [];
+    this.queue = [];
+    this.spec = null;
     this.wave = 0;
     this.depth = 1;
     this.cash = 400;
@@ -145,27 +151,33 @@ class Director {
     const dist = L.cellDistances(P.pos.x, P.pos.z);
     const ambush = this.mod === 'ambush';
     const minC = ambush ? 3 : 5, maxC = ambush ? 5 : 9;
-    const cands = [];
-    for (let c = 0; c < dist.length; c++) {
-      const d = dist[c];
-      if (d < minC || d > maxC) continue;
+    const eye = { x: P.pos.x, y: P.pos.y + 1.6, z: P.pos.z };
+    // out of sight, not on top of anyone alive or about to arrive
+    const hidden = (c) => {
       const ctr = L.cellCenter(c);
-      if (L.visible({ x: P.pos.x, y: P.pos.y + 1.6, z: P.pos.z }, { x: ctr.x, y: 1.4, z: ctr.z })) continue;
-      if (this.enemies.alive.some((a) => Math.hypot(a.pos.x - ctr.x, a.pos.z - ctr.z) < 1.5)) continue;
-      if ((this.reserved || []).some((r) => Math.hypot(r.x - ctr.x, r.z - ctr.z) < 2)) continue;
-      cands.push(c);
-    }
+      if (L.visible(eye, { x: ctr.x, y: 1.4, z: ctr.z })) return false;
+      if (this.enemies.alive.some((a) => Math.hypot(a.pos.x - ctr.x, a.pos.z - ctr.z) < 1.5)) return false;
+      return !(this.reserved || []).some((r) => Math.hypot(r.x - ctr.x, r.z - ctr.z) < 2);
+    };
+    let lo = minC, hi = maxC;
+    const cands = [];
+    for (let c = 0; c < dist.length; c++) if (dist[c] >= lo && dist[c] <= hi && hidden(c)) cands.push(c);
     if (!cands.length) {
-      for (let c = 0; c < dist.length; c++) if (dist[c] >= 3) cands.push(c);
+      lo = 3; hi = Infinity;
+      for (let c = 0; c < dist.length; c++) if (dist[c] >= lo && dist[c] < Infinity) cands.push(c);
     }
     if (!cands.length) return [];
     const c0 = randPick(cands);
     const out = [];
-    const n = L.n;
-    const tryCells = [c0, c0 + 1, c0 - 1, c0 + n, c0 - n];
-    for (const c of tryCells) {
+    const n = L.n, i0 = c0 % n, j0 = (c0 / n) | 0;
+    // the squad fills the chosen cell and open neighbours (never across a wall or the map edge)
+    for (const [di, dj, dir] of [[0, 0, -1], [1, 0, 0], [-1, 0, 1], [0, 1, 2], [0, -1, 3]]) {
       if (out.length >= squad) break;
-      if (c < 0 || c >= n * n || dist[c] < 2) continue;
+      const i = i0 + di, j = j0 + dj;
+      if (i < 0 || j < 0 || i >= n || j >= n) continue;
+      if (dir >= 0 && !L.wallOpen(i0, j0, dir)) continue;
+      const c = j * n + i;
+      if (c !== c0 && (dist[c] < Math.max(2, lo - 1) || dist[c] > hi + 1 || !hidden(c))) continue;
       const pt = L.pointInCell(c, 0.4);
       if (pt && out.every((q) => Math.hypot(q.x - pt.x, q.z - pt.z) > 1.1)) out.push(pt);
     }
@@ -186,17 +198,22 @@ class Director {
       const yaw = Math.atan2(P.pos.x - pt.x, P.pos.z - pt.z);
       this.pending = (this.pending || 0) + 1;
       (this.reserved ||= []).push(pt);
-      const unreserve = () => { this.reserved = this.reserved.filter((r) => r !== pt); };
-      this.enemies.spawn(type, pt, yaw).then((ai) => {
+      const run = this.runId;
+      const settle = () => {
+        if (run !== this.runId) return; // a newer run already reset the counters
         this.pending--;
-        unreserve();
-        if (ai && ai.def.boss) this.events.push({ type: 'boss', ai });
-      }).catch(() => { this.pending--; unreserve(); });
+        this.reserved = this.reserved.filter((r) => r !== pt);
+      };
+      this.enemies.spawn(type, pt, yaw).then((ai) => {
+        settle();
+        if (ai && ai.def.boss && run === this.runId) this.events.push({ type: 'boss', ai });
+      }).catch(settle);
     }
   }
 
   // ---- scoring -----------------------------------------------------------------------------------
   onKill(e) {
+    if (this.state === 'over') return; // the score was final at the moment of death
     const g = this.game, ai = e.ai, def = ai.def;
     if (!e.byPlayer) { this.events.push({ type: 'kill', name: def.name, byPlayer: false }); return; }
     const now = g.time;
@@ -222,6 +239,7 @@ class Director {
   }
 
   earn(amount, why) {
+    if (this.state === 'over') return;
     this.cash += amount;
     this.stats.cashEarned += amount;
     this.events.push({ type: 'cash', amount, why });
@@ -314,7 +332,8 @@ class Director {
   gameOver() {
     const g = this.game;
     this.setState('over');
-    if (this.score > this.best) { this.best = this.score; safeStorage('backrooms-best', String(this.best)); }
+    this.newBest = this.score > this.best && this.score > 0;
+    if (this.newBest) { this.best = this.score; safeStorage('backrooms-best', String(this.best)); }
     this.events.push({ type: 'gameOver' });
     g.state = 'dead';
   }

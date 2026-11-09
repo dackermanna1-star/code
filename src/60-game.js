@@ -88,6 +88,12 @@ class BackroomsGame {
     p.pos.set(mid.x, 0, mid.z);
     p.vel.setZero();
     p.mantling = null;
+    if (!p.ceilingAware) {
+      // the ceiling slab is not in the spatial buckets, so cap jumps and mantles at it here
+      const base = Object.getPrototypeOf(p).headroom;
+      p.headroom = function (env) { return Math.min(base.call(this, env), env.ceiling ?? Infinity); };
+      p.ceilingAware = true;
+    }
     sb.setPlayer(p);
     this.envBoxes = [];
     for (const h of this.hooks) h.onLevel && h.onLevel(level);
@@ -104,6 +110,7 @@ class BackroomsGame {
     }
     return {
       boxes: this.level.boxesNear(p.pos.x, p.pos.z, 2.2, this.envBoxes),
+      ceiling: this.level.ceiling,
       floorAt: (x, z, y) => this.sb.world.surfaceAt(x, z, y),
       people,
       push: (t, f) => this.sb.pushPerson(t, f),
@@ -131,26 +138,42 @@ class BackroomsGame {
   }
 
   // ---- simulation ----------------------------------------------------------------------------
+  // `inp.pressed` and `inp.wheel` hold everything since the previous step (see frame())
   step(inp, look) {
     const dt = SIM_DT, p = this.player, a = this.arsenal;
     this.time += dt;
-    for (const code of inp.pressed) {
-      if (code.startsWith('Digit')) { const i = +code.slice(5) - 1; if (i >= 0 && i < 3) a.select(i); }
-      else if (code === 'KeyQ') a.select(a.prevIndex);
-      else if (code === 'KeyR') { if (a.reload()) this.onReloadStart(); }
-      else if (code === 'KeyV') { if (a.inspect()) this.vm.playAction('inspect'); }
-      else if (code === 'KeyG') this.throwGrenade();
-      else if (code === 'KeyF') this.melee();
+    if (p.alive) {
+      for (const code of inp.pressed) {
+        if (code.startsWith('Digit')) { const i = +code.slice(5) - 1; if (i >= 0 && i < 3) a.select(i); }
+        else if (code === 'KeyQ') a.select(a.prevIndex);
+        else if (code === 'KeyR') a.reload();
+        else if (code === 'KeyV') { if (a.state === 'idle') { const d = this.vm.playAction('inspect'); if (d > 0) a.inspect(d); } }
+        else if (code === 'KeyG') this.throwGrenade();
+        else if (code === 'KeyF') this.melee();
+      }
+      if (inp.wheel) a.cycle(inp.wheel > 0 ? 1 : -1);
     }
-    if (inp.wheel) a.cycle(inp.wheel > 0 ? 1 : -1);
-    inp.pressed.clear();
-    inp.wheel = 0;
+    // events raised by the key handlers (manual reload, holster, cancels) before update() runs
+    this.drainArsenal();
     a.ads = inp.ads && p.alive;
     p.ads = a.adsAmount > 0.5;
+    const stamina0 = p.stamina;
     p.update(dt, { move: inp.move, look, sprint: inp.sprint && !inp.fire, crouch: inp.crouch, jump: inp.jump }, this.playerEnv());
-    const blocked = p.sprinting || !!p.mantling || !p.alive || this.shopOpen;
+    // never let the head pass through the ceiling (mantling onto tall props in low rooms)
+    const room = this.level.ceiling - 0.06 - p.pos.y, H = Lab.PLAYER.height, CH = Lab.PLAYER.crouchHeight;
+    if (room < H) p.crouch = Math.max(p.crouch, clamp((H - room) / (H - CH), 0, 1));
+    // holding breath behind a magnified optic (Shift) steadies the scope at a stamina cost
+    const scoped = a.gun.zoom > 2 && a.adsAmount > 0.9 && p.alive;
+    if (!inp.sprint || !scoped) this.breathSpent = false;
+    this.holdingBreath = scoped && inp.sprint && !this.breathSpent && stamina0 > 0.02;
+    if (this.holdingBreath) {
+      p.stamina = Math.max(0, stamina0 - dt * 0.22);
+      if (p.stamina <= 0.02) this.breathSpent = true;
+    }
+    // also hold fire until the gun in hand has its viewmodel (rigs load on first use)
+    const blocked = p.sprinting || !!p.mantling || !p.alive || this.shopOpen || this.vm.weapon !== a.gun;
     const fired = a.update(dt, inp.fire && p.alive && !this.shopOpen, blocked);
-    for (const e of a.events) this.onArsenalEvent(e);
+    this.drainArsenal();
     if (fired) this.shoot();
     for (const h of this.hooks) h.step && h.step(dt);
     this.sb.viewer = new I(p.pos.x, p.pos.y + p.eyeHeight, p.pos.z);
@@ -183,10 +206,18 @@ class BackroomsGame {
     this.lastShotT = this.time;
   }
 
+  drainArsenal() {
+    const a = this.arsenal;
+    if (!a.events.length) return;
+    const evs = a.events.splice(0);
+    for (const e of evs) this.onArsenalEvent(e);
+  }
+
+  // the reload clip sets the reload's duration (scaled by upgrades and perks)
   onReloadStart() {
     const a = this.arsenal, g = a.gun;
     const speed = g.reloadSpeed * (this.perks ? this.perks.reload : 1);
-    const dur = this.vm.playAction('reload', { empty: g.ammo === 0, speed });
+    const dur = this.vm.weapon === g ? this.vm.playAction('reload', { empty: g.ammo === 0, speed }) : 0;
     a.setReloadDuration(dur > 0 ? dur : 2.2 / speed);
   }
 
@@ -196,13 +227,18 @@ class BackroomsGame {
     switch (e.type) {
       case 'reloadStart':
         au.gunHandling(g.def.perShell ? 'shell' : 'magOut', type);
-        if (!this.vm.action || this.vm.action === 'fire') this.onReloadStart();
+        this.onReloadStart();
         break;
+      case 'reloadLoop': this.onReloadStart(); break; // tube still not full: run the shell clip again
       case 'reloadEnd':
         au.gunHandling('magIn', type);
         if (type !== 'pistol') setTimeout(() => au.gunHandling('charge', type), 200);
+        if (g.def.perShell) this.vm.cancelAction();
         break;
-      case 'reloadCancel': this.vm.cancelAction(); break;
+      case 'reloadCancel':
+      case 'inspectCancel':
+        this.vm.cancelAction();
+        break;
       case 'shell': au.gunHandling('shell', type); break;
       case 'pump': setTimeout(() => { au.gunHandling('pump', 'shotgun'); this.vm.pump(); }, (e.delay || 0) * 1000); break;
       case 'bolt': setTimeout(() => { au.gunHandling('charge', 'rifle'); this.vm.pump(); this.vm.eject(); }, (e.delay || 0) * 1000); break;
@@ -237,7 +273,10 @@ class BackroomsGame {
           const g = this.arsenal.gun;
           au.gunshot(g.def.ballistic === 'marksman' || g.def.ballistic === 'whisper' ? 'sniper' : g.def.ballistic, g.suppressed ? null : e.origin);
           const m = this.vm.muzzleWorld(new T3.Vector3());
-          // viewmodel camera space -> world: the viewmodel camera sits at the world camera
+          // viewmodel camera space -> world camera space at the same screen position (the two
+          // cameras share a pose but not a field of view), then to world
+          const k = Math.tan((this.camera.fov * Math.PI) / 360) / Math.tan((this.vm.camera.fov * Math.PI) / 360);
+          m.x *= k; m.y *= k;
           m.applyMatrix4(this.camera.matrixWorld);
           if (!g.suppressed) this.effects.muzzleLight(m, Lab.Ballistics[g.def.ballistic].recoil > 2 ? 1.4 : 1);
           for (const path of e.paths) if (Math.random() < (g.def.auto ? 0.5 : 1)) this.effects.tracer(m.clone(), new T3.Vector3(path.to.x, path.to.y, path.to.z));
@@ -358,13 +397,32 @@ class BackroomsGame {
     const inp = this.input.poll();
     if (this.debugRun) { inp.fire = this.input.fire; inp.ads = this.input.ads; }
     const running = this.state === 'play' && (this.input.locked || this.debugRun);
+    const p = this.player;
+    // key presses and wheel are polled per render frame but consumed per simulation step: keep
+    // them until a step actually runs (at high refresh rates most frames run none)
+    const pend = this.pend || (this.pend = { pressed: new Set(), wheel: 0 });
+    if (running) {
+      for (const k of inp.pressed) pend.pressed.add(k);
+      pend.wheel += inp.wheel;
+      // mouse look goes straight to the view every frame so aim is smooth at any refresh rate
+      if (p && p.alive) {
+        p.yaw += inp.look.dx;
+        p.pitch = clamp(p.pitch + inp.look.dy, -1.45, 1.45);
+      }
+    } else { pend.pressed.clear(); pend.wheel = 0; }
     let simDt = 0;
     if (running || this.state === 'dead') {
       this.acc += dt;
-      let n = 0, look = running ? inp.look : { dx: 0, dy: 0 };
-      if (!running) { inp.move = { x: 0, z: 0 }; inp.fire = false; inp.jump = false; inp.sprint = false; }
+      let n = 0;
+      const still = { dx: 0, dy: 0 };
+      const si = { ...inp, pressed: pend.pressed, wheel: pend.wheel };
+      if (!running) { si.move = { x: 0, z: 0 }; si.fire = false; si.jump = false; si.sprint = false; }
       const maxSteps = this.maxSteps || 3;
-      while (this.acc >= SIM_DT && n < maxSteps) { this.step(inp, look); look = { dx: 0, dy: 0 }; this.acc -= SIM_DT; simDt += SIM_DT; n++; }
+      while (this.acc >= SIM_DT && n < maxSteps) {
+        this.step(si, still);
+        if (n === 0) { pend.pressed = new Set(); pend.wheel = 0; si.pressed = new Set(); si.wheel = 0; }
+        this.acc -= SIM_DT; simDt += SIM_DT; n++;
+      }
       if (n === maxSteps) this.acc = 0;
     }
     for (const h of this.hooks) h.frame && h.frame(dt, simDt, inp);
@@ -384,8 +442,7 @@ class BackroomsGame {
     this.lean = damp(this.lean || 0, -lateral * 0.02, 6, dt);
     // scoped sway: a slow figure-eight that holding breath (Shift) calms, at a stamina cost
     const scoped = a.gun.zoom > 2 ? a.adsAmount : 0;
-    this.holdingBreath = scoped > 0.9 && inp.sprint && p.stamina > 0.08;
-    if (this.holdingBreath) p.stamina = Math.max(0, p.stamina - dt * 0.22);
+    if (scoped < 0.9) this.holdingBreath = false; // set per step in step()
     const swayAmp = scoped * (this.holdingBreath ? 0.0006 : 0.0045 + 0.004 * clamp(1 - p.stamina, 0, 1)) * (p.crouch > 0.5 ? 0.6 : 1);
     this.swayT = (this.swayT || 0) + dt;
     this.sway.y = damp(this.sway.y, Math.sin(this.swayT * 0.9) * swayAmp, 6, dt);
@@ -406,7 +463,7 @@ class BackroomsGame {
     this.effects.update(simDt || dt * 0.2);
     // viewmodel
     const light = this.view.lightAt(cam.position.x, cam.position.y - 0.3, cam.position.z);
-    const near = this.level.segmentClear(p.pos.x, p.pos.z, p.pos.x + fwd.x * 0.75, p.pos.z + fwd.z * 0.75, eye.y - 0.25, 0, 0.3) ? 0 : 1;
+    const near = this.level.segmentClear(p.pos.x, p.pos.z, p.pos.x + fwd.x * 0.75, p.pos.z + fwd.z * 0.75, eye.y - 0.25, 0, eye.y - 0.25) ? 0 : 1;
     this.vm.update(dt, {
       ads: a.adsAmount, sprint: p.sprinting, speed: p.speed, onGround: p.onGround, crouch: p.crouch,
       look: inp.look, landed: p.landed, light: clamp(light * 0.9 + 0.05, 0, 1.5), lowered: this.holstering || a.state === 'holster' || a.state === 'throw',

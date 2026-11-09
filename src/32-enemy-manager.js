@@ -23,6 +23,7 @@ class EnemyManager {
     this.scale = { tough: 1, speed: 1, spread: 1, react: 1, dmg: 1 };
     this.wave = 1;
     this.radioT = 0;
+    this.gen = 0; // bumped by clear(): async spawns from before it are dropped
     game.hooks.push(this);
     game.damagePlayer = (amt, from, kind) => this.damagePlayer(amt, from, kind);
   }
@@ -33,10 +34,34 @@ class EnemyManager {
     this.drops.length = 0;
     this.grenades.length = 0;
     this.corpses.length = 0;
-    const sb = this.game.sb;
+    const sb = this.game.sb, L = this.game.level;
     // tag every engine effect with whoever fired the shot that caused it
     const orig = sb.fx.bind(sb);
     sb.fx = (e) => { if (sb._shooter && e.by === undefined) e.by = sb._shooter; orig(e); };
+    // the engine only knows its own obstacles: route hollows (and any replanning walker) through
+    // the maze instead of straight into walls
+    sb.zombieRoute = (a, b) => {
+      if (L.segmentClear(a.x, a.z, b.x, b.z, 1.0, 0.3, 0.25)) return [new I(b.x, 0, b.z)];
+      return L.findPath(a, b, 0.3) || [new I(b.x, 0, b.z)];
+    };
+    sb.planRoute = (from, goals) => {
+      const path = [], goalEnds = [];
+      let cur = from;
+      for (const goal of goals) {
+        const seg = L.findPath(cur, goal, 0.34);
+        if (!seg || !seg.length) return null;
+        path.push(...seg);
+        goalEnds.push(path.length - 1);
+        cur = seg[seg.length - 1];
+      }
+      return { path, goalEnds };
+    };
+    // hollow claws go through the same armour / god-mode / stats path as gunfire
+    sb.hitPlayer = (amt, from, kind = 'hit', by = null) => {
+      if (!sb.player || !sb.player.alive) return;
+      this.damagePlayer(amt, from, kind);
+      sb.fx({ type: 'playerHit', amount: amt, from: from.clone(), kind, by });
+    };
   }
 
   get alive() { return this.list.filter((a) => !a.downed); }
@@ -46,9 +71,10 @@ class EnemyManager {
   async spawn(type, pos, yaw) {
     const def = ENEMY_TYPES[type];
     const look = randPick(def.looks);
+    const game = this.game, sb = game.sb, gen = this.gen;
     const gltf = await Assets.gltf('characters/' + look);
-    const game = this.game, sb = game.sb;
-    if (!gltf || sb !== game.sb) return null;
+    // the level or the run changed while the model loaded
+    if (!gltf || sb !== game.sb || gen !== this.gen) return null;
     // never drop a body into another one
     const L = game.level;
     const clear = (x, z) => L.free(x, z, 0.4) && sb.people.every((p) => Math.hypot(p.rd.pelvis.pos.x - x, p.rd.pelvis.pos.z - z) > 1.0) && Math.hypot(game.player.pos.x - x, game.player.pos.z - z) > 2.5;
@@ -224,8 +250,7 @@ class EnemyManager {
       case 'personFrozen':
       case 'throw':
         return true;
-      case 'playerHit':
-        if (e.by && e.by.zombie) for (const h of g.hooks) h.onPlayerDamaged && h.onPlayerDamaged(e.amount, e.from, 'melee', 0);
+      case 'playerHit': // already applied through damagePlayer (see onLevel)
         return true;
     }
     return false;
@@ -236,7 +261,8 @@ class EnemyManager {
     const inj = ai.p.injury, c = ai.p.ctl;
     if (!inj.alive) return;
     const seg = e.seg.name;
-    if (seg === 'head' || seg === 'neck' || e.energy > 1100 || Math.random() < 0.45) inj.kill(seg === 'head' ? 'gunshot wound to the head' : 'gunshot wounds');
+    // the hollowed cannot be knocked out: they only stop when they are dead
+    if (inj.undead || seg === 'head' || seg === 'neck' || e.energy > 1100 || Math.random() < 0.45) inj.kill(seg === 'head' ? 'gunshot wound to the head' : 'gunshot wounds');
     else {
       inj.knockOut(9999, 1);
       c.autoGetUp = false;
@@ -250,6 +276,10 @@ class EnemyManager {
     ai.aiming = false;
     ai.releaseToken();
     const p = ai.p, g = this.game;
+    // whatever brought them down (kick, bleed-out, a hollow out of toughness), they stay down
+    if (p.injury.alive && (p.injury.undead || p.ctl.mode === 'balance' || p.ctl.mode === 'getup')) {
+      p.injury.kill(ai.lastHit && ai.lastHit.weapon === 'kick' ? 'blunt trauma' : 'injuries');
+    }
     p.ctl.autoGetUp = false;
     p.ctl.armDriver = null;
     if (p.ctl.walking) p.ctl.stopWalk('down');
@@ -293,6 +323,7 @@ class EnemyManager {
   removeDrop(d) {
     this.drops = this.drops.filter((x) => x !== d);
     this.game.view.scene.remove(d.mesh);
+    if (d.mesh.userData.owned) { disposeTree(null, d.mesh.userData.owned); d.mesh.userData.owned = null; }
     if (this.game.sb.objects.includes(d.obj)) this.game.sb.removeObject(d.obj);
   }
 
@@ -337,6 +368,8 @@ class EnemyManager {
   explode(gr) {
     const g = this.game, sb = g.sb, pos = gr.obj.body.pos.clone();
     pos.y = Math.max(pos.y, 0.08);
+    // out of the world first, or every fragment starts inside the grenade's own collider
+    if (sb.objects.includes(gr.obj)) sb.removeObject(gr.obj);
     const P3 = toV3(pos);
     // fragments: real ballistic traces, so walls and bodies stop them
     sb._shooter = gr.by;
@@ -420,6 +453,7 @@ class EnemyManager {
     }
     for (const gr of this.grenades.filter((x) => x.done)) {
       g.view.scene.remove(gr.mesh);
+      disposeTree(gr.mesh);
       if (g.sb.objects.includes(gr.obj)) g.sb.removeObject(gr.obj);
     }
     this.grenades = this.grenades.filter((x) => !x.done);
@@ -482,7 +516,8 @@ class EnemyManager {
       if (g.sb.people.includes(ai.p)) g.sb.removePerson(ai.p);
     }
     for (const d of [...this.drops]) this.removeDrop(d);
-    for (const gr of this.grenades) g.view.scene.remove(gr.mesh);
+    for (const gr of this.grenades) { g.view.scene.remove(gr.mesh); disposeTree(gr.mesh); }
+    this.gen = (this.gen || 0) + 1; // spawns still loading belong to the old run
     this.list.length = 0;
     this.corpses.length = 0;
     this.grenades.length = 0;

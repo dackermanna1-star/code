@@ -9,9 +9,9 @@ const PERKS = {
   marathon: { name: 'Marathon', max: 2, base: 600, step: 500, desc: '+8% movement speed.', apply: (g) => { g.perks.speed += 0.08; } },
 };
 const BOOSTS = {
-  hollow: { name: 'Hollow Points', price: 650, desc: 'Next wave only: +25% damage.', apply: (g) => { g.perks.next.damage = 1.25; } },
-  adren: { name: 'Adrenaline Shot', price: 450, desc: 'Next wave only: +15% speed, steadier aim.', apply: (g) => { g.perks.next.speed = 1.15; g.perks.next.recoil = 0.75; } },
-  plates: { name: 'Overplate', price: 500, desc: 'Next wave only: +50 armour above your maximum.', apply: (g) => { g.armor = Math.min(g.maxArmor + 50, g.armor + 50); } },
+  hollow: { name: 'Hollow Points', price: 650, desc: 'Next wave only: +25% damage.', apply: (g) => { g.perks.next.damage = 1.25; }, active: (g) => !!g.perks.next.damage },
+  adren: { name: 'Adrenaline Shot', price: 450, desc: 'Next wave only: +15% speed, steadier aim.', apply: (g) => { g.perks.next.speed = 1.15; g.perks.next.recoil = 0.75; }, active: (g) => !!g.perks.next.speed },
+  plates: { name: 'Overplate', price: 500, desc: 'Next wave only: +50 armour above your maximum.', apply: (g) => { g.armor = Math.min(g.maxArmor + 50, g.armor + 50); }, active: (g) => g.armor >= g.maxArmor + 50 },
 };
 const AMMO_COST = { pistol: 1.5, smg: 1.6, rifle: 2.6, shotgun: 7, marksman: 10, whisper: 22 };
 
@@ -57,6 +57,7 @@ class Shop {
   }
 
   close(walk = false) {
+    this.closedAt = performance.now();
     this.root.classList.remove('on');
     document.body.classList.remove('shopping');
     this.game.shopOpen = false;
@@ -97,13 +98,14 @@ class Shop {
           d.cash += a.slots[i].value();
           a.slots[i] = null;
         }
+        g.vm.prepare(def.rig); // start loading the rig while the shop is still open
         a.give(ds.id);
         break;
       }
       case 'upgrade': w.upgrades[ds.id]++; w.refreshBallistics(); if (ds.id === 'mag') w.ammo = w.magSize; break;
       case 'attach': w.attachments.add(ds.id); w.refreshBallistics(); w.ammo = Math.min(w.ammo, w.magSize); if (w === a.gun) g.vm.configure(w); break;
       case 'perk': this.perkLv[ds.id] = (this.perkLv[ds.id] || 0) + 1; PERKS[ds.id].apply(g); break;
-      case 'boost': BOOSTS[ds.id].apply(g); break;
+      case 'boost': if (BOOSTS[ds.id].active(g)) return; BOOSTS[ds.id].apply(g); break;
       case 'ammo': for (const x of a.slots) if (x) x.reserve = x.maxReserve; break;
       case 'frag': if (a.grenades >= a.maxGrenades) return; a.grenades++; break;
       case 'armor': if (g.armor >= g.maxArmor) return; g.armor = Math.min(g.maxArmor, g.armor + 50); break;
@@ -156,7 +158,10 @@ class Shop {
       html += this.card({ title: 'Armour Plate', tag: `${Math.round(g.armor)}/${g.maxArmor}`, desc: '+50 armour. Absorbs most of each hit until it is spent.', price: 300, k: 'armor', id: 'armor', disabled: g.armor >= g.maxArmor });
       html += this.card({ title: 'Trauma Medkit', tag: `${Math.ceil(g.player.health)}/${g.player.maxHealth}`, desc: 'Patch up to full health.', price: 250, k: 'med', id: 'med', disabled: g.player.health >= g.player.maxHealth });
       html += `<div class="sect">One-wave boosts</div>`;
-      for (const [id, b] of Object.entries(BOOSTS)) html += this.card({ title: b.name, tag: 'Boost', desc: b.desc, price: b.price, k: 'boost', id });
+      for (const [id, b] of Object.entries(BOOSTS)) {
+        const on = b.active(g);
+        html += this.card({ title: b.name, tag: on ? 'Active' : 'Boost', desc: b.desc, price: b.price, k: 'boost', id, disabled: on, label: on ? 'Ready' : 'Buy' });
+      }
     } else if (this.tab === 'upgrades') {
       a.slots.forEach((w, slot) => {
         if (!w) return;

@@ -39893,7 +39893,7 @@ class D1 {
     }
     if (this.settings.reactions === "rdr") {
       const l = new Set(),
-        c = { pistol: 14, revolver: 22, shotgun: 6, smg: 11, rifle: 20, sniper: 34 }[A] ?? 14;
+        c = { pistol: 14, revolver: 22, shotgun: 6, smg: 11, rifle: 20, sniper: 34 }[i.knockClass ?? A] ?? 14; // game: per-instance entries name their class
       for (const h of r)
         for (const u of h.hits) {
           if (l.has(u.person) || u.armor) continue;
@@ -63444,6 +63444,18 @@ const toP3 = (v, out = new I()) => out.set(v.x, v.y, v.z);
 const damp = (a, b, rate, dt) => b + (a - b) * Math.exp(-rate * dt);
 
 // a tiny critically damped spring (value, velocity) used for weapon motion
+// free GPU buffers: either the given per-instance [mesh, ownsMaterial] pairs, or a whole subtree
+function disposeTree(root, owned = null) {
+  if (owned) {
+    for (const [m, mat] of owned) { if (m.geometry) m.geometry.dispose(); if (mat && m.material) m.material.dispose(); }
+    return;
+  }
+  root.traverse((o) => {
+    if (o.geometry) o.geometry.dispose();
+    if (o.material) for (const m of Array.isArray(o.material) ? o.material : [o.material]) m.dispose();
+  });
+}
+
 class Spring {
   constructor(stiffness = 120, damping = 14) { this.k = stiffness; this.c = damping; this.x = 0; this.v = 0; }
   step(dt, target = 0) {
@@ -63580,7 +63592,8 @@ class ClipPlayer {
       if (restart || layer.done) { layer.time = startAt; layer.done = false; if (fade <= 0) layer.weight = weight; }
       Object.assign(layer, { speed, target: weight, fade, loop, onEnd });
     }
-    if (exclusive) for (const l of this.layers) if (l !== layer) { l.target = 0; l.fade = fade; }
+    // replaced layers fade out silently: their end callbacks belong to the action they were
+    if (exclusive) for (const l of this.layers) if (l !== layer) { l.target = 0; l.fade = fade; l.onEnd = null; }
     return layer;
   }
 
@@ -63588,7 +63601,7 @@ class ClipPlayer {
 
   setWeight(name, w, fade = 0.15) {
     const l = this.layer(name);
-    if (l) { l.target = w; l.fade = fade; }
+    if (l) { l.target = w; l.fade = fade; if (w <= 0) l.onEnd = null; }
   }
 
   stop(name, fade = 0.15) { this.setWeight(name, 0, fade); }
@@ -63602,7 +63615,7 @@ class ClipPlayer {
           else {
             l.time = l.clip.duration;
             l.done = true;
-            if (l.onEnd) { const cb = l.onEnd; l.onEnd = null; cb(l); }
+            if (l.onEnd && l.target > 0) { const cb = l.onEnd; l.onEnd = null; cb(l); }
           }
         }
       }
@@ -63976,7 +63989,8 @@ class BackroomsLevel {
           for (const b of this.buckets[jj * n + ii]) {
             if (b._stamp === st) continue;
             b._stamp = st;
-            if (b.max.y < minHeight || b.min.y > y || b.max.y < y) continue;
+            // only boxes that reach into the vertical band [minHeight, y] block the segment
+            if (b.max.y < minHeight || b.min.y > y) continue;
             if (segAabb2(x0, z0, x1, z1, b.min.x - pad, b.min.z - pad, b.max.x + pad, b.max.z + pad)) return false;
           }
         }
@@ -64014,7 +64028,7 @@ class BackroomsLevel {
   free(x, z, r = 0.32) {
     if (!this.inside(x, z, r + this.wallT)) return false;
     for (const b of this.boxesNear(x, z, r + 0.05)) {
-      if (b.max.y < 0.2) continue;
+      if (b.max.y < 0.2 || b.min.y > 1.9) continue; // skirting-level clutter, lintels overhead
       const qx = clamp(x, b.min.x, b.max.x), qz = clamp(z, b.min.z, b.max.z);
       if (Math.hypot(x - qx, z - qz) < r) return false;
     }
@@ -64056,22 +64070,100 @@ class BackroomsLevel {
     cells.push(s);
     cells.reverse();
     const pts = [new I(from.x, 0, from.z)];
-    for (let k = 1; k < cells.length; k++) {
-      const a = cells[k - 1], b = cells[k];
-      const ax = this.cx(a % n), az = this.cx((a / n) | 0), bx = this.cx(b % n), bz = this.cx((b / n) | 0);
-      pts.push(new I((ax + bx) / 2, 0, (az + bz) / 2));
-    }
+    for (let k = 1; k < cells.length; k++) pts.push(this.crossing(cells[k - 1], cells[k], radius, pts[pts.length - 1]));
     pts.push(new I(to.x, 0, to.z));
-    // string pulling: skip waypoints while the straight line keeps clear of walls
+    // string pulling: skip waypoints while the straight line keeps clear of walls and props;
+    // where even the next leg is blocked (a prop in the way), go round it
+    const clear = (a, b) => this.segmentClear(a.x, a.z, b.x, b.z, 1.0, radius, 0.25);
     const out = [];
     let k = 0;
     while (k < pts.length - 1) {
-      let far = k + 1;
-      for (let m = pts.length - 1; m > k + 1; m--) {
-        if (this.segmentClear(pts[k].x, pts[k].z, pts[m].x, pts[m].z, 1.0, radius, 0.25)) { far = m; break; }
+      let far = -1;
+      for (let m = pts.length - 1; m > k; m--) if (clear(pts[k], pts[m])) { far = m; break; }
+      if (far < 0) {
+        far = k + 1;
+        out.push(...this.detour(pts[k], pts[far], radius));
       }
       out.push(pts[far]);
       k = far;
+    }
+    return out;
+  }
+
+  // where to cross the shared edge of neighbouring cells a and b: the free point on the opening
+  // nearest its middle that `prev` can reach in a straight line
+  crossing(a, b, r, prev) {
+    const n = this.n, ai = a % n, aj = (a / n) | 0, bi = b % n, bj = (b / n) | 0;
+    const mx = (this.cx(ai) + this.cx(bi)) / 2, mz = (this.cx(aj) + this.cx(bj)) / 2;
+    const alongX = ai === bi; // cells stacked in z: the shared edge runs along x
+    const val = alongX ? this.h[this.hIdx(ai, Math.max(aj, bj))] : this.v[this.vIdx(Math.max(ai, bi), aj)];
+    const open = (val === 2 ? Math.min(1.25, this.cell * 0.42) / 2 : this.cell / 2 - 0.3) - r - 0.05;
+    let first = null;
+    for (const f of [0, 0.45, -0.45, 0.9, -0.9]) {
+      const o = f * Math.max(0, open);
+      const x = mx + (alongX ? o : 0), z = mz + (alongX ? 0 : o);
+      if (!this.free(x, z, r)) continue;
+      if (!first) first = new I(x, 0, z);
+      if (this.segmentClear(prev.x, prev.z, x, z, 1.0, r, 0.25)) return new I(x, 0, z);
+    }
+    return first || new I(mx, 0, mz);
+  }
+
+  // intermediate points for stepping round props between a and b (both in or on one cell):
+  // one pivot that sees both ends if there is one, else a fine-grid search across the cell
+  detour(a, b, r) {
+    const c = this.cellOf((a.x + b.x) / 2, (a.z + b.z) / 2);
+    if (c < 0) return [];
+    const cx = this.cx(c % this.n), cz = this.cx((c / this.n) | 0), e = this.cell / 2 - this.wallT - r - 0.08;
+    const clear = (p, q, pad = r) => this.segmentClear(p.x, p.z, q.x, q.z, 1.0, pad, 0.25);
+    let best = null, bestL = Infinity;
+    for (const [fx, fz] of [[1, 1], [1, -1], [-1, 1], [-1, -1], [1, 0], [-1, 0], [0, 1], [0, -1], [0.5, 0.5], [0.5, -0.5], [-0.5, 0.5], [-0.5, -0.5]]) {
+      const p = new I(cx + fx * e, 0, cz + fz * e);
+      const L = Math.hypot(p.x - a.x, p.z - a.z) + Math.hypot(b.x - p.x, b.z - p.z);
+      if (L >= bestL || !this.free(p.x, p.z, r)) continue;
+      if (!clear(a, p) || !clear(p, b)) continue;
+      best = p; bestL = L;
+    }
+    if (best) return [best];
+    // breadth-first search on a 0.2 m grid over the cell, then pull the string tight
+    const h = 0.2, half = this.cell / 2 + 0.2, N = Math.ceil((2 * half) / h) + 1, x0 = cx - half, z0 = cz - half;
+    const rr = r * 0.9;
+    const at = (i, j) => new I(x0 + i * h, 0, z0 + j * h);
+    const snap = (p) => [clamp(Math.round((p.x - x0) / h), 0, N - 1), clamp(Math.round((p.z - z0) / h), 0, N - 1)];
+    const ok = new Uint8Array(N * N);
+    for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) ok[j * N + i] = this.free(x0 + i * h, z0 + j * h, rr) ? 1 : 0;
+    const [si, sj] = snap(a), [gi, gj] = snap(b), s = sj * N + si, g = gj * N + gi;
+    ok[s] = ok[g] = 1;
+    const prev = new Int32Array(N * N).fill(-1);
+    prev[s] = s;
+    const queue = [s];
+    for (let q = 0; q < queue.length && prev[g] < 0; q++) {
+      const cur = queue[q], i = cur % N, j = (cur / N) | 0;
+      for (let dj = -1; dj <= 1; dj++)
+        for (let di = -1; di <= 1; di++) {
+          const ni = i + di, nj = j + dj;
+          if ((!di && !dj) || ni < 0 || nj < 0 || ni >= N || nj >= N) continue;
+          const nc = nj * N + ni;
+          if (!ok[nc] || prev[nc] >= 0 || (di && dj && (!ok[j * N + ni] || !ok[nj * N + i]))) continue;
+          prev[nc] = cur;
+          queue.push(nc);
+        }
+    }
+    if (prev[g] < 0) return [];
+    const cells = [];
+    for (let k = g; k !== s; k = prev[k]) cells.push(k);
+    cells.reverse();
+    const grid = cells.map((k) => at(k % N, (k / N) | 0));
+    grid[grid.length - 1] = b;
+    const out = [];
+    let from = a, k = 0;
+    while (k < grid.length - 1) {
+      let far = k;
+      for (let m = grid.length - 1; m > k; m--) if (clear(from, grid[m], rr)) { far = m; break; }
+      if (far === grid.length - 1) break;
+      out.push(grid[far]);
+      from = grid[far];
+      k = far + 1;
     }
     return out;
   }
@@ -64730,17 +64822,30 @@ class LevelView {
         ranked.push([Math.hypot(f.x - px, f.z - pz), f, j * n + i]);
       }
     ranked.sort((a, b) => a[0] - b[0]);
-    for (let s = 0; s < this.spots.length; s++) {
-      const sp = this.spots[s];
-      const want = ranked[s] ? ranked[s][1] : null;
-      if (sp.fixture !== want) { sp.fixture = want; sp.w = 0; }
-      if (!want) { sp.light.intensity = 0; continue; }
-      sp.w = Math.min(1, sp.w + dt * 3); // fade the hand-off from shader light to spot light
-      const k = ranked[s][2];
-      d[k * 4 + 1] = sp.w;
-      sp.light.position.set(want.x, L.ceiling - 0.05, want.z);
-      sp.light.target.position.set(want.x, 0, want.z);
-      sp.light.intensity = 14 * L.theme.lightPow * want.level * sp.w;
+    // assign by identity: a spot keeps its fixture while that stays among the nearest, so
+    // crossing between two lights never resets both; a freed spot fades out before it moves
+    const top = ranked.slice(0, this.spots.length);
+    const held = new Set(this.spots.map((sp) => sp.fixture).filter(Boolean));
+    const free = top.filter((r) => !held.has(r[1]));
+    for (const sp of this.spots) {
+      const keep = sp.fixture && top.some((r) => r[1] === sp.fixture);
+      if (!keep && sp.fixture && sp.w > 0) {
+        sp.w = Math.max(0, sp.w - dt * 4); // hand the fixture back to the shader light first
+        if (sp.w <= 0) sp.fixture = null;
+      } else if (!keep) {
+        sp.fixture = null;
+        const next = free.shift();
+        if (next) { sp.fixture = next[1]; sp.k = next[2]; sp.w = 0; }
+      } else {
+        sp.w = Math.min(1, sp.w + dt * 3); // fade the hand-off from shader light to spot light
+      }
+      const f = sp.fixture;
+      if (!f) { sp.light.intensity = 0; continue; }
+      if (keep) sp.k = top.find((r) => r[1] === f)[2];
+      d[sp.k * 4 + 1] = sp.w;
+      sp.light.position.set(f.x, L.ceiling - 0.05, f.z);
+      sp.light.target.position.set(f.x, 0, f.z);
+      sp.light.intensity = 14 * L.theme.lightPow * f.level * sp.w;
     }
     this.fixTex.needsUpdate = true;
     // dust drifts around the camera
@@ -64763,7 +64868,12 @@ class LevelView {
     });
     this.fixTex.dispose();
     this.reachTex.dispose();
+    this.wallTex.dispose();
     this.decals.target.dispose();
+    this.decals.geo.dispose();
+    this.decals.material.dispose();
+    this.wallDecals.mesh.dispose(); // instance buffer
+    for (const sp of this.spots) sp.light.dispose(); // shadow maps
   }
 }
 
@@ -65350,6 +65460,7 @@ class Viewmodel {
     rig.attach.reddot.userData.sight = {
       rear: base.clone().addScaledVector(F.u, h * S).addScaledVector(F.f, -0.025 * S),
       front: base.clone().addScaledVector(F.u, h * S).addScaledVector(F.f, 0.025 * S),
+      dist: 0.13,
     };
     return rig.attach.reddot;
   }
@@ -65369,7 +65480,10 @@ class Viewmodel {
 
   // ---- switching -------------------------------------------------------------------------------
   async equip(weapon, instant = false) {
+    // only the latest request wins when rigs finish loading out of order
+    const tok = (this.equipTok = (this.equipTok || 0) + 1);
     const rig = await this.prepare(weapon.rig);
+    if (tok !== this.equipTok || !rig) return;
     if (this.cur && this.cur !== rig) this.scene.remove(this.cur.root);
     this.cur = rig;
     this.weapon = weapon;
@@ -65714,6 +65828,8 @@ class WeaponInstance {
       mass: base.mass * (1 + 0.12 * this.upgrades.damage),
       rpm: this.def.rpm,
       auto: this.def.auto,
+      // the engine's ragdoll knockback table is keyed by weapon class, not by this instance key
+      knockClass: { marksman: 'sniper', whisper: 'sniper' }[this.def.ballistic] || this.def.ballistic,
     };
   }
   value() {
@@ -65769,10 +65885,13 @@ class Arsenal {
   }
   reload() {
     const g = this.gun;
-    if (this.state !== 'idle' || g.ammo >= g.magSize || g.reserve <= 0) return false;
+    if ((this.state !== 'idle' && this.state !== 'inspect') || g.ammo >= g.magSize || g.reserve <= 0) return false;
+    if (this.state === 'inspect') this.events.push({ type: 'inspectCancel', gun: g });
     this.state = 'reload';
     this.t = 0;
     this.reloadShellT = 0;
+    this.stateDur = 2.2 / g.reloadSpeed; // replaced from the reload clip by the game
+
     this.events.push({ type: 'reloadStart', gun: g, empty: g.ammo === 0 });
     return true;
   }
@@ -65788,8 +65907,8 @@ class Arsenal {
     if (g.attachments.has('grip')) s *= 0.85;
     return Math.min(s, 12);
   }
+  // events accumulate in this.events until the game drains them
   update(dt, trigger, blocked) {
-    this.events.length = 0;
     this.t += dt;
     const g = this.gun;
     g.cool = Math.max(0, g.cool - dt);
@@ -65824,7 +65943,11 @@ class Arsenal {
             this.events.push({ type: 'shell', gun: g });
           }
           if (trigger && g.ammo > 0 && this.t > 0.2) { this.state = 'idle'; this.events.push({ type: 'reloadCancel', gun: g }); break; }
-          if (g.ammo >= g.magSize || g.reserve <= 0 || this.t > this.stateDur + 0.05) {
+          if (this.t > this.stateDur + 0.05 && g.ammo < g.magSize && g.reserve > 0) {
+            // a Mag Well tube holds more shells than one pass of the clip loads
+            this.t = 0; this.reloadShellT = 0;
+            this.events.push({ type: 'reloadLoop', gun: g });
+          } else if (g.ammo >= g.magSize || g.reserve <= 0 || this.t > this.stateDur + 0.05) {
             this.state = 'pump'; this.t = 0; this.stateDur = 0.35;
             this.events.push({ type: 'reloadEnd', gun: g });
           }
@@ -65835,8 +65958,12 @@ class Arsenal {
           this.events.push({ type: 'reloadEnd', gun: g });
         }
         break;
-      case 'pump':
       case 'inspect':
+        // firing, aiming or blocking (sprint, shop) puts the weapon straight back to work
+        if (trigger || this.ads || blocked) { this.state = 'idle'; this.events.push({ type: 'inspectCancel', gun: g }); break; }
+        if (this.t > this.stateDur) this.state = 'idle';
+        break;
+      case 'pump':
       case 'throw':
         if (this.t > this.stateDur) this.state = 'idle';
         break;
@@ -65862,15 +65989,19 @@ class Arsenal {
     this.triggerHeld = trigger;
     return fired;
   }
-  inspect() {
-    if (this.state !== 'idle') return false;
+  // dur: length of the inspect clip (no clip, no inspect)
+  inspect(dur) {
+    if (this.state !== 'idle' || !(dur > 0)) return false;
     this.state = 'inspect';
     this.t = 0;
-    this.stateDur = 2.5;
+    this.stateDur = dur;
     return true;
   }
   throwGrenade() {
-    if (this.grenades <= 0 || (this.state !== 'idle' && this.state !== 'reload')) return false;
+    if (this.grenades <= 0 || (this.state !== 'idle' && this.state !== 'reload' && this.state !== 'inspect')) return false;
+    // a throw abandons a reload (rounds already loaded stay) or an inspect: stop its animation
+    if (this.state === 'reload') this.events.push({ type: 'reloadCancel', gun: this.gun });
+    if (this.state === 'inspect') this.events.push({ type: 'inspectCancel', gun: this.gun });
     this.grenades--;
     this.state = 'throw';
     this.t = 0;
@@ -66063,10 +66194,13 @@ class CharacterRender {
   setGun(type, extras = {}) {
     const m = Lab.weaponModel(type).clone();
     m.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = false; } });
+    // per-instance meshes to free later: [mesh, its material is ours too]
+    const own = (this.owned = []);
     if (extras.drum) {
       const drum = new T3.Mesh(new T3.CylinderGeometry(0.08, 0.08, 0.07, 22).rotateZ(Math.PI / 2), new T3.MeshStandardMaterial({ color: 0x2a2620, roughness: 0.6, metalness: 0.5 }));
       drum.position.set(0, -0.08, -0.18);
       m.add(drum);
+      own.push([drum, true]);
     }
     const muzzle = new T3.Vector3(...(m.userData.muzzle || [0, 0.08, -0.5]));
     this.muzzleLocal = muzzle;
@@ -66080,6 +66214,7 @@ class CharacterRender {
       glare.renderOrder = 7;
       this.scene.add(glare);
       m.add(cone, lens);
+      own.push([cone, false], [lens, true], [glare, true]);
       this.beam = cone;
       this.lens = lens;
       this.glare = glare;
@@ -66092,6 +66227,7 @@ class CharacterRender {
       m.add(this.laser);
       this.laserDot = new T3.Mesh(new T3.SphereGeometry(0.018, 8, 6), new T3.MeshBasicMaterial({ color: 0xff3030, toneMapped: false, fog: false }));
       this.scene.add(this.laserDot);
+      own.push([this.laser, true], [this.laserDot, true]);
     }
     const flash = Lab.muzzleFlashMesh();
     flash.visible = false;
@@ -66137,10 +66273,15 @@ class CharacterRender {
 
   dropGun() {
     if (!this.gun) return null;
-    if (this.glare) { this.scene.remove(this.glare); this.glare = null; }
     const g = this.gun;
     this.gun = null;
+    const loose = (this.owned || []).filter(([o]) => o === this.glare || o === this.laserDot);
+    if (this.glare) { this.scene.remove(this.glare); this.glare = null; }
     if (this.laserDot) { this.scene.remove(this.laserDot); this.laserDot = null; }
+    disposeTree(null, loose);
+    // what stays on the dropped weapon is freed with the pickup
+    g.userData.owned = (this.owned || []).filter((x) => !loose.includes(x));
+    this.owned = [];
     if (this.beam) this.beam.visible = false;
     if (this.laser) this.laser.visible = false;
     return g;
@@ -66228,6 +66369,9 @@ class CharacterRender {
     for (const m of this.binder.meshes) m.material.dispose();
     if (this.gun) this.scene.remove(this.gun);
     if (this.laserDot) this.scene.remove(this.laserDot);
+    if (this.glare) this.scene.remove(this.glare);
+    disposeTree(null, this.owned || []);
+    this.owned = [];
   }
 }
 
@@ -66360,10 +66504,11 @@ class Gunman {
     const was = this.visible;
     this.visible = canSee;
     if (canSee) {
-      if (!this.knows || !was) this.mgr.spotted(this);
+      const fresh = !this.knows || !was;
       this.knows = true;
       this.lastSeen = new I(P.pos.x, 0, P.pos.z);
       this.lastSeenT = game.time;
+      if (fresh) this.mgr.spotted(this); // the callout carries where the player is now
     }
   }
 
@@ -66773,6 +66918,7 @@ class EnemyManager {
     this.scale = { tough: 1, speed: 1, spread: 1, react: 1, dmg: 1 };
     this.wave = 1;
     this.radioT = 0;
+    this.gen = 0; // bumped by clear(): async spawns from before it are dropped
     game.hooks.push(this);
     game.damagePlayer = (amt, from, kind) => this.damagePlayer(amt, from, kind);
   }
@@ -66783,10 +66929,34 @@ class EnemyManager {
     this.drops.length = 0;
     this.grenades.length = 0;
     this.corpses.length = 0;
-    const sb = this.game.sb;
+    const sb = this.game.sb, L = this.game.level;
     // tag every engine effect with whoever fired the shot that caused it
     const orig = sb.fx.bind(sb);
     sb.fx = (e) => { if (sb._shooter && e.by === undefined) e.by = sb._shooter; orig(e); };
+    // the engine only knows its own obstacles: route hollows (and any replanning walker) through
+    // the maze instead of straight into walls
+    sb.zombieRoute = (a, b) => {
+      if (L.segmentClear(a.x, a.z, b.x, b.z, 1.0, 0.3, 0.25)) return [new I(b.x, 0, b.z)];
+      return L.findPath(a, b, 0.3) || [new I(b.x, 0, b.z)];
+    };
+    sb.planRoute = (from, goals) => {
+      const path = [], goalEnds = [];
+      let cur = from;
+      for (const goal of goals) {
+        const seg = L.findPath(cur, goal, 0.34);
+        if (!seg || !seg.length) return null;
+        path.push(...seg);
+        goalEnds.push(path.length - 1);
+        cur = seg[seg.length - 1];
+      }
+      return { path, goalEnds };
+    };
+    // hollow claws go through the same armour / god-mode / stats path as gunfire
+    sb.hitPlayer = (amt, from, kind = 'hit', by = null) => {
+      if (!sb.player || !sb.player.alive) return;
+      this.damagePlayer(amt, from, kind);
+      sb.fx({ type: 'playerHit', amount: amt, from: from.clone(), kind, by });
+    };
   }
 
   get alive() { return this.list.filter((a) => !a.downed); }
@@ -66796,9 +66966,10 @@ class EnemyManager {
   async spawn(type, pos, yaw) {
     const def = ENEMY_TYPES[type];
     const look = randPick(def.looks);
+    const game = this.game, sb = game.sb, gen = this.gen;
     const gltf = await Assets.gltf('characters/' + look);
-    const game = this.game, sb = game.sb;
-    if (!gltf || sb !== game.sb) return null;
+    // the level or the run changed while the model loaded
+    if (!gltf || sb !== game.sb || gen !== this.gen) return null;
     // never drop a body into another one
     const L = game.level;
     const clear = (x, z) => L.free(x, z, 0.4) && sb.people.every((p) => Math.hypot(p.rd.pelvis.pos.x - x, p.rd.pelvis.pos.z - z) > 1.0) && Math.hypot(game.player.pos.x - x, game.player.pos.z - z) > 2.5;
@@ -66974,8 +67145,7 @@ class EnemyManager {
       case 'personFrozen':
       case 'throw':
         return true;
-      case 'playerHit':
-        if (e.by && e.by.zombie) for (const h of g.hooks) h.onPlayerDamaged && h.onPlayerDamaged(e.amount, e.from, 'melee', 0);
+      case 'playerHit': // already applied through damagePlayer (see onLevel)
         return true;
     }
     return false;
@@ -66986,7 +67156,8 @@ class EnemyManager {
     const inj = ai.p.injury, c = ai.p.ctl;
     if (!inj.alive) return;
     const seg = e.seg.name;
-    if (seg === 'head' || seg === 'neck' || e.energy > 1100 || Math.random() < 0.45) inj.kill(seg === 'head' ? 'gunshot wound to the head' : 'gunshot wounds');
+    // the hollowed cannot be knocked out: they only stop when they are dead
+    if (inj.undead || seg === 'head' || seg === 'neck' || e.energy > 1100 || Math.random() < 0.45) inj.kill(seg === 'head' ? 'gunshot wound to the head' : 'gunshot wounds');
     else {
       inj.knockOut(9999, 1);
       c.autoGetUp = false;
@@ -67000,6 +67171,10 @@ class EnemyManager {
     ai.aiming = false;
     ai.releaseToken();
     const p = ai.p, g = this.game;
+    // whatever brought them down (kick, bleed-out, a hollow out of toughness), they stay down
+    if (p.injury.alive && (p.injury.undead || p.ctl.mode === 'balance' || p.ctl.mode === 'getup')) {
+      p.injury.kill(ai.lastHit && ai.lastHit.weapon === 'kick' ? 'blunt trauma' : 'injuries');
+    }
     p.ctl.autoGetUp = false;
     p.ctl.armDriver = null;
     if (p.ctl.walking) p.ctl.stopWalk('down');
@@ -67043,6 +67218,7 @@ class EnemyManager {
   removeDrop(d) {
     this.drops = this.drops.filter((x) => x !== d);
     this.game.view.scene.remove(d.mesh);
+    if (d.mesh.userData.owned) { disposeTree(null, d.mesh.userData.owned); d.mesh.userData.owned = null; }
     if (this.game.sb.objects.includes(d.obj)) this.game.sb.removeObject(d.obj);
   }
 
@@ -67087,6 +67263,8 @@ class EnemyManager {
   explode(gr) {
     const g = this.game, sb = g.sb, pos = gr.obj.body.pos.clone();
     pos.y = Math.max(pos.y, 0.08);
+    // out of the world first, or every fragment starts inside the grenade's own collider
+    if (sb.objects.includes(gr.obj)) sb.removeObject(gr.obj);
     const P3 = toV3(pos);
     // fragments: real ballistic traces, so walls and bodies stop them
     sb._shooter = gr.by;
@@ -67170,6 +67348,7 @@ class EnemyManager {
     }
     for (const gr of this.grenades.filter((x) => x.done)) {
       g.view.scene.remove(gr.mesh);
+      disposeTree(gr.mesh);
       if (g.sb.objects.includes(gr.obj)) g.sb.removeObject(gr.obj);
     }
     this.grenades = this.grenades.filter((x) => !x.done);
@@ -67232,7 +67411,8 @@ class EnemyManager {
       if (g.sb.people.includes(ai.p)) g.sb.removePerson(ai.p);
     }
     for (const d of [...this.drops]) this.removeDrop(d);
-    for (const gr of this.grenades) g.view.scene.remove(gr.mesh);
+    for (const gr of this.grenades) { g.view.scene.remove(gr.mesh); disposeTree(gr.mesh); }
+    this.gen = (this.gen || 0) + 1; // spawns still loading belong to the old run
     this.list.length = 0;
     this.corpses.length = 0;
     this.grenades.length = 0;
@@ -67280,6 +67460,12 @@ class Director {
 
   newRun() {
     const g = this.game;
+    // spawns still in flight from the previous run settle against their own run (see spawnSome)
+    this.runId = (this.runId || 0) + 1;
+    this.pending = 0;
+    this.reserved = [];
+    this.queue = [];
+    this.spec = null;
     this.wave = 0;
     this.depth = 1;
     this.cash = 400;
@@ -67389,27 +67575,33 @@ class Director {
     const dist = L.cellDistances(P.pos.x, P.pos.z);
     const ambush = this.mod === 'ambush';
     const minC = ambush ? 3 : 5, maxC = ambush ? 5 : 9;
-    const cands = [];
-    for (let c = 0; c < dist.length; c++) {
-      const d = dist[c];
-      if (d < minC || d > maxC) continue;
+    const eye = { x: P.pos.x, y: P.pos.y + 1.6, z: P.pos.z };
+    // out of sight, not on top of anyone alive or about to arrive
+    const hidden = (c) => {
       const ctr = L.cellCenter(c);
-      if (L.visible({ x: P.pos.x, y: P.pos.y + 1.6, z: P.pos.z }, { x: ctr.x, y: 1.4, z: ctr.z })) continue;
-      if (this.enemies.alive.some((a) => Math.hypot(a.pos.x - ctr.x, a.pos.z - ctr.z) < 1.5)) continue;
-      if ((this.reserved || []).some((r) => Math.hypot(r.x - ctr.x, r.z - ctr.z) < 2)) continue;
-      cands.push(c);
-    }
+      if (L.visible(eye, { x: ctr.x, y: 1.4, z: ctr.z })) return false;
+      if (this.enemies.alive.some((a) => Math.hypot(a.pos.x - ctr.x, a.pos.z - ctr.z) < 1.5)) return false;
+      return !(this.reserved || []).some((r) => Math.hypot(r.x - ctr.x, r.z - ctr.z) < 2);
+    };
+    let lo = minC, hi = maxC;
+    const cands = [];
+    for (let c = 0; c < dist.length; c++) if (dist[c] >= lo && dist[c] <= hi && hidden(c)) cands.push(c);
     if (!cands.length) {
-      for (let c = 0; c < dist.length; c++) if (dist[c] >= 3) cands.push(c);
+      lo = 3; hi = Infinity;
+      for (let c = 0; c < dist.length; c++) if (dist[c] >= lo && dist[c] < Infinity) cands.push(c);
     }
     if (!cands.length) return [];
     const c0 = randPick(cands);
     const out = [];
-    const n = L.n;
-    const tryCells = [c0, c0 + 1, c0 - 1, c0 + n, c0 - n];
-    for (const c of tryCells) {
+    const n = L.n, i0 = c0 % n, j0 = (c0 / n) | 0;
+    // the squad fills the chosen cell and open neighbours (never across a wall or the map edge)
+    for (const [di, dj, dir] of [[0, 0, -1], [1, 0, 0], [-1, 0, 1], [0, 1, 2], [0, -1, 3]]) {
       if (out.length >= squad) break;
-      if (c < 0 || c >= n * n || dist[c] < 2) continue;
+      const i = i0 + di, j = j0 + dj;
+      if (i < 0 || j < 0 || i >= n || j >= n) continue;
+      if (dir >= 0 && !L.wallOpen(i0, j0, dir)) continue;
+      const c = j * n + i;
+      if (c !== c0 && (dist[c] < Math.max(2, lo - 1) || dist[c] > hi + 1 || !hidden(c))) continue;
       const pt = L.pointInCell(c, 0.4);
       if (pt && out.every((q) => Math.hypot(q.x - pt.x, q.z - pt.z) > 1.1)) out.push(pt);
     }
@@ -67430,17 +67622,22 @@ class Director {
       const yaw = Math.atan2(P.pos.x - pt.x, P.pos.z - pt.z);
       this.pending = (this.pending || 0) + 1;
       (this.reserved ||= []).push(pt);
-      const unreserve = () => { this.reserved = this.reserved.filter((r) => r !== pt); };
-      this.enemies.spawn(type, pt, yaw).then((ai) => {
+      const run = this.runId;
+      const settle = () => {
+        if (run !== this.runId) return; // a newer run already reset the counters
         this.pending--;
-        unreserve();
-        if (ai && ai.def.boss) this.events.push({ type: 'boss', ai });
-      }).catch(() => { this.pending--; unreserve(); });
+        this.reserved = this.reserved.filter((r) => r !== pt);
+      };
+      this.enemies.spawn(type, pt, yaw).then((ai) => {
+        settle();
+        if (ai && ai.def.boss && run === this.runId) this.events.push({ type: 'boss', ai });
+      }).catch(settle);
     }
   }
 
   // ---- scoring -----------------------------------------------------------------------------------
   onKill(e) {
+    if (this.state === 'over') return; // the score was final at the moment of death
     const g = this.game, ai = e.ai, def = ai.def;
     if (!e.byPlayer) { this.events.push({ type: 'kill', name: def.name, byPlayer: false }); return; }
     const now = g.time;
@@ -67466,6 +67663,7 @@ class Director {
   }
 
   earn(amount, why) {
+    if (this.state === 'over') return;
     this.cash += amount;
     this.stats.cashEarned += amount;
     this.events.push({ type: 'cash', amount, why });
@@ -67558,7 +67756,8 @@ class Director {
   gameOver() {
     const g = this.game;
     this.setState('over');
-    if (this.score > this.best) { this.best = this.score; safeStorage('backrooms-best', String(this.best)); }
+    this.newBest = this.score > this.best && this.score > 0;
+    if (this.newBest) { this.best = this.score; safeStorage('backrooms-best', String(this.best)); }
     this.events.push({ type: 'gameOver' });
     g.state = 'dead';
   }
@@ -67863,7 +68062,7 @@ class Screens {
       [d.wave, 'Wave reached'], [st.kills, 'Kills'], [st.headshots, 'Headshots'], [acc + '%', 'Accuracy'],
       [fmt(d.score), 'Score'], ['$' + fmt(st.cashEarned), 'Earned'], [Math.round(st.longest) + ' m', 'Longest kill'], [mins + ' min', 'Survived'],
     ].map(([v, k]) => `<div><b>${v}</b><span>${k}</span></div>`).join('');
-    this.s.over.querySelector('.best').textContent = d.score >= d.best && d.score > 0 ? 'NEW PERSONAL BEST' : `BEST ${fmt(d.best)}`;
+    this.s.over.querySelector('.best').textContent = d.newBest ? 'NEW PERSONAL BEST' : `BEST ${fmt(d.best)}`;
     this.open('over');
   }
 }
@@ -67881,9 +68080,9 @@ const PERKS = {
   marathon: { name: 'Marathon', max: 2, base: 600, step: 500, desc: '+8% movement speed.', apply: (g) => { g.perks.speed += 0.08; } },
 };
 const BOOSTS = {
-  hollow: { name: 'Hollow Points', price: 650, desc: 'Next wave only: +25% damage.', apply: (g) => { g.perks.next.damage = 1.25; } },
-  adren: { name: 'Adrenaline Shot', price: 450, desc: 'Next wave only: +15% speed, steadier aim.', apply: (g) => { g.perks.next.speed = 1.15; g.perks.next.recoil = 0.75; } },
-  plates: { name: 'Overplate', price: 500, desc: 'Next wave only: +50 armour above your maximum.', apply: (g) => { g.armor = Math.min(g.maxArmor + 50, g.armor + 50); } },
+  hollow: { name: 'Hollow Points', price: 650, desc: 'Next wave only: +25% damage.', apply: (g) => { g.perks.next.damage = 1.25; }, active: (g) => !!g.perks.next.damage },
+  adren: { name: 'Adrenaline Shot', price: 450, desc: 'Next wave only: +15% speed, steadier aim.', apply: (g) => { g.perks.next.speed = 1.15; g.perks.next.recoil = 0.75; }, active: (g) => !!g.perks.next.speed },
+  plates: { name: 'Overplate', price: 500, desc: 'Next wave only: +50 armour above your maximum.', apply: (g) => { g.armor = Math.min(g.maxArmor + 50, g.armor + 50); }, active: (g) => g.armor >= g.maxArmor + 50 },
 };
 const AMMO_COST = { pistol: 1.5, smg: 1.6, rifle: 2.6, shotgun: 7, marksman: 10, whisper: 22 };
 
@@ -67929,6 +68128,7 @@ class Shop {
   }
 
   close(walk = false) {
+    this.closedAt = performance.now();
     this.root.classList.remove('on');
     document.body.classList.remove('shopping');
     this.game.shopOpen = false;
@@ -67969,13 +68169,14 @@ class Shop {
           d.cash += a.slots[i].value();
           a.slots[i] = null;
         }
+        g.vm.prepare(def.rig); // start loading the rig while the shop is still open
         a.give(ds.id);
         break;
       }
       case 'upgrade': w.upgrades[ds.id]++; w.refreshBallistics(); if (ds.id === 'mag') w.ammo = w.magSize; break;
       case 'attach': w.attachments.add(ds.id); w.refreshBallistics(); w.ammo = Math.min(w.ammo, w.magSize); if (w === a.gun) g.vm.configure(w); break;
       case 'perk': this.perkLv[ds.id] = (this.perkLv[ds.id] || 0) + 1; PERKS[ds.id].apply(g); break;
-      case 'boost': BOOSTS[ds.id].apply(g); break;
+      case 'boost': if (BOOSTS[ds.id].active(g)) return; BOOSTS[ds.id].apply(g); break;
       case 'ammo': for (const x of a.slots) if (x) x.reserve = x.maxReserve; break;
       case 'frag': if (a.grenades >= a.maxGrenades) return; a.grenades++; break;
       case 'armor': if (g.armor >= g.maxArmor) return; g.armor = Math.min(g.maxArmor, g.armor + 50); break;
@@ -68028,7 +68229,10 @@ class Shop {
       html += this.card({ title: 'Armour Plate', tag: `${Math.round(g.armor)}/${g.maxArmor}`, desc: '+50 armour. Absorbs most of each hit until it is spent.', price: 300, k: 'armor', id: 'armor', disabled: g.armor >= g.maxArmor });
       html += this.card({ title: 'Trauma Medkit', tag: `${Math.ceil(g.player.health)}/${g.player.maxHealth}`, desc: 'Patch up to full health.', price: 250, k: 'med', id: 'med', disabled: g.player.health >= g.player.maxHealth });
       html += `<div class="sect">One-wave boosts</div>`;
-      for (const [id, b] of Object.entries(BOOSTS)) html += this.card({ title: b.name, tag: 'Boost', desc: b.desc, price: b.price, k: 'boost', id });
+      for (const [id, b] of Object.entries(BOOSTS)) {
+        const on = b.active(g);
+        html += this.card({ title: b.name, tag: on ? 'Active' : 'Boost', desc: b.desc, price: b.price, k: 'boost', id, disabled: on, label: on ? 'Ready' : 'Buy' });
+      }
     } else if (this.tab === 'upgrades') {
       a.slots.forEach((w, slot) => {
         if (!w) return;
@@ -68167,6 +68371,9 @@ class BodycamPost {
   resize(w, h) {
     const r = this.game.renderer;
     r.getDrawingBufferSize(this.size);
+    // the quality setting picks the MSAA level; three rebuilds the buffers after a dispose
+    const samples = this.game.settings.quality === 'low' ? 0 : 4;
+    if (this.rt.samples !== samples) { this.rt.samples = samples; this.rt.dispose(); }
     this.rt.setSize(this.size.x, this.size.y);
     this.bA.setSize(this.size.x >> 2, this.size.y >> 2);
     this.bB.setSize(this.size.x >> 2, this.size.y >> 2);
@@ -68515,12 +68722,18 @@ class Sfx {
     this.perc.gain.setTargetAtTime(this.musicLevel > 0.5 ? 0.6 : 0, t, 0.6);
     // heartbeat when badly hurt
     const hb = P.alive && P.health < 35 ? 70 + (35 - P.health) * 2 : 0;
-    if ((hb > 0) !== (this.hb > 0)) this.au.heartbeat(hb);
+    // the beat quickens as health keeps falling
+    if ((hb > 0) !== (this.hb > 0) || Math.abs(hb - (this.hbSet || 0)) > 4) { this.au.heartbeat(hb); this.hbSet = hb; }
     this.hb = hb;
     // distant events between fights and during them
     this.distantT -= dt;
     if (this.distantT <= 0) { this.distantT = 14 + Math.random() * 26; if (P.alive && g.state === 'play') this.distant(); }
-    // enemy footsteps (positional)
+  }
+
+  // enemy footsteps (positional). Hook steps run before the sandbox step, so each step sees the
+  // previous step's controller events exactly once (none replay while paused).
+  step() {
+    const g = this.game, P = g.player;
     if (g.sb) for (const p of g.sb.people) for (const e of p.ctl.events) if (e.type === 'land') {
       const h = p.rd.pelvis.pos;
       if (Math.hypot(h.x - P.pos.x, h.z - P.pos.z) < 16) this.au.footstep(p.enemy && p.enemy.def && p.enemy.def.boss ? 0.95 : 0.5, h);
@@ -68620,6 +68833,12 @@ class BackroomsGame {
     p.pos.set(mid.x, 0, mid.z);
     p.vel.setZero();
     p.mantling = null;
+    if (!p.ceilingAware) {
+      // the ceiling slab is not in the spatial buckets, so cap jumps and mantles at it here
+      const base = Object.getPrototypeOf(p).headroom;
+      p.headroom = function (env) { return Math.min(base.call(this, env), env.ceiling ?? Infinity); };
+      p.ceilingAware = true;
+    }
     sb.setPlayer(p);
     this.envBoxes = [];
     for (const h of this.hooks) h.onLevel && h.onLevel(level);
@@ -68636,6 +68855,7 @@ class BackroomsGame {
     }
     return {
       boxes: this.level.boxesNear(p.pos.x, p.pos.z, 2.2, this.envBoxes),
+      ceiling: this.level.ceiling,
       floorAt: (x, z, y) => this.sb.world.surfaceAt(x, z, y),
       people,
       push: (t, f) => this.sb.pushPerson(t, f),
@@ -68663,26 +68883,42 @@ class BackroomsGame {
   }
 
   // ---- simulation ----------------------------------------------------------------------------
+  // `inp.pressed` and `inp.wheel` hold everything since the previous step (see frame())
   step(inp, look) {
     const dt = SIM_DT, p = this.player, a = this.arsenal;
     this.time += dt;
-    for (const code of inp.pressed) {
-      if (code.startsWith('Digit')) { const i = +code.slice(5) - 1; if (i >= 0 && i < 3) a.select(i); }
-      else if (code === 'KeyQ') a.select(a.prevIndex);
-      else if (code === 'KeyR') { if (a.reload()) this.onReloadStart(); }
-      else if (code === 'KeyV') { if (a.inspect()) this.vm.playAction('inspect'); }
-      else if (code === 'KeyG') this.throwGrenade();
-      else if (code === 'KeyF') this.melee();
+    if (p.alive) {
+      for (const code of inp.pressed) {
+        if (code.startsWith('Digit')) { const i = +code.slice(5) - 1; if (i >= 0 && i < 3) a.select(i); }
+        else if (code === 'KeyQ') a.select(a.prevIndex);
+        else if (code === 'KeyR') a.reload();
+        else if (code === 'KeyV') { if (a.state === 'idle') { const d = this.vm.playAction('inspect'); if (d > 0) a.inspect(d); } }
+        else if (code === 'KeyG') this.throwGrenade();
+        else if (code === 'KeyF') this.melee();
+      }
+      if (inp.wheel) a.cycle(inp.wheel > 0 ? 1 : -1);
     }
-    if (inp.wheel) a.cycle(inp.wheel > 0 ? 1 : -1);
-    inp.pressed.clear();
-    inp.wheel = 0;
+    // events raised by the key handlers (manual reload, holster, cancels) before update() runs
+    this.drainArsenal();
     a.ads = inp.ads && p.alive;
     p.ads = a.adsAmount > 0.5;
+    const stamina0 = p.stamina;
     p.update(dt, { move: inp.move, look, sprint: inp.sprint && !inp.fire, crouch: inp.crouch, jump: inp.jump }, this.playerEnv());
-    const blocked = p.sprinting || !!p.mantling || !p.alive || this.shopOpen;
+    // never let the head pass through the ceiling (mantling onto tall props in low rooms)
+    const room = this.level.ceiling - 0.06 - p.pos.y, H = Lab.PLAYER.height, CH = Lab.PLAYER.crouchHeight;
+    if (room < H) p.crouch = Math.max(p.crouch, clamp((H - room) / (H - CH), 0, 1));
+    // holding breath behind a magnified optic (Shift) steadies the scope at a stamina cost
+    const scoped = a.gun.zoom > 2 && a.adsAmount > 0.9 && p.alive;
+    if (!inp.sprint || !scoped) this.breathSpent = false;
+    this.holdingBreath = scoped && inp.sprint && !this.breathSpent && stamina0 > 0.02;
+    if (this.holdingBreath) {
+      p.stamina = Math.max(0, stamina0 - dt * 0.22);
+      if (p.stamina <= 0.02) this.breathSpent = true;
+    }
+    // also hold fire until the gun in hand has its viewmodel (rigs load on first use)
+    const blocked = p.sprinting || !!p.mantling || !p.alive || this.shopOpen || this.vm.weapon !== a.gun;
     const fired = a.update(dt, inp.fire && p.alive && !this.shopOpen, blocked);
-    for (const e of a.events) this.onArsenalEvent(e);
+    this.drainArsenal();
     if (fired) this.shoot();
     for (const h of this.hooks) h.step && h.step(dt);
     this.sb.viewer = new I(p.pos.x, p.pos.y + p.eyeHeight, p.pos.z);
@@ -68715,10 +68951,18 @@ class BackroomsGame {
     this.lastShotT = this.time;
   }
 
+  drainArsenal() {
+    const a = this.arsenal;
+    if (!a.events.length) return;
+    const evs = a.events.splice(0);
+    for (const e of evs) this.onArsenalEvent(e);
+  }
+
+  // the reload clip sets the reload's duration (scaled by upgrades and perks)
   onReloadStart() {
     const a = this.arsenal, g = a.gun;
     const speed = g.reloadSpeed * (this.perks ? this.perks.reload : 1);
-    const dur = this.vm.playAction('reload', { empty: g.ammo === 0, speed });
+    const dur = this.vm.weapon === g ? this.vm.playAction('reload', { empty: g.ammo === 0, speed }) : 0;
     a.setReloadDuration(dur > 0 ? dur : 2.2 / speed);
   }
 
@@ -68728,13 +68972,18 @@ class BackroomsGame {
     switch (e.type) {
       case 'reloadStart':
         au.gunHandling(g.def.perShell ? 'shell' : 'magOut', type);
-        if (!this.vm.action || this.vm.action === 'fire') this.onReloadStart();
+        this.onReloadStart();
         break;
+      case 'reloadLoop': this.onReloadStart(); break; // tube still not full: run the shell clip again
       case 'reloadEnd':
         au.gunHandling('magIn', type);
         if (type !== 'pistol') setTimeout(() => au.gunHandling('charge', type), 200);
+        if (g.def.perShell) this.vm.cancelAction();
         break;
-      case 'reloadCancel': this.vm.cancelAction(); break;
+      case 'reloadCancel':
+      case 'inspectCancel':
+        this.vm.cancelAction();
+        break;
       case 'shell': au.gunHandling('shell', type); break;
       case 'pump': setTimeout(() => { au.gunHandling('pump', 'shotgun'); this.vm.pump(); }, (e.delay || 0) * 1000); break;
       case 'bolt': setTimeout(() => { au.gunHandling('charge', 'rifle'); this.vm.pump(); this.vm.eject(); }, (e.delay || 0) * 1000); break;
@@ -68769,7 +69018,10 @@ class BackroomsGame {
           const g = this.arsenal.gun;
           au.gunshot(g.def.ballistic === 'marksman' || g.def.ballistic === 'whisper' ? 'sniper' : g.def.ballistic, g.suppressed ? null : e.origin);
           const m = this.vm.muzzleWorld(new T3.Vector3());
-          // viewmodel camera space -> world: the viewmodel camera sits at the world camera
+          // viewmodel camera space -> world camera space at the same screen position (the two
+          // cameras share a pose but not a field of view), then to world
+          const k = Math.tan((this.camera.fov * Math.PI) / 360) / Math.tan((this.vm.camera.fov * Math.PI) / 360);
+          m.x *= k; m.y *= k;
           m.applyMatrix4(this.camera.matrixWorld);
           if (!g.suppressed) this.effects.muzzleLight(m, Lab.Ballistics[g.def.ballistic].recoil > 2 ? 1.4 : 1);
           for (const path of e.paths) if (Math.random() < (g.def.auto ? 0.5 : 1)) this.effects.tracer(m.clone(), new T3.Vector3(path.to.x, path.to.y, path.to.z));
@@ -68890,13 +69142,32 @@ class BackroomsGame {
     const inp = this.input.poll();
     if (this.debugRun) { inp.fire = this.input.fire; inp.ads = this.input.ads; }
     const running = this.state === 'play' && (this.input.locked || this.debugRun);
+    const p = this.player;
+    // key presses and wheel are polled per render frame but consumed per simulation step: keep
+    // them until a step actually runs (at high refresh rates most frames run none)
+    const pend = this.pend || (this.pend = { pressed: new Set(), wheel: 0 });
+    if (running) {
+      for (const k of inp.pressed) pend.pressed.add(k);
+      pend.wheel += inp.wheel;
+      // mouse look goes straight to the view every frame so aim is smooth at any refresh rate
+      if (p && p.alive) {
+        p.yaw += inp.look.dx;
+        p.pitch = clamp(p.pitch + inp.look.dy, -1.45, 1.45);
+      }
+    } else { pend.pressed.clear(); pend.wheel = 0; }
     let simDt = 0;
     if (running || this.state === 'dead') {
       this.acc += dt;
-      let n = 0, look = running ? inp.look : { dx: 0, dy: 0 };
-      if (!running) { inp.move = { x: 0, z: 0 }; inp.fire = false; inp.jump = false; inp.sprint = false; }
+      let n = 0;
+      const still = { dx: 0, dy: 0 };
+      const si = { ...inp, pressed: pend.pressed, wheel: pend.wheel };
+      if (!running) { si.move = { x: 0, z: 0 }; si.fire = false; si.jump = false; si.sprint = false; }
       const maxSteps = this.maxSteps || 3;
-      while (this.acc >= SIM_DT && n < maxSteps) { this.step(inp, look); look = { dx: 0, dy: 0 }; this.acc -= SIM_DT; simDt += SIM_DT; n++; }
+      while (this.acc >= SIM_DT && n < maxSteps) {
+        this.step(si, still);
+        if (n === 0) { pend.pressed = new Set(); pend.wheel = 0; si.pressed = new Set(); si.wheel = 0; }
+        this.acc -= SIM_DT; simDt += SIM_DT; n++;
+      }
       if (n === maxSteps) this.acc = 0;
     }
     for (const h of this.hooks) h.frame && h.frame(dt, simDt, inp);
@@ -68916,8 +69187,7 @@ class BackroomsGame {
     this.lean = damp(this.lean || 0, -lateral * 0.02, 6, dt);
     // scoped sway: a slow figure-eight that holding breath (Shift) calms, at a stamina cost
     const scoped = a.gun.zoom > 2 ? a.adsAmount : 0;
-    this.holdingBreath = scoped > 0.9 && inp.sprint && p.stamina > 0.08;
-    if (this.holdingBreath) p.stamina = Math.max(0, p.stamina - dt * 0.22);
+    if (scoped < 0.9) this.holdingBreath = false; // set per step in step()
     const swayAmp = scoped * (this.holdingBreath ? 0.0006 : 0.0045 + 0.004 * clamp(1 - p.stamina, 0, 1)) * (p.crouch > 0.5 ? 0.6 : 1);
     this.swayT = (this.swayT || 0) + dt;
     this.sway.y = damp(this.sway.y, Math.sin(this.swayT * 0.9) * swayAmp, 6, dt);
@@ -68938,7 +69208,7 @@ class BackroomsGame {
     this.effects.update(simDt || dt * 0.2);
     // viewmodel
     const light = this.view.lightAt(cam.position.x, cam.position.y - 0.3, cam.position.z);
-    const near = this.level.segmentClear(p.pos.x, p.pos.z, p.pos.x + fwd.x * 0.75, p.pos.z + fwd.z * 0.75, eye.y - 0.25, 0, 0.3) ? 0 : 1;
+    const near = this.level.segmentClear(p.pos.x, p.pos.z, p.pos.x + fwd.x * 0.75, p.pos.z + fwd.z * 0.75, eye.y - 0.25, 0, eye.y - 0.25) ? 0 : 1;
     this.vm.update(dt, {
       ads: a.adsAmount, sprint: p.sprinting, speed: p.speed, onGround: p.onGround, crouch: p.crouch,
       look: inp.look, landed: p.landed, light: clamp(light * 0.9 + 0.05, 0, 1.5), lowered: this.holstering || a.state === 'holster' || a.state === 'throw',
@@ -69000,7 +69270,9 @@ class Session {
     // perks that act every step
     const wv = g.perks.waves || {};
     g.perks.damage = wv.damage || 1;
-    const sp = g.perks.speed * (wv.speed || 1);
+    // perks, boosts and the weight of the gun in hand (the shop's MOBILITY stat)
+    const gun = g.arsenal.gun;
+    const sp = g.perks.speed * (wv.speed || 1) * ((gun && gun.def.move) || 1);
     Lab.PLAYER.walk = PLAYER_BASE.walk * sp;
     Lab.PLAYER.sprint = PLAYER_BASE.sprint * sp;
     Lab.PLAYER.crouch = PLAYER_BASE.crouch * sp;
@@ -69055,8 +69327,10 @@ class Session {
         hud.toast(e.text);
         break;
       case 'gameOver':
+        // stop clicks during the death cam from grabbing the pointer again (startRun re-enables)
+        g.input.enabled = false;
         g.input.unlock();
-        setTimeout(() => g.screens.gameOver(), 2200);
+        setTimeout(() => { g.input.unlock(); g.screens.gameOver(); }, 2200);
         break;
     }
   }
@@ -69075,7 +69349,8 @@ class Session {
   frame(dt, simDt, inp) {
     const g = this.game;
     if (inp.pressed && inp.pressed.has && inp.pressed.has('KeyT')) this.toggleLight();
-    if (inp.pressed && inp.pressed.has('KeyB') && g.director.state === 'intermission' && !g.shopOpen) g.shop.open();
+    // (the shop's own key handler closes it on B; ignore that same press here)
+    if (inp.pressed && inp.pressed.has('KeyB') && g.director.state === 'intermission' && !g.shopOpen && performance.now() - (g.shop.closedAt || 0) > 250) g.shop.open();
     g.shop.frame();
     void dt; void simDt;
   }
@@ -69099,6 +69374,9 @@ class Session {
 
   melee() {
     const g = this.game, P = g.player;
+    if (!P.alive || g.state !== 'play') return true;
+    if (g.time - (this.meleeT ?? -9) < 0.65) return true;
+    this.meleeT = g.time;
     const eye = P.eye(new I()), f = P.forward(new I());
     let best = null, bd = 1.8;
     for (const ai of g.enemies.alive) {
@@ -69115,6 +69393,7 @@ class Session {
     g.sb.shove(chest, chest.pos.clone(), dir, 0.1);
     best.tough -= best.def.boss ? 8 : 22;
     best.lastHit = { by: 'player', seg: 'chest', time: g.time, weapon: 'kick' };
+    if (best.tough <= 0 && best.p.injury.alive) best.p.injury.kill('blunt trauma');
     if (best.suppressed !== undefined) best.suppressed = 2;
     g.audio.impact('flesh', 0.8, chest.pos);
     g.hud.hit('hit');
@@ -69123,8 +69402,10 @@ class Session {
 
   throwGrenade() {
     const g = this.game;
+    if (!g.player.alive || g.state !== 'play') return true;
     if (!g.arsenal.throwGrenade()) { if (g.arsenal.grenades <= 0) g.hud.toast('NO GRENADES'); return true; }
-    setTimeout(() => g.enemies.launchGrenade('player'), 260);
+    const sb = g.sb;
+    setTimeout(() => { if (g.player.alive && g.sb === sb && g.state === 'play') g.enemies.launchGrenade('player'); }, 260);
     g.vm.lower.kick(4);
     return true;
   }

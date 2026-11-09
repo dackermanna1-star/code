@@ -87,10 +87,13 @@ class CharacterRender {
   setGun(type, extras = {}) {
     const m = Lab.weaponModel(type).clone();
     m.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = false; } });
+    // per-instance meshes to free later: [mesh, its material is ours too]
+    const own = (this.owned = []);
     if (extras.drum) {
       const drum = new T3.Mesh(new T3.CylinderGeometry(0.08, 0.08, 0.07, 22).rotateZ(Math.PI / 2), new T3.MeshStandardMaterial({ color: 0x2a2620, roughness: 0.6, metalness: 0.5 }));
       drum.position.set(0, -0.08, -0.18);
       m.add(drum);
+      own.push([drum, true]);
     }
     const muzzle = new T3.Vector3(...(m.userData.muzzle || [0, 0.08, -0.5]));
     this.muzzleLocal = muzzle;
@@ -104,6 +107,7 @@ class CharacterRender {
       glare.renderOrder = 7;
       this.scene.add(glare);
       m.add(cone, lens);
+      own.push([cone, false], [lens, true], [glare, true]);
       this.beam = cone;
       this.lens = lens;
       this.glare = glare;
@@ -116,6 +120,7 @@ class CharacterRender {
       m.add(this.laser);
       this.laserDot = new T3.Mesh(new T3.SphereGeometry(0.018, 8, 6), new T3.MeshBasicMaterial({ color: 0xff3030, toneMapped: false, fog: false }));
       this.scene.add(this.laserDot);
+      own.push([this.laser, true], [this.laserDot, true]);
     }
     const flash = Lab.muzzleFlashMesh();
     flash.visible = false;
@@ -161,10 +166,15 @@ class CharacterRender {
 
   dropGun() {
     if (!this.gun) return null;
-    if (this.glare) { this.scene.remove(this.glare); this.glare = null; }
     const g = this.gun;
     this.gun = null;
+    const loose = (this.owned || []).filter(([o]) => o === this.glare || o === this.laserDot);
+    if (this.glare) { this.scene.remove(this.glare); this.glare = null; }
     if (this.laserDot) { this.scene.remove(this.laserDot); this.laserDot = null; }
+    disposeTree(null, loose);
+    // what stays on the dropped weapon is freed with the pickup
+    g.userData.owned = (this.owned || []).filter((x) => !loose.includes(x));
+    this.owned = [];
     if (this.beam) this.beam.visible = false;
     if (this.laser) this.laser.visible = false;
     return g;
@@ -252,6 +262,9 @@ class CharacterRender {
     for (const m of this.binder.meshes) m.material.dispose();
     if (this.gun) this.scene.remove(this.gun);
     if (this.laserDot) this.scene.remove(this.laserDot);
+    if (this.glare) this.scene.remove(this.glare);
+    disposeTree(null, this.owned || []);
+    this.owned = [];
   }
 }
 
@@ -384,10 +397,11 @@ class Gunman {
     const was = this.visible;
     this.visible = canSee;
     if (canSee) {
-      if (!this.knows || !was) this.mgr.spotted(this);
+      const fresh = !this.knows || !was;
       this.knows = true;
       this.lastSeen = new I(P.pos.x, 0, P.pos.z);
       this.lastSeenT = game.time;
+      if (fresh) this.mgr.spotted(this); // the callout carries where the player is now
     }
   }
 

@@ -285,7 +285,7 @@ class Screens {
       [d.wave, 'Wave reached'], [st.kills, 'Kills'], [st.headshots, 'Headshots'], [acc + '%', 'Accuracy'],
       [fmt(d.score), 'Score'], ['$' + fmt(st.cashEarned), 'Earned'], [Math.round(st.longest) + ' m', 'Longest kill'], [mins + ' min', 'Survived'],
     ].map(([v, k]) => `<div><b>${v}</b><span>${k}</span></div>`).join('');
-    this.s.over.querySelector('.best').textContent = d.score >= d.best && d.score > 0 ? 'NEW PERSONAL BEST' : `BEST ${fmt(d.best)}`;
+    this.s.over.querySelector('.best').textContent = d.newBest ? 'NEW PERSONAL BEST' : `BEST ${fmt(d.best)}`;
     this.open('over');
   }
 }

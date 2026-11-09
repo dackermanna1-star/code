@@ -74,6 +74,18 @@ const toP3 = (v, out = new I()) => out.set(v.x, v.y, v.z);
 const damp = (a, b, rate, dt) => b + (a - b) * Math.exp(-rate * dt);
 
 // a tiny critically damped spring (value, velocity) used for weapon motion
+// free GPU buffers: either the given per-instance [mesh, ownsMaterial] pairs, or a whole subtree
+function disposeTree(root, owned = null) {
+  if (owned) {
+    for (const [m, mat] of owned) { if (m.geometry) m.geometry.dispose(); if (mat && m.material) m.material.dispose(); }
+    return;
+  }
+  root.traverse((o) => {
+    if (o.geometry) o.geometry.dispose();
+    if (o.material) for (const m of Array.isArray(o.material) ? o.material : [o.material]) m.dispose();
+  });
+}
+
 class Spring {
   constructor(stiffness = 120, damping = 14) { this.k = stiffness; this.c = damping; this.x = 0; this.v = 0; }
   step(dt, target = 0) {

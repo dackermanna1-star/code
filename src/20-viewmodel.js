@@ -446,6 +446,7 @@ class Viewmodel {
     rig.attach.reddot.userData.sight = {
       rear: base.clone().addScaledVector(F.u, h * S).addScaledVector(F.f, -0.025 * S),
       front: base.clone().addScaledVector(F.u, h * S).addScaledVector(F.f, 0.025 * S),
+      dist: 0.13,
     };
     return rig.attach.reddot;
   }
@@ -465,7 +466,10 @@ class Viewmodel {
 
   // ---- switching -------------------------------------------------------------------------------
   async equip(weapon, instant = false) {
+    // only the latest request wins when rigs finish loading out of order
+    const tok = (this.equipTok = (this.equipTok || 0) + 1);
     const rig = await this.prepare(weapon.rig);
+    if (tok !== this.equipTok || !rig) return;
     if (this.cur && this.cur !== rig) this.scene.remove(this.cur.root);
     this.cur = rig;
     this.weapon = weapon;

@@ -330,7 +330,8 @@ class BackroomsLevel {
           for (const b of this.buckets[jj * n + ii]) {
             if (b._stamp === st) continue;
             b._stamp = st;
-            if (b.max.y < minHeight || b.min.y > y || b.max.y < y) continue;
+            // only boxes that reach into the vertical band [minHeight, y] block the segment
+            if (b.max.y < minHeight || b.min.y > y) continue;
             if (segAabb2(x0, z0, x1, z1, b.min.x - pad, b.min.z - pad, b.max.x + pad, b.max.z + pad)) return false;
           }
         }
@@ -368,7 +369,7 @@ class BackroomsLevel {
   free(x, z, r = 0.32) {
     if (!this.inside(x, z, r + this.wallT)) return false;
     for (const b of this.boxesNear(x, z, r + 0.05)) {
-      if (b.max.y < 0.2) continue;
+      if (b.max.y < 0.2 || b.min.y > 1.9) continue; // skirting-level clutter, lintels overhead
       const qx = clamp(x, b.min.x, b.max.x), qz = clamp(z, b.min.z, b.max.z);
       if (Math.hypot(x - qx, z - qz) < r) return false;
     }
@@ -410,22 +411,100 @@ class BackroomsLevel {
     cells.push(s);
     cells.reverse();
     const pts = [new I(from.x, 0, from.z)];
-    for (let k = 1; k < cells.length; k++) {
-      const a = cells[k - 1], b = cells[k];
-      const ax = this.cx(a % n), az = this.cx((a / n) | 0), bx = this.cx(b % n), bz = this.cx((b / n) | 0);
-      pts.push(new I((ax + bx) / 2, 0, (az + bz) / 2));
-    }
+    for (let k = 1; k < cells.length; k++) pts.push(this.crossing(cells[k - 1], cells[k], radius, pts[pts.length - 1]));
     pts.push(new I(to.x, 0, to.z));
-    // string pulling: skip waypoints while the straight line keeps clear of walls
+    // string pulling: skip waypoints while the straight line keeps clear of walls and props;
+    // where even the next leg is blocked (a prop in the way), go round it
+    const clear = (a, b) => this.segmentClear(a.x, a.z, b.x, b.z, 1.0, radius, 0.25);
     const out = [];
     let k = 0;
     while (k < pts.length - 1) {
-      let far = k + 1;
-      for (let m = pts.length - 1; m > k + 1; m--) {
-        if (this.segmentClear(pts[k].x, pts[k].z, pts[m].x, pts[m].z, 1.0, radius, 0.25)) { far = m; break; }
+      let far = -1;
+      for (let m = pts.length - 1; m > k; m--) if (clear(pts[k], pts[m])) { far = m; break; }
+      if (far < 0) {
+        far = k + 1;
+        out.push(...this.detour(pts[k], pts[far], radius));
       }
       out.push(pts[far]);
       k = far;
+    }
+    return out;
+  }
+
+  // where to cross the shared edge of neighbouring cells a and b: the free point on the opening
+  // nearest its middle that `prev` can reach in a straight line
+  crossing(a, b, r, prev) {
+    const n = this.n, ai = a % n, aj = (a / n) | 0, bi = b % n, bj = (b / n) | 0;
+    const mx = (this.cx(ai) + this.cx(bi)) / 2, mz = (this.cx(aj) + this.cx(bj)) / 2;
+    const alongX = ai === bi; // cells stacked in z: the shared edge runs along x
+    const val = alongX ? this.h[this.hIdx(ai, Math.max(aj, bj))] : this.v[this.vIdx(Math.max(ai, bi), aj)];
+    const open = (val === 2 ? Math.min(1.25, this.cell * 0.42) / 2 : this.cell / 2 - 0.3) - r - 0.05;
+    let first = null;
+    for (const f of [0, 0.45, -0.45, 0.9, -0.9]) {
+      const o = f * Math.max(0, open);
+      const x = mx + (alongX ? o : 0), z = mz + (alongX ? 0 : o);
+      if (!this.free(x, z, r)) continue;
+      if (!first) first = new I(x, 0, z);
+      if (this.segmentClear(prev.x, prev.z, x, z, 1.0, r, 0.25)) return new I(x, 0, z);
+    }
+    return first || new I(mx, 0, mz);
+  }
+
+  // intermediate points for stepping round props between a and b (both in or on one cell):
+  // one pivot that sees both ends if there is one, else a fine-grid search across the cell
+  detour(a, b, r) {
+    const c = this.cellOf((a.x + b.x) / 2, (a.z + b.z) / 2);
+    if (c < 0) return [];
+    const cx = this.cx(c % this.n), cz = this.cx((c / this.n) | 0), e = this.cell / 2 - this.wallT - r - 0.08;
+    const clear = (p, q, pad = r) => this.segmentClear(p.x, p.z, q.x, q.z, 1.0, pad, 0.25);
+    let best = null, bestL = Infinity;
+    for (const [fx, fz] of [[1, 1], [1, -1], [-1, 1], [-1, -1], [1, 0], [-1, 0], [0, 1], [0, -1], [0.5, 0.5], [0.5, -0.5], [-0.5, 0.5], [-0.5, -0.5]]) {
+      const p = new I(cx + fx * e, 0, cz + fz * e);
+      const L = Math.hypot(p.x - a.x, p.z - a.z) + Math.hypot(b.x - p.x, b.z - p.z);
+      if (L >= bestL || !this.free(p.x, p.z, r)) continue;
+      if (!clear(a, p) || !clear(p, b)) continue;
+      best = p; bestL = L;
+    }
+    if (best) return [best];
+    // breadth-first search on a 0.2 m grid over the cell, then pull the string tight
+    const h = 0.2, half = this.cell / 2 + 0.2, N = Math.ceil((2 * half) / h) + 1, x0 = cx - half, z0 = cz - half;
+    const rr = r * 0.9;
+    const at = (i, j) => new I(x0 + i * h, 0, z0 + j * h);
+    const snap = (p) => [clamp(Math.round((p.x - x0) / h), 0, N - 1), clamp(Math.round((p.z - z0) / h), 0, N - 1)];
+    const ok = new Uint8Array(N * N);
+    for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) ok[j * N + i] = this.free(x0 + i * h, z0 + j * h, rr) ? 1 : 0;
+    const [si, sj] = snap(a), [gi, gj] = snap(b), s = sj * N + si, g = gj * N + gi;
+    ok[s] = ok[g] = 1;
+    const prev = new Int32Array(N * N).fill(-1);
+    prev[s] = s;
+    const queue = [s];
+    for (let q = 0; q < queue.length && prev[g] < 0; q++) {
+      const cur = queue[q], i = cur % N, j = (cur / N) | 0;
+      for (let dj = -1; dj <= 1; dj++)
+        for (let di = -1; di <= 1; di++) {
+          const ni = i + di, nj = j + dj;
+          if ((!di && !dj) || ni < 0 || nj < 0 || ni >= N || nj >= N) continue;
+          const nc = nj * N + ni;
+          if (!ok[nc] || prev[nc] >= 0 || (di && dj && (!ok[j * N + ni] || !ok[nj * N + i]))) continue;
+          prev[nc] = cur;
+          queue.push(nc);
+        }
+    }
+    if (prev[g] < 0) return [];
+    const cells = [];
+    for (let k = g; k !== s; k = prev[k]) cells.push(k);
+    cells.reverse();
+    const grid = cells.map((k) => at(k % N, (k / N) | 0));
+    grid[grid.length - 1] = b;
+    const out = [];
+    let from = a, k = 0;
+    while (k < grid.length - 1) {
+      let far = k;
+      for (let m = grid.length - 1; m > k; m--) if (clear(from, grid[m], rr)) { far = m; break; }
+      if (far === grid.length - 1) break;
+      out.push(grid[far]);
+      from = grid[far];
+      k = far + 1;
     }
     return out;
   }

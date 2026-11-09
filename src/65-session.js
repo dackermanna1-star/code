@@ -25,7 +25,9 @@ class Session {
     // perks that act every step
     const wv = g.perks.waves || {};
     g.perks.damage = wv.damage || 1;
-    const sp = g.perks.speed * (wv.speed || 1);
+    // perks, boosts and the weight of the gun in hand (the shop's MOBILITY stat)
+    const gun = g.arsenal.gun;
+    const sp = g.perks.speed * (wv.speed || 1) * ((gun && gun.def.move) || 1);
     Lab.PLAYER.walk = PLAYER_BASE.walk * sp;
     Lab.PLAYER.sprint = PLAYER_BASE.sprint * sp;
     Lab.PLAYER.crouch = PLAYER_BASE.crouch * sp;
@@ -80,8 +82,10 @@ class Session {
         hud.toast(e.text);
         break;
       case 'gameOver':
+        // stop clicks during the death cam from grabbing the pointer again (startRun re-enables)
+        g.input.enabled = false;
         g.input.unlock();
-        setTimeout(() => g.screens.gameOver(), 2200);
+        setTimeout(() => { g.input.unlock(); g.screens.gameOver(); }, 2200);
         break;
     }
   }
@@ -100,7 +104,8 @@ class Session {
   frame(dt, simDt, inp) {
     const g = this.game;
     if (inp.pressed && inp.pressed.has && inp.pressed.has('KeyT')) this.toggleLight();
-    if (inp.pressed && inp.pressed.has('KeyB') && g.director.state === 'intermission' && !g.shopOpen) g.shop.open();
+    // (the shop's own key handler closes it on B; ignore that same press here)
+    if (inp.pressed && inp.pressed.has('KeyB') && g.director.state === 'intermission' && !g.shopOpen && performance.now() - (g.shop.closedAt || 0) > 250) g.shop.open();
     g.shop.frame();
     void dt; void simDt;
   }
@@ -124,6 +129,9 @@ class Session {
 
   melee() {
     const g = this.game, P = g.player;
+    if (!P.alive || g.state !== 'play') return true;
+    if (g.time - (this.meleeT ?? -9) < 0.65) return true;
+    this.meleeT = g.time;
     const eye = P.eye(new I()), f = P.forward(new I());
     let best = null, bd = 1.8;
     for (const ai of g.enemies.alive) {
@@ -140,6 +148,7 @@ class Session {
     g.sb.shove(chest, chest.pos.clone(), dir, 0.1);
     best.tough -= best.def.boss ? 8 : 22;
     best.lastHit = { by: 'player', seg: 'chest', time: g.time, weapon: 'kick' };
+    if (best.tough <= 0 && best.p.injury.alive) best.p.injury.kill('blunt trauma');
     if (best.suppressed !== undefined) best.suppressed = 2;
     g.audio.impact('flesh', 0.8, chest.pos);
     g.hud.hit('hit');
@@ -148,8 +157,10 @@ class Session {
 
   throwGrenade() {
     const g = this.game;
+    if (!g.player.alive || g.state !== 'play') return true;
     if (!g.arsenal.throwGrenade()) { if (g.arsenal.grenades <= 0) g.hud.toast('NO GRENADES'); return true; }
-    setTimeout(() => g.enemies.launchGrenade('player'), 260);
+    const sb = g.sb;
+    setTimeout(() => { if (g.player.alive && g.sb === sb && g.state === 'play') g.enemies.launchGrenade('player'); }, 260);
     g.vm.lower.kick(4);
     return true;
   }

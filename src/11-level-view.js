@@ -527,17 +527,30 @@ class LevelView {
         ranked.push([Math.hypot(f.x - px, f.z - pz), f, j * n + i]);
       }
     ranked.sort((a, b) => a[0] - b[0]);
-    for (let s = 0; s < this.spots.length; s++) {
-      const sp = this.spots[s];
-      const want = ranked[s] ? ranked[s][1] : null;
-      if (sp.fixture !== want) { sp.fixture = want; sp.w = 0; }
-      if (!want) { sp.light.intensity = 0; continue; }
-      sp.w = Math.min(1, sp.w + dt * 3); // fade the hand-off from shader light to spot light
-      const k = ranked[s][2];
-      d[k * 4 + 1] = sp.w;
-      sp.light.position.set(want.x, L.ceiling - 0.05, want.z);
-      sp.light.target.position.set(want.x, 0, want.z);
-      sp.light.intensity = 14 * L.theme.lightPow * want.level * sp.w;
+    // assign by identity: a spot keeps its fixture while that stays among the nearest, so
+    // crossing between two lights never resets both; a freed spot fades out before it moves
+    const top = ranked.slice(0, this.spots.length);
+    const held = new Set(this.spots.map((sp) => sp.fixture).filter(Boolean));
+    const free = top.filter((r) => !held.has(r[1]));
+    for (const sp of this.spots) {
+      const keep = sp.fixture && top.some((r) => r[1] === sp.fixture);
+      if (!keep && sp.fixture && sp.w > 0) {
+        sp.w = Math.max(0, sp.w - dt * 4); // hand the fixture back to the shader light first
+        if (sp.w <= 0) sp.fixture = null;
+      } else if (!keep) {
+        sp.fixture = null;
+        const next = free.shift();
+        if (next) { sp.fixture = next[1]; sp.k = next[2]; sp.w = 0; }
+      } else {
+        sp.w = Math.min(1, sp.w + dt * 3); // fade the hand-off from shader light to spot light
+      }
+      const f = sp.fixture;
+      if (!f) { sp.light.intensity = 0; continue; }
+      if (keep) sp.k = top.find((r) => r[1] === f)[2];
+      d[sp.k * 4 + 1] = sp.w;
+      sp.light.position.set(f.x, L.ceiling - 0.05, f.z);
+      sp.light.target.position.set(f.x, 0, f.z);
+      sp.light.intensity = 14 * L.theme.lightPow * f.level * sp.w;
     }
     this.fixTex.needsUpdate = true;
     // dust drifts around the camera
@@ -560,7 +573,12 @@ class LevelView {
     });
     this.fixTex.dispose();
     this.reachTex.dispose();
+    this.wallTex.dispose();
     this.decals.target.dispose();
+    this.decals.geo.dispose();
+    this.decals.material.dispose();
+    this.wallDecals.mesh.dispose(); // instance buffer
+    for (const sp of this.spots) sp.light.dispose(); // shadow maps
   }
 }
 
