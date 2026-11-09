@@ -523,6 +523,11 @@ class LevelView {
       this.dressing = new WarehouseDressing(this);
       return;
     }
+    if (L.theme.layout === 'poolrooms') {
+      // Level 37 tiles its own walls, floor and ceiling, and builds pools, arches and skylights
+      this.dressing = new PoolDressing(this); // 13-poolrooms.js
+      return;
+    }
     const mats = {
       metal: patchLattice(new T3.MeshStandardMaterial({ color: 0x6b6e66, roughness: 0.5, metalness: 0.6 }), this.shared, { key: 'prop' }),
       wood: patchLattice(new T3.MeshStandardMaterial({ color: 0x7a5a3a, roughness: 0.8 }), this.shared, { key: 'prop' }),

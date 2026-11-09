@@ -12,9 +12,12 @@ Object.assign(Lab.penetration, {
   // loaded pallet racking and wrapped loads: a metre of stock stops pistol and SMG rounds, rifle
   // rounds come through spent, marksman rounds still carry
   goods: { cost: 2.4, solid: 0.3 },
+  // Level 37: ceramic tile over block (walls, kerbs, tiled furniture), moulded plastic loungers
+  tile: { cost: 9, solid: 1 },
+  plastic: { cost: 1.2, solid: 0.1 },
 });
-const IMPACT_SOUND = { drywall: 'wood', cardboard: 'wood', wood: 'wood', goods: 'wood', metal: 'metal', concrete: 'ground', ceiling: 'ground', default: 'ground' };
-const IMPACT_DUST = { drywall: 0xd8cfae, cardboard: 0x9a7b52, wood: 0x8a6b45, goods: 0x9a7b52, concrete: 0xa8a8a0, ceiling: 0xc9c4b0, metal: null };
+const IMPACT_SOUND = { drywall: 'wood', cardboard: 'wood', wood: 'wood', goods: 'wood', metal: 'metal', concrete: 'ground', ceiling: 'ground', tile: 'ground', plastic: 'wood', default: 'ground' };
+const IMPACT_DUST = { drywall: 0xd8cfae, cardboard: 0x9a7b52, wood: 0x8a6b45, goods: 0x9a7b52, concrete: 0xa8a8a0, ceiling: 0xc9c4b0, tile: 0xece6d8, plastic: 0xeeeae2, metal: null };
 
 class BackroomsGame {
   constructor(app) {
@@ -72,6 +75,7 @@ class BackroomsGame {
     const level = (this.level = new BackroomsLevel(depth, seed));
     const view = (this.view = new LevelView(level, this.renderer, { quality: this.settings.quality }));
     const sb = (this.sb = new Lab.Sandbox({ shape: anatomy(), groundHalfSize: level.half + 1 }));
+    view.sb = sb; // (Level 37's water ripples round the people wading in it)
     sb.world.setGroundRect(-level.half, -level.half, level.half, level.half);
     sb.world.groundMaterial = 'carpet';
     sb.settings.reactions = 'rdr';
@@ -258,7 +262,11 @@ class BackroomsGame {
 
   onPlayerEvent(e) {
     const au = this.audio;
-    if (e.type === 'footstep') au.footstep(clamp(e.speed / 5, 0.3, 1) * (1 - 0.5 * e.crouch), null);
+    if (e.type === 'footstep') {
+      au.footstep(clamp(e.speed / 5, 0.3, 1) * (1 - 0.5 * e.crouch), null);
+      const p = this.player; // wading (Level 37)
+      if (this.sfx && this.level.wetAt(p.pos.x, p.pos.z)) this.sfx.splash(null, clamp(e.speed / 5, 0.3, 1) * (1 - 0.4 * e.crouch));
+    }
     else if (e.type === 'land') { au.footstep(1, null); this.shake = Math.max(this.shake, Math.min(0.5, e.speed * 0.05)); }
     else if (e.type === 'hurt') {
       au.playerHurt(clamp(e.amount / 30, 0.2, 1));
@@ -305,10 +313,13 @@ class BackroomsGame {
         break;
       }
       case 'groundHit': {
+        // shallow water (Level 37) throws up a splash instead of dust
+        const wet = this.level.wetAt(e.point.x, e.point.z);
         this.view.decals.splat(e.point.x, e.point.z, 0.012 + Math.random() * 0.006, 1, 0.95, 1, Math.random() * 6.28, Math.random());
-        const pt = new T3.Vector3(e.point.x, 0.005, e.point.z);
-        this.effects.puff(pt, new T3.Vector3(-e.dir.x * 0.3, 1, -e.dir.z * 0.3).normalize(), 0x7a6a4a, 14, 1.2, 0.6);
-        au.bulletImpact('ground', e.point, 0.8);
+        const pt = new T3.Vector3(e.point.x, wet ? 0.1 : 0.005, e.point.z);
+        this.effects.puff(pt, new T3.Vector3(-e.dir.x * 0.3, 1, -e.dir.z * 0.3).normalize(), wet ? 0xdff2f0 : this.level.theme.floorDust ?? 0x7a6a4a, wet ? 20 : 14, wet ? 2.2 : 1.2, 0.6);
+        if (wet && this.sfx) this.sfx.splash(e.point, 0.8);
+        au.bulletImpact('ground', e.point, wet ? 0.45 : 0.8);
         break;
       }
       case 'impact': this.impactSound(e); break;

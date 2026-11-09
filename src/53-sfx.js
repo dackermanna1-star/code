@@ -34,8 +34,51 @@ class Sfx {
     for (let i = 0; i < len; i++) { b = (b + 0.02 * (Math.random() * 2 - 1)) / 1.02; bd[i] = b * 3.5; }
     this.buildHum();
     this.buildRoom();
+    this.buildWater();
     this.buildMusic();
     this.ready = true;
+  }
+
+  // still water lapping at tile (levels whose theme has `water`): a slow wash of band-passed
+  // noise, its level wandering; drips are scheduled in frame()
+  buildWater() {
+    const ctx = this.ctx;
+    this.lap = ctx.createGain();
+    this.lap.gain.value = 0;
+    const bp = ctx.createBiquadFilter();
+    bp.type = 'bandpass'; bp.frequency.value = 520; bp.Q.value = 0.7;
+    this.loopSrc(this.brown, 1.6).connect(bp);
+    const am = ctx.createGain();
+    am.gain.value = 0.5;
+    const lfo = ctx.createOscillator(), lg = ctx.createGain();
+    lfo.frequency.value = 0.17; lg.gain.value = 0.35;
+    lfo.connect(lg); lg.connect(am.gain); lfo.start();
+    bp.connect(am); am.connect(this.lap); this.lap.connect(this.out);
+    if (this.au.verbIn) { const s = ctx.createGain(); s.gain.value = 0.6; this.lap.connect(s); s.connect(this.au.verbIn); }
+    this.dripT = 2;
+  }
+
+  // a drop falling into a pool somewhere in the room, or a footstep / round in the water
+  drip(pos, a = 1) {
+    const ctx = this.ctx, t = ctx.currentTime, dst = pos ? this.spatial(pos) : this.out;
+    const o = ctx.createOscillator(), g = ctx.createGain(), f = 900 + Math.random() * 900;
+    o.frequency.setValueAtTime(f, t); o.frequency.exponentialRampToValueAtTime(f * 2.4, t + 0.05);
+    o.connect(g); g.connect(dst);
+    if (this.au.verbIn) { const s = ctx.createGain(); s.gain.value = 0.8; g.connect(s); s.connect(this.au.verbIn); }
+    this.env(g, t, 0.002, 0.05 * a, 0.06);
+    o.start(t); o.stop(t + 0.1);
+  }
+
+  splash(pos, a = 1) {
+    if (!this.ready) return;
+    const ctx = this.ctx, t = ctx.currentTime, dst = pos ? this.spatial(pos) : this.out;
+    const s = ctx.createBufferSource(), g = ctx.createGain(), bp = ctx.createBiquadFilter();
+    s.buffer = this.noise; bp.type = 'bandpass'; bp.Q.value = 0.9;
+    bp.frequency.setValueAtTime(2600, t); bp.frequency.exponentialRampToValueAtTime(900, t + 0.18);
+    s.connect(bp); bp.connect(g); g.connect(dst);
+    this.env(g, t, 0.004, 0.22 * clamp(a, 0.1, 1), 0.16);
+    s.start(t, Math.random() * 2); s.stop(t + 0.25);
+    if (Math.random() < 0.6) this.drip(pos, 0.6 * a);
   }
 
   loopSrc(buf, rate = 1) {
@@ -281,8 +324,16 @@ class Sfx {
         if (f.state === 'flicker' || f.state === 'dying') flick = Math.max(flick, f.level < 0.5 ? 1 : 0.2);
       }
       const light = view.lightAt(P.pos.x, 2, P.pos.z);
-      this.hum.gain.setTargetAtTime(0.18 * clamp(light, 0, 1.2), t, 0.15);
+      this.hum.gain.setTargetAtTime(0.18 * clamp(light, 0, 1.2) * (L.theme.hum ?? 1), t, 0.15);
       this.crackle.gain.setTargetAtTime(flick * 0.05 * Math.random(), t, 0.01);
+      // water lapping and dripping somewhere near (themes with water)
+      const wa = L.theme.water || 0;
+      this.lap.gain.setTargetAtTime(0.06 * wa, t, 0.5);
+      if (wa && (this.dripT -= dt) <= 0) {
+        this.dripT = 0.4 + Math.random() * 2.6;
+        const a = Math.random() * TAU, r = 3 + Math.random() * 12;
+        this.drip(new I(P.pos.x + Math.cos(a) * r, 0.1, P.pos.z + Math.sin(a) * r), 0.5 + Math.random() * 0.5);
+      }
     }
     // music intensity from the fight
     const enemies = g.enemies ? g.enemies.alive : [];
@@ -316,7 +367,10 @@ class Sfx {
     const g = this.game, P = g.player;
     if (g.sb) for (const p of g.sb.people) for (const e of p.ctl.events) if (e.type === 'land') {
       const h = p.rd.pelvis.pos;
-      if (Math.hypot(h.x - P.pos.x, h.z - P.pos.z) < 16) this.au.footstep(p.enemy && p.enemy.def && p.enemy.def.boss ? 0.95 : 0.5, h);
+      if (Math.hypot(h.x - P.pos.x, h.z - P.pos.z) < 16) {
+        this.au.footstep(p.enemy && p.enemy.def && p.enemy.def.boss ? 0.95 : 0.5, h);
+        if (g.level && g.level.wetAt(h.x, h.z)) this.splash(h, 0.6); // wading (Level 37)
+      }
     }
   }
 }
