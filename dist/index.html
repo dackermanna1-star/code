@@ -69511,7 +69511,9 @@ class Director {
     this.queue = [];
     this.spec = null;
     this.wave = 0;
-    this.depth = 1;
+    // ?level=2 starts a run deeper down (1 lobby, 2 warehouse, 3 pipes, 4 office)
+    const start = typeof location !== "undefined" ? +new URLSearchParams(location.search).get("level") : 0;
+    this.depth = start >= 1 && start <= 40 ? Math.floor(start) : 1;
     this.cash = 400;
     this.score = 0;
     this.stats = this.freshStats();
