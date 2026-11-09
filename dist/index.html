@@ -71697,6 +71697,17 @@ class Dismemberment {
     // the part has to be a live ragdoll before it can fly
     if (ai && ai.anim && ai.anim.active) ai.anim.wake('dismember');
     if (p.dormant) sb.setDormant(p, false, { mode: 'balance' });
+    // a charging hollow handed to the physical walker at full sprint would only fall: it keeps
+    // coming at the pace the ragdoll can hold
+    const keepOn = !!(ai && ai.hollow) && kind === 'limb' && DISMEMBER_CUTS[key] && DISMEMBER_CUTS[key].part === 'arm' && p.injury.alive;
+    if (keepOn) {
+      for (const b of p.rd.allBodies()) {
+        const h = Math.hypot(b.vel.x, b.vel.z);
+        if (h > 2) { b.vel.x *= 2 / h; b.vel.z *= 2 / h; }
+      }
+      p.ctl.startle = 0;
+      if (p.ctl.sens) { const cv = p.ctl.sens.comVel, h = Math.hypot(cv.x, cv.z); if (h > 2) { cv.x *= 2 / h; cv.z *= 2 / h; } }
+    }
     const dir = o.dir ? new I(o.dir.x, o.dir.y, o.dir.z).normalize() : new I(0, 0.3, 1).normalize();
     const rec = { key, kind, def, seg, dir, by: o.by, t: g.time, energy: o.energy || 1000, blast: !!o.blast };
     if (kind === 'skull') {
@@ -71761,9 +71772,9 @@ class Dismemberment {
         const kick = new I(dir.x * sp, dir.y * sp + 0.8 + Math.random() * 1.2, dir.z * sp);
         const spin = new I((Math.random() - 0.5) * 14, (Math.random() - 0.5) * 14, (Math.random() - 0.5) * 14);
         for (const b of rec.bodies) { b.vel.add(kick); b.angVel.add(spin); b.wake(); }
-        // the stump side jerks back the other way
-        const pb = rec.parentBody;
-        pb.applyImpulse(new I(dir.x * 6, 1, dir.z * 6), pb.localToWorld(rec.anchorP, new I()));
+        // the stump side is shoved along with the blast (a hollow that keeps coming, barely)
+        const pb = rec.parentBody, sh = keepOn ? 1.2 : 6;
+        pb.applyImpulse(new I(dir.x * sh, 1, dir.z * sh), pb.localToWorld(rec.anchorP, new I()));
       }
     }
     // the wound: an arterial bleed at the stump (a destroyed head too: the pool spreads from the neck)
@@ -71844,6 +71855,21 @@ class Dismemberment {
         radius: 0.035, severity: 1, pain: 2.4, cause: 'traumatic amputation', energy: rec.energy,
         bleeds: [inj.makeBleed(q, 'artery', { art: 0.85, ext: 1, label: 'traumatic amputation' })],
       });
+      // torn skin round the rim soaks the skin and clothes about the stump (drawn, not bled from)
+      const n = rec.dirP, u = new I(n.y, -n.x, 0);
+      if (u.lengthSq() < 1e-4) u.set(0, n.z, -n.y);
+      u.normalize();
+      const v = new I().crossVectors(n, u);
+      const rr = rec.def.part === 'leg' && rec.key.startsWith('thigh') ? 0.07 : rec.key === 'head' ? 0.05 : 0.045;
+      for (let k = 0; k < 3; k++) {
+        const a = (k / 3) * TAU + Math.random() * 1.2;
+        const rad = new I().addScaled(u, Math.cos(a)).addScaled(v, Math.sin(a));
+        inj.addWound({
+          body: rec.parentBody, seg, kind: 'laceration',
+          local: rec.anchorP.clone().addScaled(rad, rr).addScaled(n, -0.02), normal: rad.clone(), dir: rad.clone(),
+          radius: 0.02, severity: 0.6, pain: 0, cause: 'traumatic amputation', energy: 0, bleeds: [],
+        });
+      }
     } catch (err) { console.warn('[dismember] wound', err); }
   }
 
@@ -71885,6 +71911,18 @@ class Dismemberment {
       const o = this.oneArmed[i], br = o.p.zombie;
       if (!br || o.p.frozen || !o.p.injury.alive) { this.oneArmed.splice(i, 1); continue; }
       if (br.side === o.lost) br.side = o.lost === 'L' ? 'R' : 'L';
+      // the physical walker's rake is clumsier than the animated one: a swipe in its strike window
+      // that passes close to the player connects
+      const atk = br.attack, tg = br.target;
+      if (!atk || atk.hit || !tg || !tg.player || o.p.ctl.mode !== 'balance' || o.p.dormant) continue;
+      const wu = br.def.windup, st = br.def.strike;
+      if (atk.t < wu * 0.7 || atk.t > wu + st + 0.06) continue;
+      const h = o.p.rd.segments['hand' + atk.side].body.pos, P = tg.player.pos;
+      const yy = clamp(h.y, P.y + 0.45, P.y + tg.height);
+      if (Math.hypot(h.x - P.x, h.y - yy, h.z - P.z) < tg.radius + 0.38) {
+        atk.hit = true;
+        g.sb.hitPlayer(br.def.damage * (0.85 + 0.3 * Math.random()), toP3(h, new I()), 'claw', o.p);
+      }
     }
   }
 
@@ -71926,20 +71964,28 @@ class Dismemberment {
         continue;
       }
       if (cr.t > 0 || dist < 0.8) continue;
-      cr.t = 0.55 + Math.random() * 0.35;
-      // reach out with one arm, then haul the body after it
-      cr.side = cr.side === 'L' ? 'R' : 'L';
-      const side = has(cr.side) ? cr.side : has(cr.side === 'L' ? 'R' : 'L') ? (cr.side === 'L' ? 'R' : 'L') : null;
-      if (side) {
-        const h = S['hand' + side].body, fa = S['forearm' + side].body;
-        h.applyImpulse(new I(ux * 2.6, 1.1, uz * 2.6), h.pos);
-        fa.applyImpulse(new I(ux * 1.5, 0.5, uz * 1.5), fa.pos);
+      // reach out with one arm, then (a beat later) haul the body after it: the torso heaves up off
+      // the carpet and lurches forward a hand's length
+      if (!cr.haul) {
+        cr.t = 0.22;
+        cr.haul = true;
+        cr.side = cr.side === 'L' ? 'R' : 'L';
+        cr.arm = has(cr.side) ? cr.side : has(cr.side === 'L' ? 'R' : 'L') ? (cr.side === 'L' ? 'R' : 'L') : null;
+        if (cr.arm) {
+          const h = S['hand' + cr.arm].body, fa = S['forearm' + cr.arm].body;
+          h.applyImpulse(new I(ux * 2.8, 1.4, uz * 2.8), h.pos);
+          fa.applyImpulse(new I(ux * 1.6, 0.8, uz * 1.6), fa.pos);
+        }
+        continue;
       }
-      const pull = side ? 1 : 0.55;
-      ch.applyImpulse(new I(ux * 13 * pull, 3.5, uz * 13 * pull), ch.pos);
-      S.abdomen.body.applyImpulse(new I(ux * 7 * pull, 1.5, uz * 7 * pull), S.abdomen.body.pos);
-      S.pelvis.body.applyImpulse(new I(ux * 5 * pull, 0.5, uz * 5 * pull), S.pelvis.body.pos);
-      S.head.body.applyImpulse(new I(ux * 0.8, 1.2, uz * 0.8), head);
+      cr.haul = false;
+      cr.t = 0.36 + Math.random() * 0.26;
+      const pull = cr.arm ? 1 : 0.6;
+      ch.applyImpulse(new I(ux * 40 * pull, 12, uz * 40 * pull), ch.pos);
+      S.abdomen.body.applyImpulse(new I(ux * 21 * pull, 5, uz * 21 * pull), S.abdomen.body.pos);
+      S.pelvis.body.applyImpulse(new I(ux * 19 * pull, 4, uz * 19 * pull), S.pelvis.body.pos);
+      S.head.body.applyImpulse(new I(ux * 1.5, 2, uz * 1.5), head);
+      if (cr.arm) { const h = S['hand' + cr.arm].body; h.applyImpulse(new I(-ux * 1.5, -1, -uz * 1.5), h.pos); } // the hand pulls back against the floor
     }
   }
 
@@ -72055,7 +72101,7 @@ class Dismemberment {
     }
     const G = this.gibs;
     if (G.mesh) { G.mesh.removeFromParent(); G.mesh.material.dispose(); G.mesh.dispose(); }
-    const mat = patchLattice(new T3.MeshStandardMaterial({ color: 0xffffff, roughness: 0.38, metalness: 0 }), g.view.shared, { key: 'gib', color: GIB_COLOR });
+    const mat = patchLattice(new T3.MeshStandardMaterial({ color: 0xffffff, roughness: 0.5, metalness: 0 }), g.view.shared, { key: 'gib', color: GIB_COLOR });
     G.mesh = new T3.InstancedMesh(G.geo, mat, DISMEMBER.maxGibs);
     G.mesh.instanceMatrix.setUsage(T3.DynamicDrawUsage);
     G.mesh.frustumCulled = false;
@@ -72082,7 +72128,7 @@ class Dismemberment {
     gb.s.set(r * (0.8 + Math.random() * 0.6), r * (0.55 + Math.random() * 0.45), r * (kind === 'bone' ? 1.8 + Math.random() * 1.2 : 0.8 + Math.random() * 0.7));
     gb.kind = kind;
     const c = G.col;
-    if (kind === 'bone') c.setRGB(0.42, 0.33, 0.25);
+    if (kind === 'bone') c.setRGB(0.34, 0.26, 0.19);
     else if (kind === 'brain') c.setRGB(0.5, 0.3, 0.28);
     else c.setRGB(0.2 + Math.random() * 0.14, 0.015, 0.012);
     G.mesh.setColorAt(i, c);
@@ -72346,8 +72392,8 @@ class Dismemberment {
   }
 
   setProxy(R, x, name, anchorName) {
+    if (!R.bones.has(anchorName)) anchorName = R.bones.has('Bip01_Pelvis') ? 'Bip01_Pelvis' : R.bones.keys().next().value;
     const anchor = R.bones.get(anchorName);
-    if (!anchor) return;
     x.anchor = anchor;
     // skin(bone) == skin(anchor): proxy world = anchorWorld * inv(anchor) * inverse(inv(bone))
     x.K.copy(R.inv.get(name)).invert().premultiply(R.inv.get(anchorName));
