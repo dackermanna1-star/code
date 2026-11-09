@@ -15,8 +15,10 @@ Object.assign(Lab.penetration, {
   // Level 37: ceramic tile over block (walls, kerbs, tiled furniture), moulded plastic loungers
   tile: { cost: 9, solid: 1 },
   plastic: { cost: 1.2, solid: 0.1 },
+  // upholstery, mattresses and linen (the hotel): rounds go straight through, a little slowed
+  fabric: { cost: 0.8, solid: 0.06 },
 });
-const IMPACT_SOUND = { drywall: 'wood', cardboard: 'wood', wood: 'wood', goods: 'wood', metal: 'metal', concrete: 'ground', ceiling: 'ground', tile: 'ground', plastic: 'wood', default: 'ground' };
+const IMPACT_SOUND = { drywall: 'wood', cardboard: 'wood', wood: 'wood', goods: 'wood', metal: 'metal', concrete: 'ground', ceiling: 'ground', tile: 'ground', plastic: 'wood', fabric: 'ground', default: 'ground' };
 // what a round does to each material (see GoreFX.surface): dust colour, plume puffs and lingering
 // haze, debris chips (colour, size, splinters), sparks, the hole decal and its size, the angle below
 // which (cosine) a round glances off with sparks and a whine, whether exit holes are looked for,
@@ -33,6 +35,8 @@ const IMPACT_FX = {
   // Level 37: glazed ceramic tile over block (bright chips, a hard crack), moulded plastic loungers
   tile: { dust: 0xece6d8, puffs: 8, haze: 2, chips: 11, chip: 0xf3efe6, chipSize: 0.005, hole: 'concrete', size: 0.07, sparks: 1, rico: 0.3, pass: true, debris: 'concrete' },
   plastic: { dust: 0xeeeae2, puffs: 4, haze: 1, chips: 5, chip: 0xeeeae2, chipSize: 0.004, hole: 'small', size: 0.045, sparks: 0, rico: 0.05, pass: false, debris: null },
+  // the hotel's upholstery and linen: a puff of fluff, no hole to speak of
+  fabric: { dust: 0xb89a88, puffs: 5, haze: 2, chips: 4, chip: 0xc8b0a0, chipSize: 0.004, hole: 'small', size: 0.045, sparks: 0, rico: 0, pass: false, debris: null },
   default: { dust: 0xa8a59c, puffs: 8, haze: 2, chips: 9, chip: 0x8e8b84, chipSize: 0.005, hole: 'concrete', size: 0.065, sparks: 2, rico: 0.25, pass: true, debris: 'concrete' },
 };
 const _gNeg = new I();
@@ -388,7 +392,7 @@ class BackroomsGame {
     const A = clamp((n.speed - 0.7) / 7, 0, 1) * clamp(0.3 + n.impulse / 6, 0, 1);
     if (A < 0.02) return;
     const au = this.audio;
-    const mat = (m) => (m === 'flesh' || m === 'shoe' ? 'flesh' : m === 'drywall' || m === 'cardboard' || m === 'goods' ? 'wood' : m === 'carpet' || m === 'concrete' ? 'ground' : m);
+    const mat = (m) => (m === 'flesh' || m === 'shoe' ? 'flesh' : m === 'drywall' || m === 'cardboard' || m === 'goods' ? 'wood' : m === 'carpet' || m === 'concrete' || m === 'fabric' ? 'ground' : m);
     if (n.ragdollA || n.ragdollB) {
       const body = n.ragdollA ? n.bodyA : n.bodyB;
       const seg = body.userData.segment ? body.userData.segment.name : '';

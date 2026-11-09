@@ -5,7 +5,7 @@ engine (balance, stepping, stagger, falls, get-up, wound physiology, ballistic p
 
 **Play:** open `dist/index.html` in Chrome / Edge / Firefox (works from the file system or any static
 server, e.g. `npm run serve` then http://localhost:8080). Click *Enter the Backrooms*. Add `?level=2` to the URL to start in Level 1, the warehouse
-(1 lobby, 2 warehouse, 3 pipes, 4 office, 5 the Poolrooms); otherwise you descend every three waves.
+(1 lobby, 2 warehouse, 3 pipes, 4 office, 5 the Poolrooms, 6 the hotel); otherwise you descend every three waves.
 
 See `CREDITS.md` for asset attributions.
 

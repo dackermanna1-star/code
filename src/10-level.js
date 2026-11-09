@@ -69,6 +69,22 @@ const LEVEL_THEMES = [
     lamp: { y: 4.9, fall: 0.16, win: 11, bounce: 0.1, up: 0.2, beam: 0, spot: 24, spotDist: 12, bias: -0.0008, normalBias: 0.04 },
     hum: 0.12, water: 1,
   },
+  {
+    // a grand hotel that never ends (src/14-hotel.js): double-loaded corridors of numbered guest
+    // rooms, an elevator lobby, a ballroom and a lounge; brass lamps and sconces over maroon carpet
+    id: 'hotel', code: 'LEVEL 5', title: 'THE HOTEL',
+    blurb: 'Brass, burgundy and a carpet that never ends. Every door is numbered. None of the rooms are vacant.',
+    layout: 'hotel',
+    cell: 3.0, cells: 22, ceiling: 3.1, wallT: 0.16,
+    door: 1.15, lintel: 2.25, wallMat: 'drywall', pillarR: 0.25, pillarMat: 'concrete',
+    braid: 0, doorways: 0, rooms: 0, roomMin: 2, roomMax: 4, pillars: 0, props: 0.14,
+    outage: 0.06, flicker: 0.07, darkZones: 1,
+    wall: [0.30, 0.055, 0.06], wallAlt: [0.50, 0.15, 0.10], carpet: [0.40, 0.075, 0.07], ceilingCol: [0.80, 0.70, 0.55],
+    lightCol: [1.0, 0.70, 0.42], lightPow: 1.25, ambient: 0.2, fog: [0.10, 0.045, 0.03], fogDensity: 0.042,
+    trim: [0.24, 0.12, 0.06], style: 6,
+    // bowl lamps under the ceiling: soft pools along the corridors, the spots a little stronger
+    lamp: { y: 2.78, fall: 0.42, win: 8.5, bounce: 0.12, up: 0.3, beam: 1.4, spot: 17, spotDist: 9.5, bias: -0.0008, normalBias: 0.03 },
+  },
 ];
 
 // prop catalogue: footprint (w, d), height, collider material, penetration-friendly or not
@@ -135,8 +151,10 @@ class BackroomsLevel {
   hIdx(i, j) { return i * (this.n + 1) + j; } // i in 0..n-1, j in 0..n
 
   generate() {
+    const hotel = this.theme.layout === 'hotel'; // Level 5: generator, props and lamps in src/14-hotel.js
     if (this.theme.layout === 'warehouse') this.generateWarehouse();
     else if (this.theme.layout === 'poolrooms') this.generatePoolrooms(); // 13-poolrooms.js
+    else if (hotel) this.generateHotel();
     else this.generateMaze();
     // the centre cell is the arrival point: keep it open
     const n = this.n, mid = (n / 2) | 0;
@@ -150,8 +168,10 @@ class BackroomsLevel {
     this.buildBoxes();
     if (this.theme.layout === 'warehouse') this.placeWarehouseProps();
     else if (this.theme.layout === 'poolrooms') this.placePoolProps(); // water, kerbs, open arches, furniture
+    else if (hotel) this.placeHotelProps();
     else this.placeProps();
     this.placeFixtures();
+    if (hotel) this.hotelLights();
     this.buildSpatial();
   }
 
