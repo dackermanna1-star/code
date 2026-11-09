@@ -256,11 +256,11 @@ export class FX implements ISystem {
     const [g1, g2] = this.goreColors();
 
     this.blood = new Burst(scene, "blood", {
-      tex: Tex.dot(scene), capacity: Math.round(220 * q) + 30, blend: STD, gravity: -16, life: [0.5, 1.1], size: [0.08, 0.26],
-      power: [3, 9], color1: g1, color2: g2, colorDead: g2, spread: 0.9, angular: 2,
+      tex: Tex.dot(scene), capacity: Math.round(220 * q) + 30, blend: STD, gravity: -16, life: [0.6, 1.2], size: [0.16, 0.42],
+      power: [3, 10], color1: g1, color2: g2, colorDead: g2, spread: 0.9, angular: 2,
     });
     this.bloodMist = new Burst(scene, "bloodMist", {
-      tex: Tex.puff(scene), capacity: 30, blend: STD, gravity: -1, life: [0.35, 0.6], size: [0.6, 1.2], power: [0.5, 1.5],
+      tex: Tex.puff(scene), capacity: 30, blend: STD, gravity: -1, life: [0.35, 0.7], size: [0.9, 1.6], power: [0.5, 1.5],
       color1: new Color4(g1.r, g1.g, g1.b, 0.7), color2: new Color4(g2.r, g2.g, g2.b, 0.5), colorDead: new Color4(g2.r, g2.g, g2.b, 0), sizeGrow: 2,
     });
     this.gibColor = this.gore === "green" ? c4("#4d6b1f") : c4("#7a1222");
@@ -438,7 +438,7 @@ export class FX implements ISystem {
       this.dust.emit(pos, 6, this.tmp, 1, 0.3);
       return;
     }
-    this.blood.emit(pos, (30 + 50 * k) * this.q + 8, this.tmp, 0.8 + k * 0.6, 0.25);
+    this.blood.emit(pos, (40 + 60 * k) * this.q + 10, this.tmp, 0.8 + k * 0.6, 0.3);
     this.bloodMist.emit(pos, 3 + 3 * k, this.tmp, 0.6, 0.2);
     if (force > 10) this.gibs.emit(pos, 3 + 4 * k, this.tmp, 0.8 + k * 0.4);
     // Ground splats where the gore lands: under the hit + thrown ahead along the car's path.
@@ -588,7 +588,7 @@ export class FX implements ISystem {
     if (p) {
       const slow = Math.max(0, 1 - Time.scale);
       this.aberration = Math.max(0, this.aberration - dt * 2.5);
-      p.chromaticAberration.aberrationAmount = this.aberration * 40 + (v.boosting ? 12 : 0) + slow * 20;
+      p.chromaticAberration.aberrationAmount = this.aberration * 12 + (v.boosting ? 4 : 0) + slow * 6;
       p.imageProcessing.vignetteWeight = 1.6 + slow * 3;
       p.imageProcessing.colorCurvesEnabled = false;
       p.imageProcessing.contrast = 1.18 + slow * 0.25;

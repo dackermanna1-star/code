@@ -96,7 +96,6 @@ export class Run {
     const v = this.vehicle;
     this.level.update(dt, v.position);
     for (const s of this.systems) s.update(dt);
-    audio.update(dt);
 
     const st = this.stats;
     st.distance = Math.max(st.distance, v.position.z - this.level.spawn.position.z);

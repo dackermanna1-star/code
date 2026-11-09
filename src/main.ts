@@ -37,6 +37,17 @@ async function boot(): Promise<void> {
     game.save.data.selectedLevel = lvl;
     game.save.data.levelsUnlocked = Math.max(game.save.data.levelsUnlocked, lvl);
     if (params.has("cash")) game.save.data.cash = parseInt(params.get("cash")!, 10);
+    if (params.has("car")) {
+      const car = params.get("car") as never;
+      game.save.data.currentCar = car;
+      if (!game.save.data.ownedCars.includes(car)) game.save.data.ownedCars.push(car);
+    }
+    if (params.has("tier")) {
+      // Debug: set every upgrade slot of the current car to this tier.
+      const t = Math.max(0, Math.min(4, parseInt(params.get("tier")!, 10) || 0));
+      const l = game.save.loadout();
+      for (const k of Object.keys(l) as (keyof typeof l)[]) l[k] = t;
+    }
     await game.setState("run");
   } else {
     await game.setState("garage");

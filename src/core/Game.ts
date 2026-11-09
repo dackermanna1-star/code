@@ -113,6 +113,7 @@ export class Game {
     if (pe) pe.setTimeStep(Math.min(1 / 30, Math.max(1 / 600, Time.dt)));
 
     this.current?.update(Time.dt);
+    audio.update(Time.realDt);
     if (this.scene.activeCamera) this.scene.render();
   }
 }
