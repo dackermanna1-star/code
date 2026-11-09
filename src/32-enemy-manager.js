@@ -103,8 +103,14 @@ class EnemyManager {
     if (!def.hollow) render.setGun(ENEMY_GUNS[ai.gunId].model, { drum: ENEMY_GUNS[ai.gunId].drum, light: def.light, laser: ENEMY_GUNS[ai.gunId].laser });
     game.attachRender(person, render);
     // gunmen move on motion-capture animation until something knocks them about
-    if (!def.hollow && ANIM.lib && !game.settings.physicsEnemies) {
-      try { ai.anim = new AnimBody(ai, render, gltf, ANIM.lib); ai.anim.enter(0); } catch (e) { console.warn('[anim] enemy stays physical', e); ai.anim = null; }
+    if (!game.settings.physicsEnemies) {
+      const lib = def.hollow ? hollowAnimSet() : ANIM.lib;
+      if (lib) {
+        try {
+          ai.anim = def.hollow ? new AnimBody(ai, render, gltf, lib, { melee: person.zombie, maxRate: lib.key === 'limp' ? 2.1 : 1.6 }) : new AnimBody(ai, render, gltf, lib);
+          ai.anim.enter(0);
+        } catch (e) { console.warn('[anim] enemy stays physical', e); ai.anim = null; }
+      }
     }
     this.list.push(ai);
     // every new arrival has a rough idea where the fight is
@@ -448,7 +454,9 @@ class EnemyManager {
       if (ai.downed) continue;
       if (ai.hollow && !ai.combatEffective()) this.down(ai);
     }
-    // animated gunmen: the sandbox skips dormant people, so think and move them here
+    // hollows: shamble, then scream and charge on sight
+    for (const ai of this.list) if (ai.hollow && ai.anim && !ai.downed) ai.updateCharge(dt);
+    // animated enemies: the sandbox skips dormant people, so think and move them here
     for (const ai of this.list) {
       if (!ai.anim) continue;
       if (ai.anim.active && !ai.downed) ai.update(dt);

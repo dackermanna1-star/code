@@ -30,8 +30,9 @@ procedural additions.
 ## Enemy motion capture
 - "The 100STYLE Dataset" by Ian Mason, Franck Multon and Taku Komura - CC BY 4.0
   (https://creativecommons.org/licenses/by/4.0/), https://www.ianxmason.com/100style/
-  Style "Swat" (idle; walks and runs forward, backward and sideways), retargeted from BVH to the
-  Microsoft Rocketbox skeleton and cut into in-place loops (tools/retarget.mjs).
+  Style "Swat" (idle; walks and runs forward, backward and sideways) for gunmen; styles "Zombie",
+  "Drunk" and "LimpLeft" (shambles) with "Rushed" (the sprint) for the Hollowed. Retargeted from BVH
+  to the Microsoft Rocketbox skeleton and cut into in-place loops (tools/retarget.mjs).
 
 - Upper-body rifle aim, rifle reload and pistol reload from the Torque 3D "Soldier" player
   animations (Lurker / Ryder sets), Copyright (c) 2012-2016 GarageGames, LLC, MIT licence,

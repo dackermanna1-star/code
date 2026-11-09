@@ -778,10 +778,48 @@ function jitterDir(dir, sigma) {
 // melee "hollowed": the engine's zombie brain wrapped so the manager can treat it like the others
 class HollowWrap {
   constructor(mgr, person, type, scale) {
-    this.mgr = mgr; this.p = person; this.type = type; this.def = ENEMY_TYPES[type];
+    this.mgr = mgr; this.game = mgr.game; this.p = person; this.type = type; this.def = ENEMY_TYPES[type];
     this.toughMax = this.def.tough * scale.tough; this.tough = this.toughMax; this.downed = false; this.hollow = true;
+    this.scaleSpeed = scale.speed;
     this.aiming = false;
+    this.aimDir = new T3.Vector3(0, 0, 1);
+    this.knows = true;
     person.ctl.loco.maxSpeed *= scale.speed;
+  }
+  // while animated (dormant) the sandbox skips the engine brain: the manager runs it through here
+  update(dt) { const br = this.p.zombie; if (br && br.update) br.update(dt); }
+
+  // shamble until they see you, then scream and charge: fast, but slower than a sprinting player
+  // and quick to drop, so a steady hand can put them down
+  updateCharge(dt) {
+    const game = this.game, P = game.player, c = this.p.ctl;
+    if (this.downed || !P.alive) return;
+    if (this.chargeSpeed === undefined) {
+      const style = this.anim ? this.anim.lib.key : 'zombie';
+      const sp = Math.min(this.scaleSpeed || 1, 1.12) * (0.92 + Math.random() * 0.16);
+      this.chargeSpeed = (style === 'limp' ? 2.4 : 3.4) * sp;
+      const walk = this.anim && this.anim.lib.meta.walk_f ? this.anim.lib.meta.walk_f.speed : 0.6;
+      this.shambleSpeed = clamp(walk * 1.5, 0.6, 1.3);
+      this.seenT = -99;
+      this.lookT = Math.random() * 0.2;
+    }
+    this.lookT -= dt;
+    if (this.lookT <= 0) {
+      this.lookT = 0.18;
+      const h = this.headPos, eye = P.eye(new I());
+      const d = Math.hypot(eye.x - h.x, eye.z - h.z);
+      if (d < 18 && game.level.visible(h, eye)) {
+        if (!this.charging) {
+          this.charging = true;
+          game.audio.zombieSnarl('runner', h);
+          setTimeout(() => game.audio.zombieGroan('runner', this.headPos, 1), 180);
+        }
+        this.seenT = game.time;
+      } else if (this.charging && game.time - this.seenT > 3) this.charging = false;
+    }
+    // while the ragdoll has them (staggering) the physical walker gets a gentler pace
+    const sp = this.charging ? this.chargeSpeed : this.shambleSpeed;
+    c.loco.maxSpeed = this.anim && !this.anim.active ? Math.min(sp, 2.0) : sp;
   }
   get pos() { return this.p.rd.pelvis.pos; }
   get headPos() { return this.p.rd.segments.head.body.pos; }

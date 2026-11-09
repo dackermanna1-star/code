@@ -7,31 +7,47 @@
 // stumble, fall, get up. Once standing, conscious and undisturbed again, the pose blends back into
 // animation.
 
-const ANIM = { lib: null, loading: null };
+const ANIM = { lib: null, libs: {}, loading: null };
+// gunmen: 100STYLE "Swat" + Torque overlays; hollows: 100STYLE "Zombie", "Drunk", "LimpLeft"
+const ANIM_SETS = { armed: 'anims/armed', zombie: 'anims/hollow_zombie', drunk: 'anims/hollow_drunk', limp: 'anims/hollow_limpleft' };
 
-// clips (on the Rocketbox skeleton) and their metadata, from assets/anims/armed.glb
+// clips (on the Rocketbox skeleton) and their metadata, from assets/anims/*.glb
 function loadAnimLibrary() {
   if (ANIM.loading) return ANIM.loading;
-  ANIM.loading = Assets.gltf('anims/armed')
+  const one = (key, asset) => Assets.gltf(asset)
     .then((g) => {
-      if (!g || !g.animations || !g.animations.length) return null;
+      if (!g || !g.animations || !g.animations.length) return;
       const extras = (g.asset && g.asset.extras) || {};
-      const meta = extras.clips || {};
       const clips = new Map();
       for (const c of g.animations) clips.set(c.name.replace(/^.*\|/, ''), c);
-      ANIM.lib = { clips, meta, gltf: g };
-      return ANIM.lib;
+      ANIM.libs[key] = { key, clips, meta: extras.clips || {}, gltf: g };
     })
-    .catch((e) => { console.warn('[anim] library unavailable', e); return null; });
+    .catch((e) => console.warn('[anim] set unavailable', key, e));
+  ANIM.loading = Promise.all(Object.entries(ANIM_SETS).map(([k, a]) => one(k, a))).then(() => {
+    ANIM.lib = ANIM.libs.armed || null;
+    return ANIM.lib;
+  });
   return ANIM.loading;
+}
+
+// a shambling style for a hollow: mostly zombies, some drunk stumblers and limpers
+function hollowAnimSet() {
+  const r = Math.random();
+  const want = r < 0.6 ? 'zombie' : r < 0.8 ? 'drunk' : 'limp';
+  return ANIM.libs[want] || ANIM.libs.zombie || null;
 }
 
 const _m4 = new T3.Matrix4(), _m4b = new T3.Matrix4(), _v3 = new T3.Vector3(), _v3b = new T3.Vector3(), _q = new T3.Quaternion(), _q2 = new T3.Quaternion(), _s3 = new T3.Vector3();
 const LOCO_CLIPS = ['idle', 'walk_f', 'walk_b', 'walk_l', 'walk_r', 'run_f', 'run_b', 'run_l', 'run_r'];
 
 class AnimBody {
-  constructor(ai, render, gltf, lib) {
+  // opts.melee: the engine's zombie brain (hollows), whose attacks become claw swipes
+  // opts.maxRate: how much faster than captured a clip may play before speed is capped
+  constructor(ai, render, gltf, lib, opts = {}) {
     this.ai = ai;
+    this.melee = opts.melee || null;
+    this.maxRate = opts.maxRate || 1.45;
+    this.swipeW = 0;
     this.game = ai.game;
     this.p = ai.p;
     this.render = render;
@@ -188,7 +204,13 @@ class AnimBody {
     if (ai.aiming) want = Math.min(want, 1.6); // moving and shooting: walk, do not run
     // the clips set the top speed: a jog played much faster than captured looks comic
     const meta = this.lib.meta;
-    want = Math.min(want, ((meta.run_f && meta.run_f.speed) || (meta.walk_f && meta.walk_f.speed) || 1.4) * 1.45);
+    want = Math.min(want, ((meta.run_f && meta.run_f.speed) || (meta.walk_f && meta.walk_f.speed) || 1.4) * this.maxRate);
+    // a claw swipe lunges in
+    const atk = this.melee && this.melee.attack, tg = this.melee && this.melee.target;
+    if (atk && tg && atk.t < (this.melee.def.windup + this.melee.def.strike)) {
+      const lx = tg.pos.x - this.pos.x, lz = tg.pos.z - this.pos.z, ld = Math.hypot(lx, lz);
+      if (ld > 0.8) { dx = lx / ld; dz = lz / ld; want = Math.max(want, 1.4); } // only to close the gap
+    }
     // accelerate towards the wanted velocity
     const tvx = dx * want, tvz = dz * want;
     const k = 1 - Math.exp(-dt * (want > 0 ? 5 : 7));
@@ -213,6 +235,7 @@ class AnimBody {
     let face = this.heading;
     const tgt = c.lookTarget;
     if (ai.aiming) face = Math.atan2(ai.aimDir.x, ai.aimDir.z);
+    else if (atk && tg) face = Math.atan2(tg.pos.x - this.pos.x, tg.pos.z - this.pos.z);
     else if (speed > 0.3) face = Math.atan2(this.vel.x, this.vel.z);
     else if (ai.knows && tgt) face = Math.atan2(tgt.x - this.pos.x, tgt.z - this.pos.z);
     const err = wrapAngle(face - this.heading);
@@ -306,12 +329,78 @@ class AnimBody {
     // procedural: torso twist and pitch towards the aim, recoil
     this.kick = Math.max(0, this.kick - dt * 9);
     const n = this.spine.length || 1;
-    for (const b of this.spine) this.rotateWorld(b, 0, this.twist / n, -this.pitch * 0.6 / n - this.kick * 0.03);
-    if (this.neck) this.rotateWorld(this.neck, 0, 0, -this.pitch * 0.25);
-    if (this.head) this.rotateWorld(this.head, 0, 0, -this.pitch * 0.15 + this.kick * 0.02);
+    // hollows: hunch into a charge with the head held up at the prey, and twitch
+    let lean = 0, tY = 0, tR = 0;
+    if (this.melee) {
+      const sp = Math.hypot(this.vel.x, this.vel.z);
+      this.lean = (this.lean || 0) + (clamp((sp - 1.2) / 1.6, 0, 1) * 0.42 - (this.lean || 0)) * (1 - Math.exp(-dt * 4));
+      lean = this.lean;
+      this.twitchT = (this.twitchT ?? Math.random()) - dt;
+      if (this.twitchT <= 0) {
+        this.twitchT = 0.35 + Math.random() * 1.4;
+        this.twitch = { y: (Math.random() - 0.5) * 0.7, r: (Math.random() - 0.5) * 0.6, t: 0 };
+      }
+      if (this.twitch) {
+        this.twitch.t += dt;
+        const k = Math.exp(-this.twitch.t * 9) * Math.min(1, this.twitch.t * 40);
+        tY = this.twitch.y * k; tR = this.twitch.r * k;
+      }
+    }
+    for (const b of this.spine) this.rotateWorld(b, 0, this.twist / n, -this.pitch * 0.6 / n - this.kick * 0.03 + lean / n);
+    if (this.neck) this.rotateWorld(this.neck, tR * 0.4, tY * 0.5, -this.pitch * 0.25 - lean * 0.45);
+    if (this.head) this.rotateWorld(this.head, tR, tY, -this.pitch * 0.15 + this.kick * 0.02 - lean * 0.35);
     // pistol stance: both arms reach to a grip on the aim line in front of the chest
     this.ikW = (this.ikW || 0) + ((this.pistol && ai.aiming && !reloading ? 1 : 0) - (this.ikW || 0)) * (1 - Math.exp(-dt * 10));
     if (this.ikW > 0.01) this.solveArms(this.ikW);
+    if (this.melee) this.solveSwipe(dt);
+  }
+
+  // a hollow's attack, timed by its brain: the arm cocks back and up, rakes through the target and
+  // recovers; the brain's own hit test then reads the hand
+  solveSwipe(dt) {
+    const br = this.melee, atk = br.attack, tg = br.target;
+    if (!atk || !tg) { this.swipeW = Math.max(0, this.swipeW - dt * 4); if (this.swipeW <= 0) return; }
+    const B = this.bones, side = (atk && atk.side) || this.swipeSide || 'R';
+    this.swipeSide = side;
+    const u = B.get(`Bip01_${side}_UpperArm`), f = B.get(`Bip01_${side}_Forearm`), h = B.get(`Bip01_${side}_Hand`);
+    if (!u || !f || !h) return;
+    this.holder.updateMatrixWorld(true);
+    const S0 = new T3.Vector3().setFromMatrixPosition(u.matrixWorld);
+    const fwd = new T3.Vector3(Math.sin(this.heading), 0, Math.cos(this.heading));
+    const out = new T3.Vector3(-fwd.z, 0, fwd.x).multiplyScalar(side === 'R' ? 1 : -1); // away from the body
+    const arm = S0.distanceTo(new T3.Vector3().setFromMatrixPosition(f.matrixWorld)) + new T3.Vector3().setFromMatrixPosition(f.matrixWorld).distanceTo(new T3.Vector3().setFromMatrixPosition(h.matrixWorld));
+    const cocked = S0.clone().addScaledVector(out, arm * 0.45).addScaledVector(fwd, -arm * 0.15).add(new T3.Vector3(0, arm * 0.45, 0));
+    const aim = tg ? new T3.Vector3(tg.aim.x, tg.aim.y, tg.aim.z) : S0.clone().addScaledVector(fwd, arm);
+    const toT = aim.sub(S0);
+    const hit = S0.clone().addScaledVector(toT.normalize(), arm * 0.98).addScaledVector(out, -arm * 0.25);
+    let target = hit, w = this.swipeW;
+    if (atk) {
+      const wu = br.def.windup, st = br.def.strike, t = atk.t;
+      if (t < wu) { target = cocked; w = Math.min(1, t / wu * 1.4); }
+      else if (t < wu + st) { const k = (t - wu) / st; target = cocked.clone().lerp(hit, k * k * (3 - 2 * k)); w = 1; }
+      else { target = hit; w = clamp(1 - (t - wu - st) / 0.3, 0, 1); }
+      this.swipeW = w;
+    }
+    this.reach(u, f, h, target, side === 'R' ? 1 : -1, w, fwd, out);
+  }
+
+  // two-bone reach for one arm (elbow out and down)
+  reach(u, f, h, target, sideSign, w, fwd, right) {
+    const P = (b) => new T3.Vector3().setFromMatrixPosition(b.matrixWorld);
+    const a = P(u).distanceTo(P(f)), b = P(f).distanceTo(P(h));
+    const S0 = P(u), toT = target.clone().sub(S0);
+    const c = clamp(toT.length(), Math.abs(a - b) + 1e-3, a + b - 1e-3);
+    toT.normalize();
+    const hint = new T3.Vector3(0, -1, 0).addScaledVector(right, 0.8).addScaledVector(fwd, -0.2);
+    const pole = hint.addScaledVector(toT, -toT.dot(hint)).normalize();
+    const cosA = clamp((a * a + c * c - b * b) / (2 * a * c), -1, 1), sinA = Math.sqrt(1 - cosA * cosA);
+    const elbow = S0.clone().addScaledVector(toT, a * cosA).addScaledVector(pole, a * sinA);
+    const end = S0.clone().addScaledVector(toT, c);
+    this.aimBone(u, P(f).sub(S0).normalize(), elbow.sub(S0).normalize(), w);
+    u.updateMatrixWorld(true);
+    this.aimBone(f, P(h).sub(P(f)).normalize(), end.sub(P(f)).normalize(), w);
+    f.updateMatrixWorld(true);
+    void sideSign;
   }
 
   // two-bone IK for both arms towards a two-handed pistol grip
@@ -390,10 +479,10 @@ class AnimBody {
     const right = _v3.set(Math.cos(this.heading), 0, -Math.sin(this.heading));
     const delta = _q.setFromAxisAngle(_v3b.set(0, 1, 0), yaw);
     delta.multiply(new T3.Quaternion().setFromAxisAngle(right, pitch));
+    if (roll) delta.multiply(new T3.Quaternion().setFromAxisAngle(new T3.Vector3(Math.sin(this.heading), 0, Math.cos(this.heading)), roll));
     // local' = parentW^-1 * delta * parentW * local
     const inv = _q2.clone().invert();
     bone.quaternion.premultiply(inv.multiply(delta).multiply(_q2));
-    void roll;
   }
 
   placeRoot() {

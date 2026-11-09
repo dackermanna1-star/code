@@ -170,10 +170,11 @@ function pickLoop(S, a, b, unit, kind, want) {
   }
   const c = contacts(S, a, b, unit);
   let best = null;
-  for (let i = 0; i + 1 < c.length; i++) {
-    const s = c[i], e = c[i + 1];
+  // one gait cycle, or two when that closes the loop better (fast, uneven runs)
+  for (let span = 1; span <= 2; span++) for (let i = 0; i + span < c.length; i++) {
+    const s = c[i], e = c[i + span];
     const len = e - s;
-    if (len < 0.55 * SRC_FPS || len > 2.0 * SRC_FPS || s - 24 < a) continue;
+    if (len < 0.55 * SRC_FPS || len > 2.0 * span * SRC_FPS || s - 24 < a) continue;
     // travel relative to facing
     const h = facing(S, s);
     const d = V(S.hips, e).sub(V(S.hips, s));
@@ -189,7 +190,7 @@ function pickLoop(S, a, b, unit, kind, want) {
     if (!ok) continue;
     // prefer clean loops, straight lines and a natural pace over shuffles
     const pace = want === 'f' ? Math.max(0, 1.15 - fwd) : want === 'b' ? Math.max(0, 0.8 + fwd) : Math.max(0, 0.7 - Math.abs(left));
-    const cost = poseDist(S, s, e) + turn * 4 + pace * 0.8;
+    const cost = poseDist(S, s, e) + turn * 4 + pace * 0.8 + (span - 1) * 0.15;
     if (!best || cost < best.d) best = { s, e, d: cost, fwd, left };
   }
   return best;
@@ -282,12 +283,17 @@ function buildClip(take, S, A, loop, opts) {
 
 // ---- takes: a 100STYLE style (one file per motion, with frame cuts) or one long take ----------
 const single = styleRoot.endsWith('.bvh');
-let cut = () => null;
+let cut = () => null, cutOf = () => null;
 if (!single) {
   const cutsCsv = fs.readFileSync(path.join(styleRoot, 'Frame_Cuts.csv'), 'utf8').trim().split('\n');
   const head = cutsCsv[0].split(',');
   const row = cutsCsv.find((l) => l.startsWith(style + ',')).split(',');
   cut = (kind) => { const a = +row[head.indexOf(kind + '_START')], b = +row[head.indexOf(kind + '_STOP')]; return Number.isFinite(a) && Number.isFinite(b) ? [a, b] : null; };
+  cutOf = (st, kind) => {
+    const r = cutsCsv.find((l) => l.startsWith(st + ',')).split(',');
+    const a = +r[head.indexOf(kind + '_START')], b = +r[head.indexOf(kind + '_STOP')];
+    return Number.isFinite(a) && Number.isFinite(b) ? [a, b] : null;
+  };
 }
 
 const plan = [
@@ -305,9 +311,13 @@ const clips = [];
 const takes = new Map();
 for (const p of plan) {
   if (single && p.name.startsWith('run')) continue; // a one-take carry set has no run
-  const file = single ? styleRoot : path.join(styleRoot, style, `${style}_${p.take}.bvh`);
+  // RUN_STYLE: take the runs from another style (a hollow's shamble with a sprint); RUN_ONLY_F
+  // keeps just the forward run
+  const st = !single && p.name.startsWith('run') && process.env.RUN_STYLE ? process.env.RUN_STYLE : style;
+  if (process.env.RUN_ONLY_F && p.name.startsWith('run') && p.name !== 'run_f') continue;
+  const file = single ? styleRoot : path.join(styleRoot, st, `${st}_${p.take}.bvh`);
   if (!fs.existsSync(file)) { console.warn('missing', file); continue; }
-  const key = single ? 'one' : p.take;
+  const key = single ? 'one' : st + '/' + p.take;
   let tk = takes.get(key);
   if (!tk) {
     const take = loadTake(file);
@@ -319,9 +329,9 @@ for (const p of plan) {
     tk = { take, S, A: alignments(take), unit, legScale: tl / sl };
     takes.set(key, tk);
   }
-  const [a, b] = cut(p.take) || [0, tk.S.n];
+  const [a, b] = cutOf(st, p.take) || [0, tk.S.n];
   const loop = pickLoop(tk.S, Math.max(0, a), Math.min(b, tk.S.n - 1), tk.unit, p.kind, p.want);
-  if (!loop) { console.warn('no loop for', p.name); continue; }
+  if (!loop || loop.d > 3) { console.warn('no clean loop for', p.name, loop ? loop.d.toFixed(2) : ''); continue; }
   const c = buildClip(tk.take, tk.S, tk.A, loop, { name: p.name, unit: tk.unit, legScale: tk.legScale });
   clips.push(c);
   console.log(`${p.name}: frames ${loop.s}-${loop.e} (${c.dur.toFixed(2)} s) speed ${c.speed} m/s cost ${loop.d.toFixed(3)}`);
