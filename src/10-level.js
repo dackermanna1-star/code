@@ -74,11 +74,13 @@ const PROP_DEFS = {
   jack: { w: 0.56, d: 1.6, h: 0.3, material: 'metal', wall: false },      // pallet jack (handle is open)
   cone: { w: 0.36, d: 0.36, h: 0.5, material: 'cardboard', wall: false },
   bollard: { w: 0.24, d: 0.24, h: 1.1, material: 'metal', wall: false },
-  bench: { w: 1.8, d: 0.8, h: 0.92, material: 'wood', wall: true },       // packing bench
+  // packing bench, and the cartons left on it ([w, d, h, x, z, y0] boxes in prop space)
+  bench: { w: 1.8, d: 0.8, h: 0.92, material: 'wood', wall: true,
+    boxes: [[1.8, 0.8, 0.92, 0, 0, 0], [0.46, 0.38, 0.52, -0.5, -0.05, 0.92, 'cardboard']] },
   bin: { w: 0.62, d: 0.62, h: 1.0, material: 'metal', wall: true },       // wheelie bin
-  // forklift: solid body to seat height and the mast; the overhead guard is an open cage
-  forklift: { w: 1.16, d: 2.2, h: 2.25, material: 'metal', wall: false,
-    boxes: [[1.16, 1.95, 1.25, 0, -0.18, 0], [0.9, 0.3, 2.25, 0, 0.98, 0]] },
+  // forklift: solid body to seat height, the mast and the forks; the overhead guard is an open cage
+  forklift: { w: 1.16, d: 3.4, h: 2.25, material: 'metal', wall: false,
+    boxes: [[1.16, 1.95, 1.25, 0, -0.18, 0], [0.9, 0.3, 2.25, 0, 0.98, 0], [0.74, 1.08, 0.07, 0, 1.66, 0]] },
 };
 const THEME_PROPS = {
   lobby: ['cabinet', 'boxes', 'desk', 'sofa', 'partition', 'vending', 'crate'],
@@ -122,7 +124,10 @@ class BackroomsLevel {
     const n = this.n, mid = (n / 2) | 0;
     this.v[this.vIdx(mid, mid)] = this.v[this.vIdx(mid + 1, mid)] = 0;
     this.h[this.hIdx(mid, mid)] = this.h[this.hIdx(mid, mid + 1)] = 0;
-    if (this.theme.layout === 'warehouse') this.connectAll();
+    if (this.theme.layout === 'warehouse') {
+      this.connectAll();
+      this.placeWallRacks(); // after every opening in the walls is final
+    }
 
     this.buildBoxes();
     if (this.theme.layout === 'warehouse') this.placeWarehouseProps();
@@ -197,13 +202,13 @@ class BackroomsLevel {
     for (let i = 0; i < n; i++) Hz[this.hIdx(i, 0)] = Hz[this.hIdx(i, n)] = 1;
     this.rooms = [];
     this.pillarSpots = [];
-    this.wallRacks = [];
+    this.dividers = []; // every edge of the walls between halls: [alongZ, line, k]
     const halls = (this.halls = []);
     // a block wall along the shared border of two halls, with doorways and open bays in it
     const divide = (alongZ, line, from, to) => {
       const idx = (k) => (alongZ ? this.vIdx(line, k) : this.hIdx(k, line));
       const arr = alongZ ? V : Hz;
-      for (let k = from; k < to; k++) arr[idx(k)] = 1;
+      for (let k = from; k < to; k++) { arr[idx(k)] = 1; this.dividers.push([alongZ, line, k]); }
       const len = to - from, gaps = 2 + (len >= 10 ? 1 : 0);
       const used = [];
       for (let g = 0, tries = 0; g < gaps && tries < 40; tries++) {
@@ -266,22 +271,6 @@ class BackroomsLevel {
             if (!plaza(i - 1, j) && !plaza(i, j)) V[this.vIdx(i, j)] = 3;
           }
         }
-      // single-sided racking along the solid stretches of the long walls
-      for (const side of [0, 1]) {
-        const line = alongX ? (side ? hl.j0 + hl.d : hl.j0) : side ? hl.i0 + hl.w : hl.i0;
-        const row = side ? line - 1 : line; // the row of cells the rack stands in
-        let run = -1;
-        for (let a = 0; a <= len; a++) {
-          const i = alongX ? hl.i0 + a : row, j = alongX ? row : hl.j0 + a;
-          const solid = a < len && !cross.has(a) && !plaza(i, j) &&
-            (alongX ? Hz[this.hIdx(i, line)] === 1 : V[this.vIdx(line, j)] === 1);
-          if (solid && run < 0) run = a;
-          if (!solid && run >= 0) {
-            if (a - run >= 1) this.wallRacks.push({ alongX, line, side: side ? -1 : 1, from: (alongX ? hl.i0 : hl.j0) + run, to: (alongX ? hl.i0 : hl.j0) + a });
-            run = -1;
-          }
-        }
-      }
     }
     // steel columns on a two-cell grid across the open halls
     for (const hl of halls) {
@@ -292,6 +281,33 @@ class BackroomsLevel {
           if (V[this.vIdx(i, j - 1)] || V[this.vIdx(i, j)] || Hz[this.hIdx(i - 1, j)] || Hz[this.hIdx(i, j)]) continue;
           if (R() < this.theme.pillars) this.pillarSpots.push([i, j]);
         }
+    }
+  }
+
+  // single-sided racking along the solid stretches of the rack halls' long walls (run once the
+  // openings are final, so no rack ever stands across a doorway or bay)
+  placeWallRacks() {
+    const mid = (this.n / 2) | 0;
+    const plaza = (i, j) => Math.abs(i - mid) <= 1 && Math.abs(j - mid) <= 1;
+    this.wallRacks = [];
+    for (const hl of this.halls) {
+      if (hl.type !== 'racks') continue;
+      const alongX = hl.alongX, cross = hl.cross, len = alongX ? hl.w : hl.d;
+      for (const side of [0, 1]) {
+        const line = alongX ? (side ? hl.j0 + hl.d : hl.j0) : side ? hl.i0 + hl.w : hl.i0;
+        const row = side ? line - 1 : line; // the row of cells the rack stands in
+        let run = -1;
+        for (let a = 0; a <= len; a++) {
+          const i = alongX ? hl.i0 + a : row, j = alongX ? row : hl.j0 + a;
+          const solid = a < len && !cross.has(a) && !plaza(i, j) &&
+            (alongX ? this.h[this.hIdx(i, line)] === 1 : this.v[this.vIdx(line, j)] === 1);
+          if (solid && run < 0) run = a;
+          if (!solid && run >= 0) {
+            this.wallRacks.push({ alongX, line, side: side ? -1 : 1, from: (alongX ? hl.i0 : hl.j0) + run, to: (alongX ? hl.i0 : hl.j0) + a });
+            run = -1;
+          }
+        }
+      }
     }
   }
 
@@ -476,7 +492,8 @@ class BackroomsLevel {
 
   // ---- warehouse stock ---------------------------------------------------------------------
   // a prop made of the def's collider boxes (or one box of its footprint) turned by a quarter-
-  // turn yaw; refused when it would leave the building or overlap anything already placed
+  // turn yaw; refused when it would leave the building, stand in floor that is kept clear or
+  // overlap anything already placed
   addProp(kind, x, z, yaw, over = null, pad = 0.05) {
     const def = over ? { ...PROP_DEFS[kind], ...over } : PROP_DEFS[kind];
     const c = Math.cos(yaw), s = Math.sin(yaw), ac = Math.abs(c), as = Math.abs(s);
@@ -485,6 +502,7 @@ class BackroomsLevel {
     for (const [w, d, h, ox, oz, y0 = 0, mat] of def.boxes || [[def.w, def.d, def.h, 0, 0, 0]]) {
       const b = Lab.boxDef(x + ox * c + oz * s, y0 + h / 2, z - ox * s + oz * c, w * ac + d * as, h, w * as + d * ac, 'prop', mat || def.material);
       if (b.min.x < -lim || b.max.x > lim || b.min.z < -lim || b.max.z > lim) return null;
+      for (const [x0, z0, x1, z1] of this.keep || []) if (b.min.x < x1 && b.max.x > x0 && b.min.z < z1 && b.max.z > z0) return null;
       for (const o of this.boxes) {
         if (o.kind === 'ceiling') continue;
         if (b.min.x < o.max.x + pad && b.max.x > o.min.x - pad && b.min.z < o.max.z + pad && b.max.z > o.min.z - pad && b.min.y < o.max.y && b.max.y > o.min.y) return null;
@@ -498,8 +516,20 @@ class BackroomsLevel {
   }
 
   placeWarehouseProps() {
-    const n = this.n, mid = (n / 2) | 0;
+    const n = this.n, mid = (n / 2) | 0, C = this.cell;
     this.props = this.racks.map((r) => ({ kind: 'rack', x: (r.box.min.x + r.box.max.x) / 2, z: (r.box.min.z + r.box.max.z) / 2, yaw: 0, def: null, box: r.box, boxes: [r.box], rack: r }));
+    // floor kept clear of stock ([x0, z0, x1, z1]): the approach to each roller door and open
+    // bay between halls, so no doorway opens onto a wall of pallets
+    const keep = (this.keep = []);
+    const a = this.doorWidth() / 2 + 0.35, b = 2.2;
+    for (const d of this.doorways) keep.push(d.axis === 'x' ? [d.x - b, d.z - a, d.x + b, d.z + a] : [d.x - a, d.z - b, d.x + a, d.z + b]);
+    for (const [alongZ, line, k] of this.dividers) {
+      if ((alongZ ? this.v[this.vIdx(line, k)] : this.h[this.hIdx(k, line)]) !== 0) continue;
+      const p = -this.half + line * C, q0 = -this.half + k * C + 0.3, q1 = q0 + C - 0.6;
+      keep.push(alongZ ? [p - 1.6, q0, p + 1.6, q1] : [q0, p - 1.6, q1, p + 1.6]);
+    }
+    // the loading-dock doors first: they claim their stretch of outside wall and an apron
+    this.placeDockDoors();
     for (const hl of this.halls)
       for (let j = hl.j0; j < hl.j0 + hl.d; j++)
         for (let i = hl.i0; i < hl.i0 + hl.w; i++) {
@@ -509,7 +539,6 @@ class BackroomsLevel {
           else this.stockDock(i, j);
         }
     for (const hl of this.halls) if (hl.type !== 'racks') this.placeBreakCorner(hl);
-    this.placeDockDoors();
   }
 
   // somebody's corner against a wall: vending machines, a packing bench, a bin
@@ -639,6 +668,9 @@ class BackroomsLevel {
           const x = nx ? -nx * half + nx * (t / 2) : this.cx(i), z = nz ? -nz * half + nz * (t / 2) : this.cx(j);
           for (const s of [-1, 1]) this.addProp('bollard', x + nx * 0.4 + (nz ? s * 1.85 : 0), z + nz * 0.4 + (nx ? s * 1.85 : 0), 0);
           this.dockDoors.push({ x, z, nx, nz, num: this.dockDoors.length + 1 });
+          // an apron in front of the door stays clear (no vending machine parked across it)
+          const x2 = x + nx * 1.8, z2 = z + nz * 1.8;
+          if (this.keep) this.keep.push(nx ? [Math.min(x, x2), z - 2.05, Math.max(x, x2), z + 2.05] : [x - 2.05, Math.min(z, z2), x + 2.05, Math.max(z, z2)]);
         }
     }
   }
