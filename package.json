@@ -1,0 +1,24 @@
+{
+  "name": "brittle-bones",
+  "version": "1.0.0",
+  "description": "A physics-based ragdoll obstacle-course game: five unlucky riders, ten levels of poor decisions.",
+  "private": true,
+  "scripts": {
+    "dev": "node tools/serve.mjs 8080",
+    "build": "node tools/build.mjs",
+    "test:ui": "node tests/ui.cjs",
+    "test:play": "node tests/play.cjs --level 1 --char marco --auto --seconds 15 --shots 3",
+    "overview": "node tests/overview.cjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dackermanna1-star/code.git"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "planck": "^1.5.1"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2"
+  }
+}
