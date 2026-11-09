@@ -115,17 +115,22 @@ const STUMP_COLOR = /* glsl */ `
       // an opened skull: torn scalp at the rim, a thin jagged edge of bone (broken away in places,
       // its spongy middle showing red), then the brain: pink-grey folds with blood in the furrows
       // and clotted over much of it
+      // the bone edge follows only the slow raggedness of the rim (the fine grain crimped it)
+      float rs = r + 0.12 * (ang - 0.5);
       float held = smoothstep(0.3, 0.55, dmF(dirq * 2.6 + s * 4.0));
-      float skull = smoothstep(0.76, 0.785, rr) * (1.0 - smoothstep(0.85, 0.88, rr)) * held;
-      float diploe = smoothstep(0.8, 0.81, rr) * (1.0 - smoothstep(0.825, 0.835, rr));
-      vec3 bone = mix(vec3(0.66, 0.58, 0.47), vec3(0.48, 0.38, 0.29), n3);
+      float skull = smoothstep(0.75, 0.78, rs) * (1.0 - smoothstep(0.85, 0.88, rs)) * held;
+      float diploe = smoothstep(0.795, 0.805, rs) * (1.0 - smoothstep(0.825, 0.835, rs));
+      vec3 bone = mix(vec3(0.62, 0.54, 0.44), vec3(0.46, 0.36, 0.27), n2);
       bone = mix(bone, vec3(0.4, 0.07, 0.045), diploe * 0.75);
       bone = mix(bone, vec3(0.3, 0.025, 0.018), smoothstep(0.45, 0.75, n1) * 0.65);
-      float gyr = abs(dmN(q * 7.0 + s * 3.0) * 0.7 + dmN(q * 15.0 + s * 5.0) * 0.3 - 0.5) * 2.0;
-      vec3 brain = mix(vec3(0.42, 0.24, 0.23), vec3(0.55, 0.34, 0.32), n2) * (0.85 + 0.25 * n3);
-      brain = mix(brain, vec3(0.2, 0.012, 0.01), (1.0 - smoothstep(0.0, 0.16, gyr)) * 0.8);
-      brain = mix(brain, vec3(0.24, 0.015, 0.01), smoothstep(0.38, 0.68, n1) * 0.85);
-      col = mix(meat, brain, 1.0 - smoothstep(0.66, 0.76, rr));
+      // rounded folds, lighter on their crowns and shading down into the grooves, under blood
+      vec2 bq = q * 5.5 + s * 3.0;
+      float gyr = abs(dmN(bq) * 0.65 + dmN(bq * 2.1 + 4.3) * 0.35 - 0.5) * 2.0; // 0 in a groove
+      vec3 brain = mix(vec3(0.44, 0.27, 0.25), vec3(0.56, 0.37, 0.34), n2);
+      brain *= 0.55 + 0.5 * smoothstep(0.0, 0.55, gyr);
+      brain = mix(brain, vec3(0.16, 0.01, 0.008), (1.0 - smoothstep(0.0, 0.1, gyr)) * 0.7);
+      brain = mix(brain, vec3(0.22, 0.014, 0.01), smoothstep(0.35, 0.65, n1) * 0.85);
+      col = mix(meat, brain, 1.0 - smoothstep(0.64, 0.75, rs));
       col = mix(col, bone, skull);
       col = mix(col, vec3(0.07, 0.006, 0.004), smoothstep(0.9, 0.98, rr));
       rough = mix(0.12, 0.4, skull);
