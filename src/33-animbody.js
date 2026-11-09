@@ -127,8 +127,10 @@ class AnimBody {
   enter(fade = 0.35) {
     const p = this.p, sb = this.game.sb, c = p.ctl;
     if (this.mode === 'anim' || !c.alive || !c.conscious || c.mode !== 'balance') return false;
-    // a broken limb has extra fragment bodies the animation cannot pose: stay physical
+    // a broken limb has extra fragment bodies the animation cannot pose, and a severed one is not
+    // there to pose: stay physical
     if (this.rd.extraBodies && this.rd.extraBodies.length) return false;
+    if (p.dismembered) return false;
     const P = this.pelvis.pos;
     this.pos.set(P.x, 0, P.z);
     this.unstick();
