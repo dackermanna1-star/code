@@ -61,7 +61,7 @@ const LEVEL_THEMES = [
     cell: 4.0, cells: 15, ceiling: 4.6, wallT: 0.3,
     door: 2.0, arch: true, wallMat: 'tile', pillarR: 0.31, pillarMat: 'tile',
     braid: 0.34, doorways: 0, rooms: 6, roomMin: 2, roomMax: 4, pillars: 0.85, props: 0.2,
-    outage: 0.3, flicker: 0, darkZones: 1,
+    outage: 0.15, flicker: 0, darkZones: 1, // mostly daylit: shaded patches, one dim zone
     wall: [0.95, 0.91, 0.82], wallAlt: [0.55, 0.82, 0.8], carpet: [0.93, 0.89, 0.8], ceilingCol: [0.95, 0.92, 0.85],
     lightCol: [1.0, 0.96, 0.88], lightPow: 1.0, ambient: 0.6, fog: [0.88, 0.84, 0.74], fogDensity: 0.021,
     trim: [0.18, 0.55, 0.58], style: 5, floorDust: 0xe2dccc,
