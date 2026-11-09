@@ -11,7 +11,9 @@ uniform vec3 uLightCol;
 uniform float uLightPow;
 uniform float uAmbientFloor;
 uniform float uBounce;      // non-directional bounce light (rooms are small and bright)
-uniform sampler2D uWalls;   // n x n: r +x, g -x, b +z, a -z edge closed
+uniform sampler2D uWalls;   // n x n: r +x, g -x, b +z, a -z edge closed (1 wall, .78 door, .59 racking)
+uniform vec4 uLamp;         // fixture height, falloff, reach, bounce falloff
+uniform vec4 uLamp2;        // x: share of a fixture's light that goes sideways and up, y: beam exponent (0: troffer)
 varying vec3 vLatP;
 // contact darkening where floor/ceiling meet a wall of this cell
 float edgeAO(vec3 P, float reach) {
@@ -47,15 +49,16 @@ vec3 latticeIrradiance(vec3 P, vec3 N) {
       vec4 fx = texelFetch(uFix, f, 0);
       float level = fx.r * (1.0 - fx.g);
       if (level <= 0.001) continue;
-      vec3 L = vec3(uGrid.x + (float(f.x) + 0.5) * cell, H - 0.04, uGrid.x + (float(f.y) + 0.5) * cell) - P;
+      vec3 L = vec3(uGrid.x + (float(f.x) + 0.5) * cell, uLamp.x, uGrid.x + (float(f.y) + 0.5) * cell) - P;
       float d2 = dot(L, L);
       float d = sqrt(d2);
       vec3 l = L / d;
       float cosN = max(dot(N, l), 0.0);
       float cosL = max(l.y, 0.0);
-      float win = clamp(1.0 - d / (2.6 * cell), 0.0, 1.0);
-      sum += level * cosN * (0.35 + 0.65 * cosL) * win * win / (d2 * 0.35 + 0.55);
-      bounce += level * win / (d2 * 0.2 + 1.0);
+      float win = clamp(1.0 - d / uLamp.z, 0.0, 1.0);
+      float beam = uLamp2.y > 0.0 ? pow(cosL, uLamp2.y) : cosL; // reflector lamps throw their light down
+      sum += level * cosN * (uLamp2.x + (1.0 - uLamp2.x) * beam) * win * win / (d2 * uLamp.y + 0.55);
+      bounce += level * win / (d2 * uLamp.w + 1.0);
     }
   }
   return (sum * 2.6 + bounce * uBounce) * uLightCol * uLightPow + uLightCol * uAmbientFloor;
@@ -136,6 +139,8 @@ class LevelView {
       size: this.quality === 'low' ? 2048 : 4096,
     });
     this.buildLatticeTextures();
+    // fixtures: flush troffers just under the ceiling unless the theme hangs lamps lower
+    const lp = (this.lamp = LevelView.lampParams(level));
     this.shared = {
       uFix: { value: this.fixTex },
       uReach: { value: this.reachTex },
@@ -145,6 +150,8 @@ class LevelView {
       uAmbientFloor: { value: 0.02 },
       uBounce: { value: 0.22 },
       uWalls: { value: this.wallTex },
+      uLamp: { value: new T3.Vector4(lp.y, lp.fall, lp.win, lp.bounce) },
+      uLamp2: { value: new T3.Vector4(lp.up, lp.beam, 0, 0) },
     };
     this.ambient = new T3.HemisphereLight(new T3.Color(...th.lightCol).multiplyScalar(0.9), new T3.Color(...th.carpet).multiplyScalar(0.6), th.ambient);
     scene.add(this.ambient);
@@ -155,6 +162,14 @@ class LevelView {
     this.buildSpots();
     this.buildDust();
     this.wallDecals = new WallDecals(scene, 900);
+  }
+
+  static lampParams(level) {
+    const th = level.theme, lp = th.lamp || {};
+    return {
+      y: lp.y ?? level.ceiling - 0.04, fall: lp.fall ?? 0.35, win: lp.win ?? 2.6 * level.cell, bounce: lp.bounce ?? 0.2,
+      up: lp.up ?? 0.35, beam: lp.beam ?? 0, spot: lp.spot ?? 14, bias: lp.bias ?? -0.0006, normalBias: lp.normalBias ?? 0.025, spotDist: lp.spotDist ?? 9, spotY: lp.y !== undefined ? lp.y - 0.06 : level.ceiling - 0.05,
+    };
   }
 
   // ---- fixture textures ------------------------------------------------------------------
@@ -193,17 +208,14 @@ class LevelView {
     this.reachTex.internalFormat = 'R32UI';
     this.reachTex.minFilter = this.reachTex.magFilter = T3.NearestFilter;
     this.reachTex.needsUpdate = true;
-    const wd = new Uint8Array(n * n * 4);
+    // closed edges for contact shading (> 0.5); the value also says what closes it: wall, doorway
+    // or racking (floor markings follow it)
+    const wd = new Uint8Array(n * n * 4), code = [0, 255, 200, 150];
     for (let j = 0; j < n; j++)
-      for (let i = 0; i < n; i++) for (let d = 0; d < 4; d++) wd[(j * n + i) * 4 + [0, 1, 2, 3][d]] = L.wallOpen(i, j, d) && !this.doorEdge(i, j, d) ? 0 : 255;
+      for (let i = 0; i < n; i++) for (let d = 0; d < 4; d++) wd[(j * n + i) * 4 + d] = code[L.edgeVal(i, j, d)];
     this.wallTex = new T3.DataTexture(wd, n, n, T3.RGBAFormat, T3.UnsignedByteType);
     this.wallTex.minFilter = this.wallTex.magFilter = T3.NearestFilter;
     this.wallTex.needsUpdate = true;
-  }
-
-  doorEdge(i, j, d) {
-    const L = this.level;
-    return (d === 0 ? L.v[L.vIdx(i + 1, j)] : d === 1 ? L.v[L.vIdx(i, j)] : d === 2 ? L.h[L.hIdx(i, j + 1)] : L.h[L.hIdx(i, j)]) === 2;
   }
 
   styleUniforms() {
@@ -221,8 +233,10 @@ class LevelView {
   buildWalls() {
     const L = this.level;
     const geos = [];
+    const steelColumns = L.theme.style === 4; // the warehouse builds its own columns
     for (const b of L.boxes) {
       if (b.kind !== 'wall' && b.kind !== 'pillar' && b.kind !== 'lintel') continue;
+      if (b.kind === 'pillar' && steelColumns) continue;
       const w = b.max.x - b.min.x, h = b.max.y - b.min.y, d = b.max.z - b.min.z;
       const g = new T3.BoxGeometry(w, h, d);
       g.translate((b.min.x + b.max.x) / 2, (b.min.y + b.max.y) / 2, (b.min.z + b.max.z) / 2);
@@ -275,6 +289,32 @@ class LevelView {
             col *= 1.0 - 0.3 * mortar;
             float rust = smoothstep(0.55, 0.85, brF(vec2(uv.x * 2.0, uv.y * 0.6) + 9.0)) * smoothstep(1.3, 0.2, abs(P.y - 1.05));
             col = mix(col, vec3(0.3, 0.14, 0.06), rust * 0.6);
+          } else if (uStyle == 4) {
+            // warehouse: painted block with a dark dado band and a safety stripe, cream block
+            // above, corrugated cladding from 4.4 m up to the roof
+            vec2 bl = vec2(fract(uv.x / 0.4 + floor(uv.y / 0.2) * 0.5), fract(uv.y / 0.2));
+            float mortar = 1.0 - smoothstep(0.0, 0.03, min(min(bl.x, 1.0 - bl.x) * 2.0, min(bl.y, 1.0 - bl.y)));
+            float blockTone = brH(floor(vec2(uv.x / 0.4 + floor(uv.y / 0.2) * 0.5, uv.y / 0.2)) + uSeed);
+            float dado = step(P.y, 1.15);
+            col = mix(uWallCol, uWallAlt, dado) * (0.84 + 0.2 * grime) * (0.95 + 0.05 * fine) * (0.96 + 0.06 * blockTone);
+            col *= 1.0 - 0.2 * mortar;
+            // scuffed paint and forklift scrapes low on the band
+            float scuff = smoothstep(0.62, 0.8, brF(vec2(uv.x * 3.0, uv.y * 9.0) + 2.0)) * smoothstep(0.9, 0.2, P.y);
+            col = mix(col, uWallCol * 0.55, scuff * 0.6);
+            float stripe = smoothstep(0.012, 0.0, abs(P.y - 1.24) - 0.07);
+            col = mix(col, uTrim * (0.8 + 0.25 * fine) * (0.85 + 0.15 * grime), stripe);
+            // water stains running down from the cladding
+            float run = smoothstep(0.58, 0.85, brN(vec2(uv.x * 4.0, uv.y * 0.3) + 5.0)) * smoothstep(1.2, 4.4, P.y);
+            col *= 1.0 - 0.18 * run;
+            if (P.y > 4.4) {
+              float rib = fract(uv.x / 0.24);
+              float prof = smoothstep(0.0, 0.12, rib) * smoothstep(0.62, 0.5, rib);
+              prof = mix(prof, 0.55, smoothstep(0.08, 0.35, fwidth(uv.x / 0.24))); // no moire far away
+              col = uWallCol * vec3(0.78, 0.76, 0.72) * (0.66 + 0.34 * prof) * (0.8 + 0.25 * grime);
+              col *= 1.0 - 0.45 * smoothstep(0.03, 0.0, abs(P.y - 4.45)); // girt line
+              float rustRun = smoothstep(0.6, 0.85, brN(vec2(uv.x * 8.0, uv.y * 0.4) + 11.0));
+              col = mix(col, vec3(0.32, 0.16, 0.07), rustRun * 0.45);
+            }
           } else {
             // office drywall with a chair rail
             col = uWallCol * (0.9 + 0.12 * grime) * (0.97 + 0.03 * fine);
@@ -283,11 +323,11 @@ class LevelView {
           }
           col *= mix(0.62, 1.0, smoothstep(0.0, 0.35, P.y)) * mix(0.7, 1.0, smoothstep(0.0, 0.3, uGrid.w - P.y));
           // baseboard
-          float base = step(P.y, 0.1);
+          float base = uStyle == 4 ? 0.0 : step(P.y, 0.1);
           col = mix(col, uTrim * (0.85 + 0.2 * fine), base);
           diffuseColor.rgb *= col;
         }`,
-      roughness: 'roughnessFactor = uStyle == 1 ? 0.92 : uStyle == 2 ? 0.75 : 0.88;',
+      roughness: 'roughnessFactor = uStyle == 1 ? 0.92 : uStyle == 2 ? 0.75 : uStyle == 4 ? (vLatP.y > 4.4 ? 0.55 : 0.8) : 0.88;',
     });
     const mesh = new T3.Mesh(geo, mat);
     mesh.receiveShadow = true;
@@ -338,6 +378,60 @@ class LevelView {
             float oil = smoothstep(0.62, 0.7, big);
             col *= 1.0 - 0.4 * oil;
             floorWet = oil * 0.8;
+          } else if (uStyle == 4) {
+            // sealed warehouse concrete: mottled and burnished, saw-cut joints, worn safety
+            // paint along the racking and walls, hatching across doorways, tyre marks, oil
+            col *= 0.8 + 0.3 * mid + 0.05 * (fib - 0.5);
+            col *= 0.94 + 0.08 * brN(xz * vec2(0.7, 2.6) + 3.0);
+            float J = uGrid.y * 0.5;
+            vec2 jd = abs(fract(xz / J + 0.5) - 0.5) * J;
+            col *= 1.0 - 0.35 * (1.0 - smoothstep(0.004, 0.014, min(jd.x, jd.y)));
+            float C = uGrid.y;
+            vec2 g = (xz - uGrid.x) / C;
+            ivec2 c = ivec2(floor(g));
+            float paint = 0.0, hatch = 0.0, dir = 0.5;
+            if (c.x >= 0 && c.y >= 0 && c.x < int(uGrid.z) && c.y < int(uGrid.z)) {
+              vec4 w = texelFetch(uWalls, c, 0);
+              vec2 lp = (g - vec2(c)) * C;
+              // distance to each side (+x, -x, +z, -z) and what closes it
+              vec4 ds = vec4(C - lp.x, lp.x, C - lp.y, lp.y);
+              vec4 isWall = step(0.9, w), isDoor = step(0.7, w) * (1.0 - isWall), isRack = step(0.5, w) * (1.0 - isWall - isDoor);
+              vec4 off = isRack * 0.82 + (isWall + isDoor) * 0.75;
+              vec4 closed = step(0.5, w);
+              for (int k = 0; k < 4; k++) {
+                if (closed[k] < 0.5) continue;
+                float line = 1.0 - smoothstep(0.045, 0.06, abs(ds[k] - off[k]));
+                // stop short of the perpendicular closed sides so lines meet in corners
+                vec2 perp = k < 2 ? vec2(ds.z, ds.w) : vec2(ds.x, ds.y);
+                vec2 pc = k < 2 ? vec2(closed.z, closed.w) : vec2(closed.x, closed.y);
+                vec2 po = k < 2 ? vec2(off.z, off.w) : vec2(off.x, off.y);
+                line *= mix(1.0, step(po.x - 0.06, perp.x), pc.x) * mix(1.0, step(po.y - 0.06, perp.y), pc.y);
+                float along = k < 2 ? lp.y : lp.x;
+                if (isDoor[k] > 0.5) {
+                  float inDoor = step(abs(along - C * 0.5), 1.45);
+                  line *= 1.0 - inDoor;
+                  // yellow and black hatching across the opening
+                  float h = step(ds[k], 0.9) * inDoor;
+                  hatch = max(hatch, h);
+                }
+                paint = max(paint, line);
+              }
+              // tyre marks run along the aisles
+              dir = (isRack.z + isRack.w) > 0.5 ? 1.0 : (isRack.x + isRack.y) > 0.5 ? 0.0 : 0.5;
+            }
+            float tyreX = smoothstep(0.55, 0.85, brN(vec2(xz.x * 0.35, xz.y * 7.0) + 1.3)) * smoothstep(0.35, 0.65, brN(xz * 0.4 + 2.0));
+            float tyreZ = smoothstep(0.55, 0.85, brN(vec2(xz.y * 0.35, xz.x * 7.0) + 4.1)) * smoothstep(0.35, 0.65, brN(xz * 0.4 + 6.0));
+            col *= 1.0 - 0.22 * mix(tyreZ, tyreX, dir);
+            float wear = smoothstep(0.25, 0.6, brF(xz * 2.3 + 5.0)) * (0.7 + 0.3 * fib);
+            vec3 yel = uTrim * (0.75 + 0.25 * brN(xz * 30.0));
+            col = mix(col, yel, paint * wear);
+            float stripes = step(0.5, fract((xz.x + xz.y) * 2.2));
+            col = mix(col, mix(yel, vec3(0.03, 0.025, 0.02), stripes), hatch * wear * 0.9);
+            // broad warm and grey patches from years of sweeping and spills, and the odd oil stain
+            col *= mix(vec3(1.0), vec3(1.07, 0.97, 0.86), smoothstep(0.35, 0.75, brF(xz * 0.07 + 21.0)));
+            float oil = smoothstep(0.7, 0.77, brF(xz * 0.32 + 13.0)) * (0.6 + 0.4 * brN(xz * 2.0));
+            col *= 1.0 - 0.45 * oil;
+            floorWet = oil * 0.85;
           } else {
             vec2 tile = floor(xz / 0.5);
             float tv = brH(tile + 3.0);
@@ -357,7 +451,7 @@ class LevelView {
           col *= edgeAO(vLatP, 0.45);
           diffuseColor.rgb *= col;
         }`,
-      roughness: 'roughnessFactor = mix(uStyle == 1 ? 0.88 : 0.97, 0.12, clamp(floorWet, 0.0, 1.0));',
+      roughness: 'roughnessFactor = mix(uStyle == 1 ? 0.88 : uStyle == 4 ? 0.62 + 0.2 * brN(vLatP.xz * 0.9) : 0.97, 0.12, clamp(floorWet, 0.0, 1.0));',
     });
     const mesh = new T3.Mesh(geo, mat);
     mesh.receiveShadow = true;
@@ -394,11 +488,19 @@ class LevelView {
             col = mix(col, col * 0.55, gridL);
           } else if (uStyle == 1) {
             col *= 0.75 + 0.3 * brF(xz * 0.8);
+          } else if (uStyle == 4) {
+            // galvanised roof deck: trapezoidal ribs spanning between the joists, water marks
+            float rib = fract(xz.x / 0.3);
+            float ribs = smoothstep(0.0, 0.08, rib) * smoothstep(0.55, 0.45, rib);
+            col *= 0.8 + 0.2 * mix(ribs, 0.5, smoothstep(0.08, 0.35, fwidth(xz.x / 0.3)));
+            col *= 0.8 + 0.3 * brF(xz * 0.6 + uSeed * 5.0);
+            col = mix(col, col * vec3(0.6, 0.48, 0.34), smoothstep(0.62, 0.8, brF(xz * 0.25 + 3.0)) * 0.6);
           } else {
             col *= 0.6 + 0.4 * brF(xz * 1.2);
           }
-          // the troffer: a 0.6 x 1.2 m diffuser panel with a metal frame
-          vec2 pd = abs(local) - vec2(0.3, 0.6);
+          // the troffer: a 0.6 x 1.2 m diffuser panel with a metal frame (the warehouse hangs
+          // its lamps from the roof structure instead)
+          vec2 pd = abs(local) - vec2(0.3, 0.6) + (uStyle == 4 ? 9.0 : 0.0);
           float panel = step(max(pd.x, pd.y), 0.0);
           float frame = step(max(pd.x, pd.y), 0.035) * (1.0 - panel);
           col = mix(col, vec3(0.75), frame);
@@ -417,6 +519,10 @@ class LevelView {
   // ---- props -------------------------------------------------------------------------------
   buildProps() {
     const L = this.level;
+    if (L.theme.style === 4) {
+      this.dressing = new WarehouseDressing(this);
+      return;
+    }
     const mats = {
       metal: patchLattice(new T3.MeshStandardMaterial({ color: 0x6b6e66, roughness: 0.5, metalness: 0.6 }), this.shared, { key: 'prop' }),
       wood: patchLattice(new T3.MeshStandardMaterial({ color: 0x7a5a3a, roughness: 0.8 }), this.shared, { key: 'prop' }),
@@ -449,13 +555,13 @@ class LevelView {
     this.spots = [];
     const count = this.quality === 'low' ? 1 : 2;
     for (let k = 0; k < count; k++) {
-      const s = new T3.SpotLight(new T3.Color(...th.lightCol), 0, 9, 1.25, 0.85, 1.6);
+      const s = new T3.SpotLight(new T3.Color(...th.lightCol), 0, this.lamp.spotDist, 1.25, 0.85, 1.6);
       s.castShadow = true;
       s.shadow.mapSize.set(this.quality === 'high' ? 1024 : 512, this.quality === 'high' ? 1024 : 512);
       s.shadow.camera.near = 0.1;
-      s.shadow.camera.far = 9;
-      s.shadow.bias = -0.0006;
-      s.shadow.normalBias = 0.025;
+      s.shadow.camera.far = this.lamp.spotDist;
+      s.shadow.bias = this.lamp.bias;
+      s.shadow.normalBias = this.lamp.normalBias;
       this.scene.add(s, s.target);
       this.spots.push({ light: s, fixture: null, w: 0 });
     }
@@ -478,7 +584,7 @@ class LevelView {
     const L = this.level, n = L.n;
     const c = L.cellOf(x, z);
     if (c < 0) return 0;
-    const ci = c % n, cj = (c / n) | 0;
+    const ci = c % n, cj = (c / n) | 0, lp = this.lamp;
     let sum = 0;
     for (let dj = -2; dj <= 2; dj++)
       for (let di = -2; di <= 2; di++) {
@@ -486,11 +592,12 @@ class LevelView {
         if (i < 0 || j < 0 || i >= n || j >= n) continue;
         const f = L.fixtures[j * n + i];
         if (f.level <= 0) continue;
-        const dx = f.x - x, dy = L.ceiling - y, dz = f.z - z, d2 = dx * dx + dy * dy + dz * dz;
+        // (the troffer themes measure from the ceiling itself, as they always have)
+        const dx = f.x - x, dy = (L.theme.lamp ? lp.y : L.ceiling) - y, dz = f.z - z, d2 = dx * dx + dy * dy + dz * dz;
         const reach = (this.reachTex.image.data[c] >>> ((dj + 2) * 5 + (di + 2))) & 1;
         if (!reach) continue;
-        const win = clamp(1 - Math.sqrt(d2) / (2.6 * L.cell), 0, 1);
-        sum += (f.level * win * win) / (d2 * 0.35 + 0.55);
+        const win = clamp(1 - Math.sqrt(d2) / lp.win, 0, 1);
+        sum += (f.level * win * win) / (d2 * lp.fall + 0.55);
       }
     return sum * L.theme.lightPow;
   }
@@ -548,11 +655,12 @@ class LevelView {
       if (!f) { sp.light.intensity = 0; continue; }
       if (keep) sp.k = top.find((r) => r[1] === f)[2];
       d[sp.k * 4 + 1] = sp.w;
-      sp.light.position.set(f.x, L.ceiling - 0.05, f.z);
+      sp.light.position.set(f.x, this.lamp.spotY, f.z);
       sp.light.target.position.set(f.x, 0, f.z);
-      sp.light.intensity = 14 * L.theme.lightPow * f.level * sp.w;
+      sp.light.intensity = this.lamp.spot * L.theme.lightPow * f.level * sp.w;
     }
     this.fixTex.needsUpdate = true;
+    if (this.dressing) this.dressing.update(dt, cam);
     // dust drifts around the camera
     const p = this.dust.geometry.attributes.position, a = p.array;
     for (let i = 0; i < a.length; i += 3) {
@@ -579,6 +687,7 @@ class LevelView {
     this.decals.material.dispose();
     this.wallDecals.mesh.dispose(); // instance buffer
     for (const sp of this.spots) sp.light.dispose(); // shadow maps
+    if (this.dressing) this.dressing.dispose();
   }
 }
 

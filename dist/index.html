@@ -63696,14 +63696,23 @@ const LEVEL_THEMES = [
     trim: [0.42, 0.35, 0.22], style: 0,
   },
   {
-    id: 'habitable', code: 'LEVEL 1', title: 'HABITABLE ZONE',
-    blurb: 'Concrete and rebar, puddles and crates. Somebody has been living here. Several somebodies.',
-    cell: 4.0, cells: 16, ceiling: 3.5, wallT: 0.24,
-    braid: 0.7, doorways: 0.35, rooms: 7, roomMin: 2, roomMax: 5, pillars: 0.75, props: 0.32,
-    outage: 0.12, flicker: 0.12, darkZones: 2,
-    wall: [0.46, 0.46, 0.44], wallAlt: [0.38, 0.38, 0.37], carpet: [0.30, 0.30, 0.29], ceilingCol: [0.34, 0.34, 0.33],
-    lightCol: [0.92, 0.95, 1.0], lightPow: 0.9, ambient: 0.22, fog: [0.16, 0.17, 0.18], fogDensity: 0.055,
-    trim: [0.25, 0.25, 0.25], style: 1,
+    // a storage warehouse after hours: block-walled halls with roller-door openings, rows of
+    // pallet racking under a steel roof, sodium high-bay lamps hanging over the aisles
+    id: 'warehouse', code: 'LEVEL 1', title: 'THE WAREHOUSE',
+    blurb: 'Sodium lamps hum over aisles of stock nobody ordered. The forklifts are still warm. The night shift never clocked out.',
+    layout: 'warehouse',
+    cell: 4.8, cells: 14, ceiling: 7.0, wallT: 0.3,
+    door: 2.6, lintel: 3.4, wallMat: 'concrete', pillarR: 0.21, pillarMat: 'metal',
+    braid: 0, doorways: 0, rooms: 0, roomMin: 2, roomMax: 4, pillars: 0.85, props: 0.3,
+    outage: 0.06, flicker: 0.06, darkZones: 1,
+    wall: [0.74, 0.62, 0.45], wallAlt: [0.42, 0.13, 0.07], carpet: [0.43, 0.37, 0.30], ceilingCol: [0.36, 0.33, 0.29],
+    lightCol: [1.0, 0.65, 0.33], lightPow: 1.25, ambient: 0.15, fog: [0.2, 0.12, 0.06], fogDensity: 0.026,
+    trim: [0.85, 0.58, 0.05], style: 4,
+    // high-bay lamps hang well below the roof: their height, falloff, reach, bounce, the share of
+    // light thrown sideways and up, how tightly the reflector throws the rest down, and the
+    // shadow-casting spot lights' strength and range
+    lamp: { y: 5.45, fall: 0.09, win: 15, bounce: 0.06, up: 0.06, beam: 3, spot: 42, spotDist: 13, bias: -0.0012, normalBias: 0.06 },
+    rack: { depth: 1.1, height: 5.35 },
   },
   {
     id: 'pipes', code: 'LEVEL 2', title: 'PIPE DREAMS',
@@ -63738,10 +63747,24 @@ const PROP_DEFS = {
   barrel: { w: 0.6, d: 0.6, h: 0.9, material: 'metal', wall: false },
   vending: { w: 0.9, d: 0.8, h: 1.85, material: 'metal', wall: true },
   sofa: { w: 1.8, d: 0.85, h: 0.8, material: 'cardboard', wall: true },
+  // warehouse stock and machines (placed by placeWarehouseProps; sizes may vary per instance)
+  load: { w: 1.2, d: 1.0, h: 1.45, material: 'goods', wall: false },      // shrink-wrapped pallet load
+  pallets: { w: 1.2, d: 1.0, h: 0.6, material: 'wood', wall: false },     // stack of empty pallets
+  drums: { w: 1.2, d: 1.0, h: 1.04, material: 'metal', wall: false },     // four drums on a pallet
+  cartons: { w: 1.1, d: 0.9, h: 1.2, material: 'cardboard', wall: false },
+  stack: { w: 2.4, d: 2.0, h: 2.6, material: 'goods', wall: false },      // block-stacked bulk storage
+  jack: { w: 0.56, d: 1.6, h: 0.3, material: 'metal', wall: false },      // pallet jack (handle is open)
+  cone: { w: 0.36, d: 0.36, h: 0.5, material: 'cardboard', wall: false },
+  bollard: { w: 0.24, d: 0.24, h: 1.1, material: 'metal', wall: false },
+  bench: { w: 1.8, d: 0.8, h: 0.92, material: 'wood', wall: true },       // packing bench
+  bin: { w: 0.62, d: 0.62, h: 1.0, material: 'metal', wall: true },       // wheelie bin
+  // forklift: solid body to seat height and the mast; the overhead guard is an open cage
+  forklift: { w: 1.16, d: 2.2, h: 2.25, material: 'metal', wall: false,
+    boxes: [[1.16, 1.95, 1.25, 0, -0.18, 0], [0.9, 0.3, 2.25, 0, 0.98, 0]] },
 };
 const THEME_PROPS = {
   lobby: ['cabinet', 'boxes', 'desk', 'sofa', 'partition', 'vending', 'crate'],
-  habitable: ['crate', 'barrel', 'boxes', 'shelf', 'crate', 'barrel'],
+  warehouse: ['load', 'pallets', 'cartons', 'drums', 'crate', 'load', 'jack', 'barrel'], // placed per hall type (placeWarehouseProps)
   pipes: ['barrel', 'shelf', 'crate', 'boxes', 'cabinet'],
   office: ['desk', 'partition', 'cabinet', 'desk', 'partition', 'boxes', 'shelf'],
 };
@@ -63775,8 +63798,24 @@ class BackroomsLevel {
   hIdx(i, j) { return i * (this.n + 1) + j; } // i in 0..n-1, j in 0..n
 
   generate() {
+    if (this.theme.layout === 'warehouse') this.generateWarehouse();
+    else this.generateMaze();
+    // the centre cell is the arrival point: keep it open
+    const n = this.n, mid = (n / 2) | 0;
+    this.v[this.vIdx(mid, mid)] = this.v[this.vIdx(mid + 1, mid)] = 0;
+    this.h[this.hIdx(mid, mid)] = this.h[this.hIdx(mid, mid + 1)] = 0;
+    if (this.theme.layout === 'warehouse') this.connectAll();
+
+    this.buildBoxes();
+    if (this.theme.layout === 'warehouse') this.placeWarehouseProps();
+    else this.placeProps();
+    this.placeFixtures();
+    this.buildSpatial();
+  }
+
+  generateMaze() {
     const n = this.n, R = this.rng, th = this.theme;
-    // 1 = wall, 2 = wall with doorway, 0 = open
+    // 1 = wall, 2 = wall with doorway, 3 = pallet racking (closed like a wall), 0 = open
     this.v = new Uint8Array((n + 1) * n).fill(1);
     this.h = new Uint8Array(n * (n + 1)).fill(1);
     // perfect maze (iterative DFS) guarantees connectivity
@@ -63824,25 +63863,151 @@ class BackroomsLevel {
       for (let i = i0 + 1; i < i0 + w; i++)
         for (let j = j0 + 1; j < j0 + d; j++) if (R() < th.pillars) this.pillarSpots.push([i, j]);
     }
-    // the centre cell is the arrival point: keep it open
-    const mid = (n / 2) | 0;
-    this.v[this.vIdx(mid, mid)] = this.v[this.vIdx(mid + 1, mid)] = 0;
-    this.h[this.hIdx(mid, mid)] = this.h[this.hIdx(mid, mid + 1)] = 0;
+  }
 
-    this.buildBoxes();
-    this.placeProps();
-    this.placeFixtures();
-    this.buildSpatial();
+  // ---- Level 1: the warehouse ------------------------------------------------------------
+  // The floor is split into a few halls by block walls with roller-door openings. Rack halls get
+  // rows of pallet racking on the interior grid lines (edge value 3), so every aisle is one cell
+  // wide and the cell graph stays truthful for navigation, light reach and spawning; cross-aisles
+  // run along both ends of the rows (and through the middle of long ones). Open halls are dock
+  // and bulk-storage floor on a grid of steel columns.
+  generateWarehouse() {
+    const n = this.n, R = this.rng, mid = (n / 2) | 0;
+    const V = (this.v = new Uint8Array((n + 1) * n));
+    const Hz = (this.h = new Uint8Array(n * (n + 1)));
+    for (let j = 0; j < n; j++) V[this.vIdx(0, j)] = V[this.vIdx(n, j)] = 1;
+    for (let i = 0; i < n; i++) Hz[this.hIdx(i, 0)] = Hz[this.hIdx(i, n)] = 1;
+    this.rooms = [];
+    this.pillarSpots = [];
+    this.wallRacks = [];
+    const halls = (this.halls = []);
+    // a block wall along the shared border of two halls, with doorways and open bays in it
+    const divide = (alongZ, line, from, to) => {
+      const idx = (k) => (alongZ ? this.vIdx(line, k) : this.hIdx(k, line));
+      const arr = alongZ ? V : Hz;
+      for (let k = from; k < to; k++) arr[idx(k)] = 1;
+      const len = to - from, gaps = 2 + (len >= 10 ? 1 : 0);
+      const used = [];
+      for (let g = 0, tries = 0; g < gaps && tries < 40; tries++) {
+        const k = from + Math.floor(R() * len);
+        if (used.some((u) => Math.abs(u - k) < 3)) continue;
+        used.push(k);
+        g++;
+        if (R() < 0.6) arr[idx(k)] = 2; // roller-door opening
+        else {
+          arr[idx(k)] = 0; // an open bay, sometimes two cells wide
+          if (R() < 0.4 && k + 1 < to) arr[idx(k + 1)] = 0;
+        }
+      }
+    };
+    const split = (r, depth) => {
+      const canX = r.w >= 9, canZ = r.d >= 9;
+      if ((!canX && !canZ) || depth >= 2 || (depth > 0 && R() < 0.35)) { halls.push(r); return; }
+      const cutX = canX && canZ ? R() < 0.5 : canX; // a wall at constant x splits the width
+      const span = cutX ? r.w : r.d;
+      const p = 4 + Math.floor(R() * (span - 7));
+      if (cutX) {
+        divide(true, r.i0 + p, r.j0, r.j0 + r.d);
+        split({ i0: r.i0, j0: r.j0, w: p, d: r.d }, depth + 1);
+        split({ i0: r.i0 + p, j0: r.j0, w: r.w - p, d: r.d }, depth + 1);
+      } else {
+        divide(false, r.j0 + p, r.i0, r.i0 + r.w);
+        split({ i0: r.i0, j0: r.j0, w: r.w, d: p }, depth + 1);
+        split({ i0: r.i0, j0: r.j0 + p, w: r.w, d: r.d - p }, depth + 1);
+      }
+    };
+    split({ i0: 0, j0: 0, w: n, d: n }, 0);
+    // what each hall holds: the arrival hall is open dock floor unless it is most of the
+    // building, one other hall may be bulk storage, the rest are racking
+    const inHall = (hl, i, j) => i >= hl.i0 && i < hl.i0 + hl.w && j >= hl.j0 && j < hl.j0 + hl.d;
+    const midHall = halls.find((hl) => inHall(hl, mid, mid));
+    for (const hl of halls) hl.type = 'racks';
+    if (midHall && midHall.w * midHall.d <= 72) midHall.type = 'dock';
+    const others = halls.filter((hl) => hl !== midHall).sort((a, b) => a.w * a.d - b.w * b.d);
+    if (others.length >= 2 && R() < 0.5) others[0].type = 'bulk'; // the smallest hall
+    halls.forEach((hl, k) => (hl.letter = 'ABCDEFGH'[k]));
+    // the cells around the arrival point stay clear of racking
+    const plaza = (i, j) => Math.abs(i - mid) <= 1 && Math.abs(j - mid) <= 1;
+    for (const hl of halls) {
+      if (hl.type !== 'racks') continue;
+      // rows run along the long side of the hall
+      const alongX = hl.w > hl.d || (hl.w === hl.d && R() < 0.5);
+      const len = alongX ? hl.w : hl.d, rows = alongX ? hl.d : hl.w;
+      const cross = new Set([0, len - 1]);
+      if (len >= 8) cross.add(Math.floor(len / 2) - 1 + Math.floor(R() * 2));
+      hl.alongX = alongX;
+      hl.cross = cross;
+      for (let k = 1; k < rows; k++)
+        for (let a = 0; a < len; a++) {
+          if (cross.has(a) || R() < 0.06) continue; // cross-aisles, and the odd missing bay
+          if (alongX) {
+            const i = hl.i0 + a, j = hl.j0 + k;
+            if (!plaza(i, j - 1) && !plaza(i, j)) Hz[this.hIdx(i, j)] = 3;
+          } else {
+            const i = hl.i0 + k, j = hl.j0 + a;
+            if (!plaza(i - 1, j) && !plaza(i, j)) V[this.vIdx(i, j)] = 3;
+          }
+        }
+      // single-sided racking along the solid stretches of the long walls
+      for (const side of [0, 1]) {
+        const line = alongX ? (side ? hl.j0 + hl.d : hl.j0) : side ? hl.i0 + hl.w : hl.i0;
+        const row = side ? line - 1 : line; // the row of cells the rack stands in
+        let run = -1;
+        for (let a = 0; a <= len; a++) {
+          const i = alongX ? hl.i0 + a : row, j = alongX ? row : hl.j0 + a;
+          const solid = a < len && !cross.has(a) && !plaza(i, j) &&
+            (alongX ? Hz[this.hIdx(i, line)] === 1 : V[this.vIdx(line, j)] === 1);
+          if (solid && run < 0) run = a;
+          if (!solid && run >= 0) {
+            if (a - run >= 1) this.wallRacks.push({ alongX, line, side: side ? -1 : 1, from: (alongX ? hl.i0 : hl.j0) + run, to: (alongX ? hl.i0 : hl.j0) + a });
+            run = -1;
+          }
+        }
+      }
+    }
+    // steel columns on a two-cell grid across the open halls
+    for (const hl of halls) {
+      if (hl.type === 'racks') continue;
+      for (let i = hl.i0 + 2; i < hl.i0 + hl.w; i += 2)
+        for (let j = hl.j0 + 2; j < hl.j0 + hl.d; j += 2) {
+          // all four edges meeting at the corner must be open floor
+          if (V[this.vIdx(i, j - 1)] || V[this.vIdx(i, j)] || Hz[this.hIdx(i - 1, j)] || Hz[this.hIdx(i, j)]) continue;
+          if (R() < this.theme.pillars) this.pillarSpots.push([i, j]);
+        }
+    }
+  }
+
+  // open walls (as doorways) or racking until every cell can be reached from the arrival point
+  connectAll() {
+    const n = this.n, mid = (n / 2) | 0;
+    for (let guard = 0; guard < n * n; guard++) {
+      const d = this.cellDistances(this.cx(mid), this.cx(mid));
+      let fixed = false;
+      for (let c = 0; c < n * n && !fixed; c++) {
+        if (d[c] >= 0) continue;
+        const i = c % n, j = (c / n) | 0;
+        for (let dir = 0; dir < 4 && !fixed; dir++) {
+          const ni = i + (dir === 0 ? 1 : dir === 1 ? -1 : 0), nj = j + (dir === 2 ? 1 : dir === 3 ? -1 : 0);
+          if (ni < 0 || nj < 0 || ni >= n || nj >= n || d[nj * n + ni] < 0) continue;
+          const arr = dir < 2 ? this.v : this.h;
+          const k = dir === 0 ? this.vIdx(i + 1, j) : dir === 1 ? this.vIdx(i, j) : dir === 2 ? this.hIdx(i, j + 1) : this.hIdx(i, j);
+          arr[k] = arr[k] === 1 ? 2 : 0;
+          fixed = true;
+        }
+      }
+      if (!fixed) return;
+    }
   }
 
   // ---- colliders -------------------------------------------------------------------------
   buildBoxes() {
-    const n = this.n, C = this.cell, H = this.ceiling, t = this.wallT, half = this.half;
+    const n = this.n, C = this.cell, H = this.ceiling, t = this.wallT, half = this.half, th = this.theme;
     const boxes = (this.boxes = []);
     this.wallBoxes = [];
     this.doorways = [];
-    const door = Math.min(1.25, C * 0.42), lintel = Math.min(2.15, H - 0.35);
-    const wall = (x0, z0, x1, z1, kind = 'wall', y0 = 0, y1 = H, material = 'drywall') => {
+    const door = this.doorWidth(), lintel = th.lintel || Math.min(2.15, H - 0.35);
+    const wallMat = th.wallMat || 'drywall';
+    const wall = (x0, z0, x1, z1, kind = 'wall', y0 = 0, y1 = H, material = wallMat) => {
       const b = Lab.boxDef((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2, Math.abs(x1 - x0), y1 - y0, Math.abs(z1 - z0), kind, material);
       boxes.push(b);
       if (kind === 'wall' || kind === 'lintel') this.wallBoxes.push(b);
@@ -63857,7 +64022,7 @@ class BackroomsLevel {
         const val = j < n ? this.v[this.vIdx(i, j)] : 0;
         if (val === 1 && run < 0) run = j;
         if ((val !== 1 || j === n) && run >= 0) {
-          wall(x - t / 2, -half + run * C - t / 2, x + t / 2, -half + j * C + t / 2, 'wall', 0, H, boundary ? 'concrete' : 'drywall');
+          wall(x - t / 2, -half + run * C - t / 2, x + t / 2, -half + j * C + t / 2, 'wall', 0, H, boundary ? 'concrete' : wallMat);
           run = -1;
         }
         if (val === 2) {
@@ -63877,7 +64042,7 @@ class BackroomsLevel {
         const val = i < n ? this.h[this.hIdx(i, j)] : 0;
         if (val === 1 && run < 0) run = i;
         if ((val !== 1 || i === n) && run >= 0) {
-          wall(-half + run * C - t / 2, z - t / 2, -half + i * C + t / 2, z + t / 2, 'wall', 0, H, boundary ? 'concrete' : 'drywall');
+          wall(-half + run * C - t / 2, z - t / 2, -half + i * C + t / 2, z + t / 2, 'wall', 0, H, boundary ? 'concrete' : wallMat);
           run = -1;
         }
         if (val === 2) {
@@ -63890,20 +64055,67 @@ class BackroomsLevel {
       }
     }
     this.pillars = [];
-    const p = 0.24;
+    const p = th.pillarR || 0.24;
     for (const [i, j] of this.pillarSpots) {
       const x = -half + i * C, z = -half + j * C;
       this.pillars.push({ x, z });
-      boxes.push(Lab.boxDef(x, H / 2, z, p * 2, H, p * 2, 'pillar', 'concrete'));
+      boxes.push(Lab.boxDef(x, H / 2, z, p * 2, H, p * 2, 'pillar', th.pillarMat || 'concrete'));
     }
+    if (th.rack) this.buildRackBoxes();
     // ceiling slab (grenades bounce off it, bullets puff on it)
     boxes.push(Lab.boxDef(0, H + 0.15, 0, this.size + 1, 0.3, this.size + 1, 'ceiling', 'ceiling'));
   }
 
+  doorWidth() { return this.theme.door || Math.min(1.25, this.cell * 0.42); }
+
+  // pallet racking: one collider per straight run (loaded racks are solid to the top pallets;
+  // 'goods' stop most rounds). Runs on grid lines stand centred on the line; wall racks stand
+  // against a wall inside the row of cells next to it.
+  buildRackBoxes() {
+    const n = this.n, C = this.cell, half = this.half, t = this.wallT, rk = this.theme.rack;
+    this.racks = [];
+    const add = (alongX, a0, a1, c, depth) => {
+      // uprights from a0 to a1; the collider includes the end guards
+      const L = a1 - a0 + 0.2, m = (a0 + a1) / 2;
+      const box = alongX ? Lab.boxDef(m, rk.height / 2, c, L, rk.height, depth, 'prop', 'goods') : Lab.boxDef(c, rk.height / 2, m, depth, rk.height, L, 'prop', 'goods');
+      this.boxes.push(box);
+      this.racks.push({ alongX, a0, a1, c, depth, height: rk.height, box });
+    };
+    const inset = 0.42;
+    for (let j = 1; j < n; j++) {
+      let run = -1;
+      for (let i = 0; i <= n; i++) {
+        const r = i < n && this.h[this.hIdx(i, j)] === 3;
+        if (r && run < 0) run = i;
+        if (!r && run >= 0) { add(true, -half + run * C + inset, -half + i * C - inset, -half + j * C, rk.depth); run = -1; }
+      }
+    }
+    for (let i = 1; i < n; i++) {
+      let run = -1;
+      for (let j = 0; j <= n; j++) {
+        const r = j < n && this.v[this.vIdx(i, j)] === 3;
+        if (r && run < 0) run = j;
+        if (!r && run >= 0) { add(false, -half + run * C + inset, -half + j * C - inset, -half + i * C, rk.depth); run = -1; }
+      }
+    }
+    // single-sided racks against walls: shallower, back to the wall
+    const d1 = rk.depth - 0.1;
+    for (const w of this.wallRacks || []) {
+      const c = -half + w.line * C + w.side * (t / 2 + 0.04 + d1 / 2);
+      add(w.alongX, -half + w.from * C + inset, -half + w.to * C - inset, c, d1);
+      this.racks[this.racks.length - 1].wallSide = w.side;
+    }
+  }
+
   wallOpen(i, j, dir) {
     // is the edge of cell (i,j) in direction dir (0:+x 1:-x 2:+z 3:-z) passable?
-    const val = dir === 0 ? this.v[this.vIdx(i + 1, j)] : dir === 1 ? this.v[this.vIdx(i, j)] : dir === 2 ? this.h[this.hIdx(i, j + 1)] : this.h[this.hIdx(i, j)];
-    return val !== 1;
+    const val = this.edgeVal(i, j, dir);
+    return val !== 1 && val !== 3;
+  }
+
+  // raw edge value of cell (i,j) in direction dir: 0 open, 1 wall, 2 doorway, 3 racking
+  edgeVal(i, j, dir) {
+    return dir === 0 ? this.v[this.vIdx(i + 1, j)] : dir === 1 ? this.v[this.vIdx(i, j)] : dir === 2 ? this.h[this.hIdx(i, j + 1)] : this.h[this.hIdx(i, j)];
   }
 
   // ---- props (cover) ---------------------------------------------------------------------
@@ -63942,6 +64154,175 @@ class BackroomsLevel {
         this.props.push({ kind, x, z, yaw, def, box });
         this.boxes.push(box);
       }
+  }
+
+  // ---- warehouse stock ---------------------------------------------------------------------
+  // a prop made of the def's collider boxes (or one box of its footprint) turned by a quarter-
+  // turn yaw; refused when it would leave the building or overlap anything already placed
+  addProp(kind, x, z, yaw, over = null, pad = 0.05) {
+    const def = over ? { ...PROP_DEFS[kind], ...over } : PROP_DEFS[kind];
+    const c = Math.cos(yaw), s = Math.sin(yaw), ac = Math.abs(c), as = Math.abs(s);
+    const lim = this.half - this.wallT / 2;
+    const boxes = [];
+    for (const [w, d, h, ox, oz, y0 = 0, mat] of def.boxes || [[def.w, def.d, def.h, 0, 0, 0]]) {
+      const b = Lab.boxDef(x + ox * c + oz * s, y0 + h / 2, z - ox * s + oz * c, w * ac + d * as, h, w * as + d * ac, 'prop', mat || def.material);
+      if (b.min.x < -lim || b.max.x > lim || b.min.z < -lim || b.max.z > lim) return null;
+      for (const o of this.boxes) {
+        if (o.kind === 'ceiling') continue;
+        if (b.min.x < o.max.x + pad && b.max.x > o.min.x - pad && b.min.z < o.max.z + pad && b.max.z > o.min.z - pad && b.min.y < o.max.y && b.max.y > o.min.y) return null;
+      }
+      boxes.push(b);
+    }
+    const p = { kind, x, z, yaw, def, box: boxes[0], boxes, seed: (this.rng() * 1e9) | 0 };
+    for (const b of boxes) this.boxes.push(b);
+    this.props.push(p);
+    return p;
+  }
+
+  placeWarehouseProps() {
+    const n = this.n, mid = (n / 2) | 0;
+    this.props = this.racks.map((r) => ({ kind: 'rack', x: (r.box.min.x + r.box.max.x) / 2, z: (r.box.min.z + r.box.max.z) / 2, yaw: 0, def: null, box: r.box, boxes: [r.box], rack: r }));
+    for (const hl of this.halls)
+      for (let j = hl.j0; j < hl.j0 + hl.d; j++)
+        for (let i = hl.i0; i < hl.i0 + hl.w; i++) {
+          if (Math.abs(i - mid) <= 1 && Math.abs(j - mid) <= 1) continue; // the arrival floor stays clear
+          if (hl.type === 'racks') this.stockAisle(hl, i, j);
+          else if (hl.type === 'bulk') this.stockBulk(i, j);
+          else this.stockDock(i, j);
+        }
+    for (const hl of this.halls) if (hl.type !== 'racks') this.placeBreakCorner(hl);
+    this.placeDockDoors();
+  }
+
+  // somebody's corner against a wall: vending machines, a packing bench, a bin
+  placeBreakCorner(hl) {
+    const R = this.rng, C = this.cell, t = this.wallT, n = this.n, mid = (n / 2) | 0;
+    const spots = [];
+    for (let j = hl.j0; j < hl.j0 + hl.d; j++)
+      for (let i = hl.i0; i < hl.i0 + hl.w; i++) {
+        if (Math.abs(i - mid) <= 1 && Math.abs(j - mid) <= 1) continue;
+        for (let d = 0; d < 4; d++) if (this.edgeVal(i, j, d) === 1) spots.push([i, j, d]);
+      }
+    for (let tries = 0; tries < 6 && spots.length; tries++) {
+      const [i, j, d] = spots[Math.floor(R() * spots.length)];
+      const cx = this.cx(i), cz = this.cx(j);
+      // along the wall (unit vector) and into the room
+      const ax = d < 2 ? 0 : 1, az = d < 2 ? 1 : 0, nx = d === 0 ? -1 : d === 1 ? 1 : 0, nz = d === 2 ? -1 : d === 3 ? 1 : 0;
+      const yaw = d === 0 ? -Math.PI / 2 : d === 1 ? Math.PI / 2 : d === 2 ? Math.PI : 0;
+      const at = (along, kind) => {
+        const off = C / 2 - t / 2 - PROP_DEFS[kind].d / 2 - 0.07;
+        return [cx - nx * off + ax * along, cz - nz * off + az * along];
+      };
+      const [vx, vz] = at(-1.5, 'vending');
+      if (!this.addProp('vending', vx, vz, yaw)) continue;
+      if (R() < 0.5) { const [x2, z2] = at(-0.55, 'vending'); this.addProp('vending', x2, z2, yaw); }
+      const [bx, bz] = at(0.9, 'bench');
+      this.addProp('bench', bx, bz, yaw);
+      const [ix, iz] = at(2.1, 'bin');
+      if (R() < 0.7) this.addProp('bin', ix, iz, yaw);
+      return;
+    }
+  }
+
+  // racking aisles: the odd load, pallet stack or jack left against a rack face, forklifts
+  // parked in the cross-aisles
+  stockAisle(hl, i, j) {
+    const R = this.rng, C = this.cell, cx = this.cx(i), cz = this.cx(j), Q = Math.PI / 2;
+    const a = hl.alongX ? i - hl.i0 : j - hl.j0;
+    const yawAlong = hl.alongX ? 0 : Q; // a prop's width (local x) along the aisle
+    if (hl.cross.has(a)) {
+      // a forklift's length (local z) runs along the cross-aisle
+      if (R() < 0.14) this.addProp('forklift', cx + (R() - 0.5) * 0.6, cz + (R() - 0.5) * 0.6, yawAlong + (R() < 0.5 ? Math.PI : 0));
+      else if (R() < 0.12) {
+        const kind = R() < 0.5 ? 'pallets' : 'load';
+        this.addProp(kind, cx + (R() - 0.5) * 1.6, cz + (R() - 0.5) * 1.6, yawAlong + Q, this.loadSize(kind));
+      }
+      return;
+    }
+    if (R() > 0.22) return;
+    const kind = ['load', 'load', 'pallets', 'cartons', 'jack', 'drums', 'load'][Math.floor(R() * 7)];
+    const over = this.loadSize(kind), def = { ...PROP_DEFS[kind], ...over };
+    // against one rack face, leaving the middle of the aisle clear (a jack lies lengthways)
+    const face = (C - this.theme.rack.depth) / 2, depth = kind === 'jack' ? def.w : def.d;
+    const off = (R() < 0.5 ? -1 : 1) * (face - depth / 2 - 0.1), along = (R() - 0.5) * 2.4;
+    const yaw = kind === 'jack' ? yawAlong + Q : yawAlong + (R() < 0.5 ? Math.PI : 0);
+    this.addProp(kind, hl.alongX ? cx + along : cx + off, hl.alongX ? cz + off : cz + along, yaw, over);
+  }
+
+  // bulk storage: block stacks of pallet loads with lanes between them
+  stockBulk(i, j) {
+    const R = this.rng, cx = this.cx(i), cz = this.cx(j), Q = Math.PI / 2;
+    const r = R();
+    if (r < 0.72) {
+      const [w, d] = [[2.5, 2.1], [2.5, 1.05], [1.25, 2.1], [2.5, 2.1]][Math.floor(R() * 4)];
+      const tiers = R() < 0.65 ? 2 : 1;
+      this.addProp('stack', cx + (R() - 0.5) * 0.4, cz + (R() - 0.5) * 0.4, R() < 0.5 ? 0 : Q, { w, d, h: tiers * 1.3, tiers });
+    } else if (r < 0.86) this.addProp('pallets', cx + (R() - 0.5) * 1.2, cz + (R() - 0.5) * 1.2, Math.floor(R() * 4) * Q, this.loadSize('pallets'));
+    else if (r < 0.92) this.addProp('jack', cx + (R() - 0.5) * 1.2, cz + (R() - 0.5) * 1.2, Math.floor(R() * 4) * Q);
+  }
+
+  // dock floor: forklifts, staged loads, pallets, drums and cones on open concrete
+  stockDock(i, j) {
+    const R = this.rng, cx = this.cx(i), cz = this.cx(j), Q = Math.PI / 2;
+    const yaw = () => Math.floor(R() * 4) * Q;
+    const r = R();
+    if (r > 0.52) return;
+    if (r < 0.08) this.addProp('forklift', cx + (R() - 0.5) * 0.6, cz + (R() - 0.5) * 0.6, yaw());
+    else if (r > 0.42) {
+      // a staging lane: loads and a pallet stack in a line
+      const alongX = R() < 0.5;
+      for (let m = -1; m <= 1; m++) {
+        const o = m * 1.35, kind = R() < 0.75 ? 'load' : 'pallets';
+        this.addProp(kind, cx + (alongX ? o : 0), cz + (alongX ? 0 : o), alongX ? 0 : Q, this.loadSize(kind));
+      }
+    } else if (r < 0.19) {
+      // a short row of staged loads
+      const k = 1 + Math.floor(R() * 3), alongX = R() < 0.5;
+      for (let m = 0; m < k; m++) {
+        const o = (m - (k - 1) / 2) * 1.3;
+        this.addProp('load', cx + (alongX ? o : 0), cz + (alongX ? 0 : o), alongX ? 0 : Q, this.loadSize('load'));
+      }
+    } else if (r < 0.26) this.addProp('pallets', cx + (R() - 0.5) * 1.4, cz + (R() - 0.5) * 1.4, yaw(), this.loadSize('pallets'));
+    else if (r < 0.31) this.addProp('drums', cx + (R() - 0.5) * 1.4, cz + (R() - 0.5) * 1.4, yaw());
+    else if (r < 0.35) this.addProp('cartons', cx + (R() - 0.5) * 1.4, cz + (R() - 0.5) * 1.4, yaw(), this.loadSize('cartons'));
+    else if (r < 0.38) this.addProp('jack', cx + (R() - 0.5) * 1.4, cz + (R() - 0.5) * 1.4, yaw());
+    else if (r < 0.40) this.addProp(R() < 0.5 ? 'crate' : 'barrel', cx + (R() - 0.5) * 1.4, cz + (R() - 0.5) * 1.4, yaw());
+    else {
+      const k = 2 + Math.floor(R() * 3);
+      for (let m = 0; m < k; m++) this.addProp('cone', cx + (R() - 0.5) * 2.4, cz + (R() - 0.5) * 2.4, 0);
+    }
+  }
+
+  // per-instance heights for stock that comes in different sizes
+  loadSize(kind) {
+    const R = this.rng;
+    if (kind === 'pallets') { const k = 1 + Math.floor(R() * 6); return { h: k * 0.145, count: k }; }
+    if (kind === 'load') return { h: 1.2 + R() * 0.45 };
+    if (kind === 'cartons') return { h: 0.7 + R() * 0.6 };
+    return null;
+  }
+
+  // closed loading-dock doors along the outside walls of the open halls, with bollards
+  placeDockDoors() {
+    const n = this.n, half = this.half, t = this.wallT, R = this.rng;
+    this.dockDoors = [];
+    for (const hl of this.halls) {
+      if (hl.type === 'racks') continue;
+      const sides = [];
+      if (hl.j0 === 0) sides.push([0, 1, (k) => [hl.i0 + k, 0], hl.w]);
+      if (hl.j0 + hl.d === n) sides.push([0, -1, (k) => [hl.i0 + k, n - 1], hl.w]);
+      if (hl.i0 === 0) sides.push([1, 0, (k) => [0, hl.j0 + k], hl.d]);
+      if (hl.i0 + hl.w === n) sides.push([-1, 0, (k) => [n - 1, hl.j0 + k], hl.d]);
+      for (const [nx, nz, cell, len] of sides)
+        for (let k = 1; k < len - 1; k += 2) {
+          if (R() < 0.3) continue;
+          const [i, j] = cell(k);
+          // the door sits on the outside wall at the middle of this cell's edge
+          const x = nx ? -nx * half + nx * (t / 2) : this.cx(i), z = nz ? -nz * half + nz * (t / 2) : this.cx(j);
+          for (const s of [-1, 1]) this.addProp('bollard', x + nx * 0.4 + (nz ? s * 1.85 : 0), z + nz * 0.4 + (nx ? s * 1.85 : 0), 0);
+          this.dockDoors.push({ x, z, nx, nz, num: this.dockDoors.length + 1 });
+        }
+    }
   }
 
   // ---- lights ----------------------------------------------------------------------------
@@ -64120,7 +64501,7 @@ class BackroomsLevel {
     const mx = (this.cx(ai) + this.cx(bi)) / 2, mz = (this.cx(aj) + this.cx(bj)) / 2;
     const alongX = ai === bi; // cells stacked in z: the shared edge runs along x
     const val = alongX ? this.h[this.hIdx(ai, Math.max(aj, bj))] : this.v[this.vIdx(Math.max(ai, bi), aj)];
-    const open = (val === 2 ? Math.min(1.25, this.cell * 0.42) / 2 : this.cell / 2 - 0.3) - r - 0.05;
+    const open = (val === 2 ? this.doorWidth() / 2 : this.cell / 2 - 0.3) - r - 0.05;
     let first = null;
     for (const f of [0, 0.45, -0.45, 0.9, -0.9]) {
       const o = f * Math.max(0, open);
@@ -64329,7 +64710,9 @@ uniform vec3 uLightCol;
 uniform float uLightPow;
 uniform float uAmbientFloor;
 uniform float uBounce;      // non-directional bounce light (rooms are small and bright)
-uniform sampler2D uWalls;   // n x n: r +x, g -x, b +z, a -z edge closed
+uniform sampler2D uWalls;   // n x n: r +x, g -x, b +z, a -z edge closed (1 wall, .78 door, .59 racking)
+uniform vec4 uLamp;         // fixture height, falloff, reach, bounce falloff
+uniform vec4 uLamp2;        // x: share of a fixture's light that goes sideways and up, y: beam exponent (0: troffer)
 varying vec3 vLatP;
 // contact darkening where floor/ceiling meet a wall of this cell
 float edgeAO(vec3 P, float reach) {
@@ -64365,15 +64748,16 @@ vec3 latticeIrradiance(vec3 P, vec3 N) {
       vec4 fx = texelFetch(uFix, f, 0);
       float level = fx.r * (1.0 - fx.g);
       if (level <= 0.001) continue;
-      vec3 L = vec3(uGrid.x + (float(f.x) + 0.5) * cell, H - 0.04, uGrid.x + (float(f.y) + 0.5) * cell) - P;
+      vec3 L = vec3(uGrid.x + (float(f.x) + 0.5) * cell, uLamp.x, uGrid.x + (float(f.y) + 0.5) * cell) - P;
       float d2 = dot(L, L);
       float d = sqrt(d2);
       vec3 l = L / d;
       float cosN = max(dot(N, l), 0.0);
       float cosL = max(l.y, 0.0);
-      float win = clamp(1.0 - d / (2.6 * cell), 0.0, 1.0);
-      sum += level * cosN * (0.35 + 0.65 * cosL) * win * win / (d2 * 0.35 + 0.55);
-      bounce += level * win / (d2 * 0.2 + 1.0);
+      float win = clamp(1.0 - d / uLamp.z, 0.0, 1.0);
+      float beam = uLamp2.y > 0.0 ? pow(cosL, uLamp2.y) : cosL; // reflector lamps throw their light down
+      sum += level * cosN * (uLamp2.x + (1.0 - uLamp2.x) * beam) * win * win / (d2 * uLamp.y + 0.55);
+      bounce += level * win / (d2 * uLamp.w + 1.0);
     }
   }
   return (sum * 2.6 + bounce * uBounce) * uLightCol * uLightPow + uLightCol * uAmbientFloor;
@@ -64454,6 +64838,8 @@ class LevelView {
       size: this.quality === 'low' ? 2048 : 4096,
     });
     this.buildLatticeTextures();
+    // fixtures: flush troffers just under the ceiling unless the theme hangs lamps lower
+    const lp = (this.lamp = LevelView.lampParams(level));
     this.shared = {
       uFix: { value: this.fixTex },
       uReach: { value: this.reachTex },
@@ -64463,6 +64849,8 @@ class LevelView {
       uAmbientFloor: { value: 0.02 },
       uBounce: { value: 0.22 },
       uWalls: { value: this.wallTex },
+      uLamp: { value: new T3.Vector4(lp.y, lp.fall, lp.win, lp.bounce) },
+      uLamp2: { value: new T3.Vector4(lp.up, lp.beam, 0, 0) },
     };
     this.ambient = new T3.HemisphereLight(new T3.Color(...th.lightCol).multiplyScalar(0.9), new T3.Color(...th.carpet).multiplyScalar(0.6), th.ambient);
     scene.add(this.ambient);
@@ -64473,6 +64861,14 @@ class LevelView {
     this.buildSpots();
     this.buildDust();
     this.wallDecals = new WallDecals(scene, 900);
+  }
+
+  static lampParams(level) {
+    const th = level.theme, lp = th.lamp || {};
+    return {
+      y: lp.y ?? level.ceiling - 0.04, fall: lp.fall ?? 0.35, win: lp.win ?? 2.6 * level.cell, bounce: lp.bounce ?? 0.2,
+      up: lp.up ?? 0.35, beam: lp.beam ?? 0, spot: lp.spot ?? 14, bias: lp.bias ?? -0.0006, normalBias: lp.normalBias ?? 0.025, spotDist: lp.spotDist ?? 9, spotY: lp.y !== undefined ? lp.y - 0.06 : level.ceiling - 0.05,
+    };
   }
 
   // ---- fixture textures ------------------------------------------------------------------
@@ -64511,17 +64907,14 @@ class LevelView {
     this.reachTex.internalFormat = 'R32UI';
     this.reachTex.minFilter = this.reachTex.magFilter = T3.NearestFilter;
     this.reachTex.needsUpdate = true;
-    const wd = new Uint8Array(n * n * 4);
+    // closed edges for contact shading (> 0.5); the value also says what closes it: wall, doorway
+    // or racking (floor markings follow it)
+    const wd = new Uint8Array(n * n * 4), code = [0, 255, 200, 150];
     for (let j = 0; j < n; j++)
-      for (let i = 0; i < n; i++) for (let d = 0; d < 4; d++) wd[(j * n + i) * 4 + [0, 1, 2, 3][d]] = L.wallOpen(i, j, d) && !this.doorEdge(i, j, d) ? 0 : 255;
+      for (let i = 0; i < n; i++) for (let d = 0; d < 4; d++) wd[(j * n + i) * 4 + d] = code[L.edgeVal(i, j, d)];
     this.wallTex = new T3.DataTexture(wd, n, n, T3.RGBAFormat, T3.UnsignedByteType);
     this.wallTex.minFilter = this.wallTex.magFilter = T3.NearestFilter;
     this.wallTex.needsUpdate = true;
-  }
-
-  doorEdge(i, j, d) {
-    const L = this.level;
-    return (d === 0 ? L.v[L.vIdx(i + 1, j)] : d === 1 ? L.v[L.vIdx(i, j)] : d === 2 ? L.h[L.hIdx(i, j + 1)] : L.h[L.hIdx(i, j)]) === 2;
   }
 
   styleUniforms() {
@@ -64539,8 +64932,10 @@ class LevelView {
   buildWalls() {
     const L = this.level;
     const geos = [];
+    const steelColumns = L.theme.style === 4; // the warehouse builds its own columns
     for (const b of L.boxes) {
       if (b.kind !== 'wall' && b.kind !== 'pillar' && b.kind !== 'lintel') continue;
+      if (b.kind === 'pillar' && steelColumns) continue;
       const w = b.max.x - b.min.x, h = b.max.y - b.min.y, d = b.max.z - b.min.z;
       const g = new T3.BoxGeometry(w, h, d);
       g.translate((b.min.x + b.max.x) / 2, (b.min.y + b.max.y) / 2, (b.min.z + b.max.z) / 2);
@@ -64593,6 +64988,32 @@ class LevelView {
             col *= 1.0 - 0.3 * mortar;
             float rust = smoothstep(0.55, 0.85, brF(vec2(uv.x * 2.0, uv.y * 0.6) + 9.0)) * smoothstep(1.3, 0.2, abs(P.y - 1.05));
             col = mix(col, vec3(0.3, 0.14, 0.06), rust * 0.6);
+          } else if (uStyle == 4) {
+            // warehouse: painted block with a dark dado band and a safety stripe, cream block
+            // above, corrugated cladding from 4.4 m up to the roof
+            vec2 bl = vec2(fract(uv.x / 0.4 + floor(uv.y / 0.2) * 0.5), fract(uv.y / 0.2));
+            float mortar = 1.0 - smoothstep(0.0, 0.03, min(min(bl.x, 1.0 - bl.x) * 2.0, min(bl.y, 1.0 - bl.y)));
+            float blockTone = brH(floor(vec2(uv.x / 0.4 + floor(uv.y / 0.2) * 0.5, uv.y / 0.2)) + uSeed);
+            float dado = step(P.y, 1.15);
+            col = mix(uWallCol, uWallAlt, dado) * (0.84 + 0.2 * grime) * (0.95 + 0.05 * fine) * (0.96 + 0.06 * blockTone);
+            col *= 1.0 - 0.2 * mortar;
+            // scuffed paint and forklift scrapes low on the band
+            float scuff = smoothstep(0.62, 0.8, brF(vec2(uv.x * 3.0, uv.y * 9.0) + 2.0)) * smoothstep(0.9, 0.2, P.y);
+            col = mix(col, uWallCol * 0.55, scuff * 0.6);
+            float stripe = smoothstep(0.012, 0.0, abs(P.y - 1.24) - 0.07);
+            col = mix(col, uTrim * (0.8 + 0.25 * fine) * (0.85 + 0.15 * grime), stripe);
+            // water stains running down from the cladding
+            float run = smoothstep(0.58, 0.85, brN(vec2(uv.x * 4.0, uv.y * 0.3) + 5.0)) * smoothstep(1.2, 4.4, P.y);
+            col *= 1.0 - 0.18 * run;
+            if (P.y > 4.4) {
+              float rib = fract(uv.x / 0.24);
+              float prof = smoothstep(0.0, 0.12, rib) * smoothstep(0.62, 0.5, rib);
+              prof = mix(prof, 0.55, smoothstep(0.08, 0.35, fwidth(uv.x / 0.24))); // no moire far away
+              col = uWallCol * vec3(0.78, 0.76, 0.72) * (0.66 + 0.34 * prof) * (0.8 + 0.25 * grime);
+              col *= 1.0 - 0.45 * smoothstep(0.03, 0.0, abs(P.y - 4.45)); // girt line
+              float rustRun = smoothstep(0.6, 0.85, brN(vec2(uv.x * 8.0, uv.y * 0.4) + 11.0));
+              col = mix(col, vec3(0.32, 0.16, 0.07), rustRun * 0.45);
+            }
           } else {
             // office drywall with a chair rail
             col = uWallCol * (0.9 + 0.12 * grime) * (0.97 + 0.03 * fine);
@@ -64601,11 +65022,11 @@ class LevelView {
           }
           col *= mix(0.62, 1.0, smoothstep(0.0, 0.35, P.y)) * mix(0.7, 1.0, smoothstep(0.0, 0.3, uGrid.w - P.y));
           // baseboard
-          float base = step(P.y, 0.1);
+          float base = uStyle == 4 ? 0.0 : step(P.y, 0.1);
           col = mix(col, uTrim * (0.85 + 0.2 * fine), base);
           diffuseColor.rgb *= col;
         }`,
-      roughness: 'roughnessFactor = uStyle == 1 ? 0.92 : uStyle == 2 ? 0.75 : 0.88;',
+      roughness: 'roughnessFactor = uStyle == 1 ? 0.92 : uStyle == 2 ? 0.75 : uStyle == 4 ? (vLatP.y > 4.4 ? 0.55 : 0.8) : 0.88;',
     });
     const mesh = new T3.Mesh(geo, mat);
     mesh.receiveShadow = true;
@@ -64656,6 +65077,60 @@ class LevelView {
             float oil = smoothstep(0.62, 0.7, big);
             col *= 1.0 - 0.4 * oil;
             floorWet = oil * 0.8;
+          } else if (uStyle == 4) {
+            // sealed warehouse concrete: mottled and burnished, saw-cut joints, worn safety
+            // paint along the racking and walls, hatching across doorways, tyre marks, oil
+            col *= 0.8 + 0.3 * mid + 0.05 * (fib - 0.5);
+            col *= 0.94 + 0.08 * brN(xz * vec2(0.7, 2.6) + 3.0);
+            float J = uGrid.y * 0.5;
+            vec2 jd = abs(fract(xz / J + 0.5) - 0.5) * J;
+            col *= 1.0 - 0.35 * (1.0 - smoothstep(0.004, 0.014, min(jd.x, jd.y)));
+            float C = uGrid.y;
+            vec2 g = (xz - uGrid.x) / C;
+            ivec2 c = ivec2(floor(g));
+            float paint = 0.0, hatch = 0.0, dir = 0.5;
+            if (c.x >= 0 && c.y >= 0 && c.x < int(uGrid.z) && c.y < int(uGrid.z)) {
+              vec4 w = texelFetch(uWalls, c, 0);
+              vec2 lp = (g - vec2(c)) * C;
+              // distance to each side (+x, -x, +z, -z) and what closes it
+              vec4 ds = vec4(C - lp.x, lp.x, C - lp.y, lp.y);
+              vec4 isWall = step(0.9, w), isDoor = step(0.7, w) * (1.0 - isWall), isRack = step(0.5, w) * (1.0 - isWall - isDoor);
+              vec4 off = isRack * 0.82 + (isWall + isDoor) * 0.75;
+              vec4 closed = step(0.5, w);
+              for (int k = 0; k < 4; k++) {
+                if (closed[k] < 0.5) continue;
+                float line = 1.0 - smoothstep(0.045, 0.06, abs(ds[k] - off[k]));
+                // stop short of the perpendicular closed sides so lines meet in corners
+                vec2 perp = k < 2 ? vec2(ds.z, ds.w) : vec2(ds.x, ds.y);
+                vec2 pc = k < 2 ? vec2(closed.z, closed.w) : vec2(closed.x, closed.y);
+                vec2 po = k < 2 ? vec2(off.z, off.w) : vec2(off.x, off.y);
+                line *= mix(1.0, step(po.x - 0.06, perp.x), pc.x) * mix(1.0, step(po.y - 0.06, perp.y), pc.y);
+                float along = k < 2 ? lp.y : lp.x;
+                if (isDoor[k] > 0.5) {
+                  float inDoor = step(abs(along - C * 0.5), 1.45);
+                  line *= 1.0 - inDoor;
+                  // yellow and black hatching across the opening
+                  float h = step(ds[k], 0.9) * inDoor;
+                  hatch = max(hatch, h);
+                }
+                paint = max(paint, line);
+              }
+              // tyre marks run along the aisles
+              dir = (isRack.z + isRack.w) > 0.5 ? 1.0 : (isRack.x + isRack.y) > 0.5 ? 0.0 : 0.5;
+            }
+            float tyreX = smoothstep(0.55, 0.85, brN(vec2(xz.x * 0.35, xz.y * 7.0) + 1.3)) * smoothstep(0.35, 0.65, brN(xz * 0.4 + 2.0));
+            float tyreZ = smoothstep(0.55, 0.85, brN(vec2(xz.y * 0.35, xz.x * 7.0) + 4.1)) * smoothstep(0.35, 0.65, brN(xz * 0.4 + 6.0));
+            col *= 1.0 - 0.22 * mix(tyreZ, tyreX, dir);
+            float wear = smoothstep(0.25, 0.6, brF(xz * 2.3 + 5.0)) * (0.7 + 0.3 * fib);
+            vec3 yel = uTrim * (0.75 + 0.25 * brN(xz * 30.0));
+            col = mix(col, yel, paint * wear);
+            float stripes = step(0.5, fract((xz.x + xz.y) * 2.2));
+            col = mix(col, mix(yel, vec3(0.03, 0.025, 0.02), stripes), hatch * wear * 0.9);
+            // broad warm and grey patches from years of sweeping and spills, and the odd oil stain
+            col *= mix(vec3(1.0), vec3(1.07, 0.97, 0.86), smoothstep(0.35, 0.75, brF(xz * 0.07 + 21.0)));
+            float oil = smoothstep(0.7, 0.77, brF(xz * 0.32 + 13.0)) * (0.6 + 0.4 * brN(xz * 2.0));
+            col *= 1.0 - 0.45 * oil;
+            floorWet = oil * 0.85;
           } else {
             vec2 tile = floor(xz / 0.5);
             float tv = brH(tile + 3.0);
@@ -64675,7 +65150,7 @@ class LevelView {
           col *= edgeAO(vLatP, 0.45);
           diffuseColor.rgb *= col;
         }`,
-      roughness: 'roughnessFactor = mix(uStyle == 1 ? 0.88 : 0.97, 0.12, clamp(floorWet, 0.0, 1.0));',
+      roughness: 'roughnessFactor = mix(uStyle == 1 ? 0.88 : uStyle == 4 ? 0.62 + 0.2 * brN(vLatP.xz * 0.9) : 0.97, 0.12, clamp(floorWet, 0.0, 1.0));',
     });
     const mesh = new T3.Mesh(geo, mat);
     mesh.receiveShadow = true;
@@ -64712,11 +65187,19 @@ class LevelView {
             col = mix(col, col * 0.55, gridL);
           } else if (uStyle == 1) {
             col *= 0.75 + 0.3 * brF(xz * 0.8);
+          } else if (uStyle == 4) {
+            // galvanised roof deck: trapezoidal ribs spanning between the joists, water marks
+            float rib = fract(xz.x / 0.3);
+            float ribs = smoothstep(0.0, 0.08, rib) * smoothstep(0.55, 0.45, rib);
+            col *= 0.8 + 0.2 * mix(ribs, 0.5, smoothstep(0.08, 0.35, fwidth(xz.x / 0.3)));
+            col *= 0.8 + 0.3 * brF(xz * 0.6 + uSeed * 5.0);
+            col = mix(col, col * vec3(0.6, 0.48, 0.34), smoothstep(0.62, 0.8, brF(xz * 0.25 + 3.0)) * 0.6);
           } else {
             col *= 0.6 + 0.4 * brF(xz * 1.2);
           }
-          // the troffer: a 0.6 x 1.2 m diffuser panel with a metal frame
-          vec2 pd = abs(local) - vec2(0.3, 0.6);
+          // the troffer: a 0.6 x 1.2 m diffuser panel with a metal frame (the warehouse hangs
+          // its lamps from the roof structure instead)
+          vec2 pd = abs(local) - vec2(0.3, 0.6) + (uStyle == 4 ? 9.0 : 0.0);
           float panel = step(max(pd.x, pd.y), 0.0);
           float frame = step(max(pd.x, pd.y), 0.035) * (1.0 - panel);
           col = mix(col, vec3(0.75), frame);
@@ -64735,6 +65218,10 @@ class LevelView {
   // ---- props -------------------------------------------------------------------------------
   buildProps() {
     const L = this.level;
+    if (L.theme.style === 4) {
+      this.dressing = new WarehouseDressing(this);
+      return;
+    }
     const mats = {
       metal: patchLattice(new T3.MeshStandardMaterial({ color: 0x6b6e66, roughness: 0.5, metalness: 0.6 }), this.shared, { key: 'prop' }),
       wood: patchLattice(new T3.MeshStandardMaterial({ color: 0x7a5a3a, roughness: 0.8 }), this.shared, { key: 'prop' }),
@@ -64767,13 +65254,13 @@ class LevelView {
     this.spots = [];
     const count = this.quality === 'low' ? 1 : 2;
     for (let k = 0; k < count; k++) {
-      const s = new T3.SpotLight(new T3.Color(...th.lightCol), 0, 9, 1.25, 0.85, 1.6);
+      const s = new T3.SpotLight(new T3.Color(...th.lightCol), 0, this.lamp.spotDist, 1.25, 0.85, 1.6);
       s.castShadow = true;
       s.shadow.mapSize.set(this.quality === 'high' ? 1024 : 512, this.quality === 'high' ? 1024 : 512);
       s.shadow.camera.near = 0.1;
-      s.shadow.camera.far = 9;
-      s.shadow.bias = -0.0006;
-      s.shadow.normalBias = 0.025;
+      s.shadow.camera.far = this.lamp.spotDist;
+      s.shadow.bias = this.lamp.bias;
+      s.shadow.normalBias = this.lamp.normalBias;
       this.scene.add(s, s.target);
       this.spots.push({ light: s, fixture: null, w: 0 });
     }
@@ -64796,7 +65283,7 @@ class LevelView {
     const L = this.level, n = L.n;
     const c = L.cellOf(x, z);
     if (c < 0) return 0;
-    const ci = c % n, cj = (c / n) | 0;
+    const ci = c % n, cj = (c / n) | 0, lp = this.lamp;
     let sum = 0;
     for (let dj = -2; dj <= 2; dj++)
       for (let di = -2; di <= 2; di++) {
@@ -64804,11 +65291,12 @@ class LevelView {
         if (i < 0 || j < 0 || i >= n || j >= n) continue;
         const f = L.fixtures[j * n + i];
         if (f.level <= 0) continue;
-        const dx = f.x - x, dy = L.ceiling - y, dz = f.z - z, d2 = dx * dx + dy * dy + dz * dz;
+        // (the troffer themes measure from the ceiling itself, as they always have)
+        const dx = f.x - x, dy = (L.theme.lamp ? lp.y : L.ceiling) - y, dz = f.z - z, d2 = dx * dx + dy * dy + dz * dz;
         const reach = (this.reachTex.image.data[c] >>> ((dj + 2) * 5 + (di + 2))) & 1;
         if (!reach) continue;
-        const win = clamp(1 - Math.sqrt(d2) / (2.6 * L.cell), 0, 1);
-        sum += (f.level * win * win) / (d2 * 0.35 + 0.55);
+        const win = clamp(1 - Math.sqrt(d2) / lp.win, 0, 1);
+        sum += (f.level * win * win) / (d2 * lp.fall + 0.55);
       }
     return sum * L.theme.lightPow;
   }
@@ -64866,11 +65354,12 @@ class LevelView {
       if (!f) { sp.light.intensity = 0; continue; }
       if (keep) sp.k = top.find((r) => r[1] === f)[2];
       d[sp.k * 4 + 1] = sp.w;
-      sp.light.position.set(f.x, L.ceiling - 0.05, f.z);
+      sp.light.position.set(f.x, this.lamp.spotY, f.z);
       sp.light.target.position.set(f.x, 0, f.z);
-      sp.light.intensity = 14 * L.theme.lightPow * f.level * sp.w;
+      sp.light.intensity = this.lamp.spot * L.theme.lightPow * f.level * sp.w;
     }
     this.fixTex.needsUpdate = true;
+    if (this.dressing) this.dressing.update(dt, cam);
     // dust drifts around the camera
     const p = this.dust.geometry.attributes.position, a = p.array;
     for (let i = 0; i < a.length; i += 3) {
@@ -64897,6 +65386,7 @@ class LevelView {
     this.decals.material.dispose();
     this.wallDecals.mesh.dispose(); // instance buffer
     for (const sp of this.spots) sp.light.dispose(); // shadow maps
+    if (this.dressing) this.dressing.dispose();
   }
 }
 
@@ -65031,6 +65521,762 @@ class WallDecals {
     this.mesh.instanceMatrix.needsUpdate = true;
   }
   clear() { this.mesh.count = 0; this.next = 0; }
+}
+
+
+// ===== src/12-warehouse.js =====
+// Level 1 dressing: pallet racking and its stock, loose stock and machines, steel columns, roller
+// doors, the roof structure and the sodium high-bay lamps with their glow and light shafts. All of
+// it is generated here from boxes and cylinders, coloured per vertex and merged by material into
+// one mesh per 4 x 4-cell chunk, so the two shadow-casting spot lights only draw nearby chunks.
+// The colliders are the level's (10-level.js): what is drawn here stays inside them.
+
+const WH = {
+  upright: 0x23508f, beam: 0xe2601b, foot: 0x4a4744,
+  pallet: 0xb48c5c, palletDark: 0x8a6942,
+  card: [0xa87d4e, 0xb68b57, 0x9c7147, 0xc39b66, 0x8f6943],
+  print: [0xd9d2c3, 0x9e2c1f, 0x2c517c, 0x3f6b3c, 0xd8a531],
+  wrapTint: [0xb08756, 0xc49c68, 0xd8d3c9, 0x9b7a52, 0xa98250, 0xbf9a6a, 0x7c2a22, 0x2f4f6e, 0xd0c8b4, 0x3a3634],
+  tote: [0x2c5aa0, 0xb02a20, 0x5e6266, 0x2f7a3a, 0xd09a20],
+  drum: [0x1f4f9a, 0xa02218, 0x222222, 0xc89a28, 0x3d6b3a],
+  sack: [0xe6dcc8, 0xd8c8a6, 0xc8b48c],
+  crate: 0x9a7448, crateDark: 0x6f5233,
+  forklift: [0xd9a016, 0xd2601a, 0xc9a227], black: 0x161514, darkMetal: 0x2f2e2c,
+  column: 0xc8941c, girder: 0x6b3325, joist: 0x65605a, pipe: 0x9a1e14, galv: 0x8c867a,
+  lampBody: 0x3a3836, reflector: 0xb0aca2, jack: 0xb3301e, cone: 0xe0560f, white: 0xe8e4da,
+};
+
+const WH_V1 = new T3.Vector3(), WH_UP = new T3.Vector3(0, 1, 0), WH_Q = new T3.Quaternion(), WH_M = new T3.Matrix4(), WH_ONE = new T3.Vector3(1, 1, 1);
+function whBox(w, h, d, x, y, z) { return new T3.BoxGeometry(w, h, d).translate(x, y, z); }
+function whCyl(rt, rb, h, seg, x, y, z, open = false) { return new T3.CylinderGeometry(rt, rb, h, seg, 1, open).translate(x, y, z); }
+// a square bar from a to b
+function whStrut(ax, ay, az, bx, by, bz, t) {
+  const dx = bx - ax, dy = by - ay, dz = bz - az, len = Math.hypot(dx, dy, dz);
+  WH_Q.setFromUnitVectors(WH_UP, WH_V1.set(dx / len, dy / len, dz / len));
+  return new T3.BoxGeometry(t, len, t).applyMatrix4(WH_M.compose(new T3.Vector3((ax + bx) / 2, (ay + by) / 2, (az + bz) / 2), WH_Q, WH_ONE));
+}
+
+class WarehouseDressing {
+  constructor(view) {
+    this.view = view;
+    const L = (this.level = view.level);
+    this.rng = Lab.rng(((L.seed * 2654435761) ^ 0x5eed) >>> 0);
+    this.bins = new Map();
+    this.colors = new Map();
+    this.chunk = L.cell * 4;
+    this.nChunk = Math.ceil(L.size / this.chunk);
+    this.textures = [];
+    this.makeMaterials();
+    this.buildRacks();
+    this.buildProps();
+    this.buildColumns();
+    this.buildDoors();
+    this.buildRoof();
+    this.buildLamps();
+    this.buildSigns();
+    this.buildLitter();
+    this.flush();
+  }
+
+  // flattened cartons, loose boards and scraps of wrap on the floor (flat: no colliders needed)
+  buildLitter() {
+    const L = this.level, R = this.rng;
+    for (let c = 0; c < L.n * L.n; c++) {
+      if (R() > 0.3) continue;
+      const ctr = L.cellCenter(c);
+      for (let k = 0; k < 1 + Math.floor(R() * 2); k++) {
+        const x = ctr.x + (R() - 0.5) * L.cell * 0.85, z = ctr.z + (R() - 0.5) * L.cell * 0.85;
+        if (!L.free(x, z, 0.5)) continue;
+        const a = R() * TAU, r = R();
+        if (r < 0.6) this.add('carton', whBox(0.5 + R() * 0.4, 0.01, 0.4 + R() * 0.35, 0, 0.005, 0).rotateY(a).translate(x, 0, z), this.pick(WH.card));
+        else if (r < 0.8) this.add('matte', whBox(1.2, 0.02, 0.1, 0, 0.01, 0).rotateY(a).translate(x, 0, z), WH.pallet);
+        else this.add('wrap', whBox(0.35, 0.05, 0.25, 0, 0.02, 0).rotateZ(0.2).rotateY(a).translate(x, 0, z), 0xd8d6cc);
+      }
+    }
+  }
+
+  pick(arr) { return arr[Math.floor(this.rng() * arr.length)]; }
+
+  // ---- materials ---------------------------------------------------------------------------
+  makeMaterials() {
+    const sh = this.view.shared, th = this.level.theme;
+    const std = (key, o, extra = {}) => patchLattice(new T3.MeshStandardMaterial({ color: 0xffffff, vertexColors: true, ...o }), sh, { key: 'wh-' + key, ...extra });
+    this.mats = {
+      paint: std('paint', { roughness: 0.5, metalness: 0.3 }),
+      matte: std('matte', { roughness: 0.92 }),
+      // stretch wrap: a glossy, slightly milky skin over layers of cartons
+      wrap: std('wrap', { roughness: 0.28 }, {
+        color: /* glsl */ `{
+          vec3 N = normalize(vLatN);
+          vec2 f = abs(N.y) > 0.5 ? vLatP.xz : abs(N.x) > 0.5 ? vLatP.zy : vLatP.xy;
+          vec2 s = f / vec2(0.41, 0.32);
+          vec2 g = abs(fract(s + 0.5) - 0.5), fw = fwidth(s);
+          float seam = smoothstep(0.455, 0.49, max(g.x, g.y)) * (1.0 - smoothstep(0.08, 0.3, max(fw.x, fw.y)));
+          diffuseColor.rgb *= 1.0 - 0.3 * seam;
+          diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.86, 0.85, 0.8), 0.14) * (0.95 + 0.05 * sin(vLatP.y * 9.0 + vLatP.x * 2.0 + vLatP.z * 1.3));
+        }`,
+      }),
+      // stacked cartons (and totes, sacks): one box per block, seams and per-carton tone drawn
+      carton: std('carton', { roughness: 0.9 }, {
+        color: /* glsl */ `{
+          vec3 N = normalize(vLatN);
+          vec2 f = abs(N.y) > 0.5 ? vLatP.xz : abs(N.x) > 0.5 ? vLatP.zy : vLatP.xy;
+          vec2 s = f / vec2(0.41, 0.32) + 0.5;
+          vec2 g = abs(fract(s) - 0.5), fw = fwidth(s);
+          float seam = smoothstep(0.44, 0.485, max(g.x, g.y)) * (1.0 - smoothstep(0.08, 0.3, max(fw.x, fw.y)));
+          float tone = fract(sin(dot(floor(s) + floor(vLatP.y * 0.1), vec2(12.9898, 78.233))) * 43758.5453);
+          diffuseColor.rgb *= (0.88 + 0.18 * tone) * (1.0 - 0.38 * seam);
+          // packing tape across the tops and down the middle of the faces
+          float tape = abs(N.y) > 0.5 ? smoothstep(0.03, 0.02, abs(fract(s.x) - 0.5)) : smoothstep(0.025, 0.015, abs(fract(s.x) - 0.5)) * step(0.36, g.y);
+          diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * 1.18 + 0.03, tape * 0.6);
+        }`,
+      }),
+      steel: std('steel', { roughness: 0.6, metalness: 0.45 }),
+      // yellow and black safety stripes (the vertex colour is the yellow)
+      hazard: std('hazard', { roughness: 0.55, metalness: 0.2 }, {
+        color: 'diffuseColor.rgb *= mix(1.0, 0.06, step(0.5, fract((vLatP.x + vLatP.y + vLatP.z) * 2.6)));',
+      }),
+      // roller shutter slats
+      shutter: std('shutter', { roughness: 0.5, metalness: 0.4 }, {
+        color: 'diffuseColor.rgb *= 0.72 + 0.28 * smoothstep(0.0, 0.35, abs(fract(vLatP.y / 0.1) - 0.5) * 2.0);',
+      }),
+      lamp: std('lamp', { roughness: 0.32, metalness: 0.75, side: T3.DoubleSide }),
+      // lit panels (vending machines): unlit, a little over white so they bloom
+      glow: new T3.MeshBasicMaterial({ vertexColors: true, color: new T3.Color(1.9, 1.9, 1.9) }),
+    };
+    this.cast = { paint: true, matte: true, wrap: true, carton: true, steel: false, hazard: true, shutter: false, lamp: false, sign: false, glow: false };
+    // lamp lenses glow with their fixture's level (flicker, outages, blackouts)
+    const lc = new T3.Color(...th.lightCol);
+    const lens = new T3.MeshBasicMaterial({ color: lc.clone().multiplyScalar(2.3) });
+    lens.onBeforeCompile = (s) => {
+      s.uniforms.uFix = sh.uFix;
+      s.uniforms.uGrid = sh.uGrid;
+      s.vertexShader = s.vertexShader
+        .replace('#include <common>', '#include <common>\nattribute float aFix; uniform sampler2D uFix; uniform vec4 uGrid; varying float vLvl;')
+        .replace('#include <begin_vertex>', '#include <begin_vertex>\n{ int nn = int(uGrid.z); int k = int(aFix + 0.5); vLvl = texelFetch(uFix, ivec2(k % nn, k / nn), 0).r; }');
+      s.fragmentShader = s.fragmentShader
+        .replace('#include <common>', '#include <common>\nvarying float vLvl;')
+        .replace('#include <color_fragment>', '#include <color_fragment>\ndiffuseColor.rgb = mix(vec3(0.05, 0.045, 0.04), diffuseColor.rgb, vLvl);');
+    };
+    lens.customProgramCacheKey = () => 'wh-lens';
+    this.mats.lens = lens;
+    // glow around each lamp and a faint shaft of light under it, in the haze
+    const glowVS = /* glsl */ `
+      attribute float aFix;
+      uniform sampler2D uFix; uniform vec4 uGrid; uniform float uFogD;
+      varying float vA; varying vec2 vC; varying vec3 vN; varying vec3 vP; varying float vT;
+      float fixLevel() { int nn = int(uGrid.z); int k = int(aFix + 0.5); return texelFetch(uFix, ivec2(k % nn, k / nn), 0).r; }`;
+    const fogOf = 'exp(-uFogD * uFogD * dist * dist)';
+    this.mats.halo = new T3.ShaderMaterial({
+      uniforms: { uFix: sh.uFix, uGrid: sh.uGrid, uFogD: { value: th.fogDensity }, uCol: { value: lc.clone().multiplyScalar(0.55) } },
+      vertexShader: glowVS + /* glsl */ `
+        attribute vec3 aCenter; attribute float aSize;
+        void main() {
+          vec4 mv = viewMatrix * vec4(aCenter, 1.0);
+          float dist = -mv.z;
+          mv.xy += position.xy * aSize;
+          vC = position.xy * 2.0;
+          vA = fixLevel() * smoothstep(0.8, 3.5, dist) * ${fogOf};
+          gl_Position = projectionMatrix * mv;
+        }`,
+      fragmentShader: /* glsl */ `
+        uniform vec3 uCol; varying float vA; varying vec2 vC;
+        void main() {
+          float r2 = dot(vC, vC);
+          if (r2 > 1.0) discard;
+          float a = exp(-r2 * 9.0) * 0.8 + exp(-r2 * 3.0) * 0.25 * (1.0 - r2);
+          gl_FragColor = vec4(uCol * a * vA, 1.0);
+        }`,
+      blending: T3.AdditiveBlending, transparent: true, depthWrite: false,
+    });
+    this.mats.shaft = new T3.ShaderMaterial({
+      uniforms: { uFix: sh.uFix, uGrid: sh.uGrid, uFogD: { value: th.fogDensity }, uCol: { value: lc.clone().multiplyScalar(0.15) } },
+      vertexShader: glowVS + /* glsl */ `
+        attribute float aT;
+        void main() {
+          vec4 wp = modelMatrix * vec4(position, 1.0);
+          vP = wp.xyz;
+          vN = normalize(mat3(modelMatrix) * normal);
+          vT = aT;
+          vec4 mv = viewMatrix * wp;
+          float dist = -mv.z;
+          vA = fixLevel() * smoothstep(0.5, 4.0, dist) * ${fogOf};
+          gl_Position = projectionMatrix * mv;
+        }`,
+      fragmentShader: /* glsl */ `
+        uniform vec3 uCol; varying float vA; varying vec3 vN; varying vec3 vP; varying float vT;
+        void main() {
+          vec3 V = normalize(cameraPosition - vP);
+          // a cone of haze reads thickest through its middle and fades towards the floor
+          float thick = pow(abs(dot(normalize(vN), V)), 1.6);
+          float a = thick * (1.0 - vT) * (1.0 - vT) * smoothstep(0.0, 0.06, vT) * vA;
+          gl_FragColor = vec4(uCol * a, 1.0);
+        }`,
+      blending: T3.AdditiveBlending, transparent: true, depthWrite: false, side: T3.DoubleSide,
+    });
+  }
+
+  // ---- geometry bins -------------------------------------------------------------------------
+  rgb(hex) {
+    let c = this.colors.get(hex);
+    if (!c) { const k = new T3.Color(hex); c = [k.r, k.g, k.b]; this.colors.set(hex, c); }
+    return c;
+  }
+
+  // a world-space part: coloured, binned by material and chunk
+  add(key, geo, hex = 0xffffff) {
+    const n = geo.attributes.position.count, [r, g, b] = this.rgb(hex), col = new Float32Array(n * 3);
+    for (let i = 0; i < n; i++) { col[i * 3] = r; col[i * 3 + 1] = g; col[i * 3 + 2] = b; }
+    geo.setAttribute('color', new T3.BufferAttribute(col, 3));
+    if (key !== 'sign') geo.deleteAttribute('uv');
+    const p = geo.attributes.position.array, L = this.level;
+    // the chunk of the part's first and last vertex midpoint (parts are small, or long and straight)
+    const mx = (p[0] + p[p.length - 3]) / 2, mz = (p[2] + p[p.length - 1]) / 2;
+    const ci = clamp(Math.floor((mx + L.half) / this.chunk), 0, this.nChunk - 1), cj = clamp(Math.floor((mz + L.half) / this.chunk), 0, this.nChunk - 1);
+    const k = key + ':' + (cj * this.nChunk + ci);
+    if (!this.bins.has(k)) this.bins.set(k, []);
+    this.bins.get(k).push(geo);
+  }
+
+  flush() {
+    for (const [k, list] of this.bins) {
+      const key = k.split(':')[0];
+      const geo = ThreeUtils.mergeGeometries(list);
+      for (const g of list) g.dispose();
+      geo.computeBoundingSphere();
+      const mesh = new T3.Mesh(geo, this.mats[key]);
+      mesh.castShadow = !!this.cast[key];
+      mesh.receiveShadow = key !== 'lamp';
+      this.view.scene.add(mesh);
+    }
+    this.bins.clear();
+  }
+
+  // a part placer for a frame turned by yaw about (x0, z0): (lx, lz) local, +z forward
+  placer(x0, z0, yaw) {
+    const m = new T3.Matrix4().makeRotationY(yaw).setPosition(x0, 0, z0);
+    return (key, geo, hex) => this.add(key, geo.applyMatrix4(m), hex);
+  }
+
+  // ---- pallet racking ------------------------------------------------------------------------
+  buildRacks() {
+    const L = this.level, R = this.rng;
+    const beams = [1.5, 2.95, 4.4], bh = 0.11, upH = 4.95;
+    for (const rk of L.racks) {
+      const { alongX, a0, a1, c, depth: D } = rk;
+      // rack space: u along the run, v across it, y up
+      const B = (key, hex, du, dy, dv, u, y, v) => this.add(key, alongX ? whBox(du, dy, dv, u, y, c + v) : whBox(dv, dy, du, c + v, y, u), hex);
+      const S = (key, hex, u0, y0, v0, u1, y1, v1, t) => this.add(key, alongX ? whStrut(u0, y0, c + v0, u1, y1, c + v1, t) : whStrut(c + v0, y0, u0, c + v1, y1, u1, t), hex);
+      const Cy = (key, hex, r, h, u, y, v, seg = 12) => this.add(key, alongX ? whCyl(r, r, h, seg, u, y, c + v) : whCyl(r, r, h, seg, c + v, y, u), hex);
+      const len = a1 - a0, nb = Math.max(1, Math.round(len / 2.7)), bay = len / nb, hv = D / 2 - 0.045;
+      for (let k = 0; k <= nb; k++) {
+        const u = a0 + k * bay;
+        for (const s of [-1, 1]) {
+          B('paint', WH.upright, 0.08, upH, 0.075, u, upH / 2, s * hv);
+          B('steel', WH.foot, 0.17, 0.014, 0.15, u, 0.007, s * hv);
+        }
+        // frame bracing in the cross-section plane
+        for (let y = 0.2, z = 0; y < upH - 0.4; y += 1.1, z++) {
+          B('paint', WH.upright, 0.035, 0.035, 2 * hv, u, y, 0);
+          const y2 = Math.min(upH - 0.1, y + 1.1), s = z % 2 ? 1 : -1;
+          S('paint', WH.upright, u, y, -s * hv, u, y2, s * hv, 0.03);
+        }
+      }
+      // beams run the length of the row on both faces
+      for (const yb of beams) for (const s of [-1, 1]) B('paint', WH.beam, len + 0.06, bh, 0.05, (a0 + a1) / 2, yb + bh / 2, s * (hv + 0.01));
+      // end guards (inside the collider, which overhangs the end frames by 0.1 m)
+      for (const [u, s] of [[a0, -1], [a1, 1]]) B('hazard', WH.column, 0.07, 0.42, D - 0.04, u + s * 0.06, 0.21, 0);
+      // stock: two pallet positions per bay on the floor and on each beam level. The two lower
+      // levels are always full (they are solid to the collider at eye height); the top ones vary
+      const fam = this.rackFamily();
+      for (let k = 0; k < nb; k++)
+        for (let l = 0; l < 4; l++) {
+          const base = l === 0 ? 0 : beams[l - 1] + bh, top = l < 3 ? beams[l] - 0.07 : rk.height - 0.02;
+          for (let s = 0; s < 2; s++) {
+            const u = a0 + (k + 0.25 + 0.5 * s) * bay;
+            const W = Math.min(1.2, bay / 2 - 0.14), Dd = Math.min(1.0, D - 0.1);
+            let type = this.pick(fam);
+            if (l >= 2 && R() < (l === 3 ? 0.3 : 0.14)) type = 'empty';
+            else if (l >= 2 && R() < 0.35) type = this.pick(['drums', 'sacks', 'crate', 'wrapped']);
+            this.palletLoad(type, B, Cy, u, base, W, Dd, top - base, l);
+          }
+        }
+    }
+  }
+
+  // each run of racking holds mostly one kind of stock
+  rackFamily() {
+    return this.pick([
+      ['wrapped', 'wrapped', 'wrapped', 'cartons'],
+      ['cartons', 'cartons', 'wrapped'],
+      ['totes', 'totes', 'wrapped'],
+      ['wrapped', 'cartons', 'totes', 'wrapped'],
+    ]);
+  }
+
+  // one pallet and what is on it, centred at (u, v = 0) in rack space, filling up to hMax. Level
+  // 0 is the floor: pallets above it are drawn as plain slabs, the top levels may be part-picked
+  palletLoad(type, B, Cy, u, y0, W, Dd, hMax, level) {
+    const R = this.rng;
+    if (type === 'empty') return;
+    let y = y0;
+    if (type !== 'crate') {
+      if (level >= 1) B('matte', WH.pallet, W, 0.14, Dd, u, y + 0.07, 0);
+      else this.pallet(B, u, y, W, Dd);
+      y += 0.145;
+    }
+    const h = hMax - (y - y0);
+    if (h < 0.3) return;
+    switch (type) {
+      case 'wrapped': {
+        const hh = h - R() * Math.min(0.12, h * 0.1);
+        B('wrap', this.pick(WH.wrapTint), W - 0.04, hh, Dd - 0.04, u, y + hh / 2, 0);
+        if (R() < 0.5) B('matte', this.pick(WH.card), W - 0.02, 0.012, Dd - 0.02, u, y + hh + 0.006, 0); // top sheet
+        break;
+      }
+      case 'cartons': {
+        // a block of cartons; up high, a part-picked top layer
+        const tone = R() < 0.3 ? this.pick(WH.print) : this.pick(WH.card);
+        const hh = h - R() * Math.min(0.1, h * 0.1);
+        if (level < 2 || hh < 0.7) { B('carton', tone, W - 0.03, hh, Dd - 0.03, u, y + hh / 2, 0); break; }
+        const lh = 0.32, lo = hh - lh;
+        B('carton', tone, W - 0.03, lo, Dd - 0.03, u, y + lo / 2, 0);
+        const su = R() < 0.5 ? -1 : 1;
+        B('carton', tone, W / 2 - 0.02, lh - 0.01, Dd - 0.03, u + su * W / 4, y + lo + lh / 2, 0);
+        if (R() < 0.5) B('carton', tone, W / 2 - 0.02, lh - 0.01, Dd / 2 - 0.02, u - su * W / 4, y + lo + lh / 2, (R() < 0.5 ? -1 : 1) * Dd / 4);
+        break;
+      }
+      case 'totes': {
+        // four columns of stacking totes
+        const th = 0.31, hh = Math.max(1, Math.min(4, Math.floor(h / th))) * th, col = this.pick(WH.tote);
+        for (const su of [-1, 1]) for (const sv of [-1, 1]) B('carton', col, W / 2 - 0.03, hh - 0.01, Dd / 2 - 0.03, u + su * W / 4, y + hh / 2, sv * Dd / 4);
+        break;
+      }
+      case 'drums': {
+        const col = this.pick(WH.drum), dh = Math.min(0.88, h - 0.02);
+        for (const su of [-1, 1]) for (const sv of [-1, 1]) Cy('paint', col, Math.min(W, Dd) / 4 - 0.01, dh, u + su * W / 4, y + dh / 2, sv * Dd / 4, 10);
+        break;
+      }
+      case 'sacks': {
+        const hh = Math.min(h, 0.15 * (3 + Math.floor(R() * 4))), col = this.pick(WH.sack);
+        B('carton', col, W - 0.06, hh - 0.15, Dd - 0.06, u, y + (hh - 0.15) / 2, 0);
+        B('carton', col, W - 0.12, 0.14, Dd - 0.1, u + (R() - 0.5) * 0.06, y + hh - 0.075, 0);
+        break;
+      }
+      case 'crate': {
+        const hh = Math.min(h, 0.95);
+        B('matte', WH.crate, W - 0.04, hh, Dd - 0.04, u, y + hh / 2, 0);
+        for (const yy of [0.06, hh - 0.06]) B('matte', WH.crateDark, W - 0.01, 0.08, Dd - 0.01, u, y + yy, 0);
+        break;
+      }
+    }
+  }
+
+  // a timber pallet: top deck, three blocks across, bottom boards (fork pockets between)
+  pallet(B, u, y, W, Dd) {
+    B('matte', WH.pallet, W, 0.024, Dd, u, y + 0.133, 0);
+    for (const o of [-1, 0, 1]) B('matte', WH.palletDark, 0.1, 0.098, Dd, u + o * (W / 2 - 0.05), y + 0.072, 0);
+    for (const o of [-1, 1]) B('matte', WH.pallet, W, 0.022, 0.12, u, y + 0.011, o * (Dd / 2 - 0.06));
+  }
+
+  // ---- loose stock and machines --------------------------------------------------------------
+  buildProps() {
+    for (const p of this.level.props) {
+      if (p.kind === 'rack') continue;
+      const put = this.placer(p.x, p.z, p.yaw);
+      // local helpers (u = local x, v = local z)
+      const B = (key, hex, du, dy, dv, u, y, v) => put(key, whBox(du, dy, dv, u, y, v), hex);
+      const Cy = (key, hex, r, h, u, y, v, seg = 12) => put(key, whCyl(r, r, h, seg, u, y, v), hex);
+      const { w, d, h } = p.def;
+      switch (p.kind) {
+        case 'load':
+          this.palletLoad('wrapped', B, Cy, 0, 0, w, d, h, 0);
+          break;
+        case 'cartons': {
+          // a loose heap: a few cartons of different sizes on top of each other
+          let y = 0;
+          while (y < h - 0.2) {
+            const bh = Math.min(h - y, 0.25 + this.rng() * 0.25), bw = w * (0.55 + this.rng() * 0.45), bd = d * (0.55 + this.rng() * 0.45);
+            B('matte', this.pick(WH.card), bw, bh, bd, (this.rng() - 0.5) * (w - bw), y + bh / 2, (this.rng() - 0.5) * (d - bd));
+            y += bh;
+          }
+          break;
+        }
+        case 'pallets':
+          for (let k = 0; k < (p.def.count || 1); k++) this.pallet(B, (this.rng() - 0.5) * 0.04, k * 0.145, w, d);
+          break;
+        case 'drums':
+          this.palletLoad('drums', B, Cy, 0, 0, w, d, h, 0);
+          break;
+        case 'stack': {
+          // block-stacked loads, one or two tiers, sharing the stack's footprint
+          const nu = Math.max(1, Math.round(w / 1.25)), nv = Math.max(1, Math.round(d / 1.05));
+          for (let t = 0; t < (p.def.tiers || 1); t++)
+            for (let a = 0; a < nu; a++)
+              for (let b = 0; b < nv; b++) {
+                const u = -w / 2 + (a + 0.5) * (w / nu), v = -d / 2 + (b + 0.5) * (d / nv);
+                const type = this.rng() < 0.7 ? 'wrapped' : 'cartons';
+                // palletLoad centres its load across at v = 0: shift this row to its own v
+                const Bv = (key, hex, du, dy, dv, uu, y, vv) => B(key, hex, du, dy, dv, uu, y, vv + v);
+                const Cv = (key, hex, r, hh, uu, y, vv, seg) => Cy(key, hex, r, hh, uu, y, vv + v, seg);
+                this.palletLoad(type, Bv, Cv, u + (this.rng() - 0.5) * 0.03, t * 1.3, w / nu - 0.05, d / nv - 0.05, 1.28, t);
+              }
+          break;
+        }
+        case 'crate':
+          this.palletLoad('crate', B, Cy, 0, 0, w, d, h, 0);
+          break;
+        case 'barrel':
+          Cy('paint', this.pick(WH.drum), w / 2, h, 0, h / 2, 0, 14);
+          Cy('steel', WH.darkMetal, w / 2 + 0.01, 0.03, 0, h * 0.33, 0, 14);
+          Cy('steel', WH.darkMetal, w / 2 + 0.01, 0.03, 0, h * 0.66, 0, 14);
+          break;
+        case 'cone':
+          B('matte', WH.black, w, 0.03, d, 0, 0.015, 0);
+          put('matte', whCyl(0.03, 0.15, h - 0.03, 12, 0, 0.03 + (h - 0.03) / 2, 0), WH.cone);
+          put('matte', whCyl(0.075, 0.1, 0.08, 12, 0, 0.3, 0), WH.white);
+          break;
+        case 'bollard':
+          Cy('hazard', WH.column, w / 2 - 0.01, h - 0.04, 0, (h - 0.04) / 2, 0, 12);
+          Cy('paint', WH.black, w / 2 - 0.02, 0.04, 0, h - 0.02, 0, 12);
+          break;
+        case 'jack':
+          this.palletJack(B, put);
+          break;
+        case 'vending': {
+          // front is local +z
+          B('paint', this.pick([0x8a1c14, 0x1d2a3c, 0x2a2622]), w, h, d, 0, h / 2, 0);
+          B('glow', 0xf3dcb4, w * 0.6, h * 0.55, 0.012, -w * 0.12, h * 0.56, d / 2 + 0.006);
+          // shelves of snacks behind the glass
+          for (let k = 0; k < 5; k++) {
+            const sy = h * 0.32 + k * h * 0.105;
+            B('paint', WH.darkMetal, w * 0.58, 0.018, 0.02, -w * 0.12, sy, d / 2 + 0.016);
+            for (let m = 0; m < 5; m++) B('matte', this.pick(WH.print), 0.07, 0.11, 0.012, -w * 0.12 + (m - 2) * w * 0.11, sy + 0.065, d / 2 + 0.014);
+          }
+          B('glow', 0xd8382a, w * 0.86, 0.16, 0.012, 0, h - 0.14, d / 2 + 0.006);
+          B('paint', WH.darkMetal, w * 0.18, h * 0.3, 0.02, w * 0.33, h * 0.62, d / 2 + 0.01);
+          B('paint', WH.black, w * 0.6, 0.14, 0.04, -w * 0.12, 0.3, d / 2 + 0.02);
+          break;
+        }
+        case 'bench': {
+          B('matte', 0xa07a4c, w, 0.04, d, 0, h - 0.02, 0);
+          B('matte', 0x8a6a44, w - 0.1, 0.03, d - 0.1, 0, 0.18, 0);
+          for (const sx of [-1, 1]) for (const sz of [-1, 1]) B('paint', WH.darkMetal, 0.05, h - 0.04, 0.05, sx * (w / 2 - 0.05), (h - 0.04) / 2, sz * (d / 2 - 0.05));
+          // things left on it
+          B('carton', this.pick(WH.card), 0.45, 0.32, 0.36, -0.5, h + 0.16, -0.05);
+          B('carton', this.pick(WH.card), 0.38, 0.2, 0.3, -0.48, h + 0.42, -0.02);
+          B('matte', WH.white, 0.24, 0.005, 0.32, 0.2, h + 0.0025, 0.1);
+          put('wrap', whCyl(0.06, 0.06, 0.5, 10, 0, 0, 0).rotateZ(Math.PI / 2).translate(0.55, h + 0.06, -0.15), 0xd8d6cc);
+          B('paint', WH.jack, 0.08, 0.1, 0.22, 0.15, h + 0.05, -0.2);
+          B('carton', this.pick(WH.card), 0.5, 0.3, 0.4, 0.3, 0.35, 0);
+          break;
+        }
+        case 'bin':
+          B('paint', this.pick([0x2f4a2c, 0x3a3f44, 0x6a2a1c]), w - 0.04, h - 0.12, d - 0.04, 0, (h - 0.12) / 2 + 0.08, 0);
+          B('paint', WH.black, w, 0.05, d, 0, h - 0.025, 0);
+          for (const s of [-1, 1]) put('matte', whCyl(0.08, 0.08, 0.05, 10, 0, 0, 0).rotateZ(Math.PI / 2).translate(s * (w / 2 - 0.08), 0.08, -d / 2 + 0.1), WH.black);
+          break;
+        case 'forklift':
+          this.forklift(B, Cy, put);
+          break;
+      }
+    }
+  }
+
+  palletJack(B, put) {
+    // forks towards -z, the pump body and steering wheel at +z, the handle leaning back
+    for (const s of [-1, 1]) B('paint', WH.darkMetal, 0.16, 0.075, 1.15, s * 0.19, 0.0375, -0.2);
+    B('paint', WH.jack, 0.5, 0.3, 0.3, 0, 0.17, 0.55);
+    put('matte', whCyl(0.09, 0.09, 0.08, 12, 0, 0, 0).rotateZ(Math.PI / 2).translate(0, 0.09, 0.62), WH.black);
+    put('paint', whStrut(0, 0.3, 0.62, 0, 1.18, 0.76, 0.035), WH.jack);
+    B('paint', WH.black, 0.3, 0.05, 0.05, 0, 1.18, 0.76);
+  }
+
+  forklift(B, Cy, put) {
+    const body = this.pick(WH.forklift);
+    B('paint', body, 1.12, 0.5, 1.9, 0, 0.42, -0.18);           // chassis
+    B('paint', body, 1.14, 0.6, 0.45, 0, 0.62, -0.92);          // counterweight
+    B('hazard', WH.column, 1.0, 0.16, 0.012, 0, 0.72, -1.15);   // striped rear
+    B('paint', body, 0.9, 0.35, 0.8, 0, 0.84, -0.45);           // engine cover
+    B('paint', body, 0.95, 0.38, 0.32, 0, 0.86, 0.45);          // cowl
+    B('matte', WH.black, 0.5, 0.1, 0.46, 0, 1.07, -0.45);       // seat
+    B('matte', WH.black, 0.5, 0.42, 0.08, 0, 1.33, -0.7);
+    put('paint', whStrut(0, 1.0, 0.42, 0, 1.38, 0.24, 0.05), WH.darkMetal);
+    put('matte', whCyl(0.17, 0.17, 0.03, 14, 0, 0, 0).rotateX(-0.5).translate(0, 1.4, 0.22), WH.black);
+    // wheels
+    for (const s of [-1, 1]) {
+      put('matte', whCyl(0.27, 0.27, 0.22, 14, 0, 0, 0).rotateZ(Math.PI / 2).translate(s * 0.46, 0.27, 0.48), WH.black);
+      put('matte', whCyl(0.22, 0.22, 0.18, 14, 0, 0, 0).rotateZ(Math.PI / 2).translate(s * 0.47, 0.22, -0.82), WH.black);
+    }
+    // overhead guard: four posts and a slatted roof
+    for (const s of [-1, 1]) {
+      put('paint', whStrut(s * 0.5, 0.67, 0.6, s * 0.5, 2.15, 0.36, 0.06), WH.darkMetal);
+      put('paint', whStrut(s * 0.5, 0.92, -0.8, s * 0.5, 2.15, -0.8, 0.06), WH.darkMetal);
+      B('paint', WH.darkMetal, 0.06, 0.06, 1.22, s * 0.5, 2.15, -0.22);
+    }
+    for (let k = 0; k < 5; k++) B('paint', WH.darkMetal, 1.0, 0.035, 0.06, 0, 2.17, -0.75 + k * 0.27);
+    Cy('paint', 0xe07a10, 0.06, 0.09, 0, 2.23, -0.75, 10); // beacon
+    // mast, carriage and forks
+    for (const s of [-1, 1]) B('paint', WH.darkMetal, 0.1, 2.15, 0.12, s * 0.36, 1.12, 0.98);
+    for (const y of [0.35, 1.3, 2.15]) B('paint', WH.darkMetal, 0.82, 0.08, 0.1, 0, y, 0.98);
+    B('paint', WH.darkMetal, 0.95, 0.42, 0.06, 0, 0.36, 1.08);
+    for (const y of [0.85, 1.15]) B('paint', WH.darkMetal, 0.95, 0.04, 0.04, 0, y, 1.08);
+    for (const s of [-1, 0, 1]) B('paint', WH.darkMetal, 0.04, 0.6, 0.04, s * 0.45, 0.9, 1.08);
+    for (const s of [-1, 1]) {
+      B('paint', WH.darkMetal, 0.12, 0.05, 1.08, s * 0.3, 0.035, 1.66);
+      B('paint', WH.darkMetal, 0.12, 0.45, 0.05, s * 0.3, 0.25, 1.12);
+    }
+  }
+
+  // ---- columns, doors ------------------------------------------------------------------------
+  buildColumns() {
+    const L = this.level, H = L.ceiling, colH = H - 1.3;
+    for (const p of L.pillars) {
+      const { x, z } = p;
+      for (const s of [-1, 1]) this.add('paint', whBox(0.3, colH, 0.024, x, colH / 2, z + s * 0.138), WH.column);
+      this.add('paint', whBox(0.018, colH, 0.26, x, colH / 2, z), WH.column);
+      this.add('steel', whBox(0.4, 0.03, 0.4, x, colH - 0.015, z), WH.darkMetal);
+      this.add('hazard', whBox(0.42, 1.1, 0.42, x, 0.55, z), WH.column); // guard sleeve
+    }
+  }
+
+  buildDoors() {
+    const L = this.level, th = L.theme, t = L.wallT, door = L.doorWidth(), lintel = th.lintel, R = this.rng;
+    this.exitSigns = [];
+    for (const d of L.doorways) {
+      const ax = d.axis === 'x'; // wall at constant x: the opening runs along z
+      const P = (along, y, across) => (ax ? [d.x + across, y, d.z + along] : [d.x + along, y, d.z + across]);
+      const Bx = (key, hex, dl, dy, da, along, y, across) => { const [x, yy, z] = P(along, y, across); this.add(key, ax ? whBox(da, dy, dl, x, yy, z) : whBox(dl, dy, da, x, yy, z), hex); };
+      // striped jambs
+      for (const s of [-1, 1]) Bx('hazard', WH.column, 0.012, 1.6, t + 0.02, s * (door / 2 - 0.006), 0.8, 0);
+      // roller shutter drum and guide rails on one face, an exit sign on the other
+      const f = R() < 0.5 ? -1 : 1;
+      const [x, y, z] = P(0, lintel + 0.32, f * (t / 2 + 0.26));
+      const drum = whCyl(0.25, 0.25, door + 0.5, 14, 0, 0, 0);
+      if (ax) drum.rotateX(Math.PI / 2); else drum.rotateZ(Math.PI / 2);
+      this.add('steel', drum.translate(x, y, z), WH.galv);
+      for (const s of [-1, 1]) Bx('steel', WH.galv, 0.08, lintel + 0.3, 0.1, s * (door / 2 + 0.04), (lintel + 0.3) / 2, f * (t / 2 + 0.05));
+      Bx('shutter', WH.galv, door, 0.12, 0.05, 0, lintel - 0.0, f * (t / 2 + 0.06)); // bottom rail of the rolled-up curtain
+      if (R() < 0.45) this.exitSigns.push({ pos: P(0, lintel + 0.45, -f * (t / 2 + 0.03)), nx: ax ? -f : 0, nz: ax ? 0 : -f });
+    }
+    // loading-dock doors on the outside walls
+    for (const dd of L.dockDoors) {
+      const ax = dd.nx !== 0; // the wall runs along z
+      const P = (along, y, out) => (ax ? [dd.x + dd.nx * out, y, dd.z + along] : [dd.x + along, y, dd.z + dd.nz * out]);
+      const Bx = (key, hex, dl, dy, dout, along, y, out) => { const [x, yy, z] = P(along, y, out); this.add(key, ax ? whBox(dout, dy, dl, x, yy, z) : whBox(dl, dy, dout, x, yy, z), hex); };
+      Bx('shutter', WH.galv, 3.0, 3.5, 0.06, 0, 1.75, 0.03);
+      Bx('paint', WH.darkMetal, 3.0, 0.08, 0.1, 0, 0.04, 0.05);
+      for (const s of [-1, 1]) {
+        Bx('hazard', WH.column, 0.14, 3.6, 0.1, s * 1.57, 1.8, 0.05);
+        Bx('matte', WH.black, 0.26, 0.42, 0.12, s * 1.0, 1.12, 0.06);
+      }
+      Bx('paint', WH.darkMetal, 3.4, 0.22, 0.12, 0, 3.66, 0.06);
+    }
+  }
+
+  // ---- roof ----------------------------------------------------------------------------------
+  buildRoof() {
+    const L = this.level, H = L.ceiling, n = L.n, C = L.cell, half = L.half, S = L.size;
+    // primary girders (red-oxide primer) along z on every grid line, resting on the columns
+    for (let i = 1; i < n; i++) {
+      const x = -half + i * C;
+      this.add('steel', whBox(0.22, 0.025, S, x, H - 1.3 + 0.0125, 0), WH.girder);
+      this.add('steel', whBox(0.014, 0.55, S, x, H - 1.0, 0), WH.girder);
+      this.add('steel', whBox(0.22, 0.025, S, x, H - 0.7 - 0.0125, 0), WH.girder);
+    }
+    // open-web joists along x over every row of cells (the lamps hang from them)
+    const step = 1.2;
+    for (let j = 0; j < n; j++) {
+      const z = L.cx(j), yt = H - 0.06, yb = H - 0.68;
+      this.add('steel', whBox(S, 0.07, 0.1, 0, yt, z), WH.joist);
+      this.add('steel', whBox(S, 0.06, 0.08, 0, yb, z), WH.joist);
+      for (let x = -half; x < half - 0.01; x += step) {
+        const xm = Math.min(half, x + step / 2), x1 = Math.min(half, x + step);
+        this.add('steel', whStrut(x, yb, z, xm, yt, z, 0.032), WH.joist);
+        this.add('steel', whStrut(xm, yt, z, x1, yb, z, 0.032), WH.joist);
+      }
+    }
+    // sprinkler mains between the joists, with heads every few metres
+    for (let j = 1; j < n; j += 2) {
+      const z = -half + j * C, y = H - 0.3;
+      this.add('steel', whCyl(0.05, 0.05, S, 8, 0, 0, 0).rotateZ(Math.PI / 2).translate(0, y, z), WH.pipe);
+      for (let x = -half + 1.6; x < half; x += 3.2) {
+        this.add('steel', whCyl(0.015, 0.015, 0.16, 6, x, y - 0.1, z), WH.pipe);
+        this.add('steel', whCyl(0.035, 0.02, 0.025, 8, x, y - 0.19, z), WH.galv);
+      }
+    }
+  }
+
+  // ---- lamps ---------------------------------------------------------------------------------
+  buildLamps() {
+    const L = this.level, H = L.ceiling, ly = this.view.lamp.y;
+    const lens = [], halo = { pos: [], ctr: [], fix: [], size: [], idx: [] }, shafts = [];
+    L.fixtures.forEach((f, k) => {
+      const { x, z } = f;
+      this.add('steel', whBox(0.02, H - 0.68 - (ly + 0.62), 0.02, x, (H - 0.68 + ly + 0.62) / 2, z), WH.darkMetal);
+      this.add('paint', whCyl(0.12, 0.15, 0.26, 8, x, ly + 0.49, z), WH.lampBody);
+      this.add('lamp', whCyl(0.16, 0.38, 0.36, 14, x, ly + 0.18, z, true), WH.reflector);
+      const g = whCyl(0.37, 0.37, 0.02, 14, x, ly + 0.01, z);
+      g.deleteAttribute('uv');
+      g.setAttribute('aFix', new T3.BufferAttribute(new Float32Array(g.attributes.position.count).fill(k), 1));
+      lens.push(g);
+      // glow quad (expanded to face the camera in the shader)
+      const b = halo.pos.length / 3;
+      for (const [cx, cy] of [[-0.5, -0.5], [0.5, -0.5], [0.5, 0.5], [-0.5, 0.5]]) {
+        halo.pos.push(cx, cy, 0);
+        halo.ctr.push(x, ly - 0.08, z);
+        halo.fix.push(k);
+        halo.size.push(2.6);
+      }
+      halo.idx.push(b, b + 1, b + 2, b, b + 2, b + 3);
+      // light shaft: an open cone from the lens to the floor
+      const s = whCyl(0.36, 2.3, ly - 0.05, 16, x, (ly - 0.05) / 2 + 0.05, z, true);
+      const pos = s.attributes.position, aT = new Float32Array(pos.count);
+      for (let i = 0; i < pos.count; i++) aT[i] = 1 - (pos.getY(i) - 0.05) / (ly - 0.05);
+      s.setAttribute('aT', new T3.BufferAttribute(aT, 1));
+      s.setAttribute('aFix', new T3.BufferAttribute(new Float32Array(pos.count).fill(k), 1));
+      s.deleteAttribute('uv');
+      shafts.push(s);
+    });
+    const lm = new T3.Mesh(ThreeUtils.mergeGeometries(lens), this.mats.lens);
+    lens.forEach((g) => g.dispose());
+    const hg = new T3.BufferGeometry();
+    hg.setAttribute('position', new T3.Float32BufferAttribute(halo.pos, 3));
+    hg.setAttribute('aCenter', new T3.Float32BufferAttribute(halo.ctr, 3));
+    hg.setAttribute('aFix', new T3.Float32BufferAttribute(halo.fix, 1));
+    hg.setAttribute('aSize', new T3.Float32BufferAttribute(halo.size, 1));
+    hg.setIndex(halo.idx);
+    const hm = new T3.Mesh(hg, this.mats.halo);
+    hm.frustumCulled = false; // vertices move in the shader
+    hm.renderOrder = 6;
+    const sm = new T3.Mesh(ThreeUtils.mergeGeometries(shafts), this.mats.shaft);
+    shafts.forEach((g) => g.dispose());
+    sm.renderOrder = 5;
+    this.view.scene.add(lm, hm, sm);
+    this.glow = [hm, sm];
+  }
+
+  // ---- signs ---------------------------------------------------------------------------------
+  // one canvas atlas per level: rack row numbers on the end frames, zone letters painted on the
+  // walls, dock numbers, and exit signs over some of the doorways (lit, leading nowhere)
+  buildSigns() {
+    const L = this.level, signs = [];
+    const hallOf = (x, z) => {
+      const c = L.cellOf(x, z);
+      if (c < 0) return null;
+      const i = c % L.n, j = (c / L.n) | 0;
+      return L.halls.find((h) => i >= h.i0 && i < h.i0 + h.w && j >= h.j0 && j < h.j0 + h.d) || null;
+    };
+    // rack rows, numbered per hall
+    const count = new Map();
+    const runs = L.racks.filter((r) => !r.wallSide).sort((a, b) => a.c - b.c || a.a0 - b.a0);
+    for (const r of runs) {
+      const hl = hallOf(r.alongX ? (r.a0 + r.a1) / 2 : r.c, r.alongX ? r.c : (r.a0 + r.a1) / 2);
+      const letter = hl ? hl.letter : 'X', k = (count.get(letter) || 0) + 1;
+      count.set(letter, k);
+      const text = `${letter}-${String(k).padStart(2, '0')}`;
+      for (const [u, s] of [[r.a0, -1], [r.a1, 1]]) {
+        const pos = r.alongX ? [u + s * 0.1, 3.72, r.c] : [r.c, 3.72, u + s * 0.1];
+        signs.push({ text, style: 'plate', pos, nx: r.alongX ? s : 0, nz: r.alongX ? 0 : s, w: 0.62, h: 0.31 });
+      }
+    }
+    // zone letters on a wall of each hall, facing into it
+    for (const hl of L.halls) {
+      const cands = [];
+      const tryEdge = (i, j, dir) => { if (L.edgeVal(i, j, dir) === 1) cands.push([i, j, dir]); };
+      for (let i = hl.i0; i < hl.i0 + hl.w; i++) { tryEdge(i, hl.j0, 3); tryEdge(i, hl.j0 + hl.d - 1, 2); }
+      for (let j = hl.j0; j < hl.j0 + hl.d; j++) { tryEdge(hl.i0, j, 1); tryEdge(hl.i0 + hl.w - 1, j, 0); }
+      // prefer walls the racking does not stand against
+      const free = cands.filter(([i, j, dir]) => !L.racks.some((r) => r.wallSide && (r.alongX ? dir >= 2 : dir < 2) && Math.abs(r.c - (dir < 2 ? -L.half + (i + (dir === 0)) * L.cell : -L.half + (j + (dir === 2)) * L.cell)) < 1.5));
+      const pool = free.length ? free : cands;
+      for (let m = 0; m < Math.min(2, pool.length); m++) {
+        const [i, j, dir] = pool[Math.floor(this.rng() * pool.length)];
+        const nx = dir === 0 ? -1 : dir === 1 ? 1 : 0, nz = dir === 2 ? -1 : dir === 3 ? 1 : 0;
+        const x = dir < 2 ? -L.half + (i + (dir === 0)) * L.cell + nx * (L.wallT / 2 + 0.01) : L.cx(i);
+        const z = dir >= 2 ? -L.half + (j + (dir === 2)) * L.cell + nz * (L.wallT / 2 + 0.01) : L.cx(j);
+        signs.push({ text: `ZONE ${hl.letter}`, style: 'paint', pos: [x, 3.1, z], nx, nz, w: 3.2, h: 1.0 });
+      }
+    }
+    for (const dd of L.dockDoors) signs.push({ text: `DOCK ${String(dd.num).padStart(2, '0')}`, style: 'plate', pos: [dd.x + dd.nx * 0.08, 4.05, dd.z + dd.nz * 0.08], nx: dd.nx, nz: dd.nz, w: 1.2, h: 0.4 });
+    // department boards hung from the girders over the open floor
+    const names = ['SHIPPING', 'RECEIVING', 'STAGING', 'RETURNS', 'OVERFLOW', 'QUARANTINE', 'DISPATCH'];
+    for (const hl of L.halls) {
+      if (hl.type === 'racks' || hl.w < 3) continue;
+      for (let m = 0; m < (hl.w * hl.d > 40 ? 2 : 1); m++) {
+        const i = hl.i0 + 1 + Math.floor(this.rng() * (hl.w - 1)), j = hl.j0 + Math.floor(this.rng() * hl.d);
+        const x = -L.half + i * L.cell, z = L.cx(j), text = names.splice(Math.floor(this.rng() * names.length), 1)[0];
+        if (!text) break;
+        for (const s of [-1, 1]) signs.push({ text, style: 'hang', pos: [x + s * 0.012, 4.6, z], nx: s, nz: 0, w: 2.4, h: 0.6 });
+        this.add('paint', whBox(0.03, 0.03, 2.3, x, 4.91, z), WH.darkMetal);
+        for (const s of [-1, 1]) this.add('steel', whBox(0.015, L.ceiling - 1.3 - 4.9, 0.015, x, (L.ceiling - 1.3 + 4.9) / 2, z + s * 0.95), WH.darkMetal);
+      }
+    }
+    for (const e of this.exitSigns) signs.push({ text: 'EXIT', style: 'exit', pos: e.pos, nx: e.nx, nz: e.nz, w: 0.56, h: 0.24 });
+    if (!signs.length) return;
+    // the atlas: 256 x 128 tiles, four to a row
+    const tw = 256, tht = 128, cols = 4, rows = Math.ceil(signs.length / cols);
+    const cv = document.createElement('canvas');
+    cv.width = tw * cols;
+    cv.height = tht * rows;
+    const g = cv.getContext('2d');
+    signs.forEach((s, k) => {
+      const x0 = (k % cols) * tw, y0 = ((k / cols) | 0) * tht;
+      g.save();
+      g.translate(x0, y0);
+      if (s.style === 'plate') {
+        g.fillStyle = '#e0a21c'; g.fillRect(4, 4, tw - 8, tht - 8);
+        g.strokeStyle = '#1a1612'; g.lineWidth = 6; g.strokeRect(10, 10, tw - 20, tht - 20);
+        g.fillStyle = '#16120e';
+      } else if (s.style === 'exit') {
+        g.fillStyle = '#1a0806'; g.fillRect(4, 4, tw - 8, tht - 8);
+        g.fillStyle = '#ff3a26';
+      } else if (s.style === 'hang') {
+        g.fillStyle = '#6e1a10'; g.fillRect(0, 0, tw, tht);
+        g.strokeStyle = '#e8dcc0'; g.lineWidth = 5; g.strokeRect(9, 9, tw - 18, tht - 18);
+        g.fillStyle = '#efe4c8';
+      } else g.fillStyle = 'rgba(236, 226, 200, 0.93)';
+      g.font = `900 ${s.style === 'paint' ? 82 : 76}px "Arial Black", Impact, "Helvetica Neue", Arial, sans-serif`;
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      g.fillText(s.text, tw / 2, tht / 2 + 4, tw - 28);
+      if (s.style === 'paint') {
+        // stencil bridges and flaking paint
+        g.globalCompositeOperation = 'destination-out';
+        for (let m = 0; m < 70; m++) { g.globalAlpha = 0.3 + Math.random() * 0.7; g.fillRect(Math.random() * tw, Math.random() * tht, 2 + Math.random() * 7, 2 + Math.random() * 5); }
+      }
+      g.restore();
+    });
+    const tex = new T3.CanvasTexture(cv);
+    tex.colorSpace = T3.SRGBColorSpace;
+    tex.anisotropy = 4;
+    this.textures.push(tex);
+    const mat = patchLattice(new T3.MeshStandardMaterial({ map: tex, roughness: 0.7, alphaTest: 0.5 }), this.view.shared, { key: 'wh-sign' });
+    const exitMat = new T3.MeshBasicMaterial({ map: tex });
+    exitMat.color.setRGB(2.4, 1.6, 1.5);
+    const byMat = [[], []];
+    signs.forEach((s, k) => {
+      const geo = new T3.PlaneGeometry(s.w, s.h);
+      const uv = geo.attributes.uv, c = k % cols, r = (k / cols) | 0;
+      for (let i = 0; i < uv.count; i++) uv.setXY(i, (c + uv.getX(i)) / cols, 1 - (r + 1 - uv.getY(i)) / rows);
+      geo.rotateY(Math.atan2(s.nx, s.nz)).translate(...s.pos);
+      byMat[s.style === 'exit' ? 1 : 0].push(geo);
+    });
+    for (const [list, m] of [[byMat[0], mat], [byMat[1], exitMat]]) {
+      if (!list.length) continue;
+      const mesh = new T3.Mesh(ThreeUtils.mergeGeometries(list), m);
+      list.forEach((g2) => g2.dispose());
+      mesh.receiveShadow = true;
+      this.view.scene.add(mesh);
+    }
+  }
+
+  // ---- per frame -----------------------------------------------------------------------------
+  update() {
+    const fog = this.view.scene.fog;
+    for (const m of this.glow || []) m.material.uniforms.uFogD.value = fog ? fog.density : 0;
+  }
+
+  dispose() { for (const t of this.textures) t.dispose(); }
 }
 
 
@@ -69584,9 +70830,12 @@ Object.assign(Lab.penetration, {
   cardboard: { cost: 1.3, solid: 0.12 },
   ceiling: { cost: 30, solid: 1 },
   concrete: { cost: 9, solid: 1 },
+  // loaded pallet racking and wrapped loads: a metre of stock stops pistol and SMG rounds, rifle
+  // rounds come through spent, marksman rounds still carry
+  goods: { cost: 2.4, solid: 0.3 },
 });
-const IMPACT_SOUND = { drywall: 'wood', cardboard: 'wood', wood: 'wood', metal: 'metal', concrete: 'ground', ceiling: 'ground', default: 'ground' };
-const IMPACT_DUST = { drywall: 0xd8cfae, cardboard: 0x9a7b52, wood: 0x8a6b45, concrete: 0xa8a8a0, ceiling: 0xc9c4b0, metal: null };
+const IMPACT_SOUND = { drywall: 'wood', cardboard: 'wood', wood: 'wood', goods: 'wood', metal: 'metal', concrete: 'ground', ceiling: 'ground', default: 'ground' };
+const IMPACT_DUST = { drywall: 0xd8cfae, cardboard: 0x9a7b52, wood: 0x8a6b45, goods: 0x9a7b52, concrete: 0xa8a8a0, ceiling: 0xc9c4b0, metal: null };
 
 class BackroomsGame {
   constructor(app) {
@@ -69929,7 +71178,7 @@ class BackroomsGame {
     const A = clamp((n.speed - 0.7) / 7, 0, 1) * clamp(0.3 + n.impulse / 6, 0, 1);
     if (A < 0.02) return;
     const au = this.audio;
-    const mat = (m) => (m === 'flesh' || m === 'shoe' ? 'flesh' : m === 'drywall' || m === 'cardboard' ? 'wood' : m === 'carpet' || m === 'concrete' ? 'ground' : m);
+    const mat = (m) => (m === 'flesh' || m === 'shoe' ? 'flesh' : m === 'drywall' || m === 'cardboard' || m === 'goods' ? 'wood' : m === 'carpet' || m === 'concrete' ? 'ground' : m);
     if (n.ragdollA || n.ragdollB) {
       const body = n.ragdollA ? n.bodyA : n.bodyB;
       const seg = body.userData.segment ? body.userData.segment.name : '';
