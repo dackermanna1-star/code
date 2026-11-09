@@ -66557,6 +66557,9 @@ Object.assign(BackroomsLevel.prototype, {
     const H = (this.h = new Uint8Array(n * (n + 1)).fill(1));
     const edge = (c1, c2) => {
       const a1 = area[c1], a2 = area[c2];
+      // between two closed cells no wall: the solid 'void' boxes fill them (a wall there would
+      // only be another hidden collider and hidden triangles); nothing walkable reaches them
+      if (!a1 && !a2) return 0;
       if (!a1 || !a2) return 1;
       if (owner[c1] >= 0 && owner[c1] === owner[c2]) return 0;
       const h1 = a1 === A.HALL, h2 = a2 === A.HALL;
@@ -66603,15 +66606,28 @@ Object.assign(BackroomsLevel.prototype, {
     const mid = (n / 2) | 0;
     this.props = [];
     this.keep = null;
-    // closed rooms and shafts are solid: one box per run of void cells along x
+    // closed rooms and shafts are solid: one box per run of void cells along x, carried on down
+    // the rows below while they are void over the same run (few, large boxes: every collider is
+    // a static body the physics touches each substep)
+    const used = new Uint8Array(n * n);
+    const voidAt = (i, j) => this.area[j * n + i] === A.VOID && !used[j * n + i];
     for (let j = 0; j < n; j++) {
       let run = -1;
       for (let i = 0; i <= n; i++) {
-        const v = i < n && this.area[j * n + i] === A.VOID;
+        const v = i < n && voidAt(i, j);
         if (v && run < 0) run = i;
         if (!v && run >= 0) {
-          const x0 = -half + run * C, x1 = -half + i * C, z0 = -half + j * C;
-          this.boxes.push(Lab.boxDef((x0 + x1) / 2, H / 2, z0 + C / 2, x1 - x0, H, C, 'void', 'concrete'));
+          let j1 = j + 1;
+          for (; j1 < n; j1++) {
+            let all = true;
+            for (let k = run; k < i && all; k++) if (!voidAt(k, j1)) all = false;
+            // (the run must end where the row below stops being void too, or that row's
+            // remainder would be split into slivers)
+            if (!all || (run > 0 && voidAt(run - 1, j1)) || (i < n && voidAt(i, j1))) break;
+          }
+          for (let jj = j; jj < j1; jj++) for (let k = run; k < i; k++) used[jj * n + k] = 1;
+          const x0 = -half + run * C, x1 = -half + i * C, z0 = -half + j * C, z1 = -half + j1 * C;
+          this.boxes.push(Lab.boxDef((x0 + x1) / 2, H / 2, (z0 + z1) / 2, x1 - x0, H, z1 - z0, 'void', 'concrete'));
           run = -1;
         }
       }
@@ -66673,7 +66689,11 @@ Object.assign(BackroomsLevel.prototype, {
     const keep = (this.keep = []);
     const a = door / 2 + 0.35, b = 1.5;
     for (const d of this.doorways) keep.push(d.axis === 'x' ? [d.x - b, d.z - a, d.x + b, d.z + a] : [d.x - a, d.z - b, d.x + a, d.z + b]);
-    for (const g of this.grand) keep.push(g.alongZ ? [g.x - 1.9, g.z - C / 2, g.x + 1.9, g.z + C / 2] : [g.x - C / 2, g.z - 1.9, g.x + C / 2, g.z + 1.9]);
+    // (the ballroom's open leaves stand 1.3 m into the room: keep a way round their ends too)
+    for (const g of this.grand) {
+      const s = C / 2 + (g.kind === 'ball' ? 0.75 : 0);
+      keep.push(g.alongZ ? [g.x - 1.9, g.z - s, g.x + 1.9, g.z + s] : [g.x - s, g.z - 1.9, g.x + s, g.z + 1.9]);
+    }
     for (const e of this.elevators) {
       // the strip in front of the doors
       const c = this.cellCenter(e.cell), f = C / 2 - t / 2, ax = e.dir < 2;
@@ -66690,8 +66710,11 @@ Object.assign(BackroomsLevel.prototype, {
       else if (sp.type === 'room' && sp.open) this.furnishRoom(sp);
     }
     this.furnishCorridors();
-    this.pruneHotelProps();
+    // the sconces before the prune: their colliders stand out a hand's width at head height
+    // (free() counts them), so the floor check has to see them; it never takes one away
     this.placeWallFixtures();
+    this.pruneHotelProps();
+    this.keepTablesPassable();
     // chandeliers hang to 2.1 m: overhead, but solid to grenades and bullets
     for (let c = 0; c < n * n; c++) {
       if (this.lampKind[c] !== HOTEL_LAMP.CHANDELIER) continue;
@@ -66717,17 +66740,23 @@ Object.assign(BackroomsLevel.prototype, {
   // it off (chairs first).
   pruneHotelProps() {
     const n = this.n, C = this.cell, h = 0.2, R0 = 0.4, N = Math.ceil(this.size / h), x0 = -this.half + h / 2, mid = (n / 2) | 0;
-    const fixed = new Set(['leaf', 'bleaf', 'pilaster']);
+    const fixed = new Set(['leaf', 'bleaf', 'pilaster', 'sconce']);
     const rank = { bchair: 0, fallenchair: 0, stool: 0, suitcase: 1, armchair: 1, lowtable: 2, plant: 2, luggage: 2, trolley: 2, hcart: 2, urn: 2 };
     const okA = new Uint8Array(N * N), seen = new Uint8Array(N * N), q = new Int32Array(N * N);
-    for (let pass = 0; pass < 16; pass++) {
-      this.buildSpatial();
-      okA.fill(0); seen.fill(0);
-      for (let j = 0; j < N; j++)
-        for (let i = 0; i < N; i++) {
+    // free floor on the grid; after a pass only the grid round the pieces taken away changes
+    const fillOk = (x1, z1, x2, z2) => {
+      const i0 = Math.max(0, Math.floor((x1 - x0) / h)), i1 = Math.min(N - 1, Math.ceil((x2 - x0) / h));
+      const j0 = Math.max(0, Math.floor((z1 - x0) / h)), j1 = Math.min(N - 1, Math.ceil((z2 - x0) / h));
+      for (let j = j0; j <= j1; j++)
+        for (let i = i0; i <= i1; i++) {
           const x = x0 + i * h, z = x0 + j * h, c = this.cellOf(x, z);
-          if (c >= 0 && this.area[c] && this.free(x, z, R0)) okA[j * N + i] = 1;
+          okA[j * N + i] = c >= 0 && this.area[c] && this.free(x, z, R0) ? 1 : 0;
         }
+    };
+    this.buildSpatial();
+    fillOk(-this.half, -this.half, this.half, this.half);
+    for (let pass = 0; pass < 16; pass++) {
+      seen.fill(0);
       const m = this.cellCenter(mid * n + mid), s0 = Math.round((m.z - x0) / h) * N + Math.round((m.x - x0) / h);
       let qn = 0;
       if (okA[s0]) { q[qn++] = s0; seen[s0] = 1; }
@@ -66742,12 +66771,28 @@ Object.assign(BackroomsLevel.prototype, {
       }
       // trouble spots: every pocket (per cell) with the reached floor round it, and every open
       // edge nobody crosses (whatever stands between the two sides is the culprit)
+      // (a pocket of a single point is the grid catching a margin, not floor anyone could
+      // stand on: it is let be, or the chair or table beside it would go)
       const spots = [], pocket = new Map();
-      for (let c = 0; c < N * N; c++) {
-        if (!okA[c] || seen[c]) continue;
-        const x = x0 + (c % N) * h, z = x0 + ((c / N) | 0) * h, cell = this.cellOf(x, z);
-        if (!pocket.has(cell)) pocket.set(cell, []);
-        pocket.get(cell).push([x, z]);
+      for (let c0 = 0; c0 < N * N; c0++) {
+        if (!okA[c0] || seen[c0]) continue;
+        let qe = qn;
+        q[qe++] = c0; seen[c0] = 2;
+        for (let k = qn; k < qe; k++) {
+          const c = q[k], i = c % N, j = (c / N) | 0;
+          for (let d = 0; d < 4; d++) {
+            const ni = i + (d === 0 ? 1 : d === 1 ? -1 : 0), nj = j + (d === 2 ? 1 : d === 3 ? -1 : 0);
+            if (ni < 0 || nj < 0 || ni >= N || nj >= N) continue;
+            const nc = nj * N + ni;
+            if (okA[nc] && !seen[nc]) { seen[nc] = 2; q[qe++] = nc; }
+          }
+        }
+        if (qe - qn < 2) continue;
+        for (let k = qn; k < qe; k++) {
+          const c = q[k], x = x0 + (c % N) * h, z = x0 + ((c / N) | 0) * h, cell = this.cellOf(x, z);
+          if (!pocket.has(cell)) pocket.set(cell, []);
+          pocket.get(cell).push([x, z]);
+        }
       }
       const sample = (pts, k) => { const st = Math.max(1, Math.floor(pts.length / k)), out = []; for (let m = 0; m < pts.length; m += st) out.push(pts[m]); return out; };
       for (const [, pts] of pocket) {
@@ -66757,7 +66802,7 @@ Object.assign(BackroomsLevel.prototype, {
         const near = [];
         const gi = Math.round((mx - x0) / h), gj = Math.round((mz - x0) / h), rr = Math.round(3 / h);
         for (let j = Math.max(0, gj - rr); j <= Math.min(N - 1, gj + rr); j++)
-          for (let i = Math.max(0, gi - rr); i <= Math.min(N - 1, gi + rr); i++) if (seen[j * N + i]) near.push([x0 + i * h, x0 + j * h]);
+          for (let i = Math.max(0, gi - rr); i <= Math.min(N - 1, gi + rr); i++) if (seen[j * N + i] === 1) near.push([x0 + i * h, x0 + j * h]);
         spots.push([sample(pts, 24), sample(near, 48)]);
       }
       for (let j = 0; j < n; j++)
@@ -66771,7 +66816,7 @@ Object.assign(BackroomsLevel.prototype, {
               const px = d === 0 ? ex : -this.half + i * C + t, pz = d === 2 ? ez : -this.half + j * C + t;
               const gi = Math.round((px - x0) / h), gj = Math.round((pz - x0) / h);
               const a = d === 0 ? (gj * N + gi - 1) : ((gj - 1) * N + gi), b = d === 0 ? (gj * N + gi + 1) : ((gj + 1) * N + gi);
-              if (seen[a] && seen[b]) cross = true;
+              if (seen[a] === 1 && seen[b] === 1) cross = true;
             }
             if (cross) continue;
             // points along the edge
@@ -66790,8 +66835,10 @@ Object.assign(BackroomsLevel.prototype, {
       const gone = new Set();
       for (const [pts, near] of spots) {
         let best = null, bs = Infinity;
+        // (a piece already going counts: one taken away often opens several spots, so the
+        // next pass looks again rather than taking a second piece for the same spot now)
         for (const p of this.props) {
-          if (fixed.has(p.kind) || gone.has(p)) continue;
+          if (fixed.has(p.kind)) continue;
           const d = dist(p, pts);
           if (d > 1.6) continue;
           const score = d + (near && near.length ? dist(p, near) : 0) + (rank[p.kind] ?? 3) * 0.35;
@@ -66804,6 +66851,61 @@ Object.assign(BackroomsLevel.prototype, {
       const dead = new Set();
       for (const p of gone) for (const b of p.boxes) dead.add(b);
       this.boxes = this.boxes.filter((b) => !dead.has(b));
+      this.buildSpatial();
+      for (const b of dead) fillOk(b.min.x - R0 - 0.1, b.min.z - R0 - 0.1, b.max.x + R0 + 0.1, b.max.z + R0 + 0.1);
+    }
+  },
+
+  // A banquet table and its ring of chairs fill most of a cell, and findPath (A* on cells) often
+  // routes straight across one: it then steps round the table inside the cell (detour). Keep
+  // that way round open on both axes, taking chairs away (the knocked-over ones first) where
+  // the ring closes it, else the walkers of that route push into the chairs.
+  keepTablesPassable() {
+    const C = this.cell, r = 0.34;
+    const clear = (a, b, pad) => this.segmentClear(a.x, a.z, b.x, b.z, 1.0, pad, 0.25);
+    const remove = (p) => {
+      this.props = this.props.filter((q) => q !== p);
+      this.boxes = this.boxes.filter((b) => !p.boxes.includes(b));
+    };
+    // the first free point along an edge, from its middle out (as crossing() picks them)
+    const onEdge = (x, z, ax, az) => {
+      for (const f of [0, 0.36, -0.36, 0.73, -0.73]) {
+        const px = x + az * f, pz = z + ax * f;
+        if (this.free(px, pz, r)) return new I(px, 0, pz);
+      }
+      return null;
+    };
+    const blocked = (t) => {
+      const ctr = this.cellCenter(this.cellOf(t.x, t.z));
+      let bad = 0;
+      for (const [ax, az] of [[1, 0], [0, 1]]) {
+        const a = onEdge(ctr.x - (ax * C) / 2, ctr.z - (az * C) / 2, ax, az), b = onEdge(ctr.x + (ax * C) / 2, ctr.z + (az * C) / 2, ax, az);
+        if (!a || !b || clear(a, b, r)) continue; // no way in at all: the edge prune's business
+        const pts = [a, ...this.detour(a, b, r), b];
+        for (let k = 1; k < pts.length; k++) if (!clear(pts[k - 1], pts[k], 0.2)) { bad++; break; }
+      }
+      return bad;
+    };
+    this.buildSpatial();
+    for (const t of this.props.filter((p) => p.kind === 'rtable')) {
+      const chairs = (t.chairs || []).filter(Boolean).sort((p, q) => (q.kind === 'fallenchair') - (p.kind === 'fallenchair'));
+      for (let bad = blocked(t); bad && chairs.length; ) {
+        // take away the chair that opens most (try each in turn)
+        let best = 0, bb = bad;
+        for (let k = 0; k < chairs.length && bb; k++) {
+          const keepB = this.boxes, keepP = this.props;
+          remove(chairs[k]);
+          this.buildSpatial();
+          const b = blocked(t);
+          this.boxes = keepB;
+          this.props = keepP;
+          if (b < bb) { bb = b; best = k; }
+        }
+        remove(chairs[best]);
+        chairs.splice(best, 1);
+        this.buildSpatial();
+        bad = bb < bad ? bb : blocked(t);
+      }
     }
   },
 
@@ -66823,7 +66925,9 @@ Object.assign(BackroomsLevel.prototype, {
     // room space: u across (lateral), w inwards from the door wall's centre line
     const P = (u, w) => [F.x0 + F.ix * w + F.lx * u, F.z0 + F.iz * w + F.lz * u];
     const face = (fx, fz) => Math.atan2(fx, fz);
-    const toFar = face(-F.ix, -F.iz), hs = F.hinge, inW = C / 2 - t / 2; // half the inside width
+    // (face(dx, dz) turns a prop's front, local +z, towards dx, dz: things against the far wall
+    // face the door, their backs, a headboard, to the wall)
+    const toDoor = face(-F.ix, -F.iz), hs = F.hinge, inW = C / 2 - t / 2; // half the inside width
     const farW = rm.depth * C - t / 2;
     // suites: the door column is a bedroom like any other, the second column a sitting room
     let side = 0;
@@ -66836,14 +66940,15 @@ Object.assign(BackroomsLevel.prototype, {
       const bs = rm.suite ? -side : R() < 0.5 ? -1 : 1, bedU = 0;
       const bed = PROP_DEFS.bed;
       const [bx, bz] = P(bedU, farW - bed.d / 2 - 0.07);
-      this.addProp('bed', bx, bz, toFar + Math.PI);
+      this.addProp('bed', bx, bz, toDoor);
+      // (snug between the headboard, 0.86 m either side, and the side walls)
       for (const s of [-1, 1]) {
-        const [nx, nz] = P(s * (inW - 0.24 - 0.07), farW - 0.21 - 0.07);
-        this.addProp('nightstand', nx, nz, toFar + Math.PI);
+        const [nx, nz] = P(s * (0.86 + 0.025 + 0.24), farW - 0.21 - 0.07);
+        this.addProp('nightstand', nx, nz, toDoor, null, 0.02);
       }
       if (R() < 0.6) {
         const [sx, sz] = P(bedU - bs * 0.2 + (R() - 0.5) * 0.4, farW - bed.d - 0.32);
-        this.addProp('suitcase', sx, sz, toFar + (R() - 0.5) * 0.6);
+        this.addProp('suitcase', sx, sz, toDoor + (R() - 0.5) * 0.6);
       }
       // by the door: a wardrobe on the hinge side, the dresser and its television opposite
       const [wx, wz] = P(hs * (inW - 0.3 - 0.07), 1.55 + 0.5);
@@ -66851,21 +66956,27 @@ Object.assign(BackroomsLevel.prototype, {
       const [dx, dz] = P(-hs * (inW - 0.25 - 0.07), 2.2);
       if (!rm.suite || side !== -hs) this.addProp('dresser', dx, dz, face(F.lx * hs, F.lz * hs));
     } else {
-      // a single room: a single bed along the wall away from the hinge
-      const [bx, bz] = P(-hs * (inW - 0.5 - 0.07), farW - 1.02 - 0.07);
-      this.addProp('bed1', bx, bz, toFar + Math.PI);
-      const [nx, nz] = P(-hs * (inW - 1.07 - 0.04 - 0.24), farW - 0.21 - 0.07);
-      this.addProp('nightstand', nx, nz, toFar + Math.PI);
+      // a single room: the bed across the far wall (along a side wall it would stand in the
+      // floor kept clear inside the door), its head to the hinge side so that the floor at its
+      // foot stays open to the room, a narrow nightstand at its head
+      const b1 = PROP_DEFS.bed1, hw = 1.08 / 2; // (the headboard is the wider part)
+      const [bx, bz] = P(hs * (inW - 0.07 - b1.d / 2), farW - 0.07 - hw);
+      this.addProp('bed1', bx, bz, face(-F.lx * hs, -F.lz * hs));
+      const ns = { w: 0.42, d: 0.4, boxes: [[0.42, 0.4, 0.58, 0, 0, 0], [0.3, 0.3, 0.5, 0, 0, 0.58, 'fabric']] };
+      const [nx, nz] = P(hs * (inW - 0.06 - ns.d / 2), farW - 0.07 - 2 * hw - 0.025 - ns.w / 2);
+      this.addProp('nightstand', nx, nz, face(-F.lx * hs, -F.lz * hs), ns, 0.02);
     }
     if (rm.suite) {
       // the sitting room: a settee against the far wall, a low table, an armchair
       const S = (u, w) => P(u + side * C, w);
       const [sx, sz] = S(0, farW - 0.425 - 0.07);
-      this.addProp('settee', sx, sz, toFar + Math.PI);
-      const [lx, lz] = S(0, farW - 1.5);
-      this.addProp('lowtable', lx, lz, toFar);
-      const [ax, az] = S(side * 0.6, farW - 2.55);
-      this.addProp('armchair', ax, az, toFar + (R() - 0.5) * 0.8);
+      this.addProp('settee', sx, sz, toDoor);
+      const [lx, lz] = S(0, farW - 1.3);
+      this.addProp('lowtable', lx, lz, toDoor, { d: 0.55 });
+      // (clear of the dresser by more than a body, and of the way through the middle of the
+      // room: findPath crosses into the far cell within 0.75 m of its middle)
+      const [ax, az] = S(0, farW - 2.12);
+      this.addProp('armchair', ax, az, toDoor + Math.PI + (R() - 0.5) * 0.3); // facing the settee
       const [dx, dz] = S(side * (inW - 0.25 - 0.07), 1.6);
       this.addProp('dresser', dx, dz, face(-F.lx * side, -F.lz * side));
     }
@@ -66885,24 +66996,35 @@ Object.assign(BackroomsLevel.prototype, {
       if ((u + v) % 2 === 1) { if ((u === 0 || u === bl.w - 1) && (v === 0 || v === bl.d - 1)) corners.push(c); continue; }
       if (nearEntrance(c) || R() < 0.22) continue;
       const ctr = this.cellCenter(c), x = ctr.x + (R() - 0.5) * 0.3, z = ctr.z + (R() - 0.5) * 0.3;
-      if (!this.addProp('rtable', x, z, 0)) continue;
+      const table = this.addProp('rtable', x, z, 0);
+      if (!table) continue;
+      table.chairs = []; // (keepTablesPassable may take some away)
       // six chairs round it, some pushed back, some missing, now and then one knocked over
       const k0 = R() * TAU, empty = R() < 0.2;
       for (let k = 0; k < 6; k++) {
         if (empty && R() < 0.6) continue;
         if (R() < 0.08) {
           const ang = k0 + (k * TAU) / 6 + (R() - 0.5) * 0.3, r = 1.45;
-          this.addProp('fallenchair', x + Math.sin(ang) * r, z + Math.cos(ang) * r, ang + (R() - 0.5) * 1.2, null, 0.02);
+          table.chairs.push(this.addProp('fallenchair', x + Math.sin(ang) * r, z + Math.cos(ang) * r, ang + (R() - 0.5) * 1.2, null, 0.02));
           continue;
         }
         const ang = k0 + (k * TAU) / 6, r = 1.12 + (R() < 0.25 ? 0.15 + R() * 0.15 : 0);
-        this.addProp('bchair', x + Math.sin(ang) * r, z + Math.cos(ang) * r, ang + Math.PI + (R() - 0.5) * 0.4, null, 0.02);
+        table.chairs.push(this.addProp('bchair', x + Math.sin(ang) * r, z + Math.cos(ang) * r, ang + Math.PI + (R() - 0.5) * 0.4, null, 0.02));
       }
     }
     // a grand piano in one corner, the buffet along a wall
     for (let k = corners.length - 1; k > 0; k--) { const m = Math.floor(R() * (k + 1)); [corners[k], corners[m]] = [corners[m], corners[k]]; }
-    const ctr = this.cellCenter(corners[0] ?? bl.cells[0]);
-    this.addProp('piano', ctr.x, ctr.z, R() * TAU);
+    // the piano stands tucked into the corner, tail to one wall and keyboard to the room, so the
+    // corner cell stays walkable along its open sides (in the middle of the cell it closed both)
+    const pc = corners[0] ?? bl.cells[0], ctr = this.cellCenter(pc), pi = pc % n, pj = (pc / n) | 0;
+    const walls = [0, 1, 2, 3].filter((d) => this.edgeVal(pi, pj, d) === 1);
+    const back = walls.find((d) => walls.some((e) => (e < 2) !== (d < 2)));
+    if (back !== undefined) {
+      const side = walls.find((e) => (e < 2) !== (back < 2)), pd = PROP_DEFS.piano, off = C / 2 - this.wallT / 2 - 0.12;
+      const nx = (d) => (d === 0 ? 1 : d === 1 ? -1 : 0), nz = (d) => (d === 2 ? 1 : d === 3 ? -1 : 0);
+      const x = ctr.x + nx(back) * (off - pd.d / 2) + nx(side) * (off - pd.w / 2), z = ctr.z + nz(back) * (off - pd.d / 2) + nz(side) * (off - pd.w / 2);
+      this.addProp('piano', x, z, Math.atan2(-nx(back), -nz(back)));
+    } else this.addProp('piano', ctr.x, ctr.z, Math.floor(R() * 4) * (Math.PI / 2));
     for (const c of bl.cells) {
       const [u, v] = local(c);
       if ((u + v) % 2 === 0 || R() < 0.4) continue;
@@ -68021,13 +68143,19 @@ class HotelDressing {
 
   bed(put, p, w, d) {
     const R = this.rng, B = put.B, single = p.kind === 'bed1';
-    const bw = w, bl = d - 0.1, z0 = 0.05, cover = single ? this.pick([0xe6e0d2, 0x6a1418]) : this.pick([0x6e1216, 0xa8823a, 0xe6e0d2, 0x4a1a30]);
+    const bw = w, bl = d - 0.1, z0 = 0.05, cover = single ? this.pick([0xe6e0d2, 0x6e1216]) : this.pick([0x6e1216, 0xa8823a, 0xe6e0d2, 0xa8823a]);
     B('wood', HCOL.teak, bw, 0.3, bl, 0, 0.15, z0);
     B('fabric', HCOL.linen, bw - 0.04, 0.22, bl - 0.04, 0, 0.41, z0);
     B('fabric', cover, bw + 0.04, 0.08, bl * 0.72, 0, 0.55, z0 + bl * 0.14);
     for (const s of [-1, 1]) B('fabric', cover, 0.012, 0.32, bl * 0.72, s * (bw / 2 + 0.026), 0.43, z0 + bl * 0.14);
     B('fabric', cover, bw + 0.04, 0.32, 0.012, 0, 0.43, z0 + bl * 0.5 + 0.006);
-    for (const s of single ? [0] : [-1, 1]) B('fabric', HCOL.linen, single ? 0.6 : 0.62, 0.13, 0.36, s * 0.38, 0.585, z0 - bl / 2 + 0.24);
+    for (const s of single ? [0] : [-1, 1]) B('fabric', HCOL.linen, single ? 0.6 : 0.62, 0.15, 0.36, s * 0.38, 0.595, z0 - bl / 2 + 0.24);
+    // made up the hotel way, so it reads as a bed on the dark carpet: the top sheet turned down
+    // over the cover, a scarf across the foot
+    B('fabric', HCOL.linen, bw + 0.05, 0.09, 0.24, 0, 0.552, z0 - bl * 0.22 + 0.12);
+    const scarf = cover === 0xa8823a || cover === 0xe6e0d2 ? 0x6e1216 : 0xa8823a;
+    B('fabric', scarf, bw + 0.06, 0.094, 0.42, 0, 0.553, z0 + bl * 0.5 - 0.36);
+    for (const s of [-1, 1]) B('fabric', scarf, 0.012, 0.3, 0.42, s * (bw / 2 + 0.034), 0.45, z0 + bl * 0.5 - 0.36);
     // the headboard, padded and framed (as tall as its collider); now and then the covers are
     // not empty
     const hb = single ? 1.1 : 1.25;
