@@ -22,8 +22,8 @@ export function computePayout(stats: RunStats, level: LevelDef, previousBest: nu
   lines.push({ label: `Distance ${Math.floor(stats.distance)} m`, amount: Math.round(stats.distance * perMeter) });
   if (stats.kills > 0) lines.push({ label: `Zombies smashed ×${stats.kills}`, amount: Math.round(stats.killCash) });
   if (stats.stuntCash > 0) lines.push({ label: `Stunts ×${stats.stunts.length}`, amount: Math.round(stats.stuntCash) });
-  const newRecord = stats.distance > previousBest + 1;
-  if (newRecord && previousBest > 0) {
+  const newRecord = previousBest > 0 && stats.distance > previousBest + 1;
+  if (newRecord) {
     const gain = stats.distance - previousBest;
     lines.push({ label: `New record! +${Math.floor(gain)} m`, amount: Math.round(gain * perMeter * 1.5) });
   }

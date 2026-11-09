@@ -200,7 +200,7 @@ button {
 
 /* ───────────────────────── Garage ───────────────────────── */
 .garage { position: absolute; inset: 0; pointer-events: none !important; display: grid; grid-template-columns: minmax(250px, 300px) 1fr minmax(280px, 340px); grid-template-rows: auto 1fr auto; gap: 12px; padding: 14px; }
-.garage > * { pointer-events: auto; }
+.garage > * { pointer-events: auto; min-width: 0; }
 .g-top { grid-column: 1 / -1; display: flex; align-items: center; gap: 16px; }
 .logo { font: 400 clamp(30px, 5vw, 52px)/1 var(--font-display); color: var(--accent); text-shadow: 3px 3px 0 #000, 6px 6px 0 #7a1f3d; letter-spacing: 1px; }
 .logo span { color: var(--accent-2); margin-left: 8px; }
@@ -286,11 +286,14 @@ button {
 
 /* ───────────────────────── phone layouts ───────────────────────── */
 @media (max-width: 820px) {
-  .garage { grid-template-columns: 1fr; grid-template-rows: auto auto 1fr auto auto; overflow: auto; pointer-events: auto !important; }
-  .g-left, .g-right { grid-column: 1; max-height: none; }
-  .g-left { grid-row: 2; }
-  .g-right { grid-row: 4; }
-  .g-bottom { grid-row: 5; flex-direction: column; align-items: stretch; }
+  .garage { display: flex; flex-direction: column; overflow-y: auto; overflow-x: hidden; pointer-events: auto !important; padding: 12px 16px; }
+  .garage > * { min-width: 0; flex: 0 0 auto; }
+  .g-top { order: 0; }
+  .g-left { order: 2; max-height: none; overflow: visible; }
+  .g-right { order: 3; max-height: none; overflow: visible; }
+  /* Launch + levels first so they're reachable without scrolling; the car shows above. */
+  .g-bottom { order: 1; flex-direction: column; align-items: stretch; margin-top: 34vh; }
+  .levels { flex: 0 0 auto; }
   .launch-wrap { max-width: none; justify-items: stretch; }
   .lvl-tag { text-align: left; }
   .g-cash { font-size: 22px; }
@@ -300,3 +303,4 @@ button {
   .hud-hint { white-space: normal; width: calc(100% - 32px); bottom: 120px; }
   .run-stats { grid-template-columns: repeat(3, 1fr); }
 }
+.hud.hidden { display: none; }

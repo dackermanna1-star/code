@@ -62,6 +62,7 @@ export class ResultsScreen {
         </div>
       </div>`;
     ctx.uiRoot.appendChild(this.root);
+    ctx.uiRoot.querySelector(".hud")?.classList.add("hidden");
     this.lines = [...this.root.querySelectorAll<HTMLElement>(".pay-line")];
     this.amounts = data.payout.lines.map((l) => l.amount);
     this.totalEl = this.root.querySelector(".total")!;
