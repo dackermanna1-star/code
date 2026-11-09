@@ -41,8 +41,22 @@ class EnemyManager {
       if (sb._shooter && e.by === undefined) e.by = sb._shooter;
       // an animated enemy goes physical the instant it is hit, so this bullet's impulse (applied
       // just before the effect is emitted) and the knock that follows act on a live ragdoll
-      if ((e.type === 'fleshHit' || e.type === 'armorHit') && e.person && e.person.enemy && e.person.enemy.anim) e.person.enemy.anim.wake('hit');
+      // light hits are ridden out on the animation instead (a flinch and a stumble)
+      let soft = null;
+      if ((e.type === 'fleshHit' || e.type === 'armorHit') && e.person && e.person.enemy && e.person.enemy.anim) {
+        const ai = e.person.enemy, an = ai.anim;
+        if (an.active && this.rideOut(ai, e)) { soft = an; e.soft = true; }
+        else an.wake('hit');
+      }
       orig(e);
+      if (soft && soft.active) {
+        // the controller's own reactions to this hit would fire stale on the next wake: drop them
+        const c = e.person.ctl;
+        c.startle = 0;
+        if (c.flinch) c.flinch.amount = 0;
+        if (c.snap) c.snap.t0 = -9;
+        soft.flinch(e);
+      }
     };
     // the engine only knows its own obstacles: route hollows (and any replanning walker) through
     // the maze instead of straight into walls
@@ -98,7 +112,8 @@ class EnemyManager {
       person = sb.spawnZombie(pos, yaw, def.melee || 'runner');
       ai = new HollowWrap(this, person, type, this.scale);
     } else {
-      person = sb.spawnPerson(pos, yaw, { armor: def.armor ? { ...def.armor } : null, look: 'br_' + type, knockback: def.knockback ?? 1 });
+      // fighters brace against hits: they stagger more than they fall
+      person = sb.spawnPerson(pos, yaw, { armor: def.armor ? { ...def.armor } : null, look: 'br_' + type, knockback: def.knockback ?? 0.72 });
       const gunId = randPick(def.guns);
       ai = new Gunman(this, person, type, gunId, this.scale);
       person.zombie = ai;
@@ -113,7 +128,7 @@ class EnemyManager {
       const lib = def.hollow ? hollowAnimSet() : ANIM.lib;
       if (lib) {
         try {
-          ai.anim = def.hollow ? new AnimBody(ai, render, gltf, lib, { melee: person.zombie, maxRate: lib.key === 'limp' ? 2.1 : 1.6 }) : new AnimBody(ai, render, gltf, lib);
+          ai.anim = def.hollow ? new AnimBody(ai, render, gltf, lib, { melee: person.zombie, maxRate: lib.key === 'limp' ? 3.0 : 2.4 }) : new AnimBody(ai, render, gltf, lib);
           ai.anim.enter(0);
         } catch (e) { console.warn('[anim] enemy stays physical', e); ai.anim = null; }
       }
@@ -240,7 +255,9 @@ class EnemyManager {
     switch (e.type) {
       case 'fleshHit': {
         const ai = e.person.enemy;
-        if (ai && ai.anim) ai.anim.wake('hit');
+        if (ai && ai.anim && !e.soft) ai.anim.wake('hit');
+        // the dying take no more punishment: another round finishes them
+        if (ai && ai.agony && e.person.injury.alive) { e.person.injury.kill('gunshot wounds'); ai.agony = null; }
         if (ai && !ai.downed) {
           const mult = SEG_MULT[e.seg.name] ?? 0.8;
           const dmg = e.energy * 0.11 * mult * (e.by === 'player' ? g.perks.damage : 0.5);
@@ -248,14 +265,14 @@ class EnemyManager {
           if (e.by === 'player' || e.by === 'player-grenade') {
             ai.lastHit = { by: 'player', seg: e.seg.name, time: g.time, weapon: g.arsenal.gun.id, grenade: e.by === 'player-grenade' };
             if (ai.hear) ai.hear(g.player.pos, 0.5);
-            if (ai.suppressed !== undefined) ai.suppressed = Math.min(2, ai.suppressed + 0.6);
+            if (ai.suppressed !== undefined) ai.suppressed = Math.min(2, ai.suppressed + 0.3); // shaken, not cowed
           }
           if (ai.tough <= 0) this.finish(ai, e);
         }
         return false;
       }
       case 'armorHit':
-        if (e.person && e.person.enemy && e.person.enemy.anim) e.person.enemy.anim.wake('armor');
+        if (e.person && e.person.enemy && e.person.enemy.anim && !e.soft) e.person.enemy.anim.wake('armor');
         return false;
       case 'zombieGroan':
         if (e.near < 24) g.audio.zombieGroan(e.kind, e.person.rd.segments.head.body.pos, clamp(1.2 - e.near / 20, 0.3, 1));
@@ -276,6 +293,26 @@ class EnemyManager {
     return false;
   }
 
+  // whether an animated enemy rides a hit out on its feet (a flinch, a stumble) or goes over to
+  // the ragdoll: heavy rounds, the head and neck, a leg that gives, a quick second hit (pellets
+  // land together) and a body already badly hurt all go physical
+  rideOut(ai, e) {
+    const an = ai.anim, now = this.game.time;
+    const seg = e.seg ? e.seg.name : '';
+    const en = e.energy || 0;
+    // hits in quick succession pile up; the hollowed shrug off one more than the living
+    an.hits = now - an.lastHitT < (ai.hollow ? 0.6 : 0.8) ? an.hits + 1 : 1;
+    an.lastHitT = now;
+    const why = (r) => { an.ride = { r, seg, en: Math.round(en), type: e.type, hits: an.hits }; return r === 'ok'; };
+    if (an.hits > (ai.hollow ? 2 : 1)) return why('repeat');
+    if (e.type === 'armorHit') return why(en < 2600 ? 'ok' : 'plate');
+    if (seg === 'head' || seg === 'neck') return why('head');
+    if (/^(thigh|shin|foot)/.test(seg) && (e.bone || en > (ai.hollow ? 520 : 380))) return why('leg');
+    if (en > (ai.hollow ? 1100 : 750)) return why('heavy');
+    if (ai.tough < ai.toughMax * (ai.hollow ? 0.22 : 0.4)) return why('hurt');
+    return why('ok');
+  }
+
   // a person ran out of toughness: decide how they go down
   finish(ai, e) {
     const inj = ai.p.injury, c = ai.p.ctl;
@@ -283,10 +320,76 @@ class EnemyManager {
     if (!inj.alive) return;
     const seg = e.seg.name;
     // the hollowed cannot be knocked out: they only stop when they are dead
-    if (inj.undead || seg === 'head' || seg === 'neck' || e.energy > 1100 || Math.random() < 0.45) inj.kill(seg === 'head' ? 'gunshot wound to the head' : 'gunshot wounds');
+    if (inj.undead || seg === 'head' || seg === 'neck' || e.energy > 1100) { inj.kill(seg === 'head' ? 'gunshot wound to the head' : 'gunshot wounds'); return; }
+    const r = Math.random();
+    if (r < 0.38) this.agonize(ai);
+    else if (r < 0.62) inj.kill('gunshot wounds');
     else {
       inj.knockOut(9999, 1);
       c.autoGetUp = false;
+    }
+  }
+
+  // fatally hurt but still awake: the legs go and they fold to the floor, clutch the wound, groan,
+  // kick and try to roll over, weaker each time, until they bleed out
+  agonize(ai) {
+    const c = ai.p.ctl;
+    c.autoGetUp = false;
+    ai.agony = { t: 0, dur: 4 + Math.random() * 8, groanT: 0.5 + Math.random() * 0.8, moveT: 0.9 + Math.random() * 0.8 };
+    this.down(ai); // out of the fight (and counted), but left alive
+  }
+
+  updateAgony(ai, dt) {
+    const a = ai.agony, p = ai.p, inj = p.injury, g = this.game;
+    if (!inj.alive || !inj.conscious || ai.frozen) { ai.agony = null; return; }
+    a.t += dt;
+    const life = 1 - a.t / a.dur;
+    if (life <= 0) { inj.kill('blood loss'); ai.agony = null; return; }
+    // the legs will not hold them any more; the arms still press on the wounds (the engine does that
+    // by itself while they are awake)
+    if (inj.buckle) { inj.buckle.L = Math.min(inj.buckle.L, 0.06); inj.buckle.R = Math.min(inj.buckle.R, 0.06); inj.buckle.trunk = Math.min(inj.buckle.trunk, 0.35 + 0.4 * life); }
+    const S = p.rd.segments;
+    a.groanT -= dt;
+    if (a.groanT <= 0) {
+      a.groanT = 1.1 + Math.random() * 2.2 + (1 - life) * 1.5;
+      const h = S.head.body.pos;
+      if (g.sfx && Math.hypot(h.x - g.player.pos.x, h.z - g.player.pos.z) < 26) g.sfx.moan(h, 0.35 + 0.65 * life);
+    }
+    a.moveT -= dt;
+    if (a.moveT > 0 || p.ctl.mode === 'balance') return;
+    a.moveT = 0.5 + Math.random() * 1.3 + (1 - life) * 1.2;
+    const k = 0.35 + 0.65 * life, imp = new I();
+    const pick = Math.random();
+    if (pick < 0.35) {
+      // a leg kicks or drags
+      const side = Math.random() < 0.5 ? 'L' : 'R', shin = S['shin' + side], foot = S['foot' + side];
+      if (shin && foot) {
+        const d = new I().subVectors(foot.body.pos, S.pelvis ? S.pelvis.body.pos : p.rd.pelvis.pos);
+        d.y = 0; if (d.lengthSq() > 1e-6) d.normalize();
+        const back = Math.random() < 0.6 ? -1 : 1; // mostly drawing the knee up
+        imp.set(d.x * back * 2.4 * k, 1.2 * k, d.z * back * 2.4 * k);
+        foot.body.applyImpulse(imp, foot.body.pos);
+      }
+    } else if (pick < 0.6) {
+      // tries to roll onto a side
+      const ch = S.chest.body, sideways = new I(Math.random() - 0.5, 0, Math.random() - 0.5);
+      if (sideways.lengthSq() > 1e-6) sideways.normalize();
+      imp.set(sideways.x * 9 * k, 4 * k, sideways.z * 9 * k);
+      ch.applyImpulse(imp, new I(ch.pos.x + sideways.x * 0.12, ch.pos.y, ch.pos.z + sideways.z * 0.12));
+    } else if (pick < 0.8) {
+      // lifts the head, then lets it fall back
+      imp.set(0, 2.2 * k, 0);
+      S.head.body.applyImpulse(imp, S.head.body.pos);
+      if (S.neck) S.neck.body.applyImpulse(new I(0, 1.4 * k, 0), S.neck.body.pos);
+    } else {
+      // an arm reaches out or claws at the floor
+      const side = Math.random() < 0.5 ? 'L' : 'R', hand = S['hand' + side], fore = S['forearm' + side];
+      if (hand) {
+        const a2 = Math.random() * TAU;
+        imp.set(Math.cos(a2) * 1.6 * k, 1.5 * k, Math.sin(a2) * 1.6 * k);
+        hand.body.applyImpulse(imp, hand.body.pos);
+        if (fore) fore.body.applyImpulse(imp.scale(0.6), fore.body.pos);
+      }
     }
   }
 
@@ -299,7 +402,7 @@ class EnemyManager {
     ai.releaseToken();
     const p = ai.p, g = this.game;
     // whatever brought them down (kick, bleed-out, a hollow out of toughness), they stay down
-    if (p.injury.alive && (p.injury.undead || p.ctl.mode === 'balance' || p.ctl.mode === 'getup')) {
+    if (p.injury.alive && !ai.agony && (p.injury.undead || p.ctl.mode === 'balance' || p.ctl.mode === 'getup')) {
       p.injury.kill(ai.lastHit && ai.lastHit.weapon === 'kick' ? 'blunt trauma' : 'injuries');
     }
     p.ctl.autoGetUp = false;
@@ -317,7 +420,7 @@ class EnemyManager {
     ai.diedAt = g.time;
     this.corpses.push(ai);
     this.events.push({ type: 'kill', ai, byPlayer, head, dist, grenade: !!(lh && lh.grenade), weapon: lh && lh.weapon });
-    if (this.corpses.length > 14) this.removeCorpse(this.corpses[0]);
+    // bodies stay where they fell for the rest of the level (frozen ones cost no physics)
   }
 
   removeCorpse(ai) {
@@ -454,7 +557,8 @@ class EnemyManager {
   // ---- per step / frame --------------------------------------------------------------------------
   step(dt) {
     const g = this.game;
-    this.maxTokens = Math.min(5, 2 + Math.floor((this.wave - 1) / 4));
+    // how many may shoot at the player at once: three from the start, one more every four waves
+    this.maxTokens = Math.min(6, 3 + Math.floor((this.wave - 1) / 4));
     // hollowed and anyone the brain did not catch
     for (const ai of this.list) {
       if (ai.downed) continue;
@@ -468,9 +572,11 @@ class EnemyManager {
       if (ai.anim.active && !ai.downed) ai.update(dt);
       ai.anim.step(dt);
     }
+    // the dying
+    for (const ai of this.corpses) if (ai.agony) this.updateAgony(ai, dt);
     // corpses settle, then freeze to save the simulation
     for (const ai of this.corpses) {
-      if (ai.frozen || g.time - ai.diedAt < 3) continue;
+      if (ai.frozen || ai.agony || g.time - ai.diedAt < 3) continue;
       let still = true;
       for (const b of ai.p.rd.allBodies()) if (b.vel.lengthSq() > 0.03) { still = false; break; }
       if (still || g.time - ai.diedAt > 10) {

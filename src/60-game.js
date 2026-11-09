@@ -275,7 +275,8 @@ class BackroomsGame {
       case 'shot': {
         if (e.by === 'player') {
           const g = this.arsenal.gun;
-          au.gunshot(g.def.ballistic === 'marksman' || g.def.ballistic === 'whisper' ? 'sniper' : g.def.ballistic, g.suppressed ? null : e.origin);
+          if (g.suppressed && this.sfx && this.sfx.ready) this.sfx.suppressedShot(g.def.ballistic);
+          else au.gunshot(g.def.ballistic === 'marksman' || g.def.ballistic === 'whisper' ? 'sniper' : g.def.ballistic, g.suppressed ? null : e.origin);
           const m = this.vm.muzzleWorld(new T3.Vector3());
           // viewmodel camera space -> world camera space at the same screen position (the two
           // cameras share a pose but not a field of view), then to world

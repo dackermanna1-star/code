@@ -67370,69 +67370,69 @@ class Arsenal {
 
 
 // ===== src/30-enemy-defs.js =====
-// Enemy weapons and archetypes. `dmg` is damage to the player per hit (the player is not a
+// Enemy weapons and archetypes (tuned so a few rifle hits down an unarmoured player). `dmg` is damage to the player per hit (the player is not a
 // ragdoll); the same shot also runs through the engine ballistics so it penetrates drywall,
 // wounds anyone in the way and knocks bodies around.
 
 const ENEMY_GUNS = {
-  pistol: { model: 'pistol', ballistic: 'pistol', sound: 'pistol', rpm: 240, burst: [1, 3], mag: 12, reload: 2.0, spread: 0.022, dmg: 9, hold: 'pistol', range: 28 },
-  revolver: { model: 'revolver', ballistic: 'revolver', sound: 'revolver', rpm: 110, burst: [1, 2], mag: 6, reload: 2.8, spread: 0.018, dmg: 16, hold: 'pistol', range: 30 },
-  smg: { model: 'smg', ballistic: 'smg', sound: 'smg', rpm: 720, burst: [3, 7], mag: 30, reload: 2.4, spread: 0.03, dmg: 6.5, hold: 'rifle', range: 24 },
-  shotgun: { model: 'shotgun', ballistic: 'shotgun', sound: 'shotgun', rpm: 65, burst: [1, 1], mag: 6, reload: 3.4, spread: 0.02, pellets: 8, pelletSpread: 0.07, dmg: 5.5, hold: 'rifle', range: 14 },
-  rifle: { model: 'rifle', ballistic: 'rifle', sound: 'rifle', rpm: 560, burst: [2, 5], mag: 30, reload: 2.6, spread: 0.016, dmg: 11, hold: 'rifle', range: 40 },
-  lmg: { model: 'rifle', ballistic: 'rifle', sound: 'rifle', rpm: 680, burst: [8, 18], mag: 90, reload: 4.6, spread: 0.026, dmg: 9.5, hold: 'rifle', range: 40, drum: true },
-  sniper: { model: 'sniper', ballistic: 'marksman', sound: 'sniper', rpm: 40, burst: [1, 1], mag: 5, reload: 3.2, spread: 0.0025, dmg: 44, hold: 'rifle', range: 70, aimTime: 1.35, laser: true },
+  pistol: { model: 'pistol', ballistic: 'pistol', sound: 'pistol', rpm: 240, burst: [1, 3], mag: 12, reload: 2.0, spread: 0.022, dmg: 13, hold: 'pistol', range: 28 },
+  revolver: { model: 'revolver', ballistic: 'revolver', sound: 'revolver', rpm: 110, burst: [1, 2], mag: 6, reload: 2.8, spread: 0.018, dmg: 22, hold: 'pistol', range: 30 },
+  smg: { model: 'smg', ballistic: 'smg', sound: 'smg', rpm: 720, burst: [3, 7], mag: 30, reload: 2.4, spread: 0.03, dmg: 9.5, hold: 'rifle', range: 24 },
+  shotgun: { model: 'shotgun', ballistic: 'shotgun', sound: 'shotgun', rpm: 65, burst: [1, 1], mag: 6, reload: 3.4, spread: 0.02, pellets: 8, pelletSpread: 0.07, dmg: 7.5, hold: 'rifle', range: 14 },
+  rifle: { model: 'rifle', ballistic: 'rifle', sound: 'rifle', rpm: 560, burst: [2, 5], mag: 30, reload: 2.6, spread: 0.016, dmg: 16, hold: 'rifle', range: 40 },
+  lmg: { model: 'rifle', ballistic: 'rifle', sound: 'rifle', rpm: 680, burst: [8, 18], mag: 90, reload: 4.6, spread: 0.026, dmg: 13.5, hold: 'rifle', range: 40, drum: true },
+  sniper: { model: 'sniper', ballistic: 'marksman', sound: 'sniper', rpm: 40, burst: [1, 1], mag: 5, reload: 3.2, spread: 0.0025, dmg: 58, hold: 'rifle', range: 70, aimTime: 1.35, laser: true },
 };
 
 const ENEMY_TYPES = {
   scavenger: {
     name: 'Scavenger', looks: ['male_adult_18', 'male_adult_04', 'delivery_male_01'], guns: ['pistol', 'pistol', 'revolver'],
-    tough: 70, skill: 0.3, react: [0.75, 1.15], speed: 1.45, role: 'skirmish', cover: 0.35, flank: 0.2, aggression: 0.55,
+    tough: 70, skill: 0.3, react: [0.64, 0.98], speed: 1.45, role: 'skirmish', cover: 0.35, flank: 0.2, aggression: 0.55,
     cash: 45, score: 100, voice: 0.9,
   },
   bandit: {
     name: 'Bandit', looks: ['male_adult_05', 'male_adult_17', 'male_adult_04'], guns: ['smg', 'smg', 'pistol'],
-    tough: 85, skill: 0.4, react: [0.6, 0.95], speed: 1.65, role: 'skirmish', cover: 0.5, flank: 0.35, aggression: 0.65,
+    tough: 85, skill: 0.4, react: [0.51, 0.81], speed: 1.65, role: 'skirmish', cover: 0.5, flank: 0.35, aggression: 0.65,
     cash: 65, score: 150, voice: 1,
   },
   rusher: {
     name: 'Shotgun Rusher', looks: ['male_adult_17', 'delivery_male_01', 'male_adult_05'], guns: ['shotgun'],
-    tough: 110, skill: 0.5, react: [0.4, 0.7], speed: 2.25, role: 'rush', cover: 0, flank: 0.1, aggression: 1,
+    tough: 110, skill: 0.5, react: [0.34, 0.59], speed: 2.25, role: 'rush', cover: 0, flank: 0.1, aggression: 1,
     cash: 85, score: 200, voice: 1.1,
   },
   merc: {
     name: 'Mercenary', looks: ['security_male_01', 'police_male_06'], guns: ['rifle', 'rifle', 'smg'], armor: { vest: 0.45 },
-    tough: 115, skill: 0.58, react: [0.5, 0.8], speed: 1.6, role: 'skirmish', cover: 0.8, flank: 0.5, aggression: 0.5,
+    tough: 115, skill: 0.58, react: [0.42, 0.68], speed: 1.6, role: 'skirmish', cover: 0.8, flank: 0.5, aggression: 0.5,
     cash: 110, score: 250, voice: 0.95, light: true,
   },
   soldier: {
     name: 'Tactical Soldier', looks: ['military_male_01', 'military_male_03', 'military_male_04'], guns: ['rifle'], armor: { helmet: 1, vest: 0.6 },
-    tough: 135, skill: 0.68, react: [0.4, 0.65], speed: 1.7, role: 'skirmish', cover: 0.9, flank: 0.65, aggression: 0.55, grenade: 0.22,
+    tough: 135, skill: 0.68, react: [0.34, 0.55], speed: 1.7, role: 'skirmish', cover: 0.9, flank: 0.65, aggression: 0.55, grenade: 0.22,
     cash: 150, score: 320, voice: 0.85, light: true,
   },
   sniper: {
     name: 'Sniper', looks: ['police_male_02', 'military_male_03'], guns: ['sniper'], armor: { helmet: 1 },
-    tough: 90, skill: 0.85, react: [0.9, 1.2], speed: 1.35, role: 'sniper', cover: 0.9, flank: 0.1, aggression: 0.2,
+    tough: 90, skill: 0.85, react: [0.77, 1.02], speed: 1.35, role: 'sniper', cover: 0.9, flank: 0.1, aggression: 0.2,
     cash: 200, score: 400, voice: 0.8,
   },
   heavy: {
     name: 'Heavy Gunner', looks: ['military_male_04', 'military_male_01'], guns: ['lmg'], armor: { helmet: 2, vest: 0.82 },
-    tough: 260, skill: 0.5, react: [0.55, 0.85], speed: 1.15, role: 'suppress', cover: 0.4, flank: 0.1, aggression: 0.75,
+    tough: 260, skill: 0.5, react: [0.47, 0.72], speed: 1.15, role: 'suppress', cover: 0.4, flank: 0.1, aggression: 0.75,
     knockback: 0.6, strength: 1.2, cash: 280, score: 600, voice: 0.75,
   },
   elite: {
     name: 'Elite Operator', looks: ['police_male_02'], guns: ['rifle'], armor: { helmet: 2, vest: 0.75 },
-    tough: 190, skill: 0.85, react: [0.3, 0.5], speed: 1.9, role: 'skirmish', cover: 0.95, flank: 0.85, aggression: 0.7, grenade: 0.4,
+    tough: 190, skill: 0.85, react: [0.26, 0.42], speed: 1.9, role: 'skirmish', cover: 0.95, flank: 0.85, aggression: 0.7, grenade: 0.4,
     cash: 360, score: 800, voice: 0.85, light: true, elite: true,
   },
   juggernaut: {
     name: 'JUGGERNAUT', looks: ['military_male_01'], guns: ['lmg'], armor: { helmet: 8, vest: 0.95 },
-    tough: 1100, skill: 0.6, react: [0.45, 0.6], speed: 1.0, role: 'push', cover: 0, flank: 0, aggression: 1,
+    tough: 1100, skill: 0.6, react: [0.38, 0.51], speed: 1.0, role: 'push', cover: 0, flank: 0, aggression: 1,
     knockback: 0.3, strength: 1.4, cash: 1500, score: 3000, voice: 0.6, boss: true, light: true, scale: 1.08,
   },
   hollow: {
     name: 'Hollowed', looks: ['male_adult_18', 'male_adult_04', 'delivery_male_01', 'male_adult_17'], melee: 'runner',
-    tough: 60, cash: 30, score: 80, hollow: true,
+    tough: 75, cash: 38, score: 100, hollow: true,
   },
 };
 
@@ -67785,12 +67785,13 @@ class Gunman {
     if (this.def.strength) c.strengthScale = this.def.strength;
     c.armDriver = (dt) => this.driveArms(dt);
     this.applyAssist();
+    quickGetUp(c, 2.6);
   }
 
   applyAssist() {
     const c = this.p.ctl;
-    c.assistGain *= 1.35;
-    c.vAssist *= 2;
+    c.assistGain *= 1.55; // sturdier balance: hits stagger them more often than they fell them
+    c.vAssist *= 2.3;
   }
 
   get pos() { return this.p.rd.pelvis.pos; }
@@ -68164,7 +68165,8 @@ class Gunman {
     const light = game.view.lightAt(P.pos.x, 1.2, P.pos.z);
     let sigma = g.spread * (1.75 - this.def.skill) * this.scale.spread;
     sigma *= 1 + 0.45 * clamp(pv / 3.3, 0, 1.6) + 0.6 * clamp(own / 1.5, 0, 1) + 0.9 * clamp(this.suppressed, 0, 1) + 0.6 * this.p.ctl.pain;
-    if (this.visT < 1) sigma *= 1.5 - 0.5 * this.visT;
+    if (this.visT < 1) sigma *= 1.35 - 0.35 * this.visT;
+    if (this.anim && this.anim.flinchAmt > 0) sigma *= 1 + 3 * this.anim.flinchAmt; // a round just landed
     if (light < 0.2) sigma *= 1.35;
     if (P.crouch > 0.5) sigma *= 1.1;
     if (this.suppressFire) sigma *= 2.2;
@@ -68222,6 +68224,15 @@ class Gunman {
   releaseToken() { if (this.token) { this.token = false; this.mgr.tokensUsed--; } }
 }
 
+// fighters collect themselves faster after a fall than the engine's civilians: the rest it wants
+// before getting up runs quicker
+function quickGetUp(c, k) {
+  if (!c || !c.wantsToGetUp || c._quickGetUp) return;
+  const orig = c.wantsToGetUp.bind(c);
+  c.wantsToGetUp = (dt) => orig(dt * k);
+  c._quickGetUp = true;
+}
+
 function jitterDir(dir, sigma) {
   const up = Math.abs(dir.y) < 0.95 ? new T3.Vector3(0, 1, 0) : new T3.Vector3(1, 0, 0);
   const a = new T3.Vector3().crossVectors(dir, up).normalize();
@@ -68236,10 +68247,20 @@ class HollowWrap {
     this.mgr = mgr; this.game = mgr.game; this.p = person; this.type = type; this.def = ENEMY_TYPES[type];
     this.toughMax = this.def.tough * scale.tough; this.tough = this.toughMax; this.downed = false; this.hollow = true;
     this.scaleSpeed = scale.speed;
+    quickGetUp(person.ctl, 3.4);
     this.aiming = false;
     this.aimDir = new T3.Vector3(0, 0, 1);
     this.knows = true;
     person.ctl.loco.maxSpeed *= scale.speed;
+    // the hollowed hit harder and faster than the engine's runners: quick raking swipes that land
+    // from a little further out, and a body that soaks up rounds before it drops
+    const br = person.zombie;
+    if (br && br.def) {
+      const dmg = HOLLOW.damage * Math.min(1.35, 0.9 + 0.1 * (scale.tough || 1));
+      br.def = { ...br.def, damage: dmg, cooldown: HOLLOW.cooldown, windup: HOLLOW.windup, strike: HOLLOW.strike, reach: HOLLOW.reach };
+      br.cool = Math.min(br.cool, 0.3);
+    }
+    person.knockback = HOLLOW.knockback; // rounds shove them less than they would a living man
   }
   // while animated (dormant) the sandbox skips the engine brain: the manager runs it through here
   update(dt) { const br = this.p.zombie; if (br && br.update) br.update(dt); }
@@ -68251,8 +68272,8 @@ class HollowWrap {
     if (this.downed || !P.alive) return;
     if (this.chargeSpeed === undefined) {
       const style = this.anim ? this.anim.lib.key : 'zombie';
-      const sp = Math.min(this.scaleSpeed || 1, 1.12) * (0.92 + Math.random() * 0.16);
-      this.chargeSpeed = (style === 'limp' ? 2.4 : 3.4) * sp;
+      const sp = Math.min(this.scaleSpeed || 1, 1.1) * (0.92 + Math.random() * 0.16);
+      this.chargeSpeed = Math.min(HOLLOW.maxCharge, (style === 'limp' ? HOLLOW.limpCharge : HOLLOW.charge) * sp);
       const walk = this.anim && this.anim.lib.meta.walk_f ? this.anim.lib.meta.walk_f.speed : 0.6;
       this.shambleSpeed = clamp(walk * 1.5, 0.6, 1.3);
       this.seenT = -99;
@@ -68263,25 +68284,42 @@ class HollowWrap {
       this.lookT = 0.18;
       const h = this.headPos, eye = P.eye(new I());
       const d = Math.hypot(eye.x - h.x, eye.z - h.z);
-      if (d < 18 && game.level.visible(h, eye)) {
-        if (!this.charging) {
-          this.charging = true;
-          game.audio.zombieSnarl('runner', h);
-          setTimeout(() => game.audio.zombieGroan('runner', this.headPos, 1), 180);
-        }
+      if (d < HOLLOW.sight && game.level.visible(h, eye)) {
+        if (!this.charging) this.startCharge();
         this.seenT = game.time;
-      } else if (this.charging && game.time - this.seenT > 3) this.charging = false;
+      } else if (this.charging && game.time - this.seenT > HOLLOW.forget) this.charging = false;
     }
     // while the ragdoll has them (staggering) the physical walker gets a gentler pace
     const sp = this.charging ? this.chargeSpeed : this.shambleSpeed;
-    c.loco.maxSpeed = this.anim && !this.anim.active ? Math.min(sp, 2.0) : sp;
+    c.loco.maxSpeed = this.anim && !this.anim.active ? Math.min(sp, 2.4) : sp;
+  }
+  startCharge() {
+    const game = this.game, h = this.headPos;
+    this.charging = true;
+    game.audio.zombieSnarl('runner', h);
+    setTimeout(() => game.audio.zombieGroan('runner', this.headPos, 1), 180);
   }
   get pos() { return this.p.rd.pelvis.pos; }
   get headPos() { return this.p.rd.segments.head.body.pos; }
   combatEffective() { const c = this.p.ctl; return !this.downed && c.alive && c.conscious && this.tough > 0; }
-  hear() {}
+  // gunfire draws them in: anything loud within earshot sets them running at the sound
+  hear(pos, loud = 3) {
+    if (this.downed || this.chargeSpeed === undefined) return;
+    if (loud > 4) return; // a suppressed shot (see the manager) does not carry far enough to rouse them
+    this.seenT = this.game.time;
+    if (!this.charging) this.startCharge();
+  }
   releaseToken() {}
 }
+
+// the hollowed: fast enough that turning your back is a mistake (a sprint barely outpaces them),
+// and they rake hard, but a few well placed rounds still drop them
+const HOLLOW = {
+  charge: 5.1, limpCharge: 3.7, maxCharge: 5.8, // m/s (the player walks 3.3, sprints 5.6)
+  sight: 26, forget: 5,
+  damage: 13, cooldown: 0.6, windup: 0.13, strike: 0.13, reach: 1.02,
+  knockback: 0.6,
+};
 
 
 // ===== src/32-enemy-manager.js =====
@@ -68328,8 +68366,22 @@ class EnemyManager {
       if (sb._shooter && e.by === undefined) e.by = sb._shooter;
       // an animated enemy goes physical the instant it is hit, so this bullet's impulse (applied
       // just before the effect is emitted) and the knock that follows act on a live ragdoll
-      if ((e.type === 'fleshHit' || e.type === 'armorHit') && e.person && e.person.enemy && e.person.enemy.anim) e.person.enemy.anim.wake('hit');
+      // light hits are ridden out on the animation instead (a flinch and a stumble)
+      let soft = null;
+      if ((e.type === 'fleshHit' || e.type === 'armorHit') && e.person && e.person.enemy && e.person.enemy.anim) {
+        const ai = e.person.enemy, an = ai.anim;
+        if (an.active && this.rideOut(ai, e)) { soft = an; e.soft = true; }
+        else an.wake('hit');
+      }
       orig(e);
+      if (soft && soft.active) {
+        // the controller's own reactions to this hit would fire stale on the next wake: drop them
+        const c = e.person.ctl;
+        c.startle = 0;
+        if (c.flinch) c.flinch.amount = 0;
+        if (c.snap) c.snap.t0 = -9;
+        soft.flinch(e);
+      }
     };
     // the engine only knows its own obstacles: route hollows (and any replanning walker) through
     // the maze instead of straight into walls
@@ -68385,7 +68437,8 @@ class EnemyManager {
       person = sb.spawnZombie(pos, yaw, def.melee || 'runner');
       ai = new HollowWrap(this, person, type, this.scale);
     } else {
-      person = sb.spawnPerson(pos, yaw, { armor: def.armor ? { ...def.armor } : null, look: 'br_' + type, knockback: def.knockback ?? 1 });
+      // fighters brace against hits: they stagger more than they fall
+      person = sb.spawnPerson(pos, yaw, { armor: def.armor ? { ...def.armor } : null, look: 'br_' + type, knockback: def.knockback ?? 0.72 });
       const gunId = randPick(def.guns);
       ai = new Gunman(this, person, type, gunId, this.scale);
       person.zombie = ai;
@@ -68400,7 +68453,7 @@ class EnemyManager {
       const lib = def.hollow ? hollowAnimSet() : ANIM.lib;
       if (lib) {
         try {
-          ai.anim = def.hollow ? new AnimBody(ai, render, gltf, lib, { melee: person.zombie, maxRate: lib.key === 'limp' ? 2.1 : 1.6 }) : new AnimBody(ai, render, gltf, lib);
+          ai.anim = def.hollow ? new AnimBody(ai, render, gltf, lib, { melee: person.zombie, maxRate: lib.key === 'limp' ? 3.0 : 2.4 }) : new AnimBody(ai, render, gltf, lib);
           ai.anim.enter(0);
         } catch (e) { console.warn('[anim] enemy stays physical', e); ai.anim = null; }
       }
@@ -68527,7 +68580,9 @@ class EnemyManager {
     switch (e.type) {
       case 'fleshHit': {
         const ai = e.person.enemy;
-        if (ai && ai.anim) ai.anim.wake('hit');
+        if (ai && ai.anim && !e.soft) ai.anim.wake('hit');
+        // the dying take no more punishment: another round finishes them
+        if (ai && ai.agony && e.person.injury.alive) { e.person.injury.kill('gunshot wounds'); ai.agony = null; }
         if (ai && !ai.downed) {
           const mult = SEG_MULT[e.seg.name] ?? 0.8;
           const dmg = e.energy * 0.11 * mult * (e.by === 'player' ? g.perks.damage : 0.5);
@@ -68535,14 +68590,14 @@ class EnemyManager {
           if (e.by === 'player' || e.by === 'player-grenade') {
             ai.lastHit = { by: 'player', seg: e.seg.name, time: g.time, weapon: g.arsenal.gun.id, grenade: e.by === 'player-grenade' };
             if (ai.hear) ai.hear(g.player.pos, 0.5);
-            if (ai.suppressed !== undefined) ai.suppressed = Math.min(2, ai.suppressed + 0.6);
+            if (ai.suppressed !== undefined) ai.suppressed = Math.min(2, ai.suppressed + 0.3); // shaken, not cowed
           }
           if (ai.tough <= 0) this.finish(ai, e);
         }
         return false;
       }
       case 'armorHit':
-        if (e.person && e.person.enemy && e.person.enemy.anim) e.person.enemy.anim.wake('armor');
+        if (e.person && e.person.enemy && e.person.enemy.anim && !e.soft) e.person.enemy.anim.wake('armor');
         return false;
       case 'zombieGroan':
         if (e.near < 24) g.audio.zombieGroan(e.kind, e.person.rd.segments.head.body.pos, clamp(1.2 - e.near / 20, 0.3, 1));
@@ -68563,6 +68618,26 @@ class EnemyManager {
     return false;
   }
 
+  // whether an animated enemy rides a hit out on its feet (a flinch, a stumble) or goes over to
+  // the ragdoll: heavy rounds, the head and neck, a leg that gives, a quick second hit (pellets
+  // land together) and a body already badly hurt all go physical
+  rideOut(ai, e) {
+    const an = ai.anim, now = this.game.time;
+    const seg = e.seg ? e.seg.name : '';
+    const en = e.energy || 0;
+    // hits in quick succession pile up; the hollowed shrug off one more than the living
+    an.hits = now - an.lastHitT < (ai.hollow ? 0.6 : 0.8) ? an.hits + 1 : 1;
+    an.lastHitT = now;
+    const why = (r) => { an.ride = { r, seg, en: Math.round(en), type: e.type, hits: an.hits }; return r === 'ok'; };
+    if (an.hits > (ai.hollow ? 2 : 1)) return why('repeat');
+    if (e.type === 'armorHit') return why(en < 2600 ? 'ok' : 'plate');
+    if (seg === 'head' || seg === 'neck') return why('head');
+    if (/^(thigh|shin|foot)/.test(seg) && (e.bone || en > (ai.hollow ? 520 : 380))) return why('leg');
+    if (en > (ai.hollow ? 1100 : 750)) return why('heavy');
+    if (ai.tough < ai.toughMax * (ai.hollow ? 0.22 : 0.4)) return why('hurt');
+    return why('ok');
+  }
+
   // a person ran out of toughness: decide how they go down
   finish(ai, e) {
     const inj = ai.p.injury, c = ai.p.ctl;
@@ -68570,10 +68645,76 @@ class EnemyManager {
     if (!inj.alive) return;
     const seg = e.seg.name;
     // the hollowed cannot be knocked out: they only stop when they are dead
-    if (inj.undead || seg === 'head' || seg === 'neck' || e.energy > 1100 || Math.random() < 0.45) inj.kill(seg === 'head' ? 'gunshot wound to the head' : 'gunshot wounds');
+    if (inj.undead || seg === 'head' || seg === 'neck' || e.energy > 1100) { inj.kill(seg === 'head' ? 'gunshot wound to the head' : 'gunshot wounds'); return; }
+    const r = Math.random();
+    if (r < 0.38) this.agonize(ai);
+    else if (r < 0.62) inj.kill('gunshot wounds');
     else {
       inj.knockOut(9999, 1);
       c.autoGetUp = false;
+    }
+  }
+
+  // fatally hurt but still awake: the legs go and they fold to the floor, clutch the wound, groan,
+  // kick and try to roll over, weaker each time, until they bleed out
+  agonize(ai) {
+    const c = ai.p.ctl;
+    c.autoGetUp = false;
+    ai.agony = { t: 0, dur: 4 + Math.random() * 8, groanT: 0.5 + Math.random() * 0.8, moveT: 0.9 + Math.random() * 0.8 };
+    this.down(ai); // out of the fight (and counted), but left alive
+  }
+
+  updateAgony(ai, dt) {
+    const a = ai.agony, p = ai.p, inj = p.injury, g = this.game;
+    if (!inj.alive || !inj.conscious || ai.frozen) { ai.agony = null; return; }
+    a.t += dt;
+    const life = 1 - a.t / a.dur;
+    if (life <= 0) { inj.kill('blood loss'); ai.agony = null; return; }
+    // the legs will not hold them any more; the arms still press on the wounds (the engine does that
+    // by itself while they are awake)
+    if (inj.buckle) { inj.buckle.L = Math.min(inj.buckle.L, 0.06); inj.buckle.R = Math.min(inj.buckle.R, 0.06); inj.buckle.trunk = Math.min(inj.buckle.trunk, 0.35 + 0.4 * life); }
+    const S = p.rd.segments;
+    a.groanT -= dt;
+    if (a.groanT <= 0) {
+      a.groanT = 1.1 + Math.random() * 2.2 + (1 - life) * 1.5;
+      const h = S.head.body.pos;
+      if (g.sfx && Math.hypot(h.x - g.player.pos.x, h.z - g.player.pos.z) < 26) g.sfx.moan(h, 0.35 + 0.65 * life);
+    }
+    a.moveT -= dt;
+    if (a.moveT > 0 || p.ctl.mode === 'balance') return;
+    a.moveT = 0.5 + Math.random() * 1.3 + (1 - life) * 1.2;
+    const k = 0.35 + 0.65 * life, imp = new I();
+    const pick = Math.random();
+    if (pick < 0.35) {
+      // a leg kicks or drags
+      const side = Math.random() < 0.5 ? 'L' : 'R', shin = S['shin' + side], foot = S['foot' + side];
+      if (shin && foot) {
+        const d = new I().subVectors(foot.body.pos, S.pelvis ? S.pelvis.body.pos : p.rd.pelvis.pos);
+        d.y = 0; if (d.lengthSq() > 1e-6) d.normalize();
+        const back = Math.random() < 0.6 ? -1 : 1; // mostly drawing the knee up
+        imp.set(d.x * back * 2.4 * k, 1.2 * k, d.z * back * 2.4 * k);
+        foot.body.applyImpulse(imp, foot.body.pos);
+      }
+    } else if (pick < 0.6) {
+      // tries to roll onto a side
+      const ch = S.chest.body, sideways = new I(Math.random() - 0.5, 0, Math.random() - 0.5);
+      if (sideways.lengthSq() > 1e-6) sideways.normalize();
+      imp.set(sideways.x * 9 * k, 4 * k, sideways.z * 9 * k);
+      ch.applyImpulse(imp, new I(ch.pos.x + sideways.x * 0.12, ch.pos.y, ch.pos.z + sideways.z * 0.12));
+    } else if (pick < 0.8) {
+      // lifts the head, then lets it fall back
+      imp.set(0, 2.2 * k, 0);
+      S.head.body.applyImpulse(imp, S.head.body.pos);
+      if (S.neck) S.neck.body.applyImpulse(new I(0, 1.4 * k, 0), S.neck.body.pos);
+    } else {
+      // an arm reaches out or claws at the floor
+      const side = Math.random() < 0.5 ? 'L' : 'R', hand = S['hand' + side], fore = S['forearm' + side];
+      if (hand) {
+        const a2 = Math.random() * TAU;
+        imp.set(Math.cos(a2) * 1.6 * k, 1.5 * k, Math.sin(a2) * 1.6 * k);
+        hand.body.applyImpulse(imp, hand.body.pos);
+        if (fore) fore.body.applyImpulse(imp.scale(0.6), fore.body.pos);
+      }
     }
   }
 
@@ -68586,7 +68727,7 @@ class EnemyManager {
     ai.releaseToken();
     const p = ai.p, g = this.game;
     // whatever brought them down (kick, bleed-out, a hollow out of toughness), they stay down
-    if (p.injury.alive && (p.injury.undead || p.ctl.mode === 'balance' || p.ctl.mode === 'getup')) {
+    if (p.injury.alive && !ai.agony && (p.injury.undead || p.ctl.mode === 'balance' || p.ctl.mode === 'getup')) {
       p.injury.kill(ai.lastHit && ai.lastHit.weapon === 'kick' ? 'blunt trauma' : 'injuries');
     }
     p.ctl.autoGetUp = false;
@@ -68604,7 +68745,7 @@ class EnemyManager {
     ai.diedAt = g.time;
     this.corpses.push(ai);
     this.events.push({ type: 'kill', ai, byPlayer, head, dist, grenade: !!(lh && lh.grenade), weapon: lh && lh.weapon });
-    if (this.corpses.length > 14) this.removeCorpse(this.corpses[0]);
+    // bodies stay where they fell for the rest of the level (frozen ones cost no physics)
   }
 
   removeCorpse(ai) {
@@ -68741,7 +68882,8 @@ class EnemyManager {
   // ---- per step / frame --------------------------------------------------------------------------
   step(dt) {
     const g = this.game;
-    this.maxTokens = Math.min(5, 2 + Math.floor((this.wave - 1) / 4));
+    // how many may shoot at the player at once: three from the start, one more every four waves
+    this.maxTokens = Math.min(6, 3 + Math.floor((this.wave - 1) / 4));
     // hollowed and anyone the brain did not catch
     for (const ai of this.list) {
       if (ai.downed) continue;
@@ -68755,9 +68897,11 @@ class EnemyManager {
       if (ai.anim.active && !ai.downed) ai.update(dt);
       ai.anim.step(dt);
     }
+    // the dying
+    for (const ai of this.corpses) if (ai.agony) this.updateAgony(ai, dt);
     // corpses settle, then freeze to save the simulation
     for (const ai of this.corpses) {
-      if (ai.frozen || g.time - ai.diedAt < 3) continue;
+      if (ai.frozen || ai.agony || g.time - ai.diedAt < 3) continue;
       let still = true;
       for (const b of ai.p.rd.allBodies()) if (b.vel.lengthSq() > 0.03) { still = false; break; }
       if (still || g.time - ai.diedAt > 10) {
@@ -68943,6 +69087,7 @@ class AnimBody {
     this.vel = new T3.Vector3();
     this.phase = Math.random();
     this.twist = 0; this.pitch = 0; this.kick = 0;
+    this.fl = null; this.flinchAmt = 0; this.stagger = 0; this.lastHitT = -9; this.hits = 0;
     this.mode = 'physics';
     this.calm = 0;
     this.blend = null;
@@ -69005,6 +69150,7 @@ class AnimBody {
     this.mode = 'physics';
     this.calm = 0;
     this.blend = null;
+    this.fl = null; this.flinchAmt = 0; this.stagger = 0;
     for (const b of this.bodies) { b.force.setZero(); b.torque.setZero(); }
     // resetState() on waking clears what the injury model just set: carry it over
     const c = p.ctl;
@@ -69025,9 +69171,10 @@ class AnimBody {
     if (this.mode === 'physics') {
       // back to animation once standing, conscious and left alone for a moment
       const v = c.sens ? Math.hypot(c.sens.comVel.x, c.sens.comVel.z) : 0;
-      const ok = !ai.downed && c.alive && c.conscious && c.mode === 'balance' && (c.modeTime || 0) > 0.4 && v < 1.6 && !(c.flail > 0.2) && !(c.startle > 0.3);
+      // (fighters gather themselves fast: a moment on their feet and they are back in the fight)
+      const ok = !ai.downed && c.alive && c.conscious && c.mode === 'balance' && (c.modeTime || 0) > 0.25 && v < 2.2 && !(c.flail > 0.2) && !(c.startle > 0.45);
       this.calm = ok ? this.calm + dt : 0;
-      if (this.calm > 1.0) this.enter();
+      if (this.calm > (this.melee ? 0.3 : 0.45)) this.enter(0.28);
       return;
     }
     if (ai.downed || !c.alive || !c.conscious) { this.wake('down'); return; }
@@ -69077,6 +69224,8 @@ class AnimBody {
     // the clips set the top speed: a jog played much faster than captured looks comic
     const meta = this.lib.meta;
     want = Math.min(want, ((meta.run_f && meta.run_f.speed) || (meta.walk_f && meta.walk_f.speed) || 1.4) * this.maxRate);
+    // a round ridden out on the feet costs a stride or two
+    if (this.stagger > 0) { this.stagger -= dt; want *= 0.4; }
     // a claw swipe lunges in
     const atk = this.melee && this.melee.attack, tg = this.melee && this.melee.target;
     if (atk && tg && atk.t < (this.melee.def.windup + this.melee.def.strike)) {
@@ -69085,7 +69234,7 @@ class AnimBody {
     }
     // accelerate towards the wanted velocity
     const tvx = dx * want, tvz = dz * want;
-    const k = 1 - Math.exp(-dt * (want > 0 ? 5 : 7));
+    const k = 1 - Math.exp(-dt * (want > 0 ? (this.melee ? 7.5 : 5) : 7)); // the hollowed burst off the mark
     this.vel.x += (tvx - this.vel.x) * k;
     this.vel.z += (tvz - this.vel.z) * k;
     // separation from other people
@@ -69232,10 +69381,20 @@ class AnimBody {
         tY = this.twitch.y * k; tR = this.twitch.r * k;
       }
     }
+    // a flinch from a round ridden out (see flinch()): fast in, a third of a second out
+    let fP = 0, fR = 0, fY = 0, fH = 0;
+    if (this.fl) {
+      const f = this.fl;
+      f.t += dt;
+      const env = f.amp * Math.min(1, f.t / 0.035) * Math.exp(-Math.max(0, f.t - 0.035) / 0.13);
+      fP = f.pitch * env; fR = f.roll * env; fY = f.yaw * env; fH = f.head * env;
+      this.flinchAmt = env;
+      if (f.t > 0.7) { this.fl = null; this.flinchAmt = 0; }
+    }
     const share = [0.25, 0.35, 0.4]; // lumbar takes the least (its limit is about 0.2 rad)
-    this.spine.forEach((b, i) => this.rotateWorld(b, 0, this.twist * (share[i] ?? 1 / n), -this.pitch * 0.6 / n - this.kick * 0.03 + lean / n));
-    if (this.neck) this.rotateWorld(this.neck, tR * 0.4, tY * 0.5, -this.pitch * 0.25 - lean * 0.45);
-    if (this.head) this.rotateWorld(this.head, tR, tY, -this.pitch * 0.15 + this.kick * 0.02 - lean * 0.35);
+    this.spine.forEach((b, i) => this.rotateWorld(b, fR * (share[i] ?? 1 / n), (this.twist + fY) * (share[i] ?? 1 / n), -this.pitch * 0.6 / n - this.kick * 0.03 + lean / n + fP * (share[i] ?? 1 / n)));
+    if (this.neck) this.rotateWorld(this.neck, tR * 0.4 + fR * 0.3, tY * 0.5 + fH * 0.4, -this.pitch * 0.25 - lean * 0.45 - fP * 0.25);
+    if (this.head) this.rotateWorld(this.head, tR + fR * 0.3, tY + fH, -this.pitch * 0.15 + this.kick * 0.02 - lean * 0.35 - fP * 0.3);
     // pistol stance: both arms reach to a grip on the aim line in front of the chest
     this.ikW = (this.ikW || 0) + ((this.pistol && ai.aiming && !reloading ? 1 : 0) - (this.ikW || 0)) * (1 - Math.exp(-dt * 10));
     if (this.ikW > 0.01) this.solveArms(this.ikW);
@@ -69462,6 +69621,28 @@ class AnimBody {
 
   // muzzle climb on the upper body
   onFire() { this.kick = Math.min(1.5, this.kick + 1); }
+
+  // a round the body rides out on its feet (the manager decides which): the torso snaps away from
+  // the shot and twists about the hit, the head whips, the root is shoved half a step and the
+  // stride falters; all of it gone in about a third of a second
+  flinch(e) {
+    if (this.mode !== 'anim') return;
+    const d = e.dir || { x: 0, z: 1 }, dh = Math.hypot(d.x, d.z) || 1, dx = d.x / dh, dz = d.z / dh;
+    const sh = Math.sin(this.heading), ch = Math.cos(this.heading);
+    const df = dx * sh + dz * ch;  // along the facing: negative when the round came from the front
+    const ds = dx * ch - dz * sh;  // across, towards the rotateWorld 'right' axis
+    const en = e.energy || 300;
+    const amp = clamp(0.35 + en / 1000, 0.35, 0.95) * (this.melee ? 0.8 : 1) * (e.type === 'armorHit' ? 0.7 : 1);
+    let yaw = 0;
+    const chest = this.rd.segments.chest && this.rd.segments.chest.body.pos, at = e.entry || e.point;
+    if (chest && at) { const ox = at.x - chest.x, oz = at.z - chest.z; yaw = clamp((oz * dx - ox * dz) * 7, -0.7, 0.7); }
+    const seg = e.seg ? e.seg.name : 'chest';
+    const gut = /^(abdomen|pelvis)$/.test(seg);
+    this.fl = { t: 0, amp, pitch: df * 0.6 + (gut ? 0.45 : 0), roll: -ds * 0.5, yaw, head: (Math.random() - 0.5) * 0.6 - yaw * 0.4 };
+    const push = clamp(en / 700, 0.25, 1.2) * (this.melee ? 0.6 : 0.85);
+    this.vel.x += dx * push; this.vel.z += dz * push;
+    this.stagger = Math.max(this.stagger || 0, this.melee ? 0.22 : 0.4);
+  }
 }
 
 
@@ -70699,6 +70880,91 @@ class Sfx {
     this.ringT = 2.5 * a;
   }
 
+  // a suppressed shot: no blast, a dull gas "thup" out of the can, the action cycling (slide or bolt
+  // clacking back and slamming home) and, for supersonic rounds, the bullet's own crack, which no
+  // suppressor removes. pos null = the player's own weapon
+  suppressedShot(kind = 'pistol', pos = null) {
+    if (!this.ready) return;
+    const ctx = this.ctx, t = ctx.currentTime;
+    const dst = pos ? this.spatial(pos) : this.out;
+    const rifle = /rifle|marksman|sniper|lmg|whisper/.test(kind), heavy = rifle || /shotgun|revolver/.test(kind);
+    const subsonic = kind === 'whisper' || !rifle; // heavy subsonic .338 and handgun rounds: no crack
+    const v = 0.9 + Math.random() * 0.2;
+    // the gas: a short breathy burst, low-passed hard
+    const s = ctx.createBufferSource(), lp = ctx.createBiquadFilter(), g = ctx.createGain();
+    s.buffer = this.noise; s.playbackRate.value = 0.75 + Math.random() * 0.3;
+    lp.type = 'lowpass'; lp.Q.value = 1.4;
+    lp.frequency.setValueAtTime(heavy ? 2300 : 2900, t); lp.frequency.exponentialRampToValueAtTime(320, t + 0.1);
+    s.connect(lp); lp.connect(g); g.connect(dst);
+    this.env(g, t, 0.0015, (heavy ? 0.85 : 0.6) * v, heavy ? 0.15 : 0.1);
+    s.start(t, Math.random() * 2); s.stop(t + 0.2);
+    // the thump in the chest
+    const o = ctx.createOscillator(), og = ctx.createGain();
+    o.frequency.setValueAtTime(heavy ? 120 : 160, t); o.frequency.exponentialRampToValueAtTime(48, t + 0.07);
+    o.connect(og); og.connect(dst);
+    this.env(og, t, 0.002, (heavy ? 0.7 : 0.45) * v, 0.08);
+    o.start(t); o.stop(t + 0.12);
+    // the action: back (sharp) then home (heavier)
+    const clack = (at, f, q, peak, d) => {
+      const c = ctx.createBufferSource(), bp = ctx.createBiquadFilter(), cg = ctx.createGain();
+      c.buffer = this.noise; bp.type = 'bandpass'; bp.frequency.value = f; bp.Q.value = q;
+      c.connect(bp); bp.connect(cg); cg.connect(dst);
+      this.env(cg, t + at, 0.0007, peak, d);
+      c.start(t + at, Math.random() * 2); c.stop(t + at + d + 0.03);
+    };
+    if (kind === 'revolver') clack(0.012, 2400, 3, 0.16, 0.03); // the cylinder turns, nothing cycles
+    else if (rifle) { clack(0.006, 3600, 4, 0.22, 0.02); clack(0.06 + Math.random() * 0.01, 2100, 5, 0.26, 0.035); }
+    else { clack(0.004, 3100, 4, 0.26, 0.018); clack(0.045 + Math.random() * 0.01, 1900, 5, 0.3, 0.03); }
+    // a supersonic round still cracks
+    if (!subsonic) {
+      const c = ctx.createBufferSource(), hp = ctx.createBiquadFilter(), cg = ctx.createGain();
+      c.buffer = this.noise; hp.type = 'highpass'; hp.frequency.value = 2600;
+      c.connect(hp); hp.connect(cg); cg.connect(dst);
+      this.env(cg, t + 0.001, 0.0006, 0.42 * v, 0.03);
+      c.start(t, Math.random() * 2); c.stop(t + 0.06);
+    }
+    // the room answers, faintly
+    if (this.au.verbIn) { const r = ctx.createGain(); r.gain.value = heavy ? 0.3 : 0.2; g.connect(r); r.connect(this.au.verbIn); }
+  }
+
+  // a dying man's voice: a weak, breathy moan that sags in pitch, sometimes cut short by a gasp
+  moan(pos, strength = 1) {
+    if (!this.ready) return;
+    const ctx = this.ctx, t = ctx.currentTime;
+    const dst = this.spatial(pos);
+    const dur = 0.6 + Math.random() * 1.1, f0 = 92 + Math.random() * 45;
+    const o = ctx.createOscillator();
+    o.type = 'sawtooth';
+    o.frequency.setValueAtTime(f0 * 1.18, t);
+    o.frequency.linearRampToValueAtTime(f0, t + dur * 0.3);
+    o.frequency.exponentialRampToValueAtTime(f0 * 0.7, t + dur);
+    // a shaky voice
+    const lfo = ctx.createOscillator(), lg = ctx.createGain();
+    lfo.frequency.value = 4 + Math.random() * 4; lg.gain.value = f0 * 0.035;
+    lfo.connect(lg); lg.connect(o.frequency);
+    // an "uh" / "oh" through three formants, plus breath
+    const vox = ctx.createGain(), env = ctx.createGain();
+    vox.gain.value = 1;
+    for (const [f, q, a] of [[480 + Math.random() * 120, 6, 1], [850 + Math.random() * 150, 8, 0.55], [2400, 10, 0.12]]) {
+      const bp = ctx.createBiquadFilter(), bg = ctx.createGain();
+      bp.type = 'bandpass'; bp.frequency.value = f; bp.Q.value = q; bg.gain.value = a;
+      o.connect(bp); bp.connect(bg); bg.connect(vox);
+    }
+    const n = ctx.createBufferSource(), nbp = ctx.createBiquadFilter(), ng = ctx.createGain();
+    n.buffer = this.noise; nbp.type = 'bandpass'; nbp.frequency.value = 1300; nbp.Q.value = 0.8; ng.gain.value = 0.35;
+    n.connect(nbp); nbp.connect(ng); ng.connect(vox);
+    vox.connect(env); env.connect(dst);
+    const peak = 0.5 * clamp(strength, 0.15, 1);
+    const cut = Math.random() < 0.3 ? dur * (0.45 + Math.random() * 0.2) : dur; // breaks off
+    env.gain.setValueAtTime(0.0001, t);
+    env.gain.linearRampToValueAtTime(peak, t + 0.14);
+    env.gain.linearRampToValueAtTime(peak * 0.7, t + cut * 0.7);
+    env.gain.linearRampToValueAtTime(0.0001, t + cut);
+    o.start(t); lfo.start(t); n.start(t, Math.random() * 2);
+    o.stop(t + dur + 0.05); lfo.stop(t + dur + 0.05); n.stop(t + dur + 0.05);
+    if (this.au.verbIn) { const r = ctx.createGain(); r.gain.value = 0.25; env.connect(r); r.connect(this.au.verbIn); }
+  }
+
   radio(pos) {
     if (!this.ready) return;
     const ctx = this.ctx, t = ctx.currentTime;
@@ -70863,6 +71129,14 @@ class Minimap {
     this.rctx.drawImage(this.layout, x0, y0, w, w, x0, y0, w, w);
   }
 
+  // the stragglers of a wave once nothing more is coming: at most two
+  lastHostiles() {
+    const g = this.game, d = g.director;
+    if (!d || !g.enemies || (d.queue && d.queue.length) || d.pending) return [];
+    const alive = g.enemies.alive;
+    return alive.length > 0 && alive.length <= 2 ? alive : [];
+  }
+
   onEnemyFire(ai, muzzle) {
     if (ai.gun && ai.gun.suppressed) return;
     this.pings.push({ x: muzzle.x, z: muzzle.z, t: 0 });
@@ -70933,7 +71207,32 @@ class Minimap {
       const a = s.t > 0 ? clamp(1 - s.t / 2, 0, 1) * 0.6 : 1;
       dot(s.x, s.z, (ai.def && ai.def.boss ? 5 : 3.6) * this.dpr, `rgba(255, 64, 48, ${a})`);
     }
+    // the last two of a wave give themselves away: pulsing markers, wherever they hide
+    const last = this.lastHostiles();
+    const pulse = 0.5 + 0.5 * Math.sin(this.t * 6);
+    for (const ai of last) {
+      const [mx, my] = toMap(ai.pos.x, ai.pos.z);
+      ctx.beginPath(); ctx.arc(mx, my, (5 + pulse * 5) * this.dpr / sc, 0, TAU);
+      ctx.strokeStyle = `rgba(255, 70, 50, ${0.35 + 0.5 * pulse})`; ctx.lineWidth = 1.8 * this.dpr / sc; ctx.stroke();
+      dot(ai.pos.x, ai.pos.z, 3.8 * this.dpr, 'rgba(255, 84, 60, 1)');
+    }
     ctx.restore();
+    // ... and an arrow on the rim for any off the edge of the map
+    for (const ai of last) {
+      const dx = ai.pos.x - P.pos.x, dz = ai.pos.z - P.pos.z, dist = Math.hypot(dx, dz);
+      if (dist * k < R * 0.88) continue;
+      // same transform as the map: rotate by yaw, forward up
+      const c = Math.cos(P.yaw), sn = Math.sin(P.yaw);
+      const sx = dx * c - dz * sn, sy = dx * sn + dz * c;
+      const ang = Math.atan2(sy, sx), rr = R - 7 * this.dpr;
+      ctx.save();
+      ctx.translate(R + Math.cos(ang) * rr, R + Math.sin(ang) * rr);
+      ctx.rotate(ang);
+      const u2 = 5 * this.dpr;
+      ctx.beginPath(); ctx.moveTo(u2, 0); ctx.lineTo(-u2 * 0.7, u2 * 0.75); ctx.lineTo(-u2 * 0.7, -u2 * 0.75); ctx.closePath();
+      ctx.fillStyle = `rgba(255, 84, 60, ${0.55 + 0.45 * pulse})`; ctx.fill();
+      ctx.restore();
+    }
     // the player: a forward-pointing chevron at the centre, with a faint view cone
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     const fovH = Math.atan(Math.tan((g.camera.fov * Math.PI) / 360) * g.camera.aspect);
@@ -71310,7 +71609,8 @@ class BackroomsGame {
       case 'shot': {
         if (e.by === 'player') {
           const g = this.arsenal.gun;
-          au.gunshot(g.def.ballistic === 'marksman' || g.def.ballistic === 'whisper' ? 'sniper' : g.def.ballistic, g.suppressed ? null : e.origin);
+          if (g.suppressed && this.sfx && this.sfx.ready) this.sfx.suppressedShot(g.def.ballistic);
+          else au.gunshot(g.def.ballistic === 'marksman' || g.def.ballistic === 'whisper' ? 'sniper' : g.def.ballistic, g.suppressed ? null : e.origin);
           const m = this.vm.muzzleWorld(new T3.Vector3());
           // viewmodel camera space -> world camera space at the same screen position (the two
           // cameras share a pose but not a field of view), then to world

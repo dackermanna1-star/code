@@ -66,6 +66,14 @@ class Minimap {
     this.rctx.drawImage(this.layout, x0, y0, w, w, x0, y0, w, w);
   }
 
+  // the stragglers of a wave once nothing more is coming: at most two
+  lastHostiles() {
+    const g = this.game, d = g.director;
+    if (!d || !g.enemies || (d.queue && d.queue.length) || d.pending) return [];
+    const alive = g.enemies.alive;
+    return alive.length > 0 && alive.length <= 2 ? alive : [];
+  }
+
   onEnemyFire(ai, muzzle) {
     if (ai.gun && ai.gun.suppressed) return;
     this.pings.push({ x: muzzle.x, z: muzzle.z, t: 0 });
@@ -136,7 +144,32 @@ class Minimap {
       const a = s.t > 0 ? clamp(1 - s.t / 2, 0, 1) * 0.6 : 1;
       dot(s.x, s.z, (ai.def && ai.def.boss ? 5 : 3.6) * this.dpr, `rgba(255, 64, 48, ${a})`);
     }
+    // the last two of a wave give themselves away: pulsing markers, wherever they hide
+    const last = this.lastHostiles();
+    const pulse = 0.5 + 0.5 * Math.sin(this.t * 6);
+    for (const ai of last) {
+      const [mx, my] = toMap(ai.pos.x, ai.pos.z);
+      ctx.beginPath(); ctx.arc(mx, my, (5 + pulse * 5) * this.dpr / sc, 0, TAU);
+      ctx.strokeStyle = `rgba(255, 70, 50, ${0.35 + 0.5 * pulse})`; ctx.lineWidth = 1.8 * this.dpr / sc; ctx.stroke();
+      dot(ai.pos.x, ai.pos.z, 3.8 * this.dpr, 'rgba(255, 84, 60, 1)');
+    }
     ctx.restore();
+    // ... and an arrow on the rim for any off the edge of the map
+    for (const ai of last) {
+      const dx = ai.pos.x - P.pos.x, dz = ai.pos.z - P.pos.z, dist = Math.hypot(dx, dz);
+      if (dist * k < R * 0.88) continue;
+      // same transform as the map: rotate by yaw, forward up
+      const c = Math.cos(P.yaw), sn = Math.sin(P.yaw);
+      const sx = dx * c - dz * sn, sy = dx * sn + dz * c;
+      const ang = Math.atan2(sy, sx), rr = R - 7 * this.dpr;
+      ctx.save();
+      ctx.translate(R + Math.cos(ang) * rr, R + Math.sin(ang) * rr);
+      ctx.rotate(ang);
+      const u2 = 5 * this.dpr;
+      ctx.beginPath(); ctx.moveTo(u2, 0); ctx.lineTo(-u2 * 0.7, u2 * 0.75); ctx.lineTo(-u2 * 0.7, -u2 * 0.75); ctx.closePath();
+      ctx.fillStyle = `rgba(255, 84, 60, ${0.55 + 0.45 * pulse})`; ctx.fill();
+      ctx.restore();
+    }
     // the player: a forward-pointing chevron at the centre, with a faint view cone
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     const fovH = Math.atan(Math.tan((g.camera.fov * Math.PI) / 360) * g.camera.aspect);

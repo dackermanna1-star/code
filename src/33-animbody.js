@@ -94,6 +94,7 @@ class AnimBody {
     this.vel = new T3.Vector3();
     this.phase = Math.random();
     this.twist = 0; this.pitch = 0; this.kick = 0;
+    this.fl = null; this.flinchAmt = 0; this.stagger = 0; this.lastHitT = -9; this.hits = 0;
     this.mode = 'physics';
     this.calm = 0;
     this.blend = null;
@@ -156,6 +157,7 @@ class AnimBody {
     this.mode = 'physics';
     this.calm = 0;
     this.blend = null;
+    this.fl = null; this.flinchAmt = 0; this.stagger = 0;
     for (const b of this.bodies) { b.force.setZero(); b.torque.setZero(); }
     // resetState() on waking clears what the injury model just set: carry it over
     const c = p.ctl;
@@ -176,9 +178,10 @@ class AnimBody {
     if (this.mode === 'physics') {
       // back to animation once standing, conscious and left alone for a moment
       const v = c.sens ? Math.hypot(c.sens.comVel.x, c.sens.comVel.z) : 0;
-      const ok = !ai.downed && c.alive && c.conscious && c.mode === 'balance' && (c.modeTime || 0) > 0.4 && v < 1.6 && !(c.flail > 0.2) && !(c.startle > 0.3);
+      // (fighters gather themselves fast: a moment on their feet and they are back in the fight)
+      const ok = !ai.downed && c.alive && c.conscious && c.mode === 'balance' && (c.modeTime || 0) > 0.25 && v < 2.2 && !(c.flail > 0.2) && !(c.startle > 0.45);
       this.calm = ok ? this.calm + dt : 0;
-      if (this.calm > 1.0) this.enter();
+      if (this.calm > (this.melee ? 0.3 : 0.45)) this.enter(0.28);
       return;
     }
     if (ai.downed || !c.alive || !c.conscious) { this.wake('down'); return; }
@@ -228,6 +231,8 @@ class AnimBody {
     // the clips set the top speed: a jog played much faster than captured looks comic
     const meta = this.lib.meta;
     want = Math.min(want, ((meta.run_f && meta.run_f.speed) || (meta.walk_f && meta.walk_f.speed) || 1.4) * this.maxRate);
+    // a round ridden out on the feet costs a stride or two
+    if (this.stagger > 0) { this.stagger -= dt; want *= 0.4; }
     // a claw swipe lunges in
     const atk = this.melee && this.melee.attack, tg = this.melee && this.melee.target;
     if (atk && tg && atk.t < (this.melee.def.windup + this.melee.def.strike)) {
@@ -236,7 +241,7 @@ class AnimBody {
     }
     // accelerate towards the wanted velocity
     const tvx = dx * want, tvz = dz * want;
-    const k = 1 - Math.exp(-dt * (want > 0 ? 5 : 7));
+    const k = 1 - Math.exp(-dt * (want > 0 ? (this.melee ? 7.5 : 5) : 7)); // the hollowed burst off the mark
     this.vel.x += (tvx - this.vel.x) * k;
     this.vel.z += (tvz - this.vel.z) * k;
     // separation from other people
@@ -383,10 +388,20 @@ class AnimBody {
         tY = this.twitch.y * k; tR = this.twitch.r * k;
       }
     }
+    // a flinch from a round ridden out (see flinch()): fast in, a third of a second out
+    let fP = 0, fR = 0, fY = 0, fH = 0;
+    if (this.fl) {
+      const f = this.fl;
+      f.t += dt;
+      const env = f.amp * Math.min(1, f.t / 0.035) * Math.exp(-Math.max(0, f.t - 0.035) / 0.13);
+      fP = f.pitch * env; fR = f.roll * env; fY = f.yaw * env; fH = f.head * env;
+      this.flinchAmt = env;
+      if (f.t > 0.7) { this.fl = null; this.flinchAmt = 0; }
+    }
     const share = [0.25, 0.35, 0.4]; // lumbar takes the least (its limit is about 0.2 rad)
-    this.spine.forEach((b, i) => this.rotateWorld(b, 0, this.twist * (share[i] ?? 1 / n), -this.pitch * 0.6 / n - this.kick * 0.03 + lean / n));
-    if (this.neck) this.rotateWorld(this.neck, tR * 0.4, tY * 0.5, -this.pitch * 0.25 - lean * 0.45);
-    if (this.head) this.rotateWorld(this.head, tR, tY, -this.pitch * 0.15 + this.kick * 0.02 - lean * 0.35);
+    this.spine.forEach((b, i) => this.rotateWorld(b, fR * (share[i] ?? 1 / n), (this.twist + fY) * (share[i] ?? 1 / n), -this.pitch * 0.6 / n - this.kick * 0.03 + lean / n + fP * (share[i] ?? 1 / n)));
+    if (this.neck) this.rotateWorld(this.neck, tR * 0.4 + fR * 0.3, tY * 0.5 + fH * 0.4, -this.pitch * 0.25 - lean * 0.45 - fP * 0.25);
+    if (this.head) this.rotateWorld(this.head, tR + fR * 0.3, tY + fH, -this.pitch * 0.15 + this.kick * 0.02 - lean * 0.35 - fP * 0.3);
     // pistol stance: both arms reach to a grip on the aim line in front of the chest
     this.ikW = (this.ikW || 0) + ((this.pistol && ai.aiming && !reloading ? 1 : 0) - (this.ikW || 0)) * (1 - Math.exp(-dt * 10));
     if (this.ikW > 0.01) this.solveArms(this.ikW);
@@ -613,4 +628,26 @@ class AnimBody {
 
   // muzzle climb on the upper body
   onFire() { this.kick = Math.min(1.5, this.kick + 1); }
+
+  // a round the body rides out on its feet (the manager decides which): the torso snaps away from
+  // the shot and twists about the hit, the head whips, the root is shoved half a step and the
+  // stride falters; all of it gone in about a third of a second
+  flinch(e) {
+    if (this.mode !== 'anim') return;
+    const d = e.dir || { x: 0, z: 1 }, dh = Math.hypot(d.x, d.z) || 1, dx = d.x / dh, dz = d.z / dh;
+    const sh = Math.sin(this.heading), ch = Math.cos(this.heading);
+    const df = dx * sh + dz * ch;  // along the facing: negative when the round came from the front
+    const ds = dx * ch - dz * sh;  // across, towards the rotateWorld 'right' axis
+    const en = e.energy || 300;
+    const amp = clamp(0.35 + en / 1000, 0.35, 0.95) * (this.melee ? 0.8 : 1) * (e.type === 'armorHit' ? 0.7 : 1);
+    let yaw = 0;
+    const chest = this.rd.segments.chest && this.rd.segments.chest.body.pos, at = e.entry || e.point;
+    if (chest && at) { const ox = at.x - chest.x, oz = at.z - chest.z; yaw = clamp((oz * dx - ox * dz) * 7, -0.7, 0.7); }
+    const seg = e.seg ? e.seg.name : 'chest';
+    const gut = /^(abdomen|pelvis)$/.test(seg);
+    this.fl = { t: 0, amp, pitch: df * 0.6 + (gut ? 0.45 : 0), roll: -ds * 0.5, yaw, head: (Math.random() - 0.5) * 0.6 - yaw * 0.4 };
+    const push = clamp(en / 700, 0.25, 1.2) * (this.melee ? 0.6 : 0.85);
+    this.vel.x += dx * push; this.vel.z += dz * push;
+    this.stagger = Math.max(this.stagger || 0, this.melee ? 0.22 : 0.4);
+  }
 }

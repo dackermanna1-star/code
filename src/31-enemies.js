@@ -330,12 +330,13 @@ class Gunman {
     if (this.def.strength) c.strengthScale = this.def.strength;
     c.armDriver = (dt) => this.driveArms(dt);
     this.applyAssist();
+    quickGetUp(c, 2.6);
   }
 
   applyAssist() {
     const c = this.p.ctl;
-    c.assistGain *= 1.35;
-    c.vAssist *= 2;
+    c.assistGain *= 1.55; // sturdier balance: hits stagger them more often than they fell them
+    c.vAssist *= 2.3;
   }
 
   get pos() { return this.p.rd.pelvis.pos; }
@@ -709,7 +710,8 @@ class Gunman {
     const light = game.view.lightAt(P.pos.x, 1.2, P.pos.z);
     let sigma = g.spread * (1.75 - this.def.skill) * this.scale.spread;
     sigma *= 1 + 0.45 * clamp(pv / 3.3, 0, 1.6) + 0.6 * clamp(own / 1.5, 0, 1) + 0.9 * clamp(this.suppressed, 0, 1) + 0.6 * this.p.ctl.pain;
-    if (this.visT < 1) sigma *= 1.5 - 0.5 * this.visT;
+    if (this.visT < 1) sigma *= 1.35 - 0.35 * this.visT;
+    if (this.anim && this.anim.flinchAmt > 0) sigma *= 1 + 3 * this.anim.flinchAmt; // a round just landed
     if (light < 0.2) sigma *= 1.35;
     if (P.crouch > 0.5) sigma *= 1.1;
     if (this.suppressFire) sigma *= 2.2;
@@ -767,6 +769,15 @@ class Gunman {
   releaseToken() { if (this.token) { this.token = false; this.mgr.tokensUsed--; } }
 }
 
+// fighters collect themselves faster after a fall than the engine's civilians: the rest it wants
+// before getting up runs quicker
+function quickGetUp(c, k) {
+  if (!c || !c.wantsToGetUp || c._quickGetUp) return;
+  const orig = c.wantsToGetUp.bind(c);
+  c.wantsToGetUp = (dt) => orig(dt * k);
+  c._quickGetUp = true;
+}
+
 function jitterDir(dir, sigma) {
   const up = Math.abs(dir.y) < 0.95 ? new T3.Vector3(0, 1, 0) : new T3.Vector3(1, 0, 0);
   const a = new T3.Vector3().crossVectors(dir, up).normalize();
@@ -781,10 +792,20 @@ class HollowWrap {
     this.mgr = mgr; this.game = mgr.game; this.p = person; this.type = type; this.def = ENEMY_TYPES[type];
     this.toughMax = this.def.tough * scale.tough; this.tough = this.toughMax; this.downed = false; this.hollow = true;
     this.scaleSpeed = scale.speed;
+    quickGetUp(person.ctl, 3.4);
     this.aiming = false;
     this.aimDir = new T3.Vector3(0, 0, 1);
     this.knows = true;
     person.ctl.loco.maxSpeed *= scale.speed;
+    // the hollowed hit harder and faster than the engine's runners: quick raking swipes that land
+    // from a little further out, and a body that soaks up rounds before it drops
+    const br = person.zombie;
+    if (br && br.def) {
+      const dmg = HOLLOW.damage * Math.min(1.35, 0.9 + 0.1 * (scale.tough || 1));
+      br.def = { ...br.def, damage: dmg, cooldown: HOLLOW.cooldown, windup: HOLLOW.windup, strike: HOLLOW.strike, reach: HOLLOW.reach };
+      br.cool = Math.min(br.cool, 0.3);
+    }
+    person.knockback = HOLLOW.knockback; // rounds shove them less than they would a living man
   }
   // while animated (dormant) the sandbox skips the engine brain: the manager runs it through here
   update(dt) { const br = this.p.zombie; if (br && br.update) br.update(dt); }
@@ -796,8 +817,8 @@ class HollowWrap {
     if (this.downed || !P.alive) return;
     if (this.chargeSpeed === undefined) {
       const style = this.anim ? this.anim.lib.key : 'zombie';
-      const sp = Math.min(this.scaleSpeed || 1, 1.12) * (0.92 + Math.random() * 0.16);
-      this.chargeSpeed = (style === 'limp' ? 2.4 : 3.4) * sp;
+      const sp = Math.min(this.scaleSpeed || 1, 1.1) * (0.92 + Math.random() * 0.16);
+      this.chargeSpeed = Math.min(HOLLOW.maxCharge, (style === 'limp' ? HOLLOW.limpCharge : HOLLOW.charge) * sp);
       const walk = this.anim && this.anim.lib.meta.walk_f ? this.anim.lib.meta.walk_f.speed : 0.6;
       this.shambleSpeed = clamp(walk * 1.5, 0.6, 1.3);
       this.seenT = -99;
@@ -808,22 +829,39 @@ class HollowWrap {
       this.lookT = 0.18;
       const h = this.headPos, eye = P.eye(new I());
       const d = Math.hypot(eye.x - h.x, eye.z - h.z);
-      if (d < 18 && game.level.visible(h, eye)) {
-        if (!this.charging) {
-          this.charging = true;
-          game.audio.zombieSnarl('runner', h);
-          setTimeout(() => game.audio.zombieGroan('runner', this.headPos, 1), 180);
-        }
+      if (d < HOLLOW.sight && game.level.visible(h, eye)) {
+        if (!this.charging) this.startCharge();
         this.seenT = game.time;
-      } else if (this.charging && game.time - this.seenT > 3) this.charging = false;
+      } else if (this.charging && game.time - this.seenT > HOLLOW.forget) this.charging = false;
     }
     // while the ragdoll has them (staggering) the physical walker gets a gentler pace
     const sp = this.charging ? this.chargeSpeed : this.shambleSpeed;
-    c.loco.maxSpeed = this.anim && !this.anim.active ? Math.min(sp, 2.0) : sp;
+    c.loco.maxSpeed = this.anim && !this.anim.active ? Math.min(sp, 2.4) : sp;
+  }
+  startCharge() {
+    const game = this.game, h = this.headPos;
+    this.charging = true;
+    game.audio.zombieSnarl('runner', h);
+    setTimeout(() => game.audio.zombieGroan('runner', this.headPos, 1), 180);
   }
   get pos() { return this.p.rd.pelvis.pos; }
   get headPos() { return this.p.rd.segments.head.body.pos; }
   combatEffective() { const c = this.p.ctl; return !this.downed && c.alive && c.conscious && this.tough > 0; }
-  hear() {}
+  // gunfire draws them in: anything loud within earshot sets them running at the sound
+  hear(pos, loud = 3) {
+    if (this.downed || this.chargeSpeed === undefined) return;
+    if (loud > 4) return; // a suppressed shot (see the manager) does not carry far enough to rouse them
+    this.seenT = this.game.time;
+    if (!this.charging) this.startCharge();
+  }
   releaseToken() {}
 }
+
+// the hollowed: fast enough that turning your back is a mistake (a sprint barely outpaces them),
+// and they rake hard, but a few well placed rounds still drop them
+const HOLLOW = {
+  charge: 5.1, limpCharge: 3.7, maxCharge: 5.8, // m/s (the player walks 3.3, sprints 5.6)
+  sight: 26, forget: 5,
+  damage: 13, cooldown: 0.6, windup: 0.13, strike: 0.13, reach: 1.02,
+  knockback: 0.6,
+};

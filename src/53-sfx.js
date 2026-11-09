@@ -227,6 +227,91 @@ class Sfx {
     this.ringT = 2.5 * a;
   }
 
+  // a suppressed shot: no blast, a dull gas "thup" out of the can, the action cycling (slide or bolt
+  // clacking back and slamming home) and, for supersonic rounds, the bullet's own crack, which no
+  // suppressor removes. pos null = the player's own weapon
+  suppressedShot(kind = 'pistol', pos = null) {
+    if (!this.ready) return;
+    const ctx = this.ctx, t = ctx.currentTime;
+    const dst = pos ? this.spatial(pos) : this.out;
+    const rifle = /rifle|marksman|sniper|lmg|whisper/.test(kind), heavy = rifle || /shotgun|revolver/.test(kind);
+    const subsonic = kind === 'whisper' || !rifle; // heavy subsonic .338 and handgun rounds: no crack
+    const v = 0.9 + Math.random() * 0.2;
+    // the gas: a short breathy burst, low-passed hard
+    const s = ctx.createBufferSource(), lp = ctx.createBiquadFilter(), g = ctx.createGain();
+    s.buffer = this.noise; s.playbackRate.value = 0.75 + Math.random() * 0.3;
+    lp.type = 'lowpass'; lp.Q.value = 1.4;
+    lp.frequency.setValueAtTime(heavy ? 2300 : 2900, t); lp.frequency.exponentialRampToValueAtTime(320, t + 0.1);
+    s.connect(lp); lp.connect(g); g.connect(dst);
+    this.env(g, t, 0.0015, (heavy ? 0.85 : 0.6) * v, heavy ? 0.15 : 0.1);
+    s.start(t, Math.random() * 2); s.stop(t + 0.2);
+    // the thump in the chest
+    const o = ctx.createOscillator(), og = ctx.createGain();
+    o.frequency.setValueAtTime(heavy ? 120 : 160, t); o.frequency.exponentialRampToValueAtTime(48, t + 0.07);
+    o.connect(og); og.connect(dst);
+    this.env(og, t, 0.002, (heavy ? 0.7 : 0.45) * v, 0.08);
+    o.start(t); o.stop(t + 0.12);
+    // the action: back (sharp) then home (heavier)
+    const clack = (at, f, q, peak, d) => {
+      const c = ctx.createBufferSource(), bp = ctx.createBiquadFilter(), cg = ctx.createGain();
+      c.buffer = this.noise; bp.type = 'bandpass'; bp.frequency.value = f; bp.Q.value = q;
+      c.connect(bp); bp.connect(cg); cg.connect(dst);
+      this.env(cg, t + at, 0.0007, peak, d);
+      c.start(t + at, Math.random() * 2); c.stop(t + at + d + 0.03);
+    };
+    if (kind === 'revolver') clack(0.012, 2400, 3, 0.16, 0.03); // the cylinder turns, nothing cycles
+    else if (rifle) { clack(0.006, 3600, 4, 0.22, 0.02); clack(0.06 + Math.random() * 0.01, 2100, 5, 0.26, 0.035); }
+    else { clack(0.004, 3100, 4, 0.26, 0.018); clack(0.045 + Math.random() * 0.01, 1900, 5, 0.3, 0.03); }
+    // a supersonic round still cracks
+    if (!subsonic) {
+      const c = ctx.createBufferSource(), hp = ctx.createBiquadFilter(), cg = ctx.createGain();
+      c.buffer = this.noise; hp.type = 'highpass'; hp.frequency.value = 2600;
+      c.connect(hp); hp.connect(cg); cg.connect(dst);
+      this.env(cg, t + 0.001, 0.0006, 0.42 * v, 0.03);
+      c.start(t, Math.random() * 2); c.stop(t + 0.06);
+    }
+    // the room answers, faintly
+    if (this.au.verbIn) { const r = ctx.createGain(); r.gain.value = heavy ? 0.3 : 0.2; g.connect(r); r.connect(this.au.verbIn); }
+  }
+
+  // a dying man's voice: a weak, breathy moan that sags in pitch, sometimes cut short by a gasp
+  moan(pos, strength = 1) {
+    if (!this.ready) return;
+    const ctx = this.ctx, t = ctx.currentTime;
+    const dst = this.spatial(pos);
+    const dur = 0.6 + Math.random() * 1.1, f0 = 92 + Math.random() * 45;
+    const o = ctx.createOscillator();
+    o.type = 'sawtooth';
+    o.frequency.setValueAtTime(f0 * 1.18, t);
+    o.frequency.linearRampToValueAtTime(f0, t + dur * 0.3);
+    o.frequency.exponentialRampToValueAtTime(f0 * 0.7, t + dur);
+    // a shaky voice
+    const lfo = ctx.createOscillator(), lg = ctx.createGain();
+    lfo.frequency.value = 4 + Math.random() * 4; lg.gain.value = f0 * 0.035;
+    lfo.connect(lg); lg.connect(o.frequency);
+    // an "uh" / "oh" through three formants, plus breath
+    const vox = ctx.createGain(), env = ctx.createGain();
+    vox.gain.value = 1;
+    for (const [f, q, a] of [[480 + Math.random() * 120, 6, 1], [850 + Math.random() * 150, 8, 0.55], [2400, 10, 0.12]]) {
+      const bp = ctx.createBiquadFilter(), bg = ctx.createGain();
+      bp.type = 'bandpass'; bp.frequency.value = f; bp.Q.value = q; bg.gain.value = a;
+      o.connect(bp); bp.connect(bg); bg.connect(vox);
+    }
+    const n = ctx.createBufferSource(), nbp = ctx.createBiquadFilter(), ng = ctx.createGain();
+    n.buffer = this.noise; nbp.type = 'bandpass'; nbp.frequency.value = 1300; nbp.Q.value = 0.8; ng.gain.value = 0.35;
+    n.connect(nbp); nbp.connect(ng); ng.connect(vox);
+    vox.connect(env); env.connect(dst);
+    const peak = 0.5 * clamp(strength, 0.15, 1);
+    const cut = Math.random() < 0.3 ? dur * (0.45 + Math.random() * 0.2) : dur; // breaks off
+    env.gain.setValueAtTime(0.0001, t);
+    env.gain.linearRampToValueAtTime(peak, t + 0.14);
+    env.gain.linearRampToValueAtTime(peak * 0.7, t + cut * 0.7);
+    env.gain.linearRampToValueAtTime(0.0001, t + cut);
+    o.start(t); lfo.start(t); n.start(t, Math.random() * 2);
+    o.stop(t + dur + 0.05); lfo.stop(t + dur + 0.05); n.stop(t + dur + 0.05);
+    if (this.au.verbIn) { const r = ctx.createGain(); r.gain.value = 0.25; env.connect(r); r.connect(this.au.verbIn); }
+  }
+
   radio(pos) {
     if (!this.ready) return;
     const ctx = this.ctx, t = ctx.currentTime;
