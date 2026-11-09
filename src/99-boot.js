@@ -7,6 +7,7 @@
   game.director = new Director(game, game.enemies);
   game.hud = new Hud(game, game.director);
   game.minimap = new Minimap(game);
+  game.blood = new BloodPools(game);
   game.screens = new Screens(game, game.director, game.hud);
   game.shop = new Shop(game, game.director);
   game.sfx = new Sfx(game);
@@ -42,7 +43,7 @@
   }
   if (q.has('debug')) {
     game.debugRun = true;
-    window.__lab = { Lab, T3, Assets };
+    window.__lab = { Lab, T3, Assets, AnimBody, ANIM };
     window.__dbg = {
       start: () => game.startRun(),
       look(yaw, pitch) { game.player.yaw = yaw; game.player.pitch = pitch; },

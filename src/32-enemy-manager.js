@@ -102,6 +102,10 @@ class EnemyManager {
     const render = new CharacterRender(game, person, gltf, { tint: def.hollow ? [0.72, 0.7, 0.68, 0.8] : def.boss ? [0.85, 0.85, 0.85, 0] : [1, 1, 1, 0] });
     if (!def.hollow) render.setGun(ENEMY_GUNS[ai.gunId].model, { drum: ENEMY_GUNS[ai.gunId].drum, light: def.light, laser: ENEMY_GUNS[ai.gunId].laser });
     game.attachRender(person, render);
+    // gunmen move on motion-capture animation until something knocks them about
+    if (!def.hollow && ANIM.lib && !game.settings.physicsEnemies) {
+      try { ai.anim = new AnimBody(ai, render, gltf, ANIM.lib); ai.anim.enter(0); } catch (e) { console.warn('[anim] enemy stays physical', e); ai.anim = null; }
+    }
     this.list.push(ai);
     // every new arrival has a rough idea where the fight is
     ai.hear(game.player.pos, 10);
@@ -224,6 +228,7 @@ class EnemyManager {
     switch (e.type) {
       case 'fleshHit': {
         const ai = e.person.enemy;
+        if (ai && ai.anim) ai.anim.wake('hit');
         if (ai && !ai.downed) {
           const mult = SEG_MULT[e.seg.name] ?? 0.8;
           const dmg = e.energy * 0.11 * mult * (e.by === 'player' ? g.perks.damage : 0.5);
@@ -237,6 +242,9 @@ class EnemyManager {
         }
         return false;
       }
+      case 'armorHit':
+        if (e.person && e.person.enemy && e.person.enemy.anim) e.person.enemy.anim.wake('armor');
+        return false;
       case 'zombieGroan':
         if (e.near < 24) g.audio.zombieGroan(e.kind, e.person.rd.segments.head.body.pos, clamp(1.2 - e.near / 20, 0.3, 1));
         return true;
@@ -259,6 +267,7 @@ class EnemyManager {
   // a person ran out of toughness: decide how they go down
   finish(ai, e) {
     const inj = ai.p.injury, c = ai.p.ctl;
+    if (ai.anim) ai.anim.wake('down');
     if (!inj.alive) return;
     const seg = e.seg.name;
     // the hollowed cannot be knocked out: they only stop when they are dead
@@ -272,6 +281,7 @@ class EnemyManager {
   // the AI reports itself out of the fight
   down(ai) {
     if (ai.downed) return;
+    if (ai.anim) ai.anim.wake('down');
     ai.downed = true;
     ai.aiming = false;
     ai.releaseToken();
@@ -381,7 +391,10 @@ class EnemyManager {
       Lab.traceShot({ world: sb.world, people, shape: anatomy(), forceScale: 1, fx: (e) => sb.fx(e) }, pos, d, Lab.projectile(proj), 14);
     }
     sb._shooter = null;
-    // blast: knock ragdolls over, harder the closer they are
+    // blast: knock ragdolls over, harder the closer they are (animated ones go physical first)
+    for (const p of sb.people) {
+      if (p.enemy && p.enemy.anim && Math.hypot(p.rd.pelvis.pos.x - pos.x, p.rd.pelvis.pos.z - pos.z) < 6) p.enemy.anim.wake('blast');
+    }
     for (const p of sb.people) {
       let any = false;
       for (const b of p.rd.allBodies()) {
@@ -434,6 +447,12 @@ class EnemyManager {
     for (const ai of this.list) {
       if (ai.downed) continue;
       if (ai.hollow && !ai.combatEffective()) this.down(ai);
+    }
+    // animated gunmen: the sandbox skips dormant people, so think and move them here
+    for (const ai of this.list) {
+      if (!ai.anim) continue;
+      if (ai.anim.active && !ai.downed) ai.update(dt);
+      ai.anim.step(dt);
     }
     // corpses settle, then freeze to save the simulation
     for (const ai of this.corpses) {

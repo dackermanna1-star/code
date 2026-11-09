@@ -27,6 +27,12 @@ procedural additions.
   https://sketchfab.com/3d-models/m24-bounty-hunter-sniper-rifle-d40e74e2259549f5b025807163f1028c
   (mounted on the "Animated FPS hands (rifle animation pack)" arms by Cransh)
 
+## Enemy motion capture
+- "The 100STYLE Dataset" by Ian Mason, Franck Multon and Taku Komura - CC BY 4.0
+  (https://creativecommons.org/licenses/by/4.0/), https://www.ianxmason.com/100style/
+  Style "Swat" (idle, forward/backward/sideways walks, forward run), retargeted from BVH to the
+  Microsoft Rocketbox skeleton and cut into in-place loops (tools/retarget.mjs).
+
 ## Characters
 - Microsoft Rocketbox Avatar Library — MIT licence, (c) Microsoft Corporation,
   https://github.com/microsoft/Microsoft-Rocketbox

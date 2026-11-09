@@ -7,3 +7,23 @@ engine (balance, stepping, stagger, falls, get-up, wound physiology, ballistic p
 server, e.g. `npm run serve` then http://localhost:8080). Click *Enter the Backrooms*.
 
 See `CREDITS.md` for asset attributions.
+
+## Controls
+WASD move · Shift sprint (hold breath while scoped) · C / Ctrl crouch · Space jump / mantle ·
+Left mouse fire · Right mouse sniper scope · R reload · 1-3 / Q / wheel switch weapon · V inspect ·
+G grenade · F kick · T weapon light · B shop (between waves) · Esc pause
+
+There is no aiming down sights: every gun fires from the hip (the crosshair follows the gun's
+sway); only sniper rifles raise a scope. The Laser Module tightens hip fire and shows where rounds go.
+
+## How the enemies move
+Gunmen are driven by motion capture (100STYLE "Swat": idle, walks in four directions, a jog),
+retargeted onto their Rocketbox skeletons by `tools/retarget.mjs`. While undisturbed their ragdoll
+is dormant and posed from the animation, so bullets hit what you see. A hit, blast or kick hands the
+body to the active-ragdoll controller (stagger, stumble, fall, get up); once they are back on their
+feet and left alone they blend back into animation. Settings → Enemy movement switches to full physics.
+
+## Building
+`npm run build` concatenates `engine/ragdoll-engine.js` and `src/*.js` into `dist/index.html` and
+wraps `assets/**/*.glb` as script files. Asset tools: `tools/rb2glb.mjs` (Rocketbox FBX → GLB),
+`tools/prep-viewmodel.mjs` (first-person rigs), `tools/retarget.mjs` (BVH mocap → Rocketbox clips).

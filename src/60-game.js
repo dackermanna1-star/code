@@ -45,7 +45,7 @@ class BackroomsGame {
   }
 
   static loadSettings() {
-    const d = { sensitivity: 1, fov: 80, vmFov: 68, minimap: true, volume: 0.75, music: 0.6, quality: 'high', bodycam: 1, gore: true, adsHold: false, invertY: false, showFps: false };
+    const d = { sensitivity: 1, fov: 80, vmFov: 68, minimap: true, physicsEnemies: false, volume: 0.75, music: 0.6, quality: 'high', bodycam: 1, gore: true, adsHold: false, invertY: false, showFps: false };
     try { return { ...d, ...JSON.parse(localStorage.getItem('backrooms-settings') || '{}') }; } catch { return d; }
   }
   saveSettings() { try { localStorage.setItem('backrooms-settings', JSON.stringify(this.settings)); } catch {} }

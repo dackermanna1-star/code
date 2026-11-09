@@ -277,6 +277,7 @@ class Screens {
     sel('Gore', 'gore', [[true, 'On'], [false, 'Off']]);
     sel('Sniper scope (right mouse)', 'adsHold', [[false, 'Toggle'], [true, 'Hold']]);
     sel('Minimap', 'minimap', [[true, 'On'], [false, 'Off']]);
+    sel('Enemy movement', 'physicsEnemies', [[false, 'Motion capture + ragdoll'], [true, 'Full physics']]);
     sel('Invert mouse Y', 'invertY', [[false, 'Off'], [true, 'On']]);
     sel('Show FPS', 'showFps', [[false, 'Off'], [true, 'On']]);
   }

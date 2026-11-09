@@ -143,6 +143,7 @@ class Session {
     g.vm.kp.kick(2);
     g.audio.whoosh(9, null);
     if (!best) return true;
+    if (best.anim) best.anim.wake('kick');
     const chest = best.p.rd.segments.chest.body;
     const dir = new I(f.x, 0.15, f.z).normalize().scale(best.def.boss ? 50 : 110);
     g.sb.shove(chest, chest.pos.clone(), dir, 0.1);
@@ -170,6 +171,7 @@ class Session {
 Object.assign(BackroomsGame.prototype, {
   async startRun() {
     this.audio.unlock();
+    await loadAnimLibrary();
     this.screens.close();
     this.enemies.clear();
     this.director.newRun();

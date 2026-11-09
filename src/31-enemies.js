@@ -205,7 +205,10 @@ class CharacterRender {
       const hand = person.rd.segments.handR.body;
       const fp = hand.framePos || hand.pos;
       const hp = new T3.Vector3(fp.x + (hand.pos.x - fp.x) * alpha, fp.y + (hand.pos.y - fp.y) * alpha, fp.z + (hand.pos.z - fp.z) * alpha);
-      if (ai.aiming && person.ctl.mode === 'balance') {
+      if (ai.anim && ai.anim.active) {
+        // animated: the hands hold it, grip to handguard
+        this.gun.quaternion.slerp(ai.anim.gunQ, 1 - Math.exp(-dt * 30));
+      } else if (ai.aiming && person.ctl.mode === 'balance') {
         this.gun.quaternion.slerp(ai.aimQ, 1 - Math.exp(-dt * 25));
       } else {
         const r = hand.rot;
@@ -603,6 +606,7 @@ class Gunman {
   // turn in place by taking a short step towards the target when it is far off to the side
   face(tx, tz, dt) {
     const c = this.p.ctl;
+    if (this.anim && this.anim.active) return; // animation turns on the spot by itself
     if (c.walking) return;
     this.turnT -= dt;
     const pos = this.pos;
@@ -718,6 +722,7 @@ class Gunman {
       paths.push(this.mgr.traceEnemyShot(this, muzzle, dir));
     }
     if (r) r.muzzleFlash();
+    if (this.anim) this.anim.onFire();
     this.shotsFired = (this.shotsFired || 0) + 1;
     this.mgr.onEnemyShot(this, muzzle, paths);
   }
