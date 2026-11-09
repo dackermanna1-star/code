@@ -114,7 +114,7 @@ class BackroomsGame {
       ceiling: this.level.ceiling,
       floorAt: (x, z, y) => this.sb.world.surfaceAt(x, z, y),
       people,
-      push: (t, f) => this.sb.pushPerson(t, f),
+      push: (t, f) => { if (!t.dormant) this.sb.pushPerson(t, f); },
     };
   }
 

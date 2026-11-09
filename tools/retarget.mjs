@@ -171,7 +171,8 @@ function pickLoop(S, a, b, unit, kind, want) {
   const c = contacts(S, a, b, unit);
   let best = null;
   // one gait cycle, or two when that closes the loop better (fast, uneven runs)
-  for (let span = 1; span <= 2; span++) for (let i = 0; i + span < c.length; i++) {
+  // (two-cycle loops only for runs: the blend phase-locks walks cycle for cycle)
+  for (let span = 1; span <= (want === 'f' && /run/.test(process.env.RT_KIND || '') ? 2 : 1); span++) for (let i = 0; i + span < c.length; i++) {
     const s = c[i], e = c[i + span];
     const len = e - s;
     if (len < 0.55 * SRC_FPS || len > 2.0 * span * SRC_FPS || s - 24 < a) continue;
@@ -330,6 +331,7 @@ for (const p of plan) {
     takes.set(key, tk);
   }
   const [a, b] = cutOf(st, p.take) || [0, tk.S.n];
+  process.env.RT_KIND = p.name;
   const loop = pickLoop(tk.S, Math.max(0, a), Math.min(b, tk.S.n - 1), tk.unit, p.kind, p.want);
   if (!loop || loop.d > 3) { console.warn('no clean loop for', p.name, loop ? loop.d.toFixed(2) : ''); continue; }
   const c = buildClip(tk.take, tk.S, tk.A, loop, { name: p.name, unit: tk.unit, legScale: tk.legScale });

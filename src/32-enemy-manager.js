@@ -37,7 +37,13 @@ class EnemyManager {
     const sb = this.game.sb, L = this.game.level;
     // tag every engine effect with whoever fired the shot that caused it
     const orig = sb.fx.bind(sb);
-    sb.fx = (e) => { if (sb._shooter && e.by === undefined) e.by = sb._shooter; orig(e); };
+    sb.fx = (e) => {
+      if (sb._shooter && e.by === undefined) e.by = sb._shooter;
+      // an animated enemy goes physical the instant it is hit, so this bullet's impulse (applied
+      // just before the effect is emitted) and the knock that follows act on a live ragdoll
+      if ((e.type === 'fleshHit' || e.type === 'armorHit') && e.person && e.person.enemy && e.person.enemy.anim) e.person.enemy.anim.wake('hit');
+      orig(e);
+    };
     // the engine only knows its own obstacles: route hollows (and any replanning walker) through
     // the maze instead of straight into walls
     sb.zombieRoute = (a, b) => {

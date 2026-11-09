@@ -67046,7 +67046,13 @@ class EnemyManager {
     const sb = this.game.sb, L = this.game.level;
     // tag every engine effect with whoever fired the shot that caused it
     const orig = sb.fx.bind(sb);
-    sb.fx = (e) => { if (sb._shooter && e.by === undefined) e.by = sb._shooter; orig(e); };
+    sb.fx = (e) => {
+      if (sb._shooter && e.by === undefined) e.by = sb._shooter;
+      // an animated enemy goes physical the instant it is hit, so this bullet's impulse (applied
+      // just before the effect is emitted) and the knock that follows act on a live ragdoll
+      if ((e.type === 'fleshHit' || e.type === 'armorHit') && e.person && e.person.enemy && e.person.enemy.anim) e.person.enemy.anim.wake('hit');
+      orig(e);
+    };
     // the engine only knows its own obstacles: route hollows (and any replanning walker) through
     // the maze instead of straight into walls
     sb.zombieRoute = (a, b) => {
@@ -67602,6 +67608,7 @@ function hollowAnimSet() {
   return ANIM.libs[want] || ANIM.libs.zombie || null;
 }
 
+const _qInv = new T3.Quaternion(), _eul = new T3.Euler(), _qA = new T3.Quaternion(), _qB = new T3.Quaternion(), _axis = new T3.Vector3();
 const _m4 = new T3.Matrix4(), _m4b = new T3.Matrix4(), _v3 = new T3.Vector3(), _v3b = new T3.Vector3(), _q = new T3.Quaternion(), _q2 = new T3.Quaternion(), _s3 = new T3.Vector3();
 const LOCO_CLIPS = ['idle', 'walk_f', 'walk_b', 'walk_l', 'walk_r', 'run_f', 'run_b', 'run_l', 'run_r'];
 
@@ -67690,8 +67697,11 @@ class AnimBody {
   enter(fade = 0.35) {
     const p = this.p, sb = this.game.sb, c = p.ctl;
     if (this.mode === 'anim' || !c.alive || !c.conscious || c.mode !== 'balance') return false;
+    // a broken limb has extra fragment bodies the animation cannot pose: stay physical
+    if (this.rd.extraBodies && this.rd.extraBodies.length) return false;
     const P = this.pelvis.pos;
     this.pos.set(P.x, 0, P.z);
+    this.unstick();
     this.heading = c.heading;
     this.vel.set(c.sens.comVel.x, 0, c.sens.comVel.z);
     // capture the physics pose relative to the root, to blend from
@@ -67717,8 +67727,15 @@ class AnimBody {
     this.mode = 'physics';
     this.calm = 0;
     this.blend = null;
-    sb.setDormant(p, false, { mode: 'balance' });
+    for (const b of this.bodies) { b.force.setZero(); b.torque.setZero(); }
+    // resetState() on waking clears what the injury model just set: carry it over
     const c = p.ctl;
+    const keep = { startle: c.startle, flinch: c.flinch ? { ...c.flinch } : null, twitches: c.twitches, fencing: c.fencing };
+    sb.setDormant(p, false, { mode: 'balance' });
+    c.startle = Math.max(c.startle || 0, keep.startle || 0);
+    if (keep.flinch && c.flinch && keep.flinch.amount > c.flinch.amount) Object.assign(c.flinch, keep.flinch);
+    if (keep.twitches) c.twitches = keep.twitches;
+    if (keep.fencing) c.fencing = keep.fencing;
     c.heading = this.heading;
     if (c.sens) c.sens.comVel.set(this.vel.x, 0, this.vel.z);
     void reason;
@@ -67742,6 +67759,18 @@ class AnimBody {
     // the AI and its accuracy model read these from the controller
     c.heading = this.heading;
     if (c.sens) { c.sens.comVel.set(this.vel.x, 0, this.vel.z); }
+  }
+
+  // if the root ended up too close to a wall or prop (a stagger, a shove), step out along the way
+  // with the most room, so moves are possible again
+  unstick() {
+    const L = this.game.level;
+    if (L.free(this.pos.x, this.pos.z, 0.22)) return;
+    for (const r of [0.06, 0.12, 0.2, 0.3, 0.45])
+      for (let k = 0; k < 12; k++) {
+        const a = (k / 12) * TAU, x = this.pos.x + Math.cos(a) * r, z = this.pos.z + Math.sin(a) * r;
+        if (L.free(x, z, 0.22)) { this.pos.x = x; this.pos.z = z; return; }
+      }
   }
 
   rootMatrix(out) {
@@ -67788,7 +67817,15 @@ class AnimBody {
       if (d < 0.62 && d > 1e-3) { const push = (0.62 - d) * 3; this.vel.x += (sx / d) * push * dt * 8; this.vel.z += (sz / d) * push * dt * 8; }
     }
     const P = this.game.player;
-    { const sx = this.pos.x - P.pos.x, sz = this.pos.z - P.pos.z, d = Math.hypot(sx, sz); if (d < 0.6 && d > 1e-3) { this.pos.x += (sx / d) * (0.6 - d); this.pos.z += (sz / d) * (0.6 - d); } }
+    {
+      // the player shoulders past: give way, but never into a wall
+      const sx = this.pos.x - P.pos.x, sz = this.pos.z - P.pos.z, d = Math.hypot(sx, sz);
+      if (d < 0.6 && d > 1e-3) {
+        const px = this.pos.x + (sx / d) * (0.6 - d), pz = this.pos.z + (sz / d) * (0.6 - d);
+        if (L.free(px, pz, 0.22)) { this.pos.x = px; this.pos.z = pz; }
+      }
+    }
+    this.unstick();
     // move, but never into walls or props
     const nx = this.pos.x + this.vel.x * dt, nz = this.pos.z + this.vel.z * dt;
     if (L.free(nx, nz, 0.22)) { this.pos.x = nx; this.pos.z = nz; }
@@ -67805,20 +67842,26 @@ class AnimBody {
     else if (ai.knows && tgt) face = Math.atan2(tgt.x - this.pos.x, tgt.z - this.pos.z);
     const err = wrapAngle(face - this.heading);
     // the torso twists first, the feet follow once the twist runs out
-    const turnRate = speed > 0.3 ? 5 : Math.abs(err) > 0.5 ? 4 : 1.2;
+    const turnRate = speed > 0.3 ? 5 : Math.abs(err) > 0.35 ? 4.5 : 1.2;
     this.heading = wrapAngle(this.heading + clamp(err, -turnRate * dt, turnRate * dt));
     this.turning = speed < 0.3 ? clamp(Math.abs(err) * 1.5, 0, 1) * (Math.abs(err) > 0.25 ? 1 : 0) : 0;
     // twist the spine towards the aim inside what the legs have not turned yet; a feedback term
     // turns the torso until the barrel the hands hold really points at the target
     const aimYawW = Math.atan2(ai.aimDir.x, ai.aimDir.z), aimPitch = Math.asin(clamp(ai.aimDir.y, -1, 1));
+    const TW = 0.6; // most twist the ragdoll's lumbar + thoracic joints take; the feet turn the rest
     if (ai.aiming) {
+      // learn only the steady offset between the clip's barrel and the aim: integrate while the
+      // body is settled on the target (no wind-up during turns)
+      const settled = Math.abs(wrapAngle(aimYawW - this.heading)) < 0.45 && Math.abs(this.twist) < TW * 0.95;
       const gy = Math.atan2(this.gunDir.x, this.gunDir.z), gp = Math.asin(clamp(this.gunDir.y, -1, 1));
-      this.corrYaw = clamp(this.corrYaw + wrapAngle(aimYawW - gy) * dt * 7, -0.7, 0.7);
-      this.corrPitch = clamp(this.corrPitch + (aimPitch - gp) * dt * 7, -0.8, 0.8);
+      if (settled) {
+        this.corrYaw = clamp(this.corrYaw + wrapAngle(aimYawW - gy) * dt * 7, -0.5, 0.5);
+        this.corrPitch = clamp(this.corrPitch + (aimPitch - gp) * dt * 7, -0.8, 0.8);
+      }
     } else { this.corrYaw *= Math.exp(-dt * 3); this.corrPitch *= Math.exp(-dt * 3); }
     const aimYaw = ai.aiming ? wrapAngle(aimYawW - this.heading) + this.corrYaw : 0;
     const pitchT = ai.aiming ? this.corrPitch : 0;
-    this.twist += (clamp(aimYaw, -1.2, 1.2) - this.twist) * (1 - Math.exp(-dt * 10));
+    this.twist += (clamp(aimYaw, -TW, TW) - this.twist) * (1 - Math.exp(-dt * 10));
     this.pitch += (clamp(pitchT, -0.8, 0.8) - this.pitch) * (1 - Math.exp(-dt * 10));
   }
 
@@ -67911,7 +67954,8 @@ class AnimBody {
         tY = this.twitch.y * k; tR = this.twitch.r * k;
       }
     }
-    for (const b of this.spine) this.rotateWorld(b, 0, this.twist / n, -this.pitch * 0.6 / n - this.kick * 0.03 + lean / n);
+    const share = [0.25, 0.35, 0.4]; // lumbar takes the least (its limit is about 0.2 rad)
+    this.spine.forEach((b, i) => this.rotateWorld(b, 0, this.twist * (share[i] ?? 1 / n), -this.pitch * 0.6 / n - this.kick * 0.03 + lean / n));
     if (this.neck) this.rotateWorld(this.neck, tR * 0.4, tY * 0.5, -this.pitch * 0.25 - lean * 0.45);
     if (this.head) this.rotateWorld(this.head, tR, tY, -this.pitch * 0.15 + this.kick * 0.02 - lean * 0.35);
     // pistol stance: both arms reach to a grip on the aim line in front of the chest
@@ -68043,10 +68087,10 @@ class AnimBody {
     parent.getWorldQuaternion(_q2); // refreshes the chain above, including earlier edits
     const right = _v3.set(Math.cos(this.heading), 0, -Math.sin(this.heading));
     const delta = _q.setFromAxisAngle(_v3b.set(0, 1, 0), yaw);
-    delta.multiply(new T3.Quaternion().setFromAxisAngle(right, pitch));
-    if (roll) delta.multiply(new T3.Quaternion().setFromAxisAngle(new T3.Vector3(Math.sin(this.heading), 0, Math.cos(this.heading)), roll));
+    delta.multiply(_qA.setFromAxisAngle(right, pitch));
+    if (roll) delta.multiply(_qA.setFromAxisAngle(_axis.set(Math.sin(this.heading), 0, Math.cos(this.heading)), roll));
     // local' = parentW^-1 * delta * parentW * local
-    const inv = _q2.clone().invert();
+    const inv = _qB.copy(_q2).invert();
     bone.quaternion.premultiply(inv.multiply(delta).multiply(_q2));
   }
 
@@ -68093,7 +68137,7 @@ class AnimBody {
       if (dt > 0 && pr && Number.isFinite(pr.p.x)) {
         body.vel.set((px - pr.p.x) / dt, (py - pr.p.y) / dt, (pz - pr.p.z) / dt);
         // angular velocity from the rotation step
-        _q2.set(q.x, q.y, q.z, q.w).multiply(pr.q.clone().invert());
+        _q2.set(q.x, q.y, q.z, q.w).multiply(_qInv.copy(pr.q).invert());
         if (_q2.w < 0) { _q2.x = -_q2.x; _q2.y = -_q2.y; _q2.z = -_q2.z; _q2.w = -_q2.w; }
         const s = Math.sqrt(Math.max(0, 1 - _q2.w * _q2.w)), ang = 2 * Math.acos(clamp(_q2.w, -1, 1));
         if (s > 1e-6) body.angVel.set((_q2.x / s) * ang / dt, (_q2.y / s) * ang / dt, (_q2.z / s) * ang / dt);
@@ -68132,8 +68176,8 @@ class AnimBody {
       }
       if (this.gunDir.lengthSq() < 1e-4) this.gunDir.set(Math.sin(this.heading), 0, Math.cos(this.heading));
       this.gunDir.normalize();
-      this.gunQ.setFromEuler(new T3.Euler(Math.asin(clamp(this.gunDir.y, -1, 1)), Math.atan2(this.gunDir.x, this.gunDir.z) + Math.PI, 0, 'YXZ'));
-      this.relQ = handQ.clone().invert().multiply(this.gunQ); // ready for a reload
+      this.gunQ.setFromEuler(_eul.set(Math.asin(clamp(this.gunDir.y, -1, 1)), Math.atan2(this.gunDir.x, this.gunDir.z) + Math.PI, 0, 'YXZ'));
+      (this.relQ || (this.relQ = new T3.Quaternion())).copy(handQ).invert().multiply(this.gunQ); // ready for a reload
     }
     void bw;
   }
@@ -69825,7 +69869,7 @@ class BackroomsGame {
       ceiling: this.level.ceiling,
       floorAt: (x, z, y) => this.sb.world.surfaceAt(x, z, y),
       people,
-      push: (t, f) => this.sb.pushPerson(t, f),
+      push: (t, f) => { if (!t.dormant) this.sb.pushPerson(t, f); },
     };
   }
 
