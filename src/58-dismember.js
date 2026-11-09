@@ -60,7 +60,10 @@ const STUMP_COLOR = /* glsl */ `
     float n1 = dmF(q * 3.2 + s * 17.0), n2 = dmF(q * 8.5 + s * 9.0), n3 = dmN(q * 30.0 + s * 3.0);
     float ang = dmF(dirq * 2.2 + s * 11.0); // noise around the rim without a seam
     // muscle: deep crimson, glistening, with pale fascia between the bundles and black clots
-    vec3 meat = mix(vec3(0.15, 0.007, 0.007), vec3(0.5, 0.055, 0.04), smoothstep(0.2, 0.85, n2));
+    vec3 meat = mix(vec3(0.15, 0.007, 0.007), vec3(0.44, 0.045, 0.035), smoothstep(0.2, 0.85, n2));
+    // the grain of the muscle: fine streaks across the face
+    vec2 fd = vec2(cos(s * 40.0), sin(s * 40.0));
+    meat *= 0.86 + 0.24 * dmN(vec2(dot(q, fd) * 38.0, dot(q, vec2(-fd.y, fd.x)) * 3.0) + s * 13.0);
     float ridge = 1.0 - abs(dmF(q * 3.4 + s * 3.1) * 2.0 - 1.0);
     meat = mix(meat, vec3(0.55, 0.32, 0.27), smoothstep(0.93, 0.99, ridge) * 0.3);
     meat = mix(meat, vec3(0.045, 0.002, 0.002), smoothstep(0.6, 0.82, n1) * 0.8);
@@ -70,8 +73,8 @@ const STUMP_COLOR = /* glsl */ `
     float rough = 0.16;
     if (kind < 1.5) {
       // under the torn skin a thin, ragged yellow layer of fat
-      float fat = smoothstep(0.76, 0.82, rr) * (1.0 - smoothstep(0.88, 0.93, rr));
-      col = mix(col, vec3(0.6, 0.45, 0.24) * (0.8 + 0.3 * n3), fat * 0.6 * smoothstep(0.3, 0.6, n2));
+      float fat = smoothstep(0.8, 0.84, rr) * (1.0 - smoothstep(0.88, 0.92, rr));
+      col = mix(col, vec3(0.56, 0.4, 0.22) * (0.8 + 0.3 * n3), fat * 0.5 * smoothstep(0.3, 0.6, n2));
       col = mix(col, vec3(0.08, 0.006, 0.004), smoothstep(0.92, 1.0, rr));
       if (kind < 0.5) {
         // a long bone: ivory cortex round a red-yellow marrow cavity, splintered and blood smeared
@@ -94,10 +97,12 @@ const STUMP_COLOR = /* glsl */ `
         float vb = 1.0 - smoothstep(0.2, 0.235, length(vq) + 0.04 * (n3 - 0.5));
         float canal = 1.0 - smoothstep(0.055, 0.075, length(q - vec2(0.0, -0.5)));
         float arch = (1.0 - smoothstep(0.1, 0.13, length(q - vec2(0.0, -0.5)))) * (1.0 - canal);
-        col = mix(col, mix(vec3(0.8, 0.74, 0.6), vec3(0.6, 0.48, 0.36), n3), max(vb, arch));
-        col = mix(col, vec3(0.5, 0.42, 0.3), canal * 0.8);
+        vec3 vcol = mix(vec3(0.68, 0.6, 0.48), vec3(0.5, 0.4, 0.3), n3);
+        vcol = mix(vcol, vec3(0.32, 0.03, 0.02), smoothstep(0.45, 0.8, n1) * 0.6); // blood over the bone
+        col = mix(col, vcol, max(vb, arch));
+        col = mix(col, vec3(0.42, 0.33, 0.24), canal * 0.8);
         float tl = length((q - vec2(0.0, 0.42)) * vec2(1.0, 1.25));
-        col = mix(col, vec3(0.65, 0.5, 0.46), (1.0 - smoothstep(0.13, 0.16, tl)) * smoothstep(0.08, 0.1, tl));
+        col = mix(col, vec3(0.56, 0.4, 0.37), (1.0 - smoothstep(0.13, 0.16, tl)) * smoothstep(0.08, 0.1, tl));
         col = mix(col, vec3(0.02, 0.0, 0.0), 1.0 - smoothstep(0.08, 0.1, tl));
         col = mix(col, vec3(0.08, 0.01, 0.01), 1.0 - smoothstep(0.03, 0.05, length((q - vec2(0.0, 0.18)) * vec2(0.6, 1.6))));
         for (int k = 0; k < 2; k++) {
@@ -107,14 +112,23 @@ const STUMP_COLOR = /* glsl */ `
         rough = mix(rough, 0.42, vb);
       }
     } else {
-      // an opened skull: a jagged ring of bone, then brain matter soaked in blood
-      float skull = smoothstep(0.72, 0.78, rr) * (1.0 - smoothstep(0.94, 1.0, rr));
-      vec3 brain = mix(vec3(0.4, 0.24, 0.23), vec3(0.66, 0.46, 0.43), n2);
-      brain *= 0.72 + 0.34 * smoothstep(0.3, 0.7, abs(sin(n1 * 26.0)));
-      col = mix(meat, brain, smoothstep(0.3, 0.65, n1) * (1.0 - smoothstep(0.55, 0.72, rr)));
-      col = mix(col, mix(vec3(0.8, 0.74, 0.6), vec3(0.55, 0.45, 0.35), n3), skull);
-      col = mix(col, vec3(0.06, 0.003, 0.002), smoothstep(0.98, 1.05, rr));
-      rough = mix(0.14, 0.45, skull);
+      // an opened skull: torn scalp at the rim, a thin jagged edge of bone (broken away in places,
+      // its spongy middle showing red), then the brain: pink-grey folds with blood in the furrows
+      // and clotted over much of it
+      float held = smoothstep(0.3, 0.55, dmF(dirq * 2.6 + s * 4.0));
+      float skull = smoothstep(0.76, 0.785, rr) * (1.0 - smoothstep(0.85, 0.88, rr)) * held;
+      float diploe = smoothstep(0.8, 0.81, rr) * (1.0 - smoothstep(0.825, 0.835, rr));
+      vec3 bone = mix(vec3(0.66, 0.58, 0.47), vec3(0.48, 0.38, 0.29), n3);
+      bone = mix(bone, vec3(0.4, 0.07, 0.045), diploe * 0.75);
+      bone = mix(bone, vec3(0.3, 0.025, 0.018), smoothstep(0.45, 0.75, n1) * 0.65);
+      float gyr = abs(dmN(q * 7.0 + s * 3.0) * 0.7 + dmN(q * 15.0 + s * 5.0) * 0.3 - 0.5) * 2.0;
+      vec3 brain = mix(vec3(0.42, 0.24, 0.23), vec3(0.55, 0.34, 0.32), n2) * (0.85 + 0.25 * n3);
+      brain = mix(brain, vec3(0.2, 0.012, 0.01), (1.0 - smoothstep(0.0, 0.16, gyr)) * 0.8);
+      brain = mix(brain, vec3(0.24, 0.015, 0.01), smoothstep(0.38, 0.68, n1) * 0.85);
+      col = mix(meat, brain, 1.0 - smoothstep(0.66, 0.76, rr));
+      col = mix(col, bone, skull);
+      col = mix(col, vec3(0.07, 0.006, 0.004), smoothstep(0.9, 0.98, rr));
+      rough = mix(0.12, 0.4, skull);
     }
     diffuseColor.rgb = col;
     dmRough = rough;
@@ -823,6 +837,7 @@ class Dismemberment {
     G.mesh.count = 0;
     for (let i = 0; i < DISMEMBER.maxGibs; i++) G.mesh.setColorAt(i, G.col.setRGB(0.3, 0.02, 0.02));
     for (const gb of G.list) gb.on = false;
+    G.dirty = true;
     g.view.scene.add(G.mesh);
   }
 
@@ -848,17 +863,22 @@ class Dismemberment {
     G.mesh.setColorAt(i, c);
     G.mesh.instanceColor.needsUpdate = true;
     G.mesh.count = Math.max(G.mesh.count, i + 1);
+    G.dirty = true;
   }
 
   frame(dt, simDt) {
     const G = this.gibs, g = this.game;
     if (!G || !G.mesh || !g.sb) return;
     const L = g.level, world = g.sb.world;
+    // only chunks still flying are moved and uploaded (all of them after a spawn or a reset)
     let any = false;
+    const all = G.dirty;
+    G.dirty = false;
     for (let i = 0; i < G.mesh.count; i++) {
       const gb = G.list[i];
-      if (!gb.on) { G.m.makeScale(0, 0, 0); G.mesh.setMatrixAt(i, G.m); continue; }
-      if (!gb.rest && simDt > 0) {
+      if (!gb.on) { if (all) { G.m.makeScale(0, 0, 0); G.mesh.setMatrixAt(i, G.m); } continue; }
+      if (gb.rest || !(simDt > 0)) { if (all) { G.m.compose(gb.p, gb.q, gb.s); G.mesh.setMatrixAt(i, G.m); } continue; }
+      {
         any = true;
         const h = simDt;
         gb.t += h;
@@ -876,6 +896,8 @@ class Dismemberment {
           }
         } else { gb.p.x = nx; gb.p.z = nz; }
         gb.p.y += gb.v.y * h;
+        // the ceiling stops them too
+        if (gb.p.y > L.ceiling - 0.03) { gb.p.y = L.ceiling - 0.03; gb.v.y = -Math.abs(gb.v.y) * 0.3; }
         const fy = world.surfaceAt(gb.p.x, gb.p.z, gb.p.y + 0.3) + gb.s.y * 0.7;
         if (gb.p.y <= fy) {
           gb.p.y = fy;
@@ -896,8 +918,7 @@ class Dismemberment {
       G.m.compose(gb.p, gb.q, gb.s);
       G.mesh.setMatrixAt(i, G.m);
     }
-    G.mesh.instanceMatrix.needsUpdate = true;
-    void any;
+    if (any || all) G.mesh.instanceMatrix.needsUpdate = true;
   }
 
   // stump proxies follow their anchor bones; done after the characters are posed this frame
@@ -1180,6 +1201,7 @@ class Dismemberment {
       bySkel.get(sk).push(gr);
     }
     const seed = Math.random();
+    const ph = [Math.random() * TAU, Math.random() * TAU, Math.random() * TAU];
     for (const [skel, list] of bySkel) {
       const P = [], N = [], SI = [], SW = [], C = [], IDX = [];
       const anchorIdx = list[0].m.skel0.bones.findIndex((b) => b.name === anchorName);
@@ -1243,8 +1265,10 @@ class Dismemberment {
             const radial = t2.copy(d).addScaledVector(nrm, -d.dot(nrm)).normalize();
             const bn = B.copy(nrm).addScaledVector(radial, 0.55).normalize();
             const bi = pushV(A.x, A.y, A.z, bn.x, bn.y, bn.z, v, cx, cy, 0);
-            const jag = kind === 1 ? (Math.random() - 0.4) * 0.14 : (Math.random() - 0.5) * 0.1;
-            const k = 0.6 + (kind === 1 ? (Math.random() - 0.5) * 0.12 : 0);
+            // ragged, but along the rim rather than spike by spike: a few slow waves round the loop
+            const an = Math.atan2(cy, cx), wv = Math.sin(3 * an + ph[0]) * 0.5 + Math.sin(5 * an + ph[1]) * 0.3 + Math.sin(8 * an + ph[2]) * 0.2;
+            const jag = kind === 1 ? 0.02 + wv * 0.07 + (Math.random() - 0.5) * 0.025 : kind === 2 ? wv * 0.08 + (Math.random() - 0.5) * 0.05 : wv * 0.05 + (Math.random() - 0.5) * 0.03;
+            const k = 0.6 + (kind === 1 ? wv * 0.05 + (Math.random() - 0.5) * 0.03 : 0);
             const rp = B.copy(c).addScaledVector(d, k).addScaledVector(nrm, rad * (bulge + jag));
             const rn = t1.copy(nrm).addScaledVector(radial, 0.25 + (Math.random() - 0.5) * 0.3).normalize();
             const ri = pushV(rp.x, rp.y, rp.z, rn.x, rn.y, rn.z, v, cx * k, cy * k, 0);
