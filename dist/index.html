@@ -73136,7 +73136,7 @@ class EnemyManager {
         if (ai && ai.agony && e.person.injury.alive) { e.person.injury.kill('gunshot wounds'); ai.agony = null; }
         if (ai && !ai.downed) {
           const mult = SEG_MULT[e.seg.name] ?? 0.8;
-          const dmg = e.energy * 0.11 * mult * (e.by === 'player' ? g.perks.damage : 0.5);
+          const dmg = e.energy * 0.11 * mult * (e.by === 'player' ? g.perks.damage : 0.5) * (e.dmScale ?? 1);
           ai.tough -= dmg;
           if (e.by === 'player' || e.by === 'player-grenade') {
             ai.lastHit = { by: 'player', seg: e.seg.name, time: g.time, weapon: g.arsenal.gun.id, grenade: e.by === 'player-grenade' };
@@ -77502,13 +77502,15 @@ const DISMEMBER = {
   // shotgun-class hits (several pellets on one segment in one shot): deposited energy (J) and the
   // pellets it takes for a fair chance (~30%); the chance climbs to certain at about 1.5x. Buckshot
   // at 3 m puts 4-9 pellets and 400-1500 J into a limb, so up close most solid hits take it off; the
-  // spread and the range factor make it rare past 6 m
+  // spread and the range factor make it rare past 6 m. The head also counts the neck's pellets (one
+  // passing through both counts twice), so it needs more: about certain to 4 m, even at 4.5 m, rare at 5.5 m
   pellet: {
-    head: { e: 600, n: 3 }, upperArm: { e: 680, n: 3 }, forearm: { e: 420, n: 3 }, hand: { e: 230, n: 2 },
+    head: { e: 850, n: 4 }, upperArm: { e: 680, n: 3 }, forearm: { e: 420, n: 3 }, hand: { e: 230, n: 2 },
     thigh: { e: 1150, n: 5 }, shin: { e: 560, n: 3 }, foot: { e: 330, n: 2 },
   },
   // single heavy rounds (>= 3 kJ at the muzzle) point blank: chance per hit at contact range
   heavy: { hand: 0.32, forearm: 0.16, head: 0.24, foot: 0.12 },
+  severedHit: 0.3, // share of a cutting shot's hits on the part that came off counted as damage to its owner
   maxSpurts: 14,
   maxGibs: 56,
 };
@@ -77755,7 +77757,8 @@ class Dismemberment {
         if (chance <= 0 || Math.random() >= chance) continue;
         let kind = 'limb';
         if (key === 'head') {
-          if (pellets > 1) kind = d < 2.4 && score > 1.15 && Math.random() < 0.6 ? 'burst' : 'limb';
+          // the closer the muzzle, the likelier the whole head goes to pieces rather than off
+          if (pellets > 1) kind = score > 1.3 && Math.random() < clamp((3.2 - d) / 1.6, 0, 0.8) ? 'burst' : 'limb';
           else kind = e0 >= 6000 && d < 4 && Math.random() < 0.45 ? 'burst' : 'skull';
         }
         plans.push({ key, kind, dir: dirOf(s), point: at, energy: s.e, d });
@@ -77877,6 +77880,9 @@ class Dismemberment {
       for (const s of parts) p.severed.add(s.name);
       p.dismembered = true;
       rec.bodies = rd.allBodies().filter((b) => b.userData && b.userData.segment && parts.includes(b.userData.segment));
+      // the pellets that took the part off spent themselves on it: they count for little towards
+      // putting the owner down (the cut itself is weighed in applyFate)
+      if (o.events) for (const e of o.events) if (e.seg && parts.includes(e.seg)) e.dmScale = DISMEMBER.severedHit;
       for (const s of ['L', 'R']) if (p.severed.has('foot' + s)) this.dropFootSpring(p, s);
       this.patchMass(p);
       const inj = p.injury, c = p.ctl;
