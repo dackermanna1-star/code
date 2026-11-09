@@ -1,0 +1,18 @@
+{
+  "name": "backrooms-endless-descent",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "THE BACKROOMS — ENDLESS DESCENT: a first-person survival shooter on the Ragdoll Lab active-ragdoll engine",
+  "scripts": {
+    "build": "node tools/build.mjs",
+    "serve": "python3 -m http.server 8080 --directory dist"
+  },
+  "devDependencies": {
+    "@gltf-transform/core": "^4.0.0",
+    "@gltf-transform/extensions": "^4.0.0",
+    "@gltf-transform/functions": "^4.0.0",
+    "sharp": "^0.33.0",
+    "three": "0.170.0"
+  }
+}

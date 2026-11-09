@@ -1,0 +1,479 @@
+// Spawning, shooter tokens, enemy ballistics vs the player, kills and loot, grenades.
+
+// physics objects the game adds to the engine's throwable table
+Object.assign(Lab.Throwables, {
+  br_grenade: { label: 'Frag grenade', mass: 0.4, speed: 14, spin: [4, 6, 2], material: 'metal', friction: 0.6, restitution: 0.32, drag: 0.002, shapes: [{ type: 'sphere', r: 0.034 }] },
+  br_gun_small: { label: 'Pistol', mass: 0.9, speed: 3, spin: [3, 5, 2], material: 'metal', friction: 0.6, restitution: 0.15, drag: 0.004, shapes: [{ type: 'box', half: [0.016, 0.06, 0.09], r: 0.006 }] },
+  br_gun_long: { label: 'Rifle', mass: 3.4, speed: 3, spin: [2, 4, 1], material: 'metal', friction: 0.6, restitution: 0.1, drag: 0.006, shapes: [{ type: 'box', half: [0.025, 0.08, 0.42], r: 0.01 }] },
+});
+Object.assign(Lab.Ballistics, {
+  br_fragment: { label: 'Fragment', round: 'steel fragment', mass: 0.0012, speed: 1100, diameter: 0.005, pen: 0.4, pellets: 1, spread: 0, rpm: 0, auto: false, recoil: 0, kick: 0 },
+});
+
+class EnemyManager {
+  constructor(game) {
+    this.game = game;
+    this.list = [];
+    this.tokensUsed = 0;
+    this.maxTokens = 2;
+    this.events = [];
+    this.drops = [];
+    this.grenades = [];
+    this.corpses = [];
+    this.scale = { tough: 1, speed: 1, spread: 1, react: 1, dmg: 1 };
+    this.wave = 1;
+    this.radioT = 0;
+    game.hooks.push(this);
+    game.damagePlayer = (amt, from, kind) => this.damagePlayer(amt, from, kind);
+  }
+
+  onLevel() {
+    this.list.length = 0;
+    this.tokensUsed = 0;
+    this.drops.length = 0;
+    this.grenades.length = 0;
+    this.corpses.length = 0;
+    const sb = this.game.sb;
+    // tag every engine effect with whoever fired the shot that caused it
+    const orig = sb.fx.bind(sb);
+    sb.fx = (e) => { if (sb._shooter && e.by === undefined) e.by = sb._shooter; orig(e); };
+  }
+
+  get alive() { return this.list.filter((a) => !a.downed); }
+  renderOf(ai) { return this.game.renders.get(ai.p); }
+
+  // ---- spawning --------------------------------------------------------------------------------
+  async spawn(type, pos, yaw) {
+    const def = ENEMY_TYPES[type];
+    const look = randPick(def.looks);
+    const gltf = await Assets.gltf('characters/' + look);
+    const game = this.game, sb = game.sb;
+    if (!gltf || sb !== game.sb) return null;
+    let person, ai;
+    if (def.hollow) {
+      person = sb.spawnZombie(pos, yaw, def.melee || 'runner');
+      ai = new HollowWrap(this, person, type, this.scale);
+    } else {
+      person = sb.spawnPerson(pos, yaw, { armor: def.armor ? { ...def.armor } : null, look: 'br_' + type, knockback: def.knockback ?? 1 });
+      const gunId = randPick(def.guns);
+      ai = new Gunman(this, person, type, gunId, this.scale);
+      person.zombie = ai;
+    }
+    person.enemy = ai;
+    ai.spawnT = game.time;
+    const render = new CharacterRender(game, person, gltf, { tint: def.hollow ? [0.72, 0.7, 0.68, 0.8] : def.boss ? [0.85, 0.85, 0.85, 0] : [1, 1, 1, 0] });
+    if (!def.hollow) render.setGun(ENEMY_GUNS[ai.gunId].model, { drum: ENEMY_GUNS[ai.gunId].drum, light: def.light, laser: ENEMY_GUNS[ai.gunId].laser });
+    game.attachRender(person, render);
+    this.list.push(ai);
+    // every new arrival has a rough idea where the fight is
+    ai.hear(game.player.pos, 10);
+    ai.knows = Math.random() < 0.6;
+    return ai;
+  }
+
+  // ---- tokens & coordination -------------------------------------------------------------------
+  requestToken(ai) {
+    if (ai.token) return true;
+    if (this.tokensUsed >= this.maxTokens) return false;
+    ai.token = true;
+    this.tokensUsed++;
+    return true;
+  }
+  engagedCount() { return this.list.filter((a) => !a.downed && a.visible).length; }
+  aggression(ai) { return this.alive.length <= 2 || ai.def.aggression > 0.7 || this.game.player.health < 35; }
+
+  playerHint(ai) {
+    const P = this.game.player.pos;
+    const k = ai.def.role === 'rush' ? 2 : 7;
+    return new I(P.x + (Math.random() - 0.5) * k, 0, P.z + (Math.random() - 0.5) * k);
+  }
+
+  spotted(ai) {
+    for (const o of this.list) {
+      if (o === ai || o.downed || !o.hear) continue;
+      if (Math.hypot(o.pos.x - ai.pos.x, o.pos.z - ai.pos.z) < 20) o.hear(ai.lastSeen || this.game.player.pos, 1.5);
+    }
+    this.bark(ai, 'contact');
+  }
+
+  lineToPoint(ai, pt) { return this.game.level.visible(ai.headPos, { x: pt.x, y: 1.1, z: pt.z }); }
+
+  bark(ai, kind = 'chatter') {
+    const sfx = this.game.sfx;
+    if (!sfx) return;
+    if (ai.def.light && kind !== 'reload') sfx.radio(ai.headPos);
+    else if (kind === 'reload' || Math.random() < 0.4) this.game.audio.grunt(0.35 + Math.random() * 0.3, ai.headPos);
+  }
+
+  // ---- shooting ----------------------------------------------------------------------------------
+  traceEnemyShot(ai, muzzle, dir) {
+    const game = this.game, sb = game.sb, P = game.player;
+    const people = sb.people.filter((p) => p !== ai.p);
+    const proj = Lab.projectile(Lab.Ballistics[ai.gun.ballistic]);
+    sb._shooter = ai;
+    const res = Lab.traceShot({ world: sb.world, people, shape: anatomy(), forceScale: sb.settings.forceScale, fx: (e) => sb.fx(e) }, toP3(muzzle), new I(dir.x, dir.y, dir.z), proj, 120);
+    sb._shooter = null;
+    const end = toV3(res.end);
+    const maxT = end.distanceTo(muzzle);
+    // the player: a capsule from the shins to the top of the head
+    let hitPlayer = null;
+    if (P.alive) {
+      const top = P.pos.y + P.eyeHeight + 0.12, bot = P.pos.y + 0.15, r = 0.27;
+      const dx = P.pos.x - muzzle.x, dz = P.pos.z - muzzle.z;
+      const dh = Math.hypot(dir.x, dir.z) || 1e-6;
+      const t = (dx * dir.x + dz * dir.z) / (dh * dh);
+      if (t > 0 && t < maxT + 0.3) {
+        const cx = muzzle.x + dir.x * t, cz = muzzle.z + dir.z * t, cy = muzzle.y + dir.y * t;
+        const off = Math.hypot(cx - P.pos.x, cz - P.pos.z);
+        if (off < r && cy > bot && cy < top) hitPlayer = { y: cy, head: cy > P.pos.y + P.eyeHeight - 0.14 };
+        else {
+          const headY = P.pos.y + P.eyeHeight;
+          const miss = Math.hypot(off, (cy - headY) * 0.8);
+          if (miss < 1.3) this.nearMiss(muzzle, new T3.Vector3(cx, cy, cz), miss);
+        }
+      }
+    }
+    return { from: muzzle, to: hitPlayer ? new T3.Vector3(muzzle.x + dir.x * 40, muzzle.y + dir.y * 40, muzzle.z + dir.z * 40) : end, dir, hitPlayer, maxT };
+  }
+
+  onEnemyShot(ai, muzzle, paths) {
+    const game = this.game;
+    game.audio.gunshot(ai.gun.sound, toP3(muzzle));
+    game.effects.muzzleLight(muzzle, 1.2);
+    for (const p of paths) {
+      if (Math.random() < 0.65) {
+        const to = p.hitPlayer ? game.player.eye(new I()) : p.to;
+        game.effects.tracer(muzzle.clone(), new T3.Vector3(to.x, to.y - (p.hitPlayer ? 0.35 : 0), to.z));
+      }
+    }
+    let total = 0, head = false;
+    for (const p of paths) if (p.hitPlayer) { total += ai.gun.dmg; head = head || p.hitPlayer.head; }
+    if (total > 0) {
+      const d = muzzle.distanceTo(toV3(game.player.pos));
+      const falloff = clamp(1.15 - d / (ai.gun.range * 2.2), 0.45, 1);
+      this.damagePlayer(total * falloff * this.scale.dmg * (head ? 1.5 : 1), toP3(muzzle), head ? 'headshot' : 'bullet');
+    }
+    for (const h of this.game.hooks) h.onEnemyFire && h.onEnemyFire(ai, muzzle);
+  }
+
+  nearMiss(from, at, miss) {
+    const g = this.game;
+    g.suppression = Math.min(1, (g.suppression || 0) + 0.18 * (1.3 - miss));
+    if (g.sfx) g.sfx.crack(toP3(at), 1.3 - miss);
+  }
+
+  damagePlayer(amount, from, kind = 'bullet') {
+    const g = this.game, P = g.player;
+    if (!P.alive || g.godMode) return;
+    const st = g.stats;
+    // armour plates absorb most of a hit until they are gone
+    let absorbed = 0;
+    if (g.armor > 0 && kind !== 'fall') {
+      absorbed = Math.min(g.armor, amount * 0.65);
+      g.armor -= absorbed * 1.1;
+      if (g.armor < 0) g.armor = 0;
+    }
+    const dmg = amount - absorbed;
+    P.damage(dmg, from, kind === 'headshot' ? 'hit' : kind);
+    if (st) st.damageTaken += dmg;
+    g.lastHurtFrom = from;
+    for (const h of g.hooks) h.onPlayerDamaged && h.onPlayerDamaged(dmg, from, kind, absorbed);
+  }
+
+  // ---- engine effects ----------------------------------------------------------------------------
+  fx(e) {
+    const g = this.game;
+    switch (e.type) {
+      case 'fleshHit': {
+        const ai = e.person.enemy;
+        if (ai && !ai.downed) {
+          const mult = SEG_MULT[e.seg.name] ?? 0.8;
+          const dmg = e.energy * 0.11 * mult * (e.by === 'player' ? g.perks.damage : 0.5);
+          ai.tough -= dmg;
+          if (e.by === 'player' || e.by === 'player-grenade') {
+            ai.lastHit = { by: 'player', seg: e.seg.name, time: g.time, weapon: g.arsenal.gun.id, grenade: e.by === 'player-grenade' };
+            if (ai.hear) ai.hear(g.player.pos, 0.5);
+            if (ai.suppressed !== undefined) ai.suppressed = Math.min(2, ai.suppressed + 0.6);
+          }
+          if (ai.tough <= 0) this.finish(ai, e);
+        }
+        return false;
+      }
+      case 'zombieGroan':
+        if (e.near < 24) g.audio.zombieGroan(e.kind, e.person.rd.segments.head.body.pos, clamp(1.2 - e.near / 20, 0.3, 1));
+        return true;
+      case 'zombieSwing':
+        g.audio.zombieSnarl(e.kind, e.person.rd.segments.head.body.pos);
+        return true;
+      case 'objectAdded':
+      case 'objectRemoved':
+      case 'personAdded':
+      case 'personRemoved':
+      case 'personFrozen':
+      case 'throw':
+        return true;
+      case 'playerHit':
+        if (e.by && e.by.zombie) for (const h of g.hooks) h.onPlayerDamaged && h.onPlayerDamaged(e.amount, e.from, 'melee', 0);
+        return true;
+    }
+    return false;
+  }
+
+  // a person ran out of toughness: decide how they go down
+  finish(ai, e) {
+    const inj = ai.p.injury, c = ai.p.ctl;
+    if (!inj.alive) return;
+    const seg = e.seg.name;
+    if (seg === 'head' || seg === 'neck' || e.energy > 1100 || Math.random() < 0.45) inj.kill(seg === 'head' ? 'gunshot wound to the head' : 'gunshot wounds');
+    else {
+      inj.knockOut(9999, 1);
+      c.autoGetUp = false;
+    }
+  }
+
+  // the AI reports itself out of the fight
+  down(ai) {
+    if (ai.downed) return;
+    ai.downed = true;
+    ai.aiming = false;
+    ai.releaseToken();
+    const p = ai.p, g = this.game;
+    p.ctl.autoGetUp = false;
+    p.ctl.armDriver = null;
+    if (p.ctl.walking) p.ctl.stopWalk('down');
+    const r = this.renderOf(ai);
+    if (r) {
+      const gun = r.dropGun();
+      if (gun) this.dropGun(ai, gun);
+    }
+    const lh = ai.lastHit;
+    const byPlayer = !!lh && lh.by === 'player' && g.time - lh.time < 6;
+    const head = byPlayer && (lh.seg === 'head' || lh.seg === 'neck');
+    const dist = Math.hypot(ai.pos.x - g.player.pos.x, ai.pos.z - g.player.pos.z);
+    ai.diedAt = g.time;
+    this.corpses.push(ai);
+    this.events.push({ type: 'kill', ai, byPlayer, head, dist, grenade: !!(lh && lh.grenade), weapon: lh && lh.weapon });
+    if (this.corpses.length > 14) this.removeCorpse(this.corpses[0]);
+  }
+
+  removeCorpse(ai) {
+    const g = this.game;
+    this.corpses = this.corpses.filter((x) => x !== ai);
+    this.list = this.list.filter((x) => x !== ai);
+    g.detachRender(ai.p);
+    if (g.sb.people.includes(ai.p)) g.sb.removePerson(ai.p);
+  }
+
+  dropGun(ai, mesh) {
+    const g = this.game, sb = g.sb;
+    const long = ai.gun.hold !== 'pistol';
+    const p = mesh.position, q = mesh.quaternion;
+    const obj = sb.addObject(long ? 'br_gun_long' : 'br_gun_small', new I(p.x, Math.max(p.y, 0.15), p.z), new Lab.Quat(q.x, q.y, q.z, q.w));
+    const hand = ai.p.rd.segments.handR.body;
+    obj.body.vel.copy(hand.vel).scale(0.8);
+    obj.body.angVel.set((Math.random() - 0.5) * 6, (Math.random() - 0.5) * 6, (Math.random() - 0.5) * 6);
+    // the mesh's origin is the grip, the collider is centred on the receiver
+    mesh.userData.offset = long ? new T3.Vector3(0, 0, 0.12) : new T3.Vector3(0, 0.01, 0.03);
+    this.drops.push({ obj, mesh, t: 0, ammo: ai.gun.ballistic, taken: false, value: Math.round(ai.def.cash * 0.12) });
+    if (this.drops.length > 16) this.removeDrop(this.drops[0]);
+  }
+
+  removeDrop(d) {
+    this.drops = this.drops.filter((x) => x !== d);
+    this.game.view.scene.remove(d.mesh);
+    if (this.game.sb.objects.includes(d.obj)) this.game.sb.removeObject(d.obj);
+  }
+
+  // ---- grenades ----------------------------------------------------------------------------------
+  throwGrenade(thrower, target) {
+    const g = this.game, sb = g.sb;
+    let from, dir, speed;
+    if (thrower === 'player') {
+      const P = g.player, eye = P.eye(new I());
+      const v = g.viewDir(new T3.Vector3());
+      from = new I(eye.x + v.x * 0.4, eye.y - 0.1 + v.y * 0.4, eye.z + v.z * 0.4);
+      dir = new I(v.x, v.y + 0.18, v.z).normalize();
+      speed = 13;
+    } else {
+      const h = thrower.headPos;
+      from = new I(h.x, h.y + 0.2, h.z);
+      const dx = target.x - h.x, dz = target.z - h.z, d = Math.hypot(dx, dz);
+      speed = clamp(Math.sqrt(d * 9.81 / Math.sin(2 * 0.6)) * 0.95, 6, 15);
+      dir = new I(dx / d * Math.cos(0.6), Math.sin(0.6), dz / d * Math.cos(0.6));
+    }
+    const obj = sb.throwObject('br_grenade', from, dir, speed);
+    const mesh = EnemyManager.grenadeMesh();
+    g.view.scene.add(mesh);
+    this.grenades.push({ obj, mesh, fuse: thrower === 'player' ? 2.4 : 2.9, by: thrower === 'player' ? 'player-grenade' : thrower, warned: false });
+    g.audio.whoosh(10, from);
+    if (thrower !== 'player') for (const h of g.hooks) h.onGrenadeIncoming && h.onGrenadeIncoming(obj);
+  }
+
+  static grenadeMesh() {
+    const grp = new T3.Group();
+    const body = new T3.Mesh(new T3.SphereGeometry(0.034, 14, 10), new T3.MeshStandardMaterial({ color: 0x3b4430, roughness: 0.6, metalness: 0.3 }));
+    body.scale.set(1, 1.15, 1);
+    const cap = new T3.Mesh(new T3.CylinderGeometry(0.012, 0.014, 0.03, 10), new T3.MeshStandardMaterial({ color: 0x777777, metalness: 0.8, roughness: 0.4 }));
+    cap.position.y = 0.045;
+    const lever = new T3.Mesh(new T3.BoxGeometry(0.008, 0.06, 0.012), cap.material);
+    lever.position.set(0.02, 0.025, 0);
+    grp.add(body, cap, lever);
+    grp.traverse((o) => { if (o.isMesh) o.castShadow = true; });
+    return grp;
+  }
+
+  explode(gr) {
+    const g = this.game, sb = g.sb, pos = gr.obj.body.pos.clone();
+    pos.y = Math.max(pos.y, 0.08);
+    const P3 = toV3(pos);
+    // fragments: real ballistic traces, so walls and bodies stop them
+    sb._shooter = gr.by;
+    const people = sb.people;
+    const proj = Lab.Ballistics.br_fragment;
+    for (let k = 0; k < 70; k++) {
+      const u = Math.random() * 2 - 1, a = Math.random() * TAU, s = Math.sqrt(1 - u * u);
+      const d = new I(s * Math.cos(a), u * 0.7 + 0.05, s * Math.sin(a)).normalize();
+      Lab.traceShot({ world: sb.world, people, shape: anatomy(), forceScale: 1, fx: (e) => sb.fx(e) }, pos, d, Lab.projectile(proj), 14);
+    }
+    sb._shooter = null;
+    // blast: knock ragdolls over, harder the closer they are
+    for (const p of sb.people) {
+      let any = false;
+      for (const b of p.rd.allBodies()) {
+        const dx = b.pos.x - pos.x, dy = b.pos.y - pos.y, dz = b.pos.z - pos.z, d = Math.hypot(dx, dy, dz);
+        if (d > 6) continue;
+        if (!g.level.visible({ x: pos.x, y: pos.y + 0.3, z: pos.z }, b.pos)) continue;
+        const f = clamp(1 - d / 6, 0, 1) ** 1.5 * 38 * b.mass / 6;
+        b.applyImpulse(new I(dx / d * f, (dy / d + 0.6) * f, dz / d * f), b.pos);
+        any = true;
+      }
+      if (any && p.enemy && !p.enemy.downed) {
+        const d = Math.hypot(p.rd.pelvis.pos.x - pos.x, p.rd.pelvis.pos.z - pos.z);
+        const dmg = clamp(1 - d / 5.5, 0, 1) * 220;
+        p.enemy.tough -= dmg;
+        if (gr.by === 'player-grenade') p.enemy.lastHit = { by: 'player', seg: 'chest', time: g.time, grenade: true };
+        if (p.enemy.tough <= 0 && p.injury.alive) p.injury.kill('blast injuries');
+        if (d < 4.5) { p.ctl.startle = 1; }
+      }
+    }
+    for (const o of sb.objects) {
+      const b = o.body, dx = b.pos.x - pos.x, dy = b.pos.y - pos.y, dz = b.pos.z - pos.z, d = Math.hypot(dx, dy, dz);
+      if (d < 5 && d > 0.01) b.applyImpulse(new I(dx / d * 3 * b.mass, 4 * b.mass, dz / d * 3 * b.mass), b.pos), b.wake();
+    }
+    // the player
+    const P = g.player;
+    const eye = P.eye(new I());
+    const pd = Math.hypot(eye.x - pos.x, eye.y - 0.6 - pos.y, eye.z - pos.z);
+    if (pd < 7 && g.level.visible({ x: pos.x, y: pos.y + 0.3, z: pos.z }, eye)) {
+      const dmg = clamp(1 - pd / 7, 0, 1) ** 1.3 * (gr.by === 'player-grenade' ? 70 : 95);
+      if (dmg > 1) this.damagePlayer(dmg, pos, 'blast');
+      g.shake = Math.max(g.shake, clamp(1.3 - pd / 6, 0.2, 1));
+      g.flashbang = Math.max(g.flashbang || 0, clamp(1 - pd / 5, 0, 0.8));
+    } else if (pd < 14) g.shake = Math.max(g.shake, 0.3);
+    // visuals
+    g.effects.muzzleLight(P3.clone().add(new T3.Vector3(0, 0.3, 0)), 9);
+    g.effects.puff(P3, new T3.Vector3(0, 1, 0), 0x3a3530, 60, 4, 1.4);
+    g.effects.puff(P3, new T3.Vector3(0, 1, 0), undefined, 40, 7, 0.4, true);
+    g.view.decals.splat(pos.x, pos.z, 0.55, 1, 0.95, 1, Math.random() * 6.28, Math.random());
+    g.view.decals.splat(pos.x, pos.z, 0.9, 1, 0.5, 0.5, Math.random() * 6.28, Math.random());
+    if (g.sfx) g.sfx.explosion(pos, pd);
+    else g.audio.impact('metal', 1, pos);
+    for (const h of g.hooks) h.onExplosion && h.onExplosion(pos, gr);
+  }
+
+  // ---- per step / frame --------------------------------------------------------------------------
+  step(dt) {
+    const g = this.game;
+    this.maxTokens = Math.min(5, 2 + Math.floor((this.wave - 1) / 4));
+    // hollowed and anyone the brain did not catch
+    for (const ai of this.list) {
+      if (ai.downed) continue;
+      if (ai.hollow && !ai.combatEffective()) this.down(ai);
+    }
+    // corpses settle, then freeze to save the simulation
+    for (const ai of this.corpses) {
+      if (ai.frozen || g.time - ai.diedAt < 3) continue;
+      let still = true;
+      for (const b of ai.p.rd.allBodies()) if (b.vel.lengthSq() > 0.03) { still = false; break; }
+      if (still || g.time - ai.diedAt > 10) {
+        if (ai.p.injury.alive && g.time - ai.diedAt < 25) continue; // let the dying writhe a while
+        g.sb.freezePerson(ai.p);
+        ai.frozen = true;
+      }
+    }
+    // grenades
+    for (const gr of this.grenades) {
+      gr.fuse -= dt;
+      if (gr.fuse <= 0 && !gr.done) { gr.done = true; this.explode(gr); }
+    }
+    for (const gr of this.grenades.filter((x) => x.done)) {
+      g.view.scene.remove(gr.mesh);
+      if (g.sb.objects.includes(gr.obj)) g.sb.removeObject(gr.obj);
+    }
+    this.grenades = this.grenades.filter((x) => !x.done);
+    // pickups
+    const P = g.player;
+    for (const d of this.drops) {
+      d.t += dt;
+      if (d.taken || d.t < 0.8 || !P.alive) continue;
+      const b = d.obj.body.pos;
+      if (Math.hypot(b.x - P.pos.x, b.z - P.pos.z) < 1.25 && Math.abs(b.y - P.pos.y) < 1.2) {
+        d.taken = true;
+        for (const h of g.hooks) h.onPickup && h.onPickup(d);
+        this.removeDrop(d);
+      }
+    }
+  }
+
+  frame(dt, simDt) {
+    const alpha = clamp(this.game.acc / SIM_DT, 0, 1);
+    const sync = (obj, mesh) => {
+      const b = obj.body;
+      const fp = b.framePos || b.pos, fr = b.frameRot || b.rot;
+      mesh.position.set(fp.x + (b.pos.x - fp.x) * alpha, fp.y + (b.pos.y - fp.y) * alpha, fp.z + (b.pos.z - fp.z) * alpha);
+      const q0 = new T3.Quaternion(fr.x, fr.y, fr.z, fr.w), q1 = new T3.Quaternion(b.rot.x, b.rot.y, b.rot.z, b.rot.w);
+      mesh.quaternion.copy(q0.slerp(q1, alpha));
+      if (mesh.userData.offset) mesh.position.add(mesh.userData.offset.clone().applyQuaternion(mesh.quaternion).negate());
+    };
+    for (const d of this.drops) sync(d.obj, d.mesh);
+    for (const gr of this.grenades) sync(gr.obj, gr.mesh);
+    void simDt;
+  }
+
+  onShot(paths, gun) {
+    // the player's gunfire: everyone in earshot learns roughly where it came from, and bullets
+    // passing close by pin enemies down
+    const g = this.game, P = g.player.pos;
+    const hearR = gun.suppressed ? 9 : 38;
+    for (const ai of this.list) {
+      if (ai.downed || !ai.hear) continue;
+      const d = Math.hypot(ai.pos.x - P.x, ai.pos.z - P.z);
+      if (d < hearR) ai.hear(P, gun.suppressed ? 6 : 3);
+      if (ai.suppressed === undefined) continue;
+      const h = ai.headPos;
+      for (const path of paths) {
+        const a = path.from, b = path.to;
+        const ab = new T3.Vector3(b.x - a.x, b.y - a.y, b.z - a.z), L = ab.length();
+        if (L < 0.01) continue;
+        ab.multiplyScalar(1 / L);
+        const t = clamp((h.x - a.x) * ab.x + (h.y - a.y) * ab.y + (h.z - a.z) * ab.z, 0, L);
+        const miss = Math.hypot(a.x + ab.x * t - h.x, a.y + ab.y * t - h.y, a.z + ab.z * t - h.z);
+        if (miss < 1.4) ai.suppressed = Math.min(2, ai.suppressed + 0.35 * (1.4 - miss));
+      }
+    }
+  }
+
+  clear() {
+    const g = this.game;
+    for (const ai of [...this.list]) {
+      g.detachRender(ai.p);
+      if (g.sb.people.includes(ai.p)) g.sb.removePerson(ai.p);
+    }
+    for (const d of [...this.drops]) this.removeDrop(d);
+    for (const gr of this.grenades) g.view.scene.remove(gr.mesh);
+    this.list.length = 0;
+    this.corpses.length = 0;
+    this.grenades.length = 0;
+    this.tokensUsed = 0;
+  }
+}
