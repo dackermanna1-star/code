@@ -155,7 +155,7 @@ export class Gary extends Character {
     const down = input.isDown('down');
     this.scooting = up;
     for (const a of this.axles) {
-      if (up) Character.drive(a, -50, 11);
+      if (up) Character.drive(a, -50, 16);
       else if (down) Character.drive(a, 0, 30);
       else Character.freewheel(a, 0.25);
     }

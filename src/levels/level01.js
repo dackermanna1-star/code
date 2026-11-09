@@ -42,10 +42,10 @@ export default {
     B.checkpoint(134);
 
     B.sign(138, 'SPRING PAD!');
-    B.add('pad', { x: 146.5, angle: -0.3, power: 13, fixed: true });
+    B.add('pad', { x: 146.5, angle: -0.3, power: 11, fixed: true });
     c.flat(10); // 144 .. 154
-    B.rect(150.5, -2.2, 153.5, 2.2, 'rock');
-    B.tooth(152, 3.4);
+    B.rect(150.5, -2.2, 153.5, 1.0, 'rock');
+    B.tooth(152, 2.4);
     c.landing(26, 3.5); // .. 180, y -5.7
     c.flat(8);
     B.sign(185, 'LEAN TO LAND\nON YOUR WHEELS');

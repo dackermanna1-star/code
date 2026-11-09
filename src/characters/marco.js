@@ -139,7 +139,10 @@ export class Marco extends Character {
     const along = v.x * fwd.x + v.y * fwd.y;
     if (up) {
       // traction control: back off the throttle when the front wheel climbs too high
-      const ang = this.frameAngle();
+      // (pitch measured relative to the ground under the bike)
+      const p = this.frame.getPosition();
+      const gnd = this.game.level && this.game.level.groundAt ? this.game.level.groundAt(p.x) : null;
+      const ang = this.frameAngle() - (gnd && p.y - gnd.y < 2 ? Math.atan(gnd.slope) : 0);
       const tc = this.lean < 0 ? 1 : ang > 0.75 ? 0.25 : ang > 0.45 ? 0.6 : 1;
       Character.drive(this.rearJ, -72, 195 * tc);
       Character.freewheel(this.frontJ, 0.5);

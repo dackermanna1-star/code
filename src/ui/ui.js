@@ -325,9 +325,19 @@ export class UI {
         break;
       }
       case 'reset':
-        if (confirm('Reset all progress?')) {
+        // two-step confirmation inside the page (no browser dialogs)
+        if (el.dataset.armed === '1') {
           g.store.reset();
           this.renderLevels();
+          el.dataset.armed = '';
+          el.textContent = 'Progress reset';
+        } else {
+          el.dataset.armed = '1';
+          el.textContent = 'Click again to erase all progress';
+          setTimeout(() => {
+            el.dataset.armed = '';
+            el.textContent = 'Reset progress';
+          }, 4000);
         }
         break;
       default:

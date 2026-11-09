@@ -168,7 +168,7 @@ export class Bonbon extends Character {
   control(dt, input) {
     const up = input.isDown('up');
     const down = input.isDown('down');
-    if (up) Character.drive(this.axleJ, -23, 95);
+    if (up) Character.drive(this.axleJ, -23, 150);
     else if (down) Character.drive(this.axleJ, 8, 70);
     else Character.drive(this.axleJ, 0, 18);
     this.balance(dt, 1);

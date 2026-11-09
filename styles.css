@@ -1,4 +1,5 @@
 :root {
+  color-scheme: dark;
   --ink: #1b1712;
   --paper: #fff8ec;
   --red: #e2333b;
@@ -502,8 +503,8 @@ kbd {
 }
 .hud-tl {
   position: absolute;
-  left: 16px;
-  top: 12px;
+  left: calc(16px + env(safe-area-inset-left, 0px));
+  top: calc(12px + env(safe-area-inset-top, 0px));
   text-shadow: 0 2px 0 var(--ink), 0 0 6px rgba(0, 0, 0, 0.6);
 }
 #hud-level {
@@ -520,8 +521,8 @@ kbd {
 }
 .hud-tr {
   position: absolute;
-  right: 16px;
-  top: 14px;
+  right: calc(16px + env(safe-area-inset-right, 0px));
+  top: calc(14px + env(safe-area-inset-top, 0px));
   display: flex;
   align-items: center;
 }
@@ -533,8 +534,8 @@ kbd {
 }
 .hud-bl {
   position: absolute;
-  left: 16px;
-  bottom: 16px;
+  left: calc(16px + env(safe-area-inset-left, 0px));
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
   min-width: 220px;
 }
 #hud-name {
@@ -705,15 +706,15 @@ kbd {
 }
 .tleft {
   position: absolute;
-  left: 18px;
-  bottom: 96px;
+  left: calc(18px + env(safe-area-inset-left, 0px));
+  bottom: calc(96px + env(safe-area-inset-bottom, 0px));
   display: flex;
   gap: 14px;
 }
 .tright {
   position: absolute;
-  right: 18px;
-  bottom: 24px;
+  right: calc(18px + env(safe-area-inset-right, 0px));
+  bottom: calc(24px + env(safe-area-inset-bottom, 0px));
   display: grid;
   grid-template-columns: auto auto;
   gap: 10px;

@@ -11,8 +11,8 @@ import { capsulePath, roundRectPath, fillStroke, circle, OUTLINE, LW, shade } fr
 // hurt / sever / kill / gib are impact thresholds in m/s of velocity change.
 const BASE = {
   hips: { kind: 'hips', len: 0.26, wid: 0.3, mass: 14, hurt: 10, gib: 46 },
-  chest: { kind: 'chest', parent: 'hips', at: 1, len: 0.46, wid: 0.32, mass: 22, lo: -1.15, hi: 0.5, str: 700, brk: 42000, hurt: 10, kill: 30, gib: 42 },
-  head: { kind: 'head', parent: 'chest', at: 1, len: 0.28, r: 0.135, mass: 5, lo: -0.75, hi: 0.75, str: 150, brk: 15000, hurt: 7, kill: 22, gib: 32 },
+  chest: { kind: 'chest', parent: 'hips', at: 1, len: 0.46, wid: 0.32, mass: 22, lo: -1.15, hi: 0.5, str: 700, brk: 42000, hurt: 10, kill: 34, gib: 44 },
+  head: { kind: 'head', parent: 'chest', at: 1, len: 0.28, r: 0.135, mass: 5, lo: -0.75, hi: 0.75, str: 150, brk: 15000, hurt: 7.5, kill: 26, gib: 34 },
   arm: { kind: 'arm', parent: 'chest', at: 0.86, len: 0.31, wid: 0.1, mass: 2.6, lo: -4.3, hi: 0.6, str: 70, brk: 11000, hurt: 10, sever: 26, gib: 40 },
   fore: { kind: 'fore', parent: 'arm', at: 1, len: 0.31, wid: 0.09, mass: 1.9, lo: -0.05, hi: 2.7, str: 45, brk: 10000, hurt: 10, sever: 27, gib: 42 },
   thigh: { kind: 'thigh', parent: 'hips', at: 0, len: 0.42, wid: 0.15, mass: 8, lo: -3.7, hi: -0.35, str: 380, brk: 20000, hurt: 10, sever: 27, gib: 42 },

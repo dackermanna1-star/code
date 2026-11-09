@@ -26,3 +26,21 @@ fs.mkdirSync(path.join(root, 'dist'), { recursive: true });
 const out = path.join(root, 'dist', 'index.html');
 fs.writeFileSync(out, html);
 console.log(`built ${path.relative(root, out)} (${(html.length / 1024).toFixed(0)} KB)`);
+
+// Optional: `--fragment <file>` writes the same page without the document skeleton
+// (for hosts that wrap the page in their own <html>/<head>/<body>).
+const fi = process.argv.indexOf('--fragment');
+if (fi > 0) {
+  const frag = html
+    .replace(/<!doctype html>\s*/i, '')
+    .replace(/<html[^>]*>\s*/i, '')
+    .replace(/<\/html>\s*$/i, '')
+    .replace(/<head>\s*/i, '')
+    .replace(/<\/head>\s*/i, '')
+    .replace(/<meta charset="utf-8" \/>\s*/i, '')
+    .replace(/<meta name="viewport"[^>]*>\s*/i, '')
+    .replace(/<body>\s*/i, '')
+    .replace(/<\/body>\s*/i, '');
+  fs.writeFileSync(process.argv[fi + 1], frag);
+  console.log(`fragment -> ${process.argv[fi + 1]}`);
+}
