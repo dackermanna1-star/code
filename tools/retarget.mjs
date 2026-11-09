@@ -10,13 +10,14 @@
 // directional clips blend in step, and end with a crossfade into the frames before the start.
 //
 // usage: node tools/retarget.mjs <out.glb> <rocketbox-character.glb> <100STYLE dir> [style=Swat]
+//        node tools/retarget.mjs <out.glb> <rocketbox-character.glb> <one-take.bvh>   (EMM: clips found in one take)
 import fs from 'node:fs';
 import path from 'node:path';
 import * as THREE from 'three';
 import { BVHLoader } from 'three/examples/jsm/loaders/BVHLoader.js';
 import { NodeIO, Document } from '@gltf-transform/core';
 
-const [outFile, targetGlb, styleRoot, style = 'Swat'] = process.argv.slice(2);
+const [outFile, targetGlb, styleRoot, style = 'Swat', torqueDir = null] = process.argv.slice(2);
 const OUT_FPS = 30;
 const SRC_FPS = 60;
 
@@ -136,11 +137,11 @@ function facing(S, f) {
 // left-foot contacts: the ankle at its lowest and nearly still
 function contacts(S, a, b, unit) {
   const out = [];
-  let minY = Infinity;
-  for (let f = a; f < b; f++) minY = Math.min(minY, S.lAnk[f * 3 + 1]);
+  // the floor under the foot can drift over a long take: compare with the lowest nearby
+  const localMin = (f) => { let m = Infinity; for (let g = Math.max(a, f - SRC_FPS); g < Math.min(b, f + SRC_FPS); g++) m = Math.min(m, S.lAnk[g * 3 + 1]); return m; };
   let was = false;
   for (let f = a + 1; f < b; f++) {
-    const y = S.lAnk[f * 3 + 1];
+    const y = S.lAnk[f * 3 + 1], minY = localMin(f);
     const sp = V(S.lAnk, f).sub(V(S.lAnk, f - 1)).setY(0).length() * SRC_FPS / unit;
     const on = y < minY + 0.035 * unit && sp < 0.9;
     if (on && !was) out.push(f);
@@ -184,8 +185,11 @@ function pickLoop(S, a, b, unit, kind, want) {
     else if (want === 'b') ok = fwd < -0.4 && Math.abs(left) < 0.35 * -fwd;
     else if (want === 'l') ok = left > 0.4 && Math.abs(fwd) < 0.45 * left;
     else if (want === 'r') ok = left < -0.4 && Math.abs(fwd) < 0.45 * -left;
+    if (process.env.RT_DEBUG === want) console.log('  cand', want, s, e, (len / SRC_FPS).toFixed(2), 'fwd', fwd.toFixed(2), 'left', left.toFixed(2), 'turn', turn.toFixed(2), ok ? 'OK' : '');
     if (!ok) continue;
-    const cost = poseDist(S, s, e) + turn * 4;
+    // prefer clean loops, straight lines and a natural pace over shuffles
+    const pace = want === 'f' ? Math.max(0, 1.15 - fwd) : want === 'b' ? Math.max(0, 0.8 + fwd) : Math.max(0, 0.7 - Math.abs(left));
+    const cost = poseDist(S, s, e) + turn * 4 + pace * 0.8;
     if (!best || cost < best.d) best = { s, e, d: cost, fwd, left };
   }
   return best;
@@ -276,11 +280,15 @@ function buildClip(take, S, A, loop, opts) {
   return { name: opts.name, times, tracks, rootPos, dur: n / OUT_FPS, speed: +speed.toFixed(3), fwd: loop.fwd, left: loop.left };
 }
 
-// ---- 100STYLE takes -----------------------------------------------------------------------------
-const cutsCsv = fs.readFileSync(path.join(styleRoot, 'Frame_Cuts.csv'), 'utf8').trim().split('\n');
-const head = cutsCsv[0].split(',');
-const row = cutsCsv.find((l) => l.startsWith(style + ',')).split(',');
-const cut = (kind) => { const a = +row[head.indexOf(kind + '_START')], b = +row[head.indexOf(kind + '_STOP')]; return Number.isFinite(a) && Number.isFinite(b) ? [a, b] : null; };
+// ---- takes: a 100STYLE style (one file per motion, with frame cuts) or one long take ----------
+const single = styleRoot.endsWith('.bvh');
+let cut = () => null;
+if (!single) {
+  const cutsCsv = fs.readFileSync(path.join(styleRoot, 'Frame_Cuts.csv'), 'utf8').trim().split('\n');
+  const head = cutsCsv[0].split(',');
+  const row = cutsCsv.find((l) => l.startsWith(style + ',')).split(',');
+  cut = (kind) => { const a = +row[head.indexOf(kind + '_START')], b = +row[head.indexOf(kind + '_STOP')]; return Number.isFinite(a) && Number.isFinite(b) ? [a, b] : null; };
+}
 
 const plan = [
   { name: 'idle', take: 'ID', kind: 'idle' },
@@ -289,13 +297,18 @@ const plan = [
   { name: 'walk_l', take: 'SW', kind: 'cycle', want: 'l' },
   { name: 'walk_r', take: 'SW', kind: 'cycle', want: 'r' },
   { name: 'run_f', take: 'FR', kind: 'cycle', want: 'f' },
+  { name: 'run_b', take: 'BR', kind: 'cycle', want: 'b' },
+  { name: 'run_l', take: 'SR', kind: 'cycle', want: 'l' },
+  { name: 'run_r', take: 'SR', kind: 'cycle', want: 'r' },
 ];
 const clips = [];
 const takes = new Map();
 for (const p of plan) {
-  const file = path.join(styleRoot, style, `${style}_${p.take}.bvh`);
+  if (single && p.name.startsWith('run')) continue; // a one-take carry set has no run
+  const file = single ? styleRoot : path.join(styleRoot, style, `${style}_${p.take}.bvh`);
   if (!fs.existsSync(file)) { console.warn('missing', file); continue; }
-  let tk = takes.get(p.take);
+  const key = single ? 'one' : p.take;
+  let tk = takes.get(key);
   if (!tk) {
     const take = loadTake(file);
     const S = sampleTake(take);
@@ -304,7 +317,7 @@ for (const p of plan) {
     const tl = bindWorldP.get('Bip01 R Thigh').distanceTo(bindWorldP.get('Bip01 R Calf')) + bindWorldP.get('Bip01 R Calf').distanceTo(bindWorldP.get('Bip01 R Foot'));
     const unit = sl > 10 ? 100 : 1; // centimetres or metres
     tk = { take, S, A: alignments(take), unit, legScale: tl / sl };
-    takes.set(p.take, tk);
+    takes.set(key, tk);
   }
   const [a, b] = cut(p.take) || [0, tk.S.n];
   const loop = pickLoop(tk.S, Math.max(0, a), Math.min(b, tk.S.n - 1), tk.unit, p.kind, p.want);
@@ -312,6 +325,48 @@ for (const p of plan) {
   const c = buildClip(tk.take, tk.S, tk.A, loop, { name: p.name, unit: tk.unit, legScale: tk.legScale });
   clips.push(c);
   console.log(`${p.name}: frames ${loop.s}-${loop.e} (${c.dur.toFixed(2)} s) speed ${c.speed} m/s cost ${loop.d.toFixed(3)}`);
+}
+
+// ---- upper-body overlays from Torque 3D's soldier (MIT; 3ds Max Biped, so local rotations carry
+// straight across by bone name): shouldered rifle aim, reloads, a two-hand pistol stance ----------
+const ARM = /Clavicle|UpperArm|Forearm|Hand|Finger/;
+function daeOverlay(file, name) {
+  const xml = fs.readFileSync(file, 'utf8');
+  const nums = (t) => new Float32Array(t.trim().split(/\s+/).map(Number));
+  const statics = new Map();
+  for (const m of xml.matchAll(/<node id="node-([^"]+)"[^>]*>\s*<matrix[^>]*>([^<]+)<\/matrix>/g)) statics.set(m[1], nums(m[2]));
+  const arrays = new Map();
+  for (const m of xml.matchAll(/<float_array id="([^"]+)" count="\d+">([^<]*)<\/float_array>/g)) arrays.set(m[1], m[2]);
+  const anim = new Map();
+  for (const m of xml.matchAll(/<channel source="#([^"]+)" target="node-([^"\/]+)\/matrix"\s*\/>/g)) {
+    const base = m[1].replace(/-sampler$/, '');
+    const ti = arrays.get(base + '-input-array'), mo = arrays.get(base + '-output-array');
+    if (ti && mo) anim.set(m[2], { times: nums(ti), mats: nums(mo) });
+  }
+  const targets = [...T.keys()].filter((n) => ARM.test(n) && (statics.has(n.replace(/ /g, '_')) || anim.has(n.replace(/ /g, '_'))));
+  let times = null;
+  for (const t of targets) { const a = anim.get(t.replace(/ /g, '_')); if (a && (!times || a.times.length > times.length)) times = a.times; }
+  const keyT = times ? Array.from(times, (x) => x - times[0]) : [0, 1];
+  const tracks = new Map();
+  const M = new THREE.Matrix4(), q = new THREE.Quaternion(), pp = new THREE.Vector3(), sc = new THREE.Vector3();
+  for (const t of targets) {
+    const src = t.replace(/ /g, '_'), a = anim.get(src);
+    const arr = new Float32Array(keyT.length * 4);
+    for (let k = 0; k < keyT.length; k++) {
+      const m = a && a.mats.length >= (k + 1) * 16 ? a.mats.subarray(k * 16, k * 16 + 16) : statics.get(src);
+      M.set(...m).decompose(pp, q, sc);
+      if (k > 0) { const pq = new THREE.Quaternion().fromArray(arr, (k - 1) * 4); if (pq.dot(q) < 0) q.set(-q.x, -q.y, -q.z, -q.w); }
+      arr.set([q.x, q.y, q.z, q.w], k * 4);
+    }
+    tracks.set(t, arr);
+  }
+  const dur = keyT[keyT.length - 1];
+  console.log(`${name}: ${targets.length} arm bones, ${keyT.length} keys, ${dur.toFixed(2)} s from ${path.basename(file)}`);
+  return { name, times: new Float32Array(keyT), tracks, rootPos: null, dur, overlay: true };
+}
+if (torqueDir) {
+  const list = [['aim', 'lurker/PlayerAnim_Lurker_Root.dae'], ['reload', 'lurker/PlayerAnim_Lurker_Reload.dae'], ['aim_pistol', 'pistol/PlayerAnim_Pistol_Root.dae'], ['reload_pistol', 'pistol/PlayerAnim_Pistol_Reload.dae']];
+  for (const [name, rel] of list) { const f = path.join(torqueDir, rel); if (fs.existsSync(f)) clips.push(daeOverlay(f, name)); }
 }
 
 // ---- write the animation GLB --------------------------------------------------------------------
@@ -337,12 +392,13 @@ for (const c of clips) {
     anim.addSampler(smp).addChannel(ch);
   };
   for (const [t, arr] of c.tracks) add(nodes.get(t), 'rotation', arr, 'VEC4');
-  add(nodes.get('Bip01'), 'translation', c.rootPos, 'VEC3');
-  meta[c.name] = { speed: c.speed, duration: +c.dur.toFixed(3) };
+  if (c.rootPos) add(nodes.get('Bip01'), 'translation', c.rootPos, 'VEC3');
+  meta[c.name] = c.overlay ? { overlay: true, duration: +c.dur.toFixed(3) } : { speed: c.speed, duration: +c.dur.toFixed(3) };
 }
 const asset = doc.getRoot().getAsset();
-asset.generator = 'backrooms retarget (100STYLE dataset, CC BY 4.0)';
-asset.extras = { clips: meta, credit: 'The 100STYLE Dataset - Ian Mason (CC BY 4.0), retargeted to Microsoft Rocketbox' };
+const credit = (single ? 'Environment-aware Motion Matching dataset (UPC ViRVIG, CC BY 4.0), retargeted to Microsoft Rocketbox' : 'The 100STYLE Dataset - Ian Mason (CC BY 4.0), retargeted to Microsoft Rocketbox') + (torqueDir ? '; upper-body overlays from Torque 3D (c) 2012-2016 GarageGames, LLC (MIT)' : '');
+asset.generator = 'backrooms retarget (' + (single ? 'EMM' : '100STYLE') + ' dataset, CC BY 4.0)';
+asset.extras = { clips: meta, credit };
 fs.mkdirSync(path.dirname(outFile), { recursive: true });
 await io.write(outFile, doc);
 console.log('wrote', outFile, (fs.statSync(outFile).size / 1024).toFixed(0) + ' KB', JSON.stringify(meta));

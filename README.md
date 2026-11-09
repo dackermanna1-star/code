@@ -17,8 +17,10 @@ There is no aiming down sights: every gun fires from the hip (the crosshair foll
 sway); only sniper rifles raise a scope. The Laser Module tightens hip fire and shows where rounds go.
 
 ## How the enemies move
-Gunmen are driven by motion capture (100STYLE "Swat": idle, walks in four directions, a jog),
-retargeted onto their Rocketbox skeletons by `tools/retarget.mjs`. While undisturbed their ragdoll
+Gunmen are driven by motion capture (100STYLE "Swat": idle, walks and runs in four directions),
+retargeted onto their Rocketbox skeletons by `tools/retarget.mjs`, with a shouldered aim and
+reloads from Torque 3D's soldier on the arms, a two-hand IK stance for pistols, a torso that turns
+until the barrel the hands hold is on target, and recoil. While undisturbed their ragdoll
 is dormant and posed from the animation, so bullets hit what you see. A hit, blast or kick hands the
 body to the active-ragdoll controller (stagger, stumble, fall, get up); once they are back on their
 feet and left alone they blend back into animation. Settings → Enemy movement switches to full physics.

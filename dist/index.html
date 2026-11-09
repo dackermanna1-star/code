@@ -247,8 +247,19 @@ procedural additions.
 ## Enemy motion capture
 - "The 100STYLE Dataset" by Ian Mason, Franck Multon and Taku Komura - CC BY 4.0
   (https://creativecommons.org/licenses/by/4.0/), https://www.ianxmason.com/100style/
-  Style "Swat" (idle, forward/backward/sideways walks, forward run), retargeted from BVH to the
+  Style "Swat" (idle; walks and runs forward, backward and sideways), retargeted from BVH to the
   Microsoft Rocketbox skeleton and cut into in-place loops (tools/retarget.mjs).
+
+- Upper-body rifle aim, rifle reload and pistol reload from the Torque 3D "Soldier" player
+  animations (Lurker / Ryder sets), Copyright (c) 2012-2016 GarageGames, LLC, MIT licence,
+  https://github.com/GarageGames/Torque3D (3ds Max Biped, applied to the Rocketbox arms by bone name).
+  Permission is hereby granted, free of charge, to any person obtaining a copy of this software and
+  associated documentation files (the "Software"), to deal in the Software without restriction,
+  including without limitation the rights to use, copy, modify, merge, publish, distribute,
+  sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions: The above copyright notice and this
+  permission notice shall be included in all copies or substantial portions of the Software.
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
 
 ## Characters
 - Microsoft Rocketbox Avatar Library — MIT licence, (c) Microsoft Corporation,
@@ -67534,7 +67545,7 @@ function loadAnimLibrary() {
 }
 
 const _m4 = new T3.Matrix4(), _m4b = new T3.Matrix4(), _v3 = new T3.Vector3(), _v3b = new T3.Vector3(), _q = new T3.Quaternion(), _q2 = new T3.Quaternion(), _s3 = new T3.Vector3();
-const LOCO_CLIPS = ['idle', 'walk_f', 'walk_b', 'walk_l', 'walk_r', 'run_f'];
+const LOCO_CLIPS = ['idle', 'walk_f', 'walk_b', 'walk_l', 'walk_r', 'run_f', 'run_b', 'run_l', 'run_r'];
 
 class AnimBody {
   constructor(ai, render, gltf, lib) {
@@ -67554,8 +67565,9 @@ class AnimBody {
     const bones = new Map();
     skel.traverse((o) => { if (o.isBone) bones.set(o.name, o); });
     this.bones = bones;
-    // per ragdoll body: world = boneWorld * K, with K = inverse(S(p) * bindWorld) * T(segment bind)
-    const S = new T3.Matrix4().makeScale(this.scale, this.scale, this.scale);
+    // per ragdoll body: world = boneWorld * K with K the exact inverse of the binder's
+    // body->bone matrix, so bodies line up with the animated bones and the binder then draws the
+    // animation pose itself
     this.byBody = new Map();
     this.locals = []; // unmapped bones (fingers, clavicles, toes): their animated local goes to the binder
     for (const e of binder.plan) {
@@ -67563,8 +67575,7 @@ class AnimBody {
       if (!bone) continue;
       if (e.body) {
         if (this.byBody.has(e.body)) continue;
-        const bp = e.body.userData.segment.bindPos;
-        const K = new T3.Matrix4().copy(S).multiply(bone.matrixWorld).invert().multiply(new T3.Matrix4().makeTranslation(bp.x, bp.y, bp.z));
+        const K = new T3.Matrix4().copy(e.C).invert();
         this.byBody.set(e.body, { bone, K, q: new T3.Quaternion(), p: new T3.Vector3() });
       } else if (e.parent && e.L) this.locals.push({ e, bone, bind: e.L.clone() });
     }
@@ -67591,13 +67602,16 @@ class AnimBody {
     this.spine = ['Bip01_Spine', 'Bip01_Spine1', 'Bip01_Spine2'].map((n) => bones.get(n)).filter(Boolean);
     // the clips carry no fingers: close both hands round the weapon (biped fingers bend about +Z)
     const Z = new T3.Vector3(0, 0, 1);
+    this.fingers = [];
     for (const [name, bone] of bones) {
       const m = /^Bip01_[LR]_Finger(\d)(\d)?$/.exec(name);
       if (!m) continue;
       const seg = m[2] ? +m[2] : 0;
       const ang = m[1] === '0' ? [0.15, 0.35, 0.3][seg] : [0.95, 1.15, 0.7][seg];
       bone.quaternion.multiply(new T3.Quaternion().setFromAxisAngle(Z, ang));
+      this.fingers.push({ bone, rest: bone.quaternion.clone() }); // overlays blend from here each step
     }
+    this.pistol = ai.gun && ai.gun.hold === 'pistol';
     // the weapon runs from the right hand (grip) to the left (handguard), as the actor held it
     this.gunQ = new T3.Quaternion();
     this.gunDir = new T3.Vector3(0, 0, 1);
@@ -67745,19 +67759,21 @@ class AnimBody {
     const vf = this.vel.x * sinh + this.vel.z * cosh;      // forward
     const vr = -(this.vel.x * cosh - this.vel.z * sinh);   // character's right is -x when facing +z
     const speed = Math.hypot(vf, vr);
-    const w = { idle: 0, walk_f: 0, walk_b: 0, walk_l: 0, walk_r: 0, run_f: 0 };
+    const w = { idle: 0, walk_f: 0, walk_b: 0, walk_l: 0, walk_r: 0, run_f: 0, run_b: 0, run_l: 0, run_r: 0 };
     const moving = clamp((speed - 0.08) / 0.35, 0, 1);
     const shuffle = this.turning * 0.35 * (1 - moving);
     w.idle = Math.max(0, 1 - moving - shuffle);
     if (speed > 1e-3) {
       const fx = vf / speed, rx = vr / speed;
       const m = Math.max(moving, shuffle);
-      const runK = this.has('run_f') ? clamp((vf - 2.0) / 1.0, 0, 1) : 0;
-      w.walk_f = Math.max(0, fx) * m * (1 - runK);
-      w.run_f = Math.max(0, fx) * m * runK;
-      w.walk_b = Math.max(0, -fx) * m;
-      w.walk_r = Math.max(0, rx) * m;
-      w.walk_l = Math.max(0, -rx) * m;
+      // each direction blends its walk into its run as the speed passes the walk's natural pace
+      const dirW = { f: Math.max(0, fx), b: Math.max(0, -fx), r: Math.max(0, rx), l: Math.max(0, -rx) };
+      for (const d of ['f', 'b', 'l', 'r']) {
+        const ws = (meta['walk_' + d] && meta['walk_' + d].speed) || 0.9, rs = (meta['run_' + d] && meta['run_' + d].speed) || 0;
+        const runK = this.has('run_' + d) && rs > ws ? clamp((speed - ws * 1.05) / Math.max(0.2, rs - ws * 1.05), 0, 1) : 0;
+        w['walk_' + d] = dirW[d] * m * (1 - runK);
+        w['run_' + d] = dirW[d] * m * runK;
+      }
     } else if (shuffle > 0) {
       w.walk_f = shuffle; // feet shuffle round on the spot
     }
@@ -67767,7 +67783,7 @@ class AnimBody {
     if (!this.has('walk_r')) { w.walk_f += w.walk_r; w.walk_r = 0; }
     // stride rate: the clip's natural speed sets how fast the phase runs
     let rate = 0, tw = 0;
-    for (const n of ['walk_f', 'walk_b', 'walk_l', 'walk_r', 'run_f']) {
+    for (const n of ['walk_f', 'walk_b', 'walk_l', 'walk_r', 'run_f', 'run_b', 'run_l', 'run_r']) {
       if (!w[n] || !this.has(n)) continue;
       const cs = (meta[n] && meta[n].speed) || 1.4, dur = pl.duration(n);
       const sp = n === 'walk_f' && shuffle > 0 && speed < 0.2 ? 0.6 : Math.max(speed, 0.3);
@@ -67783,29 +67799,87 @@ class AnimBody {
     }
     pl.update(0);
     this.placeRoot();
-    // overlays (aim pose, reload...) on the upper body
+    for (const f of this.fingers) f.bone.quaternion.copy(f.rest);
+    // upper-body overlays: a shouldered aim while aiming, a reload timed to the AI's reload
+    const ai = this.ai;
+    // pistols: a procedural two-hand stance (solveArms) instead of an overlay
+    const aimClip = this.pistol ? null : this.has('aim') ? 'aim' : null;
+    const relClip = this.pistol && this.has('reload_pistol') ? 'reload_pistol' : this.has('reload') ? 'reload' : null;
+    const reloading = ai.reloadT > 0;
+    if (relClip) {
+      if (reloading && !this.reloadRun) {
+        this.reloadRun = true;
+        const o = this.setOverlay(relClip, 1, true);
+        o.t = 0; o.once = true;
+        o.rate = this.player.duration(relClip) / Math.max(0.5, ai.reloadT);
+      } else if (!reloading && this.reloadRun) { this.reloadRun = false; this.setOverlay(relClip, 0); }
+    }
+    if (aimClip) this.setOverlay(aimClip, ai.aiming && !reloading ? 1 : 0);
     for (const [name, o] of this.overlay) {
-      o.w += (o.target - o.w) * (1 - Math.exp(-dt * 8));
-      o.t += dt;
+      o.w += (o.target - o.w) * (1 - Math.exp(-dt * 9));
+      o.t += dt * (o.rate || 1);
       if (o.w < 0.01 && o.target === 0) { this.overlay.delete(name); continue; }
       this.applyOverlay(name, o);
     }
-    const aimClip = this.has('aim') ? 'aim' : null;
-    if (aimClip) this.setOverlay(aimClip, this.ai.aiming ? 1 : 0);
     // procedural: torso twist and pitch towards the aim, recoil
     this.kick = Math.max(0, this.kick - dt * 9);
     const n = this.spine.length || 1;
     for (const b of this.spine) this.rotateWorld(b, 0, this.twist / n, -this.pitch * 0.6 / n - this.kick * 0.03);
     if (this.neck) this.rotateWorld(this.neck, 0, 0, -this.pitch * 0.25);
     if (this.head) this.rotateWorld(this.head, 0, 0, -this.pitch * 0.15 + this.kick * 0.02);
+    // pistol stance: both arms reach to a grip on the aim line in front of the chest
+    this.ikW = (this.ikW || 0) + ((this.pistol && ai.aiming && !reloading ? 1 : 0) - (this.ikW || 0)) * (1 - Math.exp(-dt * 10));
+    if (this.ikW > 0.01) this.solveArms(this.ikW);
+  }
+
+  // two-bone IK for both arms towards a two-handed pistol grip
+  solveArms(w) {
+    const B = this.bones;
+    const uR = B.get('Bip01_R_UpperArm'), fR = B.get('Bip01_R_Forearm'), hR = B.get('Bip01_R_Hand');
+    const uL = B.get('Bip01_L_UpperArm'), fL = B.get('Bip01_L_Forearm'), hL = B.get('Bip01_L_Hand');
+    if (!uR || !fR || !hR || !uL || !fL || !hL) return;
+    this.holder.updateMatrixWorld(true);
+    const P = (b) => new T3.Vector3().setFromMatrixPosition(b.matrixWorld);
+    const sR = P(uR), sL = P(uL), mid = sR.clone().add(sL).multiplyScalar(0.5);
+    const arm = P(uR).distanceTo(P(fR)) + P(fR).distanceTo(P(hR));
+    const aim = new T3.Vector3(this.ai.aimDir.x, this.ai.aimDir.y, this.ai.aimDir.z).normalize();
+    const right = new T3.Vector3().crossVectors(aim, new T3.Vector3(0, 1, 0)).normalize(); // character's right
+    const grip = mid.clone().addScaledVector(aim, arm * 0.82).add(new T3.Vector3(0, -0.06 * this.scale, 0));
+    const reach = (u, f, h, target, side) => {
+      const a = P(u).distanceTo(P(f)), b = P(f).distanceTo(P(h));
+      const S0 = P(u), toT = target.clone().sub(S0);
+      const c = clamp(toT.length(), Math.abs(a - b) + 1e-3, a + b - 1e-3);
+      toT.normalize();
+      // elbows out and down
+      const pole = new T3.Vector3(0, -1, 0).addScaledVector(right, side * 0.8).addScaledVector(toT, -toT.dot(new T3.Vector3(0, -1, 0).addScaledVector(right, side * 0.8))).normalize();
+      const cosA = clamp((a * a + c * c - b * b) / (2 * a * c), -1, 1), sinA = Math.sqrt(1 - cosA * cosA);
+      const elbow = S0.clone().addScaledVector(toT, a * cosA).addScaledVector(pole, a * sinA);
+      const end = S0.clone().addScaledVector(toT, c);
+      this.aimBone(u, P(f).sub(S0).normalize(), elbow.clone().sub(S0).normalize(), w);
+      u.updateMatrixWorld(true);
+      this.aimBone(f, P(h).sub(P(f)).normalize(), end.sub(P(f)).normalize(), w);
+      f.updateMatrixWorld(true);
+    };
+    reach(uR, fR, hR, grip.clone().addScaledVector(right, 0.01 * this.scale), 1);
+    reach(uL, fL, hL, grip.clone().addScaledVector(right, -0.035 * this.scale).add(new T3.Vector3(0, -0.02 * this.scale, 0)), -1);
+  }
+
+  // turn a bone so its world direction `from` becomes `to` (blended by w)
+  aimBone(bone, from, to, w) {
+    const d = new T3.Quaternion().setFromUnitVectors(from, to);
+    if (w < 1) d.slerp(new T3.Quaternion(), 1 - w);
+    const pw = bone.parent.getWorldQuaternion(new T3.Quaternion());
+    const bw = bone.getWorldQuaternion(new T3.Quaternion());
+    bone.quaternion.copy(pw.invert().multiply(d.multiply(bw)));
   }
 
   has(n) { return this.player.has(n); }
 
-  setOverlay(name, target) {
+  setOverlay(name, target, create = false) {
     let o = this.overlay.get(name);
-    if (!o) { if (!target) return; o = { w: 0, target, t: 0 }; this.overlay.set(name, o); }
+    if (!o) { if (!target && !create) return null; o = { w: 0, target, t: 0 }; this.overlay.set(name, o); }
     o.target = target;
+    return o;
   }
 
   // blend an upper-body clip over the locomotion (spine2 and up, both arms)
@@ -67819,7 +67893,7 @@ class AnimBody {
         return prop.prop === 'quaternion' && /Spine2|Neck|Head|Clavicle|UpperArm|Forearm|Hand|Finger/.test(nm);
       }).map((b) => ({ b, obj: this.player.props.get(b.key).obj }));
     }
-    const t = clip.duration > 0 ? o.t % clip.duration : 0;
+    const t = clip.duration > 0 ? (o.once ? Math.min(o.t, clip.duration) : o.t % clip.duration) : 0;
     for (const { b, obj } of o.bind) {
       const v = b.interp.evaluate(t);
       _q.set(v[0], v[1], v[2], v[3]);
@@ -67903,12 +67977,28 @@ class AnimBody {
     }
     // fingers, clavicles and the rest follow their animated local transform
     for (const { e, bone } of this.locals) e.L.copy(bone.matrix);
-    // weapon orientation from the hands
-    const hR = this.rd.segments.handR.body.pos, hL = this.rd.segments.handL.body.pos;
-    this.gunDir.set(hL.x - hR.x, hL.y - hR.y, hL.z - hR.z);
-    if (this.gunDir.lengthSq() < 1e-4) this.gunDir.set(Math.sin(this.heading), 0, Math.cos(this.heading));
-    this.gunDir.normalize();
-    this.gunQ.setFromEuler(new T3.Euler(Math.asin(clamp(this.gunDir.y, -1, 1)), Math.atan2(this.gunDir.x, this.gunDir.z) + Math.PI, 0, 'YXZ'));
+    // weapon orientation: a long gun runs from the right hand (grip) to the left (handguard); a
+    // pistol points along the extended right arm; mid-reload the gun stays fixed in the right hand
+    // while the left fetches the magazine
+    const seg = this.rd.segments, hRb = seg.handR.body, hR = hRb.pos;
+    const handQ = _q2.set(hRb.rot.x, hRb.rot.y, hRb.rot.z, hRb.rot.w);
+    if (this.reloadRun && this.relQ) {
+      this.gunQ.copy(handQ).multiply(this.relQ);
+      this.gunDir.set(0, 0, -1).applyQuaternion(this.gunQ);
+    } else {
+      if (this.pistol) {
+        // two-hand grip: from between the shoulders through the hands
+        const a = seg.upperArmR.body.pos, b = seg.upperArmL.body.pos, l = seg.handL.body.pos;
+        this.gunDir.set((hR.x + l.x - a.x - b.x) / 2, (hR.y + l.y - a.y - b.y) / 2, (hR.z + l.z - a.z - b.z) / 2);
+      } else {
+        const l = seg.handL.body.pos;
+        this.gunDir.set(l.x - hR.x, l.y - hR.y, l.z - hR.z);
+      }
+      if (this.gunDir.lengthSq() < 1e-4) this.gunDir.set(Math.sin(this.heading), 0, Math.cos(this.heading));
+      this.gunDir.normalize();
+      this.gunQ.setFromEuler(new T3.Euler(Math.asin(clamp(this.gunDir.y, -1, 1)), Math.atan2(this.gunDir.x, this.gunDir.z) + Math.PI, 0, 'YXZ'));
+      this.relQ = handQ.clone().invert().multiply(this.gunQ); // ready for a reload
+    }
     void bw;
   }
 
