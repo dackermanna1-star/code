@@ -45,7 +45,7 @@ class EnemyManager {
       // light hits are ridden out on the animation instead (a flinch and a stumble); a body getting
       // up from the floor goes straight back to the ragdoll
       let soft = null;
-      if ((e.type === 'fleshHit' || e.type === 'armorHit') && e.person && e.person.enemy && e.person.enemy.anim) {
+      if ((e.type === 'fleshHit' || e.type === 'armorHit') && !e.severedPart && e.person && e.person.enemy && e.person.enemy.anim) {
         const ai = e.person.enemy, an = ai.anim;
         if (an.mode === 'anim' && this.rideOut(ai, e)) { soft = an; e.soft = true; }
         else an.wake('hit');

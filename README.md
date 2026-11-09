@@ -47,8 +47,9 @@ bone weights into the body and a separate piece (both share the character's vert
 its own index), and both openings are closed by skinned cut faces (meat, fat, bone and marrow; a
 neck shows vertebra and windpipe). Gore: blood burst and mist, pulsing arterial spurts, pools,
 pooled gib chunks, wall splatter and a wet tear. Gunmen who lose a limb are out of the fight (most
-writhe and bleed out); the hollowed keep coming one-armed, or claw themselves along the floor without
-a leg. Settings → gore off disables it.
+writhe and bleed out); the hollowed keep coming one-armed (straight back on their motion-captured
+charge, the arm left flying through the world) or claw themselves along the floor without a leg.
+Settings → gore off disables it.
 
 ## Building
 `npm run build` concatenates `engine/ragdoll-engine.js` and `src/*.js` into `dist/index.html` and

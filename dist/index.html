@@ -72916,7 +72916,7 @@ class EnemyManager {
       // light hits are ridden out on the animation instead (a flinch and a stumble); a body getting
       // up from the floor goes straight back to the ragdoll
       let soft = null;
-      if ((e.type === 'fleshHit' || e.type === 'armorHit') && e.person && e.person.enemy && e.person.enemy.anim) {
+      if ((e.type === 'fleshHit' || e.type === 'armorHit') && !e.severedPart && e.person && e.person.enemy && e.person.enemy.anim) {
         const ai = e.person.enemy, an = ai.anim;
         if (an.mode === 'anim' && this.rideOut(ai, e)) { soft = an; e.soft = true; }
         else an.wake('hit');
@@ -77531,6 +77531,7 @@ class Dismemberment {
     this.spurts = Array.from({ length: DISMEMBER.maxSpurts }, () => ({ on: false, body: null, local: new I(), dir: new I(), t: 0, dur: 1, k: 1, acc: 0, rate: 1.6, pool: 0 }));
     this.crawlers = new Set();
     this.oneArmed = []; // { p, lost: 'L' | 'R' }
+    this.steady = []; // hollows just relieved of an arm: firmer balance for a moment
     this.drawn = []; // render states with proxies to pose each frame
     this.stepNo = 0;
     this.gibs = null;
@@ -77550,6 +77551,7 @@ class Dismemberment {
     this.fates.length = 0;
     this.crawlers.clear();
     this.oneArmed.length = 0;
+    this.steady.length = 0;
     this.drawn.length = 0;
     for (const s of this.spurts) { s.on = false; s.body = null; }
     // materials are lit by the level's light lattice: rebuild them for the new view
@@ -77602,7 +77604,7 @@ class Dismemberment {
         from = toP3(by.headPos);
       }
       // grenade fragments are handled by the blast (onExplosion)
-      acc = { by, ball, from, segs: {} };
+      acc = { by, ball, from, segs: {}, events: [] };
       this.pending.set(p, acc);
     }
     const name = e.seg.name;
@@ -77612,6 +77614,7 @@ class Dismemberment {
     if (e.bone) s.bone++;
     s.at.add(e.entry);
     s.dir.add(e.dir);
+    acc.events.push(e);
   }
 
   onShot() { this.flush(); }
@@ -77668,7 +77671,7 @@ class Dismemberment {
     if (!plans.length) return;
     // a head always goes; otherwise at most two parts from one shot
     plans.sort((a, b) => (b.key === 'head') - (a.key === 'head') || b.energy - a.energy);
-    for (const pl of plans.slice(0, pellets > 1 ? 2 : 1)) this.sever(p, pl.key, { ...pl, by: acc.by });
+    for (const pl of plans.slice(0, pellets > 1 ? 2 : 1)) this.sever(p, pl.key, { ...pl, by: acc.by, events: acc.events });
   }
 
   // a grenade: limbs near the blast are torn off, a head right on top of it bursts
@@ -77736,6 +77739,12 @@ class Dismemberment {
       }
       p.ctl.startle = 0;
       if (p.ctl.sens) { const cv = p.ctl.sens.comVel, h = Math.hypot(cv.x, cv.z); if (h > 2) { cv.x *= 2 / h; cv.z *= 2 / h; } }
+      // and the balance controller gets a firmer hand while it learns the new weight
+      const c = p.ctl;
+      if (!this.steady.some((s) => s.p === p)) {
+        this.steady.push({ p, until: g.time + 1.6, gain: c.assistGain, v: c.vAssist });
+        c.assistGain *= 1.9; c.vAssist *= 1.6;
+      }
     }
     const dir = o.dir ? new I(o.dir.x, o.dir.y, o.dir.z).normalize() : new I(0, 0.3, 1).normalize();
     const rec = { key, kind, def, seg, dir, by: o.by, t: g.time, energy: o.energy || 1000, blast: !!o.blast };
@@ -77779,6 +77788,7 @@ class Dismemberment {
       const inj = p.injury, c = p.ctl;
       if (def.part === 'arm') {
         inj.nerve['arm' + def.side] = 0; c.armStrength[def.side] = 0;
+        if (ai && ai.hollow && ai.anim && p.injury.alive && kind === 'limb') this.animateArmless(ai);
         if (p.zombie && p.zombie.side) {
           const other = def.side === 'L' ? 'R' : 'L';
           const both = this.oneArmed.find((o) => o.p === p);
@@ -77804,6 +77814,8 @@ class Dismemberment {
         // the stump side is shoved along with the blast (a hollow that keeps coming, barely)
         const pb = rec.parentBody, sh = keepOn ? 1.2 : 6;
         pb.applyImpulse(new I(dir.x * sh, 1, dir.z * sh), pb.localToWorld(rec.anchorP, new I()));
+        // (the shot's queued hits must not wake it again when the manager counts them)
+        if (keepOn && this.resumeCharge(ai, rec, dir) && o.events) for (const e of o.events) e.soft = true;
       }
     }
     // the wound: an arterial bleed at the stump (a destroyed head too: the pool spreads from the neck)
@@ -77838,6 +77850,64 @@ class Dismemberment {
     let st = this.people.get(p);
     if (!st) { st = { cuts: [], render: null, stumpParents: new Set(), skull: null }; this.people.set(p, st); }
     return st;
+  }
+
+  // A hollow that has lost only arms goes back to its motion-captured charge once the arm has
+  // landed. AnimBody refuses a dismembered body (it would pose the missing part back on), so its
+  // enter() is let through for arm cuts only, and around each sync() the severed parts are put back
+  // where they lie: the animation poses everything still attached and nothing else. (Dormant, the
+  // severed arm is out of the world like the rest, so it simply stays where it fell.)
+  animateArmless(ai) {
+    const an = ai.anim, p = ai.p;
+    if (!an) return;
+    const sev = p.rd.allBodies().filter((b) => b.userData && b.userData.segment && p.severed.has(b.userData.segment.name));
+    an._dmSev = sev.map((b) => ({ b, pos: b.pos.clone(), rot: b.rot.clone(), fp: b.framePos.clone(), fr: b.frameRot.clone(), vel: b.vel.clone(), av: b.angVel.clone() }));
+    if (an._dmWrapped) return;
+    an._dmWrapped = true;
+    const proto = Object.getPrototypeOf(an);
+    const armsOnly = () => { for (const n of p.severed) if (!/^(upperArm|forearm|hand)/.test(n)) return false; return true; };
+    an.enter = (fade) => {
+      if (!armsOnly() || (p.rd.extraBodies && p.rd.extraBodies.length)) return false;
+      if (!an._dmForce) for (const s of an._dmSev) if (s.b.vel.lengthSq() > 0.09 || s.b.angVel.lengthSq() > 9) return false; // let it land first
+      const was = p.dismembered;
+      p.dismembered = false;
+      try { return proto.enter.call(an, fade); } finally { p.dismembered = was; }
+    };
+    // joints of a part left flying while the rest is animated come out before the body wakes, which
+    // puts every joint back itself
+    an.wake = (reason) => {
+      if (an._dmJoints) { const w = this.game.sb.world; for (const j of an._dmJoints) w.removeJoint(j); an._dmJoints = null; }
+      return proto.wake.call(an, reason);
+    };
+    an.sync = (dt) => {
+      const S = an._dmSev;
+      for (let i = 0; i < S.length; i++) { const s = S[i], b = s.b; s.pos.copy(b.pos); s.rot.copy(b.rot); s.fp.copy(b.framePos); s.fr.copy(b.frameRot); s.vel.copy(b.vel); s.av.copy(b.angVel); }
+      proto.sync.call(an, dt);
+      for (let i = 0; i < S.length; i++) {
+        const s = S[i], b = s.b;
+        b.pos.copy(s.pos); b.rot.copy(s.rot); b.framePos.copy(s.fp); b.frameRot.copy(s.fr); b.vel.copy(s.vel); b.angVel.copy(s.av);
+        b.computeAABB(0, 0);
+      }
+    };
+  }
+
+  // straight back into the charge: the body runs on the animation (with a flinch) while the arm
+  // flies on its own through the world
+  resumeCharge(ai, rec, dir) {
+    const an = ai.anim, p = ai.p, w = this.game.sb.world;
+    if (!an || !an._dmWrapped || an.active) return false;
+    an._dmForce = true;
+    let ok = false;
+    try { ok = an.enter(0.12); } finally { an._dmForce = false; }
+    if (!ok) return false;
+    const parts = new Set(rec.bodies);
+    for (const b of rec.bodies) { w.addBody(b); b.wake(); }
+    const js = [];
+    for (const j of p.rd.jointList) if (parts.has(j.parent) && parts.has(j.child)) { w.addJoint(j); js.push(j); }
+    for (const j of p.rd.fractureJoints) if (parts.has(j.parent) && parts.has(j.child)) { w.addJoint(j); js.push(j); }
+    an._dmJoints = js;
+    an.flinch({ type: 'fleshHit', dir, energy: 800, seg: rec.parentSeg, entry: rec.parentBody.localToWorld(rec.anchorP, new I()) });
+    return true;
   }
 
   // the controller balances, and the sandbox weighs, only what is still attached
@@ -77934,6 +78004,12 @@ class Dismemberment {
     }
     this.updateSpurts(dt);
     if (this.crawlers.size) this.updateCrawlers(dt);
+    for (let i = this.steady.length - 1; i >= 0; i--) {
+      const s = this.steady[i];
+      if (g.time < s.until) continue;
+      s.p.ctl.assistGain = s.gain; s.p.ctl.vAssist = s.v;
+      this.steady.splice(i, 1);
+    }
     // a one-armed hollow swings with the arm it has left (its brain alternates sides, and never
     // swings an arm too weak to strike)
     for (let i = this.oneArmed.length - 1; i >= 0; i--) {
@@ -78010,9 +78086,9 @@ class Dismemberment {
       cr.haul = false;
       cr.t = 0.36 + Math.random() * 0.26;
       const pull = cr.arm ? 1 : 0.6;
-      ch.applyImpulse(new I(ux * 40 * pull, 12, uz * 40 * pull), ch.pos);
-      S.abdomen.body.applyImpulse(new I(ux * 21 * pull, 5, uz * 21 * pull), S.abdomen.body.pos);
-      S.pelvis.body.applyImpulse(new I(ux * 19 * pull, 4, uz * 19 * pull), S.pelvis.body.pos);
+      ch.applyImpulse(new I(ux * 38 * pull, 22, uz * 38 * pull), ch.pos);
+      S.abdomen.body.applyImpulse(new I(ux * 19 * pull, 9, uz * 19 * pull), S.abdomen.body.pos);
+      S.pelvis.body.applyImpulse(new I(ux * 16 * pull, 6, uz * 16 * pull), S.pelvis.body.pos);
       S.head.body.applyImpulse(new I(ux * 1.5, 2, uz * 1.5), head);
       if (cr.arm) { const h = S['hand' + cr.arm].body; h.applyImpulse(new I(-ux * 1.5, -1, -uz * 1.5), h.pos); } // the hand pulls back against the floor
     }
@@ -78602,6 +78678,7 @@ class Dismemberment {
     this.people.delete(p);
     this.crawlers.forEach((ai) => { if (ai.p === p) this.crawlers.delete(ai); });
     this.oneArmed = this.oneArmed.filter((o) => o.p !== p);
+    this.steady = this.steady.filter((s) => s.p !== p);
     this.fates = this.fates.filter((f) => f.ai.p !== p);
     for (const s of this.spurts) if (s.on && st.cuts.some((c) => c.parentBody === s.body || (c.seg && c.seg.body === s.body))) { s.on = false; s.body = null; }
     const R = st.render;
