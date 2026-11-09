@@ -87,6 +87,23 @@ export interface ILevel {
   dispose(): void;
 }
 
+/** Something weapons can aim at. Implemented by zombies. */
+export interface ITarget {
+  readonly position: Vector3; // world center of mass
+  readonly alive: boolean;
+  /** Damage from a weapon. `force` uses the same units as car impacts (m/s). */
+  hit(force: number, direction: Vector3, kind: "bullet" | "fire" | "explosion"): void;
+}
+
+/** Zombie system as seen by others (weapons, HUD). */
+export interface IZombies extends ISystem {
+  /** Live targets within `range` of `from`, nearest first. */
+  targetsNear(from: Vector3, range: number): ITarget[];
+  /** Apply an explosion to all zombies/ragdolls in radius. */
+  explode(center: Vector3, radius: number, power: number): void;
+  readonly aliveCount: number;
+}
+
 /** Generic per-frame system. */
 export interface ISystem {
   update(dt: number): void;
