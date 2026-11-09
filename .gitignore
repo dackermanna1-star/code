@@ -1,3 +1,6 @@
 node_modules
 *.log
 .DS_Store
+
+# agent worktrees (temporary checkouts)
+.claude/worktrees/
