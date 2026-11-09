@@ -28,7 +28,8 @@ class Medkits {
     if (a.state === 'heal') return true;
     if (a.medkits <= 0) { g.hud.toast('NO MEDKITS'); return true; }
     if (P.health >= P.maxHealth - 0.5) { g.hud.toast('HEALTH FULL'); return true; }
-    if (!a.useMedkit(MEDKIT.dur, MEDKIT.inject)) return true;
+    // mid-pump, mid-switch or mid-throw: hold the press for a moment and start once the hands are free
+    if (!a.useMedkit(MEDKIT.dur, MEDKIT.inject)) this.queued = 0.6;
     return true;
   }
 
@@ -66,6 +67,10 @@ class Medkits {
 
   step(dt) {
     const g = this.game, P = g.player;
+    if (this.queued > 0) {
+      this.queued -= dt;
+      if (g.arsenal.state === 'idle' || g.arsenal.state === 'reload' || g.arsenal.state === 'inspect') { this.queued = 0; this.useMedkit(); }
+    }
     if (!this.hot) return;
     if (!P.alive) { this.hot = null; return; }
     const h = Math.min(this.hot.left, this.hot.rate * dt);

@@ -161,7 +161,7 @@ class LevelView {
     this.buildProps();
     this.buildSpots();
     this.buildDust();
-    this.wallDecals = new WallDecals(scene, 900);
+    this.wallDecals = new WallDecals(scene, 1600);
   }
 
   static lampParams(level) {
