@@ -14,7 +14,7 @@ class Hud {
     this.dir = director;
     const root = (this.root = mkEl('div', 'br hidden', document.body));
     root.innerHTML = `
-      <div class="vig"></div><div class="sup"></div><div class="blast"></div><div class="scope"><b></b></div>
+      <div class="vig"></div><div class="sup"></div><div class="blast"></div><div class="scope"><svg viewBox="-100 -100 200 200" preserveAspectRatio="xMidYMid meet"><g stroke="#050505" fill="none"><line x1="-100" y1="0" x2="-6" y2="0" stroke-width="0.7"/><line x1="6" y1="0" x2="100" y2="0" stroke-width="0.7"/><line x1="0" y1="-100" x2="0" y2="-6" stroke-width="0.7"/><line x1="0" y1="6" x2="0" y2="100" stroke-width="0.7"/><line x1="-100" y1="0" x2="-55" y2="0" stroke-width="2.4"/><line x1="55" y1="0" x2="100" y2="0" stroke-width="2.4"/><line x1="0" y1="55" x2="0" y2="100" stroke-width="2.4"/></g><g fill="#050505"><circle cx="-40" cy="0" r="0.9"/><circle cx="-30" cy="0" r="0.9"/><circle cx="-20" cy="0" r="0.9"/><circle cx="-10" cy="0" r="0.9"/><circle cx="10" cy="0" r="0.9"/><circle cx="20" cy="0" r="0.9"/><circle cx="30" cy="0" r="0.9"/><circle cx="40" cy="0" r="0.9"/><circle cx="0" cy="-40" r="0.9"/><circle cx="0" cy="-30" r="0.9"/><circle cx="0" cy="-20" r="0.9"/><circle cx="0" cy="-10" r="0.9"/><circle cx="0" cy="10" r="0.9"/><circle cx="0" cy="20" r="0.9"/><circle cx="0" cy="30" r="0.9"/><circle cx="0" cy="40" r="0.9"/></g><circle cx="0" cy="0" r="0.8" fill="#d42"/></svg><i class="breath"></i></div>
       <div class="rec"><span class="dotr"></span><span class="rt"></span></div>
       <div class="cam">M.E.G. BODY CAM · UNIT 07 · LEVEL FEED</div>
       <div class="wave"><div class="lv"></div><div class="wn"></div><div class="left"><div class="vbar"><b></b></div><span class="timer"></span></div></div>
@@ -161,6 +161,7 @@ class Hud {
     e.blast.style.opacity = g.flashbang;
     const scoped = a.gun.zoom > 2 && a.adsAmount > 0.92;
     e.scope.style.opacity = scoped ? 1 : 0;
+    if (scoped) e.scope.classList.toggle('steady', !!g.holdingBreath);
     // bodycam clock
     const now = new Date();
     e.rt.textContent = `REC  ${now.toISOString().slice(0, 10)}  ${now.toTimeString().slice(0, 8)}  ·  W${String(Math.max(1, d.wave)).padStart(2, '0')}`;

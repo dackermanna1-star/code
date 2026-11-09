@@ -22,6 +22,11 @@ procedural additions.
 - "FPS Saiga animations" by Cransh — https://sketchfab.com/ccransh
 - "FPS Arms remington (shotgun)" by Cransh — https://sketchfab.com/ccransh
 
+## Sniper rifle model
+- "M24 Bounty Hunter Sniper Rifle" by Naudaff3D — CC BY 4.0,
+  https://sketchfab.com/3d-models/m24-bounty-hunter-sniper-rifle-d40e74e2259549f5b025807163f1028c
+  (mounted on the "Animated FPS hands (rifle animation pack)" arms by Cransh)
+
 ## Characters
 - Microsoft Rocketbox Avatar Library — MIT licence, (c) Microsoft Corporation,
   https://github.com/microsoft/Microsoft-Rocketbox

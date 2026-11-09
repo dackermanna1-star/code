@@ -18,13 +18,13 @@ const VM_RIGS = {
     eye: [0, 0.021, 0.0], sightRear: 0.35, sightFront: 0.92, adsDist: 0.16, port: 0.62, fov: 52,
   },
   ak74: {
-    asset: 'viewmodels/ak74', gun: 'Rif_059', arms: ['arms'], caliber: '556',
+    asset: 'viewmodels/ak74', drum: true, gun: 'Rif_059', arms: ['arms'], caliber: '556',
     adsNudge: [-0.0105, 0, 0], hip: [0, 0, 0, 0, 0],
     clips: { idle: 'AK_Idle', walk: 'AK_Walk', run: 'AK_Run', fire: 'AK_Shot', reload: 'AK_Reload', reloadEmpty: 'AK_Reload_full', reloadAlt: 'AK_Reload_var2', draw: 'AK_Draw' },
     eye: [0, 0.021, -0.079], sightRear: 0.42, sightFront: 0.95, adsDist: 0.2, port: 0.6, fov: 52,
   },
   acr: {
-    asset: 'viewmodels/acr', gun: 'Rif_059', arms: ['arms'], caliber: '556',
+    asset: 'viewmodels/acr', mounts: { m24: { asset: 'viewmodels/m24', length: 1.09, grip: 0.3, offset: [0.005, -0.035, 0] } }, gun: 'Rif_059', arms: ['arms'], caliber: '556',
     adsNudge: [0, 0, 0], hip: [0, 0, 0, 0, 0],
     clips: { idle: 'Arms_FPS_Anim_Idle', walk: 'Arms_FPS_Anim_Walk', run: 'Arms_FPS_Anim_Run', fire: 'Arms_FPS_Anim_Shoot', fireSingle: 'Arms_FPS_Anim_OneShot', reload: 'Arms_FPS_Anim_Reload_Fast', draw: 'Arms_FPS_Anim_Draw', inspect: 'Arms_FPS_Anim_rifle_inspect' },
     eye: [0, 0.021, 0.0], sightRear: 0.4, sightFront: 0.95, adsDist: 0.16, port: 0.6, fov: 52,
@@ -101,8 +101,13 @@ class Viewmodel {
     if (this.rigs[rigId]) return this.rigs[rigId];
     if (this.loading[rigId]) return this.loading[rigId];
     const def = VM_RIGS[rigId];
-    this.loading[rigId] = Assets.gltf(def.asset).then((gltf) => {
+    this.loading[rigId] = Assets.gltf(def.asset).then(async (gltf) => {
       const rig = this.buildRig(rigId, def, gltf);
+      // other weapons carried by this rig's arms and animations (the rig is still in its idle, identity pose)
+      rig.mounts = {};
+      for (const [mid, m] of Object.entries(def.mounts || {})) {
+        try { this.buildMount(rig, mid, m, await Assets.gltf(m.asset)); } catch (e) { console.warn('[viewmodel] mount', mid, e); }
+      }
       this.rigs[rigId] = rig;
       return rig;
     });
@@ -222,7 +227,13 @@ class Viewmodel {
     rig.rearLocal = rear.clone().applyMatrix4(gunInv);
     const port = rear.clone().lerp(muzzle, rig.def.port).addScaledVector(r, 0.012 * rig.S).addScaledVector(u, 0.02 * rig.S);
     rig.portLocal = port.applyMatrix4(gunInv);
+    rig.base = { muzzleLocal: rig.muzzleLocal, rearLocal: rig.rearLocal, portLocal: rig.portLocal };
     this.solveAds(rig);
+    // attachments are positioned now, while the rig is in its identity idle pose
+    this.ensureSuppressor(rig).visible = false;
+    this.ensureRedDot(rig).visible = false;
+    if (rig.def.drum) this.ensureDrum(rig).visible = false;
+    if (rig.parts.scope) rig.scopeSight = this.measureScope(rig);
   }
 
   // cameras (rig space). ADS: on the sight line, `dist` behind the rear sight. Hip: offset from it.
@@ -258,30 +269,131 @@ class Viewmodel {
     const rig = this.rigs[weapon.rig];
     if (!rig) return;
     const at = weapon.attachments || new Set();
-    for (const [part, meshes] of Object.entries(rig.parts)) for (const m of meshes) m.visible = at.has(part);
+    const mount = weapon.def.mount && rig.mounts ? rig.mounts[weapon.def.mount] : null;
+    for (const m of rig.gunMeshes) m.visible = !mount;
+    for (const [part, meshes] of Object.entries(rig.parts)) for (const m of meshes) m.visible = !mount && at.has(part);
     for (const k of Object.keys(rig.attach)) rig.attach[k].visible = false;
-    if (at.has('suppressor') && !rig.parts.suppressor) this.ensureSuppressor(rig).visible = true;
-    if (at.has('reddot') && !at.has('scope')) this.ensureRedDot(rig).visible = true;
-    if (weapon.drum) this.ensureDrum(rig).visible = true;
-    if (at.has('scope') && rig.parts.scope) {
-      // sight line through the optic's window (its upper part; the housing below is solid)
-      const F = rig.frame;
-      const pts = [];
-      const v = new T3.Vector3();
-      for (const m of rig.parts.scope) { const pos = m.geometry.attributes.position; for (let i = 0; i < pos.count; i += 3) { m.getVertexPosition(i, v); pts.push(v.clone().applyMatrix4(m.matrixWorld).sub(F.c)); } }
-      let fA = Infinity, fB = -Infinity, uA = Infinity, uB = -Infinity;
-      for (const p of pts) { const sf = p.dot(F.f), su = p.dot(F.u); fA = Math.min(fA, sf); fB = Math.max(fB, sf); uA = Math.min(uA, su); uB = Math.max(uB, su); }
-      const cu = uA + 0.66 * (uB - uA);
-      let cr = 0, nr = 0;
-      for (const p of pts) if (p.dot(F.u) > uA + 0.55 * (uB - uA)) { cr += p.dot(F.r); nr++; }
-      cr = nr ? cr / nr : F.muzR;
-      const at3 = (sf) => F.c.clone().addScaledVector(F.f, sf).addScaledVector(F.u, cu).addScaledVector(F.r, cr);
-      this.solveAds(rig, { rear: at3(fA), front: at3(fB), dist: 0.13, scope: true });
-    } else if (at.has('reddot')) {
-      const sc = rig.attach.reddot.userData.sight;
-      this.solveAds(rig, { rear: sc.rear, front: sc.front, dist: 0.13 });
-    } else this.solveAds(rig);
+    for (const mo of Object.values(rig.mounts || {})) { mo.holder.visible = false; if (mo.suppressor) mo.suppressor.visible = false; }
+    if (mount) {
+      mount.holder.visible = true;
+      if (mount.suppressor) mount.suppressor.visible = at.has('suppressor');
+      rig.muzzleLocal = mount.muzzleLocal;
+      rig.rearLocal = mount.rearLocal;
+      rig.portLocal = mount.portLocal;
+      this.solveAds(rig, mount.sight);
+    } else {
+      rig.muzzleLocal = rig.base.muzzleLocal;
+      rig.rearLocal = rig.base.rearLocal;
+      rig.portLocal = rig.base.portLocal;
+      if (at.has('suppressor') && !rig.parts.suppressor) rig.attach.suppressor.visible = true;
+      if (at.has('reddot') && !at.has('scope')) rig.attach.reddot.visible = true;
+      if (weapon.drum && rig.attach.drum) rig.attach.drum.visible = true;
+      if (at.has('scope') && rig.scopeSight) this.solveAds(rig, rig.scopeSight);
+      else if (at.has('reddot')) this.solveAds(rig, rig.attach.reddot.userData.sight);
+      else this.solveAds(rig);
+    }
+    if (rig.attach.drum && rig.drumHides) for (const m of rig.drumHides) m.visible = !weapon.drum;
     rig.suppressed = at.has('suppressor');
+  }
+
+  // sight line through a holographic optic's window (its upper part; the housing below is solid)
+  measureScope(rig) {
+    const F = rig.frame;
+    const pts = [];
+    const v = new T3.Vector3();
+    for (const m of rig.parts.scope) { const pos = m.geometry.attributes.position; for (let i = 0; i < pos.count; i += 3) { m.getVertexPosition(i, v); pts.push(v.clone().applyMatrix4(m.matrixWorld).sub(F.c)); } }
+    if (!pts.length) return null;
+    let fA = Infinity, fB = -Infinity, uA = Infinity, uB = -Infinity;
+    for (const p of pts) { const sf = p.dot(F.f), su = p.dot(F.u); fA = Math.min(fA, sf); fB = Math.max(fB, sf); uA = Math.min(uA, su); uB = Math.max(uB, su); }
+    const cu = uA + 0.66 * (uB - uA);
+    let cr = 0, nr = 0;
+    for (const p of pts) if (p.dot(F.u) > uA + 0.55 * (uB - uA)) { cr += p.dot(F.r); nr++; }
+    cr = nr ? cr / nr : F.muzR;
+    const at3 = (sf) => F.c.clone().addScaledVector(F.f, sf).addScaledVector(F.u, cu).addScaledVector(F.r, cr);
+    return { rear: at3(fA), front: at3(fB), dist: 0.13, scope: true };
+  }
+
+  // mount a separate (static) weapon model on this rig's weapon bone: bore along the rig's bore,
+  // real-world length, grip seated at the rig's shooting hand
+  buildMount(rig, id, def, gltf) {
+    const F = rig.frame, S = rig.S;
+    const obj = gltf.scene;
+    obj.updateMatrixWorld(true);
+    const pts = [], mats = [];
+    const v = new T3.Vector3();
+    obj.traverse((o) => {
+      if (!o.isMesh) return;
+      o.castShadow = o.receiveShadow = false;
+      o.frustumCulled = false;
+      const pos = o.geometry.attributes.position;
+      for (let i = 0; i < pos.count; i++) { v.fromBufferAttribute(pos, i).applyMatrix4(o.matrixWorld); pts.push(v.clone()); mats.push(o.material ? o.material.name : ''); }
+    });
+    let c = new T3.Vector3();
+    for (const p of pts) c.add(p);
+    c.multiplyScalar(1 / pts.length);
+    const C = [[0, 0, 0], [0, 0, 0], [0, 0, 0]];
+    for (const p of pts) { const d = [p.x - c.x, p.y - c.y, p.z - c.z]; for (let a = 0; a < 3; a++) for (let b = 0; b < 3; b++) C[a][b] += d[a] * d[b]; }
+    let ax = [1, 0.1, 0.1];
+    for (let k = 0; k < 60; k++) { const nn = [0, 1, 2].map((a) => C[a][0] * ax[0] + C[a][1] * ax[1] + C[a][2] * ax[2]); const l = Math.hypot(...nn); ax = nn.map((x) => x / l); }
+    const a = new T3.Vector3(...ax).normalize();
+    let up = new T3.Vector3(0, 1, 0).addScaledVector(a, -a.y).normalize();
+    const sf = (p) => p.clone().sub(c).dot(a);
+    const sorted = pts.map(sf).sort((x, y) => x - y);
+    let fMin = sorted[Math.floor(sorted.length * 0.01)], fMax = sorted[Math.floor(sorted.length * 0.995)];
+    let L = fMax - fMin;
+    // the muzzle is the thin end
+    const spread = (lo, hi) => { let s2 = 0, n = 0; for (const p of pts) { const t = sf(p); if (t >= lo && t <= hi) { const d = p.clone().sub(c); s2 += d.addScaledVector(a, -d.dot(a)).length(); n++; } } return n ? s2 / n : 0; };
+    if (spread(fMax - L * 0.06, fMax) > spread(fMin, fMin + L * 0.06)) { a.negate(); [fMin, fMax] = [-fMax, -fMin]; }
+    up = up.addScaledVector(a, -up.dot(a)).normalize();
+    // the optic sits on top
+    const optic = pts.filter((p, i) => /scope|lens/i.test(mats[i]));
+    if (optic.length) { const oc = new T3.Vector3(); for (const p of optic) oc.add(p); oc.multiplyScalar(1 / optic.length); if (oc.sub(c).dot(up) < 0) up.negate(); }
+    const rr = new T3.Vector3().crossVectors(a, up).normalize();
+    const mean = (list) => { const m = new T3.Vector3(); for (const p of list) m.add(p); return list.length ? m.multiplyScalar(1 / list.length) : null; };
+    const Mc = mean(pts.filter((p) => sf(p) > fMax - L * 0.015));
+    const Bc = mean(pts.filter((p) => sf(p) < fMin + L * 0.04));
+    const k = ((def.length || 1.09) * S) / L;
+    // the grip point on the model's bore line
+    const Xg = Mc.clone().addScaledVector(a, -L * (1 - (def.grip ?? 0.3)));
+    let hand = null;
+    rig.root.traverse((o) => { if (!hand && o.isBone && /^Hand_R/.test(o.name)) hand = o; });
+    const Hr = hand ? new T3.Vector3().setFromMatrixPosition(hand.matrixWorld) : F.c.clone();
+    const hf = Hr.clone().sub(F.c).dot(F.f);
+    const off = def.offset || [0, 0, 0];
+    const Tg = F.c.clone().addScaledVector(F.f, hf + off[2] * S).addScaledVector(F.u, F.muzU + off[1] * S).addScaledVector(F.r, F.muzR + off[0] * S);
+    const Mm = new T3.Matrix4().makeBasis(rr, up, a), Mr = new T3.Matrix4().makeBasis(F.r, F.u, F.f);
+    const Q = new T3.Quaternion().setFromRotationMatrix(Mr.multiply(Mm.transpose()));
+    const pos = Tg.clone().sub(Xg.clone().multiplyScalar(k).applyQuaternion(Q));
+    const world = new T3.Matrix4().compose(pos, Q, new T3.Vector3(k, k, k));
+    const toRig = (p) => p.clone().multiplyScalar(k).applyQuaternion(Q).add(pos);
+    const gunInv = rig.gun.matrixWorld.clone().invert();
+    const holder = new T3.Group();
+    gunInv.clone().multiply(world).decompose(holder.position, holder.quaternion, holder.scale);
+    holder.add(obj);
+    holder.visible = false;
+    rig.gun.add(holder);
+    const muzzleRig = toRig(Mc), rearRig = toRig(Bc);
+    const mount = {
+      id, holder,
+      muzzleLocal: muzzleRig.clone().applyMatrix4(gunInv),
+      rearLocal: rearRig.clone().applyMatrix4(gunInv),
+      portLocal: rearRig.clone().lerp(muzzleRig, 0.42).addScaledVector(F.u, 0.03 * S).addScaledVector(F.r, 0.015 * S).applyMatrix4(gunInv),
+    };
+    // sight: down the middle of the optic
+    if (optic.length) {
+      const op = optic.map(toRig).map((p) => p.sub(F.c));
+      let fA = Infinity, fB = -Infinity, cu = 0, cr = 0;
+      for (const p of op) { const t = p.dot(F.f); fA = Math.min(fA, t); fB = Math.max(fB, t); cu += p.dot(F.u); cr += p.dot(F.r); }
+      cu /= op.length; cr /= op.length;
+      const at3 = (t) => F.c.clone().addScaledVector(F.f, t).addScaledVector(F.u, cu).addScaledVector(F.r, cr);
+      mount.sight = { rear: at3(fA), front: at3(fB), dist: 0.09, scope: true };
+    }
+    // a suppressor sized for it, hidden unless fitted
+    const g = new T3.CylinderGeometry(0.021, 0.021, 0.2, 20, 1).rotateX(Math.PI / 2).translate(0, 0, -0.1 + 0.01);
+    const sup = new T3.Mesh(g, new T3.MeshStandardMaterial({ color: 0x1b1c1e, roughness: 0.45, metalness: 0.7 }));
+    mount.suppressor = this.attachToGun(rig, sup, muzzleRig, this.frameQuat(rig));
+    mount.suppressor.visible = false;
+    rig.mounts[id] = mount;
   }
 
   attachToGun(rig, obj, rigPos, rigQuat, bone = rig.gun) {
@@ -505,12 +617,13 @@ class Viewmodel {
     const bobT = this.t * 7.5;
     const bobAmt = st.onGround ? clamp(st.speed / 4, 0, 1) * (1 - 0.85 * a) * 0.004 : 0;
     pos.x += Math.sin(bobT * 0.5) * bobAmt + this.sx.x * 0.02 * (1 - a * 0.7);
-    pos.y += Math.abs(Math.cos(bobT * 0.5)) * bobAmt - this.sy.x * 0.015 + this.dip.x * 0.01 - this.lower.x * 0.28 - this.crouch * 0.008 * (1 - a);
-    pos.z += this.kz.x * 0.01 + this.wallPush * 0.12 - this.lower.x * 0.05;
+    pos.y += Math.abs(Math.cos(bobT * 0.5)) * bobAmt - this.sy.x * 0.015 + this.dip.x * 0.01 - this.lower.x * 0.28 - this.crouch * 0.008 * (1 - a) - this.wallPush * 0.07;
+    pos.z += this.kz.x * 0.01 + this.wallPush * 0.035 - this.lower.x * 0.05;
+    pos.x += this.wallPush * 0.03;
     const e = new T3.Euler(
-      this.kp.x * 0.012 + this.sy.x * 0.05 - this.lower.x * 0.9 + this.wallPush * 0.5 + this.aimY,
-      this.ky.x * 0.01 + this.sx.x * 0.06 + this.aimX,
-      this.kr.x * 0.012 + this.sr.x * 0.05 + this.crouch * 0.05 * (1 - a) - this.wallPush * 0.3,
+      this.kp.x * 0.012 + this.sy.x * 0.05 - this.lower.x * 0.9 - this.wallPush * 0.55 + this.aimY,
+      this.ky.x * 0.01 + this.sx.x * 0.06 + this.aimX - this.wallPush * 0.25,
+      this.kr.x * 0.012 + this.sr.x * 0.05 + this.crouch * 0.05 * (1 - a) - this.wallPush * 0.45,
       'YXZ',
     );
     const proc = new T3.Quaternion().setFromEuler(e);

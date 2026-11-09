@@ -53,18 +53,18 @@ const WEAPONS = {
     attachments: ['reddot', 'grip'], desc: '75-round drum. Suppressive fire that walls off whole corridors.',
   },
   sr10: {
-    name: 'SR-10 Marksman Rifle', short: 'SR-10', cls: 'Sniper', rig: 'acr', ballistic: 'marksman', slot: 'primary', fixed: ['scope'],
-    price: 4400, mag: 10, reserve: 40, maxReserve: 80, rpm: 190, auto: false,
-    hipSpread: 6, adsSpread: 0.08, adsTime: 0.3, move: 0.9, zoom: 3.2,
-    recoil: { up: 0.045, side: 0.012, pattern: 'sniper' }, vm: { back: 0.05, up: 9, side: 1.5, roll: 2, flash: 1.4 },
-    attachments: ['suppressor', 'extmag'], desc: '7.62 mm scoped marksman rifle. Heads come off at any range.',
+    name: 'M24 Sniper Rifle', short: 'M24', cls: 'Sniper', rig: 'acr', mount: 'm24', ballistic: 'marksman', slot: 'primary',
+    price: 4200, mag: 5, reserve: 30, maxReserve: 60, rpm: 48, auto: false, bolt: 0.95,
+    hipSpread: 6, adsSpread: 0.05, adsTime: 0.3, move: 0.9, zoom: 4,
+    recoil: { up: 0.06, side: 0.012, pattern: 'sniper' }, vm: { back: 0.06, up: 12, side: 1.5, roll: 2.2, flash: 1.4, bolt: true },
+    attachments: ['suppressor', 'extmag'], desc: 'Bolt-action 7.62 mm with a 4x scope. One clean shot ends any argument.',
   },
   whisper: {
-    name: 'Whisper .338 Sniper', short: 'WHISPER', cls: 'Sniper', rig: 'acr', ballistic: 'whisper', slot: 'primary', fixed: ['scope', 'suppressor'],
+    name: 'Whisper .338 Sniper', short: 'WHISPER', cls: 'Sniper', rig: 'acr', mount: 'm24', ballistic: 'whisper', slot: 'primary', fixed: ['suppressor'],
     price: 7000, mag: 5, reserve: 25, maxReserve: 40, rpm: 52, auto: false, bolt: 0.85,
-    hipSpread: 8, adsSpread: 0.04, adsTime: 0.34, move: 0.88, zoom: 4.5,
+    hipSpread: 8, adsSpread: 0.04, adsTime: 0.34, move: 0.88, zoom: 5,
     recoil: { up: 0.08, side: 0.015, pattern: 'sniper' }, vm: { back: 0.07, up: 13, side: 2, roll: 2.4, flash: 0.5, bolt: true },
-    attachments: [], desc: 'Integrally suppressed .338 Lapua. One shot, one ragdoll — through cover.',
+    attachments: [], desc: 'Suppressed .338 Lapua. Punches through walls, armour and whoever is behind them.',
   },
 };
 

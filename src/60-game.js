@@ -32,6 +32,7 @@ class BackroomsGame {
     this.arsenal = new Arsenal();
     this.recoil = { p: 0, y: 0, kp: new Spring(140, 16), ky: new Spring(140, 16), roll: new Spring(120, 12) };
     this.shake = 0;
+    this.sway = { p: 0, y: 0 };
     this.acc = 0;
     this.time = 0;
     this.state = 'menu';
@@ -123,7 +124,7 @@ class BackroomsGame {
 
   viewDir(out, extra = true) {
     const p = this.player;
-    let pitch = p.pitch + this.recoil.kp.x, yaw = p.yaw + this.recoil.ky.x;
+    let pitch = p.pitch + this.recoil.kp.x + this.sway.p, yaw = p.yaw + this.recoil.ky.x + this.sway.y;
     if (extra) { pitch += this.vm.aimY * 0.6; yaw += this.vm.aimX * 0.6; }
     const c = Math.cos(pitch);
     return out.set(-Math.sin(yaw) * c, Math.sin(pitch), -Math.cos(yaw) * c);
@@ -381,9 +382,17 @@ class BackroomsGame {
     cam.position.set(eye.x + Math.cos(phase) * bob * 0.35, eye.y + Math.abs(Math.sin(phase)) * bob - bob * 0.5, eye.z);
     const lateral = (p.vel.x * Math.cos(p.yaw) - p.vel.z * Math.sin(p.yaw)) / 3.3;
     this.lean = damp(this.lean || 0, -lateral * 0.02, 6, dt);
+    // scoped sway: a slow figure-eight that holding breath (Shift) calms, at a stamina cost
+    const scoped = a.gun.zoom > 2 ? a.adsAmount : 0;
+    this.holdingBreath = scoped > 0.9 && inp.sprint && p.stamina > 0.08;
+    if (this.holdingBreath) p.stamina = Math.max(0, p.stamina - dt * 0.22);
+    const swayAmp = scoped * (this.holdingBreath ? 0.0006 : 0.0045 + 0.004 * clamp(1 - p.stamina, 0, 1)) * (p.crouch > 0.5 ? 0.6 : 1);
+    this.swayT = (this.swayT || 0) + dt;
+    this.sway.y = damp(this.sway.y, Math.sin(this.swayT * 0.9) * swayAmp, 6, dt);
+    this.sway.p = damp(this.sway.p, Math.sin(this.swayT * 1.8) * swayAmp * 0.6, 6, dt);
     cam.rotation.set(
-      p.pitch + this.recoil.kp.x + Math.sin(T * 37) * sh * 0.03,
-      p.yaw + this.recoil.ky.x + Math.sin(T * 29) * sh * 0.03,
+      p.pitch + this.recoil.kp.x + this.sway.p + Math.sin(T * 37) * sh * 0.03,
+      p.yaw + this.recoil.ky.x + this.sway.y + Math.sin(T * 29) * sh * 0.03,
       this.lean + this.recoil.roll.x + Math.sin(T * 23) * sh * 0.02 + (p.alive ? 0 : 0.5),
     );
     const zoom = a.gun.zoom;

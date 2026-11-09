@@ -88,10 +88,12 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #000; font-f
 .br .vig { position: absolute; inset: 0; background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0) 50%, rgba(120, 0, 0, 0.75) 100%); opacity: 0; }
 .br .sup { position: absolute; inset: 0; background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0) 45%, rgba(0, 0, 0, 0.7) 100%); opacity: 0; }
 .br .blast { position: absolute; inset: 0; background: #fff; opacity: 0; mix-blend-mode: screen; }
-.br .scope { position: absolute; inset: 0; opacity: 0; background: radial-gradient(circle at center, rgba(0,0,0,0) 0, rgba(0,0,0,0) 36vmin, #000 36.3vmin); }
-.br .scope::before { content: ''; position: absolute; left: 50%; top: 14%; bottom: 14%; width: 1px; background: rgba(0,0,0,0.85); }
-.br .scope::after { content: ''; position: absolute; top: 50%; left: calc(50% - 36vmin); right: calc(50% - 36vmin); height: 1px; background: rgba(0,0,0,0.85); }
-.br .scope b { position: absolute; left: 50%; top: 50%; width: 4px; height: 4px; margin: -2px; border-radius: 50%; background: #e33; box-shadow: 0 0 6px #f44; }
+.br .scope { position: absolute; inset: 0; opacity: 0; background: radial-gradient(circle at center, rgba(0,0,0,0) 0, rgba(0,0,0,0) 33vmin, rgba(0,0,0,0.55) 35.5vmin, #000 36.3vmin); }
+.br .scope svg { position: absolute; left: 50%; top: 50%; width: 72vmin; height: 72vmin; transform: translate(-50%, -50%); }
+.br .scope::after { content: ''; position: absolute; left: 50%; top: 50%; width: 72vmin; height: 72vmin; transform: translate(-50%, -50%); border-radius: 50%; box-shadow: inset 0 0 6vmin rgba(0,0,0,0.85); }
+.br .scope .breath { position: absolute; left: 50%; bottom: 9%; transform: translateX(-50%); font: 600 10px var(--mono); letter-spacing: 3px; color: rgba(236,231,216,0.45); font-style: normal; }
+.br .scope .breath::before { content: 'SHIFT · HOLD BREATH'; }
+.br .scope.steady .breath::before { content: 'HOLDING BREATH'; color: var(--accent); }
 
 /* bodycam overlay */
 .br .cam { position: absolute; right: 34px; top: 50%; transform: translateY(-50%); writing-mode: vertical-rl; font: 500 10px var(--mono); letter-spacing: 3px; color: rgba(236, 231, 216, 0.38); }
