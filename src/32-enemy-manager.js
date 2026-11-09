@@ -43,7 +43,7 @@ class EnemyManager {
       // just before the effect is emitted) and the knock that follows act on a live ragdoll
       // light hits are ridden out on the animation instead (a flinch and a stumble)
       let soft = null;
-      if ((e.type === 'fleshHit' || e.type === 'armorHit') && e.person && e.person.enemy && e.person.enemy.anim) {
+      if ((e.type === 'fleshHit' || e.type === 'armorHit') && !e.severedPart && e.person && e.person.enemy && e.person.enemy.anim) {
         const ai = e.person.enemy, an = ai.anim;
         if (an.active && this.rideOut(ai, e)) { soft = an; e.soft = true; }
         else an.wake('hit');
