@@ -18,7 +18,10 @@ class ClipPlayer {
         if (!obj) continue;
         const key = obj.uuid + prop;
         if (!this.props.has(key)) {
-          this.props.set(key, { obj, prop, acc: new Float32Array(4), w: 0, ref: new Float32Array(4) });
+          // rest: the pose before any clip ran, for the weight the playing clips leave unkeyed
+          const v = obj[prop], rest = new Float32Array(4);
+          rest[0] = v.x; rest[1] = v.y; rest[2] = v.z; rest[3] = prop === 'quaternion' ? v.w : 0;
+          this.props.set(key, { obj, prop, acc: new Float32Array(4), w: 0, ref: new Float32Array(4), rest });
         }
         bindings.push({ key, interp: track.createInterpolant(new Float32Array(prop === 'quaternion' ? 4 : 3)), size: prop === 'quaternion' ? 4 : 3 });
       }
@@ -94,7 +97,18 @@ class ClipPlayer {
       }
     }
     for (const p of this.props.values()) {
-      if (p.w <= 0) continue;
+      // a bone only some clips key (the off arm mid-reload, a shell) eases back to its rest pose
+      // when those clips stop, instead of freezing wherever an interrupted clip left it
+      const miss = 1 - p.w;
+      if (miss > 1e-4) {
+        const r = p.rest;
+        if (p.prop === 'quaternion') {
+          if (p.w === 0) p.ref.set(r);
+          const s = p.ref[0] * r[0] + p.ref[1] * r[1] + p.ref[2] * r[2] + p.ref[3] * r[3] < 0 ? -miss : miss;
+          p.acc[0] += r[0] * s; p.acc[1] += r[1] * s; p.acc[2] += r[2] * s; p.acc[3] += r[3] * s;
+        } else { p.acc[0] += r[0] * miss; p.acc[1] += r[1] * miss; p.acc[2] += r[2] * miss; }
+        p.w = 1;
+      }
       const a = p.acc, inv = 1 / p.w;
       if (p.prop === 'quaternion') {
         const n = Math.hypot(a[0], a[1], a[2], a[3]) || 1;

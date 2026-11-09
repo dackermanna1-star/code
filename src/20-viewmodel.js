@@ -609,6 +609,34 @@ class Viewmodel {
 
   pump() { this.kz.kick(1.2); this.kp.kick(-0.6); }
 
+  // the sprint carry: a pose by weapon kind plus a stride-locked swing (bounce twice a stride,
+  // sway and roll once), faded in and out by this.sprint
+  sprintPose(dt, st, hasRun) {
+    const o = this._sp || (this._sp = { x: 0, y: 0, z: 0, pitch: 0, yaw: 0, roll: 0, ph: 0 });
+    const k = this.sprint * (1 - this.ads);
+    // stride phase from the distance covered (about 2.3 m per left-right stride when sprinting)
+    o.ph = (o.ph + dt * Math.max(st.speed || 0, 0) / 2.3 * TAU) % TAU;
+    o.x = o.y = o.z = o.pitch = o.yaw = o.roll = 0;
+    if (k < 1e-3) return o;
+    const ph = o.ph, sw = Math.sin(ph), bn = Math.abs(Math.sin(ph)) - 0.64;
+    const pistol = this.cur && this.cur.def.caliber === '9mm' && !this.cur.def.clips.run;
+    const kp = hasRun ? 0 : k; // the pose itself only where no run clip provides one
+    if (pistol) {
+      o.x = -0.028 * kp; o.y = 0.006 * kp; o.z = 0.01 * kp;
+      o.pitch = -0.14 * kp; o.yaw = 0.28 * kp; o.roll = 0.4 * kp;
+    } else if (!hasRun) {
+      o.x = -0.012 * kp; o.y = -0.006 * kp; o.z = 0.008 * kp;
+      o.pitch = -0.06 * kp; o.yaw = 0.27 * kp; o.roll = 0.2 * kp;
+    }
+    const swing = hasRun ? 0.35 : 1;
+    o.x += sw * 0.016 * k * swing;
+    o.y += bn * 0.016 * k * swing;
+    o.roll += sw * 0.09 * k * swing;
+    o.yaw += sw * 0.05 * k * swing;
+    o.pitch += Math.cos(2 * ph) * 0.035 * k * swing;
+    return o;
+  }
+
   muzzleWorld(out) {
     // muzzle in viewmodel-camera space (for the world tracer origin)
     const rig = this.cur;
@@ -630,7 +658,7 @@ class Viewmodel {
       if (!this.action) rig.player.play(want, { fade: 0.25, loop: true });
     }
     const locoLayer = rig.player.layer(this.loco);
-    if (locoLayer && this.loco === clips.walk) locoLayer.speed = clamp(st.speed / 3.3, 0.6, 1.4);
+    if (locoLayer && this.loco === clips.walk) locoLayer.speed = clamp(st.speed / 3.3, 0.6, st.sprint && !clips.run ? 1.1 : 1.4);
     rig.player.update(dt);
 
     // springs: look sway, free aim, recoil, landing
@@ -667,10 +695,15 @@ class Viewmodel {
     pos.y += Math.abs(Math.cos(bobT * 0.5)) * bobAmt - this.sy.x * 0.015 + this.dip.x * 0.01 - this.lower.x * 0.28 - this.crouch * 0.008 * (1 - a) - this.wallPush * 0.07;
     pos.z += this.kz.x * 0.01 + this.wallPush * 0.035 - this.lower.x * 0.05;
     pos.x += this.wallPush * 0.03;
+    // sprinting: rigs without a run clip (pistol, shotguns, bolt rifle) carry the weapon in a
+    // procedural sprint pose (a pistol tucked low and canted in, a long gun swung across the
+    // chest) that swings with the stride; rigs with a run clip only get the stride swing
+    const sp = this.sprintPose(dt, st, !!clips.run);
+    pos.x += sp.x; pos.y += sp.y; pos.z += sp.z;
     const e = new T3.Euler(
-      this.kp.x * 0.012 + this.sy.x * 0.05 - this.lower.x * 0.9 - this.wallPush * 0.55 + this.aimY,
-      this.ky.x * 0.01 + this.sx.x * 0.06 + this.aimX - this.wallPush * 0.25,
-      this.kr.x * 0.012 + this.sr.x * 0.05 + this.crouch * 0.05 * (1 - a) - this.wallPush * 0.45,
+      this.kp.x * 0.012 + this.sy.x * 0.05 - this.lower.x * 0.9 - this.wallPush * 0.55 + this.aimY + sp.pitch,
+      this.ky.x * 0.01 + this.sx.x * 0.06 + this.aimX - this.wallPush * 0.25 + sp.yaw,
+      this.kr.x * 0.012 + this.sr.x * 0.05 + this.crouch * 0.05 * (1 - a) - this.wallPush * 0.45 + sp.roll,
       'YXZ',
     );
     const proc = new T3.Quaternion().setFromEuler(e);
