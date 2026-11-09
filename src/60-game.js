@@ -12,9 +12,11 @@ Object.assign(Lab.penetration, {
   // loaded pallet racking and wrapped loads: a metre of stock stops pistol and SMG rounds, rifle
   // rounds come through spent, marksman rounds still carry
   goods: { cost: 2.4, solid: 0.3 },
+  // upholstery, mattresses and linen (the hotel): rounds go straight through, a little slowed
+  fabric: { cost: 0.8, solid: 0.06 },
 });
-const IMPACT_SOUND = { drywall: 'wood', cardboard: 'wood', wood: 'wood', goods: 'wood', metal: 'metal', concrete: 'ground', ceiling: 'ground', default: 'ground' };
-const IMPACT_DUST = { drywall: 0xd8cfae, cardboard: 0x9a7b52, wood: 0x8a6b45, goods: 0x9a7b52, concrete: 0xa8a8a0, ceiling: 0xc9c4b0, metal: null };
+const IMPACT_SOUND = { drywall: 'wood', cardboard: 'wood', wood: 'wood', goods: 'wood', fabric: 'ground', metal: 'metal', concrete: 'ground', ceiling: 'ground', default: 'ground' };
+const IMPACT_DUST = { drywall: 0xd8cfae, cardboard: 0x9a7b52, wood: 0x8a6b45, goods: 0x9a7b52, fabric: 0xb89a88, concrete: 0xa8a8a0, ceiling: 0xc9c4b0, metal: null };
 
 class BackroomsGame {
   constructor(app) {
@@ -357,7 +359,7 @@ class BackroomsGame {
     const A = clamp((n.speed - 0.7) / 7, 0, 1) * clamp(0.3 + n.impulse / 6, 0, 1);
     if (A < 0.02) return;
     const au = this.audio;
-    const mat = (m) => (m === 'flesh' || m === 'shoe' ? 'flesh' : m === 'drywall' || m === 'cardboard' || m === 'goods' ? 'wood' : m === 'carpet' || m === 'concrete' ? 'ground' : m);
+    const mat = (m) => (m === 'flesh' || m === 'shoe' ? 'flesh' : m === 'drywall' || m === 'cardboard' || m === 'goods' ? 'wood' : m === 'carpet' || m === 'concrete' || m === 'fabric' ? 'ground' : m);
     if (n.ragdollA || n.ragdollB) {
       const body = n.ragdollA ? n.bodyA : n.bodyB;
       const seg = body.userData.segment ? body.userData.segment.name : '';

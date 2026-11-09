@@ -233,7 +233,7 @@ class LevelView {
   buildWalls() {
     const L = this.level;
     const geos = [];
-    const steelColumns = L.theme.style === 4; // the warehouse builds its own columns
+    const steelColumns = L.theme.style === 4 || L.theme.style === 6; // the warehouse and the hotel build their own columns
     for (const b of L.boxes) {
       if (b.kind !== 'wall' && b.kind !== 'pillar' && b.kind !== 'lintel') continue;
       if (b.kind === 'pillar' && steelColumns) continue;
@@ -249,7 +249,7 @@ class LevelView {
     patchLattice(mat, this.shared, {
       key: 'wall',
       uniforms: this.styleUniforms(),
-      fragmentHead: NOISE_GLSL,
+      fragmentHead: NOISE_GLSL + HOTEL_GLSL.head, // the hotel's helpers (src/14-hotel.js)
       color: /* glsl */ `
         {
           vec3 P = vLatP; vec3 N = normalize(vLatN);
@@ -315,6 +315,9 @@ class LevelView {
               float rustRun = smoothstep(0.6, 0.85, brN(vec2(uv.x * 8.0, uv.y * 0.4) + 11.0));
               col = mix(col, vec3(0.32, 0.16, 0.07), rustRun * 0.45);
             }
+          } else if (uStyle == 6) {
+            // the hotel: walnut wainscot, damask or striped paper (src/14-hotel.js)
+            ${HOTEL_GLSL.wall}
           } else {
             // office drywall with a chair rail
             col = uWallCol * (0.9 + 0.12 * grime) * (0.97 + 0.03 * fine);
@@ -323,11 +326,11 @@ class LevelView {
           }
           col *= mix(0.62, 1.0, smoothstep(0.0, 0.35, P.y)) * mix(0.7, 1.0, smoothstep(0.0, 0.3, uGrid.w - P.y));
           // baseboard
-          float base = uStyle == 4 ? 0.0 : step(P.y, 0.1);
+          float base = uStyle == 4 || uStyle == 6 ? 0.0 : step(P.y, 0.1);
           col = mix(col, uTrim * (0.85 + 0.2 * fine), base);
           diffuseColor.rgb *= col;
         }`,
-      roughness: 'roughnessFactor = uStyle == 1 ? 0.92 : uStyle == 2 ? 0.75 : uStyle == 4 ? (vLatP.y > 4.4 ? 0.55 : 0.8) : 0.88;',
+      roughness: 'roughnessFactor = uStyle == 6 ? hotelRough : uStyle == 1 ? 0.92 : uStyle == 2 ? 0.75 : uStyle == 4 ? (vLatP.y > 4.4 ? 0.55 : 0.8) : 0.88;',
     });
     const mesh = new T3.Mesh(geo, mat);
     mesh.receiveShadow = true;
@@ -345,7 +348,7 @@ class LevelView {
     patchLattice(mat, this.shared, {
       key: 'floor',
       uniforms: { ...this.styleUniforms(), uCarpet: { value: new T3.Color(...th.carpet) }, uDecals: { value: decals.target.texture }, uRect: { value: decals.rectUniform } },
-      fragmentHead: NOISE_GLSL + `
+      fragmentHead: NOISE_GLSL + HOTEL_GLSL.head + `
         uniform vec3 uCarpet; uniform sampler2D uDecals; uniform vec4 uRect;
         vec4 decalAt(vec2 xz) { vec2 uv = (xz - uRect.xy) / (2.0 * uRect.zw) + 0.5;
           if (any(lessThan(uv, vec2(0.0))) || any(greaterThan(uv, vec2(1.0)))) return vec4(0.0); return texture2D(uDecals, uv); }
@@ -432,6 +435,9 @@ class LevelView {
             float oil = smoothstep(0.7, 0.77, brF(xz * 0.32 + 13.0)) * (0.6 + 0.4 * brN(xz * 2.0));
             col *= 1.0 - 0.45 * oil;
             floorWet = oil * 0.85;
+          } else if (uStyle == 6) {
+            // the hotel: patterned carpets, marble, parquet (src/14-hotel.js)
+            ${HOTEL_GLSL.floor}
           } else {
             vec2 tile = floor(xz / 0.5);
             float tv = brH(tile + 3.0);
@@ -451,7 +457,7 @@ class LevelView {
           col *= edgeAO(vLatP, 0.45);
           diffuseColor.rgb *= col;
         }`,
-      roughness: 'roughnessFactor = mix(uStyle == 1 ? 0.88 : uStyle == 4 ? 0.62 + 0.2 * brN(vLatP.xz * 0.9) : 0.97, 0.12, clamp(floorWet, 0.0, 1.0));',
+      roughness: 'roughnessFactor = mix(uStyle == 6 ? hotelRough : uStyle == 1 ? 0.88 : uStyle == 4 ? 0.62 + 0.2 * brN(vLatP.xz * 0.9) : 0.97, 0.12, clamp(floorWet, 0.0, 1.0));',
     });
     const mesh = new T3.Mesh(geo, mat);
     mesh.receiveShadow = true;
@@ -469,7 +475,7 @@ class LevelView {
     patchLattice(mat, this.shared, {
       key: 'ceiling',
       uniforms: { ...this.styleUniforms(), uCeil: { value: new T3.Color(...th.ceilingCol) } },
-      fragmentHead: NOISE_GLSL + 'uniform vec3 uCeil; float panelGlow = 0.0;',
+      fragmentHead: NOISE_GLSL + HOTEL_GLSL.head + 'uniform vec3 uCeil; float panelGlow = 0.0;',
       color: /* glsl */ `
         {
           vec2 xz = vLatP.xz;
@@ -495,12 +501,15 @@ class LevelView {
             col *= 0.8 + 0.2 * mix(ribs, 0.5, smoothstep(0.08, 0.35, fwidth(xz.x / 0.3)));
             col *= 0.8 + 0.3 * brF(xz * 0.6 + uSeed * 5.0);
             col = mix(col, col * vec3(0.6, 0.48, 0.34), smoothstep(0.62, 0.8, brF(xz * 0.25 + 3.0)) * 0.6);
+          } else if (uStyle == 6) {
+            // the hotel: plaster, coffers over the lobby and ballroom (src/14-hotel.js)
+            ${HOTEL_GLSL.ceiling}
           } else {
             col *= 0.6 + 0.4 * brF(xz * 1.2);
           }
-          // the troffer: a 0.6 x 1.2 m diffuser panel with a metal frame (the warehouse hangs
-          // its lamps from the roof structure instead)
-          vec2 pd = abs(local) - vec2(0.3, 0.6) + (uStyle == 4 ? 9.0 : 0.0);
+          // the troffer: a 0.6 x 1.2 m diffuser panel with a metal frame (the warehouse and the
+          // hotel hang their own lamps instead)
+          vec2 pd = abs(local) - vec2(0.3, 0.6) + (uStyle == 4 || uStyle == 6 ? 9.0 : 0.0);
           float panel = step(max(pd.x, pd.y), 0.0);
           float frame = step(max(pd.x, pd.y), 0.035) * (1.0 - panel);
           col = mix(col, vec3(0.75), frame);
@@ -521,6 +530,10 @@ class LevelView {
     const L = this.level;
     if (L.theme.style === 4) {
       this.dressing = new WarehouseDressing(this);
+      return;
+    }
+    if (L.theme.style === 6) {
+      this.dressing = new HotelDressing(this); // src/14-hotel.js
       return;
     }
     const mats = {
