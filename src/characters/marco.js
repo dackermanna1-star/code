@@ -84,6 +84,7 @@ export class Marco extends Character {
   static headArmor = 1.6;
   // a stuntman knows how to stick a landing: big drops don't throw him off
   static landingTolerance = 2.1;
+  static crashTolerance = 1.3;
   static voice = { pitch: 0.92, vowel: 'a', formantShift: 0.95 };
   static look = look;
   static portraitColor = '#d6262b';
@@ -113,11 +114,19 @@ export class Marco extends Character {
   }
 
   grounded() {
-    return (!this.rear._gone && this.touching(this.rear)) || (!this.front._gone && this.touching(this.front)) || this.touching(this.frame);
+    return this.wheelsDown() || this.touching(this.frame);
   }
 
   wheelsDown() {
-    return (!this.rear._gone && this.touching(this.rear)) || (!this.front._gone && this.touching(this.front));
+    return (!this.rearJ._gone && this.touching(this.rear)) || (!this.frontJ._gone && this.touching(this.front));
+  }
+
+  /** Rider's torso/head hitting something (or pinned by a spike/harpoon). */
+  riderBlocked() {
+    const P = this.rider.parts;
+    if (this.rider.impales.length) return true;
+    for (const n of ['head', 'chest', 'hips']) if (!P[n].gone && this.touching(P[n].body)) return true;
+    return false;
   }
 
   /** Pitch relative to the ground below (0 = sitting level on the slope). */
@@ -130,7 +139,7 @@ export class Marco extends Character {
 
   /** SHIFT: stunt flip in the air, or kick the bike back onto its wheels on the ground. */
   flip() {
-    if (this.flipCd > 0) return;
+    if (this.flipCd > 0 || this.rider.impales.length) return;
     const pitch = this.pitchToGround();
     const pos = this.frame.getPosition();
     if (this.grounded()) {
@@ -148,6 +157,7 @@ export class Marco extends Character {
     } else {
       // airborne: one full backflip (or frontflip while leaning forward); pressing again
       // mid-flip queues another rotation for doubles and triples
+      this.flipQueued = 0;
       if (this.flipTarget !== null) {
         this.flipTarget += this.flipDir * Math.PI * 2;
       } else {
@@ -165,7 +175,13 @@ export class Marco extends Character {
   flipStep() {
     if (this.flipTarget === null) return;
     // touching anything, losing the rider, or leaning against the flip cancels it
-    if (!this.canControl || this.grounded() || (this.lean !== 0 && Math.sign(this.lean) === this.flipDir)) {
+    if (!this.canControl || this.grounded() || this.riderBlocked()) {
+      this.flipTarget = null;
+      return;
+    }
+    if (this.lean !== 0 && Math.sign(this.lean) === this.flipDir) {
+      // leaning against the flip aborts it and kills most of the spin
+      this.spinRigid(this.frame.getAngularVelocity() * 0.25);
       this.flipTarget = null;
       return;
     }
@@ -272,7 +288,7 @@ export class Marco extends Character {
     if (this.canControl && input.gamePressed('secondary')) this.flip();
     if (this.flipQueued > 0) {
       this.flipQueued -= dt;
-      if (this.canControl && this.airT > 0.1 && !this.grounded()) {
+      if (this.flipTarget === null && this.canControl && this.airT > 0.1 && !this.grounded()) {
         this.flipQueued = 0;
         this.flipCd = 0;
         this.flip();

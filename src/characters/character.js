@@ -327,7 +327,8 @@ export class Character {
     const k = (this.constructor.crashTolerance ?? 1) * brace; // head-on / rear impacts
     const kl = (this.constructor.landingTolerance ?? 1) * brace; // hard vertical landings
     // a mostly-upward jolt is a landing (judged on its own tolerance); anything else is a collision
-    const landing = dvy > Math.abs(dvx) * 1.5;
+    const upright = Math.cos(this.frame.getAngle()) > 0.6;
+    const landing = upright && dvy > Math.abs(dvx) * 1.5;
     const crashed = landing ? Math.hypot(dvx, dvy) > 14 * kl : Math.abs(along) > 7 * k || Math.abs(perp) > 14 * kl;
     if (crashed) {
       this.rider.note('crash', along.toFixed(1), perp);
@@ -451,14 +452,29 @@ export class Character {
     vx /= m;
     vy /= m;
     if (liftVy !== null) vy = Math.max(vy, liftVy);
+    // wheels keep their spin relative to the frame (otherwise repeated calls pile up spin)
+    const frameW = this.frame.getAngularVelocity();
+    const fv0 = this.frame.getLinearVelocity();
+    const f0x = fv0.x;
+    const f0y = fv0.y;
     for (const b of bodies) {
       const c = b.getWorldCenter();
       b.setLinearVelocity(new Vec2(vx - w * (c.y - cy), vy + w * (c.x - cx)));
       const wheel = b.getUserData() && b.getUserData().material === 'rubber';
-      b.setAngularVelocity(wheel ? b.getAngularVelocity() + w : w);
+      b.setAngularVelocity(wheel ? b.getAngularVelocity() - frameW + w : w);
       b.setAwake(true);
     }
-    this.noCrash = Math.max(this.noCrash || 0, 0.35);
+    // the velocity change we just imposed is not an impact: shift the crash detector's history
+    const fv1 = this.frame.getLinearVelocity();
+    const h = this.vHist;
+    if (h) {
+      for (let i = 0; i < h.length; i += 2) {
+        h[i] += fv1.x - f0x;
+        h[i + 1] += fv1.y - f0y;
+      }
+    }
+    // only the ground hop (a deliberate jolt) suppresses crash detection
+    if (liftVy !== null) this.noCrash = Math.max(this.noCrash || 0, 0.35);
   }
 
   /** Standard air/ground lean torque. */
