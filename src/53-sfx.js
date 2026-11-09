@@ -196,6 +196,64 @@ class Sfx {
     w.start(t, Math.random() * 2); w.stop(t + 0.25);
   }
 
+  // a round glancing off a hard surface: a sharp tick, then the whine of the tumbling bullet
+  // falling in pitch as it leaves
+  ricochet(pos, amount = 1) {
+    if (!this.ready) return;
+    const ctx = this.ctx, t = ctx.currentTime;
+    const dst = this.spatial(pos);
+    const s = ctx.createBufferSource(), sg = ctx.createGain(), hp = ctx.createBiquadFilter();
+    s.buffer = this.noise; hp.type = 'highpass'; hp.frequency.value = 3000;
+    s.connect(hp); hp.connect(sg); sg.connect(dst);
+    this.env(sg, t, 0.0005, 0.35 * amount, 0.03);
+    s.start(t, Math.random() * 2); s.stop(t + 0.06);
+    const dur = 0.35 + Math.random() * 0.4, f0 = 2600 + Math.random() * 1600, f1 = f0 * (0.38 + Math.random() * 0.2);
+    const o = ctx.createOscillator(), og = ctx.createGain(), bp = ctx.createBiquadFilter();
+    o.type = 'sine';
+    o.frequency.setValueAtTime(f0, t + 0.01);
+    o.frequency.exponentialRampToValueAtTime(f1, t + dur);
+    // the tumble warbles the pitch
+    const lfo = ctx.createOscillator(), lg = ctx.createGain();
+    lfo.frequency.value = 18 + Math.random() * 25; lg.gain.value = f0 * 0.025;
+    lfo.connect(lg); lg.connect(o.frequency);
+    bp.type = 'bandpass'; bp.frequency.value = f0 * 0.8; bp.Q.value = 0.7;
+    o.connect(bp); bp.connect(og); og.connect(dst);
+    og.gain.setValueAtTime(0.0001, t);
+    og.gain.exponentialRampToValueAtTime(0.13 * clamp(amount, 0.3, 1), t + 0.02);
+    og.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.start(t); o.stop(t + dur + 0.05); lfo.start(t); lfo.stop(t + dur + 0.05);
+  }
+
+  // what trickles down after a hit: gypsum and grit pattering, wood splinters ticking
+  debris(pos, kind, amount = 1) {
+    if (!this.ready || Math.random() > 0.75) return;
+    // one trickle at a time is enough under automatic fire, and nothing from far away
+    const ctx = this.ctx, t0 = ctx.currentTime + 0.03;
+    if (t0 < (this.debrisT || 0)) return;
+    const L = this.game.camera.position;
+    if (Math.abs(pos.x - L.x) + Math.abs(pos.z - L.z) > 18) return;
+    this.debrisT = t0 + 0.09;
+    const dst = this.spatial(pos);
+    const n = 3 + Math.round(Math.random() * 4 * amount);
+    const f = kind === 'wood' ? 2400 : kind === 'concrete' ? 3600 : 3000;
+    for (let k = 0; k < n; k++) {
+      const t = t0 + Math.random() * 0.28 * (1 + amount * 0.5);
+      const s = ctx.createBufferSource(), g = ctx.createGain(), bp = ctx.createBiquadFilter();
+      s.buffer = this.noise; bp.type = 'bandpass'; bp.frequency.value = f * (0.7 + Math.random() * 0.7); bp.Q.value = 2.5;
+      s.connect(bp); bp.connect(g); g.connect(dst);
+      this.env(g, t, 0.0008, (0.05 + Math.random() * 0.07) * clamp(amount, 0.3, 1.2), 0.012 + Math.random() * 0.02);
+      s.start(t, Math.random() * 2); s.stop(t + 0.06);
+    }
+    // a soft hiss of powder for drywall and concrete
+    if (kind !== 'wood') {
+      const s = ctx.createBufferSource(), g = ctx.createGain(), lp = ctx.createBiquadFilter();
+      s.buffer = this.brown; lp.type = 'lowpass'; lp.frequency.value = 2200;
+      s.connect(lp); lp.connect(g); g.connect(dst);
+      this.env(g, t0, 0.02, 0.05 * clamp(amount, 0.3, 1), 0.25);
+      s.start(t0, Math.random() * 2); s.stop(t0 + 0.5);
+    }
+  }
+
   explosion(pos, dist = 10) {
     if (!this.ready) return;
     const ctx = this.ctx, t = ctx.currentTime;

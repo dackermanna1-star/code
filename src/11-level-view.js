@@ -744,82 +744,648 @@ function propParts(kind, def, box, mats) {
   return P;
 }
 
-// bullet holes and blood on walls / props: one instanced quad mesh with a procedural atlas
+// Bullet holes and blood on walls, props and the ceiling. Two instanced quad meshes share one
+// procedural 8 x 8 atlas: "marks" (holes, grazes, scorches) and "blood", so heavy bleeding never
+// recycles the bullet holes. The atlas is painted with a height field from which a normal map is
+// derived, so craters, torn paper, splinters and wet blood catch the light. Each pool is a ring and
+// the decals next in line to be recycled fade out first.
+//   tile name: [row, first column, variants]
+const DECAL_TILES = {
+  'hole:drywall': [0, 0, 4], 'exit:drywall': [0, 4, 2], 'hole:cardboard': [0, 6, 2],
+  'hole:concrete': [1, 0, 4], 'exit:concrete': [1, 4, 2], 'hole:ceiling': [1, 6, 2],
+  'hole:wood': [2, 0, 3], 'exit:wood': [2, 3, 2], 'hole:metal': [2, 5, 3],
+  'exit:metal': [3, 0, 2], graze: [3, 2, 2], scorch: [3, 4, 2], 'hole:small': [3, 6, 2],
+  spatter: [4, 0, 8], blood: [5, 0, 4], heavy: [5, 4, 4], drip: [6, 0, 4], smear: [6, 4, 4], drops: [7, 0, 4], dark: [7, 4, 4],
+};
+const DECAL_ALIAS = {
+  hole: 'hole:drywall', 'hole:goods': 'hole:cardboard', 'exit:goods': 'hole:cardboard', 'exit:cardboard': 'hole:cardboard',
+  'exit:ceiling': 'hole:ceiling', 'hole:default': 'hole:concrete', 'exit:default': 'exit:concrete', 'hole:carpet': 'hole:small',
+};
+const DECAL_BLOOD = { spatter: 1, blood: 1, heavy: 1, drip: 1, smear: 1, drops: 1, dark: 1 };
+
 class WallDecals {
   constructor(scene, max = 800) {
     this.max = max;
-    this.next = 0;
-    const atlas = WallDecals.atlas();
+    this.clock = null; // () => seconds; set by the gore system (game time), else wall-clock
+    const { map, normal } = WallDecals.atlas();
+    this.uTime = { value: 0 };
+    this.marks = this.pool(scene, map, normal, max, false);
+    this.blood = this.pool(scene, map, normal, Math.round(max * 1.6), true);
+    // LevelView.dispose() frees `mesh`; free the blood pool's instance buffers with it
+    this.mesh = this.marks.mesh;
+    const own = this.mesh.dispose.bind(this.mesh), other = this.blood.mesh;
+    this.mesh.dispose = () => { own(); other.dispose(); };
+    this._x = new T3.Vector3(); this._y = new T3.Vector3(); this._z = new T3.Vector3(); this._t = new T3.Vector3();
+  }
+
+  pool(scene, map, normalMap, max, wet) {
     const geo = new T3.PlaneGeometry(1, 1);
-    const uvOff = new Float32Array(max * 2);
-    geo.setAttribute('aTile', new T3.InstancedBufferAttribute(uvOff, 2));
-    const mat = new T3.MeshStandardMaterial({ map: atlas, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, roughness: 0.6 });
-    mat.onBeforeCompile = (sh) => {
-      sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute vec2 aTile;').replace('#include <uv_vertex>', '#include <uv_vertex>\n#ifdef USE_MAP\nvMapUv = vMapUv * 0.25 + aTile;\n#endif');
-    };
-    this.mesh = new T3.InstancedMesh(geo, mat, max);
-    this.mesh.count = 0;
-    this.mesh.frustumCulled = false;
-    this.mesh.instanceMatrix.setUsage(T3.DynamicDrawUsage);
-    this.tiles = geo.attributes.aTile;
-    scene.add(this.mesh);
-    this._m = new T3.Matrix4();
-    this._q = new T3.Quaternion();
-  }
-  static atlas() {
-    return Lab.cached('br:walldecal-atlas', () => {
-      const S = 512, c = document.createElement('canvas');
-      c.width = c.height = S;
-      const g = c.getContext('2d');
-      const T = S / 4;
-      // row 0: bullet holes in drywall/concrete
-      for (let k = 0; k < 4; k++) {
-        const cx = k * T + T / 2, cy = T / 2;
-        const grd = g.createRadialGradient(cx, cy, 0, cx, cy, T * 0.42);
-        grd.addColorStop(0, 'rgba(10,8,6,1)'); grd.addColorStop(0.12, 'rgba(20,16,12,1)'); grd.addColorStop(0.2, 'rgba(70,60,48,0.9)');
-        grd.addColorStop(0.45, 'rgba(120,110,90,0.35)'); grd.addColorStop(1, 'rgba(120,110,90,0)');
-        g.fillStyle = grd; g.beginPath(); g.arc(cx, cy, T * 0.42, 0, TAU); g.fill();
-        g.strokeStyle = 'rgba(30,25,20,0.6)'; g.lineWidth = 1.2;
-        for (let r = 0; r < 6; r++) { const a = Math.random() * TAU, l = T * (0.12 + Math.random() * 0.22); g.beginPath(); g.moveTo(cx, cy); g.lineTo(cx + Math.cos(a) * l, cy + Math.sin(a) * l); g.stroke(); }
-      }
-      // rows 1-3: blood splatters (directional, with satellite drops)
-      for (let k = 0; k < 12; k++) {
-        const col = k % 4, row = 1 + ((k / 4) | 0);
-        const cx = col * T + T / 2, cy = row * T + T / 2;
-        g.save(); g.translate(cx, cy);
-        const base = row === 3 ? 'rgba(60,4,4,' : 'rgba(110,8,8,';
-        for (let s = 0; s < 26; s++) {
-          const a = (Math.random() - 0.5) * (row === 1 ? 1.4 : 6), r = Math.random() ** 1.5 * T * 0.4, rad = (1 - r / (T * 0.45)) * T * (0.03 + Math.random() * 0.07);
-          g.fillStyle = base + (0.6 + Math.random() * 0.4) + ')';
-          g.beginPath(); g.ellipse(Math.cos(a) * r, Math.sin(a) * r, rad * 1.6, rad, a, 0, TAU); g.fill();
-        }
-        g.fillStyle = base + '0.95)'; g.beginPath(); g.arc(0, 0, T * 0.09, 0, TAU); g.fill();
-        if (row === 2) for (let s = 0; s < 4; s++) { const x = (Math.random() - 0.5) * T * 0.3; g.fillRect(x, 0, 2 + Math.random() * 3, T * (0.2 + Math.random() * 0.25)); }
-        g.restore();
-      }
-      const tex = new T3.CanvasTexture(c);
-      tex.colorSpace = T3.SRGBColorSpace;
-      tex.anisotropy = 4;
-      return tex;
+    const tile = new T3.InstancedBufferAttribute(new Float32Array(max * 2), 2);
+    const info = new T3.InstancedBufferAttribute(new Float32Array(max * 4), 4); // born, wet, mode, opacity
+    tile.setUsage(T3.DynamicDrawUsage);
+    info.setUsage(T3.DynamicDrawUsage);
+    geo.setAttribute('aTile', tile);
+    geo.setAttribute('aInfo', info);
+    const mat = new T3.MeshStandardMaterial({
+      map, normalMap, transparent: true, depthWrite: false, roughness: 0.92, metalness: 0,
+      polygonOffset: true, polygonOffsetFactor: wet ? -5 : -4, polygonOffsetUnits: wet ? -6 : -4,
     });
+    const u = { uDecalHead: { value: 0 }, uDecalMax: { value: max }, uDecalTime: this.uTime };
+    mat.onBeforeCompile = (sh) => {
+      Object.assign(sh.uniforms, u);
+      sh.vertexShader = sh.vertexShader
+        .replace('#include <common>', `#include <common>
+attribute vec2 aTile; attribute vec4 aInfo; varying vec4 vDecal; varying vec2 vDecalUv;
+uniform float uDecalHead; uniform float uDecalMax;`)
+        .replace('#include <uv_vertex>', `#include <uv_vertex>
+#ifdef USE_MAP
+vMapUv = vMapUv * 0.125 + aTile;
+#endif
+#ifdef USE_NORMALMAP
+vNormalMapUv = vNormalMapUv * 0.125 + aTile;
+#endif
+vDecal = aInfo; vDecalUv = uv;
+// the oldest decals (next to be overwritten) fade out ahead of the ring's write head
+vDecal.w *= smoothstep(0.0, 40.0, mod(float(gl_InstanceID) - uDecalHead + uDecalMax, uDecalMax));`);
+      sh.fragmentShader = sh.fragmentShader
+        .replace('#include <common>', `#include <common>
+varying vec4 vDecal; varying vec2 vDecalUv; uniform float uDecalTime;`)
+        .replace('#include <map_fragment>', `#include <map_fragment>
+{
+  float dAge = max(uDecalTime - vDecal.x, 0.0);
+  if (vDecal.z > 0.5 && vDecal.z < 1.5) {
+    // a run of blood creeping down the wall: the tile is revealed from the top
+    float reach = 0.32 + 0.72 * (1.0 - exp(-dAge / 3.0));
+    diffuseColor.a *= smoothstep(reach + 0.025, reach - 0.025, 1.0 - vDecalUv.y);
   }
-  // kind: 'hole' | 'blood' | 'drip' | 'dark'; point and normal in world space
-  add(kind, point, normal, size = 0.06) {
-    const i = this.next;
-    this.next = (this.next + 1) % this.max;
-    this.mesh.count = Math.max(this.mesh.count, i + 1);
-    const n = new T3.Vector3(normal.x, normal.y, normal.z).normalize();
-    this._q.setFromUnitVectors(new T3.Vector3(0, 0, 1), n);
-    const spin = new T3.Quaternion().setFromAxisAngle(new T3.Vector3(0, 0, 1), kind === 'drip' ? 0 : Math.random() * TAU);
-    this._q.multiply(spin);
-    const p = new T3.Vector3(point.x, point.y, point.z).addScaledVector(n, 0.004);
-    this._m.compose(p, this._q, new T3.Vector3(size, size, size));
-    this.mesh.setMatrixAt(i, this._m);
-    const tile = kind === 'hole' ? [Math.floor(Math.random() * 4), 0] : kind === 'drip' ? [Math.floor(Math.random() * 4), 2] : kind === 'dark' ? [Math.floor(Math.random() * 4), 3] : [Math.floor(Math.random() * 4), 1];
+  diffuseColor.a *= vDecal.w;
+}`)
+        .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
+{
+  // the fixtures light the level through a term that ignores normal maps (see patchLattice), so
+  // shade the relief here: faces tilted up toward the lamps catch light, faces tilted down and the
+  // steep walls of a hole fall into shadow
+  vec3 upV = normalize((viewMatrix * vec4(0.0, 1.0, 0.0, 0.0)).xyz);
+  vec3 geoN = normalize(vNormal);
+  float rel = dot(normal - geoN, upV);
+  float tilt = 1.0 - clamp(dot(normal, geoN), 0.0, 1.0);
+  diffuseColor.rgb *= clamp(1.0 + 1.5 * rel - 1.2 * tilt, 0.2, 1.7);
+}`)
+        .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
+{
+  float dAge = max(uDecalTime - vDecal.x, 0.0);
+  // fresh blood is a glossy film that dulls as it dries; bare metal round a hit shines
+  roughnessFactor = mix(roughnessFactor, 0.13, vDecal.y * (0.4 + 0.6 * exp(-dAge / 45.0)));
+  if (vDecal.z > 1.5) roughnessFactor = mix(roughnessFactor, 0.3, smoothstep(0.35, 0.6, dot(diffuseColor.rgb, vec3(0.33))));
+}`);
+    };
+    mat.customProgramCacheKey = () => 'walldecal';
+    const mesh = new T3.InstancedMesh(geo, mat, max);
+    mesh.count = 0;
+    mesh.frustumCulled = false;
+    mesh.renderOrder = wet ? 2 : 1;
+    mesh.instanceMatrix.setUsage(T3.DynamicDrawUsage);
+    mesh.onBeforeRender = () => { this.uTime.value = this.now(); };
+    scene.add(mesh);
+    return { mesh, max, head: 0, tile, info, u, mat };
+  }
+
+  now() { return this.clock ? this.clock() : performance.now() / 1000; }
+
+  // light the decals like the surfaces they sit on (the level's fixture lattice)
+  useLattice(shared) {
+    for (const p of [this.marks, this.blood]) {
+      if (p.mat.userData.latticeShared) continue;
+      patchLattice(p.mat, shared, { key: 'walldecal' });
+      p.mat.needsUpdate = true;
+    }
+  }
+
+  // kind: a tile name ('hole:<material>', 'exit:<material>', 'graze', 'scorch', 'spatter', 'blood',
+  // 'heavy', 'drip', 'smear', 'drops', 'dark') or an alias ('hole'); point and normal in world space.
+  // opts: dir (in-plane direction for the tile's +x: spatter tails, grazes), stretch (x scale),
+  // angle (else random), wet (0..1, blood defaults to 1), alpha
+  add(kind, point, normal, size = 0.06, opts = null) {
+    const name = DECAL_TILES[kind] ? kind : DECAL_ALIAS[kind] || (kind.startsWith('exit:') ? 'exit:concrete' : kind.startsWith('hole:') ? 'hole:concrete' : 'blood');
+    const tl = DECAL_TILES[name], bloody = DECAL_BLOOD[name] === 1;
+    const P = bloody ? this.blood : this.marks;
+    const i = P.head;
+    P.head = (i + 1) % P.max;
+    P.mesh.count = Math.max(P.mesh.count, i + 1);
+    P.u.uDecalHead.value = P.head;
+    // basis: z = normal, y = up the wall (north on floors and ceilings), x = y × z; or x along opts.dir
+    const z = this._z.set(normal.x, normal.y, normal.z).normalize(), x = this._x, y = this._y;
+    const dir = opts && opts.dir;
+    let ok = false;
+    if (dir) {
+      x.set(dir.x, dir.y, dir.z).addScaledVector(z, -(dir.x * z.x + dir.y * z.y + dir.z * z.z));
+      if (x.lengthSq() > 1e-6) { x.normalize(); y.crossVectors(z, x); ok = true; }
+    }
+    if (!ok) {
+      if (Math.abs(z.y) < 0.9) y.set(0, 1, 0); else y.set(0, 0, 1);
+      y.addScaledVector(z, -y.dot(z)).normalize();
+      x.crossVectors(y, z);
+      if (name !== 'drip') {
+        const a = opts && opts.angle !== undefined ? opts.angle : Math.random() * TAU, c = Math.cos(a), s = Math.sin(a);
+        const t = this._t.copy(x).multiplyScalar(c).addScaledVector(y, s);
+        y.multiplyScalar(c).addScaledVector(x, -s);
+        x.copy(t);
+      }
+    }
+    // (no mirrored variants: a negative scale would flip the winding and cull the quad)
+    const sx = size * ((opts && opts.stretch) || 1), sy = size;
+    const off = bloody ? 0.0035 : 0.0025;
+    const e = P.mesh.instanceMatrix.array, o = i * 16;
+    e[o] = x.x * sx; e[o + 1] = x.y * sx; e[o + 2] = x.z * sx; e[o + 3] = 0;
+    e[o + 4] = y.x * sy; e[o + 5] = y.y * sy; e[o + 6] = y.z * sy; e[o + 7] = 0;
+    e[o + 8] = z.x; e[o + 9] = z.y; e[o + 10] = z.z; e[o + 11] = 0;
+    e[o + 12] = point.x + z.x * off; e[o + 13] = point.y + z.y * off; e[o + 14] = point.z + z.z * off; e[o + 15] = 1;
+    const col = tl[1] + Math.floor(Math.random() * tl[2]);
     // texture rows are flipped (canvas y down, uv y up)
-    this.tiles.setXY(i, tile[0] * 0.25, (3 - tile[1]) * 0.25);
-    this.tiles.needsUpdate = true;
-    this.mesh.instanceMatrix.needsUpdate = true;
+    P.tile.setXY(i, col * 0.125, (7 - tl[0]) * 0.125);
+    const mode = name === 'drip' ? 1 : name === 'hole:metal' || name === 'exit:metal' ? 2 : 0;
+    const wet = opts && opts.wet !== undefined ? opts.wet : bloody && name !== 'dark' ? 1 : 0;
+    P.info.setXYZW(i, this.now(), wet, mode, opts && opts.alpha !== undefined ? opts.alpha : 1);
+    P.mesh.instanceMatrix.addUpdateRange(o, 16);
+    P.tile.addUpdateRange(i * 2, 2);
+    P.info.addUpdateRange(i * 4, 4);
+    P.mesh.instanceMatrix.needsUpdate = true;
+    P.tile.needsUpdate = true;
+    P.info.needsUpdate = true;
   }
-  clear() { this.mesh.count = 0; this.next = 0; }
+
+  clear() {
+    for (const p of [this.marks, this.blood]) { p.mesh.count = 0; p.head = 0; p.u.uDecalHead.value = 0; }
+  }
+
+  // ---- the atlas ------------------------------------------------------------------------------
+  static atlas() {
+    return Lab.cached('br:walldecal-atlas2', () => WallDecals.paintAtlas(2048));
+  }
+
+  static paintAtlas(S) {
+    const T = S / 8, R = Math.random;
+    const mk = () => { const cv = document.createElement('canvas'); cv.width = cv.height = S; return cv; };
+    const colC = mk(), hgtC = mk();
+    const c = colC.getContext('2d'), h = hgtC.getContext('2d');
+    h.fillStyle = 'rgb(128,128,128)';
+    h.fillRect(0, 0, S, S);
+    const rgba = (r, g, b, a = 1) => `rgba(${r | 0},${g | 0},${b | 0},${a})`;
+    const grey = (v, a = 1) => rgba(v, v, v, a);
+    const jit = (v, d) => v + (R() - 0.5) * 2 * d;
+    // an irregular closed outline: n points round (x, y), radius r (+/- jag), squashed by sx, sy
+    const shape = (x, y, r, jag, n, sx = 1, sy = 1, rot = 0) => {
+      // a low-frequency wobble from a few random control values, plus per-vertex roughness
+      const m = 4 + ((R() * 4) | 0), ctl = [];
+      for (let k = 0; k < m; k++) ctl.push(R() - 0.5);
+      const pts = [];
+      for (let k = 0; k < n; k++) {
+        const f = (k / n) * m, i0 = Math.floor(f), t = f - i0, a0 = ctl[i0 % m], a1 = ctl[(i0 + 1) % m];
+        const lo = a0 + (a1 - a0) * t * t * (3 - 2 * t);
+        const a = rot + (k / n) * TAU, rr = r * (1 + jag * (lo * 1.3 + (R() - 0.5) * 0.9));
+        pts.push(x + Math.cos(a) * rr * sx, y + Math.sin(a) * rr * sy);
+      }
+      return pts;
+    };
+    const path = (g, p) => { g.beginPath(); g.moveTo(p[0], p[1]); for (let k = 2; k < p.length; k += 2) g.lineTo(p[k], p[k + 1]); g.closePath(); };
+    const fill = (g, p, style) => { g.fillStyle = style; path(g, p); g.fill(); };
+    const radial = (g, x, y, r0, r1, stops) => { const gr = g.createRadialGradient(x, y, r0, x, y, r1); for (const [o, s] of stops) gr.addColorStop(o, s); return gr; };
+    const disc = (g, x, y, r, style) => { g.fillStyle = style; g.beginPath(); g.arc(x, y, Math.max(0.3, r), 0, TAU); g.fill(); };
+    const ell = (g, x, y, rx, ry, rot, style) => { g.fillStyle = style; g.beginPath(); g.ellipse(x, y, Math.max(0.3, rx), Math.max(0.3, ry), rot, 0, TAU); g.fill(); };
+    // a scatter of specks in a ring band (colour by relative radius)
+    const specks = (g, x, y, r0, r1, n, size, colFn, bias = 0.8) => {
+      for (let k = 0; k < n; k++) {
+        const a = R() * TAU, f = R() ** bias, r = r0 + (r1 - r0) * f, s = size * (0.4 + R());
+        g.fillStyle = colFn(f);
+        g.fillRect(x + Math.cos(a) * r - s / 2, y + Math.sin(a) * r - s / 2, s, s);
+      }
+    };
+    // a tapered sliver from radius r0 at angle a, length len, base half-width w
+    const sliver = (x, y, a, r0, len, w) => {
+      const ca = Math.cos(a), sa = Math.sin(a), px = -sa, py = ca;
+      const bx = x + ca * r0, by = y + sa * r0, tx = x + ca * (r0 + len), ty = y + sa * (r0 + len);
+      return [bx + px * w, by + py * w, tx + px * w * 0.15, ty + py * w * 0.15, tx, ty, bx - px * w, by - py * w];
+    };
+    // a blood drop flying along +x: body ellipse plus a tapering tail (and a cast-off bead)
+    const dropTail = (x, y, len, wid, tail, col, hv) => {
+      ell(c, x, y, len / 2, wid / 2, 0, col);
+      ell(h, x, y, len / 2, wid / 2, 0, grey(hv));
+      const p = [x + len * 0.2, y - wid * 0.42, x + len / 2 + tail, y + jit(0, wid * 0.08), x + len * 0.2, y + wid * 0.42];
+      fill(c, p, col);
+      fill(h, p, grey(hv - 8));
+      if (tail > wid * 0.6 && R() < 0.6) {
+        const bx = x + len / 2 + tail * (1.15 + 0.4 * R()), br = wid * (0.12 + 0.12 * R());
+        disc(c, bx, y + jit(0, wid * 0.1), br, col);
+      }
+    };
+    const blood = (a = 1, v = 0) => rgba(jit(128, 12) - v, 7, 5, a);
+    const deep = (a = 1) => rgba(jit(80, 6), 3, 3, a);
+
+    const tile = (row, col, paint) => {
+      const x0 = col * T, y0 = row * T, cx = x0 + T / 2, cy = y0 + T / 2;
+      for (const g of [c, h]) { g.save(); g.beginPath(); g.rect(x0 + 3, y0 + 3, T - 6, T - 6); g.clip(); }
+      paint(cx, cy, T);
+      c.restore();
+      h.restore();
+    };
+    const cracks = (cx, cy, r0, n, len, style, w) => {
+      c.strokeStyle = style; c.lineWidth = w;
+      for (let q = 0; q < n; q++) {
+        let a = R() * TAU, r = r0;
+        c.beginPath(); c.moveTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r);
+        const steps = 3 + (R() * 3) | 0;
+        for (let s = 0; s < steps; s++) { a += (R() - 0.5) * 0.5; r += len / steps; c.lineTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r); }
+        c.stroke();
+      }
+    };
+
+    // ---- row 0: drywall entry / exit, cardboard -------------------------------------------------
+    for (let k = 0; k < 4; k++) tile(0, k, (cx, cy, u) => {
+      // gypsum powder blown back out of the hole
+      c.fillStyle = radial(c, cx, cy, u * 0.05, u * 0.45, [[0, rgba(244, 241, 232, 0.8)], [0.3, rgba(238, 234, 222, 0.42)], [1, rgba(230, 225, 210, 0)]]);
+      c.beginPath(); c.arc(cx, cy, u * 0.45, 0, TAU); c.fill();
+      specks(c, cx, cy, u * 0.1, u * 0.47, 360, u * 0.008, (f) => rgba(248, 246, 238, 0.7 * (1 - f) + 0.1));
+      specks(c, cx, cy, u * 0.12, u * 0.34, 60, u * 0.01, (f) => rgba(140, 130, 112, 0.4 * (1 - f)), 1.3);
+      // exposed gypsum core where the facing paper tore away
+      const cr = u * (0.16 + 0.035 * R());
+      const crater = shape(cx, cy, cr, 0.3, 26);
+      fill(c, crater, rgba(238, 235, 226));
+      fill(h, crater, radial(h, cx, cy, 0, cr, [[0, grey(20)], [0.5, grey(70)], [1, grey(112)]]));
+      // the crater's inner wall: shaded gypsum going down into the hole
+      c.fillStyle = radial(c, cx, cy, cr * 0.3, cr, [[0, rgba(150, 144, 132, 0.85)], [0.55, rgba(205, 200, 188, 0.5)], [1, rgba(230, 226, 216, 0)]]);
+      path(c, crater); c.fill();
+      specks(c, cx, cy, u * 0.07, cr, 50, u * 0.009, () => rgba(196, 190, 176, 0.75), 1);
+      // flaps of the paper facing, folded into the crater
+      for (let f = 0; f < 6 + k; f++) {
+        const a = R() * TAU, r0 = cr * (0.45 + 0.3 * R()), r1 = cr * (1 + 0.12 * R()), w = 0.16 + 0.22 * R();
+        const p = [cx + Math.cos(a - w) * r1, cy + Math.sin(a - w) * r1, cx + Math.cos(a) * r0, cy + Math.sin(a) * r0, cx + Math.cos(a + w) * r1, cy + Math.sin(a + w) * r1];
+        const v = jit(0, 8);
+        fill(c, p, rgba(214 + v, 204 + v, 178 + v));
+        fill(h, p, grey(118));
+        c.strokeStyle = rgba(96, 86, 70, 0.6); c.lineWidth = u * 0.004; path(c, p); c.stroke();
+      }
+      c.strokeStyle = rgba(105, 95, 78, 0.6); c.lineWidth = u * 0.008; path(c, crater); c.stroke();
+      // the hole itself: a dark throat with a grey ring wiped off the bullet
+      const hr = u * (0.072 + 0.018 * R());
+      c.fillStyle = radial(c, cx, cy, hr * 0.9, hr * 1.55, [[0, rgba(55, 50, 45, 0.75)], [1, rgba(70, 64, 56, 0)]]);
+      c.beginPath(); c.arc(cx, cy, hr * 1.55, 0, TAU); c.fill();
+      const hole = shape(cx, cy, hr, 0.3, 14);
+      fill(c, hole, radial(c, cx, cy, 0, hr * 1.1, [[0, rgba(4, 3, 2)], [0.7, rgba(14, 12, 10)], [1, rgba(48, 42, 36)]]));
+      fill(h, hole, grey(0));
+      cracks(cx, cy, cr * 0.95, 2 + k, u * 0.12, rgba(110, 100, 85, 0.38), u * 0.004);
+    });
+    for (let k = 0; k < 2; k++) tile(0, 4 + k, (cx, cy, u) => {
+      // exit side: the far facing blows out in large peeled flaps over crumbled gypsum
+      c.fillStyle = radial(c, cx, cy, u * 0.1, u * 0.47, [[0, rgba(238, 234, 222, 0.55)], [1, rgba(230, 225, 210, 0)]]);
+      c.beginPath(); c.arc(cx, cy, u * 0.47, 0, TAU); c.fill();
+      specks(c, cx, cy, u * 0.15, u * 0.48, 380, u * 0.01, (f) => rgba(240, 236, 225, 0.65 * (1 - f) + 0.1));
+      const cr = u * (0.24 + 0.05 * R());
+      const crater = shape(cx, cy, cr, 0.4, 20);
+      fill(c, crater, rgba(226, 222, 210));
+      fill(h, crater, radial(h, cx, cy, 0, cr, [[0, grey(20)], [0.5, grey(70)], [1, grey(118)]]));
+      specks(c, cx, cy, u * 0.05, cr, 220, u * 0.016, () => (R() < 0.5 ? rgba(196, 192, 180, 0.8) : rgba(246, 244, 236, 0.8)), 1);
+      specks(h, cx, cy, u * 0.05, cr, 160, u * 0.016, () => grey(R() < 0.5 ? 40 : 110, 0.8), 1);
+      const nf = 3 + ((R() * 3) | 0), a0 = R() * TAU;
+      for (let f = 0; f < nf; f++) {
+        // a torn, curled flap of the facing: a ragged outer edge, its underside in shadow
+        const a = a0 + (f / nf) * TAU + jit(0, 0.5), r0 = cr * (0.7 + 0.15 * R()), r1 = cr * (1.1 + 0.6 * R()), w = 0.25 + 0.35 * R();
+        const p = [cx + Math.cos(a - w) * r0, cy + Math.sin(a - w) * r0];
+        for (let q = 0; q <= 6; q++) {
+          const t = q / 6, aa = a - w * 0.6 + t * w * 1.3, rr = r1 * (0.82 + 0.18 * Math.sin(t * Math.PI)) * (0.9 + 0.2 * R());
+          p.push(cx + Math.cos(aa) * rr, cy + Math.sin(aa) * rr);
+        }
+        p.push(cx + Math.cos(a + w) * r0, cy + Math.sin(a + w) * r0);
+        const v = jit(0, 8);
+        fill(c, p, rgba(220 + v, 210 + v, 186 + v));
+        fill(h, p, radial(h, cx, cy, r0, r1, [[0, grey(140)], [1, grey(215)]]));
+        c.strokeStyle = rgba(100, 90, 75, 0.55); c.lineWidth = u * 0.005; path(c, p); c.stroke();
+      }
+      const hr = u * (0.1 + 0.025 * R());
+      const hole = shape(cx, cy, hr, 0.35, 14);
+      fill(c, hole, radial(c, cx, cy, 0, hr, [[0, rgba(5, 4, 3)], [0.75, rgba(24, 20, 16)], [1, rgba(70, 62, 52)]]));
+      fill(h, hole, grey(0));
+    });
+    for (let k = 0; k < 2; k++) tile(0, 6 + k, (cx, cy, u) => {
+      // cardboard: torn kraft liner, crushed flute, brown fibre dust
+      specks(c, cx, cy, u * 0.06, u * 0.4, 160, u * 0.008, (f) => rgba(150, 118, 78, 0.4 * (1 - f)));
+      const cr = u * (0.13 + 0.03 * R());
+      const torn = shape(cx, cy, cr, 0.45, 20);
+      fill(c, torn, rgba(jit(192, 6), jit(160, 6), jit(112, 6)));
+      fill(h, torn, grey(100));
+      c.strokeStyle = rgba(214, 188, 140, 0.8); c.lineWidth = u * 0.005;
+      for (let f = 0; f < 40; f++) { const a = R() * TAU, r = cr * (0.8 + 0.4 * R()); c.beginPath(); c.moveTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r); c.lineTo(cx + Math.cos(a + jit(0, 0.2)) * (r + u * 0.03), cy + Math.sin(a + jit(0, 0.2)) * (r + u * 0.03)); c.stroke(); }
+      const hr = u * (0.07 + 0.015 * R());
+      const hole = shape(cx, cy, hr, 0.3, 12);
+      fill(c, hole, rgba(24, 17, 10));
+      fill(h, hole, grey(5));
+      c.save(); path(c, hole); c.clip();
+      c.strokeStyle = rgba(120, 92, 58, 0.55); c.lineWidth = u * 0.008;
+      for (let q = -3; q <= 3; q++) { c.beginPath(); c.moveTo(cx - hr, cy + q * u * 0.025); for (let s = 0; s <= 8; s++) c.lineTo(cx - hr + (s / 8) * hr * 2, cy + q * u * 0.025 + (s % 2 ? u * 0.008 : -u * 0.008)); c.stroke(); }
+      c.restore();
+    });
+
+    // ---- row 1: concrete entry / exit, ceiling tile ---------------------------------------------
+    const concrete = (cx, cy, u, big) => {
+      c.fillStyle = radial(c, cx, cy, u * 0.08, u * 0.46, [[0, rgba(196, 193, 186, 0.5)], [0.4, rgba(186, 183, 176, 0.25)], [1, rgba(180, 177, 170, 0)]]);
+      c.beginPath(); c.arc(cx, cy, u * 0.46, 0, TAU); c.fill();
+      specks(c, cx, cy, u * 0.12, u * 0.47, 260, u * 0.008, (f) => rgba(205, 202, 195, 0.55 * (1 - f) + 0.08));
+      const cr = u * (big ? 0.3 + 0.06 * R() : 0.2 + 0.06 * R());
+      const crater = shape(cx, cy, cr, big ? 0.4 : 0.32, 30);
+      fill(c, crater, rgba(jit(176, 5), jit(173, 5), jit(166, 5)));
+      fill(h, crater, radial(h, cx, cy, 0, cr, [[0, grey(25)], [0.45, grey(70)], [1, grey(118)]]));
+      // aggregate in the fresh fracture
+      specks(c, cx, cy, 0, cr * 0.95, big ? 260 : 170, u * 0.014, () => (R() < 0.5 ? rgba(138, 134, 126, 0.85) : rgba(208, 205, 198, 0.85)), 1);
+      specks(h, cx, cy, 0, cr * 0.95, 160, u * 0.014, () => grey(R() < 0.5 ? 45 : 100, 0.6), 1);
+      const inner = shape(cx, cy, cr * 0.55, 0.3, 20);
+      fill(c, inner, rgba(150, 147, 140, 0.8));
+      const hr = u * (0.05 + 0.015 * R()) * (big ? 1.4 : 1);
+      const hole = shape(cx, cy, hr, 0.3, 10);
+      fill(c, hole, radial(c, cx, cy, 0, hr, [[0, rgba(12, 11, 10)], [1, rgba(48, 46, 42)]]));
+      fill(h, hole, grey(0));
+      c.strokeStyle = rgba(95, 92, 86, 0.45); c.lineWidth = u * 0.006; path(c, crater); c.stroke();
+      // chips knocked off round the crater
+      for (let q = 0; q < 10; q++) {
+        const a = R() * TAU, r = cr * (1.05 + 0.5 * R());
+        const p = shape(cx + Math.cos(a) * r, cy + Math.sin(a) * r, u * (0.008 + 0.014 * R()), 0.4, 5);
+        const v = jit(0, 10);
+        fill(c, p, rgba(168 + v, 165 + v, 158 + v, 0.9));
+        fill(h, p, grey(95));
+      }
+      cracks(cx, cy, cr, big ? 4 : 2, u * 0.12, rgba(80, 78, 74, 0.35), u * 0.004);
+    };
+    for (let k = 0; k < 4; k++) tile(1, k, (cx, cy, u) => concrete(cx, cy, u, false));
+    for (let k = 0; k < 2; k++) tile(1, 4 + k, (cx, cy, u) => concrete(cx, cy, u, true));
+    for (let k = 0; k < 2; k++) tile(1, 6 + k, (cx, cy, u) => {
+      // mineral-fibre ceiling tile: a crumbly, porous crater
+      specks(c, cx, cy, u * 0.08, u * 0.42, 220, u * 0.009, (f) => rgba(236, 233, 224, 0.55 * (1 - f) + 0.05));
+      const cr = u * (0.15 + 0.04 * R());
+      const crater = shape(cx, cy, cr, 0.4, 16);
+      fill(c, crater, rgba(212, 208, 196));
+      fill(h, crater, radial(h, cx, cy, 0, cr, [[0, grey(30)], [1, grey(112)]]));
+      specks(c, cx, cy, 0, cr, 200, u * 0.012, () => rgba(150, 146, 136, 0.7), 1);
+      const hr = u * 0.07;
+      const hole = shape(cx, cy, hr, 0.35, 10);
+      fill(c, hole, rgba(18, 16, 14));
+      fill(h, hole, grey(0));
+    });
+
+    // ---- row 2: wood entry / exit, metal dents --------------------------------------------------
+    const woodFresh = () => rgba(jit(212, 12), jit(174, 12), jit(118, 10));
+    for (let k = 0; k < 3; k++) tile(2, k, (cx, cy, u) => {
+      // sawdust and fibres, raised splinters mostly along the grain (x)
+      for (let q = 0; q < 140; q++) { const a = R() * TAU, r = u * (0.06 + 0.32 * R() ** 0.8); ell(c, cx + Math.cos(a) * r, cy + Math.sin(a) * r * 0.6, u * 0.008, u * 0.003, 0, rgba(200, 165, 110, 0.45 * (1 - r / (u * 0.4)))); }
+      const torn = shape(cx, cy, u * 0.14, 0.35, 20, 1.5, 0.8);
+      fill(c, torn, rgba(196, 160, 108));
+      fill(h, torn, grey(92));
+      for (let q = 0; q < 14 + 2 * k; q++) {
+        const a = (R() < 0.5 ? 0 : Math.PI) + jit(0, 0.55), len = u * (0.1 + 0.2 * R()), w = u * (0.014 + 0.016 * R());
+        const p = sliver(cx, cy, a, u * 0.05, len, w);
+        fill(c, p, woodFresh());
+        fill(h, p, grey(190));
+        c.strokeStyle = rgba(70, 45, 20, 0.45); c.lineWidth = u * 0.003; path(c, p); c.stroke();
+      }
+      const hr = u * (0.07 + 0.015 * R());
+      const hole = shape(cx, cy, hr, 0.3, 14, 1.15, 0.9);
+      fill(c, hole, radial(c, cx, cy, 0, hr * 1.1, [[0, rgba(14, 9, 4)], [1, rgba(48, 30, 16)]]));
+      fill(h, hole, grey(0));
+    });
+    for (let k = 0; k < 2; k++) tile(2, 3 + k, (cx, cy, u) => {
+      // exit: a long blow-out torn along the grain, bristling with splinters
+      const cr = u * 0.27;
+      const blow = shape(cx, cy, cr, 0.4, 20, 1.55, 0.5);
+      fill(c, blow, rgba(198, 160, 108));
+      fill(h, blow, radial(h, cx, cy, 0, cr * 1.4, [[0, grey(35)], [1, grey(120)]]));
+      c.strokeStyle = rgba(110, 75, 40, 0.6); c.lineWidth = u * 0.005;
+      for (let q = 0; q < 14; q++) { const yy = cy + jit(0, cr * 0.4); c.beginPath(); c.moveTo(cx - cr * 1.4, yy); c.bezierCurveTo(cx - cr * 0.5, yy + jit(0, 6), cx + cr * 0.5, yy + jit(0, 6), cx + cr * 1.4, yy); c.stroke(); }
+      for (let q = 0; q < 18; q++) {
+        const a = (R() < 0.5 ? 0 : Math.PI) + jit(0, 0.35), len = u * (0.12 + 0.2 * R()), w = u * (0.012 + 0.016 * R());
+        const p = sliver(cx, cy, a, cr * 0.4, len, w);
+        fill(c, p, woodFresh());
+        fill(h, p, grey(210));
+      }
+      const hole = shape(cx, cy, u * 0.09, 0.35, 12, 1.3, 0.8);
+      fill(c, hole, rgba(16, 10, 5));
+      fill(h, hole, grey(0));
+    });
+    const metal = (cx, cy, u, through) => {
+      // bullet lead / soot smear, paint knocked off round the strike, a bright dented lip
+      c.fillStyle = radial(c, cx, cy, u * 0.04, u * 0.3, [[0, rgba(55, 55, 55, 0.45)], [1, rgba(55, 55, 55, 0)]]);
+      c.beginPath(); c.arc(cx, cy, u * 0.3, 0, TAU); c.fill();
+      const pr = u * (0.15 + 0.06 * R());
+      const paint = shape(cx, cy, pr, 0.5, 22);
+      fill(c, paint, rgba(158, 158, 154));
+      fill(h, paint, grey(118));
+      for (let q = 0; q < 7; q++) {
+        const a = R() * TAU, r = pr * (1.05 + 0.5 * R());
+        const p = shape(cx + Math.cos(a) * r, cy + Math.sin(a) * r, u * (0.012 + 0.02 * R()), 0.45, 6);
+        fill(c, p, rgba(150, 150, 146, 0.95));
+        fill(h, p, grey(120));
+      }
+      const lr = u * 0.11;
+      c.fillStyle = radial(c, cx, cy, u * 0.04, lr, [[0, rgba(120, 120, 118)], [0.6, rgba(232, 232, 228)], [1, rgba(176, 176, 172)]]);
+      c.beginPath(); c.arc(cx, cy, lr, 0, TAU); c.fill();
+      h.fillStyle = radial(h, cx, cy, 0, lr * 1.25, [[0, grey(20)], [0.75, grey(150)], [0.85, grey(175)], [1, grey(128)]]);
+      h.beginPath(); h.arc(cx, cy, lr * 1.25, 0, TAU); h.fill();
+      c.strokeStyle = rgba(235, 235, 230, 0.6); c.lineWidth = u * 0.003;
+      for (let q = 0; q < 8; q++) { const a = R() * TAU, r0 = lr * 0.9, r1 = pr * (0.7 + 0.5 * R()); c.beginPath(); c.moveTo(cx + Math.cos(a) * r0, cy + Math.sin(a) * r0); c.lineTo(cx + Math.cos(a + 0.1) * r1, cy + Math.sin(a + 0.1) * r1); c.stroke(); }
+      const hr = u * 0.05;
+      disc(c, cx, cy, hr, through ? rgba(4, 4, 4) : radial(c, cx, cy, 0, hr, [[0, rgba(40, 40, 40)], [1, rgba(95, 95, 92)]]));
+    };
+    for (let k = 0; k < 3; k++) tile(2, 5 + k, (cx, cy, u) => metal(cx, cy, u, k === 2));
+
+    // ---- row 3: metal exit petals, grazes, scorches, small holes --------------------------------
+    for (let k = 0; k < 2; k++) tile(3, k, (cx, cy, u) => {
+      metal(cx, cy, u, true);
+      for (let q = 0; q < 6; q++) {
+        const a = (q / 6) * TAU + jit(0, 0.3);
+        const p = sliver(cx, cy, a, u * 0.03, u * (0.12 + 0.06 * R()), u * 0.045);
+        const v = jit(0, 15);
+        fill(c, p, rgba(205 + v, 205 + v, 200 + v));
+        fill(h, p, grey(215));
+        c.strokeStyle = rgba(60, 60, 58, 0.6); c.lineWidth = u * 0.004; path(c, p); c.stroke();
+      }
+      disc(c, cx, cy, u * 0.055, rgba(3, 3, 3));
+      disc(h, cx, cy, u * 0.055, grey(0));
+    });
+    for (let k = 0; k < 2; k++) tile(3, 2 + k, (cx, cy, u) => {
+      // ricochet gouge along +x: a scraped groove, pale at the bottom, debris thrown downrange
+      const p = [];
+      const N = 24;
+      for (let q = 0; q <= N; q++) { const t = q / N, x = cx - u * 0.36 + t * u * 0.76, w = u * 0.07 * Math.sin(Math.PI * t ** 0.65) * (0.8 + 0.4 * R()); p.push(x, cy - w); }
+      for (let q = N; q >= 0; q--) { const t = q / N, x = cx - u * 0.36 + t * u * 0.76, w = u * 0.07 * Math.sin(Math.PI * t ** 0.65) * (0.8 + 0.4 * R()); p.push(x, cy + w); }
+      fill(c, p, rgba(196, 194, 186));
+      fill(h, p, grey(60));
+      c.strokeStyle = rgba(60, 58, 54, 0.75); c.lineWidth = u * 0.012;
+      c.beginPath(); c.moveTo(cx - u * 0.3, cy); c.lineTo(cx + u * 0.32, cy + jit(0, u * 0.01)); c.stroke();
+      for (let q = 0; q < 70; q++) { const x = cx + u * (0.1 + 0.32 * R()), y = cy + jit(0, u * 0.08 * (x - cx) / (u * 0.3)); disc(c, x, y, u * 0.004 * (0.5 + R()), rgba(150, 148, 140, 0.6)); }
+    });
+    for (let k = 0; k < 2; k++) tile(3, 4 + k, (cx, cy, u) => {
+      c.fillStyle = radial(c, cx, cy, 0, u * 0.45, [[0, rgba(16, 14, 12, 0.8)], [0.5, rgba(26, 23, 20, 0.45)], [1, rgba(30, 27, 24, 0)]]);
+      c.beginPath(); c.arc(cx, cy, u * 0.45, 0, TAU); c.fill();
+      specks(c, cx, cy, 0, u * 0.45, 200, u * 0.02, (f) => rgba(18, 16, 14, 0.3 * (1 - f)));
+    });
+    for (let k = 0; k < 2; k++) tile(3, 6 + k, (cx, cy, u) => {
+      specks(c, cx, cy, u * 0.05, u * 0.35, 120, u * 0.008, (f) => rgba(150, 146, 138, 0.45 * (1 - f)));
+      const cr = shape(cx, cy, u * 0.14, 0.35, 12);
+      fill(c, cr, rgba(128, 124, 116, 0.7));
+      fill(h, cr, grey(80));
+      const hole = shape(cx, cy, u * 0.07, 0.3, 10);
+      fill(c, hole, rgba(10, 9, 8));
+      fill(h, hole, grey(0));
+    });
+
+    // ---- row 4: directional spatter (travel along +x) -------------------------------------------
+    for (let k = 0; k < 8; k++) tile(4, k, (cx, cy, u) => {
+      const mx = cx - u * (0.12 + 0.08 * R()), my = cy + jit(0, u * 0.03);
+      const len = u * (0.18 + 0.1 * R()), wid = u * (0.08 + 0.04 * R());
+      dropTail(mx, my, len, wid, u * (0.12 + 0.12 * R()), blood(), 160);
+      ell(c, mx - len * 0.05, my, len * 0.3, wid * 0.3, 0, deep(0.9));
+      const n = 10 + (R() * 18) | 0;
+      for (let q = 0; q < n; q++) {
+        const t = R(), x = mx + len * 0.2 + t * u * 0.5, spread = u * 0.04 + (x - mx) * 0.38;
+        const y = my + jit(0, spread);
+        if (x > cx + u * 0.44) continue;
+        const s = u * (0.008 + 0.03 * (1 - t) * R());
+        dropTail(x, y, s * 2, s, s * (1 + 2.5 * R()), blood(0.95), 150);
+      }
+      // a few strays upstream
+      for (let q = 0; q < 6; q++) disc(c, mx + jit(-u * 0.1, u * 0.12), my + jit(0, u * 0.15), u * 0.005 * (0.5 + R()), blood(0.9));
+    });
+
+    // ---- row 5: round splats, heavy exit spray ---------------------------------------------------
+    for (let k = 0; k < 4; k++) tile(5, k, (cx, cy, u) => {
+      const r = u * (0.13 + 0.05 * R());
+      const body = shape(cx, cy, r, 0.22, 26);
+      fill(c, body, blood());
+      fill(h, body, grey(160));
+      for (let q = 0; q < 10 + k * 3; q++) {
+        const a = R() * TAU, len = r * (0.4 + 0.9 * R()) * (q % 3 ? 1 : 1.5), w = u * (0.008 + 0.012 * R());
+        const p = sliver(cx, cy, a, r * 0.7, len, w);
+        fill(c, p, blood());
+        fill(h, p, grey(150));
+        disc(c, cx + Math.cos(a) * (r * 0.75 + len), cy + Math.sin(a) * (r * 0.75 + len), w * (0.8 + R()), blood());
+      }
+      for (let q = 0; q < 26; q++) { const a = R() * TAU, rr = r * (1.6 + 1.6 * R()); if (rr > u * 0.46) continue; disc(c, cx + Math.cos(a) * rr, cy + Math.sin(a) * rr, u * (0.003 + 0.01 * R()), blood(0.95)); }
+      const inner = shape(cx, cy, r * 0.55, 0.3, 14);
+      fill(c, inner, deep(0.8));
+    });
+    for (let k = 0; k < 4; k++) tile(5, 4 + k, (cx, cy, u) => {
+      // exit wound spray striking square on: a dense core, radial spatter whose drops tail outwards,
+      // flecks of tissue (and the odd bone chip)
+      const core = shape(cx, cy, u * (0.07 + 0.03 * R()), 0.35, 20);
+      fill(c, core, blood());
+      fill(h, core, grey(165));
+      for (let q = 0; q < 5; q++) {
+        const a = R() * TAU, r = u * (0.04 + 0.08 * R());
+        const b = shape(cx + Math.cos(a) * r, cy + Math.sin(a) * r, u * (0.025 + 0.04 * R()), 0.3, 14);
+        fill(c, b, blood());
+        fill(h, b, grey(160));
+      }
+      for (let q = 0; q < 260; q++) {
+        const a = R() * TAU, f = R() ** 0.7, r = u * (0.05 + 0.41 * f);
+        const s = u * (0.004 + 0.022 * (1 - f) * R() ** 1.5);
+        const x = cx + Math.cos(a) * r, y = cy + Math.sin(a) * r;
+        if (f > 0.3 && R() < 0.6) {
+          // tailing away from the centre
+          c.save(); c.translate(x, y); c.rotate(a);
+          h.save(); h.translate(x, y); h.rotate(a);
+          dropTail(0, 0, s * 2, s, s * (0.5 + 2.5 * f), blood(0.95), 150);
+          c.restore(); h.restore();
+        } else {
+          disc(c, x, y, s, blood(0.95));
+          disc(h, x, y, s, grey(155));
+        }
+      }
+      const dk = shape(cx, cy, u * 0.045, 0.4, 12);
+      fill(c, dk, deep(0.9));
+      for (let q = 0; q < 9; q++) {
+        const a = R() * TAU, r = u * (0.03 + 0.2 * R());
+        const p = shape(cx + Math.cos(a) * r, cy + Math.sin(a) * r, u * (0.007 + 0.012 * R()), 0.5, 6);
+        const kind = R();
+        fill(c, p, kind < 0.55 ? rgba(132, 58, 52) : kind < 0.88 ? rgba(40, 5, 4) : rgba(214, 204, 184));
+        fill(h, p, grey(205));
+      }
+    });
+
+    // ---- row 6: runs (drips) and smears ----------------------------------------------------------
+    for (let k = 0; k < 4; k++) tile(6, k, (cx, cy, u) => {
+      const ty = cy - u * 0.36;
+      const top = shape(cx, ty, u * (0.05 + 0.025 * R()), 0.3, 18, 1.3, 0.7);
+      fill(c, top, blood());
+      fill(h, top, grey(165));
+      const runs = 2 + (R() * 3) | 0;
+      for (let q = 0; q < runs; q++) {
+        let x = cx + jit(0, u * 0.08);
+        const w = u * (0.006 + 0.007 * R()), len = u * (0.3 + 0.5 * R());
+        const end = Math.min(ty + len, cy + u * 0.43);
+        c.strokeStyle = blood(); h.strokeStyle = grey(155);
+        for (const g of [c, h]) { g.lineCap = 'round'; g.lineWidth = w * 2; }
+        c.beginPath(); h.beginPath(); c.moveTo(x, ty); h.moveTo(x, ty);
+        for (let y = ty; y < end; y += u * 0.02) { x += jit(0, u * 0.003); c.lineTo(x, y); h.lineTo(x, y); }
+        c.stroke(); h.stroke();
+        ell(c, x, end, w * 1.3, w * 1.7, 0, blood());
+        ell(h, x, end, w * 1.3, w * 1.7, 0, grey(170));
+      }
+    });
+    for (let k = 0; k < 4; k++) tile(6, 4 + k, (cx, cy, u) => {
+      // a wiped smear: parallel streaks along x, thinning out
+      for (let q = 0; q < 40; q++) {
+        const y = cy + jit(0, u * 0.1), x0 = cx - u * 0.38 + R() * u * 0.08, x1 = cx + u * (0.1 + 0.3 * R());
+        c.strokeStyle = blood(0.15 + 0.35 * R()); c.lineWidth = u * (0.006 + 0.018 * R());
+        c.beginPath(); c.moveTo(x0, y); c.lineTo(x1, y + jit(0, u * 0.02)); c.stroke();
+      }
+      const b = shape(cx - u * 0.3, cy, u * 0.08, 0.3, 14, 0.8, 1.2);
+      fill(c, b, blood(0.85));
+      fill(h, b, grey(150));
+    });
+
+    // ---- row 7: droplet clusters, dried blood ------------------------------------------------------
+    for (let k = 0; k < 4; k++) tile(7, k, (cx, cy, u) => {
+      const n = 4 + ((R() * 7) | 0);
+      for (let q = 0; q < n; q++) {
+        const x = cx + jit(0, u * 0.28), y = cy + jit(0, u * 0.28), r = u * (0.02 + 0.06 * R() ** 2);
+        const b = shape(x, y, r, 0.15, 12);
+        fill(c, b, blood());
+        fill(h, b, grey(165));
+        for (let s = 0; s < 3; s++) { const a = R() * TAU; disc(c, x + Math.cos(a) * r * 1.6, y + Math.sin(a) * r * 1.6, r * 0.18 * R(), blood()); }
+      }
+    });
+    for (let k = 0; k < 4; k++) tile(7, 4 + k, (cx, cy, u) => {
+      const b = shape(cx, cy, u * (0.22 + 0.08 * R()), 0.35, 24);
+      fill(c, b, rgba(56, 14, 10, 0.9));
+      fill(h, b, grey(140));
+      c.strokeStyle = rgba(34, 8, 6, 0.8); c.lineWidth = u * 0.012; path(c, b); c.stroke();
+      specks(c, cx, cy, 0, u * 0.2, 80, u * 0.02, () => rgba(40, 9, 7, 0.4), 1);
+    });
+
+    // ---- normal map from the (slightly blurred) height field -------------------------------------
+    const blurC = mk(), bg = blurC.getContext('2d');
+    bg.filter = `blur(${(T / 200).toFixed(2)}px)`;
+    bg.drawImage(hgtC, 0, 0);
+    const hd = bg.getImageData(0, 0, S, S).data;
+    const nrmC = mk(), ng = nrmC.getContext('2d');
+    const out = ng.createImageData(S, S), od = out.data;
+    const k = 0.07 * (T / 256);
+    for (let y = 0; y < S; y++) {
+      const y0 = Math.max(0, y - 1), y1 = Math.min(S - 1, y + 1);
+      for (let x = 0; x < S; x++) {
+        const x0 = Math.max(0, x - 1), x1 = Math.min(S - 1, x + 1);
+        const dx = hd[(y * S + x1) * 4] - hd[(y * S + x0) * 4];
+        const dy = hd[(y1 * S + x) * 4] - hd[(y0 * S + x) * 4];
+        // tangent-space normal (u right, v up; canvas y runs down)
+        let nx = -dx * k, ny = dy * k;
+        const il = 1 / Math.sqrt(nx * nx + ny * ny + 1);
+        nx *= il; ny *= il;
+        const o = (y * S + x) * 4;
+        od[o] = (nx * 0.5 + 0.5) * 255; od[o + 1] = (ny * 0.5 + 0.5) * 255; od[o + 2] = (il * 0.5 + 0.5) * 255; od[o + 3] = 255;
+      }
+    }
+    ng.putImageData(out, 0, 0);
+    const map = new T3.CanvasTexture(colC);
+    map.colorSpace = T3.SRGBColorSpace;
+    map.anisotropy = 8;
+    const normal = new T3.CanvasTexture(nrmC);
+    normal.anisotropy = 8;
+    return { map, normal };
+  }
 }
