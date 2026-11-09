@@ -1,0 +1,98 @@
+:root {
+  --ink: #1d1a22;
+  --paper: #fff6e6;
+  --accent: #ff7a2f;
+  --accent-2: #ffd166;
+  --good: #5bd17a;
+  --bad: #ff4f5e;
+  --panel: rgba(24, 20, 30, 0.86);
+  --panel-edge: #000;
+  --font-display: "Bungee", "Impact", sans-serif;
+  --font-body: "Rubik", system-ui, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: #0d0b12;
+  color: var(--paper);
+  font-family: var(--font-body);
+  user-select: none;
+}
+
+#game {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  outline: none;
+  touch-action: none;
+}
+
+#ui-root {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+}
+
+#ui-root > * {
+  pointer-events: auto;
+}
+
+#boot {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  text-align: center;
+  background: radial-gradient(circle at 50% 40%, #3a2340, #0d0b12 70%);
+  z-index: 100;
+}
+
+.boot-title {
+  font-family: var(--font-display);
+  font-size: clamp(48px, 10vw, 120px);
+  color: var(--accent);
+  text-shadow: 4px 4px 0 #000, 8px 8px 0 #7a1f3d;
+  letter-spacing: 2px;
+}
+
+.boot-sub {
+  margin-top: 12px;
+  opacity: 0.8;
+}
+
+.debug-panel {
+  position: fixed;
+  top: 8px;
+  right: 8px;
+  width: 300px;
+  max-height: calc(100% - 16px);
+  overflow: auto;
+  background: rgba(0, 0, 0, 0.75);
+  color: #9f9;
+  font: 12px/1.4 ui-monospace, monospace;
+  padding: 8px;
+  border-radius: 6px;
+  z-index: 200;
+  display: none;
+}
+
+.debug-stats {
+  white-space: pre;
+  margin-bottom: 6px;
+}
+
+.debug-row {
+  display: grid;
+  grid-template-columns: 1fr 110px 44px;
+  gap: 4px;
+  align-items: center;
+}
