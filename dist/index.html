@@ -65777,20 +65777,27 @@ varying vec4 vDecal; varying vec2 vDecalUv; uniform float uDecalTime;`)
       fill(h, crater, radial(h, cx, cy, 0, cr, [[0, grey(20)], [0.5, grey(70)], [1, grey(118)]]));
       specks(c, cx, cy, u * 0.05, cr, 220, u * 0.016, () => (R() < 0.5 ? rgba(196, 192, 180, 0.8) : rgba(246, 244, 236, 0.8)), 1);
       specks(h, cx, cy, u * 0.05, cr, 160, u * 0.016, () => grey(R() < 0.5 ? 40 : 110, 0.8), 1);
-      const nf = 3 + ((R() * 3) | 0), a0 = R() * TAU;
+      const nf = 2 + ((R() * 3) | 0), a0 = R() * TAU;
       for (let f = 0; f < nf; f++) {
-        // a torn, curled flap of the facing: a ragged outer edge, its underside in shadow
-        const a = a0 + (f / nf) * TAU + jit(0, 0.5), r0 = cr * (0.7 + 0.15 * R()), r1 = cr * (1.1 + 0.6 * R()), w = 0.25 + 0.35 * R();
+        // a torn, curled flap of the facing: a ragged outer edge, its underside in shadow (unevenly
+        // spaced and sized, so the hole does not read as a flower)
+        const a = a0 + (f / nf) * TAU + jit(0, 1.1), r0 = cr * (0.7 + 0.15 * R()), r1 = cr * (1.0 + 0.75 * R() ** 2), w = 0.2 + 0.4 * R();
         const p = [cx + Math.cos(a - w) * r0, cy + Math.sin(a - w) * r0];
         for (let q = 0; q <= 6; q++) {
           const t = q / 6, aa = a - w * 0.6 + t * w * 1.3, rr = r1 * (0.82 + 0.18 * Math.sin(t * Math.PI)) * (0.9 + 0.2 * R());
           p.push(cx + Math.cos(aa) * rr, cy + Math.sin(aa) * rr);
         }
         p.push(cx + Math.cos(a + w) * r0, cy + Math.sin(a + w) * r0);
-        const v = jit(0, 8);
-        fill(c, p, rgba(220 + v, 210 + v, 186 + v));
-        fill(h, p, radial(h, cx, cy, r0, r1, [[0, grey(140)], [1, grey(215)]]));
-        c.strokeStyle = rgba(100, 90, 75, 0.55); c.lineWidth = u * 0.005; path(c, p); c.stroke();
+        // the lifted facing keeps the wall's own finish, so it is mostly see-through here: a little
+        // shade under it and white gypsum showing along the tear
+        fill(c, p, rgba(60, 52, 42, 0.2));
+        fill(h, p, radial(h, cx, cy, r0, r1, [[0, grey(140)], [1, grey(185)]]));
+        // (only the torn outer edge shows the gypsum core)
+        for (const [st, lw] of [[rgba(244, 241, 232, 0.85), 0.007], [rgba(70, 62, 50, 0.3), 0.0025]]) {
+          c.strokeStyle = st; c.lineWidth = u * lw; c.beginPath(); c.moveTo(p[2], p[3]);
+          for (let q = 4; q < p.length - 2; q += 2) c.lineTo(p[q], p[q + 1]);
+          c.stroke();
+        }
       }
       const hr = u * (0.1 + 0.025 * R());
       const hole = shape(cx, cy, hr, 0.35, 14);
