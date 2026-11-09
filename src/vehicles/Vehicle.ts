@@ -146,6 +146,11 @@ export class Vehicle implements IVehicle {
 
   // pre-step snapshot used by collision callbacks
   private prevVel = new Vector3();
+  /** Set when the body touched a drivable slope (ramp face) this step. */
+  /** Steps since a static / dynamic contact event (Havok only reports start/finish). */
+  private staticContact = 0;
+  private dynContact = 0;
+  private rampN = new Vector3();
   private prevAng = new Vector3();
   private com = new Vector3();
   private prevCom = new Vector3();
@@ -738,6 +743,9 @@ export class Vehicle implements IVehicle {
   private afterStep(): void {
     if (this.disposed) return;
     this.readState();
+    if (this.staticContact > 0 && this.dynContact <= 0) this.preserveRampMomentum();
+    this.staticContact--;
+    this.dynContact--;
     const steer = this.steerAngle;
     for (let i = 0; i < 4; i++) {
       const w = this.sim[i];
@@ -752,6 +760,74 @@ export class Vehicle implements IVehicle {
       Debug.watch("car health", `${this.health.toFixed(0)} dmg=${this.damageLevel.toFixed(2)}`);
       Debug.watch("car boost/fuel", `${this.boost.toFixed(1)} / ${this.fuel.toFixed(1)}`);
     }
+  }
+
+  private probeFrom = new Vector3();
+  private probeTo = new Vector3();
+  private probeRay = new PhysicsRaycastResult();
+
+  /**
+   * Ramp ghost-hit fix. At speed, Havok's predictive contacts can treat the
+   * chassis' flat nose meeting a ramp's leading edge as a head-on wall hit,
+   * a step before they actually touch, eating most (sometimes all) of the
+   * car's speed. After each step where the upright car lost a big chunk of
+   * speed against static scenery, check what's really ahead: if there is no
+   * wall in front of the nose and the ground ahead is a drivable slope,
+   * redirect the pre-step velocity along that slope instead (and don't count
+   * it as a crash).
+   */
+  private preserveRampMomentum(): void {
+    const pre = this.prevVel;
+    const preSpeed = pre.length();
+    if (this.wrecked || this.up.y < 0.5 || pre.y < -3) return;
+    if (Vector3.Dot(pre, this.forward) < 6 || this.velocity.length() >= preSpeed * 0.9) return;
+    const half = this.def.size.length / 2;
+    // Wall check: rays forward from bumper and mid height, past the nose.
+    for (const h of [-0.15, 0.45]) {
+      this.up.scaleToRef(h, this.t2);
+      this.com.addToRef(this.t2, this.probeFrom);
+      this.forward.scaleToRef(half + 2.2, this.t2);
+      this.probeFrom.addToRef(this.t2, this.probeTo);
+      this.probeRay.reset();
+      this.pe.raycastToRef(this.probeFrom, this.probeTo, this.probeRay, this.rayQuery);
+      if (this.probeRay.hasHit && this.probeRay.hitNormalWorld.y < 0.7) return;
+    }
+    // Ground ahead of the nose: take the steepest climbable surface.
+    let best = 2;
+    for (const ahead of [0, 0.8, 1.6]) {
+      this.forward.scaleToRef(half + ahead, this.t2);
+      this.com.addToRef(this.t2, this.probeFrom);
+      this.up.scaleToRef(1.5, this.t2);
+      this.probeFrom.addInPlace(this.t2);
+      this.up.scaleToRef(-4, this.t2);
+      this.probeFrom.addToRef(this.t2, this.probeTo);
+      this.probeRay.reset();
+      this.pe.raycastToRef(this.probeFrom, this.probeTo, this.probeRay, this.rayQuery);
+      if (!this.probeRay.hasHit) continue;
+      const ny = this.probeRay.hitNormalWorld.y;
+      if (ny >= 0.7 && ny < best) {
+        best = ny;
+        this.rampN.copyFrom(this.probeRay.hitNormalWorld);
+      }
+    }
+    if (best > 1.5) return;
+    const n = this.rampN;
+    // pre-step velocity projected onto the slope plane, nearly full speed
+    n.scaleToRef(Vector3.Dot(pre, n), this.t2);
+    pre.subtractToRef(this.t2, this.t3);
+    if (this.t3.lengthSquared() < 1e-4) return;
+    this.t3.normalize().scaleInPlace(preSpeed * 0.985);
+    // Never launch steeper than a ramp allows (safety against odd normals).
+    const horiz = Math.hypot(this.t3.x, this.t3.z);
+    this.t3.y = Math.min(this.t3.y, Math.max(this.velocity.y, horiz * 0.75));
+    this.body.setLinearVelocity(this.t3);
+    // Tame the nose-up spin the hit kicked in so it doesn't backflip off the lip.
+    this.body.getAngularVelocityToRef(this.t2);
+    this.right.scaleToRef(Vector3.Dot(this.t2, this.right) * 0.5, this.t1);
+    this.t2.subtractInPlace(this.t1);
+    this.body.setAngularVelocity(this.t2);
+    this.pending.v = 0; // not a crash: no damage / impact event
+    this.readState();
   }
 
   private holdUp = new Vector3();
@@ -842,11 +918,19 @@ export class Vehicle implements IVehicle {
   }
 
   private onCollision(e: IPhysicsCollisionEvent): void {
-    if (this.disposed || e.type === "COLLISION_FINISHED") return;
+    if (this.disposed) return;
     const other = e.collider === this.body ? e.collidedAgainst : e.collider;
-    const mask = other.shape ? other.shape.filterMembershipMask : Layer.WORLD;
+    if (e.type === "COLLISION_FINISHED") {
+      if (other.getMotionType() !== PhysicsMotionType.DYNAMIC) this.staticContact = Math.max(this.staticContact, 2);
+      return;
+    }
+    // World chunks use container shapes whose own mask is 0 (children carry it).
+    const mask = other.shape?.filterMembershipMask || Layer.WORLD;
     if ((mask & (Layer.WORLD | Layer.DEBRIS)) === 0) return;
     this.bodyContact = 0.15;
+    // Flag before the point check: ongoing contacts may arrive without a point.
+    if (other.getMotionType() === PhysicsMotionType.DYNAMIC) this.dynContact = 3;
+    else this.staticContact = 4;
     if (!e.point || !e.normal) return;
     // pre-step velocity of the contact point relative to the other body
     e.point.subtractToRef(this.prevCom, this.t2);
