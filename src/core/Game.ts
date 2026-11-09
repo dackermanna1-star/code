@@ -109,9 +109,10 @@ export class Game {
 
     // Physics steps by the scaled frame time so slow-mo slows the simulation.
     const pe = this.scene.getPhysicsEngine();
-    if (pe) pe.setTimeStep(Math.max(1 / 600, Time.dt));
+    // Cap the step so low frame rates slow the game down instead of destabilizing joints.
+    if (pe) pe.setTimeStep(Math.min(1 / 30, Math.max(1 / 600, Time.dt)));
 
     this.current?.update(Time.dt);
-    this.scene.render();
+    if (this.scene.activeCamera) this.scene.render();
   }
 }

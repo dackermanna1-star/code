@@ -26,7 +26,7 @@ export const Time = {
 
   tick(realDt: number): void {
     // Clamp huge frame gaps (tab switch) so physics doesn't explode.
-    realDt = Math.min(realDt, 1 / 20);
+    realDt = Math.min(realDt, 1 / 30);
     this.realDt = realDt;
     this.realNow += realDt;
     if (this._slowmoRemaining > 0) {
