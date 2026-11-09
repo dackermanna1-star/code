@@ -25,6 +25,7 @@ class Hud {
       <div class="prompt"></div>
       <div class="ann"><div class="k"></div><div class="big"></div><div class="sub"></div></div>
       <div class="toast"></div>
+      <div class="healfx"></div>
       <div class="vitals">
         <div class="vrow hp"><span class="ico">+</span><div class="vbar"><i></i><b></b></div><span class="num">100</span></div>
         <div class="vrow armor"><span class="ico">◆</span><div class="vbar"><b></b></div><span class="num">0</span></div>
@@ -39,7 +40,7 @@ class Hud {
       cash: q('.cash .amt'), score: q('.cash .sc'), feed: q('.feed'),
       xh: q('.xh'), hm: q('.hm'), dmg: q('.dmg'), prompt: q('.prompt'),
       ann: q('.ann'), annK: q('.ann .k'), annBig: q('.ann .big'), annSub: q('.ann .sub'), toast: q('.toast'),
-      vitals: q('.vitals'), hpB: q('.vrow.hp .vbar b'), hpTrail: q('.vrow.hp .vbar i'), hpN: q('.vrow.hp .num'),
+      vitals: q('.vitals'), healfx: q('.healfx'), hpB: q('.vrow.hp .vbar b'), hpTrail: q('.vrow.hp .vbar i'), hpN: q('.vrow.hp .num'),
       arB: q('.vrow.armor .vbar b'), arN: q('.vrow.armor .num'), arRow: q('.vrow.armor'), st: q('.stam b'),
       wName: q('.weapon .name'), ammo: q('.weapon .ammo'), meta: q('.weapon .meta'), slots: q('.weapon .slots'), hint: q('.weapon .hint'),
       fps: q('.fps'),
@@ -65,6 +66,9 @@ class Hud {
     e.ann.classList.add('on');
     this.annT = dur;
   }
+
+  // the warm rush of a medkit's injection
+  healFlash(a) { if (this.e.healfx) this.e.healfx.style.opacity = a > 0.001 ? (0.55 * a).toFixed(3) : 0; }
 
   toast(text) {
     const d = mkEl('div', '', this.e.toast, text);
@@ -115,10 +119,11 @@ class Hud {
     e.ammo.innerHTML = `${w.ammo}<small>/ ${w.reserve}</small>`;
     e.ammo.classList.toggle('empty', w.ammo === 0);
     const att = [...w.attachments].map((x) => ({ suppressor: 'SUP', reddot: 'RDS', laser: 'LAS', extmag: 'EXT', grip: 'GRP' }[x])).join(' ');
-    e.meta.innerHTML = `<span>${w.def.auto ? 'AUTO' : w.def.pump ? 'PUMP' : w.def.bolt ? 'BOLT' : 'SEMI'}</span>${att ? `<span>${att}</span>` : ''}<span>FRAG <b>${a.grenades}</b></span>`;
+    e.meta.innerHTML = `<span>${w.def.auto ? 'AUTO' : w.def.pump ? 'PUMP' : w.def.bolt ? 'BOLT' : 'SEMI'}</span>${att ? `<span>${att}</span>` : ''}<span>FRAG <b>${a.grenades}</b></span><span>MED <b>${a.medkits}</b></span>`;
     e.slots.innerHTML = a.slots.map((s, i) => `<span class="${i === a.index ? 'on' : ''} ${s ? '' : 'none'}">${i + 1} ${s ? s.def.short : '—'}</span>`).join('');
     const reloading = a.state === 'reload';
-    e.hint.textContent = reloading ? 'RELOADING' : w.ammo === 0 && w.reserve === 0 ? 'NO AMMO' : w.ammo <= Math.ceil(w.magSize * 0.25) && w.reserve > 0 ? 'R · RELOAD' : '';
+    const medHint = hp < P.maxHealth * 0.4 && a.medkits > 0 && a.state !== 'heal' && !(g.medkits && g.medkits.healing) ? 'H · MEDKIT' : '';
+    e.hint.textContent = a.state === 'heal' ? 'PATCHING UP' : reloading ? 'RELOADING' : w.ammo === 0 && w.reserve === 0 ? 'NO AMMO' : w.ammo <= Math.ceil(w.magSize * 0.25) && w.reserve > 0 ? 'R · RELOAD' : medHint;
     // wave
     const th = g.level.theme;
     e.lv.textContent = `${th.code} · ${th.title}${g.level.loop ? ' · DEPTH ' + d.depth : ''}`;

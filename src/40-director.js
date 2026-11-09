@@ -266,6 +266,7 @@ class Director {
       given += w.reserve - before;
     }
     if (Math.random() < 0.12 * g.perks.ammoFind && g.arsenal.grenades < g.arsenal.maxGrenades) { g.arsenal.grenades++; this.events.push({ type: 'toast', text: '+1 FRAG' }); }
+    if (Math.random() < 0.07 * g.perks.ammoFind && g.arsenal.medkits < g.arsenal.maxMedkits) { g.arsenal.medkits++; this.events.push({ type: 'toast', text: '+1 MEDKIT' }); }
     this.earn(d.value, 'SCAVENGED');
     this.events.push({ type: 'pickup', ammo: given });
     g.audio.gunHandling('magIn', 'rifle');

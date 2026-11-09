@@ -200,3 +200,8 @@ body.shopping .br .cash, body.shopping .br .weapon, body.shopping .br .vitals, b
 .br .mm canvas { display: block; border-radius: 50%; }
 .br .mm .n { position: absolute; left: 50%; top: 50%; width: 14px; height: 14px; margin: -7px 0 0 -7px; font: 700 9px/14px var(--mono); text-align: center; color: rgba(244, 236, 212, 0.75); font-style: normal; }
 body.shopping .br .mm { opacity: 0; }
+
+/* medkits: the injection rush, and the health bar while it heals */
+.br .healfx { position: absolute; inset: 0; pointer-events: none; opacity: 0; background: radial-gradient(ellipse at 50% 55%, rgba(255, 244, 214, 0) 35%, rgba(255, 226, 170, 0.35) 75%, rgba(255, 210, 150, 0.55) 100%); mix-blend-mode: screen; }
+.br .vitals.healing .vrow.hp .vbar > b { background: #8fd18a; box-shadow: 0 0 8px rgba(143, 209, 138, 0.6); transition: background 0.3s; }
+.br .vitals.healing .vrow.hp .ico { color: #8fd18a; }

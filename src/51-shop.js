@@ -5,6 +5,7 @@ const PERKS = {
   quick: { name: 'Quick Hands', max: 2, base: 900, step: 700, desc: '+12% reload speed with every weapon.', apply: (g) => { g.perks.reload += 0.12; } },
   bandolier: { name: 'Bandolier', max: 2, base: 600, step: 600, desc: '+1 grenade capacity.', apply: (g) => { g.arsenal.maxGrenades++; } },
   scavenger: { name: 'Scavenger', max: 2, base: 500, step: 600, desc: '+40% ammunition stripped from dropped weapons.', apply: (g) => { g.perks.ammoFind += 0.4; } },
+  medic: { name: 'Corpsman', max: 2, base: 600, step: 600, desc: '+1 medkit capacity.', apply: (g) => { g.arsenal.maxMedkits++; } },
   wind: { name: 'Second Wind', max: 2, base: 700, step: 700, desc: '+3 HP/s regeneration after six quiet seconds.', apply: (g) => { g.perks.regen += 3; } },
   marathon: { name: 'Marathon', max: 2, base: 600, step: 500, desc: '+8% movement speed.', apply: (g) => { g.perks.speed += 0.08; } },
 };
@@ -79,6 +80,7 @@ class Shop {
     if (kind === 'frag') return 250;
     if (kind === 'armor') return 300;
     if (kind === 'med') return 250;
+    if (kind === 'medkit') return MEDKIT.price;
     return 0;
   }
 
@@ -110,6 +112,7 @@ class Shop {
       case 'frag': if (a.grenades >= a.maxGrenades) return; a.grenades++; break;
       case 'armor': if (g.armor >= g.maxArmor) return; g.armor = Math.min(g.maxArmor, g.armor + 50); break;
       case 'med': if (g.player.health >= g.player.maxHealth) return; g.player.health = g.player.maxHealth; break;
+      case 'medkit': if (a.medkits >= a.maxMedkits) return; a.medkits++; break;
     }
     d.cash -= cost;
     g.audio.gunHandling(ds.k === 'weapon' || ds.k === 'attach' ? 'equip' : 'magIn', 'rifle');
@@ -144,7 +147,7 @@ class Shop {
     r.querySelector('.wallet b').textContent = fmt(d.cash);
     r.querySelector('.head .sub').textContent = `${g.level.theme.code} · ${g.level.theme.title} — NEXT: WAVE ${d.wave + 1}${(d.wave + 1) % 5 === 0 ? ' · BOSS' : ''}`;
     for (const s of r.querySelectorAll('.tabs span')) s.classList.toggle('on', s.dataset.t === this.tab);
-    r.querySelector('.loadout').innerHTML = a.slots.map((s, i) => `<span class="${i === a.index ? 'on' : ''}">${i + 1} · ${s ? s.def.short : 'EMPTY'}</span>`).join('') + `<span>FRAG ${a.grenades}/${a.maxGrenades}</span><span>ARMOR ${Math.round(g.armor)}</span>`;
+    r.querySelector('.loadout').innerHTML = a.slots.map((s, i) => `<span class="${i === a.index ? 'on' : ''}">${i + 1} · ${s ? s.def.short : 'EMPTY'}</span>`).join('') + `<span>FRAG ${a.grenades}/${a.maxGrenades}</span><span>MED ${a.medkits}/${a.maxMedkits}</span><span>ARMOR ${Math.round(g.armor)}</span>`;
     let html = '';
     if (this.tab === 'weapons') {
       for (const [id, def] of Object.entries(WEAPONS)) {
@@ -156,7 +159,8 @@ class Shop {
       html += this.card({ title: 'Ammunition Resupply', tag: 'All weapons', desc: 'Fill the reserve of every weapon you carry.', price: this.price('ammo'), k: 'ammo', id: 'all', disabled: this.price('ammo') === 0, label: 'Refill' });
       html += this.card({ title: 'Frag Grenade', tag: `${a.grenades}/${a.maxGrenades}`, desc: 'Steel-cased fragmentation grenade. 2.4 s fuse, bounces off walls.', price: 250, k: 'frag', id: 'frag', disabled: a.grenades >= a.maxGrenades });
       html += this.card({ title: 'Armour Plate', tag: `${Math.round(g.armor)}/${g.maxArmor}`, desc: '+50 armour. Absorbs most of each hit until it is spent.', price: 300, k: 'armor', id: 'armor', disabled: g.armor >= g.maxArmor });
-      html += this.card({ title: 'Trauma Medkit', tag: `${Math.ceil(g.player.health)}/${g.player.maxHealth}`, desc: 'Patch up to full health.', price: 250, k: 'med', id: 'med', disabled: g.player.health >= g.player.maxHealth });
+      html += this.card({ title: 'Medkit', tag: `${a.medkits}/${a.maxMedkits}`, desc: `Auto-injector you carry into the fight. H to use: +${MEDKIT.heal} health over ${MEDKIT.over.toFixed(0)} s. You walk while using it; firing before the jab calls it off and keeps the kit.`, price: MEDKIT.price, k: 'medkit', id: 'medkit', disabled: a.medkits >= a.maxMedkits });
+      html += this.card({ title: 'Field Treatment', tag: `${Math.ceil(g.player.health)}/${g.player.maxHealth}`, desc: 'Get patched up here and now: back to full health.', price: 250, k: 'med', id: 'med', disabled: g.player.health >= g.player.maxHealth });
       html += `<div class="sect">One-wave boosts</div>`;
       for (const [id, b] of Object.entries(BOOSTS)) {
         const on = b.active(g);

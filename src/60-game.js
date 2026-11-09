@@ -153,6 +153,7 @@ class BackroomsGame {
         else if (code === 'KeyR') a.reload();
         else if (code === 'KeyV') { if (a.state === 'idle') { const d = this.vm.playAction('inspect'); if (d > 0) a.inspect(d); } }
         else if (code === 'KeyG') this.throwGrenade();
+        else if (code === 'KeyH') this.useMedkit();
         else if (code === 'KeyF') this.melee();
       }
       if (inp.wheel) a.cycle(inp.wheel > 0 ? 1 : -1);
@@ -160,7 +161,7 @@ class BackroomsGame {
     // events raised by the key handlers (manual reload, holster, cancels) before update() runs
     this.drainArsenal();
     a.ads = inp.ads && p.alive;
-    p.ads = a.adsAmount > 0.5;
+    p.ads = a.adsAmount > 0.5 || a.state === 'heal'; // a medkit in hand: walk, no sprint
     const stamina0 = p.stamina;
     p.update(dt, { move: inp.move, look, sprint: inp.sprint && !inp.fire, crouch: inp.crouch, jump: inp.jump }, this.playerEnv());
     // never let the head pass through the ceiling (mantling onto tall props in low rooms)
@@ -226,6 +227,7 @@ class BackroomsGame {
   }
 
   onArsenalEvent(e) {
+    for (const h of this.hooks) h.onArsenalEvent && h.onArsenalEvent(e);
     const au = this.audio, g = e.gun;
     const type = g ? (g.def.ballistic === 'shotgun' ? 'shotgun' : g.def.cls === 'Pistol' ? 'pistol' : g.def.cls === 'SMG' ? 'smg' : 'rifle') : 'rifle';
     switch (e.type) {
@@ -396,6 +398,7 @@ class BackroomsGame {
 
   melee() { for (const h of this.hooks) if (h.melee && h.melee()) return; }
   throwGrenade() { for (const h of this.hooks) if (h.throwGrenade && h.throwGrenade()) return; }
+  useMedkit() { for (const h of this.hooks) if (h.useMedkit && h.useMedkit()) return; }
 
   // ---- frame ---------------------------------------------------------------------------------
   frame(now, dt) {
@@ -484,7 +487,7 @@ class BackroomsGame {
     const near = this.level.segmentClear(p.pos.x, p.pos.z, p.pos.x + fwd.x * 0.75, p.pos.z + fwd.z * 0.75, eye.y - 0.25, 0, eye.y - 0.25) ? 0 : 1;
     this.vm.update(dt, {
       ads: a.adsAmount, sprint: p.sprinting, speed: p.speed, onGround: p.onGround, crouch: p.crouch,
-      look: inp.look, landed: p.landed, light: clamp(light * 0.9 + 0.05, 0, 1.5), lowered: this.holstering || a.state === 'holster' || a.state === 'throw',
+      look: inp.look, landed: p.landed, light: clamp(light * 0.9 + 0.05, 0, 1.5), lowered: this.holstering || a.state === 'holster' || a.state === 'throw' || a.state === 'heal',
       wallNear: near && a.adsAmount < 0.5 ? 1 : 0, strafe: lateral,
     });
     p.landed = 0;

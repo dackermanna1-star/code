@@ -210,6 +210,11 @@ body.shopping .br .cash, body.shopping .br .weapon, body.shopping .br .vitals, b
 .br .mm .n { position: absolute; left: 50%; top: 50%; width: 14px; height: 14px; margin: -7px 0 0 -7px; font: 700 9px/14px var(--mono); text-align: center; color: rgba(244, 236, 212, 0.75); font-style: normal; }
 body.shopping .br .mm { opacity: 0; }
 
+/* medkits: the injection rush, and the health bar while it heals */
+.br .healfx { position: absolute; inset: 0; pointer-events: none; opacity: 0; background: radial-gradient(ellipse at 50% 55%, rgba(255, 244, 214, 0) 35%, rgba(255, 226, 170, 0.35) 75%, rgba(255, 210, 150, 0.55) 100%); mix-blend-mode: screen; }
+.br .vitals.healing .vrow.hp .vbar > b { background: #8fd18a; box-shadow: 0 0 8px rgba(143, 209, 138, 0.6); transition: background 0.3s; }
+.br .vitals.healing .vrow.hp .ico { color: #8fd18a; }
+
 </style>
 </head>
 <body>
@@ -67256,7 +67261,7 @@ class Arsenal {
     this.slots = [null, null, new WeaponInstance('p9')]; // primary A, primary B, sidearm
     this.index = 2;
     this.prevIndex = 2;
-    this.state = 'equip'; // equip | idle | reload | holster | pump | inspect | throw
+    this.state = 'equip'; // equip | idle | reload | holster | pump | inspect | throw | heal
     this.t = 0;
     this.stateDur = 0.45;
     this.pending = null;
@@ -67266,6 +67271,9 @@ class Arsenal {
     this.events = [];
     this.grenades = 1;
     this.maxGrenades = 4;
+    this.medkits = 1;
+    this.maxMedkits = 3;
+    this.injected = false;
     this.reloadShellT = 0;
   }
   get gun() { return this.slots[this.index]; }
@@ -67281,6 +67289,8 @@ class Arsenal {
   }
   select(i, force = false) {
     if (!this.slots[i] || (i === this.index && !force)) return;
+    // switching weapons before the jab calls a medkit off (the kit is kept)
+    if (this.state === 'heal' && !this.injected) this.events.push({ type: 'healCancel' });
     if (this.state === 'holster') { this.pending = i; return; }
     this.pending = i;
     this.state = 'holster';
@@ -67324,7 +67334,7 @@ class Arsenal {
     this.t += dt;
     const g = this.gun;
     g.cool = Math.max(0, g.cool - dt);
-    const canAds = !blocked && this.state !== 'holster' && this.state !== 'equip' && this.state !== 'throw';
+    const canAds = !blocked && this.state !== 'holster' && this.state !== 'equip' && this.state !== 'throw' && this.state !== 'heal';
     const target = this.ads && canAds && g.scoped ? 1 : 0;
     this.adsAmount = clamp(this.adsAmount + Math.sign(target - this.adsAmount) * (dt / g.adsTime), 0, 1);
     let fired = false;
@@ -67379,6 +67389,14 @@ class Arsenal {
       case 'throw':
         if (this.t > this.stateDur) this.state = 'idle';
         break;
+      case 'heal':
+        if (!this.injected) {
+          // a fresh trigger pull before the jab calls it off and keeps the kit
+          if (trigger && !this.triggerHeld && this.t > 0.08) { this.endHeal('healCancel'); break; }
+          if (this.t >= this.injectAt) { this.injected = true; this.medkits = Math.max(0, this.medkits - 1); this.events.push({ type: 'healInject' }); }
+        } else if (trigger && !this.triggerHeld && this.t > this.injectAt + 0.2) { this.endHeal('healEnd'); break; } // back to the fight early
+        if (this.t >= this.stateDur) this.endHeal('healEnd');
+        break;
       case 'idle':
         if (blocked) { g.shotsInBurst = 0; break; }
         if (trigger && g.cool <= 0 && (g.def.auto || !this.triggerHeld)) {
@@ -67408,6 +67426,26 @@ class Arsenal {
     this.t = 0;
     this.stateDur = dur;
     return true;
+  }
+  // a medkit: the weapon goes down, the injector comes up and the jab lands at injectAt, when the
+  // kit is used up; the weapon then takes a moment to come back up before it can fire
+  useMedkit(dur, injectAt) {
+    if (this.medkits <= 0 || (this.state !== 'idle' && this.state !== 'reload' && this.state !== 'inspect')) return false;
+    if (this.state === 'reload') this.events.push({ type: 'reloadCancel', gun: this.gun });
+    if (this.state === 'inspect') this.events.push({ type: 'inspectCancel', gun: this.gun });
+    this.state = 'heal';
+    this.t = 0;
+    this.stateDur = dur;
+    this.injectAt = injectAt;
+    this.injected = false;
+    this.events.push({ type: 'healStart' });
+    return true;
+  }
+  endHeal(type) {
+    this.state = 'equip';
+    this.t = 0;
+    this.stateDur = 0.3;
+    this.events.push({ type });
   }
   throwGrenade() {
     if (this.grenades <= 0 || (this.state !== 'idle' && this.state !== 'reload' && this.state !== 'inspect')) return false;
@@ -70066,6 +70104,7 @@ class Director {
       given += w.reserve - before;
     }
     if (Math.random() < 0.12 * g.perks.ammoFind && g.arsenal.grenades < g.arsenal.maxGrenades) { g.arsenal.grenades++; this.events.push({ type: 'toast', text: '+1 FRAG' }); }
+    if (Math.random() < 0.07 * g.perks.ammoFind && g.arsenal.medkits < g.arsenal.maxMedkits) { g.arsenal.medkits++; this.events.push({ type: 'toast', text: '+1 MEDKIT' }); }
     this.earn(d.value, 'SCAVENGED');
     this.events.push({ type: 'pickup', ammo: given });
     g.audio.gunHandling('magIn', 'rifle');
@@ -70180,6 +70219,7 @@ class Hud {
       <div class="prompt"></div>
       <div class="ann"><div class="k"></div><div class="big"></div><div class="sub"></div></div>
       <div class="toast"></div>
+      <div class="healfx"></div>
       <div class="vitals">
         <div class="vrow hp"><span class="ico">+</span><div class="vbar"><i></i><b></b></div><span class="num">100</span></div>
         <div class="vrow armor"><span class="ico">◆</span><div class="vbar"><b></b></div><span class="num">0</span></div>
@@ -70194,7 +70234,7 @@ class Hud {
       cash: q('.cash .amt'), score: q('.cash .sc'), feed: q('.feed'),
       xh: q('.xh'), hm: q('.hm'), dmg: q('.dmg'), prompt: q('.prompt'),
       ann: q('.ann'), annK: q('.ann .k'), annBig: q('.ann .big'), annSub: q('.ann .sub'), toast: q('.toast'),
-      vitals: q('.vitals'), hpB: q('.vrow.hp .vbar b'), hpTrail: q('.vrow.hp .vbar i'), hpN: q('.vrow.hp .num'),
+      vitals: q('.vitals'), healfx: q('.healfx'), hpB: q('.vrow.hp .vbar b'), hpTrail: q('.vrow.hp .vbar i'), hpN: q('.vrow.hp .num'),
       arB: q('.vrow.armor .vbar b'), arN: q('.vrow.armor .num'), arRow: q('.vrow.armor'), st: q('.stam b'),
       wName: q('.weapon .name'), ammo: q('.weapon .ammo'), meta: q('.weapon .meta'), slots: q('.weapon .slots'), hint: q('.weapon .hint'),
       fps: q('.fps'),
@@ -70220,6 +70260,9 @@ class Hud {
     e.ann.classList.add('on');
     this.annT = dur;
   }
+
+  // the warm rush of a medkit's injection
+  healFlash(a) { if (this.e.healfx) this.e.healfx.style.opacity = a > 0.001 ? (0.55 * a).toFixed(3) : 0; }
 
   toast(text) {
     const d = mkEl('div', '', this.e.toast, text);
@@ -70270,10 +70313,11 @@ class Hud {
     e.ammo.innerHTML = `${w.ammo}<small>/ ${w.reserve}</small>`;
     e.ammo.classList.toggle('empty', w.ammo === 0);
     const att = [...w.attachments].map((x) => ({ suppressor: 'SUP', reddot: 'RDS', laser: 'LAS', extmag: 'EXT', grip: 'GRP' }[x])).join(' ');
-    e.meta.innerHTML = `<span>${w.def.auto ? 'AUTO' : w.def.pump ? 'PUMP' : w.def.bolt ? 'BOLT' : 'SEMI'}</span>${att ? `<span>${att}</span>` : ''}<span>FRAG <b>${a.grenades}</b></span>`;
+    e.meta.innerHTML = `<span>${w.def.auto ? 'AUTO' : w.def.pump ? 'PUMP' : w.def.bolt ? 'BOLT' : 'SEMI'}</span>${att ? `<span>${att}</span>` : ''}<span>FRAG <b>${a.grenades}</b></span><span>MED <b>${a.medkits}</b></span>`;
     e.slots.innerHTML = a.slots.map((s, i) => `<span class="${i === a.index ? 'on' : ''} ${s ? '' : 'none'}">${i + 1} ${s ? s.def.short : '—'}</span>`).join('');
     const reloading = a.state === 'reload';
-    e.hint.textContent = reloading ? 'RELOADING' : w.ammo === 0 && w.reserve === 0 ? 'NO AMMO' : w.ammo <= Math.ceil(w.magSize * 0.25) && w.reserve > 0 ? 'R · RELOAD' : '';
+    const medHint = hp < P.maxHealth * 0.4 && a.medkits > 0 && a.state !== 'heal' && !(g.medkits && g.medkits.healing) ? 'H · MEDKIT' : '';
+    e.hint.textContent = a.state === 'heal' ? 'PATCHING UP' : reloading ? 'RELOADING' : w.ammo === 0 && w.reserve === 0 ? 'NO AMMO' : w.ammo <= Math.ceil(w.magSize * 0.25) && w.reserve > 0 ? 'R · RELOAD' : medHint;
     // wave
     const th = g.level.theme;
     e.lv.textContent = `${th.code} · ${th.title}${g.level.loop ? ' · DEPTH ' + d.depth : ''}`;
@@ -70460,6 +70504,7 @@ const PERKS = {
   quick: { name: 'Quick Hands', max: 2, base: 900, step: 700, desc: '+12% reload speed with every weapon.', apply: (g) => { g.perks.reload += 0.12; } },
   bandolier: { name: 'Bandolier', max: 2, base: 600, step: 600, desc: '+1 grenade capacity.', apply: (g) => { g.arsenal.maxGrenades++; } },
   scavenger: { name: 'Scavenger', max: 2, base: 500, step: 600, desc: '+40% ammunition stripped from dropped weapons.', apply: (g) => { g.perks.ammoFind += 0.4; } },
+  medic: { name: 'Corpsman', max: 2, base: 600, step: 600, desc: '+1 medkit capacity.', apply: (g) => { g.arsenal.maxMedkits++; } },
   wind: { name: 'Second Wind', max: 2, base: 700, step: 700, desc: '+3 HP/s regeneration after six quiet seconds.', apply: (g) => { g.perks.regen += 3; } },
   marathon: { name: 'Marathon', max: 2, base: 600, step: 500, desc: '+8% movement speed.', apply: (g) => { g.perks.speed += 0.08; } },
 };
@@ -70534,6 +70579,7 @@ class Shop {
     if (kind === 'frag') return 250;
     if (kind === 'armor') return 300;
     if (kind === 'med') return 250;
+    if (kind === 'medkit') return MEDKIT.price;
     return 0;
   }
 
@@ -70565,6 +70611,7 @@ class Shop {
       case 'frag': if (a.grenades >= a.maxGrenades) return; a.grenades++; break;
       case 'armor': if (g.armor >= g.maxArmor) return; g.armor = Math.min(g.maxArmor, g.armor + 50); break;
       case 'med': if (g.player.health >= g.player.maxHealth) return; g.player.health = g.player.maxHealth; break;
+      case 'medkit': if (a.medkits >= a.maxMedkits) return; a.medkits++; break;
     }
     d.cash -= cost;
     g.audio.gunHandling(ds.k === 'weapon' || ds.k === 'attach' ? 'equip' : 'magIn', 'rifle');
@@ -70599,7 +70646,7 @@ class Shop {
     r.querySelector('.wallet b').textContent = fmt(d.cash);
     r.querySelector('.head .sub').textContent = `${g.level.theme.code} · ${g.level.theme.title} — NEXT: WAVE ${d.wave + 1}${(d.wave + 1) % 5 === 0 ? ' · BOSS' : ''}`;
     for (const s of r.querySelectorAll('.tabs span')) s.classList.toggle('on', s.dataset.t === this.tab);
-    r.querySelector('.loadout').innerHTML = a.slots.map((s, i) => `<span class="${i === a.index ? 'on' : ''}">${i + 1} · ${s ? s.def.short : 'EMPTY'}</span>`).join('') + `<span>FRAG ${a.grenades}/${a.maxGrenades}</span><span>ARMOR ${Math.round(g.armor)}</span>`;
+    r.querySelector('.loadout').innerHTML = a.slots.map((s, i) => `<span class="${i === a.index ? 'on' : ''}">${i + 1} · ${s ? s.def.short : 'EMPTY'}</span>`).join('') + `<span>FRAG ${a.grenades}/${a.maxGrenades}</span><span>MED ${a.medkits}/${a.maxMedkits}</span><span>ARMOR ${Math.round(g.armor)}</span>`;
     let html = '';
     if (this.tab === 'weapons') {
       for (const [id, def] of Object.entries(WEAPONS)) {
@@ -70611,7 +70658,8 @@ class Shop {
       html += this.card({ title: 'Ammunition Resupply', tag: 'All weapons', desc: 'Fill the reserve of every weapon you carry.', price: this.price('ammo'), k: 'ammo', id: 'all', disabled: this.price('ammo') === 0, label: 'Refill' });
       html += this.card({ title: 'Frag Grenade', tag: `${a.grenades}/${a.maxGrenades}`, desc: 'Steel-cased fragmentation grenade. 2.4 s fuse, bounces off walls.', price: 250, k: 'frag', id: 'frag', disabled: a.grenades >= a.maxGrenades });
       html += this.card({ title: 'Armour Plate', tag: `${Math.round(g.armor)}/${g.maxArmor}`, desc: '+50 armour. Absorbs most of each hit until it is spent.', price: 300, k: 'armor', id: 'armor', disabled: g.armor >= g.maxArmor });
-      html += this.card({ title: 'Trauma Medkit', tag: `${Math.ceil(g.player.health)}/${g.player.maxHealth}`, desc: 'Patch up to full health.', price: 250, k: 'med', id: 'med', disabled: g.player.health >= g.player.maxHealth });
+      html += this.card({ title: 'Medkit', tag: `${a.medkits}/${a.maxMedkits}`, desc: `Auto-injector you carry into the fight. H to use: +${MEDKIT.heal} health over ${MEDKIT.over.toFixed(0)} s. You walk while using it; firing before the jab calls it off and keeps the kit.`, price: MEDKIT.price, k: 'medkit', id: 'medkit', disabled: a.medkits >= a.maxMedkits });
+      html += this.card({ title: 'Field Treatment', tag: `${Math.ceil(g.player.health)}/${g.player.maxHealth}`, desc: 'Get patched up here and now: back to full health.', price: 250, k: 'med', id: 'med', disabled: g.player.health >= g.player.maxHealth });
       html += `<div class="sect">One-wave boosts</div>`;
       for (const [id, b] of Object.entries(BOOSTS)) {
         const on = b.active(g);
@@ -71116,6 +71164,53 @@ class Sfx {
     if (this.au.verbIn) { const r = ctx.createGain(); r.gain.value = 0.25; env.connect(r); r.connect(this.au.verbIn); }
   }
 
+  // medkit foley, all on the player: 'open' a velcro pouch, 'cap' the safety cap clicked off,
+  // 'inject' the spring jab with a hiss and a grunt, 'relief' a long breath out once it has worked
+  medkit(stage) {
+    if (!this.ready) return;
+    const ctx = this.ctx, t = ctx.currentTime, out = this.out;
+    const burst = (at, dur, type, f, q, peak, rate = 1) => {
+      const s = ctx.createBufferSource(), fl = ctx.createBiquadFilter(), g = ctx.createGain();
+      s.buffer = this.noise; s.playbackRate.value = rate;
+      fl.type = type; fl.frequency.value = f; fl.Q.value = q;
+      s.connect(fl); fl.connect(g); g.connect(out);
+      this.env(g, t + at, Math.min(0.004, dur * 0.2), peak, dur);
+      s.start(t + at, Math.random() * 2); s.stop(t + at + dur + 0.05);
+      return g;
+    };
+    if (stage === 'open') {
+      // velcro: a fast train of crackles under a tearing band
+      const g = burst(0, 0.28, 'bandpass', 2600, 0.7, 0.22);
+      const am = ctx.createOscillator(), amg = ctx.createGain();
+      am.type = 'square'; am.frequency.value = 55 + Math.random() * 25; amg.gain.value = 0.12;
+      am.connect(amg); amg.connect(g.gain); am.start(t); am.stop(t + 0.32);
+      burst(0.3, 0.06, 'bandpass', 1400, 1.2, 0.12); // the pouch flap
+    } else if (stage === 'cap') {
+      burst(0, 0.018, 'bandpass', 3800, 3, 0.3);
+      burst(0.012, 0.03, 'bandpass', 2200, 4, 0.18);
+    } else if (stage === 'inject') {
+      burst(0, 0.02, 'bandpass', 3000, 2.5, 0.45);       // the spring fires
+      burst(0.015, 0.05, 'lowpass', 900, 0.8, 0.5);      // into the thigh
+      burst(0.03, 0.35, 'highpass', 5200, 0.6, 0.06);    // the hiss
+      // a clenched grunt: a short voiced tone through a vowel formant
+      const o = ctx.createOscillator(), bp = ctx.createBiquadFilter(), og = ctx.createGain();
+      o.type = 'sawtooth'; o.frequency.setValueAtTime(140, t + 0.04); o.frequency.exponentialRampToValueAtTime(105, t + 0.3);
+      bp.type = 'bandpass'; bp.frequency.value = 560; bp.Q.value = 4;
+      o.connect(bp); bp.connect(og); og.connect(out);
+      this.env(og, t + 0.04, 0.03, 0.16, 0.24);
+      o.start(t + 0.04); o.stop(t + 0.35);
+    } else if (stage === 'relief') {
+      // a long breath out
+      const s = ctx.createBufferSource(), lp = ctx.createBiquadFilter(), g = ctx.createGain();
+      s.buffer = this.noise; lp.type = 'bandpass'; lp.frequency.setValueAtTime(1300, t); lp.frequency.exponentialRampToValueAtTime(600, t + 0.9); lp.Q.value = 0.8;
+      s.connect(lp); lp.connect(g); g.connect(out);
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.linearRampToValueAtTime(0.09, t + 0.15);
+      g.gain.linearRampToValueAtTime(0.0001, t + 0.95);
+      s.start(t, Math.random() * 2); s.stop(t + 1.0);
+    }
+  }
+
   radio(pos) {
     if (!this.ready) return;
     const ctx = this.ctx, t = ctx.currentTime;
@@ -71482,6 +71577,218 @@ class BloodPools {
 }
 
 
+// ===== src/56-medkit.js =====
+// Medkits: carried auto-injectors (bought in the shop, sometimes found on the dead) used with H.
+// The weapon goes down, a gloved hand brings the injector up, the thumb flicks the safety cap off
+// and the hand jabs it into the thigh below the view. The jab is the point of no return: before it,
+// firing or switching weapons calls the medkit off and the kit is kept; after it the kit is spent
+// and health comes back over a few seconds. While the kit is in hand the player walks (no sprint).
+const MEDKIT = {
+  dur: 1.75, inject: 0.92, // seconds: whole action, and the moment of the jab
+  heal: 60, over: 3.2,     // HP restored, over this many seconds
+  price: 300,
+};
+
+class Medkits {
+  constructor(game) {
+    this.game = game;
+    this.hot = null;      // heal over time: { left, rate }
+    this.anim = null;     // { t, cancel, capT }
+    this.kit = null;      // the viewmodel hand + injector (built on first use)
+    this.flash = 0;
+    game.hooks.push(this);
+  }
+
+  onLevel() { this.hot = null; this.stop(); }
+
+  // the H key (via BackroomsGame.useMedkit)
+  useMedkit() {
+    const g = this.game, a = g.arsenal, P = g.player;
+    if (!P.alive || g.state !== 'play' || g.shopOpen) return true;
+    if (a.state === 'heal') return true;
+    if (a.medkits <= 0) { g.hud.toast('NO MEDKITS'); return true; }
+    if (P.health >= P.maxHealth - 0.5) { g.hud.toast('HEALTH FULL'); return true; }
+    if (!a.useMedkit(MEDKIT.dur, MEDKIT.inject)) return true;
+    return true;
+  }
+
+  onArsenalEvent(e) {
+    const g = this.game;
+    switch (e.type) {
+      case 'healStart':
+        this.ensureKit();
+        this.anim = { t: 0, cancel: -1, capOff: false, cap: { p: new T3.Vector3(), v: new T3.Vector3(), r: new T3.Vector3() } };
+        this.kit.root.visible = true;
+        this.kit.cap.visible = true;
+        this.kit.cap.position.copy(this.kit.capRest);
+        this.kit.cap.rotation.set(0, 0, 0);
+        if (g.sfx) g.sfx.medkit('open');
+        break;
+      case 'healCancel':
+        if (this.anim) this.anim.cancel = this.anim.t;
+        break;
+      case 'healInject': {
+        const P = g.player;
+        // a second kit while the first is still working adds to it
+        const left = (this.hot ? this.hot.left : 0) + MEDKIT.heal;
+        this.hot = { left, rate: Math.max(MEDKIT.heal / MEDKIT.over, left / MEDKIT.over) };
+        this.flash = 1;
+        g.shake = Math.max(g.shake || 0, 0.25);
+        if (g.sfx) g.sfx.medkit('inject');
+        if (g.stats) g.stats.medkits = (g.stats.medkits || 0) + 1;
+        void P;
+        break;
+      }
+      case 'healEnd':
+        break;
+    }
+  }
+
+  step(dt) {
+    const g = this.game, P = g.player;
+    if (!this.hot) return;
+    if (!P.alive) { this.hot = null; return; }
+    const h = Math.min(this.hot.left, this.hot.rate * dt);
+    P.heal(h);
+    this.hot.left -= h;
+    if (this.hot.left <= 1e-3 || P.health >= P.maxHealth) {
+      this.hot = null;
+      if (g.sfx) g.sfx.medkit('relief');
+    }
+  }
+
+  get healing() { return !!this.hot; }
+
+  frame(dt) {
+    const g = this.game, e = g.hud && g.hud.e;
+    if (e && e.vitals) e.vitals.classList.toggle('healing', !!this.hot);
+    this.flash = Math.max(0, this.flash - dt * 1.6);
+    if (g.hud && g.hud.healFlash) g.hud.healFlash(this.flash);
+    if (!this.anim || !this.kit) return;
+    const A = this.anim, K = this.kit;
+    A.t += dt;
+    if (!g.player.alive || g.state !== 'play') { this.stop(); return; }
+    // where the hand is: [x, y, z, pitch, yaw, roll] in camera space (camera looks down -z)
+    const low = [0.17, -0.46, -0.34, -0.25, 0.2, -0.45];
+    const up = [0.075, -0.125, -0.33, 0.05, 0.25, -0.08];
+    const cock = [0.085, -0.095, -0.31, 0.25, 0.24, -0.05];
+    const jab = [0.12, -0.6, -0.26, -0.55, 0.3, -0.25];
+    const t = A.t, ease = (x) => x * x * (3 - 2 * x);
+    let pose;
+    if (A.cancel >= 0) {
+      // called off: drop back out of view quickly from wherever it was
+      const k = clamp((t - A.cancel) / 0.18, 0, 1);
+      pose = lerpPose(A.from || up, low, ease(k));
+      if (k >= 1) { this.stop(); return; }
+    } else if (t < 0.32) pose = lerpPose(low, up, ease(t / 0.32));
+    else if (t < 0.6) pose = up;
+    else if (t < 0.76) pose = lerpPose(up, cock, ease((t - 0.6) / 0.16));
+    else if (t < MEDKIT.inject) { const k = (t - 0.76) / (MEDKIT.inject - 0.76); pose = lerpPose(cock, jab, k * k); }
+    else { pose = jab; if (t > MEDKIT.inject + 0.1) { this.stop(); return; } }
+    if (A.cancel < 0) A.from = pose;
+    // a little life in the hand
+    const wob = Math.sin(t * 11) * 0.004 * (t < 0.6 ? 1 : 0);
+    K.root.position.set(pose[0], pose[1] + wob, pose[2]);
+    K.root.rotation.set(pose[3], pose[4], pose[5], 'YXZ');
+    // the thumb pushes the safety cap off at ~0.42 s; it spins away and falls out of view
+    const flick = clamp((t - 0.36) / 0.08, 0, 1);
+    K.thumb.rotation.z = K.thumbRest - 0.5 * Math.sin(flick * Math.PI);
+    if (!A.capOff && t > 0.42 && A.cancel < 0) {
+      A.capOff = true;
+      if (g.sfx) g.sfx.medkit('cap');
+      // detach into camera space with a flick velocity
+      K.cap.getWorldPosition(A.cap.p);
+      K.root.remove(K.cap); K.vmScene.add(K.cap);
+      K.cap.position.copy(A.cap.p);
+      A.cap.v.set(0.35 + Math.random() * 0.2, 0.9 + Math.random() * 0.3, 0.15);
+      A.cap.r.set(Math.random() * 18 - 9, Math.random() * 18 - 9, 14);
+    }
+    if (A.capOff && K.cap.visible) {
+      A.cap.v.y -= 9.8 * dt;
+      K.cap.position.addScaledVector(A.cap.v, dt);
+      K.cap.rotation.x += A.cap.r.x * dt; K.cap.rotation.y += A.cap.r.y * dt; K.cap.rotation.z += A.cap.r.z * dt;
+      if (K.cap.position.y < -0.7) K.cap.visible = false;
+    }
+  }
+
+  // put the kit away and the cap back on the injector
+  stop() {
+    this.anim = null;
+    const K = this.kit;
+    if (!K) return;
+    K.root.visible = false;
+    if (K.cap.parent !== K.injector) { K.cap.removeFromParent(); K.injector.add(K.cap); }
+    K.cap.position.copy(K.capRest); K.cap.rotation.set(0, 0, 0); K.cap.visible = true;
+  }
+
+  // a gloved right hand with a sleeve, gripping an auto-injector (needle end down, safety cap up),
+  // built from primitives in the viewmodel scene
+  ensureKit() {
+    if (this.kit) return;
+    const vm = this.game.vm;
+    const glove = new T3.MeshStandardMaterial({ color: 0x17171a, roughness: 0.55, metalness: 0.05 });
+    const sleeve = new T3.MeshStandardMaterial({ color: 0x2b2d2f, roughness: 0.95 });
+    const body = new T3.MeshStandardMaterial({ color: 0x9a9c8c, roughness: 0.45 });
+    const label = new T3.MeshStandardMaterial({ color: 0xd7b028, roughness: 0.5 });
+    const capM = new T3.MeshStandardMaterial({ color: 0x2c61c2, roughness: 0.4 });
+    const tipM = new T3.MeshStandardMaterial({ color: 0xe0621c, roughness: 0.45 });
+    const root = new T3.Group();
+    root.visible = false;
+    // the injector, vertical, centred on the grip
+    const injector = new T3.Group();
+    const R = 0.0118;
+    const cyl = (r0, r1, h, m, y) => { const o = new T3.Mesh(new T3.CylinderGeometry(r0, r1, h, 18), m); o.position.y = y; injector.add(o); return o; };
+    cyl(R, R, 0.15, body, 0);
+    cyl(R * 1.012, R * 1.012, 0.05, label, -0.012);
+    cyl(R * 0.92, R * 0.8, 0.026, tipM, -0.088);
+    const cap = new T3.Group();
+    const c1 = new T3.Mesh(new T3.CylinderGeometry(R * 1.05, R * 1.05, 0.028, 18), capM);
+    const c2 = new T3.Mesh(new T3.CylinderGeometry(R * 0.6, R * 0.75, 0.01, 14), capM);
+    c2.position.y = 0.019;
+    cap.add(c1, c2);
+    const capRest = new T3.Vector3(0, 0.089, 0);
+    cap.position.copy(capRest);
+    injector.add(cap);
+    root.add(injector);
+    // the fist: four curled fingers wrapped round the body, a palm behind, the thumb over the top
+    // (thick and close enough to merge into one fist rather than read as separate rings)
+    const fingerR = 0.0122;
+    for (let i = 0; i < 4; i++) {
+      const f = new T3.Mesh(new T3.TorusGeometry(R + fingerR * 0.9, fingerR * (i === 3 ? 0.85 : 1), 8, 18, Math.PI * 1.3), glove);
+      f.rotation.set(Math.PI / 2, 0, Math.PI * 0.85);
+      f.position.y = 0.024 - i * 0.0205;
+      root.add(f);
+    }
+    const palm = new T3.Mesh(new T3.SphereGeometry(0.036, 14, 10), glove);
+    palm.scale.set(0.8, 1.45, 0.75);
+    palm.position.set(0.03, -0.012, 0.004);
+    root.add(palm);
+    const thumbPivot = new T3.Group();
+    thumbPivot.position.set(0.008, 0.04, 0.012);
+    const thumb = new T3.Mesh(new T3.SphereGeometry(0.0118, 10, 8), glove);
+    thumb.scale.set(1, 2.2, 1);
+    thumb.position.set(-0.008, 0.016, 0);
+    thumb.rotation.z = 0.6;
+    thumbPivot.add(thumb);
+    thumbPivot.rotation.z = 0.35;
+    root.add(thumbPivot);
+    // wrist and sleeve run down, right and back towards the body, out of the corner of the view
+    const wrist = new T3.Mesh(new T3.CylinderGeometry(0.027, 0.031, 0.08, 12), glove);
+    wrist.position.set(0.03, -0.045, 0.03);
+    wrist.rotation.set(-0.9, 0, 0.5);
+    root.add(wrist);
+    const arm = new T3.Mesh(new T3.CylinderGeometry(0.037, 0.047, 0.32, 14), sleeve);
+    arm.position.set(0.126, -0.154, 0.167);
+    arm.rotation.set(-0.9, 0, 0.5);
+    root.add(arm);
+    vm.scene.add(root);
+    this.kit = { root, injector, cap, capRest, thumb: thumbPivot, thumbRest: 0.35, vmScene: vm.scene };
+  }
+}
+
+function lerpPose(a, b, k) { return a.map((v, i) => v + (b[i] - v) * k); }
+
+
 // ===== src/60-game.js =====
 // The game: owns renderer, camera, player, arsenal, the current level and its physics world,
 // routes engine effects to visuals and audio, and runs the fixed-step simulation.
@@ -71638,6 +71945,7 @@ class BackroomsGame {
         else if (code === 'KeyR') a.reload();
         else if (code === 'KeyV') { if (a.state === 'idle') { const d = this.vm.playAction('inspect'); if (d > 0) a.inspect(d); } }
         else if (code === 'KeyG') this.throwGrenade();
+        else if (code === 'KeyH') this.useMedkit();
         else if (code === 'KeyF') this.melee();
       }
       if (inp.wheel) a.cycle(inp.wheel > 0 ? 1 : -1);
@@ -71645,7 +71953,7 @@ class BackroomsGame {
     // events raised by the key handlers (manual reload, holster, cancels) before update() runs
     this.drainArsenal();
     a.ads = inp.ads && p.alive;
-    p.ads = a.adsAmount > 0.5;
+    p.ads = a.adsAmount > 0.5 || a.state === 'heal'; // a medkit in hand: walk, no sprint
     const stamina0 = p.stamina;
     p.update(dt, { move: inp.move, look, sprint: inp.sprint && !inp.fire, crouch: inp.crouch, jump: inp.jump }, this.playerEnv());
     // never let the head pass through the ceiling (mantling onto tall props in low rooms)
@@ -71711,6 +72019,7 @@ class BackroomsGame {
   }
 
   onArsenalEvent(e) {
+    for (const h of this.hooks) h.onArsenalEvent && h.onArsenalEvent(e);
     const au = this.audio, g = e.gun;
     const type = g ? (g.def.ballistic === 'shotgun' ? 'shotgun' : g.def.cls === 'Pistol' ? 'pistol' : g.def.cls === 'SMG' ? 'smg' : 'rifle') : 'rifle';
     switch (e.type) {
@@ -71881,6 +72190,7 @@ class BackroomsGame {
 
   melee() { for (const h of this.hooks) if (h.melee && h.melee()) return; }
   throwGrenade() { for (const h of this.hooks) if (h.throwGrenade && h.throwGrenade()) return; }
+  useMedkit() { for (const h of this.hooks) if (h.useMedkit && h.useMedkit()) return; }
 
   // ---- frame ---------------------------------------------------------------------------------
   frame(now, dt) {
@@ -71969,7 +72279,7 @@ class BackroomsGame {
     const near = this.level.segmentClear(p.pos.x, p.pos.z, p.pos.x + fwd.x * 0.75, p.pos.z + fwd.z * 0.75, eye.y - 0.25, 0, eye.y - 0.25) ? 0 : 1;
     this.vm.update(dt, {
       ads: a.adsAmount, sprint: p.sprinting, speed: p.speed, onGround: p.onGround, crouch: p.crouch,
-      look: inp.look, landed: p.landed, light: clamp(light * 0.9 + 0.05, 0, 1.5), lowered: this.holstering || a.state === 'holster' || a.state === 'throw',
+      look: inp.look, landed: p.landed, light: clamp(light * 0.9 + 0.05, 0, 1.5), lowered: this.holstering || a.state === 'holster' || a.state === 'throw' || a.state === 'heal',
       wallNear: near && a.adsAmount < 0.5 ? 1 : 0, strafe: lateral,
     });
     p.landed = 0;
@@ -72261,6 +72571,7 @@ Object.assign(BackroomsGame.prototype, {
   game.screens = new Screens(game, game.director, game.hud);
   game.shop = new Shop(game, game.director);
   game.sfx = new Sfx(game);
+  game.medkits = new Medkits(game);
   game.session = new Session(game);
   game.post = new BodycamPost(game);
   game.hooks.push({ resize: (w, h) => game.post.resize(w, h) });

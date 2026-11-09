@@ -148,7 +148,7 @@ class Arsenal {
     this.slots = [null, null, new WeaponInstance('p9')]; // primary A, primary B, sidearm
     this.index = 2;
     this.prevIndex = 2;
-    this.state = 'equip'; // equip | idle | reload | holster | pump | inspect | throw
+    this.state = 'equip'; // equip | idle | reload | holster | pump | inspect | throw | heal
     this.t = 0;
     this.stateDur = 0.45;
     this.pending = null;
@@ -158,6 +158,9 @@ class Arsenal {
     this.events = [];
     this.grenades = 1;
     this.maxGrenades = 4;
+    this.medkits = 1;
+    this.maxMedkits = 3;
+    this.injected = false;
     this.reloadShellT = 0;
   }
   get gun() { return this.slots[this.index]; }
@@ -173,6 +176,8 @@ class Arsenal {
   }
   select(i, force = false) {
     if (!this.slots[i] || (i === this.index && !force)) return;
+    // switching weapons before the jab calls a medkit off (the kit is kept)
+    if (this.state === 'heal' && !this.injected) this.events.push({ type: 'healCancel' });
     if (this.state === 'holster') { this.pending = i; return; }
     this.pending = i;
     this.state = 'holster';
@@ -216,7 +221,7 @@ class Arsenal {
     this.t += dt;
     const g = this.gun;
     g.cool = Math.max(0, g.cool - dt);
-    const canAds = !blocked && this.state !== 'holster' && this.state !== 'equip' && this.state !== 'throw';
+    const canAds = !blocked && this.state !== 'holster' && this.state !== 'equip' && this.state !== 'throw' && this.state !== 'heal';
     const target = this.ads && canAds && g.scoped ? 1 : 0;
     this.adsAmount = clamp(this.adsAmount + Math.sign(target - this.adsAmount) * (dt / g.adsTime), 0, 1);
     let fired = false;
@@ -271,6 +276,14 @@ class Arsenal {
       case 'throw':
         if (this.t > this.stateDur) this.state = 'idle';
         break;
+      case 'heal':
+        if (!this.injected) {
+          // a fresh trigger pull before the jab calls it off and keeps the kit
+          if (trigger && !this.triggerHeld && this.t > 0.08) { this.endHeal('healCancel'); break; }
+          if (this.t >= this.injectAt) { this.injected = true; this.medkits = Math.max(0, this.medkits - 1); this.events.push({ type: 'healInject' }); }
+        } else if (trigger && !this.triggerHeld && this.t > this.injectAt + 0.2) { this.endHeal('healEnd'); break; } // back to the fight early
+        if (this.t >= this.stateDur) this.endHeal('healEnd');
+        break;
       case 'idle':
         if (blocked) { g.shotsInBurst = 0; break; }
         if (trigger && g.cool <= 0 && (g.def.auto || !this.triggerHeld)) {
@@ -300,6 +313,26 @@ class Arsenal {
     this.t = 0;
     this.stateDur = dur;
     return true;
+  }
+  // a medkit: the weapon goes down, the injector comes up and the jab lands at injectAt, when the
+  // kit is used up; the weapon then takes a moment to come back up before it can fire
+  useMedkit(dur, injectAt) {
+    if (this.medkits <= 0 || (this.state !== 'idle' && this.state !== 'reload' && this.state !== 'inspect')) return false;
+    if (this.state === 'reload') this.events.push({ type: 'reloadCancel', gun: this.gun });
+    if (this.state === 'inspect') this.events.push({ type: 'inspectCancel', gun: this.gun });
+    this.state = 'heal';
+    this.t = 0;
+    this.stateDur = dur;
+    this.injectAt = injectAt;
+    this.injected = false;
+    this.events.push({ type: 'healStart' });
+    return true;
+  }
+  endHeal(type) {
+    this.state = 'equip';
+    this.t = 0;
+    this.stateDur = 0.3;
+    this.events.push({ type });
   }
   throwGrenade() {
     if (this.grenades <= 0 || (this.state !== 'idle' && this.state !== 'reload' && this.state !== 'inspect')) return false;

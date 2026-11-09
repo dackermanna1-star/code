@@ -312,6 +312,53 @@ class Sfx {
     if (this.au.verbIn) { const r = ctx.createGain(); r.gain.value = 0.25; env.connect(r); r.connect(this.au.verbIn); }
   }
 
+  // medkit foley, all on the player: 'open' a velcro pouch, 'cap' the safety cap clicked off,
+  // 'inject' the spring jab with a hiss and a grunt, 'relief' a long breath out once it has worked
+  medkit(stage) {
+    if (!this.ready) return;
+    const ctx = this.ctx, t = ctx.currentTime, out = this.out;
+    const burst = (at, dur, type, f, q, peak, rate = 1) => {
+      const s = ctx.createBufferSource(), fl = ctx.createBiquadFilter(), g = ctx.createGain();
+      s.buffer = this.noise; s.playbackRate.value = rate;
+      fl.type = type; fl.frequency.value = f; fl.Q.value = q;
+      s.connect(fl); fl.connect(g); g.connect(out);
+      this.env(g, t + at, Math.min(0.004, dur * 0.2), peak, dur);
+      s.start(t + at, Math.random() * 2); s.stop(t + at + dur + 0.05);
+      return g;
+    };
+    if (stage === 'open') {
+      // velcro: a fast train of crackles under a tearing band
+      const g = burst(0, 0.28, 'bandpass', 2600, 0.7, 0.22);
+      const am = ctx.createOscillator(), amg = ctx.createGain();
+      am.type = 'square'; am.frequency.value = 55 + Math.random() * 25; amg.gain.value = 0.12;
+      am.connect(amg); amg.connect(g.gain); am.start(t); am.stop(t + 0.32);
+      burst(0.3, 0.06, 'bandpass', 1400, 1.2, 0.12); // the pouch flap
+    } else if (stage === 'cap') {
+      burst(0, 0.018, 'bandpass', 3800, 3, 0.3);
+      burst(0.012, 0.03, 'bandpass', 2200, 4, 0.18);
+    } else if (stage === 'inject') {
+      burst(0, 0.02, 'bandpass', 3000, 2.5, 0.45);       // the spring fires
+      burst(0.015, 0.05, 'lowpass', 900, 0.8, 0.5);      // into the thigh
+      burst(0.03, 0.35, 'highpass', 5200, 0.6, 0.06);    // the hiss
+      // a clenched grunt: a short voiced tone through a vowel formant
+      const o = ctx.createOscillator(), bp = ctx.createBiquadFilter(), og = ctx.createGain();
+      o.type = 'sawtooth'; o.frequency.setValueAtTime(140, t + 0.04); o.frequency.exponentialRampToValueAtTime(105, t + 0.3);
+      bp.type = 'bandpass'; bp.frequency.value = 560; bp.Q.value = 4;
+      o.connect(bp); bp.connect(og); og.connect(out);
+      this.env(og, t + 0.04, 0.03, 0.16, 0.24);
+      o.start(t + 0.04); o.stop(t + 0.35);
+    } else if (stage === 'relief') {
+      // a long breath out
+      const s = ctx.createBufferSource(), lp = ctx.createBiquadFilter(), g = ctx.createGain();
+      s.buffer = this.noise; lp.type = 'bandpass'; lp.frequency.setValueAtTime(1300, t); lp.frequency.exponentialRampToValueAtTime(600, t + 0.9); lp.Q.value = 0.8;
+      s.connect(lp); lp.connect(g); g.connect(out);
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.linearRampToValueAtTime(0.09, t + 0.15);
+      g.gain.linearRampToValueAtTime(0.0001, t + 0.95);
+      s.start(t, Math.random() * 2); s.stop(t + 1.0);
+    }
+  }
+
   radio(pos) {
     if (!this.ready) return;
     const ctx = this.ctx, t = ctx.currentTime;
