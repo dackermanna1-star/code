@@ -425,7 +425,7 @@ class Gunman {
     // grenades flush a player who hides
     if (def.grenade && this.grenadeT <= 0 && !this.visible && recent && dist > 5 && dist < 20 && Math.random() < def.grenade) {
       this.grenadeT = 12 + Math.random() * 10;
-      this.mgr.throwGrenade(this, this.lastSeen);
+      this.mgr.launchGrenade(this, this.lastSeen);
       return;
     }
     switch (def.role) {

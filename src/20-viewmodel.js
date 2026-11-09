@@ -7,40 +7,53 @@
 const VM_RIGS = {
   pistol: {
     asset: 'viewmodels/pistol', gun: 'Rif_059', arms: ['arms', 'SoldierUniformArms'], caliber: '9mm',
+    adsBack: 0.4, adsNudge: [0, 0, 0], hip: [0, 0, 0, 0, 0],
     clips: { idle: 'FPS_Pistol_Idle', walk: 'FPS_Pistol_Walk', fire: 'FPS_Pistol_Fire', reload: 'FPS_Pistol_Reload_easy', reloadEmpty: 'FPS_Pistol_Reload_full' },
-    eye: [0, 0.02, 0.0], sightRear: 0.12, sightFront: 0.9, adsDist: 0.34, adsNudge: [0, 0, 0], port: 0.72, fov: 52,
+    eye: [0, 0.02, 0.0], sightRear: 0.12, sightFront: 0.9, adsDist: 0.34, port: 0.72, fov: 52,
   },
   smg: {
     asset: 'viewmodels/smg', gun: 'Rif_059', arms: ['arms'], caliber: '9mm',
+    adsNudge: [-0.008, 0, 0], hip: [0, 0, 0, 0, 0],
     clips: { idle: 'KDW_DPose_Idle', walk: 'KDW_Walk', run: 'KDW_Run', fire: 'KDW_Shot', reload: 'KDW_Reload_fast', reloadEmpty: 'KDW_Reload_full', draw: 'KDW_Draw', inspect: 'KDW_Ispect' },
-    eye: [0, 0.021, 0.0], sightRear: 0.35, sightFront: 0.92, adsDist: 0.16, adsNudge: [0, 0, 0], port: 0.62, fov: 52,
+    eye: [0, 0.021, 0.0], sightRear: 0.35, sightFront: 0.92, adsDist: 0.16, port: 0.62, fov: 52,
   },
   ak74: {
     asset: 'viewmodels/ak74', gun: 'Rif_059', arms: ['arms'], caliber: '556',
+    adsNudge: [-0.0105, 0, 0], hip: [0, 0, 0, 0, 0],
     clips: { idle: 'AK_Idle', walk: 'AK_Walk', run: 'AK_Run', fire: 'AK_Shot', reload: 'AK_Reload', reloadEmpty: 'AK_Reload_full', reloadAlt: 'AK_Reload_var2', draw: 'AK_Draw' },
-    eye: [0, 0.021, -0.079], sightRear: 0.42, sightFront: 0.95, adsDist: 0.2, adsNudge: [0, 0, 0], port: 0.6, fov: 52,
+    eye: [0, 0.021, -0.079], sightRear: 0.42, sightFront: 0.95, adsDist: 0.2, port: 0.6, fov: 52,
   },
   acr: {
     asset: 'viewmodels/acr', gun: 'Rif_059', arms: ['arms'], caliber: '556',
+    adsNudge: [0, 0, 0], hip: [0, 0, 0, 0, 0],
     clips: { idle: 'Arms_FPS_Anim_Idle', walk: 'Arms_FPS_Anim_Walk', run: 'Arms_FPS_Anim_Run', fire: 'Arms_FPS_Anim_Shoot', fireSingle: 'Arms_FPS_Anim_OneShot', reload: 'Arms_FPS_Anim_Reload_Fast', draw: 'Arms_FPS_Anim_Draw', inspect: 'Arms_FPS_Anim_rifle_inspect' },
-    eye: [0, 0.021, 0.0], sightRear: 0.4, sightFront: 0.95, adsDist: 0.16, adsNudge: [0, 0, 0], port: 0.6, fov: 52,
+    eye: [0, 0.021, 0.0], sightRear: 0.4, sightFront: 0.95, adsDist: 0.16, port: 0.6, fov: 52,
     parts: { scope: 'Scope', suppressor: 'Silencer' },
   },
   saiga: {
     asset: 'viewmodels/saiga', gun: 'Rif_059', arms: ['arms'], caliber: '12ga',
+    adsNudge: [-0.0125, 0, 0], hip: [0, 0, 0, 0, 0],
     clips: { idle: 'Saiga_Idle', walk: 'Saiga_Walk', fire: 'Saiga_Fire', reload: 'Saiga_Reload_Fast', reloadEmpty: 'Saiga_Reload_Full' },
-    eye: [0, 0.021, 0.0], sightRear: 0.4, sightFront: 0.95, adsDist: 0.2, adsNudge: [0, 0, 0], port: 0.6, fov: 52,
+    eye: [0, 0.021, 0.0], sightRear: 0.4, sightFront: 0.95, adsDist: 0.2, port: 0.6, fov: 52,
   },
   remington: {
     asset: 'viewmodels/remington', gun: 'Body_058', arms: ['material'], ignore: ['12ge'], caliber: '12ga',
+    adsNudge: [0, 0, 0], hip: [0.01, 0.025, -0.04, 0, 0],
     clips: { idle: 'SG_FPS_Idle', walk: 'SG_FPS_Walk', fire: 'SG_FPS_Shot', reload: 'SG_FPS_Reload' },
-    eye: [0, 0.02, 0.0], sightRear: 0.3, sightFront: 0.97, adsDist: 0.2, adsNudge: [0, 0, 0], port: 0.55, fov: 52,
+    eye: [0, 0.02, 0.0], sightRear: 0.3, sightFront: 0.97, adsDist: 0.2, port: 0.55, fov: 52,
     pump: true,
   },
 };
 
 const _v1 = new T3.Vector3(), _v2 = new T3.Vector3(), _q1 = new T3.Quaternion(), _m1 = new T3.Matrix4(), _m2 = new T3.Matrix4();
 const ROT_Y_180 = new T3.Matrix4().makeRotationY(Math.PI);
+// camera matrix at `eye` looking along `fwd` with `up` (three cameras look down -Z)
+function basisCam(eye, fwd, up) {
+  const z = fwd.clone().negate().normalize();
+  const x = new T3.Vector3().crossVectors(up, z).normalize();
+  const y = new T3.Vector3().crossVectors(z, x).normalize();
+  return new T3.Matrix4().makeBasis(x, y, z).setPosition(eye);
+}
 
 class Viewmodel {
   constructor(renderer) {
@@ -127,75 +140,116 @@ class Viewmodel {
     return rig;
   }
 
-  headMatrix(rig, out) {
-    // camera matrix (rig space) = head-cam bone without scale, turned to look down -Z, plus eye offset
-    rig.headCam.matrixWorld.decompose(_v1, _q1, _v2);
-    out.compose(_v1, _q1, new T3.Vector3(1, 1, 1));
-    // eye offset is in rig units: scale it by the bone's world scale
-    const s = _v2.x;
-    const fix = _m2.makeTranslation(rig.def.eye[0] * s, rig.def.eye[1] * s, rig.def.eye[2] * s).multiply(ROT_Y_180);
-    return out.multiply(fix);
-  }
-
+  // ---- measuring a rig ---------------------------------------------------------------------------
+  // Everything is solved in rig space with the rig at the origin, posed at frame 0 of its idle:
+  // the barrel axis (trimmed PCA of the main weapon mesh), the sight line along its top profile,
+  // muzzle / port / rear points, and from those two static cameras (hip and ADS).
   measure(rig) {
-    const C = this.headMatrix(rig, new T3.Matrix4());
-    const Cinv = C.clone().invert();
+    const head = new T3.Vector3(), hq = new T3.Quaternion(), hs = new T3.Vector3();
+    rig.headCam.matrixWorld.decompose(head, hq, hs);
+    rig.S = hs.x || 1;
+    // drop stray triangles skinned to far-away bones (they render as long streaks)
+    for (const m of rig.meshes) {
+      if (!m.isSkinnedMesh || !m.geometry.index) continue;
+      const pos = m.geometry.attributes.position, idx = m.geometry.index.array, v = new T3.Vector3();
+      const far = new Uint8Array(pos.count);
+      let any = false;
+      for (let i = 0; i < pos.count; i++) { m.getVertexPosition(i, v); v.applyMatrix4(m.matrixWorld); if (v.distanceTo(head) > 2.4 * rig.S) { far[i] = 1; any = true; } }
+      if (!any) continue;
+      for (let t = 0; t < idx.length; t += 3) if (far[idx[t]] || far[idx[t + 1]] || far[idx[t + 2]]) idx[t + 1] = idx[t + 2] = idx[t];
+      m.geometry.index.needsUpdate = true;
+    }
+    const partMeshes = new Set(Object.values(rig.parts).flat());
+    const main = rig.gunMeshes.filter((m) => !partMeshes.has(m)).sort((a, b) => b.geometry.attributes.position.count - a.geometry.attributes.position.count)[0];
     const pts = [];
     const v = new T3.Vector3();
-    for (const mesh of rig.gunMeshes) {
-      const pos = mesh.geometry.attributes.position;
-      const step = Math.max(1, Math.floor(pos.count / 2500));
-      for (let i = 0; i < pos.count; i += step) {
-        mesh.getVertexPosition(i, v);
-        v.applyMatrix4(mesh.matrixWorld).applyMatrix4(Cinv);
-        pts.push(v.clone());
-      }
+    const pos = main.geometry.attributes.position;
+    const step = Math.max(1, Math.floor(pos.count / 4000));
+    for (let i = 0; i < pos.count; i += step) { main.getVertexPosition(i, v); v.applyMatrix4(main.matrixWorld); if (v.distanceTo(head) < 2.4 * rig.S) pts.push(v.clone()); }
+    // trimmed centroid and principal axis
+    let c = new T3.Vector3();
+    for (const p of pts) c.add(p);
+    c.multiplyScalar(1 / pts.length);
+    const d2 = pts.map((p) => p.distanceToSquared(c)).sort((a, b) => a - b);
+    const cut = d2[Math.floor(d2.length * 0.92)];
+    const core = pts.filter((p) => p.distanceToSquared(c) <= cut);
+    c = new T3.Vector3();
+    for (const p of core) c.add(p);
+    c.multiplyScalar(1 / core.length);
+    const C = [[0, 0, 0], [0, 0, 0], [0, 0, 0]];
+    for (const p of core) { const d = [p.x - c.x, p.y - c.y, p.z - c.z]; for (let a = 0; a < 3; a++) for (let b = 0; b < 3; b++) C[a][b] += d[a] * d[b]; }
+    let ax = [0, 0, 1];
+    for (let k = 0; k < 60; k++) { const nn = [0, 1, 2].map((a) => C[a][0] * ax[0] + C[a][1] * ax[1] + C[a][2] * ax[2]); const l = Math.hypot(...nn); ax = nn.map((x) => x / l); }
+    const f = new T3.Vector3(...ax).normalize();
+    if (f.dot(c.clone().sub(head)) < 0) f.negate(); // the muzzle points away from the eye
+    const u = new T3.Vector3(0, 1, 0).addScaledVector(f, -f.y).normalize();
+    const r = new T3.Vector3().crossVectors(f, u).normalize();
+    const proj = pts.map((p) => { const d = p.clone().sub(c); return { p, sf: d.dot(f), su: d.dot(u), sr: d.dot(r) }; });
+    const sfs = proj.map((q) => q.sf).sort((a, b) => a - b);
+    const fMin = sfs[Math.floor(sfs.length * 0.01)], fMax = sfs[Math.floor(sfs.length * 0.995)];
+    const len = fMax - fMin;
+    const mean = (list) => { const a = new T3.Vector3(); for (const q of list) a.add(q.p); return list.length ? a.multiplyScalar(1 / list.length) : null; };
+    const muzzle = mean(proj.filter((q) => q.sf > fMax - len * 0.025)) || c.clone().addScaledVector(f, fMax);
+    const rear = mean(proj.filter((q) => q.sf < fMin + len * 0.06)) || c.clone().addScaledVector(f, fMin);
+    // the barrel line: muzzle centre, extended back along the axis
+    const topIn = (a, b) => { let best = null; for (const q of proj) if (q.sf >= fMin + len * a && q.sf <= fMin + len * b && Math.abs(q.sr - (muzzle.clone().sub(c).dot(r))) < 0.03 * rig.S && (!best || q.su > best.su)) best = q; return best; };
+    const fs = topIn(rig.def.sightFront - 0.06, Math.min(1, rig.def.sightFront + 0.04));
+    const rs = topIn(rig.def.sightRear - 0.07, rig.def.sightRear + 0.07);
+    // the eye sits a fixed distance behind the shooting hand, at front-sight height, in line with the bore
+    let hand = null;
+    rig.root.traverse((o) => { if (!hand && o.isBone && /^Hand_R/.test(o.name)) hand = o; });
+    const handP = hand ? new T3.Vector3().setFromMatrixPosition(hand.matrixWorld) : rear.clone().lerp(muzzle, 0.3);
+    const muzR = muzzle.clone().sub(c).dot(r), muzU = muzzle.clone().sub(c).dot(u);
+    // top profile along the centre line: front post (front quarter) and rear sight (middle half)
+    const N = 48, prof = new Array(N).fill(-Infinity);
+    for (const q of proj) {
+      if (Math.abs(q.sr - muzR) > 0.011 * rig.S) continue;
+      const k = Math.floor(((q.sf - fMin) / len) * N);
+      if (k >= 0 && k < N) prof[k] = Math.max(prof[k], q.su);
     }
-    if (!pts.length) return;
-    let minZ = Infinity, maxZ = -Infinity;
-    for (const p of pts) { minZ = Math.min(minZ, p.z); maxZ = Math.max(maxZ, p.z); }
-    const len = maxZ - minZ;
-    const avg = (filter) => { const a = new T3.Vector3(); let n = 0; for (const p of pts) if (filter(p)) { a.add(p); n++; } return n ? a.multiplyScalar(1 / n) : null; };
-    const muzzle = avg((p) => p.z < minZ + Math.min(0.012, len * 0.03)) || new T3.Vector3(0.1, -0.1, -0.5);
-    const rear = avg((p) => p.z > maxZ - len * 0.08) || muzzle.clone().add(new T3.Vector3(0, 0, len));
-    // topmost vertex in a slice along the gun (front sight / rear sight)
-    const topAt = (u, w) => {
-      const z0 = maxZ - len * u;
-      let best = null;
-      for (const p of pts) if (Math.abs(p.z - z0) < len * w && (!best || p.y > best.y)) best = p;
-      return best ? best.clone() : null;
-    };
-    rig.cam = {
-      len,
-      muzzle,
-      rear,
-      sightRear: topAt(rig.def.sightRear, 0.05),
-      sightFront: topAt(rig.def.sightFront, 0.04),
-    };
-    // remember the muzzle and port in the gun bone's frame so they follow the animation
+    const best = (a, b) => { let k0 = -1; for (let k = Math.floor(a * N); k < Math.min(N, Math.ceil(b * N)); k++) if (prof[k] > -Infinity && (k0 < 0 || prof[k] > prof[k0])) k0 = k; return k0; };
+    const kF = best(0.75, 0.985), kR = best(0.22, 0.72);
+    const Uf = kF >= 0 ? prof[kF] : muzU + 0.03 * rig.S, Ur = kR >= 0 ? prof[kR] : Uf;
+    const fR = fMin + ((kR + 0.5) / N) * len;
+    // look just over the highest sight feature: an unobstructed picture with the sights sitting low
+    let sightU = Math.max(Uf, Ur) + 0.005 * rig.S;
+    sightU += (rig.def.sightNudge || 0) * rig.S;
+    const hd = head.clone().sub(c);
+    rig.frame = { c, f, u, r, len, muzzle, rear, sightFront: fs ? fs.p.clone() : null, sightRear: rs ? rs.p.clone() : null, handF: handP.clone().sub(c).dot(f), muzR, muzU, sightU, fR, headF: hd.dot(f), headU: hd.dot(u), headR: hd.dot(r) };
+    // keep the muzzle, rear and port in the gun bone's frame so they follow the animation
     const gunInv = rig.gun.matrixWorld.clone().invert();
-    const toGun = (p) => p.clone().applyMatrix4(C).applyMatrix4(gunInv);
-    rig.muzzleLocal = toGun(muzzle);
-    rig.rearLocal = toGun(rear);
-    const port = rear.clone().lerp(muzzle, rig.def.port);
-    port.x += 0.012; port.y += 0.02;
-    rig.portLocal = toGun(port);
+    rig.muzzleLocal = muzzle.clone().applyMatrix4(gunInv);
+    rig.rearLocal = rear.clone().applyMatrix4(gunInv);
+    const port = rear.clone().lerp(muzzle, rig.def.port).addScaledVector(r, 0.012 * rig.S).addScaledVector(u, 0.02 * rig.S);
+    rig.portLocal = port.applyMatrix4(gunInv);
     this.solveAds(rig);
   }
 
-  // ADS: rotate the gun so its sight line runs down the camera axis, at a comfortable distance
+  // cameras (rig space). ADS: on the sight line, `dist` behind the rear sight. Hip: offset from it.
   solveAds(rig, sight = null) {
-    const c = rig.cam;
-    let rearP, frontP, dist;
-    if (sight) { rearP = sight.rear; frontP = sight.front; dist = sight.dist; }
-    else { rearP = c.sightRear; frontP = c.sightFront; dist = rig.def.adsDist; }
-    if (!rearP || !frontP) { rig.ads = { q: new T3.Quaternion(), p: new T3.Vector3(-0.1, 0.05, 0) }; return; }
-    const dir = frontP.clone().sub(rearP).normalize();
-    const q = new T3.Quaternion().setFromUnitVectors(dir, new T3.Vector3(0, 0, -1));
-    const rp = rearP.clone().applyQuaternion(q);
-    // a hair above the sights so the front post sits in the notch rather than over it
-    const p = new T3.Vector3(-rp.x, -rp.y - 0.0015, -dist - rp.z).add(new T3.Vector3(...rig.def.adsNudge));
-    rig.ads = { q, p };
+    const F = rig.frame, S = rig.S;
+    let eye, d, up;
+    if (sight) {
+      // an optic: look straight down its centre line
+      d = sight.front.clone().sub(sight.rear).normalize();
+      up = F.u.clone().addScaledVector(d, -F.u.dot(d)).normalize();
+      eye = sight.rear.clone().addScaledVector(d, -sight.dist * S);
+    } else {
+      // iron sights: a line parallel to the bore at front-sight height, eye at the head's depth
+      d = F.f.clone();
+      up = F.u.clone();
+      const n = rig.def.adsNudge || [0, 0, 0];
+      const eyeF = Math.max(F.headF - 0.02 * S, F.fR - (rig.def.adsBack || 0.16) * S) + n[2] * S;
+      eye = F.c.clone().addScaledVector(F.f, eyeF).addScaledVector(F.u, F.sightU + 0.0012 * S + n[1] * S).addScaledVector(F.r, F.muzR + n[0] * S);
+    }
+    rig.camAds = basisCam(eye, d, up);
+    // hip: the authored head position, looking down the bore, plus small per-rig nudges
+    const h = rig.def.hip || [0, 0, 0, 0, 0];
+    const hipEye = F.c.clone().addScaledVector(F.f, F.headF + h[2] * S).addScaledVector(F.u, F.headU + h[1] * S).addScaledVector(F.r, F.headR + h[0] * S);
+    const hip = basisCam(hipEye, F.f, F.u);
+    hip.multiply(new T3.Matrix4().makeRotationFromEuler(new T3.Euler(0, h[3], h[4], 'YXZ')));
+    rig.camHip = hip;
+    rig.scopedSight = !!(sight && sight.scope);
   }
 
   // ---- attachments ---------------------------------------------------------------------------
@@ -204,112 +258,97 @@ class Viewmodel {
     const rig = this.rigs[weapon.rig];
     if (!rig) return;
     const at = weapon.attachments || new Set();
-    for (const [part, meshes] of Object.entries(rig.parts)) for (const m of meshes) m.visible = at.has(part === 'scope' ? 'scope' : part);
-    // procedural attachments for rigs that do not model them
+    for (const [part, meshes] of Object.entries(rig.parts)) for (const m of meshes) m.visible = at.has(part);
     for (const k of Object.keys(rig.attach)) rig.attach[k].visible = false;
     if (at.has('suppressor') && !rig.parts.suppressor) this.ensureSuppressor(rig).visible = true;
-    if (at.has('reddot')) this.ensureRedDot(rig).visible = true;
+    if (at.has('reddot') && !at.has('scope')) this.ensureRedDot(rig).visible = true;
     if (weapon.drum) this.ensureDrum(rig).visible = true;
-    if (rig.drumHides) for (const m of rig.drumHides) m.visible = !weapon.drum;
-    // the sight line moves with the optic
     if (at.has('scope') && rig.parts.scope) {
-      const b = new T3.Box3();
-      const C = this.headMatrix(rig, new T3.Matrix4()).invert();
-      for (const m of rig.parts.scope) {
-        const pos = m.geometry.attributes.position, v = new T3.Vector3();
-        for (let i = 0; i < pos.count; i += 7) { m.getVertexPosition(i, v); v.applyMatrix4(m.matrixWorld).applyMatrix4(C); b.expandByPoint(v); }
-      }
-      const ctr = b.getCenter(new T3.Vector3());
-      this.solveAds(rig, { rear: new T3.Vector3(ctr.x, ctr.y + 0.004, b.max.z), front: new T3.Vector3(ctr.x, ctr.y + 0.004, b.min.z), dist: 0.07 });
-      rig.scoped = true;
+      // sight line through the optic's window (its upper part; the housing below is solid)
+      const F = rig.frame;
+      const pts = [];
+      const v = new T3.Vector3();
+      for (const m of rig.parts.scope) { const pos = m.geometry.attributes.position; for (let i = 0; i < pos.count; i += 3) { m.getVertexPosition(i, v); pts.push(v.clone().applyMatrix4(m.matrixWorld).sub(F.c)); } }
+      let fA = Infinity, fB = -Infinity, uA = Infinity, uB = -Infinity;
+      for (const p of pts) { const sf = p.dot(F.f), su = p.dot(F.u); fA = Math.min(fA, sf); fB = Math.max(fB, sf); uA = Math.min(uA, su); uB = Math.max(uB, su); }
+      const cu = uA + 0.66 * (uB - uA);
+      let cr = 0, nr = 0;
+      for (const p of pts) if (p.dot(F.u) > uA + 0.55 * (uB - uA)) { cr += p.dot(F.r); nr++; }
+      cr = nr ? cr / nr : F.muzR;
+      const at3 = (sf) => F.c.clone().addScaledVector(F.f, sf).addScaledVector(F.u, cu).addScaledVector(F.r, cr);
+      this.solveAds(rig, { rear: at3(fA), front: at3(fB), dist: 0.13, scope: true });
     } else if (at.has('reddot')) {
-      const s = rig.attach.reddot.userData.sightCam;
-      this.solveAds(rig, { rear: s.rear, front: s.front, dist: 0.14 });
-      rig.scoped = false;
-    } else { this.solveAds(rig); rig.scoped = false; }
+      const sc = rig.attach.reddot.userData.sight;
+      this.solveAds(rig, { rear: sc.rear, front: sc.front, dist: 0.13 });
+    } else this.solveAds(rig);
     rig.suppressed = at.has('suppressor');
   }
 
-  gunFrame(rig) {
-    // camera-space frame of the gun at idle: origin at the muzzle, forward along the barrel
-    const c = rig.cam;
-    const fwd = c.muzzle.clone().sub(c.rear).normalize();
-    return { fwd, muzzle: c.muzzle.clone() };
-  }
-
-  attachToGun(rig, obj, camPos, camQuat) {
-    // place obj (defined in camera space at idle) under the gun bone so it follows animation
-    const C = this.headMatrix(rig, new T3.Matrix4());
-    const world = new T3.Matrix4().compose(camPos, camQuat, new T3.Vector3(1, 1, 1)).premultiply(C);
-    const local = rig.gun.matrixWorld.clone().invert().multiply(world);
+  attachToGun(rig, obj, rigPos, rigQuat, bone = rig.gun) {
+    const world = new T3.Matrix4().compose(rigPos, rigQuat, new T3.Vector3(rig.S, rig.S, rig.S));
+    const local = bone.matrixWorld.clone().invert().multiply(world);
     const holder = new T3.Group();
     local.decompose(holder.position, holder.quaternion, holder.scale);
     holder.add(obj);
-    rig.gun.add(holder);
+    bone.add(holder);
     return holder;
+  }
+
+  frameQuat(rig) {
+    const F = rig.frame;
+    // object space: -Z along the barrel, +Y up
+    return new T3.Quaternion().setFromRotationMatrix(new T3.Matrix4().makeBasis(F.r.clone().negate(), F.u, F.f.clone().negate()));
   }
 
   ensureSuppressor(rig) {
     if (rig.attach.suppressor) return rig.attach.suppressor;
-    const { fwd, muzzle } = this.gunFrame(rig);
-    const r = rig.def.caliber === '9mm' ? 0.016 : 0.019, L = rig.def.caliber === '9mm' ? 0.15 : 0.19;
-    const g = new T3.CylinderGeometry(r, r, L, 20, 1).rotateX(Math.PI / 2).translate(0, 0, -L / 2 + 0.01);
+    const nine = rig.def.caliber === '9mm';
+    const rad = nine ? 0.016 : 0.019, L = nine ? 0.15 : 0.19;
+    const g = new T3.CylinderGeometry(rad, rad, L, 20, 1).rotateX(Math.PI / 2).translate(0, 0, -L / 2 + 0.01);
     const m = new T3.Mesh(g, new T3.MeshStandardMaterial({ color: 0x1b1c1e, roughness: 0.45, metalness: 0.7 }));
-    const q = new T3.Quaternion().setFromUnitVectors(new T3.Vector3(0, 0, -1), fwd);
-    rig.attach.suppressor = this.attachToGun(rig, m, muzzle, q);
-    rig.muzzleLocalBase = rig.muzzleLocalBase || rig.muzzleLocal.clone();
+    rig.attach.suppressor = this.attachToGun(rig, m, rig.frame.muzzle, this.frameQuat(rig));
     return rig.attach.suppressor;
   }
 
   ensureRedDot(rig) {
     if (rig.attach.reddot) return rig.attach.reddot;
-    const c = rig.cam;
-    const fwd = c.muzzle.clone().sub(c.rear).normalize();
-    // sit it on the top of the receiver, a little ahead of the rear sight
-    const base = (c.sightRear || c.rear).clone().lerp(c.sightFront || c.muzzle, 0.18);
+    const F = rig.frame;
+    const sr = F.sightRear || F.rear, sf = F.sightFront || F.muzzle;
+    const base = sr.clone().lerp(sf, 0.12);
     const grp = new T3.Group();
     const body = new T3.MeshStandardMaterial({ color: 0x151617, roughness: 0.5, metalness: 0.6 });
-    const h = 0.034;
-    const tube = new T3.Mesh(new T3.CylinderGeometry(0.017, 0.017, 0.05, 20, 1, true).rotateX(Math.PI / 2), body);
+    const h = 0.036;
+    const tubeMat = body.clone();
+    tubeMat.side = T3.DoubleSide;
+    const tube = new T3.Mesh(new T3.CylinderGeometry(0.017, 0.017, 0.045, 24, 1, true).rotateX(Math.PI / 2), tubeMat);
     tube.position.set(0, h, 0);
-    const mount = new T3.Mesh(new T3.BoxGeometry(0.022, h - 0.012, 0.045), body);
-    mount.position.set(0, (h - 0.012) / 2, 0);
-    const lens = new T3.Mesh(new T3.CircleGeometry ? new T3.RingGeometry(0, 0.0155, 24) : new T3.PlaneGeometry(0.03, 0.03), new T3.MeshBasicMaterial({ color: 0x88a0b0, transparent: true, opacity: 0.12, depthWrite: false }));
+    const mount = new T3.Mesh(new T3.BoxGeometry(0.014, h - 0.02, 0.03), body);
+    mount.position.set(0, (h - 0.02) / 2, 0);
+    const lens = new T3.Mesh(new T3.RingGeometry(0, 0.016, 24), new T3.MeshBasicMaterial({ color: 0x88a0b0, transparent: true, opacity: 0.1, depthWrite: false }));
     lens.position.set(0, h, -0.02);
-    const dot = new T3.Mesh(new T3.SphereGeometry(0.0009, 8, 6), new T3.MeshBasicMaterial({ color: 0xff2a1a, toneMapped: false }));
-    dot.position.set(0, h, -0.021);
+    const dot = new T3.Mesh(new T3.SphereGeometry(0.0008, 8, 6), new T3.MeshBasicMaterial({ color: 0xff2a1a, toneMapped: false }));
+    dot.position.set(0, h, -0.022);
     grp.add(tube, mount, lens, dot);
-    const q = new T3.Quaternion().setFromUnitVectors(new T3.Vector3(0, 0, -1), fwd);
-    rig.attach.reddot = this.attachToGun(rig, grp, base, q);
-    const up = new T3.Vector3(0, 1, 0).applyQuaternion(q);
-    rig.attach.reddot.userData.sightCam = {
-      rear: base.clone().addScaledVector(up, h).addScaledVector(fwd, 0.025),
-      front: base.clone().addScaledVector(up, h).addScaledVector(fwd, -0.021 + 0.05),
+    rig.attach.reddot = this.attachToGun(rig, grp, base, this.frameQuat(rig));
+    const S = rig.S;
+    rig.attach.reddot.userData.sight = {
+      rear: base.clone().addScaledVector(F.u, h * S).addScaledVector(F.f, -0.025 * S),
+      front: base.clone().addScaledVector(F.u, h * S).addScaledVector(F.f, 0.025 * S),
     };
     return rig.attach.reddot;
   }
 
   ensureDrum(rig) {
     if (rig.attach.drum) return rig.attach.drum;
-    // RPK-style 75-round drum hung under the receiver, following the magazine bone
+    // RPK-style drum hung under the receiver, riding the magazine bone during reloads
     const magBone = rig.root.getObjectByName('Pmag_062') || rig.root.getObjectByName('Pmag_061') || rig.gun;
-    const c = rig.cam;
-    const fwd = c.muzzle.clone().sub(c.rear).normalize();
-    const at = c.rear.clone().lerp(c.muzzle, 0.42);
-    at.y -= 0.075;
+    const F = rig.frame;
+    const at = F.rear.clone().lerp(F.muzzle, 0.4).addScaledVector(F.u, -0.085 * rig.S);
     const g = new T3.CylinderGeometry(0.085, 0.085, 0.07, 28).rotateZ(Math.PI / 2);
     const m = new T3.Mesh(g, new T3.MeshStandardMaterial({ color: 0x2a2620, roughness: 0.55, metalness: 0.5 }));
-    const ribs = new T3.Mesh(new T3.TorusGeometry(0.07, 0.006, 6, 28).rotateY(Math.PI / 2), m.material);
-    m.add(ribs);
-    const C = this.headMatrix(rig, new T3.Matrix4());
-    const world = new T3.Matrix4().compose(at, new T3.Quaternion().setFromUnitVectors(new T3.Vector3(0, 0, -1), fwd), new T3.Vector3(1, 1, 1)).premultiply(C);
-    const local = magBone.matrixWorld.clone().invert().multiply(world);
-    const holder = new T3.Group();
-    local.decompose(holder.position, holder.quaternion, holder.scale);
-    holder.add(m);
-    magBone.add(holder);
-    rig.attach.drum = holder;
-    return holder;
+    m.add(new T3.Mesh(new T3.TorusGeometry(0.07, 0.006, 6, 28).rotateY(Math.PI / 2), m.material));
+    rig.attach.drum = this.attachToGun(rig, m, at, this.frameQuat(rig), magBone);
+    return rig.attach.drum;
   }
 
   // ---- switching -------------------------------------------------------------------------------
@@ -454,14 +493,15 @@ class Viewmodel {
     this.crouch = damp(this.crouch, st.crouch, 8, dt);
     this.wallPush = damp(this.wallPush, st.wallNear || 0, 10, dt);
 
-    // compose: P (camera space offset) * inverse(head camera)
+    // compose: P (procedural, camera space) * inverse(camera blended between hip and ADS)
     rig.root.position.set(0, 0, 0); rig.root.quaternion.identity(); rig.root.scale.set(1, 1, 1);
-    rig.root.updateMatrixWorld(true);
-    const C = this.headMatrix(rig, _m1);
-    const ads = rig.ads;
     const a = this.ads;
-    const pos = new T3.Vector3().lerpVectors(new T3.Vector3(), ads.p, a);
-    const rot = new T3.Quaternion().slerpQuaternions(new T3.Quaternion(), ads.q, a);
+    const hp = new T3.Vector3(), hqq = new T3.Quaternion(), ap = new T3.Vector3(), aqq = new T3.Quaternion(), tmpS = new T3.Vector3();
+    rig.camHip.decompose(hp, hqq, tmpS);
+    rig.camAds.decompose(ap, aqq, tmpS);
+    const ease = a * a * (3 - 2 * a);
+    const C = new T3.Matrix4().compose(hp.lerp(ap, ease), hqq.slerp(aqq, ease), new T3.Vector3(1, 1, 1));
+    const pos = new T3.Vector3();
     const bobT = this.t * 7.5;
     const bobAmt = st.onGround ? clamp(st.speed / 4, 0, 1) * (1 - 0.85 * a) * 0.004 : 0;
     pos.x += Math.sin(bobT * 0.5) * bobAmt + this.sx.x * 0.02 * (1 - a * 0.7);
@@ -479,9 +519,10 @@ class Viewmodel {
     const P = new T3.Matrix4().makeTranslation(pos.x, pos.y, pos.z)
       .multiply(new T3.Matrix4().makeTranslation(pivot.x, pivot.y, pivot.z))
       .multiply(new T3.Matrix4().makeRotationFromQuaternion(proc))
-      .multiply(new T3.Matrix4().makeTranslation(-pivot.x, -pivot.y, -pivot.z))
-      .multiply(new T3.Matrix4().makeRotationFromQuaternion(rot));
-    const R = P.multiply(C.clone().invert());
+      .multiply(new T3.Matrix4().makeTranslation(-pivot.x, -pivot.y, -pivot.z));
+    // rig space is scaled; the procedural offsets are in metres
+    const Sinv = 1 / rig.S;
+    const R = P.multiply(new T3.Matrix4().makeScale(Sinv, Sinv, Sinv)).multiply(C.invert());
     R.decompose(rig.root.position, rig.root.quaternion, rig.root.scale);
     rig.root.updateMatrixWorld(true);
     this.camera.matrixWorld.identity();

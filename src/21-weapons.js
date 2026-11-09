@@ -39,11 +39,11 @@ const WEAPONS = {
     attachments: ['extmag', 'grip'], desc: 'Semi-automatic magazine-fed shotgun. Clears rooms.',
   },
   acr: {
-    name: 'ACR Carbine', short: 'ACR', cls: 'Rifle', rig: 'acr', ballistic: 'rifle', slot: 'primary',
+    name: 'ACR Carbine', short: 'ACR', cls: 'Rifle', rig: 'acr', ballistic: 'rifle', slot: 'primary', fixed: ['reddot'],
     price: 3600, mag: 30, reserve: 150, maxReserve: 300, rpm: 760, auto: true,
     hipSpread: 2.2, adsSpread: 0.26, adsTime: 0.2, move: 0.96,
     recoil: { up: 0.0095, side: 0.006, pattern: 'rifle' }, vm: { back: 0.022, up: 3.8, side: 1.1, roll: 1.1, flash: 0.9 },
-    attachments: ['suppressor', 'scope', 'extmag', 'grip'], desc: 'Modular carbine with a gentle, predictable recoil. Takes a 3x optic.',
+    attachments: ['suppressor', 'scope', 'extmag', 'grip'], desc: 'Modular flat-top carbine with a red dot and a gentle, predictable recoil. Takes a holographic sight.',
   },
   rpk: {
     name: 'RPK-74 Light Machine Gun', short: 'RPK-74', cls: 'LMG', rig: 'ak74', drum: true, ballistic: 'rifle', slot: 'primary',
@@ -71,7 +71,7 @@ const WEAPONS = {
 const ATTACHMENTS = {
   suppressor: { name: 'Suppressor', price: 900, desc: 'Muffled report, no muzzle flash. Enemies struggle to locate you. -6% velocity.' },
   reddot: { name: 'Red Dot Sight', price: 600, desc: 'Clean sight picture, faster target acquisition.' },
-  scope: { name: '3x Optic', price: 1200, desc: 'Magnified optic for mid-range engagements.' },
+  scope: { name: 'Holographic Sight', price: 1100, desc: '1.6x holographic optic: a wide, bright reticle for mid range.' },
   extmag: { name: 'Extended Magazine', price: 800, desc: '+50% magazine capacity.' },
   grip: { name: 'Vertical Grip', price: 700, desc: '-20% recoil, steadier hip fire.' },
 };
@@ -119,7 +119,7 @@ class WeaponInstance {
   get recoilScale() { return (1 - 0.14 * this.upgrades.handling) * (this.attachments.has('grip') ? 0.8 : 1); }
   get adsTime() { return this.def.adsTime / (1 + 0.12 * this.upgrades.handling) * (this.attachments.has('reddot') ? 0.85 : 1); }
   get suppressed() { return this.attachments.has('suppressor'); }
-  get zoom() { return this.attachments.has('scope') ? this.def.zoom || 2.4 : this.attachments.has('reddot') ? 1.35 : this.def.cls === 'Pistol' ? 1.15 : 1.25; }
+  get zoom() { return this.def.zoom || (this.attachments.has('scope') ? 1.6 : this.attachments.has('reddot') ? 1.35 : this.def.cls === 'Pistol' ? 1.15 : 1.25); }
   refreshBallistics() {
     const base = Lab.Ballistics[this.def.ballistic];
     Lab.Ballistics[this.ballisticKey] = {

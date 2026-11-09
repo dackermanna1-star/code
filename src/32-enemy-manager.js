@@ -49,6 +49,18 @@ class EnemyManager {
     const gltf = await Assets.gltf('characters/' + look);
     const game = this.game, sb = game.sb;
     if (!gltf || sb !== game.sb) return null;
+    // never drop a body into another one
+    const L = game.level;
+    const clear = (x, z) => L.free(x, z, 0.4) && sb.people.every((p) => Math.hypot(p.rd.pelvis.pos.x - x, p.rd.pelvis.pos.z - z) > 1.0) && Math.hypot(game.player.pos.x - x, game.player.pos.z - z) > 2.5;
+    if (!clear(pos.x, pos.z)) {
+      let found = null;
+      for (let k = 0; k < 40 && !found; k++) {
+        const a = Math.random() * TAU, d = 0.8 + Math.random() * 2.5;
+        if (clear(pos.x + Math.cos(a) * d, pos.z + Math.sin(a) * d)) found = new I(pos.x + Math.cos(a) * d, 0, pos.z + Math.sin(a) * d);
+      }
+      if (!found) return null;
+      pos = found;
+    }
     let person, ai;
     if (def.hollow) {
       person = sb.spawnZombie(pos, yaw, def.melee || 'runner');
@@ -285,7 +297,7 @@ class EnemyManager {
   }
 
   // ---- grenades ----------------------------------------------------------------------------------
-  throwGrenade(thrower, target) {
+  launchGrenade(thrower, target) {
     const g = this.game, sb = g.sb;
     let from, dir, speed;
     if (thrower === 'player') {

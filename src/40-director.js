@@ -152,6 +152,7 @@ class Director {
       const ctr = L.cellCenter(c);
       if (L.visible({ x: P.pos.x, y: P.pos.y + 1.6, z: P.pos.z }, { x: ctr.x, y: 1.4, z: ctr.z })) continue;
       if (this.enemies.alive.some((a) => Math.hypot(a.pos.x - ctr.x, a.pos.z - ctr.z) < 1.5)) continue;
+      if ((this.reserved || []).some((r) => Math.hypot(r.x - ctr.x, r.z - ctr.z) < 2)) continue;
       cands.push(c);
     }
     if (!cands.length) {
@@ -184,10 +185,13 @@ class Director {
       if (!type) break;
       const yaw = Math.atan2(P.pos.x - pt.x, P.pos.z - pt.z);
       this.pending = (this.pending || 0) + 1;
+      (this.reserved ||= []).push(pt);
+      const unreserve = () => { this.reserved = this.reserved.filter((r) => r !== pt); };
       this.enemies.spawn(type, pt, yaw).then((ai) => {
         this.pending--;
+        unreserve();
         if (ai && ai.def.boss) this.events.push({ type: 'boss', ai });
-      }).catch(() => { this.pending--; });
+      }).catch(() => { this.pending--; unreserve(); });
     }
   }
 

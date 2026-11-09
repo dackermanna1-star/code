@@ -149,7 +149,7 @@ class Session {
   throwGrenade() {
     const g = this.game;
     if (!g.arsenal.throwGrenade()) { if (g.arsenal.grenades <= 0) g.hud.toast('NO GRENADES'); return true; }
-    setTimeout(() => g.enemies.throwGrenade('player'), 260);
+    setTimeout(() => g.enemies.launchGrenade('player'), 260);
     g.vm.lower.kick(4);
     return true;
   }
