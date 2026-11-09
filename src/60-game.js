@@ -14,7 +14,22 @@ Object.assign(Lab.penetration, {
   goods: { cost: 2.4, solid: 0.3 },
 });
 const IMPACT_SOUND = { drywall: 'wood', cardboard: 'wood', wood: 'wood', goods: 'wood', metal: 'metal', concrete: 'ground', ceiling: 'ground', default: 'ground' };
-const IMPACT_DUST = { drywall: 0xd8cfae, cardboard: 0x9a7b52, wood: 0x8a6b45, goods: 0x9a7b52, concrete: 0xa8a8a0, ceiling: 0xc9c4b0, metal: null };
+// what a round does to each material (see GoreFX.surface): dust colour, plume puffs and lingering
+// haze, debris chips (colour, size, splinters), sparks, the hole decal and its size, the angle below
+// which (cosine) a round glances off with sparks and a whine, whether exit holes are looked for,
+// and the crumble heard after the hit
+const IMPACT_FX = {
+  drywall: { dust: 0xe0d9c6, puffs: 10, haze: 3, chips: 7, chip: 0xece7da, chipSize: 0.004, hole: 'drywall', size: 0.075, sparks: 0, rico: 0.1, pass: true, debris: 'drywall' },
+  concrete: { dust: 0xb2aea5, puffs: 9, haze: 3, chips: 12, chip: 0x928f88, chipSize: 0.006, hole: 'concrete', size: 0.085, sparks: 1.5, rico: 0.28, pass: true, debris: 'concrete' },
+  ceiling: { dust: 0xd8d3c2, puffs: 7, haze: 3, chips: 7, chip: 0xdcd8ca, chipSize: 0.005, hole: 'ceiling', size: 0.06, sparks: 0, rico: 0, pass: false, debris: 'drywall' },
+  wood: { dust: 0xae8a5e, puffs: 6, haze: 2, chips: 11, chip: 0xcda46c, chipSize: 0.009, splinter: true, hole: 'wood', size: 0.078, sparks: 0, rico: 0.12, pass: true, debris: 'wood' },
+  cardboard: { dust: 0xa88a60, puffs: 6, haze: 2, chips: 6, chip: 0xbd9a64, chipSize: 0.007, hole: 'cardboard', size: 0.068, sparks: 0, rico: 0, pass: true, debris: null },
+  goods: { dust: 0xa88a60, puffs: 6, haze: 2, chips: 6, chip: 0xbd9a64, chipSize: 0.007, hole: 'cardboard', size: 0.068, sparks: 0, rico: 0, pass: true, debris: null },
+  metal: { dust: 0x7a7771, puffs: 3, haze: 1, chips: 4, chip: 0x9a9c98, chipSize: 0.003, hole: 'metal', size: 0.06, sparks: 14, rico: 0.42, pass: true, debris: null },
+  carpet: { dust: 0x8a7a5c, puffs: 7, haze: 2, chips: 5, chip: 0x6e6048, chipSize: 0.004, hole: 'small', size: 0.04, sparks: 0, rico: 0, pass: false, debris: null },
+  default: { dust: 0xa8a59c, puffs: 8, haze: 2, chips: 9, chip: 0x8e8b84, chipSize: 0.005, hole: 'concrete', size: 0.065, sparks: 2, rico: 0.25, pass: true, debris: 'concrete' },
+};
+const _gNeg = new I();
 
 class BackroomsGame {
   constructor(app) {
@@ -270,7 +285,13 @@ class BackroomsGame {
   // ---- engine effects -> visuals & sound ----------------------------------------------------
   onFx(e) {
     for (const h of this.hooks) if (h.fx && h.fx(e)) return;
-    const au = this.audio, gore = this.settings.gore;
+    const au = this.audio, G = this.gore;
+    // a later hit of the same round (or its end) confirms that it came out of what it went into
+    if (G) {
+      if (e.type === 'objectHit' || e.type === 'groundHit') G.confirmExit(e.dir, e.point);
+      else if (e.type === 'fleshHit') G.confirmExit(e.dir, e.entry);
+      else if (e.type === 'shot') for (const p of e.paths) G.confirmExit(p.dir, p.to);
+    }
     switch (e.type) {
       case 'shot': {
         if (e.by === 'player') {
@@ -289,25 +310,27 @@ class BackroomsGame {
       }
       case 'fleshHit': this.fleshHit(e); break;
       case 'armorHit': {
-        const pt = toV3(e.point);
-        this.effects.puff(pt, new T3.Vector3(-e.dir.x, -e.dir.y, -e.dir.z), undefined, 12, 4, 0.25, true);
+        // a plate stops it: sparks off the plate and a spray of fabric and ceramic dust
+        if (G) {
+          const n = new I(-e.dir.x, -e.dir.y, -e.dir.z);
+          G.sparks(e.point, n, n, 10, 0.8);
+          G.burst(e.point, n, n, IMPACT_FX.cardboard, 0.8, 0.6, 1);
+        } else this.effects.puff(toV3(e.point), new T3.Vector3(-e.dir.x, -e.dir.y, -e.dir.z), undefined, 12, 4, 0.25, true);
         au.bulletImpact('metal', e.point, 1);
         break;
       }
       case 'objectHit': {
-        const pt = toV3(e.point), nrm = toV3(e.normal);
-        const mat = e.material;
-        const dust = IMPACT_DUST[mat];
-        if (dust === null) this.effects.puff(pt, nrm, undefined, 10, 3, 0.25, true);
-        else this.effects.puff(pt, nrm, dust ?? 0xbbbbbb, 12, 1.2, 0.6);
-        if (mat !== 'ceiling' || Math.random() < 0.5) this.view.wallDecals.add('hole', pt, nrm, mat === 'metal' ? 0.035 : 0.05 + Math.random() * 0.02);
+        let mat = e.material;
+        // the pipe tunnels' walls are drywall to the ballistics but look like bare concrete
+        if (mat === 'drywall' && this.level.theme.style === 2) mat = 'concrete';
+        if (G) G.surface(e, IMPACT_FX[mat] || IMPACT_FX.default, mat);
+        else this.view.wallDecals.add('hole', e.point, e.normal, 0.06);
         au.bulletImpact(IMPACT_SOUND[mat] || 'ground', e.point, 0.8);
         break;
       }
       case 'groundHit': {
-        this.view.decals.splat(e.point.x, e.point.z, 0.012 + Math.random() * 0.006, 1, 0.95, 1, Math.random() * 6.28, Math.random());
-        const pt = new T3.Vector3(e.point.x, 0.005, e.point.z);
-        this.effects.puff(pt, new T3.Vector3(-e.dir.x * 0.3, 1, -e.dir.z * 0.3).normalize(), 0x7a6a4a, 14, 1.2, 0.6);
+        if (G) G.ground(e);
+        else this.view.decals.splat(e.point.x, e.point.z, 0.014, 1, 0.95, 1, Math.random() * 6.28, Math.random());
         au.bulletImpact('ground', e.point, 0.8);
         break;
       }
@@ -321,36 +344,20 @@ class BackroomsGame {
     const au = this.audio;
     au.bulletImpact(n.bone ? 'bone' : 'flesh', n.entry, clamp(n.energy / 600, 0.3, 1));
     for (const h of this.hooks) h.onFleshHit && h.onFleshHit(n);
-    if (!this.settings.gore) return;
-    const P = this.particles;
-    const A = new T3.Vector3(n.dir.x, n.dir.y, n.dir.z);
-    const t = toV3(n.entry), e = n.energy;
-    P.spray(t, A.clone().negate(), 6 + Math.round(e / 120), 1.2 + e / 600, 0.7, 5e-4, 0.0018, 0, 0.02);
-    if (n.highVelocity) P.addMist(t, A.clone().negate(), 5, 0.6, 10490386, 0.025, 0.25);
-    if (n.exit) {
-      const s = toV3(n.exit), k = clamp(e / 900, 0, 1.5);
-      P.spray(s, A, 16 + Math.round(k * 60), 3 + 5 * k, 0.38, 7e-4, 0.0032, 0, 0.08);
-      if (k > 0.25) P.spray(s, A, Math.round(k * 10), 2.5 + 3 * k, 0.45, 0.002, 0.006, 1, 0.2);
-      if (n.bone) P.spray(s, A, 3 + Math.round(k * 6), 3 + 4 * k, 0.4, 0.0015, 0.004, 2, 0.05);
-      P.addMist(s, A, Math.round(6 + 24 * k), 1.5 + 3 * k, 10490900, 0.03 + 0.035 * k, 0.3 + 0.3 * k);
-      if (n.head && k > 0.6) { P.spray(s, A, 14, 5, 0.5, 0.003, 0.008, 1, 0.3); P.addMist(s, A, 30, 4, 11546672, 0.06, 0.6); }
-      // back-spatter on the wall behind the target
-      this.wallSplatter(s, A, k + (n.head ? 0.6 : 0));
+    if (!this.settings.gore) {
+      // no blood: a little fabric dust where it went in
+      if (this.gore) this.gore.burst(n.entry, _gNeg.set(-n.dir.x, -n.dir.y, -n.dir.z), _gNeg, IMPACT_FX.cardboard, 0.5, 0.35, 1);
+      return;
     }
+    if (this.gore) { this.gore.flesh(n); return; }
+    const P = this.particles, A = new T3.Vector3(n.dir.x, n.dir.y, n.dir.z);
+    P.spray(toV3(n.entry), A.clone().negate(), 6 + Math.round(n.energy / 120), 1.2 + n.energy / 600, 0.7, 5e-4, 0.0018, 0, 0.02);
+    if (n.exit) P.spray(toV3(n.exit), A, 16 + Math.round(n.energy / 15), 3 + n.energy / 180, 0.38, 7e-4, 0.0032, 0, 0.08);
   }
 
+  // back-spatter on whatever is behind the target (blood decals land after their flight time)
   wallSplatter(from, dir, strength) {
-    const L = this.level;
-    const to = from.clone().addScaledVector(dir, 2.2);
-    const hits = this.sb.world.raycastAll(toP3(from), new I(dir.x, dir.y, dir.z).normalize(), 2.2, (b) => b.userData && b.userData.level);
-    const h = hits[0];
-    if (!h) return;
-    const pt = toV3(h.point), nrm = toV3(h.normal);
-    const d = pt.distanceTo(from);
-    const size = clamp(0.25 + strength * 0.35 - d * 0.08, 0.12, 0.8);
-    this.view.wallDecals.add(Math.abs(nrm.y) > 0.7 ? 'blood' : Math.random() < 0.5 ? 'drip' : 'blood', pt, nrm, size);
-    if (strength > 0.8) this.view.wallDecals.add('blood', pt.clone().add(new T3.Vector3((Math.random() - 0.5) * 0.2, (Math.random() - 0.5) * 0.2, (Math.random() - 0.5) * 0.2)), nrm, size * 0.6);
-    void to; void L;
+    if (this.gore && this.settings.gore) this.gore.spatter(from, dir, strength, false);
   }
 
   impactSound(n) {

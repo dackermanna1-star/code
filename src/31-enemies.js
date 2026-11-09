@@ -1,18 +1,35 @@
 // Armed enemies on the engine's active ragdolls: rendering (Rocketbox characters, wounds,
 // held weapons, lights), the combat AI and the manager that spawns, scores and cleans them up.
 
-const WOUND_MAX = 14;
+const WOUND_MAX = 16;
 const SEG_MULT = { head: 3.6, neck: 2.6, chest: 1.2, abdomen: 1.0, pelvis: 0.9, upperArmL: 0.55, upperArmR: 0.55, forearmL: 0.45, forearmR: 0.45, handL: 0.35, handR: 0.35, thighL: 0.7, thighR: 0.7, shinL: 0.5, shinR: 0.5, footL: 0.35, footR: 0.35 };
 
+// Wounds are drawn in world space on the skinned meshes. Per wound:
+//   A: centre, radius of the hole      B: outward normal, radius the stain has soaked to
+//   C: direction blood runs down the skin, length of the runs
+//   D: kind (0 entry, 1 exit, 2 laceration), seed, bloodiness (head wounds bleed more), age
 const WOUND_GLSL = /* glsl */ `
 uniform vec4 uWoundA[${WOUND_MAX}];
 uniform vec4 uWoundB[${WOUND_MAX}];
+uniform vec4 uWoundC[${WOUND_MAX}];
+uniform vec4 uWoundD[${WOUND_MAX}];
 uniform int uWoundN;
 uniform vec4 uTint;
+uniform vec4 uHeadGore; // head centre, how much blood is over the head and face
+uniform float uGore;
 float woundWet = 0.0;
+float wdH(float n) { return fract(sin(n) * 43758.5453); }
+float wdN3(vec3 p) {
+  vec3 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+  float n = dot(i, vec3(1.0, 57.0, 113.0));
+  return mix(mix(mix(wdH(n), wdH(n + 1.0), f.x), mix(wdH(n + 57.0), wdH(n + 58.0), f.x), f.y),
+             mix(mix(wdH(n + 113.0), wdH(n + 114.0), f.x), mix(wdH(n + 170.0), wdH(n + 171.0), f.x), f.y), f.z);
+}
 `;
 
 // ---- rendering ---------------------------------------------------------------------------------
+const _woundDown = new I(0, -1, 0), _woundX = new I(1, 0, 0), _woundZ = new I(0, 0, 1), _woundTmp = new I(), _woundTmp2 = new I();
+
 class CharacterRender {
   constructor(game, person, gltf, opts = {}) {
     this.game = game;
@@ -23,7 +40,12 @@ class CharacterRender {
     this.wounds = [];
     this.uA = { value: Array.from({ length: WOUND_MAX }, () => new T3.Vector4(0, -99, 0, 0)) };
     this.uB = { value: Array.from({ length: WOUND_MAX }, () => new T3.Vector4()) };
+    this.uC = { value: Array.from({ length: WOUND_MAX }, () => new T3.Vector4()) };
+    this.uD = { value: Array.from({ length: WOUND_MAX }, () => new T3.Vector4()) };
     this.uN = { value: 0 };
+    this.uHead = { value: new T3.Vector4(0, -99, 0, 0) };
+    this.uGore = { value: 1 };
+    this.headGore = 0;
     this.uTint = { value: new T3.Vector4(...(opts.tint || [1, 1, 1, 0])) };
     for (const mesh of this.binder.meshes) {
       const m = mesh.material.clone();
@@ -31,42 +53,84 @@ class CharacterRender {
       if (m.name && /hair|opacity/i.test(m.name)) { m.alphaTest = 0.4; m.transparent = false; m.side = T3.DoubleSide; }
       patchLattice(m, game.view.shared, {
         key: 'character',
-        uniforms: { uWoundA: this.uA, uWoundB: this.uB, uWoundN: this.uN, uTint: this.uTint },
+        uniforms: { uWoundA: this.uA, uWoundB: this.uB, uWoundC: this.uC, uWoundD: this.uD, uWoundN: this.uN, uTint: this.uTint, uHeadGore: this.uHead, uGore: this.uGore },
         fragmentHead: WOUND_GLSL,
         color: /* glsl */ `
           {
             diffuseColor.rgb *= uTint.rgb;
             vec3 P = vLatP;
             vec3 N = normalize(vLatN);
-            float hole = 0.0, soak = 0.0, rim = 0.0;
+            float core = 0.0, hole = 0.0, rim = 0.0, flesh = 0.0, fleshN = 0.5, soak = 0.0, film = 0.0, run = 0.0;
             for (int i = 0; i < ${WOUND_MAX}; i++) {
               if (i >= uWoundN) break;
-              vec4 A = uWoundA[i]; vec4 B = uWoundB[i];
+              vec4 A = uWoundA[i]; vec4 B = uWoundB[i]; vec4 C = uWoundC[i];
               vec3 d = P - A.xyz;
               float dn = length(d);
-              if (dn > 0.4) continue;
-              if (dot(N, B.xyz) < -0.35) continue;
               float r = A.w;
-              // blood runs down from the wound
-              vec3 dd = vec3(d.x, d.y > 0.0 ? d.y * 1.6 : d.y * 0.32, d.z);
-              float sr = r * (2.6 + min(B.w, 25.0) * 0.32);
-              soak = max(soak, smoothstep(sr, sr * 0.25, length(dd)));
-              rim = max(rim, smoothstep(r * 2.0, r * 0.9, dn));
-              hole = max(hole, smoothstep(r * 0.95, r * 0.35, dn));
+              if (dn > max(B.w * 1.4, C.w + r * 2.5) + 0.01) continue;
+              vec4 D = uWoundD[i];
+              vec3 W = B.xyz;
+              float face = dot(N, W);
+              vec3 S = C.xyz;
+              vec3 X = normalize(cross(S, W) + vec3(1e-5));
+              float u = dot(d, X), s = dot(d, S), seed = D.y;
+              // ragged outline: a few lobes and fine tears
+              float ang = atan(u, s);
+              float re = r * (1.0 + 0.2 * sin(ang * 3.0 + seed * 31.0) + 0.12 * sin(ang * 7.0 + seed * 17.0) + 0.22 * (wdN3(d * 700.0 + seed * 9.0) - 0.5));
+              if (face > -0.3) {
+                core = max(core, 1.0 - smoothstep(re * 0.25, re * 0.55, dn));
+                hole = max(hole, 1.0 - smoothstep(re * 0.7, re, dn));
+                // entry: a bruised abrasion collar; exit: torn, everted tissue
+                float ring = 1.0 - smoothstep(re, re * (D.x > 0.5 ? 1.8 : 1.45), dn);
+                if (D.x > 0.5) { if (ring > flesh) { flesh = ring; fleshN = wdN3(d * 900.0 + seed); } } else rim = max(rim, ring);
+              }
+              // the stain soaks outwards, further below the wound than above it, with a ragged edge
+              float sn = wdN3(d * 30.0 + seed * 7.0) * 0.6 + wdN3(d * 110.0 - seed * 5.0) * 0.4;
+              vec2 q = vec2(u, s > 0.0 ? s * 0.55 : s * 1.5);
+              float ql = length(q), sr = B.w * (0.6 + 0.8 * sn);
+              float onFace = smoothstep(-0.6, -0.2, face);
+              soak = max(soak, (1.0 - smoothstep(sr * 0.8, sr, ql)) * onFace);
+              // close round the wound the blood still sits on top as a wet film
+              film = max(film, (1.0 - smoothstep(r * 1.2, max(r * 1.5, sr * 0.45), ql)) * onFace);
+              // runs down the skin: thin lanes of different lengths with a bead at each tip
+              if (C.w > 0.0 && s > -r && s < C.w && face > -0.5) {
+                float wob = u + 0.004 * sin(s * 70.0 + seed * 11.0);
+                float lane = wob * 150.0 + seed * 23.0;
+                float id = floor(lane), f = abs(fract(lane) - 0.5);
+                float hl = wdH(id * 1.7 + seed * 13.0);
+                float len = C.w * (0.2 + 0.8 * hl * hl);
+                float w = (0.14 + 0.2 * wdH(id * 3.1 + seed)) * (1.0 + 0.8 * smoothstep(len * 0.82, len, s));
+                float lanes = step(0.35, wdH(id * 5.3 + seed * 3.0)) * (1.0 - smoothstep(w * 0.55, w, f)) * (1.0 - smoothstep(len * 0.96, len, s));
+                lanes *= 1.0 - smoothstep(r * 1.1 + s * 0.12, r * (1.8 + D.z) + s * 0.2, abs(u));
+                run = max(run, lanes);
+              }
             }
-            float gore = uTint.a;
-            vec3 blood = mix(vec3(0.24, 0.018, 0.012), vec3(0.08, 0.008, 0.006), 0.45);
-            diffuseColor.rgb = mix(diffuseColor.rgb, blood, soak * 0.9);
-            diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.14, 0.01, 0.01), rim);
-            diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.025, 0.0, 0.0), hole);
-            woundWet = max(soak * 0.8, rim);
+            float g = uGore;
+            // blood through the hair and over the face after a bad head wound
+            if (uHeadGore.w > 0.0) {
+              float dh = length(P - uHeadGore.xyz);
+              vec3 hp = P - uHeadGore.xyz;
+              float hn = wdN3(hp * 26.0 + 3.0) * 0.7 + wdN3(hp * 70.0) * 0.3;
+              soak = max(soak, (1.0 - smoothstep(0.1, 0.17, dh)) * smoothstep(0.62 - 0.4 * uHeadGore.w, 0.75 - 0.4 * uHeadGore.w, hn) * uHeadGore.w);
+            }
+            // soaked into cloth or skin it darkens what is there (black cloth stays black, only wet);
+            // the film over the wound and the runs are blood itself
+            float sk = soak * g, fl = max(film, run) * g;
+            diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vec3(0.42, 0.045, 0.035), sk * 0.92);
+            diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.07, 0.003, 0.002), fl * 0.88);
+            diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.09, 0.01, 0.008), rim * 0.85 * g);
+            diffuseColor.rgb = mix(diffuseColor.rgb, mix(vec3(0.13, 0.008, 0.006), vec3(0.3, 0.07, 0.06), fleshN * fleshN), flesh * g);
+            diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.04, 0.003, 0.002), hole * (0.4 + 0.6 * g));
+            diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.006, 0.0, 0.0), core);
+            woundWet = max(max(sk * 0.75, fl), max(hole, max(rim, flesh)) * g);
+            float gore = uTint.a * g;
             if (gore > 0.0) {
               float n = fract(sin(dot(floor(P * 18.0), vec3(12.9898, 78.233, 37.719))) * 43758.5453);
               float splat = smoothstep(0.7, 0.95, n) * gore;
               diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.12, 0.01, 0.01), splat * 0.7);
             }
           }`,
-        roughness: 'roughnessFactor = mix(roughnessFactor, 0.22, woundWet);',
+        roughness: 'roughnessFactor = mix(roughnessFactor, 0.16, woundWet);',
       });
       mesh.material = m;
     }
@@ -79,9 +143,35 @@ class CharacterRender {
     if (!w || !w.body) return;
     const kind = w.kind;
     if (kind !== 'entry' && kind !== 'exit' && kind !== 'laceration') return;
-    const r = kind === 'exit' ? 0.022 + Math.min(0.03, (w.radius || 0.01) * 1.2) : kind === 'laceration' ? 0.018 : 0.011;
-    this.wounds.push({ body: w.body, local: w.local.clone(), normal: (w.normal || new I(0, 0, 1)).clone(), r, t: 0 });
-    if (this.wounds.length > WOUND_MAX) this.wounds.shift();
+    const seg = w.seg ? w.seg.name : '';
+    const head = seg === 'head' || seg === 'neck';
+    const sev = clamp(w.severity ?? 0.5, 0.2, 1);
+    const r = kind === 'exit' ? 0.014 + Math.min(0.034, (w.radius || 0.01) * 1.1) : kind === 'laceration' ? 0.016 : 0.0065 + 0.003 * sev;
+    // the oldest wound gives its slot up (and its record) once the table is full
+    const o = this.wounds.length >= WOUND_MAX ? this.wounds.shift() : { local: new I(), normal: new I(), flow: new I() };
+    o.body = w.body; o.src = w; o.r = r; o.t = 0;
+    o.local.copy(w.local);
+    o.normal.copy(w.normal || _woundZ);
+    o.kind = kind === 'exit' ? 1 : kind === 'laceration' ? 2 : 0;
+    o.seed = Math.random();
+    o.head = head;
+    o.bloody = head ? 1.4 : 0.6 + 0.4 * sev;
+    o.stain = r * (kind === 'exit' ? 1.5 : 1.9);
+    o.run = 0;
+    // blood starts down the skin along gravity (kept in the body's frame so runs stay put)
+    if (!this.downLocal(o, o.flow)) o.flow.crossVectors(o.normal, Math.abs(o.normal.x) < 0.9 ? _woundX : _woundZ).normalize();
+    this.wounds.push(o);
+    if (head) this.headGore = Math.min(1, this.headGore + (kind === 'exit' ? 0.55 * sev + 0.25 : 0.2));
+  }
+
+  // gravity projected onto the skin at a wound, in its body's frame (null when the skin faces up or down)
+  downLocal(o, out) {
+    const d = o.body.worldDirToLocal(_woundDown, _woundTmp), n = o.normal;
+    const k = d.x * n.x + d.y * n.y + d.z * n.z;
+    out.set(d.x - n.x * k, d.y - n.y * k, d.z - n.z * k);
+    const l = out.length();
+    if (l < 0.25) return null;
+    return out.scale(1 / l);
   }
 
   setGun(type, extras = {}) {
@@ -187,18 +277,35 @@ class CharacterRender {
 
   update(simDt, dt, alpha, person) {
     this.binder.update(alpha);
-    // wounds follow their bodies
-    const n = this.wounds.length;
+    // wounds follow their bodies; stains soak outwards and blood runs down the skin while it flows
+    const n = this.wounds.length, alive = person.injury ? person.injury.alive : true;
+    this.uGore.value = this.game.settings.gore ? 1 : 0;
     for (let i = 0; i < n; i++) {
-      const w = this.wounds[i];
+      const w = this.wounds[i], src = w.src;
       w.t += dt;
       const b = w.body;
-      const p = b.localToWorld(w.local, new I());
-      const nn = b.localDirToWorld(w.normal, new I());
+      const flow = Math.max(src.extNow || 0, (src.partner && src.partner.extNow) || 0, (src.channel && src.channel.extNow) || 0);
+      const wet = (alive ? 1 : 0.35) * w.bloody;
+      w.stain = Math.min(w.r * 2 + (w.head ? 0.13 : 0.085), w.stain + dt * (0.0012 + Math.min(flow, 12) * 0.0011) * wet);
+      const down = this.downLocal(w, _woundTmp2);
+      if (down) {
+        // runs grow down the skin while the wound flows (slowly turning to follow gravity)
+        w.flow.lerp(down, Math.min(1, dt * 0.3)).normalize();
+        w.run = Math.min(w.head ? 0.4 : 0.32, w.run + dt * (0.004 + Math.min(flow, 12) * 0.004) * wet);
+      }
+      const p = b.localToWorld(w.local, _woundTmp);
       this.uA.value[i].set(p.x, p.y, p.z, w.r);
-      this.uB.value[i].set(nn.x, nn.y, nn.z, w.t);
+      const nn = b.localDirToWorld(w.normal, _woundTmp);
+      this.uB.value[i].set(nn.x, nn.y, nn.z, w.stain);
+      const fd = b.localDirToWorld(w.flow, _woundTmp);
+      this.uC.value[i].set(fd.x, fd.y, fd.z, w.run);
+      this.uD.value[i].set(w.kind, w.seed, w.head ? 1 : 0.4, w.t);
     }
     this.uN.value = n;
+    if (this.headGore > 0) {
+      const hp = person.rd.segments.head.body.pos;
+      this.uHead.value.set(hp.x, hp.y, hp.z, this.headGore);
+    }
     // weapon in the hands
     const ai = person.enemy;
     if (this.gun && ai) {

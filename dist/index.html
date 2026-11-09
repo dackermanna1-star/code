@@ -65476,84 +65476,650 @@ function propParts(kind, def, box, mats) {
   return P;
 }
 
-// bullet holes and blood on walls / props: one instanced quad mesh with a procedural atlas
+// Bullet holes and blood on walls, props and the ceiling. Two instanced quad meshes share one
+// procedural 8 x 8 atlas: "marks" (holes, grazes, scorches) and "blood", so heavy bleeding never
+// recycles the bullet holes. The atlas is painted with a height field from which a normal map is
+// derived, so craters, torn paper, splinters and wet blood catch the light. Each pool is a ring and
+// the decals next in line to be recycled fade out first.
+//   tile name: [row, first column, variants]
+const DECAL_TILES = {
+  'hole:drywall': [0, 0, 4], 'exit:drywall': [0, 4, 2], 'hole:cardboard': [0, 6, 2],
+  'hole:concrete': [1, 0, 4], 'exit:concrete': [1, 4, 2], 'hole:ceiling': [1, 6, 2],
+  'hole:wood': [2, 0, 3], 'exit:wood': [2, 3, 2], 'hole:metal': [2, 5, 3],
+  'exit:metal': [3, 0, 2], graze: [3, 2, 2], scorch: [3, 4, 2], 'hole:small': [3, 6, 2],
+  spatter: [4, 0, 8], blood: [5, 0, 4], heavy: [5, 4, 4], drip: [6, 0, 4], smear: [6, 4, 4], drops: [7, 0, 4], dark: [7, 4, 4],
+};
+const DECAL_ALIAS = {
+  hole: 'hole:drywall', 'hole:goods': 'hole:cardboard', 'exit:goods': 'hole:cardboard', 'exit:cardboard': 'hole:cardboard',
+  'exit:ceiling': 'hole:ceiling', 'hole:default': 'hole:concrete', 'exit:default': 'exit:concrete', 'hole:carpet': 'hole:small',
+};
+const DECAL_BLOOD = { spatter: 1, blood: 1, heavy: 1, drip: 1, smear: 1, drops: 1, dark: 1 };
+
 class WallDecals {
   constructor(scene, max = 800) {
     this.max = max;
-    this.next = 0;
-    const atlas = WallDecals.atlas();
+    this.clock = null; // () => seconds; set by the gore system (game time), else wall-clock
+    const { map, normal } = WallDecals.atlas();
+    this.uTime = { value: 0 };
+    this.marks = this.pool(scene, map, normal, max, false);
+    this.blood = this.pool(scene, map, normal, Math.round(max * 1.6), true);
+    // LevelView.dispose() frees `mesh`; free the blood pool's instance buffers with it
+    this.mesh = this.marks.mesh;
+    const own = this.mesh.dispose.bind(this.mesh), other = this.blood.mesh;
+    this.mesh.dispose = () => { own(); other.dispose(); };
+    this._x = new T3.Vector3(); this._y = new T3.Vector3(); this._z = new T3.Vector3(); this._t = new T3.Vector3();
+  }
+
+  pool(scene, map, normalMap, max, wet) {
     const geo = new T3.PlaneGeometry(1, 1);
-    const uvOff = new Float32Array(max * 2);
-    geo.setAttribute('aTile', new T3.InstancedBufferAttribute(uvOff, 2));
-    const mat = new T3.MeshStandardMaterial({ map: atlas, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4, roughness: 0.6 });
-    mat.onBeforeCompile = (sh) => {
-      sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute vec2 aTile;').replace('#include <uv_vertex>', '#include <uv_vertex>\n#ifdef USE_MAP\nvMapUv = vMapUv * 0.25 + aTile;\n#endif');
-    };
-    this.mesh = new T3.InstancedMesh(geo, mat, max);
-    this.mesh.count = 0;
-    this.mesh.frustumCulled = false;
-    this.mesh.instanceMatrix.setUsage(T3.DynamicDrawUsage);
-    this.tiles = geo.attributes.aTile;
-    scene.add(this.mesh);
-    this._m = new T3.Matrix4();
-    this._q = new T3.Quaternion();
-  }
-  static atlas() {
-    return Lab.cached('br:walldecal-atlas', () => {
-      const S = 512, c = document.createElement('canvas');
-      c.width = c.height = S;
-      const g = c.getContext('2d');
-      const T = S / 4;
-      // row 0: bullet holes in drywall/concrete
-      for (let k = 0; k < 4; k++) {
-        const cx = k * T + T / 2, cy = T / 2;
-        const grd = g.createRadialGradient(cx, cy, 0, cx, cy, T * 0.42);
-        grd.addColorStop(0, 'rgba(10,8,6,1)'); grd.addColorStop(0.12, 'rgba(20,16,12,1)'); grd.addColorStop(0.2, 'rgba(70,60,48,0.9)');
-        grd.addColorStop(0.45, 'rgba(120,110,90,0.35)'); grd.addColorStop(1, 'rgba(120,110,90,0)');
-        g.fillStyle = grd; g.beginPath(); g.arc(cx, cy, T * 0.42, 0, TAU); g.fill();
-        g.strokeStyle = 'rgba(30,25,20,0.6)'; g.lineWidth = 1.2;
-        for (let r = 0; r < 6; r++) { const a = Math.random() * TAU, l = T * (0.12 + Math.random() * 0.22); g.beginPath(); g.moveTo(cx, cy); g.lineTo(cx + Math.cos(a) * l, cy + Math.sin(a) * l); g.stroke(); }
-      }
-      // rows 1-3: blood splatters (directional, with satellite drops)
-      for (let k = 0; k < 12; k++) {
-        const col = k % 4, row = 1 + ((k / 4) | 0);
-        const cx = col * T + T / 2, cy = row * T + T / 2;
-        g.save(); g.translate(cx, cy);
-        const base = row === 3 ? 'rgba(60,4,4,' : 'rgba(110,8,8,';
-        for (let s = 0; s < 26; s++) {
-          const a = (Math.random() - 0.5) * (row === 1 ? 1.4 : 6), r = Math.random() ** 1.5 * T * 0.4, rad = (1 - r / (T * 0.45)) * T * (0.03 + Math.random() * 0.07);
-          g.fillStyle = base + (0.6 + Math.random() * 0.4) + ')';
-          g.beginPath(); g.ellipse(Math.cos(a) * r, Math.sin(a) * r, rad * 1.6, rad, a, 0, TAU); g.fill();
-        }
-        g.fillStyle = base + '0.95)'; g.beginPath(); g.arc(0, 0, T * 0.09, 0, TAU); g.fill();
-        if (row === 2) for (let s = 0; s < 4; s++) { const x = (Math.random() - 0.5) * T * 0.3; g.fillRect(x, 0, 2 + Math.random() * 3, T * (0.2 + Math.random() * 0.25)); }
-        g.restore();
-      }
-      const tex = new T3.CanvasTexture(c);
-      tex.colorSpace = T3.SRGBColorSpace;
-      tex.anisotropy = 4;
-      return tex;
+    const tile = new T3.InstancedBufferAttribute(new Float32Array(max * 2), 2);
+    const info = new T3.InstancedBufferAttribute(new Float32Array(max * 4), 4); // born, wet, mode, opacity
+    tile.setUsage(T3.DynamicDrawUsage);
+    info.setUsage(T3.DynamicDrawUsage);
+    geo.setAttribute('aTile', tile);
+    geo.setAttribute('aInfo', info);
+    const mat = new T3.MeshStandardMaterial({
+      map, normalMap, transparent: true, depthWrite: false, roughness: 0.92, metalness: 0,
+      polygonOffset: true, polygonOffsetFactor: wet ? -5 : -4, polygonOffsetUnits: wet ? -6 : -4,
     });
+    const u = { uDecalHead: { value: 0 }, uDecalMax: { value: max }, uDecalTime: this.uTime };
+    mat.onBeforeCompile = (sh) => {
+      Object.assign(sh.uniforms, u);
+      sh.vertexShader = sh.vertexShader
+        .replace('#include <common>', `#include <common>
+attribute vec2 aTile; attribute vec4 aInfo; varying vec4 vDecal; varying vec2 vDecalUv;
+uniform float uDecalHead; uniform float uDecalMax;`)
+        .replace('#include <uv_vertex>', `#include <uv_vertex>
+#ifdef USE_MAP
+vMapUv = vMapUv * 0.125 + aTile;
+#endif
+#ifdef USE_NORMALMAP
+vNormalMapUv = vNormalMapUv * 0.125 + aTile;
+#endif
+vDecal = aInfo; vDecalUv = uv;
+// the oldest decals (next to be overwritten) fade out ahead of the ring's write head
+vDecal.w *= smoothstep(0.0, 40.0, mod(float(gl_InstanceID) - uDecalHead + uDecalMax, uDecalMax));`);
+      sh.fragmentShader = sh.fragmentShader
+        .replace('#include <common>', `#include <common>
+varying vec4 vDecal; varying vec2 vDecalUv; uniform float uDecalTime;`)
+        .replace('#include <map_fragment>', `#include <map_fragment>
+{
+  float dAge = max(uDecalTime - vDecal.x, 0.0);
+  if (vDecal.z > 0.5 && vDecal.z < 1.5) {
+    // a run of blood creeping down the wall: the tile is revealed from the top
+    float reach = 0.32 + 0.72 * (1.0 - exp(-dAge / 3.0));
+    diffuseColor.a *= smoothstep(reach + 0.025, reach - 0.025, 1.0 - vDecalUv.y);
   }
-  // kind: 'hole' | 'blood' | 'drip' | 'dark'; point and normal in world space
-  add(kind, point, normal, size = 0.06) {
-    const i = this.next;
-    this.next = (this.next + 1) % this.max;
-    this.mesh.count = Math.max(this.mesh.count, i + 1);
-    const n = new T3.Vector3(normal.x, normal.y, normal.z).normalize();
-    this._q.setFromUnitVectors(new T3.Vector3(0, 0, 1), n);
-    const spin = new T3.Quaternion().setFromAxisAngle(new T3.Vector3(0, 0, 1), kind === 'drip' ? 0 : Math.random() * TAU);
-    this._q.multiply(spin);
-    const p = new T3.Vector3(point.x, point.y, point.z).addScaledVector(n, 0.004);
-    this._m.compose(p, this._q, new T3.Vector3(size, size, size));
-    this.mesh.setMatrixAt(i, this._m);
-    const tile = kind === 'hole' ? [Math.floor(Math.random() * 4), 0] : kind === 'drip' ? [Math.floor(Math.random() * 4), 2] : kind === 'dark' ? [Math.floor(Math.random() * 4), 3] : [Math.floor(Math.random() * 4), 1];
+  diffuseColor.a *= vDecal.w;
+}`)
+        .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
+{
+  // the fixtures light the level through a term that ignores normal maps (see patchLattice), so
+  // shade the relief here: faces tilted up toward the lamps catch light, faces tilted down and the
+  // steep walls of a hole fall into shadow
+  vec3 upV = normalize((viewMatrix * vec4(0.0, 1.0, 0.0, 0.0)).xyz);
+  vec3 geoN = normalize(vNormal);
+  float rel = dot(normal - geoN, upV);
+  float tilt = 1.0 - clamp(dot(normal, geoN), 0.0, 1.0);
+  diffuseColor.rgb *= clamp(1.0 + 1.5 * rel - 1.2 * tilt, 0.2, 1.7);
+}`)
+        .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
+{
+  float dAge = max(uDecalTime - vDecal.x, 0.0);
+  // fresh blood is a glossy film that dulls as it dries; bare metal round a hit shines
+  roughnessFactor = mix(roughnessFactor, 0.13, vDecal.y * (0.4 + 0.6 * exp(-dAge / 45.0)));
+  if (vDecal.z > 1.5) roughnessFactor = mix(roughnessFactor, 0.3, smoothstep(0.35, 0.6, dot(diffuseColor.rgb, vec3(0.33))));
+}`);
+    };
+    mat.customProgramCacheKey = () => 'walldecal';
+    const mesh = new T3.InstancedMesh(geo, mat, max);
+    mesh.count = 0;
+    mesh.frustumCulled = false;
+    mesh.renderOrder = wet ? 2 : 1;
+    mesh.instanceMatrix.setUsage(T3.DynamicDrawUsage);
+    mesh.onBeforeRender = () => { this.uTime.value = this.now(); };
+    scene.add(mesh);
+    return { mesh, max, head: 0, tile, info, u, mat };
+  }
+
+  now() { return this.clock ? this.clock() : performance.now() / 1000; }
+
+  // light the decals like the surfaces they sit on (the level's fixture lattice)
+  useLattice(shared) {
+    for (const p of [this.marks, this.blood]) {
+      if (p.mat.userData.latticeShared) continue;
+      patchLattice(p.mat, shared, { key: 'walldecal' });
+      p.mat.needsUpdate = true;
+    }
+  }
+
+  // kind: a tile name ('hole:<material>', 'exit:<material>', 'graze', 'scorch', 'spatter', 'blood',
+  // 'heavy', 'drip', 'smear', 'drops', 'dark') or an alias ('hole'); point and normal in world space.
+  // opts: dir (in-plane direction for the tile's +x: spatter tails, grazes), stretch (x scale),
+  // angle (else random), wet (0..1, blood defaults to 1), alpha
+  add(kind, point, normal, size = 0.06, opts = null) {
+    const name = DECAL_TILES[kind] ? kind : DECAL_ALIAS[kind] || (kind.startsWith('exit:') ? 'exit:concrete' : kind.startsWith('hole:') ? 'hole:concrete' : 'blood');
+    const tl = DECAL_TILES[name], bloody = DECAL_BLOOD[name] === 1;
+    const P = bloody ? this.blood : this.marks;
+    const i = P.head;
+    P.head = (i + 1) % P.max;
+    P.mesh.count = Math.max(P.mesh.count, i + 1);
+    P.u.uDecalHead.value = P.head;
+    // basis: z = normal, y = up the wall (north on floors and ceilings), x = y × z; or x along opts.dir
+    const z = this._z.set(normal.x, normal.y, normal.z).normalize(), x = this._x, y = this._y;
+    const dir = opts && opts.dir;
+    let ok = false;
+    if (dir) {
+      x.set(dir.x, dir.y, dir.z).addScaledVector(z, -(dir.x * z.x + dir.y * z.y + dir.z * z.z));
+      if (x.lengthSq() > 1e-6) { x.normalize(); y.crossVectors(z, x); ok = true; }
+    }
+    if (!ok) {
+      if (Math.abs(z.y) < 0.9) y.set(0, 1, 0); else y.set(0, 0, 1);
+      y.addScaledVector(z, -y.dot(z)).normalize();
+      x.crossVectors(y, z);
+      if (name !== 'drip') {
+        const a = opts && opts.angle !== undefined ? opts.angle : Math.random() * TAU, c = Math.cos(a), s = Math.sin(a);
+        const t = this._t.copy(x).multiplyScalar(c).addScaledVector(y, s);
+        y.multiplyScalar(c).addScaledVector(x, -s);
+        x.copy(t);
+      }
+    }
+    // (no mirrored variants: a negative scale would flip the winding and cull the quad)
+    const sx = size * ((opts && opts.stretch) || 1), sy = size;
+    const off = bloody ? 0.0035 : 0.0025;
+    const e = P.mesh.instanceMatrix.array, o = i * 16;
+    e[o] = x.x * sx; e[o + 1] = x.y * sx; e[o + 2] = x.z * sx; e[o + 3] = 0;
+    e[o + 4] = y.x * sy; e[o + 5] = y.y * sy; e[o + 6] = y.z * sy; e[o + 7] = 0;
+    e[o + 8] = z.x; e[o + 9] = z.y; e[o + 10] = z.z; e[o + 11] = 0;
+    e[o + 12] = point.x + z.x * off; e[o + 13] = point.y + z.y * off; e[o + 14] = point.z + z.z * off; e[o + 15] = 1;
+    const col = tl[1] + Math.floor(Math.random() * tl[2]);
     // texture rows are flipped (canvas y down, uv y up)
-    this.tiles.setXY(i, tile[0] * 0.25, (3 - tile[1]) * 0.25);
-    this.tiles.needsUpdate = true;
-    this.mesh.instanceMatrix.needsUpdate = true;
+    P.tile.setXY(i, col * 0.125, (7 - tl[0]) * 0.125);
+    const mode = name === 'drip' ? 1 : name === 'hole:metal' || name === 'exit:metal' ? 2 : 0;
+    const wet = opts && opts.wet !== undefined ? opts.wet : bloody && name !== 'dark' ? 1 : 0;
+    P.info.setXYZW(i, this.now(), wet, mode, opts && opts.alpha !== undefined ? opts.alpha : 1);
+    P.mesh.instanceMatrix.addUpdateRange(o, 16);
+    P.tile.addUpdateRange(i * 2, 2);
+    P.info.addUpdateRange(i * 4, 4);
+    P.mesh.instanceMatrix.needsUpdate = true;
+    P.tile.needsUpdate = true;
+    P.info.needsUpdate = true;
   }
-  clear() { this.mesh.count = 0; this.next = 0; }
+
+  clear() {
+    for (const p of [this.marks, this.blood]) { p.mesh.count = 0; p.head = 0; p.u.uDecalHead.value = 0; }
+  }
+
+  // ---- the atlas ------------------------------------------------------------------------------
+  static atlas() {
+    return Lab.cached('br:walldecal-atlas2', () => WallDecals.paintAtlas(2048));
+  }
+
+  static paintAtlas(S) {
+    const T = S / 8, R = Math.random;
+    const mk = () => { const cv = document.createElement('canvas'); cv.width = cv.height = S; return cv; };
+    const colC = mk(), hgtC = mk();
+    const c = colC.getContext('2d'), h = hgtC.getContext('2d');
+    h.fillStyle = 'rgb(128,128,128)';
+    h.fillRect(0, 0, S, S);
+    const rgba = (r, g, b, a = 1) => `rgba(${r | 0},${g | 0},${b | 0},${a})`;
+    const grey = (v, a = 1) => rgba(v, v, v, a);
+    const jit = (v, d) => v + (R() - 0.5) * 2 * d;
+    // an irregular closed outline: n points round (x, y), radius r (+/- jag), squashed by sx, sy
+    const shape = (x, y, r, jag, n, sx = 1, sy = 1, rot = 0) => {
+      // a low-frequency wobble from a few random control values, plus per-vertex roughness
+      const m = 4 + ((R() * 4) | 0), ctl = [];
+      for (let k = 0; k < m; k++) ctl.push(R() - 0.5);
+      const pts = [];
+      for (let k = 0; k < n; k++) {
+        const f = (k / n) * m, i0 = Math.floor(f), t = f - i0, a0 = ctl[i0 % m], a1 = ctl[(i0 + 1) % m];
+        const lo = a0 + (a1 - a0) * t * t * (3 - 2 * t);
+        const a = rot + (k / n) * TAU, rr = r * (1 + jag * (lo * 1.3 + (R() - 0.5) * 0.9));
+        pts.push(x + Math.cos(a) * rr * sx, y + Math.sin(a) * rr * sy);
+      }
+      return pts;
+    };
+    const path = (g, p) => { g.beginPath(); g.moveTo(p[0], p[1]); for (let k = 2; k < p.length; k += 2) g.lineTo(p[k], p[k + 1]); g.closePath(); };
+    const fill = (g, p, style) => { g.fillStyle = style; path(g, p); g.fill(); };
+    const radial = (g, x, y, r0, r1, stops) => { const gr = g.createRadialGradient(x, y, r0, x, y, r1); for (const [o, s] of stops) gr.addColorStop(o, s); return gr; };
+    const disc = (g, x, y, r, style) => { g.fillStyle = style; g.beginPath(); g.arc(x, y, Math.max(0.3, r), 0, TAU); g.fill(); };
+    const ell = (g, x, y, rx, ry, rot, style) => { g.fillStyle = style; g.beginPath(); g.ellipse(x, y, Math.max(0.3, rx), Math.max(0.3, ry), rot, 0, TAU); g.fill(); };
+    // a scatter of specks in a ring band (colour by relative radius)
+    const specks = (g, x, y, r0, r1, n, size, colFn, bias = 0.8) => {
+      for (let k = 0; k < n; k++) {
+        const a = R() * TAU, f = R() ** bias, r = r0 + (r1 - r0) * f, s = size * (0.4 + R());
+        g.fillStyle = colFn(f);
+        g.fillRect(x + Math.cos(a) * r - s / 2, y + Math.sin(a) * r - s / 2, s, s);
+      }
+    };
+    // a tapered sliver from radius r0 at angle a, length len, base half-width w
+    const sliver = (x, y, a, r0, len, w) => {
+      const ca = Math.cos(a), sa = Math.sin(a), px = -sa, py = ca;
+      const bx = x + ca * r0, by = y + sa * r0, tx = x + ca * (r0 + len), ty = y + sa * (r0 + len);
+      return [bx + px * w, by + py * w, tx + px * w * 0.15, ty + py * w * 0.15, tx, ty, bx - px * w, by - py * w];
+    };
+    // a blood drop flying along +x: body ellipse plus a tapering tail (and a cast-off bead)
+    const dropTail = (x, y, len, wid, tail, col, hv) => {
+      ell(c, x, y, len / 2, wid / 2, 0, col);
+      ell(h, x, y, len / 2, wid / 2, 0, grey(hv));
+      const p = [x + len * 0.2, y - wid * 0.42, x + len / 2 + tail, y + jit(0, wid * 0.08), x + len * 0.2, y + wid * 0.42];
+      fill(c, p, col);
+      fill(h, p, grey(hv - 8));
+      if (tail > wid * 0.6 && R() < 0.6) {
+        const bx = x + len / 2 + tail * (1.15 + 0.4 * R()), br = wid * (0.12 + 0.12 * R());
+        disc(c, bx, y + jit(0, wid * 0.1), br, col);
+      }
+    };
+    const blood = (a = 1, v = 0) => rgba(jit(128, 12) - v, 7, 5, a);
+    const deep = (a = 1) => rgba(jit(80, 6), 3, 3, a);
+
+    const tile = (row, col, paint) => {
+      const x0 = col * T, y0 = row * T, cx = x0 + T / 2, cy = y0 + T / 2;
+      for (const g of [c, h]) { g.save(); g.beginPath(); g.rect(x0 + 3, y0 + 3, T - 6, T - 6); g.clip(); }
+      paint(cx, cy, T);
+      c.restore();
+      h.restore();
+    };
+    const cracks = (cx, cy, r0, n, len, style, w) => {
+      c.strokeStyle = style; c.lineWidth = w;
+      for (let q = 0; q < n; q++) {
+        let a = R() * TAU, r = r0;
+        c.beginPath(); c.moveTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r);
+        const steps = 3 + (R() * 3) | 0;
+        for (let s = 0; s < steps; s++) { a += (R() - 0.5) * 0.5; r += len / steps; c.lineTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r); }
+        c.stroke();
+      }
+    };
+
+    // ---- row 0: drywall entry / exit, cardboard -------------------------------------------------
+    for (let k = 0; k < 4; k++) tile(0, k, (cx, cy, u) => {
+      // gypsum powder blown back out of the hole
+      c.fillStyle = radial(c, cx, cy, u * 0.05, u * 0.45, [[0, rgba(244, 241, 232, 0.8)], [0.3, rgba(238, 234, 222, 0.42)], [1, rgba(230, 225, 210, 0)]]);
+      c.beginPath(); c.arc(cx, cy, u * 0.45, 0, TAU); c.fill();
+      specks(c, cx, cy, u * 0.1, u * 0.47, 360, u * 0.008, (f) => rgba(248, 246, 238, 0.7 * (1 - f) + 0.1));
+      specks(c, cx, cy, u * 0.12, u * 0.34, 60, u * 0.01, (f) => rgba(140, 130, 112, 0.4 * (1 - f)), 1.3);
+      // exposed gypsum core where the facing paper tore away
+      const cr = u * (0.16 + 0.035 * R());
+      const crater = shape(cx, cy, cr, 0.3, 26);
+      fill(c, crater, rgba(238, 235, 226));
+      fill(h, crater, radial(h, cx, cy, 0, cr, [[0, grey(20)], [0.5, grey(70)], [1, grey(112)]]));
+      // the crater's inner wall: shaded gypsum going down into the hole
+      c.fillStyle = radial(c, cx, cy, cr * 0.3, cr, [[0, rgba(150, 144, 132, 0.85)], [0.55, rgba(205, 200, 188, 0.5)], [1, rgba(230, 226, 216, 0)]]);
+      path(c, crater); c.fill();
+      specks(c, cx, cy, u * 0.07, cr, 50, u * 0.009, () => rgba(196, 190, 176, 0.75), 1);
+      // flaps of the paper facing, folded into the crater
+      for (let f = 0; f < 6 + k; f++) {
+        const a = R() * TAU, r0 = cr * (0.45 + 0.3 * R()), r1 = cr * (1 + 0.12 * R()), w = 0.16 + 0.22 * R();
+        const p = [cx + Math.cos(a - w) * r1, cy + Math.sin(a - w) * r1, cx + Math.cos(a) * r0, cy + Math.sin(a) * r0, cx + Math.cos(a + w) * r1, cy + Math.sin(a + w) * r1];
+        const v = jit(0, 8);
+        fill(c, p, rgba(214 + v, 204 + v, 178 + v));
+        fill(h, p, grey(118));
+        c.strokeStyle = rgba(96, 86, 70, 0.6); c.lineWidth = u * 0.004; path(c, p); c.stroke();
+      }
+      c.strokeStyle = rgba(105, 95, 78, 0.6); c.lineWidth = u * 0.008; path(c, crater); c.stroke();
+      // the hole itself: a dark throat with a grey ring wiped off the bullet
+      const hr = u * (0.072 + 0.018 * R());
+      c.fillStyle = radial(c, cx, cy, hr * 0.9, hr * 1.55, [[0, rgba(55, 50, 45, 0.75)], [1, rgba(70, 64, 56, 0)]]);
+      c.beginPath(); c.arc(cx, cy, hr * 1.55, 0, TAU); c.fill();
+      const hole = shape(cx, cy, hr, 0.3, 14);
+      fill(c, hole, radial(c, cx, cy, 0, hr * 1.1, [[0, rgba(4, 3, 2)], [0.7, rgba(14, 12, 10)], [1, rgba(48, 42, 36)]]));
+      fill(h, hole, grey(0));
+      cracks(cx, cy, cr * 0.95, 2 + k, u * 0.12, rgba(110, 100, 85, 0.38), u * 0.004);
+    });
+    for (let k = 0; k < 2; k++) tile(0, 4 + k, (cx, cy, u) => {
+      // exit side: the far facing blows out in large peeled flaps over crumbled gypsum
+      c.fillStyle = radial(c, cx, cy, u * 0.1, u * 0.47, [[0, rgba(238, 234, 222, 0.55)], [1, rgba(230, 225, 210, 0)]]);
+      c.beginPath(); c.arc(cx, cy, u * 0.47, 0, TAU); c.fill();
+      specks(c, cx, cy, u * 0.15, u * 0.48, 380, u * 0.01, (f) => rgba(240, 236, 225, 0.65 * (1 - f) + 0.1));
+      const cr = u * (0.24 + 0.05 * R());
+      const crater = shape(cx, cy, cr, 0.4, 20);
+      fill(c, crater, rgba(226, 222, 210));
+      fill(h, crater, radial(h, cx, cy, 0, cr, [[0, grey(20)], [0.5, grey(70)], [1, grey(118)]]));
+      specks(c, cx, cy, u * 0.05, cr, 220, u * 0.016, () => (R() < 0.5 ? rgba(196, 192, 180, 0.8) : rgba(246, 244, 236, 0.8)), 1);
+      specks(h, cx, cy, u * 0.05, cr, 160, u * 0.016, () => grey(R() < 0.5 ? 40 : 110, 0.8), 1);
+      const nf = 3 + ((R() * 3) | 0), a0 = R() * TAU;
+      for (let f = 0; f < nf; f++) {
+        // a torn, curled flap of the facing: a ragged outer edge, its underside in shadow
+        const a = a0 + (f / nf) * TAU + jit(0, 0.5), r0 = cr * (0.7 + 0.15 * R()), r1 = cr * (1.1 + 0.6 * R()), w = 0.25 + 0.35 * R();
+        const p = [cx + Math.cos(a - w) * r0, cy + Math.sin(a - w) * r0];
+        for (let q = 0; q <= 6; q++) {
+          const t = q / 6, aa = a - w * 0.6 + t * w * 1.3, rr = r1 * (0.82 + 0.18 * Math.sin(t * Math.PI)) * (0.9 + 0.2 * R());
+          p.push(cx + Math.cos(aa) * rr, cy + Math.sin(aa) * rr);
+        }
+        p.push(cx + Math.cos(a + w) * r0, cy + Math.sin(a + w) * r0);
+        const v = jit(0, 8);
+        fill(c, p, rgba(220 + v, 210 + v, 186 + v));
+        fill(h, p, radial(h, cx, cy, r0, r1, [[0, grey(140)], [1, grey(215)]]));
+        c.strokeStyle = rgba(100, 90, 75, 0.55); c.lineWidth = u * 0.005; path(c, p); c.stroke();
+      }
+      const hr = u * (0.1 + 0.025 * R());
+      const hole = shape(cx, cy, hr, 0.35, 14);
+      fill(c, hole, radial(c, cx, cy, 0, hr, [[0, rgba(5, 4, 3)], [0.75, rgba(24, 20, 16)], [1, rgba(70, 62, 52)]]));
+      fill(h, hole, grey(0));
+    });
+    for (let k = 0; k < 2; k++) tile(0, 6 + k, (cx, cy, u) => {
+      // cardboard: torn kraft liner, crushed flute, brown fibre dust
+      specks(c, cx, cy, u * 0.06, u * 0.4, 160, u * 0.008, (f) => rgba(150, 118, 78, 0.4 * (1 - f)));
+      const cr = u * (0.13 + 0.03 * R());
+      const torn = shape(cx, cy, cr, 0.45, 20);
+      fill(c, torn, rgba(jit(192, 6), jit(160, 6), jit(112, 6)));
+      fill(h, torn, grey(100));
+      c.strokeStyle = rgba(214, 188, 140, 0.8); c.lineWidth = u * 0.005;
+      for (let f = 0; f < 40; f++) { const a = R() * TAU, r = cr * (0.8 + 0.4 * R()); c.beginPath(); c.moveTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r); c.lineTo(cx + Math.cos(a + jit(0, 0.2)) * (r + u * 0.03), cy + Math.sin(a + jit(0, 0.2)) * (r + u * 0.03)); c.stroke(); }
+      const hr = u * (0.07 + 0.015 * R());
+      const hole = shape(cx, cy, hr, 0.3, 12);
+      fill(c, hole, rgba(24, 17, 10));
+      fill(h, hole, grey(5));
+      c.save(); path(c, hole); c.clip();
+      c.strokeStyle = rgba(120, 92, 58, 0.55); c.lineWidth = u * 0.008;
+      for (let q = -3; q <= 3; q++) { c.beginPath(); c.moveTo(cx - hr, cy + q * u * 0.025); for (let s = 0; s <= 8; s++) c.lineTo(cx - hr + (s / 8) * hr * 2, cy + q * u * 0.025 + (s % 2 ? u * 0.008 : -u * 0.008)); c.stroke(); }
+      c.restore();
+    });
+
+    // ---- row 1: concrete entry / exit, ceiling tile ---------------------------------------------
+    const concrete = (cx, cy, u, big) => {
+      c.fillStyle = radial(c, cx, cy, u * 0.08, u * 0.46, [[0, rgba(196, 193, 186, 0.5)], [0.4, rgba(186, 183, 176, 0.25)], [1, rgba(180, 177, 170, 0)]]);
+      c.beginPath(); c.arc(cx, cy, u * 0.46, 0, TAU); c.fill();
+      specks(c, cx, cy, u * 0.12, u * 0.47, 260, u * 0.008, (f) => rgba(205, 202, 195, 0.55 * (1 - f) + 0.08));
+      const cr = u * (big ? 0.3 + 0.06 * R() : 0.2 + 0.06 * R());
+      const crater = shape(cx, cy, cr, big ? 0.4 : 0.32, 30);
+      fill(c, crater, rgba(jit(176, 5), jit(173, 5), jit(166, 5)));
+      fill(h, crater, radial(h, cx, cy, 0, cr, [[0, grey(25)], [0.45, grey(70)], [1, grey(118)]]));
+      // aggregate in the fresh fracture
+      specks(c, cx, cy, 0, cr * 0.95, big ? 260 : 170, u * 0.014, () => (R() < 0.5 ? rgba(138, 134, 126, 0.85) : rgba(208, 205, 198, 0.85)), 1);
+      specks(h, cx, cy, 0, cr * 0.95, 160, u * 0.014, () => grey(R() < 0.5 ? 45 : 100, 0.6), 1);
+      const inner = shape(cx, cy, cr * 0.55, 0.3, 20);
+      fill(c, inner, rgba(150, 147, 140, 0.8));
+      const hr = u * (0.05 + 0.015 * R()) * (big ? 1.4 : 1);
+      const hole = shape(cx, cy, hr, 0.3, 10);
+      fill(c, hole, radial(c, cx, cy, 0, hr, [[0, rgba(12, 11, 10)], [1, rgba(48, 46, 42)]]));
+      fill(h, hole, grey(0));
+      c.strokeStyle = rgba(95, 92, 86, 0.45); c.lineWidth = u * 0.006; path(c, crater); c.stroke();
+      // chips knocked off round the crater
+      for (let q = 0; q < 10; q++) {
+        const a = R() * TAU, r = cr * (1.05 + 0.5 * R());
+        const p = shape(cx + Math.cos(a) * r, cy + Math.sin(a) * r, u * (0.008 + 0.014 * R()), 0.4, 5);
+        const v = jit(0, 10);
+        fill(c, p, rgba(168 + v, 165 + v, 158 + v, 0.9));
+        fill(h, p, grey(95));
+      }
+      cracks(cx, cy, cr, big ? 4 : 2, u * 0.12, rgba(80, 78, 74, 0.35), u * 0.004);
+    };
+    for (let k = 0; k < 4; k++) tile(1, k, (cx, cy, u) => concrete(cx, cy, u, false));
+    for (let k = 0; k < 2; k++) tile(1, 4 + k, (cx, cy, u) => concrete(cx, cy, u, true));
+    for (let k = 0; k < 2; k++) tile(1, 6 + k, (cx, cy, u) => {
+      // mineral-fibre ceiling tile: a crumbly, porous crater
+      specks(c, cx, cy, u * 0.08, u * 0.42, 220, u * 0.009, (f) => rgba(236, 233, 224, 0.55 * (1 - f) + 0.05));
+      const cr = u * (0.15 + 0.04 * R());
+      const crater = shape(cx, cy, cr, 0.4, 16);
+      fill(c, crater, rgba(212, 208, 196));
+      fill(h, crater, radial(h, cx, cy, 0, cr, [[0, grey(30)], [1, grey(112)]]));
+      specks(c, cx, cy, 0, cr, 200, u * 0.012, () => rgba(150, 146, 136, 0.7), 1);
+      const hr = u * 0.07;
+      const hole = shape(cx, cy, hr, 0.35, 10);
+      fill(c, hole, rgba(18, 16, 14));
+      fill(h, hole, grey(0));
+    });
+
+    // ---- row 2: wood entry / exit, metal dents --------------------------------------------------
+    const woodFresh = () => rgba(jit(212, 12), jit(174, 12), jit(118, 10));
+    for (let k = 0; k < 3; k++) tile(2, k, (cx, cy, u) => {
+      // sawdust and fibres, raised splinters mostly along the grain (x)
+      for (let q = 0; q < 140; q++) { const a = R() * TAU, r = u * (0.06 + 0.32 * R() ** 0.8); ell(c, cx + Math.cos(a) * r, cy + Math.sin(a) * r * 0.6, u * 0.008, u * 0.003, 0, rgba(200, 165, 110, 0.45 * (1 - r / (u * 0.4)))); }
+      const torn = shape(cx, cy, u * 0.14, 0.35, 20, 1.5, 0.8);
+      fill(c, torn, rgba(196, 160, 108));
+      fill(h, torn, grey(92));
+      for (let q = 0; q < 14 + 2 * k; q++) {
+        const a = (R() < 0.5 ? 0 : Math.PI) + jit(0, 0.55), len = u * (0.1 + 0.2 * R()), w = u * (0.014 + 0.016 * R());
+        const p = sliver(cx, cy, a, u * 0.05, len, w);
+        fill(c, p, woodFresh());
+        fill(h, p, grey(190));
+        c.strokeStyle = rgba(70, 45, 20, 0.45); c.lineWidth = u * 0.003; path(c, p); c.stroke();
+      }
+      const hr = u * (0.07 + 0.015 * R());
+      const hole = shape(cx, cy, hr, 0.3, 14, 1.15, 0.9);
+      fill(c, hole, radial(c, cx, cy, 0, hr * 1.1, [[0, rgba(14, 9, 4)], [1, rgba(48, 30, 16)]]));
+      fill(h, hole, grey(0));
+    });
+    for (let k = 0; k < 2; k++) tile(2, 3 + k, (cx, cy, u) => {
+      // exit: a long blow-out torn along the grain, bristling with splinters
+      const cr = u * 0.27;
+      const blow = shape(cx, cy, cr, 0.4, 20, 1.55, 0.5);
+      fill(c, blow, rgba(198, 160, 108));
+      fill(h, blow, radial(h, cx, cy, 0, cr * 1.4, [[0, grey(35)], [1, grey(120)]]));
+      c.strokeStyle = rgba(110, 75, 40, 0.6); c.lineWidth = u * 0.005;
+      for (let q = 0; q < 14; q++) { const yy = cy + jit(0, cr * 0.4); c.beginPath(); c.moveTo(cx - cr * 1.4, yy); c.bezierCurveTo(cx - cr * 0.5, yy + jit(0, 6), cx + cr * 0.5, yy + jit(0, 6), cx + cr * 1.4, yy); c.stroke(); }
+      for (let q = 0; q < 18; q++) {
+        const a = (R() < 0.5 ? 0 : Math.PI) + jit(0, 0.35), len = u * (0.12 + 0.2 * R()), w = u * (0.012 + 0.016 * R());
+        const p = sliver(cx, cy, a, cr * 0.4, len, w);
+        fill(c, p, woodFresh());
+        fill(h, p, grey(210));
+      }
+      const hole = shape(cx, cy, u * 0.09, 0.35, 12, 1.3, 0.8);
+      fill(c, hole, rgba(16, 10, 5));
+      fill(h, hole, grey(0));
+    });
+    const metal = (cx, cy, u, through) => {
+      // bullet lead / soot smear, paint knocked off round the strike, a bright dented lip
+      c.fillStyle = radial(c, cx, cy, u * 0.04, u * 0.3, [[0, rgba(55, 55, 55, 0.45)], [1, rgba(55, 55, 55, 0)]]);
+      c.beginPath(); c.arc(cx, cy, u * 0.3, 0, TAU); c.fill();
+      const pr = u * (0.15 + 0.06 * R());
+      const paint = shape(cx, cy, pr, 0.5, 22);
+      fill(c, paint, rgba(158, 158, 154));
+      fill(h, paint, grey(118));
+      for (let q = 0; q < 7; q++) {
+        const a = R() * TAU, r = pr * (1.05 + 0.5 * R());
+        const p = shape(cx + Math.cos(a) * r, cy + Math.sin(a) * r, u * (0.012 + 0.02 * R()), 0.45, 6);
+        fill(c, p, rgba(150, 150, 146, 0.95));
+        fill(h, p, grey(120));
+      }
+      const lr = u * 0.11;
+      c.fillStyle = radial(c, cx, cy, u * 0.04, lr, [[0, rgba(120, 120, 118)], [0.6, rgba(232, 232, 228)], [1, rgba(176, 176, 172)]]);
+      c.beginPath(); c.arc(cx, cy, lr, 0, TAU); c.fill();
+      h.fillStyle = radial(h, cx, cy, 0, lr * 1.25, [[0, grey(20)], [0.75, grey(150)], [0.85, grey(175)], [1, grey(128)]]);
+      h.beginPath(); h.arc(cx, cy, lr * 1.25, 0, TAU); h.fill();
+      c.strokeStyle = rgba(235, 235, 230, 0.6); c.lineWidth = u * 0.003;
+      for (let q = 0; q < 8; q++) { const a = R() * TAU, r0 = lr * 0.9, r1 = pr * (0.7 + 0.5 * R()); c.beginPath(); c.moveTo(cx + Math.cos(a) * r0, cy + Math.sin(a) * r0); c.lineTo(cx + Math.cos(a + 0.1) * r1, cy + Math.sin(a + 0.1) * r1); c.stroke(); }
+      const hr = u * 0.05;
+      disc(c, cx, cy, hr, through ? rgba(4, 4, 4) : radial(c, cx, cy, 0, hr, [[0, rgba(40, 40, 40)], [1, rgba(95, 95, 92)]]));
+    };
+    for (let k = 0; k < 3; k++) tile(2, 5 + k, (cx, cy, u) => metal(cx, cy, u, k === 2));
+
+    // ---- row 3: metal exit petals, grazes, scorches, small holes --------------------------------
+    for (let k = 0; k < 2; k++) tile(3, k, (cx, cy, u) => {
+      metal(cx, cy, u, true);
+      for (let q = 0; q < 6; q++) {
+        const a = (q / 6) * TAU + jit(0, 0.3);
+        const p = sliver(cx, cy, a, u * 0.03, u * (0.12 + 0.06 * R()), u * 0.045);
+        const v = jit(0, 15);
+        fill(c, p, rgba(205 + v, 205 + v, 200 + v));
+        fill(h, p, grey(215));
+        c.strokeStyle = rgba(60, 60, 58, 0.6); c.lineWidth = u * 0.004; path(c, p); c.stroke();
+      }
+      disc(c, cx, cy, u * 0.055, rgba(3, 3, 3));
+      disc(h, cx, cy, u * 0.055, grey(0));
+    });
+    for (let k = 0; k < 2; k++) tile(3, 2 + k, (cx, cy, u) => {
+      // ricochet gouge along +x: a scraped groove, pale at the bottom, debris thrown downrange
+      const p = [];
+      const N = 24;
+      for (let q = 0; q <= N; q++) { const t = q / N, x = cx - u * 0.36 + t * u * 0.76, w = u * 0.07 * Math.sin(Math.PI * t ** 0.65) * (0.8 + 0.4 * R()); p.push(x, cy - w); }
+      for (let q = N; q >= 0; q--) { const t = q / N, x = cx - u * 0.36 + t * u * 0.76, w = u * 0.07 * Math.sin(Math.PI * t ** 0.65) * (0.8 + 0.4 * R()); p.push(x, cy + w); }
+      fill(c, p, rgba(196, 194, 186));
+      fill(h, p, grey(60));
+      c.strokeStyle = rgba(60, 58, 54, 0.75); c.lineWidth = u * 0.012;
+      c.beginPath(); c.moveTo(cx - u * 0.3, cy); c.lineTo(cx + u * 0.32, cy + jit(0, u * 0.01)); c.stroke();
+      for (let q = 0; q < 70; q++) { const x = cx + u * (0.1 + 0.32 * R()), y = cy + jit(0, u * 0.08 * (x - cx) / (u * 0.3)); disc(c, x, y, u * 0.004 * (0.5 + R()), rgba(150, 148, 140, 0.6)); }
+    });
+    for (let k = 0; k < 2; k++) tile(3, 4 + k, (cx, cy, u) => {
+      c.fillStyle = radial(c, cx, cy, 0, u * 0.45, [[0, rgba(16, 14, 12, 0.8)], [0.5, rgba(26, 23, 20, 0.45)], [1, rgba(30, 27, 24, 0)]]);
+      c.beginPath(); c.arc(cx, cy, u * 0.45, 0, TAU); c.fill();
+      specks(c, cx, cy, 0, u * 0.45, 200, u * 0.02, (f) => rgba(18, 16, 14, 0.3 * (1 - f)));
+    });
+    for (let k = 0; k < 2; k++) tile(3, 6 + k, (cx, cy, u) => {
+      specks(c, cx, cy, u * 0.05, u * 0.35, 120, u * 0.008, (f) => rgba(150, 146, 138, 0.45 * (1 - f)));
+      const cr = shape(cx, cy, u * 0.14, 0.35, 12);
+      fill(c, cr, rgba(128, 124, 116, 0.7));
+      fill(h, cr, grey(80));
+      const hole = shape(cx, cy, u * 0.07, 0.3, 10);
+      fill(c, hole, rgba(10, 9, 8));
+      fill(h, hole, grey(0));
+    });
+
+    // ---- row 4: directional spatter (travel along +x) -------------------------------------------
+    for (let k = 0; k < 8; k++) tile(4, k, (cx, cy, u) => {
+      const mx = cx - u * (0.12 + 0.08 * R()), my = cy + jit(0, u * 0.03);
+      const len = u * (0.18 + 0.1 * R()), wid = u * (0.08 + 0.04 * R());
+      dropTail(mx, my, len, wid, u * (0.12 + 0.12 * R()), blood(), 160);
+      ell(c, mx - len * 0.05, my, len * 0.3, wid * 0.3, 0, deep(0.9));
+      const n = 10 + (R() * 18) | 0;
+      for (let q = 0; q < n; q++) {
+        const t = R(), x = mx + len * 0.2 + t * u * 0.5, spread = u * 0.04 + (x - mx) * 0.38;
+        const y = my + jit(0, spread);
+        if (x > cx + u * 0.44) continue;
+        const s = u * (0.008 + 0.03 * (1 - t) * R());
+        dropTail(x, y, s * 2, s, s * (1 + 2.5 * R()), blood(0.95), 150);
+      }
+      // a few strays upstream
+      for (let q = 0; q < 6; q++) disc(c, mx + jit(-u * 0.1, u * 0.12), my + jit(0, u * 0.15), u * 0.005 * (0.5 + R()), blood(0.9));
+    });
+
+    // ---- row 5: round splats, heavy exit spray ---------------------------------------------------
+    for (let k = 0; k < 4; k++) tile(5, k, (cx, cy, u) => {
+      const r = u * (0.13 + 0.05 * R());
+      const body = shape(cx, cy, r, 0.22, 26);
+      fill(c, body, blood());
+      fill(h, body, grey(160));
+      for (let q = 0; q < 10 + k * 3; q++) {
+        const a = R() * TAU, len = r * (0.4 + 0.9 * R()) * (q % 3 ? 1 : 1.5), w = u * (0.008 + 0.012 * R());
+        const p = sliver(cx, cy, a, r * 0.7, len, w);
+        fill(c, p, blood());
+        fill(h, p, grey(150));
+        disc(c, cx + Math.cos(a) * (r * 0.75 + len), cy + Math.sin(a) * (r * 0.75 + len), w * (0.8 + R()), blood());
+      }
+      for (let q = 0; q < 26; q++) { const a = R() * TAU, rr = r * (1.6 + 1.6 * R()); if (rr > u * 0.46) continue; disc(c, cx + Math.cos(a) * rr, cy + Math.sin(a) * rr, u * (0.003 + 0.01 * R()), blood(0.95)); }
+      const inner = shape(cx, cy, r * 0.55, 0.3, 14);
+      fill(c, inner, deep(0.8));
+    });
+    for (let k = 0; k < 4; k++) tile(5, 4 + k, (cx, cy, u) => {
+      // exit wound spray striking square on: a dense core, radial spatter whose drops tail outwards,
+      // flecks of tissue (and the odd bone chip)
+      const core = shape(cx, cy, u * (0.07 + 0.03 * R()), 0.35, 20);
+      fill(c, core, blood());
+      fill(h, core, grey(165));
+      for (let q = 0; q < 5; q++) {
+        const a = R() * TAU, r = u * (0.04 + 0.08 * R());
+        const b = shape(cx + Math.cos(a) * r, cy + Math.sin(a) * r, u * (0.025 + 0.04 * R()), 0.3, 14);
+        fill(c, b, blood());
+        fill(h, b, grey(160));
+      }
+      for (let q = 0; q < 260; q++) {
+        const a = R() * TAU, f = R() ** 0.7, r = u * (0.05 + 0.41 * f);
+        const s = u * (0.004 + 0.022 * (1 - f) * R() ** 1.5);
+        const x = cx + Math.cos(a) * r, y = cy + Math.sin(a) * r;
+        if (f > 0.3 && R() < 0.6) {
+          // tailing away from the centre
+          c.save(); c.translate(x, y); c.rotate(a);
+          h.save(); h.translate(x, y); h.rotate(a);
+          dropTail(0, 0, s * 2, s, s * (0.5 + 2.5 * f), blood(0.95), 150);
+          c.restore(); h.restore();
+        } else {
+          disc(c, x, y, s, blood(0.95));
+          disc(h, x, y, s, grey(155));
+        }
+      }
+      const dk = shape(cx, cy, u * 0.045, 0.4, 12);
+      fill(c, dk, deep(0.9));
+      for (let q = 0; q < 9; q++) {
+        const a = R() * TAU, r = u * (0.03 + 0.2 * R());
+        const p = shape(cx + Math.cos(a) * r, cy + Math.sin(a) * r, u * (0.007 + 0.012 * R()), 0.5, 6);
+        const kind = R();
+        fill(c, p, kind < 0.55 ? rgba(132, 58, 52) : kind < 0.88 ? rgba(40, 5, 4) : rgba(214, 204, 184));
+        fill(h, p, grey(205));
+      }
+    });
+
+    // ---- row 6: runs (drips) and smears ----------------------------------------------------------
+    for (let k = 0; k < 4; k++) tile(6, k, (cx, cy, u) => {
+      const ty = cy - u * 0.36;
+      const top = shape(cx, ty, u * (0.05 + 0.025 * R()), 0.3, 18, 1.3, 0.7);
+      fill(c, top, blood());
+      fill(h, top, grey(165));
+      const runs = 2 + (R() * 3) | 0;
+      for (let q = 0; q < runs; q++) {
+        let x = cx + jit(0, u * 0.08);
+        const w = u * (0.006 + 0.007 * R()), len = u * (0.3 + 0.5 * R());
+        const end = Math.min(ty + len, cy + u * 0.43);
+        c.strokeStyle = blood(); h.strokeStyle = grey(155);
+        for (const g of [c, h]) { g.lineCap = 'round'; g.lineWidth = w * 2; }
+        c.beginPath(); h.beginPath(); c.moveTo(x, ty); h.moveTo(x, ty);
+        for (let y = ty; y < end; y += u * 0.02) { x += jit(0, u * 0.003); c.lineTo(x, y); h.lineTo(x, y); }
+        c.stroke(); h.stroke();
+        ell(c, x, end, w * 1.3, w * 1.7, 0, blood());
+        ell(h, x, end, w * 1.3, w * 1.7, 0, grey(170));
+      }
+    });
+    for (let k = 0; k < 4; k++) tile(6, 4 + k, (cx, cy, u) => {
+      // a wiped smear: parallel streaks along x, thinning out
+      for (let q = 0; q < 40; q++) {
+        const y = cy + jit(0, u * 0.1), x0 = cx - u * 0.38 + R() * u * 0.08, x1 = cx + u * (0.1 + 0.3 * R());
+        c.strokeStyle = blood(0.15 + 0.35 * R()); c.lineWidth = u * (0.006 + 0.018 * R());
+        c.beginPath(); c.moveTo(x0, y); c.lineTo(x1, y + jit(0, u * 0.02)); c.stroke();
+      }
+      const b = shape(cx - u * 0.3, cy, u * 0.08, 0.3, 14, 0.8, 1.2);
+      fill(c, b, blood(0.85));
+      fill(h, b, grey(150));
+    });
+
+    // ---- row 7: droplet clusters, dried blood ------------------------------------------------------
+    for (let k = 0; k < 4; k++) tile(7, k, (cx, cy, u) => {
+      const n = 4 + ((R() * 7) | 0);
+      for (let q = 0; q < n; q++) {
+        const x = cx + jit(0, u * 0.28), y = cy + jit(0, u * 0.28), r = u * (0.02 + 0.06 * R() ** 2);
+        const b = shape(x, y, r, 0.15, 12);
+        fill(c, b, blood());
+        fill(h, b, grey(165));
+        for (let s = 0; s < 3; s++) { const a = R() * TAU; disc(c, x + Math.cos(a) * r * 1.6, y + Math.sin(a) * r * 1.6, r * 0.18 * R(), blood()); }
+      }
+    });
+    for (let k = 0; k < 4; k++) tile(7, 4 + k, (cx, cy, u) => {
+      const b = shape(cx, cy, u * (0.22 + 0.08 * R()), 0.35, 24);
+      fill(c, b, rgba(56, 14, 10, 0.9));
+      fill(h, b, grey(140));
+      c.strokeStyle = rgba(34, 8, 6, 0.8); c.lineWidth = u * 0.012; path(c, b); c.stroke();
+      specks(c, cx, cy, 0, u * 0.2, 80, u * 0.02, () => rgba(40, 9, 7, 0.4), 1);
+    });
+
+    // ---- normal map from the (slightly blurred) height field -------------------------------------
+    const blurC = mk(), bg = blurC.getContext('2d');
+    bg.filter = `blur(${(T / 200).toFixed(2)}px)`;
+    bg.drawImage(hgtC, 0, 0);
+    const hd = bg.getImageData(0, 0, S, S).data;
+    const nrmC = mk(), ng = nrmC.getContext('2d');
+    const out = ng.createImageData(S, S), od = out.data;
+    const k = 0.07 * (T / 256);
+    for (let y = 0; y < S; y++) {
+      const y0 = Math.max(0, y - 1), y1 = Math.min(S - 1, y + 1);
+      for (let x = 0; x < S; x++) {
+        const x0 = Math.max(0, x - 1), x1 = Math.min(S - 1, x + 1);
+        const dx = hd[(y * S + x1) * 4] - hd[(y * S + x0) * 4];
+        const dy = hd[(y1 * S + x) * 4] - hd[(y0 * S + x) * 4];
+        // tangent-space normal (u right, v up; canvas y runs down)
+        let nx = -dx * k, ny = dy * k;
+        const il = 1 / Math.sqrt(nx * nx + ny * ny + 1);
+        nx *= il; ny *= il;
+        const o = (y * S + x) * 4;
+        od[o] = (nx * 0.5 + 0.5) * 255; od[o + 1] = (ny * 0.5 + 0.5) * 255; od[o + 2] = (il * 0.5 + 0.5) * 255; od[o + 3] = 255;
+      }
+    }
+    ng.putImageData(out, 0, 0);
+    const map = new T3.CanvasTexture(colC);
+    map.colorSpace = T3.SRGBColorSpace;
+    map.anisotropy = 8;
+    const normal = new T3.CanvasTexture(nrmC);
+    normal.anisotropy = 8;
+    return { map, normal };
+  }
 }
 
 
@@ -67456,18 +68022,35 @@ function waveRoster(wave) {
 // Armed enemies on the engine's active ragdolls: rendering (Rocketbox characters, wounds,
 // held weapons, lights), the combat AI and the manager that spawns, scores and cleans them up.
 
-const WOUND_MAX = 14;
+const WOUND_MAX = 16;
 const SEG_MULT = { head: 3.6, neck: 2.6, chest: 1.2, abdomen: 1.0, pelvis: 0.9, upperArmL: 0.55, upperArmR: 0.55, forearmL: 0.45, forearmR: 0.45, handL: 0.35, handR: 0.35, thighL: 0.7, thighR: 0.7, shinL: 0.5, shinR: 0.5, footL: 0.35, footR: 0.35 };
 
+// Wounds are drawn in world space on the skinned meshes. Per wound:
+//   A: centre, radius of the hole      B: outward normal, radius the stain has soaked to
+//   C: direction blood runs down the skin, length of the runs
+//   D: kind (0 entry, 1 exit, 2 laceration), seed, bloodiness (head wounds bleed more), age
 const WOUND_GLSL = /* glsl */ `
 uniform vec4 uWoundA[${WOUND_MAX}];
 uniform vec4 uWoundB[${WOUND_MAX}];
+uniform vec4 uWoundC[${WOUND_MAX}];
+uniform vec4 uWoundD[${WOUND_MAX}];
 uniform int uWoundN;
 uniform vec4 uTint;
+uniform vec4 uHeadGore; // head centre, how much blood is over the head and face
+uniform float uGore;
 float woundWet = 0.0;
+float wdH(float n) { return fract(sin(n) * 43758.5453); }
+float wdN3(vec3 p) {
+  vec3 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+  float n = dot(i, vec3(1.0, 57.0, 113.0));
+  return mix(mix(mix(wdH(n), wdH(n + 1.0), f.x), mix(wdH(n + 57.0), wdH(n + 58.0), f.x), f.y),
+             mix(mix(wdH(n + 113.0), wdH(n + 114.0), f.x), mix(wdH(n + 170.0), wdH(n + 171.0), f.x), f.y), f.z);
+}
 `;
 
 // ---- rendering ---------------------------------------------------------------------------------
+const _woundDown = new I(0, -1, 0), _woundX = new I(1, 0, 0), _woundZ = new I(0, 0, 1), _woundTmp = new I(), _woundTmp2 = new I();
+
 class CharacterRender {
   constructor(game, person, gltf, opts = {}) {
     this.game = game;
@@ -67478,7 +68061,12 @@ class CharacterRender {
     this.wounds = [];
     this.uA = { value: Array.from({ length: WOUND_MAX }, () => new T3.Vector4(0, -99, 0, 0)) };
     this.uB = { value: Array.from({ length: WOUND_MAX }, () => new T3.Vector4()) };
+    this.uC = { value: Array.from({ length: WOUND_MAX }, () => new T3.Vector4()) };
+    this.uD = { value: Array.from({ length: WOUND_MAX }, () => new T3.Vector4()) };
     this.uN = { value: 0 };
+    this.uHead = { value: new T3.Vector4(0, -99, 0, 0) };
+    this.uGore = { value: 1 };
+    this.headGore = 0;
     this.uTint = { value: new T3.Vector4(...(opts.tint || [1, 1, 1, 0])) };
     for (const mesh of this.binder.meshes) {
       const m = mesh.material.clone();
@@ -67486,42 +68074,84 @@ class CharacterRender {
       if (m.name && /hair|opacity/i.test(m.name)) { m.alphaTest = 0.4; m.transparent = false; m.side = T3.DoubleSide; }
       patchLattice(m, game.view.shared, {
         key: 'character',
-        uniforms: { uWoundA: this.uA, uWoundB: this.uB, uWoundN: this.uN, uTint: this.uTint },
+        uniforms: { uWoundA: this.uA, uWoundB: this.uB, uWoundC: this.uC, uWoundD: this.uD, uWoundN: this.uN, uTint: this.uTint, uHeadGore: this.uHead, uGore: this.uGore },
         fragmentHead: WOUND_GLSL,
         color: /* glsl */ `
           {
             diffuseColor.rgb *= uTint.rgb;
             vec3 P = vLatP;
             vec3 N = normalize(vLatN);
-            float hole = 0.0, soak = 0.0, rim = 0.0;
+            float core = 0.0, hole = 0.0, rim = 0.0, flesh = 0.0, fleshN = 0.5, soak = 0.0, film = 0.0, run = 0.0;
             for (int i = 0; i < ${WOUND_MAX}; i++) {
               if (i >= uWoundN) break;
-              vec4 A = uWoundA[i]; vec4 B = uWoundB[i];
+              vec4 A = uWoundA[i]; vec4 B = uWoundB[i]; vec4 C = uWoundC[i];
               vec3 d = P - A.xyz;
               float dn = length(d);
-              if (dn > 0.4) continue;
-              if (dot(N, B.xyz) < -0.35) continue;
               float r = A.w;
-              // blood runs down from the wound
-              vec3 dd = vec3(d.x, d.y > 0.0 ? d.y * 1.6 : d.y * 0.32, d.z);
-              float sr = r * (2.6 + min(B.w, 25.0) * 0.32);
-              soak = max(soak, smoothstep(sr, sr * 0.25, length(dd)));
-              rim = max(rim, smoothstep(r * 2.0, r * 0.9, dn));
-              hole = max(hole, smoothstep(r * 0.95, r * 0.35, dn));
+              if (dn > max(B.w * 1.4, C.w + r * 2.5) + 0.01) continue;
+              vec4 D = uWoundD[i];
+              vec3 W = B.xyz;
+              float face = dot(N, W);
+              vec3 S = C.xyz;
+              vec3 X = normalize(cross(S, W) + vec3(1e-5));
+              float u = dot(d, X), s = dot(d, S), seed = D.y;
+              // ragged outline: a few lobes and fine tears
+              float ang = atan(u, s);
+              float re = r * (1.0 + 0.2 * sin(ang * 3.0 + seed * 31.0) + 0.12 * sin(ang * 7.0 + seed * 17.0) + 0.22 * (wdN3(d * 700.0 + seed * 9.0) - 0.5));
+              if (face > -0.3) {
+                core = max(core, 1.0 - smoothstep(re * 0.25, re * 0.55, dn));
+                hole = max(hole, 1.0 - smoothstep(re * 0.7, re, dn));
+                // entry: a bruised abrasion collar; exit: torn, everted tissue
+                float ring = 1.0 - smoothstep(re, re * (D.x > 0.5 ? 1.8 : 1.45), dn);
+                if (D.x > 0.5) { if (ring > flesh) { flesh = ring; fleshN = wdN3(d * 900.0 + seed); } } else rim = max(rim, ring);
+              }
+              // the stain soaks outwards, further below the wound than above it, with a ragged edge
+              float sn = wdN3(d * 30.0 + seed * 7.0) * 0.6 + wdN3(d * 110.0 - seed * 5.0) * 0.4;
+              vec2 q = vec2(u, s > 0.0 ? s * 0.55 : s * 1.5);
+              float ql = length(q), sr = B.w * (0.6 + 0.8 * sn);
+              float onFace = smoothstep(-0.6, -0.2, face);
+              soak = max(soak, (1.0 - smoothstep(sr * 0.8, sr, ql)) * onFace);
+              // close round the wound the blood still sits on top as a wet film
+              film = max(film, (1.0 - smoothstep(r * 1.2, max(r * 1.5, sr * 0.45), ql)) * onFace);
+              // runs down the skin: thin lanes of different lengths with a bead at each tip
+              if (C.w > 0.0 && s > -r && s < C.w && face > -0.5) {
+                float wob = u + 0.004 * sin(s * 70.0 + seed * 11.0);
+                float lane = wob * 150.0 + seed * 23.0;
+                float id = floor(lane), f = abs(fract(lane) - 0.5);
+                float hl = wdH(id * 1.7 + seed * 13.0);
+                float len = C.w * (0.2 + 0.8 * hl * hl);
+                float w = (0.14 + 0.2 * wdH(id * 3.1 + seed)) * (1.0 + 0.8 * smoothstep(len * 0.82, len, s));
+                float lanes = step(0.35, wdH(id * 5.3 + seed * 3.0)) * (1.0 - smoothstep(w * 0.55, w, f)) * (1.0 - smoothstep(len * 0.96, len, s));
+                lanes *= 1.0 - smoothstep(r * 1.1 + s * 0.12, r * (1.8 + D.z) + s * 0.2, abs(u));
+                run = max(run, lanes);
+              }
             }
-            float gore = uTint.a;
-            vec3 blood = mix(vec3(0.24, 0.018, 0.012), vec3(0.08, 0.008, 0.006), 0.45);
-            diffuseColor.rgb = mix(diffuseColor.rgb, blood, soak * 0.9);
-            diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.14, 0.01, 0.01), rim);
-            diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.025, 0.0, 0.0), hole);
-            woundWet = max(soak * 0.8, rim);
+            float g = uGore;
+            // blood through the hair and over the face after a bad head wound
+            if (uHeadGore.w > 0.0) {
+              float dh = length(P - uHeadGore.xyz);
+              vec3 hp = P - uHeadGore.xyz;
+              float hn = wdN3(hp * 26.0 + 3.0) * 0.7 + wdN3(hp * 70.0) * 0.3;
+              soak = max(soak, (1.0 - smoothstep(0.1, 0.17, dh)) * smoothstep(0.62 - 0.4 * uHeadGore.w, 0.75 - 0.4 * uHeadGore.w, hn) * uHeadGore.w);
+            }
+            // soaked into cloth or skin it darkens what is there (black cloth stays black, only wet);
+            // the film over the wound and the runs are blood itself
+            float sk = soak * g, fl = max(film, run) * g;
+            diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vec3(0.42, 0.045, 0.035), sk * 0.92);
+            diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.07, 0.003, 0.002), fl * 0.88);
+            diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.09, 0.01, 0.008), rim * 0.85 * g);
+            diffuseColor.rgb = mix(diffuseColor.rgb, mix(vec3(0.13, 0.008, 0.006), vec3(0.3, 0.07, 0.06), fleshN * fleshN), flesh * g);
+            diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.04, 0.003, 0.002), hole * (0.4 + 0.6 * g));
+            diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.006, 0.0, 0.0), core);
+            woundWet = max(max(sk * 0.75, fl), max(hole, max(rim, flesh)) * g);
+            float gore = uTint.a * g;
             if (gore > 0.0) {
               float n = fract(sin(dot(floor(P * 18.0), vec3(12.9898, 78.233, 37.719))) * 43758.5453);
               float splat = smoothstep(0.7, 0.95, n) * gore;
               diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.12, 0.01, 0.01), splat * 0.7);
             }
           }`,
-        roughness: 'roughnessFactor = mix(roughnessFactor, 0.22, woundWet);',
+        roughness: 'roughnessFactor = mix(roughnessFactor, 0.16, woundWet);',
       });
       mesh.material = m;
     }
@@ -67534,9 +68164,35 @@ class CharacterRender {
     if (!w || !w.body) return;
     const kind = w.kind;
     if (kind !== 'entry' && kind !== 'exit' && kind !== 'laceration') return;
-    const r = kind === 'exit' ? 0.022 + Math.min(0.03, (w.radius || 0.01) * 1.2) : kind === 'laceration' ? 0.018 : 0.011;
-    this.wounds.push({ body: w.body, local: w.local.clone(), normal: (w.normal || new I(0, 0, 1)).clone(), r, t: 0 });
-    if (this.wounds.length > WOUND_MAX) this.wounds.shift();
+    const seg = w.seg ? w.seg.name : '';
+    const head = seg === 'head' || seg === 'neck';
+    const sev = clamp(w.severity ?? 0.5, 0.2, 1);
+    const r = kind === 'exit' ? 0.014 + Math.min(0.034, (w.radius || 0.01) * 1.1) : kind === 'laceration' ? 0.016 : 0.0065 + 0.003 * sev;
+    // the oldest wound gives its slot up (and its record) once the table is full
+    const o = this.wounds.length >= WOUND_MAX ? this.wounds.shift() : { local: new I(), normal: new I(), flow: new I() };
+    o.body = w.body; o.src = w; o.r = r; o.t = 0;
+    o.local.copy(w.local);
+    o.normal.copy(w.normal || _woundZ);
+    o.kind = kind === 'exit' ? 1 : kind === 'laceration' ? 2 : 0;
+    o.seed = Math.random();
+    o.head = head;
+    o.bloody = head ? 1.4 : 0.6 + 0.4 * sev;
+    o.stain = r * (kind === 'exit' ? 1.5 : 1.9);
+    o.run = 0;
+    // blood starts down the skin along gravity (kept in the body's frame so runs stay put)
+    if (!this.downLocal(o, o.flow)) o.flow.crossVectors(o.normal, Math.abs(o.normal.x) < 0.9 ? _woundX : _woundZ).normalize();
+    this.wounds.push(o);
+    if (head) this.headGore = Math.min(1, this.headGore + (kind === 'exit' ? 0.55 * sev + 0.25 : 0.2));
+  }
+
+  // gravity projected onto the skin at a wound, in its body's frame (null when the skin faces up or down)
+  downLocal(o, out) {
+    const d = o.body.worldDirToLocal(_woundDown, _woundTmp), n = o.normal;
+    const k = d.x * n.x + d.y * n.y + d.z * n.z;
+    out.set(d.x - n.x * k, d.y - n.y * k, d.z - n.z * k);
+    const l = out.length();
+    if (l < 0.25) return null;
+    return out.scale(1 / l);
   }
 
   setGun(type, extras = {}) {
@@ -67642,18 +68298,35 @@ class CharacterRender {
 
   update(simDt, dt, alpha, person) {
     this.binder.update(alpha);
-    // wounds follow their bodies
-    const n = this.wounds.length;
+    // wounds follow their bodies; stains soak outwards and blood runs down the skin while it flows
+    const n = this.wounds.length, alive = person.injury ? person.injury.alive : true;
+    this.uGore.value = this.game.settings.gore ? 1 : 0;
     for (let i = 0; i < n; i++) {
-      const w = this.wounds[i];
+      const w = this.wounds[i], src = w.src;
       w.t += dt;
       const b = w.body;
-      const p = b.localToWorld(w.local, new I());
-      const nn = b.localDirToWorld(w.normal, new I());
+      const flow = Math.max(src.extNow || 0, (src.partner && src.partner.extNow) || 0, (src.channel && src.channel.extNow) || 0);
+      const wet = (alive ? 1 : 0.35) * w.bloody;
+      w.stain = Math.min(w.r * 2 + (w.head ? 0.13 : 0.085), w.stain + dt * (0.0012 + Math.min(flow, 12) * 0.0011) * wet);
+      const down = this.downLocal(w, _woundTmp2);
+      if (down) {
+        // runs grow down the skin while the wound flows (slowly turning to follow gravity)
+        w.flow.lerp(down, Math.min(1, dt * 0.3)).normalize();
+        w.run = Math.min(w.head ? 0.4 : 0.32, w.run + dt * (0.004 + Math.min(flow, 12) * 0.004) * wet);
+      }
+      const p = b.localToWorld(w.local, _woundTmp);
       this.uA.value[i].set(p.x, p.y, p.z, w.r);
-      this.uB.value[i].set(nn.x, nn.y, nn.z, w.t);
+      const nn = b.localDirToWorld(w.normal, _woundTmp);
+      this.uB.value[i].set(nn.x, nn.y, nn.z, w.stain);
+      const fd = b.localDirToWorld(w.flow, _woundTmp);
+      this.uC.value[i].set(fd.x, fd.y, fd.z, w.run);
+      this.uD.value[i].set(w.kind, w.seed, w.head ? 1 : 0.4, w.t);
     }
     this.uN.value = n;
+    if (this.headGore > 0) {
+      const hp = person.rd.segments.head.body.pos;
+      this.uHead.value.set(hp.x, hp.y, hp.z, this.headGore);
+    }
     // weapon in the hands
     const ai = person.enemy;
     if (this.gun && ai) {
@@ -70328,7 +71001,8 @@ class Shop {
 // ===== src/52-post.js =====
 // Bodycam post-processing: the scene renders into an HDR multisampled target, then one pass adds
 // bloom from the fluorescent panels, barrel distortion, chromatic fringing, vignette, grain,
-// a light grade and the hurt / suppression treatments.
+// a light grade and the hurt / suppression treatments, and blood on the lens.
+const LENS_DROPS = 12;
 class BodycamPost {
   constructor(game) {
     this.game = game;
@@ -70376,11 +71050,15 @@ class BodycamPost {
       uniforms: {
         tSrc: { value: null }, tBloom: { value: null }, uTime: { value: 0 }, uRes: { value: new T3.Vector2() },
         uLens: { value: 1 }, uHurt: { value: 0 }, uSup: { value: 0 }, uFlash: { value: 0 }, uDead: { value: 0 }, uExposure: { value: 1 },
+        uDropA: { value: Array.from({ length: LENS_DROPS }, () => new T3.Vector4()) }, uDropB: { value: Array.from({ length: LENS_DROPS }, () => new T3.Vector4()) }, uDropN: { value: 0 },
       },
       vertexShader: vs,
       fragmentShader: /* glsl */ `
         uniform sampler2D tSrc; uniform sampler2D tBloom; uniform float uTime; uniform vec2 uRes;
         uniform float uLens; uniform float uHurt; uniform float uSup; uniform float uFlash; uniform float uDead; uniform float uExposure;
+        uniform vec4 uDropA[${LENS_DROPS}]; // blood on the lens: x, y (uv), radius (screen heights), opacity
+        uniform vec4 uDropB[${LENS_DROPS}]; // seed, length of the trail it left running down, thickness
+        uniform int uDropN;
         varying vec2 vUv;
         float h12(vec2 p){ vec3 p3 = fract(vec3(p.xyx) * 0.1031); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y) * p3.z); }
         vec2 barrel(vec2 uv, float k) { vec2 c = uv * 2.0 - 1.0; float r2 = dot(c, c); c *= 1.0 + k * r2 + k * 0.35 * r2 * r2; return c * 0.5 + 0.5; }
@@ -70392,10 +71070,53 @@ class BodycamPost {
           vec2 c = uv - 0.5;
           float edge = dot(c, c);
           float ca = (0.0018 + 0.006 * edge) * uLens + uHurt * 0.004 + uSup * 0.003;
+          // blood on the lens: out-of-focus drops that bend the picture behind them, and the trails
+          // of the bigger ones running down the glass
+          vec2 lensOff = vec2(0.0); float bm = 0.0, bth = 0.0, bhi = 0.0;
+          float asp = uRes.x / max(uRes.y, 1.0);
+          for (int i = 0; i < ${LENS_DROPS}; i++) {
+            if (i >= uDropN) break;
+            vec4 A = uDropA[i]; vec4 B = uDropB[i];
+            vec2 q = (vUv - A.xy) * vec2(asp, 1.0);
+            float r = A.z;
+            // splashes are smeared along a direction of their own
+            float sa = B.w * 6.2832, cs = cos(sa), sn = sin(sa);
+            vec2 qe = vec2(cs * q.x + sn * q.y, -sn * q.x + cs * q.y);
+            qe.x /= 1.0 + 0.9 * fract(B.x * 7.0);
+            if (q.y > r * 1.6 + B.y || q.y < -r * 1.6 || abs(q.x) > r * 1.6) continue;
+            float ang = atan(qe.y, qe.x);
+            float rr = r * (1.0 + 0.1 * sin(ang * 2.0 + B.x * 20.0) + 0.06 * sin(ang * 5.0 + B.x * 9.0));
+            float d = length(qe);
+            // out of focus this close to the lens: soft edges
+            float m = 1.0 - smoothstep(rr * 0.35, rr * 1.15, d);
+            // the trail above a drop that has slid down
+            if (B.y > 0.0 && q.y > 0.0) {
+              float w = r * (0.5 - 0.25 * clamp(q.y / max(B.y, 1e-4), 0.0, 1.0));
+              float tr = (1.0 - smoothstep(w * 0.4, w, abs(q.x + 0.006 * sin(q.y * 60.0 + B.x * 10.0)))) * (1.0 - smoothstep(B.y * 0.85, B.y + r * 0.2, q.y));
+              m = max(m, tr * 0.55);
+            }
+            m *= A.w;
+            lensOff -= q * m * 0.12;
+            bm = max(bm, m);
+            bth = max(bth, m * B.z);
+            bhi = max(bhi, m * (1.0 - smoothstep(0.0, rr * 0.35, length(q - vec2(-0.3, 0.35) * rr))));
+          }
+          if (bm > 0.0) uv += lensOff;
           vec3 col;
           col.r = texture2D(tSrc, uv + c * ca).r;
           col.g = texture2D(tSrc, uv).g;
           col.b = texture2D(tSrc, uv - c * ca).b;
+          if (bm > 0.002) {
+            // smeared, out-of-focus picture through the blood
+            vec2 px = vec2(0.009, 0.009 * asp);
+            vec3 bl = (texture2D(tSrc, uv + px).rgb + texture2D(tSrc, uv - px).rgb + texture2D(tSrc, uv + vec2(px.x, -px.y)).rgb + texture2D(tSrc, uv + vec2(-px.x, px.y)).rgb
+              + texture2D(tSrc, uv + vec2(px.x * 1.6, 0.0)).rgb + texture2D(tSrc, uv - vec2(px.x * 1.6, 0.0)).rgb + texture2D(tSrc, uv + vec2(0.0, px.y * 1.6)).rgb + texture2D(tSrc, uv - vec2(0.0, px.y * 1.6)).rgb) * 0.125;
+            col = mix(col, bl, min(1.0, bm * 1.6));
+            // thin smears tint the picture, thick drops all but block it
+            vec3 tint = mix(vec3(0.7, 0.13, 0.1), vec3(0.22, 0.012, 0.008), bth);
+            col = mix(col, col * tint + vec3(0.01, 0.0, 0.0), bm * 0.9);
+            col += vec3(0.45, 0.3, 0.28) * bhi * 0.1;
+          }
           col += texture2D(tBloom, uv).rgb * 0.55;
           col *= uExposure;
           // grade: lift the blacks a touch, cool the shadows, warm the highlights
@@ -70418,6 +71139,51 @@ class BodycamPost {
       depthTest: false, depthWrite: false,
     });
     this.time = 0;
+    this.drops = Array.from({ length: LENS_DROPS }, () => ({ on: false, x: 0, y: 0, r: 0, a: 0, age: 0, hold: 0, seed: 0, run: 0, vy: 0, th: 0, dir: 0 }));
+  }
+
+  // blood on the bodycam lens (amount 0..1): a cluster of drops, the big ones run down and all fade
+  lensBlood(amount = 0.5) {
+    if (!this.game.settings.gore) return;
+    amount = clamp(amount, 0, 1);
+    // a few drops round one spot, most of them small
+    const n = 1 + Math.round(amount * 4 * (0.4 + Math.random()));
+    const cx = 0.25 + 0.5 * Math.random(), cy = 0.3 + 0.45 * Math.random();
+    for (let k = 0; k < n; k++) {
+      // reuse a free slot, else the faintest
+      let d = this.drops.find((q) => !q.on);
+      if (!d) d = this.drops.reduce((m, q) => (q.a < m.a ? q : m), this.drops[0]);
+      const big = k === 0 ? amount > 0.35 : Math.random() < 0.15 + amount * 0.15;
+      d.on = true;
+      d.x = clamp(cx + (Math.random() - 0.5) * 0.36, 0.04, 0.96);
+      d.y = clamp(cy + (Math.random() - 0.5) * 0.3, 0.06, 0.95);
+      d.r = big ? (0.022 + 0.03 * amount) * (0.8 + 0.4 * Math.random()) : 0.005 + 0.012 * Math.random();
+      d.a = clamp(0.45 + 0.4 * amount, 0, 0.9) * (0.75 + 0.25 * Math.random());
+      d.age = 0;
+      d.hold = 2 + 2.5 * Math.random() + amount * 2;
+      d.seed = Math.random();
+      d.run = 0;
+      d.vy = big ? 0.008 + 0.016 * Math.random() : 0;
+      d.th = big ? 0.55 + 0.4 * Math.random() : Math.random() * 0.4;
+      d.dir = Math.random();
+    }
+  }
+
+  updateDrops(dt) {
+    const u = this.final.uniforms, A = u.uDropA.value, B = u.uDropB.value;
+    let n = 0;
+    const gore = this.game.settings.gore;
+    for (const d of this.drops) {
+      if (!d.on) continue;
+      d.age += dt;
+      if (d.age > d.hold) d.a -= dt * 0.35;
+      if (d.vy > 0 && d.age > 0.3) { const s = d.vy * dt * Math.max(0, 1 - d.age / 6); d.y -= s; d.run += s; }
+      if (d.a <= 0 || d.y < -0.1 || !gore) { d.on = false; continue; }
+      A[n].set(d.x, d.y, d.r, Math.min(1, d.a));
+      B[n].set(d.seed, d.run, d.th, d.dir);
+      n++;
+    }
+    u.uDropN.value = n;
   }
 
   resize(w, h) {
@@ -70464,6 +71230,8 @@ class BodycamPost {
     u.uSup.value = g.suppression || 0;
     u.uFlash.value = clamp((g.flashbang || 0) * 1.2, 0, 1);
     u.uDead.value = damp(u.uDead.value, P.alive ? 0 : 1, 1.5, dt);
+    u.uRes.value.set(this.size.x, this.size.y);
+    this.updateDrops(dt);
     this.pass(r, this.final, null);
   }
 }
@@ -70666,6 +71434,64 @@ class Sfx {
     w.connect(bp); bp.connect(wg); wg.connect(dst);
     this.env(wg, t + 0.01, 0.02, 0.18 * amount, 0.16);
     w.start(t, Math.random() * 2); w.stop(t + 0.25);
+  }
+
+  // a round glancing off a hard surface: a sharp tick, then the whine of the tumbling bullet
+  // falling in pitch as it leaves
+  ricochet(pos, amount = 1) {
+    if (!this.ready) return;
+    const ctx = this.ctx, t = ctx.currentTime;
+    const dst = this.spatial(pos);
+    const s = ctx.createBufferSource(), sg = ctx.createGain(), hp = ctx.createBiquadFilter();
+    s.buffer = this.noise; hp.type = 'highpass'; hp.frequency.value = 3000;
+    s.connect(hp); hp.connect(sg); sg.connect(dst);
+    this.env(sg, t, 0.0005, 0.35 * amount, 0.03);
+    s.start(t, Math.random() * 2); s.stop(t + 0.06);
+    const dur = 0.35 + Math.random() * 0.4, f0 = 2600 + Math.random() * 1600, f1 = f0 * (0.38 + Math.random() * 0.2);
+    const o = ctx.createOscillator(), og = ctx.createGain(), bp = ctx.createBiquadFilter();
+    o.type = 'sine';
+    o.frequency.setValueAtTime(f0, t + 0.01);
+    o.frequency.exponentialRampToValueAtTime(f1, t + dur);
+    // the tumble warbles the pitch
+    const lfo = ctx.createOscillator(), lg = ctx.createGain();
+    lfo.frequency.value = 18 + Math.random() * 25; lg.gain.value = f0 * 0.025;
+    lfo.connect(lg); lg.connect(o.frequency);
+    bp.type = 'bandpass'; bp.frequency.value = f0 * 0.8; bp.Q.value = 0.7;
+    o.connect(bp); bp.connect(og); og.connect(dst);
+    og.gain.setValueAtTime(0.0001, t);
+    og.gain.exponentialRampToValueAtTime(0.13 * clamp(amount, 0.3, 1), t + 0.02);
+    og.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.start(t); o.stop(t + dur + 0.05); lfo.start(t); lfo.stop(t + dur + 0.05);
+  }
+
+  // what trickles down after a hit: gypsum and grit pattering, wood splinters ticking
+  debris(pos, kind, amount = 1) {
+    if (!this.ready || Math.random() > 0.75) return;
+    // one trickle at a time is enough under automatic fire, and nothing from far away
+    const ctx = this.ctx, t0 = ctx.currentTime + 0.03;
+    if (t0 < (this.debrisT || 0)) return;
+    const L = this.game.camera.position;
+    if (Math.abs(pos.x - L.x) + Math.abs(pos.z - L.z) > 18) return;
+    this.debrisT = t0 + 0.09;
+    const dst = this.spatial(pos);
+    const n = 3 + Math.round(Math.random() * 4 * amount);
+    const f = kind === 'wood' ? 2400 : kind === 'concrete' ? 3600 : 3000;
+    for (let k = 0; k < n; k++) {
+      const t = t0 + Math.random() * 0.28 * (1 + amount * 0.5);
+      const s = ctx.createBufferSource(), g = ctx.createGain(), bp = ctx.createBiquadFilter();
+      s.buffer = this.noise; bp.type = 'bandpass'; bp.frequency.value = f * (0.7 + Math.random() * 0.7); bp.Q.value = 2.5;
+      s.connect(bp); bp.connect(g); g.connect(dst);
+      this.env(g, t, 0.0008, (0.05 + Math.random() * 0.07) * clamp(amount, 0.3, 1.2), 0.012 + Math.random() * 0.02);
+      s.start(t, Math.random() * 2); s.stop(t + 0.06);
+    }
+    // a soft hiss of powder for drywall and concrete
+    if (kind !== 'wood') {
+      const s = ctx.createBufferSource(), g = ctx.createGain(), lp = ctx.createBiquadFilter();
+      s.buffer = this.brown; lp.type = 'lowpass'; lp.frequency.value = 2200;
+      s.connect(lp); lp.connect(g); g.connect(dst);
+      this.env(g, t0, 0.02, 0.05 * clamp(amount, 0.3, 1), 0.25);
+      s.start(t0, Math.random() * 2); s.stop(t0 + 0.5);
+    }
   }
 
   explosion(pos, dist = 10) {
@@ -70957,23 +71783,28 @@ class Minimap {
 // Blood on the floor. The engine's injury model gives every wound a live external flow (mL/s) and
 // a position on its body; the floor-decal layer grows pools from volumes of blood. Wounds near the
 // floor feed a pool where they lie, wounds higher up drip a trail, and a body that dies keeps
-// draining for a while into a pool under its worst wound.
+// draining for a while into a pool under its worst wound. Opened arteries spurt with the pulse.
+const _bDir = new T3.Vector3(), _bPos = new T3.Vector3(), _bW = new I(), _bN = new I();
 class BloodPools {
   constructor(game) {
     this.game = game;
-    this.drip = new Map(); // wound -> accumulated mL waiting to fall
+    this.people = new Set(); // reused every step
     game.hooks.push(this);
+    // impacts, spray, spatter and lens blood live with the blood (see 57-gore.js)
+    if (!game.gore) game.gore = new GoreFX(game);
   }
 
-  onLevel() { this.drip.clear(); }
+  onLevel() { this.people.clear(); }
 
   step(dt) {
     const g = this.game;
     if (!g.settings.gore || !g.sb || !g.view) return;
     const decals = g.view.decals;
-    const w = new I(), n = new I();
+    const w = _bW, n = _bN;
     // settled corpses are frozen out of the sandbox's list but still drain
-    const people = new Set(g.sb.people);
+    const people = this.people;
+    people.clear();
+    for (const p of g.sb.people) people.add(p);
     if (g.enemies) for (const ai of g.enemies.corpses) people.add(ai.p);
     for (const p of people) {
       const inj = p.injury;
@@ -70981,24 +71812,37 @@ class BloodPools {
       // after death the heart stops and the engine's flow ends: release a residual pool instead
       if (!inj.alive) { this.drain(p, dt, decals); continue; }
       if (p.frozen) continue;
+      const P = g.particles;
       for (const wd of inj.wounds) {
         const flow = wd.extNow || 0;
         if (flow < 0.02 || !wd.body) continue;
         wd.body.localToWorld(wd.local, w);
+        if (wd.normal) wd.body.localDirToWorld(wd.normal, n); else n.set(0, 0, 0);
+        // an opened artery spurts with every heartbeat (the engine advances spurtPhase with the pulse)
+        if (wd.arterial && flow > 2.5 && inj.hr > 20 && !wd.pressure && P) {
+          const beat = Math.floor(wd.spurtPhase || 0);
+          if (wd._beat !== beat) {
+            wd._beat = beat;
+            const ml = flow / Math.max(inj.hr / 60, 0.5);
+            _bDir.set(n.x, n.y + 0.25, n.z).normalize();
+            _bPos.set(w.x + n.x * 0.01, w.y + n.y * 0.01, w.z + n.z * 0.01);
+            P.spray(_bPos, _bDir, Math.min(5 + Math.round(ml * 2), 24), 1.1 + Math.min(flow / 10, 2.2), 0.3, 0.0011, 0.003, 0, ml / 14);
+          }
+        }
         const vol = flow * dt * 2.5; // game scale: pools read within seconds rather than minutes
         if (w.y < 0.4) {
           // lying in it: the pool spreads from just beside the wound
-          if (wd.normal) { wd.body.localDirToWorld(wd.normal, n); w.x += n.x * 0.05; w.z += n.z * 0.05; }
+          w.x += n.x * 0.05; w.z += n.z * 0.05;
           decals.addPoolVolume(w.x, w.z, vol);
         } else {
-          // upright: drops fall under the wound, a few centimetres apart as the body moves
-          const acc = (this.drip.get(wd) || 0) + vol;
-          if (acc > 1.6) {
-            const x = w.x + (Math.random() - 0.5) * 0.06, z = w.z + (Math.random() - 0.5) * 0.06;
-            decals.splat(x, z, 0.009 + Math.random() * 0.008, 0, 0.8, 1, Math.random() * TAU, Math.random());
-            decals.addPoolVolume(x, z, acc * 0.5);
-            this.drip.set(wd, 0);
-          } else this.drip.set(wd, acc);
+          // upright: drops gather and fall from under the wound (landing as splats and a pool)
+          const acc = (wd._drip || 0) + vol; // mL gathering before a drop falls
+          if (acc > 1.2) {
+            const x = w.x + n.x * 0.012 + (Math.random() - 0.5) * 0.02, z = w.z + n.z * 0.012 + (Math.random() - 0.5) * 0.02;
+            if (P) P.emit(x, w.y - 0.01, z, n.x * 0.15, -0.3, n.z * 0.15, 0.0022 + Math.random() * 0.0016, acc * 0.5, 0);
+            else { decals.splat(x, z, 0.012, 0, 0.8, 1, Math.random() * TAU, Math.random()); decals.addPoolVolume(x, z, acc * 0.5); }
+            wd._drip = 0;
+          } else wd._drip = acc;
         }
       }
     }
@@ -71020,7 +71864,7 @@ class BloodPools {
     if (s.t < 0.6) return; // let the body land first
     const rel = s.left * Math.min(1, dt / 5);
     s.left -= rel;
-    const w = new I();
+    const w = _bW;
     if (s.wound && s.wound.body) s.wound.body.localToWorld(s.wound.local, w);
     if (!s.wound || w.y > 0.45) {
       const c = p.rd.segments.chest ? p.rd.segments.chest.body.pos : p.rd.pelvis.pos;
@@ -71028,6 +71872,604 @@ class BloodPools {
     }
     if (w.y > 0.7) return; // still propped up against something: wait
     decals.addPoolVolume(w.x, w.z, rel);
+  }
+}
+
+
+// ===== src/57-gore.js =====
+// Impacts and gore on top of the engine's droplets, mist and floor decals:
+//  - GoreParticles: GPU particles whose motion is analytic (drag + gravity, resting on the floor),
+//    so the CPU only writes a particle once when it is born. Dust plumes and haze, debris chips,
+//    splinters and blood mist (normal blending); sparks and impact flashes (additive, HDR).
+//  - GoreFX: per-material bullet impacts (dust, chips, sparks, ricochets, holes, exit holes where a
+//    round passes through), blood (energy-scaled spray and mist, spatter that lands on walls and
+//    props after its flight time, runs of blood down walls), the engine's droplets stopped at walls
+//    instead of flying through them, and blood on the bodycam lens.
+// Everything is pooled: ring buffers for particles and decals, fixed queues for delayed decals and
+// exit holes.
+
+const GORE_PARTICLE_VS = /* glsl */ `
+attribute vec4 aP; // start position, birth time
+attribute vec4 aV; // start velocity, life
+attribute vec4 aS; // size, growth, drag, gravity scale
+attribute vec4 aC; // colour, alpha
+attribute vec4 aK; // kind, floor height, streak time, seed
+uniform float uTime;
+varying vec4 vC; varying vec2 vUv; varying float vT; varying float vKind; varying float vSeed; varying float vFog;
+void main() {
+    float age = uTime - aP.w;
+    vUv = position.xy + 0.5;
+    if (age < 0.0 || age > aV.w) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
+    float k = max(aS.z, 0.02), e = exp(-k * age);
+    vec3 g = vec3(0.0, -9.81 * aS.w, 0.0);
+    vec3 p = aP.xyz + aV.xyz * (1.0 - e) / k + g * (age / k - (1.0 - e) / (k * k));
+    vec3 vel = aV.xyz * e + g * (1.0 - e) / k;
+    if (p.y < aK.y) { p.y = aK.y; vel *= 0.0; }
+    float t = age / aV.w;
+    vec4 mvPosition = viewMatrix * vec4(p, 1.0);
+    float size = aS.x * (1.0 + aS.y * sqrt(t));
+    vec2 q = position.xy;
+    if (aK.z > 0.0) {
+      // streak along the screen-space velocity, head at the particle
+      vec2 sv = (mat3(viewMatrix) * vel).xy;
+      float sl = length(sv);
+      vec2 ax = sl > 1e-4 ? sv / sl : vec2(1.0, 0.0);
+      float len = size + sl * aK.z;
+      q = ax * (q.x * len - (len - size) * 0.5) + vec2(-ax.y, ax.x) * q.y * size;
+    } else {
+      // tumbling (chips) or slowly turning (dust); the spin dies with the drag
+      float r = aK.w * 6.2832 + (aK.w - 0.5) * 14.0 * (1.0 - e) / k;
+      float c = cos(r), s = sin(r);
+      q = vec2(c * q.x - s * q.y, s * q.x + c * q.y) * size;
+    }
+    mvPosition.xy += q;
+    gl_Position = projectionMatrix * mvPosition;
+    vC = aC; vT = t; vKind = aK.x; vSeed = aK.w;
+    vFog = -mvPosition.z;
+}`;
+
+const GORE_PARTICLE_FS = /* glsl */ `
+uniform vec3 uFogColor; uniform float uFogDensity; uniform float uAdditive;
+varying vec4 vC; varying vec2 vUv; varying float vT; varying float vKind; varying float vSeed; varying float vFog;
+float gpH(vec2 p) { p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
+float gpN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+    return mix(mix(gpH(i), gpH(i + vec2(1, 0)), f.x), mix(gpH(i + vec2(0, 1)), gpH(i + vec2(1, 1)), f.x), f.y); }
+void main() {
+    vec2 c = vUv - 0.5;
+    float d = length(c) * 2.0;
+    vec3 col = vC.rgb;
+    float a = 0.0;
+    int kind = int(vKind + 0.5);
+    if (kind == 0) {
+      // dust or mist: a soft, lumpy puff that thins out as it grows
+      float n = gpN(c * 5.0 + vSeed * 37.0) + 0.5 * gpN(c * 11.0 - vSeed * 19.0);
+      a = smoothstep(1.0, 0.15, d + 0.35 * (n - 0.75));
+      a *= smoothstep(0.0, 0.06, vT) * (1.0 - vT) * (1.0 - vT);
+      col *= 0.85 + 0.3 * n;
+    } else if (kind == 1) {
+      // debris chip: a hard little polygon with a lit and a shaded face
+      float ang = atan(c.y, c.x);
+      float r = 0.3 + 0.12 * sin(ang * 3.0 + vSeed * 40.0) + 0.06 * sin(ang * 5.0 + vSeed * 13.0);
+      a = 1.0 - smoothstep(r - 0.06, r, length(c));
+      col *= 0.7 + 0.6 * step(0.0, c.x + c.y * (vSeed - 0.5));
+      a *= 1.0 - smoothstep(0.85, 1.0, vT);
+    } else if (kind == 2) {
+      // spark streak: white-hot core cooling to orange
+      a = (1.0 - smoothstep(0.15, 1.0, abs(c.y) * 2.0)) * (1.0 - smoothstep(0.35, 0.5, abs(c.x)));
+      col *= mix(vec3(1.0, 0.95, 0.85), vec3(1.0, 0.45, 0.12), smoothstep(0.0, 0.6, vT));
+      a *= 1.0 - vT;
+    } else if (kind == 3) {
+      // muzzle-style impact flash: hot core and a few rays
+      float ang = atan(c.y, c.x);
+      float rays = pow(abs(cos(ang * 2.5 + vSeed * 6.0)), 12.0) * (1.0 - smoothstep(0.1, 1.0, d));
+      a = (exp(-d * d * 10.0) + rays * 0.7) * (1.0 - vT);
+    } else {
+      // splinter: a thin sliver along its streak
+      a = (1.0 - smoothstep(0.25, 0.45, abs(c.y) * 2.0)) * (1.0 - smoothstep(0.38, 0.5, abs(c.x)));
+      col *= 0.8 + 0.4 * step(0.0, c.y);
+      a *= 1.0 - smoothstep(0.85, 1.0, vT);
+    }
+    a *= vC.a;
+    if (a < 0.004) discard;
+    float f = 1.0 - exp(-uFogDensity * uFogDensity * vFog * vFog);
+    if (uAdditive > 0.5) { a *= 1.0 - f; gl_FragColor = vec4(col, a); }
+    else gl_FragColor = vec4(mix(col, uFogColor, f), a);
+}`;
+
+class GoreParticles {
+  constructor(scene, max, additive) {
+    this.max = max;
+    this.head = 0;
+    this.written = 0; // particles written since the last upload
+    this.start = 0;
+    const geo = new T3.InstancedBufferGeometry();
+    geo.setAttribute('position', new T3.Float32BufferAttribute([-0.5, -0.5, 0, 0.5, -0.5, 0, 0.5, 0.5, 0, -0.5, 0.5, 0], 3));
+    geo.setIndex([0, 1, 2, 0, 2, 3]);
+    this.attrs = [];
+    for (const name of ['aP', 'aV', 'aS', 'aC', 'aK']) {
+      const arr = new Float32Array(max * 4);
+      if (name === 'aP') for (let i = 0; i < max; i++) arr[i * 4 + 3] = -1e6; // all dead
+      const at = new T3.InstancedBufferAttribute(arr, 4);
+      at.setUsage(T3.DynamicDrawUsage);
+      geo.setAttribute(name, at);
+      this[name] = arr;
+      this.attrs.push(at);
+    }
+    geo.instanceCount = max;
+    this.uniforms = { uTime: { value: 0 }, uFogColor: { value: new T3.Color() }, uFogDensity: { value: 0 }, uAdditive: { value: additive ? 1 : 0 } };
+    const mat = new T3.ShaderMaterial({
+      uniforms: this.uniforms, vertexShader: GORE_PARTICLE_VS, fragmentShader: GORE_PARTICLE_FS,
+      transparent: true, depthWrite: false, blending: additive ? T3.AdditiveBlending : T3.NormalBlending,
+    });
+    this.mesh = new T3.Mesh(geo, mat);
+    this.mesh.frustumCulled = false;
+    this.mesh.renderOrder = additive ? 6 : 4;
+    scene.add(this.mesh);
+  }
+
+  // kind: 0 dust/mist, 1 chip, 2 spark, 3 flash, 4 splinter; streak: seconds of velocity drawn as a trail
+  emit(t, x, y, z, vx, vy, vz, life, size, grow, drag, grav, col, alpha, kind, floorY, streak = 0) {
+    const i = this.head, o = i * 4;
+    this.head = (i + 1) % this.max;
+    if (this.written === 0) this.start = i;
+    this.written++;
+    const P = this.aP, V = this.aV, S = this.aS, C = this.aC, K = this.aK;
+    P[o] = x; P[o + 1] = y; P[o + 2] = z; P[o + 3] = t;
+    V[o] = vx; V[o + 1] = vy; V[o + 2] = vz; V[o + 3] = life;
+    S[o] = size; S[o + 1] = grow; S[o + 2] = drag; S[o + 3] = grav;
+    C[o] = col.r; C[o + 1] = col.g; C[o + 2] = col.b; C[o + 3] = alpha;
+    K[o] = kind; K[o + 1] = floorY; K[o + 2] = streak; K[o + 3] = Math.random();
+  }
+
+  // upload what was written since the last frame (one or two ranges of the ring)
+  flush(time, fog) {
+    this.uniforms.uTime.value = time;
+    if (fog) { this.uniforms.uFogColor.value.copy(fog.color); this.uniforms.uFogDensity.value = fog.density || 0; }
+    const n = Math.min(this.written, this.max);
+    if (!n) return;
+    const s = this.written >= this.max ? 0 : this.start, first = Math.min(n, this.max - s);
+    for (const at of this.attrs) {
+      at.clearUpdateRanges();
+      if (n >= this.max) at.addUpdateRange(0, this.max * 4);
+      else {
+        at.addUpdateRange(s * 4, first * 4);
+        if (n > first) at.addUpdateRange(0, (n - first) * 4);
+      }
+      at.needsUpdate = true;
+    }
+    this.written = 0;
+  }
+}
+
+const _gc = new T3.Color(), _gc2 = new T3.Color();
+const _gv = new I(), _gu = new I(), _gw = new I(), _gr = new I(), _gp = new I(), _gEye = new I();
+const _gV3 = new T3.Vector3(), _gN3 = new T3.Vector3(), _gD3 = new T3.Vector3();
+const _gOpt = { dir: null, stretch: 1 }; // reused decal options
+const gOpt = (dir, stretch) => { _gOpt.dir = dir; _gOpt.stretch = stretch; return _gOpt; };
+
+class GoreFX {
+  constructor(game) {
+    this.game = game;
+    this.clock = 0;
+    this.dust = null;
+    this.glow = null;
+    // delayed decals (blood in flight), a fixed ring
+    this.later = Array.from({ length: 64 }, () => ({ t: -1, kind: '', p: new T3.Vector3(), n: new T3.Vector3(), d: new T3.Vector3(), dir: false, size: 0, stretch: 1 }));
+    this.laterHead = 0;
+    // rounds that may come out of the far side of what they hit, waiting for the rest of their shot
+    this.exits = Array.from({ length: 12 }, () => ({ on: false, dx: 0, dy: 0, dz: 0, p: new T3.Vector3(), n: new T3.Vector3(), mat: '', ef: 1 }));
+    this.dropBudget = 0;
+    this.boxOf = new Map();
+    this.near = [];
+    this.levelOnly = (b) => !!(b.userData && b.userData.level);
+    this.lastRico = 0;
+    this.flashAt = new T3.Vector3();
+    this.flashT = 0;
+    game.hooks.push(this);
+  }
+
+  onLevel(level) {
+    const g = this.game, view = g.view;
+    // the previous scene (and these meshes with it) was disposed by LevelView
+    this.dust = new GoreParticles(view.scene, 3072, false);
+    this.glow = new GoreParticles(view.scene, 1024, true);
+    view.wallDecals.useLattice(view.shared);
+    view.wallDecals.clock = () => this.game.time;
+    this.boxOf.clear();
+    if (level.bodies) level.bodies.forEach((b, i) => this.boxOf.set(b, level.boxes[i]));
+    for (const l of this.later) l.t = -1;
+    for (const x of this.exits) x.on = false;
+    // the engine's blood droplets only know the floor: stop them at walls, props and the ceiling.
+    // Particles.update() asks floorAt() once per droplet in index order (asking again for the same
+    // index after it removes one), so following along gives each query its droplet's velocity.
+    const P = g.particles, upd = P.update.bind(P);
+    P.update = (dt) => { this.pIdx = 0; this.pDt = dt; upd(dt); };
+    P.floorAt = (x, z, y) => this.dropletFloor(x, z, y - 0.5);
+  }
+
+  // ---- per step / frame ------------------------------------------------------------------------
+  step() {
+    // exit holes not confirmed by the rest of their shot: the round stopped inside
+    for (const x of this.exits) x.on = false;
+  }
+
+  frame(dt, simDt) {
+    if (!this.dust) return;
+    const g = this.game;
+    this.clock += simDt;
+    this.dropBudget = 14;
+    for (const l of this.later) {
+      if (l.t < 0) continue;
+      l.t -= simDt;
+      if (l.t <= 0) {
+        l.t = -1;
+        if (g.settings.gore || !DECAL_BLOOD[l.kind]) g.view.wallDecals.add(l.kind, l.p, l.n, l.size, l.dir ? gOpt(l.d, l.stretch) : null);
+      }
+    }
+    if (this.flashT > 0) {
+      this.flashT -= Math.max(simDt, dt * 0.25);
+      const fx = g.effects;
+      if (fx && fx.light && fx.lightT <= 0 && this.flashT > 0) { fx.light.position.copy(this.flashAt); fx.light.intensity = 6; fx.lightT = 0.05; this.flashT = 0; }
+    }
+    const fog = g.view.scene.fog;
+    this.dust.flush(this.clock, fog);
+    this.glow.flush(this.clock, fog);
+  }
+
+  queueDecal(delay, kind, p, n, size, dir = null, stretch = 1) {
+    const l = this.later[this.laterHead];
+    this.laterHead = (this.laterHead + 1) % this.later.length;
+    if (l.t >= 0) this.game.view.wallDecals.add(l.kind, l.p, l.n, l.size, l.dir ? gOpt(l.d, l.stretch) : null); // ring full: place the oldest now
+    l.t = delay; l.kind = kind; l.size = size; l.stretch = stretch;
+    l.p.set(p.x, p.y, p.z); l.n.set(n.x, n.y, n.z);
+    l.dir = !!dir;
+    if (dir) l.d.set(dir.x, dir.y, dir.z);
+  }
+
+  // how brightly the level lights a point (for particles that do not run the lighting shader)
+  lit(p, base = 0.25, gain = 0.45) {
+    const g = this.game;
+    return clamp(base + gain * g.view.lightAt(p.x, p.y, p.z), 0.08, 1.0);
+  }
+
+  floorBelow(x, z, y) {
+    const s = this.game.sb.world.surfaceAt(x, z, y);
+    return (Number.isFinite(s) ? s : 0) + 0.002;
+  }
+
+  // ---- surfaces ----------------------------------------------------------------------------------
+  // a round hit a wall, prop or the ceiling (prof: IMPACT_FX entry)
+  surface(e, prof, mat) {
+    const g = this.game, p = e.point, n = e.normal, d = e.dir;
+    const cosI = -(d.x * n.x + d.y * n.y + d.z * n.z);
+    const ef = clamp(Math.sqrt(Math.max(e.energy || 0, 60) / 1400), 0.32, 1.35);
+    // reflected direction: glancing rounds and the dust they throw leave along it
+    _gr.set(d.x + 2 * cosI * n.x, d.y + 2 * cosI * n.y, d.z + 2 * cosI * n.z);
+    const glancing = prof.rico > 0 && cosI < prof.rico;
+    this.burst(p, n, _gr, prof, ef, glancing ? 0.4 : 1, cosI);
+    const onLevel = this.boxOf.has(e.body);
+    if (glancing) {
+      // ricochet: a streak of sparks off along the reflection, a gouge and a whine
+      this.sparks(p, n, _gr, prof.sparks ? 10 + 8 * ef : 5 + 4 * ef, 1.2);
+      if (onLevel) {
+        _gD3.set(d.x, d.y, d.z);
+        g.view.wallDecals.add('graze', p, n, prof.size * (1.1 + 0.4 * ef), gOpt(_gD3, clamp(1 / Math.max(cosI, 0.2), 1.4, 3) * 0.75));
+      }
+      if (g.sfx && g.sfx.ricochet && g.time - this.lastRico > 0.06) { this.lastRico = g.time; g.sfx.ricochet(p, ef); }
+    } else if (onLevel && (mat !== 'ceiling' || Math.random() < 0.6)) {
+      const sz = prof.size * (0.85 + 0.3 * Math.random()) * (0.8 + 0.25 * ef);
+      // an oblique hit leaves an oval hole, stretched along the shot
+      _gD3.set(d.x, d.y, d.z);
+      const st = clamp(1 / Math.max(cosI, 0.35), 1, 1.8);
+      g.view.wallDecals.add('hole:' + prof.hole, p, n, sz, st > 1.15 ? gOpt(_gD3, st) : null);
+    }
+    if (g.sfx && g.sfx.debris && prof.debris) g.sfx.debris(p, prof.debris, ef);
+    // might it come out the other side? (thin level boxes only; confirmed by the rest of the shot)
+    const box = onLevel && !glancing && prof.pass ? this.boxOf.get(e.body) : null;
+    if (box) {
+      let tOut = Infinity, ax = -1;
+      const ds = [d.x, d.y, d.z], ps = [p.x, p.y, p.z], mn = [box.min.x, box.min.y, box.min.z], mx = [box.max.x, box.max.y, box.max.z];
+      for (let a = 0; a < 3; a++) {
+        if (Math.abs(ds[a]) < 1e-6) continue;
+        const tt = ((ds[a] > 0 ? mx[a] : mn[a]) - ps[a]) / ds[a];
+        if (tt < tOut) { tOut = tt; ax = a; }
+      }
+      if (ax >= 0 && tOut > 0.004 && tOut < 0.7) {
+        const x = this.exits.find((q) => !q.on) || this.exits[0];
+        x.on = true; x.dx = d.x; x.dy = d.y; x.dz = d.z; x.mat = mat; x.ef = ef; x.prof = prof;
+        x.p.set(p.x + d.x * tOut, p.y + d.y * tOut, p.z + d.z * tOut);
+        x.n.set(0, 0, 0).setComponent(ax, Math.sign(ds[ax]));
+      }
+    }
+  }
+
+  // a later event of the same shot (same direction) beyond a candidate exit confirms it
+  confirmExit(dir, q) {
+    for (const x of this.exits) {
+      if (!x.on || x.dx !== dir.x || x.dy !== dir.y || x.dz !== dir.z) continue;
+      if ((q.x - x.p.x) * dir.x + (q.y - x.p.y) * dir.y + (q.z - x.p.z) * dir.z < 0.002) continue;
+      x.on = false;
+      const prof = x.prof, g = this.game;
+      g.view.wallDecals.add('exit:' + prof.hole, x.p, x.n, prof.size * (1.25 + 0.35 * Math.random()) * (0.8 + 0.3 * x.ef));
+      // the far side spalls outwards, along the shot
+      _gr.set(dir.x, dir.y, dir.z);
+      this.burst(x.p, x.n, _gr, prof, x.ef * 0.8, 1, 1);
+    }
+  }
+
+  // dust plume, lingering haze, debris chips or splinters, sparks
+  burst(p, n, r, prof, ef, amount, cosI) {
+    const g = this.game, D = this.dust, t = this.clock;
+    const L = this.lit(p);
+    const floorY = this.floorBelow(p.x, p.z, p.y + 0.05);
+    _gc.setHex(prof.dust).multiplyScalar(L);
+    // fast plume: out of the hole and back up the shot line
+    const np = Math.round(prof.puffs * (0.6 + 0.6 * ef) * amount);
+    for (let k = 0; k < np; k++) {
+      const s = (0.8 + 2.6 * Math.random()) * ef;
+      const jx = (Math.random() - 0.5) * 0.9, jy = (Math.random() - 0.5) * 0.9, jz = (Math.random() - 0.5) * 0.9;
+      const vx = n.x * 0.75 + r.x * 0.35 + jx, vy = n.y * 0.75 + r.y * 0.35 + jy, vz = n.z * 0.75 + r.z * 0.35 + jz;
+      const il = s / Math.hypot(vx, vy, vz);
+      D.emit(t, p.x + n.x * 0.01, p.y + n.y * 0.01, p.z + n.z * 0.01, vx * il, vy * il, vz * il,
+        0.5 + 0.8 * Math.random(), (0.014 + 0.02 * Math.random()) * (0.7 + 0.4 * ef), 3 + 4 * Math.random(), 4 + 4 * Math.random(), 0.06, _gc, 0.3 + 0.25 * Math.random(), 0, -10);
+    }
+    // haze that hangs in the air for a moment
+    const nh = Math.round((prof.haze ?? 2) * amount * (0.6 + 0.4 * ef));
+    for (let k = 0; k < nh; k++) {
+      const s = 0.25 + 0.4 * Math.random();
+      D.emit(t, p.x + n.x * 0.03, p.y + n.y * 0.03, p.z + n.z * 0.03, (n.x + (Math.random() - 0.5) * 0.6) * s, (n.y + (Math.random() - 0.3) * 0.6) * s, (n.z + (Math.random() - 0.5) * 0.6) * s,
+        1.4 + 1.4 * Math.random(), 0.035 + 0.03 * Math.random(), 2.5 + 1.5 * Math.random(), 2.5, -0.004, _gc, 0.14 + 0.1 * Math.random(), 0, -10);
+    }
+    // debris: chips (or splinters) thrown out with gravity, coming to rest on the floor
+    _gc2.setHex(prof.chip).multiplyScalar(L * 1.1);
+    const nc = Math.round(prof.chips * (0.5 + 0.7 * ef) * amount);
+    for (let k = 0; k < nc; k++) {
+      const s = (1.2 + 3.2 * Math.random()) * ef;
+      const vx = n.x * 0.65 + r.x * 0.3 + (Math.random() - 0.5) * 1.1, vy = n.y * 0.65 + r.y * 0.3 + (Math.random() - 0.35) * 1.1, vz = n.z * 0.65 + r.z * 0.3 + (Math.random() - 0.5) * 1.1;
+      const il = s / Math.hypot(vx, vy, vz);
+      const sz = prof.chipSize * (0.4 + 1.1 * Math.random());
+      if (prof.splinter && Math.random() < 0.6) D.emit(t, p.x + n.x * 0.005, p.y, p.z + n.z * 0.005, vx * il, vy * il, vz * il, 2 + 2 * Math.random(), sz * 0.8, 0, 0.8, 1, _gc2, 1, 4, floorY, 0.012);
+      else D.emit(t, p.x + n.x * 0.005, p.y, p.z + n.z * 0.005, vx * il, vy * il, vz * il, 2.5 + 2.5 * Math.random(), sz, 0, 0.6 + 0.6 * Math.random(), 1, _gc2, 1, 1, floorY);
+    }
+    if (prof.sparks && amount >= 1) this.sparks(p, n, r, prof.sparks * (0.6 + 0.5 * ef), cosI > 0.6 ? 0.7 : 1);
+  }
+
+  sparks(p, n, r, count, speed = 1) {
+    const G = this.glow, t = this.clock, floorY = this.floorBelow(p.x, p.z, p.y + 0.05);
+    for (let k = 0; k < count; k++) {
+      const s = (2.5 + 7 * Math.random()) * speed;
+      const vx = r.x * 0.7 + n.x * 0.35 + (Math.random() - 0.5) * 1.0, vy = r.y * 0.7 + n.y * 0.35 + (Math.random() - 0.4) * 1.0, vz = r.z * 0.7 + n.z * 0.35 + (Math.random() - 0.5) * 1.0;
+      const il = s / Math.hypot(vx, vy, vz);
+      _gc.setRGB(7, 4.2, 1.8).multiplyScalar(0.6 + 0.6 * Math.random());
+      G.emit(t, p.x + n.x * 0.004, p.y + n.y * 0.004, p.z + n.z * 0.004, vx * il, vy * il, vz * il, 0.12 + 0.35 * Math.random(), 0.0035 + 0.003 * Math.random(), 0, 1.2, 1, _gc, 1, 2, floorY, 0.022);
+    }
+    _gc.setRGB(9, 6.5, 3.5);
+    G.emit(t, p.x + n.x * 0.01, p.y + n.y * 0.01, p.z + n.z * 0.01, 0, 0, 0, 0.06, 0.09 + 0.07 * Math.random(), 0.5, 1, 0, _gc, 1, 3, -10);
+    // a flicker from the shared effects light once the shot's muzzle flash has let go of it
+    this.flashAt.set(p.x + n.x * 0.1, p.y + n.y * 0.1, p.z + n.z * 0.1);
+    this.flashT = 0.15;
+  }
+
+  // the floor (carpet in most levels, bare concrete in the warehouse)
+  ground(e) {
+    const g = this.game, p = e.point, d = e.dir;
+    const concrete = g.level.theme.style === 4;
+    const prof = concrete ? IMPACT_FX.concrete : IMPACT_FX.carpet;
+    const el = clamp(-d.y, 0.05, 1); // sine of the elevation
+    const st = clamp(1 / Math.max(el, 0.3), 1, 2.6);
+    g.view.decals.splat(p.x, p.z, (0.011 + Math.random() * 0.006) * (concrete ? 1.3 : 1), 1, 0.95, st, Math.atan2(d.z, d.x), Math.random());
+    const ef = clamp(Math.sqrt(Math.max(e.energy || 0, 60) / 1400), 0.32, 1.35);
+    _gp.set(p.x, 0.004, p.z);
+    _gv.set(0, 1, 0);
+    _gr.set(d.x, -d.y, d.z);
+    this.burst(_gp, _gv, _gr, prof, ef, 1, el);
+    if (concrete && el < 0.35) this.sparks(_gp, _gv, _gr, 5 + 4 * ef, 1);
+  }
+
+  // ---- blood --------------------------------------------------------------------------------------
+  mist(p, d, count, speed, size, life, L, dens = 1) {
+    const D = this.dust, t = this.clock;
+    _gc.setRGB(0.16, 0.026, 0.02).multiplyScalar(L);
+    for (let k = 0; k < count; k++) {
+      const s = speed * (0.25 + Math.random());
+      D.emit(t, p.x, p.y, p.z,
+        d.x * s + (Math.random() - 0.5) * speed * 0.6, d.y * s + (Math.random() - 0.5) * speed * 0.6, d.z * s + (Math.random() - 0.5) * speed * 0.6,
+        life * (0.5 + 0.7 * Math.random()), size * (0.4 + Math.random()), 3 + 3 * Math.random(), 7 + 5 * Math.random(), 0.3, _gc, (0.24 + 0.22 * Math.random()) * dens, 0, -10);
+    }
+  }
+
+  // a round went through flesh (n: the engine's fleshHit event)
+  flesh(n) {
+    const g = this.game, P = g.particles;
+    const E = n.energy || 0, d = n.dir;
+    const kin = clamp(E / 600, 0.12, 1.3), k = clamp(E / 900, 0, 1.5);
+    const en = n.entry, head = !!n.head;
+    const L = this.lit(en, 0.2, 0.45);
+    // entry: back-spatter toward the shooter (fine droplets in a tight cone) and a puff of mist
+    _gV3.set(-d.x, -d.y, -d.z);
+    _gN3.set(en.x, en.y, en.z);
+    P.spray(_gN3, _gV3, 3 + Math.round(7 * kin), 0.8 + 1.4 * kin, 0.5, 3e-4, 0.0012, 0, 0.004);
+    _gv.set(-d.x, -d.y, -d.z);
+    this.mist(en, _gv, Math.round(3 + 6 * kin), 0.6 + 0.9 * kin, 0.03 + 0.02 * kin, 0.5, L, head ? 1.2 : 0.9);
+    // a few heavier drops fall straight from the wound to the floor under the target
+    for (let q = 0; q < 1 + Math.round(2 * kin); q++) P.emit(en.x + (Math.random() - 0.5) * 0.04, en.y, en.z + (Math.random() - 0.5) * 0.04, d.x * 0.3, -0.2, d.z * 0.3, 0.002 + 0.0015 * Math.random(), 0.06 + 0.2 * Math.random(), 0);
+    if (n.exit) {
+      const s = n.exit;
+      _gN3.set(s.x, s.y, s.z);
+      _gV3.set(d.x, d.y, d.z);
+      // a cone of streaking droplets whose count, speed and reach follow the energy
+      P.spray(_gN3, _gV3, 10 + Math.round(48 * k), 2.4 + 5.5 * k, 0.2 + 0.12 * k, 4e-4, 0.0026, 0, 0.03);
+      P.spray(_gN3, _gV3, 6 + Math.round(26 * k), 4 + 7 * k, 0.1 + 0.05 * k, 2e-4, 7e-4, 0, 0.004);
+      if (k > 0.35) P.spray(_gN3, _gV3, Math.round(3 + 9 * k), 2 + 3 * k, 0.3, 0.0016, 0.0045, 1, 0.12);
+      if (n.bone) P.spray(_gN3, _gV3, 2 + Math.round(5 * k), 3 + 4 * k, 0.35, 0.0012, 0.0032, 2, 0.02);
+      this.mist(s, d, Math.round(6 + 20 * k), 1.4 + 3.4 * k, 0.04 + 0.035 * k, 0.75, L, 1);
+      if (head && k > 0.4) {
+        P.spray(_gN3, _gV3, 14, 4.5, 0.45, 0.0018, 0.006, 1, 0.25);
+        this.mist(s, d, 18, 3.5, 0.08, 1, L, 1.2);
+      }
+      this.spatter(s, d, k + (head ? 0.45 : 0), head);
+    }
+    // close enough for it to reach the bodycam
+    const cam = g.player.eye(_gEye);
+    const dc = Math.hypot(en.x - cam.x, en.y - cam.y, en.z - cam.z);
+    if (g.post && g.post.lensBlood && dc < 2.6 && E > 50) {
+      const toCam = -((cam.x - en.x) * d.x + (cam.y - en.y) * d.y + (cam.z - en.z) * d.z) / dc; // back-spatter flies back along the shot
+      const amt = clamp((2.6 - dc) / 1.8, 0, 1) * clamp(E / 400, 0.4, 1.2) * (head || n.seg.name === 'neck' ? 1.5 : 1) * clamp(toCam + 0.3, 0, 1);
+      if (amt > 0.1) g.post.lensBlood(amt);
+    }
+  }
+
+  // blood thrown out of an exit wound lands on what is behind the target after its flight time
+  spatter(from, dir, strength, head) {
+    const g = this.game, world = g.sb.world, wd = g.view.wallDecals;
+    const str = Math.min(strength, 1.6);
+    const rays = Math.min(16, 4 + Math.round(str * 6) + (head ? 3 : 0));
+    const reach = 1.1 + 2.0 * Math.min(str, 1.3);
+    const speed = 3.5 + 5 * str;
+    // a frame round the shot direction
+    _gv.set(dir.x, dir.y, dir.z).normalize();
+    if (Math.abs(_gv.y) < 0.9) _gu.set(0, 1, 0); else _gu.set(1, 0, 0);
+    _gu.crossVectors(_gv, _gu).normalize();
+    _gw.crossVectors(_gu, _gv).normalize();
+    _gp.set(from.x, from.y, from.z);
+    for (let r = 0; r < rays; r++) {
+      const sp = r === 0 ? 0.03 : 0.12 + 0.3 * Math.random(), a = Math.random() * TAU;
+      _gr.set(_gv.x, _gv.y, _gv.z).addScaled(_gu, Math.cos(a) * sp).addScaled(_gw, Math.sin(a) * sp).normalize();
+      const hits = world.raycastAll(_gp, _gr, reach, this.levelOnly);
+      let h = null;
+      for (const q of hits) if (!h || q.tIn < h.tIn) h = q;
+      if (!h || h.tIn < 0.02) continue;
+      const dist = h.tIn, nx = h.normal.x, ny = h.normal.y, nz = h.normal.z;
+      const cosInc = Math.max(0.05, -(_gr.x * nx + _gr.y * ny + _gr.z * nz));
+      const tf = dist / speed;
+      _gV3.set(h.point.x, h.point.y, h.point.z);
+      // the droplets drop on their way (walls only), and what would land on the floor is the engine's
+      if (Math.abs(ny) < 0.5) { _gV3.y -= 0.5 * 9.81 * tf * tf * 0.6; if (_gV3.y < 0.04) continue; }
+      _gN3.set(nx, ny, nz);
+      _gD3.set(_gr.x, _gr.y - 9.81 * tf * 0.6 / speed, _gr.z);
+      const stretch = clamp(1 / cosInc, 1, 3.2);
+      const near = 1 - dist / reach;
+      let kind, size;
+      if (r === 0) {
+        // the main mass: radial spatter when it strikes square on, a long streaking one otherwise
+        kind = stretch > 1.5 ? 'spatter' : str > 0.6 ? 'heavy' : 'blood';
+        size = (0.14 + 0.24 * str) * (0.75 + 0.5 * (1 - near));
+      } else {
+        kind = stretch > 1.35 ? 'spatter' : Math.random() < 0.5 ? 'drops' : 'blood';
+        size = (0.05 + 0.09 * str * Math.random()) * (0.7 + 0.6 * (1 - near));
+      }
+      const useDir = kind === 'spatter';
+      this.queueDecal(tf, kind, _gV3, _gN3, size, useDir ? _gD3 : null, useDir ? Math.min(stretch, 2.2) : 1);
+      // a heavy splash on a wall runs down it
+      if (r === 0 && Math.abs(ny) < 0.4 && str > 0.45) {
+        // (the run's tile has its source near the top: put that on the splash)
+        const ds = Math.min(0.32, size * (0.5 + 0.3 * Math.random()));
+        _gV3.y -= ds * 0.34;
+        this.queueDecal(tf + 0.35, 'drip', _gV3, _gN3, ds);
+      }
+    }
+    void wd;
+  }
+
+  // the engine droplets ask for the floor under them every step: a droplet inside a wall, prop or
+  // the ceiling slab has hit it (it leaves a drop or a streak there, and ends); one coming down on a
+  // prop top lands there
+  dropletFloor(x, z, y) {
+    const g = this.game, L = g.level, P = g.particles;
+    // which droplet is asking (see onLevel)
+    let l = this.pIdx;
+    if (!(l < P.n && P.pos[l * 3] === x && P.pos[l * 3 + 2] === z)) {
+      l = -1;
+      for (let k = Math.max(0, this.pIdx - 2); k < Math.min(P.n, this.pIdx + 3); k++) if (P.pos[k * 3] === x && P.pos[k * 3 + 2] === z) { l = k; this.pIdx = k; break; }
+    }
+    let M = 0, hit = false;
+    if (y > L.ceiling - 0.005) {
+      hit = true;
+      this.dropOn(l, x, L.ceiling, z, 0, -1, 0);
+      M = y + 1;
+    } else {
+      const near = L.boxesNear(x, z, 0, this.near);
+      for (let i = 0; i < near.length && !hit; i++) {
+        const b = near[i];
+        if (y < b.min.y || y > b.max.y || x < b.min.x || x > b.max.x || z < b.min.z || z > b.max.z) continue;
+        hit = true;
+        M = y + 1;
+        this.dropInto(l, b, x, y, z);
+      }
+      if (!hit) {
+        M = g.sb.world.surfaceAt(x, z, y + 0.5);
+        if (M > 0.05 && l >= 0 && y <= M + P.size[l] * 0.5) this.dropOn(l, x, M, z, 0, 1, 0);
+      }
+    }
+    // the engine removes the droplet if it is old or has landed, then asks again for this index
+    if (l >= 0 && !hit && !(P.age[l] > 6 || y <= M + P.size[l] * 0.5)) this.pIdx = l + 1;
+    return M;
+  }
+
+  // a droplet ended up inside box b: find the face it came in through (from its velocity)
+  dropInto(l, b, x, y, z) {
+    const P = this.game.particles;
+    let ax = -1, sg = 0, px = x, py = y, pz = z;
+    if (l >= 0) {
+      const vx = P.vel[l * 3], vy = P.vel[l * 3 + 1], vz = P.vel[l * 3 + 2], dt = this.pDt || 1 / 60;
+      // where it was a step ago, and the latest slab it crossed on the way in
+      const ox = x - vx * dt, oy = y - vy * dt, oz = z - vz * dt;
+      let tIn = -1;
+      const o = [ox, oy, oz], d = [vx * dt, vy * dt, vz * dt], mn = [b.min.x, b.min.y, b.min.z], mx = [b.max.x, b.max.y, b.max.z];
+      for (let a = 0; a < 3; a++) {
+        if (Math.abs(d[a]) < 1e-9) continue;
+        const t = ((d[a] > 0 ? mn[a] : mx[a]) - o[a]) / d[a];
+        if (t > tIn && t <= 1.0001) { tIn = t; ax = a; sg = d[a] > 0 ? -1 : 1; }
+      }
+      if (ax >= 0 && tIn >= 0) { px = ox + d[0] * tIn; py = oy + d[1] * tIn; pz = oz + d[2] * tIn; }
+      else ax = -1;
+    }
+    if (ax < 0) {
+      // nearest face
+      let dm = x - b.min.x; ax = 0; sg = -1;
+      if (b.max.x - x < dm) { dm = b.max.x - x; sg = 1; }
+      if (z - b.min.z < dm) { dm = z - b.min.z; ax = 2; sg = -1; }
+      if (b.max.z - z < dm) { dm = b.max.z - z; ax = 2; sg = 1; }
+      if (b.max.y - y < dm) { ax = 1; sg = 1; }
+      px = ax === 0 ? (sg > 0 ? b.max.x : b.min.x) : x;
+      py = ax === 1 ? b.max.y : y;
+      pz = ax === 2 ? (sg > 0 ? b.max.z : b.min.z) : z;
+    }
+    this.dropOn(l, px, py, pz, ax === 0 ? sg : 0, ax === 1 ? sg : 0, ax === 2 ? sg : 0);
+  }
+
+  // leave the mark of droplet l (blood or tissue; bone chips leave none) on a surface
+  dropOn(l, x, y, z, nx, ny, nz) {
+    const g = this.game, P = g.particles;
+    if (!g.settings.gore || this.dropBudget <= 0) return;
+    const kind = l >= 0 ? P.kind[l] : 0;
+    if (kind > 1) return;
+    this.dropBudget--;
+    _gV3.set(x, y, z);
+    _gN3.set(nx, ny, nz);
+    let size = 0.04, opts = null, tile = 'drops';
+    if (l >= 0) {
+      const vx = P.vel[l * 3], vy = P.vel[l * 3 + 1], vz = P.vel[l * 3 + 2], sp = Math.hypot(vx, vy, vz);
+      size = clamp(P.size[l] * (16 + 2.5 * sp) * (kind === 1 ? 1.4 : 1), 0.018, 0.16);
+      const cosI = sp > 1e-4 ? Math.abs(vx * nx + vy * ny + vz * nz) / sp : 1;
+      if (sp > 1.5 && cosI < 0.85) {
+        // a fast drop striking at an angle streaks out along its path
+        tile = 'spatter';
+        _gD3.set(vx, vy, vz);
+        opts = gOpt(_gD3, clamp(1 / Math.max(cosI, 0.3), 1.2, 2.6));
+      } else if (P.size[l] > 0.0028 && Math.abs(ny) < 0.3 && Math.random() < 0.3) {
+        tile = 'drip'; // a big drop runs down the wall
+        size = Math.min(0.2, size * 2.2);
+      }
+    }
+    g.view.wallDecals.add(tile, _gV3, _gN3, size, opts);
+  }
+
+  // ---- the player ---------------------------------------------------------------------------------
+  onHurt(e) {
+    const g = this.game;
+    if (!g.settings.gore || !g.post || !g.post.lensBlood) return;
+    if (e.amount >= 18 && Math.random() < 0.3 + e.amount / 60) g.post.lensBlood(clamp(e.amount / 70, 0.15, 0.7));
   }
 }
 
@@ -71049,7 +72491,22 @@ Object.assign(Lab.penetration, {
   goods: { cost: 2.4, solid: 0.3 },
 });
 const IMPACT_SOUND = { drywall: 'wood', cardboard: 'wood', wood: 'wood', goods: 'wood', metal: 'metal', concrete: 'ground', ceiling: 'ground', default: 'ground' };
-const IMPACT_DUST = { drywall: 0xd8cfae, cardboard: 0x9a7b52, wood: 0x8a6b45, goods: 0x9a7b52, concrete: 0xa8a8a0, ceiling: 0xc9c4b0, metal: null };
+// what a round does to each material (see GoreFX.surface): dust colour, plume puffs and lingering
+// haze, debris chips (colour, size, splinters), sparks, the hole decal and its size, the angle below
+// which (cosine) a round glances off with sparks and a whine, whether exit holes are looked for,
+// and the crumble heard after the hit
+const IMPACT_FX = {
+  drywall: { dust: 0xe0d9c6, puffs: 10, haze: 3, chips: 7, chip: 0xece7da, chipSize: 0.004, hole: 'drywall', size: 0.075, sparks: 0, rico: 0.1, pass: true, debris: 'drywall' },
+  concrete: { dust: 0xb2aea5, puffs: 9, haze: 3, chips: 12, chip: 0x928f88, chipSize: 0.006, hole: 'concrete', size: 0.085, sparks: 1.5, rico: 0.28, pass: true, debris: 'concrete' },
+  ceiling: { dust: 0xd8d3c2, puffs: 7, haze: 3, chips: 7, chip: 0xdcd8ca, chipSize: 0.005, hole: 'ceiling', size: 0.06, sparks: 0, rico: 0, pass: false, debris: 'drywall' },
+  wood: { dust: 0xae8a5e, puffs: 6, haze: 2, chips: 11, chip: 0xcda46c, chipSize: 0.009, splinter: true, hole: 'wood', size: 0.078, sparks: 0, rico: 0.12, pass: true, debris: 'wood' },
+  cardboard: { dust: 0xa88a60, puffs: 6, haze: 2, chips: 6, chip: 0xbd9a64, chipSize: 0.007, hole: 'cardboard', size: 0.068, sparks: 0, rico: 0, pass: true, debris: null },
+  goods: { dust: 0xa88a60, puffs: 6, haze: 2, chips: 6, chip: 0xbd9a64, chipSize: 0.007, hole: 'cardboard', size: 0.068, sparks: 0, rico: 0, pass: true, debris: null },
+  metal: { dust: 0x7a7771, puffs: 3, haze: 1, chips: 4, chip: 0x9a9c98, chipSize: 0.003, hole: 'metal', size: 0.06, sparks: 14, rico: 0.42, pass: true, debris: null },
+  carpet: { dust: 0x8a7a5c, puffs: 7, haze: 2, chips: 5, chip: 0x6e6048, chipSize: 0.004, hole: 'small', size: 0.04, sparks: 0, rico: 0, pass: false, debris: null },
+  default: { dust: 0xa8a59c, puffs: 8, haze: 2, chips: 9, chip: 0x8e8b84, chipSize: 0.005, hole: 'concrete', size: 0.065, sparks: 2, rico: 0.25, pass: true, debris: 'concrete' },
+};
+const _gNeg = new I();
 
 class BackroomsGame {
   constructor(app) {
@@ -71305,7 +72762,13 @@ class BackroomsGame {
   // ---- engine effects -> visuals & sound ----------------------------------------------------
   onFx(e) {
     for (const h of this.hooks) if (h.fx && h.fx(e)) return;
-    const au = this.audio, gore = this.settings.gore;
+    const au = this.audio, G = this.gore;
+    // a later hit of the same round (or its end) confirms that it came out of what it went into
+    if (G) {
+      if (e.type === 'objectHit' || e.type === 'groundHit') G.confirmExit(e.dir, e.point);
+      else if (e.type === 'fleshHit') G.confirmExit(e.dir, e.entry);
+      else if (e.type === 'shot') for (const p of e.paths) G.confirmExit(p.dir, p.to);
+    }
     switch (e.type) {
       case 'shot': {
         if (e.by === 'player') {
@@ -71324,25 +72787,27 @@ class BackroomsGame {
       }
       case 'fleshHit': this.fleshHit(e); break;
       case 'armorHit': {
-        const pt = toV3(e.point);
-        this.effects.puff(pt, new T3.Vector3(-e.dir.x, -e.dir.y, -e.dir.z), undefined, 12, 4, 0.25, true);
+        // a plate stops it: sparks off the plate and a spray of fabric and ceramic dust
+        if (G) {
+          const n = new I(-e.dir.x, -e.dir.y, -e.dir.z);
+          G.sparks(e.point, n, n, 10, 0.8);
+          G.burst(e.point, n, n, IMPACT_FX.cardboard, 0.8, 0.6, 1);
+        } else this.effects.puff(toV3(e.point), new T3.Vector3(-e.dir.x, -e.dir.y, -e.dir.z), undefined, 12, 4, 0.25, true);
         au.bulletImpact('metal', e.point, 1);
         break;
       }
       case 'objectHit': {
-        const pt = toV3(e.point), nrm = toV3(e.normal);
-        const mat = e.material;
-        const dust = IMPACT_DUST[mat];
-        if (dust === null) this.effects.puff(pt, nrm, undefined, 10, 3, 0.25, true);
-        else this.effects.puff(pt, nrm, dust ?? 0xbbbbbb, 12, 1.2, 0.6);
-        if (mat !== 'ceiling' || Math.random() < 0.5) this.view.wallDecals.add('hole', pt, nrm, mat === 'metal' ? 0.035 : 0.05 + Math.random() * 0.02);
+        let mat = e.material;
+        // the pipe tunnels' walls are drywall to the ballistics but look like bare concrete
+        if (mat === 'drywall' && this.level.theme.style === 2) mat = 'concrete';
+        if (G) G.surface(e, IMPACT_FX[mat] || IMPACT_FX.default, mat);
+        else this.view.wallDecals.add('hole', e.point, e.normal, 0.06);
         au.bulletImpact(IMPACT_SOUND[mat] || 'ground', e.point, 0.8);
         break;
       }
       case 'groundHit': {
-        this.view.decals.splat(e.point.x, e.point.z, 0.012 + Math.random() * 0.006, 1, 0.95, 1, Math.random() * 6.28, Math.random());
-        const pt = new T3.Vector3(e.point.x, 0.005, e.point.z);
-        this.effects.puff(pt, new T3.Vector3(-e.dir.x * 0.3, 1, -e.dir.z * 0.3).normalize(), 0x7a6a4a, 14, 1.2, 0.6);
+        if (G) G.ground(e);
+        else this.view.decals.splat(e.point.x, e.point.z, 0.014, 1, 0.95, 1, Math.random() * 6.28, Math.random());
         au.bulletImpact('ground', e.point, 0.8);
         break;
       }
@@ -71356,36 +72821,20 @@ class BackroomsGame {
     const au = this.audio;
     au.bulletImpact(n.bone ? 'bone' : 'flesh', n.entry, clamp(n.energy / 600, 0.3, 1));
     for (const h of this.hooks) h.onFleshHit && h.onFleshHit(n);
-    if (!this.settings.gore) return;
-    const P = this.particles;
-    const A = new T3.Vector3(n.dir.x, n.dir.y, n.dir.z);
-    const t = toV3(n.entry), e = n.energy;
-    P.spray(t, A.clone().negate(), 6 + Math.round(e / 120), 1.2 + e / 600, 0.7, 5e-4, 0.0018, 0, 0.02);
-    if (n.highVelocity) P.addMist(t, A.clone().negate(), 5, 0.6, 10490386, 0.025, 0.25);
-    if (n.exit) {
-      const s = toV3(n.exit), k = clamp(e / 900, 0, 1.5);
-      P.spray(s, A, 16 + Math.round(k * 60), 3 + 5 * k, 0.38, 7e-4, 0.0032, 0, 0.08);
-      if (k > 0.25) P.spray(s, A, Math.round(k * 10), 2.5 + 3 * k, 0.45, 0.002, 0.006, 1, 0.2);
-      if (n.bone) P.spray(s, A, 3 + Math.round(k * 6), 3 + 4 * k, 0.4, 0.0015, 0.004, 2, 0.05);
-      P.addMist(s, A, Math.round(6 + 24 * k), 1.5 + 3 * k, 10490900, 0.03 + 0.035 * k, 0.3 + 0.3 * k);
-      if (n.head && k > 0.6) { P.spray(s, A, 14, 5, 0.5, 0.003, 0.008, 1, 0.3); P.addMist(s, A, 30, 4, 11546672, 0.06, 0.6); }
-      // back-spatter on the wall behind the target
-      this.wallSplatter(s, A, k + (n.head ? 0.6 : 0));
+    if (!this.settings.gore) {
+      // no blood: a little fabric dust where it went in
+      if (this.gore) this.gore.burst(n.entry, _gNeg.set(-n.dir.x, -n.dir.y, -n.dir.z), _gNeg, IMPACT_FX.cardboard, 0.5, 0.35, 1);
+      return;
     }
+    if (this.gore) { this.gore.flesh(n); return; }
+    const P = this.particles, A = new T3.Vector3(n.dir.x, n.dir.y, n.dir.z);
+    P.spray(toV3(n.entry), A.clone().negate(), 6 + Math.round(n.energy / 120), 1.2 + n.energy / 600, 0.7, 5e-4, 0.0018, 0, 0.02);
+    if (n.exit) P.spray(toV3(n.exit), A, 16 + Math.round(n.energy / 15), 3 + n.energy / 180, 0.38, 7e-4, 0.0032, 0, 0.08);
   }
 
+  // back-spatter on whatever is behind the target (blood decals land after their flight time)
   wallSplatter(from, dir, strength) {
-    const L = this.level;
-    const to = from.clone().addScaledVector(dir, 2.2);
-    const hits = this.sb.world.raycastAll(toP3(from), new I(dir.x, dir.y, dir.z).normalize(), 2.2, (b) => b.userData && b.userData.level);
-    const h = hits[0];
-    if (!h) return;
-    const pt = toV3(h.point), nrm = toV3(h.normal);
-    const d = pt.distanceTo(from);
-    const size = clamp(0.25 + strength * 0.35 - d * 0.08, 0.12, 0.8);
-    this.view.wallDecals.add(Math.abs(nrm.y) > 0.7 ? 'blood' : Math.random() < 0.5 ? 'drip' : 'blood', pt, nrm, size);
-    if (strength > 0.8) this.view.wallDecals.add('blood', pt.clone().add(new T3.Vector3((Math.random() - 0.5) * 0.2, (Math.random() - 0.5) * 0.2, (Math.random() - 0.5) * 0.2)), nrm, size * 0.6);
-    void to; void L;
+    if (this.gore && this.settings.gore) this.gore.spatter(from, dir, strength, false);
   }
 
   impactSound(n) {
