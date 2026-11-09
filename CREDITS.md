@@ -31,9 +31,9 @@ procedural additions.
 - "The 100STYLE Dataset" by Ian Mason, Franck Multon and Taku Komura - CC BY 4.0
   (https://creativecommons.org/licenses/by/4.0/), https://www.ianxmason.com/100style/
   Style "Swat" (idle; walks and runs forward, backward and sideways) for gunmen; styles "Zombie",
-  "Drunk" and "LimpLeft" (shambles) with "Rushed" (the sprint) for the Hollowed; the arms of style
-  "Neutral" (natural arm swing) for pistol carriers' free arms. Retargeted from BVH to the Microsoft
-  Rocketbox skeleton and cut into in-place loops (tools/retarget.mjs).
+  "Drunk" and "LimpLeft" (shambles) with "Rushed" (the sprint) for the Hollowed; style "Neutral"
+  (idle, walks and runs) for pistol carriers moving with the gun down. Retargeted from BVH to the
+  Microsoft Rocketbox skeleton and cut into in-place loops (tools/retarget.mjs).
 
 - Get-ups from the floor (on the back and on the belly; also mirrored) from the CMU Graphics Lab
   Motion Capture Database, http://mocap.cs.cmu.edu - takes 139_16 ("Get Up From Ground"), 140_01

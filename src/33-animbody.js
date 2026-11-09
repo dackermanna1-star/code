@@ -44,10 +44,10 @@ function hollowAnimSet() {
 const _qInv = new T3.Quaternion(), _eul = new T3.Euler(), _qA = new T3.Quaternion(), _qB = new T3.Quaternion(), _axis = new T3.Vector3();
 const _m4 = new T3.Matrix4(), _m4b = new T3.Matrix4(), _v3 = new T3.Vector3(), _v3b = new T3.Vector3(), _q = new T3.Quaternion(), _q2 = new T3.Quaternion(), _s3 = new T3.Vector3();
 const LOCO_CLIPS = ['idle', 'walk_f', 'walk_b', 'walk_l', 'walk_r', 'run_f', 'run_b', 'run_l', 'run_r'];
-const ARM_BONES = ['Bip01_L_Clavicle', 'Bip01_L_UpperArm', 'Bip01_L_Forearm', 'Bip01_L_Hand', 'Bip01_R_Clavicle', 'Bip01_R_UpperArm', 'Bip01_R_Forearm', 'Bip01_R_Hand'];
 // get-up matching: the bodies compared (pelvis first) and how much each counts
 const GU_SEGS = ['pelvis', 'chest', 'head', 'upperArmL', 'upperArmR', 'forearmL', 'forearmR', 'handL', 'handR', 'thighL', 'thighR', 'shinL', 'shinR', 'footL', 'footR'];
 const GU_W = [0, 1.5, 1.5, 1, 1, 0.8, 0.8, 0.5, 0.5, 1, 1, 0.8, 0.8, 0.5, 0.5];
+const GU_TABLES = new WeakMap(); // character gltf -> Map(clip@scale -> sampled get-up table)
 
 class AnimBody {
   // opts.melee: the engine's zombie brain (hollows), whose attacks become claw swipes
@@ -60,6 +60,7 @@ class AnimBody {
     this.game = ai.game;
     this.p = ai.p;
     this.render = render;
+    this.gltf = gltf;
     this.lib = lib;
     const binder = render.binder;
     this.scale = binder.scale;
@@ -94,19 +95,19 @@ class AnimBody {
     // clip player on the animation skeleton (the style's clips plus the shared get-ups)
     const gl = ANIM.libs.getup;
     this.getups = gl ? [...gl.clips.keys()].filter((n) => /^getup_/.test(n)) : [];
-    this.player = new ClipPlayer(skel, [...lib.clips.values(), ...(gl ? gl.clips.values() : [])]);
-    for (const n of LOCO_CLIPS) if (this.player.has(n)) this.player.play(n, { fade: 0, loop: true, weight: n === 'idle' ? 1 : 0, exclusive: false, speed: 0 });
     this.pistol = ai.gun && ai.gun.hold === 'pistol';
-    // a pistol leaves the off hand free: the arms swing as in a natural walk (phase-locked to the
-    // legs) and the gun hand carries the pistol low (solveCarry) until the aim comes up
-    const cl = ANIM.libs.carry;
-    if (this.pistol && cl) {
-      this.armPlayer = new ClipPlayer(skel, [...cl.clips.values()]);
-      for (const n of LOCO_CLIPS) if (this.armPlayer.has(n)) this.armPlayer.play(n, { fade: 0, loop: true, weight: n === 'idle' ? 1 : 0, exclusive: false, speed: 0 });
-      this.armBones = ARM_BONES.map((n) => bones.get(n)).filter(Boolean);
-      this.armSave = this.armBones.map(() => new T3.Quaternion());
-    }
-    this.carryW = 0; this.carryEff = 0; this.runW = 0;
+    // a pistol carrier who is not aiming moves like anyone with a handgun: upright, the natural walk
+    // and run of 100STYLE "Neutral" (its clips as carry_*, in step with the Swat set, which comes
+    // back with the aim), the free arm swinging and the gun hand carrying the pistol low (solveCarry)
+    const cl = this.pistol ? ANIM.libs.carry : null;
+    if (cl && !cl.prefixed) cl.prefixed = [...cl.clips].map(([n, c]) => { const k = c.clone(); k.name = 'carry_' + n; return k; });
+    this.player = new ClipPlayer(skel, [...lib.clips.values(), ...(gl ? gl.clips.values() : []), ...(cl ? cl.prefixed : [])]);
+    this.player.minWeight = 1e-3; // the near-zero layers kept alive below are not worth sampling
+    this.carrySet = !!cl && this.player.has('carry_run_f');
+    for (const pre of this.carrySet ? ['', 'carry_'] : [''])
+      for (const n of LOCO_CLIPS) if (this.player.has(pre + n)) this.player.play(pre + n, { fade: 0, loop: true, weight: n === 'idle' && !pre ? 1 : 0, exclusive: false, speed: 0 });
+    this.wA = {}; this.wB = {};
+    this.bodyK = 0; this.carryW = 0; this.carryEff = 0; this.runW = 0;
     this.gu = null;
     this.overlay = new Map(); // name -> { w, target, t, loop }
     // procedural state
@@ -202,10 +203,13 @@ class AnimBody {
   }
 
   // a get-up clip's first half sampled as body positions on this skeleton (root at the origin
-  // facing +z), plus where its pelvis travels; cached per clip
+  // facing +z), plus where its pelvis travels; cached per character and clip
   guTable(name) {
-    const cache = this.guCache || (this.guCache = new Map());
-    let tab = cache.get(name);
+    // (the same for every enemy wearing this character: one skeleton, one ragdoll anatomy)
+    let cache = GU_TABLES.get(this.gltf);
+    if (!cache) GU_TABLES.set(this.gltf, (cache = new Map()));
+    const key = name + '@' + this.scale.toFixed(4);
+    let tab = cache.get(key);
     if (tab) return tab;
     const clip = this.player.clips.get(name);
     if (!clip) return null;
@@ -228,7 +232,7 @@ class AnimBody {
     tab = { name, dur: clip.duration, kind: meta.getup || (/_up/.test(name) ? 'up' : 'down'), frames: [], path: [] };
     for (let t = 0; t <= clip.duration * 0.5; t += 1 / 15) tab.frames.push({ t, p: pose(t) });
     for (const u of [0.25, 0.5, 0.75, 1]) { const p = pose(clip.duration * u); tab.path.push([p[0], p[2]]); }
-    cache.set(name, tab);
+    cache.set(key, tab);
     return tab;
   }
 
@@ -288,6 +292,8 @@ class AnimBody {
       const end = pts[pts.length - 1];
       if (!L.free(end[0], end[1], 0.26) || !pts.every(([x, z]) => L.free(x, z, 0.14))) continue;
       if (this.game.sb.people.some((o) => o !== this.p && Math.hypot(o.rd.pelvis.pos.x - end[0], o.rd.pelvis.pos.z - end[1]) < 0.55)) continue;
+      const P = this.game.player && this.game.player.pos;
+      if (P && Math.hypot(P.x - end[0], P.z - end[1]) < 0.5) continue; // nor up into the player
       return cd;
     }
     return null;
@@ -339,6 +345,7 @@ class AnimBody {
   wake(reason = 'hit') {
     if (this.mode === 'physics') return;
     const p = this.p, sb = this.game.sb;
+    if (this.mode === 'getup') this.settle();
     this.mode = 'physics';
     this.calm = 0;
     this.blend = null;
@@ -356,6 +363,56 @@ class AnimBody {
     c.heading = this.heading;
     if (c.sens) c.sens.comVel.set(this.vel.x, 0, this.vel.z);
     void reason;
+  }
+
+  // a body handed back to physics in the middle of a get-up: the clip's hands, knees and feet press
+  // a few centimetres into the floor (its joint centres are grounded, not the ragdoll's shapes),
+  // which the contact solver would answer with a launch. Lift the whole body clear and keep the
+  // clip's (and the round's) velocities within what a person getting up can have
+  settle() {
+    const gy = this.game.sb.world.groundY || 0;
+    let lo = Infinity;
+    for (const b of this.bodies) if (Number.isFinite(b.aabbMin.y)) lo = Math.min(lo, b.aabbMin.y);
+    const lift = Number.isFinite(lo) ? Math.max(0, gy + 0.005 - lo) : 0;
+    for (const b of this.bodies) {
+      if (lift > 0) {
+        b.pos.y += lift;
+        if (b.framePos) b.framePos.y += lift;
+        b.computeAABB(0, 0);
+      }
+      const v = Math.hypot(b.vel.x, b.vel.y, b.vel.z), w = Math.hypot(b.angVel.x, b.angVel.y, b.angVel.z);
+      if (v > 6) { const k = 6 / v; b.vel.set(b.vel.x * k, b.vel.y * k, b.vel.z * k); }
+      if (w > 15) { const k = 15 / w; b.angVel.set(b.angVel.x * k, b.angVel.y * k, b.angVel.z * k); }
+    }
+    // the clip's limbs pass through each other here and there (hand into thigh, shin over shin):
+    // the body's own collisions stay off until they have come apart (see unsettle)
+    if (!this.selfOff) {
+      this.selfOff = new Map();
+      for (const b of this.bodies) {
+        if (!b.ignore) b.ignore = new Set();
+        const added = this.bodies.filter((o) => o !== b && !b.ignore.has(o));
+        for (const o of added) b.ignore.add(o);
+        this.selfOff.set(b, added);
+      }
+    }
+    this.selfOffT = this.game.time + 0.3;
+  }
+
+  // the body's own collisions back on, pair by pair once the two are clear of each other
+  unsettle(force = false) {
+    if (!this.selfOff || (!force && this.game.time < this.selfOffT)) return;
+    const m = 0.01;
+    const apart = (a, b) => a.aabbMin.x > b.aabbMax.x + m || a.aabbMax.x < b.aabbMin.x - m || a.aabbMin.y > b.aabbMax.y + m || a.aabbMax.y < b.aabbMin.y - m || a.aabbMin.z > b.aabbMax.z + m || a.aabbMax.z < b.aabbMin.z - m;
+    let left = 0;
+    for (const [b, added] of this.selfOff) {
+      for (let i = added.length - 1; i >= 0; i--) {
+        const o = added[i];
+        if (!force && !apart(b, o) && this.game.time < this.selfOffT + 2) { left++; continue; }
+        if (b.ignore) b.ignore.delete(o);
+        added.splice(i, 1);
+      }
+    }
+    if (!left) this.selfOff = null;
   }
 
   // ---- per step ---------------------------------------------------------------------------------
@@ -380,6 +437,7 @@ class AnimBody {
       if (!gu || gu.t >= gu.dur - 0.12) this.finishGetUp();
       return;
     }
+    if (this.selfOff) this.unsettle();
     if (this.mode === 'physics') {
       // a body come to rest on the floor that the controller still counts as falling (a lolling
       // head, a slow slide) is down: the rest before getting up starts now
@@ -513,44 +571,71 @@ class AnimBody {
     this.pitch += (clamp(pitchT, -0.8, 0.8) - this.pitch) * (1 - Math.exp(-dt * 10));
   }
 
-  // locomotion blend by velocity relative to the facing, phase-locked so feet stay in step
-  animate(dt) {
-    const pl = this.player, meta = this.lib.meta;
-    const sinh = Math.sin(this.heading), cosh = Math.cos(this.heading);
-    const vf = this.vel.x * sinh + this.vel.z * cosh;      // forward
-    const vr = -(this.vel.x * cosh - this.vel.z * sinh);   // character's right is -x when facing +z
-    const speed = Math.hypot(vf, vr);
-    const w = { idle: 0, walk_f: 0, walk_b: 0, walk_l: 0, walk_r: 0, run_f: 0, run_b: 0, run_l: 0, run_r: 0 };
-    const moving = clamp((speed - 0.08) / 0.35, 0, 1);
-    const shuffle = this.turning * 0.35 * (1 - moving);
+  // locomotion weights of one clip set (clip names prefix + LOCO_CLIPS) for this velocity, and the
+  // rate its stride phase runs at (each clip's natural speed sets how fast its cycle goes)
+  locoWeights(w, pre, meta, speed, vf, vr, moving, shuffle) {
+    const pl = this.player;
+    for (const n of LOCO_CLIPS) w[n] = 0;
     w.idle = Math.max(0, 1 - moving - shuffle);
     if (speed > 1e-3) {
       const fx = vf / speed, rx = vr / speed;
       const m = Math.max(moving, shuffle);
       // each direction blends its walk into its run as the speed passes the walk's natural pace
-      const dirW = { f: Math.max(0, fx), b: Math.max(0, -fx), r: Math.max(0, rx), l: Math.max(0, -rx) };
-      for (const d of ['f', 'b', 'l', 'r']) {
+      for (const d of 'fblr') {
+        const dw = d === 'f' ? Math.max(0, fx) : d === 'b' ? Math.max(0, -fx) : d === 'r' ? Math.max(0, rx) : Math.max(0, -rx);
         const ws = (meta['walk_' + d] && meta['walk_' + d].speed) || 0.9, rs = (meta['run_' + d] && meta['run_' + d].speed) || 0;
-        const runK = this.has('run_' + d) && rs > ws ? clamp((speed - ws * 1.05) / Math.max(0.2, rs - ws * 1.05), 0, 1) : 0;
-        w['walk_' + d] = dirW[d] * m * (1 - runK);
-        w['run_' + d] = dirW[d] * m * runK;
+        const runK = pl.has(pre + 'run_' + d) && rs > ws ? clamp((speed - ws * 1.05) / Math.max(0.2, rs - ws * 1.05), 0, 1) : 0;
+        w['walk_' + d] = dw * m * (1 - runK);
+        w['run_' + d] = dw * m * runK;
       }
     } else if (shuffle > 0) {
       w.walk_f = shuffle; // feet shuffle round on the spot
     }
     // fold missing clips into what exists
-    if (!this.has('walk_b')) { w.walk_f += w.walk_b; w.walk_b = 0; }
-    if (!this.has('walk_l')) { w.walk_f += w.walk_l; w.walk_l = 0; }
-    if (!this.has('walk_r')) { w.walk_f += w.walk_r; w.walk_r = 0; }
-    // stride rate: the clip's natural speed sets how fast the phase runs
+    for (const n of ['walk_b', 'walk_l', 'walk_r']) if (!pl.has(pre + n)) { w.walk_f += w[n]; w[n] = 0; }
     let rate = 0, tw = 0;
-    for (const n of ['walk_f', 'walk_b', 'walk_l', 'walk_r', 'run_f', 'run_b', 'run_l', 'run_r']) {
-      if (!w[n] || !this.has(n)) continue;
-      const cs = (meta[n] && meta[n].speed) || 1.4, dur = pl.duration(n);
+    for (const n of LOCO_CLIPS) {
+      if (n === 'idle' || !w[n] || !pl.has(pre + n)) continue;
+      const cs = (meta[n] && meta[n].speed) || 1.4, dur = pl.duration(pre + n);
       const sp = n === 'walk_f' && shuffle > 0 && speed < 0.2 ? 0.6 : Math.max(speed, 0.3);
       rate += w[n] * (sp / cs) / dur; tw += w[n];
     }
-    this.phase = (this.phase + dt * (tw > 0 ? rate / tw : 0)) % 1;
+    w.rate = tw > 0 ? rate / tw : 0;
+    w.run = w.run_f + w.run_b + w.run_l + w.run_r;
+    return w;
+  }
+
+  // one set's locomotion layers at weights w * kw, all at the shared stride phase
+  setLoco(pre, w, kw, dt) {
+    for (const n of LOCO_CLIPS) {
+      const l = this.player.layer(pre + n);
+      if (!l) continue;
+      // a hair above zero keeps idle layers alive in the player (it drops weightless ones)
+      l.weight = l.target = Math.max(1e-4, w[n] * kw);
+      l.time = n === 'idle' ? (l.time + dt) % l.clip.duration : this.phase * l.clip.duration;
+    }
+  }
+
+  // locomotion blend by velocity relative to the facing, phase-locked so feet stay in step
+  animate(dt) {
+    const pl = this.player;
+    const sinh = Math.sin(this.heading), cosh = Math.cos(this.heading);
+    const vf = this.vel.x * sinh + this.vel.z * cosh;      // forward
+    const vr = -(this.vel.x * cosh - this.vel.z * sinh);   // character's right is -x when facing +z
+    const speed = Math.hypot(vf, vr);
+    const moving = clamp((speed - 0.08) / 0.35, 0, 1);
+    const shuffle = this.turning * 0.35 * (1 - moving);
+    const w = this.locoWeights(this.wA, '', this.lib.meta, speed, vf, vr, moving, shuffle);
+    // pistol carriers: the natural walk and run while the gun is down, the Swat set with the aim
+    // (both sets' cycles start on a left-foot contact, so they blend in step at one phase)
+    let k = 0, wc = null;
+    if (this.carrySet) {
+      this.bodyK += ((this.ai.aiming ? 0 : 1) - this.bodyK) * (1 - Math.exp(-dt * 6));
+      k = this.bodyK;
+      wc = this.locoWeights(this.wB, 'carry_', ANIM.libs.carry.meta, speed, vf, vr, moving, shuffle);
+    }
+    const rate = wc ? w.rate * (1 - k) + wc.rate * k : w.rate;
+    this.phase = (this.phase + dt * rate) % 1;
     // a get-up in progress: its clip over everything, fading out under the locomotion at the end
     const gu = this.gu;
     let gw = 0;
@@ -568,30 +653,12 @@ class AnimBody {
       if (gu.out && gu.w <= 0) { if (l) { l.weight = 0; l.target = 0; } this.gu = null; }
     }
     this.guW = gw;
-    this.runW = (w.run_f + w.run_b + w.run_l + w.run_r) * (1 - gw);
-    for (const n of LOCO_CLIPS) {
-      const l = pl.layer(n);
-      if (!l) continue;
-      // a hair above zero keeps idle layers alive in the player (it drops weightless ones)
-      l.weight = l.target = Math.max(1e-4, (w[n] || 0) * (1 - gw));
-      l.time = n === 'idle' ? (l.time + dt) % l.clip.duration : this.phase * l.clip.duration;
-    }
+    this.runW = (w.run * (1 - k) + (wc ? wc.run * k : 0)) * (1 - gw);
+    this.setLoco('', w, (1 - k) * (1 - gw), dt);
+    if (wc) this.setLoco('carry_', wc, k * (1 - gw), dt);
     pl.update(0);
     this.placeRoot();
     for (const f of this.fingers) f.bone.quaternion.copy(f.rest);
-    // pistol holders: free arms from the natural walk, in step with the legs (under a get-up's arms)
-    if (this.armPlayer) {
-      const ap = this.armPlayer;
-      if (gw > 0) this.armBones.forEach((b, i) => this.armSave[i].copy(b.quaternion));
-      for (const n of LOCO_CLIPS) {
-        const l = ap.layer(n);
-        if (!l) continue;
-        l.weight = l.target = Math.max(1e-4, w[n] || 0);
-        l.time = n === 'idle' ? (l.time + dt) % l.clip.duration : this.phase * l.clip.duration;
-      }
-      ap.update(0);
-      if (gw > 0) this.armBones.forEach((b, i) => b.quaternion.slerp(this.armSave[i], gw));
-    }
     // upper-body overlays: a shouldered aim while aiming, a reload timed to the AI's reload
     const ai = this.ai;
     // pistols: a procedural two-hand stance (solveArms) instead of an overlay
@@ -647,6 +714,9 @@ class AnimBody {
     this.spine.forEach((b, i) => this.rotateWorld(b, fR * (share[i] ?? 1 / n), (this.twist + fY) * (share[i] ?? 1 / n), -this.pitch * 0.6 / n - this.kick * 0.03 + lean / n + fP * (share[i] ?? 1 / n)));
     if (this.neck) this.rotateWorld(this.neck, tR * 0.4 + fR * 0.3, tY * 0.5 + fH * 0.4, -this.pitch * 0.25 - lean * 0.45 - fP * 0.25);
     if (this.head) this.rotateWorld(this.head, tR + fR * 0.3, tY + fH, -this.pitch * 0.15 + this.kick * 0.02 - lean * 0.35 - fP * 0.3);
+    // gunmen with the gun down keep their eyes up (the mocap actors watched the floor) and turn the
+    // head towards the threat they know of; the aim and the reload take the head back
+    if (!this.melee && this.head && this.neck) this.lookUp(dt, !ai.aiming && !reloading ? 1 - gw : 0);
     // long guns: running without the aim, the muzzle drops to a low ready (both arms swing down a
     // little about the shoulders, so the gun line between the hands tips down with them)
     if (!this.pistol && !this.melee) {
@@ -656,13 +726,31 @@ class AnimBody {
       if (a > 0.004) for (const b of this.upperArms || (this.upperArms = ['Bip01_R_UpperArm', 'Bip01_L_UpperArm'].map((nm) => this.bones.get(nm)).filter(Boolean))) this.rotateWorld(b, 0, 0, a);
     }
     // pistol carry: one-handed, low at a walk and tucked in at a run, until the aim comes up
-    this.carryW += ((this.armPlayer && !ai.aiming && !reloading ? 1 : 0) - this.carryW) * (1 - Math.exp(-dt * 9));
+    this.carryW += ((this.carrySet && !ai.aiming && !reloading ? 1 : 0) - this.carryW) * (1 - Math.exp(-dt * 9));
     this.carryEff = this.carryW * (1 - gw);
     if (this.carryEff > 0.01) this.solveCarry(this.carryEff, dt);
     // pistol stance: both arms reach to a grip on the aim line in front of the chest
     this.ikW = (this.ikW || 0) + ((this.pistol && ai.aiming && !reloading && !gu ? 1 : 0) - (this.ikW || 0)) * (1 - Math.exp(-dt * 10));
     if (this.ikW > 0.01) this.solveArms(this.ikW);
     if (this.melee && gw < 0.5) this.solveSwipe(dt);
+  }
+
+  // head up and towards the known threat (see animate): the head's up axis (bone x) is levelled to
+  // where it sits in a calm, upright stance, and the head turns to the target within a comfortable
+  // range, both shared between neck and head
+  lookUp(dt, wT) {
+    this.lookW = (this.lookW || 0) + (wT - (this.lookW || 0)) * (1 - Math.exp(-dt * 5));
+    const c = this.p.ctl, t = this.ai.knows ? c.lookTarget : null;
+    let yawT = 0;
+    if (t) yawT = clamp(wrapAngle(Math.atan2(t.x - this.pos.x, t.z - this.pos.z) - this.heading), -1.1, 1.1) * 0.6;
+    this.lookYaw = (this.lookYaw || 0) + (yawT - (this.lookYaw || 0)) * (1 - Math.exp(-dt * 4));
+    if (this.lookW < 0.01) return;
+    const h = this.heading;
+    _v3b.set(1, 0, 0).applyQuaternion(this.head.getWorldQuaternion(_q2));
+    const lean = Math.atan2(_v3b.x * Math.sin(h) + _v3b.z * Math.cos(h), _v3b.y);
+    const lift = clamp(lean - 0.55, 0, 0.45) * this.lookW, yaw = this.lookYaw * this.lookW;
+    this.rotateWorld(this.neck, 0, yaw * 0.4, -lift * 0.45);
+    this.rotateWorld(this.head, 0, yaw * 0.6, -lift * 0.55);
   }
 
   // the one-handed pistol carry: the gun hand low in front of the right hip at a walk, a little
@@ -672,36 +760,41 @@ class AnimBody {
     const B = this.bones;
     const uR = B.get('Bip01_R_UpperArm'), fR = B.get('Bip01_R_Forearm'), hR = B.get('Bip01_R_Hand');
     if (!uR || !fR || !hR) return;
+    const V = this.carryTmp || (this.carryTmp = Array.from({ length: 12 }, () => new T3.Vector3()));
+    const [S, E, Hn, fwd, right, up, target, pole, F, U, X, hx] = V;
     this.holder.updateMatrixWorld(true);
-    const S = new T3.Vector3().setFromMatrixPosition(uR.matrixWorld), E = new T3.Vector3().setFromMatrixPosition(fR.matrixWorld), Hn = new T3.Vector3().setFromMatrixPosition(hR.matrixWorld);
+    S.setFromMatrixPosition(uR.matrixWorld); E.setFromMatrixPosition(fR.matrixWorld); Hn.setFromMatrixPosition(hR.matrixWorld);
     const L = S.distanceTo(E) + E.distanceTo(Hn);
-    const h = this.heading, fwd = new T3.Vector3(Math.sin(h), 0, Math.cos(h)), right = new T3.Vector3(-Math.cos(h), 0, Math.sin(h)), up = new T3.Vector3(0, 1, 0);
+    const h = this.heading;
+    fwd.set(Math.sin(h), 0, Math.cos(h)); right.set(-Math.cos(h), 0, Math.sin(h)); up.set(0, 1, 0);
     // the free arm's swing: how far ahead of its running mean the hand is
     const sw = Hn.sub(S).dot(fwd) / L;
     this.swingAvg = this.swingAvg === undefined ? sw : this.swingAvg + (sw - this.swingAvg) * (1 - Math.exp(-dt * 1.5));
     const swing = clamp(sw - this.swingAvg, -0.5, 0.5);
     const run = clamp(this.runW, 0, 1);
     // (the hand stays on its own side rather than across the belly)
-    const target = S.clone()
+    target.copy(S)
       .addScaledVector(up, (-lerp(0.82, 0.62, run) + swing * 0.12) * L)
       .addScaledVector(fwd, (lerp(0.3, 0.36, run) + swing * lerp(0.35, 0.25, run)) * L)
       .addScaledVector(right, -lerp(0.0, 0.07, run) * L);
     // elbow down and back, close to the ribs
-    this.reach(uR, fR, hR, target, 1, w, fwd, right, up.clone().negate().addScaledVector(right, 0.35).addScaledVector(fwd, -0.55));
+    pole.set(0, -1, 0).addScaledVector(right, 0.35).addScaledVector(fwd, -0.55);
+    this.reach(uR, fR, hR, target, 1, w, fwd, right, pole);
     // the gun: forward and down, rocking with the swing
     const pitch = lerp(1.1, 0.92, run) - swing * 0.45;
-    const F = fwd.clone().multiplyScalar(Math.cos(pitch)).addScaledVector(up, -Math.sin(pitch)).addScaledVector(right, -0.04).normalize();
-    const U = up.clone().addScaledVector(right, 0.2);
+    F.copy(fwd).multiplyScalar(Math.cos(pitch)).addScaledVector(up, -Math.sin(pitch)).addScaledVector(right, -0.04).normalize();
+    U.copy(up).addScaledVector(right, 0.2);
     U.addScaledVector(F, -F.dot(U)).normalize();
-    const X = new T3.Vector3().crossVectors(F, U);
-    (this.carryQ || (this.carryQ = new T3.Quaternion())).setFromRotationMatrix(_m4.makeBasis(X, U, F.clone().negate()));
+    X.crossVectors(F, U);
+    E.copy(F).negate(); // (spent: reused as the gun's +z)
+    (this.carryQ || (this.carryQ = new T3.Quaternion())).setFromRotationMatrix(_m4.makeBasis(X, U, E));
     // the hand round the grip: fingers (hand x) along the barrel, thumb (hand z) up the backstrap
-    const hx = F.clone().applyAxisAngle(X, -0.15);
-    const hz = U.clone().addScaledVector(hx, -U.dot(hx)).normalize();
-    const hy = new T3.Vector3().crossVectors(hz, hx);
-    const hq = new T3.Quaternion().setFromRotationMatrix(_m4.makeBasis(hx, hy, hz));
-    const pw = hR.parent.getWorldQuaternion(new T3.Quaternion());
-    hR.quaternion.slerp(pw.invert().multiply(hq), w);
+    hx.copy(F).applyAxisAngle(X, -0.15);
+    const hz = S.copy(U).addScaledVector(hx, -U.dot(hx)).normalize(); // (S, Hn spent: reused)
+    const hy = Hn.crossVectors(hz, hx);
+    _q.setFromRotationMatrix(_m4.makeBasis(hx, hy, hz));
+    hR.parent.getWorldQuaternion(_qA);
+    hR.quaternion.slerp(_qA.invert().multiply(_q), w);
     hR.updateMatrixWorld(true);
   }
 

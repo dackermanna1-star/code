@@ -24,9 +24,11 @@ reloads from Torque 3D's soldier on the arms, a two-hand IK stance for pistols, 
 until the barrel the hands hold is on target, and recoil. While undisturbed their ragdoll
 is dormant and posed from the animation, so bullets hit what you see. A hit, blast or kick hands the
 body to the active-ragdoll controller (stagger, stumble, fall); once they are back on their feet and
-left alone they blend back into animation. Pistol carriers swing their free arm as in a natural walk
-(100STYLE "Neutral", in step with the legs) and carry the gun one-handed, low at a walk and tucked
-in at a run, until the two-hand stance comes up with the aim.
+left alone they blend back into animation. Pistol carriers move upright on the natural walks and runs
+of 100STYLE "Neutral" while the gun is down (in step with the Swat set, which comes back with the aim),
+the free arm swinging and the gun carried one-handed, low at a walk and tucked in at a run, until the
+two-hand stance comes up with the aim. With the gun down, gunmen keep their eyes up (the mocap actors
+watched the floor) and turn the head towards the threat they know of.
 
 Getting up is motion capture too (CMU get-ups from the back and from the belly, each also mirrored):
 when a body on the floor is ready to rise, the take and the moment in it that best match how it lies

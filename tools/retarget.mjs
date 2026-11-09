@@ -20,7 +20,7 @@
 //
 // the shipped sets (target assets/characters/military_male_01.glb):
 //   armed.glb   <100STYLE> Swat <torque3d dir>
-//   carry.glb   ONLY='Clavicle|UpperArm|Forearm|Hand' <100STYLE> Neutral
+//   carry.glb   <100STYLE> Neutral   (whole body: pistol carriers with the gun down)
 //   getup.glb   --getup getup_down1=139_16.bvh@0.85-3.55@0.85:2.2,1.6:1.8,3.0:1.5,3.55:1.4
 //                       getup_down2=140_01.bvh@0.95-4.45@0.95:2.4,2.4:2.2,3.7:1.8,4.45:1.6
 //                       getup_up1=140_09.bvh@0.45-4.65@0.45:2.8,2.2:2.6,3.7:2.2,4.65:1.7
