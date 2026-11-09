@@ -74,10 +74,11 @@ class CharacterRender {
               vec3 S = C.xyz;
               vec3 X = normalize(cross(S, W) + vec3(1e-5));
               float u = dot(d, X), s = dot(d, S), seed = D.y;
-              // ragged outline: a few lobes and fine tears
-              float ang = atan(u, s);
-              float re = r * (1.0 + 0.2 * sin(ang * 3.0 + seed * 31.0) + 0.12 * sin(ang * 7.0 + seed * 17.0) + 0.22 * (wdN3(d * 700.0 + seed * 9.0) - 0.5));
-              if (face > -0.3) {
+              // (the hole and its collar only near the wound: the noise is not free)
+              if (face > -0.3 && dn < r * 2.6) {
+                // ragged outline: a few lobes and fine tears
+                float ang = atan(u, s);
+                float re = r * (1.0 + 0.2 * sin(ang * 3.0 + seed * 31.0) + 0.12 * sin(ang * 7.0 + seed * 17.0) + 0.22 * (wdN3(d * 700.0 + seed * 9.0) - 0.5));
                 core = max(core, 1.0 - smoothstep(re * 0.25, re * 0.55, dn));
                 hole = max(hole, 1.0 - smoothstep(re * 0.7, re, dn));
                 // entry: a bruised abrasion collar; exit: torn, everted tissue
@@ -85,13 +86,16 @@ class CharacterRender {
                 if (D.x > 0.5) { if (ring > flesh) { flesh = ring; fleshN = wdN3(d * 900.0 + seed); } } else rim = max(rim, ring);
               }
               // the stain soaks outwards, further below the wound than above it, with a ragged edge
-              float sn = wdN3(d * 30.0 + seed * 7.0) * 0.6 + wdN3(d * 110.0 - seed * 5.0) * 0.4;
               vec2 q = vec2(u, s > 0.0 ? s * 0.55 : s * 1.5);
-              float ql = length(q), sr = B.w * (0.6 + 0.8 * sn);
-              float onFace = smoothstep(-0.6, -0.2, face);
-              soak = max(soak, (1.0 - smoothstep(sr * 0.8, sr, ql)) * onFace);
-              // close round the wound the blood still sits on top as a wet film
-              film = max(film, (1.0 - smoothstep(r * 1.2, max(r * 1.5, sr * 0.45), ql)) * onFace);
+              float ql = length(q);
+              if (ql < max(B.w * 1.4, r * 1.5) && face > -0.6) {
+                float sn = wdN3(d * 30.0 + seed * 7.0) * 0.6 + wdN3(d * 110.0 - seed * 5.0) * 0.4;
+                float sr = B.w * (0.6 + 0.8 * sn);
+                float onFace = smoothstep(-0.6, -0.2, face);
+                soak = max(soak, (1.0 - smoothstep(sr * 0.8, sr, ql)) * onFace);
+                // close round the wound the blood still sits on top as a wet film
+                film = max(film, (1.0 - smoothstep(r * 1.2, max(r * 1.5, sr * 0.45), ql)) * onFace);
+              }
               // runs down the skin: thin lanes of different lengths with a bead at each tip
               if (C.w > 0.0 && s > -r && s < C.w && face > -0.5) {
                 float wob = u + 0.004 * sin(s * 70.0 + seed * 11.0);
@@ -106,17 +110,23 @@ class CharacterRender {
               }
             }
             float g = uGore;
-            // blood through the hair and over the face after a bad head wound
+            // blood through the hair and over the face after a bad head wound: patches drawn out
+            // downwards like runs (never the whole face), darker where it lies thick
             if (uHeadGore.w > 0.0) {
-              float dh = length(P - uHeadGore.xyz);
               vec3 hp = P - uHeadGore.xyz;
-              float hn = wdN3(hp * 26.0 + 3.0) * 0.7 + wdN3(hp * 70.0) * 0.3;
-              soak = max(soak, (1.0 - smoothstep(0.1, 0.17, dh)) * smoothstep(0.62 - 0.4 * uHeadGore.w, 0.75 - 0.4 * uHeadGore.w, hn) * uHeadGore.w);
+              float dh = length(hp);
+              if (dh < 0.17) {
+                float hn = wdN3(hp * vec3(30.0, 8.0, 30.0) + 3.0) * 0.65 + wdN3(hp * 80.0) * 0.35;
+                float hc = smoothstep(0.7 - 0.22 * uHeadGore.w, 0.8 - 0.22 * uHeadGore.w, hn) * (1.0 - smoothstep(0.1, 0.17, dh)) * min(1.0, uHeadGore.w * 1.6);
+                soak = max(soak, hc);
+                film = max(film, hc * smoothstep(0.78, 0.92, hn + 0.12 * uHeadGore.w));
+              }
             }
             // soaked into cloth or skin it darkens what is there (black cloth stays black, only wet);
             // the film over the wound and the runs are blood itself
             float sk = soak * g, fl = max(film, run) * g;
-            diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vec3(0.42, 0.045, 0.035), sk * 0.92);
+            // (capped at the colour of blood, so pale skin and light cloth do not turn orange)
+            diffuseColor.rgb = mix(diffuseColor.rgb, min(diffuseColor.rgb * vec3(0.42, 0.045, 0.035), vec3(0.13, 0.009, 0.007)), sk * 0.92);
             diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.07, 0.003, 0.002), fl * 0.88);
             diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.09, 0.01, 0.008), rim * 0.85 * g);
             diffuseColor.rgb = mix(diffuseColor.rgb, mix(vec3(0.13, 0.008, 0.006), vec3(0.3, 0.07, 0.06), fleshN * fleshN), flesh * g);
