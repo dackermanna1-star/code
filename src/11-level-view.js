@@ -533,7 +533,7 @@ class LevelView {
       return;
     }
     if (L.theme.layout === 'poolrooms') {
-      // Level 37 tiles its own walls, floor and ceiling, and builds pools, arches and skylights
+      // Level 2 tiles its own walls, floor and ceiling, and builds pools, arches and skylights
       this.dressing = new PoolDressing(this); // 13-poolrooms.js
       return;
     }

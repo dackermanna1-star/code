@@ -27,7 +27,7 @@ class Session {
     g.perks.damage = wv.damage || 1;
     // perks, boosts and the weight of the gun in hand (the shop's MOBILITY stat)
     const gun = g.arsenal.gun;
-    const sp = g.perks.speed * (wv.speed || 1) * ((gun && gun.def.move) || 1) * (g.level.wetAt(P.pos.x, P.pos.z) ? 0.88 : 1); // wading (Level 37)
+    const sp = g.perks.speed * (wv.speed || 1) * ((gun && gun.def.move) || 1) * (g.level.wetAt(P.pos.x, P.pos.z) ? 0.88 : 1); // wading (Level 2)
     Lab.PLAYER.walk = PLAYER_BASE.walk * sp;
     Lab.PLAYER.sprint = PLAYER_BASE.sprint * sp;
     Lab.PLAYER.crouch = PLAYER_BASE.crouch * sp;

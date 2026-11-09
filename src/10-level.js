@@ -14,9 +14,42 @@ const LEVEL_THEMES = [
     trim: [0.42, 0.35, 0.22], style: 0,
   },
   {
+    // a grand hotel that never ends (src/14-hotel.js): double-loaded corridors of numbered guest
+    // rooms, an elevator lobby, a ballroom and a lounge; brass lamps and sconces over maroon carpet
+    id: 'hotel', code: 'LEVEL 1', title: 'THE HOTEL',
+    blurb: 'Brass, burgundy and a carpet that never ends. Every door is numbered. None of the rooms are vacant.',
+    layout: 'hotel',
+    cell: 3.0, cells: 22, ceiling: 3.1, wallT: 0.16,
+    door: 1.15, lintel: 2.25, wallMat: 'drywall', pillarR: 0.25, pillarMat: 'concrete',
+    braid: 0, doorways: 0, rooms: 0, roomMin: 2, roomMax: 4, pillars: 0, props: 0.14,
+    outage: 0.06, flicker: 0.07, darkZones: 1,
+    wall: [0.30, 0.055, 0.06], wallAlt: [0.50, 0.15, 0.10], carpet: [0.40, 0.075, 0.07], ceilingCol: [0.80, 0.70, 0.55],
+    lightCol: [1.0, 0.70, 0.42], lightPow: 1.25, ambient: 0.2, fog: [0.10, 0.045, 0.03], fogDensity: 0.042,
+    trim: [0.24, 0.12, 0.06], style: 6,
+    // bowl lamps under the ceiling: soft pools along the corridors, the spots a little stronger
+    lamp: { y: 2.78, fall: 0.42, win: 8.5, bounce: 0.12, up: 0.3, beam: 1.4, spot: 17, spotDist: 9.5, bias: -0.0008, normalBias: 0.03 },
+  },
+  {
+    // Level 2, the Poolrooms (layout, water and dressing in 13-poolrooms.js): arched galleries
+    // of warm-white tile, halls with shallow pools, arcades and flooded floors, lit by skylights
+    id: 'poolrooms', code: 'LEVEL 2', title: 'THE POOLROOMS',
+    blurb: 'Warm tile in every direction. Still water, ankle deep and perfectly clear. Daylight from somewhere above. You are not the only one here.',
+    layout: 'poolrooms',
+    cell: 4.0, cells: 15, ceiling: 4.6, wallT: 0.3,
+    door: 2.0, arch: true, wallMat: 'tile', pillarR: 0.31, pillarMat: 'tile',
+    braid: 0.34, doorways: 0, rooms: 6, roomMin: 2, roomMax: 4, pillars: 0.85, props: 0.2,
+    outage: 0.15, flicker: 0, darkZones: 1, // mostly daylit: shaded patches, one dim zone
+    wall: [0.95, 0.91, 0.82], wallAlt: [0.55, 0.82, 0.8], carpet: [0.93, 0.89, 0.8], ceilingCol: [0.95, 0.92, 0.85],
+    lightCol: [1.0, 0.96, 0.88], lightPow: 1.0, ambient: 0.6, fog: [0.88, 0.84, 0.74], fogDensity: 0.021,
+    trim: [0.18, 0.55, 0.58], style: 5, floorDust: 0xe2dccc,
+    // skylights: the light comes from the top of a well above the ceiling, broad and soft
+    lamp: { y: 4.9, fall: 0.16, win: 11, bounce: 0.1, up: 0.2, beam: 0, spot: 24, spotDist: 12, bias: -0.0008, normalBias: 0.04 },
+    hum: 0.12, water: 1,
+  },
+  {
     // a storage warehouse after hours: block-walled halls with roller-door openings, rows of
     // pallet racking under a steel roof, sodium high-bay lamps hanging over the aisles
-    id: 'warehouse', code: 'LEVEL 1', title: 'THE WAREHOUSE',
+    id: 'warehouse', code: 'LEVEL 3', title: 'THE WAREHOUSE',
     blurb: 'Sodium lamps hum over aisles of stock nobody ordered. The forklifts are still warm. The night shift never clocked out.',
     layout: 'warehouse',
     cell: 4.8, cells: 14, ceiling: 7.0, wallT: 0.3,
@@ -33,7 +66,7 @@ const LEVEL_THEMES = [
     rack: { depth: 1.1, height: 5.35 },
   },
   {
-    id: 'pipes', code: 'LEVEL 2', title: 'PIPE DREAMS',
+    id: 'pipes', code: 'LEVEL 4', title: 'PIPE DREAMS',
     blurb: 'Narrow maintenance tunnels. Hot pipes, cold dark. The lights here gave up long ago.',
     cell: 2.8, cells: 22, ceiling: 2.55, wallT: 0.2,
     braid: 0.36, doorways: 0.3, rooms: 4, roomMin: 2, roomMax: 3, pillars: 0.2, props: 0.22,
@@ -43,7 +76,7 @@ const LEVEL_THEMES = [
     trim: [0.18, 0.16, 0.14], style: 2,
   },
   {
-    id: 'office', code: 'LEVEL 4', title: 'ABANDONED OFFICE',
+    id: 'office', code: 'LEVEL 5', title: 'ABANDONED OFFICE',
     blurb: 'Cubicles to the horizon. The coffee is still warm. Nobody has worked here in decades.',
     cell: 3.6, cells: 18, ceiling: 2.85, wallT: 0.14,
     braid: 0.66, doorways: 0.55, rooms: 9, roomMin: 2, roomMax: 5, pillars: 0.3, props: 0.42,
@@ -51,39 +84,6 @@ const LEVEL_THEMES = [
     wall: [0.62, 0.62, 0.58], wallAlt: [0.55, 0.56, 0.52], carpet: [0.27, 0.30, 0.34], ceilingCol: [0.78, 0.78, 0.74],
     lightCol: [0.95, 1.0, 0.96], lightPow: 0.95, ambient: 0.26, fog: [0.22, 0.24, 0.24], fogDensity: 0.05,
     trim: [0.30, 0.30, 0.30], style: 3,
-  },
-  {
-    // Level 37, the Poolrooms (layout, water and dressing in 13-poolrooms.js): arched galleries
-    // of warm-white tile, halls with shallow pools, arcades and flooded floors, lit by skylights
-    id: 'poolrooms', code: 'LEVEL 37', title: 'THE POOLROOMS',
-    blurb: 'Warm tile in every direction. Still water, ankle deep and perfectly clear. Daylight from somewhere above. You are not the only one here.',
-    layout: 'poolrooms',
-    cell: 4.0, cells: 15, ceiling: 4.6, wallT: 0.3,
-    door: 2.0, arch: true, wallMat: 'tile', pillarR: 0.31, pillarMat: 'tile',
-    braid: 0.34, doorways: 0, rooms: 6, roomMin: 2, roomMax: 4, pillars: 0.85, props: 0.2,
-    outage: 0.15, flicker: 0, darkZones: 1, // mostly daylit: shaded patches, one dim zone
-    wall: [0.95, 0.91, 0.82], wallAlt: [0.55, 0.82, 0.8], carpet: [0.93, 0.89, 0.8], ceilingCol: [0.95, 0.92, 0.85],
-    lightCol: [1.0, 0.96, 0.88], lightPow: 1.0, ambient: 0.6, fog: [0.88, 0.84, 0.74], fogDensity: 0.021,
-    trim: [0.18, 0.55, 0.58], style: 5, floorDust: 0xe2dccc,
-    // skylights: the light comes from the top of a well above the ceiling, broad and soft
-    lamp: { y: 4.9, fall: 0.16, win: 11, bounce: 0.1, up: 0.2, beam: 0, spot: 24, spotDist: 12, bias: -0.0008, normalBias: 0.04 },
-    hum: 0.12, water: 1,
-  },
-  {
-    // a grand hotel that never ends (src/14-hotel.js): double-loaded corridors of numbered guest
-    // rooms, an elevator lobby, a ballroom and a lounge; brass lamps and sconces over maroon carpet
-    id: 'hotel', code: 'LEVEL 5', title: 'THE HOTEL',
-    blurb: 'Brass, burgundy and a carpet that never ends. Every door is numbered. None of the rooms are vacant.',
-    layout: 'hotel',
-    cell: 3.0, cells: 22, ceiling: 3.1, wallT: 0.16,
-    door: 1.15, lintel: 2.25, wallMat: 'drywall', pillarR: 0.25, pillarMat: 'concrete',
-    braid: 0, doorways: 0, rooms: 0, roomMin: 2, roomMax: 4, pillars: 0, props: 0.14,
-    outage: 0.06, flicker: 0.07, darkZones: 1,
-    wall: [0.30, 0.055, 0.06], wallAlt: [0.50, 0.15, 0.10], carpet: [0.40, 0.075, 0.07], ceilingCol: [0.80, 0.70, 0.55],
-    lightCol: [1.0, 0.70, 0.42], lightPow: 1.25, ambient: 0.2, fog: [0.10, 0.045, 0.03], fogDensity: 0.042,
-    trim: [0.24, 0.12, 0.06], style: 6,
-    // bowl lamps under the ceiling: soft pools along the corridors, the spots a little stronger
-    lamp: { y: 2.78, fall: 0.42, win: 8.5, bounce: 0.12, up: 0.3, beam: 1.4, spot: 17, spotDist: 9.5, bias: -0.0008, normalBias: 0.03 },
   },
 ];
 
@@ -151,7 +151,7 @@ class BackroomsLevel {
   hIdx(i, j) { return i * (this.n + 1) + j; } // i in 0..n-1, j in 0..n
 
   generate() {
-    const hotel = this.theme.layout === 'hotel'; // Level 5: generator, props and lamps in src/14-hotel.js
+    const hotel = this.theme.layout === 'hotel'; // Level 1: generator, props and lamps in src/14-hotel.js
     if (this.theme.layout === 'warehouse') this.generateWarehouse();
     else if (this.theme.layout === 'poolrooms') this.generatePoolrooms(); // 13-poolrooms.js
     else if (hotel) this.generateHotel();
@@ -227,7 +227,7 @@ class BackroomsLevel {
     }
   }
 
-  // ---- Level 1: the warehouse ------------------------------------------------------------
+  // ---- Level 3: the warehouse ------------------------------------------------------------
   // The floor is split into a few halls by block walls with roller-door openings. Rack halls get
   // rows of pallet racking on the interior grid lines (edge value 3), so every aisle is one cell
   // wide and the cell graph stays truthful for navigation, light reach and spawning; cross-aisles
@@ -732,7 +732,7 @@ class BackroomsLevel {
         const deep = Math.min(0.35, this.loop * 0.08);
         if (r < th.outage + deep) state = 'dead';
         else if (r < th.outage + deep + th.flicker) state = 'flicker';
-        // (themes that never flicker, like Level 37's skylights, just go dark)
+        // (themes that never flicker, like Level 2's skylights, just go dark)
         for (const d of dark) if (Math.hypot(i - d.i, j - d.j) < d.r) state = R() < 0.15 && th.flicker ? 'flicker' : 'dead';
         if (Math.abs(i - mid) <= 1 && Math.abs(j - mid) <= 1) state = 'on';
         this.fixtures.push({ i, j, x: this.cx(i), z: this.cx(j), state, phase: R() * 100, level: state === 'dead' ? 0 : 1 });

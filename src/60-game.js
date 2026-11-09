@@ -12,7 +12,7 @@ Object.assign(Lab.penetration, {
   // loaded pallet racking and wrapped loads: a metre of stock stops pistol and SMG rounds, rifle
   // rounds come through spent, marksman rounds still carry
   goods: { cost: 2.4, solid: 0.3 },
-  // Level 37: ceramic tile over block (walls, kerbs, tiled furniture), moulded plastic loungers
+  // Level 2: ceramic tile over block (walls, kerbs, tiled furniture), moulded plastic loungers
   tile: { cost: 9, solid: 1 },
   plastic: { cost: 1.2, solid: 0.1 },
   // upholstery, mattresses and linen (the hotel): rounds go straight through, a little slowed
@@ -32,7 +32,7 @@ const IMPACT_FX = {
   goods: { dust: 0xa88a60, puffs: 6, haze: 2, chips: 6, chip: 0xbd9a64, chipSize: 0.007, hole: 'cardboard', size: 0.068, sparks: 0, rico: 0, pass: true, debris: null },
   metal: { dust: 0x7a7771, puffs: 3, haze: 1, chips: 4, chip: 0x9a9c98, chipSize: 0.003, hole: 'metal', size: 0.06, sparks: 14, rico: 0.42, pass: true, debris: null },
   carpet: { dust: 0x8a7a5c, puffs: 7, haze: 2, chips: 5, chip: 0x6e6048, chipSize: 0.004, hole: 'small', size: 0.04, sparks: 0, rico: 0, pass: false, debris: null },
-  // Level 37: glazed ceramic tile over block (bright chips, a hard crack), moulded plastic loungers
+  // Level 2: glazed ceramic tile over block (bright chips, a hard crack), moulded plastic loungers
   tile: { dust: 0xece6d8, puffs: 8, haze: 2, chips: 11, chip: 0xf3efe6, chipSize: 0.005, hole: 'concrete', size: 0.07, sparks: 1, rico: 0.3, pass: true, debris: 'concrete' },
   plastic: { dust: 0xeeeae2, puffs: 4, haze: 1, chips: 5, chip: 0xeeeae2, chipSize: 0.004, hole: 'small', size: 0.045, sparks: 0, rico: 0.05, pass: false, debris: null },
   // the hotel's upholstery and linen: a puff of fluff, no hole to speak of
@@ -97,7 +97,7 @@ class BackroomsGame {
     const level = (this.level = new BackroomsLevel(depth, seed));
     const view = (this.view = new LevelView(level, this.renderer, { quality: this.settings.quality }));
     const sb = (this.sb = new Lab.Sandbox({ shape: anatomy(), groundHalfSize: level.half + 1 }));
-    view.sb = sb; // (Level 37's water ripples round the people wading in it)
+    view.sb = sb; // (Level 2's water ripples round the people wading in it)
     sb.world.setGroundRect(-level.half, -level.half, level.half, level.half);
     sb.world.groundMaterial = 'carpet';
     sb.settings.reactions = 'rdr';
@@ -289,7 +289,7 @@ class BackroomsGame {
     const au = this.audio;
     if (e.type === 'footstep') {
       au.footstep(clamp(e.speed / 5, 0.3, 1) * (1 - 0.5 * e.crouch), null);
-      const p = this.player; // wading (Level 37)
+      const p = this.player; // wading (Level 2)
       if (this.sfx && this.level.wetAt(p.pos.x, p.pos.z)) this.sfx.splash(null, clamp(e.speed / 5, 0.3, 1) * (1 - 0.4 * e.crouch));
     }
     else if (e.type === 'land') { au.footstep(1, null); this.shake = Math.max(this.shake, Math.min(0.5, e.speed * 0.05)); }
@@ -348,7 +348,7 @@ class BackroomsGame {
         break;
       }
       case 'groundHit': {
-        // shallow water (Level 37) throws up a splash instead of dust
+        // shallow water (Level 2) throws up a splash instead of dust
         const wet = this.level.wetAt ? this.level.wetAt(e.point.x, e.point.z) : false;
         if (wet) {
           const pt = new T3.Vector3(e.point.x, 0.1, e.point.z);

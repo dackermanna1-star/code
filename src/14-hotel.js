@@ -1,4 +1,4 @@
-// Level 5: the hotel. Double-loaded corridors of numbered guest rooms on a five-cell rhythm (a
+// Level 1: the hotel. Double-loaded corridors of numbered guest rooms on a five-cell rhythm (a
 // corridor, two rooms deep, two rooms deep, the next corridor), cross corridors linking them, an
 // elevator lobby at the arrival point, a ballroom with chandeliers and round tables, a lounge
 // with a bar, ice alcoves. Most guest rooms are closed: their cells are solid ('void' colliders

@@ -1,4 +1,4 @@
-// Level 1 dressing: pallet racking and its stock, loose stock and machines, steel columns, roller
+// Level 3 dressing (the warehouse): pallet racking and its stock, loose stock and machines, steel columns, roller
 // doors, the roof structure and the sodium high-bay lamps with their glow and light shafts. All of
 // it is generated here from boxes and cylinders, coloured per vertex and merged by material into
 // one mesh per 4 x 4-cell chunk, so the two shadow-casting spot lights only draw nearby chunks.

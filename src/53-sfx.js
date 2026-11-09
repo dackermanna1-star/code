@@ -565,7 +565,7 @@ class Sfx {
       const h = p.rd.pelvis.pos;
       if (Math.hypot(h.x - P.pos.x, h.z - P.pos.z) < 16) {
         this.au.footstep(p.enemy && p.enemy.def && p.enemy.def.boss ? 0.95 : 0.5, h);
-        if (g.level && g.level.wetAt(h.x, h.z)) this.splash(h, 0.6); // wading (Level 37)
+        if (g.level && g.level.wetAt(h.x, h.z)) this.splash(h, 0.6); // wading (Level 2)
       }
     }
   }

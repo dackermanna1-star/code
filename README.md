@@ -4,8 +4,8 @@ A first-person survival shooter set in the Backrooms, built on the **Ragdoll Lab
 engine (balance, stepping, stagger, falls, get-up, wound physiology, ballistic penetration, gore).
 
 **Play:** open `dist/index.html` in Chrome / Edge / Firefox (works from the file system or any static
-server, e.g. `npm run serve` then http://localhost:8080). Click *Enter the Backrooms*. Add `?level=2` to the URL to start in Level 1, the warehouse
-(1 lobby, 2 warehouse, 3 pipes, 4 office, 5 the Poolrooms, 6 the hotel); otherwise you descend every three waves.
+server, e.g. `npm run serve` then http://localhost:8080). Click *Enter the Backrooms*. Add `?level=2` to the URL to start in Level 1, the hotel
+(1 lobby, 2 hotel, 3 poolrooms, 4 warehouse, 5 pipes, 6 office); otherwise you descend every three waves.
 
 See `CREDITS.md` for asset attributions.
 

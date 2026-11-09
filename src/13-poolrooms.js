@@ -1,4 +1,4 @@
-// Level 37, the Poolrooms: warm-white tile on every surface, shallow turquoise pools set into the
+// Level 2, the Poolrooms: warm-white tile on every surface, shallow turquoise pools set into the
 // floor, rounded arches and tiled pillars, soft daylight from square skylights. The layout is a
 // maze of arched galleries opening into halls that hold a pool, an arcade of pillars or a flooded
 // floor (BackroomsLevel methods, added below). The dressing (PoolDressing) builds every tiled
