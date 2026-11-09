@@ -569,4 +569,34 @@ class Sfx {
       }
     }
   }
+
+  // a limb or head torn off: a meaty thump, a wet squelch sweeping down and the crackle of tissue
+  // tearing, then a patter of what landed
+  gore(pos, strength = 1) {
+    if (!this.ready) return;
+    const ctx = this.ctx, t = ctx.currentTime, s = clamp(strength, 0.3, 1.6);
+    const dst = this.spatial(pos);
+    const o = ctx.createOscillator(), og = ctx.createGain();
+    o.frequency.setValueAtTime(95 + Math.random() * 20, t); o.frequency.exponentialRampToValueAtTime(38, t + 0.14);
+    o.connect(og); og.connect(dst);
+    this.env(og, t, 0.003, 0.55 * s, 0.16);
+    o.start(t); o.stop(t + 0.22);
+    const w = ctx.createBufferSource(), bp = ctx.createBiquadFilter(), wg = ctx.createGain();
+    w.buffer = this.brown; w.playbackRate.value = 1.6 + Math.random() * 0.5;
+    bp.type = 'bandpass'; bp.Q.value = 2.2;
+    bp.frequency.setValueAtTime(1100 + Math.random() * 300, t); bp.frequency.exponentialRampToValueAtTime(260, t + 0.22);
+    w.connect(bp); bp.connect(wg); wg.connect(dst);
+    this.env(wg, t + 0.004, 0.006, 0.9 * s, 0.24);
+    w.start(t, Math.random() * 2); w.stop(t + 0.32);
+    // tearing: a burst of tiny clicks
+    for (let k = 0; k < 7; k++) {
+      const at = t + 0.004 + k * (0.008 + Math.random() * 0.012);
+      const c = ctx.createBufferSource(), hp = ctx.createBiquadFilter(), cg = ctx.createGain();
+      c.buffer = this.noise; hp.type = 'bandpass'; hp.frequency.value = 1800 + Math.random() * 1800; hp.Q.value = 1.5;
+      c.connect(hp); hp.connect(cg); cg.connect(dst);
+      this.env(cg, at, 0.0008, (0.25 + Math.random() * 0.2) * s * (1 - k / 9), 0.012 + Math.random() * 0.015);
+      c.start(at, Math.random() * 2); c.stop(at + 0.05);
+    }
+    for (let k = 0; k < 3; k++) setTimeout(() => this.au.splat(0.25 + Math.random() * 0.25, pos), 280 + Math.random() * 600);
+  }
 }

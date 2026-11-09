@@ -36,6 +36,20 @@ jerky for the Hollowed), flows into locomotion. A shot mid-way drops them back i
 Broken or severed limbs, or no room to stand, fall back to the engine's physical get-up.
 Settings → Enemy movement switches to full physics.
 
+## Dismemberment
+`src/58-dismember.js`. Buckshot up close (the pellets of one shot summed per body segment, by
+deposited energy, pellet count and range), a very heavy round point blank, or a grenade at
+someone's feet can take off a head, an arm (at the shoulder, elbow or wrist) or a leg (hip, knee or
+ankle); a single heavy round to the head may blow the top of the skull open instead. The ragdoll
+joint is removed, so the part tumbles away as a real body with the hit's impulse and stays with the
+corpse; the controller balances only what is still attached. The skinned mesh is split along the
+bone weights into the body and a separate piece (both share the character's vertex buffers, each with
+its own index), and both openings are closed by skinned cut faces (meat, fat, bone and marrow; a
+neck shows vertebra and windpipe). Gore: blood burst and mist, pulsing arterial spurts, pools,
+pooled gib chunks, wall splatter and a wet tear. Gunmen who lose a limb are out of the fight (most
+writhe and bleed out); the hollowed keep coming one-armed, or claw themselves along the floor without
+a leg. Settings → gore off disables it.
+
 ## Building
 `npm run build` concatenates `engine/ragdoll-engine.js` and `src/*.js` into `dist/index.html` and
 wraps `assets/**/*.glb` as script files. Asset tools: `tools/rb2glb.mjs` (Rocketbox FBX → GLB),
