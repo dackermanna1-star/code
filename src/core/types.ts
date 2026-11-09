@@ -58,6 +58,15 @@ export interface IVehicle {
   readonly wrecked: boolean;
   /** 0..1 visual damage level. */
   readonly damageLevel: number;
+  /** Attachment points for effects/weapons (children of the chassis). */
+  readonly anchors: VehicleAnchors;
+  /** Per-wheel state in order FL, FR, RL, RR. */
+  readonly wheels: ReadonlyArray<WheelState>;
+  /** Current control state, for audio/FX. */
+  readonly throttle: number; // 0..1 applied throttle
+  readonly boosting: boolean;
+  /** 0..1 engine rpm (simulated gears), for engine audio. */
+  readonly rpm: number;
   /** Physics/control update; call from onBeforePhysics with scaled dt. */
   update(dt: number): void;
   /** Apply damage (health points) e.g. from impacts or explosions. */
@@ -69,6 +78,29 @@ export interface IVehicle {
   /** Attach a mesh to the chassis (weapons, climbers, decals). */
   attach(node: TransformNode): void;
   dispose(): void;
+}
+
+export interface VehicleAnchors {
+  /** Engine smoke / fire when damaged (front of the car). */
+  smoke: TransformNode;
+  /** Boost nozzle at the rear; local +Z = car forward, so the flame shoots toward local -Z. */
+  boost: TransformNode;
+  /** Roof weapon mount (top center). */
+  weapon: TransformNode;
+  /** Exhaust pipe outlet (rear). */
+  exhaust: TransformNode;
+  /** Visual wheel pivots FL, FR, RL, RR. */
+  wheels: TransformNode[];
+}
+
+export interface WheelState {
+  grounded: boolean;
+  /** World contact point (valid when grounded). */
+  contact: Vector3;
+  /** 0..1 how much the tire is sliding sideways / spinning (skid). */
+  slip: number;
+  /** 0..1 suspension compression. */
+  compression: number;
 }
 
 /** Streamed world. Implemented by world/Level.ts. */

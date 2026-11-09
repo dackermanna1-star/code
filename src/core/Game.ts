@@ -10,6 +10,7 @@ import {
   Vector3,
 } from "@babylonjs/core";
 import HavokPhysics from "@babylonjs/havok";
+import { audio } from "../audio/Audio";
 import { Debug } from "./Debug";
 import { events } from "./Events";
 import { Input } from "./Input";
@@ -50,6 +51,7 @@ export class Game {
   }
 
   async init(): Promise<void> {
+    audio.configure(this.save);
     this.hk = await HavokPhysics();
     this.scene = this.createScene();
     this.engine.runRenderLoop(() => this.frame());

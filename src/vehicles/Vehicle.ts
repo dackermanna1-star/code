@@ -2,7 +2,8 @@
 import { MeshBuilder, PhysicsAggregate, PhysicsShapeType, Quaternion, Vector3, type AbstractMesh, type TransformNode } from "@babylonjs/core";
 import type { CarDef } from "../data/cars";
 import type { CarStats, Loadout } from "../data/parts";
-import type { GameContext, IVehicle } from "../core/types";
+import { TransformNode as TN } from "@babylonjs/core";
+import type { GameContext, IVehicle, VehicleAnchors, WheelState } from "../core/types";
 import { buildCarModel, type CarModel } from "./CarModel";
 
 export class Vehicle implements IVehicle {
@@ -20,6 +21,11 @@ export class Vehicle implements IVehicle {
   wrecked = false;
   damageLevel = 0;
   private agg: PhysicsAggregate;
+  readonly anchors: VehicleAnchors;
+  readonly wheels: WheelState[] = [];
+  throttle = 0;
+  boosting = false;
+  rpm = 0;
 
   constructor(private ctx: GameContext, readonly def: CarDef, loadout: Loadout, readonly stats: CarStats, spawn: { position: Vector3; yaw: number }) {
     const s = ctx.scene;
@@ -30,6 +36,9 @@ export class Vehicle implements IVehicle {
     this.agg = new PhysicsAggregate(this.chassis, PhysicsShapeType.BOX, { mass: def.mass, friction: 0.3 }, s);
     this.model = buildCarModel(s, def, loadout);
     this.model.root.parent = this.chassis;
+    const mk = (n: string) => { const t = new TN(n, s); t.parent = this.chassis; return t; };
+    this.anchors = { smoke: mk("smoke"), boost: mk("boost"), weapon: mk("weapon"), exhaust: mk("exhaust"), wheels: this.model.wheels };
+    for (let i = 0; i < 4; i++) this.wheels.push({ grounded: true, contact: new Vector3(), slip: 0, compression: 0 });
     this.fuel = stats.fuel;
     this.boost = stats.boostCapacity;
     this.health = stats.health;
