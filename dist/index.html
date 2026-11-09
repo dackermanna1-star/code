@@ -69053,6 +69053,7 @@ const LOCO_CLIPS = ['idle', 'walk_f', 'walk_b', 'walk_l', 'walk_r', 'run_f', 'ru
 const GU_SEGS = ['pelvis', 'chest', 'head', 'upperArmL', 'upperArmR', 'forearmL', 'forearmR', 'handL', 'handR', 'thighL', 'thighR', 'shinL', 'shinR', 'footL', 'footR'];
 const GU_W = [0, 1.5, 1.5, 1, 1, 0.8, 0.8, 0.5, 0.5, 1, 1, 0.8, 0.8, 0.5, 0.5];
 const GU_TABLES = new WeakMap(); // character gltf -> Map(clip@scale -> sampled get-up table)
+const SOFT_LIMIT = 0.02; // joint-limit compliance right after a get-up is cut short (see settle)
 
 class AnimBody {
   // opts.melee: the engine's zombie brain (hollows), whose attacks become claw swipes
@@ -69350,7 +69351,17 @@ class AnimBody {
   wake(reason = 'hit') {
     if (this.mode === 'physics') return;
     const p = this.p, sb = this.game.sb;
-    if (this.mode === 'getup') this.settle();
+    const fromGetUp = this.mode === 'getup' || !!this.gu; // (or its last moments, fading out)
+    // mid get-up the controller picks up in the state the body is in: on the floor, falling, or
+    // (nearly up and upright) balancing, rather than balancing a body that sits on the floor
+    let wakeMode = 'balance';
+    if (fromGetUp) {
+      this.settle();
+      const cr = this.rd.segments.chest.body.rot;
+      const upY = _v3.set(0, 1, 0).applyQuaternion(_q.set(cr.x, cr.y, cr.z, cr.w)).y;
+      const py = this.pelvis.pos.y - (sb.world.groundY || 0);
+      wakeMode = py > 0.72 && upY > 0.8 ? 'balance' : py > 0.42 ? 'falling' : 'ground';
+    }
     this.mode = 'physics';
     this.calm = 0;
     this.blend = null;
@@ -69360,7 +69371,18 @@ class AnimBody {
     // resetState() on waking clears what the injury model just set: carry it over
     const c = p.ctl;
     const keep = { startle: c.startle, flinch: c.flinch ? { ...c.flinch } : null, twitches: c.twitches, fencing: c.fencing };
-    sb.setDormant(p, false, { mode: 'balance' });
+    sb.setDormant(p, false, { mode: wakeMode });
+    if (fromGetUp) {
+      c.restTime = 0; // knocked back down: a fresh rest before the next try
+      if (wakeMode === 'falling' && c.fallDir) {
+        const cr = this.rd.segments.chest.body.rot, v = this.pelvis.vel;
+        _v3.set(v.x, 0, v.z);
+        if (_v3.lengthSq() < 0.01) _v3.set(0, 1, 0).applyQuaternion(_q.set(cr.x, cr.y, cr.z, cr.w)).setY(0);
+        if (_v3.lengthSq() < 1e-6) _v3.set(Math.sin(this.heading), 0, Math.cos(this.heading));
+        _v3.normalize();
+        c.fallDir.set(_v3.x, 0, _v3.z);
+      }
+    }
     c.startle = Math.max(c.startle || 0, keep.startle || 0);
     if (keep.flinch && c.flinch && keep.flinch.amount > c.flinch.amount) Object.assign(c.flinch, keep.flinch);
     if (keep.twitches) c.twitches = keep.twitches;
@@ -69370,11 +69392,20 @@ class AnimBody {
     void reason;
   }
 
-  // a body handed back to physics in the middle of a get-up: the clip's hands, knees and feet press
-  // a few centimetres into the floor (its joint centres are grounded, not the ragdoll's shapes),
-  // which the contact solver would answer with a launch. Lift the whole body clear and keep the
-  // clip's (and the round's) velocities within what a person getting up can have
+  // a body handed back to physics in the middle of a get-up. The mocap bends joints past the
+  // ragdoll's limits here and there (a deep squat, a hand pushing off the floor), presses hands and
+  // knees a few centimetres into the floor (its joint centres are grounded, not the ragdoll's
+  // shapes) and passes limbs through each other: corrected in one step, that flings the body into
+  // the air. So the joint limits come back soft and stiffen over a moment, the body is lifted clear
+  // of the floor, its own collisions wait until the limbs have come apart, and the clip's (and the
+  // round's) velocities stay within what a person getting up can have
   settle() {
+    if (!this.softJ) {
+      this.softJ = [];
+      for (const j of this.rd.jointList) if (j.limits) this.softJ.push([j, j.limitCompliance || 0]);
+    }
+    this.softT0 = this.game.time;
+    for (const [j, c0] of this.softJ) j.limitCompliance = Math.max(c0, SOFT_LIMIT);
     const gy = this.game.sb.world.groundY || 0;
     let lo = Infinity;
     for (const b of this.bodies) if (Number.isFinite(b.aabbMin.y)) lo = Math.min(lo, b.aabbMin.y);
@@ -69401,6 +69432,13 @@ class AnimBody {
       }
     }
     this.selfOffT = this.game.time + 0.3;
+  }
+
+  // after settle(): the joint limits stiffen back to normal over 0.4 s
+  restiffen() {
+    const u = (this.game.time - this.softT0) / 0.4;
+    for (const [j, c0] of this.softJ) j.limitCompliance = u >= 1 ? c0 : c0 + (Math.max(c0, SOFT_LIMIT) - c0) * (1 - u) ** 3;
+    if (u >= 1) this.softJ = null;
   }
 
   // the body's own collisions back on, pair by pair once the two are clear of each other
@@ -69443,6 +69481,7 @@ class AnimBody {
       return;
     }
     if (this.selfOff) this.unsettle();
+    if (this.softJ) this.restiffen();
     if (this.mode === 'physics') {
       // a body come to rest on the floor that the controller still counts as falling (a lolling
       // head, a slow slide) is down: the rest before getting up starts now
