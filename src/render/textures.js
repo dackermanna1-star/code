@@ -378,20 +378,39 @@ function bloomGradient(ctx, radius, k, rgb) {
 // Hot per-pixel loops live in small kernels that only take numbers and typed
 // arrays, so the JIT can optimise them quickly and never has to bail out.
 
-/** Per-pixel wood tone: fibres, growth rings and pores along a wandering grain. */
-function woodKernel(S, N, v, drift, kdx, fig, streak, fibre, pore, tone, prof, RR, kDrift, figAmp, mid, kStreak, kFibre, kRing, kTone, kPore) {
+/**
+ * Per-pixel wood: fibres, growth rings and pores along a wandering grain.
+ * Writes the tonal value (0..1) to `v` and the final packed pixel to `px`
+ * through `lut` (HL hue rows × 256 tones).
+ */
+function woodKernel(S, N, px, v, figQ, driftQ, kdx, streak, fibre, pore, tone, prof, RR, lut, HL, kDrift, figAmp, mid, kStreak, kFibre, kRing, kTone, kPore) {
   const M = S - 1;
   const Q = S >> 2;
   const rs = N / S;
   const invN = 1 / N;
   const base = N * 4;
+  const figRow = new Float32Array(Q + 1);
+  const driftRow = new Float32Array(Q + 1);
   for (let y = 0, i = 0; y < S; y++) {
     const row = y * S;
     const qrow = (y >> 2) * Q;
     const prow = (y >> 1) * S - row; // pores are stored at half vertical resolution
+    // low-frequency fields live at quarter resolution: blend their two nearest rows once per scanline
+    const qnext = (((y >> 2) + 1) & (Q - 1)) * Q;
+    const ty = (y & 3) * 0.25;
+    for (let k = 0; k < Q; k++) {
+      figRow[k] = figQ[qrow + k] + (figQ[qnext + k] - figQ[qrow + k]) * ty;
+      driftRow[k] = driftQ[qrow + k] + (driftQ[qnext + k] - driftQ[qrow + k]) * ty;
+    }
+    figRow[Q] = figRow[0];
+    driftRow[Q] = driftRow[0];
     for (let x = 0; x < S; x++, i++) {
+      const qi = x >> 2;
+      const tq = (x & 3) * 0.25;
+      const dr = driftRow[qi] + (driftRow[qi + 1] - driftRow[qi]) * tq;
+      const fg = figRow[qi] + (figRow[qi + 1] - figRow[qi]) * tq;
       // sample position across the grain: slow wander + deflection around knots
-      const sx = x + (drift[i] - 0.5) * kDrift - kdx[i];
+      const sx = x + (dr - 0.5) * kDrift - kdx[i];
       const xf = Math.floor(sx);
       const fr = sx - xf;
       const xa = row + (xf & M);
@@ -400,14 +419,16 @@ function woodKernel(S, N, v, drift, kdx, fig, streak, fibre, pore, tone, prof, R
       const f0 = fibre[xa];
       const fb = f0 + (fibre[xb] - f0) * fr;
       // growth-ring coordinate (periodic over N rings so the tile wraps)
-      let r = sx * rs + (fig[i] - 0.5) * figAmp + (st - 0.5) * 0.9 + base;
+      let r = sx * rs + (fg - 0.5) * figAmp + (st - 0.5) * 0.9 + base;
       r -= N * ((r * invN) | 0);
       const late = prof[(r * RR) | 0];
-      let val = mid + (st - 0.5) * kStreak + (fb - 0.5) * kFibre - late * kRing + (tone[qrow + (x >> 2)] - 0.5) * kTone;
+      const tn = tone[qrow + qi];
+      let val = mid + (st - 0.5) * kStreak + (fb - 0.5) * kFibre - late * kRing + (tn - 0.5) * kTone;
       const p0 = pore[prow + xa];
       const pv = p0 + (pore[prow + xb] - p0) * fr;
       if (pv > 0.64) val -= (pv - 0.64) * kPore * (0.4 + late * 1.8);
       v[i] = val;
+      px[i] = lut[(((tn * HL) | 0) << 8) | (val <= 0 ? 0 : val >= 1 ? 255 : (val * 255) | 0)];
     }
   }
 }
@@ -415,74 +436,72 @@ function woodKernel(S, N, v, drift, kdx, fig, streak, fibre, pore, tone, prof, R
 /** Sideways deflection of the grain around each knot (fisheye), accumulated into `kdx`. */
 function knotDeflection(S, knots, kdx) {
   const M = S - 1;
-  const KE = 13; // extent of a knot's influence, in squared knot radii
+  const KE = 11; // extent of a knot's influence, in squared knot radii
   for (const kn of knots) {
     const ex = Math.ceil(kn.r * Math.sqrt(KE));
     const ey = Math.ceil(kn.r * 2.3 * Math.sqrt(KE));
+    const inv = 1 / kn.r;
     for (let dy = -ey; dy <= ey; dy++) {
-      const ay = dy / (kn.r * 2.3);
+      const ay = (dy * inv) / 2.3;
       const row = ((kn.y + dy) & M) * S;
       for (let dx = -ex; dx <= ex; dx++) {
-        const ax = dx / kn.r;
-        const e = ax * ax + ay * ay;
-        if (e < KE) {
-          const w = 1 - e / KE;
-          kdx[row + ((kn.x + dx) & M)] += dx * w * w * 0.9;
-        }
+        const ax = dx * inv;
+        const w = 1 - (ax * ax + ay * ay) / KE;
+        if (w > 0) kdx[row + ((kn.x + dx) & M)] += dx * w * w * 0.9;
       }
     }
   }
 }
 
-/** Darken `v` inside/around each knot (halo, bark rim, concentric rings); returns the knot-body mask. */
-function knotShade(S, knots, v, fig, fibre) {
+/** Repaint the pixels in and around each knot: resin halo, dark bark rim, ringed heartwood. */
+function knotShade(S, knots, px, v, figQ, fibre, ramp, knotRamp) {
   const M = S - 1;
-  const mask = new Float32Array(S * S);
+  const Q = S >> 2;
   for (const kn of knots) {
     const ex = Math.ceil(kn.r * 1.5);
     const ey = Math.ceil(kn.r * 1.7);
     for (let dy = -ey; dy <= ey; dy++) {
       const ay = dy / (kn.r * 2.3);
-      const row = ((kn.y + dy) & M) * S;
+      const y = (kn.y + dy) & M;
       for (let dx = -ex; dx <= ex; dx++) {
         const ax = dx / kn.r;
-        const i = row + ((kn.x + dx) & M);
-        const kr = Math.sqrt((ax * ax + ay * ay * 4.2) * 2.4) * (1 + (fig[i] - 0.5) * 0.35); // 1 = knot edge
+        const x = (kn.x + dx) & M;
+        const i = y * S + x;
+        const kr = Math.sqrt((ax * ax + ay * ay * 4.2) * 2.4) * (1 + (figQ[(y >> 2) * Q + (x >> 2)] - 0.5) * 0.35); // 1 = knot edge
         if (kr >= 1.9) continue;
-        const kb = 1 - smoothstep(0.82, 1.08, kr);
+        const kb = 1 - smoothstep(0.82, 1.08, kr); // blend towards heartwood colour
         const fb = fibre[i];
-        v[i] -=
-          (1 - smoothstep(1.0, 1.9, kr)) * 0.12 + // resin-stained halo
-          smoothstep(0.7, 0.97, kr) * (1 - smoothstep(0.97, 1.22, kr)) * 0.34 + // dark bark rim
+        const val =
+          v[i] -
+          (1 - smoothstep(1.0, 1.9, kr)) * 0.12 - // resin-stained halo
+          smoothstep(0.7, 0.97, kr) * (1 - smoothstep(0.97, 1.22, kr)) * 0.34 - // dark bark rim
           kb * (0.02 + 0.09 * Math.sin(kr * 11 + fb * 5) + (0.5 - fb) * 0.4 - (1 - kr) * 0.1); // rings inside
-        mask[i] = kb;
+        const k = (val <= 0 ? 0 : val >= 1 ? 255 : (val * 255) | 0) * 3;
+        px[i] = pack(ramp[k] + (knotRamp[k] - ramp[k]) * kb, ramp[k + 1] + (knotRamp[k + 1] - ramp[k + 1]) * kb, ramp[k + 2] + (knotRamp[k + 2] - ramp[k + 2]) * kb);
       }
     }
   }
-  return mask;
 }
 
 /**
- * Shared wood generator; grain runs along canvas Y.
- * Returns per-pixel tonal value `v` (0..1: dark latewood / pores → pale
- * earlywood), a quarter-resolution `tone` field for hue drift, and (when the
- * wood has knots) a `knot` mask (0..1 blend towards knot heartwood).
+ * Wood painter shared by all species (and the wood bump map); grain runs along
+ * canvas Y. `o` holds the species parameters — see WOODS.
  */
-function woodValue(S, rng, o) {
+function paintWood(ctx, S, rng, o) {
   const n = S * S;
   const N = o.rings;
   const Q = S >> 2;
-  // smooth low-frequency fields are built small and upsampled
-  const fig = upsample(fbm(Q, Q, rng, o.figX, o.figY, 2, o.figGain), Q, Q, S, S); // ring distortion → cathedral figure
-  const drift = upsample(fbm(Q, Q, rng, 2, 2, 2, 0.4), Q, Q, S, S); // slow sideways wander of the grain
-  const streak = upsample(fbm(Q, 16, rng, 8, 1, 3, 0.6, 2.7, 1.5), Q, 16, S, S); // broad tonal bands
+  // smooth low-frequency fields stay at quarter resolution (the kernel interpolates them)
+  const figQ = fbm(Q, Q, rng, o.figX, o.figY, 2, o.figGain); // ring distortion → cathedral figure
+  const driftQ = fbm(Q, Q, rng, 2, 2, 2, 0.4); // slow sideways wander of the grain
+  const streak = upsample(fbm(Q, 16, rng, 8, 1, 3, 0.6, 2.7, 1.5), Q, 16, S, S); // long tonal bands
   const FY = S >> 3; // fibres change slowly along the grain → low Y resolution
   const fl = new Float32Array(S * FY);
   addNoise(fl, S, FY, rng, S, 4, 0.55);
   addNoise(fl, S, FY, rng, S / 3, 11, 0.45);
   const fibre = upsample(fl, S, FY, S, S); // fine long fibres (1–3 px wide)
-  const pore = fbm(S, S >> 1, rng, S, o.poreLen || 50, 1); // 1 px wide vessel dashes / resin canals (half Y res)
-  const tone = fbm(Q, Q, rng, 2, 2, 3, 0.5);
+  const pore = fbm(S, S >> 1, rng, S, o.poreLen, 1); // 1 px wide vessel dashes / resin canals (half Y res)
+  const tone = fbm(Q, Q, rng, 2, 2, 3, 0.5); // broad tonal + warm/cool drift
 
   // growth-ring darkness profile over one full period of N rings:
   // varying ring widths (periodic jitter), varying strength, soft-then-sharp latewood edge
@@ -505,47 +524,23 @@ function woodValue(S, rng, o) {
     prof[k] = Math.pow(f, o.ringPow || 2) * (1 - smoothstep(e0, 1, f)) * ringGain[ri % N];
   }
 
-  const v = new Float32Array(n);
-  const kdx = new Float32Array(n);
-  const knots = o.knots || [];
-  if (knots.length) knotDeflection(S, knots, kdx);
-  woodKernel(S, N, v, drift, kdx, fig, streak, fibre, pore, tone, prof, RR, o.drift, o.figAmp, o.mid, o.streak, o.fibre, o.ring, o.tone, o.pore * 2.8);
-  const knot = knots.length ? knotShade(S, knots, v, fig, fibre) : null;
-  return { v, tone, knot };
-}
-
-function paintWood(ctx, S, rng, o) {
-  const { v, tone, knot } = woodValue(S, rng, o);
-  const base = rampLUT(o.ramp);
-  // 2D lookup: 32 warm↔cool hue steps × 256 tonal values
+  // colour lookup: 32 warm↔cool hue rows × 256 tonal values
+  const ramp = rampLUT(o.ramp);
   const HL = 32;
   const lut = new Uint32Array(HL * 256);
   for (let hq = 0; hq < HL; hq++) {
     const h = ((hq + 0.5) / HL - 0.5) * (o.hue || 0);
-    for (let k = 0; k < 256; k++) lut[(hq << 8) | k] = pack(base[k * 3] * (1 + h), base[k * 3 + 1], base[k * 3 + 2] * (1 - h * 1.6));
+    for (let k = 0; k < 256; k++) lut[(hq << 8) | k] = pack(ramp[k * 3] * (1 + h), ramp[k * 3 + 1], ramp[k * 3 + 2] * (1 - h * 1.6));
   }
-  const Q = S >> 2;
+
   const img = ctx.createImageData(S, S);
-  const d = new Uint32Array(img.data.buffer);
-  for (let y = 0, i = 0; y < S; y++) {
-    const qrow = (y >> 2) * Q;
-    for (let x = 0; x < S; x++, i++) {
-      const t = v[i];
-      const k = t <= 0 ? 0 : t >= 1 ? 255 : (t * 255) | 0;
-      d[i] = lut[(((tone[qrow + (x >> 2)] * HL) | 0) << 8) | k];
-    }
-  }
-  if (knot) {
-    // blend the (few) knot pixels towards darker, redder heartwood
-    const klut = rampLUT(o.knotRamp);
-    for (let i = 0; i < knot.length; i++) {
-      const kb = knot[i];
-      if (kb <= 0) continue;
-      const t = v[i];
-      const k = (t <= 0 ? 0 : t >= 1 ? 255 : (t * 255) | 0) * 3;
-      d[i] = pack(base[k] + (klut[k] - base[k]) * kb, base[k + 1] + (klut[k + 1] - base[k + 1]) * kb, base[k + 2] + (klut[k + 2] - base[k + 2]) * kb);
-    }
-  }
+  const px = new Uint32Array(img.data.buffer);
+  const v = new Float32Array(n);
+  const kdx = new Float32Array(n);
+  const knots = o.knots || [];
+  if (knots.length) knotDeflection(S, knots, kdx);
+  woodKernel(S, N, px, v, figQ, driftQ, kdx, streak, fibre, pore, tone, prof, RR, lut, HL, o.drift, o.figAmp, o.mid, o.streak, o.fibre, o.ring, o.tone, o.pore * 2.8);
+  if (knots.length) knotShade(S, knots, px, v, figQ, fibre, ramp, rampLUT(o.knotRamp));
   ctx.putImageData(img, 0, 0);
 }
 
@@ -573,7 +568,8 @@ const WOODS = {
     ring: 0.16, ringPow: 5, ringEdge: 0.93, pore: 0.22, poreLen: 46, tone: 0.06, hue: 0,
   },
 };
-const WOOD_BUMP = { rings: 26, figX: 2, figY: 1, figGain: 0.8, figAmp: 24, drift: 9, mid: 0.58, streak: 0.1, fibre: 0.42, ring: 0.16, ringPow: 5, ringEdge: 0.93, pore: 1.1, poreLen: 46, tone: 0 };
+/** Height-map variant of the oak figure: fibres and pores as relief, no colour. */
+const WOOD_BUMP = { ramp: [[0, '#000000'], [1, '#ffffff']], rings: 26, figX: 2, figY: 1, figGain: 0.8, figAmp: 24, drift: 9, mid: 0.58, streak: 0.1, fibre: 0.42, ring: 0.16, ringPow: 5, ringEdge: 0.93, pore: 1.1, poreLen: 46, tone: 0 };
 
 /** Freshly broken wood: pale torn fibre bundles snapped at different lengths. */
 function paintRawWood(ctx, S, rng) {
@@ -3209,7 +3205,7 @@ tile('book_pages', paintBookPages);
 tile('floor', paintFloor, 1024);
 
 // --- tileable bump maps (mid-grey = flat)
-tile('wood_bump', (ctx, S, rng) => blitGrey(ctx, S, S, woodValue(S, rng, WOOD_BUMP).v), 512, { data: true });
+tile('wood_bump', (ctx, S, rng) => paintWood(ctx, S, rng, WOOD_BUMP), 512, { data: true });
 tile('brushed_bump', (ctx, S, rng) => {
   const v = brushedField(S, rng);
   for (let i = 0; i < v.length; i++) v[i] = 0.5 + v[i] * 0.3;

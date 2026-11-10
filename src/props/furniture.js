@@ -270,10 +270,10 @@ export function buildChair() {
     const c = Math.cos(a), s = Math.sin(a);
     // spokes slope gently down towards the casters
     b.box('spoke', [0.3, 0.028, 0.046], [c * 0.17, 0.092, s * 0.17], 'aluminium', { rot: [0, -a, 0], mass: 0.55 });
-    b.box('caster_fork', [0.034, 0.045, 0.03], [c * 0.305, 0.064, s * 0.305], 'plastic_black', { rot: [0, -a, 0], fracturable: false, mass: 0.05 });
+    b.box('caster_fork', [0.034, 0.045, 0.03], [c * 0.305, 0.064, s * 0.305], 'plastic_black', { rot: [0, -a, 0], fracturable: false, mass: 0.05, bond: 3 });
     for (const off of [-0.014, 0.014]) {
       b.cyl('wheel', 0.027, 0.02, [c * 0.305 - s * off, 0.027, s * 0.305 + c * off], 'plastic_gloss', {
-        axis: 2, rot: [0, -a, 0], segs: 12, fracturable: false, mass: 0.05, bond: 0.5,
+        axis: 2, rot: [0, -a, 0], segs: 12, fracturable: false, mass: 0.05, bond: 3,
       });
     }
   }

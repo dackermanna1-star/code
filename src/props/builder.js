@@ -230,6 +230,7 @@ export function buildPreview(def) {
   for (const b of def.bodies) {
     for (const p of b.parts) {
       const geo = p.geometry ? p.geometry.clone() : buildPolyGeometry(p.poly, p.uvFn, p.uvOff);
+      if (!geo.groups.length) geo.addGroup(0, geo.index ? geo.index.count : geo.attributes.position.count, 0);
       const mesh = new THREE.Mesh(geo, p.mats);
       mesh.position.copy(p.lp);
       mesh.quaternion.copy(p.lq);

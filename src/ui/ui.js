@@ -197,6 +197,7 @@ export class UI {
     const body = $('settingsBody');
     const app = this.app;
     this.inputs = {};
+    this.selects = [];
     const sec = (title) => {
       const s = document.createElement('div');
       s.className = 'sec';
@@ -226,6 +227,7 @@ export class UI {
       sel.value = get();
       sel.onchange = () => set(sel.value);
       parent.appendChild(row);
+      this.selects.push(() => { sel.value = get(); });
       return row;
     };
     const check = (parent, key, label, get, set) => {
@@ -253,6 +255,7 @@ export class UI {
     range(s1, 'detail', 'Fracture detail', 0.5, 1.6, 0.05, () => sim.settings.detail, (v) => { sim.settings.detail = v; }, (v) => fmt(v * 100) + '%');
     range(s1, 'maxDebris', 'Fragment budget', 150, 4000, 50, () => sim.settings.maxDebris, (v) => { sim.settings.maxDebris = v; }, (v) => fmt(v));
     check(s1, 'debrisCollide', 'Small shards collide with each other', () => sim.settings.debrisCollide, (v) => { sim.settings.debrisCollide = v; });
+    check(s1, 'adaptive', 'Adaptive step rate under load', () => sim.settings.adaptive, (v) => { sim.settings.adaptive = v; });
 
     const s2 = sec('Graphics');
     select(s2, 'shadows', 'Shadows', [['off', 'Off'], ['low', 'Low'], ['medium', 'Medium'], ['high', 'High']], () => st.shadows, (v) => app.stage.setShadowQuality(v));
@@ -268,6 +271,7 @@ export class UI {
   }
 
   syncInputs() {
+    for (const f of this.selects) f();
     for (const k of Object.keys(this.inputs)) {
       const r = this.inputs[k];
       r.input.value = r.get();

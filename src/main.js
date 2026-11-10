@@ -99,7 +99,10 @@ class App {
     this.fx.clear();
     this.audio.stopAll();
     for (const item of defaultLayout()) this.sim.spawnProp(PROP_BY_TYPE[item.type].build(), item.pos, item.yaw);
-    this.rig.setView(new THREE.Vector3(-0.5, 0.9, -0.3), 0.06, 0.25, 10.8, !!silent);
+    // frame the two rows of props, leaving room for the spawn panel on the left
+    const aspect = this.stage.camera.aspect || 1.6;
+    const wide = aspect > 1.2;
+    this.rig.setView(new THREE.Vector3(wide ? -1.0 : 0, 0.9, -0.3), 0.05, 0.25, wide ? Math.max(10.4, 17.5 / aspect) : 11.5 / aspect + 6, !!silent);
     if (!silent) this.ui.flash('Scene reset');
   }
 

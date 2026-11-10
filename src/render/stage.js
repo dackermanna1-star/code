@@ -15,7 +15,7 @@ const ZENITH = new THREE.Color(0x6f869f);
 class MotionBlurPass extends Pass {
   constructor() {
     super();
-    this.amount = 0.3;
+    this.amount = 0.22;
     this.history = null;
     this.scratch = null;
     this.first = true;
@@ -151,7 +151,7 @@ export class Stage {
     this.flashT = 0;
 
     // --- post-processing ---------------------------------------------------
-    this.settings = { shadows: 'high', bloom: true, motionBlur: true, motionBlurAmount: 0.3, renderScale: 1 };
+    this.settings = { shadows: 'high', bloom: true, motionBlur: true, motionBlurAmount: 0.22, renderScale: 1 };
     this.buildComposer();
     this.setShadowQuality('high');
     this.resize();
@@ -163,7 +163,8 @@ export class Stage {
     const rt = new THREE.WebGLRenderTarget(Math.max(1, size.x), Math.max(1, size.y), { type: THREE.HalfFloatType, samples: 4 });
     this.composer = new EffectComposer(r, rt);
     this.renderPass = new RenderPass(this.scene, this.camera);
-    this.bloomPass = new UnrealBloomPass(new THREE.Vector2(size.x, size.y), 0.2, 0.55, 0.98);
+    // threshold sits above sun-lit white, so only sparks, flashes and fire bloom
+    this.bloomPass = new UnrealBloomPass(new THREE.Vector2(size.x, size.y), 0.18, 0.5, 2.1);
     this.blurPass = new MotionBlurPass();
     this.outputPass = new OutputPass();
     this.composer.addPass(this.renderPass);

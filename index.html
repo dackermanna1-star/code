@@ -51,7 +51,7 @@ button { cursor: pointer; }
 }
 #topbar > * { pointer-events: auto; }
 .brand { display: flex; align-items: center; gap: 10px; padding: 0 14px 0 0; overflow: hidden; }
-.brand .stripe { align-self: stretch; width: 14px; background: repeating-linear-gradient(135deg, var(--signal) 0 6px, var(--ink) 6px 12px); }
+.brand .stripe { flex: none; align-self: stretch; width: 14px; background: repeating-linear-gradient(135deg, var(--signal) 0 6px, var(--ink) 6px 12px); }
 .brand h1 { margin: 0; font: 700 19px/1 var(--display); letter-spacing: 0.06em; text-transform: uppercase; white-space: nowrap; }
 .brand small { display: block; font: 500 10px/1 var(--display); letter-spacing: 0.16em; color: var(--ink-3); text-transform: uppercase; margin-top: 3px; }
 .group { display: flex; align-items: center; gap: 2px; padding: 4px; }
@@ -149,10 +149,13 @@ input[type=range]::-moz-range-thumb { width: 11px; height: 11px; border-radius: 
 @media (prefers-reduced-motion: reduce) { #loading .bar { animation: none; } }
 
 .only-narrow { display: none; }
-@media (max-width: 1180px) {
+@media (max-width: 1280px) {
   #stats .wide { display: none; }
   .brand small { display: none; }
   #topbar .btn kbd { display: none; }
+}
+@media (max-width: 1160px) {
+  #btnStep span, #btnSettings span, #btnHelp span { display: none; }
 }
 @media (max-width: 1000px) {
   #topbar .btn span { display: none; }

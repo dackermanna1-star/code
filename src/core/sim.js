@@ -28,11 +28,14 @@ const RELEASE = { radial: 0.52, tempered: 50, wood: 0.3, chunky: 0.42 };
 /** Chunks shorter than this (m) are not fractured any further. */
 const MIN_REFRACTURE = { radial: 0.11, tempered: 0.2, wood: 0.22, chunky: 0.07 };
 
+// substep: target physics step; iters: solver iterations; detail: fracture detail;
+// maxDebris: loose fragments kept before the oldest are retired; maxAwake: number of
+// moving bodies above which new fractures get coarser (keeps chain reactions affordable)
 export const QUALITY = {
-  low: { substep: 1 / 60, iters: 4, detail: 0.7, maxDebris: 450, maxSub: 3 },
-  medium: { substep: 1 / 90, iters: 5, detail: 0.9, maxDebris: 900, maxSub: 4 },
-  high: { substep: 1 / 120, iters: 6, detail: 1.0, maxDebris: 1600, maxSub: 5 },
-  ultra: { substep: 1 / 240, iters: 8, detail: 1.25, maxDebris: 2800, maxSub: 8 },
+  low: { substep: 1 / 60, iters: 4, detail: 0.7, maxDebris: 350, maxAwake: 160, maxSub: 2 },
+  medium: { substep: 1 / 90, iters: 4, detail: 0.9, maxDebris: 700, maxAwake: 260, maxSub: 3 },
+  high: { substep: 1 / 120, iters: 5, detail: 1.0, maxDebris: 1100, maxAwake: 380, maxSub: 4 },
+  ultra: { substep: 1 / 240, iters: 8, detail: 1.25, maxDebris: 2000, maxAwake: 650, maxSub: 8 },
 };
 
 export class Sim {
@@ -54,7 +57,8 @@ export class Sim {
     this.fx = null;
     this.audio = null;
     this.preStep = null;
-    this.settings = { ...QUALITY.high, quality: 'high', strength: 1, gravity: 9.81, debrisCollide: false };
+    this.settings = { ...QUALITY.high, quality: 'high', strength: 1, gravity: 9.81, debrisCollide: false, adaptive: true };
+    this.subCost = 1; // moving average of the cost of one physics substep (ms)
     this.stats = { bodies: 0, awake: 0, chunks: 0, debris: 0, joints: 0, stepMs: 0, fractures: 0 };
     this._evs = [];
     this._contact = { p: new THREE.Vector3(), n: new THREE.Vector3(), found: false };
@@ -174,6 +178,12 @@ export class Sim {
     asm.isDebris = single && first.gen > 0 && first.mass < 1.2;
     if (asm.isDebris && !wasDebris) this.debris.push(asm);
     const small = asm.isDebris && first.mass < 0.09 && !this.settings.debrisCollide;
+    if (asm.isDebris && !wasDebris) {
+      // light fragments lose speed to the air quickly
+      const k = clamp(1 - first.mass / 0.6, 0, 1);
+      asm.body.setLinearDamping(0.03 + 0.45 * k);
+      asm.body.setAngularDamping(0.08 + 0.7 * k);
+    }
     for (const c of asm.chunks) {
       c.collider.setCollisionGroups(c.ghost && !single ? 0 : small ? GROUP_DEBRIS : GROUP_PROP);
       c.collider.setContactForceEventThreshold(clamp(Math.min(c.mass, m) * 9.81 * 3.5, 0.25, 160));
@@ -201,6 +211,7 @@ export class Sim {
     if (ext[2] < ext[thin]) thin = 2;
     const maxDim = Math.max(ext[0], ext[1], ext[2]);
     const minDim = ext[thin];
+    const bc = [(mn[0] + mx[0]) / 2, (mn[1] + mx[1]) / 2, (mn[2] + mx[2]) / 2];
     const volume = spec.volume ?? F.polyMassProps(poly).volume;
     const mass = Math.max(1e-4, spec.mass ?? volume * (spec.density ?? phys.density));
     const pattern = spec.pattern === undefined ? phys.pattern : spec.pattern;
@@ -209,7 +220,7 @@ export class Sim {
     const chunk = {
       id: nextId++, name: spec.name || '', phys, mats: spec.mats, poly,
       lp: spec.lp.clone(), lq: spec.lq.clone(), asm: null, collider: null, mesh: null,
-      bonds: [], mass, volume, ext, thin, maxDim, minDim, thick,
+      bonds: [], mass, volume, ext, thin, maxDim, minDim, thick, bc,
       size: Math.sqrt(maxDim * Math.max(ext[0] + ext[1] + ext[2] - maxDim - minDim, minDim)),
       strength: phys.fracture * Math.pow(Math.max(thick, 1e-4) / phys.refThick, 1.1) * (spec.strengthMul ?? 1),
       strengthMul: spec.strengthMul ?? 1,
@@ -224,7 +235,9 @@ export class Sim {
       ghost: !!spec.ghost, // no collisions while part of a larger assembly (thin trim, hinge barrels)
     };
     // mesh
-    const geo = spec.geometry || buildPolyGeometry(poly, chunk.uvFn, chunk.uvOff);
+    const geo = spec.geometry || buildPolyGeometry(poly, chunk.uvFn, chunk.uvOff, spec.bevel ? { bevel: spec.bevel, axis: thin } : null);
+    // hand-built geometry without material groups still has to work with a material list
+    if (!geo.groups.length) geo.addGroup(0, geo.index ? geo.index.count : geo.attributes.position.count, 0);
     const mesh = new THREE.Mesh(geo, spec.mats);
     mesh.position.copy(chunk.lp);
     mesh.quaternion.copy(chunk.lq);
@@ -240,20 +253,28 @@ export class Sim {
     return chunk;
   }
 
-  attachChunk(chunk, asm) {
+  attachChunk(chunk, asm, simple) {
     chunk.asm = asm;
     asm.chunks.add(chunk);
     asm.group.add(chunk.mesh);
-    chunk.collider = this.buildCollider(chunk, asm.body);
+    chunk.collider = this.buildCollider(chunk, asm.body, simple);
     this.chunkByHandle.set(chunk.collider.handle, chunk);
     asm.dirty = true;
   }
 
-  buildCollider(chunk, body) {
+  buildCollider(chunk, body, simple) {
     const R = this.R;
     let desc = null;
     let rot = chunk.lq;
-    if (chunk.shape === 'box') {
+    let pos = chunk.lp;
+    if (simple) {
+      // small loose shard: a slim box is far cheaper than its exact hull (fewer contact points)
+      const e = chunk.ext, t = chunk.thin;
+      const h = [e[0] * 0.39, e[1] * 0.39, e[2] * 0.39];
+      h[t] = Math.max(e[t] * 0.5, 0.0025);
+      desc = R.ColliderDesc.cuboid(Math.max(h[0], 0.0025), Math.max(h[1], 0.0025), Math.max(h[2], 0.0025));
+      pos = _c.set(chunk.bc[0], chunk.bc[1], chunk.bc[2]).applyQuaternion(chunk.lq).add(chunk.lp);
+    } else if (chunk.shape === 'box') {
       const d = chunk.dims;
       desc = R.ColliderDesc.cuboid(Math.max(d[0], 0.003), Math.max(d[1], 0.003), Math.max(d[2], 0.003));
     } else if (chunk.shape === 'cyl') {
@@ -274,7 +295,7 @@ export class Sim {
       }
     }
     desc
-      .setTranslation(chunk.lp.x, chunk.lp.y, chunk.lp.z)
+      .setTranslation(pos.x, pos.y, pos.z)
       .setRotation(rot)
       .setMass(chunk.mass)
       .setFriction(chunk.phys.friction)
@@ -334,7 +355,9 @@ export class Sim {
   }
 
   jointStrength(a, b, area) {
-    return Math.min(a.phys.joint, b.phys.joint) * Math.sqrt(area) * Math.min(a.bondMul, b.bondMul) * this.settings.strength;
+    // a part can ask for weaker (<1) or stronger (>1) joints; weakening wins
+    const mul = a.bondMul < 1 || b.bondMul < 1 ? Math.min(a.bondMul, b.bondMul) : Math.max(a.bondMul, b.bondMul);
+    return Math.min(a.phys.joint, b.phys.joint) * Math.sqrt(area) * mul * this.settings.strength;
   }
 
   /** Bond every pair of touching chunks in the list. */
@@ -438,7 +461,7 @@ export class Sim {
       if (!other || other === asm) continue;
       const aw = this.jointAnchorWorld(jl, _f);
       const dist = aw.distanceTo(pointW);
-      const ratio = Math.max(0.5, other.mass / (other.mass + asm.mass));
+      const ratio = other.mass / (other.mass + asm.mass);
       let geom;
       if (jl.kind === 'latch') {
         geom = clamp(1.1 - dist / 1.6, 0.35, 1);
@@ -593,10 +616,16 @@ export class Sim {
     if (dt <= 0) return;
     const t0 = performance.now();
     const s = this.settings;
-    const n = Math.min(s.maxSub, Math.max(1, Math.ceil(dt / s.substep - 1e-4)));
+    let n = Math.min(s.maxSub, Math.max(1, Math.ceil(dt / s.substep - 1e-4)));
+    // when the scene is too heavy for the frame budget, take fewer, larger steps
+    // (never coarser than 1/60 s per step) instead of letting the frame rate collapse
+    if (s.adaptive && n > 1) n = Math.max(Math.ceil(dt / (1 / 55)), Math.min(n, Math.floor(11 / Math.max(this.subCost, 0.01))), 1);
     const h = dt / n;
     for (let i = 0; i < n; i++) this.substep(h);
-    this.stats.stepMs = performance.now() - t0;
+    const ms = performance.now() - t0;
+    this.subCost += (ms / n - this.subCost) * 0.2;
+    this.stats.stepMs = ms;
+    this.stats.substeps = n;
   }
 
   substep(h) {
@@ -670,6 +699,17 @@ export class Sim {
       }
     }
     for (const prop of this.props) if (!prop.asms.size) this.props.delete(prop);
+    // loose fragments that have all but stopped are parked early (keeps big piles cheap)
+    for (const a of this.debris) {
+      if (a.removed || a.held) continue;
+      const b = a.body;
+      if (b.isSleeping()) { a.slow = 0; continue; }
+      const v = b.linvel(), w = b.angvel();
+      if (v.x * v.x + v.y * v.y + v.z * v.z < 0.012 && w.x * w.x + w.y * w.y + w.z * w.z < 0.5) {
+        a.slow = (a.slow || 0) + 1;
+        if (a.slow >= 3) { b.sleep(); a.slow = 0; }
+      } else a.slow = 0;
+    }
   }
 
   /** Copy body transforms to the render objects. Call once per frame. */
@@ -767,8 +807,8 @@ export class Sim {
     const physA = ca ? ca.phys : PHYS.concrete, physB = cb ? cb.phys : PHYS.concrete;
     this.impactFeedback(ca, cb, asmA, asmB, P, N, Jeff, vn);
 
-    const JA = Jeff * (0.3 + 0.7 * clamp(physB.hardness / physA.hardness, 0, 1));
-    const JB = Jeff * (0.3 + 0.7 * clamp(physA.hardness / physB.hardness, 0, 1));
+    const JA = Jeff * (0.4 + 0.6 * clamp(physB.hardness / physA.hardness, 0, 1));
+    const JB = Jeff * (0.4 + 0.6 * clamp(physA.hardness / physB.hardness, 0, 1));
     const Pw = P.clone(), Nw = N.clone(), Vr = vrel.clone();
     const resB = cb ? this.applyImpact(cb, Pw, Nw, JB) : null;
     const resA = ca && !ca.dead ? this.applyImpact(ca, Pw, _d.copy(Nw).negate().clone(), JA) : null;
@@ -866,7 +906,7 @@ export class Sim {
     const asm = chunk.asm;
     if (!asm || chunk.dead) return null;
     const res = { broke: false, thr: Infinity, released: [], fractured: false };
-    if (J <= 0) return res;
+    if (J < 0.03) return res;
     const body = asm.body;
     const prop = chunk.prop;
     // body-local impact point / direction
@@ -917,6 +957,19 @@ export class Sim {
     }
     if (hit && !hit.dead && hit.dentable && J > 14) this.dent(hit, pB, dB, J);
 
+    if (hit && !hit.dead && hit.asm === asm && asm.chunks.size > 1) {
+      const br = this.stressBridges(hit, J, pB, dB);
+      if (br.broken) {
+        res.broke = true;
+        res.thr = Math.min(res.thr, Math.max(br.absorbed, 0.01));
+        if (!res.fractured) {
+          if (this.audio) this.audio.fracture(br.phys.sound, P, clamp(0.4 + br.absorbed / 160, 0.3, 1.1), clamp(hit.size, 0.05, 1.5));
+          if (this.fx) this.fx.snap(br.phys, P, D, br.absorbed);
+        }
+      }
+      if (br.bent && this.audio) this.audio.bend(P, clamp(br.bent * 2.5, 0.3, 1.2), clamp(hit.size, 0.1, 1.5));
+      if (this.debug && (br.broken || br.bent)) this.debug.push({ ev: 'bridge', part: hit.name, broken: br.broken, bent: +br.bent.toFixed(2), absorbed: +br.absorbed.toFixed(1) });
+    }
     if (hit && !hit.dead && (seeds || hit.bonds.length)) {
       const sh = this.propagateShock(hit, J, pB, dB, false, seeds);
       // cracks run on into neighbouring pieces that took more than they can bear
@@ -925,7 +978,8 @@ export class Sim {
         const t2 = body2.translation();
         const q2 = new THREE.Quaternion().copy(body2.rotation());
         let n = 0;
-        for (let i = 0; i < sh.crack.length && n < 14; i += 2) {
+        const maxCracks = this.stats.awake > this.settings.maxAwake ? 4 : 14;
+        for (let i = 0; i < sh.crack.length && n < maxCracks; i += 2) {
           const c = sh.crack[i], j = sh.crack[i + 1];
           if (c.dead || c.asm !== asm || !c.fracturable) continue;
           const cthr = c.strength * this.settings.strength * (1 - c.damage);
@@ -983,7 +1037,11 @@ export class Sim {
   fractureChunk(chunk, pB, dB, intensity, Pw, Dw, secondary) {
     const asm = chunk.asm;
     const phys = chunk.phys;
-    const detail = this.settings.detail;
+    // how busy the simulation already is: under load, break coarser and send more to particles
+    const load = Math.max(this.stats.awake / this.settings.maxAwake, this.debris.length / this.settings.maxDebris);
+    if (load > 1.6 && chunk.gen > 0) return null;
+    const detail = this.settings.detail * (load > 1.2 ? 0.5 : load > 0.7 ? 0.75 : 1);
+    const minFrag = phys.minFrag * (load > 1.2 ? 6 : load > 0.7 ? 2.5 : 1);
     const rng = this.rng;
     const inv = _q.copy(chunk.lq).invert();
     const lp = _a.copy(pB).sub(chunk.lp).applyQuaternion(inv);
@@ -995,7 +1053,10 @@ export class Sim {
     let polys = null;
     const thin = chunk.thin;
     const a = (thin + 1) % 3, b = (thin + 2) % 3;
-    if (pattern === 'radial') {
+    if (pattern === 'radial' && chunk.gen > 0) {
+      // an already-broken shard just snaps into a few smaller ones
+      polys = F.fractureChunky(chunk.poly, impact, Math.round(clamp(1.6 + intensity * 0.8, 2, 5)), rng, { focus: 1 });
+    } else if (pattern === 'radial') {
       const reach = Math.hypot(mx[a] - mn[a], mx[b] - mn[b]) * 1.05;
       const big = chunk.maxDim > 0.35;
       const cells = F.radialCells(impact[a], impact[b], reach, rng, {
@@ -1027,7 +1088,7 @@ export class Sim {
       const mp = F.polyMassProps(poly);
       if (!(mp.volume > 0)) continue;
       const c = mp.centroid;
-      if (mp.volume < phys.minFrag) { dustPts.push(c); continue; }
+      if (mp.volume < minFrag) { dustPts.push(c); continue; }
       const centered = F.translatePoly(poly, -c[0], -c[1], -c[2]);
       const flp = _b.set(c[0], c[1], c[2]).applyQuaternion(chunk.lq).add(chunk.lp);
       const frag = this.addChunk(asm, {
@@ -1036,6 +1097,7 @@ export class Sim {
         volume: mp.volume, density: chunk.mass / chunk.volume, strengthMul: chunk.strengthMul * 1.15,
         thick: Math.min(chunk.thick, 1), pattern, grain: chunk.grain, tags: chunk.tags, bondMul: chunk.bondMul,
         gen: chunk.gen + 1, castShadow: chunk.castShadow, sound: chunk.sound, releaseMul: chunk.releaseMul,
+        bevel: pattern === 'radial' || pattern === 'tempered' ? 0.0014 : 0,
       });
       // a fragment cannot be thicker (for strength purposes) than its parent wall
       frags.push(frag);
@@ -1114,6 +1176,82 @@ export class Sim {
     }
     if (prop?.behavior?.onFracture) prop.behavior.onFracture(chunk, frags, tags, Pw);
     return frags;
+  }
+
+  /**
+   * Load the "bridge" joints of an assembly: the ones that are the only link
+   * between the struck part and whatever hangs off it (a chair back on its bar,
+   * a television on its feet, a caster on its fork). A bridge carries the blow
+   * undivided and with leverage, so it bends (ductile metal) or snaps.
+   */
+  stressBridges(hit, J, pB, dB, noBend) {
+    const asm = hit.asm;
+    const out = { broken: 0, absorbed: 0, bent: 0, phys: null };
+    const n = asm.chunks.size;
+    if (n < 2 || n > 170) return out;
+    // one depth-first pass finds every bridge and the mass beyond it
+    const disc = new Map(), low = new Map(), sub = new Map();
+    const stack = [{ c: hit, pb: null, i: 0 }];
+    let time = 0;
+    disc.set(hit, 0); low.set(hit, 0); sub.set(hit, hit.mass);
+    const bridges = [];
+    while (stack.length) {
+      const f = stack[stack.length - 1];
+      const c = f.c;
+      if (f.i < c.bonds.length) {
+        const b = c.bonds[f.i++];
+        if (b === f.pb || b.broken) continue;
+        const o = b.a === c ? b.b : b.a;
+        if (o.asm !== asm) continue;
+        if (disc.has(o)) {
+          if (disc.get(o) < low.get(c)) low.set(c, disc.get(o));
+        } else {
+          time++;
+          disc.set(o, time); low.set(o, time); sub.set(o, o.mass);
+          stack.push({ c: o, pb: b, i: 0 });
+        }
+      } else {
+        stack.pop();
+        if (stack.length) {
+          const p = stack[stack.length - 1].c;
+          if (low.get(c) < low.get(p)) low.set(p, low.get(c));
+          sub.set(p, sub.get(p) + sub.get(c));
+          if (low.get(c) > disc.get(p)) bridges.push(f.pb, p, c);
+        }
+      }
+    }
+    if (!bridges.length) return out;
+    const M = asm.mass || 1;
+    const rng = this.rng;
+    const arm = _e;
+    for (let i = 0; i < bridges.length; i += 3) {
+      const b = bridges[i], near = bridges[i + 1], far = bridges[i + 2];
+      if (b.broken) continue;
+      if (Math.min(near.phys.brittle || 0, far.phys.brittle || 0) >= 0.5) continue;
+      const frac = Math.min(1, sub.get(far) / M);
+      arm.copy(pB).sub(b.anchor);
+      const perp = _f.copy(arm).cross(dB).length();
+      const lin = (J * frac) / b.strength;
+      const mom = (J * perp * Math.min(1, 2 * frac)) / (b.strength * (b.size * 6 + 0.02));
+      const ratio = Math.max(lin, mom) * (0.85 + 0.3 * rng());
+      if (b.ductile && !noBend) {
+        if (ratio < 0.42) continue;
+        const bent = this.bendBond(b, near, pB, dB, ratio);
+        if (bent > 0) out.bent = Math.max(out.bent, bent);
+        if (!b.broken && (ratio > 2.8 || (bent === 0 && ratio > 1))) this.breakBond(b);
+        if (b.broken) {
+          out.broken++;
+          out.absorbed += b.strength;
+          out.phys = out.phys || near.phys;
+        }
+      } else if (ratio > 1) {
+        this.breakBond(b);
+        out.broken++;
+        out.absorbed += b.strength;
+        out.phys = out.phys || (near.phys.joint <= far.phys.joint ? near.phys : far.phys);
+      }
+    }
+    return out;
   }
 
   /**
@@ -1295,11 +1433,12 @@ export class Sim {
     for (const list of comps) {
       if (list === main) continue;
       const na = this.createAssembly({ pos, quat: rot, prop: asm.prop, sleeping: false });
+      const simple = list.length === 1 && list[0].gen > 0 && list[0].mass < 0.09 && !this.settings.debrisCollide;
       for (const c of list) {
         this.chunkByHandle.delete(c.collider.handle);
         this.world.removeCollider(c.collider, false);
         asm.chunks.delete(c);
-        this.attachChunk(c, na);
+        this.attachChunk(c, na, simple);
       }
       this.finishAssembly(na);
       const com = _a.copy(na.comL).applyQuaternion(rot).add(pos);
@@ -1380,7 +1519,12 @@ export class Sim {
     const qb = _q.copy(body.rotation()).invert();
     const pB = new THREE.Vector3(P.x - t.x, P.y - t.y, P.z - t.z).applyQuaternion(qb);
     const dB = new THREE.Vector3().copy(D).applyQuaternion(qb);
+    const br = this.stressBridges(chunk, J, pB, dB);
     const sh = this.propagateShock(chunk, J, pB, dB, true);
+    sh.broken += br.broken;
+    sh.absorbed += br.absorbed;
+    sh.bent = Math.max(sh.bent, br.bent);
+    sh.phys = sh.phys || br.phys;
     if (sh.bent && this.audio) this.audio.bend(P, clamp(sh.bent * 2.5, 0.3, 1.1), clamp(chunk.size, 0.1, 1.5));
     if (!sh.broken) return null;
     const ph = sh.phys || chunk.phys;
@@ -1405,7 +1549,7 @@ export class Sim {
         const e = c.ext;
         const area = clamp((e[0] * e[1] + e[1] * e[2] + e[0] * e[2]) / 3, 0.0004, 1.2);
         const fall = Math.pow(1 - d / radius, 1.6) / (0.35 + d * d);
-        const j = power * area * fall;
+        const j = power * 0.55 * area * fall;
         if (j < 0.01) continue;
         const dir = cw.clone().sub(center);
         if (dir.lengthSq() < 1e-6) dir.set(0, 1, 0);
@@ -1431,7 +1575,7 @@ export class Sim {
       const j = hgt.j;
       const apply = (a, share) => {
         if (!a || a.removed) return;
-        const dv = Math.min((j * share) / Math.max(a.mass, 1e-3), 38);
+        const dv = Math.min((j * share) / Math.max(a.mass, 1e-3), 14);
         const imp = dv * a.mass;
         const at = this.asmComWorld(a, _a);
         at.lerp(hgt.p, a === before ? 0.85 : 0.2);

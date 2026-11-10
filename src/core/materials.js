@@ -22,12 +22,12 @@ import { getTexture } from '../render/textures.js';
 export const PHYS = {
   glass: {
     name: 'glass', density: 2500, friction: 0.42, restitution: 0.08, hardness: 1.0,
-    fracture: 2.4, refThick: 0.006, joint: 70, fragJoint: 5.5, shock: 0.82, fatigue: 0.25,
+    fracture: 1.1, refThick: 0.006, joint: 70, fragJoint: 5.5, shock: 0.82, fatigue: 0.25,
     pattern: 'radial', minFrag: 2.2e-7, sound: 'glass', chips: 'glass', dust: 0xdfeaf2, brittle: 1, crackLen: 0.14,
   },
   tempered: {
     name: 'tempered', density: 2500, friction: 0.42, restitution: 0.08, hardness: 1.0,
-    fracture: 9, refThick: 0.004, joint: 90, fragJoint: 1.2, shock: 0.98, fatigue: 0.1,
+    fracture: 5, refThick: 0.004, joint: 90, fragJoint: 1.2, shock: 0.98, fatigue: 0.1,
     pattern: 'tempered', minFrag: 1.2e-7, sound: 'glass', chips: 'glass', dust: 0xdfeaf2, brittle: 1, crackLen: 2,
   },
   wood: {
@@ -47,7 +47,7 @@ export const PHYS = {
   },
   ceramic: {
     name: 'ceramic', density: 2300, friction: 0.5, restitution: 0.1, hardness: 0.95,
-    fracture: 2.3, refThick: 0.006, joint: 34, fragJoint: 8, shock: 0.88, fatigue: 0.3,
+    fracture: 1.4, refThick: 0.006, joint: 30, fragJoint: 8, shock: 0.88, fatigue: 0.3,
     pattern: 'chunky', minFrag: 3e-7, sound: 'ceramic', chips: 'ceramic', dust: 0xeee6d8, brittle: 1, crackLen: 0.075,
   },
   electronics: {

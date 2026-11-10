@@ -81,7 +81,7 @@ function addMonitor(b, pos, yaw) {
     b.box('mon_board', [0.2, 0.12, 0.004], [0, cy, -0.027], 'pcb_green', { tags: ['elec'], uv: fitUV(0, 1, -0.1, -0.06, 0.2, 0.12), mass: 0.2, thick: 0.0016 });
     b.box('mon_backlight', [SW - 0.006, SH - 0.006, 0.004], [0, cy, -0.023], 'plastic_white', { mats: [scr.backlight, scr.backlight, scr.backlight], thick: 0.003, mass: 0.35, strength: 2 });
     b.box('mon_lcd', [SW, SH, 0.004], [0, cy, -0.019], 'glass', {
-      mats: [scr.live, scr.edge, scr.edge], uv: fitUV(0, 1, -SW / 2, -SH / 2, SW, SH), tags: ['screen'], strength: 2.6, mass: 0.8, castShadow: true, release: 0.7,
+      mats: [scr.live, scr.edge, scr.edge], uv: fitUV(0, 1, -SW / 2, -SH / 2, SW, SH), tags: ['screen'], strength: 2.0, mass: 0.8, castShadow: true, release: 0.7,
     });
     b.box('mon_chin', [SW + 0.012, 0.018, 0.012], [0, cy - SH / 2 - 0.004, -0.019], 'plastic_gloss', { thick: 0.003, mass: 0.05, fracturable: false });
   });
@@ -181,7 +181,7 @@ export function buildTV() {
   b.box('tv_backlight', [W - 0.05, H - 0.05, 0.005], [0, cy, -0.0045], 'plastic_white', { mats: [scr.backlight, scr.backlight, scr.backlight], thick: 0.003, mass: 3, strength: 3 });
   b.box('tv_lcd', [W - 0.036, H - 0.036, 0.005], [0, cy, 0.0006], 'glass', {
     mats: [scr.live, scr.edge, scr.edge], uv: fitUV(0, 1, -(W - 0.036) / 2, -(H - 0.036) / 2, W - 0.036, H - 0.036),
-    tags: ['screen'], strength: 2.1, mass: 9, castShadow: true, release: 0.62,
+    tags: ['screen'], strength: 1.5, mass: 9, castShadow: true, release: 0.62,
   });
   // bezel
   const bz = 0.018;
@@ -244,7 +244,7 @@ export function buildWasher() {
   const T = 0.012;
   const sheet = { dentable: true, hollow: true };
   // feet + base
-  for (const sx of [-1, 1]) for (const sz of [-1, 1]) b.cyl('foot', 0.022, 0.044, [sx * (W / 2 - 0.05), 0.022, sz * (D / 2 - 0.05)], 'rubber', { segs: 10, hull: true, mass: 0.05 });
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) b.cyl('foot', 0.022, 0.044, [sx * (W / 2 - 0.05), 0.022, sz * (D / 2 - 0.05)], 'rubber', { segs: 10, hull: true, mass: 0.05, bond: 4 });
   b.box('base', [W, T, D], [0, 0.05, 0], 'darksteel', { mass: 2.6, hollow: true });
   const sideH = H - 0.056 - 0.02;
   const sy = 0.056 + sideH / 2;
@@ -323,7 +323,9 @@ export function buildWasher() {
   );
   ringGeo.rotateX(Math.PI / 2);
   applyUV(ringGeo, boxUV(0.25, 1));
-  const ring = b.cyl('door_ring', 0.2, 0.04, [0, doorY, dz], 'plastic_white', { axis: 2, segs: 18, geometry: ringGeo, mats: [silver().mats[0]], fracturable: false, mass: 1.3 });
+  const ringMat = silver().mats[0].clone();
+  ringMat.side = THREE.DoubleSide;
+  const ring = b.cyl('door_ring', 0.2, 0.04, [0, doorY, dz], 'plastic_white', { axis: 2, segs: 18, geometry: ringGeo, mats: [ringMat], fracturable: false, mass: 1.3 });
   // porthole glass: bowl shape visually, breaks as a radial-cracked disc
   const bowl = new THREE.SphereGeometry(0.2, 28, 10, 0, Math.PI * 2, 0, 0.72);
   bowl.rotateX(-Math.PI / 2); // dome towards -z (into the drum)

@@ -8,7 +8,9 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview --host",
-    "test": "node tests/smoke.mjs"
+    "test": "node --test tests/fracture.test.mjs",
+    "test:e2e": "node tests/smoke.mjs",
+    "build:single": "vite build --mode single"
   },
   "dependencies": {
     "@dimforge/rapier3d-compat": "0.21.0",

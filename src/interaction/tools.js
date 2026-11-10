@@ -27,7 +27,7 @@ export class Tools {
     this.tool = 'grab';
     this.settings = {
       launchSpeed: 30, projectile: 'bowling', grabStrength: 2500,
-      hammerImpulse: 220, bombPower: 900, bombRadius: 5,
+      hammerImpulse: 220, bombPower: 600, bombRadius: 4.5,
     };
     this.ndc = new THREE.Vector2(0, 0);
     this.ray = { origin: new THREE.Vector3(), dir: new THREE.Vector3(0, 0, -1) };

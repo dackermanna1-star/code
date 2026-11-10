@@ -13,26 +13,24 @@ const _uv = [0, 0];
  *               are in the ORIGINAL part space (local + off) so fragments keep the
  *               parent's texture placement.
  * @param off    chunk-local origin expressed in part space
+ * @param opts   { bevel, axis }: rim width (m) on the faces normal to `axis`
  * Material groups are created per face tag (group.materialIndex === tag).
  */
-export function buildPolyGeometry(poly, uvFn, off) {
-  const faces = poly.faces;
-  let tris = 0;
-  for (const f of faces) tris += Math.max(0, f.pts.length - 2);
-  const pos = new Float32Array(tris * 9);
-  const nor = new Float32Array(tris * 9);
-  const uv = new Float32Array(tris * 6);
+export function buildPolyGeometry(poly, uvFn, off, opts) {
   const ox = off ? off[0] : 0, oy = off ? off[1] : 0, oz = off ? off[2] : 0;
+  const bevel = opts && opts.bevel ? opts.bevel : 0;
+  const bevelAxis = opts ? opts.axis : 0;
 
-  // Per-face unit normals + optional smoothing accumulation.
-  const normals = new Array(faces.length);
+  // Expand faces into primitives. With `bevel`, the two broad faces of a pane
+  // get a narrow rim in the fracture material, so cracks between neighbouring
+  // shards show up as fine pale lines.
+  const prims = [];
   let smooth = null;
-  for (let i = 0; i < faces.length; i++) {
-    const f = faces[i];
+  for (const f of poly.faces) {
     faceNormal(f.pts, _n);
     const l = Math.hypot(_n[0], _n[1], _n[2]) || 1;
     const n = [_n[0] / l, _n[1] / l, _n[2] / l];
-    normals[i] = n;
+    const tag = f.tag || 0;
     if (f.smooth) {
       if (!smooth) smooth = new Map();
       for (const p of f.pts) {
@@ -42,13 +40,36 @@ export function buildPolyGeometry(poly, uvFn, off) {
         acc[0] += n[0] * l; acc[1] += n[1] * l; acc[2] += n[2] * l;
       }
     }
+    if (bevel > 0 && tag === 0 && Math.abs(n[bevelAxis]) > 0.9 && f.pts.length >= 3) {
+      const pts = f.pts, m = pts.length;
+      let cx = 0, cy = 0, cz = 0;
+      for (const p of pts) { cx += p[0]; cy += p[1]; cz += p[2]; }
+      cx /= m; cy /= m; cz /= m;
+      const inner = pts.map((p) => {
+        const dx = p[0] - cx, dy = p[1] - cy, dz = p[2] - cz;
+        const r = Math.hypot(dx, dy, dz) || 1;
+        const k = Math.max(0.55, 1 - (bevel * 1.5) / r);
+        return [cx + dx * k, cy + dy * k, cz + dz * k];
+      });
+      prims.push({ pts: inner, tag: 0, n, smooth: 0 });
+      for (let i = 0; i < m; i++) {
+        const j = (i + 1) % m;
+        prims.push({ pts: [pts[i], pts[j], inner[j], inner[i]], tag: 1, n, smooth: 0 });
+      }
+    } else prims.push({ pts: f.pts, tag, n, smooth: f.smooth || 0 });
   }
+  let tris = 0;
+  for (const f of prims) tris += Math.max(0, f.pts.length - 2);
+  const pos = new Float32Array(tris * 9);
+  const nor = new Float32Array(tris * 9);
+  const uv = new Float32Array(tris * 6);
 
-  const order = faces.map((_, i) => i).sort((a, b) => (faces[a].tag || 0) - (faces[b].tag || 0));
+  prims.sort((a, b) => a.tag - b.tag);
   const geo = new THREE.BufferGeometry();
   let vi = 0, ui = 0;
   let curTag = -1, groupStart = 0;
-  const writeVert = (p, f, n, cx, cy, cz) => {
+  const writeVert = (p, f, cx, cy, cz) => {
+    const n = f.n;
     pos[vi] = p[0]; pos[vi + 1] = p[1]; pos[vi + 2] = p[2];
     let nx = n[0], ny = n[1], nz = n[2];
     if (f.smooth) {
@@ -58,26 +79,25 @@ export function buildPolyGeometry(poly, uvFn, off) {
       nx = acc[0] / l; ny = acc[1] / l; nz = acc[2] / l;
     }
     nor[vi] = nx; nor[vi + 1] = ny; nor[vi + 2] = nz;
-    uvFn(p[0] + ox, p[1] + oy, p[2] + oz, n[0], n[1], n[2], f.tag || 0, _uv, cx, cy, cz);
+    uvFn(p[0] + ox, p[1] + oy, p[2] + oz, n[0], n[1], n[2], f.tag, _uv, cx, cy, cz);
     uv[ui] = _uv[0]; uv[ui + 1] = _uv[1];
     vi += 3; ui += 2;
   };
-  for (const fi of order) {
-    const f = faces[fi];
-    const tag = f.tag || 0;
+  for (const f of prims) {
+    const tag = f.tag;
     if (tag !== curTag) {
       if (curTag >= 0 && vi / 3 > groupStart) geo.addGroup(groupStart, vi / 3 - groupStart, curTag);
       curTag = tag;
       groupStart = vi / 3;
     }
-    const pts = f.pts, n = normals[fi];
+    const pts = f.pts;
     let cx = 0, cy = 0, cz = 0;
     for (const p of pts) { cx += p[0]; cy += p[1]; cz += p[2]; }
     cx = cx / pts.length + ox; cy = cy / pts.length + oy; cz = cz / pts.length + oz;
     for (let i = 1; i < pts.length - 1; i++) {
-      writeVert(pts[0], f, n, cx, cy, cz);
-      writeVert(pts[i], f, n, cx, cy, cz);
-      writeVert(pts[i + 1], f, n, cx, cy, cz);
+      writeVert(pts[0], f, cx, cy, cz);
+      writeVert(pts[i], f, cx, cy, cz);
+      writeVert(pts[i + 1], f, cx, cy, cz);
     }
   }
   if (curTag >= 0 && vi / 3 > groupStart) geo.addGroup(groupStart, vi / 3 - groupStart, curTag);
