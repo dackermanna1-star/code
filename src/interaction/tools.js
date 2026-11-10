@@ -327,26 +327,32 @@ export class Tools {
     const v = body.velocityAtPoint(anchor);
     const F = _b.copy(target).sub(anchor).multiplyScalar(m * w * w);
     F.x -= v.x * 2 * m * w; F.y -= v.y * 2 * m * w; F.z -= v.z * 2 * m * w;
-    F.y += m * this.sim.settings.gravity;
+    if (held.tick % 12 === 0) held.jointed = this.sim.hasJoints(asm);
+    // carry the weight too — unless hinges are already doing that
+    if (!held.jointed) F.y += m * this.sim.settings.gravity;
     const fl = F.length();
     const maxF = s.grabStrength;
     if (fl > maxF) F.multiplyScalar(maxF / fl);
     held.force = Math.min(fl, maxF);
     body.applyImpulseAtPoint({ x: F.x * h, y: F.y * h, z: F.z * h }, anchor, true);
-    // hold orientation (soft angular spring towards the grab-time attitude)
-    const qe = _q2.copy(held.targetQuat).multiply(rot.invert());
-    if (qe.w < 0) { qe.x = -qe.x; qe.y = -qe.y; qe.z = -qe.z; qe.w = -qe.w; }
-    const ang = 2 * Math.acos(clamp(qe.w, -1, 1));
-    const sl = Math.sqrt(Math.max(1 - qe.w * qe.w, 1e-9));
-    const I = m * Math.max(asm.radius * asm.radius, 0.0004) * 0.45;
-    const wa = 10;
-    const av = body.angvel();
-    const T = _c.set(qe.x / sl, qe.y / sl, qe.z / sl).multiplyScalar(ang * I * wa * wa);
-    T.x -= av.x * 2 * I * wa; T.y -= av.y * 2 * I * wa; T.z -= av.z * 2 * I * wa;
-    const maxT = maxF * Math.max(asm.radius, 0.05) * 0.6;
-    const tl = T.length();
-    if (tl > maxT) T.multiplyScalar(maxT / tl);
-    body.applyTorqueImpulse({ x: T.x * h, y: T.y * h, z: T.z * h }, true);
+    // hold orientation (soft angular spring towards the grab-time attitude) —
+    // except for anything hanging on hinges, which must stay free to swing
+    if (held.jointed) held.targetQuat.copy(rot);
+    else {
+      const qe = _q2.copy(held.targetQuat).multiply(rot.invert());
+      if (qe.w < 0) { qe.x = -qe.x; qe.y = -qe.y; qe.z = -qe.z; qe.w = -qe.w; }
+      const ang = 2 * Math.acos(clamp(qe.w, -1, 1));
+      const sl = Math.sqrt(Math.max(1 - qe.w * qe.w, 1e-9));
+      const I = m * Math.max(asm.radius * asm.radius, 0.0004) * 0.45;
+      const wa = 10;
+      const av = body.angvel();
+      const T = _c.set(qe.x / sl, qe.y / sl, qe.z / sl).multiplyScalar(ang * I * wa * wa);
+      T.x -= av.x * 2 * I * wa; T.y -= av.y * 2 * I * wa; T.z -= av.z * 2 * I * wa;
+      const maxT = maxF * Math.max(asm.radius, 0.05) * 0.6;
+      const tl = T.length();
+      if (tl > maxT) T.multiplyScalar(maxT / tl);
+      body.applyTorqueImpulse({ x: T.x * h, y: T.y * h, z: T.z * h }, true);
+    }
     // a hard, resisted pull loads hinges and joints
     held.tick++;
     if (held.tick % 6 === 0 && held.force > 250 && held.chunk && !held.chunk.dead) {

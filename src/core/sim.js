@@ -439,12 +439,18 @@ export class Sim {
     }
   }
 
+  /** Is this assembly hung on a hinge or latch right now? */
+  hasJoints(asm) {
+    for (const jl of this.joints) if (!jl.broken && jl.joint && (jl.chunkA.asm === asm || jl.chunkB.asm === asm)) return true;
+    return false;
+  }
+
   jointAnchorWorld(jl, out) {
     return this.chunkPointWorld(jl.chunkA, jl.anchorA, out);
   }
 
   /** Load the joints of an assembly with an impulse applied at a world point. */
-  stressJoints(asm, pointW, J, dirW, noFatigue) {
+  stressJoints(asm, pointW, J, dirW, noFatigue, latchBoost = 1) {
     if (!this.joints.size) return 0;
     let list = null;
     for (const jl of this.joints) {
@@ -464,7 +470,7 @@ export class Sim {
       const ratio = other.mass / (other.mass + asm.mass);
       let geom;
       if (jl.kind === 'latch') {
-        geom = clamp(1.1 - dist / 1.6, 0.35, 1);
+        geom = clamp(1.1 - dist / 1.6, 0.35, 1) * latchBoost;
       } else if (jl.span > 0 && jl.axisA && !latched) {
         // free-swinging door: reaction at the hinge line vanishes at the centre of percussion
         const ax = _e.copy(jl.axisA).applyQuaternion(jl.chunkA.lq).applyQuaternion(_q.copy(jl.chunkA.asm.body.rotation()));
@@ -1512,7 +1518,8 @@ export class Sim {
   pull(chunk, P, D, J) {
     const asm = chunk.asm;
     if (!asm || chunk.dead) return null;
-    this.stressJoints(asm, P, J, D, true);
+    // a steady pull works a latch open far more easily than a blow does
+    this.stressJoints(asm, P, J, D, true, 3);
     if (asm.chunks.size < 2 || !chunk.bonds.length) return null;
     const body = asm.body;
     const t = body.translation();

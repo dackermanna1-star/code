@@ -52,14 +52,26 @@ class App {
     }
     this.manual = q.get('manual') === '1';
     if (q.get('empty') !== '1') this.resetScene(true);
+    // prop thumbnails are drawn with the main renderer, so do them before the first visible frame
+    if (!this.manual) {
+      for (const p of PROPS) {
+        try {
+          const obj = buildPreview(this.previewDef(p.type));
+          this.ui.setThumb(p.type, this.stage.thumbnail(obj));
+          obj.traverse((o) => o.geometry && o.geometry.dispose());
+        } catch (e) {
+          console.warn('thumbnail failed', p.type, e);
+        }
+        await new Promise((r) => setTimeout(r, 0));
+      }
+    }
     this.rig.update(0.016);
     this.stage.updateShadow(this.rig.sTarget);
     this.stage.render(0.016);
     document.getElementById('loading').classList.add('done');
     if (this.manual) return;
+    this.last = performance.now();
     requestAnimationFrame((t) => this.frame(t));
-    // thumbnails are rendered one per frame so start-up stays responsive
-    this.thumbQueue = PROPS.map((p) => p.type);
   }
 
   /** Cached definition used for placement ghosts and thumbnails. */
@@ -212,17 +224,6 @@ class App {
     this.stage.updateShadow(this.rig.sTarget);
     this.stage.render(dt);
 
-    if (this.thumbQueue && this.thumbQueue.length) {
-      const type = this.thumbQueue.shift();
-      try {
-        const obj = buildPreview(this.previewDef(type));
-        this.ui.setThumb(type, this.stage.thumbnail(obj));
-        obj.traverse((o) => o.geometry && o.geometry.dispose());
-      } catch (e) {
-        console.warn('thumbnail failed', type, e);
-      }
-    }
-
     // read-outs
     this.frames++;
     this.fpsT += dt;
@@ -241,5 +242,16 @@ window.__lab = app;
 app.init().catch((e) => {
   console.error(e);
   const t = document.getElementById('loadingText');
-  if (t) t.textContent = 'Failed to start: ' + (e && e.message ? e.message : e);
+  const msg = e && e.message ? e.message : String(e);
+  const hint = /wasm|webassembly|compile|instantiate/i.test(msg)
+    ? 'This viewer blocked WebAssembly, which the physics engine needs. Open the page in a regular browser tab or run the project locally.'
+    : /webgl|context/i.test(msg)
+      ? 'WebGL 2 is not available in this browser.'
+      : msg;
+  if (t) {
+    t.textContent = 'Could not start. ' + hint;
+    t.style.cssText = 'max-width:32em;text-align:center;line-height:1.4;letter-spacing:0.06em;padding:0 16px';
+  }
+  const bar = document.querySelector('#loading .bar');
+  if (bar) bar.style.animation = 'none';
 });

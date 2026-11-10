@@ -76,15 +76,15 @@ button { cursor: pointer; }
 #spawn { position: fixed; left: max(10px, env(safe-area-inset-left, 0px)); top: calc(66px + env(safe-area-inset-top, 0px)); width: 236px; max-height: calc(100% - 190px); display: flex; flex-direction: column; }
 .panel-head { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px 8px; border-bottom: 1px solid var(--line-2); }
 .panel-head .btn { height: 24px; padding: 0 6px; }
-#propGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 8px; overflow-y: auto; overscroll-behavior: contain; }
+#propGrid { display: grid; grid-template-columns: 1fr 1fr; grid-auto-rows: max-content; gap: 6px; padding: 8px; overflow-y: auto; overscroll-behavior: contain; min-height: 0; }
 .card { position: relative; display: flex; flex-direction: column; padding: 0; border: 1px solid var(--line); border-radius: 5px; background: #e9ebec; overflow: hidden; text-align: left; }
 .card:hover { border-color: var(--ink); }
 .card.on { border-color: var(--ink); box-shadow: inset 0 0 0 2px var(--signal); }
-.card .thumb { display: block; width: 100%; aspect-ratio: 4 / 3; background: linear-gradient(#dfe3e6, #c9ced3); }
+.card .thumb { display: block; flex: none; width: 100%; aspect-ratio: 4 / 3; background: linear-gradient(#dfe3e6, #c9ced3); }
 .card img { display: block; width: 100%; height: 100%; object-fit: contain; }
-.card span { display: block; padding: 5px 7px 6px; font: 600 12.5px/1.1 var(--display); letter-spacing: 0.04em; text-transform: uppercase; background: var(--panel-solid); border-top: 1px solid var(--line); min-height: 2.6em; }
+.card span { display: block; flex: none; padding: 5px 7px 6px; font: 600 12.5px/1.1 var(--display); letter-spacing: 0.04em; text-transform: uppercase; background: var(--panel-solid); border-top: 1px solid var(--line); min-height: 2.6em; }
 .card i { position: absolute; top: 4px; left: 5px; font: 600 10px/1 var(--display); font-style: normal; color: var(--ink-3); letter-spacing: 0.08em; }
-.spawn-note { padding: 7px 12px 9px; border-top: 1px solid var(--line-2); font-size: 12px; color: var(--ink-2); }
+.spawn-note { flex: none; padding: 7px 12px 9px; border-top: 1px solid var(--line-2); font-size: 12px; color: var(--ink-2); }
 
 /* ---- settings panel --------------------------------------------------- */
 #settings { position: fixed; right: max(10px, env(safe-area-inset-right, 0px)); top: calc(66px + env(safe-area-inset-top, 0px)); width: 268px; max-height: calc(100% - 190px); display: flex; flex-direction: column; }
@@ -164,7 +164,7 @@ input[type=range]::-moz-range-thumb { width: 11px; height: 11px; border-radius: 
 @media (max-width: 820px) {
   .only-narrow { display: inline-flex; }
   .hide-narrow { display: none !important; }
-  #spawn, #settings { top: auto; bottom: calc(150px + env(safe-area-inset-bottom, 0px)); left: 10px; right: 10px; width: auto; max-height: 46%; }
+  #spawn, #settings { top: auto; bottom: calc(200px + env(safe-area-inset-bottom, 0px)); left: 10px; right: 10px; width: auto; max-height: 48%; z-index: 5; }
   #spawn:not(.open), #settings:not(.open) { display: none; }
   #propGrid { grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); }
   .tool { width: 70px; height: 54px; font-size: 11px; }
@@ -172,11 +172,16 @@ input[type=range]::-moz-range-thumb { width: 11px; height: 11px; border-radius: 
   #info { display: none; }
   #hint { display: none; }
   .brand h1 { font-size: 16px; }
-  #stats { gap: 10px; padding: 0 8px; bottom: auto; top: calc(62px + env(safe-area-inset-top, 0px)); height: 36px; }
+  #stats { gap: 10px; padding: 0 8px; bottom: auto; top: calc(108px + env(safe-area-inset-top, 0px)); height: 36px; }
   .brand .stripe { width: 8px; }
-  .brand { padding-right: 8px; }
-  #topbar { gap: 5px; }
+  .brand { padding-right: 8px; order: 0; min-height: 42px; }
+  #topbar { gap: 5px; flex-wrap: wrap; }
+  #topbar .spacer { order: 1; }
+  #topbar .g-menu { order: 2; }
+  #topbar .g-sim { order: 3; }
+  #topbar .g-scene { order: 4; }
   .btn { padding: 0 7px; }
+  #pausedTag { top: calc(118px + env(safe-area-inset-top, 0px)); }
   #help .cols { grid-template-columns: 1fr; }
   #toolOpts .opt { min-width: 130px; }
 }
@@ -187,19 +192,19 @@ input[type=range]::-moz-range-thumb { width: 11px; height: 11px; border-radius: 
 
 <div id="topbar">
   <div class="panel brand"><span class="stripe"></span><div><h1>Prop Destruction Lab</h1><small>Physics test bay 01</small></div></div>
-  <div class="panel group">
+  <div class="panel group g-sim">
     <button class="btn" id="btnPause" title="Pause / resume (Space)"></button>
     <button class="btn" id="btnStep" title="Advance one step while paused (.)"></button>
     <button class="btn" id="btnSlow" title="Slow motion (T)"></button>
     <span id="timeRead" class="num">1.00×</span>
   </div>
-  <div class="panel group">
+  <div class="panel group g-scene">
     <button class="btn" id="btnReset" title="Rebuild the default showroom"></button>
     <button class="btn" id="btnDebris" title="Remove loose fragments and projectiles"></button>
     <button class="btn danger" id="btnClear" title="Remove every object"></button>
   </div>
   <span class="spacer"></span>
-  <div class="panel group">
+  <div class="panel group g-menu">
     <button class="btn only-narrow" id="btnProps"></button>
     <button class="btn" id="btnSettings" title="Settings"></button>
     <button class="btn" id="btnHelp" title="Controls (H)"></button>

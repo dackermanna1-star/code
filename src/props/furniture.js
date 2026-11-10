@@ -86,9 +86,10 @@ export function buildBookshelf() {
     }
     b.body('trophy', {});
     b.at([left + 0.14, y, 0.0], 0, () => {
-      b.cyl('trophy_base', 0.036, 0.022, [0, 0.011, 0], 'walnut', { segs: 12, hull: true, fracturable: false });
-      b.cyl('trophy_stem', 0.008, 0.05, [0, 0.046, 0], 'brass', { segs: 8, hull: true, mass: 0.08 });
-      b.cyl('trophy_cup', 0.032, 0.06, [0, 0.1, 0], 'brass', { segs: 12, hull: true, mass: 0.35 });
+      // weighted base so it stands firmly on the stack of books
+      b.cyl('trophy_base', 0.044, 0.022, [0, 0.011, 0], 'walnut', { segs: 12, fracturable: false, mass: 0.55 });
+      b.cyl('trophy_stem', 0.008, 0.05, [0, 0.046, 0], 'brass', { segs: 8, hull: true, mass: 0.05 });
+      b.cyl('trophy_cup', 0.032, 0.06, [0, 0.1, 0], 'brass', { segs: 12, hull: true, mass: 0.16 });
     });
     fillBooks(2, -0.1, 0.22);
     b.body('frame', {});
@@ -136,7 +137,8 @@ export function buildDoor() {
   // stops the door closes against (it opens towards +z)
   b.box('stop', [0.012, jh - 0.01, 0.014], [jx - JT / 2 - 0.006, 0.03 + jh / 2, -0.029], frameW, { grain: 1, bond: 0.5 });
   b.box('stop', [2 * (jx - JT / 2) - 0.03, 0.012, 0.014], [0, 0.03 + jh - 0.006, -0.029], frameW, { grain: 0, bond: 0.5 });
-  b.box('strike_plate', [0.004, 0.09, 0.03], [jx - JT / 2 - 0.0005, 1.0, 0.0], 'steel', { mass: 0.05 });
+  // let into the jamb; purely visual so it cannot foul the swing of the door edge
+  b.box('strike_plate', [0.003, 0.09, 0.03], [jx - JT / 2 + 0.001, 1.0, 0.0], 'steel', { mass: 0.05 }).ghost = true;
 
   // --- the leaf -----------------------------------------------------------
   b.body('leaf', {});
@@ -209,7 +211,7 @@ export function buildCabinet() {
     const door = b.box('door', [dw, dh, dt], [sx * (dw / 2 + 0.0015), dy, dz], wood, { grain: 1, hollow: true });
     b.cyl('knob_stem', 0.006, 0.018, [sx * 0.045, dy + 0.1, dz + dt / 2 + 0.008], 'brass', { axis: 2, segs: 8, hull: true, mass: 0.02 });
     b.ball('knob', 0.015, [sx * 0.045, dy + 0.1, dz + dt / 2 + 0.024], 'brass', { mass: 0.07 });
-    const hx = sx * (W / 2 - 0.004);
+    const hx = sx * (W / 2 + 0.001); // pivot just outside the door edge so the door clears the carcass
     for (const hy of [dy - dh / 2 + 0.12, dy + dh / 2 - 0.12]) {
       b.cyl('hinge', 0.007, 0.07, [sx * (W / 2 + 0.004), hy, dz - dt / 2 + 0.002], 'steel', { axis: 1, segs: 8, mass: 0.06 }).ghost = true;
       b.hinge(door, sx < 0 ? sideL : sideR, [hx, hy, D / 2 + 0.001], { strength: 46, axis: [0, 1, 0], span: dw });
