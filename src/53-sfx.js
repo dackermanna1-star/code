@@ -37,6 +37,7 @@ class Sfx {
     this.buildWater();
     this.buildMusic();
     this.ready = true;
+    this.loadBank();
   }
 
   // still water lapping at tile (levels whose theme has `water`): a slow wash of band-passed
@@ -297,23 +298,186 @@ class Sfx {
     }
   }
 
+  // a grenade: a bright supersonic crack, a chest-hitting punch that drops in pitch, a torn,
+  // driven mid body, a long rumbling room tail and debris pattering down. Close by it saturates
+  // (a soft clipper on its own bus), far away the room swallows the top end
   explosion(pos, dist = 10) {
     if (!this.ready) return;
     const ctx = this.ctx, t = ctx.currentTime;
+    const near = clamp(1 - dist / 30, 0, 1);
     const dst = this.spatial(pos);
-    const o = ctx.createOscillator(), og = ctx.createGain();
-    o.frequency.setValueAtTime(110, t); o.frequency.exponentialRampToValueAtTime(28, t + 0.9);
-    o.connect(og); og.connect(dst);
-    this.env(og, t, 0.004, 1.4, 1.1);
-    o.start(t); o.stop(t + 1.3);
-    const s = ctx.createBufferSource(), sg = ctx.createGain(), lp = ctx.createBiquadFilter();
-    s.buffer = this.noise; lp.type = 'lowpass'; lp.frequency.setValueAtTime(5000, t); lp.frequency.exponentialRampToValueAtTime(200, t + 1.2);
-    s.connect(lp); lp.connect(sg); sg.connect(dst);
-    this.env(sg, t, 0.002, 1.6, 1.4);
-    s.start(t); s.stop(t + 1.6);
-    // debris rattle
-    for (let k = 0; k < 6; k++) setTimeout(() => this.au.impact(Math.random() < 0.5 ? 'metal' : 'wood', 0.3 + Math.random() * 0.3, pos), 150 + Math.random() * 900);
-    if (dist < 7) this.ring(clamp(1 - dist / 7, 0.2, 1));
+    // its own driven bus: louder and punchier without pushing the master into hard clipping
+    const bus = ctx.createGain(), drive = ctx.createWaveShaper(), post = ctx.createGain();
+    if (!this._clip) { const n = 1024, c = new Float32Array(n); for (let i = 0; i < n; i++) { const x = (i / (n - 1)) * 2 - 1; c[i] = Math.tanh(x * 2.6) / Math.tanh(2.6); } this._clip = c; }
+    drive.curve = this._clip; drive.oversample = '2x';
+    bus.gain.value = 1.15; post.gain.value = 1.35;
+    bus.connect(drive); drive.connect(post); post.connect(dst);
+    const noise = (buf, at, dur) => { const n = ctx.createBufferSource(); n.buffer = buf; n.start(t + at, Math.random() * 2); n.stop(t + at + dur); return n; };
+    // 1. the crack: a few milliseconds of broadband pressure, the brightest thing in the game
+    { const n = noise(this.noise, 0, 0.12), hp = ctx.createBiquadFilter(), g = ctx.createGain();
+      hp.type = 'highpass'; hp.frequency.value = 900;
+      n.connect(hp); hp.connect(g); g.connect(bus);
+      this.env(g, t, 0.0008, 2.2, 0.09); }
+    // 2. the punch: a sine kick from 170 Hz to 32 Hz
+    { const o = ctx.createOscillator(), g = ctx.createGain();
+      o.frequency.setValueAtTime(170, t); o.frequency.exponentialRampToValueAtTime(32, t + 0.32);
+      o.connect(g); g.connect(bus);
+      this.env(g, t, 0.003, 2.4, 0.55);
+      o.start(t); o.stop(t + 0.8); }
+    // 3. the body: torn noise, low-passed from bright to dull over a second
+    { const n = noise(this.noise, 0, 1.6), lp = ctx.createBiquadFilter(), g = ctx.createGain();
+      lp.type = 'lowpass'; lp.Q.value = 0.9;
+      lp.frequency.setValueAtTime(9000, t); lp.frequency.exponentialRampToValueAtTime(1800, t + 0.15); lp.frequency.exponentialRampToValueAtTime(180, t + 1.3);
+      n.connect(lp); lp.connect(g); g.connect(bus);
+      this.env(g, t, 0.002, 1.9, 1.35); }
+    // 4. the rumble: brown noise rolling round the rooms
+    { const n = noise(this.brown, 0.02, 3.2), lp = ctx.createBiquadFilter(), g = ctx.createGain();
+      lp.type = 'lowpass'; lp.frequency.value = 260;
+      n.connect(lp); lp.connect(g); g.connect(dst);
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(1.3, t + 0.08); g.gain.exponentialRampToValueAtTime(0.0001, t + 3.1); }
+    // a big send into the room
+    if (this.au.verbIn) { const v = ctx.createGain(); v.gain.value = 0.9; post.connect(v); v.connect(this.au.verbIn); }
+    // 5. debris: grit and chips pattering down, and a few heavier pieces
+    for (let k = 0; k < 14; k++) {
+      const at = 0.12 + Math.random() * 1.4;
+      const n = noise(this.noise, at, 0.05), bp = ctx.createBiquadFilter(), g = ctx.createGain();
+      bp.type = 'bandpass'; bp.frequency.value = 2200 + Math.random() * 4000; bp.Q.value = 2.5;
+      n.connect(bp); bp.connect(g); g.connect(dst);
+      this.env(g, t + at, 0.001, 0.06 + 0.12 * Math.random(), 0.035);
+    }
+    for (let k = 0; k < 5; k++) setTimeout(() => this.au.impact(Math.random() < 0.5 ? 'metal' : 'wood', 0.3 + Math.random() * 0.35, pos), 180 + Math.random() * 900);
+    if (dist < 8) this.ring(clamp(1 - dist / 8, 0.25, 1));
+    void near;
+  }
+
+  // ---- recorded foley (Kenney "Impact Sounds", CC0): footsteps by surface, body impacts --------
+  loadBank() {
+    if (this.bankLoading || !this.ready) return;
+    this.bankLoading = true;
+    const groups = { carpet: 'footstep_carpet', concrete: 'footstep_concrete', wood: 'footstep_wood', punch: 'impactPunch_heavy', soft: 'impactSoft_heavy' };
+    this.bank = {};
+    const jobs = [];
+    for (const [g, base] of Object.entries(groups)) {
+      this.bank[g] = [];
+      for (let i = 0; i < 5; i++) {
+        const key = `sfx/${base}_${String(i).padStart(3, '0')}`;
+        jobs.push(Assets.bytes(key).then((buf) => this.ctx.decodeAudioData(buf)).then((b) => { this.bank[g].push(b); }).catch(() => {}));
+      }
+    }
+    Promise.all(jobs).then(() => { this.bankReady = Object.values(this.bank).every((l) => l.length); });
+  }
+
+  sample(group, out, { rate = 1, gain = 1, at = 0 } = {}) {
+    const list = this.bank && this.bank[group];
+    if (!list || !list.length) return null;
+    let k = Math.floor(Math.random() * list.length);
+    if (list.length > 1 && k === this['_last_' + group]) k = (k + 1) % list.length; // no repeats
+    this['_last_' + group] = k;
+    const s = this.ctx.createBufferSource(), g = this.ctx.createGain();
+    s.buffer = list[k]; s.playbackRate.value = rate;
+    g.gain.value = gain;
+    s.connect(g); g.connect(out);
+    s.start(this.ctx.currentTime + at);
+    return g;
+  }
+
+  // the floor a level is built from, for footsteps
+  surface() {
+    const th = this.game.level && this.game.level.theme;
+    const id = th && th.id;
+    return id === 'warehouse' || id === 'pipes' ? 'concrete' : id === 'poolrooms' ? 'tile' : 'carpet';
+  }
+
+  // a footstep: the surface's recording, pitched and weighted by who is walking and how fast, with
+  // kit and cloth on top when running. pos null = the player (dry, close); else spatial
+  footstep({ pos = null, speed = 3, crouch = 0, weight = 1, land = 0 } = {}) {
+    if (!this.ready || !this.bankReady) return false;
+    const ctx = this.ctx, surf = this.surface();
+    const out = pos ? this.spatial(pos) : this.out;
+    // surface colour: carpet is dull, tile bright and hard
+    const eq = ctx.createBiquadFilter();
+    if (surf === 'carpet') { eq.type = 'lowpass'; eq.frequency.value = 2600; }
+    else if (surf === 'tile') { eq.type = 'highshelf'; eq.frequency.value = 2500; eq.gain.value = 5; }
+    else { eq.type = 'peaking'; eq.frequency.value = 180; eq.gain.value = 2; eq.Q.value = 1; }
+    eq.connect(out);
+    const run = clamp((speed - 3.4) / 2.2, 0, 1);
+    const level = (0.22 + 0.32 * clamp(speed / 5.6, 0, 1) + 0.5 * land) * (1 - 0.6 * crouch) * weight * (pos ? 1.25 : 1);
+    const rate = (0.94 + Math.random() * 0.12) / Math.sqrt(weight) * (surf === 'tile' ? 1.06 : 1);
+    this.sample(surf === 'carpet' ? 'carpet' : 'concrete', eq, { rate, gain: level });
+    if (land > 0) this.sample('soft', eq, { rate: 0.8, gain: 0.5 * land });
+    // running: the rattle of kit and the swish of clothes
+    if (run > 0.05 && Math.random() < 0.8) {
+      const t = ctx.currentTime;
+      const n = ctx.createBufferSource(), bp = ctx.createBiquadFilter(), g = ctx.createGain();
+      n.buffer = this.noise; bp.type = 'bandpass'; bp.frequency.value = 1200 + Math.random() * 600; bp.Q.value = 0.8;
+      n.connect(bp); bp.connect(g); g.connect(out);
+      this.env(g, t, 0.01, 0.05 * run * weight, 0.08);
+      n.start(t, Math.random() * 2); n.stop(t + 0.12);
+      if (Math.random() < 0.5) {
+        const r = ctx.createBufferSource(), hp = ctx.createBiquadFilter(), rg = ctx.createGain();
+        r.buffer = this.noise; hp.type = 'bandpass'; hp.frequency.value = 5200; hp.Q.value = 3;
+        r.connect(hp); hp.connect(rg); rg.connect(out);
+        this.env(rg, t + 0.015, 0.001, 0.025 * run, 0.03);
+        r.start(t + 0.015, Math.random() * 2); r.stop(t + 0.07);
+      }
+    }
+    return true;
+  }
+
+  // a voice in pain, through the engine's glottal waveform and vowel formants. kind: 'grunt' (a
+  // short hit), 'cry' (a bad one), 'scream' (a limb gone, burning). pos null = the player's own
+  pain(pos, kind = 'grunt', pitch = 1) {
+    if (!this.ready) return;
+    const ctx = this.ctx, t = ctx.currentTime;
+    const out = pos ? this.spatial(pos) : this.out;
+    const spec = {
+      grunt: { dur: 0.14 + Math.random() * 0.12, f0: 118, lift: 1.3, vowel: [640, 1190, 2390], peak: 0.5, breath: 0.35, rough: 0.15 },
+      cry: { dur: 0.38 + Math.random() * 0.35, f0: 175, lift: 1.25, vowel: [760, 1250, 2650], peak: 0.55, breath: 0.4, rough: 0.35 },
+      scream: { dur: 0.8 + Math.random() * 0.5, f0: 300, lift: 1.12, vowel: [820, 1350, 2900], peak: 0.62, breath: 0.45, rough: 0.55 },
+    }[kind] || null;
+    if (!spec) return;
+    const f0 = spec.f0 * pitch * (0.9 + Math.random() * 0.2), d = spec.dur;
+    const o = ctx.createOscillator();
+    if (this.au._glottalWave) { try { o.setPeriodicWave(this.au._glottalWave()); } catch (e) { o.type = 'sawtooth'; } } else o.type = 'sawtooth';
+    // the pitch jumps up with the shock and sags as the breath runs out
+    o.frequency.setValueAtTime(f0 * spec.lift, t);
+    o.frequency.exponentialRampToValueAtTime(f0, t + Math.min(0.09, d * 0.3));
+    o.frequency.exponentialRampToValueAtTime(f0 * (kind === 'scream' ? 0.85 : 0.72), t + d);
+    // a strained voice: jitter, and roughness from a fast tremor
+    const jit = ctx.createOscillator(), jg = ctx.createGain();
+    jit.type = 'triangle'; jit.frequency.value = 6 + Math.random() * 5; jg.gain.value = f0 * 0.03;
+    jit.connect(jg); jg.connect(o.frequency);
+    const vox = ctx.createGain(), rough = ctx.createOscillator(), rg = ctx.createGain();
+    rough.frequency.value = 28 + Math.random() * 30; rg.gain.value = spec.rough * 0.5;
+    vox.gain.value = 1 - spec.rough * 0.25;
+    rough.connect(rg); rg.connect(vox.gain);
+    for (const [k, f] of spec.vowel.entries()) {
+      const bp = ctx.createBiquadFilter(), g = ctx.createGain();
+      bp.type = 'bandpass'; bp.frequency.value = f * (0.94 + Math.random() * 0.12) * (pitch > 1.1 ? 1.08 : 1); bp.Q.value = [5, 8, 10][k];
+      g.gain.value = [1, 0.6, kind === 'scream' ? 0.5 : 0.22][k];
+      o.connect(bp); bp.connect(g); g.connect(vox);
+    }
+    // breath through the voice
+    const n = ctx.createBufferSource(), nb = ctx.createBiquadFilter(), ng = ctx.createGain();
+    n.buffer = this.noise; nb.type = 'bandpass'; nb.frequency.value = 1500; nb.Q.value = 0.7; ng.gain.value = spec.breath;
+    n.connect(nb); nb.connect(ng); ng.connect(vox);
+    const env = ctx.createGain();
+    vox.connect(env); env.connect(out);
+    env.gain.setValueAtTime(0.0001, t);
+    env.gain.linearRampToValueAtTime(spec.peak, t + (kind === 'grunt' ? 0.012 : 0.03));
+    env.gain.linearRampToValueAtTime(spec.peak * 0.75, t + d * 0.65);
+    env.gain.linearRampToValueAtTime(0.0001, t + d);
+    for (const x of [o, jit, rough]) { x.start(t); x.stop(t + d + 0.05); }
+    n.start(t, Math.random() * 2); n.stop(t + d + 0.05);
+    if (this.au.verbIn && pos) { const v = ctx.createGain(); v.gain.value = 0.22; env.connect(v); v.connect(this.au.verbIn); }
+    // a sharp breath in afterwards
+    if (kind !== 'grunt' && Math.random() < 0.6) {
+      const b = ctx.createBufferSource(), bh = ctx.createBiquadFilter(), bg = ctx.createGain();
+      b.buffer = this.noise; bh.type = 'bandpass'; bh.frequency.value = 2400; bh.Q.value = 1.2;
+      b.connect(bh); bh.connect(bg); bg.connect(out);
+      bg.gain.setValueAtTime(0.0001, t + d + 0.05); bg.gain.linearRampToValueAtTime(0.08, t + d + 0.15); bg.gain.linearRampToValueAtTime(0.0001, t + d + 0.32);
+      b.start(t + d + 0.05, Math.random() * 2); b.stop(t + d + 0.35);
+    }
   }
 
   ring(a) {

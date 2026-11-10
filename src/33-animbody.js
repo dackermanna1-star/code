@@ -674,7 +674,10 @@ class AnimBody {
       wc = this.locoWeights(this.wB, 'carry_', ANIM.libs.carry.meta, speed, vf, vr, moving, shuffle);
     }
     const rate = wc ? w.rate * (1 - k) + wc.rate * k : w.rate;
+    const ph0 = this.phase;
     this.phase = (this.phase + dt * rate) % 1;
+    // a foot lands at each half of the stride cycle (the loops start on a left-foot contact)
+    if (speed > 0.35 && Math.floor(ph0 * 2) !== Math.floor(this.phase * 2)) this.footfall(speed);
     // a get-up in progress: its clip over everything, fading out under the locomotion at the end
     const gu = this.gu;
     let gw = 0;
@@ -1063,6 +1066,17 @@ class AnimBody {
   }
 
   // muzzle climb on the upper body
+  // a footstep the player can hear, within earshot (armour and the hollowed land heavier)
+  footfall(speed) {
+    const g = this.game, P = g.player, sfx = g.sfx;
+    if (!sfx || !sfx.bankReady) return;
+    const d = Math.hypot(this.pos.x - P.pos.x, this.pos.z - P.pos.z);
+    if (d > 24) return;
+    const def = this.ai.def || {};
+    const weight = (def.armor ? 1.12 : 1) * (this.melee ? 1.15 : 1) * (def.boss ? 1.4 : 1);
+    sfx.footstep({ pos: { x: this.pos.x, y: 0.05, z: this.pos.z }, speed, weight });
+  }
+
   onFire() { this.kick = Math.min(1.5, this.kick + 1); }
 
   // a round the body rides out on its feet (the manager decides which): the torso snaps away from

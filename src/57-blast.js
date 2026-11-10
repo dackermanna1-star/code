@@ -1,0 +1,143 @@
+// Grenade blasts, seen: a white-hot core and a rolling orange fireball (additive sprites), sparks
+// and burning fragments flung out, a bright light flash that decays over a quarter second (the
+// pooled effects light, so no new lights and no shader recompiles), heavy smoke, and char: a sooty
+// scorch with radial streaks burnt into the floor and scorch marks on the walls around.
+class BlastFX {
+  constructor(game) {
+    this.game = game;
+    this.live = [];   // { sprites: [...], t }
+    this.sparks = []; // pooled spark sprites
+    this.flashes = [];
+    this.tex = null;
+    game.hooks.push(this);
+  }
+
+  ensure() {
+    if (this.tex) return;
+    const mk = (stops) => {
+      const c = document.createElement('canvas'); c.width = c.height = 128;
+      const x = c.getContext('2d'), gr = x.createRadialGradient(64, 64, 0, 64, 64, 64);
+      for (const [o, col] of stops) gr.addColorStop(o, col);
+      x.fillStyle = gr; x.fillRect(0, 0, 128, 128);
+      const t = new T3.CanvasTexture(c); t.needsUpdate = true; return t;
+    };
+    this.tex = {
+      core: mk([[0, 'rgba(255,255,245,1)'], [0.3, 'rgba(255,240,190,0.95)'], [0.65, 'rgba(255,170,60,0.4)'], [1, 'rgba(255,120,20,0)']]),
+      fire: mk([[0, 'rgba(255,210,120,0.9)'], [0.4, 'rgba(255,120,30,0.6)'], [0.75, 'rgba(180,50,10,0.2)'], [1, 'rgba(80,20,5,0)']]),
+      spark: mk([[0, 'rgba(255,250,220,1)'], [0.35, 'rgba(255,200,90,0.8)'], [1, 'rgba(255,120,20,0)']]),
+    };
+    this.mat = (tex) => new T3.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, blending: T3.AdditiveBlending, fog: false, toneMapped: false });
+    this.quad = new T3.PlaneGeometry(1, 1);
+  }
+
+  // a sprite from the scene's spare pool (sprites are cheap; keep them around between blasts)
+  sprite(kind) {
+    const scene = this.game.view.scene;
+    this.pool = this.pool || [];
+    let s = this.pool.find((p) => !p.visible && p.userData.kind === kind && p.parent === scene);
+    if (!s) {
+      s = new T3.Mesh(this.quad, this.mat(this.tex[kind])); // a camera-facing quad (see frame)
+      s.userData.kind = kind;
+      s.frustumCulled = false;
+      scene.add(s);
+      this.pool.push(s);
+    }
+    s.visible = true;
+    return s;
+  }
+
+  onLevel() { this.pool = []; this.live.length = 0; this.sparks.length = 0; this.flashes.length = 0; }
+
+  spawn(pos) {
+    const g = this.game;
+    if (!g.view || !g.view.scene) return;
+    this.ensure();
+    const P = new T3.Vector3(pos.x, Math.max(pos.y, 0.1) + 0.2, pos.z);
+    // fireball: a hot core inside a larger, slower orange ball, and a few licking tongues
+    const parts = [];
+    P.y += 0.25;
+    const core = this.sprite('core'); core.position.copy(P); parts.push({ s: core, grow: 4.2, life: 0.26, size0: 0.8, up: 0.5 });
+    const ball = this.sprite('fire'); ball.position.copy(P); parts.push({ s: ball, grow: 6.0, life: 0.6, size0: 1.0, up: 1.1 });
+    const ball2 = this.sprite('fire'); ball2.position.copy(P); parts.push({ s: ball2, grow: 4.5, life: 0.45, size0: 0.7, up: 1.6 });
+    for (let k = 0; k < 6; k++) {
+      const t = this.sprite('fire'), a = Math.random() * TAU;
+      t.position.copy(P);
+      parts.push({ s: t, grow: 1.6 + Math.random(), life: 0.3 + Math.random() * 0.25, size0: 0.3, up: 0.6, v: new T3.Vector3(Math.cos(a) * 4, 1.5 + Math.random() * 2.5, Math.sin(a) * 4) });
+    }
+    this.live.push({ parts, t: 0 });
+    // sparks and burning fragments
+    for (let k = 0; k < 26; k++) {
+      const s = this.sprite('spark'), u = Math.random() * 2 - 1, a = Math.random() * TAU, sp = 6 + Math.random() * 12, r = Math.sqrt(1 - u * u);
+      s.position.copy(P);
+      this.sparks.push({ s, v: new T3.Vector3(r * Math.cos(a) * sp, Math.abs(u) * sp * 0.8 + 1.5, r * Math.sin(a) * sp), t: 0, life: 0.35 + Math.random() * 0.5, size: 0.05 + Math.random() * 0.06 });
+    }
+    // light: bright and warm, decaying over a quarter second
+    this.flashes.push({ p: P.clone(), t: 0 });
+    // smoke: a dark column and a lighter rolling cloud
+    g.effects.puff(P, new T3.Vector3(0, 1, 0), 0x2a2622, 90, 5, 1.7);
+    g.effects.puff(P, new T3.Vector3(0, 1, 0), 0x5a524a, 50, 7, 1.1);
+    g.effects.puff(P, new T3.Vector3(0, 1, 0), undefined, 40, 7, 0.4, true);
+    this.char(pos);
+  }
+
+  // char: a burnt core, a sooty halo and radial streaks on the floor; scorches on walls in reach
+  char(pos) {
+    const g = this.game, D = g.view.decals;
+    if (D) {
+      D.splat(pos.x, pos.z, 0.75, 2, 1.0, 1, Math.random() * TAU, Math.random());
+      D.splat(pos.x, pos.z, 1.55, 2, 0.5, 1, Math.random() * TAU, Math.random());
+      for (let k = 0; k < 9; k++) {
+        const a = Math.random() * TAU, d = 0.5 + Math.random() * 1.0;
+        D.splat(pos.x + Math.cos(a) * d, pos.z + Math.sin(a) * d, 0.18 + Math.random() * 0.25, 2, 0.45 + Math.random() * 0.3, 1, Math.random() * TAU, Math.random());
+      }
+    }
+    const W = g.view.wallDecals, world = g.sb && g.sb.world;
+    if (!W || !world || !world.raycastAll) return;
+    const levelOnly = (b) => !!(b.userData && b.userData.level);
+    const o = new I(pos.x, Math.max(pos.y, 0.1) + 0.35, pos.z);
+    for (let k = 0; k < 14; k++) {
+      const a = (k / 14) * TAU + Math.random() * 0.3, up = (Math.random() - 0.3) * 0.7;
+      const d = new I(Math.cos(a), up, Math.sin(a)).normalize();
+      let h = null;
+      for (const q of world.raycastAll(o, d, 2.4, levelOnly)) if (!h || q.tIn < h.tIn) h = q;
+      if (!h || h.tIn < 0.05 || Math.abs(h.normal.y) > 0.6) continue;
+      const near = 1 - h.tIn / 2.4;
+      W.add('scorch', h.point, h.normal, (0.45 + 0.75 * near) * (0.8 + Math.random() * 0.4));
+    }
+  }
+
+  frame(dt) {
+    const g = this.game, cq = g.camera && g.camera.quaternion;
+    if (this.pool && cq) for (const s of this.pool) if (s.visible) s.quaternion.copy(cq);
+    for (const L of this.live) {
+      L.t += dt;
+      for (const p of L.parts) {
+        const k = clamp(L.t / p.life, 0, 1);
+        if (k >= 1) { p.s.visible = false; continue; }
+        if (p.v) { p.s.position.addScaledVector(p.v, dt); p.v.multiplyScalar(Math.exp(-dt * 4)); }
+        else p.s.position.y += p.up * dt;
+        const sz = p.size0 + p.grow * (1 - (1 - k) * (1 - k));
+        p.s.scale.set(sz, sz, 1);
+        p.s.material.opacity = (1 - k) * (1 - k);
+      }
+    }
+    this.live = this.live.filter((L) => L.t < 1);
+    for (const sp of this.sparks) {
+      sp.t += dt;
+      sp.v.y -= 9.8 * dt;
+      sp.s.position.addScaledVector(sp.v, dt);
+      if (sp.s.position.y < 0.02) { sp.s.position.y = 0.02; sp.v.y *= -0.3; sp.v.x *= 0.6; sp.v.z *= 0.6; }
+      const k = sp.t / sp.life;
+      sp.s.scale.setScalar(sp.size * (1 - 0.6 * k));
+      sp.s.material.opacity = 1 - k;
+      if (k >= 1) sp.s.visible = false;
+    }
+    this.sparks = this.sparks.filter((sp) => sp.t < sp.life);
+    for (const f of this.flashes) {
+      f.t += dt;
+      const k = Math.max(0, 1 - f.t / 0.28);
+      if (k > 0 && g.effects) g.effects.muzzleLight(f.p, 3.5 * k * k + 0.4 * k);
+    }
+    this.flashes = this.flashes.filter((f) => f.t < 0.28);
+  }
+}

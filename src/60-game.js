@@ -288,13 +288,18 @@ class BackroomsGame {
   onPlayerEvent(e) {
     const au = this.audio;
     if (e.type === 'footstep') {
-      au.footstep(clamp(e.speed / 5, 0.3, 1) * (1 - 0.5 * e.crouch), null);
+      if (!(this.sfx && this.sfx.footstep({ speed: e.speed, crouch: e.crouch }))) au.footstep(clamp(e.speed / 5, 0.3, 1) * (1 - 0.5 * e.crouch), null);
       const p = this.player; // wading (Level 2)
       if (this.sfx && this.level.wetAt(p.pos.x, p.pos.z)) this.sfx.splash(null, clamp(e.speed / 5, 0.3, 1) * (1 - 0.4 * e.crouch));
     }
-    else if (e.type === 'land') { au.footstep(1, null); this.shake = Math.max(this.shake, Math.min(0.5, e.speed * 0.05)); }
+    else if (e.type === 'land') { if (!(this.sfx && this.sfx.footstep({ speed: 4, land: clamp(e.speed / 8, 0.3, 1) }))) au.footstep(1, null); this.shake = Math.max(this.shake, Math.min(0.5, e.speed * 0.05)); }
     else if (e.type === 'hurt') {
       au.playerHurt(clamp(e.amount / 30, 0.2, 1));
+      // your own voice: a grunt for a graze, a cry for a bad one
+      if (this.sfx && e.amount >= 6 && this.time - (this.painVoiceT ?? -9) > 0.45) {
+        this.painVoiceT = this.time;
+        this.sfx.pain(null, e.amount >= 24 ? 'cry' : 'grunt', 0.92);
+      }
       this.shake = Math.max(this.shake, clamp(e.amount / 25, 0.2, 1));
       for (const h of this.hooks) h.onHurt && h.onHurt(e);
     } else if (e.type === 'died') for (const h of this.hooks) h.onDied && h.onDied(e);

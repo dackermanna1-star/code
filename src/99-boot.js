@@ -13,6 +13,7 @@
   game.sfx = new Sfx(game);
   game.medkits = new Medkits(game);
   game.perf = new PerfGovernor(game);
+  game.blast = new BlastFX(game);
   game.dismember = new Dismemberment(game);
   game.session = new Session(game);
   game.post = new BodycamPost(game);

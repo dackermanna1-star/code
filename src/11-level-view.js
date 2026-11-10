@@ -449,6 +449,9 @@ class LevelView {
           }
           vec4 dec = decalAt(xz);
           col = mix(col, vec3(0.12, 0.12, 0.11), clamp(dec.g, 0.0, 1.0) * 0.8);
+          // blast char (decal channel b): a burnt-black core fading out through brown soot
+          float ch = clamp(dec.b, 0.0, 1.5);
+          col = mix(col, mix(vec3(0.16, 0.12, 0.09), vec3(0.025, 0.022, 0.02), smoothstep(0.35, 0.95, ch)), smoothstep(0.04, 0.5, ch) * 0.94);
           float bt = dec.r;
           float bcov = smoothstep(0.03, 0.12, bt);
           vec3 bcol = mix(vec3(0.2, 0.011, 0.009), vec3(0.045, 0.0025, 0.002), smoothstep(0.15, 0.6, bt));

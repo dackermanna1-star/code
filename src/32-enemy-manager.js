@@ -272,6 +272,11 @@ class EnemyManager {
             if (ai.suppressed !== undefined) ai.suppressed = Math.min(2, ai.suppressed + 0.3); // shaken, not cowed
           }
           if (ai.tough <= 0) this.finish(ai, e);
+          // the living cry out (hollows have their own snarls); not on every pellet
+          if (!ai.hollow && g.sfx && e.person.injury.alive && e.person.injury.conscious && g.time - (ai.painT ?? -9) > 0.5) {
+            ai.painT = g.time;
+            g.sfx.pain(ai.headPos, ai.agony ? 'scream' : e.energy > 650 || ai.tough <= 0 ? 'cry' : 'grunt', ai.def.voice || 1);
+          }
         }
         return false;
       }
@@ -340,6 +345,7 @@ class EnemyManager {
     const c = ai.p.ctl;
     c.autoGetUp = false;
     ai.agony = { t: 0, dur: 4 + Math.random() * 8, groanT: 0.5 + Math.random() * 0.8, moveT: 0.9 + Math.random() * 0.8 };
+    if (this.game.sfx) setTimeout(() => this.game.sfx.pain(ai.headPos, 'scream', ai.def.voice || 1), 120);
     this.down(ai); // out of the fight (and counted), but left alive
   }
 
@@ -549,11 +555,12 @@ class EnemyManager {
       g.flashbang = Math.max(g.flashbang || 0, clamp(1 - pd / 5, 0, 0.8));
     } else if (pd < 14) g.shake = Math.max(g.shake, 0.3);
     // visuals
-    g.effects.muzzleLight(P3.clone().add(new T3.Vector3(0, 0.3, 0)), 9);
-    g.effects.puff(P3, new T3.Vector3(0, 1, 0), 0x3a3530, 60, 4, 1.4);
-    g.effects.puff(P3, new T3.Vector3(0, 1, 0), undefined, 40, 7, 0.4, true);
-    g.view.decals.splat(pos.x, pos.z, 0.55, 1, 0.95, 1, Math.random() * 6.28, Math.random());
-    g.view.decals.splat(pos.x, pos.z, 0.9, 1, 0.5, 0.5, Math.random() * 6.28, Math.random());
+    if (g.blast) g.blast.spawn(pos); // fireball, sparks, flash, smoke and char (src/57-blast.js)
+    else {
+      g.effects.muzzleLight(P3.clone().add(new T3.Vector3(0, 0.3, 0)), 9);
+      g.effects.puff(P3, new T3.Vector3(0, 1, 0), 0x3a3530, 60, 4, 1.4);
+      g.view.decals.splat(pos.x, pos.z, 0.55, 1, 0.95, 1, Math.random() * 6.28, Math.random());
+    }
     if (g.sfx) g.sfx.explosion(pos, pd);
     else g.audio.impact('metal', 1, pos);
     for (const h of g.hooks) h.onExplosion && h.onExplosion(pos, gr);

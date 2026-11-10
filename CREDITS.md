@@ -75,3 +75,7 @@ sublicense, and/or sell copies of the Software, and to permit persons to whom th
 furnished to do so, subject to the following conditions: The above copyright notice and this
 permission notice shall be included in all copies or substantial portions of the Software.
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
+
+## Sound: Kenney "Impact Sounds" (CC0)
+Footsteps (carpet, concrete, wood) and body impacts in `assets/sfx/` are from Kenney's "Impact Sounds" pack
+(www.kenney.nl), released under Creative Commons Zero (CC0 1.0), converted to mono MP3.

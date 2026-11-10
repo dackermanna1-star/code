@@ -66,8 +66,8 @@ console.log('dist/index.html', (html.length / 1048576).toFixed(2), 'MB,', files.
 if (!args.has('--no-assets')) {
   const walk = (d) => fs.readdirSync(d, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(path.join(d, e.name)) : [path.join(d, e.name)]));
   let total = 0;
-  for (const f of walk(path.join(root, 'assets')).filter((f) => f.endsWith('.glb'))) {
-    const rel = path.relative(path.join(root, 'assets'), f).replace(/\\/g, '/').replace(/\.glb$/, '');
+  for (const f of walk(path.join(root, 'assets')).filter((f) => f.endsWith('.glb') || f.endsWith('.mp3'))) {
+    const rel = path.relative(path.join(root, 'assets'), f).replace(/\\/g, '/').replace(/\.(glb|mp3)$/, '');
     const out = path.join(dist, 'assets', rel + '.js');
     const st = fs.statSync(f);
     if (fs.existsSync(out) && fs.statSync(out).mtimeMs >= st.mtimeMs) { total += fs.statSync(out).size; continue; }
