@@ -51,6 +51,7 @@ class Medkits {
     switch (e.type) {
       case 'healStart':
         this.ensureKit();
+        this.useHands();
         this.anim = { t: 0, cancel: -1, capOff: false, cap: { p: new T3.Vector3(), v: new T3.Vector3(), r: new T3.Vector3() } };
         this.kit.root.visible = true;
         this.kit.cap.visible = true;
@@ -100,6 +101,8 @@ class Medkits {
 
   frame(dt) {
     const g = this.game, e = g.hud && g.hud.e;
+    if (!this.handsLoading && g.vm && g.state === 'play') this.loadHands();
+    if (this.anim && this.hands && this.kit && this.kit.handsOn) this.hands.rig.player.update(dt);
     if (e && e.vitals) e.vitals.classList.toggle('healing', !!this.hot);
     this.flash = Math.max(0, this.flash - dt * 1.6);
     if (g.hud && g.hud.healFlash) g.hud.healFlash(this.flash);
@@ -165,6 +168,53 @@ class Medkits {
     K.cap.position.copy(K.capRest); K.cap.rotation.set(0, 0, 0); K.cap.visible = true;
   }
 
+  // the real gloved arms: a second copy of the pistol rig with everything but the arms hidden, its
+  // grip put on the kit's pivot, holding the injector where the pistol grip was
+  loadHands() {
+    this.handsLoading = true;
+    const g = this.game, vm = g.vm, def = typeof VM_RIGS !== 'undefined' && VM_RIGS.pistol;
+    if (!vm || !def) return;
+    Assets.bytes(def.asset)
+      .then((buf) => new Promise((res, rej) => new Lab.GLTFLoader().parse(buf.slice(0), '', res, rej)))
+      .then((gltf) => {
+        const rig = vm.buildRig('pistol', def, gltf);
+        for (const m of rig.meshes) if (!m.userData.arms) m.visible = false;
+        // rig space -> camera space at the hip view (as the viewmodel composes it)
+        const M = new T3.Matrix4().makeScale(1 / rig.S, 1 / rig.S, 1 / rig.S).multiply(rig.camHip.clone().invert());
+        const root = rig.root;
+        root.updateMatrixWorld(true);
+        const P = (o) => new T3.Vector3().setFromMatrixPosition(o.matrixWorld).applyMatrix4(M);
+        const trig = root.getObjectByName('Trigger_060') || rig.gun;
+        const tc = P(trig);
+        const mz = rig.muzzleLocal.clone().applyMatrix4(rig.gun.matrixWorld).applyMatrix4(M);
+        const rr = rig.rearLocal.clone().applyMatrix4(rig.gun.matrixWorld).applyMatrix4(M);
+        const f = mz.sub(rr).normalize();
+        const u = new T3.Vector3(0, 1, 0).addScaledVector(f, -f.y).normalize();
+        // the grip: just behind and below the trigger, raked back about 18 degrees
+        const grip = tc.clone().addScaledVector(f, -0.028).addScaledVector(u, -0.04);
+        const down = u.clone().multiplyScalar(-Math.cos(0.31)).addScaledVector(f, -Math.sin(0.31)).normalize();
+        const holder = new T3.Group();
+        holder.matrixAutoUpdate = false;
+        holder.matrix.makeTranslation(-grip.x, -grip.y, -grip.z).multiply(M);
+        root.position.set(0, 0, 0); root.quaternion.identity(); root.scale.set(1, 1, 1);
+        holder.add(root);
+        this.hands = { rig, holder, up: down.clone().negate() };
+        if (this.anim) this.useHands();
+      })
+      .catch((err) => console.warn('[medkit] hands', err));
+  }
+
+  // swap the primitive fist for the real arms once they are ready
+  useHands() {
+    const K = this.kit, H = this.hands;
+    if (!K || !H || K.handsOn) return;
+    K.handsOn = true;
+    for (const o of K.fist) o.visible = false;
+    K.root.add(H.holder);
+    K.injector.quaternion.setFromUnitVectors(new T3.Vector3(0, 1, 0), H.up);
+    H.rig.player.play(H.rig.def.clips.idle, { fade: 0 });
+  }
+
   // a gloved right hand with a sleeve, gripping an auto-injector (needle end down, safety cap up),
   // built from primitives in the viewmodel scene
   ensureKit() {
@@ -196,17 +246,17 @@ class Medkits {
     root.add(injector);
     // the fist: four curled fingers wrapped round the body, a palm behind, the thumb over the top
     // (thick and close enough to merge into one fist rather than read as separate rings)
-    const fingerR = 0.0122;
+    const fingerR = 0.0122, fist = [];
     for (let i = 0; i < 4; i++) {
       const f = new T3.Mesh(new T3.TorusGeometry(R + fingerR * 0.9, fingerR * (i === 3 ? 0.85 : 1), 8, 18, Math.PI * 1.3), glove);
       f.rotation.set(Math.PI / 2, 0, Math.PI * 0.85);
       f.position.y = 0.024 - i * 0.0205;
-      root.add(f);
+      root.add(f); fist.push(f);
     }
     const palm = new T3.Mesh(new T3.SphereGeometry(0.036, 14, 10), glove);
     palm.scale.set(0.8, 1.45, 0.75);
     palm.position.set(0.03, -0.012, 0.004);
-    root.add(palm);
+    root.add(palm); fist.push(palm);
     const thumbPivot = new T3.Group();
     thumbPivot.position.set(0.008, 0.04, 0.012);
     const thumb = new T3.Mesh(new T3.SphereGeometry(0.0118, 10, 8), glove);
@@ -215,18 +265,18 @@ class Medkits {
     thumb.rotation.z = 0.6;
     thumbPivot.add(thumb);
     thumbPivot.rotation.z = 0.35;
-    root.add(thumbPivot);
+    root.add(thumbPivot); fist.push(thumbPivot);
     // wrist and sleeve run down, right and back towards the body, out of the corner of the view
     const wrist = new T3.Mesh(new T3.CylinderGeometry(0.027, 0.031, 0.08, 12), glove);
     wrist.position.set(0.03, -0.045, 0.03);
     wrist.rotation.set(-0.9, 0, 0.5);
-    root.add(wrist);
+    root.add(wrist); fist.push(wrist);
     const arm = new T3.Mesh(new T3.CylinderGeometry(0.037, 0.047, 0.32, 14), sleeve);
     arm.position.set(0.126, -0.154, 0.167);
     arm.rotation.set(-0.9, 0, 0.5);
-    root.add(arm);
+    root.add(arm); fist.push(arm);
     vm.scene.add(root);
-    this.kit = { root, injector, cap, capRest, thumb: thumbPivot, thumbRest: 0.35, vmScene: vm.scene };
+    this.kit = { root, injector, cap, capRest, thumb: thumbPivot, thumbRest: 0.35, vmScene: vm.scene, fist };
   }
 }
 
