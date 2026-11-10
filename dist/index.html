@@ -77057,7 +77057,10 @@ class Medkits {
   frame(dt) {
     const g = this.game, e = g.hud && g.hud.e;
     if (!this.handsLoading && g.vm && g.state === 'play') this.loadHands();
-    if (this.anim && this.hands && this.kit && this.kit.handsOn) this.hands.rig.player.update(dt);
+    if (this.anim && this.hands && this.kit && this.kit.handsOn) {
+      this.hands.rig.player.update(dt);
+      if (this.hands.offArm) this.hands.offArm.scale.setScalar(0.001);
+    }
     if (e && e.vitals) e.vitals.classList.toggle('healing', !!this.hot);
     this.flash = Math.max(0, this.flash - dt * 1.6);
     if (g.hud && g.hud.healFlash) g.hud.healFlash(this.flash);
@@ -77148,12 +77151,24 @@ class Medkits {
         // the grip: just behind and below the trigger, raked back about 18 degrees
         const grip = tc.clone().addScaledVector(f, -0.028).addScaledVector(u, -0.04);
         const down = u.clone().multiplyScalar(-Math.cos(0.31)).addScaledVector(f, -Math.sin(0.31)).normalize();
+        // one hand, held like an injector: turn the arm about the grip so the fist stands upright
+        // (thumb and cap up, the needle end out of the bottom of the fist) with the forearm running
+        // down to the lower right corner of the view, instead of the pistol's forward-pointing grip
+        const fa = root.getObjectByName('Forearm_R_010');
+        const a0 = down.clone().negate();
+        const b0 = (fa ? P(fa) : grip.clone().add(new T3.Vector3(0.1, -0.1, 0.25))).sub(grip).normalize();
+        const a1 = new T3.Vector3(-0.08, 1, 0.12).normalize();
+        const b1 = new T3.Vector3(0.55, -0.62, 0.55).normalize();
+        const frame = (a, b) => { const bb = b.clone().addScaledVector(a, -a.dot(b)).normalize(); const c = new T3.Vector3().crossVectors(a, bb); return new T3.Matrix4().makeBasis(a, bb, c); };
+        const Rm = frame(a1, b1).multiply(frame(a0, b0).invert());
         const holder = new T3.Group();
         holder.matrixAutoUpdate = false;
-        holder.matrix.makeTranslation(-grip.x, -grip.y, -grip.z).multiply(M);
+        holder.matrix.copy(Rm).multiply(new T3.Matrix4().makeTranslation(-grip.x, -grip.y, -grip.z)).multiply(M);
         root.position.set(0, 0, 0); root.quaternion.identity(); root.scale.set(1, 1, 1);
         holder.add(root);
-        this.hands = { rig, holder, up: down.clone().negate() };
+        // the off arm is not needed: collapse it to the shoulder, out of view
+        const offArm = root.getObjectByName('Arm_L_02') || root.getObjectByName('UpArm_L_03');
+        this.hands = { rig, holder, up: a1.clone(), offArm };
         if (this.anim) this.useHands();
       })
       .catch((err) => console.warn('[medkit] hands', err));
