@@ -571,7 +571,7 @@ class LevelView {
   buildSpots() {
     const th = this.level.theme;
     this.spots = [];
-    const count = this.quality === 'low' ? 1 : 2;
+    const count = this.quality === 'low' ? 0 : this.quality === 'medium' ? 1 : 2; // Low draws no shadows
     for (let k = 0; k < count; k++) {
       const s = new T3.SpotLight(new T3.Color(...th.lightCol), 0, this.lamp.spotDist, 1.25, 0.85, 1.6);
       s.castShadow = true;

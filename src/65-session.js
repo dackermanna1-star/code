@@ -200,7 +200,10 @@ Object.assign(BackroomsGame.prototype, {
     this.input.invertY = !!s.invertY;
     this.input.adsHold = !!s.adsHold;
     this.audio.setVolume(s.volume);
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, s.quality === 'low' ? 0.85 : s.quality === 'medium' ? 1.1 : 1.6));
+    this.renderer.shadowMap.enabled = s.quality !== 'low'; // Low: no shadow pass at all
+    // dynamic resolution starts again from the new base when the quality changes
+    if (this.perf) { if (this._perfQ !== s.quality) this.perf.reset(); else this.perf.apply(); this._perfQ = s.quality; }
+    else this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, s.quality === 'low' ? 0.85 : s.quality === 'medium' ? 1.1 : 1.6));
     this.resize();
     this.saveSettings();
   },

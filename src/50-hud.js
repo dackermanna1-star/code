@@ -280,6 +280,7 @@ class Screens {
       i.addEventListener('change', () => { s[key] = i.value === 'true' ? true : i.value === 'false' ? false : i.value; g.applySettings(); });
     };
     sel('Graphics', 'quality', [['high', 'High'], ['medium', 'Medium'], ['low', 'Low']]);
+    sel('Dynamic resolution (hold 60 fps)', 'dynamicRes', [[true, 'On'], [false, 'Off']]);
     sel('Gore', 'gore', [[true, 'On'], [false, 'Off']]);
     sel('Sniper scope (right mouse)', 'adsHold', [[false, 'Toggle'], [true, 'Hold']]);
     sel('Minimap', 'minimap', [[true, 'On'], [false, 'Off']]);

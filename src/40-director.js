@@ -78,8 +78,8 @@ class Director {
     const maxAlive = Math.min(9, 4 + Math.floor(n / 2.5));
     const kinds = [];
     if (swarm) {
-      for (let k = 0; k < count + 6; k++) kinds.push('hollow');
-      for (let k = 0; k < Math.ceil(n / 3); k++) kinds.push(n > 8 ? 'merc' : 'bandit');
+      // a hollow wave is hollows and nothing else
+      for (let k = 0; k < count + 6 + Math.ceil(n / 3); k++) kinds.push('hollow');
     } else {
       const roster = waveRoster(n);
       if (this.mod === 'snipers') roster.sniper = (roster.sniper || 0.4) * 4 + 1;

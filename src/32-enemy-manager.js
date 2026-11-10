@@ -579,10 +579,24 @@ class EnemyManager {
     // hollows: shamble, then scream and charge on sight
     for (const ai of this.list) if (ai.hollow && ai.anim && !ai.downed) ai.updateCharge(dt);
     // animated enemies: the sandbox skips dormant people, so think and move them here
+    // (far ones, beyond 20 m, are posed every other step and beyond 35 m every fourth: the CPU cost
+    // of animated enemies is mostly posing their bodies)
+    const PP = g.player.pos;
     for (const ai of this.list) {
       if (!ai.anim) continue;
       if (ai.anim.active && !ai.downed) ai.update(dt);
-      ai.anim.step(dt);
+      const an = ai.anim;
+      if (an.mode === 'anim' && !ai.downed) {
+        const d = Math.hypot(ai.pos.x - PP.x, ai.pos.z - PP.z);
+        let every = d > 35 ? 4 : d > 20 ? 2 : 1;
+        // never so coarse that one update carries a runner through a thin wall
+        const sp = Math.hypot(an.vel.x, an.vel.z);
+        if (sp > 0.1) every = Math.max(1, Math.min(every, Math.floor(0.2 / (sp * dt))));
+        an.lodAcc = (an.lodAcc || 0) + dt;
+        an.lodN = ((an.lodN || 0) + 1) % every;
+        if (an.lodN !== 0) continue;
+        an.step(an.lodAcc); an.lodAcc = 0;
+      } else { an.lodAcc = 0; an.step(dt); }
     }
     // the dying
     for (const ai of this.corpses) if (ai.agony) this.updateAgony(ai, dt);

@@ -12,6 +12,7 @@
   game.shop = new Shop(game, game.director);
   game.sfx = new Sfx(game);
   game.medkits = new Medkits(game);
+  game.perf = new PerfGovernor(game);
   game.dismember = new Dismemberment(game);
   game.session = new Session(game);
   game.post = new BodycamPost(game);

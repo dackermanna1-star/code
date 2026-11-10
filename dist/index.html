@@ -65375,7 +65375,7 @@ class LevelView {
   buildSpots() {
     const th = this.level.theme;
     this.spots = [];
-    const count = this.quality === 'low' ? 1 : 2;
+    const count = this.quality === 'low' ? 0 : this.quality === 'medium' ? 1 : 2; // Low draws no shadows
     for (let k = 0; k < count; k++) {
       const s = new T3.SpotLight(new T3.Color(...th.lightCol), 0, this.lamp.spotDist, 1.25, 0.85, 1.6);
       s.castShadow = true;
@@ -73516,10 +73516,24 @@ class EnemyManager {
     // hollows: shamble, then scream and charge on sight
     for (const ai of this.list) if (ai.hollow && ai.anim && !ai.downed) ai.updateCharge(dt);
     // animated enemies: the sandbox skips dormant people, so think and move them here
+    // (far ones, beyond 20 m, are posed every other step and beyond 35 m every fourth: the CPU cost
+    // of animated enemies is mostly posing their bodies)
+    const PP = g.player.pos;
     for (const ai of this.list) {
       if (!ai.anim) continue;
       if (ai.anim.active && !ai.downed) ai.update(dt);
-      ai.anim.step(dt);
+      const an = ai.anim;
+      if (an.mode === 'anim' && !ai.downed) {
+        const d = Math.hypot(ai.pos.x - PP.x, ai.pos.z - PP.z);
+        let every = d > 35 ? 4 : d > 20 ? 2 : 1;
+        // never so coarse that one update carries a runner through a thin wall
+        const sp = Math.hypot(an.vel.x, an.vel.z);
+        if (sp > 0.1) every = Math.max(1, Math.min(every, Math.floor(0.2 / (sp * dt))));
+        an.lodAcc = (an.lodAcc || 0) + dt;
+        an.lodN = ((an.lodN || 0) + 1) % every;
+        if (an.lodN !== 0) continue;
+        an.step(an.lodAcc); an.lodAcc = 0;
+      } else { an.lodAcc = 0; an.step(dt); }
     }
     // the dying
     for (const ai of this.corpses) if (ai.agony) this.updateAgony(ai, dt);
@@ -74796,8 +74810,8 @@ class Director {
     const maxAlive = Math.min(9, 4 + Math.floor(n / 2.5));
     const kinds = [];
     if (swarm) {
-      for (let k = 0; k < count + 6; k++) kinds.push('hollow');
-      for (let k = 0; k < Math.ceil(n / 3); k++) kinds.push(n > 8 ? 'merc' : 'bandit');
+      // a hollow wave is hollows and nothing else
+      for (let k = 0; k < count + 6 + Math.ceil(n / 3); k++) kinds.push('hollow');
     } else {
       const roster = waveRoster(n);
       if (this.mod === 'snipers') roster.sniper = (roster.sniper || 0.4) * 4 + 1;
@@ -75354,6 +75368,7 @@ class Screens {
       i.addEventListener('change', () => { s[key] = i.value === 'true' ? true : i.value === 'false' ? false : i.value; g.applySettings(); });
     };
     sel('Graphics', 'quality', [['high', 'High'], ['medium', 'Medium'], ['low', 'Low']]);
+    sel('Dynamic resolution (hold 60 fps)', 'dynamicRes', [[true, 'On'], [false, 'Off']]);
     sel('Gore', 'gore', [[true, 'On'], [false, 'Off']]);
     sel('Sniper scope (right mouse)', 'adsHold', [[false, 'Toggle'], [true, 'Hold']]);
     sel('Minimap', 'minimap', [[true, 'On'], [false, 'Off']]);
@@ -78940,6 +78955,70 @@ class Dismemberment {
 }
 
 
+// ===== src/59-perf.js =====
+// Frame-rate governor: dynamic resolution. The quality setting picks a base render scale; when the
+// real frame time runs long (GPU- or fill-bound, e.g. a laptop at a high-DPI window size) the scale
+// steps down until frames fit again, and creeps back up once there is headroom. Steps are coarse
+// and spaced out so the picture does not pump, and a level that failed is not retried for a while.
+const PERF = { target: 1000 / 58, down: 0.88, up: 1.06, floor: { low: 0.5, medium: 0.6, high: 0.7 } };
+
+class PerfGovernor {
+  constructor(game) {
+    this.game = game;
+    this.scale = 1;
+    this.ema = 16.7;
+    this.slowT = 0; this.fastT = 0; this.coolT = 0;
+    this.failed = 2; // the scale at which frames last ran long (do not climb straight back to it)
+    game.hooks.push(this);
+  }
+
+  // the quality setting's own ratio (see applySettings)
+  get base() {
+    const q = this.game.settings.quality;
+    return Math.min(window.devicePixelRatio || 1, q === 'low' ? 0.85 : q === 'medium' ? 1.1 : 1.6);
+  }
+
+  reset() { this.scale = 1; this.failed = 2; this.slowT = this.fastT = 0; this.coolT = 1.5; this.apply(); }
+
+  apply() {
+    const g = this.game, r = g.renderer;
+    const want = this.base * this.scale;
+    if (Math.abs(r.getPixelRatio() - want) < 0.005) return;
+    r.setPixelRatio(want);
+    g.resize();
+  }
+
+  frame(dt) {
+    const g = this.game;
+    if (g.state !== 'play' || g.settings.dynamicRes === false) return;
+    const ms = dt * 1000;
+    if (ms > 250) return; // a hitch (tab switch, level load): ignore
+    this.ema += (ms - this.ema) * 0.08;
+    this.coolT = Math.max(0, this.coolT - dt);
+    if (this.ema > PERF.target + 1.2) { this.slowT += dt; this.fastT = 0; }
+    else if (this.ema < PERF.target - 0.6) { this.fastT += dt; this.slowT = 0; }
+    else { this.slowT = 0; this.fastT = 0; }
+    if (this.coolT > 0) return;
+    const floor = PERF.floor[g.settings.quality] ?? 0.6;
+    if (this.slowT > 0.75 && this.scale > floor) {
+      this.failed = this.scale;
+      this.scale = Math.max(floor, this.scale * PERF.down);
+      this.slowT = 0; this.coolT = 1.2;
+      this.apply();
+    } else if (this.fastT > 3.5 && this.scale < 1) {
+      const next = Math.min(1, this.scale * PERF.up);
+      // a level that just failed waits longer before it is tried again
+      if (next >= this.failed && this.fastT < 12) return;
+      this.scale = next;
+      this.fastT = 0; this.coolT = 1.5;
+      this.apply();
+    }
+  }
+
+  onLevel() { this.coolT = 2; this.slowT = this.fastT = 0; }
+}
+
+
 // ===== src/60-game.js =====
 // The game: owns renderer, camera, player, arsenal, the current level and its physics world,
 // routes engine effects to visuals and audio, and runs the fixed-step simulation.
@@ -79016,7 +79095,7 @@ class BackroomsGame {
   }
 
   static loadSettings() {
-    const d = { sensitivity: 1, fov: 80, vmFov: 68, minimap: true, physicsEnemies: false, volume: 0.75, music: 0.6, quality: 'high', bodycam: 1, gore: true, adsHold: false, invertY: false, showFps: false };
+    const d = { sensitivity: 1, fov: 80, vmFov: 68, minimap: true, physicsEnemies: false, volume: 0.75, music: 0.6, quality: 'high', dynamicRes: true, bodycam: 1, gore: true, adsHold: false, invertY: false, showFps: false };
     try { return { ...d, ...JSON.parse(localStorage.getItem('backrooms-settings') || '{}') }; } catch { return d; }
   }
   saveSettings() { try { localStorage.setItem('backrooms-settings', JSON.stringify(this.settings)); } catch {} }
@@ -79733,7 +79812,10 @@ Object.assign(BackroomsGame.prototype, {
     this.input.invertY = !!s.invertY;
     this.input.adsHold = !!s.adsHold;
     this.audio.setVolume(s.volume);
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, s.quality === 'low' ? 0.85 : s.quality === 'medium' ? 1.1 : 1.6));
+    this.renderer.shadowMap.enabled = s.quality !== 'low'; // Low: no shadow pass at all
+    // dynamic resolution starts again from the new base when the quality changes
+    if (this.perf) { if (this._perfQ !== s.quality) this.perf.reset(); else this.perf.apply(); this._perfQ = s.quality; }
+    else this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, s.quality === 'low' ? 0.85 : s.quality === 'medium' ? 1.1 : 1.6));
     this.resize();
     this.saveSettings();
   },
@@ -79755,6 +79837,7 @@ Object.assign(BackroomsGame.prototype, {
   game.shop = new Shop(game, game.director);
   game.sfx = new Sfx(game);
   game.medkits = new Medkits(game);
+  game.perf = new PerfGovernor(game);
   game.dismember = new Dismemberment(game);
   game.session = new Session(game);
   game.post = new BodycamPost(game);
