@@ -569,6 +569,13 @@ class EnemyManager {
       if (ai.downed) continue;
       if (ai.hollow && !ai.combatEffective()) this.down(ai);
     }
+    // hollows whose legs are shot out drag themselves on (the dismemberment module's crawl)
+    if (g.dismember && g.dismember.crawlers) for (const ai of this.list) {
+      if (!ai.hollow || ai.downed) continue;
+      const c = ai.p.ctl;
+      ai.floorT = c.mode === 'ground' ? (ai.floorT || 0) + dt : 0;
+      if (ai.floorT > 1.2 && !c.ableToGetUp() && !g.dismember.crawlers.has(ai)) g.dismember.crawlers.add(ai);
+    }
     // hollows: shamble, then scream and charge on sight
     for (const ai of this.list) if (ai.hollow && ai.anim && !ai.downed) ai.updateCharge(dt);
     // animated enemies: the sandbox skips dormant people, so think and move them here

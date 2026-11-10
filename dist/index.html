@@ -72143,7 +72143,7 @@ class CharacterRender {
       if (ai.anim && ai.anim.active) {
         // animated: the hands hold it, grip to handguard
         this.gun.quaternion.slerp(ai.anim.gunQ, 1 - Math.exp(-dt * 30));
-      } else if (ai.aiming && person.ctl.mode === 'balance') {
+      } else if ((ai.aiming && person.ctl.mode === 'balance') || ai.proneFire) {
         this.gun.quaternion.slerp(ai.aimQ, 1 - Math.exp(-dt * 25));
       } else {
         const r = hand.rot;
@@ -72363,14 +72363,27 @@ class Gunman {
   update(dt) {
     const c = this.p.ctl;
     if (this.downed) { this.aiming = false; this.lasing = 0; return; }
-    if (!this.combatEffective()) { this.mgr.down(this); return; }
     const game = this.game, P = game.player;
+    if (!this.combatEffective()) {
+      // knocked senseless by a fall or a blow, not shot to pieces: a few seconds out, then up again
+      if (this.stunned(dt)) { this.aiming = false; this.lasing = 0; this.releaseToken(); return; }
+      this.mgr.down(this); return;
+    }
+    this.stun = null;
     this.modeT += dt;
     this.cool = Math.max(0, this.cool - dt);
     this.suppressed = Math.max(0, this.suppressed - dt * 0.4);
     this.grenadeT -= dt;
     this.barkT -= dt;
-    if (c.mode !== 'balance') { this.aiming = false; this.lasing = 0; this.releaseToken(); return; }
+    if (c.mode !== 'balance') {
+      this.aiming = false; this.lasing = 0; this.releaseToken();
+      // legs that will not carry him: fight on from the floor
+      this.floorT = c.mode === 'ground' ? (this.floorT || 0) + dt : 0;
+      this.proneFire = c.mode === 'ground' && this.floorT > 1.5 && !c.ableToGetUp() && c.armStrength.R > 0.25;
+      if (this.proneFire) this.floorFight(dt);
+      return;
+    }
+    this.proneFire = false; this.floorT = 0;
     // perception at ~6 Hz
     this.perceiveT -= dt;
     if (this.perceiveT <= 0) { this.perceiveT = 0.16 + Math.random() * 0.06; this.perceive(); }
@@ -72389,6 +72402,50 @@ class Gunman {
     if (this.knows) c.lookTarget = this.visible ? eyeT : new I(this.lastSeen.x, 1.5, this.lastSeen.z);
     this.updateAim(dt);
     this.updateFire(dt);
+  }
+
+  // out cold but not finished: the engine's concussion would keep him under for many seconds and
+  // the game would count it as a kill. Cap it at a short daze; past a limit he is out for good
+  stunned(dt) {
+    const c = this.p.ctl, inj = this.p.injury;
+    if (!c.alive || c.conscious || this.tough <= 0 || inj.dying || this.agony || inj.status === 'critical') return false;
+    if (!this.stun) {
+      this.stun = { t: 0 };
+      inj.koTimer = Math.min(inj.koTimer || 0, 1.8 + Math.random() * 2.2);
+      inj.concussion = Math.min(inj.concussion || 0, 0.2);
+    }
+    this.stun.t += dt;
+    return this.stun.t < 9;
+  }
+
+  // wounded on the floor: the gun arm comes up at the player and he fires from where he lies,
+  // slower and wilder than on his feet
+  floorFight(dt) {
+    const game = this.game, P = game.player, c = this.p.ctl;
+    // lying down, the facing-based perception means nothing: a plain line of sight from the head
+    this.perceiveT -= dt;
+    if (this.perceiveT <= 0) {
+      this.perceiveT = 0.25 + Math.random() * 0.1;
+      const h = this.headPos, eye = P.eye(new I());
+      this.floorSees = P.alive && Math.hypot(eye.x - h.x, eye.z - h.z) < this.gun.range && game.level.visible(h, eye);
+      if (this.floorSees) { this.knows = true; this.lastSeen = new I(P.pos.x, P.pos.y, P.pos.z); }
+    }
+    if (this.reloadT > 0) { this.reloadT -= dt; if (this.reloadT <= 0) this.ammo = this.gun.mag; return; }
+    if (!this.floorSees || !P.alive) return;
+    const chest = this.p.rd.segments.chest.body;
+    const sh = chest.localToWorld(c.geo.shoulderAnchorR, new I());
+    const tgt = P.eye(new I()); tgt.y -= 0.35;
+    const d = new I(tgt.x - sh.x, tgt.y - sh.y, tgt.z - sh.z);
+    const len = d.length() || 1;
+    d.scale(1 / len);
+    if (c.armStrength.R > 0.2) c.reachArm('R', new I(sh.x + d.x * 0.58, sh.y + d.y * 0.58, sh.z + d.z * 0.58), new I(0, -1, 0), 0.9 * Math.max(0.3, c.armStrength.R));
+    this.aimDir.set(d.x, d.y, d.z);
+    this.aimQ.setFromEuler(new T3.Euler(Math.asin(clamp(d.y, -1, 1)), Math.atan2(d.x, d.z) + Math.PI, 0, 'YXZ'));
+    this.floorCool = (this.floorCool ?? 0.8) - dt;
+    if (this.floorCool > 0 || this.ammo <= 0) { if (this.ammo <= 0) this.reloadT = this.gun.reload * 1.6; return; }
+    this.floorCool = 0.55 + Math.random() * 0.9 + 60 / this.gun.rpm;
+    this.ammo--;
+    this.fire();
   }
 
   perceive() {
@@ -72724,6 +72781,7 @@ class Gunman {
     if (light < 0.2) sigma *= 1.35;
     if (P.crouch > 0.5) sigma *= 1.1;
     if (this.suppressFire) sigma *= 2.2;
+    if (this.proneFire) sigma *= 2.4; // firing from the floor, hurt
     const base = this.aimDir.clone();
     const pellets = g.pellets || 1;
     const paths = [];
@@ -73447,6 +73505,13 @@ class EnemyManager {
     for (const ai of this.list) {
       if (ai.downed) continue;
       if (ai.hollow && !ai.combatEffective()) this.down(ai);
+    }
+    // hollows whose legs are shot out drag themselves on (the dismemberment module's crawl)
+    if (g.dismember && g.dismember.crawlers) for (const ai of this.list) {
+      if (!ai.hollow || ai.downed) continue;
+      const c = ai.p.ctl;
+      ai.floorT = c.mode === 'ground' ? (ai.floorT || 0) + dt : 0;
+      if (ai.floorT > 1.2 && !c.ableToGetUp() && !g.dismember.crawlers.has(ai)) g.dismember.crawlers.add(ai);
     }
     // hollows: shamble, then scream and charge on sight
     for (const ai of this.list) if (ai.hollow && ai.anim && !ai.downed) ai.updateCharge(dt);
