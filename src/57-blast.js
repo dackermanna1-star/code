@@ -25,6 +25,7 @@ class BlastFX {
       core: mk([[0, 'rgba(255,255,245,1)'], [0.3, 'rgba(255,240,190,0.95)'], [0.65, 'rgba(255,170,60,0.4)'], [1, 'rgba(255,120,20,0)']]),
       fire: mk([[0, 'rgba(255,210,120,0.9)'], [0.4, 'rgba(255,120,30,0.6)'], [0.75, 'rgba(180,50,10,0.2)'], [1, 'rgba(80,20,5,0)']]),
       spark: mk([[0, 'rgba(255,250,220,1)'], [0.35, 'rgba(255,200,90,0.8)'], [1, 'rgba(255,120,20,0)']]),
+      ring: mk([[0, 'rgba(255,240,210,0)'], [0.72, 'rgba(255,240,210,0)'], [0.86, 'rgba(255,235,200,0.55)'], [1, 'rgba(255,230,190,0)']]),
     };
     this.mat = (tex) => new T3.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, blending: T3.AdditiveBlending, fog: false, toneMapped: false });
     this.quad = new T3.PlaneGeometry(1, 1);
@@ -56,27 +57,35 @@ class BlastFX {
     // fireball: a hot core inside a larger, slower orange ball, and a few licking tongues
     const parts = [];
     P.y += 0.25;
-    const core = this.sprite('core'); core.position.copy(P); parts.push({ s: core, grow: 4.2, life: 0.26, size0: 0.8, up: 0.5 });
-    const ball = this.sprite('fire'); ball.position.copy(P); parts.push({ s: ball, grow: 6.0, life: 0.6, size0: 1.0, up: 1.1 });
-    const ball2 = this.sprite('fire'); ball2.position.copy(P); parts.push({ s: ball2, grow: 4.5, life: 0.45, size0: 0.7, up: 1.6 });
-    for (let k = 0; k < 6; k++) {
+    const core = this.sprite('core'); core.position.copy(P); parts.push({ s: core, grow: 6.5, life: 0.3, size0: 1.2, up: 0.6 });
+    const ball = this.sprite('fire'); ball.position.copy(P); parts.push({ s: ball, grow: 9.5, life: 0.75, size0: 1.6, up: 1.2 });
+    const ball2 = this.sprite('fire'); ball2.position.copy(P); parts.push({ s: ball2, grow: 7.0, life: 0.55, size0: 1.0, up: 2.0 });
+    for (let k = 0; k < 10; k++) {
       const t = this.sprite('fire'), a = Math.random() * TAU;
       t.position.copy(P);
-      parts.push({ s: t, grow: 1.6 + Math.random(), life: 0.3 + Math.random() * 0.25, size0: 0.3, up: 0.6, v: new T3.Vector3(Math.cos(a) * 4, 1.5 + Math.random() * 2.5, Math.sin(a) * 4) });
+      parts.push({ s: t, grow: 2.4 + Math.random() * 1.5, life: 0.35 + Math.random() * 0.3, size0: 0.5, up: 0.6, v: new T3.Vector3(Math.cos(a) * 7, 1.5 + Math.random() * 3.5, Math.sin(a) * 7) });
     }
     this.live.push({ parts, t: 0 });
     // sparks and burning fragments
-    for (let k = 0; k < 26; k++) {
+    for (let k = 0; k < 48; k++) {
       const s = this.sprite('spark'), u = Math.random() * 2 - 1, a = Math.random() * TAU, sp = 6 + Math.random() * 12, r = Math.sqrt(1 - u * u);
       s.position.copy(P);
       this.sparks.push({ s, v: new T3.Vector3(r * Math.cos(a) * sp, Math.abs(u) * sp * 0.8 + 1.5, r * Math.sin(a) * sp), t: 0, life: 0.35 + Math.random() * 0.5, size: 0.05 + Math.random() * 0.06 });
     }
     // light: bright and warm, decaying over a quarter second
     this.flashes.push({ p: P.clone(), t: 0 });
-    // smoke: a dark column and a lighter rolling cloud
-    g.effects.puff(P, new T3.Vector3(0, 1, 0), 0x2a2622, 90, 5, 1.7);
-    g.effects.puff(P, new T3.Vector3(0, 1, 0), 0x5a524a, 50, 7, 1.1);
-    g.effects.puff(P, new T3.Vector3(0, 1, 0), undefined, 40, 7, 0.4, true);
+    // smoke: a dark column, a lighter rolling cloud, debris chips
+    g.effects.puff(P, new T3.Vector3(0, 1, 0), 0x2a2622, 140, 7, 2.4);
+    g.effects.puff(P, new T3.Vector3(0, 1, 0), 0x5a524a, 80, 9, 1.6);
+    g.effects.puff(P, new T3.Vector3(0, 1, 0), undefined, 70, 10, 0.5, true);
+    // the pressure wave: a ring of dust thrown out along the floor
+    const dust = (g.level && g.level.theme && g.level.theme.floorDust) || 0x8a7a5c;
+    for (let k = 0; k < 10; k++) {
+      const a = (k / 10) * TAU;
+      g.effects.puff(new T3.Vector3(pos.x, 0.12, pos.z), new T3.Vector3(Math.cos(a), 0.12, Math.sin(a)), dust, 18, 9, 1.4);
+    }
+    const ring = this.sprite('ring'); ring.position.set(pos.x, 0.06, pos.z); ring.userData.flat = true;
+    parts.push({ s: ring, grow: 16, life: 0.32, size0: 0.6, up: 0 });
     this.char(pos);
   }
 
@@ -108,7 +117,8 @@ class BlastFX {
 
   frame(dt) {
     const g = this.game, cq = g.camera && g.camera.quaternion;
-    if (this.pool && cq) for (const s of this.pool) if (s.visible) s.quaternion.copy(cq);
+    if (this.pool && cq) for (const s of this.pool) if (s.visible && !s.userData.flat) s.quaternion.copy(cq);
+    if (this.pool) for (const s of this.pool) if (s.userData.flat) s.rotation.set(-Math.PI / 2, 0, 0);
     for (const L of this.live) {
       L.t += dt;
       for (const p of L.parts) {
@@ -135,9 +145,9 @@ class BlastFX {
     this.sparks = this.sparks.filter((sp) => sp.t < sp.life);
     for (const f of this.flashes) {
       f.t += dt;
-      const k = Math.max(0, 1 - f.t / 0.28);
-      if (k > 0 && g.effects) g.effects.muzzleLight(f.p, 3.5 * k * k + 0.4 * k);
+      const k = Math.max(0, 1 - f.t / 0.42);
+      if (k > 0 && g.effects) g.effects.muzzleLight(f.p, 6 * k * k + 0.6 * k);
     }
-    this.flashes = this.flashes.filter((f) => f.t < 0.28);
+    this.flashes = this.flashes.filter((f) => f.t < 0.42);
   }
 }

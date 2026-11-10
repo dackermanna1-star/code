@@ -310,31 +310,39 @@ class Sfx {
     const bus = ctx.createGain(), drive = ctx.createWaveShaper(), post = ctx.createGain();
     if (!this._clip) { const n = 1024, c = new Float32Array(n); for (let i = 0; i < n; i++) { const x = (i / (n - 1)) * 2 - 1; c[i] = Math.tanh(x * 2.6) / Math.tanh(2.6); } this._clip = c; }
     drive.curve = this._clip; drive.oversample = '2x';
-    bus.gain.value = 1.15; post.gain.value = 1.35;
+    bus.gain.value = 1.5; post.gain.value = 2.0;
     bus.connect(drive); drive.connect(post); post.connect(dst);
+    // up close it is too loud for the mic: past the limiter straight into the final clipper
+    if (near > 0.45 && this.au.master) { const raw = ctx.createGain(); raw.gain.value = 1.4 * (near - 0.45) / 0.55; post.connect(raw); raw.connect(this.au.master); }
+    // the room slaps it back: two early reflections off the walls
+    for (const [dl, gv] of [[0.045 + Math.random() * 0.03, 0.55], [0.11 + Math.random() * 0.05, 0.35]]) {
+      const de = ctx.createDelay(0.3), hp = ctx.createBiquadFilter(), eg = ctx.createGain();
+      de.delayTime.value = dl; hp.type = 'highpass'; hp.frequency.value = 400; eg.gain.value = gv;
+      post.connect(de); de.connect(hp); hp.connect(eg); eg.connect(dst);
+    }
     const noise = (buf, at, dur) => { const n = ctx.createBufferSource(); n.buffer = buf; n.start(t + at, Math.random() * 2); n.stop(t + at + dur); return n; };
     // 1. the crack: a few milliseconds of broadband pressure, the brightest thing in the game
     { const n = noise(this.noise, 0, 0.12), hp = ctx.createBiquadFilter(), g = ctx.createGain();
       hp.type = 'highpass'; hp.frequency.value = 900;
       n.connect(hp); hp.connect(g); g.connect(bus);
-      this.env(g, t, 0.0008, 2.2, 0.09); }
+      this.env(g, t, 0.0008, 3.0, 0.11); }
     // 2. the punch: a sine kick from 170 Hz to 32 Hz
     { const o = ctx.createOscillator(), g = ctx.createGain();
       o.frequency.setValueAtTime(170, t); o.frequency.exponentialRampToValueAtTime(32, t + 0.32);
       o.connect(g); g.connect(bus);
-      this.env(g, t, 0.003, 2.4, 0.55);
-      o.start(t); o.stop(t + 0.8); }
+      this.env(g, t, 0.003, 3.2, 0.7);
+      o.start(t); o.stop(t + 0.9); }
     // 3. the body: torn noise, low-passed from bright to dull over a second
     { const n = noise(this.noise, 0, 1.6), lp = ctx.createBiquadFilter(), g = ctx.createGain();
       lp.type = 'lowpass'; lp.Q.value = 0.9;
       lp.frequency.setValueAtTime(9000, t); lp.frequency.exponentialRampToValueAtTime(1800, t + 0.15); lp.frequency.exponentialRampToValueAtTime(180, t + 1.3);
       n.connect(lp); lp.connect(g); g.connect(bus);
-      this.env(g, t, 0.002, 1.9, 1.35); }
+      this.env(g, t, 0.002, 2.6, 1.6); }
     // 4. the rumble: brown noise rolling round the rooms
-    { const n = noise(this.brown, 0.02, 3.2), lp = ctx.createBiquadFilter(), g = ctx.createGain();
-      lp.type = 'lowpass'; lp.frequency.value = 260;
+    { const n = noise(this.brown, 0.02, 4.6), lp = ctx.createBiquadFilter(), g = ctx.createGain();
+      lp.type = 'lowpass'; lp.frequency.value = 280;
       n.connect(lp); lp.connect(g); g.connect(dst);
-      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(1.3, t + 0.08); g.gain.exponentialRampToValueAtTime(0.0001, t + 3.1); }
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(1.8, t + 0.08); g.gain.exponentialRampToValueAtTime(0.0001, t + 4.5); }
     // a big send into the room
     if (this.au.verbIn) { const v = ctx.createGain(); v.gain.value = 0.9; post.connect(v); v.connect(this.au.verbIn); }
     // 5. debris: grit and chips pattering down, and a few heavier pieces
@@ -346,8 +354,7 @@ class Sfx {
       this.env(g, t + at, 0.001, 0.06 + 0.12 * Math.random(), 0.035);
     }
     for (let k = 0; k < 5; k++) setTimeout(() => this.au.impact(Math.random() < 0.5 ? 'metal' : 'wood', 0.3 + Math.random() * 0.35, pos), 180 + Math.random() * 900);
-    if (dist < 8) this.ring(clamp(1 - dist / 8, 0.25, 1));
-    void near;
+    if (dist < 10) { this.ring(clamp(1 - dist / 10, 0.25, 1)); this.deafen(clamp(1 - dist / 10, 0.2, 1)); }
   }
 
   // ---- recorded foley (Kenney "Impact Sounds", CC0): footsteps by surface, body impacts --------
@@ -478,6 +485,25 @@ class Sfx {
       bg.gain.setValueAtTime(0.0001, t + d + 0.05); bg.gain.linearRampToValueAtTime(0.08, t + d + 0.15); bg.gain.linearRampToValueAtTime(0.0001, t + d + 0.32);
       b.start(t + d + 0.05, Math.random() * 2); b.stop(t + d + 0.35);
     }
+  }
+
+  // shell-shocked hearing: the whole mix muffles (a low-pass in front of the engine's master chain)
+  // and opens up again over a few seconds; the tinnitus ring rides on top, unmuffled
+  deafen(a) {
+    const au = this.au, ctx = this.ctx;
+    if (!this.deaf) {
+      if (!au.bus || !au.hp) return;
+      this.deaf = ctx.createBiquadFilter();
+      this.deaf.type = 'lowpass'; this.deaf.frequency.value = 20000; this.deaf.Q.value = 0.5;
+      au.bus.disconnect();
+      au.bus.connect(this.deaf); this.deaf.connect(au.hp);
+    }
+    const t = ctx.currentTime, f = this.deaf.frequency;
+    f.cancelScheduledValues(t);
+    f.setValueAtTime(Math.min(f.value, 20000), t);
+    f.exponentialRampToValueAtTime(Math.max(260, 1800 - 1500 * a), t + 0.03);
+    f.setValueAtTime(Math.max(260, 1800 - 1500 * a), t + 0.6 + 1.4 * a);
+    f.exponentialRampToValueAtTime(20000, t + 3 + 4 * a);
   }
 
   ring(a) {

@@ -519,21 +519,21 @@ class EnemyManager {
     sb._shooter = null;
     // blast: knock ragdolls over, harder the closer they are (animated ones go physical first)
     for (const p of sb.people) {
-      if (p.enemy && p.enemy.anim && Math.hypot(p.rd.pelvis.pos.x - pos.x, p.rd.pelvis.pos.z - pos.z) < 6) p.enemy.anim.wake('blast');
+      if (p.enemy && p.enemy.anim && Math.hypot(p.rd.pelvis.pos.x - pos.x, p.rd.pelvis.pos.z - pos.z) < 7.5) p.enemy.anim.wake('blast');
     }
     for (const p of sb.people) {
       let any = false;
       for (const b of p.rd.allBodies()) {
         const dx = b.pos.x - pos.x, dy = b.pos.y - pos.y, dz = b.pos.z - pos.z, d = Math.hypot(dx, dy, dz);
-        if (d > 6) continue;
+        if (d > 7.5) continue;
         if (!g.level.visible({ x: pos.x, y: pos.y + 0.3, z: pos.z }, b.pos)) continue;
-        const f = clamp(1 - d / 6, 0, 1) ** 1.5 * 38 * b.mass / 6;
+        const f = clamp(1 - d / 7.5, 0, 1) ** 1.5 * 44 * b.mass / 6;
         b.applyImpulse(new I(dx / d * f, (dy / d + 0.6) * f, dz / d * f), b.pos);
         any = true;
       }
       if (any && p.enemy && !p.enemy.downed) {
         const d = Math.hypot(p.rd.pelvis.pos.x - pos.x, p.rd.pelvis.pos.z - pos.z);
-        const dmg = clamp(1 - d / 5.5, 0, 1) * 220;
+        const dmg = clamp(1 - d / 6.5, 0, 1) * 250;
         p.enemy.tough -= dmg;
         if (gr.by === 'player-grenade') p.enemy.lastHit = { by: 'player', seg: 'chest', time: g.time, grenade: true };
         if (p.enemy.tough <= 0 && p.injury.alive) p.injury.kill('blast injuries');
@@ -548,12 +548,12 @@ class EnemyManager {
     const P = g.player;
     const eye = P.eye(new I());
     const pd = Math.hypot(eye.x - pos.x, eye.y - 0.6 - pos.y, eye.z - pos.z);
-    if (pd < 7 && g.level.visible({ x: pos.x, y: pos.y + 0.3, z: pos.z }, eye)) {
-      const dmg = clamp(1 - pd / 7, 0, 1) ** 1.3 * (gr.by === 'player-grenade' ? 70 : 95);
+    if (pd < 8 && g.level.visible({ x: pos.x, y: pos.y + 0.3, z: pos.z }, eye)) {
+      const dmg = clamp(1 - pd / 8, 0, 1) ** 1.3 * (gr.by === 'player-grenade' ? 70 : 95);
       if (dmg > 1) this.damagePlayer(dmg, pos, 'blast');
-      g.shake = Math.max(g.shake, clamp(1.3 - pd / 6, 0.2, 1));
-      g.flashbang = Math.max(g.flashbang || 0, clamp(1 - pd / 5, 0, 0.8));
-    } else if (pd < 14) g.shake = Math.max(g.shake, 0.3);
+      g.shake = Math.max(g.shake, clamp(1.5 - pd / 6, 0.35, 1.2));
+      g.flashbang = Math.max(g.flashbang || 0, clamp(1.1 - pd / 6, 0, 0.9));
+    } else if (pd < 20) g.shake = Math.max(g.shake, clamp(0.7 - pd / 30, 0.2, 0.5));
     // visuals
     if (g.blast) g.blast.spawn(pos); // fireball, sparks, flash, smoke and char (src/57-blast.js)
     else {
