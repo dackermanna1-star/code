@@ -12,44 +12,56 @@ const ENEMY_GUNS = {
   sniper: { model: 'sniper', ballistic: 'marksman', sound: 'sniper', rpm: 40, burst: [1, 1], mag: 5, reload: 3.2, spread: 0.0025, dmg: 58, hold: 'rifle', range: 70, aimTime: 1.35, laser: true },
 };
 
+// who they are: Rocketbox avatars, pooled so a wave is a crowd and not a set of twins
+const ADULTS = Array.from({ length: 21 }, (_, i) => 'male_adult_' + String(i + 1).padStart(2, '0'));
+const WORKERS = ['delivery_male_01', 'construction_male_01', 'construction_male_03', 'construction_male_05', 'construction_male_07', 'gardener_male_01', 'wood_male_01'];
+const OFFICE = ['business_male_01', 'business_male_03', 'business_male_05', 'medical_male_02', 'pilot_male_01', 'sports_male_02'];
+const LOOKS = {
+  street: [...ADULTS, ...WORKERS, 'sports_male_02'],     // the ones who came in armed
+  lost: [...ADULTS, ...WORKERS, ...OFFICE],              // everyone the place ever swallowed
+  guards: ['security_male_01', 'police_male_01', 'police_male_03', 'police_male_04', 'police_male_05', 'police_male_06', 'police_male_07'],
+  soldiers: ['military_male_01', 'military_male_02', 'military_male_03', 'military_male_04', 'military_male_05', 'military_male_06'],
+  big: ['male_adult_05', 'military_male_04', 'construction_male_01', 'construction_male_05', 'wood_male_01', 'male_adult_09', 'male_adult_14'],
+};
+
 const ENEMY_TYPES = {
   scavenger: {
-    name: 'Scavenger', looks: ['male_adult_18', 'male_adult_04', 'delivery_male_01'], guns: ['pistol', 'pistol', 'revolver'],
+    name: 'Scavenger', looks: LOOKS.street, guns: ['pistol', 'pistol', 'revolver'],
     tough: 70, skill: 0.3, react: [0.64, 0.98], speed: 1.45, role: 'skirmish', cover: 0.35, flank: 0.2, aggression: 0.55,
     cash: 45, score: 100, voice: 0.9,
   },
   bandit: {
-    name: 'Bandit', looks: ['male_adult_05', 'male_adult_17', 'male_adult_04'], guns: ['smg', 'smg', 'pistol'],
+    name: 'Bandit', looks: LOOKS.street, guns: ['smg', 'smg', 'pistol'],
     tough: 85, skill: 0.4, react: [0.51, 0.81], speed: 1.65, role: 'skirmish', cover: 0.5, flank: 0.35, aggression: 0.65,
     cash: 65, score: 150, voice: 1,
   },
   rusher: {
-    name: 'Shotgun Rusher', looks: ['male_adult_17', 'delivery_male_01', 'male_adult_05'], guns: ['shotgun'],
+    name: 'Shotgun Rusher', looks: LOOKS.street, guns: ['shotgun'],
     tough: 110, skill: 0.5, react: [0.34, 0.59], speed: 2.25, role: 'rush', cover: 0, flank: 0.1, aggression: 1,
     cash: 85, score: 200, voice: 1.1,
   },
   merc: {
-    name: 'Mercenary', looks: ['security_male_01', 'police_male_06'], guns: ['rifle', 'rifle', 'smg'], armor: { vest: 0.45 },
+    name: 'Mercenary', looks: LOOKS.guards, guns: ['rifle', 'rifle', 'smg'], armor: { vest: 0.45 },
     tough: 115, skill: 0.58, react: [0.42, 0.68], speed: 1.6, role: 'skirmish', cover: 0.8, flank: 0.5, aggression: 0.5,
     cash: 110, score: 250, voice: 0.95, light: true,
   },
   soldier: {
-    name: 'Tactical Soldier', looks: ['military_male_01', 'military_male_03', 'military_male_04'], guns: ['rifle'], armor: { helmet: 1, vest: 0.6 },
+    name: 'Tactical Soldier', looks: LOOKS.soldiers, guns: ['rifle'], armor: { helmet: 1, vest: 0.6 },
     tough: 135, skill: 0.68, react: [0.34, 0.55], speed: 1.7, role: 'skirmish', cover: 0.9, flank: 0.65, aggression: 0.55, grenade: 0.22,
     cash: 150, score: 320, voice: 0.85, light: true,
   },
   sniper: {
-    name: 'Sniper', looks: ['police_male_02', 'military_male_03'], guns: ['sniper'], armor: { helmet: 1 },
+    name: 'Sniper', looks: ['police_male_02', 'military_male_03', 'military_male_05', 'military_male_06'], guns: ['sniper'], armor: { helmet: 1 },
     tough: 90, skill: 0.85, react: [0.77, 1.02], speed: 1.35, role: 'sniper', cover: 0.9, flank: 0.1, aggression: 0.2,
     cash: 200, score: 400, voice: 0.8,
   },
   heavy: {
-    name: 'Heavy Gunner', looks: ['military_male_04', 'military_male_01'], guns: ['lmg'], armor: { helmet: 2, vest: 0.82 },
+    name: 'Heavy Gunner', looks: ['military_male_04', 'military_male_01', 'military_male_02'], guns: ['lmg'], armor: { helmet: 2, vest: 0.82 },
     tough: 260, skill: 0.5, react: [0.47, 0.72], speed: 1.15, role: 'suppress', cover: 0.4, flank: 0.1, aggression: 0.75,
     knockback: 0.6, strength: 1.2, cash: 280, score: 600, voice: 0.75,
   },
   elite: {
-    name: 'Elite Operator', looks: ['police_male_02'], guns: ['rifle'], armor: { helmet: 2, vest: 0.75 },
+    name: 'Elite Operator', looks: ['police_male_02', 'military_male_05', 'military_male_06'], guns: ['rifle'], armor: { helmet: 2, vest: 0.75 },
     tough: 190, skill: 0.85, react: [0.26, 0.42], speed: 1.9, role: 'skirmish', cover: 0.95, flank: 0.85, aggression: 0.7, grenade: 0.4,
     cash: 360, score: 800, voice: 0.85, light: true, elite: true,
   },
@@ -59,17 +71,17 @@ const ENEMY_TYPES = {
     knockback: 0.3, strength: 1.4, cash: 1500, score: 3000, voice: 0.6, boss: true, light: true, scale: 1.08,
   },
   hollow: {
-    name: 'Hollowed', looks: ['male_adult_18', 'male_adult_04', 'delivery_male_01', 'male_adult_17'], melee: 'runner',
+    name: 'Hollowed', looks: LOOKS.lost, melee: 'runner',
     tough: 75, cash: 38, score: 100, hollow: true,
   },
   // bent double and scrambling, very fast and low, lunging the last metres; drops quickly
   crawler: {
-    name: 'Crawler', looks: ['male_adult_18', 'delivery_male_01', 'male_adult_04'], melee: 'runner',
+    name: 'Crawler', looks: LOOKS.lost, melee: 'runner',
     tough: 48, cash: 45, score: 130, hollow: true, variant: 'crawler',
   },
   // a heavy lumbering hulk: slow, then a short heavy charge; light rounds do not stop it, its blows throw you
   brute: {
-    name: 'Brute', looks: ['male_adult_05', 'military_male_04'], melee: 'brute',
+    name: 'Brute', looks: LOOKS.big, melee: 'brute',
     tough: 430, cash: 170, score: 480, hollow: true, variant: 'brute', voice: 0.6,
   },
 };

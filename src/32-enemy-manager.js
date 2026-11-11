@@ -98,7 +98,11 @@ class EnemyManager {
   // ---- spawning --------------------------------------------------------------------------------
   async spawn(type, pos, yaw) {
     const def = ENEMY_TYPES[type];
-    const look = randPick(def.looks);
+    // from this wave's cast, the face used least so far (never a row of twins)
+    const pool = (this.cast && this.cast[type]) || def.looks, used = this.lookUse || (this.lookUse = {});
+    let look = pool[0], best = Infinity;
+    for (const l of pool) { const u = (used[l] || 0) + Math.random() * 0.9; if (u < best) { best = u; look = l; } }
+    used[look] = (used[look] || 0) + 1;
     const game = this.game, sb = game.sb, gen = this.gen;
     const gltf = await Assets.gltf('characters/' + look);
     // the level or the run changed while the model loaded
@@ -181,7 +185,7 @@ class EnemyManager {
     if (!sfx) return false;
     // recorded callouts when the build has them (src/53-sfx.js say())
     if (!ai.hollow && sfx.say) {
-      let grp = { contact: 'alert', search: 'search', reload: 'reload', grenade: 'grenade', mandown: 'mandown', push: 'push', hit: 'hit', kill: 'kill' }[kind];
+      let grp = { contact: 'alert', search: 'search', reload: 'reload', grenade: 'grenade', blast: 'blast', mandown: 'mandown', push: 'push', hit: 'hit', kill: 'kill' }[kind];
       if (kind === 'chatter') grp = Math.random() < 0.4 ? (Math.random() < 0.5 ? 'push' : 'alert') : null;
       if (grp && sfx.say(ai, grp, { force: kind === 'grenade' })) return true;
       if (sfx.hasVox && sfx.hasVox('alert')) { if (ai.def.light && kind === 'chatter') sfx.radio(ai.headPos); return false; }
@@ -617,6 +621,9 @@ class EnemyManager {
     if (g.sfx) g.sfx.explosion(pos, pd);
     else g.audio.impact('metal', 1, pos);
     for (const h of g.hooks) h.onExplosion && h.onExplosion(pos, gr);
+    // someone who lived through it swears about it
+    const shaken = this.alive.find((o) => !o.hollow && !o.downed && Math.hypot(o.pos.x - pos.x, o.pos.z - pos.z) < 14);
+    if (shaken) setTimeout(() => { if (!shaken.downed) this.bark(shaken, Math.random() < 0.6 ? 'blast' : 'mandown'); }, 600 + Math.random() * 500);
   }
 
   // ---- per step / frame --------------------------------------------------------------------------

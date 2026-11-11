@@ -471,7 +471,7 @@ class Sfx {
     Assets.bytes('vox-index')
       .then((b) => JSON.parse(new TextDecoder().decode(b)))
       .then((keys) => Promise.all(keys.map((k) => {
-        const grp = k.replace(/^vox(-lic)?\//, '').replace(/_(otw)?\d+$/, '');
+        const grp = k.replace(/^vox(-lic)?\//, '').replace(/_[a-z]*\d+$/, '');
         return Assets.bytes(k).then((buf) => this.ctx.decodeAudioData(buf))
           .then((a) => { (this.vox[grp] || (this.vox[grp] = [])).push(a); }).catch(() => {});
       })))

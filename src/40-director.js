@@ -130,7 +130,17 @@ class Director {
     this.setState('wave');
     this.events.push({ type: 'waveStart', wave: this.wave, spec, mod: this.mod });
     // preload character models for this wave
-    for (const k of new Set(spec.kinds)) for (const look of ENEMY_TYPES[k].looks) Assets.gltf('characters/' + look);
+    // each wave casts a fresh handful of faces per type (loading every avatar at once would cost
+    // memory and a hitch); over a run the whole roster comes through
+    this.enemies.cast = {};
+    for (const k of new Set(spec.kinds)) {
+      const pool = ENEMY_TYPES[k].looks.slice(), seen = this.seenLooks || (this.seenLooks = new Set());
+      // faces not met yet first, then the rest, shuffled
+      pool.sort(() => Math.random() - 0.5).sort((a, b) => seen.has(a) - seen.has(b));
+      const cast = pool.slice(0, Math.min(pool.length, 8));
+      this.enemies.cast[k] = cast;
+      for (const look of cast) { seen.add(look); Assets.gltf('characters/' + look); }
+    }
     g.perks.waves = {};
   }
 

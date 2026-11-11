@@ -58,9 +58,10 @@ procedural additions.
 ## Characters
 - Microsoft Rocketbox Avatar Library — MIT licence, (c) Microsoft Corporation,
   https://github.com/microsoft/Microsoft-Rocketbox
-  Avatars used: Male_Adult_04, Male_Adult_05, Male_Adult_17, Male_Adult_18, Delivery_Male_01,
-  Security_Male_01, Police_Male_02, Police_Male_06, Military_Male_01, Military_Male_03,
-  Military_Male_04. Converted from FBX to glTF (tools/rb2glb.mjs) and bound to the engine's
+  Avatars used: Male_Adult_01 to Male_Adult_21, Delivery_Male_01, Construction_Male_01/03/05/07,
+  Business_Male_01/03/05, Gardener_Male_01, Wood_Male_01, Sports_Male_02, Medical_Male_02,
+  Pilot_Male_01, Security_Male_01, Police_Male_01 to Police_Male_07, Military_Male_01 to
+  Military_Male_06. Converted from FBX to glTF (tools/rb2glb.mjs) and bound to the engine's
   ragdoll skeleton.
 
 ## Everything else
@@ -94,6 +95,12 @@ All trimmed, loudness-matched and converted to mono MP3.
 - Screams (`scream_*`): "male grunt/yelling sounds" by HaelDB, https://opengameart.org/content/male-gruntyelling-sounds, CC0.
 - Hollow groans and snarls (`zgroan_*`, `zsnarl_*`): "Zombies sound pack" (Summoning Wars),
   "Zombie noises and moans" by ianzazz and "Zombie moans" by Darsycho, all on OpenGameArt, CC0.
+- More pain sounds: "Aargh! Male screams" (`pain_a*`, OpenGameArt, CC0) and "15 vocal male
+  strain/hurt/pain/jump sounds" (`pain_s*`, OpenGameArt, CC0).
+- More hollow sounds: "Undead moans" by AntumDeluge (`zgroan_u*`, CC0), "Hungry ghoul" by Darsycho
+  (`zgroan_h*`, CC0), "Monster sound effects pack" by Ogrebane (`zsnarl_m*`, CC0), "Zombie groan" by
+  gustavoasilveira (`zgroan_g*`, CC BY 3.0) and "Zombie Noises" by DonkeyMan (`zgroan_n*`, CC BY 4.0),
+  all on OpenGameArt.
 - Callouts `*_otw*`: "Free Shooter Voice Lines" by Outta This World Audio
   (https://moneywithjjcom.itch.io/free-shooter-voice-lines), royalty free, may be kept in a public repository;
   not to be redistributed as a sound pack.
@@ -102,3 +109,8 @@ All trimmed, loudness-matched and converted to mono MP3.
   licence that allows use in games but not redistribution of the source files, so these are not in this
   repository. Download the pack and run the conversion to include them; without them the game falls back
   to the Outta This World lines and synthesized calls.
+- More callouts in `assets/vox-lic/`: `*_h*` from "Modern Soldier — Combat Communications" free sample
+  by Andrew Helbig (https://andrewhelbig.itch.io/soldier-pack), and `*_c*` from the "Squad Net 01 —
+  Fireteam Callouts" free sampler by Core Systems Asset Factory (https://csaf.itch.io/squad-net-01-fireteam-callouts-voice-pack).
+  Both may be used in games but not redistributed as files, so they are not in this repository.
+  **Some squad voices are AI-generated (OpenAI text-to-speech)**: the Squad Net 01 lines.
