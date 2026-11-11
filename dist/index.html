@@ -72954,7 +72954,7 @@ class HollowWrap {
       } else if (this.charging && game.time - this.seenT > HOLLOW.forget) this.charging = false;
     }
     // while the ragdoll has them (staggering) the physical walker gets a gentler pace
-    const sp = this.charging ? this.chargeSpeed : this.shambleSpeed;
+    const sp = (this.charging ? this.chargeSpeed : this.shambleSpeed) * (1 - 0.4 * (this.limp || 0));
     c.loco.maxSpeed = this.anim && !this.anim.active ? Math.min(sp, 2.4) : sp;
   }
   startCharge() {
@@ -73262,6 +73262,9 @@ class EnemyManager {
             if (ai.suppressed !== undefined) ai.suppressed = Math.min(2, ai.suppressed + 0.3); // shaken, not cowed
           }
           if (ai.tough <= 0) this.finish(ai, e);
+          // a leg hit he stays up through leaves a limp (it does not heal down here)
+          if (ai.tough > 0 && /^(thigh|shin|foot)/.test(e.seg.name)) ai.limp = Math.min(1, (ai.limp || 0) + 0.45);
+          if (ai.tough <= 0) void 0;
           else if (!ai.hollow && ai.gun && /^(handR|forearmR)$/.test(e.seg.name) && e.energy > 120 && !ai.disarmedT && Math.random() < 0.8) this.disarm(ai);
           // the living cry out (hollows have their own snarls); not on every pellet
           if (!ai.hollow && g.sfx && e.person.injury.alive && e.person.injury.conscious && g.time - (ai.painT ?? -9) > 0.5) {
@@ -74262,8 +74265,9 @@ class AnimBody {
     // the clips set the top speed: a jog played much faster than captured looks comic
     const meta = this.lib.meta;
     want = Math.min(want, ((meta.run_f && meta.run_f.speed) || (meta.walk_f && meta.walk_f.speed) || 1.4) * this.maxRate);
-    // a round ridden out on the feet costs a stride or two
+    // a round ridden out on the feet costs a stride or two; a shot leg slows him for good
     if (this.stagger > 0) { this.stagger -= dt; want *= 0.4; }
+    if (ai.limp) want *= 1 - 0.5 * ai.limp;
     // a claw swipe lunges in
     const atk = this.melee && this.melee.attack, tg = this.melee && this.melee.target;
     if (atk && tg && atk.t < (this.melee.def.windup + this.melee.def.strike)) {
@@ -74472,6 +74476,8 @@ class AnimBody {
       this.flinchAmt = env;
       if (f.t > 0.7) { this.fl = null; this.flinchAmt = 0; }
     }
+    // a limp: the torso dips and swings over the bad leg once a stride
+    if (this.ai.limp) { const lw = this.ai.limp * clamp(Math.hypot(this.vel.x, this.vel.z) / 1.5, 0, 1); fR += Math.sin(this.phase * TAU) * 0.16 * lw; fP += Math.max(0, Math.sin(this.phase * TAU)) * 0.12 * lw; }
     const share = [0.25, 0.35, 0.4]; // lumbar takes the least (its limit is about 0.2 rad)
     this.spine.forEach((b, i) => this.rotateWorld(b, fR * (share[i] ?? 1 / n), (this.twist + fY) * (share[i] ?? 1 / n), -this.pitch * 0.6 / n - this.kick * 0.03 + lean / n + fP * (share[i] ?? 1 / n)));
     if (this.neck) this.rotateWorld(this.neck, tR * 0.4 + fR * 0.3, tY * 0.5 + fH * 0.4, -this.pitch * 0.25 - lean * 0.45 - fP * 0.25);
@@ -76951,6 +76957,7 @@ class BloodPools {
     for (const p of people) {
       const inj = p.injury;
       if (!inj) continue;
+      this.smear(p);
       // after death the heart stops and the engine's flow ends: release a residual pool instead
       if (!inj.alive) { this.drain(p, dt, decals); continue; }
       if (p.frozen) continue;
@@ -76988,6 +76995,23 @@ class BloodPools {
         }
       }
     }
+  }
+
+  // a bleeding body that slams into a wall leaves a smear where it hit, dragged down the wall
+  smear(p) {
+    const g = this.game, G = g.gore, world = g.sb && g.sb.world;
+    if (!G || !G.place || !world || !world.raycastAll || p.dormant || p.frozen) return;
+    const inj = p.injury;
+    if (!inj || !inj.wounds || !inj.wounds.length) return;
+    const ch = p.rd.segments.chest.body, v = ch.vel, sp = Math.hypot(v.x, v.z);
+    if (sp < 1.6 || g.time - (p._smearT || -9) < 0.6) return;
+    const d = new I(v.x / sp, 0, v.z / sp);
+    let h = null;
+    for (const q of world.raycastAll(ch.pos, d, 0.42, G.levelOnly)) if (!h || q.tIn < h.tIn) h = q;
+    if (!h || Math.abs(h.normal.y) > 0.5) return;
+    p._smearT = g.time;
+    const n = new T3.Vector3(h.normal.x, h.normal.y, h.normal.z), at = new T3.Vector3(h.point.x, h.point.y, h.point.z);
+    G.place('smear', at, n, clamp(0.25 + sp * 0.08, 0.25, 0.6), new T3.Vector3(0, -1, 0), 2.4);
   }
 
   // residual drain of a body: a budget set at death, released along a decaying curve at the worst
@@ -77981,6 +78005,8 @@ class GoreFX {
     _gv.set(-d.x, -d.y, -d.z);
     // (a hit has to read at range: a dense red puff at the entry, bigger the harder the round)
     this.mist(en, _gv, Math.round(7 + 10 * kin), 0.7 + 1.1 * kin, 0.055 + 0.045 * kin, 0.6, L, head ? 1.45 : 1.15);
+    // a tuft of torn cloth and fibre off the clothes at the entry
+    if (!head && IMPACT_FX.carpet) this.burst(en, _gv, _gv, IMPACT_FX.carpet, 0.4, 0.35 + 0.3 * kin, 1);
     // a few heavier drops fall straight from the wound to the floor under the target
     for (let q = 0; q < 1 + Math.round(2 * kin); q++) P.emit(en.x + (Math.random() - 0.5) * 0.04, en.y, en.z + (Math.random() - 0.5) * 0.04, d.x * 0.3, -0.2, d.z * 0.3, 0.002 + 0.0015 * Math.random(), 0.06 + 0.2 * Math.random(), 0);
     if (n.exit) {

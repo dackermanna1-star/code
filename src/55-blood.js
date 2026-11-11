@@ -27,6 +27,7 @@ class BloodPools {
     for (const p of people) {
       const inj = p.injury;
       if (!inj) continue;
+      this.smear(p);
       // after death the heart stops and the engine's flow ends: release a residual pool instead
       if (!inj.alive) { this.drain(p, dt, decals); continue; }
       if (p.frozen) continue;
@@ -64,6 +65,23 @@ class BloodPools {
         }
       }
     }
+  }
+
+  // a bleeding body that slams into a wall leaves a smear where it hit, dragged down the wall
+  smear(p) {
+    const g = this.game, G = g.gore, world = g.sb && g.sb.world;
+    if (!G || !G.place || !world || !world.raycastAll || p.dormant || p.frozen) return;
+    const inj = p.injury;
+    if (!inj || !inj.wounds || !inj.wounds.length) return;
+    const ch = p.rd.segments.chest.body, v = ch.vel, sp = Math.hypot(v.x, v.z);
+    if (sp < 1.6 || g.time - (p._smearT || -9) < 0.6) return;
+    const d = new I(v.x / sp, 0, v.z / sp);
+    let h = null;
+    for (const q of world.raycastAll(ch.pos, d, 0.42, G.levelOnly)) if (!h || q.tIn < h.tIn) h = q;
+    if (!h || Math.abs(h.normal.y) > 0.5) return;
+    p._smearT = g.time;
+    const n = new T3.Vector3(h.normal.x, h.normal.y, h.normal.z), at = new T3.Vector3(h.point.x, h.point.y, h.point.z);
+    G.place('smear', at, n, clamp(0.25 + sp * 0.08, 0.25, 0.6), new T3.Vector3(0, -1, 0), 2.4);
   }
 
   // residual drain of a body: a budget set at death, released along a decaying curve at the worst

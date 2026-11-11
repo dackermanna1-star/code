@@ -542,8 +542,9 @@ class AnimBody {
     // the clips set the top speed: a jog played much faster than captured looks comic
     const meta = this.lib.meta;
     want = Math.min(want, ((meta.run_f && meta.run_f.speed) || (meta.walk_f && meta.walk_f.speed) || 1.4) * this.maxRate);
-    // a round ridden out on the feet costs a stride or two
+    // a round ridden out on the feet costs a stride or two; a shot leg slows him for good
     if (this.stagger > 0) { this.stagger -= dt; want *= 0.4; }
+    if (ai.limp) want *= 1 - 0.5 * ai.limp;
     // a claw swipe lunges in
     const atk = this.melee && this.melee.attack, tg = this.melee && this.melee.target;
     if (atk && tg && atk.t < (this.melee.def.windup + this.melee.def.strike)) {
@@ -752,6 +753,8 @@ class AnimBody {
       this.flinchAmt = env;
       if (f.t > 0.7) { this.fl = null; this.flinchAmt = 0; }
     }
+    // a limp: the torso dips and swings over the bad leg once a stride
+    if (this.ai.limp) { const lw = this.ai.limp * clamp(Math.hypot(this.vel.x, this.vel.z) / 1.5, 0, 1); fR += Math.sin(this.phase * TAU) * 0.16 * lw; fP += Math.max(0, Math.sin(this.phase * TAU)) * 0.12 * lw; }
     const share = [0.25, 0.35, 0.4]; // lumbar takes the least (its limit is about 0.2 rad)
     this.spine.forEach((b, i) => this.rotateWorld(b, fR * (share[i] ?? 1 / n), (this.twist + fY) * (share[i] ?? 1 / n), -this.pitch * 0.6 / n - this.kick * 0.03 + lean / n + fP * (share[i] ?? 1 / n)));
     if (this.neck) this.rotateWorld(this.neck, tR * 0.4 + fR * 0.3, tY * 0.5 + fH * 0.4, -this.pitch * 0.25 - lean * 0.45 - fP * 0.25);

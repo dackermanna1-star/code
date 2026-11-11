@@ -1091,7 +1091,7 @@ class HollowWrap {
       } else if (this.charging && game.time - this.seenT > HOLLOW.forget) this.charging = false;
     }
     // while the ragdoll has them (staggering) the physical walker gets a gentler pace
-    const sp = this.charging ? this.chargeSpeed : this.shambleSpeed;
+    const sp = (this.charging ? this.chargeSpeed : this.shambleSpeed) * (1 - 0.4 * (this.limp || 0));
     c.loco.maxSpeed = this.anim && !this.anim.active ? Math.min(sp, 2.4) : sp;
   }
   startCharge() {

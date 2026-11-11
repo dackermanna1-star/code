@@ -273,6 +273,9 @@ class EnemyManager {
             if (ai.suppressed !== undefined) ai.suppressed = Math.min(2, ai.suppressed + 0.3); // shaken, not cowed
           }
           if (ai.tough <= 0) this.finish(ai, e);
+          // a leg hit he stays up through leaves a limp (it does not heal down here)
+          if (ai.tough > 0 && /^(thigh|shin|foot)/.test(e.seg.name)) ai.limp = Math.min(1, (ai.limp || 0) + 0.45);
+          if (ai.tough <= 0) void 0;
           else if (!ai.hollow && ai.gun && /^(handR|forearmR)$/.test(e.seg.name) && e.energy > 120 && !ai.disarmedT && Math.random() < 0.8) this.disarm(ai);
           // the living cry out (hollows have their own snarls); not on every pellet
           if (!ai.hollow && g.sfx && e.person.injury.alive && e.person.injury.conscious && g.time - (ai.painT ?? -9) > 0.5) {

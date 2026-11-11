@@ -455,6 +455,8 @@ class GoreFX {
     _gv.set(-d.x, -d.y, -d.z);
     // (a hit has to read at range: a dense red puff at the entry, bigger the harder the round)
     this.mist(en, _gv, Math.round(7 + 10 * kin), 0.7 + 1.1 * kin, 0.055 + 0.045 * kin, 0.6, L, head ? 1.45 : 1.15);
+    // a tuft of torn cloth and fibre off the clothes at the entry
+    if (!head && IMPACT_FX.carpet) this.burst(en, _gv, _gv, IMPACT_FX.carpet, 0.4, 0.35 + 0.3 * kin, 1);
     // a few heavier drops fall straight from the wound to the floor under the target
     for (let q = 0; q < 1 + Math.round(2 * kin); q++) P.emit(en.x + (Math.random() - 0.5) * 0.04, en.y, en.z + (Math.random() - 0.5) * 0.04, d.x * 0.3, -0.2, d.z * 0.3, 0.002 + 0.0015 * Math.random(), 0.06 + 0.2 * Math.random(), 0);
     if (n.exit) {
