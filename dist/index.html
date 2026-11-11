@@ -301,6 +301,11 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
 ## Sound: Kenney "Impact Sounds" (CC0)
 Footsteps (carpet, concrete, wood) and body impacts in `assets/sfx/` are from Kenney's "Impact Sounds" pack
 (www.kenney.nl), released under Creative Commons Zero (CC0 1.0), converted to mono MP3.
+
+## MP5 viewmodel
+"FPS Animations LowPoly MP5" by Cransh (https://sketchfab.com/ccransh),
+https://sketchfab.com/3d-models/fps-animations-lowpoly-mp5-568f00dd76944baaa5eae1a1cc871423 — CC BY 4.0.
+Converted to GLB (textures resized); arms tinted dark in game.
 </script>
 <script type="module">
 const ma = { ROTATE: 0, DOLLY: 1, PAN: 2 },
@@ -70616,7 +70621,7 @@ const VM_RIGS = {
   },
   mp5: {
     // no Head_Cam bone in this rig: the scene root (which carries the export's scale) stands in
-    asset: 'viewmodels/mp5', gun: 'bdy_86', head: 'GLTF_SceneRootNode', headAt: [0.13, 0.13, 0.1], armsTint: 0x2b2b2e, arms: ['lambert1'], caliber: '9mm',
+    asset: 'viewmodels/mp5', gun: 'bdy_86', head: 'GLTF_SceneRootNode', headAt: [-0.12, 0.13, 0.1], armsTint: 0x2b2b2e, arms: ['lambert1'], caliber: '9mm',
     adsNudge: [0, 0, 0], hip: [0, 0, 0, 0, 0],
     clips: { idle: 'Arms_Idle', walk: 'Arms_Walk', run: 'Arms_Sprint', fire: 'Arms_Fire', reload: 'Arms_notfullreload', reloadEmpty: 'Arms_fullreload', draw: 'Arms_Draw', inspect: 'Arms_Inspect' },
     eye: [0, 0.021, 0.0], sightRear: 0.35, sightFront: 0.92, adsDist: 0.16, port: 0.6, fov: 52,
