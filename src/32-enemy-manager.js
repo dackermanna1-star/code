@@ -377,7 +377,12 @@ class EnemyManager {
     if (!inj.alive) return;
     const seg = e.seg.name;
     // the hollowed cannot be knocked out: they only stop when they are dead
-    if (inj.undead || seg === 'head' || seg === 'neck' || e.energy > 1100) { inj.kill(seg === 'head' ? 'gunshot wound to the head' : 'gunshot wounds'); return; }
+    if (inj.undead || seg === 'head' || seg === 'neck' || e.energy > 2400) { inj.kill(seg === 'head' ? 'gunshot wound to the head' : 'gunshot wounds'); return; }
+    // still on his feet: most go down the way people do, holding the wound, legs going
+    const upright = c.mode === 'balance' && c.alive && (c.sens ? c.sens.upTilt < 0.4 : true);
+    const force = typeof window !== 'undefined' && window.__forceAct;
+    if (upright && (force || Math.random() < 0.78)) { this.deathAct(ai, e); return; }
+    if (e.energy > 1100 && Math.random() < 0.6) { inj.kill('gunshot wounds'); return; }
     const r = Math.random();
     if (r < 0.38) this.agonize(ai);
     else if (r < 0.62) inj.kill('gunshot wounds');
@@ -385,6 +390,107 @@ class EnemyManager {
       inj.knockOut(9999, 1);
       c.autoGetUp = false;
     }
+  }
+
+  // a fatal round to the body of a man still standing: a last few seconds, euphoria style. He stays
+  // awake (so the controller presses his hands to the wound by itself), the legs go, and either he
+  // is carried back along the shot and goes down that way, or he sinks to his knees, holds there a
+  // moment and pitches over. Out of the fight from the first instant.
+  deathAct(ai, e) {
+    const p = ai.p, c = p.ctl, seg = e.seg.name;
+    const v = c.sens ? c.sens.comVel : { x: 0, z: 0 }, sp = Math.hypot(v.x, v.z);
+    const torso = /^(chest|abdomen|pelvis)$/.test(seg), leg = /^(thigh|shin|foot)/.test(seg), arm = /^(upperArm|forearm|hand)/.test(seg);
+    const r = Math.random();
+    const kind = (typeof window !== 'undefined' && window.__forceAct) || leg ? (window.__forceAct || 'stagger') : torso && sp < 1.3 && r < 0.55 ? 'knees' : 'stagger';
+    const dh = e.dir ? Math.hypot(e.dir.x, e.dir.z) || 1 : 1;
+    const dir = e.dir ? { x: e.dir.x / dh, z: e.dir.z / dh } : { x: -Math.sin(c.heading || 0), z: -Math.cos(c.heading || 0) };
+    ai.dyingAct = {
+      kind, t: 0, dir, seg, kneeled: -1,
+      dur: kind === 'knees' ? 3.6 : 0.7 + Math.random() * 1.1 + (sp > 1.5 ? 0.4 : 0),
+      hold: 0.5 + Math.random() * 1.3, // how long he stays on his knees
+      side: Math.random() < 0.5 ? -1 : 1,
+      push: clamp((e.energy || 400) / 900, 0.35, 1.4),
+    };
+    c.autoGetUp = false;
+    this.down(ai);
+    // the hands go to the wound and stay there through the stagger, the fall and the knees (the
+    // controller only does it by itself while he is balancing); one hand, or both for a bad one in
+    // the trunk, the free hand left to break the fall
+    ai.dyingAct.both = torso && Math.random() < 0.55;
+
+    c.armDriver = () => this.clutch(ai);
+    const S = p.rd.segments;
+    // a round through the shoulder or arm turns him
+    if (arm || /L$|R$/.test(seg)) { const ch = S.chest.body; ch.angVel.y += (seg.endsWith('L') ? 1 : -1) * (2 + Math.random() * 2.5); }
+    if (this.game.sfx && Math.random() < 0.8) setTimeout(() => this.game.sfx.pain(ai.headPos, Math.random() < 0.4 ? 'scream' : 'cry', ai.def.voice || 1), 40 + Math.random() * 120);
+  }
+
+  clutch(ai) {
+    const a = ai.dyingAct, c = ai.p.ctl;
+    if (!a || !c.wounds || !c.wounds.length || c.tone < 0.3) return;
+    const w = c.wounds[0], seg = w.segment && w.segment.name ? w.segment.name : String(w.segment || '');
+    // the hand nearer the wound (never the hand of a shot arm)
+    if (!a.hand) {
+      const ch = c.seg.chest.body, wp = w.body.localToWorld(w.local, new I());
+      const right = ch.localDirToWorld(new I(1, 0, 0), new I());
+      const s = (wp.x - ch.pos.x) * right.x + (wp.z - ch.pos.z) * right.z;
+      a.hand = /L$/.test(seg) && /^(upperArm|forearm|hand)/.test(seg) ? 'R' : /R$/.test(seg) && /^(upperArm|forearm|hand)/.test(seg) ? 'L' : s > 0 ? 'L' : 'R';
+    }
+    const other = a.hand === 'L' ? 'R' : 'L';
+    try {
+      if ((c.armStrength[a.hand] ?? 1) > 0.15) c.holdWound(a.hand, w, 0);
+      if (a.both && (c.armStrength[other] ?? 1) > 0.15) c.holdWound(other, w, 1);
+    } catch (e) { c.armDriver = null; }
+  }
+
+  updateDeathAct(ai, dt) {
+    const a = ai.dyingAct, p = ai.p, inj = p.injury, c = p.ctl, S = p.rd.segments;
+    if (!inj.alive || ai.frozen) { ai.dyingAct = null; return; }
+    if (!inj.conscious) { inj.kill('gunshot wounds'); ai.dyingAct = null; return; }
+    a.t += dt;
+    const b = inj.buckle;
+    if (a.kind === 'knees' && !a.damped) {
+      // the legs fold under him where he stands: no torso whip back, most of the round's shove gone
+      // (here, a step on: the engine's knock lands after the hit is reported)
+      a.damped = true;
+      if (c.snap) c.snap.t0 = -9;
+      if (c.flinch) c.flinch.amount *= 0.3;
+      for (const bd of p.rd.allBodies()) { bd.vel.x *= 0.2; bd.vel.z *= 0.2; bd.angVel.x *= 0.25; bd.angVel.z *= 0.25; }
+    }
+    if (a.kind === 'knees') {
+      // the knees go but the trunk stays up: the controller makes it a fall to the knees
+      if (b) { b.L = Math.min(b.L, 0.1); b.R = Math.min(b.R, 0.1); }
+      if (a.kneeled < 0 && c.kneel && c.kneel.down >= 0) a.kneeled = a.t;
+      // on the way down he sinks rather than topples: the trunk is held steady until the knees
+      // are on the floor and for the moment he stays there
+      if (c.mode === 'falling' && (a.kneeled < 0 || a.t - a.kneeled < a.hold)) {
+        const k = Math.exp(-dt * 14), kv = Math.exp(-dt * 8);
+        for (const bd of p.rd.allBodies()) { bd.angVel.x *= k; bd.angVel.z *= k; bd.vel.x *= kv; bd.vel.z *= kv; }
+      }
+    } else {
+      // legs going under him over the stagger, carried along the shot for the first moments
+      const k = clamp(1 - a.t / a.dur, 0, 1);
+      const legs = 0.18 + 0.7 * k * k; // holds a moment, then goes
+      if (b) { b.L = Math.min(b.L, legs); b.R = Math.min(b.R, legs); b.trunk = Math.min(b.trunk, 0.5 + 0.4 * k); }
+      if (a.t < 0.45 && c.mode === 'balance') {
+        const pel = S.pelvis.body, f = 26 * a.push * (1 - a.t / 0.45);
+        pel.force.x += a.dir.x * f; pel.force.z += a.dir.z * f;
+      }
+    }
+    const kneelDone = a.kind === 'knees' && a.kneeled >= 0 && a.t - a.kneeled > a.hold;
+    const done = kneelDone || a.t > a.dur || (c.mode === 'ground' && a.t > (a.kind === 'knees' ? 2.2 : 0.3));
+    if (!done) return;
+    // the last of him goes: tip him the way he was going (or forward and a little aside off his
+    // knees) and let go
+    const ch = S.chest.body, h = c.heading || 0;
+    let fx, fz;
+    if (a.kind === 'knees') { const fw = { x: Math.sin(h), z: Math.cos(h) }; fx = fw.x * 0.8 + fw.z * a.side * 0.5; fz = fw.z * 0.8 - fw.x * a.side * 0.5; }
+    else { fx = a.dir.x; fz = a.dir.z; }
+    const k = a.kind === 'knees' ? 7 : 5;
+    ch.applyImpulse(new I(fx * k, 0, fz * k), new I(ch.pos.x, ch.pos.y + 0.15, ch.pos.z));
+    c.armDriver = null;
+    inj.kill('gunshot wounds');
+    ai.dyingAct = null;
   }
 
   // fatally hurt but still awake: the legs go and they fold to the floor, clutch the wound, groan,
@@ -461,7 +567,7 @@ class EnemyManager {
     ai.releaseToken();
     const p = ai.p, g = this.game;
     // whatever brought them down (kick, bleed-out, a hollow out of toughness), they stay down
-    if (p.injury.alive && !ai.agony && (p.injury.undead || p.ctl.mode === 'balance' || p.ctl.mode === 'getup')) {
+    if (p.injury.alive && !ai.agony && !ai.dyingAct && (p.injury.undead || p.ctl.mode === 'balance' || p.ctl.mode === 'getup')) {
       p.injury.kill(ai.lastHit && ai.lastHit.weapon === 'kick' ? 'blunt trauma' : 'injuries');
     }
     p.ctl.autoGetUp = false;
@@ -478,7 +584,7 @@ class EnemyManager {
     const dist = Math.hypot(ai.pos.x - g.player.pos.x, ai.pos.z - g.player.pos.z);
     ai.diedAt = g.time;
     // a last cry (not from a headshot, and the dying in agony have their own screams)
-    if (!ai.hollow && !ai.agony && !head && g.sfx && Math.random() < 0.75) setTimeout(() => g.sfx.voice(ai.headPos, 'death', ai.def.voice || 1), 60 + Math.random() * 200);
+    if (!ai.hollow && !ai.agony && !ai.dyingAct && !head && g.sfx && Math.random() < 0.75) setTimeout(() => g.sfx.voice(ai.headPos, 'death', ai.def.voice || 1), 60 + Math.random() * 200);
     this.corpses.push(ai);
     // a gunman who sees his man go down calls it
     if (!ai.hollow && Math.random() < 0.6) {
@@ -666,10 +772,10 @@ class EnemyManager {
       } else { an.lodAcc = 0; an.step(dt); }
     }
     // the dying
-    for (const ai of this.corpses) if (ai.agony) this.updateAgony(ai, dt);
+    for (const ai of this.corpses) { if (ai.agony) this.updateAgony(ai, dt); else if (ai.dyingAct) this.updateDeathAct(ai, dt); }
     // corpses settle, then freeze to save the simulation
     for (const ai of this.corpses) {
-      if (ai.frozen || ai.agony || g.time - ai.diedAt < 3) continue;
+      if (ai.frozen || ai.agony || ai.dyingAct || g.time - ai.diedAt < 3) continue;
       let still = true;
       for (const b of ai.p.rd.allBodies()) if (b.vel.lengthSq() > 0.03) { still = false; break; }
       if (still || g.time - ai.diedAt > 10) {
