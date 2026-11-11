@@ -70621,7 +70621,7 @@ const VM_RIGS = {
   },
   mp5: {
     // no Head_Cam bone in this rig: the scene root (which carries the export's scale) stands in
-    asset: 'viewmodels/mp5', vmFovScale: 0.84, gun: 'bdy_86', head: 'GLTF_SceneRootNode', headAt: [-0.12, 0.13, 0.1], armsTint: 0x2b2b2e, arms: ['lambert1'], caliber: '9mm',
+    asset: 'viewmodels/mp5', vmFovScale: 0.84, gun: 'bdy_86', head: 'GLTF_SceneRootNode', headAt: [-0.12, 0.165, 0.1], armsTint: 0x2b2b2e, arms: ['lambert1'], caliber: '9mm',
     adsNudge: [0, 0, 0], hip: [0, 0, 0, 0, 0],
     clips: { idle: 'Arms_Idle', walk: 'Arms_Walk', run: 'Arms_Sprint', fire: 'Arms_Fire', reload: 'Arms_notfullreload', reloadEmpty: 'Arms_fullreload', draw: 'Arms_Draw', inspect: 'Arms_Inspect' },
     eye: [0, 0.021, 0.0], sightRear: 0.35, sightFront: 0.92, adsDist: 0.16, port: 0.6, fov: 52,
@@ -70754,6 +70754,21 @@ class Viewmodel {
       }
       rig.meshes.push(o);
     });
+    // low-poly arms that end at the shoulder: a sleeve on each upper arm runs on past it, out of view
+    for (const bn of def.sleeves || []) {
+      const b = root.getObjectByName(bn);
+      if (!b) continue;
+      const kid = b.children.find((k) => k.isBone);
+      const len = kid ? kid.position.length() : 0.3;
+      const mat = new T3.MeshStandardMaterial({ color: def.armsTint ?? 0x2b2b2e, roughness: 0.75 });
+      const sl = new T3.Mesh(new T3.CylinderGeometry(len * 0.13, len * 0.15, len * 0.9, 12), mat);
+      // along the bone's axis (towards its child), from a little inside the upper arm back past the shoulder
+      const ax = kid ? kid.position.clone().normalize() : new T3.Vector3(0, 1, 0);
+      sl.quaternion.setFromUnitVectors(new T3.Vector3(0, 1, 0), ax);
+      sl.position.copy(ax).multiplyScalar(-len * 0.25);
+      sl.frustumCulled = false;
+      b.add(sl);
+    }
     rig.player = new ClipPlayer(root, gltf.animations);
     rig.headCam = root.getObjectByName(def.head || 'Head_Cam_014');
     rig.gun = root.getObjectByName(def.gun) || rig.headCam;
