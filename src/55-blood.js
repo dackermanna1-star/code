@@ -55,9 +55,9 @@ class BloodPools {
         } else {
           // upright: drops gather and fall from under the wound (landing as splats and a pool)
           const acc = (wd._drip || 0) + vol; // mL gathering before a drop falls
-          if (acc > 1.2) {
+          if (acc > 0.8) {
             const x = w.x + n.x * 0.012 + (Math.random() - 0.5) * 0.02, z = w.z + n.z * 0.012 + (Math.random() - 0.5) * 0.02;
-            if (P) P.emit(x, w.y - 0.01, z, n.x * 0.15, -0.3, n.z * 0.15, 0.0022 + Math.random() * 0.0016, acc * 0.5, 0);
+            if (P) P.emit(x, w.y - 0.01, z, n.x * 0.15, -0.3, n.z * 0.15, 0.0038 + Math.random() * 0.0025, acc * 0.9, 0);
             else { decals.splat(x, z, 0.012, 0, 0.8, 1, Math.random() * TAU, Math.random()); decals.addPoolVolume(x, z, acc * 0.5); }
             wd._drip = 0;
           } else wd._drip = acc;

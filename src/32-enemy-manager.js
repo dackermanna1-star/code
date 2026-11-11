@@ -210,6 +210,7 @@ class EnemyManager {
 
   onEnemyShot(ai, muzzle, paths) {
     const game = this.game;
+    if (game.blast && game.blast.casing) game.blast.casing(ai, muzzle);
     game.audio.gunshot(ai.gun.sound, toP3(muzzle));
     game.effects.muzzleLight(muzzle, 1.2);
     for (const p of paths) {

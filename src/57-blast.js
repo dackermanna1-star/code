@@ -47,7 +47,40 @@ class BlastFX {
     return s;
   }
 
-  onLevel() { this.pool = []; this.live.length = 0; this.sparks.length = 0; this.flashes.length = 0; }
+  onLevel() { this.pool = []; this.live.length = 0; this.sparks.length = 0; this.flashes.length = 0; this.cases = []; }
+
+  // spent brass from enemy guns: thrown out to the right of the gun, bouncing with a clink, then
+  // lying where it stopped (a pool of 80; the oldest is picked up again)
+  casing(ai, muzzle) {
+    const g = this.game, scene = g.view && g.view.scene;
+    if (!scene || !ai.gun || ai.gun.pellets) return; // a pump shotgun keeps its hull until it is worked
+    this.cases = this.cases || [];
+    let c = this.cases.find((x) => x.rest && x.m.parent === scene && this.cases.length >= 80) || null;
+    if (!c && this.cases.length >= 80) c = this.cases[0];
+    if (!c) {
+      const m = Lab.casingMesh(ai.gun.hold === 'pistol' ? 'pistol' : 'rifle');
+      m.castShadow = m.receiveShadow = false;
+      scene.add(m);
+      c = { m, v: new T3.Vector3(), w: new T3.Vector3(), rest: false, bounced: 0 };
+      this.cases.push(c);
+    } else { this.cases.splice(this.cases.indexOf(c), 1); this.cases.push(c); }
+    const d = ai.aimDir, rx = -d.z, rz = d.x, rl = Math.hypot(rx, rz) || 1;
+    c.m.position.set(muzzle.x - d.x * 0.25, muzzle.y + 0.02, muzzle.z - d.z * 0.25);
+    c.v.set((rx / rl) * (1.6 + Math.random()), 1.2 + Math.random() * 0.8, (rz / rl) * (1.6 + Math.random()));
+    c.w.set(Math.random() * 30, 20, Math.random() * 30);
+    c.rest = false; c.bounced = 0;
+  }
+
+  // dust shaken down from the ceiling around a blast or a hit to the ceiling
+  ceilingDust(x, z, r, n) {
+    const g = this.game, L = g.level;
+    if (!L || !g.effects) return;
+    const col = (L.theme && L.theme.floorDust) || 0xb8ad96;
+    for (let k = 0; k < n; k++) {
+      const a = Math.random() * TAU, d = Math.random() * r;
+      g.effects.puff(new T3.Vector3(x + Math.cos(a) * d, L.ceiling - 0.05, z + Math.sin(a) * d), new T3.Vector3(0, -1, 0), col, 6, 0.6, 0.5);
+    }
+  }
 
   spawn(pos) {
     const g = this.game;
@@ -87,6 +120,7 @@ class BlastFX {
     const ring = this.sprite('ring'); ring.position.set(pos.x, 0.06, pos.z); ring.userData.flat = true;
     parts.push({ s: ring, grow: 16, life: 0.32, size0: 0.6, up: 0 });
     this.char(pos);
+    this.ceilingDust(pos.x, pos.z, 4, 7);
   }
 
   // char: a burnt core, a sooty halo and radial streaks on the floor; scorches on walls in reach
@@ -117,6 +151,20 @@ class BlastFX {
 
   frame(dt) {
     const g = this.game, cq = g.camera && g.camera.quaternion;
+    if (this.cases) for (const c of this.cases) {
+      if (c.rest) continue;
+      c.v.y -= 9.8 * dt;
+      c.m.position.addScaledVector(c.v, dt);
+      c.m.rotation.x += c.w.x * dt; c.m.rotation.y += c.w.y * dt; c.m.rotation.z += c.w.z * dt;
+      if (c.m.position.y < 0.012) {
+        c.m.position.y = 0.012;
+        if (c.bounced === 0 && g.audio && Math.random() < 0.6) g.audio.impact('metal', 0.07 + Math.random() * 0.05, toP3(c.m.position, new I()));
+        c.bounced++;
+        c.v.set(c.v.x * 0.45, -c.v.y * 0.3, c.v.z * 0.45);
+        c.w.multiplyScalar(0.5);
+        if (c.bounced > 2 || Math.abs(c.v.y) < 0.3) { c.rest = true; c.m.rotation.x = Math.PI / 2; c.m.rotation.z = 0; }
+      }
+    }
     if (this.pool && cq) for (const s of this.pool) if (s.visible && !s.userData.flat) s.quaternion.copy(cq);
     if (this.pool) for (const s of this.pool) if (s.userData.flat) s.rotation.set(-Math.PI / 2, 0, 0);
     for (const L of this.live) {

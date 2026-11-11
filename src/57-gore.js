@@ -451,9 +451,10 @@ class GoreFX {
     // entry: back-spatter toward the shooter (fine droplets in a tight cone) and a puff of mist
     _gV3.set(-d.x, -d.y, -d.z);
     _gN3.set(en.x, en.y, en.z);
-    P.spray(_gN3, _gV3, 3 + Math.round(7 * kin), 0.8 + 1.4 * kin, 0.5, 3e-4, 0.0012, 0, 0.004);
+    P.spray(_gN3, _gV3, 6 + Math.round(12 * kin), 0.9 + 1.8 * kin, 0.55, 4e-4, 0.0018, 0, 0.008);
     _gv.set(-d.x, -d.y, -d.z);
-    this.mist(en, _gv, Math.round(3 + 6 * kin), 0.6 + 0.9 * kin, 0.03 + 0.02 * kin, 0.5, L, head ? 1.2 : 0.9);
+    // (a hit has to read at range: a dense red puff at the entry, bigger the harder the round)
+    this.mist(en, _gv, Math.round(7 + 10 * kin), 0.7 + 1.1 * kin, 0.055 + 0.045 * kin, 0.6, L, head ? 1.45 : 1.15);
     // a few heavier drops fall straight from the wound to the floor under the target
     for (let q = 0; q < 1 + Math.round(2 * kin); q++) P.emit(en.x + (Math.random() - 0.5) * 0.04, en.y, en.z + (Math.random() - 0.5) * 0.04, d.x * 0.3, -0.2, d.z * 0.3, 0.002 + 0.0015 * Math.random(), 0.06 + 0.2 * Math.random(), 0);
     if (n.exit) {
@@ -465,7 +466,7 @@ class GoreFX {
       P.spray(_gN3, _gV3, 6 + Math.round(26 * k), 4 + 7 * k, 0.1 + 0.05 * k, 2e-4, 7e-4, 0, 0.004);
       if (k > 0.35) P.spray(_gN3, _gV3, Math.round(3 + 9 * k), 2 + 3 * k, 0.3, 0.0016, 0.0045, 1, 0.12);
       if (n.bone) P.spray(_gN3, _gV3, 2 + Math.round(5 * k), 3 + 4 * k, 0.35, 0.0012, 0.0032, 2, 0.02);
-      this.mist(s, d, Math.round(6 + 20 * k), 1.4 + 3.4 * k, 0.04 + 0.035 * k, 0.75, L, 1);
+      this.mist(s, d, Math.round(10 + 26 * k), 1.5 + 3.8 * k, 0.06 + 0.05 * k, 0.85, L, 1.2);
       if (head && k > 0.4) {
         P.spray(_gN3, _gV3, 14, 4.5, 0.45, 0.0018, 0.006, 1, 0.25);
         this.mist(s, d, 18, 3.5, 0.08, 1, L, 1.2);
