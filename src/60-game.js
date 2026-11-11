@@ -529,7 +529,8 @@ class BackroomsGame {
     });
     p.landed = 0;
     // weapon FOV: wider = smaller gun on screen (the settings slider); a raised scope narrows it
-    this.vm.camera.fov = lerp(this.settings.vmFov || 68, 52 / Math.min(zoom, 1.4), a.adsAmount);
+    const vmK = (this.vm.cur && this.vm.cur.def.vmFovScale) || 1; // some rigs sit too far away at the shared FOV
+    this.vm.camera.fov = lerp((this.settings.vmFov || 68) * vmK, 52 / Math.min(zoom, 1.4), a.adsAmount);
     this.vm.camera.updateProjectionMatrix();
     this.audio.setListener(cam.position, fwd);
     for (const h of this.hooks) h.beforeRender && h.beforeRender(dt);
