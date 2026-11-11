@@ -79,3 +79,8 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
 ## Sound: Kenney "Impact Sounds" (CC0)
 Footsteps (carpet, concrete, wood) and body impacts in `assets/sfx/` are from Kenney's "Impact Sounds" pack
 (www.kenney.nl), released under Creative Commons Zero (CC0 1.0), converted to mono MP3.
+
+## MP5 viewmodel
+"FPS Animations LowPoly MP5" by Cransh (https://sketchfab.com/ccransh),
+https://sketchfab.com/3d-models/fps-animations-lowpoly-mp5-568f00dd76944baaa5eae1a1cc871423 — CC BY 4.0.
+Converted to GLB (textures resized); arms tinted dark in game.

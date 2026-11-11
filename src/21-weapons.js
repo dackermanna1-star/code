@@ -17,6 +17,13 @@ const WEAPONS = {
     recoil: { up: 0.0085, side: 0.0075, pattern: 'smg' }, vm: { back: 0.018, up: 3.2, side: 1.6, roll: 1.2, flash: 0.75 },
     attachments: ['suppressor', 'laser', 'extmag', 'grip'], desc: 'Fast-firing 9 mm. Shreds at close range, struggles against armour.',
   },
+  mp5: {
+    name: 'MP5 Submachine Gun', short: 'MP5', cls: 'SMG', rig: 'mp5', ballistic: 'smg', slot: 'primary',
+    price: 1900, mag: 30, reserve: 120, maxReserve: 300, rpm: 800, auto: true,
+    hipSpread: 0.85, adsSpread: 0.85, adsTime: 0.14, move: 1.0,
+    recoil: { up: 0.0065, side: 0.005, pattern: 'smg' }, vm: { back: 0.016, up: 2.6, side: 1.2, roll: 1.0, flash: 0.7 },
+    attachments: ['suppressor', 'laser', 'extmag', 'grip'], desc: 'Roller-delayed 9 mm: steadier and more accurate than the KV-9, takes a suppressor well.',
+  },
   m870: {
     name: 'M870 Pump Shotgun', short: 'M870', cls: 'Shotgun', rig: 'remington', ballistic: 'shotgun', slot: 'primary',
     price: 1600, mag: 6, reserve: 30, maxReserve: 60, rpm: 75, auto: false, pump: 0.55, perShell: true,

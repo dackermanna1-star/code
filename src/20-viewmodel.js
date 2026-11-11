@@ -11,6 +11,13 @@ const VM_RIGS = {
     clips: { idle: 'FPS_Pistol_Idle', walk: 'FPS_Pistol_Walk', fire: 'FPS_Pistol_Fire', reload: 'FPS_Pistol_Reload_easy', reloadEmpty: 'FPS_Pistol_Reload_full' },
     eye: [0, 0.02, 0.0], sightRear: 0.12, sightFront: 0.9, adsDist: 0.34, port: 0.72, fov: 52,
   },
+  mp5: {
+    // no Head_Cam bone in this rig: the scene root (which carries the export's scale) stands in
+    asset: 'viewmodels/mp5', gun: 'bdy_86', head: 'GLTF_SceneRootNode', headAt: [0.13, 0.13, 0.1], armsTint: 0x2b2b2e, arms: ['lambert1'], caliber: '9mm',
+    adsNudge: [0, 0, 0], hip: [0, 0, 0, 0, 0],
+    clips: { idle: 'Arms_Idle', walk: 'Arms_Walk', run: 'Arms_Sprint', fire: 'Arms_Fire', reload: 'Arms_notfullreload', reloadEmpty: 'Arms_fullreload', draw: 'Arms_Draw', inspect: 'Arms_Inspect' },
+    eye: [0, 0.021, 0.0], sightRear: 0.35, sightFront: 0.92, adsDist: 0.16, port: 0.6, fov: 52,
+  },
   smg: {
     asset: 'viewmodels/smg', gun: 'Rif_059', arms: ['arms'], caliber: '9mm',
     adsNudge: [-0.008, 0, 0], hip: [0, 0, 0, 0, 0],
@@ -133,14 +140,14 @@ class Viewmodel {
       if (m) {
         if (m.map) m.map.anisotropy = 8;
         m.envMapIntensity = 1;
-        if (def.arms.includes(m.name)) o.userData.arms = true;
+        if (def.arms.includes(m.name)) { o.userData.arms = true; if (def.armsTint !== undefined) { m.color.setHex(def.armsTint); m.roughness = 0.7; } } // bare arms read as gloves and sleeves
         else if (!(def.ignore || []).includes(m.name)) rig.gunMeshes.push(o);
         for (const [part, matName] of Object.entries(def.parts || {})) if (m.name === matName) (rig.parts[part] ||= []).push(o);
       }
       rig.meshes.push(o);
     });
     rig.player = new ClipPlayer(root, gltf.animations);
-    rig.headCam = root.getObjectByName('Head_Cam_014');
+    rig.headCam = root.getObjectByName(def.head || 'Head_Cam_014');
     rig.gun = root.getObjectByName(def.gun) || rig.headCam;
     rig.eyeFix = new T3.Matrix4().makeTranslation(...def.eye).premultiply(new T3.Matrix4()).multiply(ROT_Y_180);
     // pose idle at t=0 and measure the weapon in camera space
@@ -229,6 +236,10 @@ class Viewmodel {
     sightU += (rig.def.sightNudge || 0) * rig.S;
     const hd = head.clone().sub(c);
     rig.frame = { c, f, u, r, len, muzzle, rear, sightFront: fs ? fs.p.clone() : null, sightRear: rs ? rs.p.clone() : null, handF: handP.clone().sub(c).dot(f), muzR, muzU, sightU, fR, headF: hd.dot(f), headU: hd.dot(u), headR: hd.dot(r) };
+    // rigs without an authored head camera: put the eye relative to the gun instead
+    // (headAt = [side, up, back] in metres from the rear of the bore)
+    const ha = rig.def.headAt;
+    if (ha) { const F0 = rig.frame; F0.headF = rear.clone().sub(c).dot(f) - ha[2] * rig.S; F0.headU = muzU + ha[1] * rig.S; F0.headR = muzR + ha[0] * rig.S; }
     // keep the muzzle, rear and port in the gun bone's frame so they follow the animation
     const gunInv = rig.gun.matrixWorld.clone().invert();
     rig.muzzleLocal = muzzle.clone().applyMatrix4(gunInv);
