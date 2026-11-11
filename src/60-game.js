@@ -264,7 +264,7 @@ class BackroomsGame {
         au.gunHandling(g.def.perShell ? 'shell' : 'magOut', type);
         // they hear the magazine come out: the nearest gunman who knows where you are calls it
         this.enemies.playerReloadT = this.time + 2.4;
-        if (this.sfx) { const caller = this.enemies.alive.find((x) => !x.hollow && x.knows && Math.hypot(x.pos.x - this.player.pos.x, x.pos.z - this.player.pos.z) < 22); if (caller) this.sfx.radio(caller.headPos); }
+        if (this.sfx) { const caller = this.enemies.alive.find((x) => !x.hollow && x.knows && Math.hypot(x.pos.x - this.player.pos.x, x.pos.z - this.player.pos.z) < 22); if (caller && !this.enemies.bark(caller, 'push')) this.sfx.radio(caller.headPos); }
         this.onReloadStart();
         break;
       case 'reloadLoop': this.onReloadStart(); break; // tube still not full: run the shell clip again

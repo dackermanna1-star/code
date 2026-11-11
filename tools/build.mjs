@@ -76,5 +76,9 @@ if (!args.has('--no-assets')) {
     fs.writeFileSync(out, js);
     total += js.length;
   }
-  console.log('dist/assets', (total / 1048576).toFixed(1), 'MB');
+  // which recorded voice clips this build has (the licensed set is optional, see .gitignore)
+  const vox = walk(path.join(root, 'assets')).filter((f) => /[\\/]vox(-lic)?[\\/].*\.mp3$/.test(f))
+    .map((f) => path.relative(path.join(root, 'assets'), f).replace(/\\/g, '/').replace(/\.mp3$/, '')).sort();
+  fs.writeFileSync(path.join(dist, 'assets', 'vox-index.js'), `(window.__BR_ASSETS=window.__BR_ASSETS||{})["vox-index"]="${Buffer.from(JSON.stringify(vox)).toString('base64')}";\n`);
+  console.log('dist/assets', (total / 1048576).toFixed(1), 'MB,', vox.length, 'voice clips');
 }

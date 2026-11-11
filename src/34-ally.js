@@ -108,7 +108,7 @@ class MercBrain {
       if (this.game.time - (this.swapT || -9) > 1.2) { this.swapT = this.game.time; this.side = -(this.side || 1); this.moveTo(this.slot(), 2.8); }
       return;
     }
-    if (this.ammo <= 0) { this.reloadT = this.gun.reload; g.audio.gunHandling('magOut', 'rifle'); return; }
+    if (this.ammo <= 0) { this.reloadT = this.gun.reload; g.audio.gunHandling('magOut', 'rifle'); if (g.sfx && g.sfx.say && Math.random() < 0.7) g.sfx.say(this, 'reload'); return; }
     this.fire(mz);
     this.burst = this.burst > 0 ? this.burst - 1 : 2 + Math.floor(Math.random() * 4);
     this.cool = this.burst > 0 ? 60 / this.gun.rpm : 0.32 + Math.random() * 0.4;
@@ -180,7 +180,7 @@ class Mercenary {
       if (ANIM.lib) { try { ai.anim = new AnimBody(ai, render, gltf, ANIM.lib); ai.anim.enter(0); } catch (e) { ai.anim = null; } }
       this.ai = ai;
       if (g.hud) g.hud.toast('MERCENARY ON SITE');
-      if (g.sfx) g.sfx.radio(ai.headPos);
+      if (g.sfx && !(g.sfx.say && g.sfx.say(ai, 'ack', { force: true }))) g.sfx.radio(ai.headPos);
     } finally { this.spawning = false; }
   }
 
@@ -208,7 +208,7 @@ class Mercenary {
         if (inj.conscious) {
           this.waking = 0; ai.downed = false; ai.koT = 0; ai.hp = 70; c.autoGetUp = true; this.hired = true;
           if (this.game.hud) this.game.hud.toast('MERCENARY BACK IN THE FIGHT');
-          if (this.game.sfx) this.game.sfx.radio(ai.headPos);
+          if (this.game.sfx && !(this.game.sfx.say && this.game.sfx.say(ai, 'thanks', { force: true }))) this.game.sfx.radio(ai.headPos);
         } else if (this.game.time - this.waking > 3) { this.waking = 0; if (this.game.hud) this.game.hud.toast('HE IS TOO FAR GONE'); }
         return;
       }

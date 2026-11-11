@@ -38,6 +38,8 @@ class Sfx {
     this.buildMusic();
     this.ready = true;
     this.loadBank();
+    this.loadVox();
+    this.hookZombies();
   }
 
   // still water lapping at tile (levels whose theme has `water`): a slow wash of band-passed
@@ -458,10 +460,101 @@ class Sfx {
     return true;
   }
 
+  // ---- recorded voices -----------------------------------------------------------------------
+  // groups (see tools/build.mjs, assets/vox*): pain, death, scream (VoiceBosch CC-BY-SA 4.0 and
+  // HaelDB CC0), zgroan / zsnarl (CC0 zombie packs), and the spoken callouts: alert, search, reload,
+  // push, grenade, mandown, hit, kill, ack, thanks (VOiD1 Gaming and Outta This World Audio)
+  loadVox() {
+    if (this.voxLoading || !this.ready) return;
+    this.voxLoading = true;
+    this.vox = {};
+    Assets.bytes('vox-index')
+      .then((b) => JSON.parse(new TextDecoder().decode(b)))
+      .then((keys) => Promise.all(keys.map((k) => {
+        const grp = k.replace(/^vox(-lic)?\//, '').replace(/_(otw)?\d+$/, '');
+        return Assets.bytes(k).then((buf) => this.ctx.decodeAudioData(buf))
+          .then((a) => { (this.vox[grp] || (this.vox[grp] = [])).push(a); }).catch(() => {});
+      })))
+      .catch(() => {});
+  }
+
+  hasVox(group) { return !!(this.vox && this.vox[group] && this.vox[group].length); }
+
+  // play one clip of a group (never the same one twice running); pos null = the player's own
+  // voice. Returns the clip length in seconds, or 0 if the group has nothing loaded.
+  playVox(group, pos, { pitch = 1, gain = 1, verb = 0.28, muffle = 0 } = {}) {
+    if (!this.ready || !this.hasVox(group)) return 0;
+    const list = this.vox[group], ctx = this.ctx, t = ctx.currentTime;
+    let k = Math.floor(Math.random() * list.length);
+    if (list.length > 1 && k === this['_lv_' + group]) k = (k + 1) % list.length;
+    this['_lv_' + group] = k;
+    const s = ctx.createBufferSource(), g = ctx.createGain();
+    s.buffer = list[k];
+    s.playbackRate.value = pitch * (0.97 + Math.random() * 0.06);
+    g.gain.value = gain;
+    let head = s;
+    if (muffle > 0) { // a weak or dying voice loses its top end
+      const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 5200 - 3800 * muffle;
+      s.connect(lp); head = lp;
+    }
+    head.connect(g); g.connect(pos ? this.spatial(pos) : this.out);
+    if (verb && pos && this.au.verbIn) { const v = ctx.createGain(); v.gain.value = verb; g.connect(v); v.connect(this.au.verbIn); }
+    s.start(t);
+    return s.buffer.duration / s.playbackRate.value;
+  }
+
+  // a spoken line from a speaker (an AI with headPos): one at a time per speaker, and a crowd does
+  // not all talk at once. Returns true if it was said.
+  say(ai, group, { pitch, gain = 1, force = false } = {}) {
+    if (!this.ready || !ai || !this.hasVox(group)) return false;
+    const now = this.ctx.currentTime;
+    if (!force && ai._talkUntil && now < ai._talkUntil) return false;
+    this._vq = (this._vq || []).filter((x) => now - x < 1.2);
+    if (!force && this._vq.length >= 2) return false;
+    this._vq.push(now);
+    const p = pitch ?? (ai.voicePitch || (ai.voicePitch = (ai.def && ai.def.voice || 1) * (0.92 + Math.random() * 0.16)));
+    const d = this.playVox(group, ai.headPos, { pitch: p, gain });
+    ai._talkUntil = now + d + 0.4;
+    return d > 0;
+  }
+
+  // hollow voices: the engine's synthesized snarls and groans replaced by recordings (brutes
+  // pitched down and slow, runners and crawlers up and quick), falling back if none loaded
+  hookZombies() {
+    const au = this.au;
+    if (!au || au._voxHooked) return;
+    au._voxHooked = true;
+    const og = au.zombieGroan.bind(au), os = au.zombieSnarl.bind(au);
+    const rate = (kind) => (kind === 'brute' ? 0.7 : kind === 'runner' || kind === 'crawler' ? 1.14 : 0.95);
+    const allow = (key, gap, max) => {
+      const now = this.ctx.currentTime, q = (this['_zq' + key] = (this['_zq' + key] || []).filter((x) => now - x < 1.5));
+      if (q.length >= max || (q.length && now - q[q.length - 1] < gap)) return false;
+      q.push(now); return true;
+    };
+    au.zombieGroan = (kind = 'walker', pos, a = 0.7) => {
+      if (!this.hasVox('zgroan')) return og(kind, pos, a);
+      if (!pos || !allow('g', 0.3, 3)) return;
+      this.playVox('zgroan', pos, { pitch: rate(kind), gain: 0.55 + 0.5 * clamp(a, 0, 1), verb: 0.35 });
+    };
+    au.zombieSnarl = (kind = 'walker', pos) => {
+      if (!this.hasVox('zsnarl')) return os(kind, pos);
+      if (!pos || !allow('s', 0.15, 3)) return;
+      this.playVox('zsnarl', pos, { pitch: rate(kind) * 1.03, gain: kind === 'brute' ? 1.1 : 0.9, verb: 0.25 });
+    };
+  }
+
   // non-verbal calls, same voice as pain(): 'alert' a sharp two-syllable shout when they spot you,
   // 'search' a low questioning hum when they have lost you, 'death' a falling, gurgling last cry
   voice(pos, kind, pitch = 1) {
     if (!this.ready) return;
+    if (this.hasVox(kind)) {
+      const now = this.ctx.currentTime;
+      this._vq = (this._vq || []).filter((x) => now - x < 1.2);
+      if (this._vq.length >= 2 && kind !== 'death') return;
+      this._vq.push(now);
+      this.playVox(kind, pos, { pitch, gain: kind === 'death' ? 0.95 : 1 });
+      return;
+    }
     const now = this.ctx.currentTime;
     this._vq = (this._vq || []).filter((x) => now - x < 1);
     if (this._vq.length >= 3) return; // a crowd does not all shout at once
@@ -505,6 +598,11 @@ class Sfx {
   // short hit), 'cry' (a bad one), 'scream' (a limb gone, burning). pos null = the player's own
   pain(pos, kind = 'grunt', pitch = 1) {
     if (!this.ready) return;
+    const grp = kind === 'scream' ? 'scream' : 'pain';
+    if (this.hasVox(grp)) {
+      this.playVox(grp, pos, { pitch, gain: kind === 'grunt' ? 0.75 : kind === 'cry' ? 1 : 0.95, verb: pos ? 0.22 : 0 });
+      return;
+    }
     const ctx = this.ctx, t = ctx.currentTime;
     const out = pos ? this.spatial(pos) : this.out;
     const spec = {
@@ -638,6 +736,10 @@ class Sfx {
   // a dying man's voice: a weak, breathy moan that sags in pitch, sometimes cut short by a gasp
   moan(pos, strength = 1) {
     if (!this.ready) return;
+    if (this.hasVox('death')) { // the same voice, weak, muffled and slow
+      this.playVox('death', pos, { pitch: 0.86 + 0.08 * Math.random(), gain: 0.25 + 0.4 * clamp(strength, 0, 1), muffle: 1 - 0.6 * clamp(strength, 0, 1), verb: 0.3 });
+      return;
+    }
     const ctx = this.ctx, t = ctx.currentTime;
     const dst = this.spatial(pos);
     const dur = 0.6 + Math.random() * 1.1, f0 = 92 + Math.random() * 45;

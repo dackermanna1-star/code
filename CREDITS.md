@@ -84,3 +84,21 @@ Footsteps (carpet, concrete, wood) and body impacts in `assets/sfx/` are from Ke
 "FPS Animations LowPoly MP5" by Cransh (https://sketchfab.com/ccransh),
 https://sketchfab.com/3d-models/fps-animations-lowpoly-mp5-568f00dd76944baaa5eae1a1cc871423 — CC BY 4.0.
 Converted to GLB (textures resized); arms tinted dark in game.
+
+## Voices (`assets/vox/`, `assets/vox-lic/`)
+All trimmed, loudness-matched and converted to mono MP3.
+- Pain grunts (`pain_*`) and death groans (`death_*`): "damage sounds male audio pack" and
+  "death sounds male audio pack" by VoiceBosch, https://opengameart.org/content/damage-sounds-male-audio-pack
+  and https://opengameart.org/content/death-sounds-male-audio-pack, CC BY-SA 4.0. The edited clips
+  in `assets/vox/` are shared under the same licence.
+- Screams (`scream_*`): "male grunt/yelling sounds" by HaelDB, https://opengameart.org/content/male-gruntyelling-sounds, CC0.
+- Hollow groans and snarls (`zgroan_*`, `zsnarl_*`): "Zombies sound pack" (Summoning Wars),
+  "Zombie noises and moans" by ianzazz and "Zombie moans" by Darsycho, all on OpenGameArt, CC0.
+- Callouts `*_otw*`: "Free Shooter Voice Lines" by Outta This World Audio
+  (https://moneywithjjcom.itch.io/free-shooter-voice-lines), royalty free, may be kept in a public repository;
+  not to be redistributed as a sound pack.
+- Callouts in `assets/vox-lic/` (contact, searching, reloading, man down, fire in the hole, merc lines):
+  "Military Voice Pack" by VOiD1 Gaming (https://void1gaming.itch.io/military-voice-pack), free game-asset
+  licence that allows use in games but not redistribution of the source files, so these are not in this
+  repository. Download the pack and run the conversion to include them; without them the game falls back
+  to the Outta This World lines and synthesized calls.

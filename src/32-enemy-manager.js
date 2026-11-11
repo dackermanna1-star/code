@@ -178,7 +178,14 @@ class EnemyManager {
 
   bark(ai, kind = 'chatter') {
     const sfx = this.game.sfx;
-    if (!sfx) return;
+    if (!sfx) return false;
+    // recorded callouts when the build has them (src/53-sfx.js say())
+    if (!ai.hollow && sfx.say) {
+      let grp = { contact: 'alert', search: 'search', reload: 'reload', grenade: 'grenade', mandown: 'mandown', push: 'push', hit: 'hit', kill: 'kill' }[kind];
+      if (kind === 'chatter') grp = Math.random() < 0.4 ? (Math.random() < 0.5 ? 'push' : 'alert') : null;
+      if (grp && sfx.say(ai, grp, { force: kind === 'grenade' })) return true;
+      if (sfx.hasVox && sfx.hasVox('alert')) { if (ai.def.light && kind === 'chatter') sfx.radio(ai.headPos); return false; }
+    }
     if (kind === 'contact' && !ai.hollow) sfx.voice(ai.headPos, 'alert', ai.def.voice || 1);
     if (kind === 'search' && !ai.hollow) { sfx.voice(ai.headPos, 'search', ai.def.voice || 1); return; }
     if (ai.def.light && kind !== 'reload') sfx.radio(ai.headPos);
@@ -289,7 +296,9 @@ class EnemyManager {
           // the living cry out (hollows have their own snarls); not on every pellet
           if (!ai.hollow && g.sfx && e.person.injury.alive && e.person.injury.conscious && g.time - (ai.painT ?? -9) > 0.5) {
             ai.painT = g.time;
-            g.sfx.pain(ai.headPos, ai.agony ? 'scream' : e.energy > 650 || ai.tough <= 0 ? 'cry' : 'grunt', ai.def.voice || 1);
+            const bad = e.energy > 650 || ai.tough <= 0;
+            if (!(bad && ai.tough > 0 && !ai.agony && Math.random() < 0.3 && this.bark(ai, 'hit')))
+              g.sfx.pain(ai.headPos, ai.agony ? 'scream' : bad ? 'cry' : 'grunt', ai.def.voice || 1);
           }
         }
         return false;
@@ -467,6 +476,11 @@ class EnemyManager {
     // a last cry (not from a headshot, and the dying in agony have their own screams)
     if (!ai.hollow && !ai.agony && !head && g.sfx && Math.random() < 0.75) setTimeout(() => g.sfx.voice(ai.headPos, 'death', ai.def.voice || 1), 60 + Math.random() * 200);
     this.corpses.push(ai);
+    // a gunman who sees his man go down calls it
+    if (!ai.hollow && Math.random() < 0.6) {
+      const mate = this.alive.find((o) => o !== ai && !o.hollow && !o.downed && Math.hypot(o.pos.x - ai.pos.x, o.pos.z - ai.pos.z) < 18);
+      if (mate) setTimeout(() => { if (!mate.downed) this.bark(mate, 'mandown'); }, 500 + Math.random() * 600);
+    }
     const byAlly = !!lh && lh.by === 'ally' && g.time - lh.time < 6;
     this.events.push({ type: 'kill', ai, byPlayer, byAlly, head, dist, grenade: !!(lh && lh.grenade), weapon: lh && lh.weapon });
     // bodies stay where they fell for the rest of the level (frozen ones cost no physics)
@@ -524,6 +538,7 @@ class EnemyManager {
     this.grenades.push({ obj, mesh, fuse: thrower === 'player' ? 2.4 : 2.9, by: thrower === 'player' ? 'player-grenade' : thrower, warned: false });
     g.audio.whoosh(10, from);
     if (thrower !== 'player') for (const h of g.hooks) h.onGrenadeIncoming && h.onGrenadeIncoming(obj);
+    if (thrower !== 'player' && thrower && thrower.headPos) this.bark(thrower, 'grenade');
   }
 
   static grenadeMesh() {

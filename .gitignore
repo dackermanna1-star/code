@@ -4,3 +4,8 @@ node_modules
 
 # agent worktrees (temporary checkouts)
 .claude/worktrees/
+
+# licensed voice clips (VOiD1 Gaming Military Voice Pack): usable in the game, not redistributable
+# as source files, so they stay out of the public repo
+assets/vox-lic/
+dist/assets/vox-lic/
