@@ -72521,6 +72521,18 @@ class Gunman {
       this.lastSeenT = game.time;
       if (fresh) this.mgr.spotted(this); // the callout carries where the player is now
     }
+    // the player's hired gun is a target too: always when the player is out of sight, when he is
+    // much closer, and for some of them as a matter of habit
+    this.focusMerc = false;
+    const M = game.merc && game.merc.alive ? game.merc.ai : null;
+    if (M) {
+      const mh = M.headPos, dm = Math.hypot(mh.x - head.x, mh.z - head.z);
+      if (this.mercBias === undefined) this.mercBias = Math.random();
+      if (dm < 40 && L.visible(head, mh) && (!canSee || dm < d * 0.65 || this.mercBias < 0.3)) {
+        this.focusMerc = true;
+        if (!canSee) { this.visible = true; this.knows = true; this.lastSeenT = game.time; if (!this.lastSeen) this.lastSeen = new I(M.pos.x, 0, M.pos.z); }
+      }
+    }
   }
 
   hear(pos, noise = 2) {
@@ -72744,6 +72756,8 @@ class Gunman {
 
   aimPoint(out) {
     const P = this.game.player;
+    const M = this.focusMerc && this.game.merc && this.game.merc.alive ? this.game.merc.ai : null;
+    if (M && !this.suppressFire) { const ch = M.p.rd.segments.chest.body.pos; return out.set(ch.x, ch.y, ch.z); }
     if (this.suppressFire) return out.set(this.suppressFire.x, this.suppressFire.y, this.suppressFire.z);
     const crouch = P.crouch;
     // chest by default; elites and snipers go for the head sometimes
@@ -72928,6 +72942,26 @@ class HollowWrap {
       br.cool = Math.min(br.cool, 0.3);
     }
     person.knockback = HOLLOW.knockback; // rounds shove them less than they would a living man
+    if (br && br.pickTarget) {
+      const orig = br.pickTarget.bind(br), g = this.game;
+      br.pickTarget = () => {
+        const M = g.merc && g.merc.alive ? g.merc.ai : null;
+        if (M) {
+          const me = this.pos, mp = M.pos, P = g.player.pos;
+          const dm = Math.hypot(mp.x - me.x, mp.z - me.z), dp = g.player.alive ? Math.hypot(P.x - me.x, P.z - me.z) : 1e9;
+          if (dm < 14 && dm < dp * 0.75) {
+            const e = br.target || (br.target = { pos: new I(), aim: new I(), head: new I(), vel: new I(), prev: null, lead: new I(), radius: 0.22, person: null, player: null, height: 1.75 });
+            const S = M.p.rd.segments;
+            e.player = null; e.person = M.p;
+            e.pos.set(mp.x, M.p.ctl.sens.floorY ?? 0, mp.z);
+            e.head.copy(S.head.body.pos); e.aim.copy(S.chest.body.pos);
+            e.radius = 0.22; e.height = S.head.body.pos.y - e.pos.y + 0.1;
+            return e;
+          }
+        }
+        return orig();
+      };
+    }
   }
   // while animated (dormant) the sandbox skips the engine brain: the manager runs it through here
   update(dt) { const br = this.p.zombie; if (br && br.update) br.update(dt); }
@@ -74855,6 +74889,7 @@ class MercBrain {
     this.knows = true;
     this.downed = false;
     this.lasing = 0;
+    this.hp = 100; // claws and blows (rounds go through the injury model)
     this.target = null; this.acquiredT = 0; this.thinkT = 0; this.cool = 0; this.burst = 0;
     this.goal = null; this.pathT = -9;
     const c = person.ctl;
@@ -74980,7 +75015,7 @@ class Mercenary {
     this.ai = null;
     this.hired = false;
     this.spawning = false;
-    game.hooks.push(this);
+    game.hooks.unshift(this); // first in line, so F revives him before it kicks anything
   }
 
   get alive() { return !!(this.ai && !this.ai.downed); }
@@ -75031,21 +75066,68 @@ class Mercenary {
     const ai = this.ai;
     if (!ai) return;
     const c = ai.p.ctl, inj = ai.p.injury;
-    if (!ai.downed && (!inj.alive || (!c.conscious && ai.p.ctl.mode !== 'balance' && (ai.koT = (ai.koT || 0) + dt) > 8))) {
-      ai.downed = true; ai.aiming = false; this.hired = false; ai.downT = this.game.time;
+    if (!ai.downed && (!inj.alive || (!c.conscious && (ai.koT = (ai.koT || 0) + dt) > 1.5))) {
+      ai.downed = true; ai.aiming = false; ai.downT = this.game.time;
       if (ai.anim) ai.anim.wake('down');
-      if (this.game.hud) this.game.hud.toast('MERCENARY DOWN');
+      c.autoGetUp = false;
+      if (this.game.hud) this.game.hud.toast(inj.alive ? 'MERCENARY DOWN · F TO REVIVE' : 'MERCENARY KILLED');
     }
     if (ai.downed) {
-      if (!ai.p.frozen && this.game.time - ai.downT > 10 && this.game.sb.people.includes(ai.p)) this.game.sb.freezePerson(ai.p);
+      if (!inj.alive) { this.hired = false; if (!ai.p.frozen && this.game.time - ai.downT > 10 && this.game.sb.people.includes(ai.p)) this.game.sb.freezePerson(ai.p); return; }
+      // coming round after a revive
+      if (this.waking) {
+        if (inj.conscious) {
+          this.waking = 0; ai.downed = false; ai.koT = 0; ai.hp = 70; c.autoGetUp = true; this.hired = true;
+          if (this.game.hud) this.game.hud.toast('MERCENARY BACK IN THE FIGHT');
+          if (this.game.sfx) this.game.sfx.radio(ai.headPos);
+        } else if (this.game.time - this.waking > 3) { this.waking = 0; if (this.game.hud) this.game.hud.toast('HE IS TOO FAR GONE'); }
+        return;
+      }
+      // a revive in progress: stay close for two seconds
+      if (this.revive) {
+        const P = this.game.player.pos, d = Math.hypot(P.x - ai.pos.x, P.z - ai.pos.z);
+        if (d > 2.2 || !this.game.player.alive) { this.revive = null; if (this.game.hud) this.game.hud.toast('REVIVE INTERRUPTED'); }
+        else if ((this.revive.t += dt) > 2) { this.revive = null; this.reviveNow(); }
+      }
       return;
     }
     ai.update(dt);
     if (ai.anim) ai.anim.step(dt);
   }
 
+  // F next to him while he is down (but alive): two seconds of patching him up
+  melee() {
+    const ai = this.ai, g = this.game;
+    if (!ai || !ai.downed || !ai.p.injury.alive || this.revive) return false;
+    const P = g.player.pos;
+    if (Math.hypot(P.x - ai.pos.x, P.z - ai.pos.z) > 1.8) return false;
+    this.revive = { t: 0 };
+    if (g.hud) g.hud.toast('REVIVING…');
+    if (g.sfx) g.sfx.medkit('open');
+    return true;
+  }
+
+  // on his feet again: conscious, the bleeding clotted off, ready to fight
+  reviveNow() {
+    const ai = this.ai, g = this.game, inj = ai.p.injury;
+    // let the injury model bring him round itself (it tells the controller), with the bleeding
+    // clotted off and no knockout left to sit out
+    inj.koTimer = 0; inj.concussion = 0;
+    if (inj.hypoxia !== undefined) inj.hypoxia = Math.min(inj.hypoxia, 0.5);
+    for (const w of inj.wounds || []) for (const b of w.bleeds || []) b.clot = b.clotMax;
+    this.waking = g.time;
+    if (g.sfx) g.sfx.medkit('inject');
+  }
+
   // rounds that hit him put him on the ragdoll for a moment, like anyone else
   fx(e) {
+    // a hollow's claws: knocked about, and enough of them put him down
+    if (this.ai && e.type === 'zombieHit' && e.victim === this.ai.p && !this.ai.downed) {
+      this.ai.hp -= 22;
+      if (this.ai.anim) this.ai.anim.wake('hit');
+      if (this.game.sfx) this.game.sfx.pain(this.ai.headPos, this.ai.hp < 30 ? 'cry' : 'grunt', 0.95);
+      if (this.ai.hp <= 0) this.ai.p.injury.knockOut(60, 0.6);
+    }
     if (this.ai && e.person === this.ai.p && (e.type === 'fleshHit' || e.type === 'armorHit') && this.ai.anim && e.type === 'fleshHit') this.ai.anim.wake('hit');
     return false;
   }

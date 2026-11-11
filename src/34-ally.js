@@ -18,6 +18,7 @@ class MercBrain {
     this.knows = true;
     this.downed = false;
     this.lasing = 0;
+    this.hp = 100; // claws and blows (rounds go through the injury model)
     this.target = null; this.acquiredT = 0; this.thinkT = 0; this.cool = 0; this.burst = 0;
     this.goal = null; this.pathT = -9;
     const c = person.ctl;
@@ -143,7 +144,7 @@ class Mercenary {
     this.ai = null;
     this.hired = false;
     this.spawning = false;
-    game.hooks.push(this);
+    game.hooks.unshift(this); // first in line, so F revives him before it kicks anything
   }
 
   get alive() { return !!(this.ai && !this.ai.downed); }
@@ -194,21 +195,68 @@ class Mercenary {
     const ai = this.ai;
     if (!ai) return;
     const c = ai.p.ctl, inj = ai.p.injury;
-    if (!ai.downed && (!inj.alive || (!c.conscious && ai.p.ctl.mode !== 'balance' && (ai.koT = (ai.koT || 0) + dt) > 8))) {
-      ai.downed = true; ai.aiming = false; this.hired = false; ai.downT = this.game.time;
+    if (!ai.downed && (!inj.alive || (!c.conscious && (ai.koT = (ai.koT || 0) + dt) > 1.5))) {
+      ai.downed = true; ai.aiming = false; ai.downT = this.game.time;
       if (ai.anim) ai.anim.wake('down');
-      if (this.game.hud) this.game.hud.toast('MERCENARY DOWN');
+      c.autoGetUp = false;
+      if (this.game.hud) this.game.hud.toast(inj.alive ? 'MERCENARY DOWN · F TO REVIVE' : 'MERCENARY KILLED');
     }
     if (ai.downed) {
-      if (!ai.p.frozen && this.game.time - ai.downT > 10 && this.game.sb.people.includes(ai.p)) this.game.sb.freezePerson(ai.p);
+      if (!inj.alive) { this.hired = false; if (!ai.p.frozen && this.game.time - ai.downT > 10 && this.game.sb.people.includes(ai.p)) this.game.sb.freezePerson(ai.p); return; }
+      // coming round after a revive
+      if (this.waking) {
+        if (inj.conscious) {
+          this.waking = 0; ai.downed = false; ai.koT = 0; ai.hp = 70; c.autoGetUp = true; this.hired = true;
+          if (this.game.hud) this.game.hud.toast('MERCENARY BACK IN THE FIGHT');
+          if (this.game.sfx) this.game.sfx.radio(ai.headPos);
+        } else if (this.game.time - this.waking > 3) { this.waking = 0; if (this.game.hud) this.game.hud.toast('HE IS TOO FAR GONE'); }
+        return;
+      }
+      // a revive in progress: stay close for two seconds
+      if (this.revive) {
+        const P = this.game.player.pos, d = Math.hypot(P.x - ai.pos.x, P.z - ai.pos.z);
+        if (d > 2.2 || !this.game.player.alive) { this.revive = null; if (this.game.hud) this.game.hud.toast('REVIVE INTERRUPTED'); }
+        else if ((this.revive.t += dt) > 2) { this.revive = null; this.reviveNow(); }
+      }
       return;
     }
     ai.update(dt);
     if (ai.anim) ai.anim.step(dt);
   }
 
+  // F next to him while he is down (but alive): two seconds of patching him up
+  melee() {
+    const ai = this.ai, g = this.game;
+    if (!ai || !ai.downed || !ai.p.injury.alive || this.revive) return false;
+    const P = g.player.pos;
+    if (Math.hypot(P.x - ai.pos.x, P.z - ai.pos.z) > 1.8) return false;
+    this.revive = { t: 0 };
+    if (g.hud) g.hud.toast('REVIVING…');
+    if (g.sfx) g.sfx.medkit('open');
+    return true;
+  }
+
+  // on his feet again: conscious, the bleeding clotted off, ready to fight
+  reviveNow() {
+    const ai = this.ai, g = this.game, inj = ai.p.injury;
+    // let the injury model bring him round itself (it tells the controller), with the bleeding
+    // clotted off and no knockout left to sit out
+    inj.koTimer = 0; inj.concussion = 0;
+    if (inj.hypoxia !== undefined) inj.hypoxia = Math.min(inj.hypoxia, 0.5);
+    for (const w of inj.wounds || []) for (const b of w.bleeds || []) b.clot = b.clotMax;
+    this.waking = g.time;
+    if (g.sfx) g.sfx.medkit('inject');
+  }
+
   // rounds that hit him put him on the ragdoll for a moment, like anyone else
   fx(e) {
+    // a hollow's claws: knocked about, and enough of them put him down
+    if (this.ai && e.type === 'zombieHit' && e.victim === this.ai.p && !this.ai.downed) {
+      this.ai.hp -= 22;
+      if (this.ai.anim) this.ai.anim.wake('hit');
+      if (this.game.sfx) this.game.sfx.pain(this.ai.headPos, this.ai.hp < 30 ? 'cry' : 'grunt', 0.95);
+      if (this.ai.hp <= 0) this.ai.p.injury.knockOut(60, 0.6);
+    }
     if (this.ai && e.person === this.ai.p && (e.type === 'fleshHit' || e.type === 'armorHit') && this.ai.anim && e.type === 'fleshHit') this.ai.anim.wake('hit');
     return false;
   }

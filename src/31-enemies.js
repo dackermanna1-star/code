@@ -655,6 +655,18 @@ class Gunman {
       this.lastSeenT = game.time;
       if (fresh) this.mgr.spotted(this); // the callout carries where the player is now
     }
+    // the player's hired gun is a target too: always when the player is out of sight, when he is
+    // much closer, and for some of them as a matter of habit
+    this.focusMerc = false;
+    const M = game.merc && game.merc.alive ? game.merc.ai : null;
+    if (M) {
+      const mh = M.headPos, dm = Math.hypot(mh.x - head.x, mh.z - head.z);
+      if (this.mercBias === undefined) this.mercBias = Math.random();
+      if (dm < 40 && L.visible(head, mh) && (!canSee || dm < d * 0.65 || this.mercBias < 0.3)) {
+        this.focusMerc = true;
+        if (!canSee) { this.visible = true; this.knows = true; this.lastSeenT = game.time; if (!this.lastSeen) this.lastSeen = new I(M.pos.x, 0, M.pos.z); }
+      }
+    }
   }
 
   hear(pos, noise = 2) {
@@ -878,6 +890,8 @@ class Gunman {
 
   aimPoint(out) {
     const P = this.game.player;
+    const M = this.focusMerc && this.game.merc && this.game.merc.alive ? this.game.merc.ai : null;
+    if (M && !this.suppressFire) { const ch = M.p.rd.segments.chest.body.pos; return out.set(ch.x, ch.y, ch.z); }
     if (this.suppressFire) return out.set(this.suppressFire.x, this.suppressFire.y, this.suppressFire.z);
     const crouch = P.crouch;
     // chest by default; elites and snipers go for the head sometimes
@@ -1062,6 +1076,26 @@ class HollowWrap {
       br.cool = Math.min(br.cool, 0.3);
     }
     person.knockback = HOLLOW.knockback; // rounds shove them less than they would a living man
+    if (br && br.pickTarget) {
+      const orig = br.pickTarget.bind(br), g = this.game;
+      br.pickTarget = () => {
+        const M = g.merc && g.merc.alive ? g.merc.ai : null;
+        if (M) {
+          const me = this.pos, mp = M.pos, P = g.player.pos;
+          const dm = Math.hypot(mp.x - me.x, mp.z - me.z), dp = g.player.alive ? Math.hypot(P.x - me.x, P.z - me.z) : 1e9;
+          if (dm < 14 && dm < dp * 0.75) {
+            const e = br.target || (br.target = { pos: new I(), aim: new I(), head: new I(), vel: new I(), prev: null, lead: new I(), radius: 0.22, person: null, player: null, height: 1.75 });
+            const S = M.p.rd.segments;
+            e.player = null; e.person = M.p;
+            e.pos.set(mp.x, M.p.ctl.sens.floorY ?? 0, mp.z);
+            e.head.copy(S.head.body.pos); e.aim.copy(S.chest.body.pos);
+            e.radius = 0.22; e.height = S.head.body.pos.y - e.pos.y + 0.1;
+            return e;
+          }
+        }
+        return orig();
+      };
+    }
   }
   // while animated (dormant) the sandbox skips the engine brain: the manager runs it through here
   update(dt) { const br = this.p.zombie; if (br && br.update) br.update(dt); }
