@@ -240,6 +240,33 @@ class Sfx {
     w.start(t, Math.random() * 2); w.stop(t + 0.25);
   }
 
+  // a light tube or lamp breaking: a glassy pop, tinkling shards, an electrical buzz-snap
+  lampPop(pos, amount = 1) {
+    if (!this.ready) return;
+    const ctx = this.ctx, t = ctx.currentTime, dst = this.spatial(pos);
+    const s = ctx.createBufferSource(), g = ctx.createGain(), hp = ctx.createBiquadFilter();
+    s.buffer = this.noise; hp.type = 'highpass'; hp.frequency.value = 1800;
+    s.connect(hp); hp.connect(g); g.connect(dst);
+    this.env(g, t, 0.001, 0.7 * amount, 0.09);
+    s.start(t, Math.random() * 2); s.stop(t + 0.15);
+    // shards: short bright pings scattered over half a second
+    const n = Math.round(3 + 7 * amount);
+    for (let k = 0; k < n; k++) {
+      const o = ctx.createOscillator(), og = ctx.createGain(), at = t + 0.03 + Math.random() * 0.5 * amount;
+      o.type = 'sine'; o.frequency.value = 3200 + Math.random() * 4200;
+      o.connect(og); og.connect(dst);
+      this.env(og, at, 0.001, 0.05 * (0.4 + Math.random()), 0.04 + Math.random() * 0.05);
+      o.start(at); o.stop(at + 0.12);
+    }
+    // the arc
+    const b = ctx.createOscillator(), bg = ctx.createGain(), bf = ctx.createBiquadFilter();
+    b.type = 'sawtooth'; b.frequency.value = 100 + Math.random() * 20;
+    bf.type = 'bandpass'; bf.frequency.value = 1400; bf.Q.value = 1.5;
+    b.connect(bf); bf.connect(bg); bg.connect(dst);
+    this.env(bg, t, 0.002, 0.12 * amount, 0.12 + 0.2 * Math.random());
+    b.start(t); b.stop(t + 0.4);
+  }
+
   // a round glancing off a hard surface: a sharp tick, then the whine of the tumbling bullet
   // falling in pitch as it leaves
   ricochet(pos, amount = 1) {

@@ -356,6 +356,7 @@ class BackroomsGame {
         if (G) G.surface(e, IMPACT_FX[mat] || IMPACT_FX.default, mat);
         else this.view.wallDecals.add('hole', e.point, e.normal, 0.06);
         au.bulletImpact(IMPACT_SOUND[mat] || 'ground', e.point, 0.8);
+        if (this.lights) this.lights.onObjectHit(e);
         break;
       }
       case 'groundHit': {

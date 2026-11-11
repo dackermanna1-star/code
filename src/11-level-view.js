@@ -631,7 +631,7 @@ class LevelView {
       const f = L.fixtures[k];
       if (f.state === 'flicker') {
         const s = Math.sin(t * 13.7 + f.phase) + Math.sin(t * 31.1 + f.phase * 2.3) + Math.sin(t * 2.3 + f.phase * 0.7) * 1.6;
-        const burst = Math.sin(t * 0.37 + f.phase) > 0.65;
+        const burst = f.hard || Math.sin(t * 0.37 + f.phase) > 0.65;
         f.level = burst ? (s > 0.4 ? 1 : s > -0.5 ? 0.25 : 0) : 1;
       } else if (f.state === 'dying') {
         f.dieT = (f.dieT || 0) + dt;

@@ -65447,7 +65447,7 @@ class LevelView {
       const f = L.fixtures[k];
       if (f.state === 'flicker') {
         const s = Math.sin(t * 13.7 + f.phase) + Math.sin(t * 31.1 + f.phase * 2.3) + Math.sin(t * 2.3 + f.phase * 0.7) * 1.6;
-        const burst = Math.sin(t * 0.37 + f.phase) > 0.65;
+        const burst = f.hard || Math.sin(t * 0.37 + f.phase) > 0.65;
         f.level = burst ? (s > 0.4 ? 1 : s > -0.5 ? 0.25 : 0) : 1;
       } else if (f.state === 'dying') {
         f.dieT = (f.dieT || 0) + dt;
@@ -71845,6 +71845,16 @@ const ENEMY_TYPES = {
     name: 'Hollowed', looks: ['male_adult_18', 'male_adult_04', 'delivery_male_01', 'male_adult_17'], melee: 'runner',
     tough: 75, cash: 38, score: 100, hollow: true,
   },
+  // bent double and scrambling, very fast and low, lunging the last metres; drops quickly
+  crawler: {
+    name: 'Crawler', looks: ['male_adult_18', 'delivery_male_01', 'male_adult_04'], melee: 'runner',
+    tough: 48, cash: 45, score: 130, hollow: true, variant: 'crawler',
+  },
+  // a heavy lumbering hulk: slow, then a short heavy charge; light rounds do not stop it, its blows throw you
+  brute: {
+    name: 'Brute', looks: ['male_adult_05', 'military_male_04'], melee: 'brute',
+    tough: 430, cash: 170, score: 480, hollow: true, variant: 'brute', voice: 0.6,
+  },
 };
 
 // wave composition: unlock tiers by wave, weights shift towards harder archetypes
@@ -72936,12 +72946,13 @@ class HollowWrap {
     // the hollowed hit harder and faster than the engine's runners: quick raking swipes that land
     // from a little further out, and a body that soaks up rounds before it drops
     const br = person.zombie;
+    const V = (this.V = { ...HOLLOW, ...(HOLLOW_VARIANTS[this.def.variant] || {}) });
     if (br && br.def) {
-      const dmg = HOLLOW.damage * Math.min(1.35, 0.9 + 0.1 * (scale.tough || 1));
-      br.def = { ...br.def, damage: dmg, cooldown: HOLLOW.cooldown, windup: HOLLOW.windup, strike: HOLLOW.strike, reach: HOLLOW.reach };
+      const dmg = V.damage * Math.min(1.35, 0.9 + 0.1 * (scale.tough || 1));
+      br.def = { ...br.def, damage: dmg, cooldown: V.cooldown, windup: V.windup, strike: V.strike, reach: V.reach };
       br.cool = Math.min(br.cool, 0.3);
     }
-    person.knockback = HOLLOW.knockback; // rounds shove them less than they would a living man
+    person.knockback = V.knockback; // rounds shove them less than they would a living man
     if (br && br.pickTarget) {
       const orig = br.pickTarget.bind(br), g = this.game;
       br.pickTarget = () => {
@@ -72974,7 +72985,8 @@ class HollowWrap {
     if (this.chargeSpeed === undefined) {
       const style = this.anim ? this.anim.lib.key : 'zombie';
       const sp = Math.min(this.scaleSpeed || 1, 1.1) * (0.92 + Math.random() * 0.16);
-      this.chargeSpeed = Math.min(HOLLOW.maxCharge, (style === 'limp' ? HOLLOW.limpCharge : HOLLOW.charge) * sp);
+      const V = this.V || HOLLOW;
+      this.chargeSpeed = Math.min(V.maxCharge, (style === 'limp' ? V.limpCharge : V.charge) * sp);
       const walk = this.anim && this.anim.lib.meta.walk_f ? this.anim.lib.meta.walk_f.speed : 0.6;
       this.shambleSpeed = clamp(walk * 1.5, 0.6, 1.3);
       this.seenT = -99;
@@ -72985,6 +72997,13 @@ class HollowWrap {
       this.lookT = 0.18;
       const h = this.headPos, eye = P.eye(new I());
       const d = Math.hypot(eye.x - h.x, eye.z - h.z);
+      // a crawler throws itself the last few metres
+      if (this.def.variant === 'crawler' && this.charging && this.anim && this.anim.active && d > 2.2 && d < 4.2 && game.time > (this.lungeT || 0)) {
+        this.lungeT = game.time + 2.6;
+        const ux = (eye.x - h.x) / d, uz = (eye.z - h.z) / d;
+        this.anim.vel.x += ux * 3.2; this.anim.vel.z += uz * 3.2;
+        game.audio.zombieSnarl('runner', h);
+      }
       if (d < HOLLOW.sight && game.level.visible(h, eye)) {
         if (!this.charging) this.startCharge();
         this.seenT = game.time;
@@ -72997,8 +73016,9 @@ class HollowWrap {
   startCharge() {
     const game = this.game, h = this.headPos;
     this.charging = true;
-    game.audio.zombieSnarl('runner', h);
-    setTimeout(() => game.audio.zombieGroan('runner', this.headPos, 1), 180);
+    const kind = this.def.variant === 'brute' ? 'brute' : 'runner';
+    game.audio.zombieSnarl(kind, h);
+    setTimeout(() => game.audio.zombieGroan(kind, this.headPos, 1), 180);
   }
   get pos() { return this.p.rd.pelvis.pos; }
   get headPos() { return this.p.rd.segments.head.body.pos; }
@@ -73020,6 +73040,10 @@ const HOLLOW = {
   sight: 26, forget: 5,
   damage: 13, cooldown: 0.6, windup: 0.13, strike: 0.13, reach: 1.02,
   knockback: 0.6,
+};
+const HOLLOW_VARIANTS = {
+  crawler: { charge: 6.1, limpCharge: 4.5, maxCharge: 6.6, damage: 10, cooldown: 0.48, windup: 0.1, strike: 0.11, reach: 0.98, knockback: 0.5 },
+  brute: { charge: 3.9, limpCharge: 3.0, maxCharge: 4.2, damage: 32, cooldown: 1.25, windup: 0.3, strike: 0.2, reach: 1.25, knockback: 0.22, sight: 30 },
 };
 
 
@@ -73108,6 +73132,12 @@ class EnemyManager {
     sb.hitPlayer = (amt, from, kind = 'hit', by = null) => {
       if (!sb.player || !sb.player.alive) return;
       this.damagePlayer(amt, from, kind);
+      // a brute's blow throws the player back
+      if (by && by.enemy && by.enemy.def.variant === 'brute') {
+        const P = sb.player, dx = P.pos.x - from.x, dz = P.pos.z - from.z, dl = Math.hypot(dx, dz) || 1;
+        P.vel.x += (dx / dl) * 6.5; P.vel.z += (dz / dl) * 6.5; P.vel.y = Math.max(P.vel.y, 2.2);
+        this.game.shake = Math.max(this.game.shake || 0, 1);
+      }
       sb.fx({ type: 'playerHit', amount: amt, from: from.clone(), kind, by });
     };
   }
@@ -73148,16 +73178,16 @@ class EnemyManager {
     }
     person.enemy = ai;
     ai.spawnT = game.time;
-    const render = new CharacterRender(game, person, gltf, { tint: def.hollow ? [0.72, 0.7, 0.68, 0.8] : def.boss ? [0.85, 0.85, 0.85, 0] : [1, 1, 1, 0] });
+    const render = new CharacterRender(game, person, gltf, { tint: def.variant === 'brute' ? [0.55, 0.52, 0.5, 0.95] : def.variant === 'crawler' ? [0.82, 0.8, 0.76, 0.9] : def.hollow ? [0.72, 0.7, 0.68, 0.8] : def.boss ? [0.85, 0.85, 0.85, 0] : [1, 1, 1, 0] });
     CharacterRender.prewarmBaked(game, render, look); // once per look and level
     if (!def.hollow) render.setGun(ENEMY_GUNS[ai.gunId].model, { drum: ENEMY_GUNS[ai.gunId].drum, light: def.light, laser: ENEMY_GUNS[ai.gunId].laser });
     game.attachRender(person, render);
     // gunmen move on motion-capture animation until something knocks them about
     if (!game.settings.physicsEnemies) {
-      const lib = def.hollow ? hollowAnimSet() : ANIM.lib;
+      const lib = def.hollow ? (def.variant ? ANIM.libs.zombie || hollowAnimSet() : hollowAnimSet()) : ANIM.lib;
       if (lib) {
         try {
-          ai.anim = def.hollow ? new AnimBody(ai, render, gltf, lib, { melee: person.zombie, maxRate: lib.key === 'limp' ? 3.0 : 2.4 }) : new AnimBody(ai, render, gltf, lib);
+          ai.anim = def.hollow ? new AnimBody(ai, render, gltf, lib, { melee: person.zombie, maxRate: def.variant === 'crawler' ? 2.9 : lib.key === 'limp' ? 3.0 : 2.4, lean: def.variant === 'crawler' ? 1.0 : def.variant === 'brute' ? 0.2 : undefined }) : new AnimBody(ai, render, gltf, lib);
           ai.anim.enter(0);
         } catch (e) { console.warn('[anim] enemy stays physical', e); ai.anim = null; }
       }
@@ -73366,6 +73396,8 @@ class EnemyManager {
     an.hits = now - an.lastHitT < (ai.hollow ? 0.6 : 0.8) ? an.hits + 1 : 1;
     an.lastHitT = now;
     const why = (r) => { an.ride = { r, seg, en: Math.round(en), type: e.type, hits: an.hits }; return r === 'ok'; };
+    // a brute walks through what would floor a man: only heavy rounds and the head stop it
+    if (ai.def.variant === 'brute') return why(seg === 'head' && en > 900 ? 'head' : en > 2200 ? 'heavy' : 'ok');
     if (an.hits > (ai.hollow ? 2 : 1)) return why('repeat');
     if (e.type === 'armorHit') return why(en < 2600 ? 'ok' : 'plate');
     if (seg === 'head' || seg === 'neck') return why('head');
@@ -73823,6 +73855,7 @@ class AnimBody {
     this.ai = ai;
     this.melee = opts.melee || null;
     this.maxRate = opts.maxRate || 1.45;
+    this.leanMax = opts.lean ?? 0.42; // how far a charging hollow bends into the run
     this.swipeW = 0;
     this.game = ai.game;
     this.p = ai.p;
@@ -74496,7 +74529,7 @@ class AnimBody {
     let lean = 0, tY = 0, tR = 0;
     if (this.melee) {
       const sp = Math.hypot(this.vel.x, this.vel.z);
-      this.lean = (this.lean || 0) + (clamp((sp - 1.2) / 1.6, 0, 1) * 0.42 - (this.lean || 0)) * (1 - Math.exp(-dt * 4));
+      this.lean = (this.lean || 0) + (clamp((sp - 1.2) / 1.6, 0, 1) * this.leanMax - (this.lean || 0)) * (1 - Math.exp(-dt * 4));
       lean = this.lean;
       this.twitchT = (this.twitchT ?? Math.random()) - dt;
       if (this.twitchT <= 0) {
@@ -75237,8 +75270,10 @@ class Director {
     const maxAlive = Math.min(9, 4 + Math.floor(n / 2.5));
     const kinds = [];
     if (swarm) {
-      // a hollow wave is hollows and nothing else
-      for (let k = 0; k < count + 6 + Math.ceil(n / 3); k++) kinds.push('hollow');
+      // a hollow wave is hollows and nothing else: crawlers among them from wave 4, a brute or two from wave 6
+      for (let k = 0; k < count + 6 + Math.ceil(n / 3); k++) kinds.push(n >= 4 && Math.random() < 0.25 + Math.min(0.15, (n - 4) * 0.02) ? 'crawler' : 'hollow');
+      const brutes = n >= 6 ? Math.min(3, 1 + Math.floor((n - 6) / 5)) : 0;
+      for (let k = 0; k < brutes; k++) kinds.splice(Math.floor(kinds.length * (0.4 + 0.5 * Math.random())), 0, 'brute');
     } else {
       const roster = waveRoster(n);
       if (this.mod === 'snipers') roster.sniper = (roster.sniper || 0.4) * 4 + 1;
@@ -76517,6 +76552,33 @@ class Sfx {
     w.connect(bp); bp.connect(wg); wg.connect(dst);
     this.env(wg, t + 0.01, 0.02, 0.18 * amount, 0.16);
     w.start(t, Math.random() * 2); w.stop(t + 0.25);
+  }
+
+  // a light tube or lamp breaking: a glassy pop, tinkling shards, an electrical buzz-snap
+  lampPop(pos, amount = 1) {
+    if (!this.ready) return;
+    const ctx = this.ctx, t = ctx.currentTime, dst = this.spatial(pos);
+    const s = ctx.createBufferSource(), g = ctx.createGain(), hp = ctx.createBiquadFilter();
+    s.buffer = this.noise; hp.type = 'highpass'; hp.frequency.value = 1800;
+    s.connect(hp); hp.connect(g); g.connect(dst);
+    this.env(g, t, 0.001, 0.7 * amount, 0.09);
+    s.start(t, Math.random() * 2); s.stop(t + 0.15);
+    // shards: short bright pings scattered over half a second
+    const n = Math.round(3 + 7 * amount);
+    for (let k = 0; k < n; k++) {
+      const o = ctx.createOscillator(), og = ctx.createGain(), at = t + 0.03 + Math.random() * 0.5 * amount;
+      o.type = 'sine'; o.frequency.value = 3200 + Math.random() * 4200;
+      o.connect(og); og.connect(dst);
+      this.env(og, at, 0.001, 0.05 * (0.4 + Math.random()), 0.04 + Math.random() * 0.05);
+      o.start(at); o.stop(at + 0.12);
+    }
+    // the arc
+    const b = ctx.createOscillator(), bg = ctx.createGain(), bf = ctx.createBiquadFilter();
+    b.type = 'sawtooth'; b.frequency.value = 100 + Math.random() * 20;
+    bf.type = 'bandpass'; bf.frequency.value = 1400; bf.Q.value = 1.5;
+    b.connect(bf); bf.connect(bg); bg.connect(dst);
+    this.env(bg, t, 0.002, 0.12 * amount, 0.12 + 0.2 * Math.random());
+    b.start(t); b.stop(t + 0.4);
   }
 
   // a round glancing off a hard surface: a sharp tick, then the whine of the tumbling bullet
@@ -79916,6 +79978,131 @@ class Dismemberment {
 }
 
 
+// ===== src/58-lights.js =====
+// Lights that react to the fight. A round through a ceiling panel or lamp kills it: a pop, a
+// shower of sparks and glass, a brief stutter, then dark (the light term, the panel glow and the
+// shadow spots all follow the fixture's state in LevelView). A grenade blows out the lights over
+// it and sets the ones around stuttering. While a wave is on, the power browns out now and then
+// and a tube near the player struggles for a few seconds before it catches again.
+class DynamicLights {
+  constructor(game) {
+    this.game = game;
+    this.temp = [];     // fixtures flickering for a while: { f, t, back }
+    this.sparkT = [];   // fixtures shot out that still spit sparks: { f, t, next }
+    this.brownT = 25;   // to the next stutter
+    this.sag = 0;       // brownout dip, 0..1
+    game.hooks.push(this);
+  }
+
+  onLevel() { this.temp.length = 0; this.sparkT.length = 0; this.sag = 0; this.brownT = 20 + Math.random() * 20; }
+
+  lampY() {
+    const v = this.game.view, L = v.level;
+    return v.lamp && v.lamp.spotY !== undefined ? v.lamp.spotY + 0.05 : L.ceiling;
+  }
+
+  fixtureNear(x, z, r) {
+    const L = this.game.view && this.game.view.level;
+    if (!L) return null;
+    const n = L.n, ci = Math.floor((x + L.half) / L.cell), cj = Math.floor((z + L.half) / L.cell);
+    let best = null, bd = r;
+    for (let j = cj - 1; j <= cj + 1; j++)
+      for (let i = ci - 1; i <= ci + 1; i++) {
+        if (i < 0 || j < 0 || i >= n || j >= n) continue;
+        const f = L.fixtures[j * n + i], d = Math.hypot(f.x - x, f.z - z);
+        if (d < bd) { bd = d; best = f; }
+      }
+    return best;
+  }
+
+  // a bullet stopped by something: if it is a lit fixture, break it
+  onObjectHit(e) {
+    const g = this.game, p = e.point;
+    if (!g.view || !p) return;
+    const y = this.lampY();
+    if (Math.abs(p.y - y) > 0.35) return;
+    const f = this.fixtureNear(p.x, p.z, 0.72);
+    if (!f || f.state === 'dead' || f.state === 'dying' || f.broken) return;
+    this.breakFixture(f, 1);
+  }
+
+  breakFixture(f, amount) {
+    const g = this.game, y = this.lampY();
+    f.broken = true;
+    f.state = 'dying'; f.dieT = 0.75 + Math.random() * 0.3; // LevelView kills it at 1.2 s
+    this.temp = this.temp.filter((r) => r.f !== f);
+    const at = new T3.Vector3(f.x, y - 0.04, f.z), down = new T3.Vector3(0, -1, 0);
+    if (g.gore && g.gore.sparks) g.gore.sparks(at, down, down, Math.round(18 * amount), 0.9);
+    if (g.effects) {
+      g.effects.muzzleLight(at, 2.2 * amount);
+      g.effects.puff(at, down, 0xe8e6dc, 10, 1.6, 0.35, true);
+    }
+    if (g.blast && g.blast.ceilingDust) g.blast.ceilingDust(f.x, f.z, 0.8, 3);
+    if (g.sfx && g.sfx.lampPop) g.sfx.lampPop(at, amount);
+    this.sparkT.push({ f, t: 2.5 + Math.random() * 4, next: 0.2 });
+  }
+
+  flickerFor(f, t) {
+    if (f.state !== 'on') return;
+    f.state = 'flicker'; f.hard = true;
+    this.temp.push({ f, t, back: 'on' });
+  }
+
+  onExplosion(pos) {
+    const L = this.game.view && this.game.view.level;
+    if (!L) return;
+    for (const f of L.fixtures) {
+      const d = Math.hypot(f.x - pos.x, f.z - pos.z);
+      if (d > 9) continue;
+      if (d < 3.6 && f.state !== 'dead' && !f.broken) this.breakFixture(f, 0.7);
+      else if (d < 9) this.flickerFor(f, 0.6 + Math.random() * 1.6);
+    }
+  }
+
+  step(dt) {
+    const g = this.game, L = g.view && g.view.level;
+    if (!L) return;
+    for (let k = this.temp.length - 1; k >= 0; k--) {
+      const r = this.temp[k];
+      if ((r.t -= dt) > 0) continue;
+      r.f.hard = false;
+      if (r.f.state === 'flicker' && !r.f.broken) r.f.state = r.back;
+      this.temp.splice(k, 1);
+    }
+    // a broken fixture spits a few sparks after it dies
+    const y = this.lampY();
+    for (let k = this.sparkT.length - 1; k >= 0; k--) {
+      const s = this.sparkT[k];
+      if ((s.t -= dt) <= 0) { this.sparkT.splice(k, 1); continue; }
+      if ((s.next -= dt) > 0) continue;
+      s.next = 0.25 + Math.random() * 1.1;
+      const at = new T3.Vector3(s.f.x + (Math.random() - 0.5) * 0.4, y - 0.03, s.f.z + (Math.random() - 0.5) * 0.4), down = new T3.Vector3(0, -1, 0);
+      if (g.gore && g.gore.sparks) g.gore.sparks(at, down, down, 3 + Math.floor(Math.random() * 5), 0.5);
+      if (Math.random() < 0.5 && g.effects) g.effects.muzzleLight(at, 0.5);
+      if (g.sfx && g.sfx.lampPop) g.sfx.lampPop(at, 0.25);
+    }
+    // the power struggles while a wave is on
+    const fighting = g.enemies && g.enemies.alive.length > 0 && !(g.director && g.director.mod === 'blackout');
+    if (fighting && (this.brownT -= dt) <= 0) {
+      this.brownT = 18 + Math.random() * 30;
+      if (Math.random() < 0.45) this.sag = 1; // the whole floor dips
+      const P = g.player.pos, near = [];
+      for (const f of L.fixtures) if (f.state === 'on' && Math.hypot(f.x - P.x, f.z - P.z) < 14) near.push(f);
+      for (let m = 0; m < 1 + (Math.random() < 0.4 ? 1 : 0) && near.length; m++)
+        this.flickerFor(near.splice((Math.random() * near.length) | 0, 1)[0], 2 + Math.random() * 5);
+    }
+    if (this.sag > 0) {
+      this.sag = Math.max(0, this.sag - dt * 1.4);
+      const v = g.view, s = this.sag;
+      // a stuttering dip: deepest a moment in, with a couple of hiccups on the way back
+      const dip = Math.sin(s * Math.PI) * (0.55 + 0.25 * Math.sin(s * 40));
+      v.dim = (v.baseDim ?? (v.baseDim = v.dim ?? 1)) * (1 - clamp(dip, 0, 0.8));
+      if (this.sag === 0) { v.dim = v.baseDim; v.baseDim = undefined; }
+    }
+  }
+}
+
+
 // ===== src/59-perf.js =====
 // Frame-rate governor: dynamic resolution. The quality setting picks a base render scale; when the
 // real frame time runs long (GPU- or fill-bound, e.g. a laptop at a high-DPI window size) the scale
@@ -80339,6 +80526,7 @@ class BackroomsGame {
         if (G) G.surface(e, IMPACT_FX[mat] || IMPACT_FX.default, mat);
         else this.view.wallDecals.add('hole', e.point, e.normal, 0.06);
         au.bulletImpact(IMPACT_SOUND[mat] || 'ground', e.point, 0.8);
+        if (this.lights) this.lights.onObjectHit(e);
         break;
       }
       case 'groundHit': {
@@ -80846,6 +81034,7 @@ Object.assign(BackroomsGame.prototype, {
   game.medkits = new Medkits(game);
   game.perf = new PerfGovernor(game);
   game.blast = new BlastFX(game);
+  game.lights = new DynamicLights(game);
   game.merc = new Mercenary(game);
   game.dismember = new Dismemberment(game);
   game.session = new Session(game);

@@ -14,6 +14,7 @@
   game.medkits = new Medkits(game);
   game.perf = new PerfGovernor(game);
   game.blast = new BlastFX(game);
+  game.lights = new DynamicLights(game);
   game.merc = new Mercenary(game);
   game.dismember = new Dismemberment(game);
   game.session = new Session(game);
