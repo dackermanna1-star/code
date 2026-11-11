@@ -688,6 +688,13 @@ class Gunman {
       if (def.cover > 0.3 && this.visible && !this.inCover()) this.seekCover(eye, true);
       return;
     }
+    // the player is reloading: the bold ones use the gap and push in
+    if (this.mgr.playerReloadT > game.time && recent && def.aggression >= 0.5 && dist > 3.5 && dist < 24) {
+      this.mode = 'hunt'; this.modeT = 0;
+      this.moveTo(this.lastSeen, def.speed * this.scale.speed * 1.15, 2.2);
+      this.wantFire = this.visible;
+      return;
+    }
     // grenades flush a player who hides
     if (def.grenade && this.grenadeT <= 0 && !this.visible && recent && dist > 5 && dist < 20 && Math.random() < def.grenade) {
       this.grenadeT = 12 + Math.random() * 10;

@@ -260,6 +260,9 @@ class BackroomsGame {
     switch (e.type) {
       case 'reloadStart':
         au.gunHandling(g.def.perShell ? 'shell' : 'magOut', type);
+        // they hear the magazine come out: the nearest gunman who knows where you are calls it
+        this.enemies.playerReloadT = this.time + 2.4;
+        if (this.sfx) { const caller = this.enemies.alive.find((x) => !x.hollow && x.knows && Math.hypot(x.pos.x - this.player.pos.x, x.pos.z - this.player.pos.z) < 22); if (caller) this.sfx.radio(caller.headPos); }
         this.onReloadStart();
         break;
       case 'reloadLoop': this.onReloadStart(); break; // tube still not full: run the shell clip again
@@ -318,6 +321,7 @@ class BackroomsGame {
     switch (e.type) {
       case 'shot': {
         if (e.by === 'player') {
+          this.barrelHeat = Math.min(24, (this.barrelHeat || 0) + 1); this.lastShotT = this.time;
           const g = this.arsenal.gun;
           if (g.suppressed && this.sfx && this.sfx.ready) this.sfx.suppressedShot(g.def.ballistic);
           else au.gunshot(g.def.ballistic === 'marksman' || g.def.ballistic === 'whisper' ? 'sniper' : g.def.ballistic, g.suppressed ? null : e.origin);
@@ -435,6 +439,21 @@ class BackroomsGame {
 
   melee() { for (const h of this.hooks) if (h.melee && h.melee()) return; }
   throwGrenade() { for (const h of this.hooks) if (h.throwGrenade && h.throwGrenade()) return; }
+  // a hot barrel smokes once you stop firing: thin wisps from the muzzle, more after a long burst
+  barrelSmoke(dt) {
+    this.barrelHeat = Math.max(0, (this.barrelHeat || 0) - dt * 2.2);
+    if (this.barrelHeat < 4 || this.time - (this.lastShotT || 0) < 0.12 || !this.vm.cur || this.player.sprinting) return;
+    this.smokeT = (this.smokeT || 0) - dt;
+    if (this.smokeT > 0) return;
+    this.smokeT = 0.07 + 0.1 * Math.random();
+    const m = this.vm.muzzleWorld(new T3.Vector3());
+    const k = Math.tan((this.camera.fov * Math.PI) / 360) / Math.tan((this.vm.camera.fov * Math.PI) / 360);
+    m.x *= k; m.y *= k;
+    m.applyMatrix4(this.camera.matrixWorld);
+    const amt = clamp((this.barrelHeat - 4) / 14, 0.15, 1);
+    this.effects.puff(m, new T3.Vector3((Math.random() - 0.5) * 0.3, 1, (Math.random() - 0.5) * 0.3), 0xd8d2c8, 1 + Math.round(amt * 2), 0.25 + 0.25 * amt, 0.12 + 0.14 * amt);
+  }
+
   useMedkit() { for (const h of this.hooks) if (h.useMedkit && h.useMedkit()) return; }
 
   // ---- frame ---------------------------------------------------------------------------------
@@ -504,6 +523,7 @@ class BackroomsGame {
     const fwd = this.viewDir(new T3.Vector3(), false);
     this.view.update(dt, cam);
     this.updateLaser(eye, cam);
+    this.barrelSmoke(dt);
     const alpha = clamp(this.acc / SIM_DT, 0, 1);
     for (const [person, r] of this.renders) {
       // frozen corpses do not move: a few updates a second keep their wounds ageing

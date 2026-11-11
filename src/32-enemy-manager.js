@@ -272,6 +272,7 @@ class EnemyManager {
             if (ai.suppressed !== undefined) ai.suppressed = Math.min(2, ai.suppressed + 0.3); // shaken, not cowed
           }
           if (ai.tough <= 0) this.finish(ai, e);
+          else if (!ai.hollow && ai.gun && /^(handR|forearmR)$/.test(e.seg.name) && e.energy > 120 && !ai.disarmedT && Math.random() < 0.8) this.disarm(ai);
           // the living cry out (hollows have their own snarls); not on every pellet
           if (!ai.hollow && g.sfx && e.person.injury.alive && e.person.injury.conscious && g.time - (ai.painT ?? -9) > 0.5) {
             ai.painT = g.time;
@@ -300,6 +301,25 @@ class EnemyManager {
         return true;
     }
     return false;
+  }
+
+  // a round through the gun hand or forearm knocks the weapon out of it: it clatters to the floor (a
+  // real pickup) and, after a moment of scrambling, he draws a backup pistol from his belt
+  disarm(ai) {
+    const g = this.game, r = this.renderOf(ai);
+    if (!r || !r.gun) return;
+    const mesh = r.dropGun();
+    if (mesh) this.dropGun(ai, mesh);
+    ai.disarmedT = g.time;
+    ai.aiming = false;
+    ai.releaseToken();
+    const backup = ENEMY_GUNS.pistol;
+    ai.gunId = 'pistol'; ai.gun = backup; ai.ammo = backup.mag;
+    ai.reloadT = 1.4 + Math.random() * 1.1; // drawing the sidearm
+    if (ai.anim) ai.anim.pistol = true;
+    setTimeout(() => { if (!ai.downed && this.renderOf(ai) === r && !r.gun) r.setGun(backup.model, {}); }, 900);
+    if (g.hud && g.hud.feed) g.hud.feed('DISARMED', 'hs');
+    if (g.sfx) g.sfx.pain(ai.headPos, 'cry', ai.def.voice || 1);
   }
 
   // whether an animated enemy rides a hit out on its feet (a flinch, a stumble) or goes over to
