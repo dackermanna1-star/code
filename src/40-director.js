@@ -78,8 +78,10 @@ class Director {
     const maxAlive = Math.min(9, 4 + Math.floor(n / 2.5));
     const kinds = [];
     if (swarm) {
-      // a hollow wave is hollows and nothing else
-      for (let k = 0; k < count + 6 + Math.ceil(n / 3); k++) kinds.push('hollow');
+      // a hollow wave is hollows and nothing else: crawlers among them from wave 4, a brute or two from wave 6
+      for (let k = 0; k < count + 6 + Math.ceil(n / 3); k++) kinds.push(n >= 4 && Math.random() < 0.25 + Math.min(0.15, (n - 4) * 0.02) ? 'crawler' : 'hollow');
+      const brutes = n >= 6 ? Math.min(3, 1 + Math.floor((n - 6) / 5)) : 0;
+      for (let k = 0; k < brutes; k++) kinds.splice(Math.floor(kinds.length * (0.4 + 0.5 * Math.random())), 0, 'brute');
     } else {
       const roster = waveRoster(n);
       if (this.mod === 'snipers') roster.sniper = (roster.sniper || 0.4) * 4 + 1;

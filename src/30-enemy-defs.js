@@ -62,6 +62,16 @@ const ENEMY_TYPES = {
     name: 'Hollowed', looks: ['male_adult_18', 'male_adult_04', 'delivery_male_01', 'male_adult_17'], melee: 'runner',
     tough: 75, cash: 38, score: 100, hollow: true,
   },
+  // bent double and scrambling, very fast and low, lunging the last metres; drops quickly
+  crawler: {
+    name: 'Crawler', looks: ['male_adult_18', 'delivery_male_01', 'male_adult_04'], melee: 'runner',
+    tough: 48, cash: 45, score: 130, hollow: true, variant: 'crawler',
+  },
+  // a heavy lumbering hulk: slow, then a short heavy charge; light rounds do not stop it, its blows throw you
+  brute: {
+    name: 'Brute', looks: ['male_adult_05', 'military_male_04'], melee: 'brute',
+    tough: 430, cash: 170, score: 480, hollow: true, variant: 'brute', voice: 0.6,
+  },
 };
 
 // wave composition: unlock tiers by wave, weights shift towards harder archetypes

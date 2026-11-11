@@ -82,6 +82,12 @@ class EnemyManager {
     sb.hitPlayer = (amt, from, kind = 'hit', by = null) => {
       if (!sb.player || !sb.player.alive) return;
       this.damagePlayer(amt, from, kind);
+      // a brute's blow throws the player back
+      if (by && by.enemy && by.enemy.def.variant === 'brute') {
+        const P = sb.player, dx = P.pos.x - from.x, dz = P.pos.z - from.z, dl = Math.hypot(dx, dz) || 1;
+        P.vel.x += (dx / dl) * 6.5; P.vel.z += (dz / dl) * 6.5; P.vel.y = Math.max(P.vel.y, 2.2);
+        this.game.shake = Math.max(this.game.shake || 0, 1);
+      }
       sb.fx({ type: 'playerHit', amount: amt, from: from.clone(), kind, by });
     };
   }
@@ -122,16 +128,16 @@ class EnemyManager {
     }
     person.enemy = ai;
     ai.spawnT = game.time;
-    const render = new CharacterRender(game, person, gltf, { tint: def.hollow ? [0.72, 0.7, 0.68, 0.8] : def.boss ? [0.85, 0.85, 0.85, 0] : [1, 1, 1, 0] });
+    const render = new CharacterRender(game, person, gltf, { tint: def.variant === 'brute' ? [0.55, 0.52, 0.5, 0.95] : def.variant === 'crawler' ? [0.82, 0.8, 0.76, 0.9] : def.hollow ? [0.72, 0.7, 0.68, 0.8] : def.boss ? [0.85, 0.85, 0.85, 0] : [1, 1, 1, 0] });
     CharacterRender.prewarmBaked(game, render, look); // once per look and level
     if (!def.hollow) render.setGun(ENEMY_GUNS[ai.gunId].model, { drum: ENEMY_GUNS[ai.gunId].drum, light: def.light, laser: ENEMY_GUNS[ai.gunId].laser });
     game.attachRender(person, render);
     // gunmen move on motion-capture animation until something knocks them about
     if (!game.settings.physicsEnemies) {
-      const lib = def.hollow ? hollowAnimSet() : ANIM.lib;
+      const lib = def.hollow ? (def.variant ? ANIM.libs.zombie || hollowAnimSet() : hollowAnimSet()) : ANIM.lib;
       if (lib) {
         try {
-          ai.anim = def.hollow ? new AnimBody(ai, render, gltf, lib, { melee: person.zombie, maxRate: lib.key === 'limp' ? 3.0 : 2.4 }) : new AnimBody(ai, render, gltf, lib);
+          ai.anim = def.hollow ? new AnimBody(ai, render, gltf, lib, { melee: person.zombie, maxRate: def.variant === 'crawler' ? 2.9 : lib.key === 'limp' ? 3.0 : 2.4, lean: def.variant === 'crawler' ? 1.0 : def.variant === 'brute' ? 0.2 : undefined }) : new AnimBody(ai, render, gltf, lib);
           ai.anim.enter(0);
         } catch (e) { console.warn('[anim] enemy stays physical', e); ai.anim = null; }
       }
@@ -340,6 +346,8 @@ class EnemyManager {
     an.hits = now - an.lastHitT < (ai.hollow ? 0.6 : 0.8) ? an.hits + 1 : 1;
     an.lastHitT = now;
     const why = (r) => { an.ride = { r, seg, en: Math.round(en), type: e.type, hits: an.hits }; return r === 'ok'; };
+    // a brute walks through what would floor a man: only heavy rounds and the head stop it
+    if (ai.def.variant === 'brute') return why(seg === 'head' && en > 900 ? 'head' : en > 2200 ? 'heavy' : 'ok');
     if (an.hits > (ai.hollow ? 2 : 1)) return why('repeat');
     if (e.type === 'armorHit') return why(en < 2600 ? 'ok' : 'plate');
     if (seg === 'head' || seg === 'neck') return why('head');

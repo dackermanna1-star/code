@@ -1070,12 +1070,13 @@ class HollowWrap {
     // the hollowed hit harder and faster than the engine's runners: quick raking swipes that land
     // from a little further out, and a body that soaks up rounds before it drops
     const br = person.zombie;
+    const V = (this.V = { ...HOLLOW, ...(HOLLOW_VARIANTS[this.def.variant] || {}) });
     if (br && br.def) {
-      const dmg = HOLLOW.damage * Math.min(1.35, 0.9 + 0.1 * (scale.tough || 1));
-      br.def = { ...br.def, damage: dmg, cooldown: HOLLOW.cooldown, windup: HOLLOW.windup, strike: HOLLOW.strike, reach: HOLLOW.reach };
+      const dmg = V.damage * Math.min(1.35, 0.9 + 0.1 * (scale.tough || 1));
+      br.def = { ...br.def, damage: dmg, cooldown: V.cooldown, windup: V.windup, strike: V.strike, reach: V.reach };
       br.cool = Math.min(br.cool, 0.3);
     }
-    person.knockback = HOLLOW.knockback; // rounds shove them less than they would a living man
+    person.knockback = V.knockback; // rounds shove them less than they would a living man
     if (br && br.pickTarget) {
       const orig = br.pickTarget.bind(br), g = this.game;
       br.pickTarget = () => {
@@ -1108,7 +1109,8 @@ class HollowWrap {
     if (this.chargeSpeed === undefined) {
       const style = this.anim ? this.anim.lib.key : 'zombie';
       const sp = Math.min(this.scaleSpeed || 1, 1.1) * (0.92 + Math.random() * 0.16);
-      this.chargeSpeed = Math.min(HOLLOW.maxCharge, (style === 'limp' ? HOLLOW.limpCharge : HOLLOW.charge) * sp);
+      const V = this.V || HOLLOW;
+      this.chargeSpeed = Math.min(V.maxCharge, (style === 'limp' ? V.limpCharge : V.charge) * sp);
       const walk = this.anim && this.anim.lib.meta.walk_f ? this.anim.lib.meta.walk_f.speed : 0.6;
       this.shambleSpeed = clamp(walk * 1.5, 0.6, 1.3);
       this.seenT = -99;
@@ -1119,6 +1121,13 @@ class HollowWrap {
       this.lookT = 0.18;
       const h = this.headPos, eye = P.eye(new I());
       const d = Math.hypot(eye.x - h.x, eye.z - h.z);
+      // a crawler throws itself the last few metres
+      if (this.def.variant === 'crawler' && this.charging && this.anim && this.anim.active && d > 2.2 && d < 4.2 && game.time > (this.lungeT || 0)) {
+        this.lungeT = game.time + 2.6;
+        const ux = (eye.x - h.x) / d, uz = (eye.z - h.z) / d;
+        this.anim.vel.x += ux * 3.2; this.anim.vel.z += uz * 3.2;
+        game.audio.zombieSnarl('runner', h);
+      }
       if (d < HOLLOW.sight && game.level.visible(h, eye)) {
         if (!this.charging) this.startCharge();
         this.seenT = game.time;
@@ -1131,8 +1140,9 @@ class HollowWrap {
   startCharge() {
     const game = this.game, h = this.headPos;
     this.charging = true;
-    game.audio.zombieSnarl('runner', h);
-    setTimeout(() => game.audio.zombieGroan('runner', this.headPos, 1), 180);
+    const kind = this.def.variant === 'brute' ? 'brute' : 'runner';
+    game.audio.zombieSnarl(kind, h);
+    setTimeout(() => game.audio.zombieGroan(kind, this.headPos, 1), 180);
   }
   get pos() { return this.p.rd.pelvis.pos; }
   get headPos() { return this.p.rd.segments.head.body.pos; }
@@ -1154,4 +1164,8 @@ const HOLLOW = {
   sight: 26, forget: 5,
   damage: 13, cooldown: 0.6, windup: 0.13, strike: 0.13, reach: 1.02,
   knockback: 0.6,
+};
+const HOLLOW_VARIANTS = {
+  crawler: { charge: 6.1, limpCharge: 4.5, maxCharge: 6.6, damage: 10, cooldown: 0.48, windup: 0.1, strike: 0.11, reach: 0.98, knockback: 0.5 },
+  brute: { charge: 3.9, limpCharge: 3.0, maxCharge: 4.2, damage: 32, cooldown: 1.25, windup: 0.3, strike: 0.2, reach: 1.25, knockback: 0.22, sight: 30 },
 };

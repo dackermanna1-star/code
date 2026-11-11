@@ -57,6 +57,7 @@ class AnimBody {
     this.ai = ai;
     this.melee = opts.melee || null;
     this.maxRate = opts.maxRate || 1.45;
+    this.leanMax = opts.lean ?? 0.42; // how far a charging hollow bends into the run
     this.swipeW = 0;
     this.game = ai.game;
     this.p = ai.p;
@@ -730,7 +731,7 @@ class AnimBody {
     let lean = 0, tY = 0, tR = 0;
     if (this.melee) {
       const sp = Math.hypot(this.vel.x, this.vel.z);
-      this.lean = (this.lean || 0) + (clamp((sp - 1.2) / 1.6, 0, 1) * 0.42 - (this.lean || 0)) * (1 - Math.exp(-dt * 4));
+      this.lean = (this.lean || 0) + (clamp((sp - 1.2) / 1.6, 0, 1) * this.leanMax - (this.lean || 0)) * (1 - Math.exp(-dt * 4));
       lean = this.lean;
       this.twitchT = (this.twitchT ?? Math.random()) - dt;
       if (this.twitchT <= 0) {
