@@ -265,7 +265,8 @@ class EnemyManager {
         if (ai && ai.agony && e.person.injury.alive) { e.person.injury.kill('gunshot wounds'); ai.agony = null; }
         if (ai && !ai.downed) {
           const mult = SEG_MULT[e.seg.name] ?? 0.8;
-          const dmg = e.energy * 0.11 * mult * (e.by === 'player' ? g.perks.damage : 0.5) * (e.dmScale ?? 1);
+          const dmg = e.energy * 0.11 * mult * (e.by === 'player' ? g.perks.damage : e.by === 'ally' ? 0.85 : 0.5) * (e.dmScale ?? 1);
+          if (e.by === 'ally') ai.lastHit = { by: 'ally', seg: e.seg.name, time: g.time };
           ai.tough -= dmg;
           if (e.by === 'player' || e.by === 'player-grenade') {
             ai.lastHit = { by: 'player', seg: e.seg.name, time: g.time, weapon: g.arsenal.gun.id, grenade: e.by === 'player-grenade' };
@@ -454,7 +455,8 @@ class EnemyManager {
     const dist = Math.hypot(ai.pos.x - g.player.pos.x, ai.pos.z - g.player.pos.z);
     ai.diedAt = g.time;
     this.corpses.push(ai);
-    this.events.push({ type: 'kill', ai, byPlayer, head, dist, grenade: !!(lh && lh.grenade), weapon: lh && lh.weapon });
+    const byAlly = !!lh && lh.by === 'ally' && g.time - lh.time < 6;
+    this.events.push({ type: 'kill', ai, byPlayer, byAlly, head, dist, grenade: !!(lh && lh.grenade), weapon: lh && lh.weapon });
     // bodies stay where they fell for the rest of the level (frozen ones cost no physics)
   }
 

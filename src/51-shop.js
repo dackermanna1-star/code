@@ -81,6 +81,7 @@ class Shop {
     if (kind === 'armor') return 300;
     if (kind === 'med') return 250;
     if (kind === 'medkit') return MEDKIT.price;
+    if (kind === 'merc') return MERC.price;
     return 0;
   }
 
@@ -113,6 +114,7 @@ class Shop {
       case 'armor': if (g.armor >= g.maxArmor) return; g.armor = Math.min(g.maxArmor, g.armor + 50); break;
       case 'med': if (g.player.health >= g.player.maxHealth) return; g.player.health = g.player.maxHealth; break;
       case 'medkit': if (a.medkits >= a.maxMedkits) return; a.medkits++; break;
+      case 'merc': if (!g.merc || !g.merc.hire()) return; break;
     }
     d.cash -= cost;
     g.audio.gunHandling(ds.k === 'weapon' || ds.k === 'attach' ? 'equip' : 'magIn', 'rifle');
@@ -161,6 +163,8 @@ class Shop {
       html += this.card({ title: 'Armour Plate', tag: `${Math.round(g.armor)}/${g.maxArmor}`, desc: '+50 armour. Absorbs most of each hit until it is spent.', price: 300, k: 'armor', id: 'armor', disabled: g.armor >= g.maxArmor });
       html += this.card({ title: 'Medkit', tag: `${a.medkits}/${a.maxMedkits}`, desc: `Auto-injector you carry into the fight. H to use: +${MEDKIT.heal} health over ${MEDKIT.over.toFixed(0)} s. You walk while using it; firing before the jab calls it off and keeps the kit.`, price: MEDKIT.price, k: 'medkit', id: 'medkit', disabled: a.medkits >= a.maxMedkits });
       html += this.card({ title: 'Field Treatment', tag: `${Math.ceil(g.player.health)}/${g.player.maxHealth}`, desc: 'Get patched up here and now: back to full health.', price: 250, k: 'med', id: 'med', disabled: g.player.health >= g.player.maxHealth });
+      const mercOn = g.merc && (g.merc.alive || g.merc.spawning);
+      html += this.card({ title: 'Hire a Mercenary', tag: mercOn ? 'On site' : 'Ally', desc: 'A rifleman who fights at your side until he is killed: follows you down, takes targets by threat, never fires across you. His kills pay half.', price: MERC.price, k: 'merc', id: 'merc', disabled: mercOn, label: mercOn ? 'Hired' : 'Hire' });
       html += `<div class="sect">One-wave boosts</div>`;
       for (const [id, b] of Object.entries(BOOSTS)) {
         const on = b.active(g);

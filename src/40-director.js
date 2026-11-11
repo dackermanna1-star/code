@@ -217,7 +217,11 @@ class Director {
   onKill(e) {
     if (this.state === 'over') return; // the score was final at the moment of death
     const g = this.game, ai = e.ai, def = ai.def;
-    if (!e.byPlayer) { this.events.push({ type: 'kill', name: def.name, byPlayer: false }); return; }
+    if (!e.byPlayer) {
+      // the mercenary's kills pay half to the team purse
+      if (e.byAlly) { const cash = Math.round(def.cash * 0.5 / 5) * 5; this.cash += cash; this.stats.cashEarned += cash; this.events.push({ type: 'kill', name: def.name + ' · MERC', byPlayer: true, cash, pts: 0, tags: [] }); return; }
+      this.events.push({ type: 'kill', name: def.name, byPlayer: false }); return;
+    }
     const now = g.time;
     this.streak.n = now - this.streak.t < 4.5 ? this.streak.n + 1 : 1;
     this.streak.t = now;

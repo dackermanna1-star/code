@@ -144,6 +144,8 @@ class Minimap {
       const a = s.t > 0 ? clamp(1 - s.t / 2, 0, 1) * 0.6 : 1;
       dot(s.x, s.z, (ai.def && ai.def.boss ? 5 : 3.6) * this.dpr, `rgba(255, 64, 48, ${a})`);
     }
+    // the hired mercenary
+    if (g.merc && g.merc.alive) dot(g.merc.ai.pos.x, g.merc.ai.pos.z, 3.6 * this.dpr, 'rgba(120, 230, 130, 1)');
     // the last two of a wave give themselves away: pulsing markers, wherever they hide
     const last = this.lastHostiles();
     const pulse = 0.5 + 0.5 * Math.sin(this.t * 6);

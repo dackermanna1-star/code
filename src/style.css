@@ -205,3 +205,6 @@ body.shopping .br .mm { opacity: 0; }
 .br .healfx { position: absolute; inset: 0; pointer-events: none; opacity: 0; background: radial-gradient(ellipse at 50% 55%, rgba(255, 244, 214, 0) 35%, rgba(255, 226, 170, 0.35) 75%, rgba(255, 210, 150, 0.55) 100%); mix-blend-mode: screen; }
 .br .vitals.healing .vrow.hp .vbar > b { background: #8fd18a; box-shadow: 0 0 8px rgba(143, 209, 138, 0.6); transition: background 0.3s; }
 .br .vitals.healing .vrow.hp .ico { color: #8fd18a; }
+
+/* the hired mercenary's tag */
+.br .merc-tag { position: absolute; left: 0; top: 0; pointer-events: none; font: 600 11px var(--mono); letter-spacing: 0.12em; color: #8fe08a; text-shadow: 0 0 4px rgba(0,0,0,0.8); }

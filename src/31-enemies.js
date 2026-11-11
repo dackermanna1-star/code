@@ -317,7 +317,7 @@ class CharacterRender {
       this.uHead.value.set(hp.x, hp.y, hp.z, this.headGore);
     }
     // weapon in the hands
-    const ai = person.enemy;
+    const ai = person.enemy || person.ally;
     if (this.gun && ai) {
       const hand = person.rd.segments.handR.body;
       const fp = hand.framePos || hand.pos;
