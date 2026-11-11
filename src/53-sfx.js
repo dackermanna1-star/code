@@ -431,6 +431,49 @@ class Sfx {
     return true;
   }
 
+  // non-verbal calls, same voice as pain(): 'alert' a sharp two-syllable shout when they spot you,
+  // 'search' a low questioning hum when they have lost you, 'death' a falling, gurgling last cry
+  voice(pos, kind, pitch = 1) {
+    if (!this.ready) return;
+    const now = this.ctx.currentTime;
+    this._vq = (this._vq || []).filter((x) => now - x < 1);
+    if (this._vq.length >= 3) return; // a crowd does not all shout at once
+    this._vq.push(now);
+    const ctx = this.ctx, t = now, out = pos ? this.spatial(pos) : this.out;
+    const spec = {
+      alert: { dur: 0.42, f0: 170, curve: [1, 1.3, 1.15, 0.8], vowels: [[530, 1840, 2480], [760, 1250, 2650]], peak: 0.62, breath: 0.25, rough: 0.2 },
+      search: { dur: 0.5, f0: 120, curve: [0.95, 0.92, 1.0, 1.22], vowels: [[300, 1300, 2300], [520, 1500, 2400]], peak: 0.3, breath: 0.35, rough: 0.05 },
+      death: { dur: 0.9, f0: 150, curve: [1.2, 1.05, 0.8, 0.55], vowels: [[700, 1200, 2500], [450, 900, 2300]], peak: 0.5, breath: 0.6, rough: 0.6, gurgle: true },
+    }[kind];
+    if (!spec) return;
+    const f0 = spec.f0 * pitch * (0.92 + Math.random() * 0.16), d = spec.dur * (0.9 + Math.random() * 0.2);
+    const o = ctx.createOscillator();
+    if (this.au._glottalWave) { try { o.setPeriodicWave(this.au._glottalWave()); } catch (e) { o.type = 'sawtooth'; } } else o.type = 'sawtooth';
+    spec.curve.forEach((r, i) => { const at = t + (d * i) / (spec.curve.length - 1); if (i === 0) o.frequency.setValueAtTime(f0 * r, at); else o.frequency.exponentialRampToValueAtTime(f0 * r, at); });
+    const vox = ctx.createGain(), env = ctx.createGain();
+    // the vowel glides from the first shape to the second
+    for (let k = 0; k < 3; k++) {
+      const bp = ctx.createBiquadFilter(), g = ctx.createGain();
+      bp.type = 'bandpass'; bp.Q.value = [5, 8, 10][k];
+      bp.frequency.setValueAtTime(spec.vowels[0][k], t);
+      bp.frequency.linearRampToValueAtTime(spec.vowels[1][k], t + d * 0.6);
+      g.gain.value = [1, 0.6, 0.25][k];
+      o.connect(bp); bp.connect(g); g.connect(vox);
+    }
+    const n = ctx.createBufferSource(), nb = ctx.createBiquadFilter(), ng = ctx.createGain();
+    n.buffer = this.noise; nb.type = 'bandpass'; nb.frequency.value = 1400; nb.Q.value = 0.7; ng.gain.value = spec.breath;
+    n.connect(nb); nb.connect(ng); ng.connect(vox);
+    if (spec.rough) { const r = ctx.createOscillator(), rg = ctx.createGain(); r.frequency.value = spec.gurgle ? 16 + Math.random() * 6 : 30 + Math.random() * 20; rg.gain.value = spec.rough * 0.5; r.connect(rg); rg.connect(vox.gain); r.start(t); r.stop(t + d + 0.05); }
+    vox.connect(env); env.connect(out);
+    env.gain.setValueAtTime(0.0001, t);
+    env.gain.linearRampToValueAtTime(spec.peak, t + 0.025);
+    if (kind === 'alert') { env.gain.linearRampToValueAtTime(spec.peak * 0.35, t + d * 0.42); env.gain.linearRampToValueAtTime(spec.peak, t + d * 0.52); }
+    env.gain.linearRampToValueAtTime(spec.peak * 0.7, t + d * 0.75);
+    env.gain.linearRampToValueAtTime(0.0001, t + d);
+    o.start(t); o.stop(t + d + 0.05); n.start(t, Math.random() * 2); n.stop(t + d + 0.05);
+    if (this.au.verbIn && pos) { const v = ctx.createGain(); v.gain.value = 0.3; env.connect(v); v.connect(this.au.verbIn); }
+  }
+
   // a voice in pain, through the engine's glottal waveform and vowel formants. kind: 'grunt' (a
   // short hit), 'cry' (a bad one), 'scream' (a limb gone, burning). pos null = the player's own
   pain(pos, kind = 'grunt', pitch = 1) {

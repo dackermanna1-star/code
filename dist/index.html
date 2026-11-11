@@ -72633,7 +72633,7 @@ class Gunman {
     } else if (this.mode === 'cover' && this.cover && this.inCover()) {
       // peek out on a rhythm
       if (this.modeT > 1.2 + Math.random() * 2 && this.cover.peek) { this.mode = 'peek'; this.modeT = 0; this.moveTo(this.cover.peek, def.speed); }
-      else if (this.modeT > 7 || !recent) { this.mode = 'hunt'; this.modeT = 0; }
+      else if (this.modeT > 7 || !recent) { this.mode = 'hunt'; this.modeT = 0; if (!recent && this.game.time - (this.searchT || -99) > 10) { this.searchT = this.game.time; this.mgr.bark(this, 'search'); } }
     } else if (recent) {
       // advance, some flank wide
       if (this.mode !== 'flank' && Math.random() < def.flank * 0.5 && this.mgr.engagedCount() > 0) {
@@ -73199,6 +73199,8 @@ class EnemyManager {
   bark(ai, kind = 'chatter') {
     const sfx = this.game.sfx;
     if (!sfx) return;
+    if (kind === 'contact' && !ai.hollow) sfx.voice(ai.headPos, 'alert', ai.def.voice || 1);
+    if (kind === 'search' && !ai.hollow) { sfx.voice(ai.headPos, 'search', ai.def.voice || 1); return; }
     if (ai.def.light && kind !== 'reload') sfx.radio(ai.headPos);
     else if (kind === 'reload' || Math.random() < 0.4) this.game.audio.grunt(0.35 + Math.random() * 0.3, ai.headPos);
   }
@@ -73480,6 +73482,8 @@ class EnemyManager {
     const head = byPlayer && (lh.seg === 'head' || lh.seg === 'neck');
     const dist = Math.hypot(ai.pos.x - g.player.pos.x, ai.pos.z - g.player.pos.z);
     ai.diedAt = g.time;
+    // a last cry (not from a headshot, and the dying in agony have their own screams)
+    if (!ai.hollow && !ai.agony && !head && g.sfx && Math.random() < 0.75) setTimeout(() => g.sfx.voice(ai.headPos, 'death', ai.def.voice || 1), 60 + Math.random() * 200);
     this.corpses.push(ai);
     const byAlly = !!lh && lh.by === 'ally' && g.time - lh.time < 6;
     this.events.push({ type: 'kill', ai, byPlayer, byAlly, head, dist, grenade: !!(lh && lh.grenade), weapon: lh && lh.weapon });
@@ -75711,10 +75715,11 @@ class Screens {
       <p>You noclipped out of reality and into the yellow. Others got here first — scavengers, mercenaries, men with radios and rifles. Hold out. Get paid. Go deeper.</p>
       <div class="keys">
         <b>WASD</b><span>move</span><b>SHIFT</b><span>sprint</span>
-        <b>MOUSE</b><span>aim · fire</span><b>RMB / E</b><span>aim down sights</span>
-        <b>R</b><span>reload</span><b>1 2 3 · Q · WHEEL</b><span>weapons</span>
+        <b>MOUSE</b><span>aim · fire</span><b>RMB</b><span>sniper scope</span>
+        <b>R</b><span>reload</span><b>1 2 3 · X · WHEEL</b><span>weapons</span>
+        <b>Q / E</b><span>lean left / right</span><b>F</b><span>kick · revive merc</span>
         <b>G</b><span>frag grenade</span><b>H</b><span>medkit</span>
-        <b>F</b><span>kick / shove</span><b>C / CTRL</b><span>crouch</span>
+        <b>C / CTRL</b><span>crouch</span>
         <b>SPACE</b><span>jump · mantle</span><b>T</b><span>weapon light</span>
         <b>V</b><span>inspect weapon</span><b>B</b><span>shop (intermission)</span>
         <b>ESC</b><span>pause</span>
@@ -76703,6 +76708,49 @@ class Sfx {
       }
     }
     return true;
+  }
+
+  // non-verbal calls, same voice as pain(): 'alert' a sharp two-syllable shout when they spot you,
+  // 'search' a low questioning hum when they have lost you, 'death' a falling, gurgling last cry
+  voice(pos, kind, pitch = 1) {
+    if (!this.ready) return;
+    const now = this.ctx.currentTime;
+    this._vq = (this._vq || []).filter((x) => now - x < 1);
+    if (this._vq.length >= 3) return; // a crowd does not all shout at once
+    this._vq.push(now);
+    const ctx = this.ctx, t = now, out = pos ? this.spatial(pos) : this.out;
+    const spec = {
+      alert: { dur: 0.42, f0: 170, curve: [1, 1.3, 1.15, 0.8], vowels: [[530, 1840, 2480], [760, 1250, 2650]], peak: 0.62, breath: 0.25, rough: 0.2 },
+      search: { dur: 0.5, f0: 120, curve: [0.95, 0.92, 1.0, 1.22], vowels: [[300, 1300, 2300], [520, 1500, 2400]], peak: 0.3, breath: 0.35, rough: 0.05 },
+      death: { dur: 0.9, f0: 150, curve: [1.2, 1.05, 0.8, 0.55], vowels: [[700, 1200, 2500], [450, 900, 2300]], peak: 0.5, breath: 0.6, rough: 0.6, gurgle: true },
+    }[kind];
+    if (!spec) return;
+    const f0 = spec.f0 * pitch * (0.92 + Math.random() * 0.16), d = spec.dur * (0.9 + Math.random() * 0.2);
+    const o = ctx.createOscillator();
+    if (this.au._glottalWave) { try { o.setPeriodicWave(this.au._glottalWave()); } catch (e) { o.type = 'sawtooth'; } } else o.type = 'sawtooth';
+    spec.curve.forEach((r, i) => { const at = t + (d * i) / (spec.curve.length - 1); if (i === 0) o.frequency.setValueAtTime(f0 * r, at); else o.frequency.exponentialRampToValueAtTime(f0 * r, at); });
+    const vox = ctx.createGain(), env = ctx.createGain();
+    // the vowel glides from the first shape to the second
+    for (let k = 0; k < 3; k++) {
+      const bp = ctx.createBiquadFilter(), g = ctx.createGain();
+      bp.type = 'bandpass'; bp.Q.value = [5, 8, 10][k];
+      bp.frequency.setValueAtTime(spec.vowels[0][k], t);
+      bp.frequency.linearRampToValueAtTime(spec.vowels[1][k], t + d * 0.6);
+      g.gain.value = [1, 0.6, 0.25][k];
+      o.connect(bp); bp.connect(g); g.connect(vox);
+    }
+    const n = ctx.createBufferSource(), nb = ctx.createBiquadFilter(), ng = ctx.createGain();
+    n.buffer = this.noise; nb.type = 'bandpass'; nb.frequency.value = 1400; nb.Q.value = 0.7; ng.gain.value = spec.breath;
+    n.connect(nb); nb.connect(ng); ng.connect(vox);
+    if (spec.rough) { const r = ctx.createOscillator(), rg = ctx.createGain(); r.frequency.value = spec.gurgle ? 16 + Math.random() * 6 : 30 + Math.random() * 20; rg.gain.value = spec.rough * 0.5; r.connect(rg); rg.connect(vox.gain); r.start(t); r.stop(t + d + 0.05); }
+    vox.connect(env); env.connect(out);
+    env.gain.setValueAtTime(0.0001, t);
+    env.gain.linearRampToValueAtTime(spec.peak, t + 0.025);
+    if (kind === 'alert') { env.gain.linearRampToValueAtTime(spec.peak * 0.35, t + d * 0.42); env.gain.linearRampToValueAtTime(spec.peak, t + d * 0.52); }
+    env.gain.linearRampToValueAtTime(spec.peak * 0.7, t + d * 0.75);
+    env.gain.linearRampToValueAtTime(0.0001, t + d);
+    o.start(t); o.stop(t + d + 0.05); n.start(t, Math.random() * 2); n.stop(t + d + 0.05);
+    if (this.au.verbIn && pos) { const v = ctx.createGain(); v.gain.value = 0.3; env.connect(v); v.connect(this.au.verbIn); }
   }
 
   // a voice in pain, through the engine's glottal waveform and vowel formants. kind: 'grunt' (a
@@ -79988,6 +80036,8 @@ class BackroomsGame {
     this.audio = new Lab.Audio({ volume: this.settings.volume });
     this.input = new Lab.Input(r.domElement, { sensitivity: 0.0022 * this.settings.sensitivity });
     this.input.onLockChange = (l) => this.onLock(l);
+    // E leans right in this game: only the right mouse button raises a scope
+    { const ta = this.input.toggleAds.bind(this.input); this.input.toggleAds = () => { if (this.input.keys.has('KeyE')) return; ta(); }; }
     this.camera = new T3.PerspectiveCamera(this.settings.fov, innerWidth / innerHeight, 0.03, 140);
     this.camera.rotation.order = 'YXZ';
     this.vm = new Viewmodel(r);
@@ -80110,7 +80160,7 @@ class BackroomsGame {
     if (p.alive) {
       for (const code of inp.pressed) {
         if (code.startsWith('Digit')) { const i = +code.slice(5) - 1; if (i >= 0 && i < 3) a.select(i); }
-        else if (code === 'KeyQ') a.select(a.prevIndex);
+        else if (code === 'KeyX') a.select(a.prevIndex);
         else if (code === 'KeyR') a.reload();
         else if (code === 'KeyV') { if (a.state === 'idle') { const d = this.vm.playAction('inspect'); if (d > 0) a.inspect(d); } }
         else if (code === 'KeyG') this.throwGrenade();
@@ -80151,7 +80201,7 @@ class BackroomsGame {
 
   shoot() {
     const p = this.player, a = this.arsenal, g = a.gun;
-    const eye = p.eye(new I());
+    const eye = this.peekEye(p.eye(new I()));
     const dir = this.viewDir(new T3.Vector3());
     this.sb._shooter = 'player';
     const paths = this.sb.fire(g.ballisticKey, eye, new I(dir.x, dir.y, dir.z), { spreadScale: a.spreadScale(p), by: 'player' });
@@ -80428,9 +80478,27 @@ class BackroomsGame {
     this.render(dt, simDt, inp);
   }
 
+  // lean round a corner (Q / E): the eye slides sideways and rolls, as far as the walls allow
+  updatePeek(dt) {
+    const p = this.player, keys = this.input.keys;
+    const want = this.state !== 'play' || !p.alive || p.sprinting ? 0 : (keys.has('KeyE') ? 1 : 0) - (keys.has('KeyQ') ? 1 : 0);
+    this.peek = damp(this.peek || 0, want, 9, dt);
+    // how far the side is clear at head height
+    const rx = Math.cos(p.yaw), rz = -Math.sin(p.yaw), e = p.eye(new I());
+    let room = 1;
+    for (const k of [1, 0.75, 0.5, 0.25]) { if (this.level.free(e.x + rx * 0.4 * k * Math.sign(this.peek || 1), e.z + rz * 0.4 * k * Math.sign(this.peek || 1), 0.12)) { room = k; break; } room = 0; }
+    this.peekRoom = damp(this.peekRoom ?? 1, room, 12, dt);
+  }
+  peekEye(e) {
+    const p = this.player, k = (this.peek || 0) * (this.peekRoom ?? 1);
+    if (Math.abs(k) < 1e-3) return e;
+    return e.set(e.x + Math.cos(p.yaw) * 0.36 * k, e.y - 0.06 * Math.abs(k), e.z - Math.sin(p.yaw) * 0.36 * k);
+  }
+
   render(dt, simDt, inp) {
     const p = this.player, a = this.arsenal, cam = this.camera;
-    const eye = p.eye(new I());
+    this.updatePeek(dt);
+    const eye = this.peekEye(p.eye(new I()));
     this.recoil.kp.step(dt); this.recoil.ky.step(dt); this.recoil.roll.step(dt);
     this.shake = Math.max(0, this.shake - dt * 2.2);
     const sh = this.shake * this.shake, T = performance.now() / 1000;
@@ -80449,7 +80517,7 @@ class BackroomsGame {
     cam.rotation.set(
       p.pitch + this.recoil.kp.x + this.sway.p + Math.sin(T * 37) * sh * 0.03,
       p.yaw + this.recoil.ky.x + this.sway.y + Math.sin(T * 29) * sh * 0.03,
-      this.lean + this.recoil.roll.x + Math.sin(T * 23) * sh * 0.02 + (p.alive ? 0 : 0.5),
+      this.lean - 0.17 * (this.peek || 0) * (this.peekRoom ?? 1) + this.recoil.roll.x + Math.sin(T * 23) * sh * 0.02 + (p.alive ? 0 : 0.5),
     );
     const zoom = a.gun.zoom;
     const fov = lerp(this.settings.fov, this.settings.fov / zoom, a.adsAmount) * (p.sprinting ? 1.05 : 1);

@@ -53,6 +53,8 @@ class BackroomsGame {
     this.audio = new Lab.Audio({ volume: this.settings.volume });
     this.input = new Lab.Input(r.domElement, { sensitivity: 0.0022 * this.settings.sensitivity });
     this.input.onLockChange = (l) => this.onLock(l);
+    // E leans right in this game: only the right mouse button raises a scope
+    { const ta = this.input.toggleAds.bind(this.input); this.input.toggleAds = () => { if (this.input.keys.has('KeyE')) return; ta(); }; }
     this.camera = new T3.PerspectiveCamera(this.settings.fov, innerWidth / innerHeight, 0.03, 140);
     this.camera.rotation.order = 'YXZ';
     this.vm = new Viewmodel(r);
@@ -175,7 +177,7 @@ class BackroomsGame {
     if (p.alive) {
       for (const code of inp.pressed) {
         if (code.startsWith('Digit')) { const i = +code.slice(5) - 1; if (i >= 0 && i < 3) a.select(i); }
-        else if (code === 'KeyQ') a.select(a.prevIndex);
+        else if (code === 'KeyX') a.select(a.prevIndex);
         else if (code === 'KeyR') a.reload();
         else if (code === 'KeyV') { if (a.state === 'idle') { const d = this.vm.playAction('inspect'); if (d > 0) a.inspect(d); } }
         else if (code === 'KeyG') this.throwGrenade();
@@ -216,7 +218,7 @@ class BackroomsGame {
 
   shoot() {
     const p = this.player, a = this.arsenal, g = a.gun;
-    const eye = p.eye(new I());
+    const eye = this.peekEye(p.eye(new I()));
     const dir = this.viewDir(new T3.Vector3());
     this.sb._shooter = 'player';
     const paths = this.sb.fire(g.ballisticKey, eye, new I(dir.x, dir.y, dir.z), { spreadScale: a.spreadScale(p), by: 'player' });
@@ -493,9 +495,27 @@ class BackroomsGame {
     this.render(dt, simDt, inp);
   }
 
+  // lean round a corner (Q / E): the eye slides sideways and rolls, as far as the walls allow
+  updatePeek(dt) {
+    const p = this.player, keys = this.input.keys;
+    const want = this.state !== 'play' || !p.alive || p.sprinting ? 0 : (keys.has('KeyE') ? 1 : 0) - (keys.has('KeyQ') ? 1 : 0);
+    this.peek = damp(this.peek || 0, want, 9, dt);
+    // how far the side is clear at head height
+    const rx = Math.cos(p.yaw), rz = -Math.sin(p.yaw), e = p.eye(new I());
+    let room = 1;
+    for (const k of [1, 0.75, 0.5, 0.25]) { if (this.level.free(e.x + rx * 0.4 * k * Math.sign(this.peek || 1), e.z + rz * 0.4 * k * Math.sign(this.peek || 1), 0.12)) { room = k; break; } room = 0; }
+    this.peekRoom = damp(this.peekRoom ?? 1, room, 12, dt);
+  }
+  peekEye(e) {
+    const p = this.player, k = (this.peek || 0) * (this.peekRoom ?? 1);
+    if (Math.abs(k) < 1e-3) return e;
+    return e.set(e.x + Math.cos(p.yaw) * 0.36 * k, e.y - 0.06 * Math.abs(k), e.z - Math.sin(p.yaw) * 0.36 * k);
+  }
+
   render(dt, simDt, inp) {
     const p = this.player, a = this.arsenal, cam = this.camera;
-    const eye = p.eye(new I());
+    this.updatePeek(dt);
+    const eye = this.peekEye(p.eye(new I()));
     this.recoil.kp.step(dt); this.recoil.ky.step(dt); this.recoil.roll.step(dt);
     this.shake = Math.max(0, this.shake - dt * 2.2);
     const sh = this.shake * this.shake, T = performance.now() / 1000;
@@ -514,7 +534,7 @@ class BackroomsGame {
     cam.rotation.set(
       p.pitch + this.recoil.kp.x + this.sway.p + Math.sin(T * 37) * sh * 0.03,
       p.yaw + this.recoil.ky.x + this.sway.y + Math.sin(T * 29) * sh * 0.03,
-      this.lean + this.recoil.roll.x + Math.sin(T * 23) * sh * 0.02 + (p.alive ? 0 : 0.5),
+      this.lean - 0.17 * (this.peek || 0) * (this.peekRoom ?? 1) + this.recoil.roll.x + Math.sin(T * 23) * sh * 0.02 + (p.alive ? 0 : 0.5),
     );
     const zoom = a.gun.zoom;
     const fov = lerp(this.settings.fov, this.settings.fov / zoom, a.adsAmount) * (p.sprinting ? 1.05 : 1);

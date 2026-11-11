@@ -767,7 +767,7 @@ class Gunman {
     } else if (this.mode === 'cover' && this.cover && this.inCover()) {
       // peek out on a rhythm
       if (this.modeT > 1.2 + Math.random() * 2 && this.cover.peek) { this.mode = 'peek'; this.modeT = 0; this.moveTo(this.cover.peek, def.speed); }
-      else if (this.modeT > 7 || !recent) { this.mode = 'hunt'; this.modeT = 0; }
+      else if (this.modeT > 7 || !recent) { this.mode = 'hunt'; this.modeT = 0; if (!recent && this.game.time - (this.searchT || -99) > 10) { this.searchT = this.game.time; this.mgr.bark(this, 'search'); } }
     } else if (recent) {
       // advance, some flank wide
       if (this.mode !== 'flank' && Math.random() < def.flank * 0.5 && this.mgr.engagedCount() > 0) {

@@ -173,6 +173,8 @@ class EnemyManager {
   bark(ai, kind = 'chatter') {
     const sfx = this.game.sfx;
     if (!sfx) return;
+    if (kind === 'contact' && !ai.hollow) sfx.voice(ai.headPos, 'alert', ai.def.voice || 1);
+    if (kind === 'search' && !ai.hollow) { sfx.voice(ai.headPos, 'search', ai.def.voice || 1); return; }
     if (ai.def.light && kind !== 'reload') sfx.radio(ai.headPos);
     else if (kind === 'reload' || Math.random() < 0.4) this.game.audio.grunt(0.35 + Math.random() * 0.3, ai.headPos);
   }
@@ -454,6 +456,8 @@ class EnemyManager {
     const head = byPlayer && (lh.seg === 'head' || lh.seg === 'neck');
     const dist = Math.hypot(ai.pos.x - g.player.pos.x, ai.pos.z - g.player.pos.z);
     ai.diedAt = g.time;
+    // a last cry (not from a headshot, and the dying in agony have their own screams)
+    if (!ai.hollow && !ai.agony && !head && g.sfx && Math.random() < 0.75) setTimeout(() => g.sfx.voice(ai.headPos, 'death', ai.def.voice || 1), 60 + Math.random() * 200);
     this.corpses.push(ai);
     const byAlly = !!lh && lh.by === 'ally' && g.time - lh.time < 6;
     this.events.push({ type: 'kill', ai, byPlayer, byAlly, head, dist, grenade: !!(lh && lh.grenade), weapon: lh && lh.weapon });

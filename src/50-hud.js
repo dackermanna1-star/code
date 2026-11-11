@@ -196,10 +196,11 @@ class Screens {
       <p>You noclipped out of reality and into the yellow. Others got here first — scavengers, mercenaries, men with radios and rifles. Hold out. Get paid. Go deeper.</p>
       <div class="keys">
         <b>WASD</b><span>move</span><b>SHIFT</b><span>sprint</span>
-        <b>MOUSE</b><span>aim · fire</span><b>RMB / E</b><span>aim down sights</span>
-        <b>R</b><span>reload</span><b>1 2 3 · Q · WHEEL</b><span>weapons</span>
+        <b>MOUSE</b><span>aim · fire</span><b>RMB</b><span>sniper scope</span>
+        <b>R</b><span>reload</span><b>1 2 3 · X · WHEEL</b><span>weapons</span>
+        <b>Q / E</b><span>lean left / right</span><b>F</b><span>kick · revive merc</span>
         <b>G</b><span>frag grenade</span><b>H</b><span>medkit</span>
-        <b>F</b><span>kick / shove</span><b>C / CTRL</b><span>crouch</span>
+        <b>C / CTRL</b><span>crouch</span>
         <b>SPACE</b><span>jump · mantle</span><b>T</b><span>weapon light</span>
         <b>V</b><span>inspect weapon</span><b>B</b><span>shop (intermission)</span>
         <b>ESC</b><span>pause</span>

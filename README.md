@@ -11,7 +11,7 @@ See `CREDITS.md` for asset attributions.
 
 ## Controls
 WASD move · Shift sprint (hold breath while scoped) · C / Ctrl crouch · Space jump / mantle ·
-Left mouse fire · Right mouse sniper scope · R reload · 1-3 / Q / wheel switch weapon · V inspect ·
+Left mouse fire · Right mouse sniper scope · R reload · 1-3 / X / wheel switch weapon · Q / E lean · V inspect ·
 G grenade · H medkit · F kick · T weapon light · B shop (between waves) · Esc pause
 
 There is no aiming down sights: every gun fires from the hip (the crosshair follows the gun's
