@@ -39631,7 +39631,7 @@ class D1 {
     }
     if (this.settings.reactions === "rdr") {
       const l = new Set(),
-        c = { pistol: 14, revolver: 22, shotgun: 6, smg: 11, rifle: 20, sniper: 34 }[i.knockClass ?? A] ?? 14; // game: per-instance entries name their class
+        c = { pistol: 12, revolver: 18, shotgun: 19, smg: 10, rifle: 16, sniper: 28 }[i.knockClass ?? A] ?? 12; // game: buckshot carries the most momentum, rifle rounds less than they did // game: per-instance entries name their class
       for (const h of r)
         for (const u of h.hits) {
           if (l.has(u.person) || u.armor) continue;

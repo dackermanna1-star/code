@@ -57,5 +57,35 @@ class PerfGovernor {
     }
   }
 
-  onLevel() { this.coolT = 2; this.slowT = this.fastT = 0; }
+  onLevel() { this.coolT = 2; this.slowT = this.fastT = 0; this.sweepT = 0.4; this.sweeps = 3; }
+
+  // ---- shader warm-up ---------------------------------------------------------------------------
+  // A material's program is built the first time it is drawn, and building one stalls the frame
+  // (tens of milliseconds on a laptop GPU). Programs are built ahead here instead, in the variant the
+  // frame really uses: with the bodycam pass on, the scene draws into its render target (linear
+  // output), not to the screen. With KHR_parallel_shader_compile the driver builds them in the
+  // background. objs: an Object3D, or a list of meshes still parented elsewhere.
+  warm(objs) {
+    const g = this.game, r = g.renderer;
+    if (!r || !g.camera || !g.view) return;
+    const list = Array.isArray(objs) ? objs : null;
+    const root = list ? { traverse: (fn) => { for (const m of list) fn(m); }, traverseVisible: () => {} } : objs;
+    const prev = r.getRenderTarget(), post = g.post;
+    try {
+      if (post && post.enabled && post.rt) r.setRenderTarget(post.rt);
+      if (r.compileAsync) r.compileAsync(root, g.camera, g.view.scene).catch(() => {});
+      else r.compile(root, g.camera, g.view.scene);
+    } catch (e) { void e; } finally { r.setRenderTarget(prev); }
+  }
+
+  // the whole scene a few times after a level loads (pools and effects fill in as they first run)
+  step(dt) {
+    if (!(this.sweeps > 0)) return;
+    if ((this.sweepT -= dt) > 0) return;
+    this.sweepT = 1.5; this.sweeps--;
+    const g = this.game;
+    if (g.blast && g.blast.prewarm) { try { g.blast.prewarm(); } catch (e) { void e; } }
+    this.warm(g.view.scene);
+    if (g.vm && g.vm.scene) this.warm(g.vm.scene);
+  }
 }

@@ -456,7 +456,7 @@ class CharacterRender {
       geo.setAttribute('normal', new T3.BufferAttribute(new Float32Array(9), 3));
       geo.setAttribute('uv', new T3.BufferAttribute(new Float32Array(6), 2));
       for (const sm of render.binder.meshes) tmp.add(new T3.Mesh(geo, sm.material));
-      game.renderer.compile(tmp, game.camera, game.view.scene);
+      if (game.perf && game.perf.warm) game.perf.warm(tmp); else game.renderer.compile(tmp, game.camera, game.view.scene);
       geo.dispose();
     } catch (err) { void err; }
   }

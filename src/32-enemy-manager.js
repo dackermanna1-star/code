@@ -136,6 +136,8 @@ class EnemyManager {
     CharacterRender.prewarmBaked(game, render, look); // once per look and level
     if (!def.hollow) render.setGun(ENEMY_GUNS[ai.gunId].model, { drum: ENEMY_GUNS[ai.gunId].drum, light: def.light, laser: ENEMY_GUNS[ai.gunId].laser });
     game.attachRender(person, render);
+    // build this body's (skinned) and its gun's shaders before its first frame on screen
+    if (game.perf && game.perf.warm) { const ms = []; render.binder.meshes.forEach((m) => ms.push(m)); if (render.gun) render.gun.traverse((o) => o.isMesh && ms.push(o)); game.perf.warm(ms); }
     // gunmen move on motion-capture animation until something knocks them about
     if (!game.settings.physicsEnemies) {
       const lib = def.hollow ? (def.variant ? ANIM.libs.zombie || hollowAnimSet() : hollowAnimSet()) : ANIM.lib;

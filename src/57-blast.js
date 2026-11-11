@@ -31,6 +31,19 @@ class BlastFX {
     this.quad = new T3.PlaneGeometry(1, 1);
   }
 
+  // one hidden instance of every effect mesh in the scene, so the shader warm-up builds their
+  // programs before the first blast or ejected case (see PerfGovernor.warm)
+  prewarm() {
+    const scene = this.game.view && this.game.view.scene;
+    if (!scene || this._warmScene === scene) return;
+    this._warmScene = scene;
+    this.ensure();
+    for (const kind of Object.keys(this.tex)) { const s = this.sprite(kind); s.visible = false; }
+    for (const k of ['pistol', 'rifle']) {
+      try { const m = Lab.casingMesh(k); m.visible = false; m.castShadow = m.receiveShadow = false; scene.add(m); } catch (e) { void e; }
+    }
+  }
+
   // a sprite from the scene's spare pool (sprites are cheap; keep them around between blasts)
   sprite(kind) {
     const scene = this.game.view.scene;
