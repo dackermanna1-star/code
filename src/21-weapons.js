@@ -22,7 +22,7 @@ const WEAPONS = {
     price: 1600, mag: 6, reserve: 30, maxReserve: 60, rpm: 75, auto: false, pump: 0.55, perShell: true,
     hipSpread: 0.95, adsSpread: 0.95, adsTime: 0.2, move: 0.96,
     recoil: { up: 0.07, side: 0.02, pattern: 'shotgun' }, vm: { back: 0.06, up: 12, side: 2.5, roll: 3, flash: 1.3, pump: true },
-    attachments: ['laser', 'grip'], desc: 'Nine pellets of 00 buckshot. Pump between shots, reloads shell by shell.',
+    attachments: ['suppressor', 'laser', 'grip'], desc: 'Nine pellets of 00 buckshot. Pump between shots, reloads shell by shell.',
   },
   ak74: {
     name: 'AK-74M Assault Rifle', short: 'AK-74M', cls: 'Rifle', rig: 'ak74', ballistic: 'rifle', slot: 'primary',
@@ -36,7 +36,7 @@ const WEAPONS = {
     price: 3000, mag: 8, reserve: 32, maxReserve: 64, rpm: 280, auto: false,
     hipSpread: 1.0, adsSpread: 1.0, adsTime: 0.22, move: 0.94,
     recoil: { up: 0.055, side: 0.022, pattern: 'shotgun' }, vm: { back: 0.05, up: 10, side: 2.8, roll: 2.6, flash: 1.3 },
-    attachments: ['laser', 'extmag', 'grip'], desc: 'Semi-automatic magazine-fed shotgun. Clears rooms.',
+    attachments: ['suppressor', 'laser', 'extmag', 'grip'], desc: 'Semi-automatic magazine-fed shotgun. Clears rooms.',
   },
   acr: {
     name: 'ACR Carbine', short: 'ACR', cls: 'Rifle', rig: 'acr', ballistic: 'rifle', slot: 'primary', fixed: ['reddot'],
@@ -50,7 +50,7 @@ const WEAPONS = {
     price: 5200, mag: 75, reserve: 150, maxReserve: 450, rpm: 600, auto: true, reloadScale: 1.45,
     hipSpread: 1.35, adsSpread: 1.35, adsTime: 0.32, move: 0.86,
     recoil: { up: 0.0105, side: 0.0095, pattern: 'lmg' }, vm: { back: 0.024, up: 4.2, side: 1.8, roll: 1.5, flash: 1.05 },
-    attachments: ['laser', 'grip'], desc: '75-round drum. Suppressive fire that walls off whole corridors.',
+    attachments: ['suppressor', 'laser', 'grip'], desc: '75-round drum. Suppressive fire that walls off whole corridors.',
   },
   sr10: {
     name: 'M24 Sniper Rifle', short: 'M24', cls: 'Sniper', rig: 'acr', mount: 'm24', ballistic: 'marksman', slot: 'primary',
